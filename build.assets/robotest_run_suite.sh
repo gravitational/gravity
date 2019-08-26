@@ -5,7 +5,7 @@ readonly UPGRADE_FROM_DIR=${1:-$(pwd)/../upgrade_from}
 
 declare -A UPGRADE_MAP
 # gravity version -> list of OS releases to exercise on
-UPGRADE_MAP[5.5.0]="ubuntu:16"
+UPGRADE_MAP[5.5.0]="ubuntu:18"
 
 readonly GET_GRAVITATIONAL_IO_APIKEY=${GET_GRAVITATIONAL_IO_APIKEY:?API key for distribution Ops Center required}
 readonly GRAVITY_BUILDDIR=${GRAVITY_BUILDDIR:?Set GRAVITY_BUILDDIR to the build directory}
@@ -25,7 +25,7 @@ export GCE_REGION="northamerica-northeast1,us-west1,us-east1,us-east4,us-central
 
 function build_resize_suite {
   cat <<EOF
- resize={"to":3,"flavor":"one","nodes":1,"role":"node","state_dir":"/var/lib/telekube","os":"ubuntu:16","storage_driver":"overlay2"}
+ resize={"to":3,"flavor":"one","nodes":1,"role":"node","state_dir":"/var/lib/telekube","os":"ubuntu:18","storage_driver":"overlay2"}
 EOF
 }
 
@@ -57,7 +57,7 @@ function build_upgrade_suite {
 
 function build_ops_install_suite {
   local suite=$(cat <<EOF
- install={"installer_url":"/installer/opscenter.tar","nodes":1,"flavor":"standalone","role":"node","os":"ubuntu:16","ops_advertise_addr":"example.com:443"}
+ install={"installer_url":"/installer/opscenter.tar","nodes":1,"flavor":"standalone","role":"node","os":"ubuntu:18","ops_advertise_addr":"example.com:443"}
 EOF
 )
   echo $suite
