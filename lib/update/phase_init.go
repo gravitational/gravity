@@ -323,9 +323,8 @@ func (p *updatePhaseInit) createAdminAgent() error {
 func (p *updatePhaseInit) rotateSecrets(server storage.Server) error {
 	p.Infof("Generate new secrets configuration package for %v.", formatServer(server))
 	resp, err := p.Operator.RotateSecrets(ops.RotateSecretsRequest{
-		AccountID:   p.Operation.AccountID,
-		ClusterName: p.Operation.SiteDomain,
-		Server:      server,
+		Key:    p.Operation.ClusterKey(),
+		Server: server,
 	})
 	if err != nil {
 		return trace.Wrap(err)

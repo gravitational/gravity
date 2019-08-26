@@ -741,22 +741,26 @@ func (r ConfigureNodeRequest) SiteKey() SiteKey {
 	}
 }
 
-// RotateSecretsRequest is a request to rotate server's secrets package
-type RotateSecretsRequest struct {
-	// AccountID is the account id of the local cluster
-	AccountID string `json:"account_id"`
-	// ClusterName is the local cluster name
-	ClusterName string `json:"cluster_name"`
-	// Server is the server to rotate secrets for
-	Server storage.Server `json:"server"`
+// CheckAndSetDefaults validates this request
+func (r RotateSecretsRequest) CheckAndSetDefaults() error {
+	if err := r.Key.Check(); err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
 }
 
-// SiteKey returns a cluster key from this request
-func (r RotateSecretsRequest) SiteKey() SiteKey {
-	return SiteKey{
-		AccountID:  r.AccountID,
-		SiteDomain: r.ClusterName,
-	}
+// RotateSecretsRequest is a request to rotate server's secrets package
+type RotateSecretsRequest struct {
+	// Key identifies the cluster
+	Key SiteKey `json:"key"`
+	// Server is the server to rotate secrets for
+	Server storage.Server `json:"server"`
+	// Package specifies the secrets package locator to use.
+	// If unspecified, one will be automatically generated
+	Package *loc.Locator `json:"package,omitempty"`
+	// DryRun specifies whether the API only generates the package name
+	// without actually creating the package
+	DryRun bool `json:"dry_run"`
 }
 
 // CheckAndSetDefaults validates this request
@@ -781,7 +785,7 @@ type RotatePlanetConfigRequest struct {
 	Manifest schema.Manifest `json:"manifest"`
 	// Package specifies the configuration package locator to use.
 	// It is generated automatically if unspecified
-	Package *loc.Locator `json:"package"`
+	Package *loc.Locator `json:"package,omitempty"`
 	// DryRun specifies whether the API only generates the package name
 	// without actually creating the package
 	DryRun bool `json:"dry_run"`

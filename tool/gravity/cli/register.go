@@ -173,6 +173,11 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.UpdateSystemCmd.WithStatus = g.UpdateSystemCmd.Flag("with-status", "Verify the system status at the end of the operation").Bool()
 	g.UpdateSystemCmd.RuntimePackage = Locator(g.UpdateSystemCmd.Flag("runtime-package", "The name of the runtime package to update to").Required())
 
+	g.UpdateRotateSecretsCmd.CmdClause = g.UpdateCmd.Command("rotate-secrets", "Generate new secrets package").Hidden()
+	g.UpdateRotateSecretsCmd.Package = NullableLocator(g.UpdateRotateSecretsCmd.Flag("package", "Name of the package to generate"))
+	g.UpdateRotateSecretsCmd.ServerAddr = g.UpdateRotateSecretsCmd.Flag("addr", "Address of this node as used by the update operation").Required().String()
+	g.UpdateRotateSecretsCmd.OperationID = g.UpdateRotateSecretsCmd.Flag("id", "Update operation ID").Required().String()
+
 	g.UpdateRotatePlanetConfigCmd.CmdClause = g.UpdateCmd.Command("rotate-planet-config", "Generate new configuration package for planet").Hidden()
 	g.UpdateRotatePlanetConfigCmd.Package = NullableLocator(g.UpdateRotatePlanetConfigCmd.Flag("package", "Name of the package to generate"))
 	g.UpdateRotatePlanetConfigCmd.RuntimePackage = Locator(g.UpdateRotatePlanetConfigCmd.Flag("runtime-package", "Name of the runtime package to generate configuration for").Required())

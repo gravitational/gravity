@@ -382,6 +382,11 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 		}
 	case g.UpdateUploadCmd.FullCommand():
 		return uploadUpdate(localEnv, *g.UpdateUploadCmd.OpsCenterURL)
+	case g.UpdateRotateSecretsCmd.FullCommand():
+		return rotateSecrets(localEnv,
+			g.UpdateRotateSecretsCmd.Package.Locator,
+			*g.UpdateRotateSecretsCmd.OperationID,
+			*g.UpdateRotateSecretsCmd.ServerAddr)
 	case g.UpdateRotatePlanetConfigCmd.FullCommand():
 		return rotatePlanetConfig(localEnv,
 			g.UpdateRotatePlanetConfigCmd.Package.Locator,

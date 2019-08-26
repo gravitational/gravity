@@ -46,14 +46,26 @@ func (o *Operator) RotateSecrets(req ops.RotateSecretsRequest) (*ops.RotatePacka
 		},
 	}
 
-	op, err := ops.GetCompletedInstallOperation(req.SiteKey(), o)
+	op, err := ops.GetCompletedInstallOperation(req.Key, o)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	cluster, err := o.openSite(req.SiteKey())
+	cluster, err := o.openSite(req.Key)
 	if err != nil {
 		return nil, trace.Wrap(err)
+	}
+
+	secretsPackage := req.Package
+	if secretsPackage == nil {
+		secretsPackage, err = cluster.planetSecretsNextPackage(node)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+	}
+
+	if req.DryRun {
+		return &ops.RotatePackageResponse{Locator: *secretsPackage}, nil
 	}
 
 	ctx, err := cluster.newOperationContext(*op)
@@ -61,7 +73,7 @@ func (o *Operator) RotateSecrets(req ops.RotateSecretsRequest) (*ops.RotatePacka
 		return nil, trace.Wrap(err)
 	}
 
-	resp, err := cluster.rotateSecrets(ctx, node, *op)
+	resp, err := cluster.rotateSecrets(ctx, *secretsPackage, node, *op)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

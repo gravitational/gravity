@@ -227,7 +227,7 @@ func (s *site) configureExpandPackages(ctx context.Context, opCtx *operationCont
 			return trace.Wrap(err)
 		}
 	} else {
-		err := s.configurePlanetNodeSecrets(opCtx, provisionedServer, secretsPackage)
+		err := s.configurePlanetNodeSecrets(opCtx, provisionedServer, *secretsPackage)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -378,7 +378,7 @@ func (s *site) configurePackages(ctx *operationContext) error {
 			return trace.Wrap(err)
 		}
 
-		if err := s.configurePlanetNodeSecrets(ctx, node, secretsPackage); err != nil {
+		if err := s.configurePlanetNodeSecrets(ctx, node, *secretsPackage); err != nil {
 			return trace.Wrap(err)
 		}
 
@@ -664,7 +664,7 @@ func (s *site) configurePlanetMasterSecrets(ctx *operationContext, p planetMaste
 	return trace.Wrap(err)
 }
 
-func (s *site) getPlanetNodeSecretsPackage(ctx *operationContext, node *ProvisionedServer, secretsPackage *loc.Locator) (*ops.RotatePackageResponse, error) {
+func (s *site) getPlanetNodeSecretsPackage(ctx *operationContext, node *ProvisionedServer, secretsPackage loc.Locator) (*ops.RotatePackageResponse, error) {
 	archive, err := s.readCertAuthorityPackage()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -738,13 +738,13 @@ func (s *site) getPlanetNodeSecretsPackage(ctx *operationContext, node *Provisio
 	}
 
 	return &ops.RotatePackageResponse{
-		Locator: *secretsPackage,
+		Locator: secretsPackage,
 		Reader:  reader,
 		Labels:  labels,
 	}, nil
 }
 
-func (s *site) configurePlanetNodeSecrets(ctx *operationContext, node *ProvisionedServer, secretsPackage *loc.Locator) error {
+func (s *site) configurePlanetNodeSecrets(ctx *operationContext, node *ProvisionedServer, secretsPackage loc.Locator) error {
 	resp, err := s.getPlanetNodeSecretsPackage(ctx, node, secretsPackage)
 	if err != nil {
 		return trace.Wrap(err)
