@@ -24,7 +24,9 @@ import (
 	"io/ioutil"
 	"sort"
 	"strconv"
+	"strings"
 
+	"github.com/coreos/go-semver/semver"
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/archive"
 	"github.com/gravitational/gravity/lib/checks"
@@ -37,15 +39,16 @@ import (
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/update"
+	libphase "github.com/gravitational/gravity/lib/update/cluster/phases"
 	"github.com/gravitational/gravity/lib/utils"
-	"github.com/gravitational/rigging"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 
+	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
 	"github.com/pborman/uuid"
 	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
@@ -128,11 +131,6 @@ func NewOperationPlan(config PlanConfig) (*storage.OperationPlan, error) {
 		return nil, trace.Wrap(err)
 	}
 
-	updateCoreDNS, err := shouldUpdateCoreDNS(config.Client)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
 	installedPackage, err := storage.GetLocalPackage(config.Backend)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -201,31 +199,30 @@ func NewOperationPlan(config PlanConfig) (*storage.OperationPlan, error) {
 		return nil, trace.Wrap(err)
 	}
 
-	runtimeUpdates, err := runtimeUpdates(*installedRuntime, *installedApp, *updateApp)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
+	// FIXME: this needs to be dynamic - determined on step-by-step basis
+	// updateCoreDNS, err := shouldUpdateCoreDNS(config.Client)
+	// if err != nil {
+	// 	return nil, trace.Wrap(err)
+	// }
 
-	updateDNSAppEarly, err := shouldUpdateDNSAppEarly(config.Client)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	var updateDNSApp *loc.Locator
-	if updateDNSAppEarly {
-		for _, update := range runtimeUpdates {
-			if update.Name == constants.DNSAppPackage {
-				updateDNSApp = &update
-				break
-			}
-		}
-	}
+	// FIXME: compute runtime updates for each intermediate step
+	// runtimeUpdates, err := runtimeUpdates(*installedRuntime, *installedApp, *updateApp)
+	// if err != nil {
+	// 	return nil, trace.Wrap(err)
+	// }
 
+	// FIXME: do this individually for each intermediate step + final step
 	installedTeleport, err := installedApp.Manifest.Dependencies.ByName(constants.TeleportPackage)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
 	updateTeleport, err := updateApp.Manifest.Dependencies.ByName(constants.TeleportPackage)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	installedDocker, err := ops.GetDockerConfig(config.Operator, config.Operation.SiteKey())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -240,49 +237,33 @@ func NewOperationPlan(config PlanConfig) (*storage.OperationPlan, error) {
 			DNSConfig:      config.DNSConfig,
 			GravityPackage: *gravityPackage,
 		},
-		operator:          config.Operator,
-		operation:         *config.Operation,
+		operator:        config.Operator,
+		operation:       *config.Operation,
+		installedApp:    *installedApp,
+		updateApp:       *updateApp,
+		appUpdates:      appUpdates,
+		links:           links,
+		trustedClusters: trustedClusters,
+		packages:        config.Packages,
+		supportsTaints:  supportsTaints,
+		roles:           roles,
+		installedDocker: *installedDocker,
+
 		installedRuntime:  *installedRuntime,
-		installedTeleport: *installedTeleport,
-		installedApp:      *installedApp,
 		updateRuntime:     *updateRuntime,
-		updateApp:         *updateApp,
+		installedTeleport: *installedTeleport,
 		updateTeleport:    *updateTeleport,
-		appUpdates:        appUpdates,
 		runtimeUpdates:    runtimeUpdates,
-		links:             links,
-		trustedClusters:   trustedClusters,
-		packageService:    config.Packages,
-		updateCoreDNS:     updateCoreDNS,
-		updateDNSApp:      updateDNSApp,
-		supportsTaints:    supportsTaints,
-		roles:             roles,
 		changesetID:       uuid.New(),
 	}
 
+	// FIXME: build etcd update step for each intermediate step
 	etcdVersion, err := shouldUpdateEtcd(builder)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	builder.etcd = etcdVersion
 
-	// intermediates, updates, err := configUpdatesWithIntermediateRuntime(
-	// 	installedApp.Manifest, updateApp.Manifest,
-	// 	config.Operator, config.Operation.Key(), servers)
-	// if err != nil {
-	// 	return nil, trace.Wrap(err)
-	// }
-	// leader, err := findServer(*config.Leader, updates)
-	// if err != nil {
-	// 	return nil, trace.Wrap(err)
-	// }
-	// builder.intermediateServers = intermediates
-	// builder.leadMaster = *leader
-	// builder.servers = updates
-	// plan, err := newOperationPlanWithIntermediateUpdate(builder)
-	// if err != nil {
-	// 	return nil, trace.Wrap(err)
-	// }
 	return plan, nil
 }
 
@@ -339,44 +320,43 @@ func newOperationPlan(builder phaseBuilder) (*storage.OperationPlan, error) {
 	var root update.Phase
 	root.Add(initPhase, checksPhase, preUpdatePhase)
 
-	if len(builder.runtimeUpdates) == 0 {
+	if len(builder.runtimeUpdates) == 0 && len(builder.intermediateUpdates) == 0 {
 		// Fast path with no runtime updates
 		root.AddSequential(builder.app(), builder.cleanup())
 		return builder.newPlan(root), nil
 	}
 
-	var corednsPhase *update.Phase
-	if builder.updateCoreDNS {
-		corednsPhase = builder.corednsPhase()
-		root.Add(*corednsPhase)
-	}
-	var earlyDNSAppPhase *update.Phase
-	if builder.updateDNSApp != nil {
-		earlyDNSAppPhase = builder.earlyDNSApp()
-		root.Add(*earlyDNSAppPhase)
-	}
-
 	masters, nodes := update.SplitServers(builder.servers)
 	masters = reorderServers(masters, builder.leadMaster)
-	mastersPhase := *builder.masters(masters[0], masters[1:]).
-		Require(checksPhase, preUpdatePhase)
-	nodesPhase := *builder.nodes(masters[0], nodes).Require(mastersPhase)
-	if corednsPhase != nil {
-		mastersPhase.Require(*corednsPhase)
-	}
-	if earlyDNSAppPhase != nil {
-		mastersPhase.Require(*earlyDNSAppPhase)
-	}
-	root.Add(mastersPhase)
-	if len(nodesPhase.Phases) > 0 {
-		root.Add(nodesPhase)
+
+	upgrades, err := collectIntermediateUpgrades(builder.installedRuntime, builder.packages, builder.apps)
+	if err != nil {
+		return nil, trace.Wrap(err)
 	}
 
-	if builder.etcd != nil {
-		// This does not depend on previous on purpose - when the etcd block is executed,
-		// remote agents might be able to sync the plan before the shutdown of etcd instances
-		// has begun
-		root.Add(*builder.etcdPlan(serversToStorage(masters[1:]...), serversToStorage(nodes...)))
+	for _, upgrade := range upgrades {
+		corednsPhase := *builder.corednsPhase() // FIXME: step-specific coreDNS
+		root.Add(corednsPhase)
+
+		mastersPhase := *builder.masters(masters[0], masters[1:]).
+			Require(checksPhase, preUpdatePhase)
+		nodesPhase := *builder.nodes(masters[0], nodes).Require(mastersPhase)
+		mastersPhase.Require(corednsPhase)
+		root.Add(mastersPhase)
+		if len(nodesPhase.Phases) > 0 {
+			root.Add(nodesPhase)
+		}
+
+		if upgrade.etcd != nil {
+			// This does not depend on previous on purpose - when the etcd block is executed,
+			// remote agents might not be able to sync the plan before the shutdown of etcd
+			// instances has begun
+			root.Add(*builder.etcdPlan(
+				serversToStorage(masters[1:]...),
+				serversToStorage(nodes...),
+				*upgrade.etcd,
+			))
+		}
 	}
 
 	if migrationPhase := builder.migration(); migrationPhase != nil {
@@ -396,77 +376,77 @@ func newOperationPlan(builder phaseBuilder) (*storage.OperationPlan, error) {
 	return builder.newPlan(root), nil
 }
 
-func newOperationPlanWithIntermediateUpdate(builder phaseBuilder) (*storage.OperationPlan, error) {
-	initPhase := *builder.init()
-	checksPhase := *builder.checks().Require(initPhase)
-	preUpdatePhase := *builder.preUpdate().Require(initPhase)
-
-	var root update.Phase
-	root.Add(initPhase, checksPhase, preUpdatePhase)
-
-	var corednsPhase *update.Phase
-	if builder.updateCoreDNS {
-		corednsPhase = builder.corednsPhase()
-		root.Add(*corednsPhase)
-	}
-	var earlyDNSAppPhase *update.Phase
-	if builder.updateDNSApp != nil {
-		earlyDNSAppPhase = builder.earlyDNSApp()
-		root.Add(*earlyDNSAppPhase)
-	}
-
-	intermediateMasters, intermediateNodes := update.SplitServers(builder.intermediateServers)
-	intermediateMasters = reorderServers(intermediateMasters, builder.leadMaster)
-
-	intermediateMastersPhase := builder.mastersIntermediate(intermediateMasters[0], intermediateMasters[1:]).
-		Require(checksPhase, preUpdatePhase)
-	if corednsPhase != nil {
-		intermediateMastersPhase.Require(*corednsPhase)
-	}
-	if earlyDNSAppPhase != nil {
-		intermediateMastersPhase.Require(*earlyDNSAppPhase)
-	}
-	intermediateNodesPhase := *builder.nodesIntermediate(intermediateMasters[0], intermediateNodes).
-		Require(*intermediateMastersPhase)
-	root.Add(*intermediateMastersPhase)
-	if len(intermediateNodesPhase.Phases) > 0 {
-		root.Add(intermediateNodesPhase)
-	}
-
-	masters, nodes := update.SplitServers(builder.servers)
-	masters = reorderServers(masters, builder.leadMaster)
-
-	etcdPhase := *builder.etcdPlan(
-		serversToStorage(masters[1:]...),
-		serversToStorage(nodes...))
-	// This does not depend on previous on purpose - when the etcd block is executed,
-	// remote agents might be able to sync the plan before the shutdown of etcd instances
-	// has begun
-	root.Add(etcdPhase)
-
-	mastersPhase := *builder.masters(masters[0], masters[1:]).Require(etcdPhase)
-	nodesPhase := *builder.nodes(masters[0], nodes).Require(mastersPhase)
-	root.Add(mastersPhase)
-	if len(nodesPhase.Phases) > 0 {
-		root.Add(nodesPhase)
-	}
-
-	if migrationPhase := builder.migration(); migrationPhase != nil {
-		root.AddSequential(*migrationPhase)
-	}
-
-	// the "config" phase pulls new teleport master config packages used
-	// by gravity-sites on master nodes: it needs to run *after* system
-	// upgrade phase to make sure that old gravity-sites start up fine
-	// in case new configuration is incompatible, but *before* runtime
-	// phase so new gravity-sites can find it after they start
-	configPhase := *builder.config(serversToStorage(masters...)).Require(mastersPhase)
-	runtimePhase := *builder.runtime().Require(mastersPhase)
-	root.Add(configPhase, runtimePhase)
-	root.AddSequential(builder.app(), builder.cleanup())
-
-	return builder.newPlan(root), nil
-}
+// func newOperationPlanWithIntermediateUpdate(builder phaseBuilder) (*storage.OperationPlan, error) {
+// 	initPhase := *builder.init()
+// 	checksPhase := *builder.checks().Require(initPhase)
+// 	preUpdatePhase := *builder.preUpdate().Require(initPhase)
+//
+// 	var root update.Phase
+// 	root.Add(initPhase, checksPhase, preUpdatePhase)
+//
+// 	var corednsPhase *update.Phase
+// 	if builder.updateCoreDNS {
+// 		corednsPhase = builder.corednsPhase()
+// 		root.Add(*corednsPhase)
+// 	}
+// 	var earlyDNSAppPhase *update.Phase
+// 	if builder.updateDNSApp != nil {
+// 		earlyDNSAppPhase = builder.earlyDNSApp()
+// 		root.Add(*earlyDNSAppPhase)
+// 	}
+//
+// 	intermediateMasters, intermediateNodes := update.SplitServers(builder.intermediateServers)
+// 	intermediateMasters = reorderServers(intermediateMasters, builder.leadMaster)
+//
+// 	intermediateMastersPhase := builder.mastersIntermediate(intermediateMasters[0], intermediateMasters[1:]).
+// 		Require(checksPhase, preUpdatePhase)
+// 	if corednsPhase != nil {
+// 		intermediateMastersPhase.Require(*corednsPhase)
+// 	}
+// 	if earlyDNSAppPhase != nil {
+// 		intermediateMastersPhase.Require(*earlyDNSAppPhase)
+// 	}
+// 	intermediateNodesPhase := *builder.nodesIntermediate(intermediateMasters[0], intermediateNodes).
+// 		Require(*intermediateMastersPhase)
+// 	root.Add(*intermediateMastersPhase)
+// 	if len(intermediateNodesPhase.Phases) > 0 {
+// 		root.Add(intermediateNodesPhase)
+// 	}
+//
+// 	masters, nodes := update.SplitServers(builder.servers)
+// 	masters = reorderServers(masters, builder.leadMaster)
+//
+// 	etcdPhase := *builder.etcdPlan(
+// 		serversToStorage(masters[1:]...),
+// 		serversToStorage(nodes...))
+// 	// This does not depend on previous on purpose - when the etcd block is executed,
+// 	// remote agents might be able to sync the plan before the shutdown of etcd instances
+// 	// has begun
+// 	root.Add(etcdPhase)
+//
+// 	mastersPhase := *builder.masters(masters[0], masters[1:]).Require(etcdPhase)
+// 	nodesPhase := *builder.nodes(masters[0], nodes).Require(mastersPhase)
+// 	root.Add(mastersPhase)
+// 	if len(nodesPhase.Phases) > 0 {
+// 		root.Add(nodesPhase)
+// 	}
+//
+// 	if migrationPhase := builder.migration(); migrationPhase != nil {
+// 		root.AddSequential(*migrationPhase)
+// 	}
+//
+// 	// the "config" phase pulls new teleport master config packages used
+// 	// by gravity-sites on master nodes: it needs to run *after* system
+// 	// upgrade phase to make sure that old gravity-sites start up fine
+// 	// in case new configuration is incompatible, but *before* runtime
+// 	// phase so new gravity-sites can find it after they start
+// 	configPhase := *builder.config(serversToStorage(masters...)).Require(mastersPhase)
+// 	runtimePhase := *builder.runtime().Require(mastersPhase)
+// 	root.Add(configPhase, runtimePhase)
+// 	root.AddSequential(builder.app(), builder.cleanup())
+//
+// 	return builder.newPlan(root), nil
+// }
 
 // configUpdates computes the configuration updates for the specified list of servers
 func configUpdates(
@@ -663,8 +643,7 @@ L:
 				server.AdvertiseIP,
 				defaults.KubernetesAdvertiseIPLabel)
 		}
-		// Overwrite the Server Nodename with the name of the kubernetes node,
-		// to fix any internal consistency issues that may occur in our internal data
+		// Store the name of the kubernetes node in case it has been left unspecified
 		servers[i].Nodename = node.Name
 	}
 	return servers, nil
@@ -721,20 +700,92 @@ func getExistingDNSConfig(packages pack.PackageService) (*storage.DNSConfig, err
 	return dnsConfig, nil
 }
 
-// Only applicable for 5.3.0 -> 5.3.2
-// We need to update the CoreDNS app before doing rolling restarts, because the new planet will not have embedded
-// coredns, and will instead point to the kube-dns service on startup. Updating the app will deploy coredns as pods.
-// TODO(knisbet) remove when 5.3.2 is no longer supported as an upgrade path
-func shouldUpdateDNSAppEarly(client *kubernetes.Clientset) (bool, error) {
-	_, err := client.CoreV1().Services(constants.KubeSystemNamespace).Get("kube-dns", metav1.GetOptions{})
+func shouldUpdateCoreDNS(client *kubernetes.Clientset) (bool, error) {
+	_, err := client.RbacV1().ClusterRoles().Get(libphase.CoreDNSResourceName, metav1.GetOptions{})
 	err = rigging.ConvertError(err)
 	if err != nil {
 		if trace.IsNotFound(err) {
 			return true, nil
 		}
-		return true, trace.Wrap(err)
+		return false, trace.Wrap(err)
 	}
+
+	_, err = client.RbacV1().ClusterRoleBindings().Get(libphase.CoreDNSResourceName, metav1.GetOptions{})
+	err = rigging.ConvertError(err)
+	if err != nil {
+		if trace.IsNotFound(err) {
+			return true, nil
+		}
+		return false, trace.Wrap(err)
+	}
+
+	_, err = client.CoreV1().ConfigMaps(constants.KubeSystemNamespace).Get("coredns", metav1.GetOptions{})
+	err = rigging.ConvertError(err)
+	if err != nil {
+		if trace.IsNotFound(err) {
+			return true, nil
+		}
+		return false, trace.Wrap(err)
+	}
+
 	return false, nil
+}
+
+func shouldUpdateEtcd(installedRuntime, updateRuntime libapp.Application, packages pack.PackageService) (*etcdVersion, error) {
+	// TODO: should somehow maintain etcd version invariant across runtime packages
+	runtimePackage, err := schema.GetDefaultRuntimePackage(installedRuntime.Manifest)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	var updateEtcd bool
+	installedVersion, err := getEtcdVersion("version-etcd", *runtimePackage, b.packages)
+	if err != nil {
+		if !trace.IsNotFound(err) {
+			return nil, trace.Wrap(err)
+		}
+		// if the currently installed version doesn't have etcd version information, it needs to be upgraded
+		updateEtcd = true
+	}
+	runtimePackage, err = updateRuntime.Manifest.DefaultRuntimePackage()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	updateVersion, err := getEtcdVersion("version-etcd", *runtimePackage, packages)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	if installedVersion == nil || installedVersion.Compare(*updateVersion) < 0 {
+		updateEtcd = true
+	}
+	if !updateEtcd {
+		return nil, nil
+	}
+	result := etcdVersion{
+		update: updateVersion.String(),
+	}
+	if installedVersion != nil {
+		result.installed = installedVersion.String()
+	}
+	return &result, nil
+}
+
+func getEtcdVersion(searchLabel string, locator loc.Locator, packageService pack.PackageService) (*semver.Version, error) {
+	manifest, err := pack.GetPackageManifest(packageService, locator)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	for _, label := range manifest.Labels {
+		if label.Name == searchLabel {
+			versionS := strings.TrimPrefix(label.Value, "v")
+			version, err := semver.NewVersion(versionS)
+			if err != nil {
+				return nil, trace.Wrap(err)
+			}
+			return version, nil
+		}
+	}
+	return nil, trace.NotFound("package manifest for %q does not have label %v",
+		locator, searchLabel)
 }
 
 // systemNeedsUpdate determines whether planet or teleport services need

@@ -19,7 +19,6 @@ package cluster
 import (
 	"fmt"
 	"strconv"
-	"strings"
 
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
@@ -32,12 +31,7 @@ import (
 	libphase "github.com/gravitational/gravity/lib/update/cluster/phases"
 
 	"github.com/coreos/go-semver/semver"
-	"github.com/gravitational/rigging"
 	teleservices "github.com/gravitational/teleport/lib/services"
-	"github.com/gravitational/trace"
-	log "github.com/sirupsen/logrus"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 )
 
 func (r phaseBuilder) init() *update.Phase {
@@ -182,9 +176,7 @@ func (r phaseBuilder) migration() *update.Phase {
 // We need to update the CoreDNS app before doing rolling restarts, because the new planet will not have embedded
 // coredns, and will instead point to the kube-dns service on startup. Updating the app will deploy coredns as pods.
 // TODO(knisbet) remove when 5.3.2 is no longer supported as an upgrade path
-// FIXME: may need to explicitly specify the DNS application with multiple intermediate upgrade
-// steps
-func (r phaseBuilder) earlyDNSApp() *update.Phase {
+func (r phaseBuilder) dnsApp() *update.Phase {
 	phase := update.Phase{
 		ID:       r.updateDNSApp.Name,
 		Executor: updateApp,
@@ -323,13 +315,14 @@ func (r phaseBuilder) nodesInternal(leadMaster storage.UpdateServer, nodes []sto
 func (r phaseBuilder) etcdPlan(
 	otherMasters []storage.Server,
 	workers []storage.Server,
+	etcd etcdVersion,
 ) *update.Phase {
 	root := update.RootPhase(update.Phase{
 		ID:          etcdPhaseName,
-		Description: fmt.Sprintf("Upgrade etcd %v to %v", r.etcd.installed, r.etcd.update),
+		Description: fmt.Sprintf("Upgrade etcd %v to %v", etcd.installed, etcd.update),
 	})
-	if r.etcd.installed == "" {
-		root.Description = fmt.Sprintf("Upgrade etcd to %v", r.etcd.update)
+	if etcd.installed == "" {
+		root.Description = fmt.Sprintf("Upgrade etcd to %v", etcd.update)
 	}
 
 	// Backup etcd on each master server
@@ -660,144 +653,44 @@ type phaseBuilder struct {
 	installedRuntime app.Application
 	// installedApp is the installed app
 	installedApp app.Application
-	// updateRuntime is the runtime of the update app
+	// updateRuntime is the update runtime app
 	updateRuntime app.Application
 	// updateApp is the update app
 	updateApp app.Application
-	// installedTeleport identifies installed teleport package
-	installedTeleport loc.Locator
-	// updateTeleport specifies the version of teleport to update to
-	updateTeleport loc.Locator
 	// appUpdates lists the application updates
 	appUpdates []loc.Locator
-	// runtimeUpdates lists the runtime application updates
-	runtimeUpdates []loc.Locator
-	// updateDNSApp specifies the optional DNS application update
-	updateDNSApp *loc.Locator
-	// etcd specifies the etcd version details.
-	// etcd will be updated if this is set
-	etcd *etcdVersion
 	// links is a list of configured remote Ops Center links
 	links []storage.OpsCenterLink
 	// trustedClusters is a list of configured trusted clusters
 	trustedClusters []teleservices.TrustedCluster
 	// packageService is a reference to the clusters package service
 	packageService pack.PackageService
-	// updateCoreDNS indicates whether we need to run coreDNS phase
-	updateCoreDNS bool
-	// updateDNSAppEarly indicates whether we need to update the DNS app earlier than normal
-	//	Only applicable for 5.3.0 -> 5.3.2
-	updateDNSAppEarly bool
-	// supportsTaints specifies whether taints are supported by the cluster
-	supportsTaints bool
 	// roles is the existing cluster roles
 	roles []teleservices.Role
-	// changesetID specifies the ID to assign the final system update step
-	changesetID string
-}
+	// installedDocker specifies the Docker configuration of the installed
+	// cluster
+	installedDocker storage.DockerConfig
 
-type etcdVersion struct {
-	installed, update string
-}
+	// supportsTaints specifies whether taints are supported by the cluster
+	supportsTaints bool
 
-func shouldUpdateCoreDNS(client *kubernetes.Clientset) (bool, error) {
-	_, err := client.RbacV1().ClusterRoles().Get(libphase.CoreDNSResourceName, metav1.GetOptions{})
-	err = rigging.ConvertError(err)
-	if err != nil {
-		if trace.IsNotFound(err) {
-			return true, nil
-		}
-		return false, trace.Wrap(err)
-	}
-
-	_, err = client.RbacV1().ClusterRoleBindings().Get(libphase.CoreDNSResourceName, metav1.GetOptions{})
-	err = rigging.ConvertError(err)
-	if err != nil {
-		if trace.IsNotFound(err) {
-			return true, nil
-		}
-		return false, trace.Wrap(err)
-	}
-
-	_, err = client.CoreV1().ConfigMaps(constants.KubeSystemNamespace).Get("coredns", metav1.GetOptions{})
-	err = rigging.ConvertError(err)
-	if err != nil {
-		if trace.IsNotFound(err) {
-			return true, nil
-		}
-		return false, trace.Wrap(err)
-	}
-
-	return false, nil
+	// FIXME: intermediate steps + final step
+	// This will be done dynamically
+	// // updateCoreDNS indicates whether we need to run coreDNS phase
+	// updateCoreDNS bool
+	// // installedTeleport identifies installed teleport package
+	// installedTeleport loc.Locator
+	// // updateTeleport specifies the version of teleport to update to
+	// updateTeleport loc.Locator
+	// // runtimeUpdates lists the runtime application updates
+	// runtimeUpdates []loc.Locator
+	// // changesetID specifies the ID to assign the final system update step
+	// changesetID string
 }
 
 // supportsTaints determines whether the cluster supports node taints
 func supportsTaints(version semver.Version) (supports bool) {
 	return defaults.BaseTaintsVersion.Compare(version) <= 0
-}
-
-func shouldUpdateEtcd(b phaseBuilder) (*etcdVersion, error) {
-	// TODO: should somehow maintain etcd version invariant across runtime packages
-	runtimePackage, err := b.installedRuntime.Manifest.DefaultRuntimePackage()
-	if err != nil && !trace.IsNotFound(err) {
-		return nil, trace.Wrap(err)
-	}
-	if err != nil {
-		runtimePackage, err = b.installedRuntime.Manifest.Dependencies.ByName(loc.LegacyPlanetMaster.Name)
-		if err != nil {
-			log.Warnf("Failed to fetch the runtime package: %v.", err)
-			return nil, trace.NotFound("runtime package not found")
-		}
-	}
-	var updateEtcd bool
-	installedVersion, err := getEtcdVersion("version-etcd", *runtimePackage, b.packageService)
-	if err != nil {
-		if !trace.IsNotFound(err) {
-			return nil, trace.Wrap(err)
-		}
-		// if the currently installed version doesn't have etcd version information, it needs to be upgraded
-		updateEtcd = true
-	}
-	runtimePackage, err = b.updateRuntime.Manifest.DefaultRuntimePackage()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	updateVersion, err := getEtcdVersion("version-etcd", *runtimePackage, b.packageService)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	if installedVersion == nil || installedVersion.Compare(*updateVersion) < 0 {
-		updateEtcd = true
-	}
-	if !updateEtcd {
-		return nil, nil
-	}
-	result := etcdVersion{
-		update: updateVersion.String(),
-	}
-	if installedVersion != nil {
-		result.installed = installedVersion.String()
-	}
-	return &result, nil
-}
-
-func getEtcdVersion(searchLabel string, locator loc.Locator, packageService pack.PackageService) (*semver.Version, error) {
-	manifest, err := pack.GetPackageManifest(packageService, locator)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	for _, label := range manifest.Labels {
-		if label.Name == searchLabel {
-			versionS := strings.TrimPrefix(label.Value, "v")
-			version, err := semver.NewVersion(versionS)
-			if err != nil {
-				return nil, trace.Wrap(err)
-			}
-			return version, nil
-		}
-	}
-	return nil, trace.NotFound("package manifest for %q does not have label %v",
-		locator, searchLabel)
 }
 
 // setLeaderElection creates a phase that will change the leader election state in the cluster

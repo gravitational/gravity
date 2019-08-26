@@ -19,6 +19,8 @@ limitations under the License.
 package schema
 
 import (
+	"github.com/gravitational/gravity/lib/loc"
+
 	"github.com/gravitational/trace"
 )
 
@@ -60,4 +62,20 @@ func GetProvisionerFromProvider(provider string) (string, error) {
 	default:
 		return "", trace.BadParameter("unknown provider %q", provider)
 	}
+}
+
+// GetDefaultRuntimePackage returns the default runtime package for the specified manifest
+func GetDefaultRuntimePackage(m Manifest) (*loc.Locator, error) {
+	runtimePackage, err := m.DefaultRuntimePackage()
+	if err != nil && !trace.IsNotFound(err) {
+		return nil, trace.Wrap(err)
+	}
+	if err == nil {
+		return runtimePackage, nil
+	}
+	runtimePackage, err = m.Dependencies.ByName(loc.LegacyPlanetMaster.Name)
+	if err != nil {
+		return nil, trace.NotFound("runtime package not found")
+	}
+	return runtimePackage, nil
 }

@@ -274,7 +274,7 @@ func (s *PlanSuite) TestUpdatesEtcdFromManifestWithoutLabels(c *check.C) {
 		files,
 		services.Packages, c)
 	b := phaseBuilder{
-		packageService: services.Packages,
+		packages: services.Packages,
 		installedRuntime: app.Application{Manifest: schema.Manifest{
 			SystemOptions: &schema.SystemOptions{
 				Dependencies: schema.SystemDependencies{
@@ -332,7 +332,7 @@ func (s *PlanSuite) TestCorrectlyDeterminesWhetherToUpdateEtcd(c *check.C) {
 		files,
 		services.Packages, c)
 	b := phaseBuilder{
-		packageService: services.Packages,
+		packages: services.Packages,
 		installedRuntime: app.Application{Manifest: schema.Manifest{
 			SystemOptions: &schema.SystemOptions{
 				Dependencies: schema.SystemDependencies{
