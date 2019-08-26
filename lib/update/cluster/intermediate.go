@@ -4,13 +4,12 @@ import (
 	"sort"
 
 	libapp "github.com/gravitational/gravity/lib/app"
-	"github.com/gravitational/gravity/lib/checks"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
-	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 
 	"github.com/coreos/go-semver/semver"
@@ -59,20 +58,16 @@ func collectIntermediateUpgrades(installedRuntime libapp.Application, packages p
 	return upgrades, nil
 }
 
-// configUpdates computes the configuration updates for the specified list of servers
-// FIXME: make this a method on phaseBuilder
-func configUpdates(
+// configIntermediateUpdates computes the configuration updates for a specific upgrade step
+func (r phaseBuilder) configIntermediateUpdates(
 	installedRuntime, updateRuntime loc.Locator,
 	installedTeleport, updateTeleport loc.Locator,
-	installedDocker storage.DockerConfig,
 	operator packageRotator,
-	operation ops.SiteOperationKey,
-	servers []storage.Server,
 ) (updates []storage.UpdateServer, err error) {
-	for _, server := range servers {
+	for _, server := range r.planTemplate.Servers {
 		secretsUpdate, err := operator.RotateSecrets(ops.RotateSecretsRequest{
-			AccountID:   operation.AccountID,
-			ClusterName: operation.SiteDomain,
+			AccountID:   r.planTemplate.AccountID,
+			ClusterName: r.planTemplate.SiteDomain,
 			Server:      server,
 			DryRun:      true,
 		})
@@ -113,7 +108,7 @@ func configUpdates(
 		}
 		// update teleport
 		_, nodeConfig, err := operator.RotateTeleportConfig(ops.RotateTeleportConfigRequest{
-			Key:    operation,
+			Key:    fsm.OperationKey(r.planTemplate),
 			Server: server,
 			DryRun: true,
 		})
