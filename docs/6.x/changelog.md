@@ -7,10 +7,10 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 6.1.1         | No  | August 6th, 2019     | -                    | 1.15.2             | 3.2.7
-| 6.0.4         | No  | August 15th, 2019    | -                    | 1.14.5             | 3.2.7            |
-| 5.6.6         | No  | August 6th, 2019     | -                    | 1.14.5             | 3.0.5            |
-| 5.5.15        | Yes | August 6th, 2019     | September 7th, 2020  | 1.13.9             | 3.0.4            |
+| 6.1.2         | No  | August 26th, 2019    | -                    | 1.15.3             | 3.2.7
+| 6.0.5         | No  | August 26th, 2019    | -                    | 1.14.6             | 3.2.7            |
+| 5.6.7         | No  | August 26th, 2019    | -                    | 1.14.6             | 3.0.5            |
+| 5.5.17        | Yes | August 26th, 2019    | September 7th, 2020  | 1.13.10            | 3.0.4            |
 | 5.4.10*       | No  | March 26th, 2019     | -                    | 1.13.5             | 2.4.10           |
 | 5.3.9*        | No  | March 7th, 2019      | -                    | 1.12.3             | 2.4.7            |
 | 5.2.14        | Yes | July 30th, 2019      | October 15th, 2019   | 1.11.9             | 2.4.10           |
@@ -31,6 +31,28 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     do not receive updates and bugfixes.
 
 ## 6.x Releases
+
+### 6.1.2 (August 26th, 2019)
+
+#### Bugfixes
+
+* Upgrade golang to `v1.12.9` (CVE-2019-9512, CVE-2019-9514)
+* Upgrade Kubernetes to `v1.15.2` (CVE-2019-9512, CVE-2019-9514).
+
+!!! warning
+    This release fixes a security vulnerability in golang used by gravity and kubernetes. Please see
+    [Netflix Announcement](https://github.com/Netflix/security-bulletins/blob/master/advisories/third-party/2019-002.md) for more information.
+
+### 6.0.5 (August 26th, 2019)
+
+#### Bugfixes
+
+* Upgrade golang to `v1.12.9` (CVE-2019-9512, CVE-2019-9514)
+* Upgrade Kubernetes to `v1.14.6` (CVE-2019-9512, CVE-2019-9514).
+
+!!! warning
+    This release fixes a security vulnerability in golang used by gravity and kubernetes. Please see
+    [Netflix Announcement](https://github.com/Netflix/security-bulletins/blob/master/advisories/third-party/2019-002.md) for more information.
 
 ### 6.0.4 (August 15th, 2019)
 
@@ -189,6 +211,28 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 ## 5.x Releases
 
+### 5.6.7 (August 26th, 2019)
+
+#### Bugfixes
+
+* Upgrade golang to `v1.12.9` (CVE-2019-9512, CVE-2019-9514)
+* Upgrade Kubernetes to `v1.14.6` (CVE-2019-9512, CVE-2019-9514).
+
+!!! warning
+    This release fixes a security vulnerability in golang used by gravity and kubernetes. Please see
+    [Netflix Announcement](https://github.com/Netflix/security-bulletins/blob/master/advisories/third-party/2019-002.md) for more information.
+
+### 5.5.17 LTS (August 26th, 2019)
+
+#### Bugfixes
+
+* Upgrade golang to `v1.12.9` (CVE-2019-9512, CVE-2019-9514)
+* Upgrade Kubernetes to `v1.13.10` (CVE-2019-9512, CVE-2019-9514).
+
+!!! warning
+    This release fixes a security vulnerability in golang used by gravity and kubernetes. Please see
+    [Netflix Announcement](https://github.com/Netflix/security-bulletins/blob/master/advisories/third-party/2019-002.md) for more information.
+
 ### 5.6.6 (August 6th, 2019)
 
 #### Bugfixes
@@ -200,7 +244,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     This release fixes a security vulnerability in kubernetes. Please see
     [Kubernetes Announcement](https://groups.google.com/forum/#!topic/kubernetes-security-discuss/Vf31dXp0EJc) for more information.
 
-### 5.5.15 (August 6th, 2019)
+### 5.5.15 LTS (August 6th, 2019)
 
 #### Bugfixes
 
