@@ -17,9 +17,9 @@ import (
 	"github.com/pborman/uuid"
 )
 
-func collectIntermediateUpgrades(installedRuntime libapp.Application, packages pack.PackageService, apps libapp.Applications) (upgrades []intermediateUpgrade, err error) {
-	result := make(map[string]*intermediateUpgrade)
-	err = pack.ForeachPackage(packages, func(env pack.PackageEnvelope) error {
+func (r phaseBuilder) collectIntermediateUpdates() (updates []intermediateUpdate, err error) {
+	result := make(map[string]*intermediateUpdate)
+	err = pack.ForeachPackage(r.packages, func(env pack.PackageEnvelope) error {
 		labels := pack.Labels(env.RuntimeLabels)
 		if !labels.HasPurpose(pack.PurposeRuntimeUpgrade) {
 			return nil
@@ -30,32 +30,32 @@ func collectIntermediateUpgrades(installedRuntime libapp.Application, packages p
 			if err != nil {
 				return trace.Wrap(err, "invalid semver: %q", version)
 			}
-			result[version] = newIntermediateUpgrade(*v)
+			result[version] = newIntermediateUpdate(*v)
 		}
-		result[version].fromPackage(env, apps)
+		result[version].fromPackage(env, r.apps)
 		return nil
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	upgrades = make([]intermediateUpgrade, 0, len(result))
-	prevRuntime := installedRuntime
-	for version, upgrade := range result {
-		result[version].etcd, err = shouldUpdateEtcd(prevRuntime, upgrade.runtimeApp, packages)
+	updates = make([]intermediateUpdate, 0, len(result))
+	prevRuntime := r.installedRuntime
+	for version, update := range result {
+		result[version].etcd, err = shouldUpdateEtcd(prevRuntime, update.runtimeApp, packages)
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		upgrades = append(upgrades, *upgrade)
-		prevRuntime = upgrade.runtimeApp
+		updates = append(updates, *update)
+		prevRuntime = update.runtimeApp
 	}
-	sort.Sort(upgradesByVersion(upgrades))
-	for u := range upgrades {
-		sort.Slice(upgrades.apps, func(i, j int) bool {
+	sort.Sort(updatesByVersion(updates))
+	for u := range updates {
+		sort.Slice(updates.apps, func(i, j int) bool {
 			// Push RBAC package update to front
-			return upgrades[u].apps[i].Name == constants.BootstrapConfigPackage
+			return updates[u].apps[i].Name == constants.BootstrapConfigPackage
 		})
 	}
-	return upgrades, nil
+	return updates, nil
 }
 
 // configIntermediateUpdates computes the configuration updates for a specific upgrade step
@@ -124,20 +124,20 @@ func (r phaseBuilder) configIntermediateUpdates(
 	return updates, nil
 }
 
-func (r upgradesByVersion) Len() int           { return len(r) }
-func (r upgradesByVersion) Swap(i, j int)      { r[i], r[j] = r[j], r[i] }
-func (r upgradesByVersion) Less(i, j int) bool { return r[i].version.Compare(r[j].version) < 0 }
+func (r updatesByVersion) Len() int           { return len(r) }
+func (r updatesByVersion) Swap(i, j int)      { r[i], r[j] = r[j], r[i] }
+func (r updatesByVersion) Less(i, j int) bool { return r[i].version.Compare(r[j].version) < 0 }
 
-type upgradesByVersion []intermediateUpgrade
+type updatesByVersion []intermediateUpdate
 
-func newIntermediateUpgrade(version semver.Version) *intermediateUpgrade {
-	return &intermediateUpgrade{
+func newIntermediateUpdate(version semver.Version) *intermediateUpdate {
+	return &intermediateUpdate{
 		changesetID: uuid.New(),
 		version:     version,
 	}
 }
 
-func (r *intermediateUpgrade) fromPackage(env pack.PackageEnvelope, apps libapp.Applications) error {
+func (r *intermediateUpdate) fromPackage(env pack.PackageEnvelope, apps libapp.Applications) error {
 	switch env.Locator.Name {
 	case constants.PlanetPackage:
 		r.runtime = env.Locator
@@ -161,9 +161,9 @@ func (r *intermediateUpgrade) fromPackage(env pack.PackageEnvelope, apps libapp.
 	return nil
 }
 
-// intermediateUpgrade groups package dependencies for a specific
+// intermediateUpdate groups package dependencies for a specific
 // intermediate version of the runtime
-type intermediateUpgrade struct {
+type intermediateUpdate struct {
 	// version defines the runtime application version as semver
 	version semver.Version
 	// changesetID defines the ID for the system update operation
@@ -181,6 +181,8 @@ type intermediateUpgrade struct {
 	apps []libapp.Application
 	// etcd describes the etcd update
 	etcd *etcdVersion
+	// servers lists the server updates for this step
+	servers []storage.UpdateServer
 }
 
 type etcdVersion struct {

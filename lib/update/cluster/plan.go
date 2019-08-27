@@ -38,7 +38,7 @@ import (
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
-	"github.com/gravitational/gravity/lib/update"
+	libupdate "github.com/gravitational/gravity/lib/update"
 	libphase "github.com/gravitational/gravity/lib/update/cluster/phases"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -317,26 +317,30 @@ func newOperationPlan(builder phaseBuilder) (*storage.OperationPlan, error) {
 	checksPhase := *builder.checks().Require(initPhase)
 	preUpdatePhase := *builder.preUpdate().Require(initPhase)
 
-	var root update.Phase
+	var root libupdate.Phase
 	root.Add(initPhase, checksPhase, preUpdatePhase)
 
-	if len(builder.runtimeUpdates) == 0 && len(builder.intermediateUpdates) == 0 {
+	updates, err := builder.collectIntermediateUpdates()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	if len(builder.runtimeUpdates) == 0 && len(updates) == 0 {
 		// Fast path with no runtime updates
 		root.AddSequential(builder.app(), builder.cleanup())
 		return builder.newPlan(root), nil
 	}
 
-	masters, nodes := update.SplitServers(builder.servers)
-	masters = reorderServers(masters, builder.leadMaster)
+	// FIXME: this is for the target case
+	// masters, nodes := update.SplitServers(builder.servers)
+	// masters = reorderServers(masters, builder.leadMaster)
 
-	upgrades, err := collectIntermediateUpgrades(builder.installedRuntime, builder.packages, builder.apps)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	for _, upgrade := range upgrades {
+	for _, update := range updates {
 		corednsPhase := *builder.corednsPhase() // FIXME: step-specific coreDNS
 		root.Add(corednsPhase)
+
+		masters, nodes := libupdate.SplitServers(update.servers)
+		masters = reorderServers(masters, builder.leadMaster)
 
 		mastersPhase := *builder.masters(masters[0], masters[1:]).
 			Require(checksPhase, preUpdatePhase)
@@ -347,7 +351,7 @@ func newOperationPlan(builder phaseBuilder) (*storage.OperationPlan, error) {
 			root.Add(nodesPhase)
 		}
 
-		if upgrade.etcd != nil {
+		if update.etcd != nil {
 			// This does not depend on previous on purpose - when the etcd block is executed,
 			// remote agents might not be able to sync the plan before the shutdown of etcd
 			// instances has begun
