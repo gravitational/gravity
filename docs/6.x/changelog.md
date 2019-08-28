@@ -10,7 +10,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 | 6.1.2         | No  | August 26th, 2019    | -                    | 1.15.3             | 3.2.7
 | 6.0.5         | No  | August 26th, 2019    | -                    | 1.14.6             | 3.2.7            |
 | 5.6.7         | No  | August 26th, 2019    | -                    | 1.14.6             | 3.0.5            |
-| 5.5.17        | Yes | August 26th, 2019    | September 7th, 2020  | 1.13.10            | 3.0.4            |
+| 5.5.18        | Yes | August 28th, 2019    | September 7th, 2020  | 1.13.10            | 3.0.4            |
 | 5.4.10*       | No  | March 26th, 2019     | -                    | 1.13.5             | 2.4.10           |
 | 5.3.9*        | No  | March 7th, 2019      | -                    | 1.12.3             | 2.4.7            |
 | 5.2.14        | Yes | July 30th, 2019      | October 15th, 2019   | 1.11.9             | 2.4.10           |
@@ -221,6 +221,12 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 !!! warning
     This release fixes a security vulnerability in golang used by gravity and kubernetes. Please see
     [Netflix Announcement](https://github.com/Netflix/security-bulletins/blob/master/advisories/third-party/2019-002.md) for more information.
+
+### 5.5.18 LTS (August 28th, 2019)
+
+#### Bugfixes
+
+* Fix installer tarball to include the correct gravity binary.
 
 ### 5.5.17 LTS (August 26th, 2019)
 
