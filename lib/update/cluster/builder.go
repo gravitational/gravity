@@ -93,6 +93,21 @@ func (r phaseBuilder) preUpdate() *update.Phase {
 	return &phase
 }
 
+func (r phaseBuilder) corednsVersionedPhase(version semver.Version) *update.Phase {
+	phase := update.RootPhase(update.Phase{
+		ID:          "coredns",
+		Description: "Provision CoreDNS resources",
+		Executor:    coredns,
+		Data: &storage.OperationPhaseData{
+			Server: &r.leadMaster.Server,
+			CoreDNS: &storage.CoreDNSOperationData{
+				Version: version.String(),
+			},
+		},
+	})
+	return &phase
+}
+
 func (r phaseBuilder) corednsPhase() *update.Phase {
 	phase := update.RootPhase(update.Phase{
 		ID:          "coredns",
@@ -172,23 +187,6 @@ func (r phaseBuilder) migration() *update.Phase {
 	return &root
 }
 
-// Only applicable for 5.3.0 -> 5.3.2
-// We need to update the CoreDNS app before doing rolling restarts, because the new planet will not have embedded
-// coredns, and will instead point to the kube-dns service on startup. Updating the app will deploy coredns as pods.
-// TODO(knisbet) remove when 5.3.2 is no longer supported as an upgrade path
-func (r phaseBuilder) dnsApp() *update.Phase {
-	phase := update.Phase{
-		ID:       r.updateDNSApp.Name,
-		Executor: updateApp,
-		Description: fmt.Sprintf(
-			"Update system application %q to %v", r.updateDNSApp.Name, r.updateDNSApp.Version),
-		Data: &storage.OperationPhaseData{
-			Package: r.updateDNSApp,
-		},
-	}
-	return &phase
-}
-
 // config returns phase that pulls system configuration on provided nodes
 func (r phaseBuilder) config(nodes []storage.Server) *update.Phase {
 	root := update.RootPhase(update.Phase{
@@ -209,19 +207,19 @@ func (r phaseBuilder) config(nodes []storage.Server) *update.Phase {
 	return &root
 }
 
-func (r phaseBuilder) runtime() *update.Phase {
+func (r phaseBuilder) runtime(updates []loc.Locator) *update.Phase {
 	root := update.RootPhase(update.Phase{
 		ID:          "runtime",
 		Description: "Update application runtime",
 	})
-	for i, loc := range r.runtimeUpdates {
+	for i, loc := range updates {
 		phase := update.Phase{
 			ID:       loc.Name,
 			Executor: updateApp,
 			Description: fmt.Sprintf(
 				"Update system application %q to %v", loc.Name, loc.Version),
 			Data: &storage.OperationPhaseData{
-				Package: &r.runtimeUpdates[i],
+				Package: &updates[i],
 			},
 		}
 		phase.ID = root.Child(phase)
@@ -232,20 +230,12 @@ func (r phaseBuilder) runtime() *update.Phase {
 
 // masters returns a new phase for upgrading master servers.
 // otherMasters lists the rest of the master nodes (without the leader)
-func (r phaseBuilder) masters(leadMaster storage.UpdateServer, otherMasters []storage.UpdateServer) *update.Phase {
+func (r phaseBuilder) masters(leadMaster storage.UpdateServer, otherMasters []storage.UpdateServer, changesetID string) *update.Phase {
 	root := update.RootPhase(update.Phase{
 		ID:          "masters",
 		Description: "Update master nodes",
 	})
-	return r.mastersInternal(leadMaster, otherMasters, &root, r.changesetID)
-}
-
-func (r phaseBuilder) mastersIntermediate(leadMaster storage.UpdateServer, otherMasters []storage.UpdateServer) *update.Phase {
-	root := update.RootPhase(update.Phase{
-		ID:          "masters-intermediate",
-		Description: "Update master nodes to intermediate runtime",
-	})
-	return r.mastersInternal(leadMaster, otherMasters, &root, r.intermediateChangesetID)
+	return r.mastersInternal(leadMaster, otherMasters, &root, changesetID)
 }
 
 func (r phaseBuilder) mastersInternal(leadMaster storage.UpdateServer, otherMasters []storage.UpdateServer, root *update.Phase, changesetID string) *update.Phase {
@@ -286,20 +276,12 @@ func (r phaseBuilder) mastersInternal(leadMaster storage.UpdateServer, otherMast
 	return root
 }
 
-func (r phaseBuilder) nodes(leadMaster storage.UpdateServer, nodes []storage.UpdateServer) *update.Phase {
+func (r phaseBuilder) nodes(leadMaster storage.UpdateServer, nodes []storage.UpdateServer, changesetID string) *update.Phase {
 	root := update.RootPhase(update.Phase{
-		ID:          "nodes",
+		ID:          step.id("nodes"),
 		Description: "Update regular nodes",
 	})
-	return r.nodesInternal(leadMaster, nodes, &root, r.changesetID)
-}
-
-func (r phaseBuilder) nodesIntermediate(leadMaster storage.UpdateServer, nodes []storage.UpdateServer) *update.Phase {
-	root := update.RootPhase(update.Phase{
-		ID:          "nodes-intermediate",
-		Description: "Update regular nodes to intermediate runtime",
-	})
-	return r.nodesInternal(leadMaster, nodes, &root, r.intermediateChangesetID)
+	return r.nodesInternal(leadMaster, nodes, &root, changesetID)
 }
 
 func (r phaseBuilder) nodesInternal(leadMaster storage.UpdateServer, nodes []storage.UpdateServer, root *update.Phase, changesetID string) *update.Phase {
@@ -649,12 +631,14 @@ type phaseBuilder struct {
 	// leader refers to the master server running the update operation
 	// leadMaster storage.UpdateServer
 	leadMaster storage.UpdateServer
-	// installedRuntime is the runtime of the installed app
-	installedRuntime app.Application
+	// installedTeleport specified the version of the currently installed teleport
+	installedTeleport loc.Locator
+	// installedRuntimeApp is the runtime of the installed app
+	installedRuntimeApp app.Application
 	// installedApp is the installed app
 	installedApp app.Application
-	// updateRuntime is the update runtime app
-	updateRuntime app.Application
+	// updateRuntimeApp is the update runtime app
+	updateRuntimeApp app.Application
 	// updateApp is the update app
 	updateApp app.Application
 	// appUpdates lists the application updates
@@ -663,8 +647,10 @@ type phaseBuilder struct {
 	links []storage.OpsCenterLink
 	// trustedClusters is a list of configured trusted clusters
 	trustedClusters []teleservices.TrustedCluster
-	// packageService is a reference to the clusters package service
-	packageService pack.PackageService
+	// packages is a reference to the cluster package service
+	packages pack.PackageService
+	// apps is a reference to the cluster application service
+	apps app.Applications
 	// roles is the existing cluster roles
 	roles []teleservices.Role
 	// installedDocker specifies the Docker configuration of the installed

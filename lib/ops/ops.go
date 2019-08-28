@@ -870,6 +870,7 @@ type RotatePlanetConfigRequest struct {
 	RuntimePackage loc.Locator `json:"runtime_package"`
 	// Locator specifies the configuration package locator to use.
 	// If unspecified, one will be automatically generated
+	// FIXME: rename -> Package
 	Locator *loc.Locator `json:"locator,omitempty"`
 	// DryRun specifies whether only the package locator is generated
 	DryRun bool `json:"dry_run"`

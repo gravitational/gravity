@@ -248,6 +248,7 @@ func (p *updatePhaseBootstrap) pullSystemUpdates(ctx context.Context) error {
 	// after having pulled packages as root we need to set proper ownership
 	// on the blobs dir
 	// FIXME(dmitri): PullPackage API needs to accept uid/gid so this is unnecessary
+	// See https://github.com/gravitational/gravity.e/issues/4209
 	stateDir, err := state.GetStateDir()
 	if err != nil {
 		return trace.Wrap(err)

@@ -358,17 +358,18 @@ func (s *PlanSuite) TestCorrectlyDeterminesWhetherToUpdateEtcd(c *check.C) {
 
 func newBuilder(c *check.C, params params) phaseBuilder {
 	builder := phaseBuilder{
-		operator:            testOperator,
-		operation:           operation,
-		servers:             updates,
-		intermediateServers: params.intermediateUpdates,
-		installedRuntime: app.Application{
-			Package:  params.installedRuntime,
-			Manifest: schema.MustParseManifestYAML([]byte(params.installedRuntimeManifest)),
-			PackageEnvelope: pack.PackageEnvelope{
-				Manifest: []byte(params.installedRuntimeManifest),
-			},
-		},
+		operator:  testOperator,
+		operation: operation,
+		servers:   updates,
+		// FIXME
+		// intermediateServers: params.intermediateUpdates,
+		// installedRuntime: app.Application{
+		// 	Package:  params.installedRuntime,
+		// 	Manifest: schema.MustParseManifestYAML([]byte(params.installedRuntimeManifest)),
+		// 	PackageEnvelope: pack.PackageEnvelope{
+		// 		Manifest: []byte(params.installedRuntimeManifest),
+		// 	},
+		// },
 		installedApp: app.Application{
 			Package:  params.installedApp,
 			Manifest: schema.MustParseManifestYAML([]byte(params.installedAppManifest)),
@@ -376,13 +377,14 @@ func newBuilder(c *check.C, params params) phaseBuilder {
 				Manifest: []byte(params.installedAppManifest),
 			},
 		},
-		updateRuntime: app.Application{
-			Package:  params.updateRuntime,
-			Manifest: schema.MustParseManifestYAML([]byte(params.updateRuntimeManifest)),
-			PackageEnvelope: pack.PackageEnvelope{
-				Manifest: []byte(params.updateRuntimeManifest),
-			},
-		},
+		// FIXME
+		// updateRuntime: app.Application{
+		// 	Package:  params.updateRuntime,
+		// 	Manifest: schema.MustParseManifestYAML([]byte(params.updateRuntimeManifest)),
+		// 	PackageEnvelope: pack.PackageEnvelope{
+		// 		Manifest: []byte(params.updateRuntimeManifest),
+		// 	},
+		// },
 		updateApp: app.Application{
 			Package:  params.updateApp,
 			Manifest: schema.MustParseManifestYAML([]byte(params.updateAppManifest)),
@@ -390,15 +392,16 @@ func newBuilder(c *check.C, params params) phaseBuilder {
 				Manifest: []byte(params.updateAppManifest),
 			},
 		},
-		links:                   params.links,
-		trustedClusters:         params.trustedClusters,
-		etcd:                    params.etcdVersion,
-		updateCoreDNS:           params.updateCoreDNS,
-		leadMaster:              params.leadMaster,
-		runtimeUpdates:          params.runtimeUpdates,
-		appUpdates:              params.appUpdates,
-		changesetID:             "id",
-		intermediateChangesetID: "id2",
+		links:           params.links,
+		trustedClusters: params.trustedClusters,
+		leadMaster:      params.leadMaster,
+		appUpdates:      params.appUpdates,
+		// FIXME
+		// etcd:                    params.etcdVersion,
+		// updateCoreDNS:           params.updateCoreDNS,
+		// runtimeUpdates:          params.runtimeUpdates,
+		// changesetID:             "id",
+		// intermediateChangesetID: "id2",
 	}
 	gravityPackage, err := builder.updateRuntime.Manifest.Dependencies.ByName(
 		constants.GravityPackage)

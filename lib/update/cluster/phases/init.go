@@ -162,7 +162,7 @@ func (p *updatePhaseInit) PostCheck(context.Context) error {
 func (p *updatePhaseInit) Execute(context.Context) error {
 	err := removeLegacyUpdateDirectory(p.FieldLogger)
 	if err != nil {
-		return trace.Wrap(err, "failed to remove legacy update directory")
+		p.WithError(err).Warn("Failed to remove legacy update directory.")
 	}
 	if err := p.createAdminAgent(); err != nil {
 		return trace.Wrap(err, "failed to create cluster admin agent")
@@ -182,21 +182,22 @@ func (p *updatePhaseInit) Execute(context.Context) error {
 	if err := p.updateDockerConfig(); err != nil {
 		return trace.Wrap(err, "failed to update Docker configuration")
 	}
-	for _, server := range p.Servers {
-		if err := p.rotateSecrets(server); err != nil {
-			return trace.Wrap(err, "failed to rotate secrets for %v", server)
-		}
-		if server.Runtime.Update != nil {
-			if err := p.rotatePlanetConfig(server); err != nil {
-				return trace.Wrap(err, "failed to rotate planet configuration for %v", server)
-			}
-		}
-		if server.Teleport.Update != nil {
-			if err := p.rotateTeleportConfig(server); err != nil {
-				return trace.Wrap(err, "failed to rotate teleport configuration for %v", server)
-			}
-		}
-	}
+	// FIXME: move this into a separate per-version step
+	// for _, server := range p.Servers {
+	// 	if err := p.rotateSecrets(server); err != nil {
+	// 		return trace.Wrap(err, "failed to rotate secrets for %v", server)
+	// 	}
+	// 	if server.Runtime.Update != nil {
+	// 		if err := p.rotatePlanetConfig(server); err != nil {
+	// 			return trace.Wrap(err, "failed to rotate planet configuration for %v", server)
+	// 		}
+	// 	}
+	// 	if server.Teleport.Update != nil {
+	// 		if err := p.rotateTeleportConfig(server); err != nil {
+	// 			return trace.Wrap(err, "failed to rotate teleport configuration for %v", server)
+	// 		}
+	// 	}
+	// }
 	return nil
 }
 
@@ -412,25 +413,23 @@ func masterIPs(servers []storage.UpdateServer) (addrs []string) {
 }
 
 func removeLegacyUpdateDirectory(log log.FieldLogger) error {
-	const updateDir = "/var/lib/gravity/site/update/gravity"
-
-	fi, err := os.Stat(updateDir)
-	err = trace.ConvertSystemError(err)
-	if trace.IsNotFound(err) {
-		return nil
-	}
-
+	stateDir, err := state.GetStateDir()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
+	updateDir := filepath.Join(state.GetUpdateDir(stateDir), "gravity")
+	fi, err := os.Stat(updateDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return trace.Wrap(trace.ConvertSystemError(err))
+	}
 	if !fi.IsDir() {
 		return nil
 	}
-
-	log.Debugf("Removing legacy update directory %v.", updateDir)
-	err = os.RemoveAll(updateDir)
-	return trace.ConvertSystemError(err)
+	log.WithField("dir", updateDir).Debug("Remove legacy update directory.")
+	return trace.ConvertSystemError(os.RemoveAll(updateDir))
 }
 
 // Rollback rolls back the init phase

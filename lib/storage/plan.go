@@ -126,6 +126,8 @@ type OperationPhaseData struct {
 	Update *UpdateOperationData `json:"update,omitempty" yaml:"garbage_collect,omitempty"`
 	// Install specifies configuration specific to install operation
 	Install *InstallOperationData `json:"install,omitempty" yaml:"install,omitempty"`
+	// DNS specifies configuration specific to coreDNS update phase
+	CoreDNS *CoreDNSOperationData `json:"dns,omitempty" yaml:"dns,omitempty"`
 }
 
 // ElectionChange describes changes to make to cluster elections
@@ -152,6 +154,12 @@ type UpdateOperationData struct {
 	// The ID should be unique within a given update operation as there might be
 	// multiple system update steps necessary
 	ChangesetID string `json:"changeset_id,omitempty"`
+}
+
+// CoreDNSOperationData describes configuration specific to CoreDNS update step
+type CoreDNSOperationData struct {
+	// Version specifies the runtime application version for this step
+	Version string `json:"version,omitempty"`
 }
 
 // UpdateServer describes an intent to update runtime/teleport configuration
