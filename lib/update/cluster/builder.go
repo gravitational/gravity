@@ -278,7 +278,7 @@ func (r phaseBuilder) mastersInternal(leadMaster storage.UpdateServer, otherMast
 
 func (r phaseBuilder) nodes(leadMaster storage.UpdateServer, nodes []storage.UpdateServer, changesetID string) *update.Phase {
 	root := update.RootPhase(update.Phase{
-		ID:          step.id("nodes"),
+		ID:          "nodes",
 		Description: "Update regular nodes",
 	})
 	return r.nodesInternal(leadMaster, nodes, &root, changesetID)
@@ -631,8 +631,10 @@ type phaseBuilder struct {
 	// leader refers to the master server running the update operation
 	// leadMaster storage.UpdateServer
 	leadMaster storage.UpdateServer
-	// installedTeleport specified the version of the currently installed teleport
+	// installedTeleport specifies the version of the currently installed teleport
 	installedTeleport loc.Locator
+	// updateTeleport specifies the version of teleport to update to
+	updateTeleport loc.Locator
 	// installedRuntimeApp is the runtime of the installed app
 	installedRuntimeApp app.Application
 	// installedApp is the installed app

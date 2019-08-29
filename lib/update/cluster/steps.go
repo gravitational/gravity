@@ -9,6 +9,7 @@ import (
 	"sort"
 
 	libapp "github.com/gravitational/gravity/lib/app"
+	"github.com/gravitational/gravity/lib/checks"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
@@ -18,6 +19,7 @@ import (
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
+	libupdate "github.com/gravitational/gravity/lib/update"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/coreos/go-semver/semver"
@@ -25,7 +27,7 @@ import (
 	"github.com/pborman/uuid"
 )
 
-func (r phaseBuilder) collectSteps() (updates []updateStep, err error) {
+func (r phaseBuilder) collectSteps() (steps []updateStepper, err error) {
 	result := make(map[string]*intermediateUpdateStep)
 	err = pack.ForeachPackage(r.packages, func(env pack.PackageEnvelope) error {
 		labels := pack.Labels(env.RuntimeLabels)
@@ -46,7 +48,7 @@ func (r phaseBuilder) collectSteps() (updates []updateStep, err error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	updates = make([]updateStep, 0, len(result))
+	updates := make([]*intermediateUpdateStep, 0, len(result))
 	prevRuntimeApp := r.installedRuntimeApp
 	prevTeleport := r.installedTeleport
 	for version, update := range result {
@@ -68,33 +70,38 @@ func (r phaseBuilder) collectSteps() (updates []updateStep, err error) {
 			return nil, trace.Wrap(err)
 		}
 		update.servers = serverUpdates
-		sort.Slice(update.apps, func(i, j int) bool {
-			// Push RBAC package update to front
-			return update.apps[i].Package.Name == constants.BootstrapConfigPackage
-		})
-		// FIXME: end-of-factor me out
-		updates = append(updates, update.updateStep)
-		prevRuntimeApp = update.runtimeApp
-		if update.teleport != nil {
-			prevTeleport = *update.teleport
+		update.runtimeUpdates, err = runtimeUpdates(prevRuntimeApp, update.runtimeApp, r.installedApp)
+		if err != nil {
+			return nil, trace.Wrap(err)
 		}
+		// FIXME: end-of-factor me out
+		updates = append(updates, update)
 		err = exportGravityBinary(context.Background(), r.packages, update.gravity, operator.path)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
+		prevRuntimeApp = update.runtimeApp
+		if update.teleport != nil {
+			prevTeleport = *update.teleport
+		}
 	}
+	sort.Sort(updatesByVersion(updates))
 	// Add target update step
 	serverUpdates, err := r.configUpdates(
 		r.installedApp.Manifest, r.updateApp.Manifest,
-		prevTeleport, r.updateTeleport,
+		prevTeleport, &r.updateTeleport,
 		checks.DockerConfigFromSchemaValue(r.updateApp.Manifest.SystemDocker()),
 		r.operator)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	updates = append(updates, r.newTargetStep(serverUpdates))
-	sort.Sort(updatesByVersion(updates))
-	return updates, nil
+	runtimeUpdates, err := runtimeUpdates(r.installedRuntimeApp, r.updateRuntimeApp, r.updateApp)
+	steps = make([]updateStepper, 0, len(updates)+1)
+	for _, update := range updates {
+		steps = append(steps, *update)
+	}
+	steps = append(steps, r.newTargetUpdateStep(serverUpdates, runtimeUpdates))
+	return steps, nil
 }
 
 // configUpdates computes the configuration updates for a specific update step
@@ -176,7 +183,7 @@ func (r updatesByVersion) Len() int           { return len(r) }
 func (r updatesByVersion) Swap(i, j int)      { r[i], r[j] = r[j], r[i] }
 func (r updatesByVersion) Less(i, j int) bool { return r[i].version.Compare(r[j].version) < 0 }
 
-type updatesByVersion []updateStep
+type updatesByVersion []*intermediateUpdateStep
 
 func newIntermediateUpdateStep(version semver.Version) *intermediateUpdateStep {
 	return &intermediateUpdateStep{
@@ -185,13 +192,7 @@ func newIntermediateUpdateStep(version semver.Version) *intermediateUpdateStep {
 	}
 }
 
-func newUpdateStep() *updateStep {
-	return &updateStep{
-		changesetID: uuid.New(),
-	}
-}
-
-func (r *updateStep) fromPackage(env pack.PackageEnvelope, apps libapp.Applications) error {
+func (r *intermediateUpdateStep) fromPackage(env pack.PackageEnvelope, apps libapp.Applications) error {
 	switch env.Locator.Name {
 	case constants.PlanetPackage:
 		r.runtime = env.Locator
@@ -215,33 +216,15 @@ func (r *updateStep) fromPackage(env pack.PackageEnvelope, apps libapp.Applicati
 	return nil
 }
 
-func (r intermediateUpdateStep) addTo(root *update.Phase, builder phaseBuilder) {
-	root.Add(*builder.corednsVersionedPhase(r.version))
-	r.updateStep.addTo(root)
-}
-
-func (r updateStep) addTo(root *update.Phase, builder phaseBuilder) {
-	masters, nodes := libupdate.SplitServers(r.servers)
-	masters = reorderServers(masters, builder.leadMaster)
-
-	mastersPhase := *builder.masters(masters[0], masters[1:], r.changesetID)
-	nodesPhase := *builder.nodes(masters[0], nodes, r.changesetID)
-	root.AddSequential(mastersPhase)
-	if len(nodesPhase.Phases) > 0 {
-		root.AddSeqential(nodesPhase)
-	}
-
-	if r.etcd == nil {
-		return
-	}
-	// This does not depend on previous on purpose - when the etcd block is executed,
-	// remote agents might not be able to sync the plan before the shutdown of etcd
-	// instances has begun
-	root.Add(*builder.etcdPlan(
-		serversToStorage(masters[1:]...),
-		serversToStorage(nodes...),
-		*r.etcd,
-	))
+func (r intermediateUpdateStep) addTo(builder phaseBuilder, depends ...libupdate.PhaseIder) libupdate.Phase {
+	root := (&libupdate.Phase{
+		ID: r.version.String(),
+	}).Require(depends...)
+	root.AddSequential(
+		*builder.bootstrapVersioned(r.version),
+	)
+	r.updateStep.addTo(root, builder)
+	return *root
 }
 
 // intermediateUpdateStep describes an intermediate update step
@@ -253,9 +236,67 @@ type intermediateUpdateStep struct {
 	gravity loc.Locator
 }
 
+func (r targetUpdateStep) addTo(builder phaseBuilder, depends ...libupdate.PhaseIder) libupdate.Phase {
+	root := (&libupdate.Phase{
+		ID: "target",
+	}).Require(depends...)
+	root.AddSequential(
+		*builder.bootstrap(),
+		*builder.corednsPhase(),
+	)
+	r.updateStep.addTo(root, builder)
+	return *root
+}
+
+func (r phaseBuilder) newTargetUpdateStep(servers []storage.UpdateServer, runtimeUpdates []loc.Locator) targetUpdateStep {
+	step := newUpdateStep()
+	step.servers = servers
+	step.runtimeUpdates = runtimeUpdates
+	return targetUpdateStep{
+		updateStep: step,
+	}
+}
+
 // targetUpdateStep describes the target (final) kubernetes runtime update step
 type targetUpdateStep struct {
 	updateStep
+}
+
+func (r updateStep) addTo(root *libupdate.Phase, builder phaseBuilder) {
+	masters, nodes := libupdate.SplitServers(r.servers)
+	masters = reorderServers(masters, builder.leadMaster)
+	mastersPhase := *builder.masters(masters[0], masters[1:], r.changesetID)
+	nodesPhase := *builder.nodes(masters[0], nodes, r.changesetID)
+	root.AddSequential(mastersPhase)
+	if len(nodesPhase.Phases) > 0 {
+		root.AddSequential(nodesPhase)
+	}
+	if r.etcd == nil {
+		return
+	}
+	// This step does not depend on previous on purpose - when the etcd block is executed,
+	// remote agents might not be able to sync the plan before the shutdown of etcd
+	// instances has begun
+	root.Add(*builder.etcdPlan(
+		serversToStorage(masters[1:]...),
+		serversToStorage(nodes...),
+		*r.etcd),
+	)
+	// The "config" phase pulls new teleport master config packages used
+	// by gravity-sites on master nodes: it needs to run *after* system
+	// upgrade phase to make sure that old gravity-sites start up fine
+	// in case new configuration is incompatible, but *before* runtime
+	// phase so new gravity-sites can find it after they start
+	root.AddSequential(
+		*builder.config(serversToStorage(masters...)),
+		*builder.runtime(r.runtimeUpdates),
+	)
+}
+
+func newUpdateStep() updateStep {
+	return updateStep{
+		changesetID: uuid.New(),
+	}
 }
 
 // updateStep groups package dependencies and other update-relevant metadata
@@ -276,6 +317,8 @@ type updateStep struct {
 	etcd *etcdVersion
 	// servers lists the server updates for this step
 	servers []storage.UpdateServer
+	// runtimeUpdates lists updates to runtime applications
+	runtimeUpdates []loc.Locator
 }
 
 type etcdVersion struct {
@@ -283,7 +326,7 @@ type etcdVersion struct {
 }
 
 type updateStepper interface {
-	addTo(root *update.Phase, builder phaseBuilder)
+	addTo(builder phaseBuilder, requires ...libupdate.PhaseIder) (root libupdate.Phase)
 }
 
 func (r gravityPackageRotator) RotateSecrets(req ops.RotateSecretsRequest) (*ops.RotatePackageResponse, error) {

@@ -29,7 +29,6 @@ import (
 	"github.com/coreos/go-semver/semver"
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/archive"
-	"github.com/gravitational/gravity/lib/checks"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
@@ -38,6 +37,7 @@ import (
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/update"
 	libupdate "github.com/gravitational/gravity/lib/update"
 	libphase "github.com/gravitational/gravity/lib/update/cluster/phases"
 	"github.com/gravitational/gravity/lib/utils"
@@ -165,7 +165,7 @@ func NewOperationPlan(config PlanConfig) (*storage.OperationPlan, error) {
 		return nil, trace.Wrap(err)
 	}
 
-	updateTeleport, err := updateApp.Dependencies.ByName(constants.TeleportPackage)
+	updateTeleport, err := updateApp.Manifest.Dependencies.ByName(constants.TeleportPackage)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -208,19 +208,8 @@ func NewOperationPlan(config PlanConfig) (*storage.OperationPlan, error) {
 		return nil, trace.Wrap(err)
 	}
 
-	// FIXME: this needs to be dynamic - determined on step-by-step basis
-	// updateCoreDNS, err := shouldUpdateCoreDNS(config.Client)
-	// if err != nil {
-	// 	return nil, trace.Wrap(err)
-	// }
-
 	// FIXME: compute runtime updates for each intermediate step
 	// runtimeUpdates, err := runtimeUpdates(*installedRuntime, *installedApp, *updateApp)
-	// if err != nil {
-	// 	return nil, trace.Wrap(err)
-	// }
-
-	// updateTeleport, err := updateApp.Manifest.Dependencies.ByName(constants.TeleportPackage)
 	// if err != nil {
 	// 	return nil, trace.Wrap(err)
 	// }
@@ -347,34 +336,15 @@ func newOperationPlan(builder phaseBuilder) (*storage.OperationPlan, error) {
 		return builder.newPlan(root), nil
 	}
 
-	depends := []update.Phase{checks, preUpdate}
+	depends := []update.PhaseIder{checksPhase, preUpdatePhase}
 	for _, update := range updates {
-		versionRoot := update.Phase{
-			ID: update.version.String(),
-		}.Require(depends...)
-
-		update.addTo(&versionRoot, builder)
+		stepRoot := update.addTo(builder, depends...)
 
 		// TODO: init/bootstrap bits per-version
 
-		if update.etcd != nil {
-			// This does not depend on previous on purpose - when the etcd block is executed,
-			// remote agents might not be able to sync the plan before the shutdown of etcd
-			// instances has begun
-			versionRoot.Add(*builder.etcdPlan(
-				serversToStorage(masters[1:]...),
-				serversToStorage(nodes...),
-				*update.etcd,
-			))
-		}
-
-		root.AddSequential(versionRoot)
+		root.AddSequential(stepRoot)
 		depends = nil
 	}
-
-	// FIXME: build the target case
-	// masters, nodes := update.SplitServers(builder.servers)
-	// masters = reorderServers(masters, builder.leadMaster)
 
 	if migrationPhase := builder.migration(); migrationPhase != nil {
 		root.AddSequential(*migrationPhase)
@@ -392,99 +362,6 @@ func newOperationPlan(builder phaseBuilder) (*storage.OperationPlan, error) {
 	root.AddSequential(builder.app(), builder.cleanup())
 
 	return builder.newPlan(root), nil
-}
-
-// configUpdates computes the configuration updates for the specified list of servers
-func configUpdates(
-	installed, update schema.Manifest,
-	operator ops.Operator,
-	operation ops.SiteOperationKey,
-	servers []storage.Server,
-) (updates []storage.UpdateServer, err error) {
-	installedTeleport, err := installed.Dependencies.ByName(constants.TeleportPackage)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	updateTeleport, err := update.Dependencies.ByName(constants.TeleportPackage)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	for _, server := range servers {
-		secretsUpdate, err := operator.RotateSecrets(ops.RotateSecretsRequest{
-			AccountID:   operation.AccountID,
-			ClusterName: operation.SiteDomain,
-			Server:      server,
-			DryRun:      true,
-		})
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-		installedRuntime, err := getRuntimePackage(installed, server.Role, schema.ServiceRole(server.ClusterRole))
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-		installedDocker, err := ops.GetDockerConfig(operator, operation.SiteKey())
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-		updateServer := storage.UpdateServer{
-			Server: server,
-			Runtime: storage.RuntimePackage{
-				Installed:      *installedRuntime,
-				SecretsPackage: &secretsUpdate.Locator,
-			},
-			Teleport: storage.TeleportPackage{
-				Installed: *installedTeleport,
-			},
-			Docker: storage.DockerUpdate{
-				Installed: *installedDocker,
-				Update: checks.DockerConfigFromSchemaValue(
-					update.SystemDocker()),
-			},
-		}
-		needsPlanetUpdate, needsTeleportUpdate, err := systemNeedsUpdate(
-			server.Role, server.ClusterRole,
-			installed, update, *installedTeleport, *updateTeleport)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-		if needsPlanetUpdate {
-			updateRuntime, err := update.RuntimePackageForProfile(server.Role)
-			if err != nil {
-				return nil, trace.Wrap(err)
-			}
-			configUpdate, err := operator.RotatePlanetConfig(ops.RotatePlanetConfigRequest{
-				Key:            operation,
-				Server:         server,
-				Manifest:       update,
-				RuntimePackage: *updateRuntime,
-				DryRun:         true,
-			})
-			if err != nil {
-				return nil, trace.Wrap(err)
-			}
-			updateServer.Runtime.Update = &storage.RuntimeUpdate{
-				Package:       *updateRuntime,
-				ConfigPackage: configUpdate.Locator,
-			}
-		}
-		if needsTeleportUpdate {
-			_, nodeConfig, err := operator.RotateTeleportConfig(ops.RotateTeleportConfigRequest{
-				Key:    operation,
-				Server: server,
-				DryRun: true,
-			})
-			if err != nil {
-				return nil, trace.Wrap(err)
-			}
-			updateServer.Teleport.Update = &storage.TeleportUpdate{
-				Package:           *updateTeleport,
-				NodeConfigPackage: nodeConfig.Locator,
-			}
-		}
-		updates = append(updates, updateServer)
-	}
-	return updates, nil
 }
 
 func checkAndSetServerDefaults(servers []storage.Server, client corev1.NodeInterface) ([]storage.Server, error) {

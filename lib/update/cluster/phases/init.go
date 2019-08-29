@@ -19,6 +19,7 @@ package phases
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"strconv"
 
 	"github.com/gravitational/gravity/lib/app"
@@ -30,6 +31,7 @@ import (
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/rpc"
 	"github.com/gravitational/gravity/lib/schema"
+	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 	"github.com/gravitational/gravity/lib/users"
@@ -417,7 +419,7 @@ func removeLegacyUpdateDirectory(log log.FieldLogger) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	updateDir := filepath.Join(state.GetUpdateDir(stateDir), "gravity")
+	updateDir := filepath.Join(state.GravityUpdateDir(stateDir), "gravity")
 	fi, err := os.Stat(updateDir)
 	if err != nil {
 		if os.IsNotExist(err) {
