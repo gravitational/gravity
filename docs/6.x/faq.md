@@ -104,6 +104,20 @@ if [ ! -z "$timesync_bus_name" ]; then
 fi
 ```
 
+## VMWare ESXi
+
+On virtual machines powered by VMWare ESXi (part of VMWare vSphere suite) port
+`8472` is used for VXLAN that encapsulates all VM-to-VM traffic which conflicts
+with the default VXLAN port used by Gravity and affects the cluster's overlay
+network.
+
+To support such systems Gravity provides the ability to override the default
+VXLAN port at install time via a command-line flag:
+
+```shell
+sudo ./gravity install --vxlan-port=9473
+```
+
 ## Kubernetes Pods Stuck in Terminating State
 
 Some linux distributions have included the kernel setting fs.may_detach_mounts with a default value of 0. This can cause conflicts with the docker daemon, where docker is then unable to unmount mount points within the container. Kubernetes will show pods as stuck in the terminating state if docker is unable to clean up one of the underlying containers.
