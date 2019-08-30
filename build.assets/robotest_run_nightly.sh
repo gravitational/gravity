@@ -7,7 +7,7 @@ DOCKER_STORAGE_DRIVERS="overlay2"
 
 declare -A UPGRADE_MAP
 # gravity version -> list of OS releases to test upgrades on
-UPGRADE_MAP[5.5.0]="centos:7 ubuntu:16"
+UPGRADE_MAP[5.5.16]="centos:7 debian:9 ubuntu:18"
 
 readonly GET_GRAVITATIONAL_IO_APIKEY=${GET_GRAVITATIONAL_IO_APIKEY:?API key for distribution Ops Center required}
 readonly GRAVITY_BUILDDIR=${GRAVITY_BUILDDIR:?Set GRAVITY_BUILDDIR to the build directory}
@@ -27,8 +27,8 @@ export GCE_REGION="northamerica-northeast1,us-west1,us-east1,us-east4,us-central
 
 function build_resize_suite {
   cat <<EOF
- resize={"to":3,"flavor":"one","nodes":1,"role":"node","state_dir":"/var/lib/telekube","os":"ubuntu:16","storage_driver":"overlay2"}
- resize={"to":6,"flavor":"three","nodes":3,"role":"node","state_dir":"/var/lib/telekube","os":"ubuntu:16","storage_driver":"overlay2"}
+ resize={"to":3,"flavor":"one","nodes":1,"role":"node","state_dir":"/var/lib/telekube","os":"ubuntu:18","storage_driver":"overlay2"}
+ resize={"to":6,"flavor":"three","nodes":3,"role":"node","state_dir":"/var/lib/telekube","os":"ubuntu:18","storage_driver":"overlay2"}
 EOF
 }
 
@@ -65,13 +65,13 @@ function build_upgrade_suite {
 
 function build_ops_install_suite {
   cat <<EOF
- install={"installer_url":"/installer/opscenter.tar","nodes":1,"flavor":"standalone","role":"node","os":"ubuntu:16","ops_advertise_addr":"example.com:443"}
+ install={"installer_url":"/installer/opscenter.tar","nodes":1,"flavor":"standalone","role":"node","os":"ubuntu:18","ops_advertise_addr":"example.com:443"}
 EOF
 }
 
 function build_install_suite {
   local suite=''
-  local test_os="redhat:7 debian:9 ubuntu:16"
+  local test_os="redhat:7 debian:9 ubuntu:16 ubuntu:18"
   local cluster_sizes=( \
     '"flavor":"three","nodes":3,"role":"node"' \
     '"flavor":"six","nodes":6,"role":"node"')
