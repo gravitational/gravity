@@ -5,7 +5,7 @@ readonly UPGRADE_FROM_DIR=${1:-$(pwd)/../upgrade_from}
 
 declare -A UPGRADE_MAP
 # gravity version -> list of OS releases to exercise on
-UPGRADE_MAP[5.5.0]="ubuntu:18"
+UPGRADE_MAP[5.5.16]="ubuntu:18"
 
 readonly GET_GRAVITATIONAL_IO_APIKEY=${GET_GRAVITATIONAL_IO_APIKEY:?API key for distribution Ops Center required}
 readonly GRAVITY_BUILDDIR=${GRAVITY_BUILDDIR:?Set GRAVITY_BUILDDIR to the build directory}
