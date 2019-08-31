@@ -121,10 +121,11 @@ type Puller struct {
 	Labels map[string]string
 	// Progress is optional progress reporter
 	Progress pack.ProgressReporter
-	// Upsert is whether to create or upsert the application
+	// Upsert is whether to create or upsert the application or package.
+	// The flag is applied to all dependencies
 	Upsert bool
-	// SkipIfExists indicates whether existing application should not
-	// be pulled
+	// SkipIfExists indicates whether to avoid pulling if an application or package exists.
+	// The flag is applied to all dependencies with Upsert taking precedence
 	SkipIfExists bool
 	// MetadataOnly allows to pull only app metadata without body
 	MetadataOnly bool
@@ -163,14 +164,12 @@ func (r Puller) pullPackage(loc loc.Locator) error {
 	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
 	}
-	if err == nil {
+	if err == nil && !r.Upsert {
 		if r.SkipIfExists {
 			return nil
 		}
-		if !r.Upsert {
-			logger.Info("Package already exists.")
-			return trace.AlreadyExists("package %v already exists", loc)
-		}
+		logger.Info("Package already exists.")
+		return trace.AlreadyExists("package %v already exists", loc)
 	}
 	logger.Info("Pull package.")
 	reader := ioutil.NopCloser(utils.NopReader())
@@ -232,14 +231,12 @@ func (r Puller) pullApp(loc loc.Locator) error {
 		upsert = true
 	}
 	logger := r.WithField("app", loc)
-	if app != nil {
+	if app != nil && !upsert {
 		if r.SkipIfExists {
 			return nil
 		}
-		if !upsert {
-			logger.Info("Application already exists.")
-			return trace.AlreadyExists("app %v already exists", loc)
-		}
+		logger.Info("Application already exists.")
+		return trace.AlreadyExists("application %v already exists", loc)
 	}
 	logger.Info("Pull application.")
 	var env *pack.PackageEnvelope
