@@ -177,6 +177,55 @@ will be returned to the "active" state.`)
 	return nil
 }
 
+// rotateSecrets creates new secrets package with the specified locator.
+// If the locator is empty, it just generates and outputs the package name
+func rotateSecrets(env *localenv.LocalEnvironment, pkg *loc.Locator, operationID, serverAddr string) error {
+	clusterEnv, err := localenv.NewClusterEnvironment()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	cluster, err := clusterEnv.Operator.GetLocalSite()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	operationKey := ops.SiteOperationKey{
+		AccountID:   cluster.AccountID,
+		SiteDomain:  cluster.Domain,
+		OperationID: operationID,
+	}
+	plan, err := clusterEnv.Operator.GetOperationPlan(operationKey)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	server := (storage.Servers)(plan.Servers).FindByIP(serverAddr)
+	if server == nil {
+		return trace.NotFound("no server found for %v", serverAddr)
+	}
+	if pkg == nil {
+		// Generate and report just the packge name
+		resp, err := clusterEnv.Operator.RotateSecrets(ops.RotateSecretsRequest{
+			Key:    cluster.Key(),
+			Server: *server,
+			DryRun: true,
+		})
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		env.Println(resp.Locator)
+		return nil
+	}
+	resp, err := clusterEnv.Operator.RotateSecrets(ops.RotateSecretsRequest{
+		Key:     cluster.Key(),
+		Server:  *server,
+		Package: pkg,
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	_, err = clusterEnv.ClusterPackages.UpsertPackage(resp.Locator, resp.Reader, pack.WithLabels(resp.Labels))
+	return trace.Wrap(err)
+}
+
 // rotatePlanetConfig creates new planet configuration with the specified package locator.
 // If the locator is empty, it just generates and outputs the package name
 func rotatePlanetConfig(env *localenv.LocalEnvironment, pkg *loc.Locator, runtimePackage loc.Locator, operationID, serverAddr string) error {

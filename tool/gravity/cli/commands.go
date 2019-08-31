@@ -84,6 +84,8 @@ type Application struct {
 	UpdateSystemCmd UpdateSystemCmd
 	// UpgradeCmd launches app upgrade
 	UpgradeCmd UpgradeCmd
+	// UpdateRotateSecretsCmd generates new secrets package
+	UpdateRotateSecretsCmd UpdateRotateSecretsCmd
 	// UpdateRotatePlanetConfigCmd generates new configuration package for planet
 	UpdateRotatePlanetConfigCmd UpdateRotatePlanetConfigCmd
 	// UpdateRotateTeleportConfigCmd generates new configuration package for teleport
@@ -534,6 +536,17 @@ type UpdateSystemCmd struct {
 	WithStatus *bool
 	// RuntimePackage specifies the runtime package to update to
 	RuntimePackage *loc.Locator
+}
+
+// UpdateRotateSecretsCmd generates a new secrets package
+type UpdateRotateSecretsCmd struct {
+	*kingpin.CmdClause
+	// Package specifies the package to generate
+	Package *nullableLocator
+	// ServerAddr specifies this server's address
+	ServerAddr *string
+	// OperationID specifies the ID of the active update operation
+	OperationID *string
 }
 
 // UpdateRotatePlanetConfigCmd generates a new configuration package for planet
