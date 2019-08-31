@@ -20,15 +20,16 @@ import (
 	"archive/tar"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"sort"
 	"strconv"
 	"strings"
 
-	"github.com/coreos/go-semver/semver"
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/archive"
+	"github.com/gravitational/gravity/lib/checks"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
@@ -42,6 +43,7 @@ import (
 	libphase "github.com/gravitational/gravity/lib/update/cluster/phases"
 	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/coreos/go-semver/semver"
 	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
@@ -92,7 +94,7 @@ func InitOperationPlan(
 		dnsConfig = *existingDNS
 	}
 
-	plan, err = NewOperationPlan(PlanConfig{
+	plan, err = NewOperationPlan(ctx, PlanConfig{
 		Backend:   clusterEnv.Backend,
 		Apps:      clusterEnv.Apps,
 		Packages:  clusterEnv.ClusterPackages,
@@ -101,6 +103,7 @@ func InitOperationPlan(
 		Operator:  clusterEnv.Operator,
 		Operation: (*ops.SiteOperation)(operation),
 		Leader:    leader,
+		Cluster:   *cluster,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -115,7 +118,7 @@ func InitOperationPlan(
 }
 
 // NewOperationPlan generates a new plan for the provided operation
-func NewOperationPlan(config PlanConfig) (*storage.OperationPlan, error) {
+func NewOperationPlan(ctx context.Context, config PlanConfig) (*storage.OperationPlan, error) {
 	if err := config.checkAndSetDefaults(); err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -208,12 +211,6 @@ func NewOperationPlan(config PlanConfig) (*storage.OperationPlan, error) {
 		return nil, trace.Wrap(err)
 	}
 
-	// FIXME: compute runtime updates for each intermediate step
-	// runtimeUpdates, err := runtimeUpdates(*installedRuntime, *installedApp, *updateApp)
-	// if err != nil {
-	// 	return nil, trace.Wrap(err)
-	// }
-
 	installedDocker, err := ops.GetDockerConfig(config.Operator, config.Operation.ClusterKey())
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -229,37 +226,50 @@ func NewOperationPlan(config PlanConfig) (*storage.OperationPlan, error) {
 			DNSConfig:      config.DNSConfig,
 			GravityPackage: *gravityPackage,
 		},
-		operator:          config.Operator,
-		operation:         *config.Operation,
-		installedApp:      *installedApp,
-		updateApp:         *updateApp,
-		appUpdates:        appUpdates,
-		links:             links,
-		trustedClusters:   trustedClusters,
-		packages:          config.Packages,
-		apps:              config.Apps,
-		supportsTaints:    supportsTaints,
-		roles:             roles,
-		installedTeleport: *installedTeleport,
-		updateTeleport:    *updateTeleport,
-		installedDocker:   *installedDocker,
-
-		// FIXME: per step
-		// installedRuntime:  *installedRuntime,
-		// updateRuntime:     *updateRuntime,
-
-		// FIXME
-		// updateTeleport:    *updateTeleport,
-		// runtimeUpdates: runtimeUpdates,
-		// changesetID: uuid.New(),
+		operator:            config.Operator,
+		operation:           *config.Operation,
+		appUpdates:          appUpdates,
+		links:               links,
+		trustedClusters:     trustedClusters,
+		packages:            config.Packages,
+		apps:                config.Apps,
+		supportsTaints:      supportsTaints,
+		roles:               roles,
+		installedApp:        *installedApp,
+		updateApp:           *updateApp,
+		installedRuntimeApp: *installedRuntime,
+		updateRuntimeApp:    *updateRuntime,
+		installedTeleport:   *installedTeleport,
+		updateTeleport:      *updateTeleport,
+		installedDocker:     *installedDocker,
+		serviceUser:         config.Cluster.ServiceUser,
 	}
 
-	// FIXME: build etcd update step for each intermediate step
-	// etcdVersion, err := shouldUpdateEtcd(builder)
-	// if err != nil {
-	// 	return nil, trace.Wrap(err)
-	// }
-	// builder.etcd = etcdVersion
+	steps, err := builder.collectSteps(ctx)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	builder.steps = steps
+	log.WithField("steps", fmt.Sprintf("%#v", steps)).Info("Collected intermediate steps.")
+
+	// FIXME: compute etcd update for the target step
+	if len(steps) != 0 {
+		installedTeleport = steps[len(steps)-1].teleport
+	}
+	// FIXME: compute installedRuntime based on steps
+	// and use installedRuntime/installedTeleport in configUpdates
+	// as the seed for planet/teleport updates
+	serverUpdates, err := configUpdates(
+		installedApp.Manifest, updateApp.Manifest,
+		config.Operator, (*ops.SiteOperation)(config.Operation).Key(), servers)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	runtimeUpdates, err := runtimeUpdates(*installedRuntime, *updateRuntime, *updateApp)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	builder.targetStep = newTargetUpdateStep(serverUpdates, runtimeUpdates)
 
 	plan, err := newOperationPlan(builder)
 	if err != nil {
@@ -312,6 +322,8 @@ type PlanConfig struct {
 	Client *kubernetes.Clientset
 	// Leader specifies the server to execute the upgrade operation on
 	Leader *storage.Server
+	// Cluster describes the installed cluster
+	Cluster ops.Site
 }
 
 func newOperationPlan(builder phaseBuilder) (*storage.OperationPlan, error) {
@@ -322,46 +334,119 @@ func newOperationPlan(builder phaseBuilder) (*storage.OperationPlan, error) {
 	var root libupdate.Phase
 	root.Add(initPhase, checksPhase, preUpdatePhase)
 
-	updates, err := builder.collectSteps()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	// FIXME: runtimeUpdates
-	// FIXME: also keep all kubernetes updates in `updates`?
-	// if len(builder.runtimeUpdates) == 0 && len(updates) == 0 {
-	if len(updates) == 0 {
+	if len(builder.steps) == 0 && len(builder.targetStep.runtimeUpdates) == 0 {
 		// Fast path with no runtime updates
 		root.AddSequential(builder.app(), builder.cleanup())
 		return builder.newPlan(root), nil
 	}
 
 	depends := []update.PhaseIder{checksPhase, preUpdatePhase}
-	for _, update := range updates {
-		stepRoot := update.addTo(builder, depends...)
-
-		// TODO: init/bootstrap bits per-version
-
-		root.AddSequential(stepRoot)
+	for _, step := range builder.steps {
+		root.AddSequential(step.addTo(builder, depends...))
 		depends = nil
 	}
+	root.AddSequential(builder.targetStep.addTo(builder, depends...))
 
 	if migrationPhase := builder.migration(); migrationPhase != nil {
 		root.AddSequential(*migrationPhase)
 	}
 
-	// FIXME
-	// // the "config" phase pulls new teleport master config packages used
-	// // by gravity-sites on master nodes: it needs to run *after* system
-	// // upgrade phase to make sure that old gravity-sites start up fine
-	// // in case new configuration is incompatible, but *before* runtime
-	// // phase so new gravity-sites can find it after they start
-	// configPhase := *builder.config(serversToStorage(masters...)).Require(mastersPhase)
-	// runtimePhase := *builder.runtime().Require(mastersPhase)
-	// root.Add(configPhase, runtimePhase)
 	root.AddSequential(builder.app(), builder.cleanup())
 
 	return builder.newPlan(root), nil
+}
+
+// configUpdates computes the configuration updates for the specified list of servers
+func configUpdates(
+	installed, update schema.Manifest,
+	operator ops.Operator,
+	operation ops.SiteOperationKey,
+	servers []storage.Server,
+) (updates []storage.UpdateServer, err error) {
+	installedTeleport, err := installed.Dependencies.ByName(constants.TeleportPackage)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	updateTeleport, err := update.Dependencies.ByName(constants.TeleportPackage)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	for _, server := range servers {
+		secretsUpdate, err := operator.RotateSecrets(ops.RotateSecretsRequest{
+			Key:    operation.SiteKey(),
+			Server: server,
+			DryRun: true,
+		})
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		installedRuntime, err := schema.GetRuntimePackage(installed, server.Role,
+			schema.ServiceRole(server.ClusterRole))
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		installedDocker, err := ops.GetDockerConfig(operator, operation.SiteKey())
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		updateServer := storage.UpdateServer{
+			Server: server,
+			Runtime: storage.RuntimePackage{
+				Installed:      *installedRuntime,
+				SecretsPackage: &secretsUpdate.Locator,
+			},
+			Teleport: storage.TeleportPackage{
+				Installed: *installedTeleport,
+			},
+			Docker: storage.DockerUpdate{
+				Installed: *installedDocker,
+				Update: checks.DockerConfigFromSchemaValue(
+					update.SystemDocker()),
+			},
+		}
+		needsPlanetUpdate, needsTeleportUpdate, err := systemNeedsUpdate(
+			server.Role, server.ClusterRole,
+			installed, update, *installedTeleport, *updateTeleport)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		if needsPlanetUpdate {
+			updateRuntime, err := update.RuntimePackageForProfile(server.Role)
+			if err != nil {
+				return nil, trace.Wrap(err)
+			}
+			configUpdate, err := operator.RotatePlanetConfig(ops.RotatePlanetConfigRequest{
+				Key:            operation,
+				Server:         server,
+				Manifest:       update,
+				RuntimePackage: *updateRuntime,
+				DryRun:         true,
+			})
+			if err != nil {
+				return nil, trace.Wrap(err)
+			}
+			updateServer.Runtime.Update = &storage.RuntimeUpdate{
+				Package:       *updateRuntime,
+				ConfigPackage: configUpdate.Locator,
+			}
+		}
+		if needsTeleportUpdate {
+			_, nodeConfig, err := operator.RotateTeleportConfig(ops.RotateTeleportConfigRequest{
+				Key:    operation,
+				Server: server,
+				DryRun: true,
+			})
+			if err != nil {
+				return nil, trace.Wrap(err)
+			}
+			updateServer.Teleport.Update = &storage.TeleportUpdate{
+				Package:           *updateTeleport,
+				NodeConfigPackage: nodeConfig.Locator,
+			}
+		}
+		updates = append(updates, updateServer)
+	}
+	return updates, nil
 }
 
 func checkAndSetServerDefaults(servers []storage.Server, client corev1.NodeInterface) ([]storage.Server, error) {
@@ -490,7 +575,7 @@ func shouldUpdateEtcd(installedRuntime, updateRuntime app.Application, packages 
 	// TODO: should somehow maintain etcd version invariant across runtime packages
 	runtimePackage, err := schema.GetDefaultRuntimePackage(installedRuntime.Manifest)
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return nil, trace.Wrap(err, "error fetching runtime package for %v", installedRuntime.Package)
 	}
 	var updateEtcd bool
 	installedVersion, err := getEtcdVersion("version-etcd", *runtimePackage, packages)
@@ -501,9 +586,9 @@ func shouldUpdateEtcd(installedRuntime, updateRuntime app.Application, packages 
 		// if the currently installed version doesn't have etcd version information, it needs to be upgraded
 		updateEtcd = true
 	}
-	runtimePackage, err = updateRuntime.Manifest.DefaultRuntimePackage()
+	runtimePackage, err = schema.GetDefaultRuntimePackage(updateRuntime.Manifest)
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return nil, trace.Wrap(err, "error fetching runtime package for %v", updateRuntime.Package)
 	}
 	updateVersion, err := getEtcdVersion("version-etcd", *runtimePackage, packages)
 	if err != nil {
@@ -565,7 +650,7 @@ func systemNeedsUpdate(
 	if err != nil {
 		return false, false, trace.Wrap(err)
 	}
-	installedRuntimePackage, err := getRuntimePackage(installed, profile, schema.ServiceRole(clusterRole))
+	installedRuntimePackage, err := schema.GetRuntimePackage(installed, profile, schema.ServiceRole(clusterRole))
 	if err != nil {
 		return false, false, trace.Wrap(err)
 	}
@@ -589,34 +674,6 @@ func systemNeedsUpdate(
 	}).Debug("Check if system packages need to be updated.")
 	return installedRuntimeVersion.LessThan(*updateRuntimeVersion),
 		installedTeleportVersion.LessThan(*updateTeleportVersion), nil
-}
-
-func getRuntimePackage(manifest schema.Manifest, profileName string, clusterRole schema.ServiceRole) (*loc.Locator, error) {
-	profile, err := manifest.NodeProfiles.ByName(profileName)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	runtimePackage, err := manifest.RuntimePackage(*profile)
-	if err != nil && !trace.IsNotFound(err) {
-		return nil, trace.Wrap(err)
-	}
-	if err == nil {
-		return runtimePackage, nil
-	}
-	// Look for legacy package
-	packageName := loc.LegacyPlanetMaster.Name
-	if clusterRole == schema.ServiceRoleNode {
-		packageName = loc.LegacyPlanetNode.Name
-	}
-	runtimePackage, err = manifest.Dependencies.ByName(packageName)
-	if err != nil {
-		logrus.Warnf("Failed to find the legacy runtime package in manifest "+
-			"for profile %v and cluster role %v: %v.", profile.Name, clusterRole, err)
-		return nil, trace.NotFound("runtime package for profile %v "+
-			"(cluster role %v) not found in manifest",
-			profile.Name, clusterRole)
-	}
-	return runtimePackage, nil
 }
 
 func findServer(input storage.Server, servers []storage.UpdateServer) (*storage.UpdateServer, error) {
@@ -660,10 +717,4 @@ type runtimeConfig struct {
 	DNSListenAddr string `json:"PLANET_DNS_LISTEN_ADDR"`
 	// DNSPort specifies the configured DNS port
 	DNSPort string `json:"PLANET_DNS_PORT"`
-}
-
-type packageRotator interface {
-	RotateSecrets(ops.RotateSecretsRequest) (*ops.RotatePackageResponse, error)
-	RotatePlanetConfig(ops.RotatePlanetConfigRequest) (*ops.RotatePackageResponse, error)
-	RotateTeleportConfig(ops.RotateTeleportConfigRequest) (*ops.RotatePackageResponse, *ops.RotatePackageResponse, error)
 }

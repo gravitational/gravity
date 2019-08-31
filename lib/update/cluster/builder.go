@@ -28,6 +28,7 @@ import (
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/update"
+	"github.com/gravitational/gravity/lib/update/cluster/internal/intermediate"
 	libphase "github.com/gravitational/gravity/lib/update/cluster/phases"
 
 	"github.com/coreos/go-semver/semver"
@@ -44,7 +45,7 @@ func (r phaseBuilder) init() *update.Phase {
 			ExecServer:       &r.leadMaster.Server,
 			InstalledPackage: &r.installedApp.Package,
 			Update: &storage.UpdateOperationData{
-				Servers: r.servers,
+				Servers: r.targetStep.servers,
 			},
 		},
 	})
@@ -65,20 +66,52 @@ func (r phaseBuilder) checks() *update.Phase {
 	return &phase
 }
 
-func (r phaseBuilder) bootstrap(server storage.UpdateServer) update.Phase {
-	return update.Phase{
+func (r phaseBuilder) bootstrapVersioned(version semver.Version, gravityPackage loc.Locator, servers []storage.UpdateServer) *update.Phase {
+	root := update.RootPhase(update.Phase{
 		ID:          "bootstrap",
-		Executor:    updateBootstrap,
-		Description: fmt.Sprintf("Bootstrap node %q", server.Hostname),
-		Data: &storage.OperationPhaseData{
-			ExecServer:       &server.Server,
-			Package:          &r.updateApp.Package,
-			InstalledPackage: &r.installedApp.Package,
-			Update: &storage.UpdateOperationData{
-				Servers: []storage.UpdateServer{server},
+		Description: "Bootstrap update operation on nodes",
+	})
+	for i, server := range servers {
+		root.AddParallel(update.Phase{
+			ID:          root.ChildLiteral(server.Hostname),
+			Executor:    updateBootstrap,
+			Description: fmt.Sprintf("Bootstrap node %q", server.Hostname),
+			Data: &storage.OperationPhaseData{
+				ExecServer:       &servers[i].Server,
+				Package:          &r.updateApp.Package,
+				InstalledPackage: &r.installedApp.Package,
+				Update: &storage.UpdateOperationData{
+					Servers:        []storage.UpdateServer{server},
+					Version:        &version,
+					GravityPackage: &gravityPackage,
+				},
 			},
-		},
+		})
 	}
+	return &root
+}
+
+func (r phaseBuilder) bootstrap() *update.Phase {
+	root := update.RootPhase(update.Phase{
+		ID:          "bootstrap",
+		Description: "Bootstrap update operation on nodes",
+	})
+	for i, server := range r.targetStep.servers {
+		root.AddParallel(update.Phase{
+			ID:          root.ChildLiteral(server.Hostname),
+			Executor:    updateBootstrap,
+			Description: fmt.Sprintf("Bootstrap node %q", server.Hostname),
+			Data: &storage.OperationPhaseData{
+				ExecServer:       &r.targetStep.servers[i].Server,
+				Package:          &r.updateApp.Package,
+				InstalledPackage: &r.installedApp.Package,
+				Update: &storage.UpdateOperationData{
+					Servers: []storage.UpdateServer{server},
+				},
+			},
+		})
+	}
+	return &root
 }
 
 func (r phaseBuilder) preUpdate() *update.Phase {
@@ -240,7 +273,8 @@ func (r phaseBuilder) masters(leadMaster storage.UpdateServer, otherMasters []st
 
 func (r phaseBuilder) mastersInternal(leadMaster storage.UpdateServer, otherMasters []storage.UpdateServer, root *update.Phase, changesetID string) *update.Phase {
 	node := r.node(leadMaster.Server, root, "Update system software on master node %q")
-	node.Add(r.bootstrap(leadMaster))
+	// FIXME: remove me
+	// node.Add(r.bootstrap(leadMaster))
 	if len(otherMasters) != 0 {
 		node.AddSequential(update.Phase{
 			ID:          "kubelet-permissions",
@@ -267,7 +301,8 @@ func (r phaseBuilder) mastersInternal(leadMaster storage.UpdateServer, otherMast
 
 	for i, server := range otherMasters {
 		node = r.node(server.Server, root, "Update system software on master node %q")
-		node.Add(r.bootstrap(server))
+		// FIXME: remove me
+		// node.Add(r.bootstrap(server))
 		node.AddSequential(r.commonNode(otherMasters[i], &leadMaster.Server, waitsForEndpoints(true), changesetID)...)
 		// election - enable election on the upgraded node
 		node.AddSequential(setLeaderElection(enable(server), disable(), server.Server, "enable", "Enable leader election on node %q"))
@@ -287,7 +322,8 @@ func (r phaseBuilder) nodes(leadMaster storage.UpdateServer, nodes []storage.Upd
 func (r phaseBuilder) nodesInternal(leadMaster storage.UpdateServer, nodes []storage.UpdateServer, root *update.Phase, changesetID string) *update.Phase {
 	for i, server := range nodes {
 		node := r.node(server.Server, root, "Update system software on node %q")
-		node.Add(r.bootstrap(server))
+		// FIXME: remove me
+		// node.Add(r.bootstrap(server))
 		node.AddSequential(r.commonNode(nodes[i], &leadMaster.Server, waitsForEndpoints(true), changesetID)...)
 		root.AddParallel(node)
 	}
@@ -599,11 +635,11 @@ func (r phaseBuilder) cleanup() update.Phase {
 		Description: "Run cleanup tasks",
 	})
 
-	for i := range r.servers {
-		node := r.node(r.servers[i].Server, &root, "Clean up node %q")
+	for i := range r.targetStep.servers {
+		node := r.node(r.targetStep.servers[i].Server, &root, "Clean up node %q")
 		node.Executor = cleanupNode
 		node.Data = &storage.OperationPhaseData{
-			Server: &r.servers[i].Server,
+			Server: &r.targetStep.servers[i].Server,
 		}
 		root.AddParallel(node)
 	}
@@ -618,18 +654,12 @@ func (r phaseBuilder) newPlan(root update.Phase) *storage.OperationPlan {
 }
 
 type phaseBuilder struct {
-	operator packageRotator
+	operator intermediate.PackageRotator
 	// planTemplate specifies the plan to bootstrap the resulting operation plan
 	planTemplate storage.OperationPlan
 	// operation is the operation to generate the plan for
 	operation ops.SiteOperation
-	// FIXME: have master, nodes split instead
-	// servers is a list of servers from cluster state
-	// servers []storage.Server
-	// servers lists cluster server augmented with update requirements
-	servers []storage.UpdateServer
-	// leader refers to the master server running the update operation
-	// leadMaster storage.UpdateServer
+	// leadMaster refers to the master server running the update operation
 	leadMaster storage.UpdateServer
 	// installedTeleport specifies the version of the currently installed teleport
 	installedTeleport loc.Locator
@@ -658,22 +688,14 @@ type phaseBuilder struct {
 	// installedDocker specifies the Docker configuration of the installed
 	// cluster
 	installedDocker storage.DockerConfig
-
 	// supportsTaints specifies whether taints are supported by the cluster
 	supportsTaints bool
-
-	// FIXME: intermediate steps + final step
-	// This will be done dynamically
-	// // updateCoreDNS indicates whether we need to run coreDNS phase
-	// updateCoreDNS bool
-	// // installedTeleport identifies installed teleport package
-	// installedTeleport loc.Locator
-	// // updateTeleport specifies the version of teleport to update to
-	// updateTeleport loc.Locator
-	// // runtimeUpdates lists the runtime application updates
-	// runtimeUpdates []loc.Locator
-	// // changesetID specifies the ID to assign the final system update step
-	// changesetID string
+	// serviceUser defines the service user on the cluster
+	serviceUser storage.OSUser
+	// steps lists additional intermediate runtime update steps
+	steps []intermediateUpdateStep
+	// targetStep defines the final runtime update step
+	targetStep targetUpdateStep
 }
 
 // supportsTaints determines whether the cluster supports node taints

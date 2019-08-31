@@ -802,12 +802,18 @@ func (r ConfigureNodeRequest) SiteKey() SiteKey {
 	}
 }
 
+// Check validates this request
+func (r RotateSecretsRequest) Check() error {
+	if err := r.Key.Check(); err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
 // RotateSecretsRequest is a request to rotate server's secrets package
 type RotateSecretsRequest struct {
-	// AccountID is the account id of the local cluster
-	AccountID string `json:"account_id"`
-	// ClusterName is the local cluster name
-	ClusterName string `json:"cluster_name"`
+	// Key identifies the cluster
+	Key SiteKey `json:"key"`
 	// Server is the server to rotate secrets for
 	Server storage.Server `json:"server"`
 	// Locator specifies the secrets package locator to use.
@@ -815,14 +821,6 @@ type RotateSecretsRequest struct {
 	Locator *loc.Locator `json:"locator,omitempty"`
 	// DryRun specifies whether only the package locator is generated
 	DryRun bool `json:"dry_run"`
-}
-
-// SiteKey returns a cluster key from this request
-func (r RotateSecretsRequest) SiteKey() SiteKey {
-	return SiteKey{
-		AccountID:  r.AccountID,
-		SiteDomain: r.ClusterName,
-	}
 }
 
 // Check validates this request

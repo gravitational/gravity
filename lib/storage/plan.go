@@ -24,6 +24,7 @@ import (
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/coreos/go-semver/semver"
 	"github.com/gravitational/trace"
 )
 
@@ -154,6 +155,13 @@ type UpdateOperationData struct {
 	// The ID should be unique within a given update operation as there might be
 	// multiple system update steps necessary
 	ChangesetID string `json:"changeset_id,omitempty"`
+	// Version specifies the version of the runtime application
+	// this step applies to
+	// FIXME: can this not be just a string?
+	Version *semver.Version `json:"version,omitempty"`
+	// GravityPackage specifies the optional gravity package
+	// to call into for rotating secrets/configuration packages
+	GravityPackage *loc.Locator `json:"gravity_package,omitempty"`
 }
 
 // CoreDNSOperationData describes configuration specific to CoreDNS update step

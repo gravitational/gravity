@@ -550,11 +550,21 @@ func ConfigLabels(loc loc.Locator, purpose string) map[string]string {
 // Labels is a set of labels
 type Labels map[string]string
 
-// HasPurpose returns true if these labels contain the purpose label for any of the given values
+// HasPurpose returns true if this labels map contains the purpose label for any of the given values
 func (r Labels) HasPurpose(values ...string) bool {
 	for _, value := range values {
 		purpose, ok := r[PurposeLabel]
 		if ok && purpose == value {
+			return true
+		}
+	}
+	return false
+}
+
+// Has returns true if this labels map contains the specified keys
+func (r Labels) Has(keys ...string) bool {
+	for _, key := range keys {
+		if _, ok := r[key]; ok {
 			return true
 		}
 	}

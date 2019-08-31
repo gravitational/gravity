@@ -47,7 +47,7 @@ func (o *Operator) RotateSecrets(req ops.RotateSecretsRequest) (resp *ops.Rotate
 		},
 	}
 
-	cluster, err := o.openSite(req.SiteKey())
+	cluster, err := o.openSite(req.Key)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -64,7 +64,7 @@ func (o *Operator) RotateSecrets(req ops.RotateSecretsRequest) (resp *ops.Rotate
 		return &ops.RotatePackageResponse{Locator: *secretsPackage}, nil
 	}
 
-	op, err := ops.GetCompletedInstallOperation(req.SiteKey(), o)
+	op, err := ops.GetCompletedInstallOperation(req.Key, o)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

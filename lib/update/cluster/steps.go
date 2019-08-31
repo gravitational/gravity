@@ -1,15 +1,14 @@
 package cluster
 
 import (
-	"bytes"
 	"context"
 	"io"
-	"os/exec"
+	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 
 	libapp "github.com/gravitational/gravity/lib/app"
-	"github.com/gravitational/gravity/lib/checks"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
@@ -17,9 +16,9 @@ import (
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
-	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
 	libupdate "github.com/gravitational/gravity/lib/update"
+	"github.com/gravitational/gravity/lib/update/cluster/internal/intermediate"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/coreos/go-semver/semver"
@@ -27,45 +26,53 @@ import (
 	"github.com/pborman/uuid"
 )
 
-func (r phaseBuilder) collectSteps() (steps []updateStepper, err error) {
-	result := make(map[string]*intermediateUpdateStep)
+func (r phaseBuilder) collectSteps(ctx context.Context) (updates []intermediateUpdateStep, err error) {
+	result := make(map[string]intermediateUpdateStep)
 	err = pack.ForeachPackage(r.packages, func(env pack.PackageEnvelope) error {
 		labels := pack.Labels(env.RuntimeLabels)
-		if !labels.HasPurpose(pack.PurposeRuntimeUpgrade) {
+		if !labels.Has(pack.PurposeRuntimeUpgrade) {
 			return nil
 		}
 		version := labels[pack.PurposeRuntimeUpgrade]
-		if result[version] == nil {
+		step, ok := result[version]
+		if !ok {
 			v, err := semver.NewVersion(version)
 			if err != nil {
 				return trace.Wrap(err, "invalid semver: %q", version)
 			}
 			result[version] = newIntermediateUpdateStep(*v)
 		}
-		result[version].fromPackage(env, r.apps)
+		step.fromPackage(env, r.apps)
+		result[version] = step
 		return nil
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	updates := make([]*intermediateUpdateStep, 0, len(result))
+	updates = make([]intermediateUpdateStep, 0, len(result))
 	prevRuntimeApp := r.installedRuntimeApp
 	prevTeleport := r.installedTeleport
+	prevRuntimeFunc := getRuntimePackageFromManifest(r.installedApp.Manifest)
 	for version, update := range result {
-		result[version].etcd, err = shouldUpdateEtcd(prevRuntimeApp, update.runtimeApp, r.packages)
+		update.etcd, err = shouldUpdateEtcd(prevRuntimeApp, update.runtimeApp, r.packages)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
-		// FIXME: factor me out
-		operator, err := newPackageRotatorForVersion(version, r.operation.ID)
+		result[version] = update
+		path, err := intermediate.GravityPathForVersion(version)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
-		serverUpdates, err := r.configUpdates(
-			r.installedApp.Manifest, r.updateApp.Manifest,
+		err = r.exportGravityBinary(ctx, update.gravity, path)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		operator := intermediate.NewPackageRotatorForPath(path, r.operation.ID)
+		serverUpdates, err := r.intermediateConfigUpdates(
+			r.installedApp.Manifest,
+			prevRuntimeFunc, update.runtime,
 			prevTeleport, update.teleport,
-			r.installedDocker,
-			operator)
+			r.installedDocker, operator)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
@@ -74,58 +81,34 @@ func (r phaseBuilder) collectSteps() (steps []updateStepper, err error) {
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
-		// FIXME: end-of-factor me out
 		updates = append(updates, update)
-		err = exportGravityBinary(context.Background(), r.packages, update.gravity, operator.path)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
 		prevRuntimeApp = update.runtimeApp
 		if update.teleport != nil {
 			prevTeleport = *update.teleport
 		}
+		prevRuntimeFunc = getRuntimePackageStatic(update.runtime)
 	}
 	sort.Sort(updatesByVersion(updates))
-	// Add target update step
-	serverUpdates, err := r.configUpdates(
-		r.installedApp.Manifest, r.updateApp.Manifest,
-		prevTeleport, &r.updateTeleport,
-		checks.DockerConfigFromSchemaValue(r.updateApp.Manifest.SystemDocker()),
-		r.operator)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	runtimeUpdates, err := runtimeUpdates(r.installedRuntimeApp, r.updateRuntimeApp, r.updateApp)
-	steps = make([]updateStepper, 0, len(updates)+1)
-	for _, update := range updates {
-		steps = append(steps, *update)
-	}
-	steps = append(steps, r.newTargetUpdateStep(serverUpdates, runtimeUpdates))
-	return steps, nil
+	return updates, nil
 }
 
-// configUpdates computes the configuration updates for a specific update step
-func (r phaseBuilder) configUpdates(
-	installed, update schema.Manifest,
+// intermediateConfigUpdates computes the configuration updates for a specific update step
+func (r phaseBuilder) intermediateConfigUpdates(
+	installed schema.Manifest,
+	installedRuntimeFunc runtimePackageGetterFunc, updateRuntime loc.Locator,
 	installedTeleport loc.Locator, updateTeleport *loc.Locator,
-	updateDocker storage.DockerConfig,
-	operator packageRotator,
+	installedDocker storage.DockerConfig,
+	operator intermediate.PackageRotator,
 ) (updates []storage.UpdateServer, err error) {
 	for _, server := range r.planTemplate.Servers {
-		installedRuntime, err := getRuntimePackage(installed, server.Role,
-			schema.ServiceRole(server.ClusterRole))
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-		updateRuntime, err := update.RuntimePackageForProfile(server.Role)
+		installedRuntime, err := installedRuntimeFunc(server)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
 		secretsUpdate, err := operator.RotateSecrets(ops.RotateSecretsRequest{
-			AccountID:   r.planTemplate.AccountID,
-			ClusterName: r.planTemplate.ClusterName,
-			Server:      server,
-			DryRun:      true,
+			Key:    fsm.ClusterKey(r.planTemplate),
+			Server: server,
+			DryRun: true,
 		})
 		if err != nil {
 			return nil, trace.Wrap(err)
@@ -140,29 +123,27 @@ func (r phaseBuilder) configUpdates(
 				Installed: installedTeleport,
 			},
 			Docker: storage.DockerUpdate{
-				// Docker configuration is only updated at the final
-				// update step
 				Installed: r.installedDocker,
-				Update:    updateDocker,
+				Update:    installedDocker,
 			},
 		}
 		configUpdate, err := operator.RotatePlanetConfig(ops.RotatePlanetConfigRequest{
 			Key:            r.operation.Key(),
 			Server:         server,
-			Manifest:       r.installedApp.Manifest,
-			RuntimePackage: *updateRuntime,
+			Manifest:       installed,
+			RuntimePackage: updateRuntime,
 			DryRun:         true,
 		})
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
 		updateServer.Runtime.Update = &storage.RuntimeUpdate{
-			Package:       *updateRuntime,
+			Package:       updateRuntime,
 			ConfigPackage: configUpdate.Locator,
 		}
 		if updateTeleport != nil {
 			_, nodeConfig, err := operator.RotateTeleportConfig(ops.RotateTeleportConfigRequest{
-				Key:    fsm.OperationKey(r.planTemplate),
+				Key:    r.operation.Key(),
 				Server: server,
 				DryRun: true,
 			})
@@ -183,10 +164,10 @@ func (r updatesByVersion) Len() int           { return len(r) }
 func (r updatesByVersion) Swap(i, j int)      { r[i], r[j] = r[j], r[i] }
 func (r updatesByVersion) Less(i, j int) bool { return r[i].version.Compare(r[j].version) < 0 }
 
-type updatesByVersion []*intermediateUpdateStep
+type updatesByVersion []intermediateUpdateStep
 
-func newIntermediateUpdateStep(version semver.Version) *intermediateUpdateStep {
-	return &intermediateUpdateStep{
+func newIntermediateUpdateStep(version semver.Version) intermediateUpdateStep {
+	return intermediateUpdateStep{
 		updateStep: newUpdateStep(),
 		version:    version,
 	}
@@ -221,7 +202,7 @@ func (r intermediateUpdateStep) addTo(builder phaseBuilder, depends ...libupdate
 		ID: r.version.String(),
 	}).Require(depends...)
 	root.AddSequential(
-		*builder.bootstrapVersioned(r.version),
+		*builder.bootstrapVersioned(r.version, r.gravity, r.servers),
 	)
 	r.updateStep.addTo(root, builder)
 	return *root
@@ -248,9 +229,9 @@ func (r targetUpdateStep) addTo(builder phaseBuilder, depends ...libupdate.Phase
 	return *root
 }
 
-func (r phaseBuilder) newTargetUpdateStep(servers []storage.UpdateServer, runtimeUpdates []loc.Locator) targetUpdateStep {
+func newTargetUpdateStep(updates []storage.UpdateServer, runtimeUpdates []loc.Locator) targetUpdateStep {
 	step := newUpdateStep()
-	step.servers = servers
+	step.servers = updates
 	step.runtimeUpdates = runtimeUpdates
 	return targetUpdateStep{
 		updateStep: step,
@@ -317,7 +298,8 @@ type updateStep struct {
 	etcd *etcdVersion
 	// servers lists the server updates for this step
 	servers []storage.UpdateServer
-	// runtimeUpdates lists updates to runtime applications
+	// runtimeUpdates lists updates to runtime applications in proper
+	// order (i.e. with RBAC application in front)
 	runtimeUpdates []loc.Locator
 }
 
@@ -325,105 +307,47 @@ type etcdVersion struct {
 	installed, update string
 }
 
-type updateStepper interface {
-	addTo(builder phaseBuilder, requires ...libupdate.PhaseIder) (root libupdate.Phase)
+func getRuntimePackageFromManifest(m schema.Manifest) runtimePackageGetterFunc {
+	return func(server storage.Server) (*loc.Locator, error) {
+		loc, err := schema.GetRuntimePackage(m, server.Role,
+			schema.ServiceRole(server.ClusterRole))
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		return loc, nil
+	}
 }
 
-func (r gravityPackageRotator) RotateSecrets(req ops.RotateSecretsRequest) (*ops.RotatePackageResponse, error) {
-	args := []string{
-		"update", "rotate-secrets",
-		"--server-addr", req.Server.AdvertiseIP,
-		"--id", r.operationID,
+func getRuntimePackageStatic(runtimePackage loc.Locator) runtimePackageGetterFunc {
+	return func(storage.Server) (*loc.Locator, error) {
+		return &runtimePackage, nil
 	}
-	// FIXME: Locator->Package
-	if req.Locator != nil {
-		args = append(args, "--package", req.Locator.String())
-	}
-	return r.exec(args...)
 }
 
-func (r gravityPackageRotator) RotatePlanetConfig(req ops.RotatePlanetConfigRequest) (*ops.RotatePackageResponse, error) {
-	args := []string{
-		"update", "rotate-planet-config",
-		"--runtime-package", req.RuntimePackage.String(),
-		"--server-addr", req.Server.AdvertiseIP,
-		"--id", r.operationID,
-	}
-	// FIXME: Locator->Package
-	if req.Locator != nil {
-		args = append(args, "--package", req.Locator.String())
-	}
-	return r.exec(args...)
-}
+// runtimePackageGetterFunc returns the runtime package for the specified server
+type runtimePackageGetterFunc func(storage.Server) (*loc.Locator, error)
 
-func (r gravityPackageRotator) RotateTeleportConfig(req ops.RotateTeleportConfigRequest) (*ops.RotatePackageResponse, *ops.RotatePackageResponse, error) {
-	args := []string{
-		"update", "rotate-teleport-config",
-		"--server-addr", req.Server.AdvertiseIP,
-		"--id", r.operationID,
+func (r phaseBuilder) exportGravityBinary(ctx context.Context, loc loc.Locator, path string) error {
+	if err := os.MkdirAll(filepath.Dir(path), defaults.SharedDirMask); err != nil {
+		return trace.Wrap(trace.ConvertSystemError(err),
+			"failed to create directory for export at %v", filepath.Dir(path))
 	}
-	// FIXME: Node->NodePackage
-	if req.Node != nil {
-		args = append(args, "--package", req.Node.String())
-	}
-	resp, err := r.exec(args...)
-	if err != nil {
-		return nil, nil, trace.Wrap(err)
-	}
-	return resp, nil, nil
-}
-
-func (r gravityPackageRotator) exec(args ...string) (resp *ops.RotatePackageResponse, err error) {
-	cmd := exec.Command(r.path, args...)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	out = bytes.TrimSpace(out)
-	resp = &ops.RotatePackageResponse{}
-	if len(out) == 0 {
-		return resp, nil
-	}
-	loc, err := loc.ParseLocator(string(out))
-	if err != nil {
-		return nil, trace.Wrap(err, "failed to interpret %q as package locator", out)
-	}
-	resp.Locator = *loc
-	return resp, nil
-}
-
-func newPackageRotatorForVersion(version, operationID string) (*gravityPackageRotator, error) {
-	path, err := gravityPathForVersion(version)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return &gravityPackageRotator{
-		path:        path,
-		operationID: operationID,
-	}, nil
-}
-
-// gravityPackageRotator configures packages using a gravity binary
-type gravityPackageRotator struct {
-	// path specifies the path to the gravity binary
-	path string
-	// operationID specifies the ID of the active update operation
-	operationID string
-}
-
-func gravityPathForVersion(version string) (path string, err error) {
-	stateDir, err := state.GetStateDir()
-	if err != nil {
-		return "", trace.Wrap(err)
-	}
-	return filepath.Join(state.GravityUpdateDir(stateDir), version, constants.GravityBin), nil
-}
-
-func exportGravityBinary(ctx context.Context, packages pack.PackageService, loc loc.Locator, path string) error {
 	ctx, cancel := context.WithTimeout(ctx, defaults.TransientErrorTimeout)
 	defer cancel()
-	return utils.CopyWithRetries(ctx, path, func() (io.ReadCloser, error) {
-		_, rc, err := packages.ReadPackage(loc)
-		return rc, trace.Wrap(err)
-	}, defaults.SharedExecutableMask)
+	uid, err := strconv.Atoi(r.serviceUser.UID)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	gid, err := strconv.Atoi(r.serviceUser.GID)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return utils.CopyWithRetries(ctx, path,
+		func() (io.ReadCloser, error) {
+			_, rc, err := r.packages.ReadPackage(loc)
+			return rc, trace.Wrap(err)
+		},
+		utils.PermOption(defaults.SharedExecutableMask),
+		utils.OwnerOption(uid, gid),
+	)
 }

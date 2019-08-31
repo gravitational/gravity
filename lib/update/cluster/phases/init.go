@@ -33,7 +33,6 @@ import (
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
-	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 	"github.com/gravitational/gravity/lib/users"
 
 	"github.com/gravitational/trace"
@@ -41,8 +40,6 @@ import (
 )
 
 // updatePhaseInit is the update init phase which performs the following:
-//   - generate new secrets
-//   - generate new planet container configuration where necessary
 //   - verifies that the admin agent user exists
 //   - updates the cluster with service user details
 //   - cleans up state left from previous versions
@@ -70,10 +67,8 @@ type updatePhaseInit struct {
 	// installedApp references the installed application instance
 	installedApp app.Application
 	// existingDocker describes the existing Docker configuration
-	existingDocker        storage.DockerConfig
-	existingDNS           storage.DNSConfig
-	existingEnviron       map[string]string
-	existingClusterConfig []byte
+	existingDocker storage.DockerConfig
+	existingDNS    storage.DNSConfig
 }
 
 // NewUpdatePhaseInit creates a new update init phase executor
@@ -99,7 +94,7 @@ func NewUpdatePhaseInit(
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	operation, err := ops.GetLastUpdateOperation(cluster.Key(), operator)
+	operation, err := operator.GetSiteOperation(fsm.OperationKey(p.Plan))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -115,38 +110,24 @@ func NewUpdatePhaseInit(
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to query installed application")
 	}
-	env, err := operator.GetClusterEnvironmentVariables(operation.ClusterKey())
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	clusterConfig, err := operator.GetClusterConfiguration(operation.ClusterKey())
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	configBytes, err := clusterconfig.Marshal(clusterConfig)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
 
 	existingDocker := checks.DockerConfigFromSchemaValue(installedApp.Manifest.SystemDocker())
 	checks.OverrideDockerConfig(&existingDocker, installOperation.InstallExpand.Vars.System.Docker)
 
 	return &updatePhaseInit{
-		Backend:               backend,
-		LocalBackend:          localBackend,
-		Operator:              operator,
-		Packages:              packages,
-		Users:                 users,
-		Cluster:               *cluster,
-		Operation:             *operation,
-		Servers:               p.Phase.Data.Update.Servers,
-		FieldLogger:           logger,
-		updateManifest:        app.Manifest,
-		installedApp:          *installedApp,
-		existingDocker:        existingDocker,
-		existingDNS:           p.Plan.DNSConfig,
-		existingClusterConfig: configBytes,
-		existingEnviron:       env.GetKeyValues(),
+		Backend:        backend,
+		LocalBackend:   localBackend,
+		Operator:       operator,
+		Packages:       packages,
+		Users:          users,
+		Cluster:        *cluster,
+		Operation:      *operation,
+		Servers:        p.Phase.Data.Update.Servers,
+		FieldLogger:    logger,
+		updateManifest: app.Manifest,
+		installedApp:   *installedApp,
+		existingDocker: existingDocker,
+		existingDNS:    p.Plan.DNSConfig,
 	}, nil
 }
 
@@ -173,7 +154,7 @@ func (p *updatePhaseInit) Execute(context.Context) error {
 		return trace.Wrap(err, "failed to upsert service user")
 	}
 	if err := p.initRPCCredentials(); err != nil {
-		return trace.Wrap(err, "failed to update RPC credentials")
+		return trace.Wrap(err, "failed to init RPC credentials")
 	}
 	if err := p.updateClusterRoles(); err != nil {
 		return trace.Wrap(err, "failed to update RPC credentials")
@@ -184,22 +165,6 @@ func (p *updatePhaseInit) Execute(context.Context) error {
 	if err := p.updateDockerConfig(); err != nil {
 		return trace.Wrap(err, "failed to update Docker configuration")
 	}
-	// FIXME: move this into a separate per-version step
-	// for _, server := range p.Servers {
-	// 	if err := p.rotateSecrets(server); err != nil {
-	// 		return trace.Wrap(err, "failed to rotate secrets for %v", server)
-	// 	}
-	// 	if server.Runtime.Update != nil {
-	// 		if err := p.rotatePlanetConfig(server); err != nil {
-	// 			return trace.Wrap(err, "failed to rotate planet configuration for %v", server)
-	// 		}
-	// 	}
-	// 	if server.Teleport.Update != nil {
-	// 		if err := p.rotateTeleportConfig(server); err != nil {
-	// 			return trace.Wrap(err, "failed to rotate teleport configuration for %v", server)
-	// 		}
-	// 	}
-	// }
 	return nil
 }
 
@@ -336,82 +301,6 @@ func (p *updatePhaseInit) createAdminAgent() error {
 		return trace.Wrap(err)
 	}
 	return nil
-}
-
-func (p *updatePhaseInit) rotateSecrets(server storage.UpdateServer) error {
-	p.Infof("Generate new secrets configuration package for %v.", server)
-	resp, err := p.Operator.RotateSecrets(ops.RotateSecretsRequest{
-		AccountID:   p.Operation.AccountID,
-		ClusterName: p.Operation.SiteDomain,
-		Locator:     server.Runtime.SecretsPackage,
-		Server:      server.Server,
-	})
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	_, err = p.Packages.CreatePackage(resp.Locator, resp.Reader, pack.WithLabels(resp.Labels))
-	if err != nil && !trace.IsAlreadyExists(err) {
-		return trace.Wrap(err)
-	}
-	p.Debugf("Rotated secrets package for %v: %v.", server, resp.Locator)
-	return nil
-}
-
-func (p *updatePhaseInit) rotatePlanetConfig(server storage.UpdateServer) error {
-	p.Infof("Generate new runtime configuration package for %v.", server)
-	resp, err := p.Operator.RotatePlanetConfig(ops.RotatePlanetConfigRequest{
-		Key:            p.Operation.Key(),
-		Server:         server.Server,
-		Manifest:       p.updateManifest,
-		RuntimePackage: server.Runtime.Update.Package,
-		Locator:        &server.Runtime.Update.ConfigPackage,
-		Config:         p.existingClusterConfig,
-		Env:            p.existingEnviron,
-	})
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	_, err = p.Packages.UpsertPackage(resp.Locator, resp.Reader,
-		pack.WithLabels(resp.Labels))
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	p.Infof("Generated new runtime configuration package for %v: %v.", server, resp.Locator)
-	return nil
-}
-
-func (p *updatePhaseInit) rotateTeleportConfig(server storage.UpdateServer) error {
-	masterConf, nodeConf, err := p.Operator.RotateTeleportConfig(ops.RotateTeleportConfigRequest{
-		Key:       p.Operation.Key(),
-		Server:    server.Server,
-		Node:      &server.Teleport.Update.NodeConfigPackage,
-		MasterIPs: masterIPs(p.Servers),
-	})
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	if masterConf != nil {
-		_, err = p.Packages.UpsertPackage(masterConf.Locator, masterConf.Reader, pack.WithLabels(masterConf.Labels))
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		p.Debugf("Rotated teleport master config package for %v: %v.", server, masterConf.Locator)
-	}
-	_, err = p.Packages.UpsertPackage(nodeConf.Locator, nodeConf.Reader, pack.WithLabels(nodeConf.Labels))
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	p.Debugf("Rotated teleport node config package for %v: %v.", server, nodeConf.Locator)
-	return nil
-}
-
-func masterIPs(servers []storage.UpdateServer) (addrs []string) {
-	for _, server := range servers {
-		if server.IsMaster() {
-			addrs = append(addrs, server.AdvertiseIP)
-		}
-	}
-	return addrs
 }
 
 func removeLegacyUpdateDirectory(log log.FieldLogger) error {

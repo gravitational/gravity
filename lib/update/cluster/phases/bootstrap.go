@@ -21,6 +21,7 @@ import (
 	"io"
 	"path/filepath"
 
+	"github.com/gravitational/gravity/lib/app"
 	libapp "github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
@@ -28,8 +29,11 @@ import (
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
+	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/storage/clusterconfig"
+	"github.com/gravitational/gravity/lib/update/cluster/internal/intermediate"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
@@ -60,10 +64,10 @@ type updatePhaseBootstrap struct {
 	// HostLocalBackend is the host-local state backend used to persist global settings
 	// like DNS configuration, logins etc.
 	HostLocalBackend storage.Backend
-	// GravityPath is the path to the new gravity binary
-	GravityPath string
 	// GravityPackage specifies the new gravity package
 	GravityPackage loc.Locator
+	// GravityPath is the path to the new gravity binary
+	GravityPath string
 	// Server specifies the bootstrap target
 	Server storage.UpdateServer
 	// ServiceUser is the user used for services and system storage
@@ -73,12 +77,22 @@ type updatePhaseBootstrap struct {
 	// ExecutorParams stores the phase parameters
 	fsm.ExecutorParams
 	remote fsm.Remote
+	// packageRotator specifies the configuration package rotator
+	packageRotator intermediate.PackageRotator
+	// updateManifest specifies the manifest of the update application
+	updateManifest        schema.Manifest
+	clusterDNSConfig      storage.DNSConfig
+	existingEnviron       map[string]string
+	existingClusterConfig []byte
+	// masterIPs lists addresses of all master nodes in the cluster
+	masterIPs []string
 }
 
 // NewUpdatePhaseBootstrap creates a new bootstrap phase executor
 func NewUpdatePhaseBootstrap(
 	p fsm.ExecutorParams,
 	operator ops.Operator,
+	apps app.Applications,
 	backend, localBackend, hostLocalBackend storage.Backend,
 	localPackages, packages pack.PackageService,
 	remote fsm.Remote,
@@ -95,29 +109,64 @@ func NewUpdatePhaseBootstrap(
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	operation, err := ops.GetLastUpdateOperation(cluster.Key(), operator)
+	operation, err := operator.GetSiteOperation(fsm.OperationKey(p.Plan))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	gravityPath, err := getGravityPath()
+	app, err := apps.GetApp(*p.Phase.Data.Package)
+	if err != nil {
+		return nil, trace.Wrap(err, "failed to query application")
+	}
+	env, err := operator.GetClusterEnvironmentVariables(operation.ClusterKey())
 	if err != nil {
 		return nil, trace.Wrap(err)
+	}
+	clusterConfig, err := operator.GetClusterConfiguration(operation.ClusterKey())
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	configBytes, err := clusterconfig.Marshal(clusterConfig)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	var packageRotator intermediate.PackageRotator = operator
+	gravityPackage := p.Phase.Data.Update.GravityPackage
+	var gravityPath string
+	if gravityPackage == nil {
+		gravityPackage = &p.Plan.GravityPackage
+		gravityPath, err = getGravityPath()
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+	} else {
+		gravityPath, err = intermediate.GravityPathForVersion(p.Phase.Data.Update.Version.String())
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		packageRotator = intermediate.NewPackageRotatorForPath(
+			gravityPath, p.Plan.OperationID)
 	}
 	return &updatePhaseBootstrap{
-		Operator:         operator,
-		Backend:          backend,
-		LocalBackend:     localBackend,
-		HostLocalBackend: hostLocalBackend,
-		LocalPackages:    localPackages,
-		Packages:         packages,
-		Server:           server,
-		Operation:        *operation,
-		GravityPath:      gravityPath,
-		GravityPackage:   p.Plan.GravityPackage,
-		ServiceUser:      cluster.ServiceUser,
-		FieldLogger:      logger,
-		ExecutorParams:   p,
-		remote:           remote,
+		Operator:              operator,
+		Backend:               backend,
+		LocalBackend:          localBackend,
+		HostLocalBackend:      hostLocalBackend,
+		LocalPackages:         localPackages,
+		Packages:              packages,
+		Server:                server,
+		Operation:             *operation,
+		GravityPackage:        *gravityPackage,
+		GravityPath:           gravityPath,
+		ServiceUser:           cluster.ServiceUser,
+		FieldLogger:           logger,
+		ExecutorParams:        p,
+		remote:                remote,
+		packageRotator:        packageRotator,
+		clusterDNSConfig:      cluster.DNSConfig,
+		updateManifest:        app.Manifest,
+		existingClusterConfig: configBytes,
+		existingEnviron:       env.GetKeyValues(),
+		masterIPs:             masterIPs(p.Plan.Servers),
 	}, nil
 }
 
@@ -142,6 +191,10 @@ func (p *updatePhaseBootstrap) Execute(ctx context.Context) error {
 	exportCtx, cancel := context.WithTimeout(ctx, defaults.TransientErrorTimeout)
 	defer cancel()
 	err = p.exportGravity(exportCtx)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = p.rotateConfigAndSecrets()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -190,25 +243,20 @@ func (p *updatePhaseBootstrap) configureNode() error {
 func (p *updatePhaseBootstrap) exportGravity(ctx context.Context) error {
 	p.Infof("Export gravity binary to %v.", p.GravityPath)
 	err := utils.CopyWithRetries(ctx, p.GravityPath, func() (io.ReadCloser, error) {
-		_, rc, err := p.Packages.ReadPackage(p.Plan.GravityPackage)
+		_, rc, err := p.Packages.ReadPackage(p.GravityPackage)
 		return rc, trace.Wrap(err)
-	}, defaults.SharedExecutableMask)
+	}, utils.PermOption(defaults.SharedExecutableMask))
 	return trace.Wrap(err)
 }
 
 // updateDNSConfig persists the DNS configuration in the local backend if it has not been set
 func (p *updatePhaseBootstrap) updateDNSConfig() error {
-	cluster, err := p.Operator.GetLocalSite()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
 	dnsConfig := storage.LegacyDNSConfig
-	if !cluster.DNSConfig.IsEmpty() {
-		dnsConfig = cluster.DNSConfig
+	if !p.clusterDNSConfig.IsEmpty() {
+		dnsConfig = p.clusterDNSConfig
 	}
 
-	err = p.HostLocalBackend.SetDNSConfig(dnsConfig)
+	err := p.HostLocalBackend.SetDNSConfig(dnsConfig)
 	p.Infof("Update cluster DNS configuration as %v.", dnsConfig)
 	if err != nil {
 		return trace.Wrap(err)
@@ -358,7 +406,8 @@ func getGravityPath() (string, error) {
 		return "", trace.Wrap(err)
 	}
 	return filepath.Join(
-		stateDir, "site", "update", constants.GravityBin), nil
+		state.GravityUpdateDir(stateDir),
+		constants.GravityBin), nil
 }
 
 func withVersion(filter loc.Locator, version string) loc.Locator {
@@ -443,4 +492,96 @@ func updateTeleportConfigLabels(packages pack.PackageService, clusterName string
 		Locator: *configPackage,
 		Add:     labels,
 	}}, nil
+}
+
+func (p *updatePhaseBootstrap) rotateConfigAndSecrets() error {
+	if err := p.rotateSecrets(p.Server); err != nil {
+		return trace.Wrap(err, "failed to rotate secrets for %v", p.Server)
+	}
+	if p.Server.Runtime.Update != nil {
+		if err := p.rotatePlanetConfig(p.Server); err != nil {
+			return trace.Wrap(err, "failed to rotate planet configuration for %v", p.Server)
+		}
+	}
+	if p.Server.Teleport.Update != nil {
+		if err := p.rotateTeleportConfig(p.Server); err != nil {
+			return trace.Wrap(err, "failed to rotate teleport configuration for %v", p.Server)
+		}
+	}
+	return nil
+}
+
+func (p *updatePhaseBootstrap) rotateSecrets(server storage.UpdateServer) error {
+	p.Infof("Generate new secrets configuration package for %v.", server)
+	resp, err := p.packageRotator.RotateSecrets(ops.RotateSecretsRequest{
+		Key:     p.Operation.ClusterKey(),
+		Locator: server.Runtime.SecretsPackage,
+		Server:  server.Server,
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	_, err = p.Packages.CreatePackage(resp.Locator, resp.Reader, pack.WithLabels(resp.Labels))
+	if err != nil && !trace.IsAlreadyExists(err) {
+		return trace.Wrap(err)
+	}
+	p.Debugf("Rotated secrets package for %v: %v.", server, resp.Locator)
+	return nil
+}
+
+func (p *updatePhaseBootstrap) rotatePlanetConfig(server storage.UpdateServer) error {
+	p.Infof("Generate new runtime configuration package for %v.", server)
+	resp, err := p.packageRotator.RotatePlanetConfig(ops.RotatePlanetConfigRequest{
+		Key:            p.Operation.Key(),
+		Server:         server.Server,
+		Manifest:       p.updateManifest,
+		RuntimePackage: server.Runtime.Update.Package,
+		Locator:        &server.Runtime.Update.ConfigPackage,
+		Config:         p.existingClusterConfig,
+		Env:            p.existingEnviron,
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	_, err = p.Packages.UpsertPackage(resp.Locator, resp.Reader,
+		pack.WithLabels(resp.Labels))
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	p.Infof("Generated new runtime configuration package for %v: %v.", server, resp.Locator)
+	return nil
+}
+
+func (p *updatePhaseBootstrap) rotateTeleportConfig(server storage.UpdateServer) error {
+	masterConf, nodeConf, err := p.packageRotator.RotateTeleportConfig(ops.RotateTeleportConfigRequest{
+		Key:       p.Operation.Key(),
+		Server:    server.Server,
+		Node:      &server.Teleport.Update.NodeConfigPackage,
+		MasterIPs: p.masterIPs,
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if masterConf != nil {
+		_, err = p.Packages.UpsertPackage(masterConf.Locator, masterConf.Reader, pack.WithLabels(masterConf.Labels))
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		p.Debugf("Rotated teleport master config package for %v: %v.", server, masterConf.Locator)
+	}
+	_, err = p.Packages.UpsertPackage(nodeConf.Locator, nodeConf.Reader, pack.WithLabels(nodeConf.Labels))
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	p.Debugf("Rotated teleport node config package for %v: %v.", server, nodeConf.Locator)
+	return nil
+}
+
+func masterIPs(servers []storage.Server) (addrs []string) {
+	for _, server := range servers {
+		if server.IsMaster() {
+			addrs = append(addrs, server.AdvertiseIP)
+		}
+	}
+	return addrs
 }
