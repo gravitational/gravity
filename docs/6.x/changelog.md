@@ -14,7 +14,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 | 5.4.10*       | No  | March 26th, 2019     | -                    | 1.13.5             | 2.4.10           |
 | 5.3.9*        | No  | March 7th, 2019      | -                    | 1.12.3             | 2.4.7            |
 | 5.2.14        | Yes | July 30th, 2019      | October 15th, 2019   | 1.11.9             | 2.4.10           |
-| 5.0.33        | Yes | April 24th, 2019     | April 13th, 2019     | 1.9.12-gravitational | 2.4.10         |
+| 5.0.35        | Yes | September 2nd, 2019  | April 13th, 2019     | 1.9.13-gravitational | 2.4.10         |
 | 4.68.0*       | Yes | January 17th, 2019   | November 16th, 2018  | 1.7.18-gravitational | 2.3.5          |
 | 3.64.0*       | Yes | December 21st, 2017  | June 2nd, 2018       | 1.5.7              | 2.0.6            |
 | 1.30.0*       | Yes | March 21st, 2017     | March 21st, 2018     | 1.3.8              | 1.2.0            |
@@ -210,6 +210,18 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 * Add support for using `helm` directly from host.
 
 ## 5.x Releases
+
+### 5.0.35 (September 2nd, 2019)
+
+#### Bugfixes
+
+* Upgrade golang to `v1.11.13` (CVE-2019-9512, CVE-2019-9514)
+* Upgrade Kubernetes to `v1.9.13-gravitational` (CVE-2019-9512, CVE-2019-9514).
+
+!!! warning
+    Gravitational has backported the fix for CVE-2019-9512 and CVE-2019-9514 to kubernetes version 1.9.13-gravitational.
+    This release fixes a security vulnerability in golang used by gravity and kubernetes. Please see
+    [Netflix Announcement](https://github.com/Netflix/security-bulletins/blob/master/advisories/third-party/2019-002.md) for more information.
 
 ### 5.6.7 (August 26th, 2019)
 
