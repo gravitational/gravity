@@ -104,12 +104,15 @@ if [ ! -z "$timesync_bus_name" ]; then
 fi
 ```
 
-## VMWare ESXi
+## VMWare ESXi VXLAN Port Conflict
 
-On virtual machines powered by VMWare ESXi (part of VMWare vSphere suite) port
-`8472` is used for VXLAN that encapsulates all VM-to-VM traffic which conflicts
-with the default VXLAN port used by Gravity and affects the cluster's overlay
-network.
+On virtual machines powered by VMWare ESXi (part of VMWare vSphere suite) of
+some versions port `8472` may be used for VXLAN that encapsulates all VM-to-VM
+traffic which conflicts with the default VXLAN port used by Gravity and affects
+the cluster's overlay network.
+
+See vSphere [port and protocol requirements](https://docs.vmware.com/en/VMware-NSX-Data-Center-for-vSphere/6.4/com.vmware.nsx.install.doc/GUID-E7C4E61C-1F36-457C-ACC5-EAF955C46E8B.html)
+for more information.
 
 To support such systems Gravity provides the ability to override the default
 VXLAN port at install time via a command-line flag:
