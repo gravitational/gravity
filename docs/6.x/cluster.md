@@ -4,12 +4,12 @@ Every Cluster created from a Gravity Cluster Image is a fully featured
 Kubernetes environment. It contains the following components:
 
 1. All user applications that have been packaged into the Cluster Image.
-2. All Kubernetes daemons like `kube-scheduler`, `kube-apiserver`, and others. 
+2. All Kubernetes daemons like `kube-scheduler`, `kube-apiserver`, and others.
 3. The Kubernetes CLI tool: `kubectl`.
 4. The Gravity Cluster "hypervisor", called `gravity`, for managing the Cluster.
 5. A web application to monitor and manage the Cluster state ("Control
 Panel")
-6. The Gravity Authentication Gateway for integrating Kubernetes authentication 
+6. The Gravity Authentication Gateway for integrating Kubernetes authentication
    and SSH access to Cluster nodes with corporate identity providers via SSO.
 
 You can also use familiar Kubernetes tools such as `kubectl` to perform regular
@@ -29,8 +29,8 @@ However, Gravity pre-configures Kubernetes to be as reliable as possible,
 greatly reducing the need for ongoing active management. To make this possible,
 the `gravity` hypervisor launches and manages all Kubernetes Linux daemons.
 
-When the `gravity` daemon starts, it creates its own "Master Container". The 
-Master Container itself is a containerized `systemd` instance. It launches the required Kubernetes daemons and contains their dependencies as well as monitoring and support tools. 
+When the `gravity` daemon starts, it creates its own "Master Container". The
+Master Container itself is a containerized `systemd` instance. It launches the required Kubernetes daemons and contains their dependencies as well as monitoring and support tools.
 
 Running Kubernetes services from inside the Master Container brings several
 advantages as opposed to installing Kubernetes components in a more traditional
@@ -254,23 +254,23 @@ hooks:
               app: myapp
 ```
 
-When the status hook fails, the Cluster transitions to a "degraded" state which is reflected in the Cluster web application by a red status indicator in the top bar. 
+When the status hook fails, the Cluster transitions to a "degraded" state which is reflected in the Cluster web application by a red status indicator in the top bar.
 Once the application recovers and the status hook completes successfully, the Cluster automatically moves back to a "healthy" state.
 
 ## Exploring a Cluster
 
-Any Gravity Cluster can be explored using the standard Kubernetes tool, `kubectl`, 
-which is installed and configured on every Cluster node. See the command's [overview](http://kubernetes.io/docs/user-guide/kubectl-overview/) and a 
+Any Gravity Cluster can be explored using the standard Kubernetes tool, `kubectl`,
+which is installed and configured on every Cluster node. See the command's [overview](http://kubernetes.io/docs/user-guide/kubectl-overview/) and a
 [full reference](https://kubernetes.io/docs/user-guide/kubectl/) to see what it can
 do, or simply use `kubectl --help`.
 
-Each Gravity Cluster also has a Cluster Control Panel web application to explore and 
-manage the Cluster. To log into the Cluster Control Panel you need to create an admin user. 
-Please see the [Custom Installer Screens](/pack/#/pack/#custom-installation-screen) 
+Each Gravity Cluster also has a Cluster Control Panel web application to explore and
+manage the Cluster. To log into the Cluster Control Panel you need to create an admin user.
+Please see the [Custom Installer Screens](/pack/#/pack/#custom-installation-screen)
 chapter for details on how to enable a post-install screen that will let you create a local user.
 
 If you are doing a CLI installation you will need to create a user resource in
-order to log into the Cluster Control Panel. See the 
+order to log into the Cluster Control Panel. See the
 [Configuring Cluster Access section](/config/#cluster-access) for more information.
 
 ## Updating a Cluster
@@ -300,7 +300,7 @@ the Gravity update process works:
    actions before or after the update, such as database migrations.
 
 An update can be triggered through Gravity Hub or from command line (CLI).
-The instructions below describe updating via the CLI. 
+The instructions below describe updating via the CLI.
 
 ### Uploading an Update
 
@@ -340,8 +340,8 @@ upgrade procedure.
 
 ### Performing an Upgrade
 
-An upgrade can be triggered either through Cluster Control Panel or using 
-command line. To trigger the upgrade from the Control Panel, select an appropriate 
+An upgrade can be triggered either through Cluster Control Panel or using
+command line. To trigger the upgrade from the Control Panel, select an appropriate
 version on the "Updates" tab click `Update`.
 
 To trigger the operation from the command line, copy the Cluster Image into one
@@ -361,7 +361,7 @@ drwxr-xr-x. 5 user user 4.0K Jan 14 09:08 packages
 -rwxr-xr-x. 1 user user  411 Jan 14 09:08 upload
 ```
 
-You can execute the `./upgrade` script to upload and upgrade in one go, 
+You can execute the `./upgrade` script to upload and upgrade in one go,
 or you can upload the update and then execute `gravity upgrade` command.
 
 Using `gravity upgrade` gives more Control over the upgrade procedure.
@@ -435,8 +435,8 @@ Some operations in a Gravity Cluster require cooperation from all Cluster nodes.
 Examples are installs, upgrades and garbage collection.
 Additionally, due to varying complexity and unforeseen conditions, these operations can and do fail in practice.
 
-To provide a foundation for coping with failures, the operations are built as 
-sets of smaller steps that can be re-executed or rolled back individually. 
+To provide a foundation for coping with failures, the operations are built as
+sets of smaller steps that can be re-executed or rolled back individually.
 This allows for an interactive fix and retry loop should any of the steps fail.
 
 Each operation starts with building an operational plan - a tree of actions to
@@ -522,22 +522,22 @@ An operation plan is effectively a tree of steps. Whenever you need to execute a
 $ sudo gravity plan execute --phase=/masters/node-1/drain
 ```
 
-Whole groups of steps can be executed if only the parent node's path has been 
-specified. For example, the following will execute all steps of the `/masters` 
+Whole groups of steps can be executed if only the parent node's path has been
+specified. For example, the following will execute all steps of the `/masters`
 node in the order listed:
 
 ```bash
 $ sudo gravity plan execute --phase=/masters
 ```
 
-Sometimes it is necessary to force execution of a particular step although it 
+Sometimes it is necessary to force execution of a particular step although it
 has already run. To do this, add the `--force` flag to the command line:
 
 ```bash
 $ sudo gravity plan execute --phase=/masters/node-1/drain --force
 ```
 
-If it is impossible to make progress with an operation due to an unforeseen 
+If it is impossible to make progress with an operation due to an unforeseen
 condition, the steps that have been executed to this point can be rolled back:
 
 ```bash
@@ -553,7 +553,7 @@ Note the reverse order of invocation. A group of steps can also be rolled back:
 $ sudo gravity plan rollback --phase=/masters
 ```
 
-Once all steps have been rolled back, the operation needs to be explicitly 
+Once all steps have been rolled back, the operation needs to be explicitly
 completed in order to mark it failed:
 
 ```bash
@@ -567,14 +567,14 @@ $ sudo gravity plan resume
 ```
 
 This will resume the operation at the last failed step and run it through to completion.
-In this case, there's no need to explicitly complete the operation afterwards. 
+In this case, there's no need to explicitly complete the operation afterwards.
 This is done automatically upon success.
 
 
 ## The Master Container
 
 As explained [above](#kubernetes-environment), Gravity runs Kubernetes inside a Master Container. The Master Container (also called "planet") makes sure that every single
-deployment of Gravity is the same and all nodes are identical to each other. The 
+deployment of Gravity is the same and all nodes are identical to each other. The
 Master Container includes all Kubernetes components and dependencies such as kube-apiserver, etcd and docker.
 
 To launch an interactive shell to get a system view of a Gravity Cluster, you
@@ -766,14 +766,14 @@ Flag | Description
 `--role` | _(Optional)_ Role of the joining node. Autodetected if not specified.
 `--state-dir` | _(Optional)_ Directory where all Gravity system data will be kept on this node. Defaults to `/var/lib/gravity`.
 
-Every node in a Cluster must have a role, defined in the Image Manifest. System 
-requirements can also be set for a role in the Image Manifest. 
+Every node in a Cluster must have a role, defined in the Image Manifest. System
+requirements can also be set for a role in the Image Manifest.
 Gravity will then check for the specified system requirements for the role before
 successfully adding a new node and return an error if the system requirements
-are not satisfied. 
+are not satisfied.
 
-As an example, Gravity can check to make sure nodes with a "database" role have 
-storage attached to them. 
+As an example, Gravity can check to make sure nodes with a "database" role have
+storage attached to them.
 
 **Adding a node via the Control Panel**
 ![Control Panel](/images/gravity-quickstart/gravity-adding-a-node.png)
@@ -786,8 +786,8 @@ A node can be removed by using the `gravity leave` or `gravity remove` commands.
 To decommission an active node from the Cluster while on a particular node
 run `gravity leave`.
 
-If successful, the `leave` command will output the ID of the initiated removal 
-operation. The operation progress can be monitored using the `gravity status` 
+If successful, the `leave` command will output the ID of the initiated removal
+operation. The operation progress can be monitored using the `gravity status`
 command.
 
 During the decommissioning, all application and Kubernetes services running
@@ -976,8 +976,8 @@ root$ gravity restore <data.tar.gz>
 ## Garbage Collection
 
 A Cluster can accumulate resources that it no longer has use for, like Gravity
-packages or docker images from previous versions of the application. These 
-resources unnecessarily waste disk space and are usually difficult to get rid 
+packages or docker images from previous versions of the application. These
+resources unnecessarily waste disk space and are usually difficult to get rid
 of manually.
 
 The `gravity` tool offers a subset of commands to run Cluster-wide garbage collection.
@@ -1005,7 +1005,7 @@ If started without parameters (i.e. not in manual mode) the command will run the
 After the operation has been started, the regular `gravity plan` can be used to display the plan of the
 ongoing operation.
 
-In the case of any intermediate failures, the command will abort and print the corresponding error message. After fixing the issue, the operation can be 
+In the case of any intermediate failures, the command will abort and print the corresponding error message. After fixing the issue, the operation can be
 resumed with:
 
 ```bsh
@@ -1083,7 +1083,7 @@ the following order:
 
 ## Managing Users
 
-You can invite new users and reset passwords for existing users by executing 
+You can invite new users and reset passwords for existing users by executing
 CLI commands on the Cluster nodes.
 
 ### Invite User
@@ -1130,8 +1130,8 @@ https://<host>/web/reset/<token>
 
 ## Securing a Cluster
 
-Gravity comes with a set of roles and bindings (for role-based access control or 
-RBAC) and a set of pod security policies. This lays the foundation for further 
+Gravity comes with a set of roles and bindings (for role-based access control or
+RBAC) and a set of pod security policies. This lays the foundation for further
 security configurations.
 
 ### Pod security policies
@@ -1148,6 +1148,11 @@ By default Gravity provides two security policies: `privileged` and `restricted`
 
   * A `privileged` policy is a permissive policy allowing unrestricted access within Cluster.
 
+!!! note "Privileged containers":
+    Note that by default privileged containers are not permitted in Gravity
+    clusters. To allow privileged containers, enable them in your cluster
+    manifest by setting `systemOptions.allowPrivileged` field to `true`.
+
 Two `ClusterRoles`: `restricted-psp-user` and `privileged-psp-user` enable access
 to the respective security policies.
 Additionally, the two default groups: `restricted-psp-users` and `privileged-psp-users`
@@ -1156,7 +1161,7 @@ can be used to assign privileges to users and other groups:
   * `restricted-psp-users` group grants access to the restricted role
   * `privileged-psp-users` group grants access to both roles
 
-Finer control can be exercised by modifying the existing or creating new security 
+Finer control can be exercised by modifying the existing or creating new security
 policies: Cluster roles and role bindings.
 
 For [example](https://github.com/kubernetes/examples/blob/master/staging/podsecuritypolicy/rbac/policies.yaml), to restrict the types of volumes Pods can use (among other things), create the following policy `psp-volumes.yaml`:
