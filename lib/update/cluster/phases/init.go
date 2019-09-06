@@ -59,7 +59,7 @@ type updatePhaseInit struct {
 	// Operation is the current update operation
 	Operation ops.SiteOperation
 	// Servers is the list of local cluster servers
-	Servers []storage.UpdateServer
+	Servers []storage.Server
 	// FieldLogger is used for logging
 	log.FieldLogger
 	// updateManifest specifies the manifest of the update application
@@ -86,9 +86,6 @@ func NewUpdatePhaseInit(
 	}
 	if p.Phase.Data.InstalledPackage == nil {
 		return nil, trace.BadParameter("no installed application package specified for phase %v", p.Phase)
-	}
-	if p.Phase.Data.Update == nil || len(p.Phase.Data.Update.Servers) == 0 {
-		return nil, trace.BadParameter("no servers specified for phase %q", p.Phase.ID)
 	}
 	cluster, err := operator.GetLocalSite()
 	if err != nil {
@@ -122,7 +119,7 @@ func NewUpdatePhaseInit(
 		Users:          users,
 		Cluster:        *cluster,
 		Operation:      *operation,
-		Servers:        p.Phase.Data.Update.Servers,
+		Servers:        p.Plan.Servers,
 		FieldLogger:    logger,
 		updateManifest: app.Manifest,
 		installedApp:   *installedApp,
@@ -202,7 +199,7 @@ func (p *updatePhaseInit) updateClusterRoles() error {
 
 	state := make(map[string]storage.Server, len(p.Servers))
 	for _, server := range p.Servers {
-		state[server.AdvertiseIP] = server.Server
+		state[server.AdvertiseIP] = server
 	}
 
 	for i, server := range cluster.ClusterState.Servers {

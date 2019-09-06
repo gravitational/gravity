@@ -19,21 +19,22 @@ package cluster
 import (
 	"fmt"
 	"path"
+	"sort"
 	"strconv"
 
 	"github.com/gravitational/gravity/lib/app"
 	apptest "github.com/gravitational/gravity/lib/app/service/test"
 	"github.com/gravitational/gravity/lib/archive"
-	"github.com/gravitational/gravity/lib/compare"
 	"github.com/gravitational/gravity/lib/constants"
+	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/opsservice"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
-	"github.com/gravitational/gravity/lib/update"
 
+	"github.com/coreos/go-semver/semver"
 	teleservices "github.com/gravitational/teleport/lib/services"
 	"gopkg.in/check.v1"
 )
@@ -44,21 +45,74 @@ var _ = check.Suite(&PlanSuite{})
 
 func (s *PlanSuite) TestPlanWithRuntimeAppsUpdate(c *check.C) {
 	// setup
-	runtimeLoc1 := loc.MustParseLocator("gravitational.io/runtime:1.0.0")
-	appLoc1 := loc.MustParseLocator("gravitational.io/app:1.0.0")
-	runtimeLoc2 := loc.MustParseLocator("gravitational.io/runtime:2.0.0")
-	appLoc2 := loc.MustParseLocator("gravitational.io/app:2.0.0")
-
+	runtimeApp1 := newApp("gravitational.io/runtime:1.0.0", installedRuntimeAppManifest)
+	app1 := newApp("gravitational.io/app:1.0.0", installedAppManifest)
+	runtimeApp2 := newApp("gravitational.io/runtime:2.0.0", updateRuntimeAppManifest)
+	app2 := newApp("gravitational.io/app:2.0.0", updateAppManifest)
+	dockerDevice := storage.Docker{
+		Device: storage.Device{
+			Name: storage.DeviceName("vdb"),
+		},
+	}
+	servers := []storage.Server{
+		{
+			AdvertiseIP: "192.168.0.1",
+			Hostname:    "node-1",
+			Role:        "node",
+			ClusterRole: string(schema.ServiceRoleMaster),
+			Docker:      dockerDevice,
+		},
+		{
+			AdvertiseIP: "192.168.0.2",
+			Hostname:    "node-2",
+			Role:        "node",
+			ClusterRole: string(schema.ServiceRoleMaster),
+			Docker:      dockerDevice,
+		},
+		{
+			AdvertiseIP: "192.168.0.3",
+			Hostname:    "node-3",
+			Role:        "node",
+			ClusterRole: string(schema.ServiceRoleNode),
+			Docker:      dockerDevice,
+		},
+	}
+	dockerUpdate := storage.DockerUpdate{
+		Installed: storage.DockerConfig{
+			StorageDriver: constants.DockerStorageDriverDevicemapper,
+		},
+		Update: storage.DockerConfig{
+			StorageDriver: constants.DockerStorageDriverOverlay2,
+		},
+	}
+	updates := []storage.UpdateServer{
+		{
+			Server:  servers[0],
+			Runtime: runtimePackage,
+			Docker:  dockerUpdate,
+		},
+		{
+			Server:  servers[1],
+			Runtime: runtimePackage,
+			Docker:  dockerUpdate,
+		},
+		{
+			Server:  servers[2],
+			Runtime: runtimePackage,
+			Docker:  dockerUpdate,
+		},
+	}
+	runtimeUpdates := []loc.Locator{
+		loc.MustParseLocator("gravitational.io/rbac-app:2.0.0"),
+		loc.MustParseLocator("gravitational.io/runtime-dep-2:2.0.0"),
+		runtimeApp2.Package,
+	}
 	params := params{
-		installedRuntime:         runtimeLoc1,
-		installedApp:             appLoc1,
-		updateRuntime:            runtimeLoc2,
-		updateApp:                appLoc2,
-		installedRuntimeManifest: installedRuntimeManifest,
-		installedAppManifest:     installedAppManifest,
-		updateRuntimeManifest:    updateRuntimeManifest,
-		updateAppManifest:        updateAppManifest,
-		updateCoreDNS:            true,
+		servers:             servers,
+		installedRuntimeApp: runtimeApp1,
+		installedApp:        app1,
+		updateRuntimeApp:    runtimeApp2,
+		updateApp:           app2,
 		links: []storage.OpsCenterLink{
 			{
 				Hostname:   "ops.example.com",
@@ -70,29 +124,29 @@ func (s *PlanSuite) TestPlanWithRuntimeAppsUpdate(c *check.C) {
 		},
 		dnsConfig: storage.DefaultDNSConfig,
 		// Use an alternative (other than first) master node as leader
-		leadMaster: updates[1],
-		runtimeUpdates: []loc.Locator{
-			loc.MustParseLocator("gravitational.io/rbac-app:2.0.0"),
-			loc.MustParseLocator("gravitational.io/runtime-dep-2:2.0.0"),
-			runtimeLoc2,
-		},
+		leadMaster: servers[1],
 		appUpdates: []loc.Locator{
 			loc.MustParseLocator("gravitational.io/app-dep-2:2.0.0"),
-			appLoc2,
+			app2.Package,
 		},
-		etcdVersion: &etcdVersion{
-			installed: "1.0.0",
-			update:    "2.0.0",
-		},
+		targetStep: newTargetUpdateStep(updateStep{
+			runtimeUpdates: runtimeUpdates,
+			etcd: &etcdVersion{
+				installed: "1.0.0",
+				update:    "2.0.0",
+			},
+			servers:     updates,
+			changesetID: "id",
+		}),
 	}
 	builder := newBuilder(c, params)
 
 	// exercise
 	obtainedPlan, err := newOperationPlan(builder)
 	c.Assert(err, check.IsNil)
-	update.ResolvePlan(obtainedPlan)
 
 	// verify
+	leadMaster := updates[1]
 	c.Assert(*obtainedPlan, check.DeepEquals, storage.OperationPlan{
 		OperationID:    builder.operation.ID,
 		OperationType:  builder.operation.Type,
@@ -100,20 +154,20 @@ func (s *PlanSuite) TestPlanWithRuntimeAppsUpdate(c *check.C) {
 		ClusterName:    builder.operation.SiteDomain,
 		Servers:        servers,
 		DNSConfig:      storage.DefaultDNSConfig,
-		GravityPackage: gravityUpdateLoc,
+		GravityPackage: loc.MustParseLocator("gravitational.io/gravity:3.0.0"),
 		Phases: []storage.OperationPhase{
 			params.init(),
 			params.checks(),
 			params.preUpdate(),
-			params.coreDNS(),
-			params.masters(updates[0:1],
-				"/checks", "/pre-update", "/coredns"),
-			params.nodes(),
-			params.etcd(updates[0:1]),
-			params.migration("/etcd"),
-			params.config(),
-			params.runtime(),
-			params.app("/runtime"),
+			params.bootstrap(updates, "/checks", "/pre-update"),
+			params.coreDNS("/bootstrap"),
+			params.masters(leadMaster, updates[0:1], "id", "/coredns"),
+			params.nodes(updates[2:], leadMaster.Server, "id", "/masters"),
+			params.etcd(leadMaster.Server, updates[0:1], updates[2:], *params.targetStep.etcd),
+			params.config("/etcd"),
+			params.runtime(runtimeUpdates, "/config"),
+			params.migration("/runtime"),
+			params.app("/migration"),
 			params.cleanup(),
 		},
 	})
@@ -121,24 +175,40 @@ func (s *PlanSuite) TestPlanWithRuntimeAppsUpdate(c *check.C) {
 
 func (s *PlanSuite) TestPlanWithoutRuntimeAppsUpdate(c *check.C) {
 	// setup
-	runtimeLoc1 := loc.MustParseLocator("gravitational.io/runtime:1.0.0")
-	appLoc1 := loc.MustParseLocator("gravitational.io/app:1.0.0")
-	appLoc2 := loc.MustParseLocator("gravitational.io/app:2.0.0")
-
+	runtimeApp1 := newApp("gravitational.io/runtime:1.0.0", installedRuntimeAppManifest)
+	app1 := newApp("gravitational.io/app:1.0.0", installedAppManifest)
+	app2 := newApp("gravitational.io/app:2.0.0", updateAppManifest)
+	servers := []storage.Server{
+		{
+			AdvertiseIP: "192.168.0.1",
+			Hostname:    "node-1",
+			Role:        "node",
+			ClusterRole: string(schema.ServiceRoleMaster),
+		},
+		{
+			AdvertiseIP: "192.168.0.2",
+			Hostname:    "node-2",
+			Role:        "node",
+			ClusterRole: string(schema.ServiceRoleMaster),
+		},
+		{
+			AdvertiseIP: "192.168.0.3",
+			Hostname:    "node-3",
+			Role:        "node",
+			ClusterRole: string(schema.ServiceRoleNode),
+		},
+	}
 	params := params{
-		installedRuntime:         runtimeLoc1,
-		installedApp:             appLoc1,
-		updateRuntime:            runtimeLoc1, // same runtime on purpose
-		updateApp:                appLoc2,
-		installedRuntimeManifest: installedRuntimeManifest,
-		installedAppManifest:     installedAppManifest,
-		updateRuntimeManifest:    installedRuntimeManifest, // same manifest on purpose
-		updateAppManifest:        updateAppManifest,
-		dnsConfig:                storage.DefaultDNSConfig,
-		leadMaster:               updates[0],
+		servers:             servers,
+		installedRuntimeApp: runtimeApp1,
+		installedApp:        app1,
+		updateRuntimeApp:    runtimeApp1, // same runtime on purpose
+		updateApp:           app2,
+		dnsConfig:           storage.DefaultDNSConfig,
+		leadMaster:          servers[0],
 		appUpdates: []loc.Locator{
 			loc.MustParseLocator("gravitational.io/app-dep-2:2.0.0"),
-			appLoc2,
+			app2.Package,
 		},
 	}
 	builder := newBuilder(c, params)
@@ -146,7 +216,6 @@ func (s *PlanSuite) TestPlanWithoutRuntimeAppsUpdate(c *check.C) {
 	// exercise
 	obtainedPlan, err := newOperationPlan(builder)
 	c.Assert(err, check.IsNil)
-	update.ResolvePlan(obtainedPlan)
 
 	// verify
 	c.Assert(*obtainedPlan, check.DeepEquals, storage.OperationPlan{
@@ -169,21 +238,74 @@ func (s *PlanSuite) TestPlanWithoutRuntimeAppsUpdate(c *check.C) {
 
 func (s *PlanSuite) TestPlanWithIntermediateRuntimeUpdate(c *check.C) {
 	// setup
-	runtimeLoc1 := loc.MustParseLocator("gravitational.io/runtime:1.0.0")
-	appLoc1 := loc.MustParseLocator("gravitational.io/app:1.0.0")
-	runtimeLoc2 := loc.MustParseLocator("gravitational.io/runtime:2.0.0")
-	appLoc2 := loc.MustParseLocator("gravitational.io/app:2.0.0")
-
+	installedRuntimeApp := newApp("gravitational.io/runtime:1.0.0", installedRuntimeAppManifest)
+	installedApp := newApp("gravitational.io/app:1.0.0", installedAppManifest)
+	intermediateRuntimeApp := newApp("gravitational.io/runtime:2.0.0", intermediateRuntimeAppManifest)
+	updateRuntimeApp := newApp("gravitational.io/runtime:3.0.0", updateRuntimeAppManifest)
+	updateApp := newApp("gravitational.io/app:3.0.0", updateAppManifest)
+	intermediateGravityPackage := mustLocator(intermediateRuntimeApp.Manifest.Dependencies.ByName(
+		constants.GravityPackage,
+	))
+	servers := []storage.Server{
+		{
+			AdvertiseIP: "192.168.0.1",
+			Hostname:    "node-1",
+			Role:        "node",
+			ClusterRole: string(schema.ServiceRoleMaster),
+		},
+		{
+			AdvertiseIP: "192.168.0.2",
+			Hostname:    "node-2",
+			Role:        "node",
+			ClusterRole: string(schema.ServiceRoleMaster),
+		},
+		{
+			AdvertiseIP: "192.168.0.3",
+			Hostname:    "node-3",
+			Role:        "node",
+			ClusterRole: string(schema.ServiceRoleNode),
+		},
+	}
+	intermediateUpdates := []storage.UpdateServer{
+		{
+			Server:  servers[0],
+			Runtime: intermediateRuntimePackage,
+		},
+		{
+			Server:  servers[1],
+			Runtime: intermediateRuntimePackage,
+		},
+		{
+			Server:  servers[2],
+			Runtime: intermediateRuntimePackage,
+		},
+	}
+	updates := []storage.UpdateServer{
+		{
+			Server:  servers[0],
+			Runtime: runtimePackage,
+		},
+		{
+			Server:  servers[1],
+			Runtime: runtimePackage,
+		},
+		{
+			Server:  servers[2],
+			Runtime: runtimePackage,
+		},
+	}
+	intermediateRuntimeUpdates := []loc.Locator{intermediateRuntimeApp.Package}
+	runtimeUpdates := []loc.Locator{
+		loc.MustParseLocator("gravitational.io/rbac-app:2.0.0"),
+		loc.MustParseLocator("gravitational.io/runtime-dep-2:2.0.0"),
+		updateRuntimeApp.Package,
+	}
 	params := params{
-		installedRuntime:         runtimeLoc1,
-		installedApp:             appLoc1,
-		updateRuntime:            runtimeLoc2,
-		updateApp:                appLoc2,
-		installedRuntimeManifest: installedRuntimeManifest,
-		installedAppManifest:     installedAppManifest,
-		updateRuntimeManifest:    updateRuntimeManifest,
-		updateAppManifest:        updateAppManifest,
-		updateCoreDNS:            true,
+		servers:             servers,
+		installedRuntimeApp: installedRuntimeApp,
+		installedApp:        installedApp,
+		updateRuntimeApp:    updateRuntimeApp,
+		updateApp:           updateApp,
 		links: []storage.OpsCenterLink{
 			{
 				Hostname:   "ops.example.com",
@@ -193,33 +315,53 @@ func (s *PlanSuite) TestPlanWithIntermediateRuntimeUpdate(c *check.C) {
 				Enabled:    true,
 			},
 		},
-		dnsConfig: storage.DefaultDNSConfig,
+		noDockerUpdate: true,
+		dnsConfig:      storage.DefaultDNSConfig,
 		// Use an alternative (other than first) master node as leader
-		leadMaster: updates[1],
-		runtimeUpdates: []loc.Locator{
-			loc.MustParseLocator("gravitational.io/rbac-app:2.0.0"),
-			loc.MustParseLocator("gravitational.io/runtime-dep-2:2.0.0"),
-			runtimeLoc2,
-		},
+		leadMaster: servers[1],
 		appUpdates: []loc.Locator{
 			loc.MustParseLocator("gravitational.io/app-dep-2:2.0.0"),
-			appLoc2,
+			updateApp.Package,
 		},
-		etcdVersion: &etcdVersion{
-			installed: "1.0.0",
-			update:    "2.0.0",
+		steps: []intermediateUpdateStep{
+			{
+				updateStep: updateStep{
+					changesetID: "id2",
+					servers:     intermediateUpdates,
+					etcd: &etcdVersion{
+						installed: "1.0.0",
+						update:    "2.0.0",
+					},
+					runtimeUpdates: intermediateRuntimeUpdates,
+				},
+				version: *semver.New("1.0.0"),
+				gravity: intermediateGravityPackage,
+			},
 		},
-		intermediateUpdates: intermediateUpdates,
+		targetStep: targetUpdateStep{updateStep: updateStep{
+			changesetID:    "id",
+			runtimeUpdates: runtimeUpdates,
+			etcd: &etcdVersion{
+				installed: "2.0.0",
+				update:    "3.0.0",
+			},
+			servers: updates,
+		}},
 	}
 	builder := newBuilder(c, params)
 
 	// exercise
-	obtainedPlan, err := newOperationPlanWithIntermediateUpdate(builder)
+	obtainedPlan, err := newOperationPlan(builder)
 	c.Assert(err, check.IsNil)
-	update.ResolvePlan(obtainedPlan)
 
 	// verify
-	fmt.Println(compare.Sdump(obtainedPlan))
+	intermediateLeadMaster := intermediateUpdates[1]
+	intermediateOtherMasters := intermediateUpdates[0:1]
+	intermediateNodes := intermediateUpdates[2:]
+	leadMaster := updates[1]
+	otherMasters := updates[0:1]
+	nodes := updates[2:]
+
 	c.Assert(*obtainedPlan, check.DeepEquals, storage.OperationPlan{
 		OperationID:    builder.operation.ID,
 		OperationType:  builder.operation.Type,
@@ -227,21 +369,33 @@ func (s *PlanSuite) TestPlanWithIntermediateRuntimeUpdate(c *check.C) {
 		ClusterName:    builder.operation.SiteDomain,
 		Servers:        servers,
 		DNSConfig:      storage.DefaultDNSConfig,
-		GravityPackage: gravityUpdateLoc,
+		GravityPackage: loc.MustParseLocator("gravitational.io/gravity:3.0.0"),
 		Phases: []storage.OperationPhase{
 			params.init(),
 			params.checks(),
 			params.preUpdate(),
-			params.coreDNS(),
-			params.mastersIntermediate(intermediateUpdates[0:1]),
-			params.nodesIntermediate(),
-			params.etcd(updates[0:1]),
-			params.masters(updates[0:1], "/etcd"),
-			params.nodes(),
-			params.migration("/nodes"),
-			params.config(),
-			params.runtime(),
-			params.app("/runtime"),
+			params.sub("/1.0.0", []string{"/checks", "/pre-update"},
+				params.bootstrapVersioned(intermediateUpdates, "1.0.0", intermediateGravityPackage),
+				params.masters(intermediateLeadMaster, intermediateOtherMasters, "id2", "/bootstrap"),
+				params.nodes(intermediateNodes, intermediateLeadMaster.Server, "id2", "/masters"),
+				params.etcd(intermediateLeadMaster.Server,
+					intermediateOtherMasters,
+					intermediateNodes,
+					*params.steps[0].etcd),
+				params.config("/etcd"),
+				params.runtime(intermediateRuntimeUpdates, "/config"),
+			),
+			params.sub("/target", []string{"/1.0.0"},
+				params.bootstrap(updates),
+				params.coreDNS("/bootstrap"),
+				params.masters(leadMaster, otherMasters, "id", "/coredns"),
+				params.nodes(nodes, leadMaster.Server, "id", "/masters"),
+				params.etcd(leadMaster.Server, otherMasters, nodes, *params.targetStep.etcd),
+				params.config("/etcd"),
+				params.runtime(runtimeUpdates, "/config"),
+			),
+			params.migration("/target"),
+			params.app("/migration"),
 			params.cleanup(),
 		},
 	})
@@ -275,14 +429,14 @@ func (s *PlanSuite) TestUpdatesEtcdFromManifestWithoutLabels(c *check.C) {
 		services.Packages, c)
 	b := phaseBuilder{
 		packages: services.Packages,
-		installedRuntime: app.Application{Manifest: schema.Manifest{
+		installedRuntimeApp: app.Application{Manifest: schema.Manifest{
 			SystemOptions: &schema.SystemOptions{
 				Dependencies: schema.SystemDependencies{
 					Runtime: &schema.Dependency{Locator: runtimePackage},
 				},
 			},
 		}},
-		updateRuntime: app.Application{Manifest: schema.Manifest{
+		updateRuntimeApp: app.Application{Manifest: schema.Manifest{
 			SystemOptions: &schema.SystemOptions{
 				Dependencies: schema.SystemDependencies{
 					Runtime: &schema.Dependency{Locator: updateRuntimePackage},
@@ -290,14 +444,14 @@ func (s *PlanSuite) TestUpdatesEtcdFromManifestWithoutLabels(c *check.C) {
 			},
 		}},
 	}
-	version, err := shouldUpdateEtcd(b)
+	version, err := shouldUpdateEtcd(b.installedRuntimeApp, b.updateRuntimeApp, services.Packages)
 	c.Assert(err, check.IsNil)
 	c.Assert(version, check.DeepEquals, &etcdVersion{
 		update: "3.3.3",
 	})
 }
 
-func (s *PlanSuite) TestCorrectlyDeterminesWhetherToUpdateEtcd(c *check.C) {
+func (s *PlanSuite) TestDeterminesWhetherToUpdateEtcd(c *check.C) {
 	services := opsservice.SetupTestServices(c)
 	files := []*archive.Item{
 		archive.ItemFromString("orbit.manifest.json", `{
@@ -333,14 +487,14 @@ func (s *PlanSuite) TestCorrectlyDeterminesWhetherToUpdateEtcd(c *check.C) {
 		services.Packages, c)
 	b := phaseBuilder{
 		packages: services.Packages,
-		installedRuntime: app.Application{Manifest: schema.Manifest{
+		installedRuntimeApp: app.Application{Manifest: schema.Manifest{
 			SystemOptions: &schema.SystemOptions{
 				Dependencies: schema.SystemDependencies{
 					Runtime: &schema.Dependency{Locator: runtimePackage},
 				},
 			},
 		}},
-		updateRuntime: app.Application{Manifest: schema.Manifest{
+		updateRuntimeApp: app.Application{Manifest: schema.Manifest{
 			SystemOptions: &schema.SystemOptions{
 				Dependencies: schema.SystemDependencies{
 					Runtime: &schema.Dependency{Locator: updateRuntimePackage},
@@ -348,7 +502,7 @@ func (s *PlanSuite) TestCorrectlyDeterminesWhetherToUpdateEtcd(c *check.C) {
 			},
 		}},
 	}
-	version, err := shouldUpdateEtcd(b)
+	version, err := shouldUpdateEtcd(b.installedRuntimeApp, b.updateRuntimeApp, b.packages)
 	c.Assert(err, check.IsNil)
 	c.Assert(version, check.DeepEquals, &etcdVersion{
 		installed: "3.3.2",
@@ -358,52 +512,20 @@ func (s *PlanSuite) TestCorrectlyDeterminesWhetherToUpdateEtcd(c *check.C) {
 
 func newBuilder(c *check.C, params params) phaseBuilder {
 	builder := phaseBuilder{
-		operator:  testOperator,
-		operation: operation,
-		servers:   updates,
-		// FIXME
-		// intermediateServers: params.intermediateUpdates,
-		// installedRuntime: app.Application{
-		// 	Package:  params.installedRuntime,
-		// 	Manifest: schema.MustParseManifestYAML([]byte(params.installedRuntimeManifest)),
-		// 	PackageEnvelope: pack.PackageEnvelope{
-		// 		Manifest: []byte(params.installedRuntimeManifest),
-		// 	},
-		// },
-		installedApp: app.Application{
-			Package:  params.installedApp,
-			Manifest: schema.MustParseManifestYAML([]byte(params.installedAppManifest)),
-			PackageEnvelope: pack.PackageEnvelope{
-				Manifest: []byte(params.installedAppManifest),
-			},
-		},
-		// FIXME
-		// updateRuntime: app.Application{
-		// 	Package:  params.updateRuntime,
-		// 	Manifest: schema.MustParseManifestYAML([]byte(params.updateRuntimeManifest)),
-		// 	PackageEnvelope: pack.PackageEnvelope{
-		// 		Manifest: []byte(params.updateRuntimeManifest),
-		// 	},
-		// },
-		updateApp: app.Application{
-			Package:  params.updateApp,
-			Manifest: schema.MustParseManifestYAML([]byte(params.updateAppManifest)),
-			PackageEnvelope: pack.PackageEnvelope{
-				Manifest: []byte(params.updateAppManifest),
-			},
-		},
-		links:           params.links,
-		trustedClusters: params.trustedClusters,
-		leadMaster:      params.leadMaster,
-		appUpdates:      params.appUpdates,
-		// FIXME
-		// etcd:                    params.etcdVersion,
-		// updateCoreDNS:           params.updateCoreDNS,
-		// runtimeUpdates:          params.runtimeUpdates,
-		// changesetID:             "id",
-		// intermediateChangesetID: "id2",
+		operator:            testOperator,
+		operation:           operation,
+		installedRuntimeApp: params.installedRuntimeApp,
+		installedApp:        params.installedApp,
+		updateRuntimeApp:    params.updateRuntimeApp,
+		updateApp:           params.updateApp,
+		links:               params.links,
+		trustedClusters:     params.trustedClusters,
+		leadMaster:          params.leadMaster,
+		appUpdates:          params.appUpdates,
+		steps:               params.steps,
+		targetStep:          params.targetStep,
 	}
-	gravityPackage, err := builder.updateRuntime.Manifest.Dependencies.ByName(
+	gravityPackage, err := builder.updateRuntimeApp.Manifest.Dependencies.ByName(
 		constants.GravityPackage)
 	c.Assert(err, check.IsNil)
 	builder.planTemplate = storage.OperationPlan{
@@ -411,11 +533,32 @@ func newBuilder(c *check.C, params params) phaseBuilder {
 		OperationType:  operation.Type,
 		AccountID:      operation.AccountID,
 		ClusterName:    operation.SiteDomain,
-		Servers:        servers,
+		Servers:        params.servers,
 		GravityPackage: *gravityPackage,
 		DNSConfig:      params.dnsConfig,
 	}
 	return builder
+}
+
+func (r *params) sub(id string, requires []string, phases ...storage.OperationPhase) storage.OperationPhase {
+	parentize(id, phases)
+	return storage.OperationPhase{
+		ID:       id,
+		Phases:   phases,
+		Requires: requires,
+	}
+}
+
+func parentize(parentID string, phases []storage.OperationPhase) {
+	for i, phase := range phases {
+		phases[i].ID = path.Join(parentID, phase.ID)
+		for j, req := range phase.Requires {
+			phases[i].Requires[j] = path.Join(parentID, req)
+		}
+		if len(phase.Phases) != 0 {
+			parentize(parentID, phase.Phases)
+		}
+	}
 }
 
 func (r *params) init() storage.OperationPhase {
@@ -424,12 +567,9 @@ func (r *params) init() storage.OperationPhase {
 		Executor:    updateInit,
 		Description: "Initialize update operation",
 		Data: &storage.OperationPhaseData{
-			Package:          &r.updateApp,
-			ExecServer:       &r.leadMaster.Server,
-			InstalledPackage: &r.installedApp,
-			Update: &storage.UpdateOperationData{
-				Servers: updates,
-			},
+			Package:          &r.updateApp.Package,
+			ExecServer:       &r.leadMaster,
+			InstalledPackage: &r.installedApp.Package,
 		},
 	}
 }
@@ -441,8 +581,8 @@ func (r *params) checks() storage.OperationPhase {
 		Description: "Run preflight checks",
 		Requires:    []string{"/init"},
 		Data: &storage.OperationPhaseData{
-			Package:          &r.updateApp,
-			InstalledPackage: &r.installedApp,
+			Package:          &r.updateApp.Package,
+			InstalledPackage: &r.installedApp.Package,
 		},
 	}
 }
@@ -454,54 +594,53 @@ func (r *params) preUpdate() storage.OperationPhase {
 		Description: "Run pre-update application hook",
 		Requires:    []string{"/init"},
 		Data: &storage.OperationPhaseData{
-			Package: &r.updateApp,
+			Package: &r.updateApp.Package,
 		},
 	}
 }
 
-func (r *params) coreDNS() storage.OperationPhase {
+func (r *params) coreDNS(requires ...string) storage.OperationPhase {
 	return storage.OperationPhase{
 		ID:          "/coredns",
 		Description: "Provision CoreDNS resources",
 		Executor:    coredns,
+		Requires:    requires,
 		Data: &storage.OperationPhaseData{
-			Server: &r.leadMaster.Server,
+			Server: &r.leadMaster,
 		},
 	}
 }
 
-func (r *params) masters(otherMasters []storage.UpdateServer, requires ...string) storage.OperationPhase {
+func (r *params) masters(leadMaster storage.UpdateServer, otherMasters []storage.UpdateServer, changesetID string, requires ...string) storage.OperationPhase {
 	t := func(format string, node storage.UpdateServer) string {
 		return fmt.Sprintf(format, node.Hostname)
 	}
-	changesetID := "id"
 	return storage.OperationPhase{
 		ID:          "/masters",
 		Description: "Update master nodes",
 		Requires:    requires,
 		Phases: []storage.OperationPhase{
-			r.leaderMasterPhase("/masters", r.leadMaster, changesetID),
+			r.leaderMasterPhase("/masters", leadMaster, changesetID),
 			{
-				ID:          t("/masters/elect-%v", r.leadMaster),
+				ID:          t("/masters/elect-%v", leadMaster),
 				Executor:    electionStatus,
-				Description: t("Make node %q Kubernetes leader", r.leadMaster),
+				Description: t("Make node %q Kubernetes leader", leadMaster),
 				Data: &storage.OperationPhaseData{
-					Server: &r.leadMaster.Server,
+					Server: &leadMaster.Server,
 					ElectionChange: &storage.ElectionChange{
-						EnableServers:  []storage.Server{r.leadMaster.Server},
+						EnableServers:  []storage.Server{leadMaster.Server},
 						DisableServers: serversToStorage(otherMasters...),
 					},
 				},
-				Requires: []string{t("/masters/%v", r.leadMaster)},
+				Requires: []string{t("/masters/%v", leadMaster)},
 			},
-			r.otherMasterPhase(otherMasters[0], "/masters", r.leadMaster, changesetID),
+			r.otherMasterPhase(otherMasters[0], "/masters", leadMaster.Server, changesetID),
 		},
 	}
 }
 
 func (r *params) dockerPhase(node storage.UpdateServer) storage.OperationPhase {
 	t := func(format string) string {
-		// FIXME: correct Requires
 		if node.IsMaster() {
 			return fmt.Sprintf(format, "masters", node.Hostname)
 		}
@@ -529,6 +668,7 @@ func (r *params) dockerPhase(node storage.UpdateServer) storage.OperationPhase {
 				Data: &storage.OperationPhaseData{
 					Server: &node.Server,
 				},
+				Requires: []string{t("/%v/%v/docker/devicemapper")},
 			},
 			{
 				ID:       t("/%v/%v/docker/mount"),
@@ -538,6 +678,7 @@ func (r *params) dockerPhase(node storage.UpdateServer) storage.OperationPhase {
 				Data: &storage.OperationPhaseData{
 					Server: &node.Server,
 				},
+				Requires: []string{t("/%v/%v/docker/format")},
 			},
 			{
 				ID:          t("/%v/%v/docker/planet"),
@@ -549,64 +690,27 @@ func (r *params) dockerPhase(node storage.UpdateServer) storage.OperationPhase {
 						Servers: []storage.UpdateServer{node},
 					},
 				},
+				Requires: []string{t("/%v/%v/docker/mount")},
 			},
 		},
 	}
 }
 
-func (r *params) mastersIntermediate(otherMasters []storage.UpdateServer) storage.OperationPhase {
-	t := func(format string, node storage.UpdateServer) string {
-		return fmt.Sprintf(format, node.Hostname)
-	}
-	var leadMaster storage.UpdateServer
-	for _, s := range intermediateUpdates {
-		if r.leadMaster.AdvertiseIP == s.AdvertiseIP {
-			leadMaster = s
-			break
-		}
-	}
-	changesetID := "id2"
-	return storage.OperationPhase{
-		ID:          "/masters-intermediate",
-		Description: "Update master nodes to intermediate runtime",
-		Requires:    []string{"/checks", "/pre-update", "/coredns"},
-		Phases: []storage.OperationPhase{
-			r.leaderMasterPhase("/masters-intermediate", leadMaster, changesetID),
-			{
-				ID:          t("/masters-intermediate/elect-%v", leadMaster),
-				Executor:    electionStatus,
-				Description: t("Make node %q Kubernetes leader", leadMaster),
-				Data: &storage.OperationPhaseData{
-					Server: &leadMaster.Server,
-					ElectionChange: &storage.ElectionChange{
-						EnableServers:  []storage.Server{leadMaster.Server},
-						DisableServers: serversToStorage(otherMasters...),
-					},
-				},
-				Requires: []string{t("/masters-intermediate/%v", leadMaster)},
-			},
-			r.otherMasterPhase(otherMasters[0], "/masters-intermediate", leadMaster, changesetID),
-		},
-	}
-}
-
-func (r *params) leaderMasterPhase(parent string, leadMaster storage.UpdateServer, id string) storage.OperationPhase {
+func (r *params) leaderMasterPhase(parent string, leadMaster storage.UpdateServer, changesetID string) storage.OperationPhase {
 	p := func(format string) string {
 		return fmt.Sprintf(path.Join(parent, format), leadMaster.Hostname)
 	}
 	t := func(format string) string {
 		return fmt.Sprintf(format, leadMaster.Hostname)
 	}
-	return storage.OperationPhase{
+	result := storage.OperationPhase{
 		ID:          p("%v"),
 		Description: t("Update system software on master node %q"),
 		Phases: []storage.OperationPhase{
-			r.bootstrap(leadMaster, parent),
 			{
 				ID:          p("%v/kubelet-permissions"),
 				Description: t("Add permissions to kubelet on %q"),
 				Executor:    kubeletPermissions,
-				Requires:    []string{p("%v/bootstrap")},
 				Data: &storage.OperationPhaseData{
 					Server: &leadMaster.Server,
 				},
@@ -641,47 +745,50 @@ func (r *params) leaderMasterPhase(parent string, leadMaster storage.UpdateServe
 					ExecServer: &leadMaster.Server,
 					Update: &storage.UpdateOperationData{
 						Servers:     []storage.UpdateServer{leadMaster},
-						ChangesetID: id,
+						ChangesetID: changesetID,
 					},
 				},
 				Requires: []string{p("%v/drain")},
 			},
-			r.dockerPhase(r.leadMaster),
-			{
-				ID:          p("%v/uncordon"),
-				Executor:    uncordonNode,
-				Description: t("Uncordon node %q"),
-				Data: &storage.OperationPhaseData{
-					Server:     &leadMaster.Server,
-					ExecServer: &leadMaster.Server,
-				},
-				Requires: []string{t("/%v/docker")},
-			},
 		},
 	}
+	requires := []string{p("%v/system-upgrade")}
+	if !r.noDockerUpdate {
+		result.Phases = append(result.Phases, r.dockerPhase(leadMaster))
+		requires = []string{t("/masters/%v/docker")}
+	}
+	result.Phases = append(result.Phases, storage.OperationPhase{
+		ID:          p("%v/uncordon"),
+		Executor:    uncordonNode,
+		Description: t("Uncordon node %q"),
+		Data: &storage.OperationPhaseData{
+			Server:     &leadMaster.Server,
+			ExecServer: &leadMaster.Server,
+		},
+		Requires: requires,
+	})
+	return result
 }
 
-func (r *params) otherMasterPhase(server storage.UpdateServer, parent string, leadMaster storage.UpdateServer, id string) storage.OperationPhase {
+func (r *params) otherMasterPhase(server storage.UpdateServer, parent string, leadMaster storage.Server, changesetID string) storage.OperationPhase {
 	p := func(format string) string {
 		return fmt.Sprintf(path.Join(parent, format), server.Hostname)
 	}
 	t := func(format string) string {
 		return fmt.Sprintf(format, server.Hostname)
 	}
-	return storage.OperationPhase{
+	result := storage.OperationPhase{
 		ID:          p("%v"),
 		Description: t("Update system software on master node %q"),
 		Requires:    []string{fmt.Sprintf("%v/elect-%v", parent, leadMaster.Hostname)},
 		Phases: []storage.OperationPhase{
-			r.bootstrap(server, parent),
 			{
 				ID:          p("%v/drain"),
 				Executor:    drainNode,
 				Description: t("Drain node %q"),
-				Requires:    []string{p("%v/bootstrap")},
 				Data: &storage.OperationPhaseData{
 					Server:     &server.Server,
-					ExecServer: &leadMaster.Server,
+					ExecServer: &leadMaster,
 				},
 			},
 			{
@@ -692,92 +799,84 @@ func (r *params) otherMasterPhase(server storage.UpdateServer, parent string, le
 					ExecServer: &server.Server,
 					Update: &storage.UpdateOperationData{
 						Servers:     []storage.UpdateServer{server},
-						ChangesetID: id,
+						ChangesetID: changesetID,
 					},
 				},
 				Requires: []string{p("%v/drain")},
 			},
-			r.dockerPhase(server),
-			{
-				ID:          p("%v/uncordon"),
-				Executor:    uncordonNode,
-				Description: t("Uncordon node %q"),
-				Data: &storage.OperationPhaseData{
-					Server:     &server.Server,
-					ExecServer: &leadMaster.Server,
-				},
-				Requires: []string{p("%v/docker")},
-			},
-			{
-				ID:          p("%v/endpoints"),
-				Executor:    endpoints,
-				Description: t("Wait for DNS/cluster endpoints on %q"),
-				Data: &storage.OperationPhaseData{
-					Server:     &server.Server,
-					ExecServer: &leadMaster.Server,
-				},
-				Requires: []string{p("%v/uncordon")},
-			},
-			{
-				ID:          p("%[1]v/enable-%[1]v"),
-				Executor:    electionStatus,
-				Description: t("Enable leader election on node %q"),
-				Data: &storage.OperationPhaseData{
-					Server: &server.Server,
-					ElectionChange: &storage.ElectionChange{
-						EnableServers: []storage.Server{server.Server},
-					},
-				},
-				Requires: []string{p("%v/endpoints")},
-			},
 		},
 	}
+	requires := []string{p("%v/system-upgrade")}
+	if !r.noDockerUpdate {
+		result.Phases = append(result.Phases, r.dockerPhase(server))
+		requires = []string{p("%v/docker")}
+	}
+	result.Phases = append(result.Phases, []storage.OperationPhase{
+		{
+			ID:          p("%v/uncordon"),
+			Executor:    uncordonNode,
+			Description: t("Uncordon node %q"),
+			Data: &storage.OperationPhaseData{
+				Server:     &server.Server,
+				ExecServer: &leadMaster,
+			},
+			Requires: requires,
+		},
+		{
+			ID:          p("%v/endpoints"),
+			Executor:    endpoints,
+			Description: t("Wait for DNS/cluster endpoints on %q"),
+			Data: &storage.OperationPhaseData{
+				Server:     &server.Server,
+				ExecServer: &leadMaster,
+			},
+			Requires: []string{p("%v/uncordon")},
+		},
+		{
+			ID:          p("%[1]v/enable-%[1]v"),
+			Executor:    electionStatus,
+			Description: t("Enable leader election on node %q"),
+			Data: &storage.OperationPhaseData{
+				Server: &server.Server,
+				ElectionChange: &storage.ElectionChange{
+					EnableServers: []storage.Server{server.Server},
+				},
+			},
+			Requires: []string{p("%v/endpoints")},
+		},
+	}...)
+	return result
 }
 
-func (r *params) nodes() storage.OperationPhase {
-	changesetID := "id"
+func (r *params) nodes(updates []storage.UpdateServer, leadMaster storage.Server, changesetID string, requires ...string) storage.OperationPhase {
 	return storage.OperationPhase{
 		ID:          "/nodes",
 		Description: "Update regular nodes",
-		Requires:    []string{"/masters"},
+		Requires:    requires,
 		Phases: []storage.OperationPhase{
-			r.nodePhase(updates[2], "/nodes", changesetID),
+			r.nodePhase(updates[0], leadMaster, "/nodes", changesetID),
 		},
 	}
 }
 
-func (r *params) nodesIntermediate() storage.OperationPhase {
-	changesetID := "id2"
-	return storage.OperationPhase{
-		ID:          "/nodes-intermediate",
-		Description: "Update regular nodes to intermediate runtime",
-		Requires:    []string{"/masters-intermediate"},
-		Phases: []storage.OperationPhase{
-			r.nodePhase(intermediateUpdates[2], "/nodes-intermediate", changesetID),
-		},
-	}
-}
-
-func (r *params) nodePhase(server storage.UpdateServer, parent, id string) storage.OperationPhase {
+func (r *params) nodePhase(server storage.UpdateServer, leadMaster storage.Server, parent, id string) storage.OperationPhase {
 	p := func(format string) string {
 		return fmt.Sprintf(path.Join(parent, format), server.Hostname)
 	}
 	t := func(format string) string {
 		return fmt.Sprintf(format, server.Hostname)
 	}
-	return storage.OperationPhase{
+	result := storage.OperationPhase{
 		ID:          p("%v"),
 		Description: t("Update system software on node %q"),
 		Phases: []storage.OperationPhase{
-			r.bootstrap(server, parent),
 			{
 				ID:          p("%v/drain"),
 				Executor:    drainNode,
 				Description: t("Drain node %q"),
-				Requires:    []string{p("%v/bootstrap")},
 				Data: &storage.OperationPhaseData{
 					Server:     &server.Server,
-					ExecServer: &r.leadMaster.Server,
+					ExecServer: &leadMaster,
 				},
 			},
 			{
@@ -793,40 +892,97 @@ func (r *params) nodePhase(server storage.UpdateServer, parent, id string) stora
 				},
 				Requires: []string{p("%v/drain")},
 			},
-			r.dockerPhase(server),
-			{
-				ID:          p("%v/uncordon"),
-				Executor:    uncordonNode,
-				Description: t("Uncordon node %q"),
-				Data: &storage.OperationPhaseData{
-					Server:     &server.Server,
-					ExecServer: &r.leadMaster.Server,
-				},
-				Requires: []string{p("%v/docker")},
+		},
+	}
+	requires := []string{p("%v/system-upgrade")}
+	if !r.noDockerUpdate {
+		result.Phases = append(result.Phases, r.dockerPhase(server))
+		requires = []string{p("%v/docker")}
+	}
+	result.Phases = append(result.Phases, []storage.OperationPhase{
+		{
+			ID:          p("%v/uncordon"),
+			Executor:    uncordonNode,
+			Description: t("Uncordon node %q"),
+			Data: &storage.OperationPhaseData{
+				Server:     &server.Server,
+				ExecServer: &leadMaster,
 			},
-			{
-				ID:          p("%v/endpoints"),
-				Executor:    endpoints,
-				Description: t("Wait for DNS/cluster endpoints on %q"),
-				Data: &storage.OperationPhaseData{
-					Server:     &server.Server,
-					ExecServer: &r.leadMaster.Server,
-				},
-				Requires: []string{p("%v/uncordon")},
+			Requires: requires,
+		},
+		{
+			ID:          p("%v/endpoints"),
+			Executor:    endpoints,
+			Description: t("Wait for DNS/cluster endpoints on %q"),
+			Data: &storage.OperationPhaseData{
+				Server:     &server.Server,
+				ExecServer: &leadMaster,
+			},
+			Requires: []string{p("%v/uncordon")},
+		},
+	}...)
+	return result
+}
+
+func (r *params) bootstrapVersioned(updates []storage.UpdateServer, version string, gravityPackage loc.Locator, requires ...string) storage.OperationPhase {
+	return storage.OperationPhase{
+		ID:          "/bootstrap",
+		Description: "Bootstrap update operation on nodes",
+		Requires:    requires,
+		Phases: []storage.OperationPhase{
+			r.bootstrapNodeVersioned(updates[0], version, gravityPackage),
+			r.bootstrapNodeVersioned(updates[1], version, gravityPackage),
+			r.bootstrapNodeVersioned(updates[2], version, gravityPackage),
+		},
+	}
+}
+
+func (r *params) bootstrapNodeVersioned(server storage.UpdateServer, version string, gravityPackage loc.Locator) storage.OperationPhase {
+	t := func(format string) string {
+		return fmt.Sprintf(format, server.Hostname)
+	}
+	return storage.OperationPhase{
+		ID:          t("bootstrap/%v"),
+		Description: t("Bootstrap node %q"),
+		Executor:    updateBootstrap,
+		Data: &storage.OperationPhaseData{
+			ExecServer:       &server.Server,
+			Package:          &r.updateApp.Package,
+			InstalledPackage: &r.installedApp.Package,
+			Update: &storage.UpdateOperationData{
+				Servers:        []storage.UpdateServer{server},
+				Version:        version,
+				GravityPackage: &gravityPackage,
 			},
 		},
 	}
 }
 
-func (r *params) bootstrap(server storage.UpdateServer, parent string) storage.OperationPhase {
+func (r *params) bootstrap(updates []storage.UpdateServer, requires ...string) storage.OperationPhase {
 	return storage.OperationPhase{
-		ID:          fmt.Sprintf("%v/%v/bootstrap", parent, server.Hostname),
+		ID:          "/bootstrap",
+		Description: "Bootstrap update operation on nodes",
+		Requires:    requires,
+		Phases: []storage.OperationPhase{
+			r.bootstrapNode(updates[0]),
+			r.bootstrapNode(updates[1]),
+			r.bootstrapNode(updates[2]),
+		},
+	}
+}
+
+func (r *params) bootstrapNode(server storage.UpdateServer) storage.OperationPhase {
+	t := func(format string) string {
+		return fmt.Sprintf(format, server.Hostname)
+	}
+	return storage.OperationPhase{
+		ID:          t("/bootstrap/%v"),
+		Description: t("Bootstrap node %q"),
 		Executor:    updateBootstrap,
-		Description: fmt.Sprintf("Bootstrap node %q", server.Hostname),
 		Data: &storage.OperationPhaseData{
 			ExecServer:       &server.Server,
-			Package:          &r.updateApp,
-			InstalledPackage: &r.installedApp,
+			Package:          &r.updateApp.Package,
+			InstalledPackage: &r.installedApp.Package,
 			Update: &storage.UpdateOperationData{
 				Servers: []storage.UpdateServer{server},
 			},
@@ -834,39 +990,39 @@ func (r *params) bootstrap(server storage.UpdateServer, parent string) storage.O
 	}
 }
 
-func (r params) etcd(otherMasters []storage.UpdateServer) storage.OperationPhase {
+func (r params) etcd(leadMaster storage.Server, otherMasters, nodes []storage.UpdateServer, etcd etcdVersion) storage.OperationPhase {
 	return storage.OperationPhase{
 		ID:          "/etcd",
-		Description: fmt.Sprintf("Upgrade etcd %v to %v", r.etcdVersion.installed, r.etcdVersion.update),
+		Description: fmt.Sprintf("Upgrade etcd %v to %v", etcd.installed, etcd.update),
 		Phases: []storage.OperationPhase{
 			{
 				ID:          "/etcd/backup",
 				Description: "Backup etcd data",
 				Phases: []storage.OperationPhase{
-					r.etcdBackupNode(r.leadMaster),
+					r.etcdBackupNode(leadMaster),
 					// FIXME: assumes len(otherMasters) == 1
-					r.etcdBackupNode(otherMasters[0]),
+					r.etcdBackupNode(otherMasters[0].Server),
 				},
 			},
 			{
 				ID:          "/etcd/shutdown",
 				Description: "Shutdown etcd cluster",
 				Phases: []storage.OperationPhase{
-					r.etcdShutdownNode(r.leadMaster, true),
+					r.etcdShutdownNode(leadMaster, true),
 					// FIXME: assumes len(otherMasters) == 1
-					r.etcdShutdownNode(otherMasters[0], false),
-					r.etcdShutdownWorkerNode(updates[2]),
+					r.etcdShutdownNode(otherMasters[0].Server, false),
+					r.etcdShutdownWorkerNode(nodes[0].Server),
 				},
 			},
 			{
 				ID:          "/etcd/upgrade",
 				Description: "Upgrade etcd servers",
 				Phases: []storage.OperationPhase{
-					r.etcdUpgradeNode(r.leadMaster),
+					r.etcdUpgradeNode(leadMaster),
 					// FIXME: assumes len(otherMasters) == 1
-					r.etcdUpgradeNode(otherMasters[0]),
+					r.etcdUpgradeNode(otherMasters[0].Server),
 					// upgrade regular nodes
-					r.etcdUpgradeNode(updates[2]),
+					r.etcdUpgradeNode(nodes[0].Server),
 				},
 			},
 			{
@@ -874,7 +1030,7 @@ func (r params) etcd(otherMasters []storage.UpdateServer) storage.OperationPhase
 				Description: "Restore etcd data from backup",
 				Executor:    updateEtcdRestore,
 				Data: &storage.OperationPhaseData{
-					Server: &r.leadMaster.Server,
+					Server: &leadMaster,
 				},
 				Requires: []string{"/etcd/upgrade"},
 			},
@@ -882,19 +1038,19 @@ func (r params) etcd(otherMasters []storage.UpdateServer) storage.OperationPhase
 				ID:          "/etcd/restart",
 				Description: "Restart etcd servers",
 				Phases: []storage.OperationPhase{
-					r.etcdRestartLeaderNode(),
+					r.etcdRestartLeaderNode(leadMaster),
 					// FIXME: assumes len(otherMasters) == 1
-					r.etcdRestartNode(otherMasters[0]),
+					r.etcdRestartNode(otherMasters[0].Server),
 					// upgrade regular nodes
-					r.etcdRestartNode(updates[2]),
-					r.etcdRestartGravity(),
+					r.etcdRestartNode(nodes[0].Server),
+					r.etcdRestartGravity(leadMaster),
 				},
 			},
 		},
 	}
 }
 
-func (r params) etcdBackupNode(server storage.UpdateServer) storage.OperationPhase {
+func (r params) etcdBackupNode(server storage.Server) storage.OperationPhase {
 	t := func(format string) string {
 		return fmt.Sprintf(format, server.Hostname)
 	}
@@ -903,12 +1059,12 @@ func (r params) etcdBackupNode(server storage.UpdateServer) storage.OperationPha
 		Description: t("Backup etcd on node %q"),
 		Executor:    updateEtcdBackup,
 		Data: &storage.OperationPhaseData{
-			Server: &server.Server,
+			Server: &server,
 		},
 	}
 }
 
-func (r params) etcdShutdownNode(server storage.UpdateServer, isLeader bool) storage.OperationPhase {
+func (r params) etcdShutdownNode(server storage.Server, isLeader bool) storage.OperationPhase {
 	t := func(format string) string {
 		return fmt.Sprintf(format, server.Hostname)
 	}
@@ -918,13 +1074,13 @@ func (r params) etcdShutdownNode(server storage.UpdateServer, isLeader bool) sto
 		Executor:    updateEtcdShutdown,
 		Requires:    []string{t("/etcd/backup/%v")},
 		Data: &storage.OperationPhaseData{
-			Server: &server.Server,
+			Server: &server,
 			Data:   strconv.FormatBool(isLeader),
 		},
 	}
 }
 
-func (r params) etcdShutdownWorkerNode(server storage.UpdateServer) storage.OperationPhase {
+func (r params) etcdShutdownWorkerNode(server storage.Server) storage.OperationPhase {
 	t := func(format string) string {
 		return fmt.Sprintf(format, server.Hostname)
 	}
@@ -933,13 +1089,13 @@ func (r params) etcdShutdownWorkerNode(server storage.UpdateServer) storage.Oper
 		Description: t("Shutdown etcd on node %q"),
 		Executor:    updateEtcdShutdown,
 		Data: &storage.OperationPhaseData{
-			Server: &server.Server,
+			Server: &server,
 			Data:   "false",
 		},
 	}
 }
 
-func (r params) etcdUpgradeNode(server storage.UpdateServer) storage.OperationPhase {
+func (r params) etcdUpgradeNode(server storage.Server) storage.OperationPhase {
 	t := func(format string) string {
 		return fmt.Sprintf(format, server.Hostname)
 	}
@@ -949,14 +1105,14 @@ func (r params) etcdUpgradeNode(server storage.UpdateServer) storage.OperationPh
 		Executor:    updateEtcdMaster,
 		Requires:    []string{t("/etcd/shutdown/%v")},
 		Data: &storage.OperationPhaseData{
-			Server: &server.Server,
+			Server: &server,
 		},
 	}
 }
 
-func (r params) etcdRestartLeaderNode() storage.OperationPhase {
+func (r params) etcdRestartLeaderNode(leadMaster storage.Server) storage.OperationPhase {
 	t := func(format string) string {
-		return fmt.Sprintf(format, r.leadMaster.Hostname)
+		return fmt.Sprintf(format, leadMaster.Hostname)
 	}
 	return storage.OperationPhase{
 		ID:          t("/etcd/restart/%v"),
@@ -964,12 +1120,12 @@ func (r params) etcdRestartLeaderNode() storage.OperationPhase {
 		Executor:    updateEtcdRestart,
 		Requires:    []string{"/etcd/restore"},
 		Data: &storage.OperationPhaseData{
-			Server: &r.leadMaster.Server,
+			Server: &leadMaster,
 		},
 	}
 }
 
-func (r params) etcdRestartNode(server storage.UpdateServer) storage.OperationPhase {
+func (r params) etcdRestartNode(server storage.Server) storage.OperationPhase {
 	t := func(format string) string {
 		return fmt.Sprintf(format, server.Hostname)
 	}
@@ -979,18 +1135,18 @@ func (r params) etcdRestartNode(server storage.UpdateServer) storage.OperationPh
 		Executor:    updateEtcdRestart,
 		Requires:    []string{t("/etcd/upgrade/%v")},
 		Data: &storage.OperationPhaseData{
-			Server: &server.Server,
+			Server: &server,
 		},
 	}
 }
 
-func (r params) etcdRestartGravity() storage.OperationPhase {
+func (r params) etcdRestartGravity(leadMaster storage.Server) storage.OperationPhase {
 	return storage.OperationPhase{
 		ID:          fmt.Sprint("/etcd/restart/", constants.GravityServiceName),
 		Description: fmt.Sprint("Restart ", constants.GravityServiceName, " service"),
 		Executor:    updateEtcdRestartGravity,
 		Data: &storage.OperationPhaseData{
-			Server: &r.leadMaster.Server,
+			Server: &leadMaster,
 		},
 	}
 }
@@ -1017,13 +1173,13 @@ func (r *params) migration(requires ...string) storage.OperationPhase {
 	return phase
 }
 
-func (r params) config() storage.OperationPhase {
-	masters, _ := update.SplitServers(updates)
-	masters = reorderServers(masters, r.leadMaster)
+func (r params) config(requires ...string) storage.OperationPhase {
+	masters, _ := fsm.SplitServers(r.servers)
+	masters = reorderStorageServers(masters, r.leadMaster)
 	return storage.OperationPhase{
 		ID:          "/config",
 		Description: "Update system configuration on nodes",
-		Requires:    []string{"/masters"},
+		Requires:    requires,
 		Phases: []storage.OperationPhase{
 			r.configNode(masters[0]),
 			r.configNode(masters[1]),
@@ -1031,7 +1187,7 @@ func (r params) config() storage.OperationPhase {
 	}
 }
 
-func (r params) configNode(server storage.UpdateServer) storage.OperationPhase {
+func (r params) configNode(server storage.Server) storage.OperationPhase {
 	t := func(format string) string {
 		return fmt.Sprintf(format, server.Hostname)
 	}
@@ -1040,75 +1196,59 @@ func (r params) configNode(server storage.UpdateServer) storage.OperationPhase {
 		Executor:    config,
 		Description: t("Update system configuration on node %q"),
 		Data: &storage.OperationPhaseData{
-			Server: &server.Server,
+			Server: &server,
 		},
 	}
 }
 
-func (r params) runtime() storage.OperationPhase {
-	rbacLoc := loc.MustParseLocator("gravitational.io/rbac-app:2.0.0")
-	runtimeDepLoc := loc.MustParseLocator("gravitational.io/runtime-dep-2:2.0.0")
-	runtimeLoc := loc.MustParseLocator("gravitational.io/runtime:2.0.0")
-	return storage.OperationPhase{
+func (r params) runtime(updates []loc.Locator, requires ...string) storage.OperationPhase {
+	phase := storage.OperationPhase{
 		ID:          "/runtime",
 		Description: "Update application runtime",
-		Requires:    []string{"/masters"},
-		Phases: []storage.OperationPhase{
-			{
-				ID:          "/runtime/rbac-app",
-				Executor:    updateApp,
-				Description: `Update system application "rbac-app" to 2.0.0`,
-				Data: &storage.OperationPhaseData{
-					Package: &rbacLoc,
-				},
-			},
-			{
-				ID:          "/runtime/runtime-dep-2",
-				Executor:    updateApp,
-				Description: `Update system application "runtime-dep-2" to 2.0.0`,
-				Data: &storage.OperationPhaseData{
-					Package: &runtimeDepLoc,
-				},
-				Requires: []string{"/runtime/rbac-app"},
-			},
-			{
-				ID:          "/runtime/runtime",
-				Executor:    updateApp,
-				Description: `Update system application "runtime" to 2.0.0`,
-				Data: &storage.OperationPhaseData{
-					Package: &runtimeLoc,
-				},
-				Requires: []string{"/runtime/runtime-dep-2"},
-			},
+		Requires:    requires,
+	}
+	var deps []string
+	for _, update := range updates {
+		app := runtimeUpdate(update, deps...)
+		phase.Phases = append(phase.Phases, app)
+		deps = []string{app.ID}
+	}
+	return phase
+}
+
+func runtimeUpdate(loc loc.Locator, requires ...string) storage.OperationPhase {
+	return storage.OperationPhase{
+		ID:          fmt.Sprintf("/runtime/%v", loc.Name),
+		Executor:    updateApp,
+		Description: fmt.Sprintf("Update system application %q to %v", loc.Name, loc.Version),
+		Data: &storage.OperationPhaseData{
+			Package: &loc,
 		},
+		Requires: requires,
 	}
 }
 
 func (r params) app(requires ...string) storage.OperationPhase {
-	appLoc := loc.MustParseLocator("gravitational.io/app:2.0.0")
-	appDepLoc := loc.MustParseLocator("gravitational.io/app-dep-2:2.0.0")
-	return storage.OperationPhase{
+	phase := storage.OperationPhase{
 		ID:          "/app",
 		Description: "Update installed application",
 		Requires:    requires,
-		Phases: []storage.OperationPhase{
-			{
-				ID:          "/app/app-dep-2",
-				Executor:    updateApp,
-				Description: `Update application "app-dep-2" to 2.0.0`,
-				Data: &storage.OperationPhaseData{
-					Package: &appDepLoc,
-				},
-			},
-			{
-				ID:          "/app/app",
-				Executor:    updateApp,
-				Description: `Update application "app" to 2.0.0`,
-				Data: &storage.OperationPhaseData{
-					Package: &appLoc,
-				},
-			},
+	}
+	for _, update := range r.appUpdates {
+		phase.Phases = append(phase.Phases, appUpdate(update))
+	}
+	return phase
+}
+
+func appUpdate(loc loc.Locator, requires ...string) storage.OperationPhase {
+	return storage.OperationPhase{
+		ID:          fmt.Sprintf("/app/%v", loc.Name),
+		Executor:    updateApp,
+		Description: fmt.Sprintf("Update application %q to %v", loc.Name, loc.Version),
+		Data: &storage.OperationPhaseData{
+			Package: &loc,
 		},
+		Requires: requires,
 	}
 }
 
@@ -1123,7 +1263,7 @@ func (r params) cleanup() storage.OperationPhase {
 				Executor:    cleanupNode,
 				Description: `Clean up node "node-1"`,
 				Data: &storage.OperationPhaseData{
-					Server: &updates[0].Server,
+					Server: &r.servers[0],
 				},
 			},
 			{
@@ -1131,7 +1271,7 @@ func (r params) cleanup() storage.OperationPhase {
 				Executor:    cleanupNode,
 				Description: `Clean up node "node-2"`,
 				Data: &storage.OperationPhaseData{
-					Server: &updates[1].Server,
+					Server: &r.servers[1],
 				},
 			},
 			{
@@ -1139,7 +1279,7 @@ func (r params) cleanup() storage.OperationPhase {
 				Executor:    cleanupNode,
 				Description: `Clean up node "node-3"`,
 				Data: &storage.OperationPhaseData{
-					Server: &updates[2].Server,
+					Server: &r.servers[2],
 				},
 			},
 		},
@@ -1147,10 +1287,11 @@ func (r params) cleanup() storage.OperationPhase {
 }
 
 type params struct {
-	installedRuntime         loc.Locator
-	installedApp             loc.Locator
-	updateRuntime            loc.Locator
-	updateApp                loc.Locator
+	noDockerUpdate           bool
+	installedRuntimeApp      app.Application
+	installedApp             app.Application
+	updateRuntimeApp         app.Application
+	updateApp                app.Application
 	installedRuntimeManifest string
 	installedAppManifest     string
 	updateRuntimeManifest    string
@@ -1158,12 +1299,12 @@ type params struct {
 	updateCoreDNS            bool
 	links                    []storage.OpsCenterLink
 	trustedClusters          []teleservices.TrustedCluster
-	leadMaster               storage.UpdateServer
-	intermediateUpdates      []storage.UpdateServer
+	leadMaster               storage.Server
 	dnsConfig                storage.DNSConfig
-	runtimeUpdates           []loc.Locator
 	appUpdates               []loc.Locator
-	etcdVersion              *etcdVersion
+	servers                  []storage.Server
+	steps                    []intermediateUpdateStep
+	targetStep               targetUpdateStep
 }
 
 func (r testRotator) RotateSecrets(ops.RotateSecretsRequest) (*ops.RotatePackageResponse, error) {
@@ -1181,10 +1322,10 @@ func (r testRotator) RotateTeleportConfig(ops.RotateTeleportConfigRequest) (*ops
 }
 
 var testOperator = testRotator{
-	secretsPackage:        loc.Locator{Repository: "gravitational.io", Name: "secrets", Version: "0.0.1"},
-	runtimeConfigPackage:  loc.Locator{Repository: "gravitational.io", Name: "planet-config", Version: "0.0.1"},
-	teleportMasterPackage: loc.Locator{Repository: "gravitational.io", Name: "teleport-master-config", Version: "0.0.1"},
-	teleportNodePackage:   loc.Locator{Repository: "gravitational.io", Name: "teleport-node-config", Version: "0.0.1"},
+	secretsPackage:        loc.MustParseLocator("gravitational.io/secrets:0.0.1"),
+	runtimeConfigPackage:  loc.MustParseLocator("gravitational.io/planet-config:0.0.1"),
+	teleportMasterPackage: loc.MustParseLocator("gravitational.io/teleport-master-config:0.0.1"),
+	teleportNodePackage:   loc.MustParseLocator("gravitational.io/teleport-node-config:0.0.1"),
 }
 
 type testRotator struct {
@@ -1192,6 +1333,31 @@ type testRotator struct {
 	runtimeConfigPackage  loc.Locator
 	teleportMasterPackage loc.Locator
 	teleportNodePackage   loc.Locator
+}
+
+func newApp(appLoc string, manifestBytes string) app.Application {
+	return app.Application{
+		Package:  loc.MustParseLocator(appLoc),
+		Manifest: schema.MustParseManifestYAML([]byte(manifestBytes)),
+		PackageEnvelope: pack.PackageEnvelope{
+			Manifest: []byte(manifestBytes),
+		},
+	}
+}
+
+func mustLocator(loc *loc.Locator, err error) loc.Locator {
+	if err != nil {
+		panic(err)
+	}
+	return *loc
+}
+
+func reorderStorageServers(servers []storage.Server, server storage.Server) (result []storage.Server) {
+	sort.Slice(servers, func(i, j int) bool {
+		// Push server to the front
+		return servers[i].AdvertiseIP == server.AdvertiseIP
+	})
+	return servers
 }
 
 var runtimePackage = storage.RuntimePackage{
@@ -1205,77 +1371,6 @@ var intermediateRuntimePackage = storage.RuntimePackage{
 	},
 }
 var gravityInstalledLoc = loc.MustParseLocator("gravitational.io/gravity:1.0.0")
-var gravityUpdateLoc = loc.MustParseLocator("gravitational.io/gravity:2.0.0")
-var dockerDevice = storage.Docker{
-	Device: storage.Device{
-		Name: storage.DeviceName("vdb"),
-	},
-}
-var servers = []storage.Server{
-	{
-		AdvertiseIP: "192.168.0.1",
-		Hostname:    "node-1",
-		Role:        "node",
-		ClusterRole: string(schema.ServiceRoleMaster),
-		Docker:      dockerDevice,
-	},
-	{
-		AdvertiseIP: "192.168.0.2",
-		Hostname:    "node-2",
-		Role:        "node",
-		ClusterRole: string(schema.ServiceRoleMaster),
-		Docker:      dockerDevice,
-	},
-	{
-		AdvertiseIP: "192.168.0.3",
-		Hostname:    "node-3",
-		Role:        "node",
-		ClusterRole: string(schema.ServiceRoleNode),
-		Docker:      dockerDevice,
-	},
-}
-
-var dockerUpdate = storage.DockerUpdate{
-	Installed: storage.DockerConfig{
-		StorageDriver: constants.DockerStorageDriverDevicemapper,
-	},
-	Update: storage.DockerConfig{
-		StorageDriver: constants.DockerStorageDriverOverlay2,
-	},
-}
-
-var updates = []storage.UpdateServer{
-	{
-		Server:  servers[0],
-		Runtime: runtimePackage,
-		Docker:  dockerUpdate,
-	},
-	{
-		Server:  servers[1],
-		Runtime: runtimePackage,
-		Docker:  dockerUpdate,
-	},
-	{
-		Server:  servers[2],
-		Runtime: runtimePackage,
-		Docker:  dockerUpdate,
-	},
-}
-
-var intermediateUpdates = []storage.UpdateServer{
-	{
-		Server:  servers[0],
-		Runtime: intermediateRuntimePackage,
-	},
-	{
-		Server:  servers[1],
-		Runtime: intermediateRuntimePackage,
-	},
-	{
-		Server:  servers[2],
-		Runtime: intermediateRuntimePackage,
-	},
-}
 
 var operation = ops.SiteOperation{
 	AccountID:  "000",
@@ -1284,7 +1379,7 @@ var operation = ops.SiteOperation{
 	Type:       ops.OperationUpdate,
 }
 
-const installedRuntimeManifest = `apiVersion: bundle.gravitational.io/v2
+const installedRuntimeAppManifest = `apiVersion: bundle.gravitational.io/v2
 kind: Runtime
 metadata:
   name: runtime
@@ -1296,6 +1391,34 @@ dependencies:
     - gravitational.io/runtime-dep-1:1.0.0
     - gravitational.io/runtime-dep-2:1.0.0
     - gravitational.io/rbac-app:1.0.0
+`
+
+const intermediateRuntimeAppManifest = `apiVersion: bundle.gravitational.io/v2
+kind: Runtime
+metadata:
+  name: runtime
+  resourceVersion: 2.0.0
+dependencies:
+  packages:
+    - gravitational.io/gravity:2.0.0
+  apps:
+    - gravitational.io/runtime-dep-1:1.0.0
+    - gravitational.io/runtime-dep-2:2.0.0
+    - gravitational.io/rbac-app:2.0.0
+`
+
+const updateRuntimeAppManifest = `apiVersion: bundle.gravitational.io/v2
+kind: Runtime
+metadata:
+  name: runtime
+  resourceVersion: 3.0.0
+dependencies:
+  packages:
+    - gravitational.io/gravity:3.0.0
+  apps:
+    - gravitational.io/runtime-dep-1:1.0.0
+    - gravitational.io/runtime-dep-2:3.0.0
+    - gravitational.io/rbac-app:3.0.0
 `
 
 const installedAppManifest = `apiVersion: bundle.gravitational.io/v2
@@ -1314,21 +1437,7 @@ systemOptions:
     runtimePackage: gravitational.io/planet:1.0.0
 `
 
-const updateRuntimeManifest = `apiVersion: bundle.gravitational.io/v2
-kind: Runtime
-metadata:
-  name: runtime
-  resourceVersion: 2.0.0
-dependencies:
-  packages:
-    - gravitational.io/gravity:2.0.0
-  apps:
-    - gravitational.io/runtime-dep-1:1.0.0
-    - gravitational.io/runtime-dep-2:2.0.0
-    - gravitational.io/rbac-app:2.0.0
-`
-
-const updateAppManifest = `apiVersion: bundle.gravitational.io/v2
+const intermediateAppManifest = `apiVersion: bundle.gravitational.io/v2
 kind: Bundle
 metadata:
   name: app
@@ -1342,4 +1451,20 @@ nodeProfiles:
 systemOptions:
   dependencies:
     runtimePackage: gravitational.io/planet:2.0.0
+`
+
+const updateAppManifest = `apiVersion: bundle.gravitational.io/v2
+kind: Bundle
+metadata:
+  name: app
+  resourceVersion: 3.0.0
+dependencies:
+  apps:
+    - gravitational.io/app-dep-1:1.0.0
+    - gravitational.io/app-dep-2:3.0.0
+nodeProfiles:
+  - name: node
+systemOptions:
+  dependencies:
+    runtimePackage: gravitational.io/planet:3.0.0
 `

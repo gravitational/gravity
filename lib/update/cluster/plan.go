@@ -20,7 +20,6 @@ import (
 	"archive/tar"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"sort"
@@ -29,7 +28,6 @@ import (
 
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/archive"
-	"github.com/gravitational/gravity/lib/checks"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
@@ -38,9 +36,8 @@ import (
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
-	"github.com/gravitational/gravity/lib/update"
-	libupdate "github.com/gravitational/gravity/lib/update"
 	libphase "github.com/gravitational/gravity/lib/update/cluster/phases"
+	libbuilder "github.com/gravitational/gravity/lib/update/internal/builder"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/coreos/go-semver/semver"
@@ -143,7 +140,7 @@ func NewOperationPlan(ctx context.Context, config PlanConfig) (*storage.Operatio
 		return nil, trace.Wrap(err)
 	}
 
-	installedRuntime, err := config.Apps.GetApp(*(installedApp.Manifest.Base()))
+	installedRuntimeApp, err := config.Apps.GetApp(*(installedApp.Manifest.Base()))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -158,7 +155,7 @@ func NewOperationPlan(ctx context.Context, config PlanConfig) (*storage.Operatio
 		return nil, trace.Wrap(err)
 	}
 
-	updateRuntime, err := config.Apps.GetApp(*(updateApp.Manifest.Base()))
+	updateRuntimeApp, err := config.Apps.GetApp(*(updateApp.Manifest.Base()))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -188,7 +185,7 @@ func NewOperationPlan(ctx context.Context, config PlanConfig) (*storage.Operatio
 		return nil, trace.Wrap(err)
 	}
 
-	installedGravityPackage, err := installedRuntime.Manifest.Dependencies.ByName(
+	installedGravityPackage, err := installedRuntimeApp.Manifest.Dependencies.ByName(
 		constants.GravityPackage)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -201,7 +198,7 @@ func NewOperationPlan(ctx context.Context, config PlanConfig) (*storage.Operatio
 
 	supportsTaints := supportsTaints(*installedGravityVersion)
 
-	gravityPackage, err := updateRuntime.Manifest.Dependencies.ByName(constants.GravityPackage)
+	gravityPackage, err := updateRuntimeApp.Manifest.Dependencies.ByName(constants.GravityPackage)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -235,47 +232,26 @@ func NewOperationPlan(ctx context.Context, config PlanConfig) (*storage.Operatio
 		apps:                config.Apps,
 		supportsTaints:      supportsTaints,
 		roles:               roles,
+		leadMaster:          *config.Leader,
 		installedApp:        *installedApp,
 		updateApp:           *updateApp,
-		installedRuntimeApp: *installedRuntime,
-		updateRuntimeApp:    *updateRuntime,
+		installedRuntimeApp: *installedRuntimeApp,
+		updateRuntimeApp:    *updateRuntimeApp,
 		installedTeleport:   *installedTeleport,
 		updateTeleport:      *updateTeleport,
 		installedDocker:     *installedDocker,
 		serviceUser:         config.Cluster.ServiceUser,
 	}
 
-	steps, err := builder.collectSteps(ctx)
+	err = builder.initSteps(ctx)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	builder.steps = steps
-	log.WithField("steps", fmt.Sprintf("%#v", steps)).Info("Collected intermediate steps.")
-
-	// FIXME: compute etcd update for the target step
-	if len(steps) != 0 {
-		installedTeleport = steps[len(steps)-1].teleport
-	}
-	// FIXME: compute installedRuntime based on steps
-	// and use installedRuntime/installedTeleport in configUpdates
-	// as the seed for planet/teleport updates
-	serverUpdates, err := configUpdates(
-		installedApp.Manifest, updateApp.Manifest,
-		config.Operator, (*ops.SiteOperation)(config.Operation).Key(), servers)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	runtimeUpdates, err := runtimeUpdates(*installedRuntime, *updateRuntime, *updateApp)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	builder.targetStep = newTargetUpdateStep(serverUpdates, runtimeUpdates)
 
 	plan, err := newOperationPlan(builder)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-
 	return plan, nil
 }
 
@@ -327,126 +303,42 @@ type PlanConfig struct {
 }
 
 func newOperationPlan(builder phaseBuilder) (*storage.OperationPlan, error) {
-	initPhase := *builder.init()
-	checksPhase := *builder.checks().Require(initPhase)
-	preUpdatePhase := *builder.preUpdate().Require(initPhase)
+	initPhase := builder.init()
+	checksPhase := builder.checks().Require(initPhase)
+	preUpdatePhase := builder.preUpdate().Require(initPhase)
 
-	var root libupdate.Phase
-	root.Add(initPhase, checksPhase, preUpdatePhase)
+	var root libbuilder.Phase
+	root.AddParallel(initPhase, checksPhase, preUpdatePhase)
 
 	if len(builder.steps) == 0 && len(builder.targetStep.runtimeUpdates) == 0 {
 		// Fast path with no runtime updates
 		root.AddSequential(builder.app(), builder.cleanup())
-		return builder.newPlan(root), nil
+		return builder.newPlan(&root), nil
 	}
 
-	depends := []update.PhaseIder{checksPhase, preUpdatePhase}
+	depends := []*libbuilder.Phase{checksPhase}
 	for _, step := range builder.steps {
-		root.AddSequential(step.addTo(builder, depends...))
+		stepRoot := newRoot(step.version.String())
+		stepRoot.Require(depends...)
+		step.addTo(builder, stepRoot)
+		root.AddSequential(stepRoot)
 		depends = nil
 	}
-	root.AddSequential(builder.targetStep.addTo(builder, depends...))
+	if len(builder.steps) != 0 {
+		stepRoot := newRoot("target")
+		builder.targetStep.addTo(builder, stepRoot)
+		root.AddSequential(stepRoot)
+	} else {
+		builder.targetStep.addTo(builder, &root, checksPhase, preUpdatePhase)
+	}
 
 	if migrationPhase := builder.migration(); migrationPhase != nil {
-		root.AddSequential(*migrationPhase)
+		root.AddSequential(migrationPhase)
 	}
 
 	root.AddSequential(builder.app(), builder.cleanup())
 
-	return builder.newPlan(root), nil
-}
-
-// configUpdates computes the configuration updates for the specified list of servers
-func configUpdates(
-	installed, update schema.Manifest,
-	operator ops.Operator,
-	operation ops.SiteOperationKey,
-	servers []storage.Server,
-) (updates []storage.UpdateServer, err error) {
-	installedTeleport, err := installed.Dependencies.ByName(constants.TeleportPackage)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	updateTeleport, err := update.Dependencies.ByName(constants.TeleportPackage)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	for _, server := range servers {
-		secretsUpdate, err := operator.RotateSecrets(ops.RotateSecretsRequest{
-			Key:    operation.SiteKey(),
-			Server: server,
-			DryRun: true,
-		})
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-		installedRuntime, err := schema.GetRuntimePackage(installed, server.Role,
-			schema.ServiceRole(server.ClusterRole))
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-		installedDocker, err := ops.GetDockerConfig(operator, operation.SiteKey())
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-		updateServer := storage.UpdateServer{
-			Server: server,
-			Runtime: storage.RuntimePackage{
-				Installed:      *installedRuntime,
-				SecretsPackage: &secretsUpdate.Locator,
-			},
-			Teleport: storage.TeleportPackage{
-				Installed: *installedTeleport,
-			},
-			Docker: storage.DockerUpdate{
-				Installed: *installedDocker,
-				Update: checks.DockerConfigFromSchemaValue(
-					update.SystemDocker()),
-			},
-		}
-		needsPlanetUpdate, needsTeleportUpdate, err := systemNeedsUpdate(
-			server.Role, server.ClusterRole,
-			installed, update, *installedTeleport, *updateTeleport)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-		if needsPlanetUpdate {
-			updateRuntime, err := update.RuntimePackageForProfile(server.Role)
-			if err != nil {
-				return nil, trace.Wrap(err)
-			}
-			configUpdate, err := operator.RotatePlanetConfig(ops.RotatePlanetConfigRequest{
-				Key:            operation,
-				Server:         server,
-				Manifest:       update,
-				RuntimePackage: *updateRuntime,
-				DryRun:         true,
-			})
-			if err != nil {
-				return nil, trace.Wrap(err)
-			}
-			updateServer.Runtime.Update = &storage.RuntimeUpdate{
-				Package:       *updateRuntime,
-				ConfigPackage: configUpdate.Locator,
-			}
-		}
-		if needsTeleportUpdate {
-			_, nodeConfig, err := operator.RotateTeleportConfig(ops.RotateTeleportConfigRequest{
-				Key:    operation,
-				Server: server,
-				DryRun: true,
-			})
-			if err != nil {
-				return nil, trace.Wrap(err)
-			}
-			updateServer.Teleport.Update = &storage.TeleportUpdate{
-				Package:           *updateTeleport,
-				NodeConfigPackage: nodeConfig.Locator,
-			}
-		}
-		updates = append(updates, updateServer)
-	}
-	return updates, nil
+	return builder.newPlan(&root), nil
 }
 
 func checkAndSetServerDefaults(servers []storage.Server, client corev1.NodeInterface) ([]storage.Server, error) {
@@ -571,11 +463,11 @@ func shouldUpdateCoreDNS(client *kubernetes.Clientset) (bool, error) {
 	return false, nil
 }
 
-func shouldUpdateEtcd(installedRuntime, updateRuntime app.Application, packages pack.PackageService) (*etcdVersion, error) {
+func shouldUpdateEtcd(installedRuntimeApp, updateRuntimeApp app.Application, packages pack.PackageService) (*etcdVersion, error) {
 	// TODO: should somehow maintain etcd version invariant across runtime packages
-	runtimePackage, err := schema.GetDefaultRuntimePackage(installedRuntime.Manifest)
+	runtimePackage, err := schema.GetDefaultRuntimePackage(installedRuntimeApp.Manifest)
 	if err != nil {
-		return nil, trace.Wrap(err, "error fetching runtime package for %v", installedRuntime.Package)
+		return nil, trace.Wrap(err, "error fetching runtime package for %v", installedRuntimeApp.Package)
 	}
 	var updateEtcd bool
 	installedVersion, err := getEtcdVersion("version-etcd", *runtimePackage, packages)
@@ -586,9 +478,9 @@ func shouldUpdateEtcd(installedRuntime, updateRuntime app.Application, packages 
 		// if the currently installed version doesn't have etcd version information, it needs to be upgraded
 		updateEtcd = true
 	}
-	runtimePackage, err = schema.GetDefaultRuntimePackage(updateRuntime.Manifest)
+	runtimePackage, err = schema.GetDefaultRuntimePackage(updateRuntimeApp.Manifest)
 	if err != nil {
-		return nil, trace.Wrap(err, "error fetching runtime package for %v", updateRuntime.Package)
+		return nil, trace.Wrap(err, "error fetching runtime package for %v", updateRuntimeApp.Package)
 	}
 	updateVersion, err := getEtcdVersion("version-etcd", *runtimePackage, packages)
 	if err != nil {
@@ -685,7 +577,7 @@ func findServer(input storage.Server, servers []storage.UpdateServer) (*storage.
 	return nil, trace.NotFound("no server found with address %v", input.AdvertiseIP)
 }
 
-func reorderServers(servers []storage.UpdateServer, server storage.UpdateServer) (result []storage.UpdateServer) {
+func reorderServers(servers []storage.UpdateServer, server storage.Server) (result []storage.UpdateServer) {
 	sort.Slice(servers, func(i, j int) bool {
 		// Push server to the front
 		return servers[i].AdvertiseIP == server.AdvertiseIP
@@ -710,6 +602,12 @@ func runtimeUpdates(installedRuntime, updateRuntime, updateApp app.Application) 
 		return runtimeUpdates[i].Name == constants.BootstrapConfigPackage
 	})
 	return runtimeUpdates, nil
+}
+
+func newRoot(id string) *libbuilder.Phase {
+	return libbuilder.New(storage.OperationPhase{
+		ID: id,
+	})
 }
 
 type runtimeConfig struct {

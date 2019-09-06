@@ -139,7 +139,7 @@ func NewUpdatePhaseBootstrap(
 			return nil, trace.Wrap(err)
 		}
 	} else {
-		gravityPath, err = intermediate.GravityPathForVersion(p.Phase.Data.Update.Version.String())
+		gravityPath, err = intermediate.GravityPathForVersion(p.Phase.Data.Update.Version)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}

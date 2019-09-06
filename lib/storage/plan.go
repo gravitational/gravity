@@ -24,7 +24,6 @@ import (
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/utils"
 
-	"github.com/coreos/go-semver/semver"
 	"github.com/gravitational/trace"
 )
 
@@ -157,8 +156,7 @@ type UpdateOperationData struct {
 	ChangesetID string `json:"changeset_id,omitempty"`
 	// Version specifies the version of the runtime application
 	// this step applies to
-	// FIXME: can this not be just a string?
-	Version *semver.Version `json:"version,omitempty"`
+	Version string `json:"version,omitempty"`
 	// GravityPackage specifies the optional gravity package
 	// to call into for rotating secrets/configuration packages
 	GravityPackage *loc.Locator `json:"gravity_package,omitempty"`

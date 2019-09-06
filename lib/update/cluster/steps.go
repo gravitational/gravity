@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	libapp "github.com/gravitational/gravity/lib/app"
+	"github.com/gravitational/gravity/lib/checks"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
@@ -19,6 +20,7 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	libupdate "github.com/gravitational/gravity/lib/update"
 	"github.com/gravitational/gravity/lib/update/cluster/internal/intermediate"
+	libbuilder "github.com/gravitational/gravity/lib/update/internal/builder"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/coreos/go-semver/semver"
@@ -26,7 +28,45 @@ import (
 	"github.com/pborman/uuid"
 )
 
-func (r phaseBuilder) collectSteps(ctx context.Context) (updates []intermediateUpdateStep, err error) {
+func (r *phaseBuilder) initSteps(ctx context.Context) error {
+	steps, err := r.buildIntermediateSteps(ctx)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	r.steps = steps
+	installedRuntimeFunc := getRuntimePackageFromManifest(r.installedApp.Manifest)
+	updateRuntimeFunc := getRuntimePackageFromManifest(r.updateApp.Manifest)
+	installedTeleport := r.installedTeleport
+	installedRuntimeApp := r.installedRuntimeApp
+	if len(steps) != 0 {
+		installedTeleport = steps[len(steps)-1].teleport
+		installedRuntimeFunc = getRuntimePackageStatic(steps[len(steps)-1].runtime)
+		installedRuntimeApp = steps[len(steps)-1].runtimeApp
+	}
+	serverUpdates, err := r.configUpdates(
+		installedTeleport,
+		installedRuntimeFunc, updateRuntimeFunc,
+	)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	runtimeAppUpdates, err := runtimeUpdates(r.installedRuntimeApp, r.updateRuntimeApp, r.updateApp)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	etcd, err := shouldUpdateEtcd(installedRuntimeApp, r.updateRuntimeApp, r.packages)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	r.targetStep = newTargetUpdateStep(updateStep{
+		servers:        serverUpdates,
+		runtimeUpdates: runtimeAppUpdates,
+		etcd:           etcd,
+	})
+	return nil
+}
+
+func (r phaseBuilder) buildIntermediateSteps(ctx context.Context) (updates []intermediateUpdateStep, err error) {
 	result := make(map[string]intermediateUpdateStep)
 	err = pack.ForeachPackage(r.packages, func(env pack.PackageEnvelope) error {
 		labels := pack.Labels(env.RuntimeLabels)
@@ -71,7 +111,7 @@ func (r phaseBuilder) collectSteps(ctx context.Context) (updates []intermediateU
 		serverUpdates, err := r.intermediateConfigUpdates(
 			r.installedApp.Manifest,
 			prevRuntimeFunc, update.runtime,
-			prevTeleport, update.teleport,
+			prevTeleport, &update.teleport,
 			r.installedDocker, operator)
 		if err != nil {
 			return nil, trace.Wrap(err)
@@ -83,9 +123,7 @@ func (r phaseBuilder) collectSteps(ctx context.Context) (updates []intermediateU
 		}
 		updates = append(updates, update)
 		prevRuntimeApp = update.runtimeApp
-		if update.teleport != nil {
-			prevTeleport = *update.teleport
-		}
+		prevTeleport = update.teleport
 		prevRuntimeFunc = getRuntimePackageStatic(update.runtime)
 	}
 	sort.Sort(updatesByVersion(updates))
@@ -168,7 +206,7 @@ type updatesByVersion []intermediateUpdateStep
 
 func newIntermediateUpdateStep(version semver.Version) intermediateUpdateStep {
 	return intermediateUpdateStep{
-		updateStep: newUpdateStep(),
+		updateStep: newUpdateStep(updateStep{}),
 		version:    version,
 	}
 }
@@ -178,7 +216,7 @@ func (r *intermediateUpdateStep) fromPackage(env pack.PackageEnvelope, apps liba
 	case constants.PlanetPackage:
 		r.runtime = env.Locator
 	case constants.TeleportPackage:
-		r.teleport = &env.Locator
+		r.teleport = env.Locator
 	case constants.GravityPackage:
 		r.gravity = env.Locator
 	default:
@@ -197,15 +235,11 @@ func (r *intermediateUpdateStep) fromPackage(env pack.PackageEnvelope, apps liba
 	return nil
 }
 
-func (r intermediateUpdateStep) addTo(builder phaseBuilder, depends ...libupdate.PhaseIder) libupdate.Phase {
-	root := (&libupdate.Phase{
-		ID: r.version.String(),
-	}).Require(depends...)
+func (r intermediateUpdateStep) addTo(builder phaseBuilder, root *libbuilder.Phase) {
 	root.AddSequential(
-		*builder.bootstrapVersioned(r.version, r.gravity, r.servers),
+		builder.bootstrapVersioned(r.version, r.gravity, r.servers),
 	)
-	r.updateStep.addTo(root, builder)
-	return *root
+	r.updateStep.addTo(builder, root)
 }
 
 // intermediateUpdateStep describes an intermediate update step
@@ -217,25 +251,14 @@ type intermediateUpdateStep struct {
 	gravity loc.Locator
 }
 
-func (r targetUpdateStep) addTo(builder phaseBuilder, depends ...libupdate.PhaseIder) libupdate.Phase {
-	root := (&libupdate.Phase{
-		ID: "target",
-	}).Require(depends...)
-	root.AddSequential(
-		*builder.bootstrap(),
-		*builder.corednsPhase(),
-	)
-	r.updateStep.addTo(root, builder)
-	return *root
+func newTargetUpdateStep(step updateStep) targetUpdateStep {
+	return targetUpdateStep{updateStep: step}
 }
 
-func newTargetUpdateStep(updates []storage.UpdateServer, runtimeUpdates []loc.Locator) targetUpdateStep {
-	step := newUpdateStep()
-	step.servers = updates
-	step.runtimeUpdates = runtimeUpdates
-	return targetUpdateStep{
-		updateStep: step,
-	}
+func (r targetUpdateStep) addTo(builder phaseBuilder, root *libbuilder.Phase, depends ...*libbuilder.Phase) {
+	root.AddParallel(builder.bootstrap().Require(depends...))
+	root.AddSequential(builder.coredns())
+	r.updateStep.addTo(builder, root)
 }
 
 // targetUpdateStep describes the target (final) kubernetes runtime update step
@@ -243,13 +266,13 @@ type targetUpdateStep struct {
 	updateStep
 }
 
-func (r updateStep) addTo(root *libupdate.Phase, builder phaseBuilder) {
+func (r updateStep) addTo(builder phaseBuilder, root *libbuilder.Phase) {
 	masters, nodes := libupdate.SplitServers(r.servers)
 	masters = reorderServers(masters, builder.leadMaster)
-	mastersPhase := *builder.masters(masters[0], masters[1:], r.changesetID)
-	nodesPhase := *builder.nodes(masters[0], nodes, r.changesetID)
+	mastersPhase := builder.masters(masters[0], masters[1:], r.changesetID)
+	nodesPhase := builder.nodes(masters[0], nodes, r.changesetID)
 	root.AddSequential(mastersPhase)
-	if len(nodesPhase.Phases) > 0 {
+	if nodesPhase.HasSubphases() {
 		root.AddSequential(nodesPhase)
 	}
 	if r.etcd == nil {
@@ -258,7 +281,7 @@ func (r updateStep) addTo(root *libupdate.Phase, builder phaseBuilder) {
 	// This step does not depend on previous on purpose - when the etcd block is executed,
 	// remote agents might not be able to sync the plan before the shutdown of etcd
 	// instances has begun
-	root.Add(*builder.etcdPlan(
+	root.AddParallel(builder.etcdPlan(
 		serversToStorage(masters[1:]...),
 		serversToStorage(nodes...),
 		*r.etcd),
@@ -269,15 +292,14 @@ func (r updateStep) addTo(root *libupdate.Phase, builder phaseBuilder) {
 	// in case new configuration is incompatible, but *before* runtime
 	// phase so new gravity-sites can find it after they start
 	root.AddSequential(
-		*builder.config(serversToStorage(masters...)),
-		*builder.runtime(r.runtimeUpdates),
+		builder.config(serversToStorage(masters...)),
+		builder.runtime(r.runtimeUpdates),
 	)
 }
 
-func newUpdateStep() updateStep {
-	return updateStep{
-		changesetID: uuid.New(),
-	}
+func newUpdateStep(step updateStep) updateStep {
+	step.changesetID = uuid.New()
+	return step
 }
 
 // updateStep groups package dependencies and other update-relevant metadata
@@ -288,7 +310,7 @@ type updateStep struct {
 	// runtime specifies the planet package
 	runtime loc.Locator
 	// teleport specifies the package with teleport
-	teleport *loc.Locator
+	teleport loc.Locator
 	// runtimeApp specifies the runtime application package
 	runtimeApp libapp.Application
 	// apps lists system application packages.
@@ -305,6 +327,85 @@ type updateStep struct {
 
 type etcdVersion struct {
 	installed, update string
+}
+
+// configUpdates computes the configuration updates for the specified list of servers
+func (r phaseBuilder) configUpdates(
+	installedTeleport loc.Locator,
+	installedRuntimeFunc, updateRuntimeFunc runtimePackageGetterFunc,
+) (updates []storage.UpdateServer, err error) {
+	for _, server := range r.planTemplate.Servers {
+		secretsUpdate, err := r.operator.RotateSecrets(ops.RotateSecretsRequest{
+			Key:    r.operation.ClusterKey(),
+			Server: server,
+			DryRun: true,
+		})
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		installedRuntime, err := installedRuntimeFunc(server)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		updateServer := storage.UpdateServer{
+			Server: server,
+			Runtime: storage.RuntimePackage{
+				Installed:      *installedRuntime,
+				SecretsPackage: &secretsUpdate.Locator,
+			},
+			Teleport: storage.TeleportPackage{
+				Installed: installedTeleport,
+			},
+			Docker: storage.DockerUpdate{
+				Installed: r.installedDocker,
+				Update: checks.DockerConfigFromSchemaValue(
+					r.updateApp.Manifest.SystemDocker()),
+			},
+		}
+		needsPlanetUpdate, needsTeleportUpdate, err := systemNeedsUpdate(
+			server.Role, server.ClusterRole,
+			r.installedApp.Manifest, r.updateApp.Manifest,
+			installedTeleport, r.updateTeleport)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		if needsPlanetUpdate {
+			updateRuntime, err := updateRuntimeFunc(server)
+			if err != nil {
+				return nil, trace.Wrap(err)
+			}
+			configUpdate, err := r.operator.RotatePlanetConfig(ops.RotatePlanetConfigRequest{
+				Key:            r.operation.Key(),
+				Server:         server,
+				Manifest:       r.updateApp.Manifest,
+				RuntimePackage: *updateRuntime,
+				DryRun:         true,
+			})
+			if err != nil {
+				return nil, trace.Wrap(err)
+			}
+			updateServer.Runtime.Update = &storage.RuntimeUpdate{
+				Package:       *updateRuntime,
+				ConfigPackage: configUpdate.Locator,
+			}
+		}
+		if needsTeleportUpdate {
+			_, nodeConfig, err := r.operator.RotateTeleportConfig(ops.RotateTeleportConfigRequest{
+				Key:    r.operation.Key(),
+				Server: server,
+				DryRun: true,
+			})
+			if err != nil {
+				return nil, trace.Wrap(err)
+			}
+			updateServer.Teleport.Update = &storage.TeleportUpdate{
+				Package:           r.updateTeleport,
+				NodeConfigPackage: nodeConfig.Locator,
+			}
+		}
+		updates = append(updates, updateServer)
+	}
+	return updates, nil
 }
 
 func getRuntimePackageFromManifest(m schema.Manifest) runtimePackageGetterFunc {
