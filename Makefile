@@ -18,7 +18,7 @@ GRAVITY_PKG_PATH ?= github.com/gravitational/gravity
 ASSETSDIR=$(TOP)/assets
 BINDIR ?= /usr/bin
 
-# Current Kubernetes version: 1.15.3
+# Current Kubernetes version
 K8S_VER := 1.15.3
 # Kubernetes version suffix for the planet package, constructed by concatenating
 # major + minor padded to 2 chars with 0 + patch also padded to 2 chars, e.g.
@@ -42,7 +42,7 @@ RELEASE_OUT ?=
 TELEPORT_TAG = 3.2.7
 # TELEPORT_REPOTAG adapts TELEPORT_TAG to the teleport tagging scheme
 TELEPORT_REPOTAG := v$(TELEPORT_TAG)
-PLANET_TAG := 6.1.2-$(K8S_VER_SUFFIX)
+PLANET_TAG := 6.1.2-$(K8S_VER_SUFFIX)-2-g2568a2e
 PLANET_BRANCH := $(PLANET_TAG)
 K8S_APP_TAG := $(GRAVITY_TAG)
 TELEKUBE_APP_TAG := $(GRAVITY_TAG)
