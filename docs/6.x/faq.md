@@ -123,11 +123,27 @@ sudo ./gravity install --vxlan-port=9473
 
 ## Kubernetes Pods Stuck in Terminating State
 
-Some linux distributions have included the kernel setting fs.may_detach_mounts with a default value of 0. This can cause conflicts with the docker daemon, where docker is then unable to unmount mount points within the container. Kubernetes will show pods as stuck in the terminating state if docker is unable to clean up one of the underlying containers.
+Some linux distributions have included the kernel setting `fs.may_detach_mounts` with a default value of 0. This can cause conflicts with the docker daemon, where docker is then unable to unmount mount points within the container. Kubernetes will show pods as stuck in the terminating state if docker is unable to clean up one of the underlying containers.
 
-If the installed kernel exposes the option fs.may_detach_mounts we recommend always setting this value to 1, or you may experience issues terminating pods in your cluster.
+If the installed kernel exposes the option `fs.may_detach_mounts` we recommend always setting this value to 1, or you may experience issues terminating pods in your cluster.
 
-```
+```shell
 sysctl -w fs.may_detach_mounts=1
 echo "fs.may_detach_mounts = 1" >> /etc/sysctl.d/10-may_detach_mounts.conf
 ```
+
+## Running Privileged Containers
+
+By default privileged containers are not allowed in Gravity clusters. In some
+cases privileged containers may be required though, specifically for applications
+that wish to utilize custom network plugins or dynamic volume provisioners.
+
+To allow privileged containers, set the following field in your cluster image
+manifest:
+
+```yaml
+systemOptions:
+  allowPrivileged: true
+```
+
+See [Securing a Cluster](/cluster/#securing-a-cluster) for more details.

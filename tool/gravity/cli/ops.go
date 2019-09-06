@@ -136,7 +136,7 @@ func uploadUpdate(env *localenv.LocalEnvironment, opsURL string) error {
 		return trace.Wrap(err)
 	}
 
-	clusterApps, err := defaultEnv.SiteApps()
+	clusterApps, err := defaultEnv.AppServiceCluster()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -197,8 +197,8 @@ func uploadUpdate(env *localenv.LocalEnvironment, opsURL string) error {
 			return trace.Wrap(err)
 		}
 		err = appservice.SyncApp(context.TODO(), appservice.SyncRequest{
-			PackService:  clusterPackages,
-			AppService:   clusterApps,
+			PackService:  tarballPackages,
+			AppService:   tarballApps,
 			ImageService: imageService,
 			Package:      *appPackage,
 		})
