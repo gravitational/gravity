@@ -23,7 +23,6 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 )
 
-
 // DependencyForServer looks up a dependency in the list of sub-phases of the give phase
 // that references the specified server and returns a reference to it.
 // If no server has been found, it retruns the reference to the phase itself
@@ -117,7 +116,7 @@ func (p *Phase) Require(reqs ...*Phase) *Phase {
 	return p
 }
 
-// Phases aliases the operation phase object from lib/storage
+// Phase wraps an operation phase and adds builder-specific extensions
 type Phase struct {
 	p        storage.OperationPhase
 	phases   []*Phase

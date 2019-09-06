@@ -80,6 +80,9 @@ func (r phaseBuilder) buildIntermediateSteps(ctx context.Context) (updates []int
 			if err != nil {
 				return trace.Wrap(err, "invalid semver: %q", version)
 			}
+			if r.shouldSkipIntermediateUpdate(*v) {
+				return nil
+			}
 			result[version] = newIntermediateUpdateStep(*v)
 		}
 		step.fromPackage(env, r.apps)
@@ -252,7 +255,7 @@ type intermediateUpdateStep struct {
 }
 
 func newTargetUpdateStep(step updateStep) targetUpdateStep {
-	return targetUpdateStep{updateStep: step}
+	return targetUpdateStep{updateStep: newUpdateStep(step)}
 }
 
 func (r targetUpdateStep) addTo(builder phaseBuilder, root *libbuilder.Phase, depends ...*libbuilder.Phase) {
@@ -298,7 +301,9 @@ func (r updateStep) addTo(builder phaseBuilder, root *libbuilder.Phase) {
 }
 
 func newUpdateStep(step updateStep) updateStep {
-	step.changesetID = uuid.New()
+	if step.changesetID == "" {
+		step.changesetID = uuid.New()
+	}
 	return step
 }
 
@@ -451,4 +456,10 @@ func (r phaseBuilder) exportGravityBinary(ctx context.Context, loc loc.Locator, 
 		utils.PermOption(defaults.SharedExecutableMask),
 		utils.OwnerOption(uid, gid),
 	)
+}
+
+func (r phaseBuilder) shouldSkipIntermediateUpdate(v semver.Version) bool {
+	// Skip the update if it's older than the installed cluster's
+	// runtime version
+	return v.Compare(r.installedRuntimeAppVersion) <= 0
 }

@@ -640,6 +640,8 @@ type phaseBuilder struct {
 	updateTeleport loc.Locator
 	// installedRuntimeApp is the installed runtime application
 	installedRuntimeApp app.Application
+	// installedRuntimeAppVersion specifies the version of the installed runtime application
+	installedRuntimeAppVersion semver.Version
 	// installedApp is the installed application
 	installedApp app.Application
 	// updateRuntimeApp is the update runtime application

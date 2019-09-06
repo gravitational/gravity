@@ -144,6 +144,10 @@ func NewOperationPlan(ctx context.Context, config PlanConfig) (*storage.Operatio
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	installedRuntimeAppVersion, err := installedRuntimeApp.Package.SemVer()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 
 	updatePackage, err := config.Operation.Update.Package()
 	if err != nil {
@@ -223,24 +227,25 @@ func NewOperationPlan(ctx context.Context, config PlanConfig) (*storage.Operatio
 			DNSConfig:      config.DNSConfig,
 			GravityPackage: *gravityPackage,
 		},
-		operator:            config.Operator,
-		operation:           *config.Operation,
-		appUpdates:          appUpdates,
-		links:               links,
-		trustedClusters:     trustedClusters,
-		packages:            config.Packages,
-		apps:                config.Apps,
-		supportsTaints:      supportsTaints,
-		roles:               roles,
-		leadMaster:          *config.Leader,
-		installedApp:        *installedApp,
-		updateApp:           *updateApp,
-		installedRuntimeApp: *installedRuntimeApp,
-		updateRuntimeApp:    *updateRuntimeApp,
-		installedTeleport:   *installedTeleport,
-		updateTeleport:      *updateTeleport,
-		installedDocker:     *installedDocker,
-		serviceUser:         config.Cluster.ServiceUser,
+		operator:                   config.Operator,
+		operation:                  *config.Operation,
+		appUpdates:                 appUpdates,
+		links:                      links,
+		trustedClusters:            trustedClusters,
+		packages:                   config.Packages,
+		apps:                       config.Apps,
+		supportsTaints:             supportsTaints,
+		roles:                      roles,
+		leadMaster:                 *config.Leader,
+		installedApp:               *installedApp,
+		updateApp:                  *updateApp,
+		installedRuntimeApp:        *installedRuntimeApp,
+		installedRuntimeAppVersion: *installedRuntimeAppVersion,
+		updateRuntimeApp:           *updateRuntimeApp,
+		installedTeleport:          *installedTeleport,
+		updateTeleport:             *updateTeleport,
+		installedDocker:            *installedDocker,
+		serviceUser:                config.Cluster.ServiceUser,
 	}
 
 	err = builder.initSteps(ctx)

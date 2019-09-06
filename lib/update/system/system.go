@@ -147,7 +147,7 @@ type System struct {
 
 func (r *Config) checkAndSetDefaults() error {
 	if r.ChangesetID == "" {
-		return trace.BadParameter("ChangsetID is required")
+		return trace.BadParameter("ChangesetID is required")
 	}
 	if r.Backend == nil {
 		return trace.BadParameter("Backend is required")
