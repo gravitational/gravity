@@ -467,7 +467,7 @@ systemOptions:
 
   # When set to true, allows running privileged containers in the deployed
   # clusters, defaults to false
-  allowPrivileged: true
+  allowPrivileged: false
 
 #
 # This section allows to disable pre-packaged system extensions that

@@ -321,26 +321,7 @@ func checkForUpdate(
 		return nil, trace.Wrap(err)
 	}
 
-	clusterEnv, err := localenv.NewClusterEnvironment()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	clusterPackages, err := env.ClusterPackages()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	// Create the *local* app service that uses the cluster's backend and
-	// packages.
-	//
-	// The local service is needed to handle cases such as newly introduced
-	// manifest field which gravity-site which may be running the old code
-	// does not recognize.
-	apps, err := env.AppServiceLocal(localenv.AppConfig{
-		Backend:  clusterEnv.Backend,
-		Packages: clusterPackages,
-	})
+	apps, err := env.AppServiceCluster()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

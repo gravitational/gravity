@@ -486,6 +486,27 @@ func (env *LocalEnvironment) AppService(opsCenterURL string, config AppConfig, o
 	return client, nil
 }
 
+// AppServiceCluster creates the *local* app service that uses the cluster's
+// backend (etcd) and packages (via HTTP client).
+//
+// The local service is needed to handle cases such as newly introduced
+// manifest field which gravity-site (that may be running the old code)
+// does not recognize.
+func (env *LocalEnvironment) AppServiceCluster() (appbase.Applications, error) {
+	clusterEnv, err := env.NewClusterEnvironment()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	clusterPackages, err := env.ClusterPackages()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return env.AppServiceLocal(AppConfig{
+		Backend:  clusterEnv.Backend,
+		Packages: clusterPackages,
+	})
+}
+
 func (env *LocalEnvironment) AppServiceLocal(config AppConfig) (service appbase.Applications, err error) {
 	var imageService docker.ImageService
 	var dockerClient docker.DockerInterface
@@ -582,11 +603,9 @@ type AppConfig struct {
 	//
 	// This attribute is only applicable in a local planet environment
 	RegistryURL string
-	// Packages allow to override default env.Packages when creating
-	// an app service
+	// Packages allows to override default packages when creating the service
 	Packages pack.PackageService
-	// Backend allows to override default env.Backend when creating
-	// an app service
+	// Backend allows to override default backend when creating the service
 	Backend storage.Backend
 }
 
