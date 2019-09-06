@@ -23,7 +23,6 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	libfsm "github.com/gravitational/gravity/lib/fsm"
-	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
@@ -322,11 +321,26 @@ func checkForUpdate(
 		return nil, trace.Wrap(err)
 	}
 
-	apps, err := env.AppService(
-		defaults.GravityServiceURL,
-		localenv.AppConfig{},
-		httplib.WithLocalResolver(env.DNS.Addr()),
-		httplib.WithInsecure())
+	clusterEnv, err := localenv.NewClusterEnvironment()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	clusterPackages, err := env.ClusterPackages()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	// Create the *local* app service that uses the cluster's backend and
+	// packages.
+	//
+	// The local service is needed to handle cases such as newly introduced
+	// manifest field which gravity-site which may be running the old code
+	// does not recognize.
+	apps, err := env.AppServiceLocal(localenv.AppConfig{
+		Backend:  clusterEnv.Backend,
+		Packages: clusterPackages,
+	})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

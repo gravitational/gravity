@@ -131,12 +131,26 @@ func uploadUpdate(env *localenv.LocalEnvironment, opsURL string) error {
 		}
 	}
 
+	clusterEnv, err := localenv.NewClusterEnvironment()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
 	clusterPackages, err := defaultEnv.ClusterPackages()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	clusterApps, err := defaultEnv.SiteApps()
+	// Create the *local* app service that uses the cluster's backend and
+	// packages.
+	//
+	// The local service is needed to handle cases such as newly introduced
+	// manifest field which gravity-site which may be running the old code
+	// does not recognize.
+	clusterApps, err := defaultEnv.AppServiceLocal(localenv.AppConfig{
+		Backend:  clusterEnv.Backend,
+		Packages: clusterPackages,
+	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -197,8 +211,8 @@ func uploadUpdate(env *localenv.LocalEnvironment, opsURL string) error {
 			return trace.Wrap(err)
 		}
 		err = appservice.SyncApp(context.TODO(), appservice.SyncRequest{
-			PackService:  clusterPackages,
-			AppService:   clusterApps,
+			PackService:  tarballPackages,
+			AppService:   tarballApps,
 			ImageService: imageService,
 			Package:      *appPackage,
 		})

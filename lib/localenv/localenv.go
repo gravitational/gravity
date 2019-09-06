@@ -503,6 +503,12 @@ func (env *LocalEnvironment) AppServiceLocal(config AppConfig) (service appbase.
 			return nil, trace.Wrap(err)
 		}
 	}
+
+	backend := env.Backend
+	if config.Backend != nil {
+		backend = config.Backend
+	}
+
 	var packages pack.PackageService
 	if config.Packages != nil {
 		packages = config.Packages
@@ -511,7 +517,7 @@ func (env *LocalEnvironment) AppServiceLocal(config AppConfig) (service appbase.
 	}
 
 	return appservice.New(appservice.Config{
-		Backend:      env.Backend,
+		Backend:      backend,
 		Packages:     packages,
 		DockerClient: dockerClient,
 		ImageService: imageService,
@@ -579,6 +585,9 @@ type AppConfig struct {
 	// Packages allow to override default env.Packages when creating
 	// an app service
 	Packages pack.PackageService
+	// Backend allows to override default env.Backend when creating
+	// an app service
+	Backend storage.Backend
 }
 
 // NewOpsClient creates a new client to Operator service using the specified
