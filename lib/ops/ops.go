@@ -770,7 +770,7 @@ type RotatePackageResponse struct {
 	// Reader is the package's contents
 	io.Reader `json:"-"`
 	// Labels specifies the labels for the new package
-	Labels map[string]string `json:"labels"`
+	Labels map[string]string `json:"labels,omitempty"`
 }
 
 // ConfigureNodeRequest is a request to prepare a node for the upgrade
@@ -802,8 +802,8 @@ func (r ConfigureNodeRequest) SiteKey() SiteKey {
 	}
 }
 
-// Check validates this request
-func (r RotateSecretsRequest) Check() error {
+// CheckAndSetDefaults validates this request and sets defaults
+func (r RotateSecretsRequest) CheckAndSetDefaults() error {
 	if err := r.Key.Check(); err != nil {
 		return trace.Wrap(err)
 	}
@@ -816,9 +816,9 @@ type RotateSecretsRequest struct {
 	Key SiteKey `json:"key"`
 	// Server is the server to rotate secrets for
 	Server storage.Server `json:"server"`
-	// Locator specifies the secrets package locator to use.
+	// Package specifies the secrets package to use.
 	// If unspecified, one will be automatically generated
-	Locator *loc.Locator `json:"locator,omitempty"`
+	Package *loc.Locator `json:"package,omitempty"`
 	// DryRun specifies whether only the package locator is generated
 	DryRun bool `json:"dry_run"`
 }
@@ -845,9 +845,9 @@ type RotateTeleportConfigRequest struct {
 	// Master specifies the configuration package to use for the cluster controller teleport service.
 	// If unspecified, one will be automatically generated
 	Master *loc.Locator `json:"master,omitempty"`
-	// Node specifies the configuration package to use for the teleport service on host.
+	// NodePackage specifies the configuration package to use for the teleport service on host.
 	// If unspecified, one will be automatically generated
-	Node *loc.Locator `json:"node,omitempty"`
+	NodePackage *loc.Locator `json:"node_package,omitempty"`
 	// DryRun specifies whether only the package locator is generated
 	DryRun bool `json:"dry_run"`
 }
@@ -866,10 +866,9 @@ type RotatePlanetConfigRequest struct {
 	Config []byte `json:"cluster_config,omitempty"`
 	// RuntimePackage specifies the runtime package locator
 	RuntimePackage loc.Locator `json:"runtime_package"`
-	// Locator specifies the configuration package locator to use.
+	// Package specifies the configuration package locator to use.
 	// If unspecified, one will be automatically generated
-	// FIXME: rename -> Package
-	Locator *loc.Locator `json:"locator,omitempty"`
+	Package *loc.Locator `json:"package,omitempty"`
 	// DryRun specifies whether only the package locator is generated
 	DryRun bool `json:"dry_run"`
 }
@@ -909,7 +908,7 @@ type Applications interface {
 	GetAppInstaller(AppInstallerRequest) (io.ReadCloser, error)
 }
 
-//
+// AppInstallerRequest defines the request to generate an application installer
 type AppInstallerRequest struct {
 	AccountID     string
 	Application   loc.Locator

@@ -52,7 +52,7 @@ func (o *Operator) RotateSecrets(req ops.RotateSecretsRequest) (resp *ops.Rotate
 		return nil, trace.Wrap(err)
 	}
 
-	secretsPackage := req.Locator
+	secretsPackage := req.Package
 	if secretsPackage == nil {
 		secretsPackage, err = cluster.planetSecretsNextPackage(node)
 		if err != nil {
@@ -116,7 +116,7 @@ func (o *Operator) RotateTeleportConfig(req ops.RotateTeleportConfigRequest) (ma
 		}
 	}
 
-	nodeConfigPackage := req.Node
+	nodeConfigPackage := req.NodePackage
 	if nodeConfigPackage == nil {
 		nodeConfigPackage, err = cluster.teleportNodeConfigPackage(node)
 		if err != nil {
@@ -194,7 +194,7 @@ func (o *Operator) RotatePlanetConfig(req ops.RotatePlanetConfigRequest) (*ops.R
 		Profile: *nodeProfile,
 	}
 
-	configPackage := req.Locator
+	configPackage := req.Package
 	if configPackage == nil {
 		configPackage, err = cluster.planetNextConfigPackage(&node, req.RuntimePackage.Version)
 		if err != nil {

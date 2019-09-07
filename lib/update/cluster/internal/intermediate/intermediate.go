@@ -8,6 +8,7 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/state"
 
 	"github.com/gravitational/trace"
@@ -16,8 +17,9 @@ import (
 
 // NewPackageRotatorForPath returns a new instance of the configuration package
 // rotator that uses a gravity binary of the specified version for operation
-func NewPackageRotatorForPath(path, operationID string) *gravityPackageRotator {
+func NewPackageRotatorForPath(packages pack.PackageService, path, operationID string) *gravityPackageRotator {
 	return &gravityPackageRotator{
+		packages:    packages,
 		path:        path,
 		operationID: operationID,
 	}
@@ -48,14 +50,13 @@ type PackageRotator interface {
 func (r gravityPackageRotator) RotateSecrets(req ops.RotateSecretsRequest) (*ops.RotatePackageResponse, error) {
 	args := []string{
 		"update", "rotate-secrets",
-		"--server-addr", req.Server.AdvertiseIP,
+		"--addr", req.Server.AdvertiseIP,
 		"--id", r.operationID,
 	}
-	// FIXME: Locator->Package
-	if req.Locator != nil {
-		args = append(args, "--package", req.Locator.String())
+	if req.Package != nil {
+		args = append(args, "--package", req.Package.String())
 	}
-	return r.exec(args...)
+	return r.exec(req.DryRun, args...)
 }
 
 // RotatePlanetConfig generates a new planet configuration package for the specified request
@@ -63,35 +64,33 @@ func (r gravityPackageRotator) RotatePlanetConfig(req ops.RotatePlanetConfigRequ
 	args := []string{
 		"update", "rotate-planet-config",
 		"--runtime-package", req.RuntimePackage.String(),
-		"--server-addr", req.Server.AdvertiseIP,
+		"--addr", req.Server.AdvertiseIP,
 		"--id", r.operationID,
 	}
-	// FIXME: Locator->Package
-	if req.Locator != nil {
-		args = append(args, "--package", req.Locator.String())
+	if req.Package != nil {
+		args = append(args, "--package", req.Package.String())
 	}
-	return r.exec(args...)
+	return r.exec(req.DryRun, args...)
 }
 
 // RotateTeleportConfig generates new teleport configuration packages for the specified request
 func (r gravityPackageRotator) RotateTeleportConfig(req ops.RotateTeleportConfigRequest) (*ops.RotatePackageResponse, *ops.RotatePackageResponse, error) {
 	args := []string{
 		"update", "rotate-teleport-config",
-		"--server-addr", req.Server.AdvertiseIP,
+		"--addr", req.Server.AdvertiseIP,
 		"--id", r.operationID,
 	}
-	// FIXME: Node->NodePackage
-	if req.Node != nil {
-		args = append(args, "--package", req.Node.String())
+	if req.NodePackage != nil {
+		args = append(args, "--package", req.NodePackage.String())
 	}
-	resp, err := r.exec(args...)
+	resp, err := r.exec(req.DryRun, args...)
 	if err != nil {
 		return nil, nil, trace.Wrap(err)
 	}
 	return resp, nil, nil
 }
 
-func (r gravityPackageRotator) exec(args ...string) (resp *ops.RotatePackageResponse, err error) {
+func (r gravityPackageRotator) exec(dryRun bool, args ...string) (resp *ops.RotatePackageResponse, err error) {
 	cmd := exec.Command(r.path, args...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -99,6 +98,7 @@ func (r gravityPackageRotator) exec(args ...string) (resp *ops.RotatePackageResp
 			log.ErrorKey: err,
 			"path":       r.path,
 			"args":       args,
+			"output":     string(out),
 		}).Warn("Failed to exec.")
 		return nil, trace.Wrap(err)
 	}
@@ -112,11 +112,20 @@ func (r gravityPackageRotator) exec(args ...string) (resp *ops.RotatePackageResp
 		return nil, trace.Wrap(err, "failed to interpret %q as package locator", out)
 	}
 	resp.Locator = *loc
+	if dryRun {
+		return resp, nil
+	}
+	_, resp.Reader, err = r.packages.ReadPackage(*loc)
+	if err != nil {
+		return nil, trace.Wrap(err, "failed to read package %v", loc)
+	}
 	return resp, nil
 }
 
 // gravityPackageRotator configures packages using a gravity binary
 type gravityPackageRotator struct {
+	// packages specifies the package service
+	packages pack.PackageService
 	// path specifies the path to the gravity binary
 	path string
 	// operationID specifies the ID of the active update operation

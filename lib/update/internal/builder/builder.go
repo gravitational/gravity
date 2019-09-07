@@ -25,15 +25,14 @@ import (
 
 // DependencyForServer looks up a dependency in the list of sub-phases of the give phase
 // that references the specified server and returns a reference to it.
-// If no server has been found, it retruns the reference to the phase itself
+// If no server has been found, it returns the reference to the phase itself
 func DependencyForServer(phase *Phase, server storage.Server) *Phase {
-	for _, phase := range phase.phases {
-		if phase.p.Data.Server.AdvertiseIP == server.AdvertiseIP {
-			return phase
+	for _, subphase := range phase.phases {
+		if subphase.p.Data.Server.AdvertiseIP == server.AdvertiseIP {
+			return subphase
 		}
 	}
-	// FIXME: check this use-case
-	return nil
+	return phase
 }
 
 // ResolveInline embeds the phases of the specified root without the root itself.
@@ -162,6 +161,8 @@ func resolveRequirements(parent *Phase, phases []*Phase) {
 	}
 }
 
+// render converts the specified phases into storage format in result.
+// Works recursively on sub-phases.
 // expects len(result) == len(phases)
 func render(result []storage.OperationPhase, phases []*Phase) {
 	for i, phase := range phases {

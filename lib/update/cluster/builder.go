@@ -75,9 +75,9 @@ func (r phaseBuilder) bootstrapVersioned(version semver.Version, gravityPackage 
 				Package:          &r.updateApp.Package,
 				InstalledPackage: &r.installedApp.Package,
 				Update: &storage.UpdateOperationData{
-					Servers:        []storage.UpdateServer{server},
-					Version:        version.String(),
-					GravityPackage: &gravityPackage,
+					Servers:           []storage.UpdateServer{server},
+					RuntimeAppVersion: version.String(),
+					GravityPackage:    &gravityPackage,
 				},
 			},
 		})
@@ -115,20 +115,6 @@ func (r phaseBuilder) preUpdate() *builder.Phase {
 		Executor:    preUpdate,
 		Data: &storage.OperationPhaseData{
 			Package: &r.updateApp.Package,
-		},
-	})
-}
-
-func (r phaseBuilder) corednsVersioned(version semver.Version) *builder.Phase {
-	return builder.New(storage.OperationPhase{
-		ID:          "coredns",
-		Description: "Provision CoreDNS resources",
-		Executor:    coredns,
-		Data: &storage.OperationPhaseData{
-			Server: &r.leadMaster,
-			CoreDNS: &storage.CoreDNSOperationData{
-				Version: version.String(),
-			},
 		},
 	})
 }

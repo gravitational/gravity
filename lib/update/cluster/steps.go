@@ -50,7 +50,7 @@ func (r *phaseBuilder) initSteps(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	runtimeAppUpdates, err := runtimeUpdates(r.installedRuntimeApp, r.updateRuntimeApp, r.updateApp)
+	runtimeAppUpdates, err := runtimeUpdates(installedRuntimeApp, r.updateRuntimeApp, r.updateApp)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -110,7 +110,7 @@ func (r phaseBuilder) buildIntermediateSteps(ctx context.Context) (updates []int
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
-		operator := intermediate.NewPackageRotatorForPath(path, r.operation.ID)
+		operator := intermediate.NewPackageRotatorForPath(r.packages, path, r.operation.ID)
 		serverUpdates, err := r.intermediateConfigUpdates(
 			r.installedApp.Manifest,
 			prevRuntimeFunc, update.runtime,
@@ -278,17 +278,16 @@ func (r updateStep) addTo(builder phaseBuilder, root *libbuilder.Phase) {
 	if nodesPhase.HasSubphases() {
 		root.AddSequential(nodesPhase)
 	}
-	if r.etcd == nil {
-		return
+	if r.etcd != nil {
+		// This step does not depend on previous on purpose - when the etcd block is executed,
+		// remote agents might not be able to sync the plan before the shutdown of etcd
+		// instances has begun
+		root.AddParallel(builder.etcdPlan(
+			serversToStorage(masters[1:]...),
+			serversToStorage(nodes...),
+			*r.etcd),
+		)
 	}
-	// This step does not depend on previous on purpose - when the etcd block is executed,
-	// remote agents might not be able to sync the plan before the shutdown of etcd
-	// instances has begun
-	root.AddParallel(builder.etcdPlan(
-		serversToStorage(masters[1:]...),
-		serversToStorage(nodes...),
-		*r.etcd),
-	)
 	// The "config" phase pulls new teleport master config packages used
 	// by gravity-sites on master nodes: it needs to run *after* system
 	// upgrade phase to make sure that old gravity-sites start up fine

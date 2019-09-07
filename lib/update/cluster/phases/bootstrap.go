@@ -139,12 +139,12 @@ func NewUpdatePhaseBootstrap(
 			return nil, trace.Wrap(err)
 		}
 	} else {
-		gravityPath, err = intermediate.GravityPathForVersion(p.Phase.Data.Update.Version)
+		gravityPath, err = intermediate.GravityPathForVersion(p.Phase.Data.Update.RuntimeAppVersion)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
 		packageRotator = intermediate.NewPackageRotatorForPath(
-			gravityPath, p.Plan.OperationID)
+			packages, gravityPath, p.Plan.OperationID)
 	}
 	return &updatePhaseBootstrap{
 		Operator:              operator,
@@ -515,7 +515,7 @@ func (p *updatePhaseBootstrap) rotateSecrets(server storage.UpdateServer) error 
 	p.Infof("Generate new secrets configuration package for %v.", server)
 	resp, err := p.packageRotator.RotateSecrets(ops.RotateSecretsRequest{
 		Key:     p.Operation.ClusterKey(),
-		Locator: server.Runtime.SecretsPackage,
+		Package: server.Runtime.SecretsPackage,
 		Server:  server.Server,
 	})
 	if err != nil {
@@ -536,7 +536,7 @@ func (p *updatePhaseBootstrap) rotatePlanetConfig(server storage.UpdateServer) e
 		Server:         server.Server,
 		Manifest:       p.updateManifest,
 		RuntimePackage: server.Runtime.Update.Package,
-		Locator:        &server.Runtime.Update.ConfigPackage,
+		Package:        &server.Runtime.Update.ConfigPackage,
 		Config:         p.existingClusterConfig,
 		Env:            p.existingEnviron,
 	})
@@ -554,10 +554,10 @@ func (p *updatePhaseBootstrap) rotatePlanetConfig(server storage.UpdateServer) e
 
 func (p *updatePhaseBootstrap) rotateTeleportConfig(server storage.UpdateServer) error {
 	masterConf, nodeConf, err := p.packageRotator.RotateTeleportConfig(ops.RotateTeleportConfigRequest{
-		Key:       p.Operation.Key(),
-		Server:    server.Server,
-		Node:      &server.Teleport.Update.NodeConfigPackage,
-		MasterIPs: p.masterIPs,
+		Key:         p.Operation.Key(),
+		Server:      server.Server,
+		NodePackage: &server.Teleport.Update.NodeConfigPackage,
+		MasterIPs:   p.masterIPs,
 	})
 	if err != nil {
 		return trace.Wrap(err)

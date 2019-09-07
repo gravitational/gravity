@@ -45,10 +45,10 @@ var _ = check.Suite(&PlanSuite{})
 
 func (s *PlanSuite) TestPlanWithRuntimeAppsUpdate(c *check.C) {
 	// setup
-	runtimeApp1 := newApp("gravitational.io/runtime:1.0.0", installedRuntimeAppManifest)
-	app1 := newApp("gravitational.io/app:1.0.0", installedAppManifest)
-	runtimeApp2 := newApp("gravitational.io/runtime:2.0.0", updateRuntimeAppManifest)
-	app2 := newApp("gravitational.io/app:2.0.0", updateAppManifest)
+	installedRuntimeApp := newApp("gravitational.io/runtime:1.0.0", installedRuntimeAppManifest)
+	installedApp := newApp("gravitational.io/app:1.0.0", installedAppManifest)
+	updateRuntimeApp := newApp("gravitational.io/runtime:2.0.0", updateRuntimeAppManifest)
+	updateApp := newApp("gravitational.io/app:2.0.0", updateAppManifest)
 	dockerDevice := storage.Docker{
 		Device: storage.Device{
 			Name: storage.DeviceName("vdb"),
@@ -105,14 +105,14 @@ func (s *PlanSuite) TestPlanWithRuntimeAppsUpdate(c *check.C) {
 	runtimeUpdates := []loc.Locator{
 		loc.MustParseLocator("gravitational.io/rbac-app:2.0.0"),
 		loc.MustParseLocator("gravitational.io/runtime-dep-2:2.0.0"),
-		runtimeApp2.Package,
+		updateRuntimeApp.Package,
 	}
 	params := params{
 		servers:             servers,
-		installedRuntimeApp: runtimeApp1,
-		installedApp:        app1,
-		updateRuntimeApp:    runtimeApp2,
-		updateApp:           app2,
+		installedRuntimeApp: installedRuntimeApp,
+		installedApp:        installedApp,
+		updateRuntimeApp:    updateRuntimeApp,
+		updateApp:           updateApp,
 		links: []storage.OpsCenterLink{
 			{
 				Hostname:   "ops.example.com",
@@ -127,7 +127,7 @@ func (s *PlanSuite) TestPlanWithRuntimeAppsUpdate(c *check.C) {
 		leadMaster: servers[1],
 		appUpdates: []loc.Locator{
 			loc.MustParseLocator("gravitational.io/app-dep-2:2.0.0"),
-			app2.Package,
+			updateApp.Package,
 		},
 		targetStep: newTargetUpdateStep(updateStep{
 			runtimeUpdates: runtimeUpdates,
@@ -173,11 +173,11 @@ func (s *PlanSuite) TestPlanWithRuntimeAppsUpdate(c *check.C) {
 	})
 }
 
-func (s *PlanSuite) TestPlanWithoutRuntimeAppsUpdate(c *check.C) {
+func (s *PlanSuite) TestPlanWithoutRuntimeAppUpdate(c *check.C) {
 	// setup
-	runtimeApp1 := newApp("gravitational.io/runtime:1.0.0", installedRuntimeAppManifest)
-	app1 := newApp("gravitational.io/app:1.0.0", installedAppManifest)
-	app2 := newApp("gravitational.io/app:2.0.0", updateAppManifest)
+	installedRuntimeApp := newApp("gravitational.io/runtime:1.0.0", installedRuntimeAppManifest)
+	installedApp := newApp("gravitational.io/app:1.0.0", installedAppManifest)
+	updateApp := newApp("gravitational.io/app:2.0.0", updateAppManifest)
 	servers := []storage.Server{
 		{
 			AdvertiseIP: "192.168.0.1",
@@ -200,15 +200,15 @@ func (s *PlanSuite) TestPlanWithoutRuntimeAppsUpdate(c *check.C) {
 	}
 	params := params{
 		servers:             servers,
-		installedRuntimeApp: runtimeApp1,
-		installedApp:        app1,
-		updateRuntimeApp:    runtimeApp1, // same runtime on purpose
-		updateApp:           app2,
+		installedRuntimeApp: installedRuntimeApp,
+		installedApp:        installedApp,
+		updateRuntimeApp:    installedRuntimeApp, // same runtime on purpose
+		updateApp:           updateApp,
 		dnsConfig:           storage.DefaultDNSConfig,
 		leadMaster:          servers[0],
 		appUpdates: []loc.Locator{
 			loc.MustParseLocator("gravitational.io/app-dep-2:2.0.0"),
-			app2.Package,
+			updateApp.Package,
 		},
 	}
 	builder := newBuilder(c, params)
@@ -950,9 +950,9 @@ func (r *params) bootstrapNodeVersioned(server storage.UpdateServer, version str
 			Package:          &r.updateApp.Package,
 			InstalledPackage: &r.installedApp.Package,
 			Update: &storage.UpdateOperationData{
-				Servers:        []storage.UpdateServer{server},
-				Version:        version,
-				GravityPackage: &gravityPackage,
+				Servers:           []storage.UpdateServer{server},
+				RuntimeAppVersion: version,
+				GravityPackage:    &gravityPackage,
 			},
 		},
 	}

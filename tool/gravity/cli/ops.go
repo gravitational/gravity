@@ -207,7 +207,6 @@ func getUploadDependencies(env *localenv.TarballEnvironment, loc loc.Locator, in
 }
 
 func collectUpgradeDependencies(env *localenv.TarballEnvironment, installedRuntimeVersion semver.Version, deps *libapp.Dependencies) error {
-	// return pack.ForeachPackage(env.Packages, libupdate.FilterIntermediatePackage(env.Apps, deps))
 	return pack.ForeachPackage(env.Packages, func(pkg pack.PackageEnvelope) error {
 		version, ok := pkg.RuntimeLabels[pack.PurposeRuntimeUpgrade]
 		if !ok {
