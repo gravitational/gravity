@@ -93,7 +93,7 @@ func (r *corednsExecutor) Execute(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	upstream := resolvConf.Servers
+	servers := resolvConf.Servers
 
 	// Optionally try and load upstream nameservers from systemd-resolved by reading the compatibility resolv.conf
 	// More Info: https://github.com/gravitational/gravity/issues/606#issuecomment-529171440
@@ -103,14 +103,14 @@ func (r *corednsExecutor) Execute(ctx context.Context) error {
 		return trace.Wrap(err)
 	}
 	if systemdResolvConf != nil {
-		upstream = append(upstream, systemdResolvConf.Servers...)
+		servers = append(servers, systemdResolvConf.Servers...)
 	}
 
 	// Filter out local nameservers to avoid CoreDNS forwarding requests
 	// to itself and triggering loop detection, see for more details:
 	// https://github.com/coredns/coredns/tree/master/plugin/loop#troubleshooting
 	var upstreams []string
-	for _, nameserver := range upstream {
+	for _, nameserver := range servers {
 		if !utils.IsLocalhost(nameserver) {
 			upstreams = append(upstreams, nameserver)
 		}
