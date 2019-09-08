@@ -93,12 +93,24 @@ func (r *corednsExecutor) Execute(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	upstream := resolvConf.Servers
+
+	// Optionally try and load upstream nameservers from systemd-resolved by reading the compatibility resolv.conf
+	// More Info: https://github.com/gravitational/gravity/issues/606#issuecomment-529171440
+	// TODO(knisbet) is there a better way to pull upstream resolvers directly from systemd?
+	systemdResolvConf, err := systeminfo.ResolvFromFile("/run/systemd/resolve/resolv.conf")
+	if err != nil && !trace.IsNotFound(err) {
+		return trace.Wrap(err)
+	}
+	if systemdResolvConf != nil {
+		upstream = append(upstream, systemdResolvConf.Servers...)
+	}
 
 	// Filter out local nameservers to avoid CoreDNS forwarding requests
 	// to itself and triggering loop detection, see for more details:
 	// https://github.com/coredns/coredns/tree/master/plugin/loop#troubleshooting
 	var upstreams []string
-	for _, nameserver := range resolvConf.Servers {
+	for _, nameserver := range upstream {
 		if !utils.IsLocalhost(nameserver) {
 			upstreams = append(upstreams, nameserver)
 		}
