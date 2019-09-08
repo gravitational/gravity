@@ -1,7 +1,9 @@
 package cluster
 
 import (
+	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -83,7 +85,7 @@ func (r phaseBuilder) buildIntermediateSteps(ctx context.Context) (updates []int
 			if r.shouldSkipIntermediateUpdate(*v) {
 				return nil
 			}
-			result[version] = newIntermediateUpdateStep(*v)
+			step = newIntermediateUpdateStep(*v)
 		}
 		step.fromPackage(env, r.apps)
 		result[version] = step
@@ -245,6 +247,16 @@ func (r intermediateUpdateStep) addTo(builder phaseBuilder, root *libbuilder.Pha
 	r.updateStep.addTo(builder, root)
 }
 
+func (r intermediateUpdateStep) String() string {
+	var buf bytes.Buffer
+	fmt.Fprint(&buf, "intermediateUpdateStep(")
+	fmt.Fprintf(&buf, "version=%v,", r.version)
+	fmt.Fprintf(&buf, "gravity=%v,", r.gravity)
+	fmt.Fprintf(&buf, "updateStep=%v,", r.updateStep)
+	fmt.Fprint(&buf, ")")
+	return buf.String()
+}
+
 // intermediateUpdateStep describes an intermediate update step
 type intermediateUpdateStep struct {
 	updateStep
@@ -304,6 +316,22 @@ func newUpdateStep(step updateStep) updateStep {
 		step.changesetID = uuid.New()
 	}
 	return step
+}
+
+func (r updateStep) String() string {
+	var buf bytes.Buffer
+	fmt.Fprint(&buf, "updateStep(")
+	fmt.Fprintf(&buf, "changesetID=%v,", r.changesetID)
+	fmt.Fprintf(&buf, "runtime=%v,", r.runtime)
+	fmt.Fprintf(&buf, "teleport=%v,", r.teleport)
+	fmt.Fprintf(&buf, "runtimeApp=%v,", r.runtimeApp)
+	fmt.Fprintf(&buf, "apps=%v,", r.apps)
+	fmt.Fprintf(&buf, "runtimeUpdates=%v,", r.runtimeUpdates)
+	if r.etcd != nil {
+		fmt.Fprintf(&buf, "etcd=%v,", *r.etcd)
+	}
+	fmt.Fprint(&buf, ")")
+	return buf.String()
 }
 
 // updateStep groups package dependencies and other update-relevant metadata

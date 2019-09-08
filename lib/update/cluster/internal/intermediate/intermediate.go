@@ -74,7 +74,7 @@ func (r gravityPackageRotator) RotatePlanetConfig(req ops.RotatePlanetConfigRequ
 }
 
 // RotateTeleportConfig generates new teleport configuration packages for the specified request
-func (r gravityPackageRotator) RotateTeleportConfig(req ops.RotateTeleportConfigRequest) (*ops.RotatePackageResponse, *ops.RotatePackageResponse, error) {
+func (r gravityPackageRotator) RotateTeleportConfig(req ops.RotateTeleportConfigRequest) (masterConfig *ops.RotatePackageResponse, nodeConfig *ops.RotatePackageResponse, err error) {
 	args := []string{
 		"update", "rotate-teleport-config",
 		"--addr", req.Server.AdvertiseIP,
@@ -87,7 +87,7 @@ func (r gravityPackageRotator) RotateTeleportConfig(req ops.RotateTeleportConfig
 	if err != nil {
 		return nil, nil, trace.Wrap(err)
 	}
-	return resp, nil, nil
+	return nil, resp, nil
 }
 
 func (r gravityPackageRotator) exec(dryRun bool, args ...string) (resp *ops.RotatePackageResponse, err error) {
