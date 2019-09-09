@@ -112,7 +112,10 @@ func (s *WebpackSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 	mux := http.NewServeMux()
 	mux.Handle("/pack/", webHandler)
-	s.webServer = httptest.NewServer(mux)
+
+	// It is important that we launch TLS server as authentication
+	// middleware on the handler expects TLS connections.
+	s.webServer = httptest.NewTLSServer(mux)
 
 	// for regular test, let's be admins, so tests
 	// won't be affected by auth issues

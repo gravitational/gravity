@@ -133,7 +133,9 @@ func (r *HandlerSuite) SetUpTest(c *C) {
 		})
 		c.Assert(err, IsNil)
 
-		r.server = httptest.NewServer(handler)
+		// It is important that we launch TLS server as authentication
+		// middleware on the handler expects TLS connections.
+		r.server = httptest.NewTLSServer(handler)
 
 		apps, err := client.NewAuthenticatedClient(
 			r.server.URL, r.user.GetName(), "admin-password",

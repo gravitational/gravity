@@ -40,6 +40,7 @@ import (
 	"github.com/gravitational/gravity/lib/users"
 
 	"github.com/gravitational/roundtrip"
+	"github.com/gravitational/teleport/lib/auth"
 	telehttplib "github.com/gravitational/teleport/lib/httplib"
 	teleservices "github.com/gravitational/teleport/lib/services"
 	teleutils "github.com/gravitational/teleport/lib/utils"
@@ -62,16 +63,37 @@ type WebHandlerConfig struct {
 	// Packages is the pack service
 	Packages pack.PackageService
 	// Authenticator is used to authenticate web requests
-	Authenticator httplib.Authenticator
+	Authenticator users.Authenticator
 	// Devmode is whether the process is started in dev mode
 	Devmode bool
 	// PublicAdvertiseAddr is the process public advertise address
 	PublicAdvertiseAddr teleutils.NetAddr
 }
 
+// CheckAndSetDefaults validates the config and sets some defaults.
+func (c *WebHandlerConfig) CheckAndSetDefaults() error {
+	if c.Operator == nil {
+		return trace.BadParameter("missing parameter Operator")
+	}
+	if c.Users == nil {
+		return trace.BadParameter("missing parameter Users")
+	}
+	if c.Applications == nil {
+		return trace.BadParameter("missing parameter Applications")
+	}
+	if c.Packages == nil {
+		return trace.BadParameter("missing parameter Packages")
+	}
+	if c.Authenticator == nil {
+		c.Authenticator = users.NewAuthenticatorFromIdentity(c.Users)
+	}
+	return nil
+}
+
 type WebHandler struct {
 	httprouter.Router
-	cfg WebHandlerConfig
+	cfg        WebHandlerConfig
+	middleware *auth.AuthMiddleware
 }
 
 // GetConfig returns config web handler was initialized with
@@ -80,21 +102,21 @@ func (h *WebHandler) GetConfig() WebHandlerConfig {
 }
 
 func NewWebHandler(cfg WebHandlerConfig) (*WebHandler, error) {
-	if cfg.Operator == nil {
-		return nil, trace.BadParameter("missing parameter Operator")
+	if err := cfg.CheckAndSetDefaults(); err != nil {
+		return nil, trace.Wrap(err)
 	}
-	if cfg.Users == nil {
-		return nil, trace.BadParameter("missing parameter Users")
-	}
-	if cfg.Applications == nil {
-		return nil, trace.BadParameter("missing parameter Applications")
-	}
-	if cfg.Packages == nil {
-		return nil, trace.BadParameter("missing parameter Packages")
-	}
+
 	h := &WebHandler{
 		cfg: cfg,
 	}
+
+	// Wrap the router in the authentication middleware which will detect
+	// if the client is trying to authenticate using a client certificate,
+	// extract user information from it and add it to the request context.
+	h.middleware = &auth.AuthMiddleware{
+		AccessPoint: users.NewAccessPoint(cfg.Users),
+	}
+	h.middleware.Wrap(&h.Router)
 
 	h.OPTIONS("/*path", h.options)
 
@@ -303,6 +325,12 @@ func NewWebHandler(cfg WebHandlerConfig) (*WebHandler, error) {
 		h.needsAuth(h.emitAuditEvent))
 
 	return h, nil
+}
+
+// ServeHTTP lets the authentication middleware serve the request before
+// passing it through to the router.
+func (s *WebHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	s.middleware.ServeHTTP(w, r)
 }
 
 func (h *WebHandler) options(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
@@ -2307,62 +2335,25 @@ func (s *WebHandler) needsAuth(fn ServiceHandle) httprouter.Handle {
 
 // GetHandlerContext authenticates the user that made the request and returns
 // the appropriate handler context
-func GetHandlerContext(w http.ResponseWriter, r *http.Request, backend storage.Backend, operator ops.Operator, auth httplib.Authenticator, usersService users.Identity) (*HandlerContext, error) {
-	authCreds, err := httplib.ParseAuthHeaders(r)
+func GetHandlerContext(w http.ResponseWriter, r *http.Request, backend storage.Backend, operator ops.Operator, authenticator users.Authenticator, usersService users.Identity) (*HandlerContext, error) {
+	authResult, err := authenticator.Authenticate(w, r)
 	if err != nil {
-		return nil, trace.Wrap(err, "credentials error")
+		log.WithError(err).Debug("Authentication error.")
+		return nil, trace.AccessDenied("bad username or password") // Hide the actual error.
 	}
-	cookie, err := r.Cookie("session")
-	hasCookie := err == nil && cookie != nil && cookie.Value != ""
 
-	var user storage.User
-	var checker teleservices.AccessChecker
+	// Enrich the request context with additional auth info.
 	ctx := r.Context()
-	// this authentication is for robots like install and update agents
-	if !hasCookie {
-		user, checker, err = usersService.AuthenticateUser(*authCreds)
-		if err != nil {
-			log.Debugf("Authentication error: %v.", err)
-			// hide the error from remote user for security reasons
-			return nil, trace.AccessDenied("bad username or password")
-		}
-	} else {
-		if auth == nil {
-			log.Debug("Web sessions are not supported.")
-			// hide the error from remote user for security reasons
-			return nil, trace.AccessDenied("web sessions are not supported")
-		}
-		session, err := auth(w, r, true)
-		if err != nil {
-			log.Debugf("Authentication error: %v.", err)
-			// we hide the error from the remote user to avoid giving any hints
-			return nil, trace.AccessDenied("bad username or password")
-		}
-		user, err = usersService.GetTelekubeUser(session.GetUser())
-		if err != nil {
-			log.Debugf("Authentication error: %v.", err)
-			// we hide the error from the remote user to avoid giving any hints
-			return nil, trace.AccessDenied("bad username or password")
-		}
-		checker, err = usersService.GetAccessChecker(user)
-		if err != nil {
-			log.Errorf("Failed to fetch roles: %v.", trace.DebugReport(err))
-			// we hide the error from the remote user to avoid giving any hints
-			return nil, trace.AccessDenied("bad username or password")
-		}
-		// enrich context with user web session
-		ctx = context.WithValue(
-			ctx, constants.WebSessionContext, session.GetWebSession())
+	ctx = context.WithValue(ctx, constants.UserContext, authResult.User.GetName())
+	if authResult.Session != nil {
+		ctx = context.WithValue(ctx, constants.WebSessionContext, authResult.Session.GetWebSession())
 	}
-
-	// enrich context with authenticated user information
-	ctx = context.WithValue(ctx, constants.UserContext, user.GetName())
 
 	// create a permission aware wrapper packages service
 	// and pass it to the handlers, so every action will be automatically
 	// checked against current user
-	wrappedOperator := ops.OperatorWithACL(operator, usersService, user, checker)
-	wrappedIdentity := users.IdentityWithACL(backend, usersService, user, checker)
+	wrappedOperator := ops.OperatorWithACL(operator, usersService, authResult.User, authResult.Checker)
+	wrappedIdentity := users.IdentityWithACL(backend, usersService, authResult.User, authResult.Checker)
 	if err != nil {
 		log.Errorf("Failed to init identity service: %v.", trace.DebugReport(err))
 		return nil, trace.BadParameter("internal server error")
@@ -2371,22 +2362,18 @@ func GetHandlerContext(w http.ResponseWriter, r *http.Request, backend storage.B
 	ctx = context.WithValue(ctx, constants.OperatorContext, wrappedOperator)
 	handlerContext := &HandlerContext{
 		Operator: wrappedOperator,
-		User:     user,
-		Checker:  checker,
+		User:     authResult.User,
+		Checker:  authResult.Checker,
 		Identity: wrappedIdentity,
 		Context:  ctx,
-	}
-	if authCreds.IsToken() {
-		// remember token that was used for signups
-		handlerContext.Token = authCreds.Password
 	}
 	return handlerContext, nil
 }
 
 // NeedsAuth is authentication wrapper for ops handlers
-func NeedsAuth(devmode bool, backend storage.Backend, operator ops.Operator, webAuth httplib.Authenticator, usersService users.Identity, fn ServiceHandle) httprouter.Handle {
+func NeedsAuth(devmode bool, backend storage.Backend, operator ops.Operator, authenticator users.Authenticator, usersService users.Identity, fn ServiceHandle) httprouter.Handle {
 	handler := func(w http.ResponseWriter, r *http.Request, params httprouter.Params) error {
-		handlerContext, err := GetHandlerContext(w, r, backend, operator, webAuth, usersService)
+		handlerContext, err := GetHandlerContext(w, r, backend, operator, authenticator, usersService)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -2460,8 +2447,6 @@ type HandlerContext struct {
 	Checker teleservices.AccessChecker
 	// Context is the request context
 	Context context.Context
-	// token is opaque token that was used for logins
-	Token string
 }
 
 func statusOK(message string) interface{} {

@@ -43,39 +43,64 @@ import (
 	"github.com/coreos/go-semver/semver"
 	"github.com/gravitational/form"
 	"github.com/gravitational/roundtrip"
+	"github.com/gravitational/teleport/lib/auth"
 	telehttplib "github.com/gravitational/teleport/lib/httplib"
-	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
 	"github.com/julienschmidt/httprouter"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/websocket"
 )
 
-// WebHandlerConfig
+// WebHandlerConfig defines app service web handler configuration.
 type WebHandlerConfig struct {
-	Users         users.Identity
-	Applications  app.Applications
-	Packages      pack.PackageService
-	Charts        helm.Repository
-	Authenticator httplib.Authenticator
-	Devmode       bool
+	// Users provides access to the users service.
+	Users users.Identity
+	// Applications provides access to the application service.
+	Applications app.Applications
+	// Packages provides access to the package service.
+	Packages pack.PackageService
+	// Charts provides access to the chart repository.
+	Charts helm.Repository
+	// Authenticator is used to authenticate requests.
+	Authenticator users.Authenticator
+}
+
+// CheckAndSetDefaults validates the config and sets some defaults.
+func (c *WebHandlerConfig) CheckAndSetDefaults() error {
+	if c.Applications == nil {
+		return trace.BadParameter("missing parameter Applications")
+	}
+	if c.Users == nil {
+		return trace.BadParameter("missing parameter Users")
+	}
+	if c.Authenticator == nil {
+		c.Authenticator = users.NewAuthenticatorFromIdentity(c.Users)
+	}
+	return nil
 }
 
 type WebHandler struct {
 	httprouter.Router
 	WebHandlerConfig
+	middleware *auth.AuthMiddleware
 }
 
 func NewWebHandler(cfg WebHandlerConfig) (*WebHandler, error) {
-	if cfg.Applications == nil {
-		return nil, trace.BadParameter("missing parameter Applications")
+	if err := cfg.CheckAndSetDefaults(); err != nil {
+		return nil, trace.Wrap(err)
 	}
-	if cfg.Users == nil {
-		return nil, trace.BadParameter("missing parameter Users")
-	}
+
 	h := &WebHandler{
 		WebHandlerConfig: cfg,
 	}
+
+	// Wrap the router in the authentication middleware which will detect
+	// if the client is trying to authenticate using a client certificate,
+	// extract user information from it and add it to the request context.
+	h.middleware = &auth.AuthMiddleware{
+		AccessPoint: users.NewAccessPoint(cfg.Users),
+	}
+	h.middleware.Wrap(&h.Router)
 
 	h.OPTIONS("/*path", h.options)
 	h.GET("/app/v1/applications/:repository_id", h.needsAuth(h.listApps))
@@ -115,6 +140,12 @@ func NewWebHandler(cfg WebHandlerConfig) (*WebHandler, error) {
 	h.GET("/app/v1/charts/:name", h.needsAuth(h.fetchChart)) // Alias for /charts/:name for easier testing.
 
 	return h, nil
+}
+
+// ServeHTTP lets the authentication middleware serve the request before
+// passing it through to the router.
+func (s *WebHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	s.middleware.ServeHTTP(w, r)
 }
 
 /* createAppImportOperation initiates import of an application.
@@ -1009,76 +1040,19 @@ func (h *WebHandler) wrap(fn func(w http.ResponseWriter, r *http.Request, p http
 
 func (h *WebHandler) needsAuth(fn serviceHandler) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-		log.WithFields(log.Fields{
-			"method": r.Method,
-		}).Debugf(r.URL.Path)
-
-		auth, err := httplib.ParseAuthHeaders(r)
+		authResult, err := h.Authenticator.Authenticate(w, r)
 		if err != nil {
-			log.Infof("failed to parse authentication headers: %v", trace.Wrap(err))
-			trace.WriteError(w, err)
+			log.WithError(err).Debug("Authentication error.")
+			trace.WriteError(w, trace.AccessDenied("bad username or password")) // Hide the actual error.
 			return
 		}
 
-		cookie, err := r.Cookie("session")
-		hasCookie := err == nil && cookie != nil && cookie.Value != ""
-
-		var user storage.User
-		var checker teleservices.AccessChecker
-		// this authentication is for robots like install and update agents
-		if !hasCookie {
-			user, checker, err = h.Users.AuthenticateUser(*auth)
-			if err != nil {
-				log.Debugf("authenticate error: %v", err)
-				// we hide the error from the remote user to avoid giving any hints
-				trace.WriteError(
-					w, trace.AccessDenied("bad username or password"))
-				return
-			}
-		} else {
-			if h.WebHandlerConfig.Authenticator == nil {
-				log.Debugf("web sessions are not supported: %v", err)
-				// we hide the error from the remote user to avoid giving any hints
-				trace.WriteError(
-					w, trace.AccessDenied("web sessions are not supported"))
-				return
-			}
-			session, err := h.WebHandlerConfig.Authenticator(w, r, true)
-			if err != nil {
-				log.Debugf("authenticate error: %v", err)
-				// we hide the error from the remote user to avoid giving any hints
-				trace.WriteError(
-					w, trace.AccessDenied("bad username or password"))
-				return
-			}
-			userI, err := h.Users.GetUser(session.GetUser())
-			if err != nil {
-				log.Debugf("authenticate error: %v", err)
-				// we hide the error from the remote user to avoid giving any hints
-				trace.WriteError(
-					w, trace.AccessDenied("bad username or password"))
-				return
-			}
-			user = userI.(storage.User)
-			checker, err = h.Users.GetAccessChecker(user)
-			if err != nil {
-				log.Errorf("failed to fetch roles for user: %v", trace.DebugReport(err))
-				// we hide the error from the remote user to avoid giving any hints
-				trace.WriteError(
-					w, trace.AccessDenied("bad username or password"))
-				return
-			}
-		}
-
-		apps := app.ApplicationsWithACL(h.Applications, h.Users, user, checker)
+		apps := app.ApplicationsWithACL(h.Applications, h.Users, authResult.User, authResult.Checker)
 		context := &handlerContext{
 			applications: apps,
-			user:         user,
+			user:         authResult.User,
 		}
-		if auth.IsToken() {
-			// remember token that was used for signups
-			context.token = auth.Password
-		}
+
 		if err := fn(w, r, params, context); err != nil {
 			if !trace.IsNotFound(err) && !trace.IsAlreadyExists(err) {
 				log.Errorf("handler error: %v", trace.DebugReport(err))
@@ -1115,8 +1089,6 @@ type serviceHandler func(http.ResponseWriter, *http.Request, httprouter.Params, 
 type handlerContext struct {
 	applications app.Applications
 	user         storage.User
-	// token is an opaque token used for login
-	token string
 }
 
 var (

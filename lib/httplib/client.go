@@ -103,8 +103,29 @@ func WithLocalResolver(dnsAddr string) ClientOption {
 // WithInsecure sets insecure TLS config
 func WithInsecure() ClientOption {
 	return func(c *http.Client) {
-		c.Transport.(*http.Transport).TLSClientConfig = &tls.Config{
-			InsecureSkipVerify: true,
+		// Make sure not to override existing TLS configuration.
+		tlsConfig := c.Transport.(*http.Transport).TLSClientConfig
+		if tlsConfig != nil {
+			tlsConfig.InsecureSkipVerify = true
+		} else {
+			tlsConfig = &tls.Config{InsecureSkipVerify: true}
+		}
+		c.Transport.(*http.Transport).TLSClientConfig = tlsConfig
+	}
+}
+
+// WithTLSClientConfig sets TLS client configuration.
+func WithTLSClientConfig(tlsConfig *tls.Config) ClientOption {
+	return func(c *http.Client) {
+		c.Transport.(*http.Transport).TLSClientConfig = tlsConfig
+		// Note, GetClientCertificate is required to enforce the client to
+		// always send the certificate along, otherwise it may choose not
+		// send it in specific cases. Source:
+		// https://github.com/golang/go/issues/23924#issuecomment-367472052
+		if len(tlsConfig.Certificates) != 0 {
+			c.Transport.(*http.Transport).TLSClientConfig.GetClientCertificate = func(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+				return &tlsConfig.Certificates[0], nil
+			}
 		}
 	}
 }
@@ -157,7 +178,7 @@ func GetClient(insecure bool, options ...ClientOption) *http.Client {
 		TLSClientConfig: &tls.Config{},
 	}
 	if insecure {
-		transport.TLSClientConfig.InsecureSkipVerify = true
+		options = append(options, WithInsecure())
 	}
 	client := &http.Client{Transport: transport}
 	for _, o := range options {

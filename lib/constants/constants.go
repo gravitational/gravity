@@ -485,6 +485,8 @@ const (
 	// certain web handlers to determine the currently selected domain without including it
 	// in the URL
 	GrafanaContextCookie = "grv_grafana"
+	// SessionCookie is the name of the cookie that contains web session.
+	SessionCookie = "session"
 
 	// RoleAdmin is admin role
 	RoleAdmin = "@teleadmin"

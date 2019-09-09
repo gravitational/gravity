@@ -18,6 +18,8 @@ package opshandler
 
 import (
 	"context"
+	"crypto/tls"
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"strconv"
@@ -99,12 +101,21 @@ func (s *OpsHandlerSuite) SetUpTest(c *C) {
 		Packages:     services.Packages,
 	})
 	c.Assert(err, IsNil)
-	s.webServer = httptest.NewServer(handler)
+
+	// It is important that we launch TLS server as authentication
+	// middleware on the handler expects TLS connections.
+	s.webServer = httptest.NewTLSServer(handler)
 
 	// for regular test, let's be admins, so tests
 	// won't be affected by auth issues
 	s.client, err = opsclient.NewAuthenticatedClient(
-		s.webServer.URL, s.adminUser, "admin-password")
+		s.webServer.URL, s.adminUser, "admin-password",
+		opsclient.HTTPClient(&http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{
+					InsecureSkipVerify: true,
+				}}}),
+	)
 
 	s.suite.O = s.client
 	s.suite.U = s.users

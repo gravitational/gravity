@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"path"
 	"path/filepath"
 	"time"
 
@@ -42,9 +41,7 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/keyval"
 	"github.com/gravitational/gravity/lib/users"
-	"github.com/gravitational/gravity/lib/users/usersservice"
 	"github.com/gravitational/gravity/lib/utils"
-	"github.com/gravitational/gravity/tool/common"
 
 	"github.com/gravitational/roundtrip"
 	"github.com/gravitational/trace"
@@ -107,7 +104,6 @@ type DNSConfig storage.DNSConfig
 // * access to local OpsCenter
 type LocalEnvironment struct {
 	LocalEnvironmentArgs
-
 	// Backend is the local backend client
 	Backend storage.Backend
 	// Objects is the local objects storage client
@@ -116,24 +112,8 @@ type LocalEnvironment struct {
 	Packages *localpack.PackageServer
 	// Apps is the local application service
 	Apps appbase.Applications
-	// Creds is the local key store
-	Creds *users.KeyStore
-}
-
-// GetLocalKeyStore opens a key store in the specified directory dir. If one does
-// not exist, it will be created. If dir is empty, a default key store location is
-// used.
-func GetLocalKeyStore(dir string) (*users.KeyStore, error) {
-	configPath := ""
-	if dir != "" {
-		configPath = path.Join(dir, defaults.LocalConfigFile)
-	}
-
-	keys, err := usersservice.NewLocalKeyStore(configPath)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return keys, nil
+	// CredentialsService provides access to user credentials
+	CredentialsService
 }
 
 // New is a shortcut that creates a local environment from provided state directory
@@ -205,8 +185,9 @@ func (env *LocalEnvironment) init() error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	env.Creds, err = users.NewCredsService(users.CredsConfig{
-		Backend: env.Backend,
+	env.CredentialsService, err = NewCredentials(CredentialsServiceConfig{
+		LocalKeyStoreDir: env.LocalKeyStoreDir,
+		Backend:          env.Backend,
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -227,99 +208,31 @@ func (env *LocalEnvironment) Close() error {
 		env.Objects = nil
 	}
 	env.Packages = nil
-	env.Creds = nil
+	env.CredentialsService = nil
 	return trace.NewAggregate(errors...)
-}
-
-func (env *LocalEnvironment) GetLoginEntry(opsCenterURL string) (*users.LoginEntry, error) {
-	parsedOpsCenterURL := utils.ParseOpsCenterAddress(opsCenterURL, defaults.HTTPSPort)
-	keys, err := GetLocalKeyStore(env.LocalKeyStoreDir)
-	if err == nil {
-		entry, err := keys.GetLoginEntry(parsedOpsCenterURL)
-		if err == nil {
-			log.Debugf("Found login entry for %v @ %v.", entry.Email, opsCenterURL)
-			return entry, nil
-		}
-		entry, err = keys.GetLoginEntry(opsCenterURL)
-		if err == nil {
-			log.Debugf("Found login entry for %v @ %v.", entry.Email, opsCenterURL)
-			return entry, nil
-		}
-	}
-	entry, err := env.Creds.GetLoginEntry(opsCenterURL)
-	if err != nil {
-		if !trace.IsNotFound(err) {
-			return nil, trace.Wrap(err)
-		}
-		if opsCenterURL == defaults.DistributionOpsCenter {
-			return &users.LoginEntry{
-				OpsCenterURL: opsCenterURL,
-				Email:        defaults.DistributionOpsCenterUsername,
-				Password:     defaults.DistributionOpsCenterPassword,
-			}, nil
-		}
-		return nil, trace.NotFound("Please login to Gravity Hub: %v",
-			opsCenterURL)
-	}
-	return entry, nil
-}
-
-func (env *LocalEnvironment) UpsertLoginEntry(opsCenterURL, username, password string) error {
-	keys, err := GetLocalKeyStore(env.LocalKeyStoreDir)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	if username == "" && password == "" {
-		username, password, err = common.ReadUserPass()
-		if err != nil {
-			return trace.Wrap(err)
-		}
-	}
-	_, err = keys.UpsertLoginEntry(users.LoginEntry{
-		OpsCenterURL: opsCenterURL,
-		Email:        username,
-		Password:     password,
-	})
-	return trace.Wrap(err)
 }
 
 func (env *LocalEnvironment) SelectOpsCenter(opsURL string) (string, error) {
 	if opsURL != "" {
 		return opsURL, nil
 	}
-	keys, err := GetLocalKeyStore(env.LocalKeyStoreDir)
-	if err == nil {
-		opsURL = keys.GetCurrentOpsCenter()
-		if opsURL != "" {
-			return opsURL, nil
-		}
-	}
-	entries, err := env.Creds.GetLoginEntries()
-	if err != nil && !trace.IsNotFound(err) {
+	credentials, err := env.CurrentCredentials()
+	if err != nil {
 		return "", trace.Wrap(err)
 	}
-	if len(entries) == 0 {
-		return "", trace.AccessDenied("Please login to Gravity Hub: %v",
-			opsURL)
-	}
-	if len(entries) != 1 {
-		return "", trace.AccessDenied("Please login to Gravity Hub: %v",
-			opsURL)
-	}
-	return entries[0].OpsCenterURL, nil
+	return credentials.URL, nil
 }
 
 func (env *LocalEnvironment) SelectOpsCenterWithDefault(opsURL, defaultURL string) (string, error) {
 	url, err := env.SelectOpsCenter(opsURL)
 	if err != nil {
-		if !trace.IsAccessDenied(err) {
+		if !trace.IsNotFound(err) {
 			return "", trace.Wrap(err)
 		}
 		if defaultURL != "" {
 			return defaultURL, nil
 		}
-		return "", trace.AccessDenied("Please login to Gravity Hub: %v",
-			opsURL)
+		return "", trace.NotFound("no current cluster and no default provided")
 	}
 	return url, nil
 }
@@ -339,71 +252,29 @@ func (env *LocalEnvironment) PackageService(opsCenterURL string, options ...http
 	if opsCenterURL == "" { // assume local OpsCenter
 		return env.Packages, nil
 	}
-
 	if opsCenterURL == defaults.GravityServiceURL {
 		options = append(options, httplib.WithLocalResolver(env.DNS.Addr()))
 	}
-
-	// otherwise connect to remote OpsCenter
-	entry, err := env.GetLoginEntry(opsCenterURL)
+	credentials, err := env.CredentialsFor(opsCenterURL)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-
-	httpClient := roundtrip.HTTPClient(env.HTTPClient(options...))
-	client, err := newPackClient(*entry, opsCenterURL, httpClient)
+	if credentials.TLS != nil {
+		options = append(options, httplib.WithTLSClientConfig(credentials.TLS))
+	}
+	params := []roundtrip.ClientParam{
+		roundtrip.HTTPClient(env.HTTPClient(options...)),
+	}
+	client, err := newPackClient(credentials.Entry, credentials.URL, params...)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-
 	return client, nil
-}
-
-// CurrentLogin returns the login entry for the cluster this environment
-// is currently logged into
-//
-// If there are no entries or more than a single entry, it returns an error
-func (env *LocalEnvironment) CurrentLogin() (*users.LoginEntry, error) {
-	opsCenterURL, err := env.SelectOpsCenter("")
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return env.GetLoginEntry(opsCenterURL)
-}
-
-// CurrentOperator returns operator for the current login entry
-func (env *LocalEnvironment) CurrentOperator(options ...httplib.ClientOption) (*opsclient.Client, error) {
-	entry, err := env.CurrentLogin()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return NewOpsClient(*entry, entry.OpsCenterURL,
-		opsclient.HTTPClient(env.HTTPClient(options...)))
-}
-
-// CurrentPackages returns package service for the current login entry
-func (env *LocalEnvironment) CurrentPackages(options ...httplib.ClientOption) (pack.PackageService, error) {
-	entry, err := env.CurrentLogin()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return newPackClient(*entry, entry.OpsCenterURL,
-		roundtrip.HTTPClient(env.HTTPClient(options...)))
-}
-
-// CurrentApps returns app service for the current login entry
-func (env *LocalEnvironment) CurrentApps(options ...httplib.ClientOption) (appbase.Applications, error) {
-	entry, err := env.CurrentLogin()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return NewAppsClient(*entry, entry.OpsCenterURL,
-		appclient.HTTPClient(env.HTTPClient(options...)))
 }
 
 // CurrentUser returns name of the currently logged in user
 func (env *LocalEnvironment) CurrentUser() string {
-	login, err := env.CurrentLogin()
+	credentials, err := env.CurrentCredentials()
 	if err != nil {
 		if !trace.IsNotFound(err) {
 			log.Errorf("Failed to get current login entry: %v.",
@@ -411,7 +282,7 @@ func (env *LocalEnvironment) CurrentUser() string {
 		}
 		return ""
 	}
-	return login.Email
+	return credentials.User
 }
 
 // OperatorService provides access to remote sites and creates new sites
@@ -420,16 +291,18 @@ func (env *LocalEnvironment) OperatorService(opsCenterURL string, options ...htt
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	entry, err := env.GetLoginEntry(opsCenterURL)
+	credentials, err := env.CredentialsFor(opsCenterURL)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-
+	if credentials.TLS != nil {
+		options = append(options, httplib.WithTLSClientConfig(credentials.TLS))
+	}
 	params := []opsclient.ClientParam{
 		opsclient.HTTPClient(env.HTTPClient(options...)),
 		opsclient.WithLocalDialer(httplib.LocalResolverDialer(env.DNS.Addr())),
 	}
-	client, err := NewOpsClient(*entry, opsCenterURL, params...)
+	client, err := NewOpsClient(credentials.Entry, credentials.URL, params...)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -438,9 +311,9 @@ func (env *LocalEnvironment) OperatorService(opsCenterURL string, options ...htt
 
 // SiteOperator returns Operator for the local gravity site
 func (env *LocalEnvironment) SiteOperator() (*opsclient.Client, error) {
-	operator, err := env.OperatorService(
-		defaults.GravityServiceURL, httplib.WithLocalResolver(env.DNS.Addr()), httplib.WithInsecure())
-	return operator, trace.Wrap(err)
+	return env.OperatorService(defaults.GravityServiceURL,
+		httplib.WithLocalResolver(env.DNS.Addr()),
+		httplib.WithInsecure())
 }
 
 // LocalCluster queries a local Gravity cluster.
@@ -458,28 +331,34 @@ func (env *LocalEnvironment) LocalCluster() (*ops.Site, error) {
 
 // SiteApps returns Apps service for the local gravity site
 func (env *LocalEnvironment) SiteApps() (appbase.Applications, error) {
-	apps, err := env.AppService(
-		defaults.GravityServiceURL, AppConfig{}, httplib.WithLocalResolver(env.DNS.Addr()), httplib.WithInsecure())
-	return apps, trace.Wrap(err)
+	return env.AppService(defaults.GravityServiceURL, AppConfig{},
+		httplib.WithLocalResolver(env.DNS.Addr()),
+		httplib.WithInsecure())
 }
 
 // ClusterPackages returns package service for the local cluster
 func (env *LocalEnvironment) ClusterPackages() (pack.PackageService, error) {
 	return env.PackageService(defaults.GravityServiceURL,
-		httplib.WithLocalResolver(env.DNS.Addr()), httplib.WithInsecure())
+		httplib.WithLocalResolver(env.DNS.Addr()),
+		httplib.WithInsecure())
 }
 
 func (env *LocalEnvironment) AppService(opsCenterURL string, config AppConfig, options ...httplib.ClientOption) (appbase.Applications, error) {
 	if opsCenterURL == "" {
 		return env.AppServiceLocal(config)
 	}
-	entry, err := env.GetLoginEntry(opsCenterURL)
+	credentials, err := env.CredentialsFor(opsCenterURL)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	client, err := NewAppsClient(*entry, opsCenterURL,
+	if credentials.TLS != nil {
+		options = append(options, httplib.WithTLSClientConfig(credentials.TLS))
+	}
+	params := []appclient.ClientParam{
 		appclient.HTTPClient(env.HTTPClient(options...)),
-		appclient.WithLocalDialer(httplib.LocalResolverDialer(env.DNS.Addr())))
+		appclient.WithLocalDialer(httplib.LocalResolverDialer(env.DNS.Addr())),
+	}
+	client, err := NewAppsClient(credentials.Entry, credentials.URL, params...)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -613,33 +492,40 @@ type AppConfig struct {
 // login entry, address of the Ops Center and a set of optional connection
 // options
 func NewOpsClient(entry users.LoginEntry, opsCenterURL string, params ...opsclient.ClientParam) (client *opsclient.Client, err error) {
-	if entry.Email != "" {
+	if entry.Email != "" && entry.Password != "" {
 		client, err = opsclient.NewAuthenticatedClient(
 			opsCenterURL, entry.Email, entry.Password, params...)
-	} else {
+	} else if entry.Password != "" {
 		client, err = opsclient.NewBearerClient(opsCenterURL, entry.Password, params...)
+	} else {
+		client, err = opsclient.NewClient(opsCenterURL, params...)
 	}
 	return client, trace.Wrap(err)
 }
 
 func newPackClient(entry users.LoginEntry, opsCenterURL string, params ...roundtrip.ClientParam) (client pack.PackageService, err error) {
-	if entry.Email != "" {
+	if entry.Email != "" && entry.Password != "" {
 		client, err = webpack.NewAuthenticatedClient(
 			opsCenterURL, entry.Email, entry.Password, params...)
-	} else {
+	} else if entry.Password != "" {
 		client, err = webpack.NewBearerClient(opsCenterURL, entry.Password, params...)
+	} else {
+		client, err = webpack.NewClient(opsCenterURL, params...)
 	}
 	return client, trace.Wrap(err)
 }
 
 // NewAppsClient creates a new app service client.
 func NewAppsClient(entry users.LoginEntry, opsCenterURL string, params ...appclient.ClientParam) (client appbase.Applications, err error) {
-	if entry.Email != "" {
+	if entry.Email != "" && entry.Password != "" {
 		client, err = appclient.NewAuthenticatedClient(
 			opsCenterURL, entry.Email, entry.Password, params...)
-	} else {
+	} else if entry.Password != "" {
 		client, err = appclient.NewBearerClient(
 			opsCenterURL, entry.Password, params...)
+	} else {
+		client, err = appclient.NewClient(
+			opsCenterURL, params...)
 	}
 	return client, trace.Wrap(err)
 }
@@ -659,8 +545,9 @@ func ClusterPackages() (pack.PackageService, error) {
 	}
 	defer env.Close()
 
-	packages, err := env.PackageService(
-		defaults.GravityServiceURL, httplib.WithLocalResolver(env.DNS.Addr()), httplib.WithInsecure())
+	packages, err := env.PackageService(defaults.GravityServiceURL,
+		httplib.WithLocalResolver(env.DNS.Addr()),
+		httplib.WithInsecure())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
