@@ -34,7 +34,7 @@
 
   - name: Creating /tmp/installer
     file:
-      path: /tmp/installer
+      path: "/tmp/installer"
       state: directory
 
   - name: upload installer tarball to the first node
@@ -75,13 +75,13 @@
       /tmp/gravity join \
         {{hostvars[groups['all'][0]]['ansible_default_ipv4']['address']}} \
         --advertise-addr={{hostvars[inventory_hostname]['ansible_default_ipv4']['address']}} \
-        --token=token
+        --token=longtoken
       {% endif %}
   - name: Clean tmp
     file:
       state: absent
-      path: /tmp/installer
+      path: "/tmp/installer"
   - name: Clean tmp gravity
     file:
       state: absent
-      path: /tmp/gravity
+      path: "/tmp/gravity"
