@@ -91,17 +91,32 @@ func (p *waitExecutor) waitForAPI(ctx context.Context, done chan bool) {
 	for {
 		select {
 		case <-timer.C:
-			_, err := p.Client.CoreV1().ComponentStatuses().Get("scheduler", metav1.GetOptions{})
-			if err != nil {
-				p.Info("Waiting for kubernetes API to start: ", err)
+			if err := p.tryQueryAPI(); err != nil {
+				p.Infof("Waiting for Kubernetes API to start: %v", err)
 				continue
 			}
+			p.Debug("Kubernetes API is available.")
+			if err := p.tryQueryNamespace(); err != nil {
+				p.Infof("Waiting for kube-system namespace: %v", err)
+				continue
+			}
+			p.Debug("Kube-system namespace is available.")
 			close(done)
 			return
 		case <-ctx.Done():
 			return
 		}
 	}
+}
+
+func (p *waitExecutor) tryQueryAPI() error {
+	_, err := p.Client.CoreV1().ComponentStatuses().Get("scheduler", metav1.GetOptions{})
+	return trace.Wrap(err)
+}
+
+func (p *waitExecutor) tryQueryNamespace() error {
+	_, err := p.Client.CoreV1().Namespaces().Get(defaults.KubeSystemNamespace, metav1.GetOptions{})
+	return trace.Wrap(err)
 }
 
 // Rollback is no-op for this phase
