@@ -980,6 +980,9 @@ type SystemOptions struct {
 	BaseImage string `json:"baseImage,omitempty"`
 	// Dependencies defines additional package dependencies
 	Dependencies SystemDependencies `json:"dependencies"`
+	// AllowPrivileged controls whether privileged containers will be allowed
+	// in the cluster.
+	AllowPrivileged bool `json:"allowPrivileged,omitempty"`
 }
 
 // Runtime describes the application runtime

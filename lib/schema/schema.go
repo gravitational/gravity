@@ -70,6 +70,7 @@ const manifestSchema = `
           }
         },
         "baseImage": {"type": "string"},
+        "allowPrivileged": {"type": "boolean"},
         "logo": {"type": "string"},
         "releaseNotes": {"type": "string"},
         "endpoints": {
