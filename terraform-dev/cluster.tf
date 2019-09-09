@@ -55,7 +55,7 @@ resource "libvirt_volume" "tmp" {
 }
 
 # Use CloudInit to add our ssh-key to the instance
-resource "libvirt_cloudinit" "commoninit" {
+resource "libvirt_cloudinit_disk" "commoninit" {
   name           = "commoninit.iso"
   user_data = <<EOF
     #cloud-config
@@ -114,7 +114,7 @@ resource "libvirt_domain" "domain-gravity" {
   memory = "${var.memory_size}"
   vcpu = "${var.cpu_count}"
   count = 3
-  cloudinit = "${libvirt_cloudinit.commoninit.id}"
+  cloudinit = "${libvirt_cloudinit_disk.commoninit.id}"
 
   network_interface {
     hostname = "telekube${count.index}"
