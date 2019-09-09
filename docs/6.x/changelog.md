@@ -7,8 +7,8 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 6.1.2         | No  | August 26th, 2019    | -                    | 1.15.3             | 3.2.7
-| 6.0.5         | No  | August 26th, 2019    | -                    | 1.14.6             | 3.2.7            |
+| 6.1.3         | No  | September 9th, 2019  | -                    | 1.15.3             | 3.2.7
+| 6.0.6         | No  | September 9th, 2019  | -                    | 1.14.6             | 3.2.7            |
 | 5.6.7         | No  | August 26th, 2019    | -                    | 1.14.6             | 3.0.5            |
 | 5.5.18        | Yes | August 28th, 2019    | September 7th, 2020  | 1.13.10            | 3.0.4            |
 | 5.4.10*       | No  | March 26th, 2019     | -                    | 1.13.5             | 2.4.10           |
@@ -31,6 +31,18 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     do not receive updates and bugfixes.
 
 ## 6.x Releases
+
+### 6.1.3 (September 9th, 2019)
+
+#### Improvements
+
+* Add ability to run privileged containers. See [Running Privileged Containers](/faq/#running-privileged-containers) for details.
+
+### 6.0.6 (September 9th, 2019)
+
+#### Improvements
+
+* Add ability to run privileged containers. See [Running Privileged Containers](/faq/#running-privileged-containers) for details.
 
 ### 6.1.2 (August 26th, 2019)
 
