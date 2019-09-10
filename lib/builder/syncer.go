@@ -100,13 +100,12 @@ func (s *s3Syncer) Sync(ctx context.Context, builder *Builder, runtimeVersion se
 		return trace.Wrap(err)
 	}
 	puller := libapp.Puller{
-		FieldLogger:  builder.FieldLogger,
-		SrcPack:      env.Packages,
-		SrcApp:       tarballApps,
-		DstPack:      builder.Env.Packages,
-		DstApp:       cacheApps,
-		Parallel:     builder.VendorReq.Parallel,
-		SkipIfExists: true,
+		FieldLogger: builder.FieldLogger,
+		SrcPack:     env.Packages,
+		SrcApp:      tarballApps,
+		DstPack:     builder.Env.Packages,
+		DstApp:      cacheApps,
+		Parallel:    builder.VendorReq.Parallel,
 	}
 	return puller.PullAppDeps(ctx, builder.appForRuntime(runtimeVersion))
 }
@@ -134,13 +133,12 @@ func (s *packSyncer) Sync(ctx context.Context, builder *Builder, runtimeVersion 
 		return trace.Wrap(err)
 	}
 	puller := libapp.Puller{
-		FieldLogger:  builder.FieldLogger,
-		SrcPack:      s.pack,
-		SrcApp:       s.apps,
-		DstPack:      builder.Env.Packages,
-		DstApp:       cacheApps,
-		Parallel:     builder.VendorReq.Parallel,
-		SkipIfExists: true,
+		FieldLogger: builder.FieldLogger,
+		SrcPack:     s.pack,
+		SrcApp:      s.apps,
+		DstPack:     builder.Env.Packages,
+		DstApp:      cacheApps,
+		Parallel:    builder.VendorReq.Parallel,
 	}
 	err = puller.PullAppDeps(ctx, builder.appForRuntime(runtimeVersion))
 	if err != nil {
