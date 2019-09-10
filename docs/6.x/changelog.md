@@ -7,10 +7,10 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 6.1.2         | No  | August 26th, 2019    | -                    | 1.15.3             | 3.2.7
-| 6.0.5         | No  | August 26th, 2019    | -                    | 1.14.6             | 3.2.7            |
+| 6.1.4         | No  | September 10th, 2019 | -                    | 1.15.3             | 3.2.7
+| 6.0.7         | No  | September 10th, 2019 | -                    | 1.14.6             | 3.2.7            |
 | 5.6.7         | No  | August 26th, 2019    | -                    | 1.14.6             | 3.0.5            |
-| 5.5.18        | Yes | August 28th, 2019    | September 7th, 2020  | 1.13.10            | 3.0.4            |
+| 5.5.19        | Yes | September 10th, 2019 | September 7th, 2020  | 1.13.10            | 3.0.4            |
 | 5.4.10*       | No  | March 26th, 2019     | -                    | 1.13.5             | 2.4.10           |
 | 5.3.9*        | No  | March 7th, 2019      | -                    | 1.12.3             | 2.4.7            |
 | 5.2.14        | Yes | July 30th, 2019      | October 15th, 2019   | 1.11.9             | 2.4.10           |
@@ -31,6 +31,30 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     do not receive updates and bugfixes.
 
 ## 6.x Releases
+
+### 6.1.4 (September 9th, 2019)
+
+#### Bugfixes
+
+* Fix `allowPrivileged` flag placement in the manifest schema.
+
+### 6.0.7 (September 9th, 2019)
+
+#### Bugfixes
+
+* Fix `allowPrivileged` flag placement in the manifest schema.
+
+### 6.1.3 (September 9th, 2019)
+
+#### Improvements
+
+* Add ability to run privileged containers. See [Running Privileged Containers](/faq/#running-privileged-containers) for details.
+
+### 6.0.6 (September 9th, 2019)
+
+#### Improvements
+
+* Add ability to run privileged containers. See [Running Privileged Containers](/faq/#running-privileged-containers) for details.
 
 ### 6.1.2 (August 26th, 2019)
 
@@ -210,6 +234,19 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 * Add support for using `helm` directly from host.
 
 ## 5.x Releases
+
+### 5.5.19 (September 10th, 2019)
+
+#### Improvements
+
+* Add support for including intermediate runtimes in `tele build`.
+* Add Ubuntu 18.04 to the list of supported distros.
+* Remove the hard limit of 3 master nodes.
+
+#### Bugfixes
+
+* Wait for `kube-system` namespace to be created during the installation.
+* Update `tele push` to treat existing applications and their dependencies gracefully.
 
 ### 5.0.35 (September 2nd, 2019)
 
