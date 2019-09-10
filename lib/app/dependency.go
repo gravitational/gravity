@@ -44,8 +44,7 @@ func GetDependencies(req GetDependenciesRequest) (result *Dependencies, err erro
 		return nil, trace.Wrap(err)
 	}
 	state := &state{
-		packages: make(map[loc.Locator]struct{}),
-		apps:     make(map[loc.Locator]struct{}),
+		visited: make(map[loc.Locator]struct{}),
 	}
 	if err = req.getDependencies(req.App, state); err != nil {
 		return nil, trace.Wrap(err)
@@ -132,13 +131,13 @@ func (r GetDependenciesRequest) getDependencies(app Application, state *state) e
 	}
 	// collect application dependencies, including those of the base application
 	var appDeps []loc.Locator
-	baseLocator := app.Manifest.Base()
-	if baseLocator != nil {
-		appDeps = append(appDeps, *baseLocator)
+	baseApp := app.Manifest.Base()
+	if baseApp != nil {
+		appDeps = append(appDeps, *baseApp)
 	}
 	appDeps = append(appDeps, app.Manifest.Dependencies.GetApps()...)
 	for _, dependency := range appDeps {
-		if state.hasApp(dependency) {
+		if state.hasPackage(dependency) {
 			continue
 		}
 		app, err := r.Apps.GetApp(dependency)
@@ -161,32 +160,25 @@ func (r GetDependenciesRequest) getDependencies(app Application, state *state) e
 	return nil
 }
 
-func (r *state) hasPackage(pkg loc.Locator) bool {
-	_, ok := r.packages[pkg]
+func (r *state) hasPackage(loc loc.Locator) bool {
+	_, ok := r.visited[loc]
 	return ok
 }
 
-func (r *state) hasApp(pkg loc.Locator) bool {
-	_, ok := r.apps[pkg]
-	return ok
-}
-
-func (r *state) addPackage(pkg pack.PackageEnvelope) {
-	r.packages[pkg.Locator] = struct{}{}
-	r.deps.Packages = append(r.deps.Packages, pkg)
+func (r *state) addPackage(env pack.PackageEnvelope) {
+	r.visited[env.Locator] = struct{}{}
+	r.deps.Packages = append(r.deps.Packages, env)
 }
 
 func (r *state) addApp(app Application) {
-	r.apps[app.Package] = struct{}{}
+	r.visited[app.Package] = struct{}{}
 	r.deps.Apps = append(r.deps.Apps, app)
 }
 
 type state struct {
 	deps Dependencies
-	// packages lists collected package dependencies
-	packages map[loc.Locator]struct{}
-	// apps lists collected application dependencies
-	apps map[loc.Locator]struct{}
+	// visited lists already visited package dependencies
+	visited map[loc.Locator]struct{}
 	// runtimePackage is the runtime package dependency.
 	//
 	// The runtime package is computed bottom-up - from dependencies to the top-level application.
