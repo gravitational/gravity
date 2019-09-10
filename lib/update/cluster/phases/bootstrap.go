@@ -132,8 +132,7 @@ func NewUpdatePhaseBootstrap(
 	var packageRotator intermediate.PackageRotator = operator
 	gravityPackage := p.Phase.Data.Update.GravityPackage
 	var gravityPath string
-	if gravityPackage == nil {
-		gravityPackage = &p.Plan.GravityPackage
+	if p.Phase.Data.Update.RuntimeAppVersion == "" {
 		gravityPath, err = getGravityPath()
 		if err != nil {
 			return nil, trace.Wrap(err)
@@ -284,12 +283,18 @@ func (p *updatePhaseBootstrap) pullSystemUpdates(ctx context.Context) error {
 	}
 	for _, update := range updates {
 		p.Infof("Pulling package update: %v.", update)
+		existingLabels, err := queryPackageLabels(update, p.LocalPackages)
+		if err != nil {
+			return trace.Wrap(err)
+		}
 		puller := libapp.Puller{
 			SrcPack: p.Packages,
 			DstPack: p.LocalPackages,
+			Upsert:  true,
+			Labels:  existingLabels,
 		}
-		err := puller.PullPackage(ctx, update)
-		if err != nil && !trace.IsAlreadyExists(err) {
+		err = puller.PullPackage(ctx, update)
+		if err != nil {
 			return trace.Wrap(err)
 		}
 	}
@@ -514,9 +519,10 @@ func (p *updatePhaseBootstrap) rotateConfigAndSecrets() error {
 func (p *updatePhaseBootstrap) rotateSecrets(server storage.UpdateServer) error {
 	p.Infof("Generate new secrets configuration package for %v.", server)
 	resp, err := p.packageRotator.RotateSecrets(ops.RotateSecretsRequest{
-		Key:     p.Operation.ClusterKey(),
-		Package: server.Runtime.SecretsPackage,
-		Server:  server.Server,
+		Key:            p.Operation.ClusterKey(),
+		Package:        server.Runtime.SecretsPackage,
+		RuntimePackage: server.Runtime.Update.Package,
+		Server:         server.Server,
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -584,4 +590,15 @@ func masterIPs(servers []storage.Server) (addrs []string) {
 		}
 	}
 	return addrs
+}
+
+func queryPackageLabels(loc loc.Locator, packages pack.PackageService) (labels pack.Labels, err error) {
+	env, err := packages.ReadPackageEnvelope(loc)
+	if err != nil && !trace.IsNotFound(err) {
+		return nil, trace.Wrap(err)
+	}
+	if env != nil {
+		labels = env.RuntimeLabels
+	}
+	return labels, nil
 }

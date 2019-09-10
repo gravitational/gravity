@@ -176,7 +176,12 @@ func uploadUpdate(_ *localenv.LocalEnvironment, opsURL, dataDir string) error {
 		PackService: clusterPackages,
 		AppService:  clusterApps,
 	}
-	err = syncAppWithCluster(context.TODO(), defaultEnv, *cluster, *appPackage, syncer)
+	appDeps, err := libapp.GetAppDependencies(*appPackage, clusterApps, clusterPackages)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	deps.Apps = append(deps.Apps, appDeps.Apps...)
+	err = syncDependenciesWithCluster(context.TODO(), defaultEnv, *cluster, *deps, syncer)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -235,7 +240,7 @@ func collectUpgradeDependencies(env *localenv.TarballEnvironment, installedRunti
 	})
 }
 
-func syncAppWithCluster(ctx context.Context, env *localenv.LocalEnvironment, cluster ops.Site, app loc.Locator, syncer libapp.Syncer) error {
+func syncDependenciesWithCluster(ctx context.Context, env *localenv.LocalEnvironment, cluster ops.Site, deps libapp.Dependencies, syncer libapp.Syncer) error {
 	var registries []string
 	err := utils.Retry(defaults.RetryInterval, defaults.RetryLessAttempts, func() (err error) {
 		registries, err = getRegistries(ctx, env, cluster.ClusterState.Servers)
@@ -262,7 +267,7 @@ func syncAppWithCluster(ctx context.Context, env *localenv.LocalEnvironment, clu
 			return trace.Wrap(err)
 		}
 		syncer.ImageService = imageService
-		err = syncer.SyncApp(ctx, app)
+		err = syncer.Sync(ctx, deps)
 		if err != nil {
 			return trace.Wrap(err)
 		}

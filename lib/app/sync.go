@@ -39,19 +39,10 @@ func (r Syncer) SyncApp(ctx context.Context, loc loc.Locator) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	app, err := r.AppService.GetApp(loc)
+	deps, err := GetAppDependencies(loc, r.AppService, r.PackService)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	deps, err := GetDependencies(GetDependenciesRequest{
-		App:  *app,
-		Apps: r.AppService,
-		Pack: r.PackService,
-	})
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	deps.Apps = append(deps.Apps, *app)
 	return r.Sync(ctx, *deps)
 }
 
@@ -62,6 +53,25 @@ func (r Syncer) Sync(ctx context.Context, deps Dependencies) error {
 		return trace.Wrap(err)
 	}
 	return r.sync(ctx, deps)
+}
+
+// GetAppDependencies collects dependencies for the specified application
+// (including the application package itself)
+func GetAppDependencies(loc loc.Locator, apps Applications, packages pack.PackageService) (deps *Dependencies, err error) {
+	app, err := apps.GetApp(loc)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	deps, err = GetDependencies(GetDependenciesRequest{
+		App:  *app,
+		Apps: apps,
+		Pack: packages,
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	deps.Apps = append(deps.Apps, *app)
+	return deps, nil
 }
 
 func (r Syncer) sync(ctx context.Context, deps Dependencies) error {
@@ -83,8 +93,6 @@ type Syncer struct {
 	AppService Applications
 	// ImageService specifies the docker registry service
 	ImageService docker.ImageService
-	// Dependencies lists dependencies to sync
-	Dependencies Dependencies
 	// Progress specifies the optional progress message emitter
 	Progress utils.Emitter
 }

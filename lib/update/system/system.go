@@ -341,6 +341,10 @@ func (r *System) updateTeleportPackage(update storage.PackageUpdate) (labelUpdat
 	if update.ConfigPackage == nil {
 		return updates, nil
 	}
+	if update.ConfigPackage.From.IsEqualTo(update.ConfigPackage.To) {
+		// Short-circuit on idempotent configuration update
+		return updates, nil
+	}
 	return append(updates,
 		pack.LabelUpdate{
 			Locator: update.ConfigPackage.From,
@@ -418,7 +422,7 @@ func (r *System) reinstallService(update storage.PackageUpdate) (labelUpdates []
 
 	var configPackage loc.Locator
 	if update.ConfigPackage == nil {
-		existingConfig, err := pack.FindConfigPackage(r.Packages, update.From)
+		existingConfig, err := pack.FindInstalledConfigPackage(r.Packages, update.From)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}

@@ -56,7 +56,7 @@ func (r gravityPackageRotator) RotateSecrets(req ops.RotateSecretsRequest) (*ops
 	if req.Package != nil {
 		args = append(args, "--package", req.Package.String())
 	}
-	return r.exec(req.DryRun, args...)
+	return r.exec(req.DryRun, req.Package, args...)
 }
 
 // RotatePlanetConfig generates a new planet configuration package for the specified request
@@ -70,7 +70,7 @@ func (r gravityPackageRotator) RotatePlanetConfig(req ops.RotatePlanetConfigRequ
 	if req.Package != nil {
 		args = append(args, "--package", req.Package.String())
 	}
-	return r.exec(req.DryRun, args...)
+	return r.exec(req.DryRun, req.Package, args...)
 }
 
 // RotateTeleportConfig generates new teleport configuration packages for the specified request
@@ -83,14 +83,14 @@ func (r gravityPackageRotator) RotateTeleportConfig(req ops.RotateTeleportConfig
 	if req.NodePackage != nil {
 		args = append(args, "--package", req.NodePackage.String())
 	}
-	resp, err := r.exec(req.DryRun, args...)
+	resp, err := r.exec(req.DryRun, req.NodePackage, args...)
 	if err != nil {
 		return nil, nil, trace.Wrap(err)
 	}
 	return nil, resp, nil
 }
 
-func (r gravityPackageRotator) exec(dryRun bool, args ...string) (resp *ops.RotatePackageResponse, err error) {
+func (r gravityPackageRotator) exec(dryRun bool, loc *loc.Locator, args ...string) (resp *ops.RotatePackageResponse, err error) {
 	cmd := exec.Command(r.path, args...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -102,24 +102,35 @@ func (r gravityPackageRotator) exec(dryRun bool, args ...string) (resp *ops.Rota
 		}).Warn("Failed to exec.")
 		return nil, trace.Wrap(err)
 	}
-	out = bytes.TrimSpace(out)
-	resp = &ops.RotatePackageResponse{}
-	if len(out) == 0 {
-		return resp, nil
+	if loc == nil {
+		loc, err = parseLocatorFromOutput(out)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
 	}
-	loc, err := loc.ParseLocator(string(out))
-	if err != nil {
-		return nil, trace.Wrap(err, "failed to interpret %q as package locator", out)
-	}
-	resp.Locator = *loc
+	resp = &ops.RotatePackageResponse{Locator: *loc}
 	if dryRun {
 		return resp, nil
 	}
-	_, resp.Reader, err = r.packages.ReadPackage(*loc)
+	var env *pack.PackageEnvelope
+	env, resp.Reader, err = r.packages.ReadPackage(*loc)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to read package %v", loc)
 	}
+	resp.Labels = env.RuntimeLabels
 	return resp, nil
+}
+
+func parseLocatorFromOutput(output []byte) (*loc.Locator, error) {
+	output = bytes.TrimSpace(output)
+	if len(output) == 0 {
+		return nil, trace.BadParameter("package locator is empty")
+	}
+	loc, err := loc.ParseLocator(string(output))
+	if err != nil {
+		return nil, trace.Wrap(err, "failed to interpret %q as package locator", string(output))
+	}
+	return loc, nil
 }
 
 // gravityPackageRotator configures packages using a gravity binary
@@ -131,3 +142,5 @@ type gravityPackageRotator struct {
 	// operationID specifies the ID of the active update operation
 	operationID string
 }
+
+var _ PackageRotator = (*gravityPackageRotator)(nil)

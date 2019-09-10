@@ -22,6 +22,7 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	libupdate "github.com/gravitational/gravity/lib/update"
 	"github.com/gravitational/gravity/lib/update/cluster/internal/intermediate"
+	"github.com/gravitational/gravity/lib/update/internal/builder"
 	libbuilder "github.com/gravitational/gravity/lib/update/internal/builder"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -64,6 +65,8 @@ func (r *phaseBuilder) initSteps(ctx context.Context) error {
 		servers:        serverUpdates,
 		runtimeUpdates: runtimeAppUpdates,
 		etcd:           etcd,
+		gravity:        r.planTemplate.GravityPackage,
+		supportsTaints: supportsTaints(r.updateRuntimeAppVersion),
 	})
 	return nil
 }
@@ -149,9 +152,10 @@ func (r phaseBuilder) intermediateConfigUpdates(
 			return nil, trace.Wrap(err)
 		}
 		secretsUpdate, err := operator.RotateSecrets(ops.RotateSecretsRequest{
-			Key:    fsm.ClusterKey(r.planTemplate),
-			Server: server,
-			DryRun: true,
+			Key:            fsm.ClusterKey(r.planTemplate),
+			Server:         server,
+			RuntimePackage: updateRuntime,
+			DryRun:         true,
 		})
 		if err != nil {
 			return nil, trace.Wrap(err)
@@ -235,6 +239,11 @@ func (r *intermediateUpdateStep) fromPackage(env pack.PackageEnvelope, apps liba
 		r.apps = append(r.apps, *app)
 		if app.Package.Name == defaults.Runtime {
 			r.runtimeApp = *app
+			runtimeAppVersion, err := app.Package.SemVer()
+			if err != nil {
+				return trace.Wrap(err)
+			}
+			r.supportsTaints = supportsTaints(*runtimeAppVersion)
 		}
 	}
 	return nil
@@ -244,7 +253,7 @@ func (r intermediateUpdateStep) addTo(builder phaseBuilder, root *libbuilder.Pha
 	root.AddSequential(
 		builder.bootstrapVersioned(r.version, r.gravity, r.servers),
 	)
-	r.updateStep.addTo(builder, root)
+	r.updateStep.addTo(root, builder.leadMaster)
 }
 
 func (r intermediateUpdateStep) String() string {
@@ -262,8 +271,6 @@ type intermediateUpdateStep struct {
 	updateStep
 	// version defines the runtime application version as semver
 	version semver.Version
-	// gravity specifies the package with the gravity binary
-	gravity loc.Locator
 }
 
 func newTargetUpdateStep(step updateStep) targetUpdateStep {
@@ -273,7 +280,7 @@ func newTargetUpdateStep(step updateStep) targetUpdateStep {
 func (r targetUpdateStep) addTo(builder phaseBuilder, root *libbuilder.Phase, depends ...*libbuilder.Phase) {
 	root.AddParallel(builder.bootstrap().Require(depends...))
 	root.AddSequential(builder.coredns())
-	r.updateStep.addTo(builder, root)
+	r.updateStep.addTo(root, builder.leadMaster)
 }
 
 // targetUpdateStep describes the target (final) kubernetes runtime update step
@@ -281,11 +288,11 @@ type targetUpdateStep struct {
 	updateStep
 }
 
-func (r updateStep) addTo(builder phaseBuilder, root *libbuilder.Phase) {
+func (r updateStep) addTo(root *libbuilder.Phase, leadMaster storage.Server) {
 	masters, nodes := libupdate.SplitServers(r.servers)
-	masters = reorderServers(masters, builder.leadMaster)
-	mastersPhase := builder.masters(masters[0], masters[1:], r.changesetID)
-	nodesPhase := builder.nodes(masters[0], nodes, r.changesetID)
+	masters = reorderServers(masters, leadMaster)
+	mastersPhase := r.masters(masters[0], masters[1:])
+	nodesPhase := r.nodes(masters[0], nodes)
 	root.AddSequential(mastersPhase)
 	if nodesPhase.HasSubphases() {
 		root.AddSequential(nodesPhase)
@@ -294,10 +301,10 @@ func (r updateStep) addTo(builder phaseBuilder, root *libbuilder.Phase) {
 		// This step does not depend on previous on purpose - when the etcd block is executed,
 		// remote agents might not be able to sync the plan before the shutdown of etcd
 		// instances has begun
-		root.AddParallel(builder.etcdPlan(
+		root.AddParallel(r.etcdPlan(
+			leadMaster,
 			serversToStorage(masters[1:]...),
-			serversToStorage(nodes...),
-			*r.etcd),
+			serversToStorage(nodes...)),
 		)
 	}
 	// The "config" phase pulls new teleport master config packages used
@@ -306,9 +313,260 @@ func (r updateStep) addTo(builder phaseBuilder, root *libbuilder.Phase) {
 	// in case new configuration is incompatible, but *before* runtime
 	// phase so new gravity-sites can find it after they start
 	root.AddSequential(
-		builder.config(serversToStorage(masters...)),
-		builder.runtime(r.runtimeUpdates),
+		r.config(serversToStorage(masters...)),
+		r.runtimePlan(),
 	)
+}
+
+func (r updateStep) runtimePlan() *builder.Phase {
+	root := builder.New(storage.OperationPhase{
+		ID:          "runtime",
+		Description: "Update application runtime",
+	})
+	for i, loc := range r.runtimeUpdates {
+		root.AddSequentialRaw(storage.OperationPhase{
+			ID:       loc.Name,
+			Executor: updateApp,
+			Description: fmt.Sprintf(
+				"Update system application %q to %v", loc.Name, loc.Version),
+			Data: &storage.OperationPhaseData{
+				Package: &r.runtimeUpdates[i],
+			},
+		})
+	}
+	return root
+}
+
+// config returns phase that pulls system configuration on provided nodes
+func (r updateStep) config(nodes []storage.Server) *builder.Phase {
+	root := builder.New(storage.OperationPhase{
+		ID:          "config",
+		Description: "Update system configuration on nodes",
+	})
+	for i, node := range nodes {
+		root.AddParallelRaw(storage.OperationPhase{
+			ID:       node.Hostname,
+			Executor: config,
+			Description: fmt.Sprintf("Update system configuration on node %q",
+				node.Hostname),
+			Data: &storage.OperationPhaseData{
+				Server: &nodes[i],
+			},
+		})
+	}
+	return root
+}
+
+func (r updateStep) etcdPlan(leadMaster storage.Server, otherMasters []storage.Server, workers []storage.Server) *builder.Phase {
+	description := fmt.Sprintf("Upgrade etcd %v to %v", r.etcd.installed, r.etcd.update)
+	if r.etcd.installed == "" {
+		description = fmt.Sprintf("Upgrade etcd to %v", r.etcd.update)
+	}
+	root := builder.New(storage.OperationPhase{
+		ID:          etcdPhaseName,
+		Description: description,
+	})
+
+	// Backup etcd on each master server
+	// Do each master, just in case
+	backupEtcd := builder.New(storage.OperationPhase{
+		ID:          "backup",
+		Description: "Backup etcd data",
+	})
+	backupEtcd.AddParallel(r.etcdBackupNode(leadMaster))
+
+	for _, server := range otherMasters {
+		p := r.etcdBackupNode(server)
+		backupEtcd.AddParallel(p)
+	}
+
+	root.AddSequential(backupEtcd)
+
+	// Shutdown etcd
+	// Move data directory to backup location
+	shutdownEtcd := builder.New(storage.OperationPhase{
+		ID:          "shutdown",
+		Description: "Shutdown etcd cluster",
+	})
+	shutdownEtcd.AddWithDependency(
+		builder.DependencyForServer(backupEtcd, leadMaster),
+		r.etcdShutdownNode(leadMaster, true))
+
+	for _, server := range otherMasters {
+		p := r.etcdShutdownNode(server, false)
+		shutdownEtcd.AddWithDependency(builder.DependencyForServer(backupEtcd, server), p)
+	}
+	for _, server := range workers {
+		p := r.etcdShutdownNode(server, false)
+		shutdownEtcd.AddParallel(p)
+	}
+
+	root.AddParallel(shutdownEtcd)
+
+	// Upgrade servers
+	// Replace configuration and data directories, for new version of etcd
+	// relaunch etcd on temporary port
+	upgradeServers := builder.New(storage.OperationPhase{
+		ID:          "upgrade",
+		Description: "Upgrade etcd servers",
+	})
+	upgradeServers.AddWithDependency(
+		builder.DependencyForServer(shutdownEtcd, leadMaster),
+		r.etcdUpgrade(leadMaster))
+
+	for _, server := range otherMasters {
+		p := r.etcdUpgrade(server)
+		upgradeServers.AddWithDependency(builder.DependencyForServer(shutdownEtcd, server), p)
+	}
+	for _, server := range workers {
+		p := r.etcdUpgrade(server)
+		upgradeServers.AddWithDependency(builder.DependencyForServer(shutdownEtcd, server), p)
+	}
+	root.AddParallel(upgradeServers)
+
+	// Restore kubernetes data
+	// migrate to etcd3 store
+	// clear kubernetes data from etcd2 store
+	restoreData := builder.New(storage.OperationPhase{
+		ID:          "restore",
+		Description: "Restore etcd data from backup",
+		Executor:    updateEtcdRestore,
+		Data: &storage.OperationPhaseData{
+			Server: &leadMaster,
+		},
+	})
+	root.AddSequential(restoreData)
+
+	// restart master servers
+	// Rolling restart of master servers to listen on normal ports. ETCD outage ends here
+	restartMasters := builder.New(storage.OperationPhase{
+		ID:          "restart",
+		Description: "Restart etcd servers",
+	})
+	restartMasters.AddWithDependency(restoreData, r.etcdRestart(leadMaster))
+
+	for _, server := range otherMasters {
+		p := r.etcdRestart(server)
+		restartMasters.AddWithDependency(builder.DependencyForServer(upgradeServers, server), p)
+	}
+	for _, server := range workers {
+		p := r.etcdRestart(server)
+		restartMasters.AddWithDependency(builder.DependencyForServer(upgradeServers, server), p)
+	}
+
+	// also restart gravity-site, so that elections get unbroken
+	restartMasters.AddParallelRaw(storage.OperationPhase{
+		ID:          constants.GravityServiceName,
+		Description: fmt.Sprint("Restart ", constants.GravityServiceName, " service"),
+		Executor:    updateEtcdRestartGravity,
+		Data: &storage.OperationPhaseData{
+			Server: &leadMaster,
+		},
+	})
+	root.AddParallel(restartMasters)
+
+	return root
+}
+
+func (r updateStep) etcdBackupNode(server storage.Server) *builder.Phase {
+	return builder.New(storage.OperationPhase{
+		ID:          server.Hostname,
+		Description: fmt.Sprintf("Backup etcd on node %q", server.Hostname),
+		Executor:    updateEtcdBackup,
+		Data: &storage.OperationPhaseData{
+			Server: &server,
+		},
+	})
+}
+
+func (r updateStep) etcdShutdownNode(server storage.Server, isLeader bool) *builder.Phase {
+	return builder.New(storage.OperationPhase{
+		ID:          server.Hostname,
+		Description: fmt.Sprintf("Shutdown etcd on node %q", server.Hostname),
+		Executor:    updateEtcdShutdown,
+		Data: &storage.OperationPhaseData{
+			Server: &server,
+			Data:   strconv.FormatBool(isLeader),
+		},
+	})
+}
+
+func (r updateStep) etcdUpgrade(server storage.Server) *builder.Phase {
+	return builder.New(storage.OperationPhase{
+		ID:          server.Hostname,
+		Description: fmt.Sprintf("Upgrade etcd on node %q", server.Hostname),
+		Executor:    updateEtcdMaster,
+		Data: &storage.OperationPhaseData{
+			Server: &server,
+		},
+	})
+}
+
+func (r updateStep) etcdRestart(server storage.Server) *builder.Phase {
+	return builder.New(storage.OperationPhase{
+		ID:          server.Hostname,
+		Description: fmt.Sprintf("Restart etcd on node %q", server.Hostname),
+		Executor:    updateEtcdRestart,
+		Data: &storage.OperationPhaseData{
+			Server: &server,
+		},
+	})
+}
+
+// dockerDevicePhase builds a phase that takes care of repurposing device used
+// by Docker devicemapper driver for overlay data.
+func dockerDevicePhase(node storage.UpdateServer) *builder.Phase {
+	root := builder.New(storage.OperationPhase{
+		ID: "docker",
+		Description: fmt.Sprintf("Repurpose devicemapper device %v for overlay data",
+			node.GetDockerDevice()),
+	})
+	phases := []storage.OperationPhase{
+		// Remove devicemapper environment (pv, vg, lv) from
+		// the devicemapper device.
+		{
+			ID:       "devicemapper",
+			Executor: dockerDevicemapper,
+			Description: fmt.Sprintf("Remove devicemapper environment from %v",
+				node.GetDockerDevice()),
+			Data: &storage.OperationPhaseData{
+				Server: &node.Server,
+			},
+		},
+		// Re-format the device to xfs or ext4.
+		{
+			ID:          "format",
+			Executor:    dockerFormat,
+			Description: fmt.Sprintf("Format %v", node.GetDockerDevice()),
+			Data: &storage.OperationPhaseData{
+				Server: &node.Server,
+			},
+		},
+		// Mount the device under Docker data directory.
+		{
+			ID:       "mount",
+			Executor: dockerMount,
+			Description: fmt.Sprintf("Create mount for %v",
+				node.GetDockerDevice()),
+			Data: &storage.OperationPhaseData{
+				Server: &node.Server,
+			},
+		},
+		// Start the Planet unit and wait till it's up.
+		{
+			ID:          "planet",
+			Executor:    planetStart,
+			Description: "Start the new Planet container",
+			Data: &storage.OperationPhaseData{
+				Server: &node.Server,
+				Update: &storage.UpdateOperationData{
+					Servers: []storage.UpdateServer{node},
+				},
+			},
+		},
+	}
+	root.AddSequentialRaw(phases...)
+	return root
 }
 
 func newUpdateStep(step updateStep) updateStep {
@@ -316,6 +574,143 @@ func newUpdateStep(step updateStep) updateStep {
 		step.changesetID = uuid.New()
 	}
 	return step
+}
+
+// masters returns a new phase for upgrading master servers.
+// otherMasters lists the rest of the master nodes (without the leader)
+func (r updateStep) masters(leadMaster storage.UpdateServer, otherMasters []storage.UpdateServer) *builder.Phase {
+	root := builder.New(storage.OperationPhase{
+		ID:          "masters",
+		Description: "Update master nodes",
+	})
+	return r.mastersInternal(leadMaster, otherMasters, root)
+}
+
+func (r updateStep) mastersInternal(leadMaster storage.UpdateServer, otherMasters []storage.UpdateServer, root *builder.Phase) *builder.Phase {
+	node := nodePhase(leadMaster.Server, "Update system software on master node %q")
+	if len(otherMasters) != 0 {
+		node.AddSequentialRaw(storage.OperationPhase{
+			ID:          "kubelet-permissions",
+			Executor:    kubeletPermissions,
+			Description: fmt.Sprintf("Add permissions to kubelet on %q", leadMaster.Hostname),
+			Data: &storage.OperationPhaseData{
+				Server: &leadMaster.Server,
+			},
+		})
+
+		// election - stepdown first node we will upgrade
+		node.AddSequentialRaw(setLeaderElection(enable(), disable(leadMaster), leadMaster.Server,
+			"stepdown", "Step down %q as Kubernetes leader"))
+	}
+
+	node.AddSequential(r.commonNode(leadMaster, &leadMaster.Server, waitsForEndpoints(len(otherMasters) == 0))...)
+	root.AddSequential(node)
+
+	if len(otherMasters) != 0 {
+		// election - force election to first upgraded node
+		root.AddSequentialRaw(setLeaderElection(enable(leadMaster), disable(otherMasters...), leadMaster.Server,
+			"elect", "Make node %q Kubernetes leader"))
+	}
+
+	for i, server := range otherMasters {
+		node = nodePhase(server.Server, "Update system software on master node %q")
+		node.AddSequential(r.commonNode(otherMasters[i], &leadMaster.Server, waitsForEndpoints(true))...)
+		// election - enable election on the upgraded node
+		node.AddSequentialRaw(setLeaderElection(enable(server), disable(), server.Server, "enable", "Enable leader election on node %q"))
+		root.AddSequential(node)
+	}
+	return root
+}
+
+func (r updateStep) nodes(leadMaster storage.UpdateServer, nodes []storage.UpdateServer) *builder.Phase {
+	root := builder.New(storage.OperationPhase{
+		ID:          "nodes",
+		Description: "Update regular nodes",
+	})
+	return r.nodesInternal(leadMaster, nodes, root)
+}
+
+func (r updateStep) nodesInternal(leadMaster storage.UpdateServer, nodes []storage.UpdateServer, root *builder.Phase) *builder.Phase {
+	for i, server := range nodes {
+		node := nodePhase(server.Server, "Update system software on node %q")
+		node.AddSequential(r.commonNode(nodes[i], &leadMaster.Server, waitsForEndpoints(true))...)
+		root.AddParallel(node)
+	}
+	return root
+}
+
+// commonNode returns a list of operations required for any node role to upgrade its system software
+func (r updateStep) commonNode(server storage.UpdateServer, executor *storage.Server, waitsForEndpoints waitsForEndpoints) (result []*builder.Phase) {
+	phases := []*builder.Phase{
+		builder.New(storage.OperationPhase{
+			ID:          "drain",
+			Executor:    drainNode,
+			Description: fmt.Sprintf("Drain node %q", server.Hostname),
+			Data: &storage.OperationPhaseData{
+				Server:     &server.Server,
+				ExecServer: executor,
+			},
+		}),
+		builder.New(storage.OperationPhase{
+			ID:          "system-upgrade",
+			Executor:    updateSystem,
+			Description: fmt.Sprintf("Update system software on node %q", server.Hostname),
+			Data: &storage.OperationPhaseData{
+				ExecServer: &server.Server,
+				Update: &storage.UpdateOperationData{
+					Servers:        []storage.UpdateServer{server},
+					ChangesetID:    r.changesetID,
+					GravityPackage: &r.gravity,
+				},
+			},
+		}),
+	}
+	if server.ShouldMigrateDockerDevice() {
+		phases = append(phases, dockerDevicePhase(server))
+	}
+	if r.supportsTaints {
+		phases = append(phases, builder.New(storage.OperationPhase{
+			ID:          "taint",
+			Executor:    taintNode,
+			Description: fmt.Sprintf("Taint node %q", server.Hostname),
+			Data: &storage.OperationPhaseData{
+				Server:     &server.Server,
+				ExecServer: executor,
+			},
+		}))
+	}
+	phases = append(phases, builder.New(storage.OperationPhase{
+		ID:          "uncordon",
+		Executor:    uncordonNode,
+		Description: fmt.Sprintf("Uncordon node %q", server.Hostname),
+		Data: &storage.OperationPhaseData{
+			Server:     &server.Server,
+			ExecServer: executor,
+		},
+	}))
+	if waitsForEndpoints {
+		phases = append(phases, builder.New(storage.OperationPhase{
+			ID:          "endpoints",
+			Executor:    endpoints,
+			Description: fmt.Sprintf("Wait for DNS/cluster endpoints on %q", server.Hostname),
+			Data: &storage.OperationPhaseData{
+				Server:     &server.Server,
+				ExecServer: executor,
+			},
+		}))
+	}
+	if r.supportsTaints {
+		phases = append(phases, builder.New(storage.OperationPhase{
+			ID:          "untaint",
+			Executor:    untaintNode,
+			Description: fmt.Sprintf("Remove taint from node %q", server.Hostname),
+			Data: &storage.OperationPhaseData{
+				Server:     &server.Server,
+				ExecServer: executor,
+			},
+		}))
+	}
+	return phases
 }
 
 func (r updateStep) String() string {
@@ -343,6 +738,8 @@ type updateStep struct {
 	runtime loc.Locator
 	// teleport specifies the package with teleport
 	teleport loc.Locator
+	// gravity specifies the package with the gravity binary
+	gravity loc.Locator
 	// runtimeApp specifies the runtime application package
 	runtimeApp libapp.Application
 	// apps lists system application packages.
@@ -355,6 +752,8 @@ type updateStep struct {
 	// runtimeUpdates lists updates to runtime applications in proper
 	// order (i.e. with RBAC application in front)
 	runtimeUpdates []loc.Locator
+	// supportsTaints specifies whether this runtime version supports node taints
+	supportsTaints bool
 }
 
 type etcdVersion struct {
@@ -367,14 +766,7 @@ func (r phaseBuilder) configUpdates(
 	installedRuntimeFunc, updateRuntimeFunc runtimePackageGetterFunc,
 ) (updates []storage.UpdateServer, err error) {
 	for _, server := range r.planTemplate.Servers {
-		secretsUpdate, err := r.operator.RotateSecrets(ops.RotateSecretsRequest{
-			Key:    r.operation.ClusterKey(),
-			Server: server,
-			DryRun: true,
-		})
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
+
 		installedRuntime, err := installedRuntimeFunc(server)
 		if err != nil {
 			return nil, trace.Wrap(err)
@@ -382,8 +774,7 @@ func (r phaseBuilder) configUpdates(
 		updateServer := storage.UpdateServer{
 			Server: server,
 			Runtime: storage.RuntimePackage{
-				Installed:      *installedRuntime,
-				SecretsPackage: &secretsUpdate.Locator,
+				Installed: *installedRuntime,
 			},
 			Teleport: storage.TeleportPackage{
 				Installed: installedTeleport,
@@ -406,6 +797,15 @@ func (r phaseBuilder) configUpdates(
 			if err != nil {
 				return nil, trace.Wrap(err)
 			}
+			secretsUpdate, err := r.operator.RotateSecrets(ops.RotateSecretsRequest{
+				Key:            r.operation.ClusterKey(),
+				Server:         server,
+				RuntimePackage: *updateRuntime,
+				DryRun:         true,
+			})
+			if err != nil {
+				return nil, trace.Wrap(err)
+			}
 			configUpdate, err := r.operator.RotatePlanetConfig(ops.RotatePlanetConfigRequest{
 				Key:            r.operation.Key(),
 				Server:         server,
@@ -416,6 +816,7 @@ func (r phaseBuilder) configUpdates(
 			if err != nil {
 				return nil, trace.Wrap(err)
 			}
+			updateServer.Runtime.SecretsPackage = &secretsUpdate.Locator
 			updateServer.Runtime.Update = &storage.RuntimeUpdate{
 				Package:       *updateRuntime,
 				ConfigPackage: configUpdate.Locator,
@@ -489,4 +890,16 @@ func (r phaseBuilder) shouldSkipIntermediateUpdate(v semver.Version) bool {
 	// Skip the update if it's older than the installed cluster's
 	// runtime version
 	return v.Compare(r.installedRuntimeAppVersion) <= 0
+}
+
+func nodePhase(server storage.Server, format string) *builder.Phase {
+	return builder.New(storage.OperationPhase{
+		ID:          server.Hostname,
+		Description: fmt.Sprintf(format, server.Hostname),
+	})
+}
+
+// supportsTaints determines whether the specified runtime version supports node taints
+func supportsTaints(runtimeAppVersion semver.Version) (supports bool) {
+	return defaults.BaseTaintsVersion.Compare(runtimeAppVersion) <= 0
 }

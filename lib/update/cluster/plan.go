@@ -163,6 +163,10 @@ func NewOperationPlan(ctx context.Context, config PlanConfig) (*storage.Operatio
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	updateRuntimeAppVersion, err := updateRuntimeApp.Package.SemVer()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 
 	installedTeleport, err := installedApp.Manifest.Dependencies.ByName(constants.TeleportPackage)
 	if err != nil {
@@ -188,19 +192,6 @@ func NewOperationPlan(ctx context.Context, config PlanConfig) (*storage.Operatio
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-
-	installedGravityPackage, err := installedRuntimeApp.Manifest.Dependencies.ByName(
-		constants.GravityPackage)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	installedGravityVersion, err := installedGravityPackage.SemVer()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	supportsTaints := supportsTaints(*installedGravityVersion)
 
 	gravityPackage, err := updateRuntimeApp.Manifest.Dependencies.ByName(constants.GravityPackage)
 	if err != nil {
@@ -234,7 +225,6 @@ func NewOperationPlan(ctx context.Context, config PlanConfig) (*storage.Operatio
 		trustedClusters:            trustedClusters,
 		packages:                   config.Packages,
 		apps:                       config.Apps,
-		supportsTaints:             supportsTaints,
 		roles:                      roles,
 		leadMaster:                 *config.Leader,
 		installedApp:               *installedApp,
@@ -242,6 +232,7 @@ func NewOperationPlan(ctx context.Context, config PlanConfig) (*storage.Operatio
 		installedRuntimeApp:        *installedRuntimeApp,
 		installedRuntimeAppVersion: *installedRuntimeAppVersion,
 		updateRuntimeApp:           *updateRuntimeApp,
+		updateRuntimeAppVersion:    *updateRuntimeAppVersion,
 		installedTeleport:          *installedTeleport,
 		updateTeleport:             *updateTeleport,
 		installedDocker:            *installedDocker,

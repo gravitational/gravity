@@ -646,6 +646,40 @@ func FindTeleportPackageWithConfig(packages PackageService) (teleportPackage, te
 	return teleportPackage, teleportConfig, nil
 }
 
+// FindAnyTeleportConfigPackage returns the teleport configuration package in the specified
+// package service for the given repository.
+// It will revert to heuristic search if it fails to find an installed configuration package
+func FindAnyTeleportConfigPackage(packages PackageService, repository string) (configPackage *loc.Locator, err error) {
+	labels := map[string]string{
+		PurposeLabel:   PurposeTeleportNodeConfig,
+		InstalledLabel: InstalledLabel,
+	}
+	configEnv, err := FindPackage(packages, func(e PackageEnvelope) bool {
+		return e.HasLabels(labels)
+	})
+	if err != nil && !trace.IsNotFound(err) {
+		return nil, trace.Wrap(err)
+	}
+	if configEnv != nil {
+		// No update necessary
+		return nil, nil
+	}
+	// Fall back to latest available package
+	configPackage, err = FindLatestPackageCustom(FindLatestPackageRequest{
+		Packages:   packages,
+		Repository: repository,
+		Match: func(e PackageEnvelope) bool {
+			return e.Locator.Name == constants.TeleportNodeConfigPackage &&
+				(e.HasLabels(TeleportNodeConfigPackageLabels) ||
+					e.HasLabels(TeleportLegacyNodeConfigPackageLabels))
+		},
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return configPackage, nil
+}
+
 // FindRuntimePackage locates the installed runtime package
 func FindRuntimePackage(packages PackageService) (runtimePackage *loc.Locator, err error) {
 	env, err := findRuntimePackage(packages)

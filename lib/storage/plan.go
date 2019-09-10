@@ -155,8 +155,7 @@ type UpdateOperationData struct {
 	// RuntimeAppVersion specifies the version of the runtime application
 	// this step applies to
 	RuntimeAppVersion string `json:"version,omitempty"`
-	// GravityPackage specifies the optional gravity package
-	// to call into for rotating secrets/configuration packages
+	// GravityPackage specifies the optional gravity package for this phase
 	GravityPackage *loc.Locator `json:"gravity_package,omitempty"`
 }
 

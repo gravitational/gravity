@@ -807,6 +807,9 @@ func (r RotateSecretsRequest) CheckAndSetDefaults() error {
 	if err := r.Key.Check(); err != nil {
 		return trace.Wrap(err)
 	}
+	if r.RuntimePackage.IsEmpty() {
+		return trace.BadParameter("runtime package is required")
+	}
 	return nil
 }
 
@@ -816,6 +819,8 @@ type RotateSecretsRequest struct {
 	Key SiteKey `json:"key"`
 	// Server is the server to rotate secrets for
 	Server storage.Server `json:"server"`
+	// RuntimePackage specifies the runtime package locator
+	RuntimePackage loc.Locator `json:"runtime_package"`
 	// Package specifies the secrets package to use.
 	// If unspecified, one will be automatically generated
 	Package *loc.Locator `json:"package,omitempty"`
@@ -823,8 +828,8 @@ type RotateSecretsRequest struct {
 	DryRun bool `json:"dry_run"`
 }
 
-// Check validates this request
-func (r RotateTeleportConfigRequest) Check() error {
+// CheckAndSetDefaults validates this request and sets defaults
+func (r RotateTeleportConfigRequest) CheckAndSetDefaults() error {
 	if err := r.Key.Check(); err != nil {
 		return trace.Wrap(err)
 	}
@@ -850,6 +855,17 @@ type RotateTeleportConfigRequest struct {
 	NodePackage *loc.Locator `json:"node_package,omitempty"`
 	// DryRun specifies whether only the package locator is generated
 	DryRun bool `json:"dry_run"`
+}
+
+// CheckAndSetDefaults validates this request and sets defaults
+func (r RotatePlanetConfigRequest) CheckAndSetDefaults() error {
+	if err := r.Key.Check(); err != nil {
+		return trace.Wrap(err)
+	}
+	if r.RuntimePackage.IsEmpty() {
+		return trace.BadParameter("runtime package is required")
+	}
+	return nil
 }
 
 // RotatePlanetConfigRequest is a request to rotate planet server's configuration package
