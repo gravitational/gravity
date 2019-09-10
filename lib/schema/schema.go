@@ -70,7 +70,6 @@ const manifestSchema = `
           }
         },
         "baseImage": {"type": "string"},
-        "allowPrivileged": {"type": "boolean"},
         "logo": {"type": "string"},
         "releaseNotes": {"type": "string"},
         "endpoints": {
@@ -645,6 +644,7 @@ const manifestSchema = `
       "additionalProperties": false,
       "properties": {
         "baseImage": {"type": "string"},
+        "allowPrivileged": {"type": "boolean"},
         "args": {
           "type": "array",
           "items": {"type": "string"}
