@@ -641,7 +641,7 @@ func splitServers(servers []storage.Server, app app.Application) (masters []stor
 		}
 	}
 
-	// assign the servers to their rolls
+	// assign the servers to their roles
 	for _, server := range servers {
 		profile, err := app.Manifest.NodeProfiles.ByName(server.Role)
 		if err != nil {

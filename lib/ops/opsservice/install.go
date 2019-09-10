@@ -886,7 +886,7 @@ func setClusterRoles(servers []storage.Server, app libapp.Application, masters i
 		}
 	}
 
-	// assign the servers to their rolls
+	// assign the servers to their roles
 	for i, server := range servers {
 		profile, err := app.Manifest.NodeProfiles.ByName(server.Role)
 		if err != nil {
