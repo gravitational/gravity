@@ -619,3 +619,124 @@ func FindLegacyRuntimeConfigPackage(packages PackageService) (configPackage *loc
 	}
 	return configPackage, nil
 }
+
+// FindAnyTeleportConfigPackage returns the teleport configuration package in the specified
+// package service for the given repository.
+// It will revert to heuristic search if it fails to find an installed configuration package
+func FindAnyTeleportConfigPackage(packages PackageService, repository string) (configPackage *loc.Locator, err error) {
+	labels := map[string]string{
+		PurposeLabel:   PurposeTeleportNodeConfig,
+		InstalledLabel: InstalledLabel,
+	}
+	configEnv, err := FindPackage(packages, func(e PackageEnvelope) bool {
+		return e.HasLabels(labels)
+	})
+	if err != nil && !trace.IsNotFound(err) {
+		return nil, trace.Wrap(err)
+	}
+	if configEnv != nil {
+		// No update necessary
+		return nil, nil
+	}
+	// Fall back to latest available package
+	configPackage, err = FindLatestPackageCustom(FindLatestPackageRequest{
+		Packages:   packages,
+		Repository: repository,
+		Match: func(e PackageEnvelope) bool {
+			return e.Locator.Name == constants.TeleportNodeConfigPackage &&
+				(e.HasLabels(TeleportNodeConfigPackageLabels) ||
+					e.HasLabels(TeleportConfigPackageLabels))
+		},
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return configPackage, nil
+}
+
+// FindLatestPackageCustom searches for the latest version of the package given with req
+func FindLatestPackageCustom(req FindLatestPackageRequest) (pkg *loc.Locator, err error) {
+	if err := req.checkAndSetDefaults(); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	var max *loc.Locator
+	predicate := func(e PackageEnvelope) error {
+		if !req.Match(e) {
+			return nil
+		}
+		if max == nil {
+			max = &e.Locator
+			return nil
+		}
+		a, err := max.SemVer()
+		if err != nil {
+			return nil
+		}
+		b, err := e.Locator.SemVer()
+		if err != nil {
+			return nil
+		}
+		if req.Less(a, b) {
+			max = &e.Locator
+		}
+		return nil
+	}
+	if req.Repository != "" {
+		err = ForeachPackageInRepo(req.Packages, req.Repository, predicate)
+	} else {
+		err = ForeachPackage(req.Packages, predicate)
+	}
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	if max == nil {
+		return nil, trace.NotFound("latest package not found")
+	}
+	return max, nil
+}
+
+func (r *FindLatestPackageRequest) checkAndSetDefaults() error {
+	if r.Packages == nil {
+		return trace.BadParameter("package service is required")
+	}
+	if r.Match == nil {
+		return trace.BadParameter("package matcher is required")
+	}
+	if r.Less == nil {
+		r.Less = Less
+	}
+	return nil
+}
+
+// FindLatestPackageRequest defines the request to search for the latest version of
+// a package
+type FindLatestPackageRequest struct {
+	// Packages specifies the package service to use with the request
+	Packages PackageService
+	// Repository specifies the optional repository for search.
+	// If unspecifed, all repositories are searched
+	Repository string
+	// Match specifies the package matcher
+	Match MatchFunc
+	// Less specifies the optional version comparator.
+	// If unspecified, default comparator will be used
+	Less LessFunc
+}
+
+// LessFunc defines a version comparator
+type LessFunc func(a, b *semver.Version) bool
+
+// MatchFunc defines a predicate to match a package.
+// Matcher returns true to indicate that the given package
+// matches a specific condition
+type MatchFunc func(PackageEnvelope) bool
+
+// Less is the standard version comparator that
+// returns whether a < b.
+// If versions are equal, it compares their metadata
+func Less(a, b *semver.Version) bool {
+	if a.Compare(*b) < 0 {
+		return true
+	}
+	return a.Metadata < b.Metadata
+}

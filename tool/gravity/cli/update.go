@@ -296,8 +296,16 @@ func rotateTeleportConfig(env *localenv.LocalEnvironment, pkg *loc.Locator, oper
 		// configuration package.
 		return nil
 	}
+	clusterEnv, err := localenv.NewClusterEnvironment()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	cluster, err := clusterEnv.Operator.GetLocalSite()
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	// Find and report the installed teleport configuration package name
-	configPackage, err := pack.FindConfigPackage(env.Packages, loc.Teleport)
+	configPackage, err := pack.FindAnyTeleportConfigPackage(env.Packages, cluster.Domain)
 	if err != nil {
 		return trace.Wrap(err)
 	}
