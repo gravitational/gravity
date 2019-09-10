@@ -242,8 +242,6 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 * Add support for including intermediate runtimes in `tele build`.
 * Add Ubuntu 18.04 to the list of supported distros.
 * Remove the hard limit of 3 master nodes.
-* Bump Kubernetes to `1.13.10`.
-* Bump Go to `1.12.9`.
 
 #### Bugfixes
 
