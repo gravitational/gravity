@@ -287,7 +287,7 @@ func (b *PlanBuilder) AddNodesPhase(plan *storage.OperationPlan) error {
 func (b *PlanBuilder) AddWaitPhase(plan *storage.OperationPlan) {
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
 		ID:          phases.WaitPhase,
-		Description: "Wait for kubernetes to become available",
+		Description: "Wait for Kubernetes to become available",
 		Requires:    fsm.RequireIfPresent(plan, phases.MastersPhase, phases.NodesPhase),
 		Data: &storage.OperationPhaseData{
 			Server: &b.Master,
