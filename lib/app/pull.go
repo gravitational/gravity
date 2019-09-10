@@ -49,8 +49,14 @@ func (r Puller) PullApp(ctx context.Context, loc loc.Locator) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	deps.Apps = append(deps.Apps, *app)
-	return r.Pull(ctx, *deps)
+	r.onConflict = onConflictDependencies(r.Upsert)
+	err = r.pull(ctx, *deps)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	// Pull the application
+	r.onConflict = onConflict(r.Upsert)
+	return r.pullAppWithRetries(ctx, app.Package)
 }
 
 // PullPackage pulls the package specified with loc
@@ -86,23 +92,26 @@ func (r Puller) Pull(ctx context.Context, deps Dependencies) error {
 }
 
 func (r Puller) pull(ctx context.Context, deps Dependencies) error {
-	group, ctx := run.WithContext(ctx, run.WithParallel(r.Parallel))
-	for _, env := range deps.Packages {
-		group.Go(ctx, r.pullPackageHandler(ctx, env.Locator))
-	}
-	if err := group.Wait(); err != nil {
+	if err := r.pullPackages(ctx, deps.Packages); err != nil {
 		return trace.Wrap(err)
 	}
-	// Do not pull application in parallel as the application packages are ordered
-	// (with dependent packages in the front)
-	// TODO(dmitri): would be ideal to group applications such that to make them
-	// pull-friendly in parallel
-	for _, app := range deps.Apps {
-		if err := r.pullAppWithRetries(ctx, app.Package); err != nil {
-			return trace.Wrap(err)
-		}
+	return r.pullApps(ctx, deps.Apps)
+}
+
+func (r Puller) pullPackages(ctx context.Context, packages []pack.PackageEnvelope) error {
+	group, ctx := run.WithContext(ctx, run.WithParallel(r.Parallel))
+	for _, env := range packages {
+		group.Go(ctx, r.pullPackageHandler(ctx, env.Locator))
 	}
-	return nil
+	return group.Wait()
+}
+
+func (r Puller) pullApps(ctx context.Context, apps []Application) error {
+	group, ctx := run.WithContext(ctx, run.WithParallel(r.Parallel))
+	for _, app := range apps {
+		group.Go(ctx, r.pullAppHandler(ctx, app.Package))
+	}
+	return group.Wait()
 }
 
 // Puller pulls packages from one service to another
@@ -124,20 +133,23 @@ type Puller struct {
 	// Upsert is whether to create or upsert the application or package.
 	// The flag is applied to all dependencies
 	Upsert bool
-	// SkipIfExists indicates whether to avoid pulling if an application or package exists.
-	// The flag is applied to all dependencies with Upsert taking precedence
-	SkipIfExists bool
-	// MetadataOnly allows to pull only app metadata without body
+	// MetadataOnly specifies whether to only pull package metadata (w/o contents)
 	MetadataOnly bool
 	// Parallel defines the number of tasks to run in parallel.
 	// If < 0, the number of tasks is unrestricted.
 	// If in [0,1], the tasks are executed sequentially.
 	Parallel int
+	// onConflict specifies the package conflict handler for when the package already
+	// exists in DstPack.
+	onConflict conflictHandler
 }
 
 func (r *Puller) checkAndSetDefaults() error {
 	if r.FieldLogger == nil {
 		r.FieldLogger = logrus.WithField(trace.Component, "pull")
+	}
+	if r.onConflict == nil {
+		r.onConflict = onConflict(r.Upsert)
 	}
 	return nil
 }
@@ -164,14 +176,16 @@ func (r Puller) pullPackage(loc loc.Locator) error {
 	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
 	}
-	if err == nil && !r.Upsert {
-		if r.SkipIfExists {
+	if err == nil {
+		err = r.onConflict(loc)
+		if utils.IsAbortError(err) {
 			return nil
 		}
-		logger.Info("Package already exists.")
-		return trace.AlreadyExists("package %v already exists", loc)
+		if err != nil {
+			return trace.Wrap(err)
+		}
 	}
-	logger.Info("Pull package.")
+	logger.Debug("Pull package.")
 	reader := ioutil.NopCloser(utils.NopReader())
 	if r.MetadataOnly {
 		env, err = r.SrcPack.ReadPackageEnvelope(loc)
@@ -205,6 +219,12 @@ func (r Puller) pullPackage(loc loc.Locator) error {
 	return trace.Wrap(err)
 }
 
+func (r Puller) pullAppHandler(ctx context.Context, loc loc.Locator) func() error {
+	return func() error {
+		return r.pullAppWithRetries(ctx, loc)
+	}
+}
+
 func (r Puller) pullAppWithRetries(ctx context.Context, loc loc.Locator) error {
 	ctx, cancel := context.WithTimeout(ctx, defaults.TransientErrorTimeout)
 	defer cancel()
@@ -232,13 +252,15 @@ func (r Puller) pullApp(loc loc.Locator) error {
 	}
 	logger := r.WithField("app", loc)
 	if app != nil && !upsert {
-		if r.SkipIfExists {
+		err = r.onConflict(loc)
+		if utils.IsAbortError(err) {
 			return nil
 		}
-		logger.Info("Application already exists.")
-		return trace.AlreadyExists("application %v already exists", loc)
+		if err != nil {
+			return trace.Wrap(err)
+		}
 	}
-	logger.Info("Pull application.")
+	logger.Debug("Pull application.")
 	var env *pack.PackageEnvelope
 	reader := ioutil.NopCloser(utils.NopReader())
 	if r.MetadataOnly {
@@ -266,3 +288,43 @@ func (r Puller) pullApp(loc loc.Locator) error {
 	}
 	return trace.Wrap(err)
 }
+
+func onConflictDependencies(upsert bool) conflictHandler {
+	if upsert {
+		return onConflictContinue
+	}
+	return onConflictSkip
+}
+
+func onConflict(upsert bool) conflictHandler {
+	if upsert {
+		return onConflictContinue
+	}
+	return onConflictAbort
+}
+
+// onConflictAbort is a conflict handler that aborts the pull operation
+// with an error
+func onConflictAbort(loc loc.Locator) error {
+	return trace.AlreadyExists("package %v already exists", loc)
+}
+
+// onConflictContinue is a conflict handler that continues the pull operation
+// if a package already exists in the destination package service
+func onConflictContinue(loc loc.Locator) error {
+	return nil
+}
+
+// onConflictSkip is a conflict handler that aborts the pull operation
+// w/o error
+func onConflictSkip(loc loc.Locator) error {
+	return utils.Abort(nil)
+}
+
+// conflictHandler defines a functional handler to decide whether the active
+// pull operation is aborted if the specified package already exists in the
+// destination package service.
+// If the return is nil, the pull operation continues.
+// If the return is a special utils.Abort error, the pull operation is aborted without error.
+// If the return is any other error, the pull operation is aborted with said error.
+type conflictHandler func(loc.Locator) error
