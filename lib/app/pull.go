@@ -185,7 +185,7 @@ func (r Puller) pullPackage(loc loc.Locator) error {
 			return trace.Wrap(err)
 		}
 	}
-	logger.Debug("Pull package.")
+	logger.Info("Pull package.")
 	reader := ioutil.NopCloser(utils.NopReader())
 	if r.MetadataOnly {
 		env, err = r.SrcPack.ReadPackageEnvelope(loc)
@@ -260,7 +260,7 @@ func (r Puller) pullApp(loc loc.Locator) error {
 			return trace.Wrap(err)
 		}
 	}
-	logger.Debug("Pull application.")
+	logger.Info("Pull application.")
 	var env *pack.PackageEnvelope
 	reader := ioutil.NopCloser(utils.NopReader())
 	if r.MetadataOnly {
@@ -289,6 +289,14 @@ func (r Puller) pullApp(loc loc.Locator) error {
 	return trace.Wrap(err)
 }
 
+// onConflictDependencies returns the conflict handler for dealing with package
+// conflicts in application dependencies. When an application is pulled (or pushed)
+// from a service, the behavior regarding the conflicts is as following:
+//  * if a dependent (application) package already exists in the destination service,
+//    the operation does nothing or upserts the package (subject to upsert attribute)
+//  * if the top-level application package already exists in the destination service,
+//    the operation will ether fail with the corresponding error or upsert the package
+//    (subject to upsert attribute)
 func onConflictDependencies(upsert bool) conflictHandler {
 	if upsert {
 		return onConflictContinue
