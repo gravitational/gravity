@@ -133,14 +133,16 @@ func mergeUpstreamResolvers(configs ...*storage.ResolvConf) []string {
 	var upstreams []string
 	dedup := make(map[string]bool)
 	for _, config := range configs {
-		for _, nameserver := range config.Servers {
-			if _, ok := dedup[nameserver]; !ok {
-				// Filter out local nameservers to avoid CoreDNS forwarding requests
-				// to itself and triggering loop detection, see for more details:
-				// https://github.com/coredns/coredns/tree/master/plugin/loop#troubleshooting
-				if !utils.IsLocalhost(nameserver) {
-					dedup[nameserver] = true
-					upstreams = append(upstreams, nameserver)
+		if config != nil {
+			for _, nameserver := range config.Servers {
+				if _, ok := dedup[nameserver]; !ok {
+					// Filter out local nameservers to avoid CoreDNS forwarding requests
+					// to itself and triggering loop detection, see for more details:
+					// https://github.com/coredns/coredns/tree/master/plugin/loop#troubleshooting
+					if !utils.IsLocalhost(nameserver) {
+						dedup[nameserver] = true
+						upstreams = append(upstreams, nameserver)
+					}
 				}
 			}
 		}

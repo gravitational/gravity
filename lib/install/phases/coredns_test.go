@@ -186,7 +186,10 @@ func (*StartSuite) TestMergeUpstreamResolvers(c *check.C) {
 	}
 
 	for _, tt := range cases {
-		upstream := mergeUpstreamResolvers(tt.configs...)
+		// ensure mergeUpstreamResolvers can handle a nil resolver
+		configs := append(tt.configs, nil)
+
+		upstream := mergeUpstreamResolvers(configs...)
 		c.Assert(upstream, check.DeepEquals, tt.expected)
 	}
 }
