@@ -29,6 +29,7 @@ import (
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/users"
+	"github.com/gravitational/gravity/lib/utils/fields"
 
 	"github.com/gravitational/form"
 	"github.com/gravitational/roundtrip"
@@ -314,21 +315,24 @@ func (s *Server) updatePackageLabels(w http.ResponseWriter, r *http.Request, p h
 
 func (s *Server) needsAuth(fn authHandle) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+		logger := log.WithFields(fields.FromRequest(r))
+
 		authResult, err := s.cfg.Authenticator.Authenticate(w, r)
 		if err != nil {
-			log.WithError(err).Debug("Authentication error.")
+			logger.WithError(err).Warn("Authentication error.")
 			trace.WriteError(w, trace.AccessDenied("bad username or password")) // Hide the actual error.
 			return
 		}
+
 		// create a ACL aware wrapper packages service
 		// and pass it to the handlers, so every action will be automatically
 		// checked against current user
 		service := pack.PackagesWithACL(s.cfg.Packages, s.cfg.Users, authResult.User, authResult.Checker)
 		if err := fn(w, r, p, service); err != nil {
 			if trace.IsAccessDenied(err) {
-				log.Debugf("access denied: %v", err)
+				logger.WithError(err).Warn("Access denied.")
 			} else if !trace.IsNotFound(err) && !trace.IsAlreadyExists(err) {
-				log.Errorf("handler error: %v", trace.DebugReport(err))
+				logger.WithError(err).Error("Handler error.")
 			}
 			trace.WriteError(w, err)
 		}

@@ -39,6 +39,7 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/users"
 	"github.com/gravitational/gravity/lib/utils"
+	"github.com/gravitational/gravity/lib/utils/fields"
 
 	"github.com/coreos/go-semver/semver"
 	"github.com/gravitational/form"
@@ -1032,7 +1033,7 @@ func (h *WebHandler) options(w http.ResponseWriter, r *http.Request, p httproute
 func (h *WebHandler) wrap(fn func(w http.ResponseWriter, r *http.Request, p httprouter.Params) error) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		if err := fn(w, r, p); err != nil {
-			log.Infof("handler error: %v", trace.DebugReport(err))
+			log.WithFields(fields.FromRequest(r)).WithError(err).Info("Handler error.")
 			trace.WriteError(w, err)
 		}
 	}
@@ -1040,9 +1041,11 @@ func (h *WebHandler) wrap(fn func(w http.ResponseWriter, r *http.Request, p http
 
 func (h *WebHandler) needsAuth(fn serviceHandler) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+		logger := log.WithFields(fields.FromRequest(r))
+
 		authResult, err := h.Authenticator.Authenticate(w, r)
 		if err != nil {
-			log.WithError(err).Debug("Authentication error.")
+			logger.WithError(err).Warn("Authentication error.")
 			trace.WriteError(w, trace.AccessDenied("bad username or password")) // Hide the actual error.
 			return
 		}
@@ -1055,11 +1058,10 @@ func (h *WebHandler) needsAuth(fn serviceHandler) httprouter.Handle {
 
 		if err := fn(w, r, params, context); err != nil {
 			if !trace.IsNotFound(err) && !trace.IsAlreadyExists(err) {
-				log.Errorf("handler error: %v", trace.DebugReport(err))
+				logger.WithError(err).Error("Handler error.")
 			} else {
-				log.Debugf("handler error: %v", trace.DebugReport(err))
+				logger.WithError(err).Debug("Handler error.")
 			}
-
 			trace.WriteError(w, err)
 		}
 	}

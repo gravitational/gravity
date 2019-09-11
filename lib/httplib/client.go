@@ -105,12 +105,10 @@ func WithInsecure() ClientOption {
 	return func(c *http.Client) {
 		// Make sure not to override existing TLS configuration.
 		tlsConfig := c.Transport.(*http.Transport).TLSClientConfig
-		if tlsConfig != nil {
-			tlsConfig.InsecureSkipVerify = true
-		} else {
-			tlsConfig = &tls.Config{InsecureSkipVerify: true}
+		if tlsConfig == nil {
+			tlsConfig = &tls.Config{}
 		}
-		c.Transport.(*http.Transport).TLSClientConfig = tlsConfig
+		tlsConfig.InsecureSkipVerify = true
 	}
 }
 

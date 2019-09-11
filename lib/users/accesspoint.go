@@ -40,6 +40,9 @@ func (a *accessPoint) GetDomainName() (string, error) {
 	if err != nil && !trace.IsNotFound(err) {
 		return "", trace.Wrap(err)
 	}
+	// Return an empty domain name rather than an error b/c this method is
+	// called by Teleport's auth middleware which does not handle not found
+	// errors currently.
 	if trace.IsNotFound(err) {
 		return "", nil
 	}

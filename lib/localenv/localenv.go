@@ -32,6 +32,7 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/httplib"
+	"github.com/gravitational/gravity/lib/localenv/credentials"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/opsclient"
 	"github.com/gravitational/gravity/lib/pack"
@@ -112,8 +113,8 @@ type LocalEnvironment struct {
 	Packages *localpack.PackageServer
 	// Apps is the local application service
 	Apps appbase.Applications
-	// CredentialsService provides access to user credentials
-	CredentialsService
+	// Credentials provides access to user credentials
+	Credentials credentials.Service
 }
 
 // New is a shortcut that creates a local environment from provided state directory
@@ -185,7 +186,7 @@ func (env *LocalEnvironment) init() error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	env.CredentialsService, err = NewCredentials(CredentialsServiceConfig{
+	env.Credentials, err = credentials.New(credentials.Config{
 		LocalKeyStoreDir: env.LocalKeyStoreDir,
 		Backend:          env.Backend,
 	})
@@ -208,7 +209,7 @@ func (env *LocalEnvironment) Close() error {
 		env.Objects = nil
 	}
 	env.Packages = nil
-	env.CredentialsService = nil
+	env.Credentials = nil
 	return trace.NewAggregate(errors...)
 }
 
@@ -216,7 +217,7 @@ func (env *LocalEnvironment) SelectOpsCenter(opsURL string) (string, error) {
 	if opsURL != "" {
 		return opsURL, nil
 	}
-	credentials, err := env.CurrentCredentials()
+	credentials, err := env.Credentials.Current()
 	if err != nil {
 		return "", trace.Wrap(err)
 	}
@@ -255,7 +256,7 @@ func (env *LocalEnvironment) PackageService(opsCenterURL string, options ...http
 	if opsCenterURL == defaults.GravityServiceURL {
 		options = append(options, httplib.WithLocalResolver(env.DNS.Addr()))
 	}
-	credentials, err := env.CredentialsFor(opsCenterURL)
+	credentials, err := env.Credentials.For(opsCenterURL)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -274,7 +275,7 @@ func (env *LocalEnvironment) PackageService(opsCenterURL string, options ...http
 
 // CurrentUser returns name of the currently logged in user
 func (env *LocalEnvironment) CurrentUser() string {
-	credentials, err := env.CurrentCredentials()
+	credentials, err := env.Credentials.Current()
 	if err != nil {
 		if !trace.IsNotFound(err) {
 			log.Errorf("Failed to get current login entry: %v.",
@@ -291,7 +292,7 @@ func (env *LocalEnvironment) OperatorService(opsCenterURL string, options ...htt
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	credentials, err := env.CredentialsFor(opsCenterURL)
+	credentials, err := env.Credentials.For(opsCenterURL)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -347,7 +348,7 @@ func (env *LocalEnvironment) AppService(opsCenterURL string, config AppConfig, o
 	if opsCenterURL == "" {
 		return env.AppServiceLocal(config)
 	}
-	credentials, err := env.CredentialsFor(opsCenterURL)
+	credentials, err := env.Credentials.For(opsCenterURL)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

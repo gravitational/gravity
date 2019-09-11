@@ -18,8 +18,6 @@ package opshandler
 
 import (
 	"context"
-	"crypto/tls"
-	"net/http"
 	"net/http/httptest"
 	"os"
 	"strconv"
@@ -110,12 +108,7 @@ func (s *OpsHandlerSuite) SetUpTest(c *C) {
 	// won't be affected by auth issues
 	s.client, err = opsclient.NewAuthenticatedClient(
 		s.webServer.URL, s.adminUser, "admin-password",
-		opsclient.HTTPClient(&http.Client{
-			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{
-					InsecureSkipVerify: true,
-				}}}),
-	)
+		opsclient.HTTPClient(s.webServer.Client()))
 
 	s.suite.O = s.client
 	s.suite.U = s.users

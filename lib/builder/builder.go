@@ -34,6 +34,7 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
+	"github.com/gravitational/gravity/lib/localenv/credentials"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/pack/layerpack"
 	"github.com/gravitational/gravity/lib/pack/localpack"
@@ -82,7 +83,7 @@ type Config struct {
 	// GetRepository is a function that returns package source repository
 	GetRepository GetRepositoryFunc
 	// Credentials provides access to user credentials
-	Credentials localenv.CredentialsService
+	Credentials credentials.Service
 	// FieldLogger is used for logging
 	logrus.FieldLogger
 	// Progress allows builder to report build progress
@@ -127,7 +128,7 @@ func (c *Config) CheckAndSetDefaults() error {
 		c.GetRepository = getRepository
 	}
 	if c.Credentials == nil {
-		c.Credentials, err = localenv.NewCredentials(localenv.CredentialsServiceConfig{
+		c.Credentials, err = credentials.New(credentials.Config{
 			LocalKeyStoreDir: c.StateDir,
 		})
 		if err != nil {

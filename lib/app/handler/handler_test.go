@@ -17,8 +17,6 @@ limitations under the License.
 package handler
 
 import (
-	"crypto/tls"
-	"net/http"
 	"net/http/httptest"
 	"path/filepath"
 	"testing"
@@ -139,12 +137,7 @@ func (r *HandlerSuite) SetUpTest(c *C) {
 
 		apps, err := client.NewAuthenticatedClient(
 			r.server.URL, r.user.GetName(), "admin-password",
-			client.HTTPClient(&http.Client{
-				Transport: &http.Transport{
-					TLSClientConfig: &tls.Config{
-						InsecureSkipVerify: true,
-					}}}),
-		)
+			client.HTTPClient(r.server.Client()))
 		c.Assert(err, IsNil)
 		return apps
 	}

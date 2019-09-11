@@ -14,7 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package localenv
+// Package credentials provides interface for retrieving local user credentials.
+//
+// The credentials are retrieved from different sources such as:
+//   * Gravity local key store.
+//   * Teleport local key store.
+//   * Bolt database backend.
+package credentials
 
 import (
 	"crypto/tls"
@@ -32,15 +38,19 @@ import (
 	"github.com/gravitational/teleport/lib/client"
 	teleutils "github.com/gravitational/teleport/lib/utils"
 	"github.com/gravitational/trace"
+	"github.com/sirupsen/logrus"
 )
 
-// CredentialsService provides access to local user credentials.
-type CredentialsService interface {
-	// CurrentCredentials returns the currently active user credentials.
-	CurrentCredentials() (*Credentials, error)
-	// CredentialsFor returns user credentials for the specified cluster.
-	CredentialsFor(clusterURL string) (*Credentials, error)
+// Service provides access to local user credentials.
+type Service interface {
+	// Current returns the currently active user credentials.
+	Current() (*Credentials, error)
+	// For returns user credentials for the specified cluster.
+	For(clusterURL string) (*Credentials, error)
 	// UpsertLoginEntry upserts login entry in the local key store.
+	//
+	// DEPRECATED: This method can removed when authentication via local
+	//             Gravity key store is no longer supported.
 	UpsertLoginEntry(clusterURL, username, password string) error
 }
 
@@ -75,8 +85,8 @@ func credentialsFromProfile(profile client.ClientProfile, tls *tls.Config) *Cred
 	}
 }
 
-// CredentialsServiceConfig is the credentials service configuration.
-type CredentialsServiceConfig struct {
+// Config is the credentials service configuration.
+type Config struct {
 	// LocalKeyStoreDir is the local Gravity key store directory (defaults to ~/.gravity).
 	LocalKeyStoreDir string
 	// TeleportKeyStoreDir is the local Teleport key store directory (defaults to ~/.tsh).
@@ -85,8 +95,8 @@ type CredentialsServiceConfig struct {
 	Backend storage.Backend
 }
 
-// NewCredentials creates a new credentials service with the provided config.
-func NewCredentials(config CredentialsServiceConfig) (*credentialsService, error) {
+// New creates a new credentials service with the provided config.
+func New(config Config) (*credentialsService, error) {
 	// Bolt-backed key store is only used inside deployed clusters so may
 	// not be provided.
 	var dbKeyStore *users.KeyStore
@@ -100,21 +110,24 @@ func NewCredentials(config CredentialsServiceConfig) (*credentialsService, error
 		}
 	}
 	return &credentialsService{
-		CredentialsServiceConfig: config,
-		dbKeyStore:               dbKeyStore,
+		Config:      config,
+		FieldLogger: logrus.WithField(trace.Component, "creds"),
+		dbKeyStore:  dbKeyStore,
 	}, nil
 }
 
 type credentialsService struct {
-	// CredentialsServiceConfig is the service configuration.
-	CredentialsServiceConfig
+	// Config is the service configuration.
+	Config
+	// FieldLogger provides logging facilities.
+	logrus.FieldLogger
 	// dbKeyStore is the database-backed key store (used inside clusters).
 	dbKeyStore *users.KeyStore
 }
 
-// CredentialsFor returns user credentials for the specified cluster.
-func (s *credentialsService) CredentialsFor(clusterURL string) (*Credentials, error) {
-	log.Debugf("Searching for credentials for %v.", clusterURL)
+// For returns user credentials for the specified cluster.
+func (s *credentialsService) For(clusterURL string) (*Credentials, error) {
+	s.Debugf("Searching for credentials for %v.", clusterURL)
 	// Parse/normalize the provided URL because different credential providers
 	// expect different URL formats.
 	url, err := parseURL(clusterURL)
@@ -129,39 +142,39 @@ func (s *credentialsService) CredentialsFor(clusterURL string) (*Credentials, er
 	for _, url := range []string{url.normalized, url.original} {
 		entry, err := localKeyStore.GetLoginEntry(url)
 		if err == nil {
-			log.Debugf("Found login entry for %v @ %v in the local key store.", entry.Email, url)
+			s.Debugf("Found login entry for %v @ %v in the local key store.", entry.Email, url)
 			return credentialsFromEntry(*entry), nil
 		}
 	}
 	// Search the Teleport keystore (~/.tsh).
 	profile, tls, err := s.profileAndKeyFor(url.hostname)
 	if err == nil {
-		log.Debugf("Found client key for %v / %v in the Teleport key store.", profile.Username, profile.WebProxyAddr)
+		s.Debugf("Found client key for %v @ %v in the Teleport key store.", profile.Username, profile.WebProxyAddr)
 		return credentialsFromProfile(*profile, tls), nil
 	}
 	// Search the local backend.
 	if s.dbKeyStore != nil {
 		entry, err := s.dbKeyStore.GetLoginEntry(clusterURL)
 		if err == nil {
-			log.Debugf("Found login entry for %v @ %v in the db key store.", entry.Email, clusterURL)
+			s.Debugf("Found login entry for %v @ %v in the db key store.", entry.Email, clusterURL)
 			return credentialsFromEntry(*entry), nil
 		}
 	}
 	// If haven't found anything, see if this is the default distribution hub.
 	if clusterURL == defaults.DistributionOpsCenter {
-		log.Debugf("Returning default credentials for %v.", clusterURL)
+		s.Debugf("Returning default credentials for %v.", clusterURL)
 		return defaultCredentials, nil
 	}
 	return nil, trace.NotFound("no credentials for %v", clusterURL)
 }
 
-// CurrentCredentials returns the currently active user credentials.
-func (s *credentialsService) CurrentCredentials() (*Credentials, error) {
+// Current returns the currently active user credentials.
+func (s *credentialsService) Current() (*Credentials, error) {
 	currentCluster, err := s.currentCluster()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	credentials, err := s.CredentialsFor(currentCluster)
+	credentials, err := s.For(currentCluster)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -321,7 +334,7 @@ type parsedURL struct {
 	hostname string
 }
 
-// parseURL parses the provided URL in different ways and returns the result.
+// parseURL parses the provided URL and returns it in the structured form.
 //
 // See above for what it returns and why it exists.
 func parseURL(url string) (*parsedURL, error) {

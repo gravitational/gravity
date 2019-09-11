@@ -38,6 +38,7 @@ import (
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/users"
+	"github.com/gravitational/gravity/lib/utils/fields"
 
 	"github.com/gravitational/roundtrip"
 	"github.com/gravitational/teleport/lib/auth"
@@ -2336,9 +2337,11 @@ func (s *WebHandler) needsAuth(fn ServiceHandle) httprouter.Handle {
 // GetHandlerContext authenticates the user that made the request and returns
 // the appropriate handler context
 func GetHandlerContext(w http.ResponseWriter, r *http.Request, backend storage.Backend, operator ops.Operator, authenticator users.Authenticator, usersService users.Identity) (*HandlerContext, error) {
+	logger := log.WithFields(fields.FromRequest(r))
+
 	authResult, err := authenticator.Authenticate(w, r)
 	if err != nil {
-		log.WithError(err).Debug("Authentication error.")
+		logger.WithError(err).Warn("Authentication error.")
 		return nil, trace.AccessDenied("bad username or password") // Hide the actual error.
 	}
 
@@ -2355,7 +2358,7 @@ func GetHandlerContext(w http.ResponseWriter, r *http.Request, backend storage.B
 	wrappedOperator := ops.OperatorWithACL(operator, usersService, authResult.User, authResult.Checker)
 	wrappedIdentity := users.IdentityWithACL(backend, usersService, authResult.User, authResult.Checker)
 	if err != nil {
-		log.Errorf("Failed to init identity service: %v.", trace.DebugReport(err))
+		logger.WithError(err).Error("Failed to init identity service.")
 		return nil, trace.BadParameter("internal server error")
 	}
 	// enrich context with operator bound to current user
@@ -2387,11 +2390,7 @@ func NeedsAuth(devmode bool, backend storage.Backend, operator ops.Operator, aut
 		err := handler(w, r, params)
 		if err != nil {
 			if trace.IsAccessDenied(err) {
-				log.WithFields(log.Fields{
-					log.ErrorKey: err,
-					"method":     r.Method,
-					"path":       r.URL.Path,
-				}).Debugf("Access denied.")
+				log.WithFields(fields.FromRequest(r)).WithError(err).Warn("Access denied.")
 			}
 			trace.WriteError(w, err)
 		}

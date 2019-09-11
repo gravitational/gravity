@@ -22,6 +22,7 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/utils/fields"
 
 	"github.com/gravitational/teleport/lib/auth"
 	"github.com/gravitational/teleport/lib/services"
@@ -96,22 +97,19 @@ func NewAuthenticatorFromIdentity(identity Identity) *authenticator {
 // Returns the authenticated user and the access checker configured with the
 // user roles that can be passed to authorization services down the chain.
 func (a *authenticator) Authenticate(w http.ResponseWriter, r *http.Request) (*AuthenticateResponse, error) {
-	a.WithFields(logrus.Fields{"method": r.Method, "url": r.URL.Path}).Debug("Authenticate.")
-
-	var result AuthenticateResponse
-	var err error
+	a.WithFields(fields.FromRequest(r)).Debug("Authenticate.")
 
 	// First see if the user has already been authenticated by the means of
 	// the client certificate.
-	result.User, result.Checker, err = a.authenticateContext(r)
+	result, err := a.authenticateContext(r)
 	if err != nil && !trace.IsNotFound(err) {
 		return nil, trace.Wrap(err)
 	}
 	if err == nil {
-		return &result, nil
+		return result, nil
 	}
 
-	// For authentication method other than client certificate authentication
+	// For authentication methods other than client certificate authentication
 	// headers must be present.
 	authCreds, err := httplib.ParseAuthHeaders(r)
 	if err != nil {
@@ -120,20 +118,23 @@ func (a *authenticator) Authenticate(w http.ResponseWriter, r *http.Request) (*A
 
 	// If session cookie is present, authenticate the web session.
 	if hasSessionCookie(r) {
-		result.User, result.Checker, result.Session, err = a.authenticateSession(w, r)
+		result, err := a.authenticateSession(w, r)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
-		return &result, nil
+		return result, nil
 	}
 
 	// Otherwise it is likely a "robot" user so use the users service to
 	// authenticate using credentials or token.
-	result.User, result.Checker, err = a.Identity.AuthenticateUser(*authCreds)
+	user, checker, err := a.Identity.AuthenticateUser(*authCreds)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return &result, nil
+	return &AuthenticateResponse{
+		User:    user,
+		Checker: checker,
+	}, nil
 }
 
 func hasSessionCookie(r *http.Request) bool {
@@ -146,10 +147,10 @@ func hasSessionCookie(r *http.Request) bool {
 //
 // The user is set in the request context by an authentication middleware that
 // extracts it from the verified client-supplied x509 certificate.
-func (a *authenticator) authenticateContext(r *http.Request) (storage.User, services.AccessChecker, error) {
+func (a *authenticator) authenticateContext(r *http.Request) (*AuthenticateResponse, error) {
 	contextUserI := r.Context().Value(auth.ContextUser)
 	if contextUserI == nil {
-		return nil, nil, trace.NotFound("request context does not contain authenticated user")
+		return nil, trace.NotFound("request context does not contain authenticated user")
 	}
 	a.Debugf("Request contains authenticated user: %#v.", contextUserI)
 	// The user is present in the request context which means it has already
@@ -157,34 +158,41 @@ func (a *authenticator) authenticateContext(r *http.Request) (storage.User, serv
 	// need to see whether this user exists in our database.
 	localUser, ok := contextUserI.(auth.LocalUser)
 	if !ok {
-		return nil, nil, trace.NotFound("request context user is not local")
+		return nil, trace.NotFound("request context does not contain authenticated user")
 	}
 	user, err := a.Identity.GetTelekubeUser(localUser.Username)
 	if err != nil {
-		return nil, nil, trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 	checker, err := a.Identity.GetAccessChecker(user)
 	if err != nil {
-		return nil, nil, trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
-	return user, checker, nil
+	return &AuthenticateResponse{
+		User:    user,
+		Checker: checker,
+	}, nil
 }
 
-func (a *authenticator) authenticateSession(w http.ResponseWriter, r *http.Request) (storage.User, services.AccessChecker, *web.SessionContext, error) {
+func (a *authenticator) authenticateSession(w http.ResponseWriter, r *http.Request) (*AuthenticateResponse, error) {
 	if a.Authenticator == nil {
-		return nil, nil, nil, trace.AccessDenied("web sessions are not supported")
+		return nil, trace.AccessDenied("web sessions are not supported")
 	}
 	session, err := a.Authenticator(w, r, true)
 	if err != nil {
-		return nil, nil, nil, trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 	user, err := a.Identity.GetTelekubeUser(session.GetUser())
 	if err != nil {
-		return nil, nil, nil, trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 	checker, err := a.Identity.GetAccessChecker(user)
 	if err != nil {
-		return nil, nil, nil, trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
-	return user, checker, session, nil
+	return &AuthenticateResponse{
+		User:    user,
+		Checker: checker,
+		Session: session,
+	}, nil
 }

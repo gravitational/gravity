@@ -121,12 +121,7 @@ func (s *WebpackSuite) SetUpTest(c *C) {
 	// won't be affected by auth issues
 	s.suite.S, err = NewAuthenticatedClient(
 		s.webServer.URL, s.adminUser.GetName(), "admin-password",
-		roundtrip.HTTPClient(&http.Client{
-			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{
-					InsecureSkipVerify: true,
-				}}}),
-	)
+		roundtrip.HTTPClient(s.webServer.Client()))
 
 	s.suite.O = objects
 	s.suite.C = s.clock

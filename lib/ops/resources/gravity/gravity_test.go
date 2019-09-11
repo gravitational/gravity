@@ -18,8 +18,6 @@ package gravity
 
 import (
 	"context"
-	"crypto/tls"
-	"net/http"
 	"net/http/httptest"
 	"testing"
 
@@ -56,11 +54,7 @@ func (s *GravityResourcesSuite) SetUpSuite(c *check.C) {
 	s.server = httptest.NewTLSServer(s.s.Handler)
 	// create the ops client that uses admin agent creds
 	client, err := opsclient.NewBearerClient(s.server.URL, s.s.Creds.Password,
-		opsclient.HTTPClient(&http.Client{
-			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{
-					InsecureSkipVerify: true,
-				}}}))
+		opsclient.HTTPClient(s.server.Client()))
 	c.Assert(err, check.IsNil)
 	// create the resource control that uses this ops client
 	s.r, err = New(Config{
