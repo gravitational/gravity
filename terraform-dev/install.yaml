@@ -34,7 +34,7 @@
 
   - name: Creating /tmp/installer
     file:
-      path: "/home/{{ lookup('env','OS') }}/installer"
+      path: "/tmp/installer"
       state: directory
 
   - name: upload installer tarball to the first node
@@ -43,7 +43,7 @@
     unarchive:
       force: yes
       src: "{{tarball_path}}"
-      dest: "/home/{{ lookup('env','OS') }}/installer"
+      dest: "/tmp/installer"
 
   - name: upload gravity binary
     when: inventory_hostname != groups['all'][0]
@@ -51,7 +51,7 @@
     copy:
       force: yes
       src: "{{gravity_bin_path}}"
-      dest: "/home/{{ lookup('env','OS') }}/installer"
+      dest: "/tmp/gravity"
       mode: 0755
 
 - hosts: all
@@ -65,14 +65,14 @@
     shell: |
       umask 0066
       {% if inventory_hostname == groups['all'][0] %}
-      cd /home/{{ lookup('env','OS') }}/installer
+      cd /tmp/installer
       ./gravity install \
         --cluster=dev.test \
         --advertise-addr=172.28.128.3 \
         --flavor=three \
         --token=token
       {% else %}
-      /home/{{ lookup('env', 'OS') }}/gravity join \
+      /tmp/gravity join \
         {{hostvars[groups['all'][0]]['ansible_default_ipv4']['address']}} \
         --advertise-addr={{hostvars[inventory_hostname]['ansible_default_ipv4']['address']}} \
         --token=longtoken
@@ -80,8 +80,8 @@
   - name: Clean tmp
     file:
       state: absent
-      path: "/home/{{ lookup('env','OS') }}/installer"
+      path: "/tmp/installer"
   - name: Clean tmp gravity
     file:
       state: absent
-      path: "/home/{{ lookup('env','OS') }}/installer"
+      path: "/tmp/gravity"
