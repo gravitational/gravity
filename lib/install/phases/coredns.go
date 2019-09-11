@@ -93,7 +93,6 @@ func (r *corednsExecutor) Execute(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	servers := resolvConf.Servers
 
 	// Optionally try and load upstream nameservers from systemd-resolved by reading the compatibility resolv.conf
 	// More Info: https://github.com/gravitational/gravity/issues/606#issuecomment-529171440
@@ -102,20 +101,8 @@ func (r *corednsExecutor) Execute(ctx context.Context) error {
 	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
 	}
-	if systemdResolvConf != nil {
-		servers = append(servers, systemdResolvConf.Servers...)
-	}
 
-	// Filter out local nameservers to avoid CoreDNS forwarding requests
-	// to itself and triggering loop detection, see for more details:
-	// https://github.com/coredns/coredns/tree/master/plugin/loop#troubleshooting
-	var upstreams []string
-	for _, nameserver := range servers {
-		if !utils.IsLocalhost(nameserver) {
-			upstreams = append(upstreams, nameserver)
-		}
-	}
-
+	upstreams := mergeUpstreamResolvers(resolvConf, systemdResolvConf)
 	conf, err := GenerateCorefile(CorednsConfig{
 		UpstreamNameservers: upstreams,
 		Rotate:              resolvConf.Rotate,
@@ -140,6 +127,26 @@ func (r *corednsExecutor) Execute(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func mergeUpstreamResolvers(configs ...*storage.ResolvConf) []string {
+	var upstreams []string
+	dedup := make(map[string]bool)
+	for _, config := range configs {
+		for _, nameserver := range config.Servers {
+			if _, ok := dedup[nameserver]; !ok {
+				// Filter out local nameservers to avoid CoreDNS forwarding requests
+				// to itself and triggering loop detection, see for more details:
+				// https://github.com/coredns/coredns/tree/master/plugin/loop#troubleshooting
+				if !utils.IsLocalhost(nameserver) {
+					dedup[nameserver] = true
+					upstreams = append(upstreams, nameserver)
+				}
+			}
+		}
+	}
+
+	return upstreams
 }
 
 // Rollback deletes the coredns configmap that was created in the execute step
