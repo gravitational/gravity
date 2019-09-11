@@ -156,8 +156,6 @@ func rpcAgentDeploy(localEnv, updateEnv *localenv.LocalEnvironment, leaderParams
 		return trace.Wrap(err, "failed to connect to teleport proxy")
 	}
 
-	// FIXME: if an agent is deployed for update operation and the existing cluster
-	// has a lacking clusterstate, operation plan's servers should be used
 	req := deployAgentsRequest{
 		clusterState: cluster.ClusterState,
 		clusterName:  cluster.Domain,

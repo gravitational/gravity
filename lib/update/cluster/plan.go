@@ -37,7 +37,6 @@ import (
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 	libphase "github.com/gravitational/gravity/lib/update/cluster/phases"
-	libbuilder "github.com/gravitational/gravity/lib/update/internal/builder"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/coreos/go-semver/semver"
@@ -244,7 +243,7 @@ func NewOperationPlan(ctx context.Context, config PlanConfig) (*storage.Operatio
 		return nil, trace.Wrap(err)
 	}
 
-	plan, err := newOperationPlan(builder)
+	plan, err := builder.newPlan()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -296,45 +295,6 @@ type PlanConfig struct {
 	Leader *storage.Server
 	// Cluster describes the installed cluster
 	Cluster ops.Site
-}
-
-func newOperationPlan(builder phaseBuilder) (*storage.OperationPlan, error) {
-	initPhase := builder.init()
-	checksPhase := builder.checks().Require(initPhase)
-	preUpdatePhase := builder.preUpdate().Require(initPhase)
-
-	var root libbuilder.Phase
-	root.AddParallel(initPhase, checksPhase, preUpdatePhase)
-
-	if len(builder.steps) == 0 && len(builder.targetStep.runtimeUpdates) == 0 {
-		// Fast path with no runtime updates
-		root.AddSequential(builder.app(), builder.cleanup())
-		return builder.newPlan(&root), nil
-	}
-
-	depends := []*libbuilder.Phase{checksPhase}
-	for _, step := range builder.steps {
-		stepRoot := newRoot(step.version.String())
-		stepRoot.Require(depends...)
-		step.addTo(builder, stepRoot)
-		root.AddSequential(stepRoot)
-		depends = nil
-	}
-	if len(builder.steps) != 0 {
-		stepRoot := newRoot("target")
-		builder.targetStep.addTo(builder, stepRoot)
-		root.AddSequential(stepRoot)
-	} else {
-		builder.targetStep.addTo(builder, &root, checksPhase, preUpdatePhase)
-	}
-
-	if migrationPhase := builder.migration(); migrationPhase != nil {
-		root.AddSequential(migrationPhase)
-	}
-
-	root.AddSequential(builder.app(), builder.cleanup())
-
-	return builder.newPlan(&root), nil
 }
 
 func checkAndSetServerDefaults(servers []storage.Server, client corev1.NodeInterface) ([]storage.Server, error) {
@@ -466,7 +426,7 @@ func shouldUpdateEtcd(installedRuntimeApp, updateRuntimeApp app.Application, pac
 		return nil, trace.Wrap(err, "error fetching runtime package for %v", installedRuntimeApp.Package)
 	}
 	var updateEtcd bool
-	installedVersion, err := getEtcdVersion("version-etcd", *runtimePackage, packages)
+	installedVersion, err := getEtcdVersion(*runtimePackage, packages)
 	if err != nil {
 		if !trace.IsNotFound(err) {
 			return nil, trace.Wrap(err)
@@ -478,7 +438,7 @@ func shouldUpdateEtcd(installedRuntimeApp, updateRuntimeApp app.Application, pac
 	if err != nil {
 		return nil, trace.Wrap(err, "error fetching runtime package for %v", updateRuntimeApp.Package)
 	}
-	updateVersion, err := getEtcdVersion("version-etcd", *runtimePackage, packages)
+	updateVersion, err := getEtcdVersion(*runtimePackage, packages)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -497,7 +457,8 @@ func shouldUpdateEtcd(installedRuntimeApp, updateRuntimeApp app.Application, pac
 	return &result, nil
 }
 
-func getEtcdVersion(searchLabel string, locator loc.Locator, packageService pack.PackageService) (*semver.Version, error) {
+func getEtcdVersion(locator loc.Locator, packageService pack.PackageService) (*semver.Version, error) {
+	const searchLabel = "version-etcd"
 	manifest, err := pack.GetPackageManifest(packageService, locator)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -598,12 +559,6 @@ func runtimeUpdates(installedRuntime, updateRuntime, updateApp app.Application) 
 		return runtimeUpdates[i].Name == constants.BootstrapConfigPackage
 	})
 	return runtimeUpdates, nil
-}
-
-func newRoot(id string) *libbuilder.Phase {
-	return libbuilder.New(storage.OperationPhase{
-		ID: id,
-	})
 }
 
 type runtimeConfig struct {

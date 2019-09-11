@@ -145,7 +145,7 @@ func (s *PlanSuite) TestPlanWithRuntimeAppsUpdate(c *check.C) {
 	builder := newBuilder(c, params)
 
 	// exercise
-	obtainedPlan, err := newOperationPlan(builder)
+	obtainedPlan, err := builder.newPlan()
 	c.Assert(err, check.IsNil)
 
 	// verify
@@ -217,7 +217,7 @@ func (s *PlanSuite) TestPlanWithoutRuntimeAppUpdate(c *check.C) {
 	builder := newBuilder(c, params)
 
 	// exercise
-	obtainedPlan, err := newOperationPlan(builder)
+	obtainedPlan, err := builder.newPlan()
 	c.Assert(err, check.IsNil)
 
 	// verify
@@ -356,7 +356,7 @@ func (s *PlanSuite) TestPlanWithIntermediateRuntimeUpdate(c *check.C) {
 	builder := newBuilder(c, params)
 
 	// exercise
-	obtainedPlan, err := newOperationPlan(builder)
+	obtainedPlan, err := builder.newPlan()
 	c.Assert(err, check.IsNil)
 
 	// verify
@@ -597,7 +597,7 @@ func (r *params) preUpdate() storage.OperationPhase {
 		ID:          "/pre-update",
 		Executor:    preUpdate,
 		Description: "Run pre-update application hook",
-		Requires:    []string{"/init"},
+		Requires:    []string{"/init", "/checks"},
 		Data: &storage.OperationPhaseData{
 			Package: &r.updateApp.Package,
 		},

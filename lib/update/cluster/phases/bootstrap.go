@@ -21,7 +21,6 @@ import (
 	"io"
 	"path/filepath"
 
-	"github.com/gravitational/gravity/lib/app"
 	libapp "github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
@@ -92,7 +91,7 @@ type updatePhaseBootstrap struct {
 func NewUpdatePhaseBootstrap(
 	p fsm.ExecutorParams,
 	operator ops.Operator,
-	apps app.Applications,
+	apps libapp.Applications,
 	backend, localBackend, hostLocalBackend storage.Backend,
 	localPackages, packages pack.PackageService,
 	remote fsm.Remote,
@@ -584,10 +583,8 @@ func (p *updatePhaseBootstrap) rotateTeleportConfig(server storage.UpdateServer)
 }
 
 func masterIPs(servers []storage.Server) (addrs []string) {
-	for _, server := range servers {
-		if server.IsMaster() {
-			addrs = append(addrs, server.AdvertiseIP)
-		}
+	for _, server := range storage.Servers(servers).Masters() {
+		addrs = append(addrs, server.AdvertiseIP)
 	}
 	return addrs
 }

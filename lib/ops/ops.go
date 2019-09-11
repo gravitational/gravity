@@ -926,9 +926,13 @@ type Applications interface {
 
 // AppInstallerRequest defines the request to generate an application installer
 type AppInstallerRequest struct {
-	AccountID     string
-	Application   loc.Locator
-	CACert        string
+	// AccountID specifies the account the cluster belongs to
+	AccountID string
+	// Application identifies the application to generate the installer for
+	Application loc.Locator
+	// CACert specifies the optional CA certificate data
+	CACert string
+	// EncryptionKey specifies the optional key for encrypting the installer
 	EncryptionKey string
 }
 

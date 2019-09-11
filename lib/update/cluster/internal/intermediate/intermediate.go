@@ -1,3 +1,20 @@
+/*
+Copyright 2019 Gravitational, Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+// Package intermediate implements support for intermediate upgrade steps.
 package intermediate
 
 import (
@@ -43,7 +60,10 @@ type PackageRotator interface {
 	// RotatePlanetConfig generates a new planet configuration package for the specified request
 	RotatePlanetConfig(ops.RotatePlanetConfigRequest) (*ops.RotatePackageResponse, error)
 	// RotateTeleportConfig generates new teleport configuration packages for the specified request
-	RotateTeleportConfig(ops.RotateTeleportConfigRequest) (*ops.RotatePackageResponse, *ops.RotatePackageResponse, error)
+	RotateTeleportConfig(ops.RotateTeleportConfigRequest) (
+		masterConfig, nodeConfig *ops.RotatePackageResponse,
+		err error,
+	)
 }
 
 // RotateSecrets generates a new secrets package for the specified request
@@ -73,8 +93,9 @@ func (r gravityPackageRotator) RotatePlanetConfig(req ops.RotatePlanetConfigRequ
 	return r.exec(req.DryRun, req.Package, args...)
 }
 
-// RotateTeleportConfig generates new teleport configuration packages for the specified request
-func (r gravityPackageRotator) RotateTeleportConfig(req ops.RotateTeleportConfigRequest) (masterConfig *ops.RotatePackageResponse, nodeConfig *ops.RotatePackageResponse, err error) {
+// RotateTeleportConfig generates new teleport configuration packages for the specified request.
+// Only the node configuration package is generated - master configuration is always implicitly nil
+func (r gravityPackageRotator) RotateTeleportConfig(req ops.RotateTeleportConfigRequest) (masterConfig, nodeConfig *ops.RotatePackageResponse, err error) {
 	args := []string{
 		"update", "rotate-teleport-config",
 		"--addr", req.Server.AdvertiseIP,
@@ -90,7 +111,7 @@ func (r gravityPackageRotator) RotateTeleportConfig(req ops.RotateTeleportConfig
 	return nil, resp, nil
 }
 
-func (r gravityPackageRotator) exec(dryRun bool, loc *loc.Locator, args ...string) (resp *ops.RotatePackageResponse, err error) {
+func (r gravityPackageRotator) exec(onlyPackageName bool, loc *loc.Locator, args ...string) (resp *ops.RotatePackageResponse, err error) {
 	cmd := exec.Command(r.path, args...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -109,7 +130,7 @@ func (r gravityPackageRotator) exec(dryRun bool, loc *loc.Locator, args ...strin
 		}
 	}
 	resp = &ops.RotatePackageResponse{Locator: *loc}
-	if dryRun {
+	if onlyPackageName {
 		return resp, nil
 	}
 	var env *pack.PackageEnvelope

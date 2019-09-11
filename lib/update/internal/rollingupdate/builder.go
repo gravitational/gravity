@@ -70,18 +70,18 @@ func (r Builder) Config(rootText string, servers []storage.UpdateServer) *builde
 			Servers: servers,
 		}
 	}
-	return builder.New(phase)
+	return builder.NewPhase(phase)
 }
 
 // Masters returns a new phase to execute a rolling update of the specified list of master servers
 func (r Builder) Masters(servers []storage.UpdateServer, rootText, nodeTextFormat string) *builder.Phase {
-	root := builder.New(storage.OperationPhase{
+	root := builder.NewPhase(storage.OperationPhase{
 		ID:          "masters",
 		Description: rootText,
 	})
 	first, others := servers[0], servers[1:]
 
-	node := builder.New(r.node(first.Hostname, nodeTextFormat, first.Hostname))
+	node := builder.NewPhase(r.node(first.Hostname, nodeTextFormat, first.Hostname))
 	if len(others) != 0 {
 		node.AddSequential(setLeaderElection(enable(), disable(first), first,
 			"stepdown", "Step down %q as Kubernetes leader"))
@@ -93,7 +93,7 @@ func (r Builder) Masters(servers []storage.UpdateServer, rootText, nodeTextForma
 	}
 	root.AddSequential(node)
 	for i, server := range others {
-		node := builder.New(r.node(server.Hostname, nodeTextFormat, server.Hostname))
+		node := builder.NewPhase(r.node(server.Hostname, nodeTextFormat, server.Hostname))
 		node.AddSequential(r.common(others[i], nil)...)
 		node.AddSequential(setLeaderElection(enable(server), disable(), server,
 			"enable-elections", "Enable leader election on node %q"))
@@ -104,12 +104,12 @@ func (r Builder) Masters(servers []storage.UpdateServer, rootText, nodeTextForma
 
 // Nodes returns a new phase to execute a rolling update of the specified list of regular servers
 func (r Builder) Nodes(servers []storage.UpdateServer, master storage.Server, rootText, nodeTextFormat string) *builder.Phase {
-	root := builder.New(storage.OperationPhase{
+	root := builder.NewPhase(storage.OperationPhase{
 		ID:          "nodes",
 		Description: rootText,
 	})
 	for i, server := range servers {
-		node := builder.New(r.node(server.Hostname, nodeTextFormat, server.Hostname))
+		node := builder.NewPhase(r.node(server.Hostname, nodeTextFormat, server.Hostname))
 		node.AddSequential(r.common(servers[i], &master)...)
 		root.AddSequential(node)
 	}
@@ -137,7 +137,7 @@ func (r Builder) restart(server storage.UpdateServer) *builder.Phase {
 			Servers: []storage.UpdateServer{server},
 		},
 	}
-	return builder.New(node)
+	return builder.NewPhase(node)
 }
 
 func (r Builder) taint(server, execer *storage.Server) *builder.Phase {
@@ -149,7 +149,7 @@ func (r Builder) taint(server, execer *storage.Server) *builder.Phase {
 	if execer != nil {
 		node.Data.ExecServer = execer
 	}
-	return builder.New(node)
+	return builder.NewPhase(node)
 }
 
 func (r Builder) untaint(server, execer *storage.Server) *builder.Phase {
@@ -161,7 +161,7 @@ func (r Builder) untaint(server, execer *storage.Server) *builder.Phase {
 	if execer != nil {
 		node.Data.ExecServer = execer
 	}
-	return builder.New(node)
+	return builder.NewPhase(node)
 }
 
 func (r Builder) uncordon(server, execer *storage.Server) *builder.Phase {
@@ -173,7 +173,7 @@ func (r Builder) uncordon(server, execer *storage.Server) *builder.Phase {
 	if execer != nil {
 		node.Data.ExecServer = execer
 	}
-	return builder.New(node)
+	return builder.NewPhase(node)
 }
 
 func (r Builder) endpoints(server, execer *storage.Server) *builder.Phase {
@@ -185,7 +185,7 @@ func (r Builder) endpoints(server, execer *storage.Server) *builder.Phase {
 	if execer != nil {
 		node.Data.ExecServer = execer
 	}
-	return builder.New(node)
+	return builder.NewPhase(node)
 }
 
 func (r Builder) drain(server, execer *storage.Server) *builder.Phase {
@@ -197,7 +197,7 @@ func (r Builder) drain(server, execer *storage.Server) *builder.Phase {
 	if execer != nil {
 		node.Data.ExecServer = execer
 	}
-	return builder.New(node)
+	return builder.NewPhase(node)
 }
 
 func (r Builder) node(id, format string, args ...interface{}) storage.OperationPhase {
@@ -220,7 +220,7 @@ type Builder struct {
 // key - is the identifier of the phase (combined with server.Hostname)
 // msg - is a format string used to describe the phase
 func setLeaderElection(enable, disable []storage.Server, server storage.UpdateServer, id, format string) *builder.Phase {
-	return builder.New(storage.OperationPhase{
+	return builder.NewPhase(storage.OperationPhase{
 		ID:          id,
 		Executor:    libphase.Elections,
 		Description: fmt.Sprintf(format, server.Hostname),

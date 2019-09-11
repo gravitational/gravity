@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// This file implements richer support for working with operation phases
+// Package builder implements richer support for working with operation phases
 package builder
 
 import (
@@ -23,38 +23,39 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 )
 
-// DependencyForServer looks up a dependency in the list of sub-phases of the give phase
+// DependencyForServer looks up a dependency in the list of sub-phases of the given phase
 // that references the specified server and returns a reference to it.
 // If no server has been found, it returns the reference to the phase itself
 func DependencyForServer(phase *Phase, server storage.Server) *Phase {
 	for _, subphase := range phase.phases {
-		if subphase.p.Data.Server.AdvertiseIP == server.AdvertiseIP {
+		if subphase.p.Data != nil && subphase.p.Data.Server != nil &&
+			subphase.p.Data.Server.AdvertiseIP == server.AdvertiseIP {
 			return subphase
 		}
 	}
 	return phase
 }
 
-// ResolveInline embeds the phases of the specified root without the root itself.
-// Returns a new plan using the specified plan template
-func ResolveInline(root *Phase, planTemplate storage.OperationPlan) *storage.OperationPlan {
-	return Resolve(root.phases, planTemplate)
+// ResolveInline returns a new plan with phases from the specified root after resolving
+// phase dependencies and rendering phase IDs as absolute.
+func ResolveInline(root *Phase, emptyPlan storage.OperationPlan) *storage.OperationPlan {
+	return Resolve(root.phases, emptyPlan)
 }
 
-// Resolve resolves dependencies between phases and renders phase IDs as absolute.
-// Returns a new plan using the specified plan template
-func Resolve(phases []*Phase, planTemplate storage.OperationPlan) *storage.OperationPlan {
+// Resolve returns a new plan with specified phases after resolving
+// phase dependencies and rendering phase IDs as absolute.
+func Resolve(phases []*Phase, emptyPlan storage.OperationPlan) *storage.OperationPlan {
 	resolveIDs(nil, phases)
 	resolveRequirements(nil, phases)
 	result := make([]storage.OperationPhase, len(phases))
 	render(result, phases)
-	plan := planTemplate
+	plan := emptyPlan
 	plan.Phases = result
 	return &plan
 }
 
-// New returns a new phase using the specified phase as a template
-func New(phase storage.OperationPhase) *Phase {
+// NewPhase returns a new phase using the specified phase as a template
+func NewPhase(phase storage.OperationPhase) *Phase {
 	return &Phase{
 		p: phase,
 	}
@@ -83,7 +84,7 @@ func (p *Phase) AddParallel(subs ...*Phase) {
 // AddParallelRaw will append sub-phases which depend on parent only
 func (p *Phase) AddParallelRaw(subs ...storage.OperationPhase) {
 	for _, sub := range subs {
-		phase := New(sub)
+		phase := NewPhase(sub)
 		p.phases = append(p.phases, phase)
 	}
 }
@@ -91,7 +92,7 @@ func (p *Phase) AddParallelRaw(subs ...storage.OperationPhase) {
 // AddSequentialRaw will append sub-phases which depend one upon another
 func (p *Phase) AddSequentialRaw(subs ...storage.OperationPhase) {
 	for _, sub := range subs {
-		phase := New(sub)
+		phase := NewPhase(sub)
 		if len(p.phases) != 0 {
 			phase.Require(p.phases[len(p.phases)-1])
 		}

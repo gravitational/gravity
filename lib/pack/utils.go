@@ -561,8 +561,8 @@ func (r Labels) HasPurpose(values ...string) bool {
 	return false
 }
 
-// Has returns true if this labels map contains the specified keys
-func (r Labels) Has(keys ...string) bool {
+// HasAny returns true if these labels contain any of the specified keys
+func (r Labels) HasAny(keys ...string) bool {
 	for _, key := range keys {
 		if _, ok := r[key]; ok {
 			return true
@@ -661,8 +661,7 @@ func FindAnyTeleportConfigPackage(packages PackageService, repository string) (c
 		return nil, trace.Wrap(err)
 	}
 	if configEnv != nil {
-		// No update necessary
-		return nil, nil
+		return &configEnv.Locator, nil
 	}
 	// Fall back to latest available package
 	configPackage, err = FindLatestPackageCustom(FindLatestPackageRequest{

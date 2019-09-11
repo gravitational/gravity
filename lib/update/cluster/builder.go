@@ -27,13 +27,14 @@ import (
 	"github.com/gravitational/gravity/lib/update/cluster/internal/intermediate"
 	libphase "github.com/gravitational/gravity/lib/update/cluster/phases"
 	"github.com/gravitational/gravity/lib/update/internal/builder"
+	libbuilder "github.com/gravitational/gravity/lib/update/internal/builder"
 
 	"github.com/coreos/go-semver/semver"
 	teleservices "github.com/gravitational/teleport/lib/services"
 )
 
 func (r phaseBuilder) init() *builder.Phase {
-	return builder.New(storage.OperationPhase{
+	return builder.NewPhase(storage.OperationPhase{
 		ID:          "init",
 		Executor:    updateInit,
 		Description: "Initialize update operation",
@@ -46,7 +47,7 @@ func (r phaseBuilder) init() *builder.Phase {
 }
 
 func (r phaseBuilder) checks() *builder.Phase {
-	return builder.New(storage.OperationPhase{
+	return builder.NewPhase(storage.OperationPhase{
 		ID:          "checks",
 		Executor:    updateChecks,
 		Description: "Run preflight checks",
@@ -57,57 +58,8 @@ func (r phaseBuilder) checks() *builder.Phase {
 	})
 }
 
-func (r phaseBuilder) bootstrapVersioned(version semver.Version, gravityPackage loc.Locator, servers []storage.UpdateServer) *builder.Phase {
-	root := builder.New(storage.OperationPhase{
-		ID:          "bootstrap",
-		Description: "Bootstrap update operation on nodes",
-	})
-	for i, server := range servers {
-		root.AddParallelRaw(storage.OperationPhase{
-			ID:          server.Hostname,
-			Executor:    updateBootstrap,
-			Description: fmt.Sprintf("Bootstrap node %q", server.Hostname),
-			Data: &storage.OperationPhaseData{
-				ExecServer:       &servers[i].Server,
-				Package:          &r.updateApp.Package,
-				InstalledPackage: &r.installedApp.Package,
-				Update: &storage.UpdateOperationData{
-					Servers:           []storage.UpdateServer{server},
-					RuntimeAppVersion: version.String(),
-					GravityPackage:    &gravityPackage,
-				},
-			},
-		})
-	}
-	return root
-}
-
-func (r phaseBuilder) bootstrap() *builder.Phase {
-	root := builder.New(storage.OperationPhase{
-		ID:          "bootstrap",
-		Description: "Bootstrap update operation on nodes",
-	})
-	for i, server := range r.targetStep.servers {
-		root.AddParallelRaw(storage.OperationPhase{
-			ID:          server.Hostname,
-			Executor:    updateBootstrap,
-			Description: fmt.Sprintf("Bootstrap node %q", server.Hostname),
-			Data: &storage.OperationPhaseData{
-				ExecServer:       &r.targetStep.servers[i].Server,
-				Package:          &r.updateApp.Package,
-				InstalledPackage: &r.installedApp.Package,
-				Update: &storage.UpdateOperationData{
-					Servers:        []storage.UpdateServer{server},
-					GravityPackage: &r.planTemplate.GravityPackage,
-				},
-			},
-		})
-	}
-	return root
-}
-
 func (r phaseBuilder) preUpdate() *builder.Phase {
-	return builder.New(storage.OperationPhase{
+	return builder.NewPhase(storage.OperationPhase{
 		ID:          "pre-update",
 		Description: "Run pre-update application hook",
 		Executor:    preUpdate,
@@ -117,19 +69,8 @@ func (r phaseBuilder) preUpdate() *builder.Phase {
 	})
 }
 
-func (r phaseBuilder) coredns() *builder.Phase {
-	return builder.New(storage.OperationPhase{
-		ID:          "coredns",
-		Description: "Provision CoreDNS resources",
-		Executor:    coredns,
-		Data: &storage.OperationPhaseData{
-			Server: &r.leadMaster,
-		},
-	})
-}
-
 func (r phaseBuilder) app() *builder.Phase {
-	root := builder.New(storage.OperationPhase{
+	root := builder.NewPhase(storage.OperationPhase{
 		ID:          "app",
 		Description: "Update installed application",
 	})
@@ -150,7 +91,7 @@ func (r phaseBuilder) app() *builder.Phase {
 //
 // If there are no migrations to perform, returns nil.
 func (r phaseBuilder) migration() *builder.Phase {
-	root := builder.New(storage.OperationPhase{
+	root := builder.NewPhase(storage.OperationPhase{
 		ID:          "migration",
 		Description: "Perform system database migration",
 	})
@@ -189,7 +130,7 @@ func (r phaseBuilder) migration() *builder.Phase {
 }
 
 func (r phaseBuilder) cleanup() *builder.Phase {
-	root := builder.New(storage.OperationPhase{
+	root := builder.NewPhase(storage.OperationPhase{
 		ID:          "gc",
 		Description: "Run cleanup tasks",
 	})
@@ -207,7 +148,44 @@ func (r phaseBuilder) cleanup() *builder.Phase {
 	return root
 }
 
-func (r phaseBuilder) newPlan(root *builder.Phase) *storage.OperationPlan {
+func (r phaseBuilder) newPlan() (*storage.OperationPlan, error) {
+	initPhase := r.init()
+	checksPhase := r.checks().Require(initPhase)
+	preUpdatePhase := r.preUpdate().Require(initPhase, checksPhase)
+
+	var root libbuilder.Phase
+	root.AddParallel(initPhase, checksPhase, preUpdatePhase)
+
+	if !r.hasRuntimeUpdates() {
+		root.AddSequential(r.app(), r.cleanup())
+		return r.newPlanFrom(&root), nil
+	}
+
+	if len(r.steps) == 0 {
+		// Embed the target runtime step directly into root phase
+		r.targetStep.buildInline(&root, r.leadMaster, r.installedApp.Package, r.updateApp.Package,
+			checksPhase, preUpdatePhase)
+	} else {
+		depends := []*builder.Phase{checksPhase}
+		// Otherwise, build a phase for each intermediate upgrade step
+		for _, step := range r.steps {
+			root.AddSequential(step.build(r.leadMaster, r.installedApp.Package, r.updateApp.Package).Require(depends...))
+			depends = nil
+		}
+		// Followed by the final runtime upgrade step
+		root.AddSequential(r.targetStep.build(r.leadMaster, r.installedApp.Package, r.updateApp.Package))
+	}
+
+	if migrationPhase := r.migration(); migrationPhase != nil {
+		root.AddSequential(migrationPhase)
+	}
+
+	root.AddSequential(r.app(), r.cleanup())
+
+	return r.newPlanFrom(&root), nil
+}
+
+func (r phaseBuilder) newPlanFrom(root *builder.Phase) *storage.OperationPlan {
 	return builder.ResolveInline(root, r.planTemplate)
 }
 
