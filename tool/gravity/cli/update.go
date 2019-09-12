@@ -188,21 +188,12 @@ func rotateSecrets(env *localenv.LocalEnvironment, pkg *loc.Locator, operationID
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	operationKey := ops.SiteOperationKey{
-		AccountID:   cluster.AccountID,
-		SiteDomain:  cluster.Domain,
-		OperationID: operationID,
-	}
-	plan, err := clusterEnv.Operator.GetOperationPlan(operationKey)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	server := (storage.Servers)(plan.Servers).FindByIP(serverAddr)
-	if server == nil {
-		return trace.NotFound("no server found for %v", serverAddr)
-	}
 	if pkg == nil {
-		// Generate and report just the packge name
+		// Generate and report just the package name
+		server := (storage.Servers)(cluster.ClusterState.Servers).FindByIP(serverAddr)
+		if server == nil {
+			return trace.NotFound("no server found for %v", serverAddr)
+		}
 		resp, err := clusterEnv.Operator.RotateSecrets(ops.RotateSecretsRequest{
 			Key:    cluster.Key(),
 			Server: *server,
@@ -214,6 +205,16 @@ func rotateSecrets(env *localenv.LocalEnvironment, pkg *loc.Locator, operationID
 		env.Println(resp.Locator)
 		return nil
 	}
+	operationKey := ops.SiteOperationKey{
+		AccountID:   cluster.AccountID,
+		SiteDomain:  cluster.Domain,
+		OperationID: operationID,
+	}
+	plan, err := clusterEnv.Operator.GetOperationPlan(operationKey)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	server := (storage.Servers)(plan.Servers).FindByIP(serverAddr)
 	resp, err := clusterEnv.Operator.RotateSecrets(ops.RotateSecretsRequest{
 		Key:     cluster.Key(),
 		Server:  *server,
@@ -237,25 +238,16 @@ func rotatePlanetConfig(env *localenv.LocalEnvironment, pkg *loc.Locator, runtim
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	operationKey := ops.SiteOperationKey{
-		AccountID:   cluster.AccountID,
-		SiteDomain:  cluster.Domain,
-		OperationID: operationID,
-	}
 	app, err := clusterEnv.Apps.GetApp(cluster.App.Package)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	plan, err := clusterEnv.Operator.GetOperationPlan(operationKey)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	server := (storage.Servers)(plan.Servers).FindByIP(serverAddr)
-	if server == nil {
-		return trace.NotFound("no server found for %v", serverAddr)
-	}
 	if pkg == nil {
-		// Generate and report just the packge name
+		// Generate and report just the package name
+		server := (storage.Servers)(cluster.ClusterState.Servers).FindByIP(serverAddr)
+		if server == nil {
+			return trace.NotFound("no server found for %v", serverAddr)
+		}
 		resp, err := clusterEnv.Operator.RotatePlanetConfig(ops.RotatePlanetConfigRequest{
 			Key:            cluster.Key(),
 			Server:         *server,
@@ -269,9 +261,22 @@ func rotatePlanetConfig(env *localenv.LocalEnvironment, pkg *loc.Locator, runtim
 		env.Println(resp.Locator)
 		return nil
 	}
+	operationKey := ops.SiteOperationKey{
+		AccountID:   cluster.AccountID,
+		SiteDomain:  cluster.Domain,
+		OperationID: operationID,
+	}
+	plan, err := clusterEnv.Operator.GetOperationPlan(operationKey)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	server := (storage.Servers)(plan.Servers).FindByIP(serverAddr)
+	if server == nil {
+		return trace.NotFound("no server found for %v", serverAddr)
+	}
 	resp, err := clusterEnv.Operator.RotatePlanetConfig(ops.RotatePlanetConfigRequest{
 		Key:            cluster.Key(),
-		Servers:        plan.Servers,
+		Servers:        cluster.ClusterState.Servers,
 		Server:         *server,
 		RuntimePackage: runtimePackage,
 		Package:        pkg,
@@ -291,8 +296,16 @@ func rotateTeleportConfig(env *localenv.LocalEnvironment, pkg *loc.Locator, oper
 		// configuration package.
 		return nil
 	}
+	clusterEnv, err := localenv.NewClusterEnvironment()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	cluster, err := clusterEnv.Operator.GetLocalSite()
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	// Find and report the installed teleport configuration package name
-	configPackage, err := pack.FindConfigPackage(env.Packages, loc.Teleport)
+	configPackage, err := pack.FindAnyTeleportConfigPackage(env.Packages, cluster.Domain)
 	if err != nil {
 		return trace.Wrap(err)
 	}
