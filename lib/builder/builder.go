@@ -34,6 +34,7 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
+	"github.com/gravitational/gravity/lib/localenv/credentials"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/pack/layerpack"
 	"github.com/gravitational/gravity/lib/pack/localpack"
@@ -81,6 +82,8 @@ type Config struct {
 	NewSyncer NewSyncerFunc
 	// GetRepository is a function that returns package source repository
 	GetRepository GetRepositoryFunc
+	// Credentials provides access to user credentials
+	Credentials credentials.Service
 	// FieldLogger is used for logging
 	logrus.FieldLogger
 	// Progress allows builder to report build progress
@@ -123,6 +126,14 @@ func (c *Config) CheckAndSetDefaults() error {
 	}
 	if c.GetRepository == nil {
 		c.GetRepository = getRepository
+	}
+	if c.Credentials == nil {
+		c.Credentials, err = credentials.New(credentials.Config{
+			LocalKeyStoreDir: c.StateDir,
+		})
+		if err != nil {
+			return trace.Wrap(err)
+		}
 	}
 	if c.FieldLogger == nil {
 		c.FieldLogger = logrus.WithField(trace.Component, "builder")
