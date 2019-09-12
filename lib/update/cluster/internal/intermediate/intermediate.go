@@ -19,14 +19,19 @@ package intermediate
 
 import (
 	"bytes"
+	"context"
+	"io"
+	"os"
 	"os/exec"
 	"path/filepath"
 
 	"github.com/gravitational/gravity/lib/constants"
+	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/state"
+	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
@@ -50,6 +55,24 @@ func GravityPathForVersion(version string) (path string, err error) {
 		return "", trace.Wrap(err)
 	}
 	return filepath.Join(state.GravityUpdateDir(stateDir), version, constants.GravityBin), nil
+}
+
+// ExportGravityBinary exports the gravity binary given with loc under the specified path
+func ExportGravityBinary(ctx context.Context, loc loc.Locator, uid, gid int, path string, packages pack.PackageService) error {
+	if err := os.MkdirAll(filepath.Dir(path), defaults.SharedDirMask); err != nil {
+		return trace.Wrap(trace.ConvertSystemError(err),
+			"failed to create directory for export at %v", filepath.Dir(path))
+	}
+	ctx, cancel := context.WithTimeout(ctx, defaults.TransientErrorTimeout)
+	defer cancel()
+	return utils.CopyWithRetries(ctx, path,
+		func() (io.ReadCloser, error) {
+			_, rc, err := packages.ReadPackage(loc)
+			return rc, trace.Wrap(err)
+		},
+		utils.PermOption(defaults.SharedExecutableMask),
+		utils.OwnerOption(uid, gid),
+	)
 }
 
 // PackageRotator defines the subset of the operator to generate

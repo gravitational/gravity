@@ -150,6 +150,7 @@ func (s *PlanSuite) TestPlanWithRuntimeAppsUpdate(c *check.C) {
 
 	// verify
 	leadMaster := updates[1]
+	rearrangedServers := []storage.UpdateServer{updates[1], updates[0], updates[2]}
 	c.Assert(*obtainedPlan, check.DeepEquals, storage.OperationPlan{
 		OperationID:    builder.operation.ID,
 		OperationType:  builder.operation.Type,
@@ -159,10 +160,10 @@ func (s *PlanSuite) TestPlanWithRuntimeAppsUpdate(c *check.C) {
 		DNSConfig:      storage.DefaultDNSConfig,
 		GravityPackage: loc.MustParseLocator("gravitational.io/gravity:3.0.0"),
 		Phases: []storage.OperationPhase{
-			params.init(),
+			params.init(rearrangedServers),
 			params.checks(),
 			params.preUpdate(),
-			params.bootstrap(updates, gravityPackage, "/checks", "/pre-update"),
+			params.bootstrap(rearrangedServers, gravityPackage, "/checks", "/pre-update"),
 			params.coreDNS("/bootstrap"),
 			params.masters(leadMaster, updates[0:1], gravityPackage, "id", "/coredns"),
 			params.nodes(updates[2:], leadMaster.Server, gravityPackage, "id", "/masters"),
@@ -230,7 +231,7 @@ func (s *PlanSuite) TestPlanWithoutRuntimeAppUpdate(c *check.C) {
 		DNSConfig:      storage.DefaultDNSConfig,
 		GravityPackage: gravityInstalledLoc,
 		Phases: []storage.OperationPhase{
-			params.init(),
+			params.initSimple(),
 			params.checks(),
 			params.preUpdate(),
 			params.app("/pre-update"),
@@ -361,9 +362,11 @@ func (s *PlanSuite) TestPlanWithIntermediateRuntimeUpdate(c *check.C) {
 
 	// verify
 	intermediateLeadMaster := intermediateUpdates[1]
+	rearrangedIntermediateServers := []storage.UpdateServer{intermediateUpdates[1], intermediateUpdates[0], intermediateUpdates[2]}
 	intermediateOtherMasters := intermediateUpdates[0:1]
 	intermediateNodes := intermediateUpdates[2:]
 	leadMaster := updates[1]
+	rearrangedServers := []storage.UpdateServer{updates[1], updates[0], updates[2]}
 	otherMasters := updates[0:1]
 	nodes := updates[2:]
 
@@ -376,11 +379,11 @@ func (s *PlanSuite) TestPlanWithIntermediateRuntimeUpdate(c *check.C) {
 		DNSConfig:      storage.DefaultDNSConfig,
 		GravityPackage: loc.MustParseLocator("gravitational.io/gravity:3.0.0"),
 		Phases: []storage.OperationPhase{
-			params.init(),
+			params.init(rearrangedIntermediateServers),
 			params.checks(),
 			params.preUpdate(),
 			params.sub("/1.0.0", []string{"/checks", "/pre-update"},
-				params.bootstrapVersioned(intermediateUpdates, "1.0.0", intermediateGravityPackage),
+				params.bootstrapVersioned(rearrangedIntermediateServers, "1.0.0", intermediateGravityPackage),
 				params.masters(intermediateLeadMaster, intermediateOtherMasters, intermediateGravityPackage, "id2", "/bootstrap"),
 				params.nodes(intermediateNodes, intermediateLeadMaster.Server, intermediateGravityPackage, "id2", "/masters"),
 				params.etcd(intermediateLeadMaster.Server,
@@ -391,7 +394,7 @@ func (s *PlanSuite) TestPlanWithIntermediateRuntimeUpdate(c *check.C) {
 				params.runtime(intermediateRuntimeUpdates, "/config"),
 			),
 			params.sub("/target", []string{"/1.0.0"},
-				params.bootstrap(updates, gravityPackage),
+				params.bootstrap(rearrangedServers, gravityPackage),
 				params.coreDNS("/bootstrap"),
 				params.masters(leadMaster, otherMasters, gravityPackage, "id", "/coredns"),
 				params.nodes(nodes, leadMaster.Server, gravityPackage, "id", "/masters"),
@@ -566,15 +569,54 @@ func parentize(parentID string, phases []storage.OperationPhase) {
 	}
 }
 
-func (r *params) init() storage.OperationPhase {
+func (r *params) initSimple() storage.OperationPhase {
 	return storage.OperationPhase{
 		ID:          "/init",
 		Executor:    updateInit,
 		Description: "Initialize update operation",
 		Data: &storage.OperationPhaseData{
-			Package:          &r.updateApp.Package,
 			ExecServer:       &r.leadMaster,
+			Package:          &r.updateApp.Package,
 			InstalledPackage: &r.installedApp.Package,
+		},
+	}
+}
+
+func (r *params) init(servers []storage.UpdateServer) storage.OperationPhase {
+	root := storage.OperationPhase{
+		ID:          "/init",
+		Description: "Initialize update operation",
+	}
+	leadMaster := servers[0]
+	root.Phases = append(root.Phases, storage.OperationPhase{
+		ID:          fmt.Sprintf("/init/%v", leadMaster.Hostname),
+		Executor:    updateInitLeader,
+		Description: fmt.Sprintf("Initialize node %q", leadMaster.Hostname),
+		Data: &storage.OperationPhaseData{
+			ExecServer:       &leadMaster.Server,
+			Package:          &r.updateApp.Package,
+			InstalledPackage: &r.installedApp.Package,
+			Update: &storage.UpdateOperationData{
+				Servers: []storage.UpdateServer{leadMaster},
+			},
+		},
+	})
+	for _, server := range servers[1:] {
+		root.Phases = append(root.Phases, r.initServer(server))
+	}
+	return root
+}
+
+func (r *params) initServer(server storage.UpdateServer) storage.OperationPhase {
+	return storage.OperationPhase{
+		ID:          fmt.Sprintf("/init/%v", server.Hostname),
+		Executor:    updateInit,
+		Description: fmt.Sprintf("Initialize node %q", server.Hostname),
+		Data: &storage.OperationPhaseData{
+			ExecServer: &server.Server,
+			Update: &storage.UpdateOperationData{
+				Servers: []storage.UpdateServer{server},
+			},
 		},
 	}
 }
@@ -932,15 +974,91 @@ func (r *params) nodePhase(server storage.UpdateServer, leadMaster storage.Serve
 	return result
 }
 
-func (r *params) bootstrapVersioned(updates []storage.UpdateServer, version string, gravityPackage loc.Locator, requires ...string) storage.OperationPhase {
-	return storage.OperationPhase{
+func (r *params) bootstrap(servers []storage.UpdateServer, gravityPackage loc.Locator, requires ...string) storage.OperationPhase {
+	root := storage.OperationPhase{
 		ID:          "/bootstrap",
 		Description: "Bootstrap update operation on nodes",
 		Requires:    requires,
-		Phases: []storage.OperationPhase{
-			r.bootstrapNodeVersioned(updates[0], version, gravityPackage),
-			r.bootstrapNodeVersioned(updates[1], version, gravityPackage),
-			r.bootstrapNodeVersioned(updates[2], version, gravityPackage),
+	}
+	root.Phases = append(root.Phases, r.bootstrapLeaderNode(servers, gravityPackage))
+	for _, server := range servers[1:] {
+		server := server
+		root.Phases = append(root.Phases, r.bootstrapNode(server, gravityPackage))
+	}
+	return root
+}
+
+func (r *params) bootstrapLeaderNode(servers []storage.UpdateServer, gravityPackage loc.Locator) storage.OperationPhase {
+	t := func(format string) string {
+		return fmt.Sprintf(format, servers[0].Hostname)
+	}
+	return storage.OperationPhase{
+		ID:          t("/bootstrap/%v"),
+		Description: t("Bootstrap node %q"),
+		Executor:    updateBootstrapLeader,
+		Data: &storage.OperationPhaseData{
+			ExecServer:       &servers[0].Server,
+			Package:          &r.updateApp.Package,
+			InstalledPackage: &r.installedApp.Package,
+			Update: &storage.UpdateOperationData{
+				Servers:        servers,
+				GravityPackage: &gravityPackage,
+			},
+		},
+	}
+}
+
+func (r *params) bootstrapNode(server storage.UpdateServer, gravityPackage loc.Locator) storage.OperationPhase {
+	t := func(format string) string {
+		return fmt.Sprintf(format, server.Hostname)
+	}
+	return storage.OperationPhase{
+		ID:          t("/bootstrap/%v"),
+		Description: t("Bootstrap node %q"),
+		Executor:    updateBootstrap,
+		Data: &storage.OperationPhaseData{
+			ExecServer:       &server.Server,
+			Package:          &r.updateApp.Package,
+			InstalledPackage: &r.installedApp.Package,
+			Update: &storage.UpdateOperationData{
+				Servers:        []storage.UpdateServer{server},
+				GravityPackage: &gravityPackage,
+			},
+		},
+	}
+}
+
+func (r *params) bootstrapVersioned(servers []storage.UpdateServer, version string, gravityPackage loc.Locator, requires ...string) storage.OperationPhase {
+	root := storage.OperationPhase{
+		ID:          "/bootstrap",
+		Description: "Bootstrap update operation on nodes",
+		Requires:    requires,
+	}
+	root.Phases = append(root.Phases, r.bootstrapLeaderNodeVersioned(servers, version, gravityPackage))
+	for _, server := range servers[1:] {
+		server := server
+		root.Phases = append(root.Phases, r.bootstrapNodeVersioned(server, version, gravityPackage))
+	}
+	return root
+}
+
+func (r *params) bootstrapLeaderNodeVersioned(servers []storage.UpdateServer, version string, gravityPackage loc.Locator) storage.OperationPhase {
+	t := func(format string) string {
+		return fmt.Sprintf(format, servers[0].Hostname)
+	}
+	return storage.OperationPhase{
+		ID:          t("/bootstrap/%v"),
+		Description: t("Bootstrap node %q"),
+		Executor:    updateBootstrapLeader,
+		Data: &storage.OperationPhaseData{
+			ExecServer:       &servers[0].Server,
+			Package:          &r.updateApp.Package,
+			InstalledPackage: &r.installedApp.Package,
+			Update: &storage.UpdateOperationData{
+				Servers:           servers,
+				RuntimeAppVersion: version,
+				GravityPackage:    &gravityPackage,
+			},
 		},
 	}
 }
@@ -961,39 +1079,6 @@ func (r *params) bootstrapNodeVersioned(server storage.UpdateServer, version str
 				Servers:           []storage.UpdateServer{server},
 				RuntimeAppVersion: version,
 				GravityPackage:    &gravityPackage,
-			},
-		},
-	}
-}
-
-func (r *params) bootstrap(updates []storage.UpdateServer, gravityPackage loc.Locator, requires ...string) storage.OperationPhase {
-	return storage.OperationPhase{
-		ID:          "/bootstrap",
-		Description: "Bootstrap update operation on nodes",
-		Requires:    requires,
-		Phases: []storage.OperationPhase{
-			r.bootstrapNode(updates[0], gravityPackage),
-			r.bootstrapNode(updates[1], gravityPackage),
-			r.bootstrapNode(updates[2], gravityPackage),
-		},
-	}
-}
-
-func (r *params) bootstrapNode(server storage.UpdateServer, gravityPackage loc.Locator) storage.OperationPhase {
-	t := func(format string) string {
-		return fmt.Sprintf(format, server.Hostname)
-	}
-	return storage.OperationPhase{
-		ID:          t("/bootstrap/%v"),
-		Description: t("Bootstrap node %q"),
-		Executor:    updateBootstrap,
-		Data: &storage.OperationPhaseData{
-			ExecServer:       &server.Server,
-			Package:          &r.updateApp.Package,
-			InstalledPackage: &r.installedApp.Package,
-			Update: &storage.UpdateOperationData{
-				Servers:        []storage.UpdateServer{server},
-				GravityPackage: &gravityPackage,
 			},
 		},
 	}

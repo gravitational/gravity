@@ -535,11 +535,13 @@ func findServer(input storage.Server, servers []storage.UpdateServer) (*storage.
 }
 
 func reorderServers(servers []storage.UpdateServer, server storage.Server) (result []storage.UpdateServer) {
-	sort.Slice(servers, func(i, j int) bool {
+	result = make([]storage.UpdateServer, len(servers))
+	copy(result, servers)
+	sort.Slice(result, func(i, j int) bool {
 		// Push server to the front
-		return servers[i].AdvertiseIP == server.AdvertiseIP
+		return result[i].AdvertiseIP == server.AdvertiseIP
 	})
-	return servers
+	return result
 }
 
 func runtimeUpdates(installedRuntime, updateRuntime, updateApp app.Application) ([]loc.Locator, error) {

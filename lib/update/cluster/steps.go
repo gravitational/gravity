@@ -20,9 +20,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io"
-	"os"
-	"path/filepath"
 	"sort"
 	"strconv"
 
@@ -39,7 +36,6 @@ import (
 	libupdate "github.com/gravitational/gravity/lib/update"
 	"github.com/gravitational/gravity/lib/update/cluster/internal/intermediate"
 	"github.com/gravitational/gravity/lib/update/internal/builder"
-	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/coreos/go-semver/semver"
 	"github.com/gravitational/trace"
@@ -232,7 +228,6 @@ func (r phaseBuilder) configUpdates(
 	installedRuntimeFunc, updateRuntimeFunc runtimePackageGetterFunc,
 ) (updates []storage.UpdateServer, err error) {
 	for _, server := range r.planTemplate.Servers {
-
 		installedRuntime, err := installedRuntimeFunc(server)
 		if err != nil {
 			return nil, trace.Wrap(err)
@@ -344,24 +339,47 @@ func (r *intermediateUpdateStep) fromPackage(env pack.PackageEnvelope, apps liba
 }
 
 func (r intermediateUpdateStep) build(leadMaster storage.Server, installedApp, updateApp loc.Locator) *builder.Phase {
+	servers := reorderServers(r.servers, leadMaster)
+	masters, nodes := libupdate.SplitServers(servers)
 	root := newRoot(r.version.String())
-	root.AddSequential(r.bootstrap(installedApp, updateApp))
-	r.updateStep.addTo(root, leadMaster)
+	root.AddSequential(r.bootstrap(servers, installedApp, updateApp))
+	r.updateStep.addTo(root, masters, nodes)
 	return root
 }
 
-func (r intermediateUpdateStep) bootstrap(installedApp, updateApp loc.Locator) *builder.Phase {
+func (r intermediateUpdateStep) initPhase(leadMaster storage.Server, installedApp, updateApp loc.Locator) *builder.Phase {
+	return initPhase(leadMaster, r.servers, installedApp, updateApp)
+}
+
+func (r intermediateUpdateStep) bootstrap(servers []storage.UpdateServer, installedApp, updateApp loc.Locator) *builder.Phase {
 	root := builder.NewPhase(storage.OperationPhase{
 		ID:          "bootstrap",
 		Description: "Bootstrap update operation on nodes",
 	})
-	for i, server := range r.servers {
+	leadMaster := servers[0]
+	root.AddParallelRaw(storage.OperationPhase{
+		ID:          leadMaster.Hostname,
+		Executor:    updateBootstrapLeader,
+		Description: fmt.Sprintf("Bootstrap node %q", leadMaster.Hostname),
+		Data: &storage.OperationPhaseData{
+			ExecServer:       &leadMaster.Server,
+			Package:          &updateApp,
+			InstalledPackage: &installedApp,
+			Update: &storage.UpdateOperationData{
+				Servers:           servers,
+				RuntimeAppVersion: r.version.String(),
+				GravityPackage:    &r.gravity,
+			},
+		},
+	})
+	for _, server := range servers[1:] {
+		server := server
 		root.AddParallelRaw(storage.OperationPhase{
 			ID:          server.Hostname,
 			Executor:    updateBootstrap,
 			Description: fmt.Sprintf("Bootstrap node %q", server.Hostname),
 			Data: &storage.OperationPhaseData{
-				ExecServer:       &r.servers[i].Server,
+				ExecServer:       &server.Server,
 				Package:          &updateApp,
 				InstalledPackage: &installedApp,
 				Update: &storage.UpdateOperationData{
@@ -404,23 +422,45 @@ func (r targetUpdateStep) build(leadMaster storage.Server, installedApp, updateA
 
 func (r targetUpdateStep) buildInline(root *builder.Phase, leadMaster storage.Server, installedApp, updateApp loc.Locator,
 	depends ...*builder.Phase) {
-	root.AddParallel(r.bootstrap(installedApp, updateApp).Require(depends...))
+	servers := reorderServers(r.servers, leadMaster)
+	masters, nodes := libupdate.SplitServers(servers)
+	root.AddParallel(r.bootstrapPhase(servers, installedApp, updateApp).Require(depends...))
 	root.AddSequential(corednsPhase(leadMaster))
-	r.updateStep.addTo(root, leadMaster)
+	r.updateStep.addTo(root, masters, nodes)
 }
 
-func (r targetUpdateStep) bootstrap(installedApp, updateApp loc.Locator) *builder.Phase {
+func (r targetUpdateStep) initPhase(leadMaster storage.Server, installedApp, updateApp loc.Locator) *builder.Phase {
+	return initPhase(leadMaster, r.servers, installedApp, updateApp)
+}
+
+func (r targetUpdateStep) bootstrapPhase(servers []storage.UpdateServer, installedApp, updateApp loc.Locator) *builder.Phase {
 	root := builder.NewPhase(storage.OperationPhase{
 		ID:          "bootstrap",
 		Description: "Bootstrap update operation on nodes",
 	})
-	for i, server := range r.servers {
+	leadMaster := servers[0]
+	root.AddParallelRaw(storage.OperationPhase{
+		ID:          leadMaster.Hostname,
+		Executor:    updateBootstrapLeader,
+		Description: fmt.Sprintf("Bootstrap node %q", leadMaster.Hostname),
+		Data: &storage.OperationPhaseData{
+			ExecServer:       &leadMaster.Server,
+			Package:          &updateApp,
+			InstalledPackage: &installedApp,
+			Update: &storage.UpdateOperationData{
+				Servers:        servers,
+				GravityPackage: &r.gravity,
+			},
+		},
+	})
+	for _, server := range servers[1:] {
+		server := server
 		root.AddParallelRaw(storage.OperationPhase{
 			ID:          server.Hostname,
 			Executor:    updateBootstrap,
 			Description: fmt.Sprintf("Bootstrap node %q", server.Hostname),
 			Data: &storage.OperationPhaseData{
-				ExecServer:       &r.servers[i].Server,
+				ExecServer:       &server.Server,
 				Package:          &updateApp,
 				InstalledPackage: &installedApp,
 				Update: &storage.UpdateOperationData{
@@ -438,11 +478,10 @@ type targetUpdateStep struct {
 	updateStep
 }
 
-func (r updateStep) addTo(root *builder.Phase, leadMaster storage.Server) {
-	masters, nodes := libupdate.SplitServers(r.servers)
-	masters = reorderServers(masters, leadMaster)
-	mastersPhase := r.masters(masters[0], masters[1:])
-	nodesPhase := r.nodes(masters[0], nodes)
+func (r updateStep) addTo(root *builder.Phase, masters, nodes []storage.UpdateServer) {
+	leadMaster := masters[0]
+	mastersPhase := r.mastersPhase(leadMaster, masters[1:])
+	nodesPhase := r.nodesPhase(leadMaster, nodes)
 	root.AddSequential(mastersPhase)
 	if nodesPhase.HasSubphases() {
 		root.AddSequential(nodesPhase)
@@ -452,7 +491,7 @@ func (r updateStep) addTo(root *builder.Phase, leadMaster storage.Server) {
 		// remote agents might not be able to sync the plan before the shutdown of etcd
 		// instances has begun
 		root.AddParallel(r.etcdPhase(
-			leadMaster,
+			leadMaster.Server,
 			serversToStorage(masters[1:]...),
 			serversToStorage(nodes...)),
 		)
@@ -464,11 +503,11 @@ func (r updateStep) addTo(root *builder.Phase, leadMaster storage.Server) {
 	// phase so new gravity-sites can find it after they start
 	root.AddSequential(
 		r.configPhase(serversToStorage(masters...)),
-		r.runtimePlan(),
+		r.runtimePhase(),
 	)
 }
 
-func (r updateStep) runtimePlan() *builder.Phase {
+func (r updateStep) runtimePhase() *builder.Phase {
 	root := builder.NewPhase(storage.OperationPhase{
 		ID:          "runtime",
 		Description: "Update application runtime",
@@ -523,10 +562,10 @@ func (r updateStep) etcdPhase(leadMaster storage.Server, otherMasters []storage.
 		ID:          "backup",
 		Description: "Backup etcd data",
 	})
-	backupEtcd.AddParallel(r.etcdBackupNode(leadMaster))
+	backupEtcd.AddParallel(r.etcdBackupNodePhase(leadMaster))
 
 	for _, server := range otherMasters {
-		p := r.etcdBackupNode(server)
+		p := r.etcdBackupNodePhase(server)
 		backupEtcd.AddParallel(p)
 	}
 
@@ -540,14 +579,14 @@ func (r updateStep) etcdPhase(leadMaster storage.Server, otherMasters []storage.
 	})
 	shutdownEtcd.AddWithDependency(
 		builder.DependencyForServer(backupEtcd, leadMaster),
-		r.etcdShutdownNode(leadMaster, true))
+		r.etcdShutdownNodePhase(leadMaster, true))
 
 	for _, server := range otherMasters {
-		p := r.etcdShutdownNode(server, false)
+		p := r.etcdShutdownNodePhase(server, false)
 		shutdownEtcd.AddWithDependency(builder.DependencyForServer(backupEtcd, server), p)
 	}
 	for _, server := range workers {
-		p := r.etcdShutdownNode(server, false)
+		p := r.etcdShutdownNodePhase(server, false)
 		shutdownEtcd.AddParallel(p)
 	}
 
@@ -562,14 +601,14 @@ func (r updateStep) etcdPhase(leadMaster storage.Server, otherMasters []storage.
 	})
 	upgradeServers.AddWithDependency(
 		builder.DependencyForServer(shutdownEtcd, leadMaster),
-		r.etcdUpgrade(leadMaster))
+		r.etcdUpgradePhase(leadMaster))
 
 	for _, server := range otherMasters {
-		p := r.etcdUpgrade(server)
+		p := r.etcdUpgradePhase(server)
 		upgradeServers.AddWithDependency(builder.DependencyForServer(shutdownEtcd, server), p)
 	}
 	for _, server := range workers {
-		p := r.etcdUpgrade(server)
+		p := r.etcdUpgradePhase(server)
 		upgradeServers.AddWithDependency(builder.DependencyForServer(shutdownEtcd, server), p)
 	}
 	root.AddParallel(upgradeServers)
@@ -593,14 +632,14 @@ func (r updateStep) etcdPhase(leadMaster storage.Server, otherMasters []storage.
 		ID:          "restart",
 		Description: "Restart etcd servers",
 	})
-	restartMasters.AddWithDependency(restoreData, r.etcdRestart(leadMaster))
+	restartMasters.AddWithDependency(restoreData, r.etcdRestartPhase(leadMaster))
 
 	for _, server := range otherMasters {
-		p := r.etcdRestart(server)
+		p := r.etcdRestartPhase(server)
 		restartMasters.AddWithDependency(builder.DependencyForServer(upgradeServers, server), p)
 	}
 	for _, server := range workers {
-		p := r.etcdRestart(server)
+		p := r.etcdRestartPhase(server)
 		restartMasters.AddWithDependency(builder.DependencyForServer(upgradeServers, server), p)
 	}
 
@@ -618,7 +657,7 @@ func (r updateStep) etcdPhase(leadMaster storage.Server, otherMasters []storage.
 	return root
 }
 
-func (r updateStep) etcdBackupNode(server storage.Server) *builder.Phase {
+func (r updateStep) etcdBackupNodePhase(server storage.Server) *builder.Phase {
 	return builder.NewPhase(storage.OperationPhase{
 		ID:          server.Hostname,
 		Description: fmt.Sprintf("Backup etcd on node %q", server.Hostname),
@@ -629,7 +668,7 @@ func (r updateStep) etcdBackupNode(server storage.Server) *builder.Phase {
 	})
 }
 
-func (r updateStep) etcdShutdownNode(server storage.Server, isLeader bool) *builder.Phase {
+func (r updateStep) etcdShutdownNodePhase(server storage.Server, isLeader bool) *builder.Phase {
 	return builder.NewPhase(storage.OperationPhase{
 		ID:          server.Hostname,
 		Description: fmt.Sprintf("Shutdown etcd on node %q", server.Hostname),
@@ -641,7 +680,7 @@ func (r updateStep) etcdShutdownNode(server storage.Server, isLeader bool) *buil
 	})
 }
 
-func (r updateStep) etcdUpgrade(server storage.Server) *builder.Phase {
+func (r updateStep) etcdUpgradePhase(server storage.Server) *builder.Phase {
 	return builder.NewPhase(storage.OperationPhase{
 		ID:          server.Hostname,
 		Description: fmt.Sprintf("Upgrade etcd on node %q", server.Hostname),
@@ -652,7 +691,7 @@ func (r updateStep) etcdUpgrade(server storage.Server) *builder.Phase {
 	})
 }
 
-func (r updateStep) etcdRestart(server storage.Server) *builder.Phase {
+func (r updateStep) etcdRestartPhase(server storage.Server) *builder.Phase {
 	return builder.NewPhase(storage.OperationPhase{
 		ID:          server.Hostname,
 		Description: fmt.Sprintf("Restart etcd on node %q", server.Hostname),
@@ -726,17 +765,13 @@ func newUpdateStep(step updateStep) updateStep {
 	return step
 }
 
-// masters returns a new phase for upgrading master servers.
+// mastersPhase returns a new phase for upgrading master servers.
 // otherMasters lists the rest of the master nodes (without the leader)
-func (r updateStep) masters(leadMaster storage.UpdateServer, otherMasters []storage.UpdateServer) *builder.Phase {
+func (r updateStep) mastersPhase(leadMaster storage.UpdateServer, otherMasters []storage.UpdateServer) *builder.Phase {
 	root := builder.NewPhase(storage.OperationPhase{
 		ID:          "masters",
 		Description: "Update master nodes",
 	})
-	return r.mastersInternal(leadMaster, otherMasters, root)
-}
-
-func (r updateStep) mastersInternal(leadMaster storage.UpdateServer, otherMasters []storage.UpdateServer, root *builder.Phase) *builder.Phase {
 	node := nodePhase(leadMaster.Server, "Update system software on master node %q")
 	if len(otherMasters) != 0 {
 		node.AddSequentialRaw(storage.OperationPhase{
@@ -772,15 +807,11 @@ func (r updateStep) mastersInternal(leadMaster storage.UpdateServer, otherMaster
 	return root
 }
 
-func (r updateStep) nodes(leadMaster storage.UpdateServer, nodes []storage.UpdateServer) *builder.Phase {
+func (r updateStep) nodesPhase(leadMaster storage.UpdateServer, nodes []storage.UpdateServer) *builder.Phase {
 	root := builder.NewPhase(storage.OperationPhase{
 		ID:          "nodes",
 		Description: "Update regular nodes",
 	})
-	return r.nodesInternal(leadMaster, nodes, root)
-}
-
-func (r updateStep) nodesInternal(leadMaster storage.UpdateServer, nodes []storage.UpdateServer, root *builder.Phase) *builder.Phase {
 	for i, server := range nodes {
 		node := nodePhase(server.Server, "Update system software on node %q")
 		node.AddSequential(r.commonNode(nodes[i], &leadMaster.Server, waitsForEndpoints(true))...)
@@ -931,12 +962,6 @@ func getRuntimePackageStatic(runtimePackage loc.Locator) runtimePackageGetterFun
 type runtimePackageGetterFunc func(storage.Server) (*loc.Locator, error)
 
 func (r phaseBuilder) exportGravityBinary(ctx context.Context, loc loc.Locator, path string) error {
-	if err := os.MkdirAll(filepath.Dir(path), defaults.SharedDirMask); err != nil {
-		return trace.Wrap(trace.ConvertSystemError(err),
-			"failed to create directory for export at %v", filepath.Dir(path))
-	}
-	ctx, cancel := context.WithTimeout(ctx, defaults.TransientErrorTimeout)
-	defer cancel()
 	uid, err := strconv.Atoi(r.serviceUser.UID)
 	if err != nil {
 		return trace.Wrap(err)
@@ -945,14 +970,7 @@ func (r phaseBuilder) exportGravityBinary(ctx context.Context, loc loc.Locator, 
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return utils.CopyWithRetries(ctx, path,
-		func() (io.ReadCloser, error) {
-			_, rc, err := r.packages.ReadPackage(loc)
-			return rc, trace.Wrap(err)
-		},
-		utils.PermOption(defaults.SharedExecutableMask),
-		utils.OwnerOption(uid, gid),
-	)
+	return intermediate.ExportGravityBinary(ctx, loc, uid, gid, path, r.packages)
 }
 
 func (r phaseBuilder) shouldSkipIntermediateUpdate(v semver.Version) bool {
@@ -970,6 +988,42 @@ func corednsPhase(leadMaster storage.Server) *builder.Phase {
 			Server: &leadMaster,
 		},
 	})
+}
+
+func initPhase(leadMaster storage.Server, servers []storage.UpdateServer, installedApp, updateApp loc.Locator) *builder.Phase {
+	root := builder.NewPhase(storage.OperationPhase{
+		ID:          "init",
+		Description: "Initialize update operation",
+	})
+	servers = reorderServers(servers, leadMaster)
+	root.AddParallelRaw(storage.OperationPhase{
+		ID:          leadMaster.Hostname,
+		Description: fmt.Sprintf("Initialize node %q", leadMaster.Hostname),
+		Executor:    updateInitLeader,
+		Data: &storage.OperationPhaseData{
+			ExecServer:       &leadMaster,
+			Package:          &updateApp,
+			InstalledPackage: &installedApp,
+			Update: &storage.UpdateOperationData{
+				Servers: []storage.UpdateServer{servers[0]},
+			},
+		},
+	})
+	for _, server := range servers[1:] {
+		server := server
+		root.AddParallelRaw(storage.OperationPhase{
+			ID:          server.Hostname,
+			Description: fmt.Sprintf("Initialize node %q", server.Hostname),
+			Executor:    updateInit,
+			Data: &storage.OperationPhaseData{
+				ExecServer: &server.Server,
+				Update: &storage.UpdateOperationData{
+					Servers: []storage.UpdateServer{server},
+				},
+			},
+		})
+	}
+	return root
 }
 
 func nodePhase(server storage.Server, format string) *builder.Phase {

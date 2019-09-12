@@ -33,20 +33,26 @@ import (
 	teleservices "github.com/gravitational/teleport/lib/services"
 )
 
-func (r phaseBuilder) init() *builder.Phase {
-	return builder.NewPhase(storage.OperationPhase{
-		ID:          "init",
-		Executor:    updateInit,
-		Description: "Initialize update operation",
-		Data: &storage.OperationPhaseData{
-			Package:          &r.updateApp.Package,
-			ExecServer:       &r.leadMaster,
-			InstalledPackage: &r.installedApp.Package,
-		},
-	})
+func (r phaseBuilder) initPhase() *builder.Phase {
+	if !r.hasRuntimeUpdates() {
+		return builder.NewPhase(storage.OperationPhase{
+			ID:          "init",
+			Executor:    updateInit,
+			Description: "Initialize update operation",
+			Data: &storage.OperationPhaseData{
+				Package:          &r.updateApp.Package,
+				ExecServer:       &r.leadMaster,
+				InstalledPackage: &r.installedApp.Package,
+			},
+		})
+	}
+	if len(r.steps) != 0 {
+		return r.steps[0].initPhase(r.leadMaster, r.installedApp.Package, r.updateApp.Package)
+	}
+	return r.targetStep.initPhase(r.leadMaster, r.installedApp.Package, r.updateApp.Package)
 }
 
-func (r phaseBuilder) checks() *builder.Phase {
+func (r phaseBuilder) checksPhase() *builder.Phase {
 	return builder.NewPhase(storage.OperationPhase{
 		ID:          "checks",
 		Executor:    updateChecks,
@@ -58,7 +64,7 @@ func (r phaseBuilder) checks() *builder.Phase {
 	})
 }
 
-func (r phaseBuilder) preUpdate() *builder.Phase {
+func (r phaseBuilder) preUpdatePhase() *builder.Phase {
 	return builder.NewPhase(storage.OperationPhase{
 		ID:          "pre-update",
 		Description: "Run pre-update application hook",
@@ -69,7 +75,7 @@ func (r phaseBuilder) preUpdate() *builder.Phase {
 	})
 }
 
-func (r phaseBuilder) app() *builder.Phase {
+func (r phaseBuilder) appPhase() *builder.Phase {
 	root := builder.NewPhase(storage.OperationPhase{
 		ID:          "app",
 		Description: "Update installed application",
@@ -87,10 +93,10 @@ func (r phaseBuilder) app() *builder.Phase {
 	return root
 }
 
-// migration constructs a migration phase based on the plan params.
+// migrationPhase constructs a migrationPhase phase based on the plan params.
 //
 // If there are no migrations to perform, returns nil.
-func (r phaseBuilder) migration() *builder.Phase {
+func (r phaseBuilder) migrationPhase() *builder.Phase {
 	root := builder.NewPhase(storage.OperationPhase{
 		ID:          "migration",
 		Description: "Perform system database migration",
@@ -129,7 +135,7 @@ func (r phaseBuilder) migration() *builder.Phase {
 	return root
 }
 
-func (r phaseBuilder) cleanup() *builder.Phase {
+func (r phaseBuilder) cleanupPhase() *builder.Phase {
 	root := builder.NewPhase(storage.OperationPhase{
 		ID:          "gc",
 		Description: "Run cleanup tasks",
@@ -149,15 +155,15 @@ func (r phaseBuilder) cleanup() *builder.Phase {
 }
 
 func (r phaseBuilder) newPlan() (*storage.OperationPlan, error) {
-	initPhase := r.init()
-	checksPhase := r.checks().Require(initPhase)
-	preUpdatePhase := r.preUpdate().Require(initPhase, checksPhase)
+	initPhase := r.initPhase()
+	checksPhase := r.checksPhase().Require(initPhase)
+	preUpdatePhase := r.preUpdatePhase().Require(initPhase, checksPhase)
 
 	var root libbuilder.Phase
 	root.AddParallel(initPhase, checksPhase, preUpdatePhase)
 
 	if !r.hasRuntimeUpdates() {
-		root.AddSequential(r.app(), r.cleanup())
+		root.AddSequential(r.appPhase(), r.cleanupPhase())
 		return r.newPlanFrom(&root), nil
 	}
 
@@ -176,11 +182,11 @@ func (r phaseBuilder) newPlan() (*storage.OperationPlan, error) {
 		root.AddSequential(r.targetStep.build(r.leadMaster, r.installedApp.Package, r.updateApp.Package))
 	}
 
-	if migrationPhase := r.migration(); migrationPhase != nil {
+	if migrationPhase := r.migrationPhase(); migrationPhase != nil {
 		root.AddSequential(migrationPhase)
 	}
 
-	root.AddSequential(r.app(), r.cleanup())
+	root.AddSequential(r.appPhase(), r.cleanupPhase())
 
 	return r.newPlanFrom(&root), nil
 }
