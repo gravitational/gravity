@@ -8,7 +8,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
 | 6.1.4         | No  | September 10th, 2019 | -                    | 1.15.3             | 3.2.7
-| 6.0.7         | No  | September 10th, 2019 | -                    | 1.14.6             | 3.2.7            |
+| 6.0.8         | No  | September 11th, 2019 | -                    | 1.14.6             | 3.2.7            |
 | 5.6.7         | No  | August 26th, 2019    | -                    | 1.14.6             | 3.0.5            |
 | 5.5.19        | Yes | September 10th, 2019 | September 7th, 2020  | 1.13.10            | 3.0.4            |
 | 5.4.10*       | No  | March 26th, 2019     | -                    | 1.13.5             | 2.4.10           |
@@ -32,13 +32,19 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 ## 6.x Releases
 
-### 6.1.4 (September 9th, 2019)
+### 6.0.8 (September 11th, 2019)
+
+#### Bugfixes
+
+* Update kubelet configuration to respect `allowPrivileged` flag.
+
+### 6.1.4 (September 10th, 2019)
 
 #### Bugfixes
 
 * Fix `allowPrivileged` flag placement in the manifest schema.
 
-### 6.0.7 (September 9th, 2019)
+### 6.0.7 (September 10th, 2019)
 
 #### Bugfixes
 
