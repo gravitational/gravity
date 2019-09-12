@@ -57,13 +57,13 @@ func (r Puller) PullApp(ctx context.Context, loc loc.Locator) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	r.OnConflict = OnConflictDependencies(r.Upsert)
+	r.OnConflict = GetDependencyConflictHandler(r.Upsert)
 	err = r.pull(ctx, *deps)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	// Pull the application
-	r.OnConflict = OnConflict(r.Upsert)
+	r.OnConflict = GetConflictHandler(r.Upsert)
 	return r.pullAppWithRetries(ctx, app.Package)
 }
 
@@ -157,7 +157,7 @@ func (r *Puller) checkAndSetDefaults() error {
 		r.FieldLogger = logrus.WithField(trace.Component, "pull")
 	}
 	if r.OnConflict == nil {
-		r.OnConflict = OnConflict(r.Upsert)
+		r.OnConflict = GetConflictHandler(r.Upsert)
 	}
 	return nil
 }
@@ -297,18 +297,18 @@ func (r Puller) pullApp(loc loc.Locator) error {
 	return trace.Wrap(err)
 }
 
-// OnConflictDependencies returns the conflict handler that ignores package
+// GetDependencyConflictHandler returns the conflict handler that ignores package
 // conflicts (subject to specified upsert flag)
-func OnConflictDependencies(upsert bool) ConflictHandler {
+func GetDependencyConflictHandler(upsert bool) ConflictHandler {
 	if upsert {
 		return onConflictContinue
 	}
 	return onConflictSkip
 }
 
-// OnConflict returns the conflict handler that fails for package
+// GetConflictHandler returns the conflict handler that fails for package
 // conflicts (subject to specified upsert flag)
-func OnConflict(upsert bool) ConflictHandler {
+func GetConflictHandler(upsert bool) ConflictHandler {
 	if upsert {
 		return onConflictContinue
 	}

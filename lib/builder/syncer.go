@@ -106,7 +106,7 @@ func (s *s3Syncer) Sync(ctx context.Context, builder *Builder, runtimeVersion se
 		DstPack:     builder.Env.Packages,
 		DstApp:      cacheApps,
 		Parallel:    builder.VendorReq.Parallel,
-		OnConflict:  libapp.OnConflictDependencies(false),
+		OnConflict:  libapp.GetDependencyConflictHandler(false),
 	}
 	return puller.PullAppDeps(ctx, builder.appForRuntime(runtimeVersion))
 }
@@ -140,7 +140,7 @@ func (s *packSyncer) Sync(ctx context.Context, builder *Builder, runtimeVersion 
 		DstPack:     builder.Env.Packages,
 		DstApp:      cacheApps,
 		Parallel:    builder.VendorReq.Parallel,
-		OnConflict:  libapp.OnConflictDependencies(false),
+		OnConflict:  libapp.GetDependencyConflictHandler(false),
 	}
 	err = puller.PullAppDeps(ctx, builder.appForRuntime(runtimeVersion))
 	if err != nil {

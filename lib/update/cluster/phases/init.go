@@ -536,7 +536,7 @@ func removeLegacyUpdateDirectory(log log.FieldLogger) error {
 		if os.IsNotExist(err) {
 			return nil
 		}
-		return trace.Wrap(trace.ConvertSystemError(err))
+		return trace.ConvertSystemError(err)
 	}
 	if !fi.IsDir() {
 		return nil
