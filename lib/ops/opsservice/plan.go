@@ -146,7 +146,11 @@ func (s *ProvisionedServer) InGravity(dir ...string) string {
 var suffixer = strings.NewReplacer(".", "", ":", "")
 
 func PackageSuffix(node remoteServer, domain string) string {
-	data := fmt.Sprintf("%v.%v", node.Address(), domain)
+	return PackageSuffixForAddr(node.Address(), domain)
+}
+
+func PackageSuffixForAddr(addr, domain string) string {
+	data := fmt.Sprintf("%v.%v", addr, domain)
 	return suffixer.Replace(data)
 }
 
