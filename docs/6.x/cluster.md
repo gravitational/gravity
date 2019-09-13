@@ -38,18 +38,18 @@ way:
 
 * Since all Kubernetes services such as `kubelet` or `kube-apiserver` always
   run enclosed inside the Master Container, it makes it possible for Gravity
-  to closely monitor the Cluster health and perform Cluster updates.
+  to closely monitor the Cluster health and perform Cluster upgrades.
 
 * `gravity` _continuously_ maintains Kubernetes configuration to be highly
   available ("HA").  This means that any node can go down without disrupting
   Kubernetes' operation.
 
 * `gravity` runs its own local Docker registry which is used as a Cluster-level
-  cache for container images. This makes application updates and restarts
+  cache for container images. This makes application upgrades and restarts
   faster and more reliable.
 
 * `gravity` provides the ability to perform Cluster state snapshots as part of
-  Cluster updates or to be used independently.
+  Cluster upgrades or to be used independently.
 
 ### Kubernetes Extensions
 
@@ -275,7 +275,7 @@ order to log into the Cluster Control Panel. See the
 
 ## Updating a Cluster
 
-Cluster updates can get quite complicated for complex cloud applications
+Cluster upgrades can get quite complicated for complex cloud applications
 composed of multiple micro-services. On a high level, there are two major layers
 that will need periodic updating:
 
@@ -311,7 +311,7 @@ offline environments.
 A new image becomes "uploaded" when it's contents are stored in the internal
 Cluster registry.
 
-#### Online Cluster Update
+#### Online Cluster Upgrade
 
 !!! warning "Version Warning"
     Graivty Hub is available to Enterprise edition users only. This means that open source
@@ -329,7 +329,7 @@ $ gravity update download --every=12h  # Schedule automatic downloading of updat
 $ gravity update download --every=off  # Turn off automatic downloading of updates.
 ```
 
-#### Offline Cluster Update
+#### Offline Cluster Upgrade
 
 If a Gravity Cluster is not connected to a Gravity Hub, the updated version of
 the Cluster Image has to be copied to one of the Cluster nodes. To upload the

@@ -170,16 +170,16 @@ be _the only Gravity-specific artifact_ you will have to create and maintain.
 The file format was designed to mimic a Kubernetes resource as much as possible
 and several Kubernetes concepts are used for efficiency, for example:
 
-1. Use standard Kubernetes [config maps](http://kubernetes.io/docs/user-guide/configmap/)
+1. Use standard Kubernetes [ConfigMaps](http://kubernetes.io/docs/user-guide/configmap/)
    to manage application configuration. The Image Manifest should not be used
    for this purpose.
 
 2. To customize the installation process, create regular [Kubernetes Services](http://kubernetes.io/docs/user-guide/services/)
-   and tell Gravitiy to invoke them with the Image Manifest.
+   and tell Gravity to invoke them with the Image Manifest.
 
 3. You can define custom Cluster life cycle hooks like _install_, _uninstall_ or _update_
    using the Image Manifest, but the hooks themselves should be implemented as a regular
-   [kubernetes jobs](http://kubernetes.io/docs/user-guide/jobs/).
+   [Kubernetes Job](http://kubernetes.io/docs/user-guide/jobs/).
 
 The Image Manifest is designed to be as small as possible in an
 effort to promote open standards. As Kubernetes itself matures and promising
@@ -858,7 +858,7 @@ spec:
 ```
 
 Only resources stored as YAML files are subject to automatic translation.  If
-a Cluster lifecycle hook uses custom resource provisioning, it might need to perform
+a Cluster life cycle hook uses custom resource provisioning, it might need to perform
 the conversion manually.
 
 The value of the effective service user ID is stored in the
@@ -912,3 +912,32 @@ When building a Cluster Image, `tele build` will discover `custom-planet:1.0.0`
 Docker image and vendor it along with other dependencies. During the Cluster
 installation all nodes with the role `worker` will use the custom "planet" Docker
 image instead of the default one.
+
+## Support For Intermediate Upgrades
+
+Kubernetes has a strict version skew [support policy](https://kubernetes.io/docs/setup/release/version-skew-policy/#supported-version-skew) which makes
+cluster upgrades with versions of Kubernetes being more than a couple of minor versions apart complicated if not impossible. This can become a big issue
+if clusters are not kept constantly up-to-date.
+
+Before, the way to upgrade such a cluster had been upgrading by using cluster images with compatible Kubernetes versions in lock step
+until the target image has been applied. This is a time-consuming and not automation-friendly process.
+
+Starting with version `5.5.20`, installers built with `tele` can embed all intermediate versions of Kubernetes necessary to automatically upgrade older
+clusters.
+
+In order to enable intermediate upgrade support, `tele build` should be supplied with a list of Gravity runtime versions to use as intermediate hops.
+For example, to upgrade a cluster based on Gravity `5.0.35` (which is based on Kubernetes `1.9.13`) to a cluster based on Gravity `5.5.20` (which, in turn,
+is based on Kubernetes `1.13.10`), the following flag adds an intermediate step based on Gravity `5.2.15` (which is based on Kubernetes `1.11.9`):
+
+```bash
+$ tele build ... --upgrade-via=5.2.15
+```
+
+!!! note "Intermediate Upgrade Support":
+    Only LTS versions of Gravity can be used as intermediate upgrade hops.
+
+
+!!! note:
+    Upgrades with support for intermediate Kubernetes runtimes is available since Gravity version `5.5.20`.
+    Gravity version `5.2.15` and later can be used as an intermediate upgrade hop.
+    The Gravity version `6.x` will receive support for intermediate upgrades in near future.
