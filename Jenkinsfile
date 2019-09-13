@@ -74,7 +74,7 @@ timestamps {
         passwordVariable: 'AWS_SECRET_ACCESS_KEY',
       ],
       ]) {
-        sh 'make -C e production telekube opscenter'
+        sh 'make -C e production telekube-intermediate-upgrade opscenter'
       }
     }
   }
