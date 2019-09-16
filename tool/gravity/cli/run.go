@@ -393,11 +393,6 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			*g.UpdateRotatePlanetConfigCmd.RuntimePackage,
 			*g.UpdateRotatePlanetConfigCmd.OperationID,
 			*g.UpdateRotatePlanetConfigCmd.ServerAddr)
-	case g.UpdateRotateTeleportConfigCmd.FullCommand():
-		return rotateTeleportConfig(localEnv,
-			g.UpdateRotateTeleportConfigCmd.Package.Locator,
-			*g.UpdateRotateTeleportConfigCmd.OperationID,
-			*g.UpdateRotateTeleportConfigCmd.ServerAddr)
 	case g.AppPackageCmd.FullCommand():
 		return appPackage(localEnv)
 	// app commands

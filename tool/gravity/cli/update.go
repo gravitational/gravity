@@ -27,7 +27,6 @@ import (
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
-	"github.com/gravitational/gravity/lib/ops/opsservice"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
@@ -288,23 +287,6 @@ func rotatePlanetConfig(env *localenv.LocalEnvironment, pkg *loc.Locator, runtim
 	}
 	_, err = clusterEnv.ClusterPackages.UpsertPackage(resp.Locator, resp.Reader, pack.WithLabels(resp.Labels))
 	return trace.Wrap(err)
-}
-
-func rotateTeleportConfig(env *localenv.LocalEnvironment, pkg *loc.Locator, operationID, serverAddr string) error {
-	// Do not return a package - the currently active teleport configuration
-	// package will be used
-	return nil
-}
-
-// teleportConfigPackageForServer translates the local teleport configuration package
-// to reference the package on server given with addr.
-// Returns the new package name
-func teleportConfigPackageForServer(configPackage loc.Locator, addr, clusterName string) loc.Locator {
-	return loc.Locator{
-		Repository: configPackage.Repository,
-		Name:       configPackage.Name,
-		Version:    fmt.Sprintf("0.0.1-%v", opsservice.PackageSuffixForAddr(addr, clusterName)),
-	}
 }
 
 func checkCanUpdate(cluster ops.Site, operator ops.Operator, manifest schema.Manifest) error {

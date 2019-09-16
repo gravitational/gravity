@@ -184,11 +184,6 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.UpdateRotatePlanetConfigCmd.ServerAddr = g.UpdateRotatePlanetConfigCmd.Flag("addr", "Address of this node as used by the update operation").Required().String()
 	g.UpdateRotatePlanetConfigCmd.OperationID = g.UpdateRotatePlanetConfigCmd.Flag("id", "Update operation ID").Required().String()
 
-	g.UpdateRotateTeleportConfigCmd.CmdClause = g.UpdateCmd.Command("rotate-teleport-config", "Generate new configuration package for teleport").Hidden()
-	g.UpdateRotateTeleportConfigCmd.Package = NullableLocator(g.UpdateRotateTeleportConfigCmd.Flag("package", "Name of the package to generate"))
-	g.UpdateRotateTeleportConfigCmd.ServerAddr = g.UpdateRotateTeleportConfigCmd.Flag("addr", "Address of this node as used by the update operation").Required().String()
-	g.UpdateRotateTeleportConfigCmd.OperationID = g.UpdateRotateTeleportConfigCmd.Flag("id", "Update operation ID").Required().String()
-
 	g.StatusCmd.CmdClause = g.Command("status", "Show the status of the cluster and the application running in it")
 	g.StatusCmd.Token = g.StatusCmd.Flag("token", "Show only the cluster token").Bool()
 	g.StatusCmd.Tail = g.StatusCmd.Flag("tail", "Tail the logs of the currently running operation until it completes").Bool()
