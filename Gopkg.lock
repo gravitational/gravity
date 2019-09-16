@@ -982,7 +982,7 @@
 
 [[projects]]
   branch = "branch/3.2-g"
-  digest = "1:a29cb6890c092709e03c1e89facde0f84298ef98a5beea7ca6b513a7a90e302e"
+  digest = "1:1b78a7ff5fcfb1331fa8430a62f8f8b83b7cbdcac9aec3f2389d0f9c521d456e"
   name = "github.com/gravitational/teleport"
   packages = [
     ".",
@@ -1034,10 +1034,11 @@
     "lib/utils/proxy",
     "lib/utils/socks",
     "lib/web",
-    "lib/web/ui"
+    "lib/web/ui",
+    "lib/wrappers"
   ]
   pruneopts = "UT"
-  revision = "10398c6d4d0834f54886d80f251d8d8ba344b7f2"
+  revision = "1496c67950397ee5cb94ff62af91142a07702249"
 
 [[projects]]
   digest = "1:9aea6c85145b6ff99ad423d35c6026e098a12cd7f19cce9775cc7eb73aa78d47"
@@ -1250,7 +1251,7 @@
   packages = [
     "client",
     "coordinate",
-    "serf",
+    "serf"
   ]
   pruneopts = "UT"
   revision = "15cfd05de3dffb3664aa37b06e91f970b825e380"
