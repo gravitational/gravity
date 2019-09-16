@@ -291,27 +291,8 @@ func rotatePlanetConfig(env *localenv.LocalEnvironment, pkg *loc.Locator, runtim
 }
 
 func rotateTeleportConfig(env *localenv.LocalEnvironment, pkg *loc.Locator, operationID, serverAddr string) error {
-	if pkg != nil {
-		// This version does not support rotation of the teleport configuration.
-		// The package passed as argument must be the currently installed teleport
-		// configuration package.
-		return nil
-	}
-	clusterEnv, err := localenv.NewClusterEnvironment()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	cluster, err := clusterEnv.Operator.GetLocalSite()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	// Find and report the installed teleport configuration package name
-	configPackage, err := pack.FindAnyTeleportConfigPackage(env.Packages, cluster.Domain)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	configPackageForServer := teleportConfigPackageForServer(*configPackage, serverAddr, cluster.Domain)
-	env.Println(configPackageForServer.String())
+	// Do not return a package - the currently active teleport configuration
+	// package will be used
 	return nil
 }
 
