@@ -292,6 +292,9 @@ type TraceErr struct {
 	Fields map[string]interface{} `json:"fields,omitempty`
 }
 
+// Fields maps arbitrary keys to values inside an error
+type Fields map[string]interface{}
+
 type RawTrace struct {
 	Err     json.RawMessage `json:"error"`
 	Traces  `json:"traces"`
