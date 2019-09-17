@@ -280,14 +280,14 @@ func TestSanitizeTarPath(t *testing.T) {
 		{
 			header: &tar.Header{
 				Name:     "test7.txt",
-				Linkname: "/dir/../dir2/test7.txt",
+				Linkname: "./dir/../dir2/test7.txt",
 			},
 			expectError: false,
 		},
 		{
 			header: &tar.Header{
-				Name:     "test8.txt",
-				Linkname: "./dir/test8.txt",
+				Name:     "dir1/test8.txt",
+				Linkname: "dir1/../dir2/test8.txt",
 			},
 			expectError: false,
 		},
@@ -318,6 +318,30 @@ func TestSanitizeTarPath(t *testing.T) {
 				Linkname: "./test/../../test12.txt",
 			},
 			expectError: true,
+		},
+		// Relative link that remains inside the directory
+		{
+			header: &tar.Header{
+				Name:     "/test/dir/test13.txt",
+				Linkname: "../../test2/dir2/test14.txt",
+			},
+			expectError: false,
+		},
+		// Linkname is absolute path outside extraction directory
+		{
+			header: &tar.Header{
+				Name:     "test14.txt",
+				Linkname: "/test14.txt",
+			},
+			expectError: true,
+		},
+		// Linkname is absolute path inside extraction directory
+		{
+			header: &tar.Header{
+				Name:     "test15.txt",
+				Linkname: "/tmp/test15.txt",
+			},
+			expectError: false,
 		},
 	}
 
