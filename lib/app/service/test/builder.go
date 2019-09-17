@@ -265,7 +265,7 @@ const hooks = `hooks:
           spec:
             containers:
               - name: hook
-                image: quay.io/gravitational/debian-tall:stretch
+                image: quay.io/gravitational/debian-tall:buster
                 command: ["/bin/echo", "Pre-join hook"]
   postNodeAdd:
     job: |
@@ -278,7 +278,7 @@ const hooks = `hooks:
           spec:
             containers:
               - name: hook
-                image: quay.io/gravitational/debian-tall:stretch
+                image: quay.io/gravitational/debian-tall:buster
                 command: ["/bin/echo", "Post-join hook"]
   networkInstall:
     job: |
@@ -291,5 +291,5 @@ const hooks = `hooks:
           spec:
             containers:
             - name: hook
-              image: quay.io/gravitational/debian-tall:stretch
+              image: quay.io/gravitational/debian-tall:buster
               command: ["/bin/echo", "Install overlay network hook"]`

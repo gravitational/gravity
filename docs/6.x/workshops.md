@@ -2026,7 +2026,7 @@ We have not used `docker build` this time, but mounted the source code and run t
 We can now use much simpler (and smaller) Dockerfile to run our image:
 
 ```Dockerfile
-FROM quay.io/gravitational/debian-tall:stretch
+FROM quay.io/gravitational/debian-tall:buster
 
 ADD hello /hello
 ENTRYPOINT ["/hello"]
@@ -2087,7 +2087,7 @@ Yelp engineers have a good answer for why this happens [here](https://github.com
 To solve this (and other) issues, you need a simple init system that has proper signal handlers specified. Luckily `Yelp` engineers built the simple and lightweight init system, `dumb-init`
 
 ```
-docker run quay.io/gravitational/debian-tall /usr/bin/dumb-init /bin/sh -c "sleep 10000"
+docker run quay.io/gravitational/debian-tall:buster /usr/bin/dumb-init /bin/sh -c "sleep 10000"
 ```
 
 Now you can simply stop `docker run` process using SIGTERM and it will handle shutdown properly
