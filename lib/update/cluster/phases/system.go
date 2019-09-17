@@ -201,12 +201,17 @@ func (p *updatePhaseSystem) Execute(ctx context.Context) error {
 		// Consider teleport update only in effect when the update package
 		// has been specified. This is in contrast to runtime update, when
 		// we expect to update the configuration more often
+		configPackage := p.Server.Teleport.Update.NodeConfigPackage
+		if configPackage == nil {
+			// No update necessary
+			configPackage = teleportConfig
+		}
 		config.Teleport = &storage.PackageUpdate{
 			From: p.Server.Teleport.Installed,
 			To:   p.Server.Teleport.Update.Package,
 			ConfigPackage: &storage.PackageUpdate{
 				From: *teleportConfig,
-				To:   p.Server.Teleport.Update.NodeConfigPackage,
+				To:   *configPackage,
 			},
 		}
 	}

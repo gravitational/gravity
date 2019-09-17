@@ -237,7 +237,7 @@ func (p *updatePhaseBootstrapLeader) rotateTeleportConfig(server storage.UpdateS
 	masterConf, nodeConf, err := p.packageRotator.RotateTeleportConfig(ops.RotateTeleportConfigRequest{
 		Key:         p.bootstrap.Operation.Key(),
 		Server:      server.Server,
-		NodePackage: &server.Teleport.Update.NodeConfigPackage,
+		NodePackage: server.Teleport.Update.NodeConfigPackage,
 		MasterIPs:   p.masterIPs,
 	})
 	if err != nil {
@@ -250,11 +250,13 @@ func (p *updatePhaseBootstrapLeader) rotateTeleportConfig(server storage.UpdateS
 		}
 		p.Debugf("Rotated teleport master config package for %v: %v.", server, masterConf.Locator)
 	}
-	_, err = p.bootstrap.Packages.UpsertPackage(nodeConf.Locator, nodeConf.Reader, pack.WithLabels(nodeConf.Labels))
-	if err != nil {
-		return trace.Wrap(err)
+	if nodeConf != nil {
+		_, err = p.bootstrap.Packages.UpsertPackage(nodeConf.Locator, nodeConf.Reader, pack.WithLabels(nodeConf.Labels))
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		p.Debugf("Rotated teleport node config package for %v: %v.", server, nodeConf.Locator)
 	}
-	p.Debugf("Rotated teleport node config package for %v: %v.", server, nodeConf.Locator)
 	return nil
 }
 
@@ -444,10 +446,10 @@ func (p *updatePhaseBootstrap) pullSystemUpdates(ctx context.Context) error {
 		)
 	}
 	if p.Server.Teleport.Update != nil {
-		updates = append(updates,
-			p.Server.Teleport.Update.Package,
-			p.Server.Teleport.Update.NodeConfigPackage,
-		)
+		updates = append(updates, p.Server.Teleport.Update.Package)
+		if p.Server.Teleport.Update.NodeConfigPackage != nil {
+			updates = append(updates, *p.Server.Teleport.Update.NodeConfigPackage)
+		}
 	}
 	for _, update := range updates {
 		p.Infof("Pulling package update: %v.", update)

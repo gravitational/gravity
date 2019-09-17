@@ -190,10 +190,7 @@ func (r *PackageUpdates) checkAndSetDefaults() error {
 		r.RuntimeSecrets.Labels = pack.RuntimeSecretsPackageLabels
 	}
 	if r.Teleport != nil {
-		if r.Teleport.ConfigPackage == nil {
-			return trace.BadParameter("Teleport configuration package is required")
-		}
-		if len(r.Teleport.ConfigPackage.Labels) == 0 {
+		if r.Teleport.ConfigPackage != nil && len(r.Teleport.ConfigPackage.Labels) == 0 {
 			r.Teleport.ConfigPackage.Labels = pack.TeleportNodeConfigPackageLabels
 		}
 	}

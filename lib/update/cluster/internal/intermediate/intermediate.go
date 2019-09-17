@@ -117,21 +117,9 @@ func (r gravityPackageRotator) RotatePlanetConfig(req ops.RotatePlanetConfigRequ
 }
 
 // RotateTeleportConfig generates new teleport configuration packages for the specified request.
-// Only the node configuration package is generated - master configuration is always implicitly nil
+// This method is a no-op in this version
 func (r gravityPackageRotator) RotateTeleportConfig(req ops.RotateTeleportConfigRequest) (masterConfig, nodeConfig *ops.RotatePackageResponse, err error) {
-	args := []string{
-		"update", "rotate-teleport-config",
-		"--addr", req.Server.AdvertiseIP,
-		"--id", r.operationID,
-	}
-	if req.NodePackage != nil {
-		args = append(args, "--package", req.NodePackage.String())
-	}
-	resp, err := r.exec(req.DryRun, req.NodePackage, args...)
-	if err != nil {
-		return nil, nil, trace.Wrap(err)
-	}
-	return nil, resp, nil
+	return nil, nil, nil
 }
 
 func (r gravityPackageRotator) exec(onlyPackageName bool, loc *loc.Locator, args ...string) (resp *ops.RotatePackageResponse, err error) {
@@ -146,7 +134,12 @@ func (r gravityPackageRotator) exec(onlyPackageName bool, loc *loc.Locator, args
 		}).Warn("Failed to exec.")
 		return nil, trace.Wrap(err)
 	}
+	out = bytes.TrimSpace(out)
 	if loc == nil {
+		if len(out) == 0 {
+			// No package name generated - active package will be used
+			return nil, nil
+		}
 		loc, err = parseLocatorFromOutput(out)
 		if err != nil {
 			return nil, trace.Wrap(err)
@@ -166,7 +159,6 @@ func (r gravityPackageRotator) exec(onlyPackageName bool, loc *loc.Locator, args
 }
 
 func parseLocatorFromOutput(output []byte) (*loc.Locator, error) {
-	output = bytes.TrimSpace(output)
 	if len(output) == 0 {
 		return nil, trace.BadParameter("package locator is empty")
 	}

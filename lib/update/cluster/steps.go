@@ -212,9 +212,11 @@ func (r phaseBuilder) intermediateConfigUpdates(
 			if err != nil {
 				return nil, trace.Wrap(err)
 			}
-			updateServer.Teleport.Update = &storage.TeleportUpdate{
-				Package:           *updateTeleport,
-				NodeConfigPackage: nodeConfig.Locator,
+			if nodeConfig != nil {
+				updateServer.Teleport.Update = &storage.TeleportUpdate{
+					Package:           *updateTeleport,
+					NodeConfigPackage: &nodeConfig.Locator,
+				}
 			}
 		}
 		updates = append(updates, updateServer)
@@ -293,8 +295,10 @@ func (r phaseBuilder) configUpdates(
 				return nil, trace.Wrap(err)
 			}
 			updateServer.Teleport.Update = &storage.TeleportUpdate{
-				Package:           r.updateTeleport,
-				NodeConfigPackage: nodeConfig.Locator,
+				Package: r.updateTeleport,
+			}
+			if nodeConfig != nil {
+				updateServer.Teleport.Update.NodeConfigPackage = &nodeConfig.Locator
 			}
 		}
 		updates = append(updates, updateServer)

@@ -75,6 +75,14 @@ func (r Puller) PullPackage(ctx context.Context, loc loc.Locator) error {
 	return r.pullPackageWithRetries(ctx, loc)
 }
 
+// PullAppPackage pulls the application package specified with loc
+func (r Puller) PullAppPackage(ctx context.Context, loc loc.Locator) error {
+	if err := r.checkAndSetDefaults(); err != nil {
+		return trace.Wrap(err)
+	}
+	return r.pullAppWithRetries(ctx, loc)
+}
+
 // PullAppDeps pulls only dependencies of the specified application
 func (r Puller) PullAppDeps(ctx context.Context, app Application) error {
 	if err := r.checkAndSetDefaults(); err != nil {
