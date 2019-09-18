@@ -74,6 +74,9 @@ type TextFormatter struct {
 	ComponentPadding int
 	// EnableColors enables colored output
 	EnableColors bool
+	// FormatCaller is a function to return (part) of source file path for output.
+	// Defaults to filePathAndLine() if unspecified
+	FormatCaller func() (caller string)
 }
 
 // Format implements logrus.Formatter interface and adds file and line
@@ -85,12 +88,12 @@ func (tf *TextFormatter) Format(e *log.Entry) (data []byte, err error) {
 		}
 	}()
 
-	var file string
-	if cursor := findFrame(); cursor != nil {
-		t := newTraceFromFrames(*cursor, nil)
-		file = t.Loc()
+	formatCaller := tf.FormatCaller
+	if formatCaller == nil {
+		formatCaller = formatCallerWithPathAndLine
 	}
 
+	caller := formatCaller()
 	w := &writer{}
 
 	// time
@@ -143,9 +146,9 @@ func (tf *TextFormatter) Format(e *log.Entry) (data []byte, err error) {
 		w.writeMap(e.Data)
 	}
 
-	// file, if present, always last
-	if file != "" {
-		w.writeField(file, noColor)
+	// caller, if present, always last
+	if caller != "" {
+		w.writeField(caller, noColor)
 	}
 
 	w.WriteByte('\n')
@@ -173,6 +176,16 @@ func (j *JSONFormatter) Format(e *log.Entry) ([]byte, error) {
 		e = new
 	}
 	return j.JSONFormatter.Format(e)
+}
+
+// formatCallerWithPathAndLine formats the caller in the form path/segment:<line number>
+// for output in the log
+func formatCallerWithPathAndLine() (path string) {
+	if cursor := findFrame(); cursor != nil {
+		t := newTraceFromFrames(*cursor, nil)
+		return t.Loc()
+	}
+	return ""
 }
 
 var frameIgnorePattern = regexp.MustCompile(`github\.com/(S|s)irupsen/logrus`)
