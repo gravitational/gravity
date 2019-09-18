@@ -7,10 +7,10 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 6.1.4         | No  | September 10th, 2019 | -                    | 1.15.3             | 3.2.7
-| 6.0.8         | No  | September 11th, 2019 | -                    | 1.14.6             | 3.2.7            |
-| 5.6.7         | No  | August 26th, 2019    | -                    | 1.14.6             | 3.0.5            |
-| 5.5.19        | Yes | September 10th, 2019 | September 7th, 2020  | 1.13.10            | 3.0.4            |
+| 6.1.5         | No  | September 18th, 2019 | -                    | 1.15.4             | 3.2.7            |
+| 6.0.9         | No  | September 18th, 2019 | -                    | 1.14.7             | 3.2.7            |
+| 5.6.8         | No  | September 18th, 2019 | -                    | 1.14.7             | 3.0.5            |
+| 5.5.20        | Yes | September 18th, 2019 | September 7th, 2020  | 1.13.11            | 3.0.4            |
 | 5.4.10*       | No  | March 26th, 2019     | -                    | 1.13.5             | 2.4.10           |
 | 5.3.9*        | No  | March 7th, 2019      | -                    | 1.12.3             | 2.4.7            |
 | 5.2.14        | Yes | July 30th, 2019      | October 15th, 2019   | 1.11.9             | 2.4.10           |
@@ -31,6 +31,34 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     do not receive updates and bugfixes.
 
 ## 6.x Releases
+
+### 6.1.5 (September 18th, 2019)
+
+#### Improvements
+
+* Upgrade Kubernetes to `1.15.4` (CVE-2019-11251).
+
+#### Bugfixes
+
+* Fix an issue with instability of etcd clients during upgrades.
+
+!!! warning
+    This release fixes a security vulnerability in Kubernetes. Please see
+    [Kubernetes Announcement](https://groups.google.com/forum/#!msg/kubernetes-announce/YYtEFdFimZ4/nZnOezZuBgAJ) for more information.
+
+### 6.0.9 (September 18th, 2019)
+
+#### Improvements
+
+* Upgrade Kubernetes to `1.14.7` (CVE-2019-11251).
+
+#### Bugfixes
+
+* Fix an issue with instability of etcd clients during upgrades.
+
+!!! warning
+    This release fixes a security vulnerability in Kubernetes. Please see
+    [Kubernetes Announcement](https://groups.google.com/forum/#!msg/kubernetes-announce/YYtEFdFimZ4/nZnOezZuBgAJ) for more information.
 
 ### 6.0.8 (September 11th, 2019)
 
@@ -240,6 +268,34 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 * Add support for using `helm` directly from host.
 
 ## 5.x Releases
+
+### 5.6.8 (September 18th, 2019)
+
+#### Improvements
+
+* Upgrade Kubernetes to `1.14.7` (CVE-2019-11251).
+
+#### Bugfixes
+
+* Fix an issue with instability of etcd clients during upgrades.
+
+!!! warning
+    This release fixes a security vulnerability in Kubernetes. Please see
+    [Kubernetes Announcement](https://groups.google.com/forum/#!msg/kubernetes-announce/YYtEFdFimZ4/nZnOezZuBgAJ) for more information.
+
+### 5.5.20 LTS (September 18th, 2019)
+
+#### Improvements
+
+* Upgrade Kubernetes to `1.13.11` (CVE-2019-11251).
+
+#### Bugfixes
+
+* Fix an issue with instability of etcd clients during upgrades.
+
+!!! warning
+    This release fixes a security vulnerability in Kubernetes. Please see
+    [Kubernetes Announcement](https://groups.google.com/forum/#!msg/kubernetes-announce/YYtEFdFimZ4/nZnOezZuBgAJ) for more information.
 
 ### 5.5.19 (September 10th, 2019)
 
