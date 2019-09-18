@@ -17,8 +17,11 @@ limitations under the License.
 package system
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"fmt"
+	"html/template"
 	"os/exec"
 	"path/filepath"
 
@@ -34,9 +37,11 @@ import (
 	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/update"
 	"github.com/gravitational/gravity/lib/utils"
+	"gopkg.in/yaml.v2"
 
 	"github.com/docker/docker/pkg/archive"
 	"github.com/gravitational/satellite/agent/proto/agentpb"
+	teleconfig "github.com/gravitational/teleport/lib/config"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
 )
@@ -53,9 +58,14 @@ func New(config Config) (*System, error) {
 
 // Update applies updates to the system packages specified with config
 func (r *System) Update(ctx context.Context, withStatus bool) error {
+	if r.ChangesetID == "" {
+		return trace.BadParameter("ChangesetID is required")
+	}
+
 	if err := r.Config.PackageUpdates.checkAndSetDefaults(); err != nil {
 		return trace.Wrap(err)
 	}
+
 	var changes []storage.PackageUpdate
 	for _, u := range r.updates() {
 		logger := r.WithField("package", u)
@@ -107,6 +117,10 @@ func (r *System) Update(ctx context.Context, withStatus bool) error {
 
 // Rollback rolls back system to the specified changesetID or the last update if changesetID is not specified
 func (r *System) Rollback(ctx context.Context, withStatus bool) (err error) {
+	if r.ChangesetID == "" {
+		return trace.BadParameter("ChangesetID is required")
+	}
+
 	changeset, err := r.getChangesetByID(r.ChangesetID)
 	if err != nil {
 		return trace.Wrap(err)
@@ -147,9 +161,6 @@ type System struct {
 }
 
 func (r *Config) checkAndSetDefaults() error {
-	if r.ChangesetID == "" {
-		return trace.BadParameter("ChangsetID is required")
-	}
 	if r.Backend == nil {
 		return trace.BadParameter("Backend is required")
 	}
@@ -225,6 +236,11 @@ type PackageUpdates struct {
 	RuntimeSecrets *storage.PackageUpdate
 	// Teleport specifies the teleport package update
 	Teleport *storage.PackageUpdate
+}
+
+// Reinstall reinstalls the specified package.
+func (r *System) Reinstall(update storage.PackageUpdate) error {
+	return r.blockingReinstall(update)
 }
 
 func (r *System) blockingReinstall(update storage.PackageUpdate) error {
@@ -339,6 +355,10 @@ func (r *System) updateTeleportPackage(update storage.PackageUpdate) (labelUpdat
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	err = r.UpdateTctlScript(update.To)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	if update.ConfigPackage == nil {
 		return updates, nil
 	}
@@ -354,6 +374,59 @@ func (r *System) updateTeleportPackage(update storage.PackageUpdate) (labelUpdat
 			},
 		},
 	), nil
+}
+
+// UpdateTctlScript writes tctl script that invokes tctl binary from the
+// specified package with appropriate configuration.
+func (r *System) UpdateTctlScript(newPackage loc.Locator) error {
+	scriptBytes, err := r.renderTctlScript(newPackage)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	for _, path := range []string{defaults.TctlBin, defaults.TctlBinAlternate} {
+		err = utils.CopyExecutable(path, bytes.NewReader(scriptBytes))
+		if err == nil {
+			r.WithField("path", path).Info("Updated tctl script.")
+			return nil
+		}
+	}
+	return trace.Wrap(err)
+}
+
+// renderTctlScript renders the contents of the script that invokes tctl binary
+// with apporpriate configuration.
+func (r *System) renderTctlScript(newPackage loc.Locator) ([]byte, error) {
+	// First make up configuration for tctl, it only requires the data directory
+	// set. The data directory points to the location where Teleport masters
+	// embedded into gravity-sites store their data.
+	stateDir, err := state.GetStateDir()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	configBytes, err := yaml.Marshal(teleconfig.FileConfig{
+		Global: teleconfig.Global{
+			DataDir: filepath.Join(stateDir, defaults.SiteDir, defaults.TeleportDir),
+		},
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	// Now render the script which invokes the tctl binary from the specified
+	// Teleport package and passes configuration to it via base64-encoded
+	// environment variable.
+	teleportPath, err := r.Packages.UnpackedPath(newPackage)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	var buffer bytes.Buffer
+	err = tctlScript.Execute(&buffer, map[string]string{
+		"path": filepath.Join(teleportPath, defaults.RootfsDir, defaults.TctlBin),
+		"conf": base64.StdEncoding.EncodeToString(configBytes),
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return buffer.Bytes(), nil
 }
 
 func (r *System) reinstallSecretsPackage(newPackage loc.Locator) (labelUpdates []pack.LabelUpdate, err error) {
@@ -499,12 +572,23 @@ func updateKubectl(planetPath string, logger logrus.FieldLogger) (err error) {
 	for _, path := range []string{defaults.KubectlBin, defaults.KubectlBinAlternate} {
 		out, err = exec.Command("ln", "-sfT", kubectlPath, path).CombinedOutput()
 		if err == nil {
+			logger.Infof("Updated kubectl symlink: %v -> %v.", path, kubectlPath)
 			break
 		}
-		logger.WithFields(logrus.Fields{
-			logrus.ErrorKey: err,
-			"output":        string(out),
-		}).Warn("Failed to update kubectl symlink.")
+		logger.WithError(err).WithField("output", string(out)).Warn(
+			"Failed to update kubectl symlink.")
+	}
+
+	// update helm symlink
+	helmPath := filepath.Join(planetPath, constants.PlanetRootfs, defaults.HelmScript)
+	for _, path := range []string{defaults.HelmBin, defaults.HelmBinAlternate} {
+		out, err = exec.Command("ln", "-sfT", helmPath, path).CombinedOutput()
+		if err == nil {
+			logger.Infof("Updated helm symlink: %v -> %v.", path, helmPath)
+			break
+		}
+		logger.WithError(err).WithField("output", string(out)).Warn(
+			"Failed to update helm symlink.")
 	}
 
 	// update kube config environment variable
@@ -713,3 +797,8 @@ func unpack(packages update.LocalPackageService, loc loc.Locator) error {
 	}
 	return trace.Wrap(pack.Unpack(packages, loc, path, nil))
 }
+
+// tctlScript is the template of the script that invokes tctl binary with
+// configuration supplied via an environment variable.
+var tctlScript = template.Must(template.New("tctl").Parse(`#!/bin/bash
+TELEPORT_CONFIG={{.conf}} {{.path}} "$@"`))
