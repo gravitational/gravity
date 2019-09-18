@@ -394,13 +394,20 @@ func SanitizeTarPath(header *tar.Header, dir string) error {
 	// Security: sanitize that all tar paths resolve to within the destination directory
 	destPath := filepath.Join(dir, header.Name)
 	if !strings.HasPrefix(destPath, filepath.Clean(dir)+string(os.PathSeparator)) {
-		return trace.BadParameter("%s: illegal file path", header.Name)
+		return trace.BadParameter("%s: illegal file path", header.Name).AddField("prefix", dir)
 	}
 	// Security: Ensure link destinations resolve to within the destination directory
 	if header.Linkname != "" {
-		linkPath := filepath.Join(dir, header.Linkname)
-		if !strings.HasPrefix(linkPath, filepath.Clean(dir)+string(os.PathSeparator)) {
-			return trace.BadParameter("%s: illegal link path", header.Linkname)
+		if filepath.IsAbs(header.Linkname) {
+			if !strings.HasPrefix(filepath.Clean(header.Linkname), filepath.Clean(dir)+string(os.PathSeparator)) {
+				return trace.BadParameter("%s: illegal link path", header.Linkname).AddField("prefix", dir)
+			}
+		} else {
+			// relative paths are relative to the filename after extraction to a directory
+			linkPath := filepath.Join(dir, filepath.Dir(header.Name), header.Linkname)
+			if !strings.HasPrefix(linkPath, filepath.Clean(dir)+string(os.PathSeparator)) {
+				return trace.BadParameter("%s: illegal link path", header.Linkname).AddField("prefix", dir)
+			}
 		}
 	}
 	return nil
