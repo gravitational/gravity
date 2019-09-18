@@ -26,6 +26,7 @@ package auth
 import (
 	"context"
 	"crypto"
+	"crypto/subtle"
 	"crypto/x509"
 	"fmt"
 	"golang.org/x/crypto/ssh"
@@ -44,6 +45,7 @@ import (
 	"github.com/gravitational/teleport/lib/sshutils"
 	"github.com/gravitational/teleport/lib/tlsca"
 	"github.com/gravitational/teleport/lib/utils"
+	"github.com/gravitational/teleport/lib/wrappers"
 
 	"github.com/coreos/go-oidc/oauth2"
 	"github.com/coreos/go-oidc/oidc"
@@ -300,8 +302,8 @@ type certs struct {
 type certRequest struct {
 	// user is a user to generate certificate for
 	user services.User
-	// roles is a list of user roles with rendered variables
-	roles services.AccessChecker
+	// checker is used to perform RBAC checks.
+	checker services.AccessChecker
 	// ttl is Duration of the certificate
 	ttl time.Duration
 	// publicKey is RSA public key in authorized_keys format
@@ -317,6 +319,8 @@ type certRequest struct {
 	// the cert can be only used against kubernetes endpoint, and not auth endpoint,
 	// no usage means unrestricted (to keep backwards compatibility)
 	usage []string
+	// traits hold claim data used to populate a role at runtime.
+	traits wrappers.Traits
 }
 
 // GenerateUserCerts is used to generate user certificate, used internally for tests
@@ -331,10 +335,11 @@ func (a *AuthServer) GenerateUserCerts(key []byte, username string, ttl time.Dur
 	}
 	certs, err := a.generateUserCert(certRequest{
 		user:          user,
-		roles:         checker,
 		ttl:           ttl,
 		compatibility: compatibility,
 		publicKey:     key,
+		checker:       checker,
+		traits:        user.GetTraits(),
 	})
 	if err != nil {
 		return nil, nil, trace.Wrap(err)
@@ -357,7 +362,7 @@ func (s *AuthServer) generateUserCert(req certRequest) (*certs, error) {
 		return nil, trace.Wrap(err)
 	}
 	if certificateFormat == teleport.CertificateFormatUnspecified {
-		certificateFormat = req.roles.CertificateFormat()
+		certificateFormat = req.checker.CertificateFormat()
 	}
 
 	var sessionTTL time.Duration
@@ -371,19 +376,19 @@ func (s *AuthServer) generateUserCert(req certRequest) (*certs, error) {
 		// Take whatever was passed in. Pass in 0 to CheckLoginDuration so all
 		// logins are returned for the role set.
 		sessionTTL = req.ttl
-		allowedLogins, err = req.roles.CheckLoginDuration(0)
+		allowedLogins, err = req.checker.CheckLoginDuration(0)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
 	} else {
 		// Adjust session TTL to the smaller of two values: the session TTL
 		// requested in tsh or the session TTL for the role.
-		sessionTTL = req.roles.AdjustSessionTTL(req.ttl)
+		sessionTTL = req.checker.AdjustSessionTTL(req.ttl)
 
 		// Return a list of logins that meet the session TTL limit. This means if
 		// the requested session TTL is larger than the max session TTL for a login,
 		// that login will not be included in the list of allowed logins.
-		allowedLogins, err = req.roles.CheckLoginDuration(sessionTTL)
+		allowedLogins, err = req.checker.CheckLoginDuration(sessionTTL)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
@@ -410,10 +415,11 @@ func (s *AuthServer) generateUserCert(req certRequest) (*certs, error) {
 		Username:              req.user.GetName(),
 		AllowedLogins:         allowedLogins,
 		TTL:                   sessionTTL,
-		Roles:                 req.user.GetRoles(),
+		Roles:                 req.checker.RoleNames(),
 		CertificateFormat:     certificateFormat,
-		PermitPortForwarding:  req.roles.CanPortForward(),
-		PermitAgentForwarding: req.roles.CanForwardAgents(),
+		PermitPortForwarding:  req.checker.CanPortForward(),
+		PermitAgentForwarding: req.checker.CanForwardAgents(),
+		Traits:                req.traits,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -432,14 +438,19 @@ func (s *AuthServer) generateUserCert(req certRequest) (*certs, error) {
 	}
 	identity := tlsca.Identity{
 		Username:   req.user.GetName(),
-		Groups:     req.roles.RoleNames(),
+		Groups:     req.checker.RoleNames(),
 		Principals: allowedLogins,
 		Usage:      req.usage,
+		Traits:     req.traits,
+	}
+	subject, err := identity.Subject()
+	if err != nil {
+		return nil, trace.Wrap(err)
 	}
 	certRequest := tlsca.CertificateRequest{
 		Clock:     s.clock,
 		PublicKey: cryptoPubKey,
-		Subject:   identity.Subject(),
+		Subject:   subject,
 		NotAfter:  s.clock.Now().UTC().Add(sessionTTL),
 	}
 	tlsCert, err := tlsAuthority.GenerateCertificate(certRequest)
@@ -511,8 +522,12 @@ func (s *AuthServer) WithUserLock(username string, authenticateFn func() error) 
 
 // PreAuthenticatedSignIn is for 2-way authentication methods like U2F where the password is
 // already checked before issuing the second factor challenge
-func (s *AuthServer) PreAuthenticatedSignIn(user string) (services.WebSession, error) {
-	sess, err := s.NewWebSession(user)
+func (s *AuthServer) PreAuthenticatedSignIn(user string, identity *tlsca.Identity) (services.WebSession, error) {
+	roles, traits, err := services.ExtractFromIdentity(s, identity)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	sess, err := s.NewWebSession(user, roles, traits)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -601,7 +616,7 @@ func (s *AuthServer) CheckU2FSignResponse(user string, response *u2f.SignRespons
 
 // ExtendWebSession creates a new web session for a user based on a valid previous sessionID,
 // method is used to renew the web session for a user
-func (s *AuthServer) ExtendWebSession(user string, prevSessionID string) (services.WebSession, error) {
+func (s *AuthServer) ExtendWebSession(user string, prevSessionID string, identity *tlsca.Identity) (services.WebSession, error) {
 	prevSession, err := s.GetWebSession(user, prevSessionID)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -615,7 +630,11 @@ func (s *AuthServer) ExtendWebSession(user string, prevSessionID string) (servic
 		return nil, trace.NotFound("web session has expired")
 	}
 
-	sess, err := s.NewWebSession(user)
+	roles, traits, err := services.ExtractFromIdentity(s, identity)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	sess, err := s.NewWebSession(user, roles, traits)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -634,8 +653,12 @@ func (s *AuthServer) ExtendWebSession(user string, prevSessionID string) (servic
 
 // CreateWebSession creates a new web session for user without any
 // checks, is used by admins
-func (s *AuthServer) CreateWebSession(user string) (services.WebSession, error) {
-	sess, err := s.NewWebSession(user)
+func (s *AuthServer) CreateWebSession(user string, identity *tlsca.Identity) (services.WebSession, error) {
+	roles, traits, err := services.ExtractFromIdentity(s, identity)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	sess, err := s.NewWebSession(user, roles, traits)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -842,10 +865,14 @@ func (s *AuthServer) GenerateServerKeys(req GenerateServerKeysRequest) (*PackedK
 		Username: HostFQDN(req.HostID, s.clusterName.GetClusterName()),
 		Groups:   req.Roles.StringSlice(),
 	}
+	subject, err := identity.Subject()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	certRequest := tlsca.CertificateRequest{
 		Clock:     s.clock,
 		PublicKey: cryptoPubKey,
-		Subject:   identity.Subject(),
+		Subject:   subject,
 		NotAfter:  s.clock.Now().UTC().Add(defaults.CATTL),
 		DNSNames:  append([]string{}, req.AdditionalPrincipals...),
 	}
@@ -884,7 +911,7 @@ func (s *AuthServer) ValidateToken(token string) (roles teleport.Roles, e error)
 	// First check if the token is a static token. If it is, return right away.
 	// Static tokens have no expiration.
 	for _, st := range tkns.GetStaticTokens() {
-		if st.Token == token {
+		if subtle.ConstantTimeCompare([]byte(st.Token), []byte(token)) == 1 {
 			return st.Roles, nil
 		}
 	}
@@ -1022,7 +1049,7 @@ func (s *AuthServer) DeleteToken(token string) (err error) {
 
 	// is this a static token?
 	for _, st := range tkns.GetStaticTokens() {
-		if st.Token == token {
+		if subtle.ConstantTimeCompare([]byte(st.Token), []byte(token)) == 1 {
 			return trace.BadParameter("token %s is statically configured and cannot be removed", token)
 		}
 	}
@@ -1070,12 +1097,12 @@ func (s *AuthServer) GetTokens() (tokens []services.ProvisionToken, err error) {
 	return tokens, nil
 }
 
-func (s *AuthServer) NewWebSession(username string) (services.WebSession, error) {
+func (s *AuthServer) NewWebSession(username string, roles []string, traits wrappers.Traits) (services.WebSession, error) {
 	user, err := s.GetUser(username)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	roles, err := services.FetchRoles(user.GetRoles(), s.Access, user.GetTraits())
+	checker, err := services.FetchRoles(roles, s.Access, traits)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -1084,12 +1111,13 @@ func (s *AuthServer) NewWebSession(username string) (services.WebSession, error)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	sessionTTL := roles.AdjustSessionTTL(defaults.CertDuration)
+	sessionTTL := checker.AdjustSessionTTL(defaults.CertDuration)
 	certs, err := s.generateUserCert(certRequest{
 		user:      user,
-		roles:     roles,
 		ttl:       sessionTTL,
 		publicKey: pub,
+		checker:   checker,
+		traits:    traits,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -1157,7 +1185,10 @@ func (a *AuthServer) DeleteRole(name string) error {
 	for _, u := range users {
 		for _, r := range u.GetRoles() {
 			if r == name {
-				return trace.BadParameter("role %v is used by user %v", name, u.GetName())
+				// Mask the actual error here as it could be used to enumerate users
+				// within the system.
+				log.Warnf("Failed to delete role: role %v is used by user %v.", name, u.GetName())
+				return trace.BadParameter("failed to delete role that still in use by a user. Check system server logs for more details.")
 			}
 		}
 	}
@@ -1170,7 +1201,10 @@ func (a *AuthServer) DeleteRole(name string) error {
 	for _, a := range cas {
 		for _, r := range a.GetRoles() {
 			if r == name {
-				return trace.BadParameter("role %v is used by user cert authority %v", name, a.GetClusterName())
+				// Mask the actual error here as it could be used to enumerate users
+				// within the system.
+				log.Warnf("Failed to delete role: role %v is used by user cert authority %v", name, a.GetClusterName())
+				return trace.BadParameter("failed to delete role that still in use by a user. Check system server logs for more details.")
 			}
 		}
 	}
