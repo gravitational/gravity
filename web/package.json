@@ -22,7 +22,7 @@
     "formik": "^1.3.2",
     "ip-subnet-calculator": "^1.1.8",
     "jquery": "3.4.1",
-    "lodash": "^4.17.11",
+    "lodash": "^4.17.15",
     "moment": "^2.22.1",
     "nuclear-js": "1.4.0",
     "react": "^16.8.4",
