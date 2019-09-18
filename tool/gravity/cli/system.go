@@ -215,17 +215,17 @@ func systemHistory(env *localenv.LocalEnvironment) error {
 	return nil
 }
 
-func systemReinstall(env *localenv.LocalEnvironment, newPackage loc.Locator, serviceName string, labels map[string]string) error {
+func systemReinstall(env *localenv.LocalEnvironment, newPackage loc.Locator, serviceName string, labels map[string]string, clusterRole string) error {
 	if serviceName == "" {
 		update := storage.PackageUpdate{
 			From:   newPackage,
 			To:     newPackage,
 			Labels: labels,
 		}
-		return trace.Wrap(systemBlockingReinstall(env, update))
+		return trace.Wrap(systemBlockingReinstall(env, update, clusterRole))
 	}
 
-	args := []string{"system", "reinstall", newPackage.String()}
+	args := []string{"system", "reinstall", newPackage.String(), "--cluster-role", clusterRole}
 	if len(labels) != 0 {
 		kvs := configure.KeyVal(labels)
 		args = append(args, "--labels", kvs.String())
@@ -238,10 +238,11 @@ func systemReinstall(env *localenv.LocalEnvironment, newPackage loc.Locator, ser
 	return nil
 }
 
-func systemBlockingReinstall(env *localenv.LocalEnvironment, update storage.PackageUpdate) error {
+func systemBlockingReinstall(env *localenv.LocalEnvironment, update storage.PackageUpdate, clusterRole string) error {
 	updater, err := system.New(system.Config{
-		Backend:  env.Backend,
-		Packages: env.Packages,
+		Backend:     env.Backend,
+		Packages:    env.Packages,
+		ClusterRole: clusterRole,
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -281,7 +282,7 @@ func applyUpdates(env *localenv.LocalEnvironment, updates []storage.PackageUpdat
 	var errors []error
 	for _, u := range updates {
 		env.Printf("Applying %v\n", u)
-		err := systemBlockingReinstall(env, u)
+		err := systemBlockingReinstall(env, u, "")
 		if err != nil {
 			log.WithFields(logrus.Fields{
 				"from": u.From,

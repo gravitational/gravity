@@ -593,6 +593,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.SystemReinstallCmd.Package = Locator(g.SystemReinstallCmd.Arg("pkg", "the package to generate unit file for").Required())
 	g.SystemReinstallCmd.ServiceName = g.SystemReinstallCmd.Flag("service-name", "optional service name to run operation from systemd unit").String()
 	g.SystemReinstallCmd.Labels = configure.KeyValParam(g.SystemReinstallCmd.Flag("labels", "labels to describe the package"))
+	g.SystemReinstallCmd.ClusterRole = g.SystemReinstallCmd.Flag("cluster-role", "optional cluster role of the current node").String()
 
 	g.SystemHistoryCmd.CmdClause = g.SystemCmd.Command("history", "list system update history").Hidden()
 

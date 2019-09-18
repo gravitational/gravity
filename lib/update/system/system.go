@@ -185,6 +185,8 @@ type Config struct {
 	Backend storage.Backend
 	// Packages specifies the local host package service
 	Packages update.LocalPackageService
+	// ClusterRole specifies cluster role of the node this system updater runs on
+	ClusterRole string
 	// FieldLogger specifies the logger
 	logrus.FieldLogger
 }
@@ -355,9 +357,12 @@ func (r *System) updateTeleportPackage(update storage.PackageUpdate) (labelUpdat
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	err = r.UpdateTctlScript(update.To)
-	if err != nil {
-		r.WithError(err).Error("Failed to update tctl script.")
+	// tctl has to be run on auth server nodes only.
+	if r.ClusterRole == defaults.RoleMaster {
+		err = r.UpdateTctlScript(update.To)
+		if err != nil {
+			r.WithError(err).Error("Failed to update tctl script.")
+		}
 	}
 	if update.ConfigPackage == nil {
 		return updates, nil
@@ -398,9 +403,9 @@ func (r *System) UpdateTctlScript(newPackage loc.Locator) error {
 // renderTctlScript renders the contents of the script that invokes tctl binary
 // with apporpriate configuration.
 func (r *System) renderTctlScript(newPackage loc.Locator) ([]byte, error) {
-	// First make up configuration for tctl, it only requires the data directory
-	// set. The data directory points to the location where Teleport masters
-	// embedded into gravity-sites store their data.
+	// First, make up configuration for tctl. It only requires the data_dir
+	// to be set. The data directory points to the location where teleport
+	// masters embedded into gravity-sites store their data on disk.
 	stateDir, err := state.GetStateDir()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -413,9 +418,9 @@ func (r *System) renderTctlScript(newPackage loc.Locator) ([]byte, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	// Now render the script which invokes the tctl binary from the specified
-	// Teleport package and passes configuration to it via base64-encoded
-	// environment variable.
+	// Now, render the script which invokes the tctl binary from the specified
+	// unpacked teleport package and passes configuration to it via environment
+	// variable as a base64-encoded string.
 	teleportPath, err := r.Packages.UnpackedPath(newPackage)
 	if err != nil {
 		return nil, trace.Wrap(err)
