@@ -913,31 +913,35 @@ Docker image and vendor it along with other dependencies. During the Cluster
 installation all nodes with the role `worker` will use the custom "planet" Docker
 image instead of the default one.
 
-## Support For Intermediate Upgrades
+## Direct Upgrades From Older LTS Versions
 
 Kubernetes has a strict version skew [support policy](https://kubernetes.io/docs/setup/release/version-skew-policy/#supported-version-skew) which makes
-cluster upgrades with versions of Kubernetes being more than a couple of minor versions apart complicated if not impossible. This can become a big issue
-if clusters are not kept constantly up-to-date.
+cluster upgrades to versions of Kubernetes being more than a couple of minor versions apart complicated if not impossible, hence
+upgrading such a cluster to the version of Kubernetes that would break the version skew policy is not recommended. This can become a big issue if
+clusters are not kept up-to-date.
 
-Before, the way to upgrade such a cluster had been upgrading by using cluster images with compatible Kubernetes versions in lock step
-until the target image has been applied. This is a time-consuming and not automation-friendly process.
+To correctly upgrade such a cluster, it first needs to be upgraded to a cluster image with a compatible version of Kubernetes (according to the version
+skew policy). This step should be repeated until the cluster has been upgraded to the target version.
 
-Starting with version `5.5.20`, installers built with `tele` can embed all intermediate versions of Kubernetes necessary to automatically upgrade older
-clusters.
+For example, to upgrade a cluster based on Gravity `5.0.35` (which is based on Kubernetes `1.9.13`) to a cluster based on Gravity `5.5.20` (which
+is based on Kubernetes `1.13.10`), the cluster needs to be upgraded to Gravity version `5.2.15` (with Kubernetes `1.11.9`) first before upgrading
+to `5.5.20`.
 
-In order to enable intermediate upgrade support, `tele build` should be supplied with a list of Gravity runtime versions to use as intermediate hops.
-For example, to upgrade a cluster based on Gravity `5.0.35` (which is based on Kubernetes `1.9.13`) to a cluster based on Gravity `5.5.20` (which, in turn,
-is based on Kubernetes `1.13.10`), the following flag adds an intermediate step based on Gravity `5.2.15` (which is based on Kubernetes `1.11.9`):
+Since version `5.5.20` `tele` is capable of producing cluster image tarballs that can upgrade such clusters directly by embedding all the required
+intermediate versions of Kubernetes.
+
+For example, the following command embeds the intermediate Kubernetes from Gravity runtime `5.2.15` which will allow direct upgrades of clusters
+based on Gravity version `5.0.x`:
 
 ```bash
 $ tele build ... --upgrade-via=5.2.15
 ```
 
 !!! note "Intermediate Upgrade Support":
-    Only LTS versions of Gravity can be used as intermediate upgrade hops.
+    Check [Releases](/changelog) page to see which LTS versions are available as intermediate hops.
+    The final upgrade version does not have to be LTS.
 
 
 !!! note:
-    Upgrades with support for intermediate Kubernetes runtimes is available since Gravity version `5.5.20`.
-    Gravity version `5.2.15` and later can be used as an intermediate upgrade hop.
-    The Gravity version `6.x` will receive support for intermediate upgrades in near future.
+    Direct upgrades from older versions is available since Gravity version `5.5.20`.
+    Newer Gravity versions will receive support for direct upgrades in the near future.
