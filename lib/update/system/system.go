@@ -37,13 +37,13 @@ import (
 	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/update"
 	"github.com/gravitational/gravity/lib/utils"
-	"gopkg.in/yaml.v2"
 
 	"github.com/docker/docker/pkg/archive"
 	"github.com/gravitational/satellite/agent/proto/agentpb"
 	teleconfig "github.com/gravitational/teleport/lib/config"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
+	"gopkg.in/yaml.v2"
 )
 
 // New returns a new system updater
@@ -357,7 +357,7 @@ func (r *System) updateTeleportPackage(update storage.PackageUpdate) (labelUpdat
 	}
 	err = r.UpdateTctlScript(update.To)
 	if err != nil {
-		return nil, trace.Wrap(err)
+		r.WithError(err).Error("Failed to update tctl script.")
 	}
 	if update.ConfigPackage == nil {
 		return updates, nil
@@ -383,14 +383,16 @@ func (r *System) UpdateTctlScript(newPackage loc.Locator) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	var errors []error
 	for _, path := range []string{defaults.TctlBin, defaults.TctlBinAlternate} {
 		err = utils.CopyExecutable(path, bytes.NewReader(scriptBytes))
 		if err == nil {
 			r.WithField("path", path).Info("Updated tctl script.")
 			return nil
 		}
+		errors = append(errors, err)
 	}
-	return trace.Wrap(err)
+	return trace.NewAggregate(errors...)
 }
 
 // renderTctlScript renders the contents of the script that invokes tctl binary

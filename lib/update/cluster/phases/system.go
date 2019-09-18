@@ -113,7 +113,6 @@ func (p *updatePhaseSystem) Execute(ctx context.Context) error {
 			To: p.Server.Runtime.Update.ConfigPackage,
 		}
 	}
-	teleportPackage := p.Server.Teleport.Installed
 	if p.Server.Teleport.Update != nil {
 		// Consider teleport update only in effect when the update package
 		// has been specified. This is in contrast to runtime update, when
@@ -125,7 +124,6 @@ func (p *updatePhaseSystem) Execute(ctx context.Context) error {
 				To: p.Server.Teleport.Update.NodeConfigPackage,
 			},
 		}
-		teleportPackage = p.Server.Teleport.Update.Package
 	}
 	if p.Server.Runtime.SecretsPackage != nil {
 		config.RuntimeSecrets = &storage.PackageUpdate{
@@ -140,7 +138,11 @@ func (p *updatePhaseSystem) Execute(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = updater.UpdateTctlScript(teleportPackage)
+	// Regardless of whether the teleport itself is being updated or not,
+	// update the tctl script to make sure it is present when upgrading
+	// from older versions and also to account for any possible changes
+	// made to the script itself.
+	err = updater.UpdateTctlScript(p.Server.Teleport.Package())
 	if err != nil {
 		return trace.Wrap(err)
 	}
