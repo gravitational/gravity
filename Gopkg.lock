@@ -885,7 +885,7 @@
 
 [[projects]]
   branch = "branch/3.0-g"
-  digest = "1:bf5e14e016e5cceb1b2f7eda1f1a455021c333becd28dd986764cf9bbc7659bb"
+  digest = "1:751217e18d5aefd6658ccd402efe87f338f07ebd3832f6ea955f40e8d43df963"
   name = "github.com/gravitational/teleport"
   packages = [
     ".",
@@ -937,18 +937,19 @@
     "lib/utils/parse",
     "lib/utils/proxy",
     "lib/web",
-    "lib/web/ui"
+    "lib/web/ui",
+    "lib/wrappers"
   ]
   pruneopts = "UT"
-  revision = "8d626fcff656a0fca570e9b0dd919b8e4e4709eb"
+  revision = "3a1108b34670f51c8a48d306635ff4fb1e1fbd6e"
 
 [[projects]]
-  digest = "1:afb36747f009e72637bdf1b3f5d27f3c1d5e1fc5478fc4aba2a33e40e8829dee"
+  digest = "1:418247f700939c99867b42639d985686ba229fd9f8ee9e119c7cc3ffde6e0fe3"
   name = "github.com/gravitational/trace"
   packages = ["."]
   pruneopts = "UT"
-  revision = "a5c40b57db7203332a073f20771214d0eeb2a168"
-  version = "1.1.7"
+  revision = "a535a178675fb4a11ba74818491754a8c5575dd6"
+  version = "1.1.8"
 
 [[projects]]
   digest = "1:841d5835e94129658adabece66a4cc54d2cec9a40fa8b51743ea35d0519dd6c2"
