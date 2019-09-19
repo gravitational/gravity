@@ -260,4 +260,7 @@ var (
 	// WebAssetsPackageLocator is the package with web assets
 	WebAssetsPackageLocator = MustParseLocator(
 		fmt.Sprintf("%v/%v:%v", defaults.SystemAccountOrg, "web-assets", ZeroVersion))
+
+	// BaseVersion defines the base version of a package
+	BaseVersion = semver.New("0.0.1")
 )
