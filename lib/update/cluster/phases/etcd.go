@@ -128,7 +128,7 @@ func NewPhaseUpgradeEtcdShutdown(phase storage.OperationPhase, client *kubeapi.C
 
 func (p *PhaseUpgradeEtcdShutdown) Execute(ctx context.Context) error {
 	p.Info("Shutdown etcd.")
-	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "disable")
+	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "disable", "--stop-api")
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -297,7 +297,7 @@ func (p *PhaseUpgradeEtcdRestart) Execute(ctx context.Context) error {
 
 func (p *PhaseUpgradeEtcdRestart) Rollback(ctx context.Context) error {
 	p.Info("Reenable etcd upgrade service.")
-	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "disable")
+	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "disable", "--stop-api")
 	if err != nil {
 		return trace.Wrap(err)
 	}
