@@ -401,7 +401,7 @@ func (r *System) UpdateTctlScript(newPackage loc.Locator) error {
 }
 
 // renderTctlScript renders the contents of the script that invokes tctl binary
-// with apporpriate configuration.
+// with appropriate configuration.
 func (r *System) renderTctlScript(newPackage loc.Locator) ([]byte, error) {
 	// First, make up configuration for tctl. It only requires the data_dir
 	// to be set. The data directory points to the location where teleport

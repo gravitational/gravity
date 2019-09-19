@@ -225,10 +225,13 @@ func systemReinstall(env *localenv.LocalEnvironment, newPackage loc.Locator, ser
 		return trace.Wrap(systemBlockingReinstall(env, update, clusterRole))
 	}
 
-	args := []string{"system", "reinstall", newPackage.String(), "--cluster-role", clusterRole}
+	args := []string{"system", "reinstall", newPackage.String()}
 	if len(labels) != 0 {
 		kvs := configure.KeyVal(labels)
 		args = append(args, "--labels", kvs.String())
+	}
+	if clusterRole != "" {
+		args = append(args, "--cluster-role", clusterRole)
 	}
 	err := service.ReinstallOneshotSimple(serviceName, args...)
 	if err != nil {
