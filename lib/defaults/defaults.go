@@ -314,6 +314,13 @@ const (
 	// PlanetBin is the default location of planet binary
 	PlanetBin = "/usr/bin/planet"
 
+	// TctlBin is the default location of tctl binary
+	TctlBin = "/usr/bin/tctl"
+
+	// TctlBinAlternate is the alternative location of tctl binary on systems
+	// where /usr/bin/ is not writable
+	TctlBinAlternate = "/writable/bin/tctl"
+
 	// WaitForEtcdScript is the path to the planet wait for etcd to be available script
 	WaitForEtcdScript = "/usr/bin/scripts/wait-for-etcd.sh"
 
@@ -377,6 +384,9 @@ const (
 	// SiteDir is the gravity subdirectory where cluster data is stored
 	SiteDir = "site"
 
+	// TeleportDir is the gravity subdirectory where teleport data is stored
+	TeleportDir = "teleport"
+
 	// UnpackedDir is the default named of the directory with
 	// unpacked package archives
 	UnpackedDir = "unpacked"
@@ -410,6 +420,9 @@ const (
 
 	// BackupDir is the directory where some operations store backup data
 	BackupDir = "backup"
+
+	// RootfsDir is the common rootfs directory name
+	RootfsDir = "rootfs"
 
 	// StateRegistryDir is the name of the docker registry directory inside the planet state directory
 	StateRegistryDir = "registry"

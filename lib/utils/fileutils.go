@@ -273,6 +273,12 @@ func CopyFileWithPerms(dst, src string, perm os.FileMode) error {
 	return CopyReaderWithPerms(dst, in, perm)
 }
 
+// CopyExecutable copies the provided reader to the specified destination and
+// sets executable permissions.
+func CopyExecutable(dst string, src io.Reader) error {
+	return CopyReaderWithPerms(dst, src, defaults.SharedExecutableMask)
+}
+
 // CopyReaderWithPerms copies the contents from src to dst atomically.
 // If dst does not exist, CopyReaderWithPerms creates it with permissions perm.
 // If the copy fails, CopyReaderWithPerms aborts and dst is preserved.
