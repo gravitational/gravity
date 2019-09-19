@@ -33,6 +33,7 @@ import (
 	"github.com/gravitational/gravity/lib/storage/keyval"
 	"github.com/gravitational/gravity/lib/transfer"
 
+	"github.com/coreos/go-semver/semver"
 	telecfg "github.com/gravitational/teleport/lib/config"
 	teledefaults "github.com/gravitational/teleport/lib/defaults"
 	"github.com/gravitational/trace"
@@ -112,7 +113,11 @@ func (i *importer) Close() error {
 func (i *importer) getTeleportConfig() (*telecfg.FileConfig, error) {
 	var configPackage *loc.Locator
 	err := pack.ForeachPackage(i.packages, func(e pack.PackageEnvelope) error {
-		if e.Locator.Name == constants.TeleportMasterConfigPackage {
+		ok, err := isTeleportConfigPackage(e.Locator)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		if ok {
 			configPackage = &e.Locator
 		}
 		return nil
@@ -227,4 +232,23 @@ func (i *importer) importSite(b storage.Backend) error {
 		return trace.Wrap(err)
 	}
 	return nil
+}
+
+func isTeleportConfigPackage(configPackage loc.Locator) (bool, error) {
+	if configPackage.Name != constants.TeleportMasterConfigPackage {
+		return false, nil
+	}
+	ver, err := configPackage.SemVer()
+	if err != nil {
+		return false, trace.Wrap(err)
+	}
+	baseVersion := semver.Version{
+		Major: ver.Major,
+		Minor: ver.Minor,
+		Patch: ver.Patch,
+	}
+	if baseVersion.Compare(*loc.BaseVersion) != 0 {
+		return false, nil
+	}
+	return true, nil
 }
