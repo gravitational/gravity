@@ -112,7 +112,7 @@ func streamRuntimeJournal(env *localenv.LocalEnvironment) error {
 	}
 
 	rootDir := filepath.Join(runtimePath, "rootfs")
-	err = system.DropCapabilitiesForChroot()
+	err = system.DropCapabilitiesForJournalExport()
 	if err != nil {
 		return trace.Wrap(err)
 	}
