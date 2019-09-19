@@ -87,8 +87,21 @@ func appPackage(env *localenv.LocalEnvironment) error {
 	return nil
 }
 
-func uploadUpdate(env *localenv.LocalEnvironment, opsURL, dataDir string) error {
-	clusterOperator, err := env.SiteOperator()
+func uploadUpdate(_ *localenv.LocalEnvironment, opsURL, dataDir string) error {
+	// Create local environment with explicit gravity state directory since the env
+	// might be pointing to the current working directory in case of the old upload
+	// script
+	localStateDir, err := localenv.LocalGravityDir()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	defaultEnv, err := localenv.New(localStateDir)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	clusterOperator, err := defaultEnv.SiteOperator()
 	if err != nil {
 		return trace.Wrap(err, "unable to access cluster.\n"+
 			"Use 'gravity status' to check the cluster state and make sure "+
@@ -120,12 +133,12 @@ func uploadUpdate(env *localenv.LocalEnvironment, opsURL, dataDir string) error 
 		return trace.Wrap(err)
 	}
 
-	clusterPackages, err := env.ClusterPackages()
+	clusterPackages, err := defaultEnv.ClusterPackages()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	clusterApps, err := env.SiteApps()
+	clusterApps, err := defaultEnv.SiteApps()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -144,7 +157,7 @@ func uploadUpdate(env *localenv.LocalEnvironment, opsURL, dataDir string) error 
 		return trace.Wrap(err)
 	}
 
-	env.PrintStep("Importing cluster image %v v%v", appPackage.Name, appPackage.Version)
+	defaultEnv.PrintStep("Importing cluster image %v v%v", appPackage.Name, appPackage.Version)
 	puller := libapp.Puller{
 		FieldLogger: log.WithField(trace.Component, "pull"),
 		SrcPack:     tarballEnv.Packages,
@@ -163,12 +176,12 @@ func uploadUpdate(env *localenv.LocalEnvironment, opsURL, dataDir string) error 
 		PackService: clusterPackages,
 		AppService:  clusterApps,
 	}
-	err = syncAppWithCluster(context.TODO(), env, *cluster, *appPackage, syncer)
+	err = syncAppWithCluster(context.TODO(), defaultEnv, *cluster, *appPackage, syncer)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	env.PrintStep("Cluster image has been uploaded")
+	defaultEnv.PrintStep("Cluster image has been uploaded")
 	return nil
 }
 
