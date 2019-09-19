@@ -38,8 +38,8 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 * Upgrade Kubernetes to `v1.15.4` (CVE-2019-11251).
 * Upgrade Teleport to `3.2.12`.
-* Addresses several issues with cluster stability after etcd upgrades.
-* Fixes a vulnerability in the decompression of application bundles.
+* Address several issues with cluster stability after etcd upgrades.
+* Fix a vulnerability in the decompression of application bundles.
 
 !!! warning
     This release fixes a security vulnerability in kubernetes. Please see
@@ -55,8 +55,8 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 * Upgrade Kubernetes to `v1.14.7` (CVE-2019-11251).
 * Upgrade Teleport to `3.2.12`.
-* Addresses several issues with cluster stability after etcd upgrades.
-* Fixes a vulnerability in the decompression of application bundles.
+* Address several issues with cluster stability after etcd upgrades.
+* Fix a vulnerability in the decompression of application bundles.
 
 !!! warning
     This release fixes a security vulnerability in kubernetes. Please see
@@ -281,8 +281,8 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 * Upgrade Kubernetes to `v1.14.7` (CVE-2019-11251).
 * Upgrade Teleport to `3.0.6-gravity`.
-* Addresses several issues with cluster stability after etcd upgrades.
-* Fixes a vulnerability in the decompression of application bundles.
+* Address several issues with cluster stability after etcd upgrades.
+* Fix a vulnerability in the decompression of application bundles.
 
 !!! warning
     This release fixes a security vulnerability in kubernetes. Please see
@@ -298,8 +298,8 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 * Upgrade Kubernetes to `v1.13.11` (CVE-2019-11251).
 * Upgrade Teleport to `3.0.6-gravity`.
-* Addresses several issues with cluster stability after etcd upgrades.
-* Fixes a vulnerability in the decompression of application bundles.
+* Address several issues with cluster stability after etcd upgrades.
+* Fix a vulnerability in the decompression of application bundles.
 
 !!! warning
     This release fixes a security vulnerability in kubernetes. Please see
