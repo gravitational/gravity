@@ -292,7 +292,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     This release fixes a security vulnerability in teleport. Please see
     [Teleport Announcement](https://github.com/gravitational/teleport/releases/tag/v4.0.5) for more information.
 
-### 5.6.20 (September 18th, 2019)
+### 5.5.20 (September 18th, 2019)
 
 #### Bugfixes
 
