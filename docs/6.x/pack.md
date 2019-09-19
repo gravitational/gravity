@@ -923,19 +923,21 @@ clusters are not kept up-to-date.
 To correctly upgrade such a cluster, it first needs to be upgraded to a cluster image with a compatible version of Kubernetes (according to the version
 skew policy). This step should be repeated until the cluster has been upgraded to the target version.
 
-For example, to upgrade a cluster based on Gravity `5.0.35` (which is based on Kubernetes `1.9.13`) to a cluster based on Gravity `5.5.20` (which
-is based on Kubernetes `1.13.10`), the cluster needs to be upgraded to Gravity version `5.2.15` (with Kubernetes `1.11.9`) first before upgrading
-to `5.5.20`.
+For example, to upgrade a cluster based on Gravity `5.0.35` (which is based on Kubernetes `1.9.13`) to a cluster based on Gravity `5.5.21` (which
+is based on Kubernetes `1.13.11`), the cluster needs to be upgraded to Gravity version `5.2.15` (with Kubernetes `1.11.9`) first before upgrading
+to `5.5.21`.
 
-Since version `5.5.20` `tele` is capable of producing cluster image tarballs that can upgrade such clusters directly by embedding all the required
+Since version `5.5.21` `tele` is capable of producing cluster image tarballs that can upgrade such clusters directly by embedding all the required
 intermediate versions of Kubernetes.
 
-For example, the following command embeds the intermediate Kubernetes from Gravity runtime `5.2.15` which will allow direct upgrades of clusters
+For example, the following command embeds Kubernetes runtime from Gravity version `5.2.15` which will allow direct upgrades of clusters
 based on Gravity version `5.0.x`:
 
 ```bash
 $ tele build ... --upgrade-via=5.2.15
 ```
+
+The flag can be specified multiple times to add as many intermediate hops as required.
 
 !!! note "Intermediate Upgrade Support":
     Check [Releases](/changelog) page to see which LTS versions are available as intermediate hops.
@@ -943,5 +945,5 @@ $ tele build ... --upgrade-via=5.2.15
 
 
 !!! note:
-    Direct upgrades from older versions is available since Gravity version `5.5.20`.
+    Direct upgrades from older versions is available since Gravity version `5.5.21`.
     Newer Gravity versions will receive support for direct upgrades in the near future.
