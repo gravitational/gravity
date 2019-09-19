@@ -433,11 +433,15 @@ func (t *teleportProxyService) getTLSConfig(clusterName string) (*tls.Config, er
 		Username: constants.OpsCenterUser,
 		Groups:   []string{defaults.SystemAccountOrg},
 	}
+	subject, err := identity.Subject()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	cert, err := tlsAuthority.GenerateCertificate(
 		tlsca.CertificateRequest{
 			Clock:     clockwork.NewRealClock(),
 			PublicKey: cryptoPublicKey,
-			Subject:   identity.Subject(),
+			Subject:   subject,
 			NotAfter:  time.Now().UTC().Add(defaults.CertTTL),
 		})
 	if err != nil {
