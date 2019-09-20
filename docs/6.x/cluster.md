@@ -925,7 +925,7 @@ hooks:
             restartPolicy: OnFailure
             containers:
               - name: hook
-                image: quay.io/gravitational/debian-tall:stretch
+                image: quay.io/gravitational/debian-tall:buster
                 command:
                   - "/bin/sh"
                   - "-c"
@@ -944,7 +944,7 @@ hooks:
             restartPolicy: OnFailure
             containers:
               - name: hook
-                image: quay.io/gravitational/debian-tall:stretch
+                image: quay.io/gravitational/debian-tall:buster
                 command:
                   - "/usr/local/bin/kubectl"
                   - "apply"
