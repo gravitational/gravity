@@ -51,11 +51,25 @@ func UninstallSystem(printer utils.Printer, logger log.FieldLogger) (err error) 
 	if err := removeInterfaces(printer); err != nil {
 		errors = append(errors, err)
 	}
-	pathsToRemove := append(getStateDirectories(), state.GravityBinPaths...)
+	pathsToRemove := getPathsToRemove()
 	if err := removePaths(printer, logger, pathsToRemove...); err != nil {
 		errors = append(errors, err)
 	}
 	return trace.NewAggregate(errors...)
+}
+
+// getPathsToRemove returns a list of paths to gravity artifacts that need
+// to be cleaned up on the system.
+func getPathsToRemove() []string {
+	return append(getStateDirectories(),
+		defaults.GravityBin,
+		defaults.GravityBinAlternate,
+		defaults.KubectlBin,
+		defaults.KubectlBinAlternate,
+		defaults.HelmBin,
+		defaults.HelmBinAlternate,
+		defaults.TctlBin,
+		defaults.TctlBinAlternate)
 }
 
 // CleanupOperationState removes all operation state after the operation is complete

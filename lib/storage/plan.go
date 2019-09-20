@@ -187,6 +187,15 @@ type TeleportPackage struct {
 	Update *TeleportUpdate `json:"update,omitempty"`
 }
 
+// Package returns either the updated teleport package locator if it's not
+// empty, or the installed one.
+func (p TeleportPackage) Package() loc.Locator {
+	if p.Update != nil {
+		return p.Update.Package
+	}
+	return p.Installed
+}
+
 // TeleportUpdate describes an update to the teleport package
 type TeleportUpdate struct {
 	// Package identifies the package to update to.
