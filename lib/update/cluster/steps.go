@@ -205,9 +205,10 @@ func (r phaseBuilder) intermediateConfigUpdates(
 		}
 		if updateTeleport != nil {
 			_, nodeConfig, err := operator.RotateTeleportConfig(ops.RotateTeleportConfigRequest{
-				Key:    r.operation.Key(),
-				Server: server,
-				DryRun: true,
+				Key:             r.operation.Key(),
+				Server:          server,
+				TeleportPackage: *updateTeleport,
+				DryRun:          true,
 			})
 			if err != nil {
 				return nil, trace.Wrap(err)
@@ -287,9 +288,10 @@ func (r phaseBuilder) configUpdates(
 		}
 		if needsTeleportUpdate {
 			_, nodeConfig, err := r.operator.RotateTeleportConfig(ops.RotateTeleportConfigRequest{
-				Key:    r.operation.Key(),
-				Server: server,
-				DryRun: true,
+				Key:             r.operation.Key(),
+				Server:          server,
+				TeleportPackage: r.updateTeleport,
+				DryRun:          true,
 			})
 			if err != nil {
 				return nil, trace.Wrap(err)

@@ -404,7 +404,12 @@ func (p *Process) getTeleportConfigFromImportState() (*telecfg.FileConfig, error
 		return nil, nil
 	}
 
-	importer, err := newImporter(p.cfg.ImportDir)
+	cluster, err := p.operator.GetLocalSite()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	importer, err := newImporter(p.cfg.ImportDir, *cluster)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -430,8 +435,13 @@ func (p *Process) ImportState(importDir string) (err error) {
 		return nil
 	}
 
+	cluster, err := p.operator.GetLocalSite()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
 	p.Debugf("Init from %q.", importDir)
-	importer, err := newImporter(importDir)
+	importer, err := newImporter(importDir, *cluster)
 	if err != nil {
 		return trace.Wrap(err)
 	}

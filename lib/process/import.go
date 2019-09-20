@@ -27,14 +27,16 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
+	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/pack/localpack"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/keyval"
 	"github.com/gravitational/gravity/lib/transfer"
+
+	"github.com/coreos/go-semver/semver"
 	telecfg "github.com/gravitational/teleport/lib/config"
 	teledefaults "github.com/gravitational/teleport/lib/defaults"
-
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
 )
@@ -45,11 +47,12 @@ type importer struct {
 	packages      pack.PackageService
 	exportPackage *loc.Locator
 	dir           string
+	cluster       ops.Site
 	// FieldLogger is used for logging
 	logrus.FieldLogger
 }
 
-func newImporter(dir string) (*importer, error) {
+func newImporter(dir string, cluster ops.Site) (*importer, error) {
 	if dir == "" {
 		return nil, trace.BadParameter("missing directory with packages")
 	}
@@ -63,10 +66,12 @@ func newImporter(dir string) (*importer, error) {
 	i := &importer{
 		backend: backend,
 		dir:     dir,
+		cluster: cluster,
 		FieldLogger: logrus.WithFields(logrus.Fields{
 			trace.Component:    "importer",
 			constants.FieldDir: dir,
-		})}
+		}),
+	}
 	err = func() error {
 		objects, err := fs.New(filepath.Join(dir, defaults.PackagesDir))
 		if err != nil {
@@ -110,13 +115,16 @@ func (i *importer) Close() error {
 
 // getMasterTeleportConfig extracts configuration from teleport package
 func (i *importer) getMasterTeleportConfig() (*telecfg.FileConfig, error) {
-	configPackage, err := pack.FindLatestPackageByName(i.packages,
-		constants.TeleportMasterConfigPackage)
+	configPackage, err := pack.FindLatestPackageCustom(pack.FindLatestPackageRequest{
+		Packages:   i.packages,
+		Repository: i.cluster.Domain,
+		Match:      matchTeleportConfigPackage,
+	})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	i.Infof("Using teleport master config from %v.", configPackage)
+	i.WithField("package", configPackage).Info("Use teleport master config.")
 
 	_, reader, err := i.packages.ReadPackage(*configPackage)
 	if err != nil {
@@ -222,4 +230,26 @@ func (i *importer) importSite(b storage.Backend) error {
 		return trace.Wrap(err)
 	}
 	return nil
+}
+
+func matchTeleportConfigPackage(teleportVersion semver.Version) pack.MatchFunc {
+	return func(env pack.PackageEnvelope) bool {
+		if !env.HasLabel(pack.PurposeLabel, pack.PurposeTeleportMasterConfig) {
+			return false
+		}
+		ver, err := env.Locator.SemVer()
+		if err != nil {
+			logrus.WithFields(logrus.Fields{
+				logrus.ErrorKey: err,
+				"package":       env.Locator,
+			}).Warn("Invalid semver.")
+			return false
+		}
+		verBase := semver.Version{
+			Major: ver.Major,
+			Minor: ver.Minor,
+			Patch: ver.Patch,
+		}
+		return verBase.Compare(teleportVersion) == 0
+	}
 }

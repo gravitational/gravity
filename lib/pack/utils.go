@@ -384,20 +384,6 @@ func FindLatestPackage(packages PackageService, filter loc.Locator) (*loc.Locato
 	return loc, trace.Wrap(err)
 }
 
-// FindLatestPackageByName returns latest package with the specified name (across all repositories)
-func FindLatestPackageByName(packages PackageService, name string) (*loc.Locator, error) {
-	loc, err := FindLatestPackageCustom(FindLatestPackageRequest{
-		Packages: packages,
-		Match: func(e PackageEnvelope) bool {
-			return e.Locator.Name == name
-		}},
-	)
-	if err != nil && trace.IsNotFound(err) {
-		return nil, trace.NotFound("latest package with name %q not found", name)
-	}
-	return loc, trace.Wrap(err)
-}
-
 // FindLatestPackageCustom searches for the latest version of the package given with req
 func FindLatestPackageCustom(req FindLatestPackageRequest) (pkg *loc.Locator, err error) {
 	if err := req.checkAndSetDefaults(); err != nil {
