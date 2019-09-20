@@ -32,7 +32,15 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// PullApp pulls the specified application and its dependencies
+// PullApp pulls the specified application and its dependencies.
+//
+// When an application is pulled (or pushed) from a service, the behavior regarding
+// the conflicts is as following:
+//  * if a dependent (application) package already exists in the destination service,
+//    the operation does nothing or upserts the package (subject to upsert attribute)
+//  * if the top-level application package already exists in the destination service,
+//    the operation will ether fail with the corresponding error or upsert the package
+//    (subject to upsert attribute)
 func (r Puller) PullApp(ctx context.Context, loc loc.Locator) error {
 	if err := r.checkAndSetDefaults(); err != nil {
 		return trace.Wrap(err)
@@ -49,13 +57,13 @@ func (r Puller) PullApp(ctx context.Context, loc loc.Locator) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	r.onConflict = onConflictDependencies(r.Upsert)
+	r.OnConflict = GetDependencyConflictHandler(r.Upsert)
 	err = r.pull(ctx, *deps)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	// Pull the application
-	r.onConflict = onConflict(r.Upsert)
+	r.OnConflict = GetConflictHandler(r.Upsert)
 	return r.pullAppWithRetries(ctx, app.Package)
 }
 
@@ -65,6 +73,14 @@ func (r Puller) PullPackage(ctx context.Context, loc loc.Locator) error {
 		return trace.Wrap(err)
 	}
 	return r.pullPackageWithRetries(ctx, loc)
+}
+
+// PullAppPackage pulls the application package specified with loc
+func (r Puller) PullAppPackage(ctx context.Context, loc loc.Locator) error {
+	if err := r.checkAndSetDefaults(); err != nil {
+		return trace.Wrap(err)
+	}
+	return r.pullAppWithRetries(ctx, loc)
 }
 
 // PullAppDeps pulls only dependencies of the specified application
@@ -139,17 +155,17 @@ type Puller struct {
 	// If < 0, the number of tasks is unrestricted.
 	// If in [0,1], the tasks are executed sequentially.
 	Parallel int
-	// onConflict specifies the package conflict handler for when the package already
+	// OnConflict specifies the package conflict handler for when the package already
 	// exists in DstPack.
-	onConflict conflictHandler
+	OnConflict ConflictHandler
 }
 
 func (r *Puller) checkAndSetDefaults() error {
 	if r.FieldLogger == nil {
 		r.FieldLogger = logrus.WithField(trace.Component, "pull")
 	}
-	if r.onConflict == nil {
-		r.onConflict = onConflict(r.Upsert)
+	if r.OnConflict == nil {
+		r.OnConflict = GetConflictHandler(r.Upsert)
 	}
 	return nil
 }
@@ -177,7 +193,7 @@ func (r Puller) pullPackage(loc loc.Locator) error {
 		return trace.Wrap(err)
 	}
 	if err == nil {
-		err = r.onConflict(loc)
+		err = r.OnConflict(loc)
 		if utils.IsAbortError(err) {
 			return nil
 		}
@@ -252,7 +268,7 @@ func (r Puller) pullApp(loc loc.Locator) error {
 	}
 	logger := r.WithField("app", loc)
 	if app != nil && !upsert {
-		err = r.onConflict(loc)
+		err = r.OnConflict(loc)
 		if utils.IsAbortError(err) {
 			return nil
 		}
@@ -289,22 +305,18 @@ func (r Puller) pullApp(loc loc.Locator) error {
 	return trace.Wrap(err)
 }
 
-// onConflictDependencies returns the conflict handler for dealing with package
-// conflicts in application dependencies. When an application is pulled (or pushed)
-// from a service, the behavior regarding the conflicts is as following:
-//  * if a dependent (application) package already exists in the destination service,
-//    the operation does nothing or upserts the package (subject to upsert attribute)
-//  * if the top-level application package already exists in the destination service,
-//    the operation will ether fail with the corresponding error or upsert the package
-//    (subject to upsert attribute)
-func onConflictDependencies(upsert bool) conflictHandler {
+// GetDependencyConflictHandler returns the conflict handler that ignores package
+// conflicts (subject to specified upsert flag)
+func GetDependencyConflictHandler(upsert bool) ConflictHandler {
 	if upsert {
 		return onConflictContinue
 	}
 	return onConflictSkip
 }
 
-func onConflict(upsert bool) conflictHandler {
+// GetConflictHandler returns the conflict handler that fails for package
+// conflicts (subject to specified upsert flag)
+func GetConflictHandler(upsert bool) ConflictHandler {
 	if upsert {
 		return onConflictContinue
 	}
@@ -329,10 +341,10 @@ func onConflictSkip(loc loc.Locator) error {
 	return utils.Abort(nil)
 }
 
-// conflictHandler defines a functional handler to decide whether the active
+// ConflictHandler defines a functional handler to decide whether the active
 // pull operation is aborted if the specified package already exists in the
 // destination package service.
 // If the return is nil, the pull operation continues.
 // If the return is a special utils.Abort error, the pull operation is aborted without error.
 // If the return is any other error, the pull operation is aborted with said error.
-type conflictHandler func(loc.Locator) error
+type ConflictHandler func(loc.Locator) error

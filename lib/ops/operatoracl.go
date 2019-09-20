@@ -657,7 +657,7 @@ func (o *OperatorACL) ConfigurePackages(req ConfigurePackagesRequest) error {
 }
 
 func (o *OperatorACL) RotateSecrets(req RotateSecretsRequest) (*RotatePackageResponse, error) {
-	if err := o.ClusterAction(req.ClusterName, storage.KindCluster, teleservices.VerbUpdate); err != nil {
+	if err := o.ClusterAction(req.Key.SiteDomain, storage.KindCluster, teleservices.VerbUpdate); err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return o.operator.RotateSecrets(req)

@@ -72,7 +72,7 @@ func (r *updateConfig) Execute(ctx context.Context) error {
 			Server:         update.Server,
 			Manifest:       r.manifest,
 			RuntimePackage: update.Runtime.Update.Package,
-			Locator:        &update.Runtime.Update.ConfigPackage,
+			Package:        &update.Runtime.Update.ConfigPackage,
 			Config:         r.operation.UpdateConfig.Config,
 		}
 		resp, err := r.operator.RotatePlanetConfig(req)
