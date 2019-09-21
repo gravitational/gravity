@@ -208,6 +208,14 @@ func OperationKey(plan storage.OperationPlan) ops.SiteOperationKey {
 	}
 }
 
+// ClusterKey returns the cluster key for the specified operation plan
+func ClusterKey(plan storage.OperationPlan) ops.SiteKey {
+	return ops.SiteKey{
+		AccountID:  plan.AccountID,
+		SiteDomain: plan.ClusterName,
+	}
+}
+
 func addPhases(phase *storage.OperationPhase, result *[]*storage.OperationPhase) {
 	// add the phase itself
 	*result = append(*result, phase)

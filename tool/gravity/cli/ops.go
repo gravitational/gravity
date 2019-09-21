@@ -96,12 +96,12 @@ func uploadUpdate(_ *localenv.LocalEnvironment, opsURL, dataDir string) error {
 		return trace.Wrap(err)
 	}
 
-	defaultEnv, err := localenv.New(localStateDir)
+	env, err := localenv.New(localStateDir)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	clusterOperator, err := defaultEnv.SiteOperator()
+	clusterOperator, err := env.SiteOperator()
 	if err != nil {
 		return trace.Wrap(err, "unable to access cluster.\n"+
 			"Use 'gravity status' to check the cluster state and make sure "+
@@ -133,12 +133,12 @@ func uploadUpdate(_ *localenv.LocalEnvironment, opsURL, dataDir string) error {
 		return trace.Wrap(err)
 	}
 
-	clusterPackages, err := defaultEnv.ClusterPackages()
+	clusterPackages, err := env.ClusterPackages()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	clusterApps, err := defaultEnv.SiteApps()
+	clusterApps, err := env.SiteApps()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -152,12 +152,17 @@ func uploadUpdate(_ *localenv.LocalEnvironment, opsURL, dataDir string) error {
 		return trace.Wrap(err)
 	}
 
-	deps, err := getUploadDependencies(tarballEnv, *appPackage, *installedRuntimeVersion)
+	app, err := tarballEnv.Apps.GetApp(*appPackage)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	defaultEnv.PrintStep("Importing cluster image %v v%v", appPackage.Name, appPackage.Version)
+	deps, err := getUploadDependencies(tarballEnv, *app, *installedRuntimeVersion)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	env.PrintStep("Importing cluster image %v v%v", appPackage.Name, appPackage.Version)
 	puller := libapp.Puller{
 		FieldLogger: log.WithField(trace.Component, "pull"),
 		SrcPack:     tarballEnv.Packages,
@@ -171,34 +176,34 @@ func uploadUpdate(_ *localenv.LocalEnvironment, opsURL, dataDir string) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
-	syncer := libapp.Syncer{
-		PackService: clusterPackages,
-		AppService:  clusterApps,
-	}
-	err = syncAppWithCluster(context.TODO(), defaultEnv, *cluster, *appPackage, syncer)
+	err = puller.PullAppPackage(context.TODO(), *appPackage)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	defaultEnv.PrintStep("Cluster image has been uploaded")
+	deps.Apps = append(deps.Apps, *app)
+	syncer := libapp.Syncer{
+		PackService: clusterPackages,
+		AppService:  clusterApps,
+	}
+	err = syncDependenciesWithCluster(context.TODO(), env, *cluster, *deps, syncer)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	env.PrintStep("Cluster image has been uploaded")
 	return nil
 }
 
-func getUploadDependencies(env *localenv.TarballEnvironment, loc loc.Locator, installedRuntimeVersion semver.Version) (*libapp.Dependencies, error) {
-	app, err := env.Apps.GetApp(loc)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
+func getUploadDependencies(env *localenv.TarballEnvironment, app libapp.Application, installedRuntimeVersion semver.Version) (*libapp.Dependencies, error) {
 	deps, err := libapp.GetDependencies(libapp.GetDependenciesRequest{
 		Pack: env.Packages,
 		Apps: env.Apps,
-		App:  *app,
+		App:  app,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	deps.Apps = append(deps.Apps, *app)
 	err = collectUpgradeDependencies(env, installedRuntimeVersion, deps)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -235,7 +240,7 @@ func collectUpgradeDependencies(env *localenv.TarballEnvironment, installedRunti
 	})
 }
 
-func syncAppWithCluster(ctx context.Context, env *localenv.LocalEnvironment, cluster ops.Site, app loc.Locator, syncer libapp.Syncer) error {
+func syncDependenciesWithCluster(ctx context.Context, env *localenv.LocalEnvironment, cluster ops.Site, deps libapp.Dependencies, syncer libapp.Syncer) error {
 	var registries []string
 	err := utils.Retry(defaults.RetryInterval, defaults.RetryLessAttempts, func() (err error) {
 		registries, err = getRegistries(ctx, env, cluster.ClusterState.Servers)
@@ -262,7 +267,7 @@ func syncAppWithCluster(ctx context.Context, env *localenv.LocalEnvironment, clu
 			return trace.Wrap(err)
 		}
 		syncer.ImageService = imageService
-		err = syncer.SyncApp(ctx, app)
+		err = syncer.Sync(ctx, deps)
 		if err != nil {
 			return trace.Wrap(err)
 		}

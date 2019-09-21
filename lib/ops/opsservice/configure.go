@@ -198,11 +198,11 @@ func (s *site) configureExpandPackages(ctx context.Context, opCtx *operationCont
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	secretsPackage, err := s.planetSecretsPackage(provisionedServer)
+	planetPackage, err := s.app.Manifest.RuntimePackage(provisionedServer.Profile)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	planetPackage, err := s.app.Manifest.RuntimePackage(provisionedServer.Profile)
+	secretsPackage, err := s.planetSecretsPackage(provisionedServer, planetPackage.Version)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -332,12 +332,12 @@ func (s *site) configurePackages(ctx *operationContext, req ops.ConfigurePackage
 	}
 
 	for i, master := range masters {
-		secretsPackage, err := s.planetSecretsPackage(master)
+		planetPackage, err := s.app.Manifest.RuntimePackage(master.Profile)
 		if err != nil {
 			return trace.Wrap(err)
 		}
 
-		planetPackage, err := s.app.Manifest.RuntimePackage(master.Profile)
+		secretsPackage, err := s.planetSecretsPackage(master, planetPackage.Version)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -406,17 +406,17 @@ func (s *site) configurePackages(ctx *operationContext, req ops.ConfigurePackage
 			return trace.Wrap(err)
 		}
 
-		secretsPackage, err := s.planetSecretsPackage(node)
+		planetPackage, err := s.app.Manifest.RuntimePackage(node.Profile)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+
+		secretsPackage, err := s.planetSecretsPackage(node, planetPackage.Version)
 		if err != nil {
 			return trace.Wrap(err)
 		}
 
 		if err := s.configurePlanetNodeSecrets(ctx, node, *secretsPackage); err != nil {
-			return trace.Wrap(err)
-		}
-
-		planetPackage, err := s.app.Manifest.RuntimePackage(node.Profile)
-		if err != nil {
 			return trace.Wrap(err)
 		}
 
@@ -1423,14 +1423,15 @@ func (s *site) licensePackage() (*loc.Locator, error) {
 		fmt.Sprintf("%v/%v:0.0.1", s.siteRepoName(), constants.LicensePackage))
 }
 
-func (s *site) planetSecretsPackage(node *ProvisionedServer) (*loc.Locator, error) {
+func (s *site) planetSecretsPackage(node *ProvisionedServer, version string) (*loc.Locator, error) {
 	return loc.ParseLocator(
-		fmt.Sprintf("%v/planet-%v-secrets:0.0.1", s.siteRepoName(), node.AdvertiseIP))
+		fmt.Sprintf("%v/planet-%v-secrets:%v", s.siteRepoName(), node.AdvertiseIP, version))
 }
 
-func (s *site) planetSecretsNextPackage(node *ProvisionedServer) (*loc.Locator, error) {
+func (s *site) planetSecretsNextPackage(node *ProvisionedServer, version string) (*loc.Locator, error) {
+	version = fmt.Sprintf("%v+%v", version, time.Now().UTC().Unix())
 	return loc.ParseLocator(
-		fmt.Sprintf("%v/planet-%v-secrets:0.0.%v", s.siteRepoName(), node.AdvertiseIP, time.Now().UTC().Unix()))
+		fmt.Sprintf("%v/planet-%v-secrets:%v", s.siteRepoName(), node.AdvertiseIP, version))
 }
 
 // planetNextConfigPackage generates a new planet configuration package
@@ -1461,11 +1462,11 @@ func (s *site) serverPackages(server *ProvisionedServer) ([]loc.Locator, error) 
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	planetSecretsPackage, err := s.planetSecretsPackage(server)
+	planetPackage, err := s.app.Manifest.RuntimePackageForProfile(server.Role)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	planetPackage, err := s.app.Manifest.RuntimePackageForProfile(server.Role)
+	planetSecretsPackage, err := s.planetSecretsPackage(server, planetPackage.Version)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

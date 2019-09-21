@@ -528,7 +528,7 @@ func (b *Builder) collectUpgradeDependencies() (result *libapp.Dependencies, err
 		}
 		addUpgradeVersionLabel(dependencies, version.String())
 		result.Packages = append(result.Packages, filterUpgradePackageDependencies(dependencies.Packages)...)
-		result.Apps = append(result.Apps, filterUpgradeRuntimeApp(dependencies.Apps)...)
+		result.Apps = append(result.Apps, dependencies.Apps...)
 	}
 	return result, nil
 }
@@ -601,20 +601,6 @@ func filterUpgradePackageDependencies(packages []pack.PackageEnvelope) (result [
 			continue
 		}
 		result = append(result, pkg)
-	}
-	return result
-}
-
-func filterUpgradeRuntimeApp(apps []libapp.Application) (result []libapp.Application) {
-	result = apps[:0]
-	for _, app := range apps {
-		if app.Package.Repository != defaults.SystemAccountOrg {
-			continue
-		}
-		if app.Package.Name == defaults.Runtime {
-			continue
-		}
-		result = append(result, app)
 	}
 	return result
 }

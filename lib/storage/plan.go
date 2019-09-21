@@ -148,6 +148,15 @@ type UpdateOperationData struct {
 	// The list might be a subset of all cluster servers in case
 	// the operation only operates on a specific part
 	Servers []UpdateServer `json:"updates,omitempty"`
+	// ChangesetID specifies the optional ID of the system update step.
+	// The ID should be unique within a given update operation as there might be
+	// multiple system update steps necessary
+	ChangesetID string `json:"changeset_id,omitempty"`
+	// RuntimeAppVersion specifies the version of the runtime application
+	// this step applies to
+	RuntimeAppVersion string `json:"version,omitempty"`
+	// GravityPackage specifies the optional gravity package for this phase
+	GravityPackage *loc.Locator `json:"gravity_package,omitempty"`
 }
 
 // UpdateServer describes an intent to update runtime/teleport configuration
@@ -194,8 +203,8 @@ func (s UpdateServer) ShouldMigrateDockerDevice() bool {
 type RuntimePackage struct {
 	// Installed identifies the installed version of the runtime package
 	Installed loc.Locator `json:"installed"`
-	// RuntimeSecretsPackage specifies the new secrets package
-	SecretsPackage *loc.Locator `json:"runtime_secrets_package,omitempty"`
+	// SecretsPackage specifies the new secrets package
+	SecretsPackage *loc.Locator `json:"secrets_package,omitempty"`
 	// Update describes an update to the runtime package
 	Update *RuntimeUpdate `json:"update,omitempty"`
 }
@@ -222,8 +231,9 @@ type TeleportUpdate struct {
 	// Package identifies the package to update to.
 	// This can be the same as Installed in which case no update is performed
 	Package loc.Locator `json:"package"`
-	// NodeConfigPackage identifies the new host teleport configuration package
-	NodeConfigPackage loc.Locator `json:"node_config_package"`
+	// NodeConfigPackage identifies the new host teleport configuration package.
+	// If nil, no changes to configuration package required
+	NodeConfigPackage *loc.Locator `json:"node_config_package,omitempty"`
 }
 
 // InstallOperationData describes configuration for the install operation
