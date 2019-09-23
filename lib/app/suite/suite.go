@@ -298,15 +298,16 @@ func (r *AppsSuite) ExportsApplication(c *C) {
 }
 
 func (r *AppsSuite) CreatesApplicationInstaller(c *C) {
-	const manifestBytesMain = `
+	const (
+		manifestBytesMain = `
 apiVersion: bundle.gravitational.io/v2
 kind: Bundle
 metadata:
-  name: sample
+  name: sample-app
   resourceVersion: "0.0.1"
 systemOptions:
   runtime:
-    name: app-dep
+    name: sample # Keep invariant of this package being ordered before the application package when sorted lexicographically
     version: 0.0.1
 dependencies:
   packages:
@@ -314,30 +315,42 @@ dependencies:
   apps:
   - gravitational.io/app-dep:0.0.1`
 
-	const manifestBytesDependency = `
+		manifestBytesRuntime = `
 apiVersion: bundle.gravitational.io/v2
 kind: Runtime
 metadata:
-  name: sample-dependency
+  name: sample
   resourceVersion: "0.0.1"
 systemOptions:
   dependencies:
-    runtimePackage: gravitational.io/planet:0.0.1
-`
+    runtimePackage: gravitational.io/planet:0.0.1`
+
+		manifestBytesDependency = `
+apiVersion: bundle.gravitational.io/v2
+kind: SystemApplication
+metadata:
+  name: app-dep
+  resourceVersion: "0.0.1"`
+	)
 
 	apps := r.NewService(c, nil, nil)
-	mainApp := loc.MustParseLocator("gravitational.io/app-main:0.0.1")
+	mainApp := loc.MustParseLocator("gravitational.io/sample-app:0.0.1")
+	runtimeApp := loc.MustParseLocator("gravitational.io/sample:0.0.1")
 	dependencyApp := loc.MustParseLocator("gravitational.io/app-dep:0.0.1")
 	dependencyPackage := loc.MustParseLocator("gravitational.io/gravity:0.0.1")
 	runtimePackage := loc.MustParseLocator("gravitational.io/planet:0.0.1")
 
 	var emptyResources string
-	mainFiles := []*archive.Item{
+	mainAppFiles := []*archive.Item{
 		archive.DirItem("resources"),
 		archive.ItemFromString("resources/app.yaml", manifestBytesMain),
 		archive.ItemFromString("resources/resources.yaml", emptyResources),
 	}
-	dependencyFiles := []*archive.Item{
+	runtimeAppFiles := []*archive.Item{
+		archive.DirItem("resources"),
+		archive.ItemFromString("resources/app.yaml", manifestBytesRuntime),
+	}
+	dependencyAppFiles := []*archive.Item{
 		archive.DirItem("resources"),
 		archive.ItemFromString("resources/app.yaml", manifestBytesDependency),
 		archive.ItemFromString("resources/resources.yaml", emptyResources),
@@ -346,8 +359,9 @@ systemOptions:
 
 	apptest.CreatePackage(r.Packages, dependencyPackage, packageFiles, c)
 	apptest.CreatePackage(r.Packages, runtimePackage, packageFiles, c)
-	apptest.CreateApplicationFromData(apps, dependencyApp, dependencyFiles, c)
-	apptest.CreateApplicationFromData(apps, mainApp, mainFiles, c)
+	apptest.CreateApplicationFromData(apps, runtimeApp, runtimeAppFiles, c)
+	apptest.CreateApplicationFromData(apps, dependencyApp, dependencyAppFiles, c)
+	apptest.CreateApplicationFromData(apps, mainApp, mainAppFiles, c)
 
 	req := app.InstallerRequest{
 		Application: mainApp,
@@ -370,7 +384,6 @@ systemOptions:
 	n, err := io.Copy(ioutil.Discard, installerTarball)
 	c.Assert(err, IsNil)
 	c.Assert(n, Not(Equals), 0)
-	c.Logf("%d bytes transferred", n)
 }
 
 func (r *AppsSuite) CreatesApplicationWithManifest(c *C) {
