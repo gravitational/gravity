@@ -55,7 +55,6 @@ func Run(tele Application) error {
 			ManifestPath:     *tele.BuildCmd.ManifestPath,
 			OutPath:          *tele.BuildCmd.OutFile,
 			Overwrite:        *tele.BuildCmd.Overwrite,
-			Repository:       *tele.BuildCmd.Repository,
 			SkipVersionCheck: *tele.BuildCmd.SkipVersionCheck,
 			Silent:           *tele.BuildCmd.Quiet,
 			Insecure:         *tele.Insecure,

@@ -75,6 +75,18 @@ func credentialsFromEntry(entry users.LoginEntry) *Credentials {
 	}
 }
 
+// FromTokenAndHub creates new credentials from the provided token and address.
+func FromTokenAndHub(token, hub string) *Credentials {
+	url := utils.ParseOpsCenterAddress(hub, defaults.HTTPSPort)
+	return &Credentials{
+		URL: url,
+		Entry: users.LoginEntry{
+			Password:     token,
+			OpsCenterURL: url,
+		},
+	}
+}
+
 // credentialsFromProfile creates new credentials from the provided Teleport
 // profile and its corresponding TLS client configuration.
 func credentialsFromProfile(profile client.ClientProfile, tls *tls.Config) *Credentials {
@@ -93,6 +105,8 @@ type Config struct {
 	TeleportKeyStoreDir string
 	// Backend is the optional backend for login entries stored in database.
 	Backend storage.Backend
+	// Static is the static preconfigured credentials entry.
+	Static *Credentials
 }
 
 // New creates a new credentials service with the provided config.
@@ -134,6 +148,13 @@ func (s *credentialsService) For(clusterURL string) (*Credentials, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	// If the preconfigured credentials are set, try to use them.
+	if s.Static != nil && utils.StringInSlice([]string{url.normalized, url.original}, s.Static.URL) {
+		if s.Static.Entry.Password != "" {
+			s.Debugf("Returning static credentials for %v.", s.Static.URL)
+			return s.Static, nil
+		}
+	}
 	// Search the local Gravity keystore first (~/.gravity/config).
 	localKeyStore, err := s.getLocalKeyStore()
 	if err != nil {
@@ -165,7 +186,7 @@ func (s *credentialsService) For(clusterURL string) (*Credentials, error) {
 		s.Debugf("Returning default credentials for %v.", clusterURL)
 		return defaultCredentials, nil
 	}
-	return nil, trace.NotFound("no credentials for %v", clusterURL)
+	return nil, trace.AccessDenied("no credentials for %v", clusterURL)
 }
 
 // Current returns the currently active user credentials.
@@ -208,6 +229,9 @@ func (s *credentialsService) getTeleportKeyStore() (*client.FSLocalKeyStore, err
 
 // currentCluster returns the currently active cluster.
 func (s *credentialsService) currentCluster() (string, error) {
+	if s.Static != nil {
+		return s.Static.URL, nil
+	}
 	localKeyStore, err := s.getLocalKeyStore()
 	if err != nil {
 		return "", trace.Wrap(err)

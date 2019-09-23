@@ -72,6 +72,8 @@ type Config struct {
 	Overwrite bool
 	// Repository represents the source package repository
 	Repository string
+	// StaticCredentials is the credentials set on the CLI
+	StaticCredentials *credentials.Credentials
 	// SkipVersionCheck allows to skip tele/runtime compatibility check
 	SkipVersionCheck bool
 	// VendorReq combines vendoring options
@@ -130,6 +132,7 @@ func (c *Config) CheckAndSetDefaults() error {
 	if c.Credentials == nil {
 		c.Credentials, err = credentials.New(credentials.Config{
 			LocalKeyStoreDir: c.StateDir,
+			Static:           c.StaticCredentials,
 		})
 		if err != nil {
 			return trace.Wrap(err)
@@ -425,6 +428,7 @@ func (b *Builder) makeBuildEnv() (*localenv.LocalEnvironment, error) {
 			StateDir:         b.StateDir,
 			LocalKeyStoreDir: b.StateDir,
 			Insecure:         b.Insecure,
+			Credentials:      b.StaticCredentials,
 		})
 	}
 	// otherwise use default locations for cache / key store
@@ -438,8 +442,9 @@ func (b *Builder) makeBuildEnv() (*localenv.LocalEnvironment, error) {
 	}
 	b.Infof("Using package cache from %v.", cacheDir)
 	return localenv.NewLocalEnvironment(localenv.LocalEnvironmentArgs{
-		StateDir: cacheDir,
-		Insecure: b.Insecure,
+		StateDir:    cacheDir,
+		Insecure:    b.Insecure,
+		Credentials: b.StaticCredentials,
 	})
 }
 

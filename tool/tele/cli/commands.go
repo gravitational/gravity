@@ -59,8 +59,6 @@ type BuildCmd struct {
 	OutFile *string
 	// Overwrite overwrites existing tarball
 	Overwrite *bool
-	// Repository is where packages are downloaded from
-	Repository *string
 	// Name allows to override app name
 	Name *string
 	// Version allows to override app version
