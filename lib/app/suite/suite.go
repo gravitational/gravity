@@ -303,11 +303,11 @@ func (r *AppsSuite) CreatesApplicationInstaller(c *C) {
 apiVersion: bundle.gravitational.io/v2
 kind: Bundle
 metadata:
-  name: sample
+  name: sample-app
   resourceVersion: "0.0.1"
 systemOptions:
   runtime:
-    name: sample-runtime # Keep invariant of this package being ordered after the application package when sorted lexicographically
+    name: sample # Keep invariant of this package being ordered before the application package when sorted lexicographically
     version: 0.0.1
 dependencies:
   packages:
@@ -319,7 +319,7 @@ dependencies:
 apiVersion: bundle.gravitational.io/v2
 kind: Runtime
 metadata:
-  name: sample-runtime
+  name: sample
   resourceVersion: "0.0.1"
 systemOptions:
   dependencies:
@@ -334,8 +334,8 @@ metadata:
 	)
 
 	apps := r.NewService(c, nil, nil)
-	mainApp := loc.MustParseLocator("gravitational.io/app-main:0.0.1")
-	runtimeApp := loc.MustParseLocator("gravitational.io/sample-runtime:0.0.1")
+	mainApp := loc.MustParseLocator("gravitational.io/sample-app:0.0.1")
+	runtimeApp := loc.MustParseLocator("gravitational.io/sample:0.0.1")
 	dependencyApp := loc.MustParseLocator("gravitational.io/app-dep:0.0.1")
 	dependencyPackage := loc.MustParseLocator("gravitational.io/gravity:0.0.1")
 	runtimePackage := loc.MustParseLocator("gravitational.io/planet:0.0.1")
