@@ -27,9 +27,9 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
-	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/pack/localpack"
+	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/keyval"
 	"github.com/gravitational/gravity/lib/transfer"
@@ -47,12 +47,11 @@ type importer struct {
 	packages      pack.PackageService
 	exportPackage *loc.Locator
 	dir           string
-	cluster       ops.Site
 	// FieldLogger is used for logging
 	logrus.FieldLogger
 }
 
-func newImporter(dir string, cluster ops.Site) (*importer, error) {
+func newImporter(dir string) (*importer, error) {
 	if dir == "" {
 		return nil, trace.BadParameter("missing directory with packages")
 	}
@@ -66,7 +65,6 @@ func newImporter(dir string, cluster ops.Site) (*importer, error) {
 	i := &importer{
 		backend: backend,
 		dir:     dir,
-		cluster: cluster,
 		FieldLogger: logrus.WithFields(logrus.Fields{
 			trace.Component:    "importer",
 			constants.FieldDir: dir,
@@ -114,11 +112,23 @@ func (i *importer) Close() error {
 }
 
 // getMasterTeleportConfig extracts configuration from teleport package
-func (i *importer) getMasterTeleportConfig() (*telecfg.FileConfig, error) {
+func (i *importer) getMasterTeleportConfig(manifestBytes []byte, clusterName string) (*telecfg.FileConfig, error) {
+	manifest, err := schema.ParseManifestYAMLNoValidate(manifestBytes)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	teleportPackage, err := manifest.Dependencies.ByName(constants.TeleportPackage)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	teleportVersion, err := teleportPackage.SemVer()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	configPackage, err := pack.FindLatestPackageCustom(pack.FindLatestPackageRequest{
 		Packages:   i.packages,
-		Repository: i.cluster.Domain,
-		Match:      matchTeleportConfigPackage,
+		Repository: clusterName,
+		Match:      matchTeleportConfigPackage(*teleportVersion),
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -249,6 +259,9 @@ func matchTeleportConfigPackage(teleportVersion semver.Version) pack.MatchFunc {
 			Major: ver.Major,
 			Minor: ver.Minor,
 			Patch: ver.Patch,
+		}
+		if verBase.Compare(teleportVersion) == 0 {
+			logrus.WithField("teleport-config", env.Locator).Info("Found compatible teleport config version.")
 		}
 		return verBase.Compare(teleportVersion) == 0
 	}
