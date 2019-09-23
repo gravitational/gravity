@@ -25,9 +25,9 @@ Resource Name             | Resource Description
 `authgateway`             | authentication gateway configuration
 
 
-### General Cluster Configuration
+## General Cluster Configuration
 
-It is possible to customize the Cluster per environment before the installation 
+It is possible to customize the Cluster per environment before the installation
 or update some aspects of the Cluster using the `ClusterConfiguration` resource:
 
 ```yaml
@@ -116,21 +116,21 @@ root$ ./gravity resource rm config
     of runtime containers either on master or on all Cluster nodes. Take this into account and plan
     each update accordingly.
 
-### Cluster Access
+## Cluster Access
 
-Gravity supports the creation of multiple users. Roles can also be created and 
+Gravity supports the creation of multiple users. Roles can also be created and
 assigned  to users which can be mapped to Kubernetes role based access control
-authorization (RBAC API). Gravity can also integrate with third party identity 
+authorization (RBAC API). Gravity can also integrate with third party identity
 providers through standard protocols like OIDC and SAML.
 
 !!! warning "Enterprise Only Version Warning":
-    The Community version of Gravity only supports local users and integration 
-    with Github identity. Gravity Enterprise supports additional identity 
-    provider integrations. 
+    The Community version of Gravity only supports local users and integration
+    with Github identity. Gravity Enterprise supports additional identity
+    provider integrations.
 
-#### Configuring Roles
+### Configuring Roles
 
-Below is an example of a resource file with the definition of an admin role. The 
+Below is an example of a resource file with the definition of an admin role. The
 admin has access to all resources, including roles, other users and authentication
 settings, and belongs to a privileged Kubernetes group:
 
@@ -156,7 +156,7 @@ spec:
     max_session_ttl: 30h0m0s
 ```
 
-Below is an example of a non-admin role spec providing access to a particular 
+Below is an example of a non-admin role spec providing access to a particular
 Cluster `example.com` and its applications:
 
 ```yaml
@@ -210,7 +210,7 @@ To delete the `developer` role:
 $ gravity resource delete role developer
 ```
 
-#### Configuring Users & Tokens
+### Configuring Users & Tokens
 
 Below is an example of a resource file that creates a user called `user.yaml`.
 
@@ -257,7 +257,7 @@ $ gravity resource get user
 $ gravity resource get token --user=alice@example.com
 ```
 
-#### Example: Provisioning A Cluster Admin User
+### Example: Provisioning A Cluster Admin User
 
 The example below shows how to create an admin user for a Cluster.
 Save the user definition into a YAML file:
@@ -291,9 +291,9 @@ credentials created above.
 
 !!! tip "Password Restrictions":
     Passwords must be between 6 and 128 characters long.
-    
- 
-#### Configuring a GitHub Connector
+
+
+### Configuring a GitHub Connector
 
 Gravity supports authentication and authorization via GitHub. To configure
 it, create a YAML file with the resource spec based on the following example:
@@ -349,10 +349,10 @@ To remove a GitHub connector:
 $ gravity resource rm github example
 ```
 
-#### Configuring OpenID Connect
+### Configuring OpenID Connect
 
 !!! warning "Enterprise Only Version Warning":
-    The ability to configure an OIDC Connector is only available in Gravity 
+    The ability to configure an OIDC Connector is only available in Gravity
     Enterprise.
 
 A Gravity Cluster can be configured to authenticate users using an
@@ -395,7 +395,7 @@ To remove the connector `auth0`:
 $ gravity resource rm oidc auth0
 ```
 
-#### Example: Google OIDC Connector
+### Example: Google OIDC Connector
 
 !!! warning "Enterprise Only Version Warning":
     The ability to configure a Google OIDC connector is only available in
@@ -426,10 +426,10 @@ allowed to log in and granted the admin role.
     The user must belong to a hosted domain, otherwise the `hd` claim will
     not be populated.
 
-#### Configuring SAML Connector
+### Configuring SAML Connector
 
 !!! warning "Enterprise Only Version Warning":
-    The ability to configure a SAML Connector is only available in Gravity 
+    The ability to configure a SAML Connector is only available in Gravity
     Enterprise.
 
 Gravity supports authentication and authorization via SAML providers. To
@@ -561,7 +561,7 @@ $ gravity resource get authgateway
 !!! warning "Deprecation warning":
     Cluster authentication preference resource is obsolete starting Gravity
     version `5.5.0` and will be removed in a future version. Please use
-    [Authentication Gateway](/config/#configuring-Cluster-authentication-gateway)
+    [Authentication Gateway](/config/#cluster-authentication-gateway)
     resource instead.
 
 Cluster authentication preference resource allows to configure method of
@@ -700,14 +700,14 @@ on how to configure monitoring and alerts.
 
 ### Runtime Environment Variables
 
-In a Gravity Cluster, each node is running a Master Container (called "Planet") 
-that hosts Kubernetes. All services (including Kubernetes native services like 
-API server or kubelet) execute within the predefined environment (set up 
-during installation or update). The `RuntimeEnvironment` allows you to make 
-changes to the runtime environment, i.e. introduce new environment variables 
+In a Gravity Cluster, each node is running a Master Container (called "Planet")
+that hosts Kubernetes. All services (including Kubernetes native services like
+API server or kubelet) execute within the predefined environment (set up
+during installation or update). The `RuntimeEnvironment` allows you to make
+changes to the runtime environment, i.e. introduce new environment variables
 like `HTTP_PROXY`.
 
-To add a new environment variable, `HTTP_PROXY`, create a file with following 
+To add a new environment variable, `HTTP_PROXY`, create a file with following
 contents:
 
 ```yaml
@@ -807,7 +807,7 @@ Let's go over the resource fields:
   from Gravity Hub.
 * `spec.pull_updates`: Whether the Cluster should be automatically downloading
   application updates from Gravity Hub.
-* `spec.token`: A secret token used to securely connect the Cluster to Gravity Hub. 
+* `spec.token`: A secret token used to securely connect the Cluster to Gravity Hub.
 * `spec.tunnel_addr`: The address of Gravity Hub reverse tunnel service as
    host:port. Typically it is exposed on port `3024`.
 * `spec.web_proxy_addr`: The address which Gravity Hub serves its Web

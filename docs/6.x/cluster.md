@@ -387,7 +387,7 @@ updating app from 0.0.1-alpha.1 to 0.0.1-alpha.2
 Deploying agents on nodes
 The operation has been created in manual mode.
 
-See https://gravitational.com/gravity/docs/cluster/#managing-an-ongoing-operation for details on working with operation plan.
+See https://gravitational.com/gravity/docs/cluster/#managing-operations for details on working with operation plan.
 ```
 
 Please refer to the [Managing Operations](/cluster/#managing-operations) section about

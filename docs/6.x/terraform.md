@@ -31,7 +31,7 @@ resource "gravity_log_forwarder" "logs" {
 ### Authentication
 The terraform provider uses token based authentication which must be provisioned to the cluster before being used.
 
-See [Configuring Users & Tokens](https://gravitational.com/telekube/docs/cluster/#configuring-users-tokens) for more information
+See [Configuring Users & Tokens](https://gravitational.com/telekube/docs/config/#configuring-users-tokens) for more information
 
 ## gravity_cluster_auth_preference
 Configures authentication preferences for authenticating users on the cluster.
@@ -235,7 +235,7 @@ resource "gravityenterprise_oidc" "test" {
 ### Authentication
 The terraform provider uses token based authentication which must be provisioned to the cluster before being used.
 
-See [Configuring Users & Tokens](https://gravitational.com/telekube/docs/cluster/#configuring-users-tokens) for more information
+See [Configuring Users & Tokens](https://gravitational.com/telekube/docs/config/#configuring-users-tokens) for more information.
 
 
 ## gravityenterprise_endpoints

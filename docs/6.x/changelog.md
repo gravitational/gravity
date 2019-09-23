@@ -664,8 +664,8 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 #### Improvements
 
-* Introduce `ClusterConfiguration` resource, see [Configuring Cluster](/cluster/#cluster-configuration) for details.
-* Introduce `RuntimeEnvironment` resource, see [Configuring Runtime Environment Variables](/cluster/#configuring-runtime-environment-variables) for details.
+* Introduce `ClusterConfiguration` resource, see [Configuring Cluster](/config/general-cluster-configuration) for details.
+* Introduce `RuntimeEnvironment` resource, see [Configuring Runtime Environment Variables](/config/#runtime-environment-variables) for details.
 * Update 'gravity plan' to support all cluster operations.
 
 ### 5.5.0-beta.2
@@ -725,7 +725,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 #### Improvements
 
-* Introduce `AuthGateway` resource. See [Configuring Authentication Gateway](/cluster/#configuring-cluster-authentication-gateway)
+* Introduce `AuthGateway` resource. See [Configuring Authentication Gateway](/config/#cluster-authentication-gateway)
 for details.
 * UX improvements to `tele` CLI.
 
@@ -1023,7 +1023,7 @@ for details.
 
 #### Improvements
 
-* Add support for recursive volume mounts. See [Application Manifest](/pack#sample-application-manifest) for details.
+* Add support for recursive volume mounts. See [Image Manifest](/pack#sample-application-manifest) for details.
 * Disable `DenyEscalatingExec` admission controller to meet conformance.
 
 ### 5.3.2
@@ -1211,7 +1211,7 @@ for more info.
 
 #### Improvements
 
-* Add support for SAML authentication connector. See [Configuring SAML Connector](/cluster/#configuring-saml-connector)
+* Add support for SAML authentication connector. See [Configuring SAML Connector](/config/#configuring-saml-connector)
 for information on how to configure authentication and authorization via a SAML
 provider.
 
@@ -1300,14 +1300,12 @@ is using domain/path components.
 * Add `skipIfMissing` for describing optional mounts.
 * Add ability to define custom preflight checks.
 
-See [Application Manifest Changes](/pack/#application-manifest-changes) for more details.
-
 ### 5.1.0-alpha.5
 
 #### Improvements
 
 * Add ability to mount host devices into the Gravity container. See
-[Application Manifest](/pack/#application-manifest) for more details.
+[Image Manifest](/pack/#image-manifest) for more details.
 
 ### 5.1.0-alpha.4
 
@@ -1392,7 +1390,7 @@ install/upgrade.
 
 #### Improvements
 
-* Add ability to resume install/update after failure. Check [Resuming](/cluster/#resuming) for details.
+* Add ability to resume install/update after failure. Check [Troubleshooting Automatic Upgrades](/cluster/#troubleshooting-automatic-upgrades) for details.
 * Improve error reporting during install and when viewing operation plan.
 
 #### Bugfixes
@@ -1561,7 +1559,7 @@ to invite users and reset user passwords from CLI.
 
 #### Improvements
 
-* Add support for trusted clusters, see [Configuring Trusted Clusters](/cluster/#configuring-trusted-clusters) for details.
+* Add support for trusted clusters, see [Configuring Trusted Clusters](/config/#trusted-clusters-enterprise) for details.
 * Improve application install resiliency by retrying on transient errors.
 * Improve resiliency when checking for hooks status.
 
@@ -1871,7 +1869,7 @@ transient error
 
 #### Improvements
 
-* Add support for TLS keypair configuration via resources. Read more [here](/cluster/#configuring-tls-key-pair).
+* Add support for TLS keypair configuration via resources. Read more [here](/config/#tls-key-pair).
 * Simplify Ops Center [post install configuration](/opscenter/#post-provisioning).
 
 #### Bugfixes
@@ -1899,7 +1897,7 @@ transient error
 
 #### Improvements
 
-* Add ability to provide additional command line arguments to etcd and kubelet via application manifest, see [Application Manifest](/pack/#application-manifest) for more details.
+* Add ability to provide additional command line arguments to etcd and kubelet via application manifest, see [Image Manifest](/pack/#image-manifest) for more details.
 
 ### 4.34.0
 
@@ -1964,7 +1962,7 @@ transient error
 
 #### Improvements
 
-* Introduce a redesigned manual upgrade procedure, see [Manual Upgrade Mode](/cluster/#manual-upgrade-mode).
+* Introduce a redesigned manual upgrade procedure, see [Manual Upgrade Mode](/cluster/#manual-upgrade).
 
 ### 4.21.0
 
