@@ -415,7 +415,7 @@ func (p *Process) getTeleportConfigFromImportState() (*telecfg.FileConfig, error
 	}
 	defer importer.Close()
 
-	telecfg, err := importer.getMasterTeleportConfig(cluster.App.Manifest, cluster.Domain)
+	telecfg, err := importer.getMasterTeleportConfig(cluster.Domain)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

@@ -29,7 +29,6 @@ import (
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/pack/localpack"
-	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/keyval"
 	"github.com/gravitational/gravity/lib/transfer"
@@ -112,16 +111,8 @@ func (i *importer) Close() error {
 }
 
 // getMasterTeleportConfig extracts configuration from teleport package
-func (i *importer) getMasterTeleportConfig(manifestBytes []byte, clusterName string) (*telecfg.FileConfig, error) {
-	manifest, err := schema.ParseManifestYAMLNoValidate(manifestBytes)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	teleportPackage, err := manifest.Dependencies.ByName(constants.TeleportPackage)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	teleportVersion, err := teleportPackage.SemVer()
+func (i *importer) getMasterTeleportConfig(clusterName string) (*telecfg.FileConfig, error) {
+	teleportVersion, err := semver.NewVersion(os.Getenv(constants.EnvGravityTeleportVersion))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -259,9 +250,6 @@ func matchTeleportConfigPackage(teleportVersion semver.Version) pack.MatchFunc {
 			Major: ver.Major,
 			Minor: ver.Minor,
 			Patch: ver.Patch,
-		}
-		if verBase.Compare(teleportVersion) == 0 {
-			logrus.WithField("teleport-config", env.Locator).Info("Found compatible teleport config version.")
 		}
 		return verBase.Compare(teleportVersion) == 0
 	}

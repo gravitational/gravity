@@ -568,7 +568,7 @@ func (s *site) deletePackages(server *ProvisionedServer) error {
 			packages = append(packages, env.Locator)
 			return nil
 		}
-		// Consider packages where the node address is part of the package name
+		// Also consider node-specific packages
 		if s.isTeleportMasterConfigPackageFor(server, env.Locator) ||
 			s.isTeleportNodeConfigPackageFor(server, env.Locator) ||
 			s.isPlanetConfigPackageFor(server, env.Locator) ||

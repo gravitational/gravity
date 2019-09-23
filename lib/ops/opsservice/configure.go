@@ -1462,31 +1462,6 @@ func (s *site) planetConfigPackage(node remoteServer, version string) loc.Locato
 	}
 }
 
-// FIXME: remove me
-// // serverPackages returns a list of package locators specific to the provided server
-// func (s *site) serverPackages(server *ProvisionedServer) ([]loc.Locator, error) {
-// 	masterConfigPackage := s.teleportMasterConfigPackage(server)
-// 	nodeConfigPackage := s.teleportNodeConfigPackage(server)
-// 	if err != nil {
-// 		return nil, trace.Wrap(err)
-// 	}
-// 	planetPackage, err := s.app.Manifest.RuntimePackageForProfile(server.Role)
-// 	if err != nil {
-// 		return nil, trace.Wrap(err)
-// 	}
-// 	planetSecretsPackage, err := s.planetSecretsPackage(server, planetPackage.Version)
-// 	if err != nil {
-// 		return nil, trace.Wrap(err)
-// 	}
-// 	planetConfigPackage := s.planetConfigPackage(server, planetPackage.Version)
-// 	return []loc.Locator{
-// 		masterConfigPackage,
-// 		nodeConfigPackage,
-// 		planetSecretsPackage,
-// 		planetConfigPackage,
-// 	}, nil
-// }
-
 func (s *site) addCloudConfig(config clusterconfig.Interface) (args []string) {
 	if s.cloudProviderName() == "" {
 		return nil
