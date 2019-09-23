@@ -158,6 +158,8 @@ spec:
               configMapKeyRef:
                 name: gravity-opscenter
                 key: teleport.yaml
+          - name: GRAVITY_TELEPORT_VERSION
+            value: "${TELEPORT_TAG}"
         livenessProbe:
           httpGet:
             path: /healthz
