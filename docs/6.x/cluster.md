@@ -266,7 +266,7 @@ do, or simply use `kubectl --help`.
 
 Each Gravity Cluster also has a Cluster Control Panel web application to explore and
 manage the Cluster. To log into the Cluster Control Panel you need to create an admin user.
-Please see the [Custom Installer Screens](/pack/#/pack/#custom-installation-screen)
+Please see the [Custom Installer Screens](/pack/#custom-installation-screen)
 chapter for details on how to enable a post-install screen that will let you create a local user.
 
 If you are doing a CLI installation you will need to create a user resource in

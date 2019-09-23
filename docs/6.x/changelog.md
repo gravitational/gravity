@@ -31,6 +31,11 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     Releases marked with `*` in the table above are no longer supported and
     do not receive updates and bugfixes.
 
+!!! note "Direct upgrades"
+    You can now upgrade existing 5.0.x clusters directly to 5.5.x.
+    See [Direct Upgrades From Older LTS Versions](/pack/#direct-upgrades-from-older-lts-versions) for details.
+
+
 ## 6.x Releases
 
 ### 6.2.0 (September 24th, 2019)
