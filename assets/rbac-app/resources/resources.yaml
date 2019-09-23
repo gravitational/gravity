@@ -104,7 +104,7 @@ subjects:
 - kind: Group
   name: restricted-psp-users
 ---
-apiVersion: extensions/v1beta1
+apiVersion: policy/v1beta1
 kind: PodSecurityPolicy
 metadata:
   name: restricted
@@ -131,7 +131,7 @@ spec:
   volumes:
   - '*'
 ---
-apiVersion: extensions/v1beta1
+apiVersion: policy/v1beta1
 kind: PodSecurityPolicy
 metadata:
   name: privileged
