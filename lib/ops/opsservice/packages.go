@@ -1,3 +1,19 @@
+/*
+Copyright 2019 Gravitational, Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package opsservice
 
 import (
@@ -20,7 +36,7 @@ func (s *site) planetSecretsNextPackage(node *ProvisionedServer, planetVersion s
 	return planetSecretsPackage(node, s.domainName, s.domainName, planetVersion)
 }
 
-// planetSecretsNextPackage generates a new planet secrets package name for the specified
+// planetSecretsPackage generates a new planet secrets package name for the specified
 // node and planet package version.
 //
 // The package is named as '<cluster-name>/planet-<node-addr>-secrets:<planet-version>'
@@ -108,11 +124,6 @@ func planetSecretsPackage(node *ProvisionedServer, repository, clusterName, plan
 	}
 }
 
-// planetConfigPackage creates a planet configuration package reference
-// using the specified version as a package version and the given node to add unique
-// suffix to the name.
-// This is in contrast to the old naming with PackageSuffix used as a prerelease part
-// of the version which made them hard to match when looking for an update.
 func planetConfigPackage(node remoteServer, repository, clusterName, planetVersion string) loc.Locator {
 	return loc.Locator{
 		Repository: repository,
@@ -137,7 +148,9 @@ func teleportNodeConfigPackage(node remoteServer, repository, clusterName, telep
 // suffixer replaces characters unacceptable as a package suffix
 var suffixer = strings.NewReplacer(".", "", ":", "")
 
-func PackageSuffix(node remoteServer, domain string) string {
-	data := fmt.Sprintf("%v.%v", node.Address(), domain)
+// PackageSuffix returns a new package suffix used in package names
+// from the specified node address and given cluster name
+func PackageSuffix(node remoteServer, clusterName string) string {
+	data := fmt.Sprintf("%v.%v", node.Address(), clusterName)
 	return suffixer.Replace(data)
 }

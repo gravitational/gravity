@@ -416,10 +416,6 @@ const (
 	// EnvGravityTeleportConfig is environment variable setting debugging mode
 	EnvGravityTeleportConfig = "GRAVITY_TELEPORT_CONFIG"
 
-	// EnvGravityTeleportVersion is the environment variable that specifies the version of
-	// the bundled teleport
-	EnvGravityTeleportVersion = "GRAVITY_TELEPORT_VERSION"
-
 	// EnvNetworkingType specifies the name of environment variable for defining networking type for kubernetes
 	EnvNetworkingType = "KUBERNETES_NETWORKING"
 
