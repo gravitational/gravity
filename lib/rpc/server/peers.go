@@ -102,7 +102,7 @@ func (r *peers) tryPeer(ctx context.Context, peer *peer) error {
 }
 
 func (r *peers) monitorPeers() {
-	log := r.WithField("health.checker", r)
+	log := r.WithField("health.checker", r.String())
 	log.Info("Monitoring peers.")
 	defer log.Info("Health checker loop closing.")
 	for {
