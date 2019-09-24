@@ -174,10 +174,10 @@ func (p *updatePhaseBootstrapLeader) exportGravity(ctx context.Context) error {
 
 func (p *updatePhaseBootstrapLeader) rotateConfigAndSecrets() error {
 	for _, server := range p.servers {
-		if err := p.rotateSecrets(server); err != nil {
-			return trace.Wrap(err, "failed to rotate secrets for %v", server)
-		}
 		if server.Runtime.Update != nil {
+			if err := p.rotateSecrets(server); err != nil {
+				return trace.Wrap(err, "failed to rotate secrets for %v", server)
+			}
 			if err := p.rotatePlanetConfig(server); err != nil {
 				return trace.Wrap(err, "failed to rotate planet configuration for %v", server)
 			}
