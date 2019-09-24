@@ -59,11 +59,11 @@ func (s *LocalEnvSuite) TestParsedUnparsedOpsCenters(c *check.C) {
 	c.Assert(err, check.IsNil)
 
 	login, err := env.Credentials.For(opsCenter)
-	c.Assert(trace.IsNotFound(err), check.Equals, true)
+	c.Assert(trace.IsAccessDenied(err), check.Equals, true)
 	c.Assert(login, check.IsNil)
 
 	login, err = env.Credentials.For(parsedOpsCenter)
-	c.Assert(trace.IsNotFound(err), check.Equals, true)
+	c.Assert(trace.IsAccessDenied(err), check.Equals, true)
 	c.Assert(login, check.IsNil)
 
 	err = env.Credentials.UpsertLoginEntry(opsCenter, username, password)
@@ -74,7 +74,7 @@ func (s *LocalEnvSuite) TestParsedUnparsedOpsCenters(c *check.C) {
 	c.Assert(err, check.IsNil)
 
 	login, err = env.Credentials.For(parsedOpsCenter)
-	c.Assert(trace.IsNotFound(err), check.Equals, true)
+	c.Assert(trace.IsAccessDenied(err), check.Equals, true)
 	c.Assert(login, check.IsNil)
 
 	err = env.Credentials.UpsertLoginEntry(parsedOpsCenter, username, password)
@@ -119,7 +119,7 @@ func (s *LocalEnvSuite) TestLocalEnvSingleStateDir(c *check.C) {
 	c.Assert(err, check.IsNil)
 
 	login, err := env.Credentials.For(opsCenter)
-	c.Assert(trace.IsNotFound(err), check.Equals, true)
+	c.Assert(trace.IsAccessDenied(err), check.Equals, true)
 	c.Assert(login, check.IsNil)
 
 	err = env.Credentials.UpsertLoginEntry(opsCenter, username, password)
@@ -162,7 +162,7 @@ func (s *LocalEnvSuite) TestLocalEnvSeparateStateAndKeyStoreDir(c *check.C) {
 	c.Assert(err, check.IsNil)
 
 	login, err := env.Credentials.For(opsCenter)
-	c.Assert(trace.IsNotFound(err), check.Equals, true)
+	c.Assert(trace.IsAccessDenied(err), check.Equals, true)
 	c.Assert(login, check.IsNil)
 
 	err = env.Credentials.UpsertLoginEntry(opsCenter, username, password)
