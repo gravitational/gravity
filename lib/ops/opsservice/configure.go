@@ -202,10 +202,6 @@ func (s *site) configureExpandPackages(ctx context.Context, opCtx *operationCont
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	teleportPackage, err := s.app.Manifest.Dependencies.ByName(constants.TeleportPackage)
-	if err != nil {
-		return trace.Wrap(err)
-	}
 	secretsPackage := s.planetSecretsPackage(provisionedServer, planetPackage.Version)
 	configPackage := s.planetConfigPackage(provisionedServer, planetPackage.Version)
 	env, err := s.service.GetClusterEnvironmentVariables(s.key)
@@ -228,7 +224,7 @@ func (s *site) configureExpandPackages(ctx context.Context, opCtx *operationCont
 		config:        config,
 	}
 	if provisionedServer.IsMaster() {
-		err := s.configureTeleportMaster(opCtx, provisionedServer, teleportPackage.Version)
+		err := s.configureTeleportMaster(opCtx, provisionedServer)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -259,7 +255,7 @@ func (s *site) configureExpandPackages(ctx context.Context, opCtx *operationCont
 		// but will try all other masters if the local gravity-site
 		// isn't running.
 		err = s.configureTeleportNode(opCtx, append([]string{constants.Localhost}, teleportMasterIPs...),
-			provisionedServer, teleportPackage.Version)
+			provisionedServer)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -272,7 +268,7 @@ func (s *site) configureExpandPackages(ctx context.Context, opCtx *operationCont
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		err = s.configureTeleportNode(opCtx, teleportMasterIPs, provisionedServer, teleportPackage.Version)
+		err = s.configureTeleportNode(opCtx, teleportMasterIPs, provisionedServer)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -330,11 +326,6 @@ func (s *site) configurePackages(ctx *operationContext, req ops.ConfigurePackage
 		}
 	}
 
-	teleportPackage, err := s.app.Manifest.Dependencies.ByName(constants.TeleportPackage)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
 	for i, master := range masters {
 		planetPackage, err := s.app.Manifest.RuntimePackage(master.Profile)
 		if err != nil {
@@ -385,7 +376,7 @@ func (s *site) configurePackages(ctx *operationContext, req ops.ConfigurePackage
 			return trace.Wrap(err)
 		}
 
-		if err := s.configureTeleportMaster(ctx, master, teleportPackage.Version); err != nil {
+		if err := s.configureTeleportMaster(ctx, master); err != nil {
 			return trace.Wrap(err)
 		}
 
@@ -393,14 +384,14 @@ func (s *site) configurePackages(ctx *operationContext, req ops.ConfigurePackage
 		// but will try all other masters if the local gravity-site
 		// isn't running.
 		err = s.configureTeleportNode(ctx, append([]string{constants.Localhost}, p.MasterIPs()...),
-			master, teleportPackage.Version)
+			master)
 		if err != nil {
 			return trace.Wrap(err)
 		}
 	}
 
 	for _, node := range p.Nodes() {
-		if err := s.configureTeleportNode(ctx, p.MasterIPs(), node, teleportPackage.Version); err != nil {
+		if err := s.configureTeleportNode(ctx, p.MasterIPs(), node); err != nil {
 			return trace.Wrap(err)
 		}
 
@@ -1161,8 +1152,8 @@ func (s *site) getTeleportMasterConfig(ctx *operationContext, configPackage loc.
 	}, nil
 }
 
-func (s *site) configureTeleportMaster(ctx *operationContext, master *ProvisionedServer, teleportVersion string) error {
-	configPackage := s.teleportMasterConfigPackage(master, teleportVersion)
+func (s *site) configureTeleportMaster(ctx *operationContext, master *ProvisionedServer) error {
+	configPackage := s.teleportMasterConfigPackage(master)
 	resp, err := s.getTeleportMasterConfig(ctx, configPackage, master)
 	if err != nil {
 		return trace.Wrap(err)
@@ -1185,22 +1176,6 @@ func toObject(in interface{}) (map[string]interface{}, error) {
 		return nil, trace.Wrap(err)
 	}
 	return out, nil
-}
-
-func (s *site) teleportNextMasterConfigPackage(master remoteServer, teleportVersion string) loc.Locator {
-	teleportVersion = fmt.Sprintf("%v+%v", teleportVersion, time.Now().UTC().Unix())
-	return s.teleportMasterConfigPackage(master, teleportVersion)
-}
-
-func (s *site) teleportMasterConfigPackage(master remoteServer, teleportVersion string) loc.Locator {
-	return loc.Locator{
-		Repository: s.siteRepoName(),
-		Name: fmt.Sprintf("%v-%v",
-			constants.TeleportMasterConfigPackage,
-			PackageSuffix(master, s.domainName),
-		),
-		Version: teleportVersion,
-	}
 }
 
 func (s *site) getTeleportNodeConfig(ctx *operationContext, masterIPs []string, configPackage loc.Locator, node *ProvisionedServer) (*ops.RotatePackageResponse, error) {
@@ -1291,8 +1266,8 @@ func (s *site) getTeleportNodeConfig(ctx *operationContext, masterIPs []string, 
 	}, nil
 }
 
-func (s *site) configureTeleportNode(ctx *operationContext, masterIPs []string, node *ProvisionedServer, teleportVersion string) error {
-	configPackage := s.teleportNodeConfigPackage(node, teleportVersion)
+func (s *site) configureTeleportNode(ctx *operationContext, masterIPs []string, node *ProvisionedServer) error {
+	configPackage := s.teleportNodeConfigPackage(node)
 	resp, err := s.getTeleportNodeConfig(ctx, masterIPs, configPackage, node)
 	if err != nil {
 		return trace.Wrap(err)
@@ -1302,22 +1277,6 @@ func (s *site) configureTeleportNode(ctx *operationContext, masterIPs []string, 
 		return trace.Wrap(err)
 	}
 	return nil
-}
-
-func (s *site) teleportNextNodeConfigPackage(node remoteServer, teleportVersion string) loc.Locator {
-	teleportVersion = fmt.Sprintf("%v+%v", teleportVersion, time.Now().UTC().Unix())
-	return s.teleportNodeConfigPackage(node, teleportVersion)
-}
-
-func (s *site) teleportNodeConfigPackage(node remoteServer, teleportVersion string) loc.Locator {
-	return loc.Locator{
-		Repository: s.siteRepoName(),
-		Name: fmt.Sprintf("%v-%v",
-			constants.TeleportNodeConfigPackage,
-			PackageSuffix(node, s.domainName),
-		),
-		Version: teleportVersion,
-	}
 }
 
 func (s *site) configureSiteExportPackage(ctx *operationContext) (*loc.Locator, error) {
@@ -1425,41 +1384,6 @@ func (s *site) siteExportPackage() (*loc.Locator, error) {
 func (s *site) licensePackage() (*loc.Locator, error) {
 	return loc.ParseLocator(
 		fmt.Sprintf("%v/%v:0.0.1", s.siteRepoName(), constants.LicensePackage))
-}
-
-func (s *site) planetSecretsNextPackage(node *ProvisionedServer, planetVersion string) loc.Locator {
-	planetVersion = fmt.Sprintf("%v+%v", planetVersion, time.Now().UTC().Unix())
-	return s.planetSecretsPackage(node, planetVersion)
-}
-
-func (s *site) planetSecretsPackage(node *ProvisionedServer, planetVersion string) loc.Locator {
-	return loc.Locator{
-		Repository: s.siteRepoName(),
-		Name:       fmt.Sprintf("planet-%v-secrets", node.AdvertiseIP),
-		Version:    planetVersion,
-	}
-}
-
-// planetNextConfigPackage generates a new planet configuration package
-// locator guaranteed to be greater than version
-func (s *site) planetNextConfigPackage(node remoteServer, planetVersion string) loc.Locator {
-	planetVersion = fmt.Sprintf("%v+%v", planetVersion, time.Now().UTC().Unix())
-	return s.planetConfigPackage(node, planetVersion)
-}
-
-// planetConfigPackage creates a planet configuration package reference
-// using the specified version as a package version and the given node to add unique
-// suffix to the name.
-// This is in contrast to the old naming with PackageSuffix used as a prerelease part
-// of the version which made them hard to match when looking for an update.
-func (s *site) planetConfigPackage(node remoteServer, version string) loc.Locator {
-	return loc.Locator{
-		Repository: s.siteRepoName(),
-		Name: fmt.Sprintf("%v-%v",
-			constants.PlanetConfigPackage,
-			PackageSuffix(node, s.domainName)),
-		Version: version,
-	}
 }
 
 func (s *site) addCloudConfig(config clusterconfig.Interface) (args []string) {

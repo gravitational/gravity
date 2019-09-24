@@ -660,25 +660,23 @@ func (s *site) serfNodeLeave(runner *serverRunner) error {
 }
 
 func (s *site) isTeleportMasterConfigPackageFor(server *ProvisionedServer, loc loc.Locator) bool {
-	// Version omitted on purpose - only repository/name are used for matching
-	configPackage := s.teleportMasterConfigPackage(server, "")
+	configPackage := s.teleportMasterConfigPackage(server)
 	return configPackage.Name == loc.Name && configPackage.Repository == loc.Repository
 }
 
 func (s *site) isTeleportNodeConfigPackageFor(server *ProvisionedServer, loc loc.Locator) bool {
-	// Version omitted on purpose - only repository/name are used for matching
-	configPackage := s.teleportNodeConfigPackage(server, "")
+	configPackage := s.teleportNodeConfigPackage(server)
 	return configPackage.Name == loc.Name && configPackage.Repository == loc.Repository
 }
 
 func (s *site) isPlanetConfigPackageFor(server *ProvisionedServer, loc loc.Locator) bool {
-	// Version omitted on purpose - only repository/name are used for matching
+	// Version omitted on purpose since only repository/name are used for comparison
 	configPackage := s.planetConfigPackage(server, "")
 	return configPackage.Name == loc.Name && configPackage.Repository == loc.Repository
 }
 
 func (s *site) isPlanetSecretsPackageFor(server *ProvisionedServer, loc loc.Locator) bool {
-	// Version omitted on purpose - only repository/name are used for matching
+	// Version omitted on purpose since only repository/name are used for comparison
 	configPackage := s.planetSecretsPackage(server, "")
 	return configPackage.Name == loc.Name && configPackage.Repository == loc.Repository
 }
