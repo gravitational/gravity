@@ -193,7 +193,7 @@ func (env *LocalEnvironment) init() error {
 	env.Credentials, err = credentials.New(credentials.Config{
 		LocalKeyStoreDir: env.LocalKeyStoreDir,
 		Backend:          env.Backend,
-		Static:           env.LocalEnvironmentArgs.Credentials,
+		Credentials:      env.LocalEnvironmentArgs.Credentials,
 	})
 	if err != nil {
 		return trace.Wrap(err)
