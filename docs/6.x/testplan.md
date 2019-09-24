@@ -7,7 +7,7 @@
 ### Ops Center
 
 - [ ] Install Ops Center in CLI mode.
-  - [ ] Verify can configure [OIDC connector](https://gravitational.com/gravity/docs/ver/6.x/cluster/#google-oidc-connector-example), for example:
+  - [ ] Verify can configure [OIDC connector](https://gravitational.com/gravity/docs/ver/6.x/config/#example-google-oidc-connector), for example:
 ```yaml
 kind: oidc
 version: v2
@@ -23,7 +23,7 @@ spec:
     - {claim: "hd", value: "gravitational.com", roles: ["@teleadmin"]}
 ```
   - [ ] Verify can log into Ops Center UI.
-  - [ ] Verify can update TLS certificate via [resource](https://gravitational.com/gravity/docs/ver/6.x/cluster/#configuring-tls-key-pair) or UI.
+  - [ ] Verify can update TLS certificate via [resource](https://gravitational.com/gravity/docs/ver/6.x/config/#tls-key-pair) or UI.
   - [ ] Verify can log in with `tele login`.
   - [ ] Verify can push Telekube app into Ops Center.
   - [ ] Verify can invite user to Ops Center using CLI.
@@ -40,7 +40,7 @@ spec:
 #### CLI mode
 
 - [ ] Install Telekube application in standalone CLI mode.
-  - [ ] Verify can create [local user](https://gravitational.com/gravity/docs/ver/6.x/cluster/#example-provisioning-a-cluster-admin-user), for example:
+  - [ ] Verify can create [local user](https://gravitational.com/gravity/docs/ver/6.x/config/#example-provisioning-a-cluster-admin-user), for example:
 ```yaml
 kind: user
 version: v2
@@ -60,7 +60,7 @@ spec:
     - [ ] Open the generated link and reset the password.
     - [ ] Verify can login with the new password.
   - [ ] Verify can log into local cluster UI using the user created above.
-  - [ ] Verify can connect to [Ops Center](https://gravitational.com/gravity/docs/ver/6.x/cluster/#configuring-trusted-clusters).
+  - [ ] Verify can connect to [Ops Center](https://gravitational.com/gravity/docs/ver/6.x/config/#trusted-clusters-enterprise).
     - [ ] Verify cluster appears as online in Ops Center and can be accessed via UI.
     - [ ] Verify remote support can be toggled off/on and cluster goes offline/online respectively.
     - [ ] Verify trusted cluster can be deleted and cluster disappears from Ops Center.
@@ -72,7 +72,7 @@ spec:
 - [ ] Install Telekube application in standalone UI wizard mode.
   - [ ] Verify can complete bandwagon through wizard UI.
   - [ ] Verify can log into local cluster UI with the user created in bandwagon.
-  - [ ] Verify can connect to [Ops Center](https://gravitational.com/gravity/docs/ver/6.x/cluster/#configuring-trusted-clusters).
+  - [ ] Verify can connect to [Ops Center](https://gravitational.com/gravity/docs/ver/6.x/config/#trusted-clusters-enterprise).
     - [ ] Verify cluster appears as online in Ops Center and can be accessed via UI.
     - [ ] Verify remote support can be toggled off/on and cluster goes offline/online respectively.
     - [ ] Verify trusted cluster can be deleted and cluster disappears from Ops Center.
@@ -216,7 +216,7 @@ $ docker pull ops.gravitational.io:32009/alpine:3.3
 
 - [ ] Install a cluster.
 
-- [ ] Connect the cluster to the Ops Center using [Trusted Cluster](https://gravitational.com/gravity/docs/cluster/#configuring-trusted-clusters) resource.
+- [ ] Connect the cluster to the Ops Center using [Trusted Cluster](https://gravitational.com/gravity/docs/config/#trusted-clusters-enterprise) resource.
 
 - [ ] Verify the application can be searched for in the connected Ops Center.
 ```bash

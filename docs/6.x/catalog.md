@@ -162,7 +162,7 @@ between the Open-Source and Enterprise versions of Gravity:
 * For the Open-Source clusters, it is the Gravitational default
 distribution portal (`get.gravitational.io`).
 * For the Enterprise clusters, it is the Ops Center a cluster
-is connected to. See [Configuring Trusted Clusters](/cluster/#configuring-trusted-clusters)
+is connected to. See [Configuring Trusted Clusters](/config/#trusted-clusters-enterprise)
 for details on how to connect a cluster to an Ops Center.
 
 The `-a` flag makes the command to display both local and remote applications.
