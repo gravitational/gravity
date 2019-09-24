@@ -7,6 +7,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
+| 6.2.0         | No  | September 24th, 2019 | -                    | 1.16.0             | 3.2.12           |
 | 6.1.5         | No  | September 18th, 2019 | -                    | 1.15.4             | 3.2.12           |
 | 6.0.9         | No  | September 18th, 2019 | -                    | 1.14.7             | 3.2.12           |
 | 5.6.8         | No  | September 18th, 2019 | -                    | 1.14.7             | 3.0.6-gravity    |
@@ -31,6 +32,12 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     do not receive updates and bugfixes.
 
 ## 6.x Releases
+
+### 6.2.0 (September 24th, 2019)
+
+#### Improvements
+
+* Upgrade Kubernetes to `v1.16.0`.
 
 ### 6.1.5 (September 18th, 2019)
 
