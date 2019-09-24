@@ -68,6 +68,7 @@ func ValidateKubelet(profile NodeProfile, manifest Manifest) (failed []*pb.Probe
 	checkers := append([]health.Checker{},
 		monitoring.NewKernelModuleChecker(
 			moduleName("ebtables"),
+			moduleName("ebtable_filter"),
 			moduleName("ip_tables"),
 			moduleName("iptable_filter"),
 			moduleName("iptable_nat"),
