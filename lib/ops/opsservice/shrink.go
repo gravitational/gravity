@@ -562,13 +562,26 @@ func (s *site) createShrinkAgentToken(operationID string) (tokenID string, err e
 // deletePackages removes stale packages generated for the specified server
 // from the cluster package service after the server had been removed.
 func (s *site) deletePackages(server *ProvisionedServer) error {
+	serverPackages, err := s.serverPackages(server)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	for _, pkg := range serverPackages {
+		err = s.packages().DeletePackage(pkg)
+		if err != nil && !trace.IsNotFound(err) {
+			return trace.Wrap(err, "failed to delete package").AddField("package", pkg)
+		}
+	}
+	return nil
+}
+
+func (s *site) serverPackages(server *ProvisionedServer) ([]loc.Locator, error) {
 	var packages []loc.Locator
 	err := pack.ForeachPackage(s.packages(), func(env pack.PackageEnvelope) error {
 		if env.HasLabel(pack.AdvertiseIPLabel, server.AdvertiseIP) {
 			packages = append(packages, env.Locator)
 			return nil
 		}
-		// Also consider node-specific packages
 		if s.isTeleportMasterConfigPackageFor(server, env.Locator) ||
 			s.isTeleportNodeConfigPackageFor(server, env.Locator) ||
 			s.isPlanetConfigPackageFor(server, env.Locator) ||
@@ -577,13 +590,10 @@ func (s *site) deletePackages(server *ProvisionedServer) error {
 		}
 		return nil
 	})
-	for _, pkg := range packages {
-		err = s.packages().DeletePackage(pkg)
-		if err != nil && !trace.IsNotFound(err) {
-			return trace.Wrap(err, "failed to delete package").AddField("package", pkg)
-		}
+	if err != nil {
+		return nil, trace.Wrap(err)
 	}
-	return nil
+	return packages, nil
 }
 
 // unlabelNode deletes server profile labels from k8s node

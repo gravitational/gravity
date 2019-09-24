@@ -1134,6 +1134,12 @@ var (
 		"hmac-sha2-256-etm@openssh.com",
 		"hmac-sha2-256",
 	}
+
+	// TeleportVersionString specifies the version of the bundled teleport package
+	TeleportVersionString = "<build param>"
+
+	// TeleportVersion specifies the version of the bundled teleport package as a semver
+	TeleportVersion = semver.New(TeleportVersionString)
 )
 
 // HookSecurityContext returns default securityContext for hook pods

@@ -383,7 +383,6 @@ site-app:
 	$(eval TMPDIR := $(shell mktemp -d --tmpdir=$(GRAVITY_BUILDDIR)))
 	@echo -e "\n----> Building site-app...\n"
 	cp -r $(ASSETSDIR)/site-app/* $(TMPDIR)
-	sed --expression "s/\$${TELEPORT_TAG}/$(TELEPORT_TAG)/" --in-place $(TMPDIR)/resources/site.yaml
 	cp $(GRAVITY_BUILDDIR)/gravity $(TMPDIR)/images/site
 	cd $(TMPDIR) && VERSION=$(GRAVITY_TAG) GRAVITY="$(GRAVITY)" OPS_URL=$(OPS_URL) make import
 	$(GRAVITY) package export $(SITE_APP_PKG) $(SITE_APP_OUT)

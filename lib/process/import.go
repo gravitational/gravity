@@ -112,14 +112,10 @@ func (i *importer) Close() error {
 
 // getMasterTeleportConfig extracts configuration from teleport package
 func (i *importer) getMasterTeleportConfig(clusterName string) (*telecfg.FileConfig, error) {
-	teleportVersion, err := semver.NewVersion(os.Getenv(constants.EnvGravityTeleportVersion))
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
 	configPackage, err := pack.FindLatestPackageCustom(pack.FindLatestPackageRequest{
 		Packages:   i.packages,
 		Repository: clusterName,
-		Match:      matchTeleportConfigPackage(*teleportVersion),
+		Match:      matchTeleportConfigPackage(*defaults.TeleportVersion),
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
