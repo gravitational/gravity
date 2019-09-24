@@ -16,7 +16,7 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	batchv2alpha1 "k8s.io/api/batch/v2alpha1"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
 )
 
@@ -116,6 +116,8 @@ func renderResourceTemplate(path string, serviceUser systeminfo.User) error {
 		case *appsv1beta1.Deployment:
 			spec = &resource.Spec.Template.Spec
 		case *appsv1beta2.Deployment:
+			spec = &resource.Spec.Template.Spec
+		case *appsv1.Deployment:
 			spec = &resource.Spec.Template.Spec
 		case *extensions.DaemonSet:
 			spec = &resource.Spec.Template.Spec
