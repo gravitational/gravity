@@ -34,10 +34,10 @@ type S struct {
 var _ = check.Suite(&S{})
 
 func (r *S) SetUpSuite(c *check.C) {
-	r.Logger = log.StandardLogger()
+	r.Logger = log.New()
 	if testing.Verbose() {
 		trace.SetDebug(true)
-		r.Logger.Level = log.DebugLevel
+		r.Logger.SetLevel(log.DebugLevel)
 	}
 }
 
