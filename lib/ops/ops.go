@@ -847,6 +847,8 @@ type RotateTeleportConfigRequest struct {
 	Server storage.Server `json:"server"`
 	// MasterIPs lists IP addresses of all cluster master servers
 	MasterIPs []string `json:"masters"`
+	// TeleportPackage specifies the teleport package locator
+	TeleportPackage loc.Locator `json:"teleport_package"`
 	// Master specifies the configuration package to use for the cluster controller teleport service.
 	// If unspecified, one will be automatically generated
 	Master *loc.Locator `json:"master,omitempty"`

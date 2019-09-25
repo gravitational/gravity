@@ -235,10 +235,11 @@ func (p *updatePhaseBootstrapLeader) rotatePlanetConfig(server storage.UpdateSer
 
 func (p *updatePhaseBootstrapLeader) rotateTeleportConfig(server storage.UpdateServer) error {
 	masterConf, nodeConf, err := p.packageRotator.RotateTeleportConfig(ops.RotateTeleportConfigRequest{
-		Key:         p.bootstrap.Operation.Key(),
-		Server:      server.Server,
-		NodePackage: server.Teleport.Update.NodeConfigPackage,
-		MasterIPs:   p.masterIPs,
+		Key:             p.bootstrap.Operation.Key(),
+		Server:          server.Server,
+		TeleportPackage: server.Teleport.Update.Package,
+		NodePackage:     server.Teleport.Update.NodeConfigPackage,
+		MasterIPs:       p.masterIPs,
 	})
 	if err != nil {
 		return trace.Wrap(err)
