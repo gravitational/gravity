@@ -79,6 +79,10 @@ type LocalEnvironmentArgs struct {
 	// ReadonlyBackend specifies if the backend should be opened
 	// read-only.
 	ReadonlyBackend bool
+	// Credentials is the predefined static credentials entry
+	Credentials *credentials.Credentials
+	// Close allows to perform extra cleanup actions
+	Close func() error
 }
 
 // Addr returns the first listen address of the DNS server
@@ -189,6 +193,7 @@ func (env *LocalEnvironment) init() error {
 	env.Credentials, err = credentials.New(credentials.Config{
 		LocalKeyStoreDir: env.LocalKeyStoreDir,
 		Backend:          env.Backend,
+		Credentials:      env.LocalEnvironmentArgs.Credentials,
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -200,6 +205,10 @@ func (env *LocalEnvironment) init() error {
 // Close closes backend and object storage used in LocalEnvironment
 func (env *LocalEnvironment) Close() error {
 	var errors []error
+	if env.LocalEnvironmentArgs.Close != nil {
+		errors = append(errors, env.LocalEnvironmentArgs.Close())
+		env.LocalEnvironmentArgs.Close = nil
+	}
 	if env.Backend != nil {
 		errors = append(errors, env.Backend.Close())
 		env.Backend = nil
