@@ -187,7 +187,28 @@ func (s *credentialsService) For(clusterURL string) (*Credentials, error) {
 		s.Debugf("Returning default credentials for %v.", clusterURL)
 		return defaultCredentials, nil
 	}
-	return nil, trace.AccessDenied("no credentials for %v", clusterURL)
+	return nil, newCredentialsNotFoundError("no credentials for %v", clusterURL)
+}
+
+// credentialsNotFoundError is returned if requested credentials weren't found.
+type credentialsNotFoundError struct {
+	message string
+}
+
+// newCredentialsNotFoundError returns a new instance of credentials not found error.
+func newCredentialsNotFoundError(format string, args ...interface{}) *credentialsNotFoundError {
+	return &credentialsNotFoundError{message: fmt.Sprintf(format, args...)}
+}
+
+// Error returns the error's message.
+func (e *credentialsNotFoundError) Error() string {
+	return e.message
+}
+
+// IsCredentialsNotFoundError returns true if the provided error is the credentials not found.
+func IsCredentialsNotFoundError(err error) bool {
+	_, ok := err.(*credentialsNotFoundError)
+	return ok
 }
 
 // Current returns the currently active user credentials.
