@@ -11,7 +11,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 | 6.1.5         | No  | September 18th, 2019 | -                    | 1.15.4             | 3.2.12           |
 | 6.0.9         | No  | September 18th, 2019 | -                    | 1.14.7             | 3.2.12           |
 | 5.6.8         | No  | September 18th, 2019 | -                    | 1.14.7             | 3.0.6-gravity    |
-| 5.5.20        | Yes | September 18th, 2019 | September 7th, 2020  | 1.13.11            | 3.0.6-gravity    |
+| 5.5.21        | Yes | September 25th, 2019 | September 7th, 2020  | 1.13.11            | 3.0.6-gravity    |
 | 5.4.10*       | No  | March 26th, 2019     | -                    | 1.13.5             | 2.4.10           |
 | 5.3.9*        | No  | March 7th, 2019      | -                    | 1.12.3             | 2.4.7            |
 | 5.2.14        | Yes | July 30th, 2019      | October 15th, 2019   | 1.11.9             | 2.4.10           |
@@ -304,7 +304,21 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     This release fixes a security vulnerability in teleport. Please see
     [Teleport Announcement](https://github.com/gravitational/teleport/releases/tag/v4.0.5) for more information.
 
-### 5.5.20 (September 18th, 2019)
+### 5.5.21 LTS (September 25th, 2019)
+
+#### Improvements
+
+* Add support for direct upgrades of clusters based on Gravity 5.0.x
+
+#### Bugfixes
+
+* Improve OS metadata parsing in agents.
+* Fix an issue with `gravity report` not capturing planet journal logs.
+* Fix a race in `gravity upload`.
+* Fix a package ordering issue in `tele build`.
+* Fix an issue with the time drift checker.
+
+### 5.5.20 LTS (September 18th, 2019)
 
 #### Bugfixes
 
@@ -321,7 +335,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     This release fixes a security vulnerability in teleport. Please see
     [Teleport Announcement](https://github.com/gravitational/teleport/releases/tag/v4.0.5) for more information.
 
-### 5.5.19 (September 10th, 2019)
+### 5.5.19 LTS (September 10th, 2019)
 
 #### Improvements
 
