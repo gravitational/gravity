@@ -11,10 +11,10 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 | 6.1.5         | No  | September 18th, 2019 | -                    | 1.15.4             | 3.2.12           |
 | 6.0.9         | No  | September 18th, 2019 | -                    | 1.14.7             | 3.2.12           |
 | 5.6.8         | No  | September 18th, 2019 | -                    | 1.14.7             | 3.0.6-gravity    |
-| 5.5.21        | Yes | September 25th, 2019 | September 7th, 2020  | 1.13.11            | 3.0.6-gravity    |
+| 5.5.21        | Yes | September 26th, 2019 | September 7th, 2020  | 1.13.11            | 3.0.6-gravity    |
 | 5.4.10*       | No  | March 26th, 2019     | -                    | 1.13.5             | 2.4.10           |
 | 5.3.9*        | No  | March 7th, 2019      | -                    | 1.12.3             | 2.4.7            |
-| 5.2.14        | Yes | July 30th, 2019      | October 15th, 2019   | 1.11.9             | 2.4.10           |
+| 5.2.15        | Yes | September 19th, 2019 | October 15th, 2019   | 1.11.9             | 2.4.10           |
 | 5.0.35        | Yes | September 2nd, 2019  | April 13th, 2019     | 1.9.13-gravitational | 2.4.10         |
 | 4.68.0*       | Yes | January 17th, 2019   | November 16th, 2018  | 1.7.18-gravitational | 2.3.5          |
 | 3.64.0*       | Yes | December 21st, 2017  | June 2nd, 2018       | 1.5.7              | 2.0.6            |
@@ -304,7 +304,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     This release fixes a security vulnerability in teleport. Please see
     [Teleport Announcement](https://github.com/gravitational/teleport/releases/tag/v4.0.5) for more information.
 
-### 5.5.21 LTS (September 25th, 2019)
+### 5.5.21 LTS (September 26th, 2019)
 
 #### Improvements
 
@@ -409,6 +409,13 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 !!! warning
     This release fixes a security vulnerability in kubernetes. Please see
     [Kubernetes Announcement](https://groups.google.com/forum/#!topic/kubernetes-security-discuss/Vf31dXp0EJc) for more information.
+
+### 5.2.15 LTS (September 19th, 2019)
+
+#### Improvements
+
+* Update github.com/gravitational/monitoring-app to 5.2.5
+* Add support for intermediate upgrades.
 
 ### 5.2.14 LTS (July 30th, 2019)
 
