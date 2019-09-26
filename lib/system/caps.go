@@ -20,8 +20,9 @@ package system
 
 import "github.com/gravitational/trace"
 
-// DropCapabilitiesForChroot drops capabilities except those required to do chroot
-func DropCapabilitiesForChroot() error {
+// DropCapabilitiesForJournalExport drops capabilities except those required
+// to export a systemd journal
+func DropCapabilitiesForJournalExport() error {
 	return trace.NotImplemented("API is not supported")
 }
 
