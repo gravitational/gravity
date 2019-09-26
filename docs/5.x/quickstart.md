@@ -156,12 +156,12 @@ $ tele build -o mattermost.tar mattermost/resources/app.yaml
 	Detected resource file nodesDeprovision.yaml
 	Detected resource file nodesProvision.yaml
 	Detected Helm chart charts/mattermost
-	Using local image quay.io/gravitational/debian-tall:0.0.1
-	Using local image quay.io/gravitational/debian-tall:0.0.1
+	Using local image quay.io/gravitational/debian-tall:buster
+	Using local image quay.io/gravitational/debian-tall:buster
 	Using local image quay.io/gravitational/provisioner:ci.82
 	Using local image mattermost-worker:2.2.0
 	Using local image postgres:9.4.4
-	Vendored image gravitational/debian-tall:0.0.1
+	Vendored image gravitational/debian-tall:buster
 	Vendored image gravitational/provisioner:ci.82
 	Still embedding application container images (10 seconds elapsed)
 	Vendored image mattermost-worker:2.2.0

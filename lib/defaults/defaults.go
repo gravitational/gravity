@@ -1039,7 +1039,7 @@ var (
 	RSAPrivateKeyBits = 4096
 
 	// HookContainerNameTag identifies the container image used for application hooks
-	HookContainerNameTag = "gravitational/debian-tall:0.0.1"
+	HookContainerNameTag = "gravitational/debian-tall:buster"
 
 	// UpdateAppSyncTimeout defines the maximum amount of time to sync application
 	// state with an updated node during update

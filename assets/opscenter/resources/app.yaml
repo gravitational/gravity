@@ -59,7 +59,7 @@ hooks:
             restartPolicy: OnFailure
             containers:
               - name: hook
-                image: quay.io/gravitational/debian-tall:0.0.1
+                image: quay.io/gravitational/debian-tall:buster
                 command: ["/usr/local/bin/kubectl", "delete", "services", "-l", "app=gravity-opscenter", "--ignore-not-found"]
 systemOptions:
   docker:

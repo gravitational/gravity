@@ -16,7 +16,7 @@ metadata:
 spec:
   containers:
   - name: debug
-    image: leader.telekube.local:5000/gravitational/debian-tall:0.0.1
+    image: leader.telekube.local:5000/gravitational/debian-tall:buster
     command: ['/bin/sh', '-c', 'sleep 3600']
     volumeMounts:
     - mountPath: /rootfs

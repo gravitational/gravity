@@ -30,7 +30,7 @@ import (
 	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	extensionsv1 "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -248,7 +248,7 @@ func newPod(name string) *v1.Pod {
 			Containers: []v1.Container{
 				{
 					Name:    name,
-					Image:   "apiserver:5000/gravitational/debian-tall:0.0.1",
+					Image:   "apiserver:5000/gravitational/debian-tall:buster",
 					Command: []string{"/bin/sh", "-c", "sleep 3600"},
 				},
 			},
