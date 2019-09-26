@@ -222,8 +222,8 @@
     "sortkeys",
   ]
   pruneopts = "NUT"
-  revision = "1adfc126b41513cc696b209667c8656ea7aac67c"
-  version = "v1.0.0"
+  revision = "ba06b47c162d49f2af050fb4c75bcbc86a159d5c"
+  version = "v1.2.1"
 
 [[projects]]
   branch = "master"
@@ -1055,6 +1055,7 @@
     "github.com/davecgh/go-spew/spew",
     "github.com/docker/docker/pkg/term",
     "github.com/ghodss/yaml",
+    "github.com/gogo/protobuf/proto",
     "github.com/gokyle/hotp",
     "github.com/golang/protobuf/proto",
     "github.com/golang/protobuf/ptypes/empty",
@@ -1129,6 +1130,7 @@
     "k8s.io/client-go/tools/clientcmd/api",
     "k8s.io/client-go/tools/portforward",
     "k8s.io/client-go/tools/remotecommand",
+    "k8s.io/client-go/transport",
     "k8s.io/client-go/transport/spdy",
     "k8s.io/client-go/util/exec",
   ]
