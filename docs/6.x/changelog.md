@@ -309,12 +309,26 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 #### Improvements
 
 * Add support for direct upgrades of clusters based on Gravity 5.0.x ([#637](https://github.com/gravitational/gravity/pull/637)).
+* Update github.com/gravitational/monitoring-app to 5.5.3 ([#644](https://github.com/gravitational/gravity/pull/644)).
+  * Disable NodePort access to Kapacitor service.
+  * Randomly generate passwords for superuser, telegraf, heapster and grafana users in InfluxDB database during installation and upgrades.
 
 #### Bugfixes
 
 * Fix an issue with `gravity report` not capturing planet journal logs ([#684](https://github.com/gravitational/gravity/pull/684)).
 * Fix a package ordering issue in `tele build` ([#712](https://github.com/gravitational/gravity/pull/712)).
 * Fix an issue with the time drift checker ([#710](https://github.com/gravitational/gravity/pull/710)).
+
+### 5.2.15 LTS (September 19th, 2019)
+
+#### Improvements
+
+* Update github.com/gravitational/monitoring-app to 5.2.5 ([#642](https://github.com/gravitational/gravity/pull/642)).
+* Add support for intermediate upgrades ([#711](https://github.com/gravitational/gravity/pull/711), [#709](https://github.com/gravitational/gravity/pull/709), [#612](https://github.com/gravitational/gravity/pull/612)).
+
+#### Bugfixes
+
+* Improve OS metadata parsing in agents ([#721](https://github.com/gravitational/gravity/pull/721)).
 
 ### 5.5.20 LTS (September 18th, 2019)
 
@@ -407,17 +421,6 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 !!! warning
     This release fixes a security vulnerability in kubernetes. Please see
     [Kubernetes Announcement](https://groups.google.com/forum/#!topic/kubernetes-security-discuss/Vf31dXp0EJc) for more information.
-
-### 5.2.15 LTS (September 19th, 2019)
-
-#### Improvements
-
-* Update github.com/gravitational/monitoring-app to 5.2.5 ([#642](https://github.com/gravitational/gravity/pull/642)).
-* Add support for intermediate upgrades ([#711](https://github.com/gravitational/gravity/pull/711), [#709](https://github.com/gravitational/gravity/pull/709), [#612](https://github.com/gravitational/gravity/pull/612)).
-
-#### Bugfixes
-
-* Improve OS metadata parsing in agents ((#721)[https://github.com/gravitational/gravity/pull/721]).
 
 ### 5.2.14 LTS (July 30th, 2019)
 
