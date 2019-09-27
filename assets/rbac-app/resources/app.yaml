@@ -28,7 +28,7 @@ hooks:
                 path: /var/state
             containers:
             - name: hook
-              image: quay.io/gravitational/debian-tall:0.0.1
+              image: quay.io/gravitational/debian-tall:buster
               command: ["/usr/local/bin/kubectl", "--kubeconfig=/etc/kubernetes/scheduler.kubeconfig", "apply", "-f", "/var/lib/gravity/resources/resources.yaml"]
               volumeMounts:
               - name: etc-kubernetes
@@ -59,7 +59,7 @@ hooks:
                 path: /var/state
             containers:
             - name: hook
-              image: quay.io/gravitational/debian-tall:0.0.1
+              image: quay.io/gravitational/debian-tall:buster
               command: ["/usr/local/bin/kubectl", "--kubeconfig=/etc/kubernetes/scheduler.kubeconfig", "apply", "-f", "/var/lib/gravity/resources/resources.yaml"]
               volumeMounts:
               - name: etc-kubernetes

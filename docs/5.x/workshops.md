@@ -2026,7 +2026,7 @@ We have not used `docker build` this time, but mounted the source code and run t
 We can now use much simpler (and smaller) Dockerfile to run our image:
 
 ```Dockerfile
-FROM quay.io/gravitational/debian-tall:0.0.1
+FROM quay.io/gravitational/debian-tall:buster
 
 ADD hello /hello
 ENTRYPOINT ["/hello"]
