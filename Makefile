@@ -52,7 +52,7 @@ MONITORING_APP_TAG ?= 6.0.4
 DNS_APP_TAG = 0.3.0
 BANDWAGON_TAG ?= 6.0.1
 RBAC_APP_TAG := $(GRAVITY_TAG)
-TILLER_VERSION = 2.13.1
+TILLER_VERSION = 2.14.3
 TILLER_APP_TAG = 6.0.0
 # URI of Wormhole container for default install
 WORMHOLE_IMG ?= quay.io/gravitational/wormhole:0.2.0

@@ -89,35 +89,39 @@ ignored = [
 
 [[constraint]]
   name = "k8s.io/helm"
-  branch = "release-2.12"
+  branch = "release-2.14"
 
 [[override]]
   name = "k8s.io/apimachinery"
-  version = "kubernetes-1.13.3"
+  version = "kubernetes-1.15.4"
 
 [[override]]
   name = "k8s.io/api"
-  version = "kubernetes-1.13.3"
+  version = "kubernetes-1.15.4"
 
 [[override]]
   name = "k8s.io/apiserver"
-  version = "kubernetes-1.13.3"
+  version = "kubernetes-1.15.4"
 
 [[override]]
   name = "k8s.io/kubernetes"
-  branch = "release-1.13"
+  branch = "release-1.15"
 
 [[override]]
   name = "k8s.io/cli-runtime"
-  version = "kubernetes-1.13.3"
+  version = "kubernetes-1.15.4"
 
 [[override]]
   name = "k8s.io/apiextensions-apiserver"
-  version = "kubernetes-1.13.3"
+  version = "kubernetes-1.15.4"
 
 [[override]]
   name = "k8s.io/kube-aggregator"
-  branch = "release-1.13"
+  branch = "release-1.15"
+
+[[override]]
+  name = "k8s.io/client-go"
+  version = "kubernetes-1.15.4"
 
 [[constraint]]
   name = "github.com/gravitational/rigging"
@@ -232,10 +236,6 @@ ignored = [
   source = "github.com/gravitational/kingpin"
   #version = "=v2.2.7"
   branch = "telekube"
-
-[[override]]
-  name = "k8s.io/client-go"
-  version = "=v10.0.0"
 
 [[constraint]]
   name = "github.com/gravitational/license"
