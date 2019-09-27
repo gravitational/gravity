@@ -38,18 +38,18 @@ way:
 
 * Since all Kubernetes services such as `kubelet` or `kube-apiserver` always
   run enclosed inside the Master Container, it makes it possible for Gravity
-  to closely monitor the Cluster health and perform Cluster updates.
+  to closely monitor the Cluster health and perform Cluster upgrades.
 
 * `gravity` _continuously_ maintains Kubernetes configuration to be highly
   available ("HA").  This means that any node can go down without disrupting
   Kubernetes' operation.
 
 * `gravity` runs its own local Docker registry which is used as a Cluster-level
-  cache for container images. This makes application updates and restarts
+  cache for container images. This makes application upgrades and restarts
   faster and more reliable.
 
 * `gravity` provides the ability to perform Cluster state snapshots as part of
-  Cluster updates or to be used independently.
+  Cluster upgrades or to be used independently.
 
 ### Kubernetes Extensions
 
@@ -266,7 +266,7 @@ do, or simply use `kubectl --help`.
 
 Each Gravity Cluster also has a Cluster Control Panel web application to explore and
 manage the Cluster. To log into the Cluster Control Panel you need to create an admin user.
-Please see the [Custom Installer Screens](/pack/#/pack/#custom-installation-screen)
+Please see the [Custom Installer Screens](/pack/#custom-installation-screen)
 chapter for details on how to enable a post-install screen that will let you create a local user.
 
 If you are doing a CLI installation you will need to create a user resource in
@@ -275,7 +275,7 @@ order to log into the Cluster Control Panel. See the
 
 ## Updating a Cluster
 
-Cluster updates can get quite complicated for complex cloud applications
+Cluster upgrades can get quite complicated for complex cloud applications
 composed of multiple micro-services. On a high level, there are two major layers
 that will need periodic updating:
 
@@ -311,7 +311,7 @@ offline environments.
 A new image becomes "uploaded" when it's contents are stored in the internal
 Cluster registry.
 
-#### Online Cluster Update
+### Online Cluster Upgrade
 
 !!! warning "Version Warning"
     Graivty Hub is available to Enterprise edition users only. This means that open source
@@ -329,7 +329,7 @@ $ gravity update download --every=12h  # Schedule automatic downloading of updat
 $ gravity update download --every=off  # Turn off automatic downloading of updates.
 ```
 
-#### Offline Cluster Update
+### Offline Cluster Upgrade
 
 If a Gravity Cluster is not connected to a Gravity Hub, the updated version of
 the Cluster Image has to be copied to one of the Cluster nodes. To upload the
@@ -377,7 +377,7 @@ installer$ sudo ./gravity upgrade
 Executing the command with `--no-block` will start the operation in background
 as a systemd service.
 
-#### Manual Upgrade
+### Manual Upgrade
 
 If you specify `--manual | -m` flag, the operation is started in manual mode:
 
@@ -428,6 +428,39 @@ root$ ./gravity plan resume
 # Shut down the update agents on all nodes:
 root$ ./gravity agent shutdown
 ```
+
+## Direct Upgrades From Older LTS Versions
+
+Gravity LTS releases are at most 8 months apart and are based on Kubernetes releases which are no more than 2 minor versions apart.
+This requirement is partially necessitated by the Kubernetes version skew [support policy](https://kubernetes.io/docs/setup/release/version-skew-policy/#supported-version-skew).
+Gravity can thus only upgrade clusters from a previous LTS version. For example, an existing cluster based on Gravity `5.0.35` can be upgraded to one based on Gravity
+`5.2.14` but not to `5.5.20`.
+
+Since version `5.5.21` `tele` is capable of producing cluster image tarballs that can upgrade clusters based on older LTS versions (i.e. more than one version apart) directly.
+For this to work, it embeds the data from (a series) of previous LTS releases.
+
+As a result, the tarball will grow roughly by 1Gb per embedded release. Additionally, each embedded LTS release increases the upgrade time by a certain
+amount (which is cluster size-specific) - this should also be taken into account when planning for the upgrade.
+
+To embed an LTS release, specify its version as a parameter to `tele build`:
+
+```bash
+$ tele build ... --upgrade-via=5.2.15
+```
+
+The flag can be specified multiple times to add as many LTS versions as required.
+
+!!! note "Embedding intermediate LTS releases":
+    The version specified with the `--upgrade-via` flag must be an LTS version.
+    Check [Releases](/changelog) page to see which LTS versions are available for embedding.
+    The upgrade path from the existing version must contain all intermediate LTS releases to reach the target version but
+    the target version does not have to be LTS.
+    For example, to upgrade a cluster based on Gravity `5.0.35` to the image based on Gravity `5.5.21`, the cluster
+    image must embed the LTS version `5.2.15`.
+
+!!! note "Direct Upgrades Support":
+    Direct upgrades support is available since Gravity version `5.5.21`.
+    Newer Gravity versions will receive support for direct upgrades in the near future.
 
 ## Managing Operations
 
