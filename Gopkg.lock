@@ -952,7 +952,7 @@
   version = "v1.0.0"
 
 [[projects]]
-  digest = "1:96d047eff5cc0d3a9612b98e7b9d476cdf74b5ecacb8f2a280131002b9ff82f8"
+  digest = "1:c9607d2b82ba4b7c729aeb5cde9fc3718556101c52c3c259750f50549720af21"
   name = "github.com/gravitational/satellite"
   packages = [
     "agent",
@@ -964,8 +964,8 @@
     "utils",
   ]
   pruneopts = "UT"
-  revision = "27516dfde3be80137478722b466fc507cee5ccc8"
-  version = "7.0.0"
+  revision = "1f7fd065d639303028860a763027e092da52b97c"
+  version = "7.0.2"
 
 [[projects]]
   digest = "1:49f6abbce9ade5f43508429e4af1adcce55d27adcd62719fea049decc766a7c9"
@@ -1328,12 +1328,11 @@
   revision = "0b12d6b5"
 
 [[projects]]
-  digest = "1:75ab90ae3f5d876167e60f493beadfe66f0ed861a710f283fb06c86437a09538"
+  digest = "1:35f49695a600c368ad7811a672d583b3e004b44fe883a0a1eb2a6c0d75eaeb1b"
   name = "github.com/jonboulle/clockwork"
   packages = ["."]
   pruneopts = "UT"
-  revision = "2eee05ed794112d45db504eb05aa693efd2b8b09"
-  version = "v0.1.0"
+  revision = "62fb9bc030d14f92c58df3c1601e50a0e445edef"
 
 [[projects]]
   digest = "1:3e551bbb3a7c0ab2a2bf4660e7fcad16db089fdcfbb44b0199e62838038623ea"
@@ -1710,13 +1709,14 @@
   version = "v0.18.0"
 
 [[projects]]
-  digest = "1:b8fc32232f276bebfed92b136bce3c9efc600afbf8abb76aa6406a75ab24d9e5"
+  digest = "1:4594833620d039a1c1e889d445988edfc2cdcc95b7e5f40fd63a9d17e2f2ed3f"
   name = "github.com/prometheus/client_golang"
   packages = [
     "api",
     "api/prometheus/v1",
     "prometheus",
     "prometheus/internal",
+    "prometheus/promhttp",
   ]
   pruneopts = "UT"
   revision = "505eaef017263e299324067d40ca2c48f6a2cf50"
@@ -1743,15 +1743,16 @@
   revision = "61f87aac8082fa8c3c5655c7608d7478d46ac2ad"
 
 [[projects]]
-  branch = "master"
-  digest = "1:e3f36c748588410d67b7bb3fb442c339ee0c297100425b9040ed6bf3074978f6"
+  digest = "1:a210815b437763623ecca8eb91e6a0bf4f2d6773c5a6c9aec0e28f19e5fd6deb"
   name = "github.com/prometheus/procfs"
   packages = [
     ".",
-    "xfs",
+    "internal/fs",
+    "internal/util",
   ]
   pruneopts = "UT"
-  revision = "e645f4e5aaa8506fc71d6edbc5c4ff02c04c46f2"
+  revision = "499c85531f756d1129edd26485a5f73871eeb308"
+  version = "v0.0.5"
 
 [[projects]]
   digest = "1:70ecb8f830ca88eadd76baf6386ee7abdddb7037091971c78f81daf81b8be2d1"

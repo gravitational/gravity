@@ -73,7 +73,7 @@ ignored = [
 
 [[constraint]]
   name = "github.com/gravitational/satellite"
-  version = "=7.0.0"
+  version = "=7.0.2"
 
 [[constraint]]
   name = "github.com/xtgo/set"
