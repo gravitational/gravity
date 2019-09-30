@@ -1,4 +1,4 @@
-FROM quay.io/gravitational/debian-venti:go1.12.9-stretch
+FROM quay.io/gravitational/debian-venti:go1.12.9-buster
 
 ARG PROTOC_VER
 ARG PROTOC_PLATFORM

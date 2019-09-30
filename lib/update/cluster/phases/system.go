@@ -96,6 +96,7 @@ func (p *updatePhaseSystem) Execute(ctx context.Context) error {
 		ChangesetID: p.OperationID,
 		Backend:     p.Backend,
 		Packages:    p.HostLocalPackages,
+		ClusterRole: p.Server.ClusterRole,
 		PackageUpdates: system.PackageUpdates{
 			Gravity: &storage.PackageUpdate{
 				To: p.GravityPackage,
@@ -135,7 +136,20 @@ func (p *updatePhaseSystem) Execute(ctx context.Context) error {
 		return trace.Wrap(err)
 	}
 	err = updater.Update(ctx, true)
-	return trace.Wrap(err)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	// Regardless of whether the teleport itself is being updated or not,
+	// update the tctl script to make sure it is present when upgrading
+	// from older versions and also to account for any possible changes
+	// made to the script itself.
+	if p.Server.IsMaster() {
+		err = updater.UpdateTctlScript(p.Server.Teleport.Package())
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	return nil
 }
 
 // Rollback runs rolls back the system upgrade on the node

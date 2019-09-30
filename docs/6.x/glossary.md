@@ -38,9 +38,9 @@ Gravity component for managing Kubernetes. It manages Kubernetes daemons and the
 
 Applications Resources include the Application Manifest and all other files that were in the same directory as the Application Manifest during the Application Bundle build process.
 
-## [Application Hooks](/pack/#application-hooks)
+## [Cluster Hooks](/pack/#cluster-hooks)
 
-Application Hooks are Kubernetes' jobs that run at different points in the application lifecycle or in
+Cluster Hooks are Kubernetes' jobs that run at different points in the application lifecycle or in
 response to certain events happening in the cluster.
 
 ## [Custom Installation Screen](/pack/#custom-installation-screen)

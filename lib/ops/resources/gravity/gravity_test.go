@@ -51,9 +51,10 @@ var _ = check.Suite(&GravityResourcesSuite{
 func (s *GravityResourcesSuite) SetUpSuite(c *check.C) {
 	s.s.SetUp(c)
 	// start up ops server using configured ops handler
-	s.server = httptest.NewServer(s.s.Handler)
+	s.server = httptest.NewTLSServer(s.s.Handler)
 	// create the ops client that uses admin agent creds
-	client, err := opsclient.NewBearerClient(s.server.URL, s.s.Creds.Password)
+	client, err := opsclient.NewBearerClient(s.server.URL, s.s.Creds.Password,
+		opsclient.HTTPClient(s.server.Client()))
 	c.Assert(err, check.IsNil)
 	// create the resource control that uses this ops client
 	s.r, err = New(Config{

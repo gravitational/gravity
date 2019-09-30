@@ -702,7 +702,8 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 		return systemReinstall(localEnv,
 			*g.SystemReinstallCmd.Package,
 			*g.SystemReinstallCmd.ServiceName,
-			*g.SystemReinstallCmd.Labels)
+			*g.SystemReinstallCmd.Labels,
+			*g.SystemReinstallCmd.ClusterRole)
 	case g.SystemHistoryCmd.FullCommand():
 		return systemHistory(localEnv)
 	case g.SystemPullUpdatesCmd.FullCommand():

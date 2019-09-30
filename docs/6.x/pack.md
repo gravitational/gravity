@@ -90,7 +90,7 @@ plugging them into a CI/CD pipeline.
 # resulting container image will contain `tele` tool and can be used
 # to create Cluster images from within a container.
 
-FROM quay.io/gravitational/debian-grande:stretch
+FROM quay.io/gravitational/debian-grande:buster
 
 ARG TELE_VERSION
 RUN apt-get update
@@ -170,16 +170,16 @@ be _the only Gravity-specific artifact_ you will have to create and maintain.
 The file format was designed to mimic a Kubernetes resource as much as possible
 and several Kubernetes concepts are used for efficiency, for example:
 
-1. Use standard Kubernetes [config maps](http://kubernetes.io/docs/user-guide/configmap/)
+1. Use standard Kubernetes [ConfigMaps](http://kubernetes.io/docs/user-guide/configmap/)
    to manage application configuration. The Image Manifest should not be used
    for this purpose.
 
 2. To customize the installation process, create regular [Kubernetes Services](http://kubernetes.io/docs/user-guide/services/)
-   and tell Gravitiy to invoke them with the Image Manifest.
+   and tell Gravity to invoke them with the Image Manifest.
 
 3. You can define custom Cluster life cycle hooks like _install_, _uninstall_ or _update_
    using the Image Manifest, but the hooks themselves should be implemented as a regular
-   [kubernetes jobs](http://kubernetes.io/docs/user-guide/jobs/).
+   [Kubernetes Job](http://kubernetes.io/docs/user-guide/jobs/).
 
 The Image Manifest is designed to be as small as possible in an
 effort to promote open standards. As Kubernetes itself matures and promising
@@ -633,7 +633,7 @@ spec:
       restartPolicy: OnFailure
       containers:
         - name: debian-tall
-          image: quay.io/gravitational/debian-tall:stretch
+          image: quay.io/gravitational/debian-tall:buster
           command:
             - /usr/local/bin/kubectl
             - create
@@ -655,7 +655,7 @@ To see more examples of specific hooks, please refer to the following documentat
 * [Backup & Restore](/cluster/#backup-and-restore) for `backup` and `restore` hooks
 
 !!! tip:
-    The `quay.io/gravitational/debian-tall:stretch` image is a lightweight (~11MB)
+    The `quay.io/gravitational/debian-tall:buster` image is a lightweight (~11MB)
     distribution of Debian Linux that is a good fit for running Go or statically
     linked binaries.
 
@@ -721,7 +721,7 @@ spec:
       restartPolicy: OnFailure
       containers:
         - name: install
-          image: quay.io/gravitational/debian-tall:stretch
+          image: quay.io/gravitational/debian-tall:buster
           command: ["/usr/local/bin/helm", "install", "/var/lib/gravity/resources/charts/example", "--set", "registry=leader.telekube.local:5000/"]
 ```
 
@@ -858,7 +858,7 @@ spec:
 ```
 
 Only resources stored as YAML files are subject to automatic translation.  If
-a Cluster lifecycle hook uses custom resource provisioning, it might need to perform
+a Cluster life cycle hook uses custom resource provisioning, it might need to perform
 the conversion manually.
 
 The value of the effective service user ID is stored in the

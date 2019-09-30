@@ -24,6 +24,7 @@ import (
 
 	"github.com/docker/docker/pkg/mount"
 	"github.com/gravitational/trace"
+	log "github.com/sirupsen/logrus"
 )
 
 // RoBindMount bind-mounts the specified hostDir in
@@ -40,11 +41,21 @@ func (r *Mounter) RoBindMount(hostDir, localDir string) error {
 
 	if mounted, _ := mount.Mounted(dir); !mounted {
 		if err := mount.Mount(hostDir, dir, "none", "bind,rw"); err != nil {
+			log.WithFields(log.Fields{
+				log.ErrorKey: err,
+				"src":        hostDir,
+				"dst":        dir,
+			}).Warn("Failed to mount.")
 			return trace.Wrap(err, "failed to mount %v as %v", hostDir, dir)
 		}
 	}
 
 	if err := mount.ForceMount(hostDir, dir, "none", "remount,ro,bind"); err != nil {
+		log.WithFields(log.Fields{
+			log.ErrorKey: err,
+			"src":        hostDir,
+			"dst":        dir,
+		}).Warn("Failed to remount.")
 		return trace.Wrap(err, "failed to remount %v as %v (read-only)", hostDir, dir)
 	}
 
