@@ -54,6 +54,7 @@ func CompareDomainName(s1, s2 string) (n int) {
 		return 0
 	}
 
+<<<<<<< HEAD
 	j1 := len(s1)
 	if s1[j1-1] == '.' {
 		j1--
@@ -61,12 +62,34 @@ func CompareDomainName(s1, s2 string) (n int) {
 	j2 := len(s2)
 	if s2[j2-1] == '.' {
 		j2--
+=======
+	l1 := Split(s1)
+	l2 := Split(s2)
+
+	j1 := len(l1) - 1 // end
+	i1 := len(l1) - 2 // start
+	j2 := len(l2) - 1
+	i2 := len(l2) - 2
+	// the second check can be done here: last/only label
+	// before we fall through into the for-loop below
+	if equal(s1[l1[j1]:], s2[l2[j2]:]) {
+		n++
+	} else {
+		return
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	}
 	var i1, i2 int
 	for {
+<<<<<<< HEAD
 		i1 = prevLabel(s1, j1-1)
 		i2 = prevLabel(s2, j2-1)
 		if equal(s1[i1:j1], s2[i2:j2]) {
+=======
+		if i1 < 0 || i2 < 0 {
+			break
+		}
+		if equal(s1[l1[i1]:l1[j1]], s2[l2[i2]:l2[j2]]) {
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 			n++
 		} else {
 			break
@@ -213,6 +236,31 @@ func equal(a, b string) bool {
 					return false
 				}
 			}
+		}
+	}
+	return true
+}
+
+// equal compares a and b while ignoring case. It returns true when equal otherwise false.
+func equal(a, b string) bool {
+	// might be lifted into API function.
+	la := len(a)
+	lb := len(b)
+	if la != lb {
+		return false
+	}
+
+	for i := la - 1; i >= 0; i-- {
+		ai := a[i]
+		bi := b[i]
+		if ai >= 'A' && ai <= 'Z' {
+			ai |= ('a' - 'A')
+		}
+		if bi >= 'A' && bi <= 'Z' {
+			bi |= ('a' - 'A')
+		}
+		if ai != bi {
+			return false
 		}
 	}
 	return true

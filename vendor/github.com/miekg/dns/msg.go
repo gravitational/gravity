@@ -9,6 +9,7 @@
 package dns
 
 //go:generate go run msg_generate.go
+//go:generate go run compress_generate.go
 
 import (
 	crand "crypto/rand"
@@ -17,13 +18,17 @@ import (
 	"math/big"
 	"math/rand"
 	"strconv"
+<<<<<<< HEAD
 	"strings"
+=======
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	"sync"
 )
 
 const (
 	maxCompressionOffset    = 2 << 13 // We have 14 bits for the compression pointer
 	maxDomainNameWireOctets = 255     // See RFC 1035 section 2.3.4
+<<<<<<< HEAD
 
 	// This is the maximum number of compression pointers that should occur in a
 	// semantically valid message. Each label in a domain name must be at least one
@@ -46,6 +51,8 @@ const (
 	// length, then the final label can only be 61 octets long to not exceed the
 	// maximum allowed wire length.
 	maxDomainNamePresentationLength = 61*4 + 1 + 63*4 + 1 + 63*4 + 1 + 63*4 + 1
+=======
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 )
 
 // Errors defined in this package.
@@ -284,6 +291,7 @@ loop:
 			}
 
 			// check for \DDD
+<<<<<<< HEAD
 			if i+3 < ls && isDigit(bs[i+1]) && isDigit(bs[i+2]) && isDigit(bs[i+3]) {
 				bs[i] = dddToByte(bs[i+1:])
 				copy(bs[i+1:ls-3], bs[i+4:])
@@ -293,6 +301,14 @@ loop:
 				copy(bs[i:ls-1], bs[i+1:])
 				ls--
 				compOff++
+=======
+			if i+2 < ls && isDigit(bs[i]) && isDigit(bs[i+1]) && isDigit(bs[i+2]) {
+				bs[i] = dddToByte(bs[i:])
+				for j := i + 1; j < ls-2; j++ {
+					bs[j] = bs[j+2]
+				}
+				ls -= 2
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 			}
 
 			wasDot = false
@@ -315,10 +331,22 @@ loop:
 			}
 
 			// Don't try to compress '.'
+<<<<<<< HEAD
 			// We should only compress when compress is true, but we should also still pick
 			// up names that can be used for *future* compression(s).
 			if compression.valid() && !isRootLabel(s, bs, begin, ls) {
 				if p, ok := compression.find(s[compBegin:]); ok {
+=======
+			// We should only compress when compress it true, but we should also still pick
+			// up names that can be used for *future* compression(s).
+			if compression != nil && roBs[begin:] != "." {
+				if p, ok := compression[roBs[begin:]]; !ok {
+					// Only offsets smaller than this can be used.
+					if offset < maxCompressionOffset {
+						compression[roBs[begin:]] = offset
+					}
+				} else {
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 					// The first hit is the longest matching dname
 					// keep the pointer offset we get back and store
 					// the offset of the current name, because that's
@@ -406,7 +434,11 @@ func UnpackDomainName(msg []byte, off int) (string, int, error) {
 	s := make([]byte, 0, maxDomainNamePresentationLength)
 	off1 := 0
 	lenmsg := len(msg)
+<<<<<<< HEAD
 	budget := maxDomainNameWireOctets
+=======
+	maxLen := maxDomainNameWireOctets
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	ptr := 0 // number of pointers followed
 Loop:
 	for {
@@ -435,9 +467,27 @@ Loop:
 					fallthrough
 				case '"', '\\':
 					s = append(s, '\\', b)
+<<<<<<< HEAD
 				default:
 					if b < ' ' || b > '~' { // unprintable, use \DDD
 						s = append(s, escapeByte(b)...)
+=======
+					// presentation-format \X escapes add an extra byte
+					maxLen++
+				default:
+					if b < 32 || b >= 127 { // unprintable, use \DDD
+						var buf [3]byte
+						bufs := strconv.AppendInt(buf[:0], int64(b), 10)
+						s = append(s, '\\')
+						for i := 0; i < 3-len(bufs); i++ {
+							s = append(s, '0')
+						}
+						for _, r := range bufs {
+							s = append(s, r)
+						}
+						// presentation-format \DDD escapes add 3 extra bytes
+						maxLen += 3
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 					} else {
 						s = append(s, b)
 					}
@@ -475,7 +525,14 @@ Loop:
 		off1 = off
 	}
 	if len(s) == 0 {
+<<<<<<< HEAD
 		return ".", off1, nil
+=======
+		s = []byte(".")
+	} else if len(s) >= maxLen {
+		// error if the name is too long, but don't throw it away
+		return string(s), lenmsg, ErrLongDomain
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	}
 	return string(s), off1, nil
 }
@@ -580,6 +637,42 @@ func unpackTxt(msg []byte, off0 int) (ss []string, off int, err error) {
 	return
 }
 
+<<<<<<< HEAD
+=======
+func unpackTxtString(msg []byte, offset int) (string, int, error) {
+	if offset+1 > len(msg) {
+		return "", offset, &Error{err: "overflow unpacking txt"}
+	}
+	l := int(msg[offset])
+	if offset+l+1 > len(msg) {
+		return "", offset, &Error{err: "overflow unpacking txt"}
+	}
+	s := make([]byte, 0, l)
+	for _, b := range msg[offset+1 : offset+1+l] {
+		switch b {
+		case '"', '\\':
+			s = append(s, '\\', b)
+		default:
+			if b < 32 || b > 127 { // unprintable
+				var buf [3]byte
+				bufs := strconv.AppendInt(buf[:0], int64(b), 10)
+				s = append(s, '\\')
+				for i := 0; i < 3-len(bufs); i++ {
+					s = append(s, '0')
+				}
+				for _, r := range bufs {
+					s = append(s, r)
+				}
+			} else {
+				s = append(s, b)
+			}
+		}
+	}
+	offset += 1 + l
+	return string(s), offset, nil
+}
+
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 // Helpers for dealing with escaped bytes
 func isDigit(b byte) bool { return b >= '0' && b <= '9' }
 
@@ -828,7 +921,11 @@ func (dns *Msg) packBufferWithCompressionMap(buf []byte, compression compression
 
 	// We need the uncompressed length here, because we first pack it and then compress it.
 	msg = buf
+<<<<<<< HEAD
 	uncompressedLen := msgLenWithCompressionMap(dns, nil)
+=======
+	uncompressedLen := compressedLen(dns, false)
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	if packLen := uncompressedLen + 1; len(msg) < packLen {
 		msg = make([]byte, packLen)
 	}
@@ -866,6 +963,7 @@ func (dns *Msg) packBufferWithCompressionMap(buf []byte, compression compression
 	return msg[:off], nil
 }
 
+<<<<<<< HEAD
 func (dns *Msg) unpack(dh Header, msg []byte, off int) (err error) {
 	// If we are at the end of the message we should return *just* the
 	// header. This can still be useful to the caller. 9.9.9.9 sends these
@@ -876,6 +974,39 @@ func (dns *Msg) unpack(dh Header, msg []byte, off int) (err error) {
 		return nil
 	}
 
+=======
+// Unpack unpacks a binary message to a Msg structure.
+func (dns *Msg) Unpack(msg []byte) (err error) {
+	var (
+		dh  Header
+		off int
+	)
+	if dh, off, err = unpackMsgHdr(msg, off); err != nil {
+		return err
+	}
+
+	dns.Id = dh.Id
+	dns.Response = (dh.Bits & _QR) != 0
+	dns.Opcode = int(dh.Bits>>11) & 0xF
+	dns.Authoritative = (dh.Bits & _AA) != 0
+	dns.Truncated = (dh.Bits & _TC) != 0
+	dns.RecursionDesired = (dh.Bits & _RD) != 0
+	dns.RecursionAvailable = (dh.Bits & _RA) != 0
+	dns.Zero = (dh.Bits & _Z) != 0
+	dns.AuthenticatedData = (dh.Bits & _AD) != 0
+	dns.CheckingDisabled = (dh.Bits & _CD) != 0
+	dns.Rcode = int(dh.Bits & 0xF)
+
+	// If we are at the end of the message we should return *just* the
+	// header. This can still be useful to the caller. 9.9.9.9 sends these
+	// when responding with REFUSED for instance.
+	if off == len(msg) {
+		// reset sections before returning
+		dns.Question, dns.Answer, dns.Ns, dns.Extra = nil, nil, nil, nil
+		return nil
+	}
+
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	// Qdcount, Ancount, Nscount, Arcount can't be trusted, as they are
 	// attacker controlled. This means we can't use them to pre-allocate
 	// slices.
@@ -993,6 +1124,7 @@ var compressionPool = sync.Pool{
 // If dns.Compress is true compression it is taken into account. Len()
 // is provided to be a faster way to get the size of the resulting packet,
 // than packing it, measuring the size and discarding the buffer.
+<<<<<<< HEAD
 func (dns *Msg) Len() int {
 	// If this message can't be compressed, avoid filling the
 	// compression map and creating garbage.
@@ -1028,7 +1160,64 @@ func msgLenWithCompressionMap(dns *Msg, compression map[string]struct{}) int {
 	for _, r := range dns.Extra {
 		if r != nil {
 			l += r.len(l, compression)
+=======
+func (dns *Msg) Len() int { return compressedLen(dns, dns.Compress) }
+
+// compressedLen returns the message length when in compressed wire format
+// when compress is true, otherwise the uncompressed length is returned.
+func compressedLen(dns *Msg, compress bool) int {
+	// We always return one more than needed.
+	l := 12 // Message header is always 12 bytes
+	if compress {
+		compression := map[string]int{}
+		for _, r := range dns.Question {
+			l += r.len()
+			compressionLenHelper(compression, r.Name)
 		}
+		l += compressionLenSlice(compression, dns.Answer)
+		l += compressionLenSlice(compression, dns.Ns)
+		l += compressionLenSlice(compression, dns.Extra)
+	} else {
+		for _, r := range dns.Question {
+			l += r.len()
+		}
+		for _, r := range dns.Answer {
+			if r != nil {
+				l += r.len()
+			}
+		}
+		for _, r := range dns.Ns {
+			if r != nil {
+				l += r.len()
+			}
+		}
+		for _, r := range dns.Extra {
+			if r != nil {
+				l += r.len()
+			}
+		}
+	}
+	return l
+}
+
+func compressionLenSlice(c map[string]int, rs []RR) int {
+	var l int
+	for _, r := range rs {
+		if r == nil {
+			continue
+		}
+		l += r.len()
+		k, ok := compressionLenSearch(c, r.Header().Name)
+		if ok {
+			l += 1 - k
+		}
+		compressionLenHelper(c, r.Header().Name)
+		k, ok = compressionLenSearchType(c, r)
+		if ok {
+			l += 1 - k
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
+		}
+		compressionLenHelperType(c, r)
 	}
 
 	return l
@@ -1076,6 +1265,7 @@ func escapedNameLen(s string) int {
 		}
 	}
 
+<<<<<<< HEAD
 	return nameLen
 }
 
@@ -1093,6 +1283,8 @@ func compressionLenSearch(c map[string]struct{}, s string, msgOff int) (int, boo
 	return 0, false
 }
 
+=======
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 // Copy returns a new RR which is a deep-copy of r.
 func Copy(r RR) RR { return r.copy() }
 

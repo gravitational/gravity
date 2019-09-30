@@ -113,6 +113,15 @@ func (k *DNSKEY) setPublicKeyED25519(_K ed25519.PublicKey) bool {
 	return true
 }
 
+// Set the public key for Ed25519
+func (k *DNSKEY) setPublicKeyED25519(_K ed25519.PublicKey) bool {
+	if _K == nil {
+		return false
+	}
+	k.PublicKey = toBase64(_K)
+	return true
+}
+
 // Set the public key (the values E and N) for RSA
 // RFC 3110: Section 2. RSA Public KEY Resource Records
 func exponentToBuf(_E int) []byte {

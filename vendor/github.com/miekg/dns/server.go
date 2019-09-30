@@ -124,6 +124,102 @@ func ActivateAndServe(l net.Listener, p net.PacketConn, handler Handler) error {
 	return server.ActivateAndServe()
 }
 
+<<<<<<< HEAD
+=======
+func (mux *ServeMux) match(q string, t uint16) Handler {
+	mux.m.RLock()
+	defer mux.m.RUnlock()
+	var handler Handler
+	b := make([]byte, len(q)) // worst case, one label of length q
+	off := 0
+	end := false
+	for {
+		l := len(q[off:])
+		for i := 0; i < l; i++ {
+			b[i] = q[off+i]
+			if b[i] >= 'A' && b[i] <= 'Z' {
+				b[i] |= ('a' - 'A')
+			}
+		}
+		if h, ok := mux.z[string(b[:l])]; ok { // causes garbage, might want to change the map key
+			if t != TypeDS {
+				return h
+			}
+			// Continue for DS to see if we have a parent too, if so delegeate to the parent
+			handler = h
+		}
+		off, end = NextLabel(q, off)
+		if end {
+			break
+		}
+	}
+	// Wildcard match, if we have found nothing try the root zone as a last resort.
+	if h, ok := mux.z["."]; ok {
+		return h
+	}
+	return handler
+}
+
+// Handle adds a handler to the ServeMux for pattern.
+func (mux *ServeMux) Handle(pattern string, handler Handler) {
+	if pattern == "" {
+		panic("dns: invalid pattern " + pattern)
+	}
+	mux.m.Lock()
+	mux.z[Fqdn(pattern)] = handler
+	mux.m.Unlock()
+}
+
+// HandleFunc adds a handler function to the ServeMux for pattern.
+func (mux *ServeMux) HandleFunc(pattern string, handler func(ResponseWriter, *Msg)) {
+	mux.Handle(pattern, HandlerFunc(handler))
+}
+
+// HandleRemove deregistrars the handler specific for pattern from the ServeMux.
+func (mux *ServeMux) HandleRemove(pattern string) {
+	if pattern == "" {
+		panic("dns: invalid pattern " + pattern)
+	}
+	mux.m.Lock()
+	delete(mux.z, Fqdn(pattern))
+	mux.m.Unlock()
+}
+
+// ServeDNS dispatches the request to the handler whose
+// pattern most closely matches the request message. If DefaultServeMux
+// is used the correct thing for DS queries is done: a possible parent
+// is sought.
+// If no handler is found a standard SERVFAIL message is returned
+// If the request message does not have exactly one question in the
+// question section a SERVFAIL is returned, unlesss Unsafe is true.
+func (mux *ServeMux) ServeDNS(w ResponseWriter, request *Msg) {
+	var h Handler
+	if len(request.Question) < 1 { // allow more than one question
+		h = failedHandler()
+	} else {
+		if h = mux.match(request.Question[0].Name, request.Question[0].Qtype); h == nil {
+			h = failedHandler()
+		}
+	}
+	h.ServeDNS(w, request)
+}
+
+// Handle registers the handler with the given pattern
+// in the DefaultServeMux. The documentation for
+// ServeMux explains how patterns are matched.
+func Handle(pattern string, handler Handler) { DefaultServeMux.Handle(pattern, handler) }
+
+// HandleRemove deregisters the handle with the given pattern
+// in the DefaultServeMux.
+func HandleRemove(pattern string) { DefaultServeMux.HandleRemove(pattern) }
+
+// HandleFunc registers the handler function with the given pattern
+// in the DefaultServeMux.
+func HandleFunc(pattern string, handler func(ResponseWriter, *Msg)) {
+	DefaultServeMux.HandleFunc(pattern, handler)
+}
+
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 // Writer writes raw DNS messages; each call to Write should send an entire message.
 type Writer interface {
 	io.Writer
@@ -202,6 +298,7 @@ type Server struct {
 	MsgAcceptFunc MsgAcceptFunc
 
 	// Shutdown handling
+<<<<<<< HEAD
 	lock     sync.RWMutex
 	started  bool
 	shutdown chan struct{}
@@ -244,6 +341,10 @@ func (srv *Server) init() {
 func unlockOnce(l sync.Locker) func() {
 	var once sync.Once
 	return func() { once.Do(l.Unlock) }
+=======
+	lock    sync.RWMutex
+	started bool
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 }
 
 // ListenAndServe starts a nameserver on the configured address in *Server.
@@ -274,8 +375,16 @@ func (srv *Server) ListenAndServe() error {
 		unlock()
 		return srv.serveTCP(l)
 	case "tcp-tls", "tcp4-tls", "tcp6-tls":
+<<<<<<< HEAD
 		if srv.TLSConfig == nil || (len(srv.TLSConfig.Certificates) == 0 && srv.TLSConfig.GetCertificate == nil) {
 			return errors.New("dns: neither Certificates nor GetCertificate set in Config")
+=======
+		network := "tcp"
+		if srv.Net == "tcp4-tls" {
+			network = "tcp4"
+		} else if srv.Net == "tcp6-tls" {
+			network = "tcp6"
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 		}
 		network := strings.TrimSuffix(srv.Net, "-tls")
 		l, err := listenTCP(network, addr, srv.ReusePort)
@@ -320,6 +429,12 @@ func (srv *Server) ActivateAndServe() error {
 	pConn := srv.PacketConn
 	l := srv.Listener
 	if pConn != nil {
+<<<<<<< HEAD
+=======
+		if srv.UDPSize == 0 {
+			srv.UDPSize = MinMsgSize
+		}
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 		// Check PacketConn interface's type is valid and value
 		// is not nil
 		if t, ok := pConn.(*net.UDPConn); ok && t != nil {
@@ -366,6 +481,7 @@ func (srv *Server) ShutdownContext(ctx context.Context) error {
 	if srv.Listener != nil {
 		srv.Listener.Close()
 	}
+<<<<<<< HEAD
 
 	for rw := range srv.conns {
 		rw.SetReadDeadline(aLongTimeAgo) // Unblock reads
@@ -389,6 +505,9 @@ func (srv *Server) ShutdownContext(ctx context.Context) error {
 	}
 
 	return ctxErr
+=======
+	return nil
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 }
 
 var testShutdownNotify *sync.Cond
@@ -417,21 +536,42 @@ func (srv *Server) serveTCP(l net.Listener) error {
 
 	for srv.isStarted() {
 		rw, err := l.Accept()
+<<<<<<< HEAD
 		if err != nil {
 			if !srv.isStarted() {
 				return nil
 			}
+=======
+		srv.lock.RLock()
+		if !srv.started {
+			srv.lock.RUnlock()
+			return nil
+		}
+		srv.lock.RUnlock()
+		if err != nil {
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 			if neterr, ok := err.(net.Error); ok && neterr.Temporary() {
 				continue
 			}
 			return err
 		}
+<<<<<<< HEAD
 		srv.lock.Lock()
 		// Track the connection to allow unblocking reads on shutdown.
 		srv.conns[rw] = struct{}{}
 		srv.lock.Unlock()
 		wg.Add(1)
 		go srv.serveTCPConn(&wg, rw)
+=======
+		go func() {
+			m, err := reader.ReadTCP(rw, rtimeout)
+			if err != nil {
+				rw.Close()
+				return
+			}
+			srv.serve(rw.RemoteAddr(), handler, m, nil, nil, rw)
+		}()
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	}
 
 	return nil
@@ -461,15 +601,19 @@ func (srv *Server) serveUDP(l *net.UDPConn) error {
 	for srv.isStarted() {
 		m, s, err := reader.ReadUDP(l, rtimeout)
 		if err != nil {
+<<<<<<< HEAD
 			if !srv.isStarted() {
 				return nil
 			}
+=======
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 			if netErr, ok := err.(net.Error); ok && netErr.Temporary() {
 				continue
 			}
 			return err
 		}
 		if len(m) < headerSize {
+<<<<<<< HEAD
 			if cap(m) == srv.UDPSize {
 				srv.udpPool.Put(m[:srv.UDPSize])
 			}
@@ -477,14 +621,25 @@ func (srv *Server) serveUDP(l *net.UDPConn) error {
 		}
 		wg.Add(1)
 		go srv.serveUDPPacket(&wg, m, l, s)
+=======
+			continue
+		}
+		go srv.serve(s.RemoteAddr(), handler, m, l, s, nil)
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	}
 
+<<<<<<< HEAD
 	return nil
 }
 
 // Serve a new TCP connection.
 func (srv *Server) serveTCPConn(wg *sync.WaitGroup, rw net.Conn) {
 	w := &response{tsigSecret: srv.TsigSecret, tcp: rw}
+=======
+// Serve a new connection.
+func (srv *Server) serve(a net.Addr, h Handler, m []byte, u *net.UDPConn, s *SessionUDP, t net.Conn) {
+	w := &response{tsigSecret: srv.TsigSecret, udp: u, tcp: t, remoteAddr: a, udpSession: s}
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	if srv.DecorateWriter != nil {
 		w.writer = srv.DecorateWriter(w)
 	} else {
@@ -644,7 +799,10 @@ func (srv *Server) readUDP(conn *net.UDPConn, timeout time.Duration) ([]byte, *S
 	m := srv.udpPool.Get().([]byte)
 	n, s, err := ReadFromSessionUDP(conn, m)
 	if err != nil {
+<<<<<<< HEAD
 		srv.udpPool.Put(m)
+=======
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 		return nil, nil, err
 	}
 	m = m[:n]

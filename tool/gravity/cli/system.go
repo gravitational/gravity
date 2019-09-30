@@ -44,6 +44,7 @@ import (
 
 	"github.com/coreos/go-semver/semver"
 	"github.com/docker/docker/pkg/archive"
+	"github.com/docker/docker/pkg/idtools"
 	"github.com/gravitational/configure"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
@@ -654,7 +655,7 @@ func updateRuntimeConfigPackageLabels(
 		})
 }
 
-func getChownOptionsForDir(dir string) (*archive.TarChownOptions, error) {
+func getChownOptionsForDir(dir string) (*idtools.Identity, error) {
 	var uid, gid int
 	// preserve owner/group when unpacking, otherwise use current process user
 	fi, err := os.Stat(dir)
@@ -663,7 +664,7 @@ func getChownOptionsForDir(dir string) (*archive.TarChownOptions, error) {
 		uid = int(stat.Uid)
 		gid = int(stat.Gid)
 		log.Debugf("assuming UID:GID from existing directory %v:%v", uid, gid)
-		return &archive.TarChownOptions{
+		return &idtools.Identity{
 			UID: uid,
 			GID: gid,
 		}, nil
@@ -684,7 +685,7 @@ func getChownOptionsForDir(dir string) (*archive.TarChownOptions, error) {
 	}
 
 	log.Debugf("assuming UID:GID from current user %v", u)
-	return &archive.TarChownOptions{
+	return &idtools.Identity{
 		UID: uid,
 		GID: gid,
 	}, nil

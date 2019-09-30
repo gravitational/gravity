@@ -21,7 +21,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	batchv1 "k8s.io/api/batch/v1"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
@@ -42,13 +42,13 @@ func NewJobControl(config JobConfig) (*JobControl, error) {
 func (c *JobControl) Delete(ctx context.Context, cascade bool) error {
 	c.Infof("delete %v", formatMeta(c.Job.ObjectMeta))
 
-	jobs := c.Batch().Jobs(c.Job.Namespace)
+	jobs := c.BatchV1().Jobs(c.Job.Namespace)
 	currentJob, err := jobs.Get(c.Job.Name, metav1.GetOptions{})
 	if err != nil {
 		return ConvertError(err)
 	}
 
-	pods := c.Core().Pods(c.Job.Namespace)
+	pods := c.CoreV1().Pods(c.Job.Namespace)
 	currentPods, err := c.collectPods(currentJob)
 	if err != nil {
 		return trace.Wrap(err)
@@ -81,7 +81,7 @@ func (c *JobControl) Delete(ctx context.Context, cascade bool) error {
 func (c *JobControl) Upsert(ctx context.Context) error {
 	c.Infof("upsert %v", formatMeta(c.Job.ObjectMeta))
 
-	jobs := c.Batch().Jobs(c.Job.Namespace)
+	jobs := c.BatchV1().Jobs(c.Job.Namespace)
 	currentJob, err := jobs.Get(c.Job.Name, metav1.GetOptions{})
 	err = ConvertError(err)
 	if err != nil {
@@ -121,7 +121,7 @@ func (c *JobControl) Upsert(ctx context.Context) error {
 }
 
 func (c *JobControl) Status() error {
-	jobs := c.Batch().Jobs(c.Job.Namespace)
+	jobs := c.BatchV1().Jobs(c.Job.Namespace)
 	job, err := jobs.Get(c.Job.Name, metav1.GetOptions{})
 	if err != nil {
 		return ConvertError(err)

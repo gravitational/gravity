@@ -58,6 +58,7 @@ func (t *Transfer) In(q *Msg, a string) (env chan *Envelope, err error) {
 	}
 
 	env = make(chan *Envelope)
+<<<<<<< HEAD
 	switch q.Question[0].Qtype {
 	case TypeAXFR:
 		go t.inAxfr(q, env)
@@ -65,6 +66,18 @@ func (t *Transfer) In(q *Msg, a string) (env chan *Envelope, err error) {
 		go t.inIxfr(q, env)
 	}
 
+=======
+	go func() {
+		if q.Question[0].Qtype == TypeAXFR {
+			go t.inAxfr(q, env)
+			return
+		}
+		if q.Question[0].Qtype == TypeIXFR {
+			go t.inIxfr(q, env)
+			return
+		}
+	}()
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	return env, nil
 }
 
@@ -117,7 +130,11 @@ func (t *Transfer) inAxfr(q *Msg, c chan *Envelope) {
 }
 
 func (t *Transfer) inIxfr(q *Msg, c chan *Envelope) {
+<<<<<<< HEAD
 	var serial uint32 // The first serial seen is the current server serial
+=======
+	serial := uint32(0) // The first serial seen is the current server serial
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	axfr := true
 	n := 0
 	qser := q.Ns[0].(*SOA).Serial

@@ -189,6 +189,11 @@ func main() {
 				o("l += base64.StdEncoding.DecodedLen(len(rr.%s))\n")
 			case strings.HasPrefix(st.Tag(i), `dns:"size-hex:`): // this has an extra field where the length is stored
 				o("l += len(rr.%s)/2\n")
+<<<<<<< HEAD
+=======
+			case strings.HasPrefix(st.Tag(i), `dns:"size-hex`):
+				fallthrough
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 			case st.Tag(i) == `dns:"hex"`:
 				o("l += len(rr.%s)/2\n")
 			case st.Tag(i) == `dns:"any"`:

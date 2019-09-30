@@ -36,8 +36,27 @@ func (rr *ANY) pack(msg []byte, off int, compression compressionMap, compress bo
 	return off, nil
 }
 
+<<<<<<< HEAD
 func (rr *AVC) pack(msg []byte, off int, compression compressionMap, compress bool) (off1 int, err error) {
 	off, err = packStringTxt(rr.Txt, msg, off)
+=======
+func (rr *AVC) pack(msg []byte, off int, compression map[string]int, compress bool) (int, error) {
+	off, err := rr.Hdr.pack(msg, off, compression, compress)
+	if err != nil {
+		return off, err
+	}
+	headerEnd := off
+	off, err = packStringTxt(rr.Txt, msg, off)
+	if err != nil {
+		return off, err
+	}
+	rr.Header().Rdlength = uint16(off - headerEnd)
+	return off, nil
+}
+
+func (rr *CAA) pack(msg []byte, off int, compression map[string]int, compress bool) (int, error) {
+	off, err := rr.Hdr.pack(msg, off, compression, compress)
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	if err != nil {
 		return off, err
 	}
@@ -128,8 +147,35 @@ func (rr *CNAME) pack(msg []byte, off int, compression compressionMap, compress 
 	return off, nil
 }
 
+<<<<<<< HEAD
 func (rr *CSYNC) pack(msg []byte, off int, compression compressionMap, compress bool) (off1 int, err error) {
 	off, err = packUint32(rr.Serial, msg, off)
+=======
+func (rr *CSYNC) pack(msg []byte, off int, compression map[string]int, compress bool) (int, error) {
+	off, err := rr.Hdr.pack(msg, off, compression, compress)
+	if err != nil {
+		return off, err
+	}
+	headerEnd := off
+	off, err = packUint32(rr.Serial, msg, off)
+	if err != nil {
+		return off, err
+	}
+	off, err = packUint16(rr.Flags, msg, off)
+	if err != nil {
+		return off, err
+	}
+	off, err = packDataNsec(rr.TypeBitMap, msg, off)
+	if err != nil {
+		return off, err
+	}
+	rr.Header().Rdlength = uint16(off - headerEnd)
+	return off, nil
+}
+
+func (rr *DHCID) pack(msg []byte, off int, compression map[string]int, compress bool) (int, error) {
+	off, err := rr.Hdr.pack(msg, off, compression, compress)
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	if err != nil {
 		return off, err
 	}
@@ -172,8 +218,18 @@ func (rr *DLV) pack(msg []byte, off int, compression compressionMap, compress bo
 	return off, nil
 }
 
+<<<<<<< HEAD
 func (rr *DNAME) pack(msg []byte, off int, compression compressionMap, compress bool) (off1 int, err error) {
 	off, err = packDomainName(rr.Target, msg, off, compression, false)
+=======
+func (rr *DNAME) pack(msg []byte, off int, compression map[string]int, compress bool) (int, error) {
+	off, err := rr.Hdr.pack(msg, off, compression, compress)
+	if err != nil {
+		return off, err
+	}
+	headerEnd := off
+	off, err = PackDomainName(rr.Target, msg, off, compression, false)
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	if err != nil {
 		return off, err
 	}
@@ -333,7 +389,11 @@ func (rr *KX) pack(msg []byte, off int, compression compressionMap, compress boo
 	if err != nil {
 		return off, err
 	}
+<<<<<<< HEAD
 	off, err = packDomainName(rr.Exchanger, msg, off, compression, false)
+=======
+	off, err = PackDomainName(rr.Exchanger, msg, off, compression, false)
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	if err != nil {
 		return off, err
 	}
@@ -401,7 +461,11 @@ func (rr *LP) pack(msg []byte, off int, compression compressionMap, compress boo
 	if err != nil {
 		return off, err
 	}
+<<<<<<< HEAD
 	off, err = packDomainName(rr.Fqdn, msg, off, compression, false)
+=======
+	off, err = PackDomainName(rr.Fqdn, msg, off, compression, false)
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	if err != nil {
 		return off, err
 	}
@@ -493,7 +557,11 @@ func (rr *NAPTR) pack(msg []byte, off int, compression compressionMap, compress 
 	if err != nil {
 		return off, err
 	}
+<<<<<<< HEAD
 	off, err = packDomainName(rr.Replacement, msg, off, compression, false)
+=======
+	off, err = PackDomainName(rr.Replacement, msg, off, compression, false)
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	if err != nil {
 		return off, err
 	}
@@ -536,16 +604,36 @@ func (rr *NS) pack(msg []byte, off int, compression compressionMap, compress boo
 	return off, nil
 }
 
+<<<<<<< HEAD
 func (rr *NSAPPTR) pack(msg []byte, off int, compression compressionMap, compress bool) (off1 int, err error) {
 	off, err = packDomainName(rr.Ptr, msg, off, compression, false)
+=======
+func (rr *NSAPPTR) pack(msg []byte, off int, compression map[string]int, compress bool) (int, error) {
+	off, err := rr.Hdr.pack(msg, off, compression, compress)
+	if err != nil {
+		return off, err
+	}
+	headerEnd := off
+	off, err = PackDomainName(rr.Ptr, msg, off, compression, false)
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	if err != nil {
 		return off, err
 	}
 	return off, nil
 }
 
+<<<<<<< HEAD
 func (rr *NSEC) pack(msg []byte, off int, compression compressionMap, compress bool) (off1 int, err error) {
 	off, err = packDomainName(rr.NextDomain, msg, off, compression, false)
+=======
+func (rr *NSEC) pack(msg []byte, off int, compression map[string]int, compress bool) (int, error) {
+	off, err := rr.Hdr.pack(msg, off, compression, compress)
+	if err != nil {
+		return off, err
+	}
+	headerEnd := off
+	off, err = PackDomainName(rr.NextDomain, msg, off, compression, false)
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	if err != nil {
 		return off, err
 	}
@@ -659,11 +747,19 @@ func (rr *PX) pack(msg []byte, off int, compression compressionMap, compress boo
 	if err != nil {
 		return off, err
 	}
+<<<<<<< HEAD
 	off, err = packDomainName(rr.Map822, msg, off, compression, false)
 	if err != nil {
 		return off, err
 	}
 	off, err = packDomainName(rr.Mapx400, msg, off, compression, false)
+=======
+	off, err = PackDomainName(rr.Map822, msg, off, compression, false)
+	if err != nil {
+		return off, err
+	}
+	off, err = PackDomainName(rr.Mapx400, msg, off, compression, false)
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	if err != nil {
 		return off, err
 	}
@@ -698,12 +794,26 @@ func (rr *RKEY) pack(msg []byte, off int, compression compressionMap, compress b
 	return off, nil
 }
 
+<<<<<<< HEAD
 func (rr *RP) pack(msg []byte, off int, compression compressionMap, compress bool) (off1 int, err error) {
 	off, err = packDomainName(rr.Mbox, msg, off, compression, false)
 	if err != nil {
 		return off, err
 	}
 	off, err = packDomainName(rr.Txt, msg, off, compression, false)
+=======
+func (rr *RP) pack(msg []byte, off int, compression map[string]int, compress bool) (int, error) {
+	off, err := rr.Hdr.pack(msg, off, compression, compress)
+	if err != nil {
+		return off, err
+	}
+	headerEnd := off
+	off, err = PackDomainName(rr.Mbox, msg, off, compression, false)
+	if err != nil {
+		return off, err
+	}
+	off, err = PackDomainName(rr.Txt, msg, off, compression, false)
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	if err != nil {
 		return off, err
 	}
@@ -739,7 +849,11 @@ func (rr *RRSIG) pack(msg []byte, off int, compression compressionMap, compress 
 	if err != nil {
 		return off, err
 	}
+<<<<<<< HEAD
 	off, err = packDomainName(rr.SignerName, msg, off, compression, false)
+=======
+	off, err = PackDomainName(rr.SignerName, msg, off, compression, false)
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	if err != nil {
 		return off, err
 	}
@@ -791,7 +905,11 @@ func (rr *SIG) pack(msg []byte, off int, compression compressionMap, compress bo
 	if err != nil {
 		return off, err
 	}
+<<<<<<< HEAD
 	off, err = packDomainName(rr.SignerName, msg, off, compression, false)
+=======
+	off, err = PackDomainName(rr.SignerName, msg, off, compression, false)
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	if err != nil {
 		return off, err
 	}
@@ -802,7 +920,16 @@ func (rr *SIG) pack(msg []byte, off int, compression compressionMap, compress bo
 	return off, nil
 }
 
+<<<<<<< HEAD
 func (rr *SMIMEA) pack(msg []byte, off int, compression compressionMap, compress bool) (off1 int, err error) {
+=======
+func (rr *SMIMEA) pack(msg []byte, off int, compression map[string]int, compress bool) (int, error) {
+	off, err := rr.Hdr.pack(msg, off, compression, compress)
+	if err != nil {
+		return off, err
+	}
+	headerEnd := off
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	off, err = packUint8(rr.Usage, msg, off)
 	if err != nil {
 		return off, err
@@ -816,6 +943,18 @@ func (rr *SMIMEA) pack(msg []byte, off int, compression compressionMap, compress
 		return off, err
 	}
 	off, err = packStringHex(rr.Certificate, msg, off)
+<<<<<<< HEAD
+=======
+	if err != nil {
+		return off, err
+	}
+	rr.Header().Rdlength = uint16(off - headerEnd)
+	return off, nil
+}
+
+func (rr *SOA) pack(msg []byte, off int, compression map[string]int, compress bool) (int, error) {
+	off, err := rr.Hdr.pack(msg, off, compression, compress)
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	if err != nil {
 		return off, err
 	}
@@ -875,7 +1014,11 @@ func (rr *SRV) pack(msg []byte, off int, compression compressionMap, compress bo
 	if err != nil {
 		return off, err
 	}
+<<<<<<< HEAD
 	off, err = packDomainName(rr.Target, msg, off, compression, false)
+=======
+	off, err = PackDomainName(rr.Target, msg, off, compression, false)
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	if err != nil {
 		return off, err
 	}
@@ -918,20 +1061,44 @@ func (rr *TA) pack(msg []byte, off int, compression compressionMap, compress boo
 	return off, nil
 }
 
+<<<<<<< HEAD
 func (rr *TALINK) pack(msg []byte, off int, compression compressionMap, compress bool) (off1 int, err error) {
 	off, err = packDomainName(rr.PreviousName, msg, off, compression, false)
 	if err != nil {
 		return off, err
 	}
 	off, err = packDomainName(rr.NextName, msg, off, compression, false)
+=======
+func (rr *TALINK) pack(msg []byte, off int, compression map[string]int, compress bool) (int, error) {
+	off, err := rr.Hdr.pack(msg, off, compression, compress)
+	if err != nil {
+		return off, err
+	}
+	headerEnd := off
+	off, err = PackDomainName(rr.PreviousName, msg, off, compression, false)
+	if err != nil {
+		return off, err
+	}
+	off, err = PackDomainName(rr.NextName, msg, off, compression, false)
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	if err != nil {
 		return off, err
 	}
 	return off, nil
 }
 
+<<<<<<< HEAD
 func (rr *TKEY) pack(msg []byte, off int, compression compressionMap, compress bool) (off1 int, err error) {
 	off, err = packDomainName(rr.Algorithm, msg, off, compression, false)
+=======
+func (rr *TKEY) pack(msg []byte, off int, compression map[string]int, compress bool) (int, error) {
+	off, err := rr.Hdr.pack(msg, off, compression, compress)
+	if err != nil {
+		return off, err
+	}
+	headerEnd := off
+	off, err = PackDomainName(rr.Algorithm, msg, off, compression, false)
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	if err != nil {
 		return off, err
 	}
@@ -990,8 +1157,18 @@ func (rr *TLSA) pack(msg []byte, off int, compression compressionMap, compress b
 	return off, nil
 }
 
+<<<<<<< HEAD
 func (rr *TSIG) pack(msg []byte, off int, compression compressionMap, compress bool) (off1 int, err error) {
 	off, err = packDomainName(rr.Algorithm, msg, off, compression, false)
+=======
+func (rr *TSIG) pack(msg []byte, off int, compression map[string]int, compress bool) (int, error) {
+	off, err := rr.Hdr.pack(msg, off, compression, compress)
+	if err != nil {
+		return off, err
+	}
+	headerEnd := off
+	off, err = PackDomainName(rr.Algorithm, msg, off, compression, false)
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	if err != nil {
 		return off, err
 	}
@@ -1127,13 +1304,36 @@ func (rr *ANY) unpack(msg []byte, off int) (off1 int, err error) {
 	return off, nil
 }
 
+<<<<<<< HEAD
 func (rr *AVC) unpack(msg []byte, off int) (off1 int, err error) {
+=======
+func unpackAVC(h RR_Header, msg []byte, off int) (RR, int, error) {
+	rr := new(AVC)
+	rr.Hdr = h
+	if noRdata(h) {
+		return rr, off, nil
+	}
+	var err error
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	rdStart := off
 	_ = rdStart
 
 	rr.Txt, off, err = unpackStringTxt(msg, off)
 	if err != nil {
+<<<<<<< HEAD
 		return off, err
+=======
+		return rr, off, err
+	}
+	return rr, off, err
+}
+
+func unpackCAA(h RR_Header, msg []byte, off int) (RR, int, error) {
+	rr := new(CAA)
+	rr.Hdr = h
+	if noRdata(h) {
+		return rr, off, nil
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	}
 	return off, nil
 }
@@ -1270,16 +1470,53 @@ func (rr *CNAME) unpack(msg []byte, off int) (off1 int, err error) {
 	return off, nil
 }
 
+<<<<<<< HEAD
 func (rr *CSYNC) unpack(msg []byte, off int) (off1 int, err error) {
+=======
+func unpackCSYNC(h RR_Header, msg []byte, off int) (RR, int, error) {
+	rr := new(CSYNC)
+	rr.Hdr = h
+	if noRdata(h) {
+		return rr, off, nil
+	}
+	var err error
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	rdStart := off
 	_ = rdStart
 
 	rr.Serial, off, err = unpackUint32(msg, off)
 	if err != nil {
+<<<<<<< HEAD
 		return off, err
 	}
 	if off == len(msg) {
 		return off, nil
+=======
+		return rr, off, err
+	}
+	if off == len(msg) {
+		return rr, off, nil
+	}
+	rr.Flags, off, err = unpackUint16(msg, off)
+	if err != nil {
+		return rr, off, err
+	}
+	if off == len(msg) {
+		return rr, off, nil
+	}
+	rr.TypeBitMap, off, err = unpackDataNsec(msg, off)
+	if err != nil {
+		return rr, off, err
+	}
+	return rr, off, err
+}
+
+func unpackDHCID(h RR_Header, msg []byte, off int) (RR, int, error) {
+	rr := new(DHCID)
+	rr.Hdr = h
+	if noRdata(h) {
+		return rr, off, nil
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	}
 	rr.Flags, off, err = unpackUint16(msg, off)
 	if err != nil {
@@ -2289,12 +2526,23 @@ func (rr *SIG) unpack(msg []byte, off int) (off1 int, err error) {
 	return off, nil
 }
 
+<<<<<<< HEAD
 func (rr *SMIMEA) unpack(msg []byte, off int) (off1 int, err error) {
+=======
+func unpackSMIMEA(h RR_Header, msg []byte, off int) (RR, int, error) {
+	rr := new(SMIMEA)
+	rr.Hdr = h
+	if noRdata(h) {
+		return rr, off, nil
+	}
+	var err error
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	rdStart := off
 	_ = rdStart
 
 	rr.Usage, off, err = unpackUint8(msg, off)
 	if err != nil {
+<<<<<<< HEAD
 		return off, err
 	}
 	if off == len(msg) {
@@ -2317,6 +2565,39 @@ func (rr *SMIMEA) unpack(msg []byte, off int) (off1 int, err error) {
 	rr.Certificate, off, err = unpackStringHex(msg, off, rdStart+int(rr.Hdr.Rdlength))
 	if err != nil {
 		return off, err
+=======
+		return rr, off, err
+	}
+	if off == len(msg) {
+		return rr, off, nil
+	}
+	rr.Selector, off, err = unpackUint8(msg, off)
+	if err != nil {
+		return rr, off, err
+	}
+	if off == len(msg) {
+		return rr, off, nil
+	}
+	rr.MatchingType, off, err = unpackUint8(msg, off)
+	if err != nil {
+		return rr, off, err
+	}
+	if off == len(msg) {
+		return rr, off, nil
+	}
+	rr.Certificate, off, err = unpackStringHex(msg, off, rdStart+int(rr.Hdr.Rdlength))
+	if err != nil {
+		return rr, off, err
+	}
+	return rr, off, err
+}
+
+func unpackSOA(h RR_Header, msg []byte, off int) (RR, int, error) {
+	rr := new(SOA)
+	rr.Hdr = h
+	if noRdata(h) {
+		return rr, off, nil
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	}
 	return off, nil
 }
@@ -2540,7 +2821,11 @@ func (rr *TKEY) unpack(msg []byte, off int) (off1 int, err error) {
 	}
 	rr.Key, off, err = unpackStringHex(msg, off, off+int(rr.KeySize))
 	if err != nil {
+<<<<<<< HEAD
 		return off, err
+=======
+		return rr, off, err
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	}
 	rr.OtherLen, off, err = unpackUint16(msg, off)
 	if err != nil {
@@ -2716,7 +3001,85 @@ func (rr *X25) unpack(msg []byte, off int) (off1 int, err error) {
 
 	rr.PSDNAddress, off, err = unpackString(msg, off)
 	if err != nil {
+<<<<<<< HEAD
 		return off, err
 	}
 	return off, nil
+=======
+		return rr, off, err
+	}
+	return rr, off, err
+}
+
+var typeToUnpack = map[uint16]func(RR_Header, []byte, int) (RR, int, error){
+	TypeA:          unpackA,
+	TypeAAAA:       unpackAAAA,
+	TypeAFSDB:      unpackAFSDB,
+	TypeANY:        unpackANY,
+	TypeAVC:        unpackAVC,
+	TypeCAA:        unpackCAA,
+	TypeCDNSKEY:    unpackCDNSKEY,
+	TypeCDS:        unpackCDS,
+	TypeCERT:       unpackCERT,
+	TypeCNAME:      unpackCNAME,
+	TypeCSYNC:      unpackCSYNC,
+	TypeDHCID:      unpackDHCID,
+	TypeDLV:        unpackDLV,
+	TypeDNAME:      unpackDNAME,
+	TypeDNSKEY:     unpackDNSKEY,
+	TypeDS:         unpackDS,
+	TypeEID:        unpackEID,
+	TypeEUI48:      unpackEUI48,
+	TypeEUI64:      unpackEUI64,
+	TypeGID:        unpackGID,
+	TypeGPOS:       unpackGPOS,
+	TypeHINFO:      unpackHINFO,
+	TypeHIP:        unpackHIP,
+	TypeKEY:        unpackKEY,
+	TypeKX:         unpackKX,
+	TypeL32:        unpackL32,
+	TypeL64:        unpackL64,
+	TypeLOC:        unpackLOC,
+	TypeLP:         unpackLP,
+	TypeMB:         unpackMB,
+	TypeMD:         unpackMD,
+	TypeMF:         unpackMF,
+	TypeMG:         unpackMG,
+	TypeMINFO:      unpackMINFO,
+	TypeMR:         unpackMR,
+	TypeMX:         unpackMX,
+	TypeNAPTR:      unpackNAPTR,
+	TypeNID:        unpackNID,
+	TypeNIMLOC:     unpackNIMLOC,
+	TypeNINFO:      unpackNINFO,
+	TypeNS:         unpackNS,
+	TypeNSAPPTR:    unpackNSAPPTR,
+	TypeNSEC:       unpackNSEC,
+	TypeNSEC3:      unpackNSEC3,
+	TypeNSEC3PARAM: unpackNSEC3PARAM,
+	TypeOPENPGPKEY: unpackOPENPGPKEY,
+	TypeOPT:        unpackOPT,
+	TypePTR:        unpackPTR,
+	TypePX:         unpackPX,
+	TypeRKEY:       unpackRKEY,
+	TypeRP:         unpackRP,
+	TypeRRSIG:      unpackRRSIG,
+	TypeRT:         unpackRT,
+	TypeSIG:        unpackSIG,
+	TypeSMIMEA:     unpackSMIMEA,
+	TypeSOA:        unpackSOA,
+	TypeSPF:        unpackSPF,
+	TypeSRV:        unpackSRV,
+	TypeSSHFP:      unpackSSHFP,
+	TypeTA:         unpackTA,
+	TypeTALINK:     unpackTALINK,
+	TypeTKEY:       unpackTKEY,
+	TypeTLSA:       unpackTLSA,
+	TypeTSIG:       unpackTSIG,
+	TypeTXT:        unpackTXT,
+	TypeUID:        unpackUID,
+	TypeUINFO:      unpackUINFO,
+	TypeURI:        unpackURI,
+	TypeX25:        unpackX25,
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 }

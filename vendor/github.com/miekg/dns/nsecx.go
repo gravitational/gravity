@@ -2,7 +2,11 @@ package dns
 
 import (
 	"crypto/sha1"
+<<<<<<< HEAD
 	"encoding/hex"
+=======
+	"hash"
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	"strings"
 )
 
@@ -29,20 +33,31 @@ func HashName(label string, ha uint8, iter uint16, salt string) string {
 	s := sha1.New()
 	// k = 0
 	s.Write(name)
+<<<<<<< HEAD
 	s.Write(wireSalt)
+=======
+	s.Write(wire)
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	nsec3 := s.Sum(nil)
 
 	// k > 0
 	for k := uint16(0); k < iter; k++ {
 		s.Reset()
 		s.Write(nsec3)
+<<<<<<< HEAD
 		s.Write(wireSalt)
+=======
+		s.Write(wire)
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 		nsec3 = s.Sum(nsec3[:0])
 	}
 
+<<<<<<< HEAD
 	return toBase32(nsec3)
 }
 
+=======
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 // Cover returns true if a name is covered by the NSEC3 record
 func (rr *NSEC3) Cover(name string) bool {
 	nameHash := HashName(name, rr.Hash, rr.Iterations, rr.Salt)
@@ -55,6 +70,7 @@ func (rr *NSEC3) Cover(name string) bool {
 	ownerZone := owner[labelIndices[1]:]
 	if !IsSubDomain(ownerZone, strings.ToUpper(name)) { // name is outside owner zone
 		return false
+<<<<<<< HEAD
 	}
 
 	nextHash := rr.NextDomain
@@ -69,6 +85,20 @@ func (rr *NSEC3) Cover(name string) bool {
 		}
 		return nameHash < nextHash // if nameHash is before beginning of zone it is covered
 	}
+=======
+	}
+
+	nextHash := rr.NextDomain
+	if ownerHash == nextHash { // empty interval
+		return false
+	}
+	if ownerHash > nextHash { // end of zone
+		if nameHash > ownerHash { // covered since there is nothing after ownerHash
+			return true
+		}
+		return nameHash < nextHash // if nameHash is before beginning of zone it is covered
+	}
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	if nameHash < ownerHash { // nameHash is before ownerHash, not covered
 		return false
 	}
@@ -81,6 +111,7 @@ func (rr *NSEC3) Match(name string) bool {
 	owner := strings.ToUpper(rr.Hdr.Name)
 	labelIndices := Split(owner)
 	if len(labelIndices) < 2 {
+<<<<<<< HEAD
 		return false
 	}
 	ownerHash := owner[:labelIndices[1]-1]
@@ -88,6 +119,15 @@ func (rr *NSEC3) Match(name string) bool {
 	if !IsSubDomain(ownerZone, strings.ToUpper(name)) { // name is outside owner zone
 		return false
 	}
+=======
+		return false
+	}
+	ownerHash := owner[:labelIndices[1]-1]
+	ownerZone := owner[labelIndices[1]:]
+	if !IsSubDomain(ownerZone, strings.ToUpper(name)) { // name is outside owner zone
+		return false
+	}
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	if ownerHash == nameHash {
 		return true
 	}

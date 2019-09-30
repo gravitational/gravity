@@ -1,8 +1,14 @@
 /*
 Package dns implements a full featured interface to the Domain Name System.
+<<<<<<< HEAD
 Both server- and client-side programming is supported. The package allows
 complete control over what is sent out to the DNS. The API follows the
 less-is-more principle, by presenting a small, clean interface.
+=======
+Server- and client-side programming is supported.
+The package allows complete control over what is sent out to the DNS. The package
+API follows the less-is-more principle, by presenting a small, clean interface.
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 
 It supports (asynchronous) querying/replying, incoming/outgoing zone transfers,
 TSIG, EDNS0, dynamic updates, notifies and DNSSEC validation/signing.
@@ -14,7 +20,12 @@ Resource records are native types. They are not stored in wire format. Basic
 usage pattern for creating a new resource record:
 
      r := new(dns.MX)
+<<<<<<< HEAD
      r.Hdr = dns.RR_Header{Name: "miek.nl.", Rrtype: dns.TypeMX, Class: dns.ClassINET, Ttl: 3600}
+=======
+     r.Hdr = dns.RR_Header{Name: "miek.nl.", Rrtype: dns.TypeMX,
+     Class: dns.ClassINET, Ttl: 3600}
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
      r.Preference = 10
      r.Mx = "mx.miek.nl."
 
@@ -30,8 +41,13 @@ Or even:
 
      mx, err := dns.NewRR("$ORIGIN nl.\nmiek 1H IN MX 10 mx.miek")
 
+<<<<<<< HEAD
 In the DNS messages are exchanged, these messages contain resource records
 (sets). Use pattern for creating a message:
+=======
+In the DNS messages are exchanged, these messages contain resource
+records (sets). Use pattern for creating a message:
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 
      m := new(dns.Msg)
      m.SetQuestion("miek.nl.", dns.TypeMX)
@@ -51,8 +67,14 @@ The following is slightly more verbose, but more flexible:
      m1.Question = make([]dns.Question, 1)
      m1.Question[0] = dns.Question{"miek.nl.", dns.TypeMX, dns.ClassINET}
 
+<<<<<<< HEAD
 After creating a message it can be sent. Basic use pattern for synchronous
 querying the DNS at a server configured on 127.0.0.1 and port 53:
+=======
+After creating a message it can be sent.
+Basic use pattern for synchronous querying the DNS at a
+server configured on 127.0.0.1 and port 53:
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 
      c := new(dns.Client)
      in, rtt, err := c.Exchange(m1, "127.0.0.1:53")
@@ -72,11 +94,19 @@ and port to use for the connection:
 		Port: 12345,
 		Zone: "",
 	}
+<<<<<<< HEAD
 	c.Dialer := &net.Dialer{
 		Timeout: 200 * time.Millisecond,
 		LocalAddr: &laddr,
 	}
 	in, rtt, err := c.Exchange(m1, "8.8.8.8:53")
+=======
+	d := net.Dialer{
+		Timeout: 200 * time.Millisecond,
+		LocalAddr: &laddr,
+	}
+	in, rtt, err := c.ExchangeWithDialer(&d, m1, "8.8.8.8:53")
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 
 If these "advanced" features are not needed, a simple UDP query can be sent,
 with:
@@ -221,7 +251,11 @@ RFC 6895 sets aside a range of type codes for private use. This range is 65,280
 - 65,534 (0xFF00 - 0xFFFE). When experimenting with new Resource Records these
 can be used, before requesting an official type code from IANA.
 
+<<<<<<< HEAD
 See https://miek.nl/2014/September/21/idn-and-private-rr-in-go-dns/ for more
+=======
+see http://miek.nl/2014/September/21/idn-and-private-rr-in-go-dns/ for more
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 information.
 
 EDNS0

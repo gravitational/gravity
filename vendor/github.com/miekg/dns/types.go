@@ -238,6 +238,7 @@ type ANY struct {
 
 func (rr *ANY) String() string { return rr.Hdr.String() }
 
+<<<<<<< HEAD
 func (rr *ANY) parse(c *zlexer, origin string) *ParseError {
 	panic("dns: internal error: parse should never be called on ANY")
 }
@@ -257,6 +258,8 @@ func (rr *NULL) parse(c *zlexer, origin string) *ParseError {
 	panic("dns: internal error: parse should never be called on NULL")
 }
 
+=======
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 // CNAME RR. See RFC 1034.
 type CNAME struct {
 	Hdr    RR_Header
@@ -539,6 +542,7 @@ func sprintTxt(txt []string) string {
 	return out.String()
 }
 
+<<<<<<< HEAD
 func writeTXTStringByte(s *strings.Builder, b byte) {
 	switch {
 	case b == '"' || b == '\\':
@@ -548,6 +552,23 @@ func writeTXTStringByte(s *strings.Builder, b byte) {
 		s.WriteString(escapeByte(b))
 	default:
 		s.WriteByte(b)
+=======
+func appendDomainNameByte(s []byte, b byte) []byte {
+	switch b {
+	case '.', ' ', '\'', '@', ';', '(', ')': // additional chars to escape
+		return append(s, '\\', b)
+	}
+	return appendTXTStringByte(s, b)
+}
+
+func appendTXTStringByte(s []byte, b byte) []byte {
+	switch b {
+	case '"', '\\':
+		return append(s, '\\', b)
+	}
+	if b < ' ' || b > '~' {
+		return appendByte(s, b)
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	}
 }
 
@@ -603,7 +624,11 @@ func nextByte(s string, offset int) (byte, int) {
 		}
 	}
 	// not \ddd, just an RFC 1035 "quoted" character
+<<<<<<< HEAD
 	return s[offset+1], 2
+=======
+	return b[offset+1], 2
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 }
 
 // SPF RR. See RFC 4408, Section 3.1.1.
@@ -1071,6 +1096,7 @@ type TKEY struct {
 
 // TKEY has no official presentation format, but this will suffice.
 func (rr *TKEY) String() string {
+<<<<<<< HEAD
 	s := ";" + rr.Hdr.String() +
 		" " + rr.Algorithm +
 		" " + TimeToString(rr.Inception) +
@@ -1081,6 +1107,12 @@ func (rr *TKEY) String() string {
 		" " + rr.Key +
 		" " + strconv.Itoa(int(rr.OtherLen)) +
 		" " + rr.OtherData
+=======
+	s := "\n;; TKEY PSEUDOSECTION:\n"
+	s += rr.Hdr.String() + " " + rr.Algorithm + " " +
+		strconv.Itoa(int(rr.KeySize)) + " " + rr.Key + " " +
+		strconv.Itoa(int(rr.OtherLen)) + " " + rr.OtherData
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	return s
 }
 
@@ -1340,16 +1372,34 @@ type CSYNC struct {
 func (rr *CSYNC) String() string {
 	s := rr.Hdr.String() + strconv.FormatInt(int64(rr.Serial), 10) + " " + strconv.Itoa(int(rr.Flags))
 
+<<<<<<< HEAD
 	for _, t := range rr.TypeBitMap {
 		s += " " + Type(t).String()
+=======
+	for i := 0; i < len(rr.TypeBitMap); i++ {
+		s += " " + Type(rr.TypeBitMap[i]).String()
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	}
 	return s
 }
 
+<<<<<<< HEAD
 func (rr *CSYNC) len(off int, compression map[string]struct{}) int {
 	l := rr.Hdr.len(off, compression)
 	l += 4 + 2
 	l += typeBitMapLen(rr.TypeBitMap)
+=======
+func (rr *CSYNC) len() int {
+	l := rr.Hdr.len() + 4 + 2
+	lastwindow := uint32(2 ^ 32 + 1)
+	for _, t := range rr.TypeBitMap {
+		window := t / 256
+		if uint32(window) != lastwindow {
+			l += 1 + 32
+		}
+		lastwindow = uint32(window)
+	}
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	return l
 }
 

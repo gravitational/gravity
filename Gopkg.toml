@@ -125,7 +125,7 @@ ignored = [
 
 [[constraint]]
   name = "github.com/gravitational/rigging"
-  version = "=5.5.2"
+  branch = "version/6.1.x"
 
 [[override]]
   name = "github.com/docker/distribution"
@@ -138,7 +138,7 @@ ignored = [
 
 [[override]]
   name = "github.com/docker/docker"
-  version = "v1.4.1-4831-g0f5c9d3"
+  revision = "be7ac8be2ae072032a4005e8f232be3fc57e4127"
 
 [[override]]
   name = "golang.org/x/sys"
@@ -281,3 +281,10 @@ ignored = [
   name = "gopkg.in/check.v1"
   branch = "v1"
 
+[[override]]
+  name = "github.com/miekg/dns"
+  version = "=1.0.4"
+
+[[override]]
+  name = "github.com/gravitational/coordinate"
+  revision = "2bc9a83f6fe22919202fb09bfa01f2ff8b7784cb"

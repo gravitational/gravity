@@ -27,7 +27,7 @@ import (
 	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -113,7 +113,7 @@ func UpdateLabels(ctx context.Context, client corev1.NodeInterface, nodeName str
 
 // GetNode returns Kubernetes node corresponding to the provided server
 func GetNode(client *kubernetes.Clientset, server storage.Server) (*v1.Node, error) {
-	nodes, err := client.Core().Nodes().List(metav1.ListOptions{
+	nodes, err := client.CoreV1().Nodes().List(metav1.ListOptions{
 		LabelSelector: utils.MakeSelector(map[string]string{
 			defaults.KubernetesHostnameLabel: server.KubeNodeID(),
 		}).String(),

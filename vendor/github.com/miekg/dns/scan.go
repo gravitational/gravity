@@ -1,7 +1,10 @@
 package dns
 
 import (
+<<<<<<< HEAD
 	"bufio"
+=======
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	"fmt"
 	"io"
 	"os"
@@ -125,6 +128,7 @@ func NewRR(s string) (RR, error) {
 // $INCLUDE directives.
 //
 // See NewRR for more documentation.
+<<<<<<< HEAD
 func ReadRR(r io.Reader, file string) (RR, error) {
 	zp := NewZoneParser(r, ".", file)
 	zp.SetDefaultTTL(defaultTtl)
@@ -144,6 +148,28 @@ func ReadRR(r io.Reader, file string) (RR, error) {
 //
 // The directives $INCLUDE, $ORIGIN, $TTL and $GENERATE are all
 // supported.
+=======
+func ReadRR(q io.Reader, filename string) (RR, error) {
+	defttl := &ttlState{defaultTtl, false}
+	r := <-parseZoneHelper(q, ".", filename, defttl, 1)
+	if r == nil {
+		return nil, nil
+	}
+
+	if r.Error != nil {
+		return nil, r.Error
+	}
+	return r.RR, nil
+}
+
+// ParseZone reads a RFC 1035 style zonefile from r. It returns *Tokens on the
+// returned channel, each consisting of either a parsed RR and optional comment
+// or a nil RR and an error. The string file is only used
+// in error reporting. The string origin is used as the initial origin, as
+// if the file would start with an $ORIGIN directive.
+// The directives $INCLUDE, $ORIGIN, $TTL and $GENERATE are supported.
+// The channel t is closed by ParseZone when the end of r is reached.
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 //
 // Basic usage pattern when reading from a string (z) containing the
 // zone data:
@@ -171,6 +197,7 @@ func ReadRR(r io.Reader, file string) (RR, error) {
 //
 // Deprecated: New users should prefer the ZoneParser API.
 func ParseZone(r io.Reader, origin, file string) chan *Token {
+<<<<<<< HEAD
 	t := make(chan *Token, 10000)
 	go parseZone(r, origin, file, t)
 	return t
@@ -356,6 +383,55 @@ func (zp *ZoneParser) Next() (RR, bool) {
 	}
 	if zp.sub != nil {
 		return zp.subNext()
+=======
+	return parseZoneHelper(r, origin, file, nil, 10000)
+}
+
+func parseZoneHelper(r io.Reader, origin, file string, defttl *ttlState, chansize int) chan *Token {
+	t := make(chan *Token, chansize)
+	go parseZone(r, origin, file, defttl, t, 0)
+	return t
+}
+
+func parseZone(r io.Reader, origin, f string, defttl *ttlState, t chan *Token, include int) {
+	defer func() {
+		if include == 0 {
+			close(t)
+		}
+	}()
+	s, cancel := scanInit(r)
+	c := make(chan lex)
+	// Start the lexer
+	go zlexer(s, c)
+
+	defer func() {
+		cancel()
+		// zlexer can send up to three tokens, the next one and possibly 2 remainders.
+		// Do a non-blocking read.
+		_, ok := <-c
+		_, ok = <-c
+		_, ok = <-c
+		if !ok {
+			// too bad
+		}
+	}()
+	// 6 possible beginnings of a line, _ is a space
+	// 0. zRRTYPE                              -> all omitted until the rrtype
+	// 1. zOwner _ zRrtype                     -> class/ttl omitted
+	// 2. zOwner _ zString _ zRrtype           -> class omitted
+	// 3. zOwner _ zString _ zClass  _ zRrtype -> ttl/class
+	// 4. zOwner _ zClass  _ zRrtype           -> ttl omitted
+	// 5. zOwner _ zClass  _ zString _ zRrtype -> class/ttl (reversed)
+	// After detecting these, we know the zRrtype so we can jump to functions
+	// handling the rdata for each of these types.
+
+	if origin != "" {
+		origin = Fqdn(origin)
+		if _, ok := IsDomainName(origin); !ok {
+			t <- &Token{Error: &ParseError{f, "bad initial origin name", lex{}}}
+			return
+		}
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	}
 
 	// 6 possible beginnings of a line (_ is a space):
@@ -371,7 +447,17 @@ func (zp *ZoneParser) Next() (RR, bool) {
 	// handling the rdata for each of these types.
 
 	st := zExpectOwnerDir // initial state
+<<<<<<< HEAD
 	h := &zp.h
+=======
+	var h RR_Header
+	var prevName string
+	for l := range c {
+		// Lexer spotted an error already
+		if l.err == true {
+			t <- &Token{Error: &ParseError{f, l.token, l}}
+			return
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 
 	for l, ok := zp.c.Next(); ok; l, ok = zp.c.Next() {
 		// zlexer spotted an error already
@@ -382,23 +468,39 @@ func (zp *ZoneParser) Next() (RR, bool) {
 		switch st {
 		case zExpectOwnerDir:
 			// We can also expect a directive, like $TTL or $ORIGIN
+<<<<<<< HEAD
 			if zp.defttl != nil {
 				h.Ttl = zp.defttl.ttl
 			}
 
+=======
+			if defttl != nil {
+				h.Ttl = defttl.ttl
+			}
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 			h.Class = ClassINET
 
 			switch l.value {
 			case zNewline:
 				st = zExpectOwnerDir
 			case zOwner:
+<<<<<<< HEAD
 				name, ok := toAbsoluteName(l.token, zp.origin)
+=======
+				h.Name = l.token
+				name, ok := toAbsoluteName(l.token, origin)
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 				if !ok {
 					return zp.setParseError("bad owner name", l)
 				}
+<<<<<<< HEAD
 
 				h.Name = name
 
+=======
+				h.Name = name
+				prevName = h.Name
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 				st = zExpectOwnerBl
 			case zDirTTL:
 				st = zExpectDirTTLBl
@@ -426,6 +528,13 @@ func (zp *ZoneParser) Next() (RR, bool) {
 				}
 
 				h.Ttl = ttl
+<<<<<<< HEAD
+=======
+				if defttl == nil || !defttl.isByDirective {
+					defttl = &ttlState{ttl, false}
+				}
+				st = zExpectAnyNoTTLBl
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 
 				if zp.defttl == nil || !zp.defttl.isByDirective {
 					zp.defttl = &ttlState{ttl, false}
@@ -445,17 +554,30 @@ func (zp *ZoneParser) Next() (RR, bool) {
 			if l.value != zString {
 				return zp.setParseError("expecting $INCLUDE value, not this...", l)
 			}
+<<<<<<< HEAD
 
 			neworigin := zp.origin // There may be optionally a new origin set after the filename, if not use current one
 			switch l, _ := zp.c.Next(); l.value {
+=======
+			neworigin := origin // There may be optionally a new origin set after the filename, if not use current one
+			switch l := <-c; l.value {
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 			case zBlank:
 				l, _ := zp.c.Next()
 				if l.value == zString {
+<<<<<<< HEAD
 					name, ok := toAbsoluteName(l.token, zp.origin)
 					if !ok {
 						return zp.setParseError("bad origin name", l)
 					}
 
+=======
+					name, ok := toAbsoluteName(l.token, origin)
+					if !ok {
+						t <- &Token{Error: &ParseError{f, "bad origin name", l}}
+						return
+					}
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 					neworigin = name
 				}
 			case zNewline, zEOF:
@@ -474,7 +596,20 @@ func (zp *ZoneParser) Next() (RR, bool) {
 			// Start with the new file
 			includePath := l.token
 			if !filepath.IsAbs(includePath) {
+<<<<<<< HEAD
 				includePath = filepath.Join(filepath.Dir(zp.file), includePath)
+=======
+				includePath = filepath.Join(filepath.Dir(f), includePath)
+			}
+			r1, e1 := os.Open(includePath)
+			if e1 != nil {
+				msg := fmt.Sprintf("failed to open `%s'", l.token)
+				if !filepath.IsAbs(l.token) {
+					msg += fmt.Sprintf(" as `%s'", includePath)
+				}
+				t <- &Token{Error: &ParseError{f, msg, l}}
+				return
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 			}
 
 			r1, e1 := os.Open(includePath)
@@ -487,16 +622,24 @@ func (zp *ZoneParser) Next() (RR, bool) {
 				msg := fmt.Sprintf("failed to open `%s'%s: %v", l.token, as, e1)
 				return zp.setParseError(msg, l)
 			}
+<<<<<<< HEAD
 
 			zp.sub = NewZoneParser(r1, neworigin, includePath)
 			zp.sub.defttl, zp.sub.includeDepth, zp.sub.osFile = zp.defttl, zp.includeDepth+1, r1
 			zp.sub.SetIncludeAllowed(true)
 			return zp.subNext()
+=======
+			parseZone(r1, neworigin, includePath, defttl, t, include+1)
+			st = zExpectOwnerDir
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 		case zExpectDirTTLBl:
 			if l.value != zBlank {
 				return zp.setParseError("no blank after $TTL-directive", l)
 			}
+<<<<<<< HEAD
 
+=======
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 			st = zExpectDirTTL
 		case zExpectDirTTL:
 			if l.value != zString {
@@ -506,14 +649,21 @@ func (zp *ZoneParser) Next() (RR, bool) {
 			if err := slurpRemainder(zp.c); err != nil {
 				return zp.setParseError(err.err, err.lex)
 			}
+<<<<<<< HEAD
 
+=======
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 			ttl, ok := stringToTTL(l.token)
 			if !ok {
 				return zp.setParseError("expecting $TTL value, not this...", l)
 			}
+<<<<<<< HEAD
 
 			zp.defttl = &ttlState{ttl, true}
 
+=======
+			defttl = &ttlState{ttl, true}
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 			st = zExpectOwnerDir
 		case zExpectDirOriginBl:
 			if l.value != zBlank {
@@ -525,6 +675,7 @@ func (zp *ZoneParser) Next() (RR, bool) {
 			if l.value != zString {
 				return zp.setParseError("expecting $ORIGIN value, not this...", l)
 			}
+<<<<<<< HEAD
 
 			if err := slurpRemainder(zp.c); err != nil {
 				return zp.setParseError(err.err, err.lex)
@@ -537,6 +688,17 @@ func (zp *ZoneParser) Next() (RR, bool) {
 
 			zp.origin = name
 
+=======
+			if e, _ := slurpRemainder(c, f); e != nil {
+				t <- &Token{Error: e}
+			}
+			name, ok := toAbsoluteName(l.token, origin)
+			if !ok {
+				t <- &Token{Error: &ParseError{f, "bad origin name", l}}
+				return
+			}
+			origin = name
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 			st = zExpectOwnerDir
 		case zExpectDirGenerateBl:
 			if l.value != zBlank {
@@ -559,10 +721,17 @@ func (zp *ZoneParser) Next() (RR, bool) {
 		case zExpectAny:
 			switch l.value {
 			case zRrtpe:
+<<<<<<< HEAD
 				if zp.defttl == nil {
 					return zp.setParseError("missing TTL with no previous value", l)
 				}
 
+=======
+				if defttl == nil {
+					t <- &Token{Error: &ParseError{f, "missing TTL with no previous value", l}}
+					return
+				}
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 				h.Rrtype = l.torc
 
 				st = zExpectRdata
@@ -577,11 +746,17 @@ func (zp *ZoneParser) Next() (RR, bool) {
 				}
 
 				h.Ttl = ttl
+<<<<<<< HEAD
 
 				if zp.defttl == nil || !zp.defttl.isByDirective {
 					zp.defttl = &ttlState{ttl, false}
 				}
 
+=======
+				if defttl == nil || !defttl.isByDirective {
+					defttl = &ttlState{ttl, false}
+				}
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 				st = zExpectAnyNoTTLBl
 			default:
 				return zp.setParseError("expecting RR type, TTL or class, not this...", l)
@@ -596,7 +771,10 @@ func (zp *ZoneParser) Next() (RR, bool) {
 			if l.value != zBlank {
 				return zp.setParseError("no blank before TTL", l)
 			}
+<<<<<<< HEAD
 
+=======
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 			st = zExpectAnyNoTTL
 		case zExpectAnyNoTTL:
 			switch l.value {
@@ -620,11 +798,17 @@ func (zp *ZoneParser) Next() (RR, bool) {
 				}
 
 				h.Ttl = ttl
+<<<<<<< HEAD
 
 				if zp.defttl == nil || !zp.defttl.isByDirective {
 					zp.defttl = &ttlState{ttl, false}
 				}
 
+=======
+				if defttl == nil || !defttl.isByDirective {
+					defttl = &ttlState{ttl, false}
+				}
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 				st = zExpectRrtypeBl
 			case zRrtpe:
 				h.Rrtype = l.torc
@@ -842,12 +1026,22 @@ func (zl *zlexer) Next() (lex, bool) {
 		if stri >= len(str) {
 			l.token = "token length insufficient for parsing"
 			l.err = true
+<<<<<<< HEAD
 			return *l, true
+=======
+			c <- l
+			return
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 		}
 		if comi >= len(com) {
 			l.token = "comment length insufficient for parsing"
 			l.err = true
+<<<<<<< HEAD
 			return *l, true
+=======
+			c <- l
+			return
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 		}
 
 		switch x {
@@ -886,8 +1080,12 @@ func (zl *zlexer) Next() (lex, bool) {
 				case "$GENERATE":
 					l.value = zDirGenerate
 				}
+<<<<<<< HEAD
 
 				retL = *l
+=======
+				c <- l
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 			} else {
 				l.value = zString
 				l.token = string(str[:stri])
@@ -897,6 +1095,7 @@ func (zl *zlexer) Next() (lex, bool) {
 					if t, ok := StringToType[tokenUpper]; ok {
 						l.value = zRrtpe
 						l.torc = t
+<<<<<<< HEAD
 
 						zl.rrtype = true
 					} else if strings.HasPrefix(tokenUpper, "TYPE") {
@@ -905,6 +1104,21 @@ func (zl *zlexer) Next() (lex, bool) {
 							l.token = "unknown RR type"
 							l.err = true
 							return *l, true
+=======
+						rrtype = true
+					} else {
+						if strings.HasPrefix(l.tokenUpper, "TYPE") {
+							t, ok := typeToInt(l.token)
+							if !ok {
+								l.token = "unknown RR type"
+								l.err = true
+								c <- l
+								return
+							}
+							l.value = zRrtpe
+							rrtype = true
+							l.torc = t
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 						}
 
 						l.value = zRrtpe
@@ -928,6 +1142,7 @@ func (zl *zlexer) Next() (lex, bool) {
 						l.torc = t
 					}
 				}
+<<<<<<< HEAD
 
 				retL = *l
 			}
@@ -949,6 +1164,17 @@ func (zl *zlexer) Next() (lex, bool) {
 
 			if retL != (lex{}) {
 				return retL, true
+=======
+				c <- l
+			}
+			stri = 0
+
+			if !space && !commt {
+				l.value = zBlank
+				l.token = " "
+				l.length = 1
+				c <- l
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 			}
 		case ';':
 			if escape || zl.quote {
@@ -978,7 +1204,14 @@ func (zl *zlexer) Next() (lex, bool) {
 
 				l.value = zString
 				l.token = string(str[:stri])
+<<<<<<< HEAD
 				return *l, true
+=======
+				l.tokenUpper = strings.ToUpper(l.token)
+				l.length = stri
+				c <- l
+				stri = 0
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 			}
 		case '\r':
 			escape = false
@@ -1010,8 +1243,18 @@ func (zl *zlexer) Next() (lex, bool) {
 
 					l.value = zNewline
 					l.token = "\n"
+<<<<<<< HEAD
 					zl.comment = string(com[:comi])
 					return *l, true
+=======
+					l.tokenUpper = l.token
+					l.length = 1
+					l.comment = string(com[:comi])
+					c <- l
+					l.comment = ""
+					comi = 0
+					break
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 				}
 
 				zl.comBuf = string(com[:comi])
@@ -1034,12 +1277,17 @@ func (zl *zlexer) Next() (lex, bool) {
 							l.torc = t
 						}
 					}
+<<<<<<< HEAD
 
 					retL = *l
+=======
+					c <- l
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 				}
 
 				l.value = zNewline
 				l.token = "\n"
+<<<<<<< HEAD
 
 				zl.comment = zl.comBuf
 				zl.comBuf = ""
@@ -1052,6 +1300,16 @@ func (zl *zlexer) Next() (lex, bool) {
 				}
 
 				return *l, true
+=======
+				l.tokenUpper = l.token
+				l.length = 1
+				c <- l
+				stri = 0
+				commt = false
+				rrtype = false
+				owner = true
+				comi = 0
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 			}
 		case '\\':
 			// comments do not get escaped chars, everything is copied
@@ -1097,13 +1355,22 @@ func (zl *zlexer) Next() (lex, bool) {
 			if stri != 0 {
 				l.value = zString
 				l.token = string(str[:stri])
+<<<<<<< HEAD
 
 				retL = *l
+=======
+				l.tokenUpper = strings.ToUpper(l.token)
+				l.length = stri
+
+				c <- l
+				stri = 0
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 			}
 
 			// send quote itself as separate token
 			l.value = zQuote
 			l.token = "\""
+<<<<<<< HEAD
 
 			zl.quote = !zl.quote
 
@@ -1113,6 +1380,12 @@ func (zl *zlexer) Next() (lex, bool) {
 			}
 
 			return *l, true
+=======
+			l.tokenUpper = l.token
+			l.length = 1
+			c <- l
+			quote = !quote
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 		case '(', ')':
 			if zl.commt {
 				com[comi] = x
@@ -1135,8 +1408,14 @@ func (zl *zlexer) Next() (lex, bool) {
 
 				if zl.brace < 0 {
 					l.token = "extra closing brace"
+					l.tokenUpper = l.token
 					l.err = true
+<<<<<<< HEAD
 					return *l, true
+=======
+					c <- l
+					return
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 				}
 			case '(':
 				zl.brace++
@@ -1164,6 +1443,7 @@ func (zl *zlexer) Next() (lex, bool) {
 
 	var retL lex
 	if stri > 0 {
+<<<<<<< HEAD
 		// Send remainder of str
 		l.value = zString
 		l.token = string(str[:stri])
@@ -1192,6 +1472,20 @@ func (zl *zlexer) Next() (lex, bool) {
 		l.token = "unbalanced brace"
 		l.err = true
 		return *l, true
+=======
+		// Send remainder
+		l.token = string(str[:stri])
+		l.tokenUpper = strings.ToUpper(l.token)
+		l.length = stri
+		l.value = zString
+		c <- l
+	}
+	if brace != 0 {
+		l.token = "unbalanced brace"
+		l.tokenUpper = l.token
+		l.err = true
+		c <- l
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	}
 
 	return lex{value: zEOF}, false
@@ -1233,7 +1527,12 @@ func typeToInt(token string) (uint16, bool) {
 
 // stringToTTL parses things like 2w, 2m, etc, and returns the time in seconds.
 func stringToTTL(token string) (uint32, bool) {
+<<<<<<< HEAD
 	var s, i uint32
+=======
+	s := uint32(0)
+	i := uint32(0)
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	for _, c := range token {
 		switch c {
 		case 's', 'S':
@@ -1321,7 +1620,11 @@ func toAbsoluteName(name, origin string) (absolute string, ok bool) {
 	}
 
 	// check if name is already absolute
+<<<<<<< HEAD
 	if IsFqdn(name) {
+=======
+	if name[len(name)-1] == '.' {
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 		return name, true
 	}
 

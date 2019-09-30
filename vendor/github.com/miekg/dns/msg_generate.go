@@ -110,9 +110,15 @@ return off, err
 			switch {
 			case st.Tag(i) == `dns:"-"`: // ignored
 			case st.Tag(i) == `dns:"cdomain-name"`:
+<<<<<<< HEAD
 				o("off, err = packDomainName(rr.%s, msg, off, compression, compress)\n")
 			case st.Tag(i) == `dns:"domain-name"`:
 				o("off, err = packDomainName(rr.%s, msg, off, compression, false)\n")
+=======
+				o("off, err = PackDomainName(rr.%s, msg, off, compression, compress)\n")
+			case st.Tag(i) == `dns:"domain-name"`:
+				o("off, err = PackDomainName(rr.%s, msg, off, compression, false)\n")
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 			case st.Tag(i) == `dns:"a"`:
 				o("off, err = packDataA(rr.%s, msg, off)\n")
 			case st.Tag(i) == `dns:"aaaa"`:
@@ -171,6 +177,11 @@ if rr.%s != "-" {
 				log.Fatalln(name, st.Field(i).Name(), st.Tag(i))
 			}
 		}
+<<<<<<< HEAD
+=======
+		// We have packed everything, only now we know the rdlength of this RR
+		fmt.Fprintln(b, "rr.Header().Rdlength = uint16(off-headerEnd)")
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 		fmt.Fprintln(b, "return off, nil }\n")
 	}
 

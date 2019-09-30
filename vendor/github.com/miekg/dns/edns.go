@@ -108,6 +108,7 @@ func (rr *OPT) SetVersion(v uint8) {
 
 // ExtendedRcode returns the EDNS extended RCODE field (the upper 8 bits of the TTL).
 func (rr *OPT) ExtendedRcode() int {
+<<<<<<< HEAD
 	return int(rr.Hdr.Ttl&0xFF000000>>24) << 4
 }
 
@@ -116,6 +117,14 @@ func (rr *OPT) ExtendedRcode() int {
 // If the RCODE is not an extended RCODE, will reset the extended RCODE field to 0.
 func (rr *OPT) SetExtendedRcode(v uint16) {
 	rr.Hdr.Ttl = rr.Hdr.Ttl&0x00FFFFFF | uint32(v>>4)<<24
+=======
+	return int((rr.Hdr.Ttl & 0xFF000000) >> 24)
+}
+
+// SetExtendedRcode sets the EDNS extended RCODE field.
+func (rr *OPT) SetExtendedRcode(v uint8) {
+	rr.Hdr.Ttl = rr.Hdr.Ttl&0x00FFFFFF | (uint32(v) << 24)
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 }
 
 // UDPSize returns the UDP buffer size.
@@ -310,6 +319,7 @@ func (e *EDNS0_SUBNET) String() (s string) {
 	return
 }
 
+<<<<<<< HEAD
 func (e *EDNS0_SUBNET) copy() EDNS0 {
 	return &EDNS0_SUBNET{
 		e.Code,
@@ -320,6 +330,8 @@ func (e *EDNS0_SUBNET) copy() EDNS0 {
 	}
 }
 
+=======
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 // The EDNS0_COOKIE option is used to add a DNS Cookie to a message.
 //
 //	o := new(dns.OPT)
@@ -638,7 +650,10 @@ func (e *EDNS0_TCP_KEEPALIVE) String() (s string) {
 	}
 	return
 }
+<<<<<<< HEAD
 func (e *EDNS0_TCP_KEEPALIVE) copy() EDNS0 { return &EDNS0_TCP_KEEPALIVE{e.Code, e.Length, e.Timeout} }
+=======
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 
 // EDNS0_PADDING option is used to add padding to a request/response. The default
 // value of padding SHOULD be 0x0 but other values MAY be used, for instance if
@@ -652,8 +667,11 @@ func (e *EDNS0_PADDING) Option() uint16        { return EDNS0PADDING }
 func (e *EDNS0_PADDING) pack() ([]byte, error) { return e.Padding, nil }
 func (e *EDNS0_PADDING) unpack(b []byte) error { e.Padding = b; return nil }
 func (e *EDNS0_PADDING) String() string        { return fmt.Sprintf("%0X", e.Padding) }
+<<<<<<< HEAD
 func (e *EDNS0_PADDING) copy() EDNS0 {
 	b := make([]byte, len(e.Padding))
 	copy(b, e.Padding)
 	return &EDNS0_PADDING{b}
 }
+=======
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4

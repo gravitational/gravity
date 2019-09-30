@@ -150,7 +150,11 @@ func fromBase32(s []byte) (buf []byte, err error) {
 			s[i] = b - 32
 		}
 	}
+<<<<<<< HEAD
 	buflen := base32HexNoPadEncoding.DecodedLen(len(s))
+=======
+	buflen := base32.HexEncoding.DecodedLen(len(s))
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	buf = make([]byte, buflen)
 	n, err := base32HexNoPadEncoding.Decode(buf, s)
 	buf = buf[:n]
@@ -269,6 +273,7 @@ func unpackString(msg []byte, off int) (string, int, error) {
 	if off+l > len(msg) {
 		return "", off, &Error{err: "overflow unpacking txt"}
 	}
+<<<<<<< HEAD
 	var s strings.Builder
 	consumed := 0
 	for i, b := range msg[off : off+l] {
@@ -284,6 +289,26 @@ func unpackString(msg []byte, off int) (string, int, error) {
 		case b < ' ' || b > '~': // unprintable
 			if consumed == 0 {
 				s.Grow(l * 2)
+=======
+	s := make([]byte, 0, l)
+	for _, b := range msg[off+1 : off+1+l] {
+		switch b {
+		case '"', '\\':
+			s = append(s, '\\', b)
+		default:
+			if b < 32 || b > 127 { // unprintable
+				var buf [3]byte
+				bufs := strconv.AppendInt(buf[:0], int64(b), 10)
+				s = append(s, '\\')
+				for i := 0; i < 3-len(bufs); i++ {
+					s = append(s, '0')
+				}
+				for _, r := range bufs {
+					s = append(s, r)
+				}
+			} else {
+				s = append(s, b)
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 			}
 			s.Write(msg[off+consumed : off+i])
 			s.WriteString(escapeByte(b))

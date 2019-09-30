@@ -83,12 +83,12 @@ func (c *RCControl) collectPods(replicationController *v1.ReplicationController)
 func (c *RCControl) Delete(ctx context.Context, cascade bool) error {
 	c.Infof("delete %v", formatMeta(c.ReplicationController.ObjectMeta))
 
-	rcs := c.Client.Core().ReplicationControllers(c.ReplicationController.Namespace)
+	rcs := c.Client.CoreV1().ReplicationControllers(c.ReplicationController.Namespace)
 	currentRC, err := rcs.Get(c.ReplicationController.Name, metav1.GetOptions{})
 	if err != nil {
 		return ConvertError(err)
 	}
-	pods := c.Client.Core().Pods(c.ReplicationController.Namespace)
+	pods := c.Client.CoreV1().Pods(c.ReplicationController.Namespace)
 	currentPods, err := c.collectPods(currentRC)
 	if err != nil {
 		return trace.Wrap(err)
@@ -120,7 +120,7 @@ func (c *RCControl) Delete(ctx context.Context, cascade bool) error {
 func (c *RCControl) Upsert(ctx context.Context) error {
 	c.Infof("upsert %v", formatMeta(c.ReplicationController.ObjectMeta))
 
-	rcs := c.Client.Core().ReplicationControllers(c.ReplicationController.Namespace)
+	rcs := c.Client.CoreV1().ReplicationControllers(c.ReplicationController.Namespace)
 	currentRC, err := rcs.Get(c.ReplicationController.Name, metav1.GetOptions{})
 	err = ConvertError(err)
 	if err != nil {
@@ -161,7 +161,7 @@ func (c *RCControl) nodeSelector() labels.Selector {
 }
 
 func (c *RCControl) Status() error {
-	rcs := c.Client.Core().ReplicationControllers(c.ReplicationController.Namespace)
+	rcs := c.Client.CoreV1().ReplicationControllers(c.ReplicationController.Namespace)
 	currentRC, err := rcs.Get(c.ReplicationController.Name, metav1.GetOptions{})
 	if err != nil {
 		return ConvertError(err)

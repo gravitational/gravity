@@ -67,6 +67,12 @@ var AlgorithmToString = map[uint8]string{
 	PRIVATEOID:       "PRIVATEOID",
 }
 
+<<<<<<< HEAD
+=======
+// StringToAlgorithm is the reverse of AlgorithmToString.
+var StringToAlgorithm = reverseInt8(AlgorithmToString)
+
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 // AlgorithmToHash is a map of algorithm crypto hash IDs to crypto.Hash's.
 var AlgorithmToHash = map[uint8]crypto.Hash{
 	RSAMD5:           crypto.MD5, // Deprecated in RFC 6725
@@ -99,6 +105,12 @@ var HashToString = map[uint8]string{
 	SHA512: "SHA512",
 }
 
+<<<<<<< HEAD
+=======
+// StringToHash is a map of names to hash IDs.
+var StringToHash = reverseInt8(HashToString)
+
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 // DNSKEY flag values.
 const (
 	SEP    = 1
@@ -318,19 +330,31 @@ func (rr *RRSIG) Sign(k crypto.Signer, rrset []RR) error {
 		}
 
 		rr.Signature = toBase64(signature)
+<<<<<<< HEAD
 	case RSAMD5, DSA, DSANSEC3SHA1:
 		// See RFC 6944.
 		return ErrAlg
+=======
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	default:
 		h := hash.New()
 		h.Write(signdata)
 		h.Write(wire)
+<<<<<<< HEAD
 
 		signature, err := sign(k, h.Sum(nil), hash, rr.Algorithm)
 		if err != nil {
 			return err
 		}
 
+=======
+
+		signature, err := sign(k, h.Sum(nil), hash, rr.Algorithm)
+		if err != nil {
+			return err
+		}
+
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 		rr.Signature = toBase64(signature)
 	}
 
@@ -558,6 +582,7 @@ func (k *DNSKEY) publicKeyRSA() *rsa.PublicKey {
 
 	pubkey := new(rsa.PublicKey)
 
+<<<<<<< HEAD
 	var expo uint64
 	// The exponent of length explen is between keyoff and modoff.
 	for _, v := range keybuf[keyoff:modoff] {
@@ -566,6 +591,20 @@ func (k *DNSKEY) publicKeyRSA() *rsa.PublicKey {
 	}
 	if expo > 1<<31-1 {
 		// Larger exponent than supported by the crypto package.
+=======
+	pubkey.N = big.NewInt(0)
+	shift := uint64((explen - 1) * 8)
+	expo := uint64(0)
+	for i := int(explen - 1); i > 0; i-- {
+		expo += uint64(keybuf[keyoff+i]) << shift
+		shift -= 8
+	}
+	// Remainder
+	expo += uint64(keybuf[keyoff])
+	if expo > (2<<31)+1 {
+		// Larger expo than supported.
+		// println("dns: F5 primes (or larger) are not supported")
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 		return nil
 	}
 

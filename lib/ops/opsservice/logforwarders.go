@@ -173,7 +173,7 @@ func NewLogForwardersControl(client *kubernetes.Clientset) LogForwardersControl 
 
 // Get returns a list of log forwarders from config map
 func (c *logForwardersControl) Get() ([]storage.LogForwarder, error) {
-	configMap, err := c.client.Core().ConfigMaps(defaults.KubeSystemNamespace).Get(
+	configMap, err := c.client.CoreV1().ConfigMaps(defaults.KubeSystemNamespace).Get(
 		defaults.LogForwardersConfigMap, metav1.GetOptions{})
 	if err != nil {
 		return nil, rigging.ConvertError(err)
@@ -193,7 +193,7 @@ func (c *logForwardersControl) Get() ([]storage.LogForwarder, error) {
 
 // Replace replaces the contents of the forwarder config map with the provided list of forwarders
 func (c *logForwardersControl) Replace(forwarders []storage.LogForwarder) error {
-	configMap, err := c.client.Core().ConfigMaps(defaults.KubeSystemNamespace).Get(
+	configMap, err := c.client.CoreV1().ConfigMaps(defaults.KubeSystemNamespace).Get(
 		defaults.LogForwardersConfigMap, metav1.GetOptions{})
 	if err != nil {
 		return rigging.ConvertError(err)
@@ -208,7 +208,7 @@ func (c *logForwardersControl) Replace(forwarders []storage.LogForwarder) error 
 		configMap.Data[forwarder.GetName()] = string(bytes)
 	}
 
-	_, err = c.client.Core().ConfigMaps(defaults.KubeSystemNamespace).Update(configMap)
+	_, err = c.client.CoreV1().ConfigMaps(defaults.KubeSystemNamespace).Update(configMap)
 	if err != nil {
 		return rigging.ConvertError(err)
 	}
@@ -218,7 +218,7 @@ func (c *logForwardersControl) Replace(forwarders []storage.LogForwarder) error 
 
 // Create adds a new log forwarder to the forwarders config map
 func (c *logForwardersControl) Create(forwarder storage.LogForwarder) error {
-	configMap, err := c.client.Core().ConfigMaps(defaults.KubeSystemNamespace).Get(
+	configMap, err := c.client.CoreV1().ConfigMaps(defaults.KubeSystemNamespace).Get(
 		defaults.LogForwardersConfigMap, metav1.GetOptions{})
 	if err != nil {
 		return rigging.ConvertError(err)
@@ -240,7 +240,7 @@ func (c *logForwardersControl) Create(forwarder storage.LogForwarder) error {
 
 	configMap.Data[forwarder.GetName()] = string(bytes)
 
-	_, err = c.client.Core().ConfigMaps(defaults.KubeSystemNamespace).Update(configMap)
+	_, err = c.client.CoreV1().ConfigMaps(defaults.KubeSystemNamespace).Update(configMap)
 	if err != nil {
 		return rigging.ConvertError(err)
 	}
@@ -250,7 +250,7 @@ func (c *logForwardersControl) Create(forwarder storage.LogForwarder) error {
 
 // Update updates an existing log forwarder in the k8s config map
 func (c *logForwardersControl) Update(forwarder storage.LogForwarder) error {
-	configMap, err := c.client.Core().ConfigMaps(defaults.KubeSystemNamespace).Get(
+	configMap, err := c.client.CoreV1().ConfigMaps(defaults.KubeSystemNamespace).Get(
 		defaults.LogForwardersConfigMap, metav1.GetOptions{})
 	if err != nil {
 		return rigging.ConvertError(err)
@@ -272,7 +272,7 @@ func (c *logForwardersControl) Update(forwarder storage.LogForwarder) error {
 
 	configMap.Data[forwarder.GetName()] = string(bytes)
 
-	_, err = c.client.Core().ConfigMaps(defaults.KubeSystemNamespace).Update(configMap)
+	_, err = c.client.CoreV1().ConfigMaps(defaults.KubeSystemNamespace).Update(configMap)
 	if err != nil {
 		return rigging.ConvertError(err)
 	}
@@ -282,7 +282,7 @@ func (c *logForwardersControl) Update(forwarder storage.LogForwarder) error {
 
 // Delete deletes the specified log forwarder from the k8s config map
 func (c *logForwardersControl) Delete(name string) error {
-	configMap, err := c.client.Core().ConfigMaps(defaults.KubeSystemNamespace).Get(
+	configMap, err := c.client.CoreV1().ConfigMaps(defaults.KubeSystemNamespace).Get(
 		defaults.LogForwardersConfigMap, metav1.GetOptions{})
 	if err != nil {
 		return rigging.ConvertError(err)
@@ -295,7 +295,7 @@ func (c *logForwardersControl) Delete(name string) error {
 
 	delete(configMap.Data, name)
 
-	_, err = c.client.Core().ConfigMaps(defaults.KubeSystemNamespace).Update(configMap)
+	_, err = c.client.CoreV1().ConfigMaps(defaults.KubeSystemNamespace).Update(configMap)
 	if err != nil {
 		return rigging.ConvertError(err)
 	}
@@ -305,7 +305,7 @@ func (c *logForwardersControl) Delete(name string) error {
 
 // Reload forces log collector to reload forwarder configuration
 func (c *logForwardersControl) Reload() error {
-	err := c.client.Core().Pods(defaults.KubeSystemNamespace).DeleteCollection(nil, metav1.ListOptions{
+	err := c.client.CoreV1().Pods(defaults.KubeSystemNamespace).DeleteCollection(nil, metav1.ListOptions{
 		LabelSelector: utils.MakeSelector(map[string]string{
 			"role": "log-collector",
 		}).String(),

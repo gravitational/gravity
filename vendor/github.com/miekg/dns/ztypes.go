@@ -269,8 +269,20 @@ func (rr *AVC) len(off int, compression map[string]struct{}) int {
 	}
 	return l
 }
+<<<<<<< HEAD
 func (rr *CAA) len(off int, compression map[string]struct{}) int {
 	l := rr.Hdr.len(off, compression)
+=======
+func (rr *AVC) len() int {
+	l := rr.Hdr.len()
+	for _, x := range rr.Txt {
+		l += len(x) + 1
+	}
+	return l
+}
+func (rr *CAA) len() int {
+	l := rr.Hdr.len()
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	l++ // Flag
 	l += len(rr.Tag) + 1
 	l += len(rr.Value)
@@ -312,7 +324,11 @@ func (rr *DS) len(off int, compression map[string]struct{}) int {
 	l += 2 // KeyTag
 	l++    // Algorithm
 	l++    // DigestType
+<<<<<<< HEAD
 	l += len(rr.Digest) / 2
+=======
+	l += len(rr.Digest)/2 + 1
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	return l
 }
 func (rr *EID) len(off int, compression map[string]struct{}) int {
@@ -348,8 +364,13 @@ func (rr *HINFO) len(off int, compression map[string]struct{}) int {
 	l += len(rr.Os) + 1
 	return l
 }
+<<<<<<< HEAD
 func (rr *HIP) len(off int, compression map[string]struct{}) int {
 	l := rr.Hdr.len(off, compression)
+=======
+func (rr *HIP) len() int {
+	l := rr.Hdr.len()
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	l++    // HitLength
 	l++    // PublicKeyAlgorithm
 	l += 2 // PublicKeyLength
@@ -380,8 +401,13 @@ func (rr *L64) len(off int, compression map[string]struct{}) int {
 	l += 8 // Locator64
 	return l
 }
+<<<<<<< HEAD
 func (rr *LOC) len(off int, compression map[string]struct{}) int {
 	l := rr.Hdr.len(off, compression)
+=======
+func (rr *LOC) len() int {
+	l := rr.Hdr.len()
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	l++    // Version
 	l++    // Size
 	l++    // HorizPre
@@ -472,18 +498,26 @@ func (rr *NSAPPTR) len(off int, compression map[string]struct{}) int {
 	l += domainNameLen(rr.Ptr, off+l, compression, false)
 	return l
 }
+<<<<<<< HEAD
 func (rr *NSEC3PARAM) len(off int, compression map[string]struct{}) int {
 	l := rr.Hdr.len(off, compression)
+=======
+func (rr *NSEC3PARAM) len() int {
+	l := rr.Hdr.len()
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	l++    // Hash
 	l++    // Flags
 	l += 2 // Iterations
 	l++    // SaltLength
 	l += len(rr.Salt) / 2
+<<<<<<< HEAD
 	return l
 }
 func (rr *NULL) len(off int, compression map[string]struct{}) int {
 	l := rr.Hdr.len(off, compression)
 	l += len(rr.Data)
+=======
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	return l
 }
 func (rr *OPENPGPKEY) len(off int, compression map[string]struct{}) int {
@@ -541,6 +575,7 @@ func (rr *RT) len(off int, compression map[string]struct{}) int {
 	l += domainNameLen(rr.Host, off+l, compression, false)
 	return l
 }
+<<<<<<< HEAD
 func (rr *SMIMEA) len(off int, compression map[string]struct{}) int {
 	l := rr.Hdr.len(off, compression)
 	l++ // Usage
@@ -553,6 +588,20 @@ func (rr *SOA) len(off int, compression map[string]struct{}) int {
 	l := rr.Hdr.len(off, compression)
 	l += domainNameLen(rr.Ns, off+l, compression, true)
 	l += domainNameLen(rr.Mbox, off+l, compression, true)
+=======
+func (rr *SMIMEA) len() int {
+	l := rr.Hdr.len()
+	l++ // Usage
+	l++ // Selector
+	l++ // MatchingType
+	l += len(rr.Certificate)/2 + 1
+	return l
+}
+func (rr *SOA) len() int {
+	l := rr.Hdr.len()
+	l += len(rr.Ns) + 1
+	l += len(rr.Mbox) + 1
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	l += 4 // Serial
 	l += 4 // Refresh
 	l += 4 // Retry
@@ -575,11 +624,19 @@ func (rr *SRV) len(off int, compression map[string]struct{}) int {
 	l += domainNameLen(rr.Target, off+l, compression, false)
 	return l
 }
+<<<<<<< HEAD
 func (rr *SSHFP) len(off int, compression map[string]struct{}) int {
 	l := rr.Hdr.len(off, compression)
 	l++ // Algorithm
 	l++ // Type
 	l += len(rr.FingerPrint) / 2
+=======
+func (rr *SSHFP) len() int {
+	l := rr.Hdr.len()
+	l++ // Algorithm
+	l++ // Type
+	l += len(rr.FingerPrint)/2 + 1
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	return l
 }
 func (rr *TA) len(off int, compression map[string]struct{}) int {
@@ -587,7 +644,11 @@ func (rr *TA) len(off int, compression map[string]struct{}) int {
 	l += 2 // KeyTag
 	l++    // Algorithm
 	l++    // DigestType
+<<<<<<< HEAD
 	l += len(rr.Digest) / 2
+=======
+	l += len(rr.Digest)/2 + 1
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	return l
 }
 func (rr *TALINK) len(off int, compression map[string]struct{}) int {
@@ -609,12 +670,21 @@ func (rr *TKEY) len(off int, compression map[string]struct{}) int {
 	l += len(rr.OtherData) / 2
 	return l
 }
+<<<<<<< HEAD
 func (rr *TLSA) len(off int, compression map[string]struct{}) int {
 	l := rr.Hdr.len(off, compression)
 	l++ // Usage
 	l++ // Selector
 	l++ // MatchingType
 	l += len(rr.Certificate) / 2
+=======
+func (rr *TLSA) len() int {
+	l := rr.Hdr.len()
+	l++ // Usage
+	l++ // Selector
+	l++ // MatchingType
+	l += len(rr.Certificate)/2 + 1
+>>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	return l
 }
 func (rr *TSIG) len(off int, compression map[string]struct{}) int {
@@ -678,6 +748,11 @@ func (rr *AVC) copy() RR {
 	copy(Txt, rr.Txt)
 	return &AVC{rr.Hdr, Txt}
 }
+func (rr *AVC) copy() RR {
+	Txt := make([]string, len(rr.Txt))
+	copy(Txt, rr.Txt)
+	return &AVC{*rr.Hdr.copyHeader(), Txt}
+}
 func (rr *CAA) copy() RR {
 	return &CAA{rr.Hdr, rr.Flag, rr.Tag, rr.Value}
 }
@@ -691,6 +766,11 @@ func (rr *CSYNC) copy() RR {
 	TypeBitMap := make([]uint16, len(rr.TypeBitMap))
 	copy(TypeBitMap, rr.TypeBitMap)
 	return &CSYNC{rr.Hdr, rr.Serial, rr.Flags, TypeBitMap}
+}
+func (rr *CSYNC) copy() RR {
+	TypeBitMap := make([]uint16, len(rr.TypeBitMap))
+	copy(TypeBitMap, rr.TypeBitMap)
+	return &CSYNC{*rr.Hdr.copyHeader(), rr.Serial, rr.Flags, TypeBitMap}
 }
 func (rr *DHCID) copy() RR {
 	return &DHCID{rr.Hdr, rr.Digest}
@@ -832,6 +912,9 @@ func (rr *RT) copy() RR {
 }
 func (rr *SMIMEA) copy() RR {
 	return &SMIMEA{rr.Hdr, rr.Usage, rr.Selector, rr.MatchingType, rr.Certificate}
+}
+func (rr *SMIMEA) copy() RR {
+	return &SMIMEA{*rr.Hdr.copyHeader(), rr.Usage, rr.Selector, rr.MatchingType, rr.Certificate}
 }
 func (rr *SOA) copy() RR {
 	return &SOA{rr.Hdr, rr.Ns, rr.Mbox, rr.Serial, rr.Refresh, rr.Retry, rr.Expire, rr.Minttl}

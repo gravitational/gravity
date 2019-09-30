@@ -332,6 +332,19 @@
   revision = "3a0bb77429bd3a61596f5e8a3172445844342120"
 
 [[projects]]
+  branch = "master"
+  digest = "1:a7cc5292e3d232b040fa4a2bd4f652eb498a6a23fcde8199c696eba0a763a433"
+  name = "github.com/containerd/continuity"
+  packages = [
+    "fs",
+    "pathdriver",
+    "syscallx",
+    "sysx",
+  ]
+  pruneopts = "UT"
+  revision = "75bee3e2ccb6402e3a986ab8bd3b17003fc0fdec"
+
+[[projects]]
   digest = "1:4f618dd2213260a992922925a03349430af6994d8a481c53280703732e5bc4ab"
   name = "github.com/coreos/etcd"
   packages = [
@@ -393,6 +406,20 @@
   ]
   pruneopts = "UT"
   revision = "1914e367e85eaf0c25d495b48e060dfe6190f8d0"
+
+[[projects]]
+  digest = "1:32945438a670edb831120e35007cbb4ba17218e0c5fd52566ba7c56043ae0d96"
+  name = "github.com/coreos/prometheus-operator"
+  packages = [
+    "pkg/apis/monitoring",
+    "pkg/apis/monitoring/v1",
+    "pkg/client/versioned",
+    "pkg/client/versioned/scheme",
+    "pkg/client/versioned/typed/monitoring/v1",
+  ]
+  pruneopts = "UT"
+  revision = "1b202471cb9847282198ec008b58bd7c34d9d2ff"
+  version = "v0.30.0"
 
 [[projects]]
   digest = "1:ec66ad050342a3573ed2f5a4337d51b4c6d5d2a717cc6c9ecf86b081235a5759"
@@ -463,7 +490,7 @@
   revision = "edc3ab29cdff8694dd6feb85cfeb4b5f1b38ed9c"
 
 [[projects]]
-  digest = "1:c945991632e3246dc4d9409a265c4be8ee12d0abcc7b3e72abd4e79be5a1048e"
+  digest = "1:c316443b3f2c5d769dd7fe6233b0f32fa8f741e87290047c8b809130b1674ae4"
   name = "github.com/docker/docker"
   packages = [
     "pkg/archive",
@@ -474,15 +501,12 @@
     "pkg/mount",
     "pkg/namesgenerator",
     "pkg/pools",
-    "pkg/promise",
-    "pkg/random",
     "pkg/system",
     "pkg/term",
     "pkg/term/windows",
   ]
   pruneopts = "UT"
-  revision = "092cba3727bb9b4a2f0e922cd6c0f93ea270e363"
-  version = "v1.13.1"
+  revision = "be7ac8be2ae072032a4005e8f232be3fc57e4127"
 
 [[projects]]
   digest = "1:ae192be79d657527fddb53dd6a967f1a51fc7deca458dd5938c5fe7e43a041bf"
@@ -834,14 +858,14 @@
   revision = "c3428bd84c23f0cfcc759f2ef12632be5ff5d95d"
 
 [[projects]]
-  digest = "1:61995f719d9c05abf4fe5bd74a1734a3dca4979e3b727be4645d1931632934bd"
+  digest = "1:6f323c8ee44a44f7be69a733288612635ac279e07ea1e08815c553599a0543d0"
   name = "github.com/gravitational/coordinate"
   packages = [
     "config",
     "leader",
   ]
   pruneopts = "UT"
-  revision = "d3d3609ffa9eb7f9b30f90ed1463389feeeff971"
+  revision = "2bc9a83f6fe22919202fb09bfa01f2ff8b7784cb"
 
 [[projects]]
   branch = "master"
@@ -893,12 +917,12 @@
   version = "1.0.2"
 
 [[projects]]
-  digest = "1:964497d169725d0bd4385940a674d388e01c3965161b2a371efe674cf970abb6"
+  branch = "version/6.1.x"
+  digest = "1:d7b515e0980965b60c073851676ab48c2319865a26f6222e72826044d7100796"
   name = "github.com/gravitational/rigging"
   packages = ["."]
   pruneopts = "UT"
-  revision = "cac1123f3e01da3505c4ae11c55f820e6be71d21"
-  version = "5.5.2"
+  revision = "a74e4d65f83f417a9dac9cf688dc7e8249e89ba5"
 
 [[projects]]
   digest = "1:e025b0f4997273273c5dc46a17caddb27ab7dc8b8aa9ffb50d326e7aeb4059c7"
@@ -1615,6 +1639,17 @@
   version = "v1.0.0-rc1"
 
 [[projects]]
+  digest = "1:11db38d694c130c800d0aefb502fb02519e514dc53d9804ce51d1ad25ec27db6"
+  name = "github.com/opencontainers/image-spec"
+  packages = [
+    "specs-go",
+    "specs-go/v1",
+  ]
+  pruneopts = "UT"
+  revision = "d60099175f88c47cd379c4738d158884749ed235"
+  version = "v1.0.1"
+
+[[projects]]
   digest = "1:1869683e323ebff2bdf8adcb560f82bf6f8d94019d35099e3403f7df12e9c07e"
   name = "github.com/opencontainers/runc"
   packages = [
@@ -2026,6 +2061,14 @@
   ]
   pruneopts = "UT"
   revision = "c57b0facaced709681d9f90397429b9430a74754"
+
+[[projects]]
+  branch = "master"
+  digest = "1:b521f10a2d8fa85c04a8ef4e62f2d1e14d303599a55d64dabf9f5a02f84d35eb"
+  name = "golang.org/x/sync"
+  packages = ["errgroup"]
+  pruneopts = "UT"
+  revision = "cd5d95a43a6e21273425c7ae415d3df9ea832eeb"
 
 [[projects]]
   branch = "master"
@@ -2607,12 +2650,16 @@
 
 [[projects]]
   branch = "release-1.15"
-  digest = "1:77ddd5d7ed0a1fab04bcc4d036f616cfaa1ba60a903e3f7eef333b6978a79080"
+  digest = "1:0e555835526bba435306c1ff447b144032c0f9fbe179b084646f8520ae2d08cc"
   name = "k8s.io/kube-aggregator"
   packages = [
     "pkg/apis/apiregistration",
     "pkg/apis/apiregistration/v1",
     "pkg/apis/apiregistration/v1beta1",
+    "pkg/client/clientset_generated/clientset",
+    "pkg/client/clientset_generated/clientset/scheme",
+    "pkg/client/clientset_generated/clientset/typed/apiregistration/v1",
+    "pkg/client/clientset_generated/clientset/typed/apiregistration/v1beta1",
   ]
   pruneopts = "UT"
   revision = "cf4d2a846c5fbdc49483db0283cfb1605baa7c3c"
@@ -2846,6 +2893,7 @@
     "github.com/docker/distribution/registry/storage/driver/filesystem",
     "github.com/docker/distribution/version",
     "github.com/docker/docker/pkg/archive",
+    "github.com/docker/docker/pkg/idtools",
     "github.com/docker/docker/pkg/mount",
     "github.com/docker/docker/pkg/namesgenerator",
     "github.com/docker/libtrust",
