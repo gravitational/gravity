@@ -140,6 +140,14 @@
   version = "v1.0.0"
 
 [[projects]]
+  branch = "master"
+  digest = "1:7a9140c806333a78122763d08ec6c0d7358c7fff1df8cfbb01881c5dc46e24e5"
+  name = "github.com/armon/go-metrics"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "ec5e00d3c878b2a97bbe0884ef45ffd1b4f669f5"
+
+[[projects]]
   digest = "1:c47f4964978e211c6e566596ec6246c329912ea92e9bb99c00798bb4564c5b09"
   name = "github.com/armon/go-radix"
   packages = ["."]
@@ -370,7 +378,7 @@
   name = "github.com/coreos/go-systemd"
   packages = [
     "dbus",
-    "unit"
+    "unit",
   ]
   pruneopts = "UT"
   revision = "40e2722dffead74698ca12a750f64ef313ddce05"
@@ -859,9 +867,11 @@
   revision = "6a87d116a90b9c4e73bedc19ebc9c17f1b43d826"
 
 [[projects]]
-  digest = "1:f01b1009f6ab14bbd9257884dc63897eaf59cd7e7cdd59b1dae4bebad7cea154"
+  digest = "1:f988bf36d4f9bd69a6439f4da89fc5f7336751e9bf2719f5b1fb2077e3c55631"
   name = "github.com/gravitational/satellite"
   packages = [
+    "agent",
+    "agent/cache",
     "agent/health",
     "agent/proto/agentpb",
     "lib/kubernetes",
@@ -869,8 +879,7 @@
     "utils",
   ]
   pruneopts = "UT"
-  revision = "57869406f0ebe0d80989e632df28052a7a252ed9"
-  version = "5.5.2"
+  revision = "1be54a8b09648318daf4eb073508fa6d4b741ebc"
 
 [[projects]]
   digest = "1:49f6abbce9ade5f43508429e4af1adcce55d27adcd62719fea049decc766a7c9"
@@ -1016,6 +1025,22 @@
   revision = "75ecd6e6d64509d675da33386b15e1174566177b"
 
 [[projects]]
+  digest = "1:6e9806a06d00f4d1f90806d7b5cfb11e35dca76503390ca6e704b05ea7051bff"
+  name = "github.com/hashicorp/go-immutable-radix"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "7dd1121b595e4e1bd6dd5caa78e0f5c454740379"
+  version = "v1.1.0"
+
+[[projects]]
+  digest = "1:5d8539af558ca2ea960a4c11afb12c75ae9e9dca3560f1103318aaa2030e37e2"
+  name = "github.com/hashicorp/go-msgpack"
+  packages = ["codec"]
+  pruneopts = "UT"
+  revision = "ad60660ecf9c5a1eae0ca32182ed72bab5807961"
+  version = "v0.5.5"
+
+[[projects]]
   digest = "1:f668349b83f7d779567c880550534addeca7ebadfdcf44b0b9c39be61864b4b7"
   name = "github.com/hashicorp/go-multierror"
   packages = ["."]
@@ -1038,6 +1063,14 @@
   pruneopts = "UT"
   revision = "c9a55de4fe06c920a71964b53cfe3dd293a3c743"
   version = "v1.0.0"
+
+[[projects]]
+  digest = "1:8abc57884881876d02f467bb7d4ed7ce3a58dac3f8f7ba60579ce4ffc6afd7e1"
+  name = "github.com/hashicorp/go-sockaddr"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "c7188e74f6acae5a989bdc959aa779f8b9f42faf"
+  version = "v1.0.2"
 
 [[projects]]
   digest = "1:12ed7dcca9531e58c65cdadb8af0052724bef7fa1581380523fb9cb1215faf0d"
@@ -1111,6 +1144,34 @@
   ]
   pruneopts = "UT"
   revision = "fa9f258a92500514cc8e9c67020487709df92432"
+
+[[projects]]
+  digest = "1:16ae35b3a854c667baaf55ff5d455c486f7c2baf040a2727f2ef0e4b096b2a95"
+  name = "github.com/hashicorp/logutils"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "a335183dfd075f638afcc820c90591ca3c97eba6"
+  version = "v1.0.0"
+
+[[projects]]
+  digest = "1:08ff8f64cc32d2bf06d0e09daf9b3bde7375e2d9e361b081a3faa405de3292a5"
+  name = "github.com/hashicorp/memberlist"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "08c40f9c3d80ff3cad168e02c8dca2713e57821b"
+  version = "v0.1.5"
+
+[[projects]]
+  digest = "1:76e9e7707ef41139790e774d2ff0c0cbbe0c8bdc196c24fe2fc17c8375180d4f"
+  name = "github.com/hashicorp/serf"
+  packages = [
+    "client",
+    "coordinate",
+    "serf",
+  ]
+  pruneopts = "UT"
+  revision = "d0144799968225d12af441bef64e45c9740b95eb"
+  version = "v0.8.4"
 
 [[projects]]
   digest = "1:45a8e998ff1b326a362c11169253f09433d4f2cd5145452d06480651fae1354f"
@@ -1619,6 +1680,14 @@
   packages = ["."]
   pruneopts = "UT"
   revision = "5bf94b69c6b68ee1b541973bb8e1144db23a194b"
+
+[[projects]]
+  branch = "master"
+  digest = "1:579c4bbcc2e16d4caf871ba91c0e2c331b07c5560c80d142d82c0de01c57fa96"
+  name = "github.com/sean-/seed"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "e2103e2c35297fb7e17febb81e49b312087a2372"
 
 [[projects]]
   branch = "master"
