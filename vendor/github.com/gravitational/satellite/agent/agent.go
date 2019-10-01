@@ -24,11 +24,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+
 	"github.com/gravitational/satellite/agent/cache"
 	"github.com/gravitational/satellite/agent/health"
 	pb "github.com/gravitational/satellite/agent/proto/agentpb"
 	"github.com/gravitational/trace"
-	"github.com/prometheus/client_golang/prometheus"
 
 	serf "github.com/hashicorp/serf/client"
 	"github.com/jonboulle/clockwork"
@@ -237,7 +238,7 @@ func (r *agent) Start() error {
 
 	if r.metricsListener != nil {
 		go func() {
-			http.Handle("/metrics", prometheus.Handler())
+			http.Handle("/metrics", promhttp.Handler())
 			if err := http.Serve(r.metricsListener, nil); err != nil {
 				errChan <- trace.Wrap(err)
 			}

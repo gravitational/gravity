@@ -2,7 +2,7 @@ clockwork
 =========
 
 [![Build Status](https://travis-ci.org/jonboulle/clockwork.png?branch=master)](https://travis-ci.org/jonboulle/clockwork)
-[![godoc](https://godoc.org/github.com/jonboulle/clockwork?status.svg)](http://godoc.org/github.com/jonboulle/clockwork) 
+[![godoc](https://godoc.org/github.com/jonboulle/clockwork?status.svg)](http://godoc.org/github.com/jonboulle/clockwork)
 
 a simple fake clock for golang
 
@@ -12,50 +12,59 @@ Replace uses of the `time` package with the `clockwork.Clock` interface instead.
 
 For example, instead of using `time.Sleep` directly:
 
-```
-func my_func() {
+```go
+func myFunc() {
 	time.Sleep(3 * time.Second)
-	do_something()
+	doSomething()
 }
 ```
 
 inject a clock and use its `Sleep` method instead:
 
-```
-func my_func(clock clockwork.Clock) {
+```go
+func myFunc(clock clockwork.Clock) {
 	clock.Sleep(3 * time.Second)
-	do_something()
+	doSomething()
 }
 ```
 
-Now you can easily test `my_func` with a `FakeClock`:
+Now you can easily test `myFunc` with a `FakeClock`:
 
-```
+```go
 func TestMyFunc(t *testing.T) {
 	c := clockwork.NewFakeClock()
 
 	// Start our sleepy function
-	my_func(c)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		myFunc(c)
+		wg.Done()
+	}()
 
-	// Ensure we wait until my_func is sleeping
+	// Ensure we wait until myFunc is sleeping
 	c.BlockUntil(1)
 
-	assert_state()
+	assertState()
 
 	// Advance the FakeClock forward in time
-	c.Advance(3)
+	c.Advance(3 * time.Second)
 
-	assert_state()
+	// Wait until the function completes
+	wg.Wait()
+
+	assertState()
 }
 ```
 
 and in production builds, simply inject the real clock instead:
-```
-my_func(clockwork.NewRealClock())
+
+```go
+myFunc(clockwork.NewRealClock())
 ```
 
 See [example_test.go](example_test.go) for a full example.
 
 # Credits
 
-clockwork is inspired by @wickman's [threaded fake clock](https://gist.github.com/wickman/3840816), and the [Golang playground](http://blog.golang.org/playground#Faking time)
+clockwork is inspired by @wickman's [threaded fake clock](https://gist.github.com/wickman/3840816), and the [Golang playground](https://blog.golang.org/playground#TOC_3.1.)
