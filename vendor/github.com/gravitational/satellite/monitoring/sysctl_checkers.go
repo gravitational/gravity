@@ -53,6 +53,50 @@ func NewMayDetachMountsChecker() *SysctlChecker {
 	}
 }
 
+// NewCNIForwardingChecker checks if CNI interface has forwarding enabled
+func NewCNIForwardingChecker() *SysctlChecker {
+	return &SysctlChecker{
+		CheckerName:     CNIForwardChecker,
+		Param:           "net.ipv4.conf.cni0.forwarding",
+		Expected:        "1",
+		OnValueMismatch: "ipv4 forwarding is off on interface cni0, see https://www.gravitational.com/docs/faq/#ipv4-forwarding",
+		SkipNotFound:    true, // interface may not exist, so skip if not found
+	}
+}
+
+// NewFlannelForwardingChecker checks if flannel interface has forwarding enabled
+func NewFlannelForwardingChecker() *SysctlChecker {
+	return &SysctlChecker{
+		CheckerName:     FlannelForwardChecker,
+		Param:           "net.ipv4.conf.flannel/1.forwarding",
+		Expected:        "1",
+		OnValueMismatch: "ipv4 forwarding is off on interface flannel.1, see https://www.gravitational.com/docs/faq/#ipv4-forwarding",
+		SkipNotFound:    true, // interface may not exist, so skip if not found
+	}
+}
+
+// NewWormholeBridgeForwardingChecker checks if wormhole-br0 interface has forwarding enabled
+func NewWormholeBridgeForwardingChecker() *SysctlChecker {
+	return &SysctlChecker{
+		CheckerName:     WormholeBridgeForwardChecker,
+		Param:           "net.ipv4.conf.wormhole-br0.forwarding",
+		Expected:        "1",
+		OnValueMismatch: "ipv4 forwarding is off on interface wormhole-br0, see https://www.gravitational.com/docs/faq/#ipv4-forwarding",
+		SkipNotFound:    true, // interface may not exist, so skip if not found
+	}
+}
+
+// NewWormholeWgForwardingChecker checks if wormhole-wg0 interface has forwarding enabled
+func NewWormholeWgForwardingChecker() *SysctlChecker {
+	return &SysctlChecker{
+		CheckerName:     WormholeWgForwardChecker,
+		Param:           "net.ipv4.conf.wormhole-wg0.forwarding",
+		Expected:        "1",
+		OnValueMismatch: "ipv4 forwarding is off on interface wormhole-wg0, see https://www.gravitational.com/docs/faq/#ipv4-forwarding",
+		SkipNotFound:    true, // interface may not exist, so skip if not found
+	}
+}
+
 const (
 	// IPForwardCheckerID is the ID of the checker of ipv4 forwarding
 	IPForwardCheckerID = "ip-forward"
@@ -60,4 +104,12 @@ const (
 	NetfilterCheckerID = "br-netfilter"
 	// MountsCheckerID is the ID of the checker of mounts detaching
 	MountsCheckerID = "may-detach-mounts"
+	// CNIForwardChecker is the ID of the checker of cni interface set to forwarding
+	CNIForwardChecker = "cni0-forwarding"
+	// FlannelForwardChecker is the ID of the checker of flannel interface set to forwarding
+	FlannelForwardChecker = "flannel.1-forwarding"
+	// WormholeBridgeForwardChecker is the ID of the checker of wormhole bridge interface set to forwarding
+	WormholeBridgeForwardChecker = "wormhole-br0-forwarding"
+	// WormholeWgForwardChecker is the ID of the checker of wormhole bridge interface set to forwarding
+	WormholeWgForwardChecker = "wormhole-wg0-forwarding"
 )

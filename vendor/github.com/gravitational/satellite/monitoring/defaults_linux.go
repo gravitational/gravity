@@ -75,6 +75,10 @@ func BasicCheckers(checkers ...health.Checker) health.Checker {
 		name: "local",
 		checkers: []health.Checker{
 			NewIPForwardChecker(),
+			NewCNIForwardingChecker(),
+			NewFlannelForwardingChecker(),
+			NewWormholeBridgeForwardingChecker(),
+			NewWormholeWgForwardingChecker(),
 			NewBridgeNetfilterChecker(),
 			NewMayDetachMountsChecker(),
 			DefaultProcessChecker(),
@@ -131,8 +135,9 @@ func DefaultBootConfigParams() health.Checker {
 }
 
 // NewDNSChecker sends some default queries to monitor DNS / service discovery health
-func NewDNSChecker(questionA []string) health.Checker {
+func NewDNSChecker(questionA []string, nameservers ...string) health.Checker {
 	return &DNSChecker{
-		QuestionA: questionA,
+		QuestionA:   questionA,
+		Nameservers: nameservers,
 	}
 }

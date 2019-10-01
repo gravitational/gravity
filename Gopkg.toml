@@ -65,7 +65,11 @@ ignored = [
 
 [[constraint]]
   name = "github.com/gravitational/satellite"
-  version = "=5.5.4"
+  version = "=6.1.1"
+
+[[constraint]]
+  name = "github.com/miekg/dns"
+  version = "=v1.1.19"
 
 [[constraint]]
   name = "github.com/xtgo/set"
@@ -73,7 +77,7 @@ ignored = [
 
 [[constraint]]
   name = "github.com/gogo/protobuf"
-  version = "=v1.1.0"
+  version = "=v1.1.1"
 
 [[override]]
   name = "golang.org/x/net"
