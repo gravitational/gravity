@@ -1202,8 +1202,9 @@ func (p *Process) initService(ctx context.Context) (err error) {
 
 	if p.inKubernetes() {
 		p.handlers.Registry, err = docker.NewRegistry(docker.Config{
-			Context: ctx,
-			Users:   p.identity,
+			Context:       ctx,
+			Users:         p.identity,
+			Authenticator: authenticator,
 		})
 		if err != nil {
 			return trace.Wrap(err)

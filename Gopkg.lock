@@ -1030,7 +1030,7 @@
 
 [[projects]]
   branch = "branch/3.2-g"
-  digest = "1:4a91818747f47ffe1cffbfe616b09678a4e4d1d52b8adb19c434274a4e0bd148"
+  digest = "1:3b2c7ae9fd7edd18cf2e9b634c40fc1a4309372190fad24161d463af82b29e88"
   name = "github.com/gravitational/teleport"
   packages = [
     ".",
@@ -1044,6 +1044,7 @@
     "lib/backend/dynamo",
     "lib/backend/etcdbk",
     "lib/client",
+    "lib/client/extensions",
     "lib/config",
     "lib/defaults",
     "lib/events",
@@ -1086,7 +1087,7 @@
     "lib/wrappers",
   ]
   pruneopts = "UT"
-  revision = "de3929eb86f7cc3411acde9ff93ed7c528e8f5d4"
+  revision = "6280a8f001681cc2321397be09c5894e569e479a"
 
 [[projects]]
   digest = "1:9aea6c85145b6ff99ad423d35c6026e098a12cd7f19cce9775cc7eb73aa78d47"
