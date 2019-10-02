@@ -98,14 +98,14 @@ func Build(ctx context.Context, builder *Builder) error {
 		return trace.Wrap(err)
 	}
 
-	builder.NextStep("Generating the cluster snapshot")
+	builder.NextStep("Generating the cluster image")
 	installer, err := builder.GenerateInstaller(*application)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	defer installer.Close()
 
-	builder.NextStep("Saving the snapshot as %v", builder.OutPath)
+	builder.NextStep("Saving the image as %v", builder.OutPath)
 	err = builder.WriteInstaller(installer)
 	if err != nil {
 		return trace.Wrap(err)
@@ -131,7 +131,7 @@ func checkBuildEnv() error {
 		return trace.BadParameter("docker is not running on this machine, " +
 			"please install it (https://docs.docker.com/engine/installation/) " +
 			"and make sure it can be used by a non-root user " +
-			"(https://docs.docker.com/engine/installation/linux/linux-postinstall/)")
+			"(https://docs.docker.com/install/linux/linux-postinstall/)")
 	}
 	return nil
 }
