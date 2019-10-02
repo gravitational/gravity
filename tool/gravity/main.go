@@ -20,6 +20,7 @@ import (
 	stdlog "log"
 	"os"
 
+	"github.com/gravitational/gravity/lib/install/proto"
 	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/gravity/tool/common"
 	"github.com/gravitational/gravity/tool/gravity/cli"
@@ -39,9 +40,11 @@ func main() {
 
 	app := kingpin.New("gravity", "Gravity cluster management tool.")
 	if err := run(app); err != nil {
-		log.WithError(err).Warn("Command failed.")
 		if errCode, ok := trace.Unwrap(err).(utils.ExitCodeError); ok {
-			common.PrintError(errCode.OrigError())
+			if errCode != installer.ErrCompleted {
+				log.WithError(err).Warn("Command failed.")
+				common.PrintError(errCode.OrigError())
+			}
 			os.Exit(errCode.ExitCode())
 		}
 		common.PrintError(err)

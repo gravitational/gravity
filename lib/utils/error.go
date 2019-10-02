@@ -368,6 +368,15 @@ type ExitCodeError interface {
 	OrigError() error
 }
 
+// NewPreconditionFailedError returns a new error signifying a failed
+// precondition
+func NewPreconditionFailedError(err error) error {
+	return exitCodeError{
+		code: defaults.FailedPreconditionExitCode,
+		err:  err,
+	}
+}
+
 // NewExitCodeError returns a new error with the specified exit code
 func NewExitCodeError(exitCode int) error {
 	if exitCode == 0 {

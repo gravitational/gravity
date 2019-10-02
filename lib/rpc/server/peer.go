@@ -62,7 +62,7 @@ func NewPeer(config PeerConfig, serverAddr string) (*PeerServer, error) {
 		creds:      config.Client,
 	}
 	peersConfig := peersConfig{
-		FieldLogger:       config.WithField(trace.Component, "peers"),
+		FieldLogger:       config.WithField(trace.Component, "server-peer"),
 		watchCh:           config.WatchCh,
 		checkTimeout:      config.HealthCheckTimeout,
 		ReconnectStrategy: config.ReconnectStrategy,
