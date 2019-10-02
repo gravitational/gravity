@@ -1,5 +1,30 @@
 # Changelog
 
+## 3.2.13
+
+This release of Teleport contains a bug fix.
+
+* Fixed issue with TLS certificate not included in identity exported by `tctl auth sign`. [#3001](https://github.com/gravitational/teleport/pull/3001)
+
+## 3.2.12
+
+This release of Teleport contains a bug fix.
+
+* Fixed issue where Web UI could not connect to older nodes within a cluster. [#2993](https://github.com/gravitational/teleport/pull/2993)
+
+## 3.2.11
+
+This release of Teleport contains two bug fixes.
+
+* Fixed issue where new versions of tsh could not connect to older clusters. [#2969](https://github.com/gravitational/teleport/pull/2969)
+* Fixed trait encoding to be more robust. [#2970](https://github.com/gravitational/teleport/pull/2970)
+
+## 3.2.9
+
+This release of Teleport contains a bug fix.
+
+* Fixed issue introduced in 3.2.8 that broke session recording when using the recording proxy. [#2957](https://github.com/gravitational/teleport/pull/2957)
+
 ## 3.2.4
 
 This release of Teleport contains multiple bug fixes.
@@ -28,6 +53,25 @@ This release of Teleport contains a new feature.
 This version brings support for Amazon's managed Kubernetes offering (EKS).
 
 Starting with this release, Teleport proxy uses [the impersonation API](https://kubernetes.io/docs/reference/access-authn-authz/authentication/#user-impersonation) instead of the [CSR API](https://kubernetes.io/docs/tasks/tls/managing-tls-in-a-cluster/#requesting-a-certificate).
+
+## 3.1.14
+
+This release of Teleport contains a bug fix.
+
+* Fixed issue where Web UI could not connect to older nodes within a cluster. [#2993](https://github.com/gravitational/teleport/pull/2993)
+
+## 3.1.13
+
+This release of Teleport contains two bug fixes.
+
+* Fixed issue where new versions of tsh could not connect to older clusters. [#2969](https://github.com/gravitational/teleport/pull/2969)
+* Fixed trait encoding to be more robust. [#2970](https://github.com/gravitational/teleport/pull/2970)
+
+## 3.1.11
+
+This release of Teleport contains a bug fix.
+
+* Fixed issue introduced in 3.1.10 that broke session recording when using the recording proxy. [#2957](https://github.com/gravitational/teleport/pull/2957)
 
 ## 3.1.8
 
@@ -836,7 +880,7 @@ This release focus was to increase Teleport user experience in the following are
 
 Teleport 2.0.5 contains a variety of security fixes. We strongly encourage anyone running Teleport 2.0.0 and above to upgrade to 2.0.5.
 
-The most pressing issues (a phishing attack which can potentially be used to extract plaintext credentials and an attack where an already authenticated user can escalate privileges) can be resolved by upgrading the web proxy. However, however all nodes need to be upgraded to mitigate all vulnerabilities. 
+The most pressing issues (a phishing attack which can potentially be used to extract plaintext credentials and an attack where an already authenticated user can escalate privileges) can be resolved by upgrading the web proxy. However, however all nodes need to be upgraded to mitigate all vulnerabilities.
 
 ### Bugfixes
 
@@ -980,8 +1024,8 @@ certificates did not work correctly in this release due to #529
 ### Bugfixes
 
 * Wrong url to register new users. #497
-* Logged in users inherit Teleport supplemental groups bug security. #507 
-* Joining a session running on a trusted cluster does not work. #504 
+* Logged in users inherit Teleport supplemental groups bug security. #507
+* Joining a session running on a trusted cluster does not work. #504
 
 ## 1.0.4
 

@@ -405,3 +405,6 @@ func (c *AuthClient) UploadSessionRecording(r events.SessionRecording) error {
 func (c *AuthClient) GetClusterCACert() (*auth.LocalCAResponse, error) {
 	return nil, nil
 }
+func (c *AuthClient) GenerateUserCerts(key []byte, user string, ttl time.Duration, compatibility string) (ssh []byte, tls []byte, err error) {
+	return nil, nil, nil
+}
