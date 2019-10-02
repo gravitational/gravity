@@ -28,7 +28,7 @@ import (
 
 	"github.com/gravitational/teleport/lib/service"
 	"github.com/gravitational/trace"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/watch"
@@ -59,7 +59,7 @@ func (p *Process) runCertificateWatch(client *kubernetes.Clientset) clusterServi
 func (p *Process) watchCertificate(ctx context.Context, client *kubernetes.Clientset) error {
 	p.Debug("Restarting certificate watch.")
 
-	watcher, err := client.Core().Secrets(defaults.KubeSystemNamespace).Watch(metav1.ListOptions{
+	watcher, err := client.CoreV1().Secrets(defaults.KubeSystemNamespace).Watch(metav1.ListOptions{
 		FieldSelector: fields.OneTermEqualSelector("metadata.name", constants.ClusterCertificateMap).String(),
 	})
 	if err != nil {
@@ -127,7 +127,7 @@ func (p *Process) runAuthGatewayWatch(client *kubernetes.Clientset) clusterServi
 // updates Teleport configuration appropriately.
 func (p *Process) watchAuthGateway(ctx context.Context, client *kubernetes.Clientset) error {
 	p.Debug("Restarting auth gateway config watch.")
-	watcher, err := client.Core().ConfigMaps(defaults.KubeSystemNamespace).Watch(metav1.ListOptions{
+	watcher, err := client.CoreV1().ConfigMaps(defaults.KubeSystemNamespace).Watch(metav1.ListOptions{
 		FieldSelector: fields.OneTermEqualSelector("metadata.name", constants.AuthGatewayConfigMap).String(),
 	})
 	if err != nil {

@@ -91,7 +91,7 @@ func (o *Operator) UpdateClusterCertificate(ctx context.Context, req ops.UpdateC
 //
 // The method is supposed to be called from within deployed Kubernetes cluster
 func GetClusterCertificate(client *kubernetes.Clientset) ([]byte, []byte, error) {
-	secret, err := client.Core().Secrets(defaults.KubeSystemNamespace).Get(constants.ClusterCertificateMap, metav1.GetOptions{})
+	secret, err := client.CoreV1().Secrets(defaults.KubeSystemNamespace).Get(constants.ClusterCertificateMap, metav1.GetOptions{})
 	if err != nil {
 		return nil, nil, trace.Wrap(rigging.ConvertError(err))
 	}
@@ -113,7 +113,7 @@ func GetClusterCertificate(client *kubernetes.Clientset) ([]byte, []byte, error)
 // DeleteClusterCertificate deletes cluster certificate
 //
 func DeleteClusterCertificate(client *kubernetes.Clientset) error {
-	err := client.Core().Secrets(defaults.KubeSystemNamespace).Delete(constants.ClusterCertificateMap, nil)
+	err := client.CoreV1().Secrets(defaults.KubeSystemNamespace).Delete(constants.ClusterCertificateMap, nil)
 	if err != nil {
 		return trace.Wrap(rigging.ConvertError(err))
 	}
@@ -141,12 +141,12 @@ func UpdateClusterCertificate(client *kubernetes.Clientset, req ops.UpdateCertif
 		Type: v1.SecretTypeOpaque,
 	}
 
-	_, err = client.Core().Secrets(defaults.KubeSystemNamespace).Create(secret)
+	_, err = client.CoreV1().Secrets(defaults.KubeSystemNamespace).Create(secret)
 	if err != nil {
 		if !trace.IsAlreadyExists(rigging.ConvertError(err)) {
 			return trace.Wrap(err)
 		}
-		_, err = client.Core().Secrets(defaults.KubeSystemNamespace).Update(secret)
+		_, err = client.CoreV1().Secrets(defaults.KubeSystemNamespace).Update(secret)
 		if err != nil {
 			return trace.Wrap(rigging.ConvertError(err))
 		}

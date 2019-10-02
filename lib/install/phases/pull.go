@@ -35,6 +35,7 @@ import (
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/docker/docker/pkg/archive"
+	"github.com/docker/docker/pkg/idtools"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
 )
@@ -244,7 +245,7 @@ func (p *pullExecutor) unpackSecrets(e pack.PackageEnvelope) error {
 	dir := filepath.Join(stateDir, defaults.SecretsDir)
 	p.Infof("Unpacking secrets into %v.", dir)
 	return pack.Unpack(p.LocalPackages, e.Locator, dir, &archive.TarOptions{
-		ChownOpts: &archive.TarChownOptions{
+		ChownOpts: &idtools.Identity{
 			UID: p.ServiceUser.UID,
 			GID: p.ServiceUser.GID,
 		},
