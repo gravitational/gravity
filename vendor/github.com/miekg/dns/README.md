@@ -7,17 +7,10 @@
 
 > Less is more.
 
-<<<<<<< HEAD
-Complete and usable DNS library. All Resource Records are supported, including the DNSSEC types.
-It follows a lean and mean philosophy. If there is stuff you should know as a DNS programmer there
-isn't a convenience function for it. Server side and client side programming is supported, i.e. you
-can build servers and resolvers with it.
-=======
 Complete and usable DNS library. All widely used Resource Records are supported, including the
 DNSSEC types. It follows a lean and mean philosophy. If there is stuff you should know as a DNS
 programmer there isn't a convenience function for it. Server side and client side programming is
 supported, i.e. you can build servers and resolvers with it.
->>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 
 We try to keep the "master" branch as sane as possible and at the bleeding edge of standards,
 avoiding breaking changes wherever reasonable. We support the last two versions of Go.
@@ -49,9 +42,10 @@ A not-so-up-to-date-list-that-may-be-actually-current:
 * https://github.com/tianon/rawdns
 * https://mesosphere.github.io/mesos-dns/
 * https://pulse.turbobytes.com/
+* https://play.google.com/store/apps/details?id=com.turbobytes.dig
 * https://github.com/fcambus/statzone
 * https://github.com/benschw/dns-clb-go
-* https://github.com/corny/dnscheck for <http://public-dns.info/>
+* https://github.com/corny/dnscheck for http://public-dns.info/
 * https://namesmith.io
 * https://github.com/miekg/unbound
 * https://github.com/miekg/exdns
@@ -62,11 +56,7 @@ A not-so-up-to-date-list-that-may-be-actually-current:
 * https://github.com/bamarni/dockness
 * https://github.com/fffaraz/microdns
 * http://kelda.io
-<<<<<<< HEAD
-* https://github.com/ipdcode/hades <https://jd.com>
-=======
 * https://github.com/ipdcode/hades (JD.COM)
->>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 * https://github.com/StackExchange/dnscontrol/
 * https://www.dnsperf.com/
 * https://dnssectest.net/
@@ -74,34 +64,11 @@ A not-so-up-to-date-list-that-may-be-actually-current:
 * https://github.com/oif/apex
 * https://github.com/jedisct1/dnscrypt-proxy
 * https://github.com/jedisct1/rpdns
-<<<<<<< HEAD
-* https://github.com/xor-gate/sshfp
-* https://github.com/rs/dnstrace
-* https://blitiri.com.ar/p/dnss ([github mirror](https://github.com/albertito/dnss))
-* https://github.com/semihalev/sdns
-* https://render.com
-* https://github.com/peterzen/goresolver
-* https://github.com/folbricht/routedns
-=======
->>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 
 Send pull request if you want to be listed here.
 
 # Features
 
-<<<<<<< HEAD
-* UDP/TCP queries, IPv4 and IPv6
-* RFC 1035 zone file parsing ($INCLUDE, $ORIGIN, $TTL and $GENERATE (for all record types) are supported
-* Fast
-* Server side programming (mimicking the net/http package)
-* Client side programming
-* DNSSEC: signing, validating and key generation for DSA, RSA, ECDSA and Ed25519
-* EDNS0, NSID, Cookies
-* AXFR/IXFR
-* TSIG, SIG(0)
-* DNS over TLS (DoT): encrypted connection between client and server over TCP
-* DNS name compression
-=======
 * UDP/TCP queries, IPv4 and IPv6;
 * RFC 1035 zone file parsing ($INCLUDE, $ORIGIN, $TTL and $GENERATE (for all record types) are supported;
 * Fast:
@@ -116,12 +83,10 @@ Send pull request if you want to be listed here.
 * DNS over TLS: optional encrypted connection between client and server;
 * DNS name compression;
 * Depends only on the standard library.
->>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 
 Have fun!
 
 Miek Gieben  -  2010-2012  -  <miek@miek.nl>
-DNS Authors 2012-
 
 # Building
 
@@ -133,8 +98,8 @@ work:
 
 ## Examples
 
-A short "how to use the API" is at the beginning of doc.go (this also will show when you call `godoc
-github.com/miekg/dns`).
+A short "how to use the API" is at the beginning of doc.go (this also will show
+when you call `godoc github.com/miekg/dns`).
 
 Example programs can be found in the `github.com/miekg/exdns` repository.
 
@@ -184,7 +149,6 @@ Example programs can be found in the `github.com/miekg/exdns` repository.
 * 6844 - CAA record
 * 6891 - EDNS0 update
 * 6895 - DNS IANA considerations
-* 6944 - DNSSEC DNSKEY Algorithm Status
 * 6975 - Algorithm Understanding in DNSSEC
 * 7043 - EUI48/EUI64 records
 * 7314 - DNS (EDNS) EXPIRE Option
@@ -193,18 +157,6 @@ Example programs can be found in the `github.com/miekg/exdns` repository.
 * 7553 - URI record
 * 7858 - DNS over TLS: Initiation and Performance Considerations
 * 7871 - EDNS0 Client Subnet
-<<<<<<< HEAD
-* 7873 - Domain Name System (DNS) Cookies
-* 8080 - EdDSA for DNSSEC
-* 8499 - DNS Terminology
-
-## Loosely Based Upon
-
-* ldns - <https://nlnetlabs.nl/projects/ldns/about/>
-* NSD - <https://nlnetlabs.nl/projects/nsd/about/>
-* Net::DNS - <http://www.net-dns.org/>
-* GRONG - <https://github.com/bortzmeyer/grong>
-=======
 * 7873 - Domain Name System (DNS) Cookies (draft-ietf-dnsop-cookies)
 * 8080 - EdDSA for DNSSEC
 
@@ -214,4 +166,3 @@ Example programs can be found in the `github.com/miekg/exdns` repository.
 * `NSD`
 * `Net::DNS`
 * `GRONG`
->>>>>>> 85acc1406... Bump K8s libraries to 1.13.4

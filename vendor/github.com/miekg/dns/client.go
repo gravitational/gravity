@@ -3,35 +3,26 @@ package dns
 // A client implementation.
 
 import (
-<<<<<<< HEAD
-=======
 	"bytes"
->>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	"context"
 	"crypto/tls"
 	"encoding/binary"
-	"fmt"
 	"io"
 	"net"
 	"strings"
 	"time"
 )
 
-const (
-	dnsTimeout     time.Duration = 2 * time.Second
-	tcpIdleTimeout time.Duration = 8 * time.Second
-)
+const dnsTimeout time.Duration = 2 * time.Second
+const tcpIdleTimeout time.Duration = 8 * time.Second
 
 // A Conn represents a connection to a DNS server.
 type Conn struct {
 	net.Conn                         // a net.Conn holding the connection
 	UDPSize        uint16            // minimum receive buffer for UDP messages
 	TsigSecret     map[string]string // secret(s) for Tsig map[<zonename>]<base64 secret>, zonename must be in canonical form (lowercase, fqdn, see RFC 4034 Section 6.2)
-<<<<<<< HEAD
-=======
 	rtt            time.Duration
 	t              time.Time
->>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	tsigRequestMAC string
 }
 
@@ -92,16 +83,6 @@ func (c *Client) Dial(address string) (conn *Conn, err error) {
 	// create a new dialer with the appropriate timeout
 	var d net.Dialer
 	if c.Dialer == nil {
-<<<<<<< HEAD
-		d = net.Dialer{Timeout: c.getTimeoutForRequest(c.dialTimeout())}
-	} else {
-		d = *c.Dialer
-	}
-
-	network := c.Net
-	if network == "" {
-		network = "udp"
-=======
 		d = net.Dialer{}
 	} else {
 		d = net.Dialer(*c.Dialer)
@@ -135,25 +116,10 @@ func (c *Client) Dial(address string) (conn *Conn, err error) {
 	}
 	if err != nil {
 		return nil, err
->>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	}
 	return conn, nil
 }
 
-<<<<<<< HEAD
-	useTLS := strings.HasPrefix(network, "tcp") && strings.HasSuffix(network, "-tls")
-
-	conn = new(Conn)
-	if useTLS {
-		network = strings.TrimSuffix(network, "-tls")
-
-		conn.Conn, err = tls.DialWithDialer(&d, network, address, c.TLSConfig)
-	} else {
-		conn.Conn, err = d.Dial(network, address)
-	}
-	if err != nil {
-		return nil, err
-=======
 // Exchange performs a synchronous query. It sends the message m to the address
 // contained in a and waits for a reply. Basic use pattern with a *dns.Client:
 //
@@ -186,47 +152,7 @@ func (c *Client) Exchange(m *Msg, address string) (r *Msg, rtt time.Duration, er
 	})
 	if r != nil && shared {
 		r = r.Copy()
->>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	}
-	return r, rtt, err
-}
-
-func (c *Client) exchange(m *Msg, a string) (r *Msg, rtt time.Duration, err error) {
-	var co *Conn
-
-	co, err = c.Dial(a)
-
-	return conn, nil
-}
-
-// Exchange performs a synchronous query. It sends the message m to the address
-// contained in a and waits for a reply. Basic use pattern with a *dns.Client:
-//
-//	c := new(dns.Client)
-//	in, rtt, err := c.Exchange(message, "127.0.0.1:53")
-//
-// Exchange does not retry a failed query, nor will it fall back to TCP in
-// case of truncation.
-// It is up to the caller to create a message that allows for larger responses to be
-// returned. Specifically this means adding an EDNS0 OPT RR that will advertise a larger
-// buffer, see SetEdns0. Messages without an OPT RR will fallback to the historic limit
-// of 512 bytes
-// To specify a local address or a timeout, the caller has to set the `Client.Dialer`
-// attribute appropriately
-func (c *Client) Exchange(m *Msg, address string) (r *Msg, rtt time.Duration, err error) {
-	if !c.SingleInflight {
-		return c.exchange(m, address)
-	}
-
-	q := m.Question[0]
-	key := fmt.Sprintf("%s:%d:%d", q.Name, q.Qtype, q.Qclass)
-	r, rtt, err, shared := c.group.Do(key, func() (*Msg, time.Duration, error) {
-		return c.exchange(m, address)
-	})
-	if r != nil && shared {
-		r = r.Copy()
-	}
-
 	return r, rtt, err
 }
 
@@ -251,14 +177,8 @@ func (c *Client) exchange(m *Msg, a string) (r *Msg, rtt time.Duration, err erro
 	}
 
 	co.TsigSecret = c.TsigSecret
-<<<<<<< HEAD
-	t := time.Now()
-	// write with the appropriate write timeout
-	co.SetWriteDeadline(t.Add(c.getTimeoutForRequest(c.writeTimeout())))
-=======
 	// write with the appropriate write timeout
 	co.SetWriteDeadline(time.Now().Add(c.getTimeoutForRequest(c.writeTimeout())))
->>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	if err = co.WriteMsg(m); err != nil {
 		return nil, 0, err
 	}
@@ -268,8 +188,7 @@ func (c *Client) exchange(m *Msg, a string) (r *Msg, rtt time.Duration, err erro
 	if err == nil && r.Id != m.Id {
 		err = ErrId
 	}
-	rtt = time.Since(t)
-	return r, rtt, err
+	return r, co.rtt, err
 }
 
 // ReadMsg reads a message from the connection co.
@@ -310,21 +229,26 @@ func (co *Conn) ReadMsgHeader(hdr *Header) ([]byte, error) {
 		err error
 	)
 
-	if _, ok := co.Conn.(net.PacketConn); ok {
+	switch t := co.Conn.(type) {
+	case *net.TCPConn, *tls.Conn:
+		r := t.(io.Reader)
+
+		// First two bytes specify the length of the entire message.
+		l, err := tcpMsgLen(r)
+		if err != nil {
+			return nil, err
+		}
+		p = make([]byte, l)
+		n, err = tcpRead(r, p)
+		co.rtt = time.Since(co.t)
+	default:
 		if co.UDPSize > MinMsgSize {
 			p = make([]byte, co.UDPSize)
 		} else {
 			p = make([]byte, MinMsgSize)
 		}
 		n, err = co.Read(p)
-	} else {
-		var length uint16
-		if err := binary.Read(co.Conn, binary.BigEndian, &length); err != nil {
-			return nil, err
-		}
-
-		p = make([]byte, length)
-		n, err = io.ReadFull(co.Conn, p)
+		co.rtt = time.Since(co.t)
 	}
 
 	if err != nil {
@@ -344,8 +268,6 @@ func (co *Conn) ReadMsgHeader(hdr *Header) ([]byte, error) {
 	return p, err
 }
 
-<<<<<<< HEAD
-=======
 // tcpMsgLen is a helper func to read first two bytes of stream as uint16 packet length.
 func tcpMsgLen(t io.Reader) (int, error) {
 	p := []byte{0, 0}
@@ -391,27 +313,33 @@ func tcpRead(t io.Reader, p []byte) (int, error) {
 	return n, err
 }
 
->>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 // Read implements the net.Conn read method.
 func (co *Conn) Read(p []byte) (n int, err error) {
 	if co.Conn == nil {
 		return 0, ErrConnEmpty
 	}
-
-	if _, ok := co.Conn.(net.PacketConn); ok {
-		// UDP connection
-		return co.Conn.Read(p)
-	}
-
-	var length uint16
-	if err := binary.Read(co.Conn, binary.BigEndian, &length); err != nil {
-		return 0, err
-	}
-	if int(length) > len(p) {
+	if len(p) < 2 {
 		return 0, io.ErrShortBuffer
 	}
+	switch t := co.Conn.(type) {
+	case *net.TCPConn, *tls.Conn:
+		r := t.(io.Reader)
 
-	return io.ReadFull(co.Conn, p[:length])
+		l, err := tcpMsgLen(r)
+		if err != nil {
+			return 0, err
+		}
+		if l > len(p) {
+			return int(l), io.ErrShortBuffer
+		}
+		return tcpRead(r, p[:l])
+	}
+	// UDP connection
+	n, err = co.Conn.Read(p)
+	if err != nil {
+		return n, err
+	}
+	return n, err
 }
 
 // WriteMsg sends a message through the connection co.
@@ -433,45 +361,26 @@ func (co *Conn) WriteMsg(m *Msg) (err error) {
 	if err != nil {
 		return err
 	}
-	_, err = co.Write(out)
-	return err
+	co.t = time.Now()
+	if _, err = co.Write(out); err != nil {
+		return err
+	}
+	return nil
 }
 
 // Write implements the net.Conn Write method.
-func (co *Conn) Write(p []byte) (int, error) {
-	if len(p) > MaxMsgSize {
-		return 0, &Error{err: "message too large"}
-	}
+func (co *Conn) Write(p []byte) (n int, err error) {
+	switch t := co.Conn.(type) {
+	case *net.TCPConn, *tls.Conn:
+		w := t.(io.Writer)
 
-	if _, ok := co.Conn.(net.PacketConn); ok {
-		return co.Conn.Write(p)
-	}
-
-	l := make([]byte, 2)
-	binary.BigEndian.PutUint16(l, uint16(len(p)))
-
-	n, err := (&net.Buffers{l, p}).WriteTo(co.Conn)
-	return int(n), err
-}
-
-// Return the appropriate timeout for a specific request
-func (c *Client) getTimeoutForRequest(timeout time.Duration) time.Duration {
-	var requestTimeout time.Duration
-	if c.Timeout != 0 {
-		requestTimeout = c.Timeout
-	} else {
-		requestTimeout = timeout
-	}
-	// net.Dialer.Timeout has priority if smaller than the timeouts computed so
-	// far
-	if c.Dialer != nil && c.Dialer.Timeout != 0 {
-		if c.Dialer.Timeout < requestTimeout {
-			requestTimeout = c.Dialer.Timeout
+		lp := len(p)
+		if lp < 2 {
+			return 0, io.ErrShortBuffer
 		}
-<<<<<<< HEAD
-	}
-	return requestTimeout
-=======
+		if lp > MaxMsgSize {
+			return 0, &Error{err: "message too large"}
+		}
 		l := make([]byte, 2, lp+2)
 		binary.BigEndian.PutUint16(l, uint16(lp))
 		p = append(l, p...)
@@ -480,7 +389,6 @@ func (c *Client) getTimeoutForRequest(timeout time.Duration) time.Duration {
 	}
 	n, err = co.Conn.Write(p)
 	return n, err
->>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 }
 
 // Return the appropriate timeout for a specific request
@@ -523,11 +431,7 @@ func ExchangeContext(ctx context.Context, m *Msg, a string) (r *Msg, err error) 
 
 // ExchangeConn performs a synchronous query. It sends the message m via the connection
 // c and waits for a reply. The connection c is not closed by ExchangeConn.
-<<<<<<< HEAD
-// Deprecated: This function is going away, but can easily be mimicked:
-=======
 // This function is going away, but can easily be mimicked:
->>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 //
 //	co := &dns.Conn{Conn: c} // c is your net.Conn
 //	co.WriteMsg(m)
@@ -539,8 +443,6 @@ func ExchangeConn(c net.Conn, m *Msg) (r *Msg, err error) {
 	co := new(Conn)
 	co.Conn = c
 	if err = co.WriteMsg(m); err != nil {
-<<<<<<< HEAD
-=======
 		return nil, err
 	}
 	r, err = co.ReadMsg()
@@ -555,55 +457,36 @@ func DialTimeout(network, address string, timeout time.Duration) (conn *Conn, er
 	client := Client{Net: network, Dialer: &net.Dialer{Timeout: timeout}}
 	conn, err = client.Dial(address)
 	if err != nil {
->>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 		return nil, err
 	}
-	r, err = co.ReadMsg()
-	if err == nil && r.Id != m.Id {
-		err = ErrId
-	}
-	return r, err
-}
-
-// DialTimeout acts like Dial but takes a timeout.
-func DialTimeout(network, address string, timeout time.Duration) (conn *Conn, err error) {
-	client := Client{Net: network, Dialer: &net.Dialer{Timeout: timeout}}
-	return client.Dial(address)
+	return conn, nil
 }
 
 // DialWithTLS connects to the address on the named network with TLS.
 func DialWithTLS(network, address string, tlsConfig *tls.Config) (conn *Conn, err error) {
 	if !strings.HasSuffix(network, "-tls") {
 		network += "-tls"
-<<<<<<< HEAD
-=======
 	}
 	client := Client{Net: network, TLSConfig: tlsConfig}
 	conn, err = client.Dial(address)
 
 	if err != nil {
 		return nil, err
->>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	}
-	client := Client{Net: network, TLSConfig: tlsConfig}
-	return client.Dial(address)
+	return conn, nil
 }
 
 // DialTimeoutWithTLS acts like DialWithTLS but takes a timeout.
 func DialTimeoutWithTLS(network, address string, tlsConfig *tls.Config, timeout time.Duration) (conn *Conn, err error) {
 	if !strings.HasSuffix(network, "-tls") {
 		network += "-tls"
-<<<<<<< HEAD
-=======
 	}
 	client := Client{Net: network, Dialer: &net.Dialer{Timeout: timeout}, TLSConfig: tlsConfig}
 	conn, err = client.Dial(address)
 	if err != nil {
 		return nil, err
->>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	}
-	client := Client{Net: network, Dialer: &net.Dialer{Timeout: timeout}, TLSConfig: tlsConfig}
-	return client.Dial(address)
+	return conn, nil
 }
 
 // ExchangeContext acts like Exchange, but honors the deadline on the provided
@@ -614,18 +497,10 @@ func (c *Client) ExchangeContext(ctx context.Context, m *Msg, a string) (r *Msg,
 	if deadline, ok := ctx.Deadline(); !ok {
 		timeout = 0
 	} else {
-<<<<<<< HEAD
-		timeout = time.Until(deadline)
-	}
-	// not passing the context to the underlying calls, as the API does not support
-	// context. For timeouts you should set up Client.Dialer and call Client.Exchange.
-	// TODO(tmthrgd,miekg): this is a race condition.
-=======
 		timeout = deadline.Sub(time.Now())
 	}
 	// not passing the context to the underlying calls, as the API does not support
 	// context. For timeouts you should set up Client.Dialer and call Client.Exchange.
->>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 	c.Dialer = &net.Dialer{Timeout: timeout}
 	return c.Exchange(m, a)
 }

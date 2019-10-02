@@ -1,18 +1,18 @@
 .vscode
 .vagrant
 .DS_Store
+/build/
 *.test
 flymake*
 *tar
 *gz
 *tar.gz
 *tgz
-assets/**/registry
+/assets/**/registry/
 *.swp
 gravity.log
 /version
-/assets/vagrant/**/wizard
-docs/latest.yaml
+/assets/vagrant/**/wizard/
 # Terraform state
 .terraform
 terraform.tfstate*

@@ -1,18 +1,6 @@
 language: go
 sudo: false
-
 go:
-<<<<<<< HEAD
-  - 1.11.x
-  - 1.12.x
-  - tip
-
-env:
-  - GO111MODULE=on
-
-script:
-  - go test -race -v -bench=. -coverprofile=coverage.txt -covermode=atomic ./...
-=======
   - 1.9.x
   - tip
 
@@ -27,7 +15,6 @@ before_install:
 
 script:
   - go test $TESTS
->>>>>>> 85acc1406... Bump K8s libraries to 1.13.4
 
 after_success:
   - bash <(curl -s https://codecov.io/bash)
