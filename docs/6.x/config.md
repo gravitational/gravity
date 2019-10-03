@@ -10,7 +10,7 @@ Resource Name             | Resource Description
 `github`                  | GitHub connector
 `oidc`                    | OIDC connector (Enterprise only)
 `saml`                    | SAML connector (Enterprise only)
-`role`                    | Cluster role
+`role`                    | Cluster role (Enterprise only)
 `user`                    | Cluster user
 `token`                   | user tokens such as API keys
 `logforwarder`            | forwarding logs to a remote rsyslog server
