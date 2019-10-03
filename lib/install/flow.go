@@ -440,7 +440,7 @@ func (i *Installer) waitForAgents() error {
 			}
 			report, err := i.Operator.GetSiteInstallOperationAgentReport(i.OperationKey)
 			if err != nil {
-				log.Warningf("Failed to get agent report: %v.", err)
+				log.Warnf("Failed to get agent report: %v.", trace.UserMessage(err))
 				continue
 			}
 			if !i.canContinue(report) {

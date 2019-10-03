@@ -18,6 +18,7 @@ package proto
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/gravitational/trace"
 	"golang.org/x/net/context"
@@ -74,4 +75,14 @@ func ErrorToMessage(err error) *Message {
 
 func DecodeError(err *Error) error {
 	return errors.New(err.Message)
+}
+
+// Describe describes this request as text
+func (r *PeerJoinRequest) Describe() string {
+	return fmt.Sprintf("PeerJoinRequest(addr=%v, config=%v)", r.Addr, r.Config)
+}
+
+// Describe describes this request as text
+func (r *PeerLeaveRequest) Describe() string {
+	return fmt.Sprintf("PeerLeaveRequest(addr=%v, config=%v)", r.Addr, r.Config)
 }
