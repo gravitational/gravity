@@ -117,7 +117,21 @@ message Timestamp {
   int32 nanoseconds = 2;
 }
 
+// TimeRequest is a request to get the node's local time
+message TimeRequest {}
+
+// TimeResponse contains the node's local time in UTC
+message TimeResponse {
+  // Timestamp is the node's local timestamp in UTC
+  Timestamp timestamp = 1;
+}
+
+// Agent describes the API provided by GRPC agents
 service Agent {
+  // Status collects the global cluster status
   rpc Status(StatusRequest) returns (StatusResponse) {}
+  // LocalStatus collects the local node status
   rpc LocalStatus(LocalStatusRequest) returns (LocalStatusResponse) {}
+  // Time requests the node's local time in UTC
+  rpc Time(TimeRequest) returns (TimeResponse) {}
 }

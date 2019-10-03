@@ -273,6 +273,9 @@ func (s *AuthClient) GenerateHostCert(key []byte, hostID, nodeName string, princ
 func (s *AuthClient) GenerateUserCert(key []byte, user string, ttl time.Duration, compatibility string) ([]byte, error) {
 	return nil, nil
 }
+func (c *AuthClient) GenerateUserCerts(key []byte, user string, ttl time.Duration, compatibility string) (ssh []byte, tls []byte, err error) {
+	return nil, nil, nil
+}
 func (s *AuthClient) GetSignupTokenData(token string) (user string, otpQRCode []byte, e error) {
 	return "", nil, nil
 }
