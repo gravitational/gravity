@@ -119,15 +119,7 @@ func (r *Updater) Complete(fsmErr error) error {
 	if fsmErr == nil {
 		fsmErr = trace.Errorf("completed manually")
 	}
-	err := r.machine.Complete(fsmErr)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	err = r.Operator.ActivateSite(ops.ActivateSiteRequest{
-		AccountID:  r.Operation.ClusterKey().AccountID,
-		SiteDomain: r.Operation.ClusterKey().SiteDomain,
-	})
-	return trace.Wrap(err)
+	return r.machine.Complete(fsmErr)
 }
 
 // GetPlan returns the up-to-date operation plan
