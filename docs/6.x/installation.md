@@ -69,7 +69,7 @@ Next, bootstrap the master node:
 
 ```bash
 # execute this on the master node, which in this case has an IP of 10.1.10.1
-$ sudo ./gravity install --advertise-addr=10.1.10.1 --token=XXX --flavor="three"
+$ sudo ./gravity install --advertise-addr=10.1.10.1 --token=XXX --flavor="triple"
 ```
 
 * Note the use of `--flavor` argument which selects a Cluster configuration for 3
