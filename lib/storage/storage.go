@@ -37,14 +37,15 @@ import (
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/utils"
-	"k8s.io/helm/pkg/repo"
 
 	teleservices "github.com/gravitational/teleport/lib/services"
 	teleutils "github.com/gravitational/teleport/lib/utils"
 
+	"github.com/dustin/go-humanize"
 	"github.com/gravitational/trace"
 	"github.com/jonboulle/clockwork"
 	"github.com/tstranex/u2f"
+	"k8s.io/helm/pkg/repo"
 )
 
 // Accounts collection modifies and updates account entries,
@@ -1698,6 +1699,12 @@ func (r Device) MarshalJSON() ([]byte, error) {
 
 // Path returns the absolute path to the device node in /dev
 func (r Device) Path() string { return r.Name.Path() }
+
+// Strings describes this device as text
+func (r Device) String() string {
+	return fmt.Sprintf("device(%v, type=%v, size=%v)",
+		r.Name, r.Type, humanize.Bytes(r.SizeMB*1000000))
+}
 
 // DeviceType defines a device type
 type DeviceType string

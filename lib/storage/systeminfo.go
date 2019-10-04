@@ -17,14 +17,18 @@ limitations under the License.
 package storage
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"strings"
 
 	"github.com/gravitational/gravity/lib/defaults"
+
 	teledefaults "github.com/gravitational/teleport/lib/defaults"
 	teleservices "github.com/gravitational/teleport/lib/services"
 	teleutils "github.com/gravitational/teleport/lib/utils"
+
+	"github.com/dustin/go-humanize"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 )
@@ -231,14 +235,24 @@ func (r SystemV2) String() string {
 	for name, iface := range r.Spec.NetworkInterfaces {
 		ifaces = append(ifaces, fmt.Sprintf("%v=%v", name, iface.IPv4))
 	}
-	return fmt.Sprintf("sysinfo(hostname=%v, interfaces=%v, cpus=%v, ramMB=%v, OS=%v, user=%v, lvm_dir=%v)",
+	var packages []string
+	for _, pkg := range r.Spec.SystemPackages {
+		packages = append(packages, pkg.String())
+	}
+	var devices []string
+	for _, device := range r.Spec.Devices {
+		devices = append(devices, device.String())
+	}
+	return fmt.Sprintf("system_info(hostname=%v,interfaces=%v,cpus=%v,ram=%v,swap=%v,OS=%v,user=%v,packages=[%v],devices=[%v])",
 		r.Spec.Hostname,
 		strings.Join(ifaces, ","),
 		r.Spec.NumCPU,
-		r.Spec.Memory.Total/1000/1000,
+		humanize.Bytes(r.Spec.Memory.Total),
+		humanize.Bytes(r.Spec.Swap.Total),
 		r.Spec.OS,
 		r.Spec.User,
-		r.Spec.LVMSystemDirectory,
+		strings.Join(packages, ","),
+		strings.Join(devices, ","),
 	)
 }
 
@@ -477,6 +491,19 @@ func DefaultOSUser() OSUser {
 // User is not empty if it has a name.
 func (r OSUser) IsEmpty() bool {
 	return r.UID == ""
+}
+
+// String describes this system package as text
+func (r SystemPackage) String() string {
+	var buf bytes.Buffer
+	fmt.Fprint(&buf, "system_package(")
+	fmt.Fprintf(&buf, "name=%v,", r.Name)
+	fmt.Fprintf(&buf, "version=%v", r.Version)
+	if r.Error != "" {
+		fmt.Fprintf(&buf, ",err=%v", r.Error)
+	}
+	fmt.Fprint(&buf, ")")
+	return buf.String()
 }
 
 // SystemPackage describes a package on a Linux system
