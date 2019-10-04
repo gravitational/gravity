@@ -10,8 +10,11 @@ import (
 	types "github.com/gogo/protobuf/types"
 	proto "github.com/golang/protobuf/proto"
 	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	io "io"
 	math "math"
+	math_bits "math/bits"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -23,7 +26,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 // Status defines the status of this progress message.
 // If the status is one of (StatusCompleted, StatusCompletedPending, StatusAborted), this response is the last response sent
@@ -92,7 +95,7 @@ func (m *Phase) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Phase.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -164,7 +167,7 @@ func (m *ExecuteRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, erro
 		return xxx_messageInfo_ExecuteRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -215,7 +218,7 @@ func (m *SetStateRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, err
 		return xxx_messageInfo_SetStateRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -271,7 +274,7 @@ func (m *CompleteRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, err
 		return xxx_messageInfo_CompleteRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -318,7 +321,7 @@ func (m *AbortRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
 		return xxx_messageInfo_AbortRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -363,7 +366,7 @@ func (m *ShutdownRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, err
 		return xxx_messageInfo_ShutdownRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -419,7 +422,7 @@ func (m *DebugReportRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, 
 		return xxx_messageInfo_DebugReportRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -472,7 +475,7 @@ func (m *ProgressResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, er
 		return xxx_messageInfo_ProgressResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -535,7 +538,7 @@ func (m *Error) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Error.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -588,7 +591,7 @@ func (m *OperationKey) XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
 		return xxx_messageInfo_OperationKey.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -826,6 +829,29 @@ type AgentServer interface {
 	GenerateDebugReport(context.Context, *DebugReportRequest) (*types.Empty, error)
 }
 
+// UnimplementedAgentServer can be embedded to have forward compatible implementations.
+type UnimplementedAgentServer struct {
+}
+
+func (*UnimplementedAgentServer) Execute(req *ExecuteRequest, srv Agent_ExecuteServer) error {
+	return status.Errorf(codes.Unimplemented, "method Execute not implemented")
+}
+func (*UnimplementedAgentServer) Complete(ctx context.Context, req *CompleteRequest) (*types.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Complete not implemented")
+}
+func (*UnimplementedAgentServer) SetState(ctx context.Context, req *SetStateRequest) (*types.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetState not implemented")
+}
+func (*UnimplementedAgentServer) Abort(ctx context.Context, req *AbortRequest) (*types.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Abort not implemented")
+}
+func (*UnimplementedAgentServer) Shutdown(ctx context.Context, req *ShutdownRequest) (*types.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Shutdown not implemented")
+}
+func (*UnimplementedAgentServer) GenerateDebugReport(ctx context.Context, req *DebugReportRequest) (*types.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GenerateDebugReport not implemented")
+}
+
 func RegisterAgentServer(s *grpc.Server, srv AgentServer) {
 	s.RegisterService(&_Agent_serviceDesc, srv)
 }
@@ -979,7 +1005,7 @@ var _Agent_serviceDesc = grpc.ServiceDesc{
 func (m *Phase) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -987,56 +1013,65 @@ func (m *Phase) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Phase) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Phase) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.ID) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintInstaller(dAtA, i, uint64(len(m.ID)))
-		i += copy(dAtA[i:], m.ID)
-	}
-	if m.Key != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintInstaller(dAtA, i, uint64(m.Key.Size()))
-		n1, err := m.Key.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n1
-	}
-	if m.Rollback {
-		dAtA[i] = 0x18
-		i++
-		if m.Rollback {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i++
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Force {
-		dAtA[i] = 0x20
-		i++
+		i--
 		if m.Force {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
+		i--
+		dAtA[i] = 0x20
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Rollback {
+		i--
+		if m.Rollback {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x18
 	}
-	return i, nil
+	if m.Key != nil {
+		{
+			size, err := m.Key.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintInstaller(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.ID) > 0 {
+		i -= len(m.ID)
+		copy(dAtA[i:], m.ID)
+		i = encodeVarintInstaller(dAtA, i, uint64(len(m.ID)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *ExecuteRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1044,30 +1079,38 @@ func (m *ExecuteRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *ExecuteRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ExecuteRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Phase != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintInstaller(dAtA, i, uint64(m.Phase.Size()))
-		n2, err := m.Phase.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n2
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if m.Phase != nil {
+		{
+			size, err := m.Phase.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintInstaller(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *SetStateRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1075,36 +1118,45 @@ func (m *SetStateRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *SetStateRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *SetStateRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Phase != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintInstaller(dAtA, i, uint64(m.Phase.Size()))
-		n3, err := m.Phase.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n3
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.State) > 0 {
-		dAtA[i] = 0x12
-		i++
+		i -= len(m.State)
+		copy(dAtA[i:], m.State)
 		i = encodeVarintInstaller(dAtA, i, uint64(len(m.State)))
-		i += copy(dAtA[i:], m.State)
+		i--
+		dAtA[i] = 0x12
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Phase != nil {
+		{
+			size, err := m.Phase.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintInstaller(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *CompleteRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1112,30 +1164,38 @@ func (m *CompleteRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *CompleteRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *CompleteRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Key != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintInstaller(dAtA, i, uint64(m.Key.Size()))
-		n4, err := m.Key.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n4
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if m.Key != nil {
+		{
+			size, err := m.Key.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintInstaller(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *AbortRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1143,20 +1203,26 @@ func (m *AbortRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *AbortRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *AbortRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *ShutdownRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1164,35 +1230,41 @@ func (m *ShutdownRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *ShutdownRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ShutdownRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if m.ExitCode != 0 {
+		i = encodeVarintInstaller(dAtA, i, uint64(m.ExitCode))
+		i--
+		dAtA[i] = 0x10
+	}
 	if m.Completed {
-		dAtA[i] = 0x8
-		i++
+		i--
 		if m.Completed {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
+		i--
+		dAtA[i] = 0x8
 	}
-	if m.ExitCode != 0 {
-		dAtA[i] = 0x10
-		i++
-		i = encodeVarintInstaller(dAtA, i, uint64(m.ExitCode))
-	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *DebugReportRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1200,26 +1272,33 @@ func (m *DebugReportRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *DebugReportRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *DebugReportRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Path) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintInstaller(dAtA, i, uint64(len(m.Path)))
-		i += copy(dAtA[i:], m.Path)
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if len(m.Path) > 0 {
+		i -= len(m.Path)
+		copy(dAtA[i:], m.Path)
+		i = encodeVarintInstaller(dAtA, i, uint64(len(m.Path)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *ProgressResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1227,41 +1306,50 @@ func (m *ProgressResponse) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *ProgressResponse) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ProgressResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Message) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintInstaller(dAtA, i, uint64(len(m.Message)))
-		i += copy(dAtA[i:], m.Message)
-	}
-	if m.Status != 0 {
-		dAtA[i] = 0x10
-		i++
-		i = encodeVarintInstaller(dAtA, i, uint64(m.Status))
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Error != nil {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintInstaller(dAtA, i, uint64(m.Error.Size()))
-		n5, err := m.Error.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		{
+			size, err := m.Error.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintInstaller(dAtA, i, uint64(size))
 		}
-		i += n5
+		i--
+		dAtA[i] = 0x1a
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Status != 0 {
+		i = encodeVarintInstaller(dAtA, i, uint64(m.Status))
+		i--
+		dAtA[i] = 0x10
 	}
-	return i, nil
+	if len(m.Message) > 0 {
+		i -= len(m.Message)
+		copy(dAtA[i:], m.Message)
+		i = encodeVarintInstaller(dAtA, i, uint64(len(m.Message)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *Error) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1269,26 +1357,33 @@ func (m *Error) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Error) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Error) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Message) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintInstaller(dAtA, i, uint64(len(m.Message)))
-		i += copy(dAtA[i:], m.Message)
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if len(m.Message) > 0 {
+		i -= len(m.Message)
+		copy(dAtA[i:], m.Message)
+		i = encodeVarintInstaller(dAtA, i, uint64(len(m.Message)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *OperationKey) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1296,42 +1391,53 @@ func (m *OperationKey) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *OperationKey) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *OperationKey) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.AccountID) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintInstaller(dAtA, i, uint64(len(m.AccountID)))
-		i += copy(dAtA[i:], m.AccountID)
-	}
-	if len(m.ClusterName) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintInstaller(dAtA, i, uint64(len(m.ClusterName)))
-		i += copy(dAtA[i:], m.ClusterName)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.ID) > 0 {
-		dAtA[i] = 0x1a
-		i++
+		i -= len(m.ID)
+		copy(dAtA[i:], m.ID)
 		i = encodeVarintInstaller(dAtA, i, uint64(len(m.ID)))
-		i += copy(dAtA[i:], m.ID)
+		i--
+		dAtA[i] = 0x1a
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.ClusterName) > 0 {
+		i -= len(m.ClusterName)
+		copy(dAtA[i:], m.ClusterName)
+		i = encodeVarintInstaller(dAtA, i, uint64(len(m.ClusterName)))
+		i--
+		dAtA[i] = 0x12
 	}
-	return i, nil
+	if len(m.AccountID) > 0 {
+		i -= len(m.AccountID)
+		copy(dAtA[i:], m.AccountID)
+		i = encodeVarintInstaller(dAtA, i, uint64(len(m.AccountID)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintInstaller(dAtA []byte, offset int, v uint64) int {
+	offset -= sovInstaller(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func (m *Phase) Size() (n int) {
 	if m == nil {
@@ -1521,14 +1627,7 @@ func (m *OperationKey) Size() (n int) {
 }
 
 func sovInstaller(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozInstaller(x uint64) (n int) {
 	return sovInstaller(uint64((x << 1) ^ uint64((int64(x) >> 63))))

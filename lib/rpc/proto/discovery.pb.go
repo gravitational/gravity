@@ -10,8 +10,11 @@ import (
 	types "github.com/gogo/protobuf/types"
 	proto "github.com/golang/protobuf/proto"
 	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	io "io"
 	math "math"
+	math_bits "math/bits"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -23,7 +26,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 // SystemInfo groups attributes that describe a system
 type SystemInfo struct {
@@ -48,7 +51,7 @@ func (m *SystemInfo) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_SystemInfo.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -118,7 +121,7 @@ func (m *RuntimeConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error
 		return xxx_messageInfo_RuntimeConfig.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -230,7 +233,7 @@ func (m *Device) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Device.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -280,7 +283,7 @@ func (m *Mount) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Mount.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -340,7 +343,7 @@ func (m *CloudMetadata) XXX_Marshal(b []byte, deterministic bool) ([]byte, error
 		return xxx_messageInfo_CloudMetadata.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -496,6 +499,20 @@ type DiscoveryServer interface {
 	GetCurrentTime(context.Context, *types.Empty) (*types.Timestamp, error)
 }
 
+// UnimplementedDiscoveryServer can be embedded to have forward compatible implementations.
+type UnimplementedDiscoveryServer struct {
+}
+
+func (*UnimplementedDiscoveryServer) GetRuntimeConfig(ctx context.Context, req *types.Empty) (*RuntimeConfig, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetRuntimeConfig not implemented")
+}
+func (*UnimplementedDiscoveryServer) GetSystemInfo(ctx context.Context, req *types.Empty) (*SystemInfo, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetSystemInfo not implemented")
+}
+func (*UnimplementedDiscoveryServer) GetCurrentTime(ctx context.Context, req *types.Empty) (*types.Timestamp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetCurrentTime not implemented")
+}
+
 func RegisterDiscoveryServer(s *grpc.Server, srv DiscoveryServer) {
 	s.RegisterService(&_Discovery_serviceDesc, srv)
 }
@@ -578,7 +595,7 @@ var _Discovery_serviceDesc = grpc.ServiceDesc{
 func (m *SystemInfo) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -586,26 +603,33 @@ func (m *SystemInfo) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *SystemInfo) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *SystemInfo) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Payload) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.Payload)))
-		i += copy(dAtA[i:], m.Payload)
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if len(m.Payload) > 0 {
+		i -= len(m.Payload)
+		copy(dAtA[i:], m.Payload)
+		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.Payload)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *RuntimeConfig) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -613,101 +637,120 @@ func (m *RuntimeConfig) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *RuntimeConfig) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *RuntimeConfig) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Role) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.Role)))
-		i += copy(dAtA[i:], m.Role)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if len(m.AdvertiseAddr) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.AdvertiseAddr)))
-		i += copy(dAtA[i:], m.AdvertiseAddr)
+	if len(m.KeyValues) > 0 {
+		for k := range m.KeyValues {
+			v := m.KeyValues[k]
+			baseI := i
+			i -= len(v)
+			copy(dAtA[i:], v)
+			i = encodeVarintDiscovery(dAtA, i, uint64(len(v)))
+			i--
+			dAtA[i] = 0x12
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintDiscovery(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintDiscovery(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x52
+		}
 	}
-	if len(m.DockerDevice) > 0 {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.DockerDevice)))
-		i += copy(dAtA[i:], m.DockerDevice)
-	}
-	if len(m.SystemDevice) > 0 {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.SystemDevice)))
-		i += copy(dAtA[i:], m.SystemDevice)
-	}
-	if len(m.Mounts) > 0 {
-		for _, msg := range m.Mounts {
-			dAtA[i] = 0x2a
-			i++
-			i = encodeVarintDiscovery(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
+	if m.CloudMetadata != nil {
+		{
+			size, err := m.CloudMetadata.MarshalToSizedBuffer(dAtA[:i])
 			if err != nil {
 				return 0, err
 			}
-			i += n
+			i -= size
+			i = encodeVarintDiscovery(dAtA, i, uint64(size))
 		}
-	}
-	if len(m.StateDir) > 0 {
-		dAtA[i] = 0x32
-		i++
-		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.StateDir)))
-		i += copy(dAtA[i:], m.StateDir)
-	}
-	if len(m.TempDir) > 0 {
-		dAtA[i] = 0x3a
-		i++
-		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.TempDir)))
-		i += copy(dAtA[i:], m.TempDir)
+		i--
+		dAtA[i] = 0x4a
 	}
 	if len(m.Token) > 0 {
-		dAtA[i] = 0x42
-		i++
+		i -= len(m.Token)
+		copy(dAtA[i:], m.Token)
 		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.Token)))
-		i += copy(dAtA[i:], m.Token)
+		i--
+		dAtA[i] = 0x42
 	}
-	if m.CloudMetadata != nil {
-		dAtA[i] = 0x4a
-		i++
-		i = encodeVarintDiscovery(dAtA, i, uint64(m.CloudMetadata.Size()))
-		n1, err := m.CloudMetadata.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+	if len(m.TempDir) > 0 {
+		i -= len(m.TempDir)
+		copy(dAtA[i:], m.TempDir)
+		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.TempDir)))
+		i--
+		dAtA[i] = 0x3a
+	}
+	if len(m.StateDir) > 0 {
+		i -= len(m.StateDir)
+		copy(dAtA[i:], m.StateDir)
+		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.StateDir)))
+		i--
+		dAtA[i] = 0x32
+	}
+	if len(m.Mounts) > 0 {
+		for iNdEx := len(m.Mounts) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Mounts[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintDiscovery(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x2a
 		}
-		i += n1
 	}
-	if len(m.KeyValues) > 0 {
-		for k, _ := range m.KeyValues {
-			dAtA[i] = 0x52
-			i++
-			v := m.KeyValues[k]
-			mapSize := 1 + len(k) + sovDiscovery(uint64(len(k))) + 1 + len(v) + sovDiscovery(uint64(len(v)))
-			i = encodeVarintDiscovery(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintDiscovery(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x12
-			i++
-			i = encodeVarintDiscovery(dAtA, i, uint64(len(v)))
-			i += copy(dAtA[i:], v)
-		}
+	if len(m.SystemDevice) > 0 {
+		i -= len(m.SystemDevice)
+		copy(dAtA[i:], m.SystemDevice)
+		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.SystemDevice)))
+		i--
+		dAtA[i] = 0x22
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.DockerDevice) > 0 {
+		i -= len(m.DockerDevice)
+		copy(dAtA[i:], m.DockerDevice)
+		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.DockerDevice)))
+		i--
+		dAtA[i] = 0x1a
 	}
-	return i, nil
+	if len(m.AdvertiseAddr) > 0 {
+		i -= len(m.AdvertiseAddr)
+		copy(dAtA[i:], m.AdvertiseAddr)
+		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.AdvertiseAddr)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.Role) > 0 {
+		i -= len(m.Role)
+		copy(dAtA[i:], m.Role)
+		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.Role)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *Device) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -715,26 +758,33 @@ func (m *Device) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Device) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Device) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Name) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if len(m.Name) > 0 {
+		i -= len(m.Name)
+		copy(dAtA[i:], m.Name)
+		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.Name)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *Mount) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -742,32 +792,40 @@ func (m *Mount) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Mount) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Mount) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Name) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.Source) > 0 {
-		dAtA[i] = 0x12
-		i++
+		i -= len(m.Source)
+		copy(dAtA[i:], m.Source)
 		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.Source)))
-		i += copy(dAtA[i:], m.Source)
+		i--
+		dAtA[i] = 0x12
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.Name) > 0 {
+		i -= len(m.Name)
+		copy(dAtA[i:], m.Name)
+		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.Name)))
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *CloudMetadata) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -775,42 +833,53 @@ func (m *CloudMetadata) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *CloudMetadata) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *CloudMetadata) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.NodeName) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.NodeName)))
-		i += copy(dAtA[i:], m.NodeName)
-	}
-	if len(m.InstanceType) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.InstanceType)))
-		i += copy(dAtA[i:], m.InstanceType)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.InstanceId) > 0 {
-		dAtA[i] = 0x1a
-		i++
+		i -= len(m.InstanceId)
+		copy(dAtA[i:], m.InstanceId)
 		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.InstanceId)))
-		i += copy(dAtA[i:], m.InstanceId)
+		i--
+		dAtA[i] = 0x1a
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.InstanceType) > 0 {
+		i -= len(m.InstanceType)
+		copy(dAtA[i:], m.InstanceType)
+		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.InstanceType)))
+		i--
+		dAtA[i] = 0x12
 	}
-	return i, nil
+	if len(m.NodeName) > 0 {
+		i -= len(m.NodeName)
+		copy(dAtA[i:], m.NodeName)
+		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.NodeName)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintDiscovery(dAtA []byte, offset int, v uint64) int {
+	offset -= sovDiscovery(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func (m *SystemInfo) Size() (n int) {
 	if m == nil {
@@ -947,14 +1016,7 @@ func (m *CloudMetadata) Size() (n int) {
 }
 
 func sovDiscovery(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozDiscovery(x uint64) (n int) {
 	return sovDiscovery(uint64((x << 1) ^ uint64((int64(x) >> 63))))
