@@ -278,10 +278,6 @@ type Application struct {
 	SystemDevicemapperUnmountCmd SystemDevicemapperUnmountCmd
 	// SystemDevicemapperSystemDirCmd show LVM system directory
 	SystemDevicemapperSystemDirCmd SystemDevicemapperSystemDirCmd
-	// SystemEnablePromiscModeCmd puts network interface into promiscuous mode
-	SystemEnablePromiscModeCmd SystemEnablePromiscModeCmd
-	// SystemDisablePromiscModeCmd removes promiscuous mode from interface
-	SystemDisablePromiscModeCmd SystemDisablePromiscModeCmd
 	// SystemExportRuntimeJournalCmd exports runtime journal to a file
 	SystemExportRuntimeJournalCmd SystemExportRuntimeJournalCmd
 	// SystemStreamRuntimeJournalCmd streams contents of the runtime journal to a file
@@ -1522,20 +1518,6 @@ type SystemDevicemapperUnmountCmd struct {
 // SystemDevicemapperSystemDirCmd show LVM system directory
 type SystemDevicemapperSystemDirCmd struct {
 	*kingpin.CmdClause
-}
-
-// SystemEnablePromiscModeCmd puts network interface into promiscuous mode
-type SystemEnablePromiscModeCmd struct {
-	*kingpin.CmdClause
-	// Iface is interface to turn promiscuous mode on for
-	Iface *string
-}
-
-// SystemDisablePromiscModeCmd removes promiscuous mode from interface
-type SystemDisablePromiscModeCmd struct {
-	*kingpin.CmdClause
-	// Iface is interface to turn promiscuous mode off for
-	Iface *string
 }
 
 // SystemExportRuntimeJournalCmd exports runtime journal to a file
