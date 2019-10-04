@@ -10,11 +10,11 @@ Resource Name             | Resource Description
 `github`                  | GitHub connector
 `oidc`                    | OIDC connector (Enterprise only)
 `saml`                    | SAML connector (Enterprise only)
-`role`                    | Cluster role (Enterprise only)
+`role`                    | User role (Enterprise only)
 `user`                    | Cluster user
-`token`                   | user tokens such as API keys
-`logforwarder`            | forwarding logs to a remote rsyslog server
-`trusted_cluster`         | managing access to remote Gravity Hubs (Enterprise Only)
+`token`                   | User tokens such as API keys
+`logforwarder`            | Forwarding logs to a remote rsyslog server
+`trusted_cluster`         | Managing access to remote Gravity Hubs (Enterprise Only)
 `endpoints`               | Gravity Hub endpoints for user and Cluster traffic (Enterprise Only)
 `cluster_auth_preference` | Cluster authentication settings such as second-factor
 `alert`                   | Cluster monitoring alert
@@ -22,7 +22,7 @@ Resource Name             | Resource Description
 `smtp`                    | Cluster monitoring SMTP configuration
 `runtimeenvironment`      | Cluster runtime environment variables
 `clusterconfiguration`    | General Cluster configuration
-`authgateway`             | authentication gateway configuration
+`authgateway`             | Authentication gateway configuration
 
 
 ## General Cluster Configuration
