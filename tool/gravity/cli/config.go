@@ -278,11 +278,6 @@ func (i *InstallConfig) CheckAndSetDefaults() (err error) {
 	if i.VxlanPort < 1 || i.VxlanPort > 65535 {
 		return trace.BadParameter("invalid vxlan port: must be in range 1-65535")
 	}
-	if !i.Remote {
-		if err := i.validateCloudConfig(); err != nil {
-			return trace.Wrap(err)
-		}
-	}
 	if !utils.StringInSlice(modules.Get().InstallModes(), i.Mode) {
 		return trace.BadParameter("invalid mode %q", i.Mode)
 	}
@@ -353,6 +348,11 @@ func (i *InstallConfig) NewInstallerConfig(
 	i.Role, err = validateRole(i.Role, *flavor, app.Manifest.NodeProfiles, i.FieldLogger)
 	if err != nil {
 		return nil, trace.Wrap(err)
+	}
+	if !i.Remote {
+		if err := i.validateCloudConfig(app.Manifest); err != nil {
+			return nil, trace.Wrap(err)
+		}
 	}
 	token, err := generateInstallToken(wizard.Operator, i.Token)
 	if err != nil && !trace.IsAlreadyExists(err) {
@@ -563,8 +563,8 @@ func (i *InstallConfig) validateDNSConfig() error {
 	return nil
 }
 
-func (i *InstallConfig) validateCloudConfig() (err error) {
-	i.CloudProvider, err = i.validateOrDetectCloudProvider(i.CloudProvider)
+func (i *InstallConfig) validateCloudConfig(manifest schema.Manifest) (err error) {
+	i.CloudProvider, err = i.validateOrDetectCloudProvider(i.CloudProvider, manifest)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -1124,17 +1124,13 @@ func selectAdvertiseAddr() (string, error) {
 
 // validateOrDetectCloudProvider validates the value of the specified cloud provider.
 // If no cloud provider has been specified, the provider is autodetected.
-func (i *InstallConfig) validateOrDetectCloudProvider(cloudProvider string) (provider string, err error) {
+func (i *InstallConfig) validateOrDetectCloudProvider(cloudProvider string, manifest schema.Manifest) (provider string, err error) {
 	// If cloud provider wasn't explicitly specified on the CLI, see if there
 	// is a default one specified in the manifest.
 	if cloudProvider != "" {
 		log.Infof("Will use provider %q specified on the CLI.", cloudProvider)
 	} else {
-		app, err := i.getApp()
-		if err != nil {
-			return "", trace.Wrap(err)
-		}
-		cloudProvider = app.Manifest.DefaultProvider()
+		cloudProvider = manifest.DefaultProvider()
 		if cloudProvider != "" {
 			log.Infof("Will use default provider %q from manifest.", cloudProvider)
 		}
