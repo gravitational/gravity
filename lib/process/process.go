@@ -1136,10 +1136,18 @@ func (p *Process) initService(ctx context.Context) (err error) {
 	}
 	p.Debugf("%s.", seedConfig)
 
+	authenticator, err := users.NewAuthenticator(users.AuthenticatorConfig{
+		Identity:      p.identity,
+		Authenticator: p.handlers.WebProxy.GetHandler().AuthenticateRequest,
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
 	p.handlers.Packages, err = webpack.NewHandler(webpack.Config{
 		Packages:      p.packages,
 		Users:         p.identity,
-		Authenticator: p.handlers.WebProxy.GetHandler().AuthenticateRequest,
+		Authenticator: authenticator,
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -1202,8 +1210,7 @@ func (p *Process) initService(ctx context.Context) (err error) {
 		Applications:  applications,
 		Packages:      p.packages,
 		Charts:        charts,
-		Authenticator: p.handlers.WebProxy.GetHandler().AuthenticateRequest,
-		Devmode:       p.cfg.Devmode,
+		Authenticator: authenticator,
 	})
 
 	proxy := opsroute.NewClientPool(opsroute.ClientPoolConfig{
@@ -1288,7 +1295,7 @@ func (p *Process) initService(ctx context.Context) (err error) {
 		Operator:            p.operator,
 		Applications:        applications,
 		Packages:            p.packages,
-		Authenticator:       p.handlers.WebProxy.GetHandler().AuthenticateRequest,
+		Authenticator:       authenticator,
 		Backend:             p.backend,
 		PublicAdvertiseAddr: p.cfg.Pack.GetPublicAddr(),
 	})
@@ -1386,7 +1393,7 @@ func (p *Process) initService(ctx context.Context) (err error) {
 		operator:      p.operator,
 		users:         p.identity,
 		backend:       p.backend,
-		authenticator: p.handlers.WebProxy.GetHandler().AuthenticateRequest,
+		authenticator: authenticator,
 		forwarder:     forwarder,
 		devmode:       p.cfg.Devmode,
 	})
@@ -1719,6 +1726,30 @@ func (p *Process) newTLSConfig(certPEM, keyPEM []byte) (*tls.Config, error) {
 	config.ClientSessionCache = tls.NewLRUClientSessionCache(
 		teleutils.DefaultLRUCapacity)
 	config.NextProtos = []string{"h2"}
+
+	// When running inside a deployed cluster, configure client certificate
+	// authentication so clients such as tele can authenticate with the API
+	// using certificates issued by Teleport.
+	if p.inKubernetes() {
+		// This setting will prompt the server to send a certificate request
+		// to connecting clients which will make clients to optionally provide
+		// a certificate.
+		//
+		// If provided, the server will verify the certificate using the pool
+		// configured below.
+		config.ClientAuth = tls.VerifyClientCertIfGiven
+		// Obtain the client certificate pool from the Teleport auth server.
+		//
+		// This pool will contain CAs used by Teleport to issue user certificates
+		// which will then be used by the connecting clients.
+		//
+		// TODO(r0mant): Implement config.GetConfigForClient() instead to refresh
+		// the pool on each connection in case CAs are rotated?
+		config.ClientCAs, err = p.GetAuthServer().ClientCertPool("")
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+	}
 
 	return config, nil
 }

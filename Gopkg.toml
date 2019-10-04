@@ -73,7 +73,7 @@ ignored = [
 
 [[constraint]]
   name = "github.com/gravitational/satellite"
-  version = "=7.0.0"
+  version = "=7.0.2"
 
 [[constraint]]
   name = "github.com/xtgo/set"
@@ -81,7 +81,7 @@ ignored = [
 
 [[constraint]]
   name = "github.com/gogo/protobuf"
-  version = "=v1.1.0"
+  version = "=v1.1.1"
 
 [[override]]
   name = "golang.org/x/net"
@@ -263,7 +263,7 @@ ignored = [
 
 [[override]]
   name = "github.com/Azure/go-autorest"
-  revision = "ea233b6412b0421a65dc6160e16c893364664a95"
+  version = "=v11.1.0"
 
 [[override]]
   name = "gopkg.in/yaml.v2"

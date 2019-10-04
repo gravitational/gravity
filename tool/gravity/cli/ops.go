@@ -34,7 +34,6 @@ import (
 	"github.com/gravitational/gravity/lib/pack/encryptedpack"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
-	"github.com/gravitational/gravity/lib/users"
 	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/gravity/tool/common"
 
@@ -136,7 +135,7 @@ func uploadUpdate(env *localenv.LocalEnvironment, opsURL string) error {
 		return trace.Wrap(err)
 	}
 
-	clusterApps, err := defaultEnv.SiteApps()
+	clusterApps, err := defaultEnv.AppServiceCluster()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -197,8 +196,8 @@ func uploadUpdate(env *localenv.LocalEnvironment, opsURL string) error {
 			return trace.Wrap(err)
 		}
 		err = appservice.SyncApp(context.TODO(), appservice.SyncRequest{
-			PackService:  clusterPackages,
-			AppService:   clusterApps,
+			PackService:  tarballPackages,
+			AppService:   tarballApps,
 			ImageService: imageService,
 			Package:      *appPackage,
 		})
@@ -241,8 +240,8 @@ func connectToOpsCenter(env *localenv.LocalEnvironment, opsCenterURL, username, 
 			return trace.Wrap(err)
 		}
 	}
-	entry, err := env.Creds.UpsertLoginEntry(
-		users.LoginEntry{
+	entry, err := env.Backend.UpsertLoginEntry(
+		storage.LoginEntry{
 			OpsCenterURL: opsCenterURL,
 			Email:        username,
 			Password:     password})
@@ -255,7 +254,7 @@ func connectToOpsCenter(env *localenv.LocalEnvironment, opsCenterURL, username, 
 
 // disconnectFromOpsCenter
 func disconnectFromOpsCenter(env *localenv.LocalEnvironment, opsCenterURL string) error {
-	err := env.Creds.DeleteLoginEntry(opsCenterURL)
+	err := env.Backend.DeleteLoginEntry(opsCenterURL)
 	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
 	}
@@ -264,7 +263,7 @@ func disconnectFromOpsCenter(env *localenv.LocalEnvironment, opsCenterURL string
 }
 
 func listOpsCenters(env *localenv.LocalEnvironment) error {
-	entries, err := env.Creds.GetLoginEntries()
+	entries, err := env.Backend.GetLoginEntries()
 	if err != nil {
 		return trace.Wrap(err)
 	}

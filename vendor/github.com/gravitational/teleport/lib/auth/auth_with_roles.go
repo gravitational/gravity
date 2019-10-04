@@ -26,6 +26,7 @@ import (
 	"github.com/gravitational/teleport/lib/events"
 	"github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/teleport/lib/session"
+	"github.com/gravitational/teleport/lib/tlsca"
 	"github.com/gravitational/teleport/lib/utils"
 
 	"github.com/gravitational/trace"
@@ -40,6 +41,7 @@ type AuthWithRoles struct {
 	user       services.User
 	sessions   session.Service
 	alog       events.IAuditLog
+	identity   tlsca.Identity
 }
 
 func (a *AuthWithRoles) actionWithContext(ctx *services.Context, namespace string, resource string, action string) error {
@@ -54,7 +56,7 @@ func (a *AuthWithRoles) action(namespace string, resource string, action string)
 // even if they are not admins, e.g. update their own passwords,
 // or generate certificates, otherwise it will require admin privileges
 func (a *AuthWithRoles) currentUserAction(username string) error {
-	if username == a.user.GetName() {
+	if a.hasLocalUserRole(a.checker) && username == a.user.GetName() {
 		return nil
 	}
 	return a.checker.CheckAccessToRule(&services.Context{User: a.user},
@@ -97,6 +99,14 @@ func (a *AuthWithRoles) hasRemoteBuiltinRole(name string) bool {
 		return false
 	}
 
+	return true
+}
+
+// hasLocalUserRole checks if the type of the role set is a local user or not.
+func (a *AuthWithRoles) hasLocalUserRole(checker services.AccessChecker) bool {
+	if _, ok := checker.(LocalUserRoleSet); !ok {
+		return false
+	}
 	return true
 }
 
@@ -361,14 +371,18 @@ func (a *AuthWithRoles) filterNodes(nodes []services.Server) ([]services.Server,
 	}
 
 	// Fetch services.RoleSet for the identity of the logged in user.
-	roles, err := services.FetchRoles(a.user.GetRoles(), a.authServer, a.user.GetTraits())
+	roles, traits, err := services.ExtractFromIdentity(a.authServer, &a.identity)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	roleset, err := services.FetchRoles(roles, a.authServer, traits)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
 	// Extract all unique allowed logins across all roles.
 	allowedLogins := make(map[string]bool)
-	for _, role := range roles {
+	for _, role := range roleset {
 		for _, login := range role.GetLogins(services.Allow) {
 			allowedLogins[login] = true
 		}
@@ -379,7 +393,7 @@ func (a *AuthWithRoles) filterNodes(nodes []services.Server) ([]services.Server,
 NextNode:
 	for _, node := range nodes {
 		for login, _ := range allowedLogins {
-			err := roles.CheckAccessToServer(login, node)
+			err := roleset.CheckAccessToServer(login, node)
 			if err == nil {
 				filteredNodes = append(filteredNodes, node)
 				continue NextNode
@@ -569,7 +583,7 @@ func (a *AuthWithRoles) PreAuthenticatedSignIn(user string) (services.WebSession
 	if err := a.currentUserAction(user); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return a.authServer.PreAuthenticatedSignIn(user)
+	return a.authServer.PreAuthenticatedSignIn(user, &a.identity)
 }
 
 func (a *AuthWithRoles) GetU2FSignRequest(user string, password []byte) (*u2f.SignRequest, error) {
@@ -582,14 +596,14 @@ func (a *AuthWithRoles) CreateWebSession(user string) (services.WebSession, erro
 	if err := a.currentUserAction(user); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return a.authServer.CreateWebSession(user)
+	return a.authServer.CreateWebSession(user, &a.identity)
 }
 
 func (a *AuthWithRoles) ExtendWebSession(user, prevSessionID string) (services.WebSession, error) {
 	if err := a.currentUserAction(user); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return a.authServer.ExtendWebSession(user, prevSessionID)
+	return a.authServer.ExtendWebSession(user, prevSessionID, &a.identity)
 }
 
 func (a *AuthWithRoles) GetWebSessionInfo(user string, sid string) (services.WebSession, error) {
@@ -649,36 +663,47 @@ func (a *AuthWithRoles) GenerateHostCert(
 }
 
 func (a *AuthWithRoles) GenerateUserCert(key []byte, username string, ttl time.Duration, compatibility string) ([]byte, error) {
+	ssh, _, err := a.GenerateUserCerts(key, username, ttl, compatibility)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return ssh, nil
+}
+
+func (a *AuthWithRoles) GenerateUserCerts(key []byte, username string, ttl time.Duration, compatibility string) ([]byte, []byte, error) {
 	// This endpoint is only accessible to tctl.
 	if !a.hasBuiltinRole(string(teleport.RoleAdmin)) {
-		return nil, trace.AccessDenied("this request can be only executed by an admin")
+		return nil, nil, trace.AccessDenied("this request can be only executed by an admin")
 	}
 
 	// Extract the user and role set for whom the certificate will be generated.
+	// The roles and traits for the user have to be fetched from the backend.
+	// This should be safe since this is typically done against a local user.
 	user, err := a.GetUser(username)
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return nil, nil, trace.Wrap(err)
 	}
 	checker, err := services.FetchRoles(user.GetRoles(), a.authServer, user.GetTraits())
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return nil, nil, trace.Wrap(err)
 	}
 
 	// Generate certificate, note that the roles TTL will be ignored because
 	// the request is coming from "tctl auth sign" itself.
 	certs, err := a.authServer.generateUserCert(certRequest{
 		user:            user,
-		roles:           checker,
 		ttl:             ttl,
 		compatibility:   compatibility,
 		publicKey:       key,
 		overrideRoleTTL: true,
+		checker:         checker,
+		traits:          user.GetTraits(),
 	})
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return nil, nil, trace.Wrap(err)
 	}
 
-	return certs.ssh, nil
+	return certs.ssh, certs.tls, nil
 }
 
 func (a *AuthWithRoles) CreateSignupToken(user services.UserV1, ttl time.Duration) (token string, e error) {
@@ -1340,17 +1365,13 @@ func NewAdminAuthServer(authServer *AuthServer, sessions session.Service, alog e
 	}, nil
 }
 
-// NewAuthWithRoles creates new auth server with access control
-func NewAuthWithRoles(authServer *AuthServer,
-	checker services.AccessChecker,
-	user services.User,
-	sessions session.Service,
-	alog events.IAuditLog) *AuthWithRoles {
+func NewAuthWithRoles(ctx AuthContext, authServer *AuthServer, sessions session.Service, alog events.IAuditLog) *AuthWithRoles {
 	return &AuthWithRoles{
 		authServer: authServer,
-		checker:    checker,
+		checker:    ctx.Checker,
 		sessions:   sessions,
-		user:       user,
+		user:       ctx.User,
+		identity:   ctx.Identity,
 		alog:       alog,
 	}
 }

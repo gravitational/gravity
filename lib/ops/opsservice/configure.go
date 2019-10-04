@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2018-2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -1035,6 +1035,10 @@ func (s *site) getPlanetConfig(config planetConfig) (args []string, err error) {
 	// If the manifest contains an install hook to install a separate overlay network, disable flannel inside planet
 	if manifest.Hooks != nil && manifest.Hooks.NetworkInstall != nil {
 		args = append(args, "--disable-flannel=true")
+	}
+
+	if manifest.SystemOptions != nil && manifest.SystemOptions.AllowPrivileged {
+		args = append(args, "--allow-privileged=true")
 	}
 
 	for k, v := range overrideArgs {

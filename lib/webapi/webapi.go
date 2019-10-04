@@ -1490,7 +1490,9 @@ func newWebCluster(cluster ops.Site, releases []webRelease, shallow bool) webClu
 	// This significantly reduces amount of traffic b/w frontend and server and
 	// improves the web application performance.
 	if shallow {
-		webCluster.App = ops.Application{}
+		webCluster.App = ops.Application{
+			Package: webCluster.App.Package,
+		}
 		for i := range webCluster.Releases {
 			webCluster.Releases[i].ChartIcon = ""
 		}

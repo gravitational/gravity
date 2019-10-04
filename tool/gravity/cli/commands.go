@@ -1406,6 +1406,8 @@ type SystemReinstallCmd struct {
 	ServiceName *string
 	// Labels defines the labels to identify the package with
 	Labels *configure.KeyVal
+	// ClusterRole is the node's cluster role (master or node)
+	ClusterRole *string
 }
 
 // SystemHistoryCmd displays system update history

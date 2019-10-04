@@ -34,6 +34,7 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
+	"github.com/gravitational/gravity/lib/localenv/credentials"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/pack/layerpack"
 	"github.com/gravitational/gravity/lib/pack/localpack"
@@ -81,6 +82,10 @@ type Config struct {
 	NewSyncer NewSyncerFunc
 	// GetRepository is a function that returns package source repository
 	GetRepository GetRepositoryFunc
+	// CredentialsService provides access to user credentials
+	CredentialsService credentials.Service
+	// Credentials is the credentials set on the CLI
+	Credentials *credentials.Credentials
 	// FieldLogger is used for logging
 	logrus.FieldLogger
 	// Progress allows builder to report build progress
@@ -123,6 +128,15 @@ func (c *Config) CheckAndSetDefaults() error {
 	}
 	if c.GetRepository == nil {
 		c.GetRepository = getRepository
+	}
+	if c.CredentialsService == nil {
+		c.CredentialsService, err = credentials.New(credentials.Config{
+			LocalKeyStoreDir: c.StateDir,
+			Credentials:      c.Credentials,
+		})
+		if err != nil {
+			return trace.Wrap(err)
+		}
 	}
 	if c.FieldLogger == nil {
 		c.FieldLogger = logrus.WithField(trace.Component, "builder")
@@ -414,6 +428,7 @@ func (b *Builder) makeBuildEnv() (*localenv.LocalEnvironment, error) {
 			StateDir:         b.StateDir,
 			LocalKeyStoreDir: b.StateDir,
 			Insecure:         b.Insecure,
+			Credentials:      b.Credentials,
 		})
 	}
 	// otherwise use default locations for cache / key store
@@ -427,8 +442,9 @@ func (b *Builder) makeBuildEnv() (*localenv.LocalEnvironment, error) {
 	}
 	b.Infof("Using package cache from %v.", cacheDir)
 	return localenv.NewLocalEnvironment(localenv.LocalEnvironmentArgs{
-		StateDir: cacheDir,
-		Insecure: b.Insecure,
+		StateDir:    cacheDir,
+		Insecure:    b.Insecure,
+		Credentials: b.Credentials,
 	})
 }
 

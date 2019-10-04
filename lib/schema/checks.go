@@ -37,6 +37,7 @@ var (
 	// DefaultKernelModules is the list of kernel modules needed for gravity to function properly
 	DefaultKernelModules = []monitoring.ModuleRequest{
 		moduleName("ebtables"),
+		moduleName("ebtable_filter"),
 		moduleName("ip_tables"),
 		moduleName("iptable_filter"),
 		moduleName("iptable_nat"),

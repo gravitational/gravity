@@ -23,7 +23,6 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	libfsm "github.com/gravitational/gravity/lib/fsm"
-	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
@@ -322,11 +321,7 @@ func checkForUpdate(
 		return nil, trace.Wrap(err)
 	}
 
-	apps, err := env.AppService(
-		defaults.GravityServiceURL,
-		localenv.AppConfig{},
-		httplib.WithLocalResolver(env.DNS.Addr()),
-		httplib.WithInsecure())
+	apps, err := env.AppServiceCluster()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

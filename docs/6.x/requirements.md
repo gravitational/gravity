@@ -10,10 +10,10 @@ Gravity supports the following Linux distributions:
 | Linux Distribution        | Version         | Docker Storage Drivers                |
 |--------------------------|-----------------|---------------------------------------|
 | Red Hat Enterprise Linux | 7.2-7.3         | `devicemapper`*                        |
-| Red Hat Enterprise Linux | 7.4-7.6         | `devicemapper`*, `overlay`, `overlay2` |
+| Red Hat Enterprise Linux | 7.4-7.7, 8.0    | `devicemapper`*, `overlay`, `overlay2` |
 | CentOS                   | 7.2-7.6         | `devicemapper`*, `overlay`, `overlay2` |
 | Debian                   | 8-9             | `devicemapper`*, `overlay`, `overlay2` |
-| Ubuntu                   | 16.04           | `devicemapper`*, `overlay`, `overlay2` |
+| Ubuntu                   | 16.04, 18.04    | `devicemapper`*, `overlay`, `overlay2` |
 | Ubuntu-Core              | 16.04           | `devicemapper`*, `overlay`, `overlay2` |
 | openSuse                 | 12 SP2 - 12 SP3 | `overlay`, `overlay2`                 |
 | Suse Linux Enterprise    | 12 SP2 - 12 SP3 | `overlay`, `overlay2`                 |
@@ -34,10 +34,10 @@ specified in the manifest:
 
 | Distribution Name        | ID                         | Version        |
 |--------------------------|----------------------------|----------------|
-| Red Hat Enterprise Linux | rhel                       | 7.2-7.6        |
+| Red Hat Enterprise Linux | rhel                       | 7.2-7.7, 8.0   |
 | CentOS                   | centos                     | 7.2-7.6        |
 | Debian                   | debian                     | 8-9            |
-| Ubuntu                   | ubuntu                     | 16.04          |
+| Ubuntu                   | ubuntu                     | 16.04, 18.04   |
 | Ubuntu-Core              | ubuntu                     | 16.04          |
 | openSuse                 | suse, opensuse, opensuse-* | 12-SP2, 12-SP3 |
 | Suse Linux Enterprise    | sles, sles_sap             | 12-SP2, 12-SP3 |
@@ -72,7 +72,7 @@ Gravity supports two networking backends in production:
 * VPC and routing tables based network for `AWS` cloud provider.
 * VXLAN based network for `generic` provider to be used on generic linux installations.
 
-See [Cluster Image Manifest](/pack/#image-manifest) section for details on how to select 
+See [Cluster Image Manifest](/pack/#image-manifest) section for details on how to select
 the network type.
 
 #### Air-gapped installs
@@ -189,7 +189,7 @@ root$ echo 'overlay' > /etc/modules-load.d/overlay.conf
 ### ebtable_filter module
 
 This kernel module is required if the application is configuring Hairpin NAT
-(see [Hairpin NAT](/cluster/#networking)) to enable services to load-balance to themselves
+(see [Hairpin NAT](/cluster/#hairpin-nat)) to enable services to load-balance to themselves
 and setting up docker bridge in "promiscuous-bridge" mode.
 
 To see if the module is loaded:

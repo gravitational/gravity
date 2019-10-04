@@ -64,7 +64,12 @@ func (p *systemExecutor) Execute(ctx context.Context) error {
 	p.Progress.NextStep("Installing system service %v:%v",
 		locator.Name, locator.Version)
 	p.Infof("Installing system service %v:%v", locator.Name, locator.Version)
-	args := []string{"--debug", "system", "reinstall", locator.String()}
+	// TODO(r0mant): Instead of executing CLI command here, use system updater
+	//               service which now lives in lib/update/system/system.go but
+	//               should be moved to some common location where both install
+	//               and upgrade can use it from.
+	args := []string{"--debug", "system", "reinstall", locator.String(),
+		"--cluster-role", p.Phase.Data.Server.ClusterRole}
 	if len(p.Phase.Data.Labels) != 0 {
 		labels := configure.KeyVal(p.Phase.Data.Labels)
 		args = append(args, "--labels", labels.String())
