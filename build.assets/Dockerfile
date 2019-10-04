@@ -37,10 +37,10 @@ RUN (mkdir -p /opt/protoc && \
      wget --quiet -O /tmp/${TARBALL} ${PROTOC_URL} && \
      unzip -d /opt/protoc /tmp/${TARBALL} && \
      mkdir -p /src/github.com/gogo/ /src/github.com/grpc-ecosystem && \
-     git clone https://github.com/grpc-ecosystem/grpc-gateway --branch ${GRPC_GATEWAY_TAG} /src/github.com/grpc-ecosystem/grpc-gateway && cd /src/github.com/grpc-ecosystem/grpc-gateway && pwd && go install ./protoc-gen-grpc-gateway && \
-     git clone https://github.com/gogo/protobuf --branch ${GOGO_PROTO_TAG} /src/github.com/gogo/protobuf && cd /src/github.com/gogo/protobuf && make install)
+     git clone https://github.com/gogo/protobuf --branch ${GOGO_PROTO_TAG} /src/github.com/gogo/protobuf && cd /src/github.com/gogo/protobuf && make install && \
+     git clone https://github.com/grpc-ecosystem/grpc-gateway --branch ${GRPC_GATEWAY_TAG} /src/github.com/grpc-ecosystem/grpc-gateway && cd /src/github.com/grpc-ecosystem/grpc-gateway && pwd && go install ./protoc-gen-grpc-gateway)
 
-ENV PROTO_INCLUDE "/usr/local/include":"${GOPATH}/src":"/src":"${GRPC_GATEWAY_ROOT}/third_party/googleapis":"${GRPC_GATEWAY_ROOT}/third_party/googleapis":"${GOGOPROTO_ROOT}/protobuf":"${GOGOPROTO_ROOT}/gogoproto"
+ENV PROTO_INCLUDE "/usr/local/include":"/src":"${GRPC_GATEWAY_ROOT}/third_party/googleapis":"${GOGOPROTO_ROOT}/gogoproto"
 
 # install DEP tool
 RUN wget --quiet -O /usr/bin/dep https://github.com/golang/dep/releases/download/${GODEP_TAG}/dep-linux-amd64 && chmod +x /usr/bin/dep
