@@ -265,8 +265,6 @@ type PeerConfig struct {
 	// ServerAddr is optional address of the agent server.
 	// It will be derived from agent instructions if unspecified
 	ServerAddr string
-	// CloudProvider is the node cloud provider
-	CloudProvider string
 	// WatchCh is channel that relays peer reconnect events
 	WatchCh chan rpcserver.WatchEvent
 	// RuntimeConfig is peer's runtime configuration
