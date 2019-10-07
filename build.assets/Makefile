@@ -563,4 +563,5 @@ buildbox:
 		--build-arg GOGO_PROTO_TAG=$(GOGO_PROTO_TAG) \
 		--build-arg GRPC_GATEWAY_TAG=$(GRPC_GATEWAY_TAG) \
 		--build-arg VERSION_TAG=$(VERSION_TAG) \
+		--build-arg GODEP_TAG=$(GODEP_TAG) \
 		$(DOCKER_ARGS) --tag $(BBOX) .

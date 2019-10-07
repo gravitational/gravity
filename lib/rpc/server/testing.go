@@ -71,9 +71,9 @@ func TestServerCredentials(c *C) credentials.TransportCredentials {
 }
 
 func (r testCommand) exec(ctx context.Context, stream pb.OutgoingMessageStream, args []string, log log.FieldLogger) error {
-	stream.Send(&pb.Message{&pb.Message_ExecStarted{ExecStarted: &pb.ExecStarted{Seq: 1, Args: args}}})
-	stream.Send(&pb.Message{&pb.Message_ExecOutput{ExecOutput: &pb.ExecOutput{Data: []byte(r.output)}}})
-	stream.Send(&pb.Message{&pb.Message_ExecCompleted{ExecCompleted: &pb.ExecCompleted{Seq: 1, ExitCode: 0}}})
+	stream.Send(&pb.Message{Element: &pb.Message_ExecStarted{ExecStarted: &pb.ExecStarted{Seq: 1, Args: args}}})
+	stream.Send(&pb.Message{Element: &pb.Message_ExecOutput{ExecOutput: &pb.ExecOutput{Data: []byte(r.output)}}})
+	stream.Send(&pb.Message{Element: &pb.Message_ExecCompleted{ExecCompleted: &pb.ExecCompleted{Seq: 1, ExitCode: 0}}})
 	return nil
 }
 

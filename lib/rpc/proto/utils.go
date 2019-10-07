@@ -17,7 +17,6 @@ limitations under the License.
 package proto
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/gravitational/trace"
@@ -69,12 +68,9 @@ func EncodeError(err error) *Error {
 	}
 }
 
+// ErrorToMessage wraps the specified error as Message
 func ErrorToMessage(err error) *Message {
-	return &Message{&Message_Error{EncodeError(err)}}
-}
-
-func DecodeError(err *Error) error {
-	return errors.New(err.Message)
+	return &Message{Element: &Message_Error{EncodeError(err)}}
 }
 
 // Describe describes this request as text
