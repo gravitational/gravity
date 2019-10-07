@@ -104,7 +104,7 @@ func NewUpdatePhaseInit(
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	operation, err := ops.GetLastUpdateOperation(cluster.Key(), operator)
+	operation, err := operator.GetSiteOperation(fsm.OperationKey(p.Plan))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -373,10 +373,9 @@ func (p *updatePhaseInit) createAdminAgent() error {
 func (p *updatePhaseInit) rotateSecrets(server storage.UpdateServer) error {
 	p.Infof("Generate new secrets configuration package for %v.", server)
 	resp, err := p.Operator.RotateSecrets(ops.RotateSecretsRequest{
-		AccountID:   p.Operation.AccountID,
-		ClusterName: p.Operation.SiteDomain,
-		Locator:     server.Runtime.SecretsPackage,
-		Server:      server.Server,
+		Key:     p.Operation.ClusterKey(),
+		Package: server.Runtime.SecretsPackage,
+		Server:  server.Server,
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -396,7 +395,7 @@ func (p *updatePhaseInit) rotatePlanetConfig(server storage.UpdateServer) error 
 		Server:         server.Server,
 		Manifest:       p.updateManifest,
 		RuntimePackage: server.Runtime.Update.Package,
-		Locator:        &server.Runtime.Update.ConfigPackage,
+		Package:        &server.Runtime.Update.ConfigPackage,
 		Config:         p.existingClusterConfig,
 		Env:            p.existingEnviron,
 	})
@@ -414,10 +413,10 @@ func (p *updatePhaseInit) rotatePlanetConfig(server storage.UpdateServer) error 
 
 func (p *updatePhaseInit) rotateTeleportConfig(server storage.UpdateServer) error {
 	masterConf, nodeConf, err := p.Operator.RotateTeleportConfig(ops.RotateTeleportConfigRequest{
-		Key:       p.Operation.Key(),
-		Server:    server.Server,
-		Node:      &server.Teleport.Update.NodeConfigPackage,
-		MasterIPs: masterIPs(p.Servers),
+		Key:         p.Operation.Key(),
+		Server:      server.Server,
+		NodePackage: server.Teleport.Update.NodeConfigPackage,
+		MasterIPs:   masterIPs(p.Servers),
 	})
 	if err != nil {
 		return trace.Wrap(err)

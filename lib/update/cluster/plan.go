@@ -429,10 +429,9 @@ func configUpdates(
 	}
 	for _, server := range servers {
 		secretsUpdate, err := operator.RotateSecrets(ops.RotateSecretsRequest{
-			AccountID:   operation.AccountID,
-			ClusterName: operation.SiteDomain,
-			Server:      server,
-			DryRun:      true,
+			Key:    operation.SiteKey(),
+			Server: server,
+			DryRun: true,
 		})
 		if err != nil {
 			return nil, trace.Wrap(err)
@@ -488,7 +487,7 @@ func configUpdates(
 			}
 			updateServer.Teleport.Update = &storage.TeleportUpdate{
 				Package:           *updateTeleport,
-				NodeConfigPackage: nodeConfig.Locator,
+				NodeConfigPackage: &nodeConfig.Locator,
 			}
 		}
 		updates = append(updates, updateServer)
