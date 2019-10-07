@@ -373,6 +373,14 @@ func (m Manifest) PackageDependencies(profile string) (deps []loc.Locator, err e
 	return loc.Deduplicate(append(m.Dependencies.GetPackages(), *runtimePackage)), nil
 }
 
+// DefaultProvider returns the default cloud provider or an empty string.
+func (m Manifest) DefaultProvider() string {
+	if m.Providers != nil {
+		return m.Providers.Default
+	}
+	return ""
+}
+
 // Header is manifest header
 type Header struct {
 	metav1.TypeMeta
@@ -865,6 +873,8 @@ type NodeProviderAWS struct {
 
 // Providers defines global provider-specific settings
 type Providers struct {
+	// Default specifies the default provider.
+	Default string `json:"default,omitempty"`
 	// AWS defines AWS-specific settings
 	AWS AWS `json:"aws,omitempty"`
 	// Azure defines Azure-specific settings
