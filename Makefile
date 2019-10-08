@@ -46,11 +46,12 @@ RELEASE_OUT ?=
 TELEPORT_TAG = 3.2.14
 # TELEPORT_REPOTAG adapts TELEPORT_TAG to the teleport tagging scheme
 TELEPORT_REPOTAG := v$(TELEPORT_TAG)
-PLANET_TAG := 7.0.13-$(K8S_VER_SUFFIX)
+PLANET_TAG := 7.0.12-$(K8S_VER_SUFFIX)-2-g852d21c
 PLANET_BRANCH := $(PLANET_TAG)
 K8S_APP_TAG := $(GRAVITY_TAG)
 TELEKUBE_APP_TAG := $(GRAVITY_TAG)
 WORMHOLE_APP_TAG := $(GRAVITY_TAG)
+STORAGE_APP_TAG ?= 0.0.1
 LOGGING_APP_TAG ?= 6.0.2
 MONITORING_APP_TAG ?= 6.0.5
 DNS_APP_TAG = 0.3.1
@@ -82,6 +83,7 @@ PLANET_PKG := gravitational.io/planet:$(PLANET_TAG)
 WEB_ASSETS_PKG := gravitational.io/web-assets:$(GRAVITY_TAG)
 GRAVITY_PKG := gravitational.io/gravity:$(GRAVITY_TAG)
 DNS_APP_PKG := gravitational.io/dns-app:$(DNS_APP_TAG)
+STORAGE_APP_PKG := gravitational.io/storage-app:$(STORAGE_APP_TAG)
 MONITORING_APP_PKG := gravitational.io/monitoring-app:$(MONITORING_APP_TAG)
 LOGGING_APP_PKG := gravitational.io/logging-app:$(LOGGING_APP_TAG)
 SITE_APP_PKG := gravitational.io/site:$(GRAVITY_TAG)
@@ -127,6 +129,7 @@ TELEPORT_OUT := $(BUILDDIR)/$(TELEPORT_TARBALL)
 PLANET_OUT := $(PLANET_BINDIR)/planet.tar.gz
 LOGGING_APP_OUT := $(BUILDDIR)/logging-app-$(LOGGING_APP_TAG).tar.gz
 MONITORING_APP_OUT := $(BUILDDIR)/monitoring-app-$(MONITORING_APP_TAG).tar.gz
+STORAGE_APP_OUT := $(BUILDDIR)/storage-app-$(STORAGE_APP_TAG).tar.gz
 BANDWAGON_OUT := $(BUILDDIR)/bandwagon-$(BANDWAGON_TAG).tar.gz
 FIO_OUT := $(FIO_BUILDDIR)/fio
 #
@@ -296,6 +299,10 @@ monitoring-app: dev
 logging-app: dev
 	$(MAKE) -C build.assets logging-app
 
+.PHONY: storage-app
+storage-app: dev
+	$(MAKE) -C build.assets storage-app
+
 .PHONY: bandwagon-app
 bandwagon-app: dev
 	$(MAKE) -C build.assets bandwagon
@@ -379,6 +386,10 @@ packages:
 # Tiller server
 	- $(GRAVITY) app delete $(TILLER_APP_PKG) $(DELETE_OPTS) && \
 	  $(GRAVITY) app import $(TILLER_APP_OUT) $(VENDOR_OPTS)
+
+# Storage application
+	- $(GRAVITY) app delete $(STORAGE_APP_PKG) $(DELETE_OPTS) && \
+	  $(GRAVITY) app import $(STORAGE_APP_OUT) $(VENDOR_OPTS)
 
 # Monitoring - influxdb/grafana
 	- $(GRAVITY) app delete $(MONITORING_APP_PKG) $(DELETE_OPTS) && \

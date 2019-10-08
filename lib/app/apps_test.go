@@ -21,8 +21,8 @@ import (
 
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/pack"
+	"github.com/gravitational/gravity/lib/schema"
 
-	"github.com/gravitational/trace"
 	. "gopkg.in/check.v1"
 )
 
@@ -33,32 +33,38 @@ type AppUtilsSuite struct{}
 var _ = Suite(&AppUtilsSuite{})
 
 func (s *AppUtilsSuite) TestUpdatedDependencies(c *C) {
-	app1 := Application{
+	manifest, err := schema.ParseManifestYAMLNoValidate([]byte(appManifest))
+	c.Assert(err, IsNil)
+	app := Application{
 		Package: loc.MustParseLocator("repo/app:1.0.0"),
 		PackageEnvelope: pack.PackageEnvelope{
-			Manifest: []byte(app1Manifest),
+			Manifest: []byte(appManifest),
 		},
+		Manifest: *manifest,
 	}
-	app2 := Application{
+	updateManifest, err := schema.ParseManifestYAMLNoValidate([]byte(updateAppManifest))
+	c.Assert(err, IsNil)
+	updateApp := Application{
 		Package: loc.MustParseLocator("repo/app:2.0.0"),
 		PackageEnvelope: pack.PackageEnvelope{
-			Manifest: []byte(app2Manifest),
+			Manifest: []byte(updateAppManifest),
 		},
+		Manifest: *updateManifest,
 	}
 
-	updates, err := GetUpdatedDependencies(app1, app2)
+	updates, err := GetUpdatedDependencies(app, updateApp, *manifest, *updateManifest)
 	c.Assert(err, IsNil)
 	c.Assert(updates, DeepEquals, []loc.Locator{
 		loc.MustParseLocator("repo/dep-2:2.0.0"),
 		loc.MustParseLocator("repo/app:2.0.0"),
 	})
 
-	updates, err = GetUpdatedDependencies(app1, app1)
-	c.Assert(trace.IsNotFound(err), Equals, true)
+	updates, err = GetUpdatedDependencies(app, app, *manifest, *manifest)
+	c.Assert(err, IsNil)
 	c.Assert(updates, DeepEquals, []loc.Locator(nil))
 }
 
-const app1Manifest = `apiVersion: bundle.gravitational.io/v2
+const appManifest = `apiVersion: bundle.gravitational.io/v2
 kind: Bundle
 metadata:
   name: app
@@ -68,7 +74,7 @@ dependencies:
     - repo/dep-1:1.0.0
     - repo/dep-2:1.0.0`
 
-const app2Manifest = `apiVersion: bundle.gravitational.io/v2
+const updateAppManifest = `apiVersion: bundle.gravitational.io/v2
 kind: Bundle
 metadata:
   name: app

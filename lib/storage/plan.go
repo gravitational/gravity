@@ -114,6 +114,8 @@ type OperationPhaseData struct {
 	License []byte `json:"license,omitempty" yaml:"license,omitempty"`
 	// TrustedCluster is the resource data for a trusted cluster representing an Ops Center
 	TrustedCluster []byte `json:"trusted_cluster_resource,omitempty" yaml:"trusted_cluster_resource,omitempty"`
+	// Storage is the persistent storage resource configuration.
+	Storage []byte `json:"storage_resource,omitempty" yaml:"storage_resource,omitempty"`
 	// ServiceUser specifies the optional service user to use as a context
 	// for file operations
 	ServiceUser *OSUser `json:"service_user,omitempty" yaml:"service_user,omitempty"`
@@ -122,7 +124,7 @@ type OperationPhaseData struct {
 	// GarbageCollect specifies configuration specific to garbage collect operation
 	GarbageCollect *GarbageCollectOperationData `json:"garbage_collect,omitempty" yaml:"garbage_collect,omitempty"`
 	// Update specifies configuration specific to update operations
-	Update *UpdateOperationData `json:"update,omitempty" yaml:"garbage_collect,omitempty"`
+	Update *UpdateOperationData `json:"update,omitempty" yaml:"update,omitempty"`
 	// Install specifies configuration specific to install operation
 	Install *InstallOperationData `json:"install,omitempty" yaml:"install,omitempty"`
 }

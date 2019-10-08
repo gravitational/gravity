@@ -526,8 +526,61 @@ func (s *site) checkUpdateParameters(update *pack.PackageEnvelope, provisioner s
 			networkType, updateNetworkType)
 	}
 
-	if err = s.validateDockerConfig(*updateManifest); err != nil {
+	err = s.validateDockerConfig(*updateManifest)
+	if err != nil {
 		return trace.Wrap(err)
+	}
+
+	err = s.validateStorageConfig(*updateManifest)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	return nil
+}
+
+// validateStorageConfig makes sure that persistent storage configuration
+// in the new version is compatible with the old version.
+func (s *site) validateStorageConfig(updateManifest schema.Manifest) error {
+	installedEnabled := s.app.Manifest.OpenEBSEnabled()
+	updateEnabled := updateManifest.OpenEBSEnabled()
+
+	// OpenEBS wasn't enabled before, and isn't enabled in the new version,
+	// nothing to do.
+	if !installedEnabled && !updateEnabled {
+		return nil
+	}
+
+	// OpenEBS wasn't enabled before, but enabled in the new version, no
+	// specific checks are required.
+	if !installedEnabled && updateEnabled {
+		// TODO(r0mant): Check if OpenEBS was installed "out of band" and bail out?
+		return nil
+	}
+
+	// OpenEBS was enabled before, but disabled in the new version, we don't
+	// support uninstalling it at the moment.
+	if installedEnabled && !updateEnabled {
+		return trace.BadParameter(`The cluster has OpenEBS integration enabled but it's disabled in the version you're trying to upgrade to.
+Disabling OpenEBS integration for existing clusters is unsupported at the moment.`)
+	}
+
+	// TODO(r0mant): At the moment we do not support upgrading storage-app,
+	//               a proper upgrade procedure should be implemented first:
+	//               https://github.com/openebs/openebs/tree/master/k8s/upgrades.
+	installed, err := s.app.Manifest.Dependencies.ByName(defaults.StorageAppName)
+	if err != nil && !trace.IsNotFound(err) {
+		return trace.Wrap(err)
+	}
+	update, err := updateManifest.Dependencies.ByName(defaults.StorageAppName)
+	if err != nil && !trace.IsNotFound(err) {
+		return trace.Wrap(err)
+	}
+	// Technically, this error should never be seen by a user - it is mostly
+	// meant for us to make sure proper upgrade procedure is implemented before
+	// we release another version of storage-app.
+	if installed != nil && update != nil && installed.Version != update.Version {
+		return trace.BadParameter("Upgrading OpenEBS is unsupported at the moment.")
 	}
 
 	return nil

@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2018-2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -130,6 +130,7 @@ type Operator interface {
 	Identity
 	RuntimeEnvironment
 	ClusterConfiguration
+	PersistentStorage
 	Audit
 }
 
@@ -611,6 +612,22 @@ type ClusterConfiguration interface {
 	GetClusterConfiguration(SiteKey) (clusterconfig.Interface, error)
 	// UpdateClusterConfiguration updates the cluster configuration from the specified request
 	UpdateClusterConfiguration(UpdateClusterConfigRequest) error
+}
+
+// PersistentStorage provides access to persistent storage providers configurations.
+type PersistentStorage interface {
+	// GetPersistentStorage retrieves cluster persistent storage configuration.
+	GetPersistentStorage(context.Context, SiteKey) (storage.PersistentStorage, error)
+	// UpdatePersistentStorage updates cluster persistent storage configuration.
+	UpdatePersistentStorage(context.Context, UpdatePersistentStorageRequest) error
+}
+
+// UpdatePersistentStorageRequest is a request to update cluster persistent storage configuration.
+type UpdatePersistentStorageRequest struct {
+	// SiteKey identifies the cluster.
+	SiteKey
+	// Resource is the new persistent storage configuration resource.
+	Resource storage.PersistentStorage
 }
 
 // ClusterCertificate represents the cluster certificate

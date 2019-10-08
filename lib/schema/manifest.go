@@ -63,6 +63,8 @@ type Manifest struct {
 	NodeProfiles NodeProfiles `json:"nodeProfiles,omitempty"`
 	// Providers contains settings specific to different providers (e.g. cloud)
 	Providers *Providers `json:"providers,omitempty"`
+	// Storage configures persistent storage providers.
+	Storage *Storage `json:"storage,omitempty"`
 	// License allows to turn on/off license mode for the application
 	License *License `json:"license,omitempty"`
 	// Hooks contains application-defined hooks
@@ -369,6 +371,23 @@ func (m Manifest) DefaultProvider() string {
 	return ""
 }
 
+// FilterDependencies filters the provided list of application locators and
+// returns only those that are enabled based on the manifest settings.
+func (m Manifest) FilterDependencies(apps []loc.Locator) (result []loc.Locator) {
+	for _, app := range apps {
+		if !ShouldSkipApp(m, app) {
+			result = append(result, app)
+		}
+	}
+	return result
+}
+
+// SystemSettingsChanged returns true if system settings in this manifest
+// changed compared to the provided manifest.
+func (m Manifest) SystemSettingsChanged(other Manifest) bool {
+	return m.PrivilegedEnabled() != other.PrivilegedEnabled()
+}
+
 // FirstNodeProfile returns the first available node profile.
 func (m Manifest) FirstNodeProfile() (*NodeProfile, error) {
 	if len(m.NodeProfiles) == 0 {
@@ -384,6 +403,16 @@ func (m Manifest) FirstNodeProfileName() (string, error) {
 		return "", trace.Wrap(err)
 	}
 	return profile.Name, nil
+}
+
+// OpenEBSEnabled returns true if OpenEBS storage provider is enabled.
+func (m Manifest) OpenEBSEnabled() bool {
+	return m.Storage != nil && m.Storage.OpenEBS != nil && m.Storage.OpenEBS.Enabled
+}
+
+// PrivilegedEnabled returns true if privileged containers should be allowed.
+func (m Manifest) PrivilegedEnabled() bool {
+	return m.SystemOptions != nil && m.SystemOptions.AllowPrivileged || m.OpenEBSEnabled()
 }
 
 // Header is manifest header
@@ -897,6 +926,18 @@ type NodeProviderAWS struct {
 	InstanceTypes []string `json:"instanceTypes,omitempty"`
 }
 
+// Storage represents persistent storage configuration.
+type Storage struct {
+	// OpenEBS is the OpenEBS storage provider configuration.
+	OpenEBS *OpenEBS `json:"openebs,omitempty"`
+}
+
+// OpenEBS represents OpenEBS configuration.
+type OpenEBS struct {
+	// Enabled indicates whether OpenEBS is enabled.
+	Enabled bool `json:"enabled,omitempty"`
+}
+
 // Providers defines global provider-specific settings
 type Providers struct {
 	// Default specifies the default provider.
@@ -1208,6 +1249,9 @@ func ShouldSkipApp(manifest Manifest, app loc.Locator) bool {
 		if ext != nil && ext.Catalog != nil && ext.Catalog.Disabled {
 			return true
 		}
+	case defaults.StorageAppName:
+		// do not install storage-app if no storage providers are enabled
+		return !manifest.OpenEBSEnabled()
 	}
 	return false
 }

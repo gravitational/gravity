@@ -69,6 +69,8 @@ const (
 	KindRuntimeEnvironment = "runtimeenvironment"
 	// KindClusterConfiguration defines the resource that manages cluster configuration
 	KindClusterConfiguration = "clusterconfiguration"
+	// KindPersistentStorage is the resource for managing persistent storage in the cluster
+	KindPersistentStorage = "persistentstorage"
 	// KindRelease defines the application release resource type
 	KindRelease = "release"
 	// KindInvite defines the user invite token.
@@ -103,6 +105,8 @@ func CanonicalKind(kind string) string {
 		return KindRuntimeEnvironment
 	case KindClusterConfiguration, "config":
 		return KindClusterConfiguration
+	case KindPersistentStorage, "storage", "ps":
+		return KindPersistentStorage
 	case KindAuthGateway, "gw":
 		return KindAuthGateway
 	}
@@ -171,6 +175,7 @@ var SupportedGravityResources = []string{
 	KindAuthGateway,
 	KindRuntimeEnvironment,
 	KindClusterConfiguration,
+	KindPersistentStorage,
 }
 
 // SupportedGravityResourcesToRemove is a list of resources supported by

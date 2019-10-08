@@ -1011,7 +1011,7 @@ func (s *site) getPlanetConfig(config planetConfig) (args []string, err error) {
 		args = append(args, "--disable-flannel=true")
 	}
 
-	if manifest.SystemOptions != nil && manifest.SystemOptions.AllowPrivileged {
+	if manifest.PrivilegedEnabled() {
 		args = append(args, "--allow-privileged=true")
 	}
 

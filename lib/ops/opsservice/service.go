@@ -130,6 +130,9 @@ type Config struct {
 	// LogForwarders allows to manage log forwarders via Kubernetes config maps
 	LogForwarders LogForwardersControl
 
+	// OpenEBS provides access to managing OpenEBS in the cluster.
+	OpenEBS OpenEBSControl
+
 	// Client specifies an optional kubernetes client
 	Client *kubernetes.Clientset
 

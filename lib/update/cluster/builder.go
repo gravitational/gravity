@@ -221,6 +221,19 @@ func (r phaseBuilder) config(nodes []storage.Server) *update.Phase {
 	return &root
 }
 
+// openEBS returns phase that creates OpenEBS configuration in the cluster.
+func (r phaseBuilder) openEBS(leadMaster storage.UpdateServer) *update.Phase {
+	phase := update.RootPhase(update.Phase{
+		ID:          "openebs",
+		Executor:    openebs,
+		Description: "Create OpenEBS configuration",
+		Data: &storage.OperationPhaseData{
+			ExecServer: &leadMaster.Server,
+		},
+	})
+	return &phase
+}
+
 func (r phaseBuilder) runtime(updates []loc.Locator) *update.Phase {
 	root := update.RootPhase(update.Phase{
 		ID:          "runtime",

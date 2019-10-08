@@ -1230,8 +1230,15 @@ func (p *Process) initService(ctx context.Context) (err error) {
 	}
 
 	var logs opsservice.LogForwardersControl
+	var openebs opsservice.OpenEBSControl
 	if p.inKubernetes() {
 		logs = opsservice.NewLogForwardersControl(client)
+		openebs, err = opsservice.NewOpenEBSControl(opsservice.OpenEBSConfig{
+			Client: client,
+		})
+		if err != nil {
+			return trace.Wrap(err)
+		}
 	}
 
 	agentService := opsservice.NewAgentService(p.agentServer, peerStore,
@@ -1269,6 +1276,7 @@ func (p *Process) initService(ctx context.Context) (err error) {
 		PublicAddr:      p.cfg.Pack.GetPublicAddr(),
 		InstallLogFiles: p.cfg.InstallLogFiles,
 		LogForwarders:   logs,
+		OpenEBS:         openebs,
 		AuditLog:        authClient,
 	})
 	if err != nil {

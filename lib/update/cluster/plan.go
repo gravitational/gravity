@@ -331,20 +331,12 @@ func newOperationPlan(p planConfig) (*storage.OperationPlan, error) {
 	nodesPhase := *builder.nodes(p.leadMaster, nodes, supportsTaints).
 		Require(mastersPhase)
 
-	allRuntimeUpdates, err := app.GetUpdatedDependencies(p.installedRuntime, p.updateRuntime)
+	runtimeUpdates, err := app.GetUpdatedDependencies(p.installedRuntime, p.updateRuntime, p.installedApp.Manifest, p.updateApp.Manifest)
 	if err != nil && !trace.IsNotFound(err) {
 		return nil, trace.Wrap(err)
 	}
 
-	// some system apps may need to be skipped depending on the manifest settings
-	runtimeUpdates := allRuntimeUpdates[:0]
-	for _, locator := range allRuntimeUpdates {
-		if !schema.ShouldSkipApp(p.updateApp.Manifest, locator) {
-			runtimeUpdates = append(runtimeUpdates, locator)
-		}
-	}
-
-	appUpdates, err := app.GetUpdatedDependencies(p.installedApp, p.updateApp)
+	appUpdates, err := app.GetUpdatedDependencies(p.installedApp, p.updateApp, p.installedApp.Manifest, p.updateApp.Manifest)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -354,6 +346,9 @@ func newOperationPlan(p planConfig) (*storage.OperationPlan, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+
+	// check if we should enable OpenEBS integration
+	enableOpenEBS := !p.installedApp.Manifest.OpenEBSEnabled() && p.updateApp.Manifest.OpenEBSEnabled()
 
 	var root update.Phase
 	root.Add(initPhase, checksPhase, preUpdatePhase)
@@ -400,8 +395,17 @@ func newOperationPlan(p planConfig) (*storage.OperationPlan, error) {
 		// in case new configuration is incompatible, but *before* runtime
 		// phase so new gravity-sites can find it after they start
 		configPhase := *builder.config(serversToStorage(masters...)).Require(mastersPhase)
+		root.Add(configPhase)
+
+		// if OpenEBS has been just enabled, create its configuration before
+		// the runtime phase runs and installs it
+		if enableOpenEBS {
+			openEBSPhase := *builder.openEBS(p.leadMaster)
+			root.Add(openEBSPhase)
+		}
+
 		runtimePhase := *builder.runtime(runtimeUpdates).Require(mastersPhase)
-		root.Add(configPhase, runtimePhase)
+		root.Add(runtimePhase)
 	}
 
 	root.AddSequential(*builder.app(appUpdates), *builder.cleanup())
@@ -649,7 +653,7 @@ func systemNeedsUpdate(
 		"installed-teleport": installedTeleportPackage,
 		"update-teleport":    updateTeleportPackage,
 	}).Debug("Check if system packages need to be updated.")
-	return installedRuntimeVersion.LessThan(*updateRuntimeVersion),
+	return installedRuntimeVersion.LessThan(*updateRuntimeVersion) || update.SystemSettingsChanged(installed),
 		installedTeleportVersion.LessThan(*updateTeleportVersion), nil
 }
 
