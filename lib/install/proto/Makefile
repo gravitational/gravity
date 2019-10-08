@@ -6,4 +6,4 @@ deps = $(google_deps)
 all: $(IDL)
 	protoc -I=. -I=$$PROTO_INCLUDE \
 		$^ \
-		--gofast_out=plugins=grpc,$(deps):.
+		--gogo_out=plugins=grpc,$(deps):.
