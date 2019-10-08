@@ -46,8 +46,22 @@ func basicSystemInfo() Collectors {
 	return Collectors{
 		// networking
 		Cmd("iptables", "iptables-save"),
+		Cmd("route", "route", "-n"),
 		Cmd("ifconfig", "ifconfig", "-a"),
 		Cmd("ipaddr", "ip", "addr"),
+		Cmd("ip-addr", "ip", "-d", "addr", "show"),
+		Cmd("ip-route", "ip", "-d", "route", "show", "table", "all"),
+		Cmd("ip-link", "ip", "-d", "link", "show"),
+		Cmd("ip-neighbor", "ip", "-d", "neighbor", "show"),
+		Cmd("ip-rule", "ip", "-d", "rule", "show"),
+		Cmd("ip-ntable", "ip", "-d", "ntable", "show"),
+		Cmd("ip-maddress", "ip", "-d", "maddress", "show"),
+		Cmd("ip-xfrm-state", "ip", "-d", "xfrm", "state", "show"),
+		Cmd("ip-xfrm-policy", "ip", "-d", "xfrm", "policy", "show"),
+		Cmd("ip-tcp_metrics", "ip", "-d", "tcp_metrics", "show"),
+		Cmd("ip-netconf", "ip", "-d", "netconf", "show"),
+		Cmd("bridge-fdb", utils.PlanetCommandArgs("/sbin/bridge", "fdb", "show")...),
+		// disk
 		Cmd("lsblk", "lsblk"),
 		Cmd("fdisk", "fdisk", "-l"),
 		Cmd("dmsetup", "dmsetup", "info"),
