@@ -20,6 +20,7 @@ limitations under the License.
 //   * Gravity local key store.
 //   * Teleport local key store.
 //   * Bolt database backend.
+//   * Preconfigured set of credentials provided on the command line.
 package credentials
 
 import (
@@ -75,6 +76,18 @@ func credentialsFromEntry(entry users.LoginEntry) *Credentials {
 	}
 }
 
+// FromTokenAndHub creates new credentials from the provided token and address.
+func FromTokenAndHub(token, hub string) *Credentials {
+	url := utils.ParseOpsCenterAddress(hub, defaults.HTTPSPort)
+	return &Credentials{
+		URL: url,
+		Entry: users.LoginEntry{
+			Password:     token,
+			OpsCenterURL: url,
+		},
+	}
+}
+
 // credentialsFromProfile creates new credentials from the provided Teleport
 // profile and its corresponding TLS client configuration.
 func credentialsFromProfile(profile client.ClientProfile, tls *tls.Config) *Credentials {
@@ -93,6 +106,8 @@ type Config struct {
 	TeleportKeyStoreDir string
 	// Backend is the optional backend for login entries stored in database.
 	Backend storage.Backend
+	// Credentials is the preconfigured credentials entry.
+	Credentials *Credentials
 }
 
 // New creates a new credentials service with the provided config.
@@ -134,6 +149,13 @@ func (s *credentialsService) For(clusterURL string) (*Credentials, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	// If the preconfigured credentials are set, try to use them.
+	if s.Credentials != nil && utils.StringInSlice([]string{url.normalized, url.original}, s.Credentials.URL) {
+		if s.Credentials.Entry.Password != "" {
+			s.Debugf("Returning static credentials for %v.", s.Credentials.URL)
+			return s.Credentials, nil
+		}
+	}
 	// Search the local Gravity keystore first (~/.gravity/config).
 	localKeyStore, err := s.getLocalKeyStore()
 	if err != nil {
@@ -165,7 +187,28 @@ func (s *credentialsService) For(clusterURL string) (*Credentials, error) {
 		s.Debugf("Returning default credentials for %v.", clusterURL)
 		return defaultCredentials, nil
 	}
-	return nil, trace.NotFound("no credentials for %v", clusterURL)
+	return nil, newCredentialsNotFoundError("no credentials for %v", clusterURL)
+}
+
+// credentialsNotFoundError is returned if requested credentials weren't found.
+type credentialsNotFoundError struct {
+	message string
+}
+
+// newCredentialsNotFoundError returns a new instance of credentials not found error.
+func newCredentialsNotFoundError(format string, args ...interface{}) *credentialsNotFoundError {
+	return &credentialsNotFoundError{message: fmt.Sprintf(format, args...)}
+}
+
+// Error returns the error's message.
+func (e *credentialsNotFoundError) Error() string {
+	return e.message
+}
+
+// IsCredentialsNotFoundError returns true if the provided error is the credentials not found.
+func IsCredentialsNotFoundError(err error) bool {
+	_, ok := err.(*credentialsNotFoundError)
+	return ok
 }
 
 // Current returns the currently active user credentials.
@@ -208,6 +251,9 @@ func (s *credentialsService) getTeleportKeyStore() (*client.FSLocalKeyStore, err
 
 // currentCluster returns the currently active cluster.
 func (s *credentialsService) currentCluster() (string, error) {
+	if s.Credentials != nil {
+		return s.Credentials.URL, nil
+	}
 	localKeyStore, err := s.getLocalKeyStore()
 	if err != nil {
 		return "", trace.Wrap(err)

@@ -7,13 +7,14 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
+| 6.2.0         | No  | September 24th, 2019 | -                    | 1.16.0             | 3.2.12           |
 | 6.1.5         | No  | September 18th, 2019 | -                    | 1.15.4             | 3.2.12           |
 | 6.0.9         | No  | September 18th, 2019 | -                    | 1.14.7             | 3.2.12           |
 | 5.6.8         | No  | September 18th, 2019 | -                    | 1.14.7             | 3.0.6-gravity    |
-| 5.5.20        | Yes | September 18th, 2019 | September 7th, 2020  | 1.13.11            | 3.0.6-gravity    |
+| 5.5.21        | Yes | September 26th, 2019 | September 7th, 2020  | 1.13.11            | 3.0.6-gravity    |
 | 5.4.10*       | No  | March 26th, 2019     | -                    | 1.13.5             | 2.4.10           |
 | 5.3.9*        | No  | March 7th, 2019      | -                    | 1.12.3             | 2.4.7            |
-| 5.2.14        | Yes | July 30th, 2019      | October 15th, 2019   | 1.11.9             | 2.4.10           |
+| 5.2.15        | Yes | September 19th, 2019 | October 15th, 2019   | 1.11.9             | 2.4.10           |
 | 5.0.35        | Yes | September 2nd, 2019  | April 13th, 2019     | 1.9.13-gravitational | 2.4.10         |
 | 4.68.0*       | Yes | January 17th, 2019   | November 16th, 2018  | 1.7.18-gravitational | 2.3.5          |
 | 3.64.0*       | Yes | December 21st, 2017  | June 2nd, 2018       | 1.5.7              | 2.0.6            |
@@ -30,7 +31,18 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     Releases marked with `*` in the table above are no longer supported and
     do not receive updates and bugfixes.
 
+!!! note "Direct upgrades"
+    You can now upgrade existing 5.0.x clusters directly to 5.5.x.
+    See [Direct Upgrades From Older LTS Versions](/pack/#direct-upgrades-from-older-lts-versions) for details.
+
+
 ## 6.x Releases
+
+### 6.2.0 (September 24th, 2019)
+
+#### Improvements
+
+* Upgrade Kubernetes to `v1.16.0`.
 
 ### 6.1.5 (September 18th, 2019)
 
@@ -292,7 +304,33 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     This release fixes a security vulnerability in teleport. Please see
     [Teleport Announcement](https://github.com/gravitational/teleport/releases/tag/v4.0.5) for more information.
 
-### 5.5.20 (September 18th, 2019)
+### 5.5.21 LTS (September 26th, 2019)
+
+#### Improvements
+
+* Add support for direct upgrades of clusters based on Gravity 5.0.x ([#637](https://github.com/gravitational/gravity/pull/637)).
+* Update github.com/gravitational/monitoring-app to 5.5.3 ([#644](https://github.com/gravitational/gravity/pull/644)).
+  * Disable NodePort access to Kapacitor service.
+  * Randomly generate passwords for superuser, telegraf, heapster and grafana users in InfluxDB database during installation and upgrades.
+
+#### Bugfixes
+
+* Fix an issue with `gravity report` not capturing planet journal logs ([#684](https://github.com/gravitational/gravity/pull/684)).
+* Fix a package ordering issue in `tele build` ([#712](https://github.com/gravitational/gravity/pull/712)).
+* Fix an issue with the time drift checker ([#710](https://github.com/gravitational/gravity/pull/710)).
+
+### 5.2.15 LTS (September 19th, 2019)
+
+#### Improvements
+
+* Update github.com/gravitational/monitoring-app to 5.2.5 ([#642](https://github.com/gravitational/gravity/pull/642)).
+* Add support for intermediate upgrades ([#711](https://github.com/gravitational/gravity/pull/711), [#709](https://github.com/gravitational/gravity/pull/709), [#612](https://github.com/gravitational/gravity/pull/612)).
+
+#### Bugfixes
+
+* Improve OS metadata parsing in agents ([#721](https://github.com/gravitational/gravity/pull/721)).
+
+### 5.5.20 LTS (September 18th, 2019)
 
 #### Bugfixes
 
@@ -309,7 +347,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     This release fixes a security vulnerability in teleport. Please see
     [Teleport Announcement](https://github.com/gravitational/teleport/releases/tag/v4.0.5) for more information.
 
-### 5.5.19 (September 10th, 2019)
+### 5.5.19 LTS (September 10th, 2019)
 
 #### Improvements
 
@@ -664,8 +702,8 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 #### Improvements
 
-* Introduce `ClusterConfiguration` resource, see [Configuring Cluster](/cluster/#cluster-configuration) for details.
-* Introduce `RuntimeEnvironment` resource, see [Configuring Runtime Environment Variables](/cluster/#configuring-runtime-environment-variables) for details.
+* Introduce `ClusterConfiguration` resource, see [Configuring Cluster](/config/general-cluster-configuration) for details.
+* Introduce `RuntimeEnvironment` resource, see [Configuring Runtime Environment Variables](/config/#runtime-environment-variables) for details.
 * Update 'gravity plan' to support all cluster operations.
 
 ### 5.5.0-beta.2
@@ -725,7 +763,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 #### Improvements
 
-* Introduce `AuthGateway` resource. See [Configuring Authentication Gateway](/cluster/#configuring-cluster-authentication-gateway)
+* Introduce `AuthGateway` resource. See [Configuring Authentication Gateway](/config/#cluster-authentication-gateway)
 for details.
 * UX improvements to `tele` CLI.
 
@@ -1023,7 +1061,7 @@ for details.
 
 #### Improvements
 
-* Add support for recursive volume mounts. See [Application Manifest](/pack#sample-application-manifest) for details.
+* Add support for recursive volume mounts. See [Image Manifest](/pack#sample-application-manifest) for details.
 * Disable `DenyEscalatingExec` admission controller to meet conformance.
 
 ### 5.3.2
@@ -1211,7 +1249,7 @@ for more info.
 
 #### Improvements
 
-* Add support for SAML authentication connector. See [Configuring SAML Connector](/cluster/#configuring-saml-connector)
+* Add support for SAML authentication connector. See [Configuring SAML Connector](/config/#configuring-saml-connector)
 for information on how to configure authentication and authorization via a SAML
 provider.
 
@@ -1300,14 +1338,12 @@ is using domain/path components.
 * Add `skipIfMissing` for describing optional mounts.
 * Add ability to define custom preflight checks.
 
-See [Application Manifest Changes](/pack/#application-manifest-changes) for more details.
-
 ### 5.1.0-alpha.5
 
 #### Improvements
 
 * Add ability to mount host devices into the Gravity container. See
-[Application Manifest](/pack/#application-manifest) for more details.
+[Image Manifest](/pack/#image-manifest) for more details.
 
 ### 5.1.0-alpha.4
 
@@ -1392,7 +1428,7 @@ install/upgrade.
 
 #### Improvements
 
-* Add ability to resume install/update after failure. Check [Resuming](/cluster/#resuming) for details.
+* Add ability to resume install/update after failure. Check [Troubleshooting Automatic Upgrades](/cluster/#troubleshooting-automatic-upgrades) for details.
 * Improve error reporting during install and when viewing operation plan.
 
 #### Bugfixes
@@ -1561,7 +1597,7 @@ to invite users and reset user passwords from CLI.
 
 #### Improvements
 
-* Add support for trusted clusters, see [Configuring Trusted Clusters](/cluster/#configuring-trusted-clusters) for details.
+* Add support for trusted clusters, see [Configuring Trusted Clusters](/config/#trusted-clusters-enterprise) for details.
 * Improve application install resiliency by retrying on transient errors.
 * Improve resiliency when checking for hooks status.
 
@@ -1871,7 +1907,7 @@ transient error
 
 #### Improvements
 
-* Add support for TLS keypair configuration via resources. Read more [here](/cluster/#configuring-tls-key-pair).
+* Add support for TLS keypair configuration via resources. Read more [here](/config/#tls-key-pair).
 * Simplify Ops Center [post install configuration](/opscenter/#post-provisioning).
 
 #### Bugfixes
@@ -1899,7 +1935,7 @@ transient error
 
 #### Improvements
 
-* Add ability to provide additional command line arguments to etcd and kubelet via application manifest, see [Application Manifest](/pack/#application-manifest) for more details.
+* Add ability to provide additional command line arguments to etcd and kubelet via application manifest, see [Image Manifest](/pack/#image-manifest) for more details.
 
 ### 4.34.0
 
@@ -1964,7 +2000,7 @@ transient error
 
 #### Improvements
 
-* Introduce a redesigned manual upgrade procedure, see [Manual Upgrade Mode](/cluster/#manual-upgrade-mode).
+* Introduce a redesigned manual upgrade procedure, see [Manual Upgrade Mode](/cluster/#manual-upgrade).
 
 ### 4.21.0
 

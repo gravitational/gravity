@@ -55,7 +55,7 @@ resource "libvirt_volume" "tmp" {
 }
 
 # Use CloudInit to add our ssh-key to the instance
-resource "libvirt_cloudinit" "commoninit" {
+resource "libvirt_cloudinit_disk" "commoninit" {
   name           = "commoninit.iso"
   user_data = <<EOF
     #cloud-config
@@ -84,6 +84,28 @@ resource "libvirt_cloudinit" "commoninit" {
     - content: |
         fs.may_detach_mounts=1
       path: /etc/sysctl.d/10-fs-may-detach-mounts.conf
+    disk_setup:
+      /dev/vdb:
+        table_type: mbr
+        layout:
+          - 100
+        overwrite: true
+      /dev/vdc:
+        table_type: mbr
+        layout:
+          - 100
+        overwrite: true
+    fs_setup:
+      - device: /dev/vdb
+        partition: 1
+        filesystem: ext4
+      - device: /dev/vdc
+        partition: 1
+        filesystem: ext4
+    debug:
+      verbose: true
+    mounts:
+      - [ /dev/vdb1, /var/lib/gravity, ext4, "discard,noatime,nodiratime,nofail,x-systemd.requires=cloud-init.service", "0", "0"]
     runcmd:
     - 'modprobe overlay'
     - 'modprobe br_netfilter'
@@ -94,15 +116,7 @@ resource "libvirt_cloudinit" "commoninit" {
     - 'sysctl -p /etc/sysctl.d/10-br-netfilter.conf'
     - 'sysctl -p /etc/sysctl.d/10-ipv4-forwarding-on.conf'
     - 'sysctl -p /etc/sysctl.d/10-fs-may-detach-mounts.conf'
-    - 'parted -a opt /dev/vdb mktable msdos'
-    - 'parted -a opt /dev/vdb mkpart primary ext4 0% 100%'
-    - 'mkfs.ext4 -L GRAVITY /dev/vdb1'
-    - 'parted -a opt /dev/vdc mktable msdos'
-    - 'parted -a opt /dev/vdc mkpart primary ext4 0% 100%'
-    - 'mkfs.ext4 -L TMP /dev/vdc1'
-    - 'echo "/dev/vdb1 /var/lib/gravity ext4 discard,noatime,nodiratime 0 0" >> /etc/fstab'
     - 'echo "/dev/vdc1 /tmp ext4 discard,noatime,nodiratime 0 0" >> /etc/fstab'
-    - 'mkdir -p /var/lib/gravity'
     - 'mount -a'
     - 'chmod 777 /tmp'
     EOF
@@ -114,7 +128,7 @@ resource "libvirt_domain" "domain-gravity" {
   memory = "${var.memory_size}"
   vcpu = "${var.cpu_count}"
   count = 3
-  cloudinit = "${libvirt_cloudinit.commoninit.id}"
+  cloudinit = "${libvirt_cloudinit_disk.commoninit.id}"
 
   network_interface {
     hostname = "telekube${count.index}"

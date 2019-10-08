@@ -82,8 +82,10 @@ type Config struct {
 	NewSyncer NewSyncerFunc
 	// GetRepository is a function that returns package source repository
 	GetRepository GetRepositoryFunc
-	// Credentials provides access to user credentials
-	Credentials credentials.Service
+	// CredentialsService provides access to user credentials
+	CredentialsService credentials.Service
+	// Credentials is the credentials set on the CLI
+	Credentials *credentials.Credentials
 	// FieldLogger is used for logging
 	logrus.FieldLogger
 	// Progress allows builder to report build progress
@@ -127,9 +129,10 @@ func (c *Config) CheckAndSetDefaults() error {
 	if c.GetRepository == nil {
 		c.GetRepository = getRepository
 	}
-	if c.Credentials == nil {
-		c.Credentials, err = credentials.New(credentials.Config{
+	if c.CredentialsService == nil {
+		c.CredentialsService, err = credentials.New(credentials.Config{
 			LocalKeyStoreDir: c.StateDir,
+			Credentials:      c.Credentials,
 		})
 		if err != nil {
 			return trace.Wrap(err)
@@ -425,6 +428,7 @@ func (b *Builder) makeBuildEnv() (*localenv.LocalEnvironment, error) {
 			StateDir:         b.StateDir,
 			LocalKeyStoreDir: b.StateDir,
 			Insecure:         b.Insecure,
+			Credentials:      b.Credentials,
 		})
 	}
 	// otherwise use default locations for cache / key store
@@ -438,8 +442,9 @@ func (b *Builder) makeBuildEnv() (*localenv.LocalEnvironment, error) {
 	}
 	b.Infof("Using package cache from %v.", cacheDir)
 	return localenv.NewLocalEnvironment(localenv.LocalEnvironmentArgs{
-		StateDir: cacheDir,
-		Insecure: b.Insecure,
+		StateDir:    cacheDir,
+		Insecure:    b.Insecure,
+		Credentials: b.Credentials,
 	})
 }
 

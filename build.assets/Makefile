@@ -68,7 +68,7 @@ TELEKUBE_TSH_PKG := gravitational.io/tsh_$(OS)_$(ARCH):$(GRAVITY_TAG)
 
 # Version of tsh binary that gets published into distribution OpsCenter, may differ from
 # the one Gravity currently depends on
-TELEKUBE_TSH_TAG := v3.2.7
+TELEKUBE_TSH_TAG := v3.2.13
 
 # Extra flags that may be provided when publishing telekube artifacts (e.g. --insecure)
 TELEKUBE_PUBLISH_FLAGS ?=
@@ -627,5 +627,6 @@ buildbox:
 		--build-arg PROTOC_PLATFORM=$(PROTOC_PLATFORM) \
 		--build-arg GOGO_PROTO_TAG=$(GOGO_PROTO_TAG) \
 		--build-arg GRPC_GATEWAY_TAG=$(GRPC_GATEWAY_TAG) \
+		--build-arg GODEP_TAG=$(GODEP_TAG) \
 		--build-arg VERSION_TAG=$(VERSION_TAG) \
 		$(DOCKER_ARGS) --tag $(BBOX) .

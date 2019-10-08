@@ -36,8 +36,6 @@ type BuildParameters struct {
 	OutPath string
 	// Overwrite indicates whether or not to overwrite an existing installer file
 	Overwrite bool
-	// Repository represents the source package repository
-	Repository string
 	// SkipVersionCheck indicates whether or not to perform the version check of the tele binary with the application's runtime at build time
 	SkipVersionCheck bool
 	// Silent is whether builder should report progress to the console
@@ -47,7 +45,7 @@ type BuildParameters struct {
 }
 
 // build builds an installer tarball according to the provided parameters
-func build(ctx context.Context, params BuildParameters, req service.VendorRequest) (err error) {
+func build(ctx context.Context, params BuildParameters, req service.VendorRequest) error {
 	installerBuilder, err := builder.New(builder.Config{
 		Context:          ctx,
 		StateDir:         params.StateDir,
@@ -55,7 +53,6 @@ func build(ctx context.Context, params BuildParameters, req service.VendorReques
 		ManifestPath:     params.ManifestPath,
 		OutPath:          params.OutPath,
 		Overwrite:        params.Overwrite,
-		Repository:       params.Repository,
 		SkipVersionCheck: params.SkipVersionCheck,
 		VendorReq:        req,
 		Progress:         utils.NewProgress(ctx, "Build", 6, params.Silent),

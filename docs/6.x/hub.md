@@ -23,7 +23,7 @@ your own instance of Gravity Hub.
 ## Installing Gravity Hub
 
 In this section we'll cover how to install your own instance of Gravity Hub
-on your own infrastructure. The end result will be an autonomous Kubernetes 
+on your own infrastructure. The end result will be an autonomous Kubernetes
 cluster with Gravity Hub running inside.
 
 Gravity Hub itself is packaged and distributed as a Cluster Image, but you
@@ -61,7 +61,7 @@ as explained in the [Installation](/installation/) chapter.
 
 To establish trust between Gravity Hub and future Kubernetes clusters, a common
 shared hard-to-guess secret (token) must be generated first. Therefore, before
-installing Gravity Hub, a shared token needs to be generated. You may want to 
+installing Gravity Hub, a shared token needs to be generated. You may want to
 store it in an environment variable named `TOKEN` so it can be reused later:
 
 ```bash
@@ -85,7 +85,7 @@ $ ./gravity install --advertise-addr=10.1.1.5 \
 * `--token` is a security token for nodes to join to the cluster
 * `--cluster` is a unique cluster name, e.g. `hub.example.com`
 
-After `gravity install` from the example above completes, you'll have a single-node 
+After `gravity install` from the example above completes, you'll have a single-node
 Kubernetes cluster running with Gravity Hub inside.
 
 Next, let's apply some minimal configuration on it.
@@ -105,7 +105,7 @@ cloud account) or at the IP of the host.
 
 #### Setting up OIDC
 
-After installation [OIDC provider](/cluster/#configuring-a-cluster) should be
+After installation [OIDC provider](/config/#configuring-openid-connect) should be
 set up in order to log into Gravity Hub.
 
 ![Gravity OIDC Connector](/images/gravity-hub/gravity-hub-auth-connector.png)
@@ -113,7 +113,7 @@ set up in order to log into Gravity Hub.
 
 #### Setting up TLS Key Pair
 
-After installation, a valid [TLS key pair](/cluster/#configuring-tls-key-pair)
+After installation, a valid [TLS key pair](/config/#tls-key-pair)
 should be set up in order to log into Gravity Hub. Self-signed certificates are
 currently not supported.
 
@@ -235,10 +235,10 @@ gravity-public   LoadBalancer   10.100.20.71    <pending>     443:31792/TCP,3023
 gravity-agents   LoadBalancer   10.100.91.204   <pending>     4443:30873/TCP,3024:30185/TCP   8s
 ```
 
-## Upgrading 
+## Upgrading
 
 This section assumes that you have downloaded the newer version of Gravity Hub
-Cluster Image called `new-hub.tar`. Log into a root terminal on one of the servers 
+Cluster Image called `new-hub.tar`. Log into a root terminal on one of the servers
 running Gravity Hub and extract the tarball there:
 
 ```bsh
@@ -251,7 +251,7 @@ Start the upgrade procedure using `upgrade` script:
 $ ./upgrade
 ```
 
-Read more about upgrade procedure [here](/cluster/#performing-upgrade).
+Read more about upgrade procedure [here](/cluster/#performing-an-upgrade).
 
 !!! tip "Ports":
     Users who use an external load balancer may need to update their
@@ -273,11 +273,11 @@ Based on the Gravity Hub configuration, the login command will open the web brow
 
 ## Publishing Cluster Images
 
-Once logged into Gravity Hub, the commands below are used to manage the 
+Once logged into Gravity Hub, the commands below are used to manage the
 publishing process.
 
 Once a Cluster Image is built by `tele build`, it can be deployed and installed
-by publishing it into the Gravity Hub. 
+by publishing it into the Gravity Hub.
 
 ```bash
 # Use tele push to upload a Cluster Image to the Gravity Hub:
@@ -350,7 +350,7 @@ expressions in roles and user traits fetched from identity providers.
 #### Cluster RBAC Using Labels
 
 Sometimes it is necessary to limit users access to a subset of Clusters via
-Gravity Hub. For this, use Gravity Hub roles with `where` expressions in 
+Gravity Hub. For this, use Gravity Hub roles with `where` expressions in
 their rules:
 
 
@@ -431,7 +431,7 @@ with label `env:production`.
 
 ### SSH Into Nodes
 
-Users can use `tsh ssh` command to SSH into any node inside any remote Clusters. 
+Users can use `tsh ssh` command to SSH into any node inside any remote Clusters.
 For example:
 
 ```bsh

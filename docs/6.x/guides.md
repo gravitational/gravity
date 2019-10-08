@@ -11,7 +11,7 @@ We have created a number of workshops for Docker, Kubernetes and Gravity which c
 * [Kubernetes 101 workshop using Minikube and Mattermost](https://github.com/gravitational/workshop/blob/master/k8s101.md#kubernetes-101)
 * [Kubernetes production patterns](https://github.com/gravitational/workshop/blob/master/k8sprod.md#kubernetes-production-patterns)
 * [Gravity 101](https://github.com/gravitational/workshop/blob/master/gravity101.md#gravity-101)
-* [Gravity fire drill exercises](https://github.com/gravitational/workshop/blob/master/#gravity-fire-drill-exercises)
+* [Gravity fire drill exercises](https://github.com/gravitational/workshop/blob/master/firedrills.md)
 
 
 ## Blog posts

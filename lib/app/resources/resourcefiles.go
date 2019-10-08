@@ -422,6 +422,7 @@ func isKnownNonPodObject(object runtime.Object) bool {
 		*corev1.PersistentVolume,
 		*corev1.PersistentVolumeClaim,
 		*policyv1beta1.PodDisruptionBudget,
+		*policyv1beta1.PodSecurityPolicy,
 		*settingsv1alpha1.PodPreset,
 		*extensions.PodSecurityPolicy,
 		*corev1.ResourceQuota,
