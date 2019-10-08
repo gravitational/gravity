@@ -5,7 +5,7 @@ deps = $(google_deps),$(agent_deps)
 
 .PHONY: all
 all: $(IDL)
-	protoc -I=. -I=$$PROTO_INCLUDE \
+	protoc -I=. -I=$(PROTO_INCLUDE) \
 		-I=/gopath/src/github.com/gravitational/gravity/vendor/github.com/gravitational/satellite/agent/proto \
 		$^ \
-		--gofast_out=plugins=grpc,$(deps):. 
+		--gogo_out=plugins=grpc,$(deps):.

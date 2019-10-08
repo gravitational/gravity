@@ -4,6 +4,6 @@ deps = $(google_deps)
 
 .PHONY: all
 all: $(IDL)
-	protoc -I=. -I=$$PROTO_INCLUDE \
+	protoc -I=. -I=$(PROTO_INCLUDE) \
 		$^ \
-		--gofast_out=plugins=grpc,$(deps):. 
+		--gogo_out=plugins=grpc,$(deps):.
