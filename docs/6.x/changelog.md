@@ -11,7 +11,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 | 6.1.5         | No  | September 18th, 2019 | -                    | 1.15.4             | 3.2.12           |
 | 6.0.9         | No  | September 18th, 2019 | -                    | 1.14.7             | 3.2.12           |
 | 5.6.8         | No  | September 18th, 2019 | -                    | 1.14.7             | 3.0.6-gravity    |
-| 5.5.21        | Yes | September 26th, 2019 | September 7th, 2020  | 1.13.11            | 3.0.6-gravity    |
+| 5.5.22        | Yes | October 8th, 2019    | September 7th, 2020  | 1.13.11            | 3.0.6-gravity    |
 | 5.4.10*       | No  | March 26th, 2019     | -                    | 1.13.5             | 2.4.10           |
 | 5.3.9*        | No  | March 7th, 2019      | -                    | 1.12.3             | 2.4.7            |
 | 5.2.15        | Yes | September 19th, 2019 | October 15th, 2019   | 1.11.9             | 2.4.10           |
@@ -286,6 +286,14 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 * Add support for using `helm` directly from host.
 
 ## 5.x Releases
+
+### 5.5.22 LTS (October 8th, 2019)
+
+#### Bugfixes
+
+* Fix an issue with monitoring application upgrade from 5.2.
+* Fix an issue with CoreDNS sometimes missing upstream resolvers.
+* Fix an issue with incorrectly counting nodes when validating license.
 
 ### 5.6.8 (September 18th, 2019)
 
