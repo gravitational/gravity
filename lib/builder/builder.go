@@ -260,10 +260,7 @@ func (b *Builder) SyncPackageCache(ctx context.Context, runtimeVersion semver.Ve
 	for _, runtimeVersion := range append([]semver.Version{runtimeVersion}, intermediateVersions...) {
 		b.NextStep("Syncing packages for %v", runtimeVersion)
 		if err := b.syncPackageCache(ctx, runtimeVersion, syncer, apps); err != nil {
-			if trace.IsNotFound(err) {
-				return trace.NotFound("runtime version %v not found", runtimeVersion)
-			}
-			return trace.Wrap(err)
+			return trace.Wrap(err, "failed to sync packages for runtime version %v", runtimeVersion)
 		}
 	}
 	return nil
@@ -495,12 +492,10 @@ There are a few ways to resolve the issue:
 
 // appForRuntime builds an application object with the specified runtime version
 // as the base to be able to collect dependencies of the specified base application.
-// TODO(dmitri): there should be a better way to describe the application referred
-// to with runtimeVersion
 func (b *Builder) appForRuntime(runtimeVersion semver.Version) libapp.Application {
 	return libapp.Application{
 		Package:  b.Locator(),
-		Manifest: b.Manifest.WithBase(loc.Runtime.WithVersion(&runtimeVersion)),
+		Manifest: b.Manifest.WithBase(loc.Runtime.WithVersion(runtimeVersion)),
 	}
 }
 
@@ -513,12 +508,13 @@ func (b *Builder) collectUpgradeDependencies() (result *libapp.Dependencies, err
 		return nil, trace.Wrap(err)
 	}
 	result = &libapp.Dependencies{}
-	for _, version := range b.UpgradeVia {
+	for _, runtimeVersion := range b.UpgradeVia {
+		app, err := apps.GetApp(loc.Runtime.WithVersion(runtimeVersion))
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
 		req := libapp.GetDependenciesRequest{
-			App: libapp.Application{
-				Manifest: b.Manifest.WithBase(loc.Runtime.WithVersion(&version)),
-				Package:  b.Manifest.Locator(),
-			},
+			App:  *app,
 			Apps: apps,
 			Pack: b.Env.Packages,
 		}
@@ -526,7 +522,7 @@ func (b *Builder) collectUpgradeDependencies() (result *libapp.Dependencies, err
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
-		addUpgradeVersionLabel(dependencies, version.String())
+		addUpgradeVersionLabel(dependencies, runtimeVersion.String())
 		result.Packages = append(result.Packages, filterUpgradePackageDependencies(dependencies.Packages)...)
 		result.Apps = append(result.Apps, dependencies.Apps...)
 	}
