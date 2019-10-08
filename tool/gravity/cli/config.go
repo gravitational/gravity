@@ -278,11 +278,6 @@ func (i *InstallConfig) CheckAndSetDefaults() (err error) {
 	if i.VxlanPort < 1 || i.VxlanPort > 65535 {
 		return trace.BadParameter("invalid vxlan port: must be in range 1-65535")
 	}
-	if !i.Remote {
-		if err := i.validateCloudConfig(); err != nil {
-			return trace.Wrap(err)
-		}
-	}
 	if !utils.StringInSlice(modules.Get().InstallModes(), i.Mode) {
 		return trace.BadParameter("invalid mode %q", i.Mode)
 	}
@@ -353,6 +348,11 @@ func (i *InstallConfig) NewInstallerConfig(
 	i.Role, err = validateRole(i.Role, *flavor, app.Manifest.NodeProfiles, i.FieldLogger)
 	if err != nil {
 		return nil, trace.Wrap(err)
+	}
+	if !i.Remote {
+		if err := i.validateCloudConfig(app.Manifest); err != nil {
+			return nil, trace.Wrap(err)
+		}
 	}
 	token, err := generateInstallToken(wizard.Operator, i.Token)
 	if err != nil && !trace.IsAlreadyExists(err) {
@@ -563,8 +563,8 @@ func (i *InstallConfig) validateDNSConfig() error {
 	return nil
 }
 
-func (i *InstallConfig) validateCloudConfig() (err error) {
-	i.CloudProvider, err = validateOrDetectCloudProvider(i.CloudProvider)
+func (i *InstallConfig) validateCloudConfig(manifest schema.Manifest) (err error) {
+	i.CloudProvider, err = i.validateOrDetectCloudProvider(i.CloudProvider, manifest)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -671,7 +671,6 @@ func NewJoinConfig(g *Application) JoinConfig {
 		SystemDevice:  *g.JoinCmd.SystemDevice,
 		DockerDevice:  *g.JoinCmd.DockerDevice,
 		Mounts:        *g.JoinCmd.Mounts,
-		CloudProvider: *g.JoinCmd.CloudProvider,
 		OperationID:   *g.JoinCmd.OperationID,
 		FromService:   *g.JoinCmd.FromService,
 	}
@@ -679,10 +678,6 @@ func NewJoinConfig(g *Application) JoinConfig {
 
 // CheckAndSetDefaults validates the configuration and sets default values
 func (j *JoinConfig) CheckAndSetDefaults() (err error) {
-	j.CloudProvider, err = validateOrDetectCloudProvider(j.CloudProvider)
-	if err != nil {
-		return trace.Wrap(err)
-	}
 	if j.AdvertiseAddr == "" {
 		j.AdvertiseAddr, err = selectAdvertiseAddr()
 		if err != nil {
@@ -701,16 +696,11 @@ func (j *JoinConfig) NewPeerConfig(env, joinEnv *localenv.LocalEnvironment) (con
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	runtimeConfig, err := j.GetRuntimeConfig()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
 	return &expand.PeerConfig{
 		Peers:              peers,
 		AdvertiseAddr:      j.AdvertiseAddr,
 		ServerAddr:         j.ServerAddr,
-		CloudProvider:      j.CloudProvider,
-		RuntimeConfig:      *runtimeConfig,
+		RuntimeConfig:      j.GetRuntimeConfig(),
 		DebugMode:          env.Debug,
 		Insecure:           env.Insecure,
 		LocalBackend:       env.Backend,
@@ -736,19 +726,14 @@ func (j *JoinConfig) GetPeers() ([]string, error) {
 }
 
 // GetRuntimeConfig returns the RPC agent runtime configuration
-func (j *JoinConfig) GetRuntimeConfig() (*proto.RuntimeConfig, error) {
-	config := &proto.RuntimeConfig{
+func (j *JoinConfig) GetRuntimeConfig() proto.RuntimeConfig {
+	return proto.RuntimeConfig{
 		Token:        j.Token,
 		Role:         j.Role,
 		SystemDevice: j.SystemDevice,
 		DockerDevice: j.DockerDevice,
 		Mounts:       convertMounts(j.Mounts),
 	}
-	err := install.FetchCloudMetadata(j.CloudProvider, config)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return config, nil
 }
 
 func (r *removeConfig) checkAndSetDefaults() error {
@@ -851,9 +836,8 @@ func (r *agentConfig) checkAndSetDefaults() (err error) {
 	if r.token == "" {
 		return trace.BadParameter("token is required")
 	}
-	r.cloudProvider, err = validateOrDetectCloudProvider(r.cloudProvider)
-	if err != nil {
-		return trace.Wrap(err)
+	if r.cloudProvider == "" {
+		return trace.BadParameter("cloud provider is required")
 	}
 	if r.serviceName != "" {
 		r.serviceName = systemservice.FullServiceName(r.serviceName)
@@ -1140,7 +1124,17 @@ func selectAdvertiseAddr() (string, error) {
 
 // validateOrDetectCloudProvider validates the value of the specified cloud provider.
 // If no cloud provider has been specified, the provider is autodetected.
-func validateOrDetectCloudProvider(cloudProvider string) (provider string, err error) {
+func (i *InstallConfig) validateOrDetectCloudProvider(cloudProvider string, manifest schema.Manifest) (provider string, err error) {
+	// If cloud provider wasn't explicitly specified on the CLI, see if there
+	// is a default one specified in the manifest.
+	if cloudProvider != "" {
+		log.Infof("Will use provider %q specified on the CLI.", cloudProvider)
+	} else {
+		cloudProvider = manifest.DefaultProvider()
+		if cloudProvider != "" {
+			log.Infof("Will use default provider %q from manifest.", cloudProvider)
+		}
+	}
 	switch cloudProvider {
 	case schema.ProviderAWS, schema.ProvisionerAWSTerraform:
 		if !awscloud.IsRunningOnAWS() {
@@ -1159,6 +1153,7 @@ func validateOrDetectCloudProvider(cloudProvider string) (provider string, err e
 	case ops.ProviderGeneric, schema.ProvisionerOnPrem:
 		return schema.ProviderOnPrem, nil
 	case "":
+		log.Info("Will auto-detect provider.")
 		// Detect cloud provider
 		if awscloud.IsRunningOnAWS() {
 			log.Info("Detected AWS cloud provider.")
@@ -1168,7 +1163,7 @@ func validateOrDetectCloudProvider(cloudProvider string) (provider string, err e
 			log.Info("Detected GCE cloud provider.")
 			return schema.ProviderGCE, nil
 		}
-		log.Info("Detected onprem installation.")
+		log.Info("No cloud provider detected, will use generic.")
 		return schema.ProviderOnPrem, nil
 	default:
 		return "", trace.BadParameter("unsupported cloud provider %q, "+
