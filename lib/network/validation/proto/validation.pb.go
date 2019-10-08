@@ -6,11 +6,12 @@ package proto
 import (
 	context "context"
 	fmt "fmt"
+	proto "github.com/gogo/protobuf/proto"
 	types "github.com/gogo/protobuf/types"
-	proto "github.com/golang/protobuf/proto"
 	agentpb "github.com/gravitational/satellite/agent/proto/agentpb"
 	grpc "google.golang.org/grpc"
-	io "io"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	math "math"
 )
 
@@ -23,7 +24,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
 // CheckPortsRequest describes a ports network test request
 type CheckPortsRequest struct {
@@ -45,25 +46,16 @@ func (*CheckPortsRequest) Descriptor() ([]byte, []int) {
 	return fileDescriptor_bfc2ab0b60b7792f, []int{0}
 }
 func (m *CheckPortsRequest) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
+	return xxx_messageInfo_CheckPortsRequest.Unmarshal(m, b)
 }
 func (m *CheckPortsRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_CheckPortsRequest.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
+	return xxx_messageInfo_CheckPortsRequest.Marshal(b, m, deterministic)
 }
 func (m *CheckPortsRequest) XXX_Merge(src proto.Message) {
 	xxx_messageInfo_CheckPortsRequest.Merge(m, src)
 }
 func (m *CheckPortsRequest) XXX_Size() int {
-	return m.Size()
+	return xxx_messageInfo_CheckPortsRequest.Size(m)
 }
 func (m *CheckPortsRequest) XXX_DiscardUnknown() {
 	xxx_messageInfo_CheckPortsRequest.DiscardUnknown(m)
@@ -110,25 +102,16 @@ func (*CheckPortsResponse) Descriptor() ([]byte, []int) {
 	return fileDescriptor_bfc2ab0b60b7792f, []int{1}
 }
 func (m *CheckPortsResponse) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
+	return xxx_messageInfo_CheckPortsResponse.Unmarshal(m, b)
 }
 func (m *CheckPortsResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_CheckPortsResponse.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
+	return xxx_messageInfo_CheckPortsResponse.Marshal(b, m, deterministic)
 }
 func (m *CheckPortsResponse) XXX_Merge(src proto.Message) {
 	xxx_messageInfo_CheckPortsResponse.Merge(m, src)
 }
 func (m *CheckPortsResponse) XXX_Size() int {
-	return m.Size()
+	return xxx_messageInfo_CheckPortsResponse.Size(m)
 }
 func (m *CheckPortsResponse) XXX_DiscardUnknown() {
 	xxx_messageInfo_CheckPortsResponse.DiscardUnknown(m)
@@ -170,25 +153,16 @@ func (*CheckBandwidthRequest) Descriptor() ([]byte, []int) {
 	return fileDescriptor_bfc2ab0b60b7792f, []int{2}
 }
 func (m *CheckBandwidthRequest) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
+	return xxx_messageInfo_CheckBandwidthRequest.Unmarshal(m, b)
 }
 func (m *CheckBandwidthRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_CheckBandwidthRequest.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
+	return xxx_messageInfo_CheckBandwidthRequest.Marshal(b, m, deterministic)
 }
 func (m *CheckBandwidthRequest) XXX_Merge(src proto.Message) {
 	xxx_messageInfo_CheckBandwidthRequest.Merge(m, src)
 }
 func (m *CheckBandwidthRequest) XXX_Size() int {
-	return m.Size()
+	return xxx_messageInfo_CheckBandwidthRequest.Size(m)
 }
 func (m *CheckBandwidthRequest) XXX_DiscardUnknown() {
 	xxx_messageInfo_CheckBandwidthRequest.DiscardUnknown(m)
@@ -233,25 +207,16 @@ func (*CheckBandwidthResponse) Descriptor() ([]byte, []int) {
 	return fileDescriptor_bfc2ab0b60b7792f, []int{3}
 }
 func (m *CheckBandwidthResponse) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
+	return xxx_messageInfo_CheckBandwidthResponse.Unmarshal(m, b)
 }
 func (m *CheckBandwidthResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_CheckBandwidthResponse.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
+	return xxx_messageInfo_CheckBandwidthResponse.Marshal(b, m, deterministic)
 }
 func (m *CheckBandwidthResponse) XXX_Merge(src proto.Message) {
 	xxx_messageInfo_CheckBandwidthResponse.Merge(m, src)
 }
 func (m *CheckBandwidthResponse) XXX_Size() int {
-	return m.Size()
+	return xxx_messageInfo_CheckBandwidthResponse.Size(m)
 }
 func (m *CheckBandwidthResponse) XXX_DiscardUnknown() {
 	xxx_messageInfo_CheckBandwidthResponse.DiscardUnknown(m)
@@ -286,25 +251,16 @@ func (*ServerResult) Descriptor() ([]byte, []int) {
 	return fileDescriptor_bfc2ab0b60b7792f, []int{4}
 }
 func (m *ServerResult) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
+	return xxx_messageInfo_ServerResult.Unmarshal(m, b)
 }
 func (m *ServerResult) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_ServerResult.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
+	return xxx_messageInfo_ServerResult.Marshal(b, m, deterministic)
 }
 func (m *ServerResult) XXX_Merge(src proto.Message) {
 	xxx_messageInfo_ServerResult.Merge(m, src)
 }
 func (m *ServerResult) XXX_Size() int {
-	return m.Size()
+	return xxx_messageInfo_ServerResult.Size(m)
 }
 func (m *ServerResult) XXX_DiscardUnknown() {
 	xxx_messageInfo_ServerResult.DiscardUnknown(m)
@@ -351,25 +307,16 @@ func (*Addr) Descriptor() ([]byte, []int) {
 	return fileDescriptor_bfc2ab0b60b7792f, []int{5}
 }
 func (m *Addr) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
+	return xxx_messageInfo_Addr.Unmarshal(m, b)
 }
 func (m *Addr) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_Addr.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
+	return xxx_messageInfo_Addr.Marshal(b, m, deterministic)
 }
 func (m *Addr) XXX_Merge(src proto.Message) {
 	xxx_messageInfo_Addr.Merge(m, src)
 }
 func (m *Addr) XXX_Size() int {
-	return m.Size()
+	return xxx_messageInfo_Addr.Size(m)
 }
 func (m *Addr) XXX_DiscardUnknown() {
 	xxx_messageInfo_Addr.DiscardUnknown(m)
@@ -418,25 +365,16 @@ func (*ValidateRequest) Descriptor() ([]byte, []int) {
 	return fileDescriptor_bfc2ab0b60b7792f, []int{6}
 }
 func (m *ValidateRequest) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
+	return xxx_messageInfo_ValidateRequest.Unmarshal(m, b)
 }
 func (m *ValidateRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_ValidateRequest.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
+	return xxx_messageInfo_ValidateRequest.Marshal(b, m, deterministic)
 }
 func (m *ValidateRequest) XXX_Merge(src proto.Message) {
 	xxx_messageInfo_ValidateRequest.Merge(m, src)
 }
 func (m *ValidateRequest) XXX_Size() int {
-	return m.Size()
+	return xxx_messageInfo_ValidateRequest.Size(m)
 }
 func (m *ValidateRequest) XXX_DiscardUnknown() {
 	xxx_messageInfo_ValidateRequest.DiscardUnknown(m)
@@ -495,25 +433,16 @@ func (*ValidateResponse) Descriptor() ([]byte, []int) {
 	return fileDescriptor_bfc2ab0b60b7792f, []int{7}
 }
 func (m *ValidateResponse) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
+	return xxx_messageInfo_ValidateResponse.Unmarshal(m, b)
 }
 func (m *ValidateResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_ValidateResponse.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
+	return xxx_messageInfo_ValidateResponse.Marshal(b, m, deterministic)
 }
 func (m *ValidateResponse) XXX_Merge(src proto.Message) {
 	xxx_messageInfo_ValidateResponse.Merge(m, src)
 }
 func (m *ValidateResponse) XXX_Size() int {
-	return m.Size()
+	return xxx_messageInfo_ValidateResponse.Size(m)
 }
 func (m *ValidateResponse) XXX_DiscardUnknown() {
 	xxx_messageInfo_ValidateResponse.DiscardUnknown(m)
@@ -548,25 +477,16 @@ func (*ValidateOptions) Descriptor() ([]byte, []int) {
 	return fileDescriptor_bfc2ab0b60b7792f, []int{8}
 }
 func (m *ValidateOptions) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
+	return xxx_messageInfo_ValidateOptions.Unmarshal(m, b)
 }
 func (m *ValidateOptions) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_ValidateOptions.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
+	return xxx_messageInfo_ValidateOptions.Marshal(b, m, deterministic)
 }
 func (m *ValidateOptions) XXX_Merge(src proto.Message) {
 	xxx_messageInfo_ValidateOptions.Merge(m, src)
 }
 func (m *ValidateOptions) XXX_Size() int {
-	return m.Size()
+	return xxx_messageInfo_ValidateOptions.Size(m)
 }
 func (m *ValidateOptions) XXX_DiscardUnknown() {
 	xxx_messageInfo_ValidateOptions.DiscardUnknown(m)
@@ -611,25 +531,16 @@ func (*Docker) Descriptor() ([]byte, []int) {
 	return fileDescriptor_bfc2ab0b60b7792f, []int{9}
 }
 func (m *Docker) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
+	return xxx_messageInfo_Docker.Unmarshal(m, b)
 }
 func (m *Docker) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_Docker.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
+	return xxx_messageInfo_Docker.Marshal(b, m, deterministic)
 }
 func (m *Docker) XXX_Merge(src proto.Message) {
 	xxx_messageInfo_Docker.Merge(m, src)
 }
 func (m *Docker) XXX_Size() int {
-	return m.Size()
+	return xxx_messageInfo_Docker.Size(m)
 }
 func (m *Docker) XXX_DiscardUnknown() {
 	xxx_messageInfo_Docker.DiscardUnknown(m)
@@ -660,46 +571,45 @@ func init() {
 func init() { proto.RegisterFile("validation.proto", fileDescriptor_bfc2ab0b60b7792f) }
 
 var fileDescriptor_bfc2ab0b60b7792f = []byte{
-	// 620 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xbc, 0x54, 0xcd, 0x6e, 0x13, 0x31,
-	0x10, 0x66, 0xdb, 0x24, 0xcd, 0x4e, 0x7f, 0x48, 0x5d, 0x28, 0xdb, 0xd0, 0x86, 0x68, 0x51, 0x21,
-	0x52, 0xa5, 0x0d, 0x0a, 0x3f, 0x07, 0x38, 0xb5, 0xe4, 0x8a, 0xa8, 0x8c, 0xd4, 0x1b, 0x8a, 0x36,
-	0xb1, 0x93, 0x2c, 0xd9, 0xda, 0x5b, 0xdb, 0x9b, 0xf2, 0x18, 0x1c, 0x38, 0xf0, 0x48, 0x5c, 0x90,
-	0xb8, 0x73, 0x41, 0xe1, 0x45, 0x90, 0xbd, 0xde, 0xfc, 0x73, 0xe5, 0xb4, 0x9e, 0x99, 0x6f, 0xc6,
-	0xdf, 0x7c, 0xe3, 0x59, 0xa8, 0x8c, 0xc3, 0x38, 0x22, 0xa1, 0x8a, 0x38, 0x0b, 0x12, 0xc1, 0x15,
-	0x47, 0x45, 0xf3, 0xa9, 0xd6, 0x06, 0x9c, 0x0f, 0x62, 0xda, 0x34, 0x56, 0x37, 0xed, 0x37, 0x49,
-	0x2a, 0xe6, 0x60, 0xd5, 0x83, 0x70, 0x40, 0x99, 0x4a, 0xba, 0x4d, 0xf3, 0xcd, 0x9c, 0xfe, 0x17,
-	0x07, 0xf6, 0xdf, 0x0e, 0x69, 0x6f, 0x74, 0xc9, 0x85, 0x92, 0x98, 0xde, 0xa4, 0x54, 0x2a, 0xf4,
-	0x18, 0x4a, 0x71, 0x24, 0x15, 0x65, 0x9e, 0x53, 0xdf, 0x6c, 0x6c, 0xb7, 0xb6, 0x33, 0x74, 0x70,
-	0x4e, 0x88, 0xc0, 0x36, 0x84, 0x1e, 0x41, 0x21, 0x89, 0xd8, 0xc0, 0xdb, 0x58, 0x85, 0x98, 0x00,
-	0x7a, 0x09, 0xe5, 0x9c, 0x82, 0xb7, 0x59, 0x77, 0x1a, 0xdb, 0xad, 0xa3, 0x20, 0xe3, 0x18, 0xe4,
-	0x1c, 0x83, 0xb6, 0x05, 0xe0, 0x29, 0xd4, 0xff, 0x04, 0x68, 0x9e, 0x91, 0x4c, 0x38, 0x93, 0x14,
-	0x9d, 0x2d, 0x51, 0x3a, 0xb0, 0xf7, 0x7d, 0xa0, 0x62, 0x4c, 0x05, 0xa6, 0x32, 0x8d, 0xd5, 0x94,
-	0xda, 0xd3, 0x05, 0x6a, 0x6b, 0xa1, 0x06, 0xe0, 0x7f, 0x75, 0xe0, 0xbe, 0xb9, 0xec, 0x22, 0x64,
-	0xe4, 0x36, 0x22, 0x6a, 0xb8, 0x4e, 0x02, 0xe7, 0x7f, 0x4b, 0xf0, 0x0a, 0x0e, 0x97, 0x59, 0x59,
-	0x19, 0x8e, 0xc1, 0xed, 0xe6, 0x4e, 0xc3, 0xac, 0x80, 0x67, 0x0e, 0xff, 0x23, 0xec, 0xcc, 0x37,
-	0x89, 0x10, 0x14, 0x7a, 0x9c, 0x50, 0x03, 0x2c, 0x62, 0x73, 0x46, 0xf7, 0xa0, 0x48, 0x85, 0xe0,
-	0xc2, 0xdb, 0xa8, 0x3b, 0x0d, 0x17, 0x67, 0x86, 0x6e, 0x57, 0x9a, 0x4c, 0x4b, 0x73, 0xb1, 0xdd,
-	0x2c, 0xe4, 0xbf, 0x80, 0x82, 0xb6, 0x91, 0x07, 0x5b, 0x8c, 0xaa, 0x5b, 0x2e, 0x46, 0xa6, 0xb2,
-	0x8b, 0x73, 0x53, 0x5f, 0x18, 0x12, 0x92, 0xd7, 0x36, 0x67, 0xff, 0x87, 0x03, 0x77, 0xaf, 0xb2,
-	0x37, 0x4b, 0x73, 0x75, 0xab, 0x50, 0xbe, 0x0e, 0x59, 0xd4, 0xa7, 0x52, 0x99, 0x12, 0x3b, 0x78,
-	0x6a, 0xeb, 0xea, 0x89, 0xe0, 0xfd, 0x28, 0xa6, 0xb6, 0x4c, 0x6e, 0xa2, 0x33, 0xd8, 0xef, 0xa7,
-	0x71, 0xdc, 0x11, 0xf4, 0x26, 0x8d, 0x04, 0xbd, 0xa6, 0x4c, 0x49, 0xc3, 0xb7, 0x8c, 0x2b, 0x3a,
-	0x80, 0xe7, 0xfc, 0xe8, 0x19, 0x6c, 0xf1, 0x44, 0xab, 0x29, 0xbd, 0x82, 0x69, 0xe9, 0xd0, 0xb6,
-	0x94, 0x73, 0x79, 0x9f, 0x45, 0x71, 0x0e, 0x43, 0xa7, 0x50, 0x22, 0xbc, 0x37, 0xa2, 0xc2, 0x2b,
-	0x9a, 0x84, 0x5d, 0x9b, 0xd0, 0x36, 0x4e, 0x6c, 0x83, 0xfe, 0x6b, 0xa8, 0xcc, 0xda, 0xb1, 0x63,
-	0x79, 0x02, 0xa5, 0x7e, 0x18, 0xc5, 0x94, 0xd8, 0xd7, 0xb9, 0x17, 0xd8, 0x65, 0x0b, 0x2e, 0x05,
-	0xef, 0x52, 0x6c, 0xa3, 0xfe, 0x70, 0x26, 0x85, 0xbd, 0x1e, 0x9d, 0x00, 0x8c, 0x3f, 0xc7, 0x21,
-	0xeb, 0x24, 0x5c, 0x28, 0x3b, 0x29, 0xd7, 0x78, 0xf4, 0x02, 0xa0, 0x87, 0xe0, 0x12, 0x26, 0x3b,
-	0x5a, 0x49, 0x69, 0xde, 0x99, 0x8b, 0xcb, 0x84, 0x49, 0x3d, 0x07, 0x89, 0x8e, 0x40, 0x9f, 0xb3,
-	0xcc, 0x4d, 0x93, 0xb9, 0x45, 0x98, 0xd4, 0x79, 0x7e, 0x13, 0x4a, 0x19, 0x6f, 0x74, 0x0a, 0x7b,
-	0x52, 0x71, 0x11, 0x0e, 0x68, 0x87, 0x88, 0x48, 0x8f, 0x38, 0x1b, 0xda, 0xae, 0xf5, 0xb6, 0x8d,
-	0xb3, 0xf5, 0xcb, 0x01, 0xb8, 0x9a, 0xfe, 0x5a, 0xd0, 0x39, 0xc0, 0x6c, 0x0b, 0x91, 0x67, 0xa5,
-	0x58, 0xf9, 0x55, 0x54, 0x8f, 0xd6, 0x44, 0xac, 0x28, 0xef, 0x60, 0x6f, 0xf1, 0x15, 0xa3, 0xe3,
-	0x79, 0xf0, 0xf2, 0xca, 0x55, 0x4f, 0xfe, 0x11, 0xb5, 0xe5, 0xde, 0x40, 0x39, 0xd7, 0x0e, 0x2d,
-	0xcf, 0x32, 0x2f, 0xf1, 0x60, 0xc5, 0x9f, 0x25, 0x5f, 0x54, 0xbe, 0x4f, 0x6a, 0xce, 0xcf, 0x49,
-	0xcd, 0xf9, 0x3d, 0xa9, 0x39, 0xdf, 0xfe, 0xd4, 0xee, 0x74, 0x4b, 0x06, 0xf9, 0xfc, 0x6f, 0x00,
-	0x00, 0x00, 0xff, 0xff, 0xa0, 0x27, 0x40, 0x32, 0x50, 0x05, 0x00, 0x00,
+	// 596 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xbc, 0x54, 0xdd, 0x6e, 0xd3, 0x30,
+	0x14, 0x56, 0xb6, 0xb6, 0x6b, 0xce, 0x7e, 0xd8, 0x3c, 0x18, 0x59, 0xd9, 0xa0, 0x0a, 0x1a, 0x54,
+	0x9a, 0x94, 0xa2, 0xf2, 0x73, 0x01, 0x57, 0x83, 0xde, 0x22, 0x26, 0x23, 0xed, 0x0e, 0x55, 0x69,
+	0x7d, 0xda, 0x86, 0x66, 0x76, 0x66, 0x3b, 0x1d, 0x8f, 0xc1, 0x05, 0xaf, 0xc5, 0x13, 0xf0, 0x32,
+	0xc8, 0x8e, 0xd3, 0x7f, 0x6e, 0xb9, 0x8a, 0xfd, 0x9d, 0xef, 0x1c, 0x7f, 0xe7, 0x3b, 0x76, 0xe0,
+	0x70, 0x1a, 0xa7, 0x09, 0x8b, 0x75, 0x22, 0x78, 0x94, 0x49, 0xa1, 0x05, 0xa9, 0xda, 0x4f, 0xe3,
+	0xe9, 0x48, 0x88, 0x51, 0x8a, 0x6d, 0xbb, 0xeb, 0xe7, 0xc3, 0x36, 0xcb, 0xe5, 0x02, 0xad, 0x71,
+	0x1c, 0x8f, 0x90, 0xeb, 0xac, 0xdf, 0xb6, 0xdf, 0x02, 0x0c, 0x7f, 0x7a, 0x70, 0xf4, 0x69, 0x8c,
+	0x83, 0xc9, 0xb5, 0x90, 0x5a, 0x51, 0xbc, 0xcb, 0x51, 0x69, 0xf2, 0x1c, 0x6a, 0x69, 0xa2, 0x34,
+	0xf2, 0xc0, 0x6b, 0x6e, 0xb7, 0x76, 0x3b, 0xbb, 0x05, 0x3b, 0xba, 0x62, 0x4c, 0x52, 0x17, 0x22,
+	0xcf, 0xa0, 0x92, 0x25, 0x7c, 0x14, 0x6c, 0xad, 0x53, 0x6c, 0x80, 0xbc, 0x85, 0x7a, 0x29, 0x21,
+	0xd8, 0x6e, 0x7a, 0xad, 0xdd, 0xce, 0x69, 0x54, 0x68, 0x8c, 0x4a, 0x8d, 0x51, 0xd7, 0x11, 0xe8,
+	0x8c, 0x1a, 0x7e, 0x07, 0xb2, 0xa8, 0x48, 0x65, 0x82, 0x2b, 0x24, 0x97, 0x2b, 0x92, 0x8e, 0xdd,
+	0x79, 0x5f, 0x51, 0x4e, 0x51, 0x52, 0x54, 0x79, 0xaa, 0x67, 0xd2, 0x5e, 0x2e, 0x49, 0xdb, 0x48,
+	0xb5, 0x84, 0xf0, 0x97, 0x07, 0x8f, 0xec, 0x61, 0x1f, 0x63, 0xce, 0xee, 0x13, 0xa6, 0xc7, 0x9b,
+	0x2c, 0xf0, 0xfe, 0xb7, 0x05, 0xef, 0xe0, 0x64, 0x55, 0x95, 0xb3, 0xe1, 0x0c, 0xfc, 0x7e, 0x09,
+	0x5a, 0x65, 0x15, 0x3a, 0x07, 0xc2, 0x6f, 0xb0, 0xb7, 0xd8, 0x24, 0x21, 0x50, 0x19, 0x08, 0x86,
+	0x96, 0x58, 0xa5, 0x76, 0x4d, 0x1e, 0x42, 0x15, 0xa5, 0x14, 0x32, 0xd8, 0x6a, 0x7a, 0x2d, 0x9f,
+	0x16, 0x1b, 0xd3, 0xae, 0xb2, 0x99, 0x4e, 0xe6, 0x72, 0xbb, 0x45, 0x28, 0x7c, 0x03, 0x15, 0xb3,
+	0x27, 0x01, 0xec, 0x70, 0xd4, 0xf7, 0x42, 0x4e, 0x6c, 0x65, 0x9f, 0x96, 0x5b, 0x73, 0x60, 0xcc,
+	0x58, 0x59, 0xdb, 0xae, 0xc3, 0xdf, 0x1e, 0x3c, 0xb8, 0x29, 0xee, 0x2c, 0x96, 0xee, 0x36, 0xa0,
+	0x7e, 0x1b, 0xf3, 0x64, 0x88, 0x4a, 0xdb, 0x12, 0x7b, 0x74, 0xb6, 0x37, 0xd5, 0x33, 0x29, 0x86,
+	0x49, 0x8a, 0xae, 0x4c, 0xb9, 0x25, 0x97, 0x70, 0x34, 0xcc, 0xd3, 0xb4, 0x27, 0xf1, 0x2e, 0x4f,
+	0x24, 0xde, 0x22, 0xd7, 0xca, 0xea, 0xad, 0xd3, 0x43, 0x13, 0xa0, 0x0b, 0x38, 0x79, 0x05, 0x3b,
+	0x22, 0x33, 0x6e, 0xaa, 0xa0, 0x62, 0x5b, 0x3a, 0x71, 0x2d, 0x95, 0x5a, 0xbe, 0x14, 0x51, 0x5a,
+	0xd2, 0xc8, 0x05, 0xd4, 0x98, 0x18, 0x4c, 0x50, 0x06, 0x55, 0x9b, 0xb0, 0xef, 0x12, 0xba, 0x16,
+	0xa4, 0x2e, 0x18, 0xbe, 0x87, 0xc3, 0x79, 0x3b, 0x6e, 0x2c, 0x2f, 0xa0, 0x36, 0x8c, 0x93, 0x14,
+	0x99, 0xbb, 0x9d, 0x07, 0x91, 0x7b, 0x6c, 0xd1, 0xb5, 0x14, 0x7d, 0xa4, 0x2e, 0x1a, 0x8e, 0xe7,
+	0x56, 0xb8, 0xe3, 0xc9, 0x39, 0xc0, 0xf4, 0x47, 0x1a, 0xf3, 0x5e, 0x26, 0xa4, 0x76, 0x93, 0xf2,
+	0x2d, 0x62, 0x1e, 0x00, 0x79, 0x02, 0x3e, 0xe3, 0xaa, 0x67, 0x9c, 0x54, 0xf6, 0x9e, 0xf9, 0xb4,
+	0xce, 0xb8, 0x32, 0x73, 0x50, 0xe4, 0x14, 0xcc, 0xba, 0xc8, 0xdc, 0xb6, 0x99, 0x3b, 0x8c, 0x2b,
+	0x93, 0x17, 0xb6, 0xa1, 0x56, 0xe8, 0x26, 0x17, 0x70, 0xa0, 0xb4, 0x90, 0xf1, 0x08, 0x7b, 0x4c,
+	0x26, 0x66, 0xc4, 0xc5, 0xd0, 0xf6, 0x1d, 0xda, 0xb5, 0x60, 0xe7, 0x8f, 0x07, 0x70, 0x33, 0xfb,
+	0xb5, 0x90, 0x2b, 0x80, 0xf9, 0x2b, 0x24, 0x81, 0xb3, 0x62, 0xed, 0x57, 0xd1, 0x38, 0xdd, 0x10,
+	0x71, 0xa6, 0x7c, 0x86, 0x83, 0xe5, 0x5b, 0x4c, 0xce, 0x16, 0xc9, 0xab, 0x4f, 0xae, 0x71, 0xfe,
+	0x8f, 0xa8, 0x2b, 0xf7, 0x01, 0xea, 0xa5, 0x77, 0x64, 0x75, 0x96, 0x65, 0x89, 0xc7, 0x6b, 0x78,
+	0x91, 0xdc, 0xaf, 0x59, 0xfc, 0xf5, 0xdf, 0x00, 0x00, 0x00, 0xff, 0xff, 0x82, 0x8b, 0xc0, 0x2d,
+	0x3e, 0x05, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -767,6 +677,20 @@ type ValidationServer interface {
 	// Validate validatest this node against the requirements
 	// from a manifest.
 	Validate(context.Context, *ValidateRequest) (*ValidateResponse, error)
+}
+
+// UnimplementedValidationServer can be embedded to have forward compatible implementations.
+type UnimplementedValidationServer struct {
+}
+
+func (*UnimplementedValidationServer) CheckPorts(ctx context.Context, req *CheckPortsRequest) (*CheckPortsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CheckPorts not implemented")
+}
+func (*UnimplementedValidationServer) CheckBandwidth(ctx context.Context, req *CheckBandwidthRequest) (*CheckBandwidthResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CheckBandwidth not implemented")
+}
+func (*UnimplementedValidationServer) Validate(ctx context.Context, req *ValidateRequest) (*ValidateResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Validate not implemented")
 }
 
 func RegisterValidationServer(s *grpc.Server, srv ValidationServer) {
@@ -847,2066 +771,3 @@ var _Validation_serviceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "validation.proto",
 }
-
-func (m *CheckPortsRequest) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *CheckPortsRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
-	_ = i
-	var l int
-	_ = l
-	if len(m.Listen) > 0 {
-		for _, msg := range m.Listen {
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintValidation(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
-	}
-	if len(m.Ping) > 0 {
-		for _, msg := range m.Ping {
-			dAtA[i] = 0x12
-			i++
-			i = encodeVarintValidation(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
-	}
-	if m.Duration != nil {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintValidation(dAtA, i, uint64(m.Duration.Size()))
-		n1, err := m.Duration.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n1
-	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
-}
-
-func (m *CheckPortsResponse) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *CheckPortsResponse) MarshalTo(dAtA []byte) (int, error) {
-	var i int
-	_ = i
-	var l int
-	_ = l
-	if len(m.Listen) > 0 {
-		for _, msg := range m.Listen {
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintValidation(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
-	}
-	if len(m.Ping) > 0 {
-		for _, msg := range m.Ping {
-			dAtA[i] = 0x12
-			i++
-			i = encodeVarintValidation(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
-	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
-}
-
-func (m *CheckBandwidthRequest) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *CheckBandwidthRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
-	_ = i
-	var l int
-	_ = l
-	if m.Listen != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintValidation(dAtA, i, uint64(m.Listen.Size()))
-		n2, err := m.Listen.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n2
-	}
-	if len(m.Ping) > 0 {
-		for _, msg := range m.Ping {
-			dAtA[i] = 0x12
-			i++
-			i = encodeVarintValidation(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
-	}
-	if m.Duration != nil {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintValidation(dAtA, i, uint64(m.Duration.Size()))
-		n3, err := m.Duration.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n3
-	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
-}
-
-func (m *CheckBandwidthResponse) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *CheckBandwidthResponse) MarshalTo(dAtA []byte) (int, error) {
-	var i int
-	_ = i
-	var l int
-	_ = l
-	if m.Bandwidth != 0 {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintValidation(dAtA, i, uint64(m.Bandwidth))
-	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
-}
-
-func (m *ServerResult) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *ServerResult) MarshalTo(dAtA []byte) (int, error) {
-	var i int
-	_ = i
-	var l int
-	_ = l
-	if m.Code != 0 {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintValidation(dAtA, i, uint64(m.Code))
-	}
-	if len(m.Error) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintValidation(dAtA, i, uint64(len(m.Error)))
-		i += copy(dAtA[i:], m.Error)
-	}
-	if m.Server != nil {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintValidation(dAtA, i, uint64(m.Server.Size()))
-		n4, err := m.Server.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n4
-	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
-}
-
-func (m *Addr) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *Addr) MarshalTo(dAtA []byte) (int, error) {
-	var i int
-	_ = i
-	var l int
-	_ = l
-	if len(m.Network) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintValidation(dAtA, i, uint64(len(m.Network)))
-		i += copy(dAtA[i:], m.Network)
-	}
-	if len(m.Addr) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintValidation(dAtA, i, uint64(len(m.Addr)))
-		i += copy(dAtA[i:], m.Addr)
-	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
-}
-
-func (m *ValidateRequest) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *ValidateRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
-	_ = i
-	var l int
-	_ = l
-	if len(m.Manifest) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintValidation(dAtA, i, uint64(len(m.Manifest)))
-		i += copy(dAtA[i:], m.Manifest)
-	}
-	if len(m.Profile) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintValidation(dAtA, i, uint64(len(m.Profile)))
-		i += copy(dAtA[i:], m.Profile)
-	}
-	if m.FullRequirements {
-		dAtA[i] = 0x18
-		i++
-		if m.FullRequirements {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i++
-	}
-	if m.Options != nil {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintValidation(dAtA, i, uint64(m.Options.Size()))
-		n5, err := m.Options.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n5
-	}
-	if m.Docker != nil {
-		dAtA[i] = 0x2a
-		i++
-		i = encodeVarintValidation(dAtA, i, uint64(m.Docker.Size()))
-		n6, err := m.Docker.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n6
-	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
-}
-
-func (m *ValidateResponse) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *ValidateResponse) MarshalTo(dAtA []byte) (int, error) {
-	var i int
-	_ = i
-	var l int
-	_ = l
-	if len(m.Failed) > 0 {
-		for _, msg := range m.Failed {
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintValidation(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
-	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
-}
-
-func (m *ValidateOptions) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *ValidateOptions) MarshalTo(dAtA []byte) (int, error) {
-	var i int
-	_ = i
-	var l int
-	_ = l
-	if m.VxlanPort != 0 {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintValidation(dAtA, i, uint64(m.VxlanPort))
-	}
-	if len(m.DnsAddrs) > 0 {
-		for _, s := range m.DnsAddrs {
-			dAtA[i] = 0x12
-			i++
-			l = len(s)
-			for l >= 1<<7 {
-				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
-				l >>= 7
-				i++
-			}
-			dAtA[i] = uint8(l)
-			i++
-			i += copy(dAtA[i:], s)
-		}
-	}
-	if m.DnsPort != 0 {
-		dAtA[i] = 0x18
-		i++
-		i = encodeVarintValidation(dAtA, i, uint64(m.DnsPort))
-	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
-}
-
-func (m *Docker) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *Docker) MarshalTo(dAtA []byte) (int, error) {
-	var i int
-	_ = i
-	var l int
-	_ = l
-	if len(m.StorageDriver) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintValidation(dAtA, i, uint64(len(m.StorageDriver)))
-		i += copy(dAtA[i:], m.StorageDriver)
-	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
-}
-
-func encodeVarintValidation(dAtA []byte, offset int, v uint64) int {
-	for v >= 1<<7 {
-		dAtA[offset] = uint8(v&0x7f | 0x80)
-		v >>= 7
-		offset++
-	}
-	dAtA[offset] = uint8(v)
-	return offset + 1
-}
-func (m *CheckPortsRequest) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	if len(m.Listen) > 0 {
-		for _, e := range m.Listen {
-			l = e.Size()
-			n += 1 + l + sovValidation(uint64(l))
-		}
-	}
-	if len(m.Ping) > 0 {
-		for _, e := range m.Ping {
-			l = e.Size()
-			n += 1 + l + sovValidation(uint64(l))
-		}
-	}
-	if m.Duration != nil {
-		l = m.Duration.Size()
-		n += 1 + l + sovValidation(uint64(l))
-	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
-	}
-	return n
-}
-
-func (m *CheckPortsResponse) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	if len(m.Listen) > 0 {
-		for _, e := range m.Listen {
-			l = e.Size()
-			n += 1 + l + sovValidation(uint64(l))
-		}
-	}
-	if len(m.Ping) > 0 {
-		for _, e := range m.Ping {
-			l = e.Size()
-			n += 1 + l + sovValidation(uint64(l))
-		}
-	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
-	}
-	return n
-}
-
-func (m *CheckBandwidthRequest) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	if m.Listen != nil {
-		l = m.Listen.Size()
-		n += 1 + l + sovValidation(uint64(l))
-	}
-	if len(m.Ping) > 0 {
-		for _, e := range m.Ping {
-			l = e.Size()
-			n += 1 + l + sovValidation(uint64(l))
-		}
-	}
-	if m.Duration != nil {
-		l = m.Duration.Size()
-		n += 1 + l + sovValidation(uint64(l))
-	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
-	}
-	return n
-}
-
-func (m *CheckBandwidthResponse) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	if m.Bandwidth != 0 {
-		n += 1 + sovValidation(uint64(m.Bandwidth))
-	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
-	}
-	return n
-}
-
-func (m *ServerResult) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	if m.Code != 0 {
-		n += 1 + sovValidation(uint64(m.Code))
-	}
-	l = len(m.Error)
-	if l > 0 {
-		n += 1 + l + sovValidation(uint64(l))
-	}
-	if m.Server != nil {
-		l = m.Server.Size()
-		n += 1 + l + sovValidation(uint64(l))
-	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
-	}
-	return n
-}
-
-func (m *Addr) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	l = len(m.Network)
-	if l > 0 {
-		n += 1 + l + sovValidation(uint64(l))
-	}
-	l = len(m.Addr)
-	if l > 0 {
-		n += 1 + l + sovValidation(uint64(l))
-	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
-	}
-	return n
-}
-
-func (m *ValidateRequest) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	l = len(m.Manifest)
-	if l > 0 {
-		n += 1 + l + sovValidation(uint64(l))
-	}
-	l = len(m.Profile)
-	if l > 0 {
-		n += 1 + l + sovValidation(uint64(l))
-	}
-	if m.FullRequirements {
-		n += 2
-	}
-	if m.Options != nil {
-		l = m.Options.Size()
-		n += 1 + l + sovValidation(uint64(l))
-	}
-	if m.Docker != nil {
-		l = m.Docker.Size()
-		n += 1 + l + sovValidation(uint64(l))
-	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
-	}
-	return n
-}
-
-func (m *ValidateResponse) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	if len(m.Failed) > 0 {
-		for _, e := range m.Failed {
-			l = e.Size()
-			n += 1 + l + sovValidation(uint64(l))
-		}
-	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
-	}
-	return n
-}
-
-func (m *ValidateOptions) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	if m.VxlanPort != 0 {
-		n += 1 + sovValidation(uint64(m.VxlanPort))
-	}
-	if len(m.DnsAddrs) > 0 {
-		for _, s := range m.DnsAddrs {
-			l = len(s)
-			n += 1 + l + sovValidation(uint64(l))
-		}
-	}
-	if m.DnsPort != 0 {
-		n += 1 + sovValidation(uint64(m.DnsPort))
-	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
-	}
-	return n
-}
-
-func (m *Docker) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	l = len(m.StorageDriver)
-	if l > 0 {
-		n += 1 + l + sovValidation(uint64(l))
-	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
-	}
-	return n
-}
-
-func sovValidation(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
-}
-func sozValidation(x uint64) (n int) {
-	return sovValidation(uint64((x << 1) ^ uint64((int64(x) >> 63))))
-}
-func (m *CheckPortsRequest) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowValidation
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= uint64(b&0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: CheckPortsRequest: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: CheckPortsRequest: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Listen", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowValidation
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthValidation
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthValidation
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Listen = append(m.Listen, &Addr{})
-			if err := m.Listen[len(m.Listen)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 2:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Ping", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowValidation
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthValidation
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthValidation
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Ping = append(m.Ping, &Addr{})
-			if err := m.Ping[len(m.Ping)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 3:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Duration", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowValidation
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthValidation
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthValidation
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.Duration == nil {
-				m.Duration = &types.Duration{}
-			}
-			if err := m.Duration.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := skipValidation(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthValidation
-			}
-			if (iNdEx + skippy) < 0 {
-				return ErrInvalidLengthValidation
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *CheckPortsResponse) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowValidation
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= uint64(b&0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: CheckPortsResponse: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: CheckPortsResponse: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Listen", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowValidation
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthValidation
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthValidation
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Listen = append(m.Listen, &ServerResult{})
-			if err := m.Listen[len(m.Listen)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 2:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Ping", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowValidation
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthValidation
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthValidation
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Ping = append(m.Ping, &ServerResult{})
-			if err := m.Ping[len(m.Ping)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := skipValidation(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthValidation
-			}
-			if (iNdEx + skippy) < 0 {
-				return ErrInvalidLengthValidation
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *CheckBandwidthRequest) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowValidation
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= uint64(b&0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: CheckBandwidthRequest: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: CheckBandwidthRequest: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Listen", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowValidation
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthValidation
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthValidation
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.Listen == nil {
-				m.Listen = &Addr{}
-			}
-			if err := m.Listen.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 2:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Ping", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowValidation
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthValidation
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthValidation
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Ping = append(m.Ping, &Addr{})
-			if err := m.Ping[len(m.Ping)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 3:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Duration", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowValidation
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthValidation
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthValidation
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.Duration == nil {
-				m.Duration = &types.Duration{}
-			}
-			if err := m.Duration.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := skipValidation(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthValidation
-			}
-			if (iNdEx + skippy) < 0 {
-				return ErrInvalidLengthValidation
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *CheckBandwidthResponse) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowValidation
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= uint64(b&0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: CheckBandwidthResponse: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: CheckBandwidthResponse: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Bandwidth", wireType)
-			}
-			m.Bandwidth = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowValidation
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.Bandwidth |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-		default:
-			iNdEx = preIndex
-			skippy, err := skipValidation(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthValidation
-			}
-			if (iNdEx + skippy) < 0 {
-				return ErrInvalidLengthValidation
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *ServerResult) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowValidation
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= uint64(b&0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: ServerResult: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: ServerResult: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Code", wireType)
-			}
-			m.Code = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowValidation
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.Code |= int32(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-		case 2:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Error", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowValidation
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthValidation
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthValidation
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Error = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 3:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Server", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowValidation
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthValidation
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthValidation
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.Server == nil {
-				m.Server = &Addr{}
-			}
-			if err := m.Server.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := skipValidation(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthValidation
-			}
-			if (iNdEx + skippy) < 0 {
-				return ErrInvalidLengthValidation
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *Addr) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowValidation
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= uint64(b&0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: Addr: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: Addr: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Network", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowValidation
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthValidation
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthValidation
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Network = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 2:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Addr", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowValidation
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthValidation
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthValidation
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Addr = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := skipValidation(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthValidation
-			}
-			if (iNdEx + skippy) < 0 {
-				return ErrInvalidLengthValidation
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *ValidateRequest) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowValidation
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= uint64(b&0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: ValidateRequest: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: ValidateRequest: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Manifest", wireType)
-			}
-			var byteLen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowValidation
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				byteLen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if byteLen < 0 {
-				return ErrInvalidLengthValidation
-			}
-			postIndex := iNdEx + byteLen
-			if postIndex < 0 {
-				return ErrInvalidLengthValidation
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Manifest = append(m.Manifest[:0], dAtA[iNdEx:postIndex]...)
-			if m.Manifest == nil {
-				m.Manifest = []byte{}
-			}
-			iNdEx = postIndex
-		case 2:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Profile", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowValidation
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthValidation
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthValidation
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Profile = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 3:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field FullRequirements", wireType)
-			}
-			var v int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowValidation
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				v |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			m.FullRequirements = bool(v != 0)
-		case 4:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Options", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowValidation
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthValidation
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthValidation
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.Options == nil {
-				m.Options = &ValidateOptions{}
-			}
-			if err := m.Options.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 5:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Docker", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowValidation
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthValidation
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthValidation
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.Docker == nil {
-				m.Docker = &Docker{}
-			}
-			if err := m.Docker.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := skipValidation(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthValidation
-			}
-			if (iNdEx + skippy) < 0 {
-				return ErrInvalidLengthValidation
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *ValidateResponse) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowValidation
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= uint64(b&0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: ValidateResponse: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: ValidateResponse: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Failed", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowValidation
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthValidation
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthValidation
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Failed = append(m.Failed, &agentpb.Probe{})
-			if err := m.Failed[len(m.Failed)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := skipValidation(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthValidation
-			}
-			if (iNdEx + skippy) < 0 {
-				return ErrInvalidLengthValidation
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *ValidateOptions) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowValidation
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= uint64(b&0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: ValidateOptions: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: ValidateOptions: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field VxlanPort", wireType)
-			}
-			m.VxlanPort = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowValidation
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.VxlanPort |= int32(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-		case 2:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field DnsAddrs", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowValidation
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthValidation
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthValidation
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.DnsAddrs = append(m.DnsAddrs, string(dAtA[iNdEx:postIndex]))
-			iNdEx = postIndex
-		case 3:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field DnsPort", wireType)
-			}
-			m.DnsPort = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowValidation
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.DnsPort |= int32(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-		default:
-			iNdEx = preIndex
-			skippy, err := skipValidation(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthValidation
-			}
-			if (iNdEx + skippy) < 0 {
-				return ErrInvalidLengthValidation
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *Docker) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowValidation
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= uint64(b&0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: Docker: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: Docker: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field StorageDriver", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowValidation
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthValidation
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthValidation
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.StorageDriver = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := skipValidation(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthValidation
-			}
-			if (iNdEx + skippy) < 0 {
-				return ErrInvalidLengthValidation
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func skipValidation(dAtA []byte) (n int, err error) {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return 0, ErrIntOverflowValidation
-			}
-			if iNdEx >= l {
-				return 0, io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		wireType := int(wire & 0x7)
-		switch wireType {
-		case 0:
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return 0, ErrIntOverflowValidation
-				}
-				if iNdEx >= l {
-					return 0, io.ErrUnexpectedEOF
-				}
-				iNdEx++
-				if dAtA[iNdEx-1] < 0x80 {
-					break
-				}
-			}
-			return iNdEx, nil
-		case 1:
-			iNdEx += 8
-			return iNdEx, nil
-		case 2:
-			var length int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return 0, ErrIntOverflowValidation
-				}
-				if iNdEx >= l {
-					return 0, io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				length |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if length < 0 {
-				return 0, ErrInvalidLengthValidation
-			}
-			iNdEx += length
-			if iNdEx < 0 {
-				return 0, ErrInvalidLengthValidation
-			}
-			return iNdEx, nil
-		case 3:
-			for {
-				var innerWire uint64
-				var start int = iNdEx
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return 0, ErrIntOverflowValidation
-					}
-					if iNdEx >= l {
-						return 0, io.ErrUnexpectedEOF
-					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					innerWire |= (uint64(b) & 0x7F) << shift
-					if b < 0x80 {
-						break
-					}
-				}
-				innerWireType := int(innerWire & 0x7)
-				if innerWireType == 4 {
-					break
-				}
-				next, err := skipValidation(dAtA[start:])
-				if err != nil {
-					return 0, err
-				}
-				iNdEx = start + next
-				if iNdEx < 0 {
-					return 0, ErrInvalidLengthValidation
-				}
-			}
-			return iNdEx, nil
-		case 4:
-			return iNdEx, nil
-		case 5:
-			iNdEx += 4
-			return iNdEx, nil
-		default:
-			return 0, fmt.Errorf("proto: illegal wireType %d", wireType)
-		}
-	}
-	panic("unreachable")
-}
-
-var (
-	ErrInvalidLengthValidation = fmt.Errorf("proto: negative length found during unmarshaling")
-	ErrIntOverflowValidation   = fmt.Errorf("proto: integer overflow")
-)

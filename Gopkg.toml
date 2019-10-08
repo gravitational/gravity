@@ -87,7 +87,7 @@ ignored = [
 
 [[constraint]]
   name = "github.com/gogo/protobuf"
-  version = "=v1.1.1"
+  version = "=v1.3.0"
 
 [[override]]
   name = "golang.org/x/net"

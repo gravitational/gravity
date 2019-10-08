@@ -191,11 +191,13 @@ USER := $(shell echo $${SUDO_USER:-$$USER})
 TEST_ETCD ?= false
 TEST_K8S ?= false
 
+GODEP_TAG ?= v0.5.4
+
 # grpc
-PROTOC_VER ?= 3.7.1
+PROTOC_VER ?= 3.10.0
 PROTOC_PLATFORM := linux-x86_64
-GOGO_PROTO_TAG ?= v1.2.1
-GRPC_GATEWAY_TAG ?= v1.8.5
+GOGO_PROTO_TAG ?= v1.3.0
+GRPC_GATEWAY_TAG ?= v1.11.3
 
 BINARIES ?= tele gravity terraform-provider-gravity
 TF_PROVIDERS ?= terraform-provider-gravity
