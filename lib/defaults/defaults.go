@@ -1145,6 +1145,13 @@ var (
 		"hmac-sha2-256",
 	}
 
+	// TeleportVersionString specifies the version of the bundled teleport package
+	TeleportVersionString = "0.0.1" // Will be replaced with actual version at link time
+
+	// TeleportVersion specifies the version of the bundled teleport package as a semver
+	TeleportVersion = semver.New(TeleportVersionString)
+
+
 	// MetricsInterval is the default interval cluster metrics are displayed for.
 	MetricsInterval = time.Hour
 	// MetricsStep is the default interval b/w cluster metrics data points.

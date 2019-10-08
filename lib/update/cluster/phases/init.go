@@ -373,9 +373,10 @@ func (p *updatePhaseInit) createAdminAgent() error {
 func (p *updatePhaseInit) rotateSecrets(server storage.UpdateServer) error {
 	p.Infof("Generate new secrets configuration package for %v.", server)
 	resp, err := p.Operator.RotateSecrets(ops.RotateSecretsRequest{
-		Key:     p.Operation.ClusterKey(),
-		Package: server.Runtime.SecretsPackage,
-		Server:  server.Server,
+		Key:            p.Operation.ClusterKey(),
+		Package:        server.Runtime.SecretsPackage,
+		RuntimePackage: server.Runtime.Update.Package,
+		Server:         server.Server,
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -413,10 +414,11 @@ func (p *updatePhaseInit) rotatePlanetConfig(server storage.UpdateServer) error 
 
 func (p *updatePhaseInit) rotateTeleportConfig(server storage.UpdateServer) error {
 	masterConf, nodeConf, err := p.Operator.RotateTeleportConfig(ops.RotateTeleportConfigRequest{
-		Key:         p.Operation.Key(),
-		Server:      server.Server,
-		NodePackage: server.Teleport.Update.NodeConfigPackage,
-		MasterIPs:   masterIPs(p.Servers),
+		Key:             p.Operation.Key(),
+		Server:          server.Server,
+		TeleportPackage: server.Teleport.Update.Package,
+		NodePackage:     server.Teleport.Update.NodeConfigPackage,
+		MasterIPs:       masterIPs(p.Servers),
 	})
 	if err != nil {
 		return trace.Wrap(err)

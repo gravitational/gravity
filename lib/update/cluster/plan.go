@@ -428,14 +428,6 @@ func configUpdates(
 		return nil, trace.Wrap(err)
 	}
 	for _, server := range servers {
-		secretsUpdate, err := operator.RotateSecrets(ops.RotateSecretsRequest{
-			Key:    operation.SiteKey(),
-			Server: server,
-			DryRun: true,
-		})
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
 		installedRuntime, err := getRuntimePackage(installed, server.Role, schema.ServiceRole(server.ClusterRole))
 		if err != nil {
 			return nil, trace.Wrap(err)
@@ -443,8 +435,7 @@ func configUpdates(
 		updateServer := storage.UpdateServer{
 			Server: server,
 			Runtime: storage.RuntimePackage{
-				Installed:      *installedRuntime,
-				SecretsPackage: &secretsUpdate.Locator,
+				Installed: *installedRuntime,
 			},
 			Teleport: storage.TeleportPackage{
 				Installed: *installedTeleport,
@@ -461,6 +452,15 @@ func configUpdates(
 			if err != nil {
 				return nil, trace.Wrap(err)
 			}
+			secretsUpdate, err := operator.RotateSecrets(ops.RotateSecretsRequest{
+				Key:            operation.SiteKey(),
+				Server:         server,
+				RuntimePackage: *updateRuntime,
+				DryRun:         true,
+			})
+			if err != nil {
+				return nil, trace.Wrap(err)
+			}
 			configUpdate, err := operator.RotatePlanetConfig(ops.RotatePlanetConfigRequest{
 				Key:            operation,
 				Server:         server,
@@ -471,6 +471,7 @@ func configUpdates(
 			if err != nil {
 				return nil, trace.Wrap(err)
 			}
+			updateServer.Runtime.SecretsPackage = &secretsUpdate.Locator
 			updateServer.Runtime.Update = &storage.RuntimeUpdate{
 				Package:       *updateRuntime,
 				ConfigPackage: configUpdate.Locator,
@@ -478,9 +479,10 @@ func configUpdates(
 		}
 		if needsTeleportUpdate {
 			_, nodeConfig, err := operator.RotateTeleportConfig(ops.RotateTeleportConfigRequest{
-				Key:    operation,
-				Server: server,
-				DryRun: true,
+				Key:             operation,
+				Server:          server,
+				TeleportPackage: *updateTeleport,
+				DryRun:          true,
 			})
 			if err != nil {
 				return nil, trace.Wrap(err)

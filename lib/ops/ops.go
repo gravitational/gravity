@@ -941,6 +941,9 @@ func (r RotateTeleportConfigRequest) CheckAndSetDefaults() error {
 	if !r.DryRun && len(r.MasterIPs) == 0 {
 		return trace.BadParameter("list of master IPs is required")
 	}
+	if r.TeleportPackage.IsEmpty() {
+		return trace.BadParameter("teleport package is required")
+	}
 	return nil
 }
 
