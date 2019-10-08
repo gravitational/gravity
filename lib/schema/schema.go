@@ -314,6 +314,7 @@ const manifestSchema = `
           "type": "object",
           "additionalProperties": false,
           "properties": {
+            "default": {"type": "string"},
             "aws": {"$ref": "#/definitions/providerAWS"},
             "azure": {"$ref": "#/definitions/providerAzure"},
             "generic": {"$ref": "#/definitions/providerGeneric"}
