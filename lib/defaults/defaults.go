@@ -213,6 +213,10 @@ const (
 	// PeerConnectTimeout is the timeout of an RPC agent connecting to its peer
 	PeerConnectTimeout = 10 * time.Second
 
+	// EnvPeerConnectTimeout is the environment variable that overrides the value of the
+	// agent timeout for the validating connect
+	EnvPeerConnectTimeout = "GRAVITY_AGENT_CONNECT_TIMEOUT"
+
 	// GravityPackagePrefix defines base prefix of gravity package
 	GravityPackagePrefix = "gravitational.io/gravity"
 
