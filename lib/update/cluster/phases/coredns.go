@@ -158,7 +158,7 @@ func (p *updatePhaseCoreDNS) generateCorefile(context.Context) error {
 			"Corefile": conf,
 		},
 	})
-	err = trace.ConvertSystemError(err)
+	err = rigging.ConvertError(err)
 	if err != nil && !trace.IsAlreadyExists(err) {
 		return trace.Wrap(err)
 	}
