@@ -522,6 +522,7 @@ func (b *Builder) collectUpgradeDependencies() (result *libapp.Dependencies, err
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
+		dependencies.Apps = append(dependencies.Apps, *app)
 		addUpgradeVersionLabel(dependencies, runtimeVersion.String())
 		result.Packages = append(result.Packages, filterUpgradePackageDependencies(dependencies.Packages)...)
 		result.Apps = append(result.Apps, dependencies.Apps...)
