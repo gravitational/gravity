@@ -238,6 +238,10 @@ func collectFilesystemUsage(fs []storage.Filesystem) (result storage.FilesystemS
 	for _, mount := range fs {
 		usage := sigar.FileSystemUsage{}
 		if err := usage.Get(mount.DirName); err != nil {
+			if os.IsNotExist(err) {
+				// Skip the entry if the target directory does not exist
+				continue
+			}
 			return nil, trace.Wrap(err)
 		}
 		result[mount.DirName] = storage.FilesystemUsage{TotalKB: usage.Total, FreeKB: usage.Free}
