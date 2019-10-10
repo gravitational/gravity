@@ -8,7 +8,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
 | 6.2.0         | No  | September 24th, 2019 | -                    | 1.16.0             | 3.2.12           |
-| 6.1.5         | No  | September 18th, 2019 | -                    | 1.15.4             | 3.2.12           |
+| 6.1.6         | No  | October 10th, 2019   | -                    | 1.15.4             | 3.2.12           |
 | 6.0.9         | No  | September 18th, 2019 | -                    | 1.14.7             | 3.2.12           |
 | 5.6.8         | No  | September 18th, 2019 | -                    | 1.14.7             | 3.0.6-gravity    |
 | 5.5.22        | Yes | October 8th, 2019    | September 7th, 2020  | 1.13.11            | 3.0.6-gravity    |
@@ -37,6 +37,23 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 
 ## 6.x Releases
+
+### 6.1.6 (October 10th, 2019)
+
+#### Improvements
+
+* Improves `gravity report` to capture additional network configuration ([#770](https://github.com/gravitational/gravity/pull/770)).
+* Adds ability to specify default cloud provider in application manifest ([#760](https://github.com/gravitational/gravity/pull/760)).
+* Provides additional error information when an operation fails ([#746](https://github.com/gravitational/gravity/pull/746)).
+* Increase timeout on healthz check and allow optional configuration by environment variable ([#744](https://github.com/gravitational/gravity/pull/744)).
+* Add support for discovering upstream DNS servers from systemd-resolved configuration ([#739](https://github.com/gravitational/gravity/pull/739)).
+* Update debian containers to be based off debian buster ([#770](https://github.com/gravitational/gravity/pull/770)).
+* Add `ebtable_filter` to the list of required gravity kernel modules ([#725](https://github.com/gravitational/gravity/pull/725)).
+
+#### Bugfixes
+
+* Fixes a race condition within docker libraries used by gravity ([#778](https://github.com/gravitational/gravity/pull/778)).
+* Fix and issue with `gravity report` accessing journal files ([#733](https://github.com/gravitational/gravity/pull/770)).
 
 ### 6.2.0 (September 24th, 2019)
 
