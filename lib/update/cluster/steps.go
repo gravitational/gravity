@@ -117,6 +117,9 @@ func (r phaseBuilder) buildIntermediateSteps(ctx context.Context) (updates []int
 	prevTeleport := r.installedTeleport
 	prevRuntimeFunc := getRuntimePackageFromManifest(r.installedApp.Manifest)
 	for version, update := range result {
+		if err := update.validate(); err != nil {
+			return nil, trace.Wrap(err)
+		}
 		update.etcd, err = shouldUpdateEtcd(prevRuntimeApp, update.runtimeApp, r.packages)
 		if err != nil {
 			return nil, trace.Wrap(err)
@@ -397,6 +400,23 @@ func (r intermediateUpdateStep) bootstrap(servers []storage.UpdateServer, instal
 		})
 	}
 	return root
+}
+
+func (r intermediateUpdateStep) validate() error {
+	var errors []error
+	if r.runtime.IsEmpty() {
+		errors = append(errors, trace.NotFound("planet package for version %v not found", r.version))
+	}
+	if r.teleport.IsEmpty() {
+		errors = append(errors, trace.NotFound("teleport package for version %v not found", r.version))
+	}
+	if r.gravity.IsEmpty() {
+		errors = append(errors, trace.NotFound("gravity package for version %v not found", r.version))
+	}
+	if r.runtimeApp.Package.IsEmpty() {
+		errors = append(errors, trace.NotFound("runtime application package for version %v not found", r.version))
+	}
+	return trace.NewAggregate(errors...)
 }
 
 func (r intermediateUpdateStep) String() string {

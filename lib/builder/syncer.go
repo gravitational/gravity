@@ -70,7 +70,7 @@ func newS3Syncer() (*s3Syncer, error) {
 // Sync makes sure that local cache has all required dependencies for the
 // selected runtime
 func (s *s3Syncer) Sync(ctx context.Context, builder *Builder, runtimeVersion semver.Version) error {
-	tarball, err := s.hub.Get(loc.Gravity.WithVersion(&runtimeVersion))
+	tarball, err := s.hub.Get(loc.Gravity.WithVersion(runtimeVersion))
 	if err != nil {
 		return trace.Wrap(err)
 	}
