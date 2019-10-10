@@ -106,7 +106,9 @@ func newUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironm
 		return nil, trace.Wrap(err)
 	}
 	req := init.updateDeployRequest(deployAgentsRequest{
-		clusterState: cluster.ClusterState,
+		// Use server list from the operation plan to always have a consistent
+		// view of the cluster (i.e. with servers correctly reflecting cluster roles)
+		clusterState: clusterStateFromPlan(*plan),
 		clusterName:  cluster.Domain,
 		clusterEnv:   clusterEnv,
 		proxy:        proxy,
@@ -162,4 +164,12 @@ type updater interface {
 	RunPhase(ctx context.Context, phase string, phaseTimeout time.Duration, force bool) error
 	RollbackPhase(ctx context.Context, phase string, phaseTimeout time.Duration, force bool) error
 	Complete(error) error
+}
+
+func clusterStateFromPlan(plan storage.OperationPlan) (result storage.ClusterState) {
+	result.Servers = make([]storage.Server, 0, len(plan.Servers))
+	for _, s := range plan.Servers {
+		result.Servers = append(result.Servers, s)
+	}
+	return result
 }
