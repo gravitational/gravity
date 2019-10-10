@@ -28,6 +28,7 @@ import (
 	sigar "github.com/cloudfoundry/gosigar"
 	"github.com/gravitational/trace"
 	"github.com/mitchellh/go-ps"
+	log "github.com/sirupsen/logrus"
 )
 
 // New returns a new instance of system information
@@ -238,11 +239,12 @@ func collectFilesystemUsage(fs []storage.Filesystem) (result storage.FilesystemS
 	for _, mount := range fs {
 		usage := sigar.FileSystemUsage{}
 		if err := usage.Get(mount.DirName); err != nil {
-			if os.IsNotExist(err) {
-				// Skip the entry if the target directory does not exist
-				continue
-			}
-			return nil, trace.Wrap(err)
+			log.WithFields(log.Fields{
+				log.ErrorKey: err,
+				"dir":        mount.DirName,
+			}).Warn("Failed to fetch details about mount point.")
+			// Skip the entry if the target directory does not exist or is otherwise inaccessible
+			continue
 		}
 		result[mount.DirName] = storage.FilesystemUsage{TotalKB: usage.Total, FreeKB: usage.Free}
 	}
