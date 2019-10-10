@@ -657,6 +657,9 @@ type JoinConfig struct {
 	OperationID string
 	// FromService specifies whether the process runs in service mode
 	FromService bool
+	// SkipWizard specifies to the join agents that this join request is not too a wizard,
+	// and as such wizard connectivity should be skipped
+	SkipWizard bool
 }
 
 // NewJoinConfig populates join configuration from the provided CLI application
@@ -711,6 +714,7 @@ func (j *JoinConfig) NewPeerConfig(env, joinEnv *localenv.LocalEnvironment) (con
 		JoinBackend:        joinEnv.Backend,
 		StateDir:           joinEnv.StateDir,
 		OperationID:        j.OperationID,
+		SkipWizard:         j.SkipWizard,
 	}, nil
 }
 
@@ -762,6 +766,8 @@ func (r *autojoinConfig) newJoinConfig() JoinConfig {
 		PeerAddrs:     r.serviceURL,
 		Token:         r.token,
 		FromService:   r.fromService,
+		// Autojoin can only join an existing cluster, so skip attempts to use the wizard
+		SkipWizard: true,
 	}
 }
 
