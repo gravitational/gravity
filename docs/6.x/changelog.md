@@ -291,9 +291,10 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 #### Bugfixes
 
-* Fix an issue with monitoring application upgrade from 5.2.
-* Fix an issue with CoreDNS sometimes missing upstream resolvers.
-* Fix an issue with incorrectly counting nodes when validating license.
+* Fix an issue with monitoring application upgrade from 5.2 ([#136](https://github.com/gravitational/monitoring-app/pull/136)).
+* Fix an issue with CoreDNS sometimes missing upstream resolvers ([#742](https://github.com/gravitational/gravity/pull/742)).
+* Fix an issue with incorrectly counting nodes when validating license ([#751](https://github.com/gravitational/gravity/pull/751)).
+* Fix an issue with system information collector failing to parse `/etc/system-release` if it contained comments ([#731](https://github.com/gravitational/gravity/pull/731)).
 
 ### 5.6.8 (September 18th, 2019)
 
