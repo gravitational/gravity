@@ -654,7 +654,7 @@
   version = "v4.0.0"
 
 [[projects]]
-  digest = "1:3f7c586d2fd571c4f2e3d313c0638b33b999055de507d5f11fafe27e5adc30db"
+  digest = "1:2f22933a3050e47920c6b494a9c1f56dc46ebc83d7443fc9a32d0a8e26f53b4d"
   name = "github.com/gogo/protobuf"
   packages = [
     "gogoproto",
@@ -664,8 +664,8 @@
     "types",
   ]
   pruneopts = "UT"
-  revision = "7d68e886eac4f7e34d0d82241a6273d6c304c5cf"
-  version = "v1.1.0"
+  revision = "0ca988a254f991240804bf9821f3450d87ccbb1b"
+  version = "v1.3.0"
 
 [[projects]]
   branch = "master"
@@ -2573,9 +2573,9 @@
     "github.com/fsouza/go-dockerclient",
     "github.com/fsouza/go-dockerclient/testing",
     "github.com/ghodss/yaml",
+    "github.com/gogo/protobuf/proto",
     "github.com/gogo/protobuf/types",
     "github.com/gokyle/hotp",
-    "github.com/golang/protobuf/proto",
     "github.com/golang/protobuf/ptypes/any",
     "github.com/gravitational/configure",
     "github.com/gravitational/configure/cstrings",
@@ -2655,6 +2655,7 @@
     "google.golang.org/grpc/credentials",
     "google.golang.org/grpc/health",
     "google.golang.org/grpc/health/grpc_health_v1",
+    "google.golang.org/grpc/status",
     "gopkg.in/alecthomas/kingpin.v2",
     "gopkg.in/check.v1",
     "gopkg.in/yaml.v2",
