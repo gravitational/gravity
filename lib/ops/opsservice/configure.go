@@ -946,10 +946,6 @@ func (s *site) getPlanetConfig(config planetConfig) (args []string, err error) {
 	}
 	args = append(args, manifest.RuntimeArgs(*profile)...)
 
-	if manifest.HairpinMode(*profile) == constants.HairpinModePromiscuousBridge {
-		args = append(args, "--docker-promiscuous-mode=true")
-	}
-
 	if len(s.backendSite.DNSOverrides.Hosts) > 0 {
 		args = append(args, fmt.Sprintf("--dns-hosts=%v",
 			s.backendSite.DNSOverrides.FormatHosts()))
@@ -988,18 +984,10 @@ func (s *site) getPlanetConfig(config planetConfig) (args []string, err error) {
 		kubeletArgs = append(kubeletArgs, manifest.KubeletArgs(*profile)...)
 	}
 
-	switch manifest.HairpinMode(*profile) {
-	case constants.HairpinModeVeth:
-		kubeletArgs = append(kubeletArgs, "--hairpin-mode=hairpin-veth")
-	case constants.HairpinModePromiscuousBridge:
-		// Turn off kubelet's hairpin mode if promiscuous-bridge is requested.
-		// This mode manually configures promiscuous mode on the docker bridge
-		// and creates ebtables rules to de-duplicate packets
-		kubeletArgs = append(kubeletArgs, "--hairpin-mode=none")
+	if len(kubeletArgs) > 0 {
+		args = append(args, fmt.Sprintf("--kubelet-options=%v", strings.Join(kubeletArgs, " ")))
 	}
-
-	args = append(args, fmt.Sprintf("--kubelet-options=%v", strings.Join(kubeletArgs, " ")))
-
+	
 	mounts, err := GetMounts(manifest, node.Server)
 	if err != nil {
 		return nil, trace.Wrap(err)
