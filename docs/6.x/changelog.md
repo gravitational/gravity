@@ -42,18 +42,18 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 #### Improvements
 
-* Improves `gravity report` to capture additional network configuration.
-* Adds ability to specify default cloud provider in application manifest.
-* Provides additional error information when an operation fails.
-* Increase timeout on healthz check and allow optional configuration by environment variable.
-* Add support for discovering upstream DNS servers from systemd-resolved configuration.
-* Update debian containers to be based off debian buster.
-* Add `ebtable_filter` to the list of required gravity kernel modules.
+* Improves `gravity report` to capture additional network configuration ([#770](https://github.com/gravitational/gravity/pull/770)).
+* Adds ability to specify default cloud provider in application manifest ([#760](https://github.com/gravitational/gravity/pull/760)).
+* Provides additional error information when an operation fails ([#746](https://github.com/gravitational/gravity/pull/746)).
+* Increase timeout on healthz check and allow optional configuration by environment variable ([#744](https://github.com/gravitational/gravity/pull/744)).
+* Add support for discovering upstream DNS servers from systemd-resolved configuration ([#739](https://github.com/gravitational/gravity/pull/739)).
+* Update debian containers to be based off debian buster ([#770](https://github.com/gravitational/gravity/pull/770)).
+* Add `ebtable_filter` to the list of required gravity kernel modules ([#725](https://github.com/gravitational/gravity/pull/725)).
 
 #### Bugfixes
 
-* Fixes a race condition within docker libraries used by gravity.
-* Fix and issue with `gravity report` accessing journal files 
+* Fixes a race condition within docker libraries used by gravity ([#778](https://github.com/gravitational/gravity/pull/778)).
+* Fix and issue with `gravity report` accessing journal files ([#733](https://github.com/gravitational/gravity/pull/770)).
 
 ### 6.2.0 (September 24th, 2019)
 
