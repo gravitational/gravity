@@ -490,7 +490,7 @@
   revision = "edc3ab29cdff8694dd6feb85cfeb4b5f1b38ed9c"
 
 [[projects]]
-  digest = "1:c316443b3f2c5d769dd7fe6233b0f32fa8f741e87290047c8b809130b1674ae4"
+  digest = "1:48ce17256f3a5287a906117191da0a91c7c1b237f0b7876068c2b54383ec6bfe"
   name = "github.com/docker/docker"
   packages = [
     "pkg/archive",
@@ -506,7 +506,8 @@
     "pkg/term/windows",
   ]
   pruneopts = "UT"
-  revision = "be7ac8be2ae072032a4005e8f232be3fc57e4127"
+  revision = "2adf434ca69614dfc897dd0acf29018e5590a732"
+  source = "github.com/gravitational/moby"
 
 [[projects]]
   digest = "1:ae192be79d657527fddb53dd6a967f1a51fc7deca458dd5938c5fe7e43a041bf"
@@ -1023,11 +1024,12 @@
   revision = "ce8bcea24a8f887859e01819cb94cd677c6b5265"
 
 [[projects]]
-  digest = "1:9aea6c85145b6ff99ad423d35c6026e098a12cd7f19cce9775cc7eb73aa78d47"
+  digest = "1:418247f700939c99867b42639d985686ba229fd9f8ee9e119c7cc3ffde6e0fe3"
   name = "github.com/gravitational/trace"
   packages = ["."]
   pruneopts = "UT"
-  revision = "3822600263648f166b2b2a14bc693e92947af68b"
+  revision = "a535a178675fb4a11ba74818491754a8c5575dd6"
+  version = "1.1.8"
 
 [[projects]]
   digest = "1:841d5835e94129658adabece66a4cc54d2cec9a40fa8b51743ea35d0519dd6c2"

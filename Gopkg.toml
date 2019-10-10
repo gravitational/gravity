@@ -32,8 +32,7 @@ ignored = [
 
 [[override]]
   name = "github.com/gravitational/trace"
-  #version = "1.1.8"
-  revision = "3822600263648f166b2b2a14bc693e92947af68b"
+  version = "=1.1.8"
 
 [[override]]
   name = "github.com/mitchellh/go-ps"
@@ -138,7 +137,10 @@ ignored = [
 
 [[override]]
   name = "github.com/docker/docker"
-  revision = "be7ac8be2ae072032a4005e8f232be3fc57e4127"
+  source = "github.com/gravitational/moby"
+  # TODO(dmitri): update to release once the bugfix is tagged.
+  # See: https://github.com/moby/moby/issues/39859
+  revision = "2adf434ca69614dfc897dd0acf29018e5590a732"
 
 [[override]]
   name = "golang.org/x/sys"
