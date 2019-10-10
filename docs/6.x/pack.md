@@ -257,6 +257,15 @@ endpoints:
 
 # Providers allow you to override certain aspects of cloud and generic providers configuration
 providers:
+  # Name of the cloud provider integration to use by default, can be one of
+  # "aws", "gce" or "generic" (no cloud integration).
+  #
+  # If the default cloud provider is not set, it will be auto-detected at
+  # install time unless specified explicitly via `--cloud-provider` flag.
+  #
+  # Not set by default.
+  default: ""
+
   generic:
     # Network section allows to specify networking type;
     # vxlan - (Default) use flannel for overlay network
