@@ -741,53 +741,54 @@ func (r ConfigureNodeRequest) SiteKey() SiteKey {
 	}
 }
 
-// RotateSecretsRequest is a request to rotate server's secrets package
-type RotateSecretsRequest struct {
-	// AccountID is the account id of the local cluster
-	AccountID string `json:"account_id"`
-	// ClusterName is the local cluster name
-	ClusterName string `json:"cluster_name"`
-	// Server is the server to rotate secrets for
-	Server storage.Server `json:"server"`
+// CheckAndSetDefaults validates this request
+func (r RotateSecretsRequest) CheckAndSetDefaults() error {
+	if err := r.Key.Check(); err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
 }
 
-// SiteKey returns a cluster key from this request
-func (r RotateSecretsRequest) SiteKey() SiteKey {
-	return SiteKey{
-		AccountID:  r.AccountID,
-		SiteDomain: r.ClusterName,
+// RotateSecretsRequest is a request to rotate server's secrets package
+type RotateSecretsRequest struct {
+	// Key identifies the cluster
+	Key SiteKey `json:"key"`
+	// Server is the server to rotate secrets for
+	Server storage.Server `json:"server"`
+	// Package specifies the secrets package locator to use.
+	// If unspecified, one will be automatically generated
+	Package *loc.Locator `json:"package,omitempty"`
+	// DryRun specifies whether the API only generates the package name
+	// without actually creating the package
+	DryRun bool `json:"dry_run"`
+}
+
+// CheckAndSetDefaults validates this request
+func (r RotatePlanetConfigRequest) CheckAndSetDefaults() error {
+	if err := r.Key.Check(); err != nil {
+		return trace.Wrap(err)
 	}
+	return nil
 }
 
 // RotatePlanetConfigRequest is a request to rotate server's planet configuration package
 type RotatePlanetConfigRequest struct {
-	// AccountID is the account id of the local cluster
-	AccountID string `json:"account_id"`
-	// ClusterName is the local cluster name
-	ClusterName string `json:"cluster_name"`
-	// OperationID is the id of the operation
-	OperationID string `json:"operation_id"`
+	// Key identifies the cluster
+	Key SiteKey `json:"key"`
 	// Server is the server to rotate configuration for
 	Server storage.Server `json:"server"`
 	// Servers is all cluster servers
 	Servers []storage.Server `json:"servers"`
-}
-
-// SiteKey returns a cluster key from this request
-func (r RotatePlanetConfigRequest) SiteKey() SiteKey {
-	return SiteKey{
-		AccountID:  r.AccountID,
-		SiteDomain: r.ClusterName,
-	}
-}
-
-// SiteOperationKey returns an operation key from this request
-func (r RotatePlanetConfigRequest) SiteOperationKey() SiteOperationKey {
-	return SiteOperationKey{
-		AccountID:   r.AccountID,
-		SiteDomain:  r.ClusterName,
-		OperationID: r.OperationID,
-	}
+	// RuntimePackage identifies the runtime package to generate configuration for
+	RuntimePackage loc.Locator `json:"runtime_package"`
+	// Manifest specifies the manifest to generate configuration with
+	Manifest schema.Manifest `json:"manifest"`
+	// Package specifies the configuration package locator to use.
+	// It is generated automatically if unspecified
+	Package *loc.Locator `json:"package,omitempty"`
+	// DryRun specifies whether the API only generates the package name
+	// without actually creating the package
+	DryRun bool `json:"dry_run"`
 }
 
 // Proxy helps to manage connections and clients to remote ops centers

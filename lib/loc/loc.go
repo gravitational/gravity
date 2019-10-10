@@ -234,6 +234,10 @@ var (
 	Planet = MustParseLocator(
 		fmt.Sprintf("%v/%v:%v", defaults.SystemAccountOrg, constants.PlanetPackage, ZeroVersion))
 
+	// Teleport is the teleport package locator
+	Teleport = MustParseLocator(
+		fmt.Sprintf("%v/%v:%v", defaults.SystemAccountOrg, constants.TeleportPackage, ZeroVersion))
+
 	// TrustedCluster is the trusted-cluster package locator
 	TrustedCluster = MustParseLocator(
 		fmt.Sprintf("%v/%v:0.0.1", defaults.SystemAccountOrg, constants.TrustedClusterPackage))
@@ -256,4 +260,7 @@ var (
 	// WebAssetsPackageLocator is the package with web assets
 	WebAssetsPackageLocator = MustParseLocator(
 		fmt.Sprintf("%v/%v:%v", defaults.SystemAccountOrg, "web-assets", ZeroVersion))
+
+	// BaseVersion defines the base version of a package
+	BaseVersion = semver.New("0.0.1")
 )

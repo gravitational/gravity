@@ -24,6 +24,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/julienschmidt/httprouter"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/app/client"
 	"github.com/gravitational/gravity/lib/app/docker"
@@ -198,4 +201,16 @@ func (r *HandlerSuite) TestAppHookCycle(c *C) {
 		c.Skip("skipping Kubernetes test")
 	}
 	r.suite.AppHookCycle(c)
+}
+
+// TestTelekubeInstallScriptChecksSemverSanity ensures that the install script generator is checking the semver for
+// malicious input
+func TestTelekubeInstallScriptChecksSemverSanity(t *testing.T) {
+	h := &WebHandler{}
+	assert.Error(t, h.telekubeInstallScript(nil, nil, httprouter.Params{
+		httprouter.Param{
+			Key:   "version",
+			Value: "1.0.1-aaa$(touch grav)",
+		},
+	}), "validate that telekubeInstallScript throws error on bad input")
 }

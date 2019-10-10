@@ -19,10 +19,9 @@ package systeminfo
 import (
 	"bytes"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
-	osuser "os/user"
+	"os/user"
 	"strconv"
 	"strings"
 
@@ -31,7 +30,6 @@ import (
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
-	"github.com/opencontainers/runc/libcontainer/user"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -54,11 +52,10 @@ func GetRealUser() (*User, error) {
 			GID:  gid,
 		}, nil
 	}
-	current, err := osuser.Current()
+	current, err := user.Current()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-
 	uid, err := strconv.Atoi(current.Uid)
 	if err != nil {
 		return nil, trace.Wrap(err, "invalid user ID: %v", current.Uid)
@@ -76,34 +73,64 @@ func GetRealUser() (*User, error) {
 
 // LookupUserByName finds a user by name
 func LookupUserByName(name string) (*User, error) {
-	u, err := lookupUser(func(u user.User) bool {
-		return u.Name == name
-	})
+	usr, err := user.Lookup(name)
 	if err != nil {
-		return nil, trace.Wrap(convertError(err.Error()))
+		return nil, trace.Wrap(convertUserError(err))
 	}
-
+	uid, err := strconv.Atoi(usr.Uid)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	gid, err := strconv.Atoi(usr.Gid)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	return &User{
-		Name: u.Name,
-		UID:  u.Uid,
-		GID:  u.Gid,
+		Name: usr.Username,
+		UID:  uid,
+		GID:  gid,
 	}, nil
 }
 
 // LookupUserByUID finds a user by ID
 func LookupUserByUID(uid int) (*User, error) {
-	u, err := lookupUser(func(u user.User) bool {
-		return u.Uid == uid
-	})
+	usr, err := user.LookupId(strconv.Itoa(uid))
 	if err != nil {
-		return nil, trace.Wrap(convertError(err.Error()))
+		return nil, trace.Wrap(convertUserError(err))
 	}
-
+	gid, err := strconv.Atoi(usr.Gid)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	return &User{
-		Name: u.Name,
-		UID:  u.Uid,
-		GID:  u.Gid,
+		Name: usr.Username,
+		UID:  uid,
+		GID:  gid,
 	}, nil
+}
+
+func checkGroup(groupName, groupID string) error {
+	grp, err := user.LookupGroup(groupName)
+	if err != nil {
+		return trace.Wrap(convertUserError(err))
+	}
+	if grp.Gid != groupID {
+		return trace.AlreadyExists("group %q already exists with gid %v",
+			groupName, grp.Gid)
+	}
+	return nil
+}
+
+func checkUser(userName, userID string) error {
+	usr, err := user.Lookup(userName)
+	if err != nil {
+		return trace.Wrap(convertUserError(err))
+	}
+	if usr.Uid != userID {
+		return trace.AlreadyExists("user %q already exists with uid %v",
+			userName, usr.Uid)
+	}
+	return nil
 }
 
 // NewUser creates a new user with the specified name and group.
@@ -113,6 +140,9 @@ func LookupUserByUID(uid int) (*User, error) {
 func NewUser(name, group, uid, gid string) (*User, error) {
 	var args []string
 	if gid != "" {
+		if err := checkGroup(group, gid); err != nil && !trace.IsNotFound(err) {
+			return nil, trace.Wrap(err)
+		}
 		args = append(args, "--gid", gid)
 	}
 	output, err := runCmd(groupAddCommand(group, args...))
@@ -132,6 +162,9 @@ func NewUser(name, group, uid, gid string) (*User, error) {
 	}
 	args = []string{"--gid", gid}
 	if uid != "" {
+		if err := checkUser(name, uid); err != nil && !trace.IsNotFound(err) {
+			return nil, trace.Wrap(err)
+		}
 		args = append(args, "--uid", uid)
 	}
 	output, err = runCmd(userAddCommand(name, args...))
@@ -166,7 +199,7 @@ func DefaultServiceUser() *User {
 // String returns a textual representation of this user.
 // Implements fmt.Stringer
 func (r User) String() string {
-	return fmt.Sprintf("user(%q, uid=%v, gid=%v)", r.Name, r.UID, r.GID)
+	return fmt.Sprintf("User(%v, uid=%v, gid=%v)", r.Name, r.UID, r.GID)
 }
 
 // User describes a system user
@@ -214,84 +247,14 @@ func convertError(output string) error {
 	}
 }
 
+func convertUserError(err error) error {
+	switch err.(type) {
+	case user.UnknownUserError, user.UnknownUserIdError, user.UnknownGroupError, user.UnknownGroupIdError:
+		return trace.NotFound(err.Error())
+	}
+	return err
+}
+
 func isUnrecognizedOption(msg string) bool {
 	return strings.Contains(msg, "unrecognized option")
 }
-
-func lookupUser(filter func(u user.User) bool) (*user.User, error) {
-	// Get operating system-specific passwd reader.
-	passwd, err := getPasswdUbuntuCore()
-	if err != nil && !trace.IsNotFound(err) {
-		return nil, trace.Wrap(err)
-	}
-	if trace.IsNotFound(err) {
-		passwd, err = user.GetPasswd()
-		if err != nil {
-			return nil, trace.ConvertSystemError(err)
-		}
-	}
-	defer passwd.Close()
-
-	// Get the users.
-	users, err := user.ParsePasswdFilter(passwd, filter)
-	if err != nil {
-		return nil, trace.ConvertSystemError(err)
-	}
-
-	if len(users) == 0 {
-		return nil, trace.NotFound("no matching entries in passwd file")
-	}
-
-	// Assume the first entry is the "correct" one.
-	return &users[0], nil
-}
-
-func lookupGroup(filter func(g user.Group) bool) (*user.Group, error) {
-	// Get operating system-specific group reader.
-	group, err := getGroupUbuntuCore()
-	if err != nil && !trace.IsNotFound(err) {
-		return nil, trace.Wrap(err)
-	}
-	if trace.IsNotFound(err) {
-		group, err = user.GetGroup()
-		if err != nil {
-			return nil, trace.ConvertSystemError(err)
-		}
-	}
-	defer group.Close()
-
-	// Get the group.
-	groups, err := user.ParseGroupFilter(group, filter)
-	if err != nil {
-		return nil, trace.ConvertSystemError(err)
-	}
-
-	if len(groups) == 0 {
-		return nil, trace.NotFound("no matching entries in group file")
-	}
-
-	// Assume the first entry is the "correct" one.
-	return &groups[0], nil
-}
-
-func getPasswdUbuntuCore() (io.ReadCloser, error) {
-	f, err := os.Open(ubuntuCorePasswdPath)
-	if err != nil {
-		return nil, trace.ConvertSystemError(err)
-	}
-	return f, nil
-}
-
-func getGroupUbuntuCore() (io.ReadCloser, error) {
-	f, err := os.Open(ubuntuCoreGroupPath)
-	if err != nil {
-		return nil, trace.ConvertSystemError(err)
-	}
-	return f, nil
-}
-
-// Ubuntu-Core-specific path to the passwd and group formatted files.
-const (
-	ubuntuCorePasswdPath = "/var/lib/extrausers/passwd"
-	ubuntuCoreGroupPath  = "/var/lib/extrausers/group"
-)

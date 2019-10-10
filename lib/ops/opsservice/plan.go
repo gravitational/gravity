@@ -89,10 +89,7 @@ func (p provisionedServers) Contains(ip string) bool {
 type ProvisionedServer struct {
 	storage.Server
 	Profile schema.NodeProfile
-	// PackageSet contains  packages that should be delivered and installed
-	// on this server
-	PackageSet *PackageSet
-	keyPair    *teleportKeyPair
+	keyPair *teleportKeyPair
 }
 
 // Address returns the address this server is accessible on
@@ -149,7 +146,11 @@ func (s *ProvisionedServer) InGravity(dir ...string) string {
 var suffixer = strings.NewReplacer(".", "", ":", "")
 
 func PackageSuffix(node remoteServer, domain string) string {
-	data := fmt.Sprintf("%v.%v", node.Address(), domain)
+	return PackageSuffixForAddr(node.Address(), domain)
+}
+
+func PackageSuffixForAddr(addr, domain string) string {
+	data := fmt.Sprintf("%v.%v", addr, domain)
 	return suffixer.Replace(data)
 }
 

@@ -287,19 +287,12 @@ func (s *UsersSuite) TestPasswordRecovery(c *C) {
 		Username: email,
 		Password: "password2",
 	})
-	c.Assert(err, IsNil, Commentf(
-		"should be able to login with the new password"))
+	c.Assert(err, NotNil, Commentf(
+		"Basic auth shouln't work with OTP token set"))
 
 	resetReq.Password = users.Password("password2")
 	_, err = s.suite.Users.ResetUserWithToken(resetReq)
 	c.Assert(err, NotNil, Commentf("should not be able to reuse password reset token"))
-
-	_, _, err = s.suite.Users.AuthenticateUser(httplib.AuthCreds{
-		Type:     httplib.AuthBasic,
-		Username: email,
-		Password: "password3",
-	})
-	c.Assert(err, NotNil, Commentf("password shouldn't have been changed"))
 }
 
 // TestPasswordRecovery verifies that:

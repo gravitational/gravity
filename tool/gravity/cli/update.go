@@ -29,6 +29,7 @@ import (
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
+	"github.com/gravitational/gravity/lib/storage"
 
 	"github.com/gravitational/trace"
 )
@@ -174,6 +175,118 @@ run the same command. The operation will be marked as "failed" and the cluster
 will be returned to the "active" state.`)
 
 	return nil
+}
+
+// rotateSecrets creates new secrets package with the specified locator.
+// If the locator is empty, it just generates and outputs the package name
+func rotateSecrets(env *localenv.LocalEnvironment, pkg *loc.Locator, operationID, serverAddr string) error {
+	clusterEnv, err := localenv.NewClusterEnvironment()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	cluster, err := clusterEnv.Operator.GetLocalSite()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if pkg == nil {
+		// Generate and report just the package name
+		server := (storage.Servers)(cluster.ClusterState.Servers).FindByIP(serverAddr)
+		if server == nil {
+			return trace.NotFound("no server found for %v", serverAddr)
+		}
+		resp, err := clusterEnv.Operator.RotateSecrets(ops.RotateSecretsRequest{
+			Key:    cluster.Key(),
+			Server: *server,
+			DryRun: true,
+		})
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		env.Println(resp.Locator)
+		return nil
+	}
+	operationKey := ops.SiteOperationKey{
+		AccountID:   cluster.AccountID,
+		SiteDomain:  cluster.Domain,
+		OperationID: operationID,
+	}
+	plan, err := clusterEnv.Operator.GetOperationPlan(operationKey)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	server := (storage.Servers)(plan.Servers).FindByIP(serverAddr)
+	resp, err := clusterEnv.Operator.RotateSecrets(ops.RotateSecretsRequest{
+		Key:     cluster.Key(),
+		Server:  *server,
+		Package: pkg,
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	_, err = clusterEnv.ClusterPackages.UpsertPackage(resp.Locator, resp.Reader, pack.WithLabels(resp.Labels))
+	return trace.Wrap(err)
+}
+
+// rotatePlanetConfig creates new planet configuration with the specified package locator.
+// If the locator is empty, it just generates and outputs the package name
+func rotatePlanetConfig(env *localenv.LocalEnvironment, pkg *loc.Locator, runtimePackage loc.Locator, operationID, serverAddr string) error {
+	clusterEnv, err := localenv.NewClusterEnvironment()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	cluster, err := clusterEnv.Operator.GetLocalSite()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	app, err := clusterEnv.Apps.GetApp(cluster.App.Package)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if pkg == nil {
+		// Generate and report just the package name
+		server := (storage.Servers)(cluster.ClusterState.Servers).FindByIP(serverAddr)
+		if server == nil {
+			return trace.NotFound("no server found for %v", serverAddr)
+		}
+		resp, err := clusterEnv.Operator.RotatePlanetConfig(ops.RotatePlanetConfigRequest{
+			Key:            cluster.Key(),
+			Server:         *server,
+			RuntimePackage: runtimePackage,
+			Manifest:       app.Manifest,
+			DryRun:         true,
+		})
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		env.Println(resp.Locator)
+		return nil
+	}
+	operationKey := ops.SiteOperationKey{
+		AccountID:   cluster.AccountID,
+		SiteDomain:  cluster.Domain,
+		OperationID: operationID,
+	}
+	plan, err := clusterEnv.Operator.GetOperationPlan(operationKey)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	server := (storage.Servers)(plan.Servers).FindByIP(serverAddr)
+	if server == nil {
+		return trace.NotFound("no server found for %v", serverAddr)
+	}
+	resp, err := clusterEnv.Operator.RotatePlanetConfig(ops.RotatePlanetConfigRequest{
+		Key:            cluster.Key(),
+		Servers:        cluster.ClusterState.Servers,
+		Server:         *server,
+		RuntimePackage: runtimePackage,
+		Package:        pkg,
+		Manifest:       app.Manifest,
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	_, err = clusterEnv.ClusterPackages.UpsertPackage(resp.Locator, resp.Reader, pack.WithLabels(resp.Labels))
+	return trace.Wrap(err)
 }
 
 func checkCanUpdate(cluster ops.Site, operator ops.Operator, manifest schema.Manifest) error {
