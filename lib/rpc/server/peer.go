@@ -246,7 +246,7 @@ func (r serverPeer) Reconnect(ctx context.Context) (Client, error) {
 
 	_, err = clt.PeerJoin(ctx, &pb.PeerJoinRequest{Addr: r.addr, Config: &r.config, SystemInfo: payload})
 	if err != nil {
-		return nil, &backoff.PermanentError{trace.Wrap(err)}
+		return nil, &backoff.PermanentError{err}
 	}
 
 	return clt, nil
@@ -436,13 +436,16 @@ type peer struct {
 }
 
 func isDeadlineExceededError(err error) bool {
-	err = trace.Unwrap(err)
-	switch origErr := err.(type) {
+	origErr := trace.Unwrap(err)
+	switch err := err.(type) {
 	case trace.Aggregate:
-		if len(origErr.Errors()) != 0 {
-			err = trace.Unwrap(origErr.Errors()[0])
+		if len(err.Errors()) != 0 {
+			origErr = trace.Unwrap(err.Errors()[0])
 		}
 	}
-	status, ok := status.FromError(err)
+	if err, ok := origErr.(*backoff.PermanentError); ok {
+		origErr = err.Err
+	}
+	status, ok := status.FromError(origErr)
 	return ok && status.Code() == codes.DeadlineExceeded
 }
