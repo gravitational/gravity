@@ -17,12 +17,15 @@ limitations under the License.
 package report
 
 import (
+	"context"
 	"fmt"
+	"io/ioutil"
 	"path/filepath"
 	"strings"
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/utils"
+	"github.com/gravitational/trace"
 )
 
 // SystemInfo returns a list of collectors to fetch various bits of system information
@@ -74,7 +77,7 @@ func basicSystemInfo() Collectors {
 		Cmd("systemctl-host", "/bin/systemctl", "status"),
 		Cmd("dmesg", "cat", "/var/log/dmesg"),
 		// Fetch world-readable parts of /etc/
-		Script("etc-logs.tar.gz", tarball("/etc/")),
+		fetchEtc("etc-logs.tar.gz"),
 		// memory
 		Cmd("free", "free", "--human"),
 		Cmd("slabtop", "slabtop", "--once"),
@@ -111,14 +114,17 @@ func syslogExportLogs() Collector {
 	return Script("gravity-system.log.gz", fmt.Sprintf(script, strings.Join(matches, " ")))
 }
 
-// systemFileLogs fetches gravity platform-related logs
+// systemFileLogs fetches gravity log files
 func systemFileLogs() Collectors {
 	const template = `
 #!/bin/bash
 cat %v 2> /dev/null || true`
+	workingDir := filepath.Dir(utils.Exe.Path)
 	return Collectors{
-		Script(filepath.Base(defaults.GravitySystemLog), fmt.Sprintf(template, defaults.GravitySystemLog)),
-		Script(filepath.Base(defaults.GravityUserLog), fmt.Sprintf(template, defaults.GravityUserLog)),
+		Script("gravity-system.log", fmt.Sprintf(template, defaults.GravitySystemLog)),
+		Script("gravity-system-local.log", fmt.Sprintf(template, filepath.Join(workingDir, defaults.GravitySystemLogFile))),
+		Script("gravity-install.log", fmt.Sprintf(template, defaults.GravityUserLog)),
+		Script("gravity-install-local.log", fmt.Sprintf(template, filepath.Join(workingDir, defaults.GravityUserLogFile))),
 	}
 }
 
@@ -134,4 +140,23 @@ func planetLogs() Collectors {
 		Self("planet-journal-export.log.gz",
 			"system", "export-runtime-journal"),
 	}
+}
+
+func fetchEtc(name string) CollectorFunc {
+	args := []string{
+		"cz", "--ignore-failed-read", "--dereference", "--ignore-command-error",
+		"--absolute-names", "--directory", "/",
+		"--exclude=/etc/ssl/**", "--exclude=/etc/fonts/**",
+		"/etc",
+	}
+	return CollectorFunc(func(ctx context.Context, reportWriter Writer, _ utils.CommandRunner) error {
+		w, err := reportWriter(name)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		return utils.ExecUnprivileged(ctx, "/bin/tar", args,
+			utils.Stderr(ioutil.Discard),
+			utils.Stdout(w),
+		)
+	})
 }

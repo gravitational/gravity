@@ -93,6 +93,15 @@ type Collector interface {
 // Collectors is a list of Collectors
 type Collectors []Collector
 
+// Collect invokes this function with the specified parameters.
+// Implements Collector
+func (r CollectorFunc) Collect(ctx context.Context, w Writer, runner utils.CommandRunner) error {
+	return r(ctx, w, runner)
+}
+
+// CollectorFunc allows ordinary functions as Collectors
+type CollectorFunc func(context.Context, Writer, utils.CommandRunner) error
+
 // Collect implements Collector for a list of Collectors
 func (r Collectors) Collect(ctx context.Context, reportWriter Writer, runner utils.CommandRunner) error {
 	var errors []error
@@ -165,6 +174,6 @@ type ScriptCollector struct {
 func tarball(pattern string) string {
 	return fmt.Sprintf(`
 #!/bin/bash
-/bin/tar cz --ignore-failed-read --ignore-command-error -f /dev/stdout -C / $(readlink -e %v) -P 2> /dev/null
+/bin/tar cz --ignore-failed-read --dereference --ignore-command-error -f /dev/stdout -C / $(readlink -e %v) -P 2> /dev/null
 `, pattern)
 }

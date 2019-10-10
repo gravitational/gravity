@@ -23,8 +23,11 @@ import (
 	"io"
 	"io/ioutil"
 	"os/exec"
+	"os/user"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/gravitational/gravity/lib/constants"
@@ -126,6 +129,27 @@ func RunStream(ctx context.Context, w io.Writer, args ...string) error {
 		return trace.Wrap(err)
 	}
 	return trace.Wrap(cmd.Wait())
+}
+
+// ExecUnprivileged executes the specified command as unprivileged user
+func ExecUnprivileged(ctx context.Context, command string, args []string, opts ...CommandOptionSetter) error {
+	nobody, err := user.Lookup("nobody")
+	if err != nil {
+		return trace.ConvertSystemError(err)
+	}
+	cmd := exec.CommandContext(ctx, command, args...)
+	uid, _ := strconv.Atoi(nobody.Uid)
+	gid, _ := strconv.Atoi(nobody.Gid)
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Credential: &syscall.Credential{
+			Uid: uint32(uid),
+			Gid: uint32(gid),
+		},
+	}
+	for _, opt := range opts {
+		opt(cmd)
+	}
+	return cmd.Run()
 }
 
 // ExecL executes the specified cmd and logs the command line to the specified entry
