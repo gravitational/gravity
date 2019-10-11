@@ -25,7 +25,7 @@ of running Kubernetes. For this tutorial, you will need:
 
 * A x86_64 Linux machine or a VM for building a Cluster Image that is running one of the [supported Linux distributions](requirements/#distributions).
 * Docker version 17 or newer. Run `docker info` before continuing to make sure
-  you have Docker up and running. We recommend following instructions on [installing Docker CE from Docker.com](https://docs.docker.com/install/linux/docker-ce/ubuntu/)
+  you have Docker up and running. We recommend following instructions on [installing Docker CE from Docker.com](https://docs.docker.com/install/)
 * You must be a member of the `docker` group. Run `groups` command to make sure
   `docker` group is listed. If not, you can add yourself to the "docker" group via `sudo usermod -aG docker $USER`
 * You must install [Helm 2.0](https://docs.helm.sh/using_helm/#installing-helm) - [Helm v2.12 Github Release](https://github.com/helm/helm/releases/tag/v2.12.3).
