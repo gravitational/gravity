@@ -675,7 +675,7 @@ const manifestSchema = `
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "hairpinMode": {"enum": ["promiscuous-bridge", "hairpin-veth"], "default": "promiscuous-bridge"},
+            "hairpinMode": {"enum": ["promiscuous-bridge", "hairpin-veth"], "default": ""},
             "args": {
               "type": "array",
               "items": {"type": "string"}

@@ -314,7 +314,7 @@ Cluster registry.
 ### Online Cluster Upgrade
 
 !!! warning "Version Warning"
-    Graivty Hub is available to Enterprise edition users only. This means that open source
+    Gravity Hub is available to Enterprise edition users only. This means that open source
     edition of Gravity only supports "offline updates" (see below).
 
 If a Cluster is connected to a Gravity Hub, it can download newer versions

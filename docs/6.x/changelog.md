@@ -8,13 +8,13 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
 | 6.2.0         | No  | September 24th, 2019 | -                    | 1.16.0             | 3.2.12           |
-| 6.1.5         | No  | September 18th, 2019 | -                    | 1.15.4             | 3.2.12           |
+| 6.1.6         | No  | October 10th, 2019   | -                    | 1.15.4             | 3.2.12           |
 | 6.0.9         | No  | September 18th, 2019 | -                    | 1.14.7             | 3.2.12           |
 | 5.6.8         | No  | September 18th, 2019 | -                    | 1.14.7             | 3.0.6-gravity    |
-| 5.5.21        | Yes | September 26th, 2019 | September 7th, 2020  | 1.13.11            | 3.0.6-gravity    |
+| 5.5.22        | Yes | October 8th, 2019    | September 7th, 2020  | 1.13.11            | 3.0.6-gravity    |
 | 5.4.10*       | No  | March 26th, 2019     | -                    | 1.13.5             | 2.4.10           |
 | 5.3.9*        | No  | March 7th, 2019      | -                    | 1.12.3             | 2.4.7            |
-| 5.2.15        | Yes | September 19th, 2019 | October 15th, 2019   | 1.11.9             | 2.4.10           |
+| 5.2.16        | Yes | October 11th, 2019   | October 15th, 2019   | 1.11.9             | 2.4.10           |
 | 5.0.35        | Yes | September 2nd, 2019  | April 13th, 2019     | 1.9.13-gravitational | 2.4.10         |
 | 4.68.0*       | Yes | January 17th, 2019   | November 16th, 2018  | 1.7.18-gravitational | 2.3.5          |
 | 3.64.0*       | Yes | December 21st, 2017  | June 2nd, 2018       | 1.5.7              | 2.0.6            |
@@ -37,6 +37,23 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 
 ## 6.x Releases
+
+### 6.1.6 (October 10th, 2019)
+
+#### Improvements
+
+* Improves `gravity report` to capture additional network configuration ([#770](https://github.com/gravitational/gravity/pull/770)).
+* Adds ability to specify default cloud provider in application manifest ([#760](https://github.com/gravitational/gravity/pull/760)).
+* Provides additional error information when an operation fails ([#746](https://github.com/gravitational/gravity/pull/746)).
+* Increase timeout on healthz check and allow optional configuration by environment variable ([#744](https://github.com/gravitational/gravity/pull/744)).
+* Add support for discovering upstream DNS servers from systemd-resolved configuration ([#739](https://github.com/gravitational/gravity/pull/739)).
+* Update debian containers to be based off debian buster ([#770](https://github.com/gravitational/gravity/pull/770)).
+* Add `ebtable_filter` to the list of required gravity kernel modules ([#725](https://github.com/gravitational/gravity/pull/725)).
+
+#### Bugfixes
+
+* Fixes a race condition within docker libraries used by gravity ([#778](https://github.com/gravitational/gravity/pull/778)).
+* Fix and issue with `gravity report` accessing journal files ([#733](https://github.com/gravitational/gravity/pull/770)).
 
 ### 6.2.0 (September 24th, 2019)
 
@@ -286,6 +303,27 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 * Add support for using `helm` directly from host.
 
 ## 5.x Releases
+
+### 5.2.16 LTS (October 11th, 2019)
+
+#### Improvements
+
+* Improves `gravity report` to capture additional network configuration ([#773](https://github.com/gravitational/gravity/pull/773)).
+* Increase timeout on healthz check and allow optional configuration by environment variable ([#737](https://github.com/gravitational/gravity/pull/737)).
+
+#### Bugfixes
+
+* Skip missing mount points when checking filesystem usage ([#786](https://github.com/gravitational/gravity/pull/786)).
+
+
+### 5.5.22 LTS (October 8th, 2019)
+
+#### Bugfixes
+
+* Fix an issue with monitoring application upgrade from 5.2 ([#136](https://github.com/gravitational/monitoring-app/pull/136)).
+* Fix an issue with CoreDNS sometimes missing upstream resolvers ([#742](https://github.com/gravitational/gravity/pull/742)).
+* Fix an issue with incorrectly counting nodes when validating license ([#751](https://github.com/gravitational/gravity/pull/751)).
+* Fix an issue with system information collector failing to parse `/etc/system-release` if it contained comments ([#731](https://github.com/gravitational/gravity/pull/731)).
 
 ### 5.6.8 (September 18th, 2019)
 
