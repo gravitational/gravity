@@ -14,7 +14,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 | 5.5.22        | Yes | October 8th, 2019    | September 7th, 2020  | 1.13.11            | 3.0.6-gravity    |
 | 5.4.10*       | No  | March 26th, 2019     | -                    | 1.13.5             | 2.4.10           |
 | 5.3.9*        | No  | March 7th, 2019      | -                    | 1.12.3             | 2.4.7            |
-| 5.2.15        | Yes | September 19th, 2019 | October 15th, 2019   | 1.11.9             | 2.4.10           |
+| 5.2.16        | Yes | October 11th, 2019   | October 15th, 2019   | 1.11.9             | 2.4.10           |
 | 5.0.35        | Yes | September 2nd, 2019  | April 13th, 2019     | 1.9.13-gravitational | 2.4.10         |
 | 4.68.0*       | Yes | January 17th, 2019   | November 16th, 2018  | 1.7.18-gravitational | 2.3.5          |
 | 3.64.0*       | Yes | December 21st, 2017  | June 2nd, 2018       | 1.5.7              | 2.0.6            |
@@ -303,6 +303,18 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 * Add support for using `helm` directly from host.
 
 ## 5.x Releases
+
+### 5.2.16 LTS (October 11th, 2019)
+
+#### Improvements
+
+* Improves `gravity report` to capture additional network configuration ([#773](https://github.com/gravitational/gravity/pull/773)).
+* Increase timeout on healthz check and allow optional configuration by environment variable ([#737](https://github.com/gravitational/gravity/pull/737)).
+
+#### Bugfixes
+
+* Skip missing mount points when checking filesystem usage ([#786](https://github.com/gravitational/gravity/pull/786)).
+
 
 ### 5.5.22 LTS (October 8th, 2019)
 
