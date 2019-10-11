@@ -279,4 +279,3 @@ ignored = [
 [[constraint]]
   name = "gopkg.in/check.v1"
   branch = "v1"
-
