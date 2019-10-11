@@ -147,7 +147,6 @@ systemOptions:
     args: ["-debug"]
   kubelet:
     args: ["--system-reserved=memory=500Mi"]
-    hairpinMode: promiscuous-bridge
   dependencies:
     runtimePackage: gravitational.io/planet:0.0.1
 `)
@@ -317,7 +316,6 @@ systemOptions:
 			ExternalService: ExternalService{
 				Args: []string{"--system-reserved=memory=500Mi"},
 			},
-			HairpinMode: constants.HairpinModePromiscuousBridge,
 		},
 		Dependencies: SystemDependencies{
 			Runtime: &Dependency{

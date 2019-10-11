@@ -289,6 +289,9 @@ type PeerConfig struct {
 	OperationID string
 	// StateDir defines where peer will store operation-specific data
 	StateDir string
+	// SkipWizard specifies to the peer agents that the peer is not a wizard
+	// and attempts to contact the wizard should be skipped
+	SkipWizard bool
 }
 
 // CheckAndSetDefaults checks the parameters and autodetects some defaults
@@ -801,23 +804,25 @@ func (p *Peer) tryConnect(operationID string) (ctx *operationContext, err error)
 	p.printStep("Connecting to cluster")
 	for _, addr := range p.Peers {
 		p.WithField("peer", addr).Debug("Dialing peer.")
-		ctx, err = p.dialWizard(addr)
-		if err == nil {
-			p.WithField("addr", ctx.Peer).Debug("Connected to wizard.")
-			p.printStep("Connected to installer at %v", addr)
-			return ctx, nil
-		}
-		if !utils.IsConnectionResetError(err) {
-			p.WithError(err).Warn("Failed connecting to wizard.")
-		}
-		if isTerminalError(err) {
-			return nil, utils.Abort(err)
-		}
-		// already exists error is returned when there's an ongoing install
-		// operation, do not attempt to dial the cluster until it completes
-		if trace.IsAlreadyExists(err) {
-			p.printStep("Waiting for the install operation to finish")
-			return nil, trace.Wrap(err)
+		if !p.SkipWizard {
+			ctx, err = p.dialWizard(addr)
+			if err == nil {
+				p.WithField("addr", ctx.Peer).Debug("Connected to wizard.")
+				p.printStep("Connected to installer at %v", addr)
+				return ctx, nil
+			}
+			if !utils.IsConnectionResetError(err) {
+				p.WithError(err).Warn("Failed connecting to wizard.")
+			}
+			if isTerminalError(err) {
+				return nil, utils.Abort(err)
+			}
+			// already exists error is returned when there's an ongoing install
+			// operation, do not attempt to dial the cluster until it completes
+			if trace.IsAlreadyExists(err) {
+				p.printStep("Waiting for the install operation to finish")
+				return nil, trace.Wrap(err)
+			}
 		}
 		ctx, err = p.dialCluster(addr, operationID)
 		if err == nil {
