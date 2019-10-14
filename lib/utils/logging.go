@@ -20,11 +20,14 @@ import (
 	"io/ioutil"
 	"log/syslog"
 	"os"
+	"strconv"
+	"strings"
 
 	"github.com/gravitational/gravity/lib/defaults"
 
 	log "github.com/sirupsen/logrus"
 	syslogrus "github.com/sirupsen/logrus/hooks/syslog"
+	"google.golang.org/grpc/grpclog"
 )
 
 // InitLogging initalizes logging to log both to syslog and to a file
@@ -33,6 +36,41 @@ func InitLogging(logFile string) {
 		path: logFile,
 	})
 	setLoggingOptions()
+}
+
+// InitGRPCLogger restores the GRPC logger if any of the related environment variables
+// are set
+func InitGRPCLogger() {
+	const (
+		envSeverityLevel  = "GRPC_GO_LOG_SEVERITY_LEVEL"
+		envVerbosityLevel = "GRPC_GO_LOG_VERBOSITY_LEVEL"
+	)
+	severityLevel := os.Getenv(envSeverityLevel)
+	verbosityLevel := os.Getenv(envVerbosityLevel)
+
+	if severityLevel == "" && verbosityLevel == "" {
+		// Nothing to do
+		return
+	}
+
+	errorW := ioutil.Discard
+	warningW := ioutil.Discard
+	infoW := ioutil.Discard
+
+	switch strings.ToLower(severityLevel) {
+	case "", "error": // If env is unset, set level to `error`.
+		errorW = os.Stderr
+	case "warning":
+		warningW = os.Stderr
+	case "info":
+		infoW = os.Stderr
+	}
+
+	var verbosity int
+	if verbosityOverride, err := strconv.Atoi(verbosityLevel); err == nil {
+		verbosity = verbosityOverride
+	}
+	grpclog.SetLoggerV2(grpclog.NewLoggerV2WithVerbosity(infoW, warningW, errorW, verbosity))
 }
 
 func setLoggingOptions() {
