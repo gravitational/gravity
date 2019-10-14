@@ -84,8 +84,8 @@ func CheckInPlanet() bool {
 	return runningInsideContainer
 }
 
-// GetenvWithDefault returns the value the environment variables given
-// with name or defaultValue is the variable does not exist
+// GetenvWithDefault returns the value of the environment variable given
+// with name or defaultValue if the variable does not exist
 func GetenvWithDefault(name, defaultValue string) string {
 	if value, ok := os.LookupEnv(name); ok {
 		return value
