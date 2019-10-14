@@ -87,7 +87,7 @@ spec:
   - [ ] Verify `tsh status`, `tsh ls` and `tsh ssh` commands work.
   - [ ] Verify `kubectl` was configured to talk to the cluster, e.g. `kubectl get nodes`, `kubectl get pods --all-namespaces`.
 
-- [ ] Connect the cluster to a Hub via a [trusted cluster](https://gravitational.com/gravity/docs/ver/6.x/config/#trusted-clusters-enterprise) resource.
+- [ ] Connect the cluster to the Hub via a [trusted cluster](https://gravitational.com/gravity/docs/ver/6.x/config/#trusted-clusters-enterprise) resource.
   - [ ] Verify cluster appears as online in the Hub UI and the cluster's UI can be accessed.
   - [ ] Verify can SSH into a cluster node using web terminal in the Hub UI.
 
@@ -650,7 +650,7 @@ app.manifest.extensions.logs.disabled: true
   For HTTP Cerifticate and for Account, please use Cluster steps to verify this functionality.
 
 ### Installer
-  Create a cluster image which requires EUAL, a valid License, and has Bandwagon step.
+  Create a cluster image which requires EULA, a valid License, and has Bandwagon step.
   Start an installer.
 
 #### EULA
