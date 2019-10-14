@@ -2,11 +2,11 @@
 
 ### Preparation
 
-- [ ] Build `opscenter` and `telekube` installers off your branch: `make production opscenter telekube`.
+- [ ] Build `opscenter` and `telekube` cluster images off your branch: `make production opscenter telekube`.
 
-### Ops Center
+### Hub
 
-- [ ] Install Ops Center in CLI mode.
+- [ ] Install Hub in CLI mode.
   - [ ] Verify can configure [OIDC connector](https://gravitational.com/gravity/docs/ver/6.x/config/#example-google-oidc-connector), for example:
 ```yaml
 kind: oidc
@@ -14,7 +14,7 @@ version: v2
 metadata:
   name: google
 spec:
-  redirect_url: "https://<ops-advertise-addr>/portalapi/v1/oidc/callback"
+  redirect_url: "https://<hub-advertise-addr>/portalapi/v1/oidc/callback"
   client_id: <cliend-id>
   client_secret: <client-secret>
   issuer_url: https://accounts.google.com
@@ -22,24 +22,24 @@ spec:
   claims_to_roles:
     - {claim: "hd", value: "gravitational.com", roles: ["@teleadmin"]}
 ```
-  - [ ] Verify can log into Ops Center UI.
+  - [ ] Verify can log into the Hub UI.
   - [ ] Verify can update TLS certificate via [resource](https://gravitational.com/gravity/docs/ver/6.x/config/#tls-key-pair) or UI.
   - [ ] Verify can log in with `tele login`.
-  - [ ] Verify can push Telekube app into Ops Center.
-  - [ ] Verify can invite user to Ops Center using CLI.
+  - [ ] Verify can push Telekube cluster image into the Hub.
+  - [ ] Verify can invite user to the Hub using CLI.
     - [ ] Create a user invite: `gravity users add test@example.com --roles=@teleadmin`.
     - [ ] Open the generated link and signup.
     - [ ] Verify can login with the created user.
-  - [ ] Verify can reset Ops Center user password using CLI.
+  - [ ] Verify can reset the Hub user password using CLI.
     - [ ] Request a user reset: `gravity users reset test@example.com`.
     - [ ] Open the generated link and reset the password.
     - [ ] Verify can login with the new password.
 
-### Standalone Telekube
+### Standalone Cluster
 
 #### CLI mode
 
-- [ ] Install Telekube application in standalone CLI mode.
+- [ ] Install Telekube cluster image in standalone CLI mode.
   - [ ] Verify can create [local user](https://gravitational.com/gravity/docs/ver/6.x/config/#example-provisioning-a-cluster-admin-user), for example:
 ```yaml
 kind: user
@@ -60,30 +60,49 @@ spec:
     - [ ] Open the generated link and reset the password.
     - [ ] Verify can login with the new password.
   - [ ] Verify can log into local cluster UI using the user created above.
-  - [ ] Verify can connect to [Ops Center](https://gravitational.com/gravity/docs/ver/6.x/config/#trusted-clusters-enterprise).
-    - [ ] Verify cluster appears as online in Ops Center and can be accessed via UI.
-    - [ ] Verify remote support can be toggled off/on and cluster goes offline/online respectively.
-    - [ ] Verify trusted cluster can be deleted and cluster disappears from Ops Center.
   - [ ] Verify can join a node using CLI (`gravity join`).
   - [ ] Verify can remove a node using CLI (`gravity leave`).
 
 #### UI mode
 
-- [ ] Install Telekube application in standalone UI wizard mode.
+- [ ] Install Telekube cluster image in standalone UI wizard mode.
   - [ ] Verify can complete bandwagon through wizard UI.
   - [ ] Verify can log into local cluster UI with the user created in bandwagon.
-  - [ ] Verify can connect to [Ops Center](https://gravitational.com/gravity/docs/ver/6.x/config/#trusted-clusters-enterprise).
-    - [ ] Verify cluster appears as online in Ops Center and can be accessed via UI.
-    - [ ] Verify remote support can be toggled off/on and cluster goes offline/online respectively.
-    - [ ] Verify trusted cluster can be deleted and cluster disappears from Ops Center.
 
-#### With Installer Downloaded From Ops Center
+#### With Cluster Image Downloaded From The Hub
 
-- [ ] Install Telekube application using installer downloaded from Ops Center, CLI or UI.
-  - [ ] Verify cluster connects back to Ops Center after installation.
-    - [ ] Verify remote support is configured but turned off: cluster appears "offline" in Ops Center.
-    - [ ] Verify remote support can be toggled on/off and cluster goes online/offline respectively.
-    - [ ] Verify trusted cluster can be deleted/created and cluster disappears from/appears in Ops Center respectively.
+- [ ] Install Telekube cluster image using installer downloaded from the Hub: CLI or UI.
+  - [ ] Verify cluster connects back to the Hub after installation.
+    - [ ] Verify remote support is configured but turned off: cluster appears "offline" in the Hub.
+
+### Remote Support & Teleport Connectivity
+
+- [ ] Install Telekube cluster image using any method.
+- [ ] Create a local user using any method.
+
+- [ ] Log into the cluster UI with the created user.
+  - [ ] Verify can SSH into a cluster node using web terminal.
+
+- [ ] Log into the cluster using `tsh` with the created user: `tsh login --proxy=<node>:32009 --user=<user>`.
+  - [ ] Verify `tsh status`, `tsh ls` and `tsh ssh` commands work.
+  - [ ] Verify `kubectl` was configured to talk to the cluster, e.g. `kubectl get nodes`, `kubectl get pods --all-namespaces`.
+
+- [ ] Connect the cluster to a Hub via a [trusted cluster](https://gravitational.com/gravity/docs/ver/6.x/config/#trusted-clusters-enterprise) resource.
+  - [ ] Verify cluster appears as online in the Hub UI and the cluster's UI can be accessed.
+  - [ ] Verify can SSH into a cluster node using web terminal in the Hub UI.
+
+- [ ] Log into the cluster via the Hub: `tele login --hub example.gravitational.io <cluster>`.
+  - [ ] Verify `tsh status`, `tsh ls` and `tsh ssh` commands work.
+  - [ ] Verify `kubectl` was configured to talk to the cluster, e.g. `kubectl get nodes`, `kubectl get pods --all-namespaces`.
+
+- [ ] Turn off remote support on the cluster: `gravity tunnel disable`.
+  - [ ] Verify the cluster appears offline in the Hub and can't be accessed anymore.
+
+- [ ] Turn the remote support back on: `gravity tunnel enable`.
+  - [ ] Verify the cluster is online again and can be accessed.
+
+- [ ] Disconnect the cluster from the Hub: `gravity resource rm trustedcluster <hub>`.
+  - [ ] Verify the cluster is removed from the Hub.
 
 ### Failover & Resiliency
 
@@ -98,15 +117,15 @@ spec:
     - [ ] Verify that `node-1` is successfully removed from the cluster.
     - [ ] Verify that `gravity status` is reporting the cluster as healthy (may take a minute for it to recover).
 
-### Ops Center / Cluster Upgrade & Connectivity
+### Hub / Cluster Upgrade & Connectivity
 
-- [ ] Install an Ops Center of previous LTS version.
-  - [ ] Push Telekube app of previous LTS version into it.
-  - [ ] Install a single-node Telekube cluster and connect it to the Ops Center.
-- [ ] Upgrade Ops Center to the current version.
+- [ ] Install a Hub of the previous LTS version.
+  - [ ] Push Telekube app of the previous LTS version into it.
+  - [ ] Install a single-node Telekube cluster and connect it to the Hub.
+- [ ] Upgrade the Hub to the current version.
   - [ ] Verify the cluster stays connected & online.
   - [ ] Verify remote support can be toggled off/on.
-- [ ] Push Telekube app of the current version to the Ops Center.
+- [ ] Push Telekube app of the current version to the Hub.
 - [ ] Upgrade the cluster to the current version.
   - [ ] Verify the cluster stays connected & online.
   - [ ] Verify remote support can be toggled off/on.
@@ -161,9 +180,9 @@ $ tele build app.yaml
 - [ ] Run the same tests as for OSS version.
   - [ ] Verify `get.gravitational.io` instead of `hub.gravitational.io` was used as a remote repository.
 
-- [ ] Log into some Ops Center (could be local dev one).
+- [ ] Log into a Hub (could be local dev one).
 ```bash
-$ tele login -o example.gravitational.io
+$ tele login --hub example.gravitational.io
 ```
 
 - [ ] Unpin runtime from manifest and run `tele build`.
@@ -171,7 +190,7 @@ $ tele login -o example.gravitational.io
 
 ### Application Catalog
 
-This section covers the application catalog features. It requires an Ops Center.
+This section covers the application catalog features. It requires a Hub.
 
 #### Building & Publishing
 
@@ -181,12 +200,12 @@ $ tele build assets/charts/alpine-0.1.0
 $ tele build assets/charts/alpine-0.2.0
 ```
 
-- [ ] Log into the Ops Center.
+- [ ] Log into the Hub.
 ```bash
-$ tele login -o ops.gravitational.io:32009
+$ tele login --hub example.gravitational.io:32009
 ```
 
-- [ ] Push the built application image into the Ops Center.
+- [ ] Push the built application image into the Hub.
 ```bash
 $ tele push alpine-0.1.0.tar
 ```
@@ -196,29 +215,29 @@ $ tele push alpine-0.1.0.tar
 $ tele ls
 ```
 
-- [ ] Verify the application image tarball can be downloaded from the Ops Center.
+- [ ] Verify the application image tarball can be downloaded from the Hub.
 ```bash
 $ tele pull alpine:0.1.0
 ```
 
-- [ ] Verify Helm chart can be searched for and downloaded from the Ops Center.
+- [ ] Verify Helm chart can be searched for and downloaded from the Hub.
 ```bash
 $ helm search alpine
-$ helm fetch ops.gravitational.io/alpine --version 0.1.0
+$ helm fetch example.gravitational.io/alpine --version 0.1.0
 ```
 
-- [ ] Verify one of the application's Docker images can be pulled from the Ops Center.
+- [ ] Verify one of the application's Docker images can be pulled from the Hub.
 ```bash
-$ docker pull ops.gravitational.io:32009/alpine:3.3
+$ docker pull example.gravitational.io:32009/alpine:3.3
 ```
 
 #### Discovery
 
 - [ ] Install a cluster.
 
-- [ ] Connect the cluster to the Ops Center using [Trusted Cluster](https://gravitational.com/gravity/docs/config/#trusted-clusters-enterprise) resource.
+- [ ] Connect the cluster to a Hub using [Trusted Cluster](https://gravitational.com/gravity/docs/config/#trusted-clusters-enterprise) resource.
 
-- [ ] Verify the application can be searched for in the connected Ops Center.
+- [ ] Verify the application can be searched for in the connected Hub.
 ```bash
 $ gravity app search --all
 $ gravity app search alpine --all
@@ -239,9 +258,9 @@ $ gravity app ls
 $ kubectl get pods
 ```
 
-- [ ] Install the application directly from the Ops Center.
+- [ ] Install the application directly from the Hub.
 ```bash
-$ gravity app install <opscenter-name>/alpine:0.1.0
+$ gravity app install <hub-name>/alpine:0.1.0
 ```
 
 - [ ] Verify there are now 2 instances of the application running.
@@ -272,7 +291,7 @@ $ gravity app ls
 
 ### Licensing & Encryption [Enterprise Edition]
 
-This scenario builds an encrypted installer for an application that requires
+This scenario builds an encrypted installer for a cluster image that requires
 a license and makes sure that it can be installed with valid license. It is
 only supported in the enterprise edition.
 
@@ -297,7 +316,7 @@ license:
 $ gravity license new --max-nodes=3 --valid-for=24h --ca-cert=domain.crt --ca-key=domain.key --encryption-key=qwe123 > license.pem
 ```
 
-- [ ] Build an encrypted application installer:
+- [ ] Build an encrypted cluster image:
 ```bash
 $ tele build app.yaml --ca-cert=domain.crt --encryption-key=qwe123
 ```
@@ -319,8 +338,9 @@ $ sudo ./gravity install --license="$(cat /tmp/license)"
 
 ### Runtime Environment Update
 
-This scenario updates the runtime environment of the planet container with new environment variables. Prerequisites: multi-node cluster with at least 1 regular node.
-Regular node is necessary to test both master and regular node update paths.
+This scenario updates the runtime environment of the planet container with new environment variables.
+
+Prerequisites: multi-node cluster with at least 1 regular node. Regular node is necessary to test both master and regular node update paths.
 
 [environ.yaml]
 ```yaml
@@ -342,8 +362,9 @@ root$ gravity resource create environ.yaml --confirm
 
 ### Cluster Configuration Update
 
-This scenario updates the cluster configuration. Prerequisites: multi-node cluster with at least 1 regular node.
-Regular node is necessary to test both master and regular node update paths.
+This scenario updates the cluster configuration.
+
+Prerequisites: multi-node cluster with at least 1 regular node. Regular node is necessary to test both master and regular node update paths.
 
 [config.yaml]
 ```yaml
@@ -368,7 +389,6 @@ spec:
       ExperimentalHostUserNamespaceDefaulting: true
 ```
 
-
 ```bash
 root$ gravity resource create config.yaml --confirm
 ```
@@ -391,7 +411,6 @@ spec:
       node-tags=test-cluster
 ```
 
-
 Now, create the operation in manual mode:
 
 ```bash
@@ -406,11 +425,11 @@ root$ gravity resource create cloud-config.yaml --confirm -m
   node-tags=test-cluster
   ```
 
-
 ### Collecting Garbage
 
-This scenario tests garbage collection on a cluster. Prerequisites: multi-node cluster with at least 1 regular node.
-Regular node is necessary to test both master and regular node update paths.
+This scenario tests garbage collection on a cluster.
+
+Prerequisites: multi-node cluster with at least 1 regular node. Regular node is necessary to test both master and regular node update paths.
 
 Install a previous LTS version, upgrade to the latest version.
 
@@ -421,7 +440,6 @@ After upgrade execute `gravity gc` on the cluster.
  - [ ] Verify that packages from the previous installation have been removed from cluster package storage.
  - [ ] Verify that packages from the current installation are still present.
  - [ ] Tentative: Verify that application packages from remote clusters are still present.
-
 
 ## WEB UI
 
@@ -631,13 +649,12 @@ app.manifest.extensions.logs.disabled: true
 #### Settings
   For HTTP Cerifticate and for Account, please use Cluster steps to verify this functionality.
 
-
 ### Installer
-  Create an application image which requires EUAL, a valid License, and has Bandwagon step.
+  Create a cluster image which requires EUAL, a valid License, and has Bandwagon step.
   Start an installer.
 
-#### EUAL
-- [ ] Verify that EUAL agreement is shown asking a user to accept it.
+#### EULA
+- [ ] Verify that EULA agreement is shown asking a user to accept it.
 
 #### Step. License
 - [ ] Verify that "License" step is shown.
@@ -656,7 +673,6 @@ app.manifest.extensions.logs.disabled: true
 - [ ] Verify that input fields for IP Address and Mounts work (check input validation).
 - [ ] Verify that "VERIFY" button works (should show a notification banner on top).
 
-
 #### Step. Progress
 - [ ] Verify that progress indicator works.
 - [ ] Verify that installation logs work.
@@ -664,7 +680,6 @@ app.manifest.extensions.logs.disabled: true
 
 #### Step. Create Admin
 - [ ] Verify that creating an admin user works. After submitting a form, a user should be redirected to the cluster UI.
-
 
 ### RBAC
  Create the following role
@@ -778,4 +793,3 @@ app.manifest.extensions.logs.disabled: true
 ```
   - [ ] Verify that K8s tab is displayed.
   - [ ] Verify that Nodes screen displays K8s labels.
-
