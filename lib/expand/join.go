@@ -497,7 +497,7 @@ func (p *Peer) getAgent(opCtx operationContext) (*rpcserver.PeerServer, error) {
 	// make sure that connection to the RPC server can be established
 	err = validateConnection(p.Context, agent)
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return agent, trace.Wrap(err)
 	}
 	return agent, nil
 }
@@ -867,9 +867,5 @@ func validateConnection(ctx context.Context, agent *rpcserver.PeerServer) error 
 	}
 	ctx, cancel := context.WithTimeout(ctx, connectTimeout)
 	defer cancel()
-	err = agent.ValidateConnection(ctx)
-	if err != nil && !trace.IsLimitExceeded(err) {
-		return trace.Wrap(err)
-	}
-	return nil
+	return agent.ValidateConnection(ctx)
 }

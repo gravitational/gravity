@@ -31,10 +31,8 @@ import (
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
-	"google.golang.org/grpc/status"
 )
 
 // NewPeer returns a new instance of the gRPC server as a peer.
@@ -175,15 +173,9 @@ func (r *PeerServer) Serve() error {
 	return r.agentServer.Serve()
 }
 
-// ValidateConnection makes sure that connection to the control server can be established.
-// Returns trace.LimitExceeded if the specified context expires before the connection has
-// been validated
+// ValidateConnection makes sure that connection to the control server can be established
 func (r *PeerServer) ValidateConnection(ctx context.Context) error {
-	err := r.peers.validateConnection(ctx)
-	if isDeadlineExceededError(err) {
-		return trace.LimitExceeded(err.Error())
-	}
-	return trace.Wrap(err)
+	return r.peers.validateConnection(ctx)
 }
 
 // Stop stops this server and its internal goroutines
@@ -433,19 +425,4 @@ type peer struct {
 	Client
 	// doneCh is the channel that is closed when this peer shuts down
 	doneCh chan struct{}
-}
-
-func isDeadlineExceededError(err error) bool {
-	origErr := trace.Unwrap(err)
-	switch err := err.(type) {
-	case trace.Aggregate:
-		if len(err.Errors()) != 0 {
-			origErr = trace.Unwrap(err.Errors()[0])
-		}
-	}
-	if err, ok := origErr.(*backoff.PermanentError); ok {
-		origErr = err.Err
-	}
-	status, ok := status.FromError(origErr)
-	return ok && status.Code() == codes.DeadlineExceeded
 }
