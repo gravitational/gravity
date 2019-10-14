@@ -23,7 +23,9 @@ import (
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/users"
@@ -558,6 +560,8 @@ func (s *site) createShrinkAgentToken(operationID string) (tokenID string, err e
 	return token, nil
 }
 
+// deletePackages removes stale packages generated for the specified server
+// from the cluster package service after the server had been removed.
 func (s *site) deletePackages(server *ProvisionedServer) error {
 	serverPackages, err := s.serverPackages(server)
 	if err != nil {
@@ -566,17 +570,36 @@ func (s *site) deletePackages(server *ProvisionedServer) error {
 	for _, pkg := range serverPackages {
 		err = s.packages().DeletePackage(pkg)
 		if err != nil && !trace.IsNotFound(err) {
-			return trace.Wrap(err, "failed to delete package %v", pkg)
+			return trace.Wrap(err, "failed to delete package").AddField("package", pkg)
 		}
 	}
 	return nil
 }
 
+func (s *site) serverPackages(server *ProvisionedServer) ([]loc.Locator, error) {
+	var packages []loc.Locator
+	err := pack.ForeachPackage(s.packages(), func(env pack.PackageEnvelope) error {
+		if env.HasLabel(pack.AdvertiseIPLabel, server.AdvertiseIP) {
+			packages = append(packages, env.Locator)
+			return nil
+		}
+		if s.isTeleportMasterConfigPackageFor(server, env.Locator) ||
+			s.isTeleportNodeConfigPackageFor(server, env.Locator) ||
+			s.isPlanetConfigPackageFor(server, env.Locator) ||
+			s.isPlanetSecretsPackageFor(server, env.Locator) {
+			packages = append(packages, env.Locator)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return packages, nil
+}
+
 // unlabelNode deletes server profile labels from k8s node
 func (s *site) unlabelNode(server storage.Server, runner *serverRunner) error {
-	role := server.Role
-
-	profile, err := s.app.Manifest.NodeProfiles.ByName(role)
+	profile, err := s.app.Manifest.NodeProfiles.ByName(server.Role)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -635,4 +658,26 @@ func (s *site) serfNodeLeave(runner *serverRunner) error {
 		return nil
 	})
 	return trace.Wrap(err)
+}
+
+func (s *site) isTeleportMasterConfigPackageFor(server *ProvisionedServer, loc loc.Locator) bool {
+	configPackage := s.teleportMasterConfigPackage(server)
+	return configPackage.Name == loc.Name && configPackage.Repository == loc.Repository
+}
+
+func (s *site) isTeleportNodeConfigPackageFor(server *ProvisionedServer, loc loc.Locator) bool {
+	configPackage := s.teleportNodeConfigPackage(server)
+	return configPackage.Name == loc.Name && configPackage.Repository == loc.Repository
+}
+
+func (s *site) isPlanetConfigPackageFor(server *ProvisionedServer, loc loc.Locator) bool {
+	// Version omitted on purpose since only repository/name are used for comparison
+	configPackage := s.planetConfigPackage(server, "")
+	return configPackage.Name == loc.Name && configPackage.Repository == loc.Repository
+}
+
+func (s *site) isPlanetSecretsPackageFor(server *ProvisionedServer, loc loc.Locator) bool {
+	// Version omitted on purpose since only repository/name are used for comparison
+	configPackage := s.planetSecretsPackage(server, "")
+	return configPackage.Name == loc.Name && configPackage.Repository == loc.Repository
 }

@@ -876,7 +876,7 @@ type RotatePackageResponse struct {
 	// Reader is the package's contents
 	io.Reader `json:"-"`
 	// Labels specifies the labels for the new package
-	Labels map[string]string `json:"labels"`
+	Labels map[string]string `json:"labels,omitempty"`
 }
 
 // ConfigureNodeRequest is a request to prepare a node for the upgrade
@@ -908,36 +908,42 @@ func (r ConfigureNodeRequest) SiteKey() SiteKey {
 	}
 }
 
+// CheckAndSetDefaults validates this request and sets defaults
+func (r RotateSecretsRequest) CheckAndSetDefaults() error {
+	if err := r.Key.Check(); err != nil {
+		return trace.Wrap(err)
+	}
+	if r.RuntimePackage.IsEmpty() {
+		return trace.BadParameter("runtime package is required")
+	}
+	return nil
+}
+
 // RotateSecretsRequest is a request to rotate server's secrets package
 type RotateSecretsRequest struct {
-	// AccountID is the account id of the local cluster
-	AccountID string `json:"account_id"`
-	// ClusterName is the local cluster name
-	ClusterName string `json:"cluster_name"`
+	// Key identifies the cluster
+	Key SiteKey `json:"key"`
 	// Server is the server to rotate secrets for
 	Server storage.Server `json:"server"`
-	// Locator specifies the secrets package locator to use.
+	// RuntimePackage specifies the runtime package locator
+	RuntimePackage loc.Locator `json:"runtime_package"`
+	// Package specifies the secrets package to use.
 	// If unspecified, one will be automatically generated
-	Locator *loc.Locator `json:"locator,omitempty"`
+	Package *loc.Locator `json:"package,omitempty"`
 	// DryRun specifies whether only the package locator is generated
 	DryRun bool `json:"dry_run"`
 }
 
-// SiteKey returns a cluster key from this request
-func (r RotateSecretsRequest) SiteKey() SiteKey {
-	return SiteKey{
-		AccountID:  r.AccountID,
-		SiteDomain: r.ClusterName,
-	}
-}
-
-// Check validates this request
-func (r RotateTeleportConfigRequest) Check() error {
+// CheckAndSetDefaults validates this request and sets defaults
+func (r RotateTeleportConfigRequest) CheckAndSetDefaults() error {
 	if err := r.Key.Check(); err != nil {
 		return trace.Wrap(err)
 	}
 	if !r.DryRun && len(r.MasterIPs) == 0 {
 		return trace.BadParameter("list of master IPs is required")
+	}
+	if r.TeleportPackage.IsEmpty() {
+		return trace.BadParameter("teleport package is required")
 	}
 	return nil
 }
@@ -950,14 +956,27 @@ type RotateTeleportConfigRequest struct {
 	Server storage.Server `json:"server"`
 	// MasterIPs lists IP addresses of all cluster master servers
 	MasterIPs []string `json:"masters"`
-	// Master specifies the configuration package to use for the cluster controller teleport service.
+	// TeleportPackage specifies the teleport package locator
+	TeleportPackage loc.Locator `json:"teleport_package"`
+	// MasterPackage specifies the configuration package to use for the cluster controller teleport service.
 	// If unspecified, one will be automatically generated
-	Master *loc.Locator `json:"master,omitempty"`
-	// Node specifies the configuration package to use for the teleport service on host.
+	MasterPackage *loc.Locator `json:"master_package,omitempty"`
+	// NodePackage specifies the configuration package to use for the teleport service on host.
 	// If unspecified, one will be automatically generated
-	Node *loc.Locator `json:"node,omitempty"`
+	NodePackage *loc.Locator `json:"node_package,omitempty"`
 	// DryRun specifies whether only the package locator is generated
 	DryRun bool `json:"dry_run"`
+}
+
+// CheckAndSetDefaults validates this request and sets defaults
+func (r RotatePlanetConfigRequest) CheckAndSetDefaults() error {
+	if err := r.Key.Check(); err != nil {
+		return trace.Wrap(err)
+	}
+	if r.RuntimePackage.IsEmpty() {
+		return trace.BadParameter("runtime package is required")
+	}
+	return nil
 }
 
 // RotatePlanetConfigRequest is a request to rotate planet server's configuration package
@@ -974,9 +993,9 @@ type RotatePlanetConfigRequest struct {
 	Config []byte `json:"cluster_config,omitempty"`
 	// RuntimePackage specifies the runtime package locator
 	RuntimePackage loc.Locator `json:"runtime_package"`
-	// Locator specifies the configuration package locator to use.
+	// Package specifies the configuration package locator to use.
 	// If unspecified, one will be automatically generated
-	Locator *loc.Locator `json:"locator,omitempty"`
+	Package *loc.Locator `json:"package,omitempty"`
 	// DryRun specifies whether only the package locator is generated
 	DryRun bool `json:"dry_run"`
 }
