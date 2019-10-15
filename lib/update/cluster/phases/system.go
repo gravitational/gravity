@@ -92,6 +92,14 @@ func (p *updatePhaseSystem) PostCheck(context.Context) error {
 
 // Execute runs system update on the node
 func (p *updatePhaseSystem) Execute(ctx context.Context) error {
+	runtimeConfig, err := p.getInstalledConfigPackage(p.Server.Runtime.Installed)
+	if err != nil {
+		return trace.Wrap(err, "failed to locate runtime configuration package")
+	}
+	teleportConfig, err := p.getInstalledConfigPackage(p.Server.Teleport.Installed)
+	if err != nil {
+		return trace.Wrap(err, "failed to locate teleport configuration package")
+	}
 	config := system.Config{
 		ChangesetID: p.OperationID,
 		Backend:     p.Backend,
@@ -111,18 +119,25 @@ func (p *updatePhaseSystem) Execute(ctx context.Context) error {
 	if p.Server.Runtime.Update != nil {
 		config.Runtime.To = p.Server.Runtime.Update.Package
 		config.Runtime.ConfigPackage = &storage.PackageUpdate{
-			To: p.Server.Runtime.Update.ConfigPackage,
+			From: *runtimeConfig,
+			To:   p.Server.Runtime.Update.ConfigPackage,
 		}
 	}
 	if p.Server.Teleport.Update != nil {
 		// Consider teleport update only in effect when the update package
 		// has been specified. This is in contrast to runtime update, when
 		// we expect to update the configuration more often
+		configPackage := p.Server.Teleport.Update.NodeConfigPackage
+		if configPackage == nil {
+			// No update necessary
+			configPackage = teleportConfig
+		}
 		config.Teleport = &storage.PackageUpdate{
 			From: p.Server.Teleport.Installed,
 			To:   p.Server.Teleport.Update.Package,
 			ConfigPackage: &storage.PackageUpdate{
-				To: p.Server.Teleport.Update.NodeConfigPackage,
+				From: *teleportConfig,
+				To:   *configPackage,
 			},
 		}
 	}
@@ -150,6 +165,14 @@ func (p *updatePhaseSystem) Execute(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+func (p *updatePhaseSystem) getInstalledConfigPackage(loc loc.Locator) (*loc.Locator, error) {
+	configPackage, err := pack.FindInstalledConfigPackage(p.HostLocalPackages, loc)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return configPackage, nil
 }
 
 // Rollback runs rolls back the system upgrade on the node
