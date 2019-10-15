@@ -112,13 +112,16 @@ func (i *importer) Close() error {
 
 // getMasterTeleportConfig extracts configuration from teleport package
 func (i *importer) getMasterTeleportConfig(clusterName string) (*telecfg.FileConfig, error) {
-	configPackage, err := pack.FindLatestPackageCustom(pack.FindLatestPackageRequest{
-		Packages:   i.packages,
-		Repository: clusterName,
-		Match:      matchTeleportConfigPackage(*defaults.TeleportVersion),
-	})
-	if err != nil {
+	configPackage, err := i.findLatestTeleportConfigPackage(clusterName)
+	if err != nil && !trace.IsNotFound(err) {
 		return nil, trace.Wrap(err)
+	}
+	if trace.IsNotFound(err) {
+		configPackage, err = i.findLatestLegacyTeleportConfigPackage(clusterName)
+		if err != nil {
+			return nil, trace.Wrap(err,
+				"failed to find latest teleport configuration for %v", clusterName)
+		}
 	}
 
 	i.WithField("package", configPackage).Info("Use teleport master config.")
@@ -229,6 +232,22 @@ func (i *importer) importSite(b storage.Backend) error {
 	return nil
 }
 
+func (i *importer) findLatestTeleportConfigPackage(clusterName string) (*loc.Locator, error) {
+	return pack.FindLatestPackageCustom(pack.FindLatestPackageRequest{
+		Packages:   i.packages,
+		Repository: clusterName,
+		Match:      matchTeleportConfigPackage(*defaults.TeleportVersion),
+	})
+}
+
+func (i *importer) findLatestLegacyTeleportConfigPackage(clusterName string) (*loc.Locator, error) {
+	return pack.FindLatestPackageCustom(pack.FindLatestPackageRequest{
+		Packages:   i.packages,
+		Repository: clusterName,
+		Match:      matchLegacyTeleportConfigPackage(),
+	})
+}
+
 func matchTeleportConfigPackage(teleportVersion semver.Version) pack.MatchFunc {
 	return func(env pack.PackageEnvelope) bool {
 		if !env.HasLabel(pack.PurposeLabel, pack.PurposeTeleportMasterConfig) {
@@ -248,5 +267,11 @@ func matchTeleportConfigPackage(teleportVersion semver.Version) pack.MatchFunc {
 			Patch: ver.Patch,
 		}
 		return verBase.Compare(teleportVersion) == 0
+	}
+}
+
+func matchLegacyTeleportConfigPackage() pack.MatchFunc {
+	return func(env pack.PackageEnvelope) bool {
+		return env.HasLabel(pack.PurposeLabel, pack.PurposeTeleportMasterConfig)
 	}
 }
