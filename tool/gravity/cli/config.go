@@ -37,6 +37,7 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/expand"
+	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/install"
 	installerclient "github.com/gravitational/gravity/lib/install/client"
 	installpb "github.com/gravitational/gravity/lib/install/proto"
@@ -871,6 +872,7 @@ func updateJoinConfigFromCloudMetadata(ctx context.Context, config *autojoinConf
 		log.WithError(err).Warn("Failed to fetch instance metadata on AWS.")
 		return trace.BadParameter("autojoin only supports AWS")
 	}
+	config.advertiseAddr = instance.PrivateIP
 
 	autoscaler, err := autoscaleaws.New(autoscaleaws.Config{
 		ClusterName: config.clusterName,
@@ -879,19 +881,43 @@ func updateJoinConfigFromCloudMetadata(ctx context.Context, config *autojoinConf
 		return trace.Wrap(err)
 	}
 
-	joinToken, err := autoscaler.GetJoinToken(ctx)
+	client := httplib.GetClient(true,
+		httplib.WithTimeout(5*time.Second),
+		httplib.WithInsecure())
+
+	for {
+		select {
+		case <-ctx.Done():
+			return trace.Wrap(ctx.Err())
+		default:
+		}
+		config.serviceURL, err = autoscaler.GetServiceURL(ctx)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+
+		// Test that the serviceURL is reachable
+		// When re-installing a cluster into AWS, the serviceURL can point to an old cluster
+		// until the new cluster overwrites the SSM values. So test the ServiceURL is reachable before using it.
+		// Security: Insecure is OK here because we're only testing reachability to the cluster
+		_, err = client.Get(config.serviceURL)
+		if err != nil {
+			log.WithFields(logrus.Fields{
+				logrus.ErrorKey: err,
+				"url":           config.serviceURL,
+			}).Info("Failed to test connectivity to service URL.")
+			// Don't hammer the AWS API
+			time.Sleep(15 * time.Second)
+			continue
+		}
+		break
+	}
+
+	config.token, err = autoscaler.GetJoinToken(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	serviceURL, err := autoscaler.GetServiceURL(ctx)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	config.token = joinToken
-	config.serviceURL = serviceURL
-	config.advertiseAddr = instance.PrivateIP
 	return nil
 }
 
