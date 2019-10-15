@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -63,6 +64,7 @@ import (
 	"github.com/gravitational/gravity/lib/users"
 	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/cenkalti/backoff"
 	"github.com/docker/docker/pkg/namesgenerator"
 	"github.com/gravitational/configure"
 	teledefaults "github.com/gravitational/teleport/lib/defaults"
@@ -866,6 +868,35 @@ type agentConfig struct {
 	cloudProvider string
 }
 
+func retryUpdateJoinConfigFromCloudMetadata(ctx context.Context, config *autojoinConfig) error {
+	// Security: Insecure is OK here because we're only testing reachability to the cluster
+	client := httplib.GetClient(true,
+		httplib.WithTimeout(5*time.Second),
+		httplib.WithInsecure())
+
+	b := backoff.NewConstantBackOff(15 * time.Second)
+	f := func() error {
+		err := updateJoinConfigFromCloudMetadata(ctx, config)
+		if err != nil && !trace.IsRetryError(err) {
+			return &backoff.PermanentError{Err: err}
+		}
+
+		// Test that the serviceURL is reachable
+		// When re-installing a cluster into AWS, the serviceURL can point to an old cluster
+		// until the new cluster overwrites the SSM values. So test the ServiceURL is reachable before using it.
+		req, _ := http.NewRequest("GET", config.serviceURL, nil)
+		req = req.WithContext(ctx)
+		_, err = client.Do(req)
+		if err != nil {
+			return trace.WrapWithMessage(err, "Waiting for service URL to become available.").
+				AddField("service_url", config.serviceURL)
+		}
+
+		return err
+	}
+	return trace.Wrap(utils.RetryWithInterval(ctx, b, f))
+}
+
 func updateJoinConfigFromCloudMetadata(ctx context.Context, config *autojoinConfig) error {
 	instance, err := cloudaws.NewLocalInstance()
 	if err != nil {
@@ -881,36 +912,9 @@ func updateJoinConfigFromCloudMetadata(ctx context.Context, config *autojoinConf
 		return trace.Wrap(err)
 	}
 
-	client := httplib.GetClient(true,
-		httplib.WithTimeout(5*time.Second),
-		httplib.WithInsecure())
-
-	for {
-		select {
-		case <-ctx.Done():
-			return trace.Wrap(ctx.Err())
-		default:
-		}
-		config.serviceURL, err = autoscaler.GetServiceURL(ctx)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-
-		// Test that the serviceURL is reachable
-		// When re-installing a cluster into AWS, the serviceURL can point to an old cluster
-		// until the new cluster overwrites the SSM values. So test the ServiceURL is reachable before using it.
-		// Security: Insecure is OK here because we're only testing reachability to the cluster
-		_, err = client.Get(config.serviceURL)
-		if err != nil {
-			log.WithFields(logrus.Fields{
-				logrus.ErrorKey: err,
-				"url":           config.serviceURL,
-			}).Info("Failed to test connectivity to service URL.")
-			// Don't hammer the AWS API
-			time.Sleep(15 * time.Second)
-			continue
-		}
-		break
+	config.serviceURL, err = autoscaler.GetServiceURL(ctx)
+	if err != nil {
+		return trace.Wrap(err)
 	}
 
 	config.token, err = autoscaler.GetJoinToken(ctx)
