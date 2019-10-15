@@ -5,7 +5,6 @@ readonly UPGRADE_FROM_DIR=${1:-$(pwd)/../upgrade_from}
 
 declare -A UPGRADE_MAP
 # gravity version -> list of OS releases to exercise on
-UPGRADE_MAP[5.5.0]="ubuntu:16"
 UPGRADE_MAP[5.5.21]="ubuntu:16"
 
 readonly GET_GRAVITATIONAL_IO_APIKEY=${GET_GRAVITATIONAL_IO_APIKEY:?API key for distribution Ops Center required}
