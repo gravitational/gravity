@@ -72,7 +72,8 @@ type updatePhaseBootstrap struct {
 	log.FieldLogger
 	// ExecutorParams stores the phase parameters
 	fsm.ExecutorParams
-	remote fsm.Remote
+	remote           fsm.Remote
+	clusterDNSConfig storage.DNSConfig
 }
 
 // NewUpdatePhaseBootstrap creates a new bootstrap phase executor
@@ -95,7 +96,7 @@ func NewUpdatePhaseBootstrap(
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	operation, err := ops.GetLastUpdateOperation(cluster.Key(), operator)
+	operation, err := operator.GetSiteOperation(fsm.OperationKey(p.Plan))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -118,6 +119,7 @@ func NewUpdatePhaseBootstrap(
 		FieldLogger:      logger,
 		ExecutorParams:   p,
 		remote:           remote,
+		clusterDNSConfig: cluster.DNSConfig,
 	}, nil
 }
 
@@ -157,7 +159,7 @@ func (p *updatePhaseBootstrap) Execute(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = p.pullSystemUpdates()
+	err = p.pullSystemUpdates(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -198,17 +200,12 @@ func (p *updatePhaseBootstrap) exportGravity(ctx context.Context) error {
 
 // updateDNSConfig persists the DNS configuration in the local backend if it has not been set
 func (p *updatePhaseBootstrap) updateDNSConfig() error {
-	cluster, err := p.Operator.GetLocalSite()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
 	dnsConfig := storage.LegacyDNSConfig
-	if !cluster.DNSConfig.IsEmpty() {
-		dnsConfig = cluster.DNSConfig
+	if !p.clusterDNSConfig.IsEmpty() {
+		dnsConfig = p.clusterDNSConfig
 	}
 
-	err = p.HostLocalBackend.SetDNSConfig(dnsConfig)
+	err := p.HostLocalBackend.SetDNSConfig(dnsConfig)
 	p.Infof("Update cluster DNS configuration as %v.", dnsConfig)
 	if err != nil {
 		return trace.Wrap(err)
@@ -216,7 +213,7 @@ func (p *updatePhaseBootstrap) updateDNSConfig() error {
 	return nil
 }
 
-func (p *updatePhaseBootstrap) pullSystemUpdates() error {
+func (p *updatePhaseBootstrap) pullSystemUpdates(ctx context.Context) error {
 	p.Info("Pull system updates.")
 	updates := []loc.Locator{p.GravityPackage}
 	if p.Server.Runtime.SecretsPackage != nil {
@@ -229,25 +226,32 @@ func (p *updatePhaseBootstrap) pullSystemUpdates() error {
 		)
 	}
 	if p.Server.Teleport.Update != nil {
-		updates = append(updates,
-			p.Server.Teleport.Update.Package,
-			p.Server.Teleport.Update.NodeConfigPackage,
-		)
+		updates = append(updates, p.Server.Teleport.Update.Package)
+		if p.Server.Teleport.Update.NodeConfigPackage != nil {
+			updates = append(updates, *p.Server.Teleport.Update.NodeConfigPackage)
+		}
 	}
 	for _, update := range updates {
 		p.Infof("Pulling package update: %v.", update)
-		_, err := appservice.PullPackage(appservice.PackagePullRequest{
+		existingLabels, err := queryPackageLabels(update, p.LocalPackages)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		_, err = appservice.PullPackage(appservice.PackagePullRequest{
 			SrcPack: p.Packages,
 			DstPack: p.LocalPackages,
 			Package: update,
+			Upsert:  true,
+			Labels:  existingLabels,
 		})
-		if err != nil && !trace.IsAlreadyExists(err) {
+		if err != nil {
 			return trace.Wrap(err)
 		}
 	}
 	// after having pulled packages as root we need to set proper ownership
 	// on the blobs dir
 	// FIXME(dmitri): PullPackage API needs to accept uid/gid so this is unnecessary
+	// See https://github.com/gravitational/gravity.e/issues/4209
 	stateDir, err := state.GetStateDir()
 	if err != nil {
 		return trace.Wrap(err)
@@ -357,7 +361,8 @@ func getGravityPath() (string, error) {
 		return "", trace.Wrap(err)
 	}
 	return filepath.Join(
-		stateDir, "site", "update", constants.GravityBin), nil
+		state.GravityUpdateDir(stateDir),
+		constants.GravityBin), nil
 }
 
 func withVersion(filter loc.Locator, version string) loc.Locator {
@@ -442,4 +447,15 @@ func updateTeleportConfigLabels(packages pack.PackageService, clusterName string
 		Locator: *configPackage,
 		Add:     labels,
 	}}, nil
+}
+
+func queryPackageLabels(loc loc.Locator, packages pack.PackageService) (labels pack.Labels, err error) {
+	env, err := packages.ReadPackageEnvelope(loc)
+	if err != nil && !trace.IsNotFound(err) {
+		return nil, trace.Wrap(err)
+	}
+	if env != nil {
+		labels = env.RuntimeLabels
+	}
+	return labels, nil
 }

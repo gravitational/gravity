@@ -430,13 +430,18 @@ func (p *Process) getTeleportConfigFromImportState() (*telecfg.FileConfig, error
 		return nil, nil
 	}
 
+	cluster, err := p.backend.GetLocalSite(defaults.SystemAccountID)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
 	importer, err := newImporter(p.cfg.ImportDir)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	defer importer.Close()
 
-	telecfg, err := importer.getMasterTeleportConfig()
+	telecfg, err := importer.getMasterTeleportConfig(cluster.Domain)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
