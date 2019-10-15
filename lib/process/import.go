@@ -112,16 +112,13 @@ func (i *importer) Close() error {
 
 // getMasterTeleportConfig extracts configuration from teleport package
 func (i *importer) getMasterTeleportConfig(clusterName string) (*telecfg.FileConfig, error) {
-	configPackage, err := i.findLatestTeleportConfigPackage(clusterName)
-	if err != nil && !trace.IsNotFound(err) {
-		return nil, trace.Wrap(err)
-	}
-	if trace.IsNotFound(err) {
-		configPackage, err = i.findLatestLegacyTeleportConfigPackage(clusterName)
-		if err != nil {
+	configPackage, err := i.findLatestTeleportConfigPackage(clusterName, *defaults.TeleportVersion)
+	if err != nil {
+		if trace.IsNotFound(err) {
 			return nil, trace.Wrap(err,
 				"failed to find latest teleport configuration for %v", clusterName)
 		}
+		return nil, trace.Wrap(err)
 	}
 
 	i.WithField("package", configPackage).Info("Use teleport master config.")
@@ -232,12 +229,19 @@ func (i *importer) importSite(b storage.Backend) error {
 	return nil
 }
 
-func (i *importer) findLatestTeleportConfigPackage(clusterName string) (*loc.Locator, error) {
-	return pack.FindLatestPackageCustom(pack.FindLatestPackageRequest{
+func (i *importer) findLatestTeleportConfigPackage(clusterName string, teleportVersion semver.Version) (*loc.Locator, error) {
+	config, err := pack.FindLatestPackageCustom(pack.FindLatestPackageRequest{
 		Packages:   i.packages,
 		Repository: clusterName,
-		Match:      matchTeleportConfigPackage(*defaults.TeleportVersion),
+		Match:      matchTeleportConfigPackage(teleportVersion),
 	})
+	if err == nil {
+		return config, nil
+	}
+	if err != nil && !trace.IsNotFound(err) {
+		return nil, trace.Wrap(err)
+	}
+	return i.findLatestLegacyTeleportConfigPackage(clusterName)
 }
 
 func (i *importer) findLatestLegacyTeleportConfigPackage(clusterName string) (*loc.Locator, error) {
