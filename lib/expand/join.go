@@ -495,9 +495,7 @@ func (p *Peer) getAgent(opCtx operationContext) (*rpcserver.PeerServer, error) {
 		return nil, trace.Wrap(err)
 	}
 	// make sure that connection to the RPC server can be established
-	ctx, cancel := context.WithTimeout(p.Context, defaults.PeerConnectTimeout)
-	defer cancel()
-	err = agent.ValidateConnection(ctx)
+	err = validateConnection(p.Context, agent)
 	if err != nil {
 		return agent, trace.Wrap(err)
 	}
@@ -859,4 +857,15 @@ func watchReconnects(ctx context.Context, cancel context.CancelFunc, watchCh <-c
 			return
 		}
 	}()
+}
+
+func validateConnection(ctx context.Context, agent *rpcserver.PeerServer) error {
+	connectTimeoutS := utils.GetenvWithDefault(defaults.EnvPeerConnectTimeout, defaults.PeerConnectTimeout.String())
+	connectTimeout, err := time.ParseDuration(connectTimeoutS)
+	if err != nil {
+		return trace.Wrap(err, "invalid agent connect timeout %q", connectTimeoutS)
+	}
+	ctx, cancel := context.WithTimeout(ctx, connectTimeout)
+	defer cancel()
+	return agent.ValidateConnection(ctx)
 }
