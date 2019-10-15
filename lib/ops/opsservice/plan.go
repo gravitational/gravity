@@ -149,14 +149,6 @@ func (s *ProvisionedServer) InGravity(dir ...string) string {
 	return filepath.Join(append([]string{s.StateDir()}, dir...)...)
 }
 
-// suffixer replaces characters unacceptable as a package suffix
-var suffixer = strings.NewReplacer(".", "", ":", "")
-
-func PackageSuffix(node remoteServer, domain string) string {
-	data := fmt.Sprintf("%v.%v", node.Address(), domain)
-	return suffixer.Replace(data)
-}
-
 func FQDN(domain, hostname, ip string) string {
 	// in case hostname comes already with this domain suffix,
 	// we assume that it's set by provisioner or user in on-prem
