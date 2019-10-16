@@ -146,7 +146,7 @@ It accepts values `1`, `t`, `T`, `TRUE`, `true`, `True`, `0`, `f`, `F`, `FALSE`,
 - any other value will not have any effect.
 
 !!! warning "Scope":
-    It is not possible to selectively turn checks off - it is all or nothing.
+    Currently it is not possible to selectively turn checks off.
 
 #### GRAVITY_PEER_CONNECT_TIMEOUT
 
@@ -278,7 +278,7 @@ native network features.
 
 In order to reliably run in any environment, Gravity aims to be infrastructure
 and cloud-agnostic. Gravity makes no assumption about the nature of the network
-or either the hosts are virtualised or bare metal.
+or either the hosts are virtualized or bare metal.
 
 ## Azure
 
