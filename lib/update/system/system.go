@@ -204,10 +204,7 @@ func (r *PackageUpdates) checkAndSetDefaults() error {
 		r.RuntimeSecrets.Labels = pack.RuntimeSecretsPackageLabels
 	}
 	if r.Teleport != nil {
-		if r.Teleport.ConfigPackage == nil {
-			return trace.BadParameter("Teleport configuration package is required")
-		}
-		if len(r.Teleport.ConfigPackage.Labels) == 0 {
+		if r.Teleport.ConfigPackage != nil && len(r.Teleport.ConfigPackage.Labels) == 0 {
 			r.Teleport.ConfigPackage.Labels = pack.TeleportNodeConfigPackageLabels
 		}
 	}
@@ -260,7 +257,7 @@ func (r *System) reinstallPackage(update storage.PackageUpdate) ([]pack.LabelUpd
 	r.WithField("update", update).Info("Reinstalling package.")
 	switch {
 	case update.To.Name == constants.GravityPackage:
-		return updateGravityPackage(r.Packages, update.To)
+		return r.updateGravityPackage(update.To)
 	case pack.IsPlanetPackage(update.To, update.Labels):
 		updates, err := r.updatePlanetPackage(update)
 		return updates, trace.Wrap(err)
@@ -365,6 +362,10 @@ func (r *System) updateTeleportPackage(update storage.PackageUpdate) (labelUpdat
 		}
 	}
 	if update.ConfigPackage == nil {
+		return updates, nil
+	}
+	if update.ConfigPackage.From.IsEqualTo(update.ConfigPackage.To) {
+		// Short-circuit on idempotent configuration update
 		return updates, nil
 	}
 	return append(updates,
@@ -499,7 +500,7 @@ func (r *System) reinstallService(update storage.PackageUpdate) (labelUpdates []
 
 	var configPackage loc.Locator
 	if update.ConfigPackage == nil {
-		existingConfig, err := pack.FindConfigPackage(r.Packages, update.From)
+		existingConfig, err := pack.FindInstalledConfigPackage(r.Packages, update.From)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
@@ -538,22 +539,26 @@ func (r *System) reinstallService(update storage.PackageUpdate) (labelUpdates []
 	return labelUpdates, nil
 }
 
-func updateGravityPackage(packages update.LocalPackageService, newPackage loc.Locator) (labelUpdates []pack.LabelUpdate, err error) {
+func (r *System) updateGravityPackage(newPackage loc.Locator) (labelUpdates []pack.LabelUpdate, err error) {
 	for _, targetPath := range state.GravityBinPaths {
-		labelUpdates, err = reinstallBinaryPackage(packages, newPackage, targetPath)
+		labelUpdates, err = reinstallBinaryPackage(r.Packages, newPackage, targetPath)
 		if err == nil {
 			break
 		}
+		r.WithFields(logrus.Fields{
+			logrus.ErrorKey: err,
+			"path":          targetPath,
+		}).Warn("Failed to install gravity binary.")
 	}
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to install gravity binary in any of %v",
 			state.GravityBinPaths)
 	}
-	planetPath, err := getRuntimePackagePath(packages)
+	planetPath, err := getRuntimePackagePath(r.Packages)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to find planet package")
 	}
-	err = copyGravityToPlanet(newPackage, packages, planetPath)
+	err = copyGravityToPlanet(newPackage, r.Packages, planetPath)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to copy gravity inside planet")
 	}

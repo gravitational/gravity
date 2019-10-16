@@ -68,7 +68,8 @@ ARCH := $(shell uname -m)
 CURRENT_COMMIT := $(shell git rev-parse HEAD)
 VERSION_FLAGS := -X github.com/gravitational/gravity/vendor/github.com/gravitational/version.gitCommit=$(CURRENT_COMMIT) \
 	-X github.com/gravitational/gravity/vendor/github.com/gravitational/version.version=$(GRAVITY_VERSION) \
-	-X github.com/gravitational/gravity/lib/defaults.WormholeImg=$(WORMHOLE_IMG)
+	-X github.com/gravitational/gravity/lib/defaults.WormholeImg=$(WORMHOLE_IMG) \
+	-X github.com/gravitational/gravity/lib/defaults.TeleportVersionString=$(TELEPORT_TAG)
 GRAVITY_LINKFLAGS = "$(VERSION_FLAGS) $(GOLFLAGS)"
 
 TELEKUBE_GRAVITY_PKG := gravitational.io/gravity_$(OS)_$(ARCH):$(GRAVITY_TAG)

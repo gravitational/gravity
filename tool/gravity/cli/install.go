@@ -95,7 +95,7 @@ func startInstallFromService(env *localenv.LocalEnvironment, config InstallConfi
 	go TerminationHandler(interrupt, env)
 	listener, err := NewServiceListener()
 	if err != nil {
-		return trace.Wrap(err)
+		return trace.Wrap(utils.NewPreconditionFailedError(err))
 	}
 	defer func() {
 		if err != nil {
@@ -104,7 +104,7 @@ func startInstallFromService(env *localenv.LocalEnvironment, config InstallConfi
 	}()
 	installerConfig, err := newInstallerConfig(ctx, env, config)
 	if err != nil {
-		return trace.Wrap(err)
+		return trace.Wrap(utils.NewPreconditionFailedError(err))
 	}
 	var installer *install.Installer
 	switch config.Mode {
@@ -116,7 +116,7 @@ func startInstallFromService(env *localenv.LocalEnvironment, config InstallConfi
 		return trace.BadParameter("unknown mode %q", config.Mode)
 	}
 	if err != nil {
-		return trace.Wrap(err)
+		return trace.Wrap(utils.NewPreconditionFailedError(err))
 	}
 	interrupt.AddStopper(installer)
 	return trace.Wrap(installer.Run(listener))
