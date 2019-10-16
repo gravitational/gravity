@@ -885,15 +885,19 @@ func retryUpdateJoinConfigFromCloudMetadata(ctx context.Context, config *autojoi
 		// Test that the serviceURL is reachable
 		// When re-installing a cluster into AWS, the serviceURL can point to an old cluster
 		// until the new cluster overwrites the SSM values. So test the ServiceURL is reachable before using it.
-		req, _ := http.NewRequest("GET", config.serviceURL, nil)
+		req, err := http.NewRequest("GET", config.serviceURL, nil)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		// TODO(Knisbet) replace with NewRequestWithContext when on golang 1.13
 		req = req.WithContext(ctx)
 		_, err = client.Do(req)
 		if err != nil {
-			return trace.WrapWithMessage(err, "Waiting for service URL to become available.").
+			return trace.Wrap(err, "Waiting for service URL to become available.").
 				AddField("service_url", config.serviceURL)
 		}
 
-		return err
+		return trace.Wrap(err)
 	}
 	return trace.Wrap(utils.RetryWithInterval(ctx, b, f))
 }
