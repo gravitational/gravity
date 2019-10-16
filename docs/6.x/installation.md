@@ -39,7 +39,7 @@ to be met:
 
 ## CLI Installation
 
-To create a new instance of a Cluster Image via command line, you must do the 
+To create a new instance of a Cluster Image via command line, you must do the
 following:
 
 1. First, copy the Cluster Image file onto all nodes.
@@ -93,8 +93,8 @@ $ sudo ./gravity join 10.1.10.1 --advertise-addr=10.1.10.3 --token=XXX --role="w
 ```
 
 !!! tip:
-    The node roles in the example above are borrowed from the Image Manifest documented 
-    in [Building Cluster Images](/pack/#image-manifest) section. The use of `--role` 
+    The node roles in the example above are borrowed from the Image Manifest documented
+    in [Building Cluster Images](/pack/#image-manifest) section. The use of `--role`
     argument is optional if the Image Manifest did not contain node roles.
 
 The `gravity join` command will connect the worker and the database nodes to the master and you
@@ -135,14 +135,37 @@ Flag               | Description
 `--service-uid`    | _(Optional)_ Service user ID (numeric). See [Service User](pack/#service-user) for details. A user named `planet` is created automatically if unspecified.
 `--service-gid`    | _(Optional)_ Service group ID (numeric). See [Service User](pack/#service-user) for details. A group named `planet` is created automatically if unspecified.
 
+### Environment Variables
+
+Some aspects of the installation can be configured with the use of environment variables.
+
+#### GRAVITY_CHECKS_OFF
+
+This environment variable controls whether the installer/join agent executes the preflight checks.
+It accepts values `1`, `t`, `T`, `TRUE`, `true`, `True`, `0`, `f`, `F`, `FALSE`, `false`, `False`
+- any other value will not have any effect.
+
+!!! warning "Scope":
+    It is not possible to selectively turn checks off - it is all or nothing.
+
+#### GRAVITY_PEER_CONNECT_TIMEOUT
+
+This environment variable controls the initial connection validation timeout for the joining agent.
+It accepts values in Go duration format, for example `1m` (one minute) or `20s` (twenty seconds).
+The default value is `10s`.
+
+!!! note:
+    Only configurable for Gravity versions `5.5.x` starting `5.5.24`.
+
+
 ## Web-based Installation
 
 The web-based installation allows a more interactive user experience. Instead of
 specifying installation parameters via CLI arguments, users can follow the
 installation wizard using a web browser.
 
-To illustrate how this works, let's use the same set of assumptions from the CLI 
-installation section above: 
+To illustrate how this works, let's use the same set of assumptions from the CLI
+installation section above:
 
 * There are 3 clean Linux machines available. One will be the "master" and the
   other two are "database" and "worker" respectively.
@@ -255,7 +278,7 @@ native network features.
 
 In order to reliably run in any environment, Gravity aims to be infrastructure
 and cloud-agnostic. Gravity makes no assumption about the nature of the network
-or either the hosts are virtualized or bare metal.
+or either the hosts are virtualised or bare metal.
 
 ## Azure
 

@@ -352,7 +352,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 #### Improvements
 
-* Only capture world-readable details in 'gravity report' ([#787](https://github.com/gravitational/gravity/pull/787)).
+* Only capture world-readable details in `gravity report` ([#787](https://github.com/gravitational/gravity/pull/787)).
 
 #### Bugfixes
 

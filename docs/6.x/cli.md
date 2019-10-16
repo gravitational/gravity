@@ -34,7 +34,7 @@ more details in [Building Cluster Images](pack.md) section.
 Kubernetes API. It runs on MacOS and Linux. You can use `tsh` to remotely
 login into any node in a Gravity Cluster, even those located behind firewalls.
 
-Gravity uses Teleport for remotely accessing Clusters. See more details in the 
+Gravity uses Teleport for remotely accessing Clusters. See more details in the
 [Teleport User Manual](https://gravitational.com/teleport/docs/user-manual/).
 
 ## gravity
@@ -43,6 +43,6 @@ Gravity uses Teleport for remotely accessing Clusters. See more details in the
 your applications are running. `gravity` is responsible for mostly abstracting
 away low-level Kubernetes management. `gravity` provides commands for easy
 version upgrades, adding and removing nodes to a Cluster, and other common
-administration tasks. 
+administration tasks.
 
 See more details in [Cluster Management](/cluster/) section
