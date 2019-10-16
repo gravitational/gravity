@@ -450,6 +450,7 @@ func (i *InstallConfig) getApp() (app *app.Application, err error) {
 	}
 	app, err = install.GetApp(env.Apps)
 	if err != nil {
+		i.WithError(err).Warn("Failed to find application package.")
 		if trace.IsNotFound(err) {
 			return nil, trace.NotFound("the specified state dir %v does not "+
 				"contain application data, please provide a path to the "+

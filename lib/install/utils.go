@@ -17,6 +17,7 @@ package install
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -62,6 +63,7 @@ func GetAppPackage(service app.Applications) (*loc.Locator, error) {
 func GetApp(service app.Applications) (*app.Application, error) {
 	apps, err := service.ListApps(app.ListAppsRequest{
 		Repository: defaults.SystemAccountOrg,
+		Type:       storage.AppUser,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -491,4 +493,17 @@ func newInvalidCertError(err error) error {
 	return trace.BadParameter("%s. Please make sure that clocks are synchronized between the nodes "+
 		"by using ntp, chrony or other time-synchronization programs.",
 		trace.UserMessage(err))
+}
+
+func formatAbortError(err error) string {
+	switch err := err.(type) {
+	case trace.Error:
+		userMessage := trace.UserMessage(err)
+		if err.OrigError() != nil {
+			userMessage = fmt.Sprintf("%v (%v)", userMessage, trace.UserMessage(err.OrigError()))
+		}
+		return userMessage
+	default:
+		return trace.UserMessage(err)
+	}
 }
