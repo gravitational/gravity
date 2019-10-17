@@ -401,7 +401,7 @@ func autojoin(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, d
 		return autojoinFromService(env, environ, d)
 	}
 
-	err = updateJoinConfigFromCloudMetadata(context.TODO(), &d)
+	err = retryUpdateJoinConfigFromCloudMetadata(context.TODO(), &d)
 	if err != nil {
 		return trace.Wrap(err)
 	}

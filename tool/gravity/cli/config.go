@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -37,6 +38,7 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/expand"
+	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/install"
 	installerclient "github.com/gravitational/gravity/lib/install/client"
 	installpb "github.com/gravitational/gravity/lib/install/proto"
@@ -62,6 +64,7 @@ import (
 	"github.com/gravitational/gravity/lib/users"
 	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/cenkalti/backoff"
 	"github.com/docker/docker/pkg/namesgenerator"
 	"github.com/gravitational/configure"
 	teledefaults "github.com/gravitational/teleport/lib/defaults"
@@ -866,12 +869,46 @@ type agentConfig struct {
 	cloudProvider string
 }
 
+func retryUpdateJoinConfigFromCloudMetadata(ctx context.Context, config *autojoinConfig) error {
+	// Security: Insecure is OK here because we're only testing reachability to the cluster
+	client := httplib.GetClient(true,
+		httplib.WithTimeout(5*time.Second),
+		httplib.WithInsecure())
+
+	b := backoff.NewConstantBackOff(15 * time.Second)
+	f := func() error {
+		err := updateJoinConfigFromCloudMetadata(ctx, config)
+		if err != nil && !trace.IsRetryError(err) {
+			return &backoff.PermanentError{Err: err}
+		}
+
+		// Test that the serviceURL is reachable
+		// When re-installing a cluster into AWS, the serviceURL can point to an old cluster
+		// until the new cluster overwrites the SSM values. So test the ServiceURL is reachable before using it.
+		req, err := http.NewRequest("GET", config.serviceURL, nil)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		// TODO(Knisbet) replace with NewRequestWithContext when on golang 1.13
+		req = req.WithContext(ctx)
+		_, err = client.Do(req)
+		if err != nil {
+			return trace.Wrap(err, "Waiting for service URL to become available.").
+				AddField("service_url", config.serviceURL)
+		}
+
+		return trace.Wrap(err)
+	}
+	return trace.Wrap(utils.RetryWithInterval(ctx, b, f))
+}
+
 func updateJoinConfigFromCloudMetadata(ctx context.Context, config *autojoinConfig) error {
 	instance, err := cloudaws.NewLocalInstance()
 	if err != nil {
 		log.WithError(err).Warn("Failed to fetch instance metadata on AWS.")
 		return trace.BadParameter("autojoin only supports AWS")
 	}
+	config.advertiseAddr = instance.PrivateIP
 
 	autoscaler, err := autoscaleaws.New(autoscaleaws.Config{
 		ClusterName: config.clusterName,
@@ -880,19 +917,16 @@ func updateJoinConfigFromCloudMetadata(ctx context.Context, config *autojoinConf
 		return trace.Wrap(err)
 	}
 
-	joinToken, err := autoscaler.GetJoinToken(ctx)
+	config.serviceURL, err = autoscaler.GetServiceURL(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	serviceURL, err := autoscaler.GetServiceURL(ctx)
+	config.token, err = autoscaler.GetJoinToken(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	config.token = joinToken
-	config.serviceURL = serviceURL
-	config.advertiseAddr = instance.PrivateIP
 	return nil
 }
 
