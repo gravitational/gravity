@@ -114,6 +114,15 @@ func (r Collectors) Collect(ctx context.Context, reportWriter FileWriter, runner
 	return trace.NewAggregate(errors...)
 }
 
+// Collect invokes this function with the specified parameters.
+// Implements Collector
+func (r CollectorFunc) Collect(ctx context.Context, w FileWriter, runner utils.CommandRunner) error {
+	return r(ctx, w, runner)
+}
+
+// CollectorFunc allows ordinary functions as Collectors
+type CollectorFunc func(context.Context, FileWriter, utils.CommandRunner) error
+
 // Cmd creates a new Command with the given name and command line
 func Cmd(name string, args ...string) Command {
 	cmd := args[0]
@@ -174,6 +183,6 @@ type ScriptCollector struct {
 func tarball(pattern string) string {
 	return fmt.Sprintf(`
 #!/bin/bash
-/bin/tar cz --ignore-failed-read --ignore-command-error -f /dev/stdout -C / $(readlink -e %v) -P 2> /dev/null
+/bin/tar cz --ignore-failed-read --dereference --ignore-command-error -f /dev/stdout -C / $(readlink -e %v) -P 2> /dev/null
 `, pattern)
 }
