@@ -155,7 +155,6 @@ func (p *updatePhaseBootstrap) Execute(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	// FIXME: will this interfere with queryPackageLabels?
 	err = p.updateExistingPackageLabels()
 	if err != nil {
 		return trace.Wrap(err)
