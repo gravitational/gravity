@@ -41,7 +41,7 @@ import (
 )
 
 func status(env *localenv.LocalEnvironment, printOptions printOptions) error {
-	clusterOperator, err := env.SiteOperatorWithTimeout(defaults.ClusterOperatorTimeout)
+	clusterOperator, err := env.SiteOperator()
 	if err != nil {
 		log.WithError(err).Warn("Failed to create cluster operator.")
 	}

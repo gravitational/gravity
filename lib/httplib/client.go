@@ -182,6 +182,9 @@ func GetClient(insecure bool, options ...ClientOption) *http.Client {
 	for _, o := range options {
 		o(client)
 	}
+	if client.Timeout == 0 {
+		client.Timeout = defaults.ClientTimeout
+	}
 	if transport.IdleConnTimeout == 0 {
 		transport.IdleConnTimeout = defaults.ConnectionIdleTimeout
 	}
