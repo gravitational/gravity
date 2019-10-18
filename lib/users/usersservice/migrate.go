@@ -73,7 +73,7 @@ func (u *UsersService) Migrate() error {
 	return nil
 }
 
-// updateUserWithTraits sets traits for the provided user that doesn't have them.
+// updateUserWithTraits sets traits for the provided user.
 func (u *UsersService) updateUserWithTraits(user storage.User, log logrus.FieldLogger) error {
 	traits, err := u.getUserTraits(user)
 	if err != nil {
