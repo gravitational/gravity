@@ -7,7 +7,8 @@ DOCKER_STORAGE_DRIVERS="overlay2"
 
 declare -A UPGRADE_MAP
 # gravity version -> list of OS releases to test upgrades on
-UPGRADE_MAP[5.2.3]="centos:7 ubuntu:16"
+UPGRADE_MAP[5.2.15]="centos:7 ubuntu:16"
+UPGRADE_MAP[5.0.35]="debian:9 ubuntu:16"
 
 readonly GET_GRAVITATIONAL_IO_APIKEY=${GET_GRAVITATIONAL_IO_APIKEY:?API key for distribution Ops Center required}
 readonly GRAVITY_BUILDDIR=${GRAVITY_BUILDDIR:?Set GRAVITY_BUILDDIR to the build directory}
