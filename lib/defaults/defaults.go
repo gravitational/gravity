@@ -252,6 +252,15 @@ const (
 	// is accessible
 	ClusterCheckTimeout = 5 * time.Second
 
+	// ClusterOperatorTimeout specifies the timeout for a ClusterOperator.
+	ClusterOperatorTimeout = 10 * time.Second
+
+	// StatusCollectionTimeout specifies the timeout for collecting gravity status.
+	StatusCollectionTimeout = 20 * time.Second
+
+	// AuditCollectionTimeout specifies the timeout for collecting audit logs.
+	AuditCollectionTimeout = 20 * time.Second
+
 	// SatelliteRPCAgentPort is port used by satellite agent to expose its status
 	SatelliteRPCAgentPort = 7575
 

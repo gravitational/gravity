@@ -319,6 +319,15 @@ func (env *LocalEnvironment) OperatorService(opsCenterURL string, options ...htt
 	return client, nil
 }
 
+// SiteOperatorWithTimeout returns Operator for the local gravity site with a
+// timeout duration.
+func (env *LocalEnvironment) SiteOperatorWithTimeout(duration time.Duration) (*opsclient.Client, error) {
+	return env.OperatorService(defaults.GravityServiceURL,
+		httplib.WithLocalResolver(env.DNS.Addr()),
+		httplib.WithInsecure(),
+		httplib.WithTimeout(duration))
+}
+
 // SiteOperator returns Operator for the local gravity site
 func (env *LocalEnvironment) SiteOperator() (*opsclient.Client, error) {
 	return env.OperatorService(defaults.GravityServiceURL,
