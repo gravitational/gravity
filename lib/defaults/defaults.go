@@ -252,14 +252,11 @@ const (
 	// is accessible
 	ClusterCheckTimeout = 5 * time.Second
 
-	// ClusterOperatorTimeout specifies the timeout for a ClusterOperator.
-	ClusterOperatorTimeout = 10 * time.Second
-
 	// StatusCollectionTimeout specifies the timeout for collecting gravity status.
-	StatusCollectionTimeout = 20 * time.Second
+	StatusCollectionTimeout = 1 * time.Minute
 
 	// AuditCollectionTimeout specifies the timeout for collecting audit logs.
-	AuditCollectionTimeout = 20 * time.Second
+	AuditCollectionTimeout = 1 * time.Minute
 
 	// SatelliteRPCAgentPort is port used by satellite agent to expose its status
 	SatelliteRPCAgentPort = 7575
@@ -502,6 +499,9 @@ const (
 	// ConnectionIdleTimeout is a default connection timeout used to extend
 	// idle connection deadline
 	ConnectionIdleTimeout = 2 * time.Minute
+
+	// ClientTimeout specifies a timeout limit requests made by the client
+	ClientTimeout = 30 * time.Second
 
 	// ReadHeadersTimeout is a default TCP timeout when we wait
 	// for the response headers to arrive
