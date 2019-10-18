@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2018-2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -671,6 +671,33 @@ func (c *UsersService) upsertAPIKey(key storage.APIKey) (err error) {
 	return nil
 }
 
+// getUserTraits returns traits for the provided user.
+//
+// If the user has traits already assigned (which is the case for SSO users),
+// they are returned as-is. Otherwise returns the default set of traits
+// extracted from the user roles.
+func (c *UsersService) getUserTraits(user storage.User) (map[string][]string, error) {
+	if len(user.GetTraits()) != 0 {
+		return user.GetTraits(), nil
+	}
+	roles, err := teleservices.FetchRoles(user.GetRoles(), c, user.GetTraits())
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	logins, err := roles.CheckLoginDuration(0)
+	if err != nil && !trace.IsAccessDenied(err) { // returns 'access denied' if there're no logins which is ok
+		return nil, trace.Wrap(err)
+	}
+	groups, err := roles.CheckKubeGroups(0)
+	if err != nil && !trace.IsAccessDenied(err) { // returns 'access denied' if there're no groups which is ok
+		return nil, trace.Wrap(err)
+	}
+	return map[string][]string{
+		teleport.TraitLogins:     logins,
+		teleport.TraitKubeGroups: groups,
+	}, nil
+}
+
 // UpsertUser creates a new user or updates existing user
 // In case of AgentUser it will generate a random token - API key
 // In case of AdminUser or Regular user it requires a password
@@ -684,11 +711,11 @@ func (c *UsersService) UpsertUser(teleuser teleservices.User) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	for _, role := range teleuser.GetRoles() {
-		if _, err := c.backend.GetRole(role); err != nil {
-			return trace.Wrap(err)
-		}
+	traits, err := c.getUserTraits(u)
+	if err != nil {
+		return trace.Wrap(err)
 	}
+	u.SetTraits(traits)
 	var keys []storage.APIKey
 	if u.GetType() == storage.AgentUser {
 		// generate a unique api key for the agent
