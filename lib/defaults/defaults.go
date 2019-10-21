@@ -500,8 +500,10 @@ const (
 	// idle connection deadline
 	ConnectionIdleTimeout = 2 * time.Minute
 
-	// ClientTimeout specifies a timeout limit requests made by the client
-	ClientTimeout = 30 * time.Second
+	// ClientTimeout specifies a timeout limit for requests made by the client.
+	// The timeout includes connection time, any redirects, and reading the
+	// response body.
+	ClientTimeout = 1 * time.Minute
 
 	// ReadHeadersTimeout is a default TCP timeout when we wait
 	// for the response headers to arrive

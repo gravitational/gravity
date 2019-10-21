@@ -174,16 +174,17 @@ func WithIdleConnTimeout(timeout time.Duration) ClientOption {
 func GetClient(insecure bool, options ...ClientOption) *http.Client {
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{},
+		DialContext:     (&net.Dialer{Timeout: defaults.DialTimeout}).DialContext,
 	}
 	if insecure {
 		options = append(options, WithInsecure())
 	}
-	client := &http.Client{Transport: transport}
+	client := &http.Client{
+		Transport: transport,
+		Timeout:   defaults.ClientTimeout,
+	}
 	for _, o := range options {
 		o(client)
-	}
-	if client.Timeout == 0 {
-		client.Timeout = defaults.ClientTimeout
 	}
 	if transport.IdleConnTimeout == 0 {
 		transport.IdleConnTimeout = defaults.ConnectionIdleTimeout
