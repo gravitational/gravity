@@ -1,0 +1,252 @@
+
+## <summary>policy for gravity</summary>
+
+########################################
+## <summary>
+##	Enable user role access to gravity domain
+## </summary>
+## <param name="role">
+## <summary>
+##	User role to allow access to gravity domain.
+## </summary>
+## </param>
+## <param name="domain">
+## <summary>
+##	User domain to allow access to gravity domain.
+## </summary>
+## </param>
+#
+interface(`gravity_role',`
+	gen_require(`
+		type gravity_t, gravity_exec_t, gravity_planet_exec_t, gravity_state_t, gravity_log_t;
+		attribute_role gravity_roles;
+	')
+
+	# Allow gravity domain to use the user role
+	roleattribute $1 gravity_roles;
+
+	# Allow domain transition for user domain to gravity/planet
+	domtrans_pattern($2, gravity_exec_t, gravity_t)
+	domtrans_pattern($2, gravity_planet_exec_t, gravity_t)
+
+	# Interact with gravity process
+	ps_process_pattern($2, gravity_t)
+	allow $2 gravity_t:process { ptrace signal_perms };
+
+	# Manage gravity state
+	manage_dirs_pattern($2, gravity_state_t, gravity_state_t)
+	manage_files_pattern($2, gravity_state_t, gravity_state_t)
+	manage_lnk_files_pattern($2, gravity_state_t, gravity_state_t)
+	relabel_dirs_pattern($2, gravity_state_t, gravity_state_t)
+	relabel_files_pattern($2, gravity_state_t, gravity_state_t)
+	relabel_lnk_files_pattern($2, gravity_state_t, gravity_state_t)
+
+	# Manage gravity logs
+	manage_dirs_pattern($2, gravity_log_t, gravity_log_t)
+	manage_files_pattern($2, gravity_log_t, gravity_log_t)
+	manage_lnk_files_pattern($2, gravity_log_t, gravity_log_t)
+	relabel_dirs_pattern($2, gravity_log_t, gravity_log_t)
+	relabel_files_pattern($2, gravity_log_t, gravity_log_t)
+	relabel_lnk_files_pattern($2, gravity_log_t, gravity_log_t)
+
+	# FIXME: figure a way to offload this to a tunable (maybe using attribute-based privileges)
+	# See: https://wiki.gentoo.org/wiki/Project:SELinux/Development_policy
+	# # Support transition to gravity_t domain from unconfined role
+	# gen_tunable(gravity_domtrans_unconfined_role, false)
+	# tunable_policy(`gravity_domtrans_unconfined_role', `
+	# 	unconfined_run_to(gravity_t, gravity_exec_t)
+	# ')
+')
+
+interface(`gravity_port',`
+	gen_require(`
+		type gravity_t;
+		attribute gravity_port_type;
+	')
+
+	typeattribute $1 gravity_port_type;
+	corenet_port($1)
+')
+
+########################################
+## <summary>
+##	Execute gravity_exec_t in the specified domain.
+## </summary>
+## <param name="domain">
+## <summary>
+##	Domain allowed to transition.
+## </summary>
+## </param>
+#
+interface(`gravity_domtrans',`
+	gen_require(`
+		type gravity_t, gravity_exec_t;
+	')
+
+	corecmd_search_bin($1)
+	domtrans_pattern($1, gravity_exec_t, gravity_t)
+')
+
+######################################
+## <summary>
+##	Execute gravity in the caller domain.
+## </summary>
+## <param name="domain">
+##	<summary>
+##	Domain allowed access.
+##	</summary>
+## </param>
+#
+interface(`gravity_exec',`
+	gen_require(`
+		type gravity_exec_t;
+	')
+
+	corecmd_search_bin($1)
+	can_exec($1, gravity_exec_t)
+')
+
+########################################
+## <summary>
+##	Search gravity state directories.
+## </summary>
+## <param name="domain">
+##	<summary>
+##	Domain allowed access.
+##	</summary>
+## </param>
+#
+interface(`gravity_search_state',`
+	gen_require(`
+		type gravity_state_t;
+	')
+
+	allow $1 gravity_state_t:dir search_dir_perms;
+	files_search_var_lib($1)
+')
+
+########################################
+## <summary>
+##	Read gravity state files.
+## </summary>
+## <param name="domain">
+##	<summary>
+##	Domain allowed access.
+##	</summary>
+## </param>
+#
+interface(`gravity_read_state_files',`
+	gen_require(`
+		type gravity_state_t;
+	')
+
+	files_search_var_lib($1)
+	read_files_pattern($1, gravity_state_t, gravity_state_t)
+')
+
+########################################
+## <summary>
+##	Manage gravity state files.
+## </summary>
+## <param name="domain">
+##	<summary>
+##	Domain allowed access.
+##	</summary>
+## </param>
+#
+interface(`gravity_manage_state_files',`
+	gen_require(`
+		type gravity_state_t;
+	')
+
+	files_search_var_lib($1)
+	manage_files_pattern($1, gravity_state_t, gravity_state_t)
+')
+
+########################################
+## <summary>
+##	Manage gravity state directories.
+## </summary>
+## <param name="domain">
+##	<summary>
+##	Domain allowed access.
+##	</summary>
+## </param>
+#
+interface(`gravity_manage_state_dirs',`
+	gen_require(`
+		type gravity_state_t;
+	')
+
+	files_search_var_lib($1)
+	manage_dirs_pattern($1, gravity_state_t, gravity_state_t)
+')
+
+########################################
+## <summary>
+##	All of the rules required to administrate
+##	a gravity environment
+## </summary>
+## <param name="domain">
+##	<summary>
+##	Domain allowed access.
+##	</summary>
+## </param>
+## <param name="role">
+##	<summary>
+##	Role allowed access.
+##	</summary>
+## </param>
+## <rolecap/>
+#
+interface(`gravity_admin',`
+	gen_require(`
+		type gravity_t;
+		type gravity_state_t;
+	')
+
+	allow $1 gravity_t:process { signal_perms };
+	ps_process_pattern($1, gravity_t)
+
+	tunable_policy(`deny_ptrace',`',`
+		allow $1 gravity_t:process ptrace;
+	')
+
+	files_search_var_lib($1)
+	admin_pattern($1, gravity_state_t)
+	optional_policy(`
+		systemd_passwd_agent_exec($1)
+		systemd_read_fifo_file_passwd_run($1)
+	')
+')
+
+########################################
+## <summary>
+##	Execute planet in the specified domain.
+## </summary>
+## <param name="domain">
+## <summary>
+##	Domain allowed to transition.
+## </summary>
+## </param>
+#
+interface(`gravity_planet_domtrans',`
+	gen_require(`
+		type gravity_planet_t, gravity_planet_exec_t;
+	')
+
+	# FIXME: is this equivalent?
+	#corecmd_search_bin($1)
+	#read_lnk_files_pattern($1, bin_t, bin_t)
+
+	domtrans_pattern($1, gravity_planet_exec_t, gravity_planet_t)
+')
+
+interface(`gravity_planet_stream_connect',`
+	gen_require(`
+		type gravity_runtime_t, gravity_t;
+	')
+
+	files_search_pids($1)
+	stream_connect_pattern($1, gravity_runtime_t, gravity_runtime_t, gravity_t)
+')

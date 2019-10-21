@@ -1,0 +1,22 @@
+/usr/bin/gravity		--	gen_context(system_u:object_r:gravity_exec_t,s0)
+/usr/local/bin/gravity		--	gen_context(system_u:object_r:gravity_exec_t,s0)
+/var/lib/gravity(/.*)?		gen_context(system_u:object_r:gravity_state_t,s0)
+/var/log/gravity-(install|system)\.log	--	gen_context(system_u:object_r:gravity_log_t,s0)
+
+/etc/systemd/system/gravity__.*\.service --	gen_context(system_u:object_r:gravity_unit_t,s0)
+/usr/lib/systemd/system/gravity__.*\.service --	gen_context(system_u:object_r:gravity_unit_t,s0)
+
+/var/run/planet\.socket	-s	gen_context(system_u:object_r:gravity_runtime_t,s0)
+/run/planet\.socket	-s	gen_context(system_u:object_r:gravity_runtime_t,s0)
+
+# Planet
+/var/lib/gravity/local/packages/unpacked/gravitational\.io(/.*)/rootfs/usr/bin/planet	-- gen_context(system_u:object_r:gravity_planet_exec_t,s0)
+/var/lib/gravity/planet/registry(/.*)?	gen_context(system_u:object_r:container_var_lib_t,s0)
+/var/lib/gravity/planet/docker(/.*)	gen_context(system_u:object_r:container_var_lib_t,s0)
+/var/lib/gravity/planet/docker/.*/config\.env	gen_context(system_u:object_r:container_share_t,s0)
+/var/lib/gravity/planet/docker/containers/.*/.*\.log		gen_context(system_u:object_r:container_log_t,s0)
+/var/lib/gravity/planet/docker/containers/.*/hostname		gen_context(system_u:object_r:container_share_t,s0)
+/var/lib/gravity/planet/docker/containers/.*/hosts		gen_context(system_u:object_r:container_share_t,s0)
+/var/lib/gravity/planet/docker/init(/.*)?		gen_context(system_u:object_r:container_share_t,s0)
+/var/lib/gravity/planet/docker/overlay(/.*)?	gen_context(system_u:object_r:container_share_t,s0)
+/var/lib/gravity/planet/docker/overlay2(/.*)?	gen_context(system_u:object_r:container_share_t,s0)

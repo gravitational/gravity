@@ -1,0 +1,266 @@
+policy_module(gravity, 6.0.0)
+
+gen_require(`
+	attribute systemd_unit_file_type, modules_object_t;
+	type groupadd_exec_t, useradd_exec_t;
+	type fs_t, user_home_t, bin_t, udev_var_run_t;
+	type init_t, cert_t, devlog_t;
+	# FIXME: replace with a targeted macro
+	type syslogd_var_run_t;
+')
+
+attribute_role gravity_roles;
+attribute gravity_port_type;
+
+type gravity_t;
+type gravity_exec_t;
+init_daemon_domain(gravity_t, gravity_exec_t)
+role gravity_roles types gravity_t;
+role gravity_roles types gravity_planet_t;
+
+type gravity_state_t;
+files_type(gravity_state_t)
+ubac_constrained(gravity_state_t)
+manage_dirs_pattern(gravity_t, gravity_state_t, gravity_state_t)
+manage_files_pattern(gravity_t, gravity_state_t, gravity_state_t)
+manage_lnk_files_pattern(gravity_t, gravity_state_t, gravity_state_t)
+# manage installer/agent socket files in local state directory
+manage_sock_files_pattern(gravity_t, gravity_state_t, gravity_state_t)
+files_var_lib_filetrans(gravity_t, gravity_state_t, { dir file lnk_file })
+allow gravity_t gravity_state_t:dir { mounton };
+
+# FIXME: these are for unpacked planet rootfs which is labeled as gravity_state_t
+allow gravity_t gravity_state_t:file { execute execute_no_trans };
+allow gravity_t bin_t:dir { rmdir };
+
+# gravity log files
+type gravity_log_t;
+logging_log_file(gravity_log_t)
+manage_dirs_pattern(gravity_t, gravity_log_t, gravity_log_t)
+manage_files_pattern(gravity_t, gravity_log_t, gravity_log_t)
+logging_log_filetrans(gravity_t, gravity_log_t, {dir file})
+
+type gravity_tmp_t;
+files_tmp_file(gravity_tmp_t)
+manage_dirs_pattern(gravity_t, gravity_tmp_t, gravity_tmp_t)
+manage_files_pattern(gravity_t, gravity_tmp_t, gravity_tmp_t)
+manage_sock_files_pattern(gravity_t, gravity_tmp_t, gravity_tmp_t)
+manage_lnk_files_pattern(gravity_t, gravity_tmp_t, gravity_tmp_t)
+files_tmp_filetrans(gravity_t, gravity_tmp_t, { file dir lnk_file sock_file })
+userdom_user_tmp_filetrans(gravity_t, gravity_tmp_t, dir)
+
+# Installer directory
+type gravity_installer_t;
+files_type(gravity_installer_t)
+# Installer directory initially readonly
+read_files_pattern(gravity_t, gravity_installer_t, gravity_installer_t)
+allow gravity_t gravity_installer_t:file { create };
+# Installer directory file transitions for writable content
+filetrans_pattern(gravity_t, gravity_installer_t, gravity_state_t, { dir }, ".gravity")
+filetrans_pattern(gravity_t, gravity_installer_t, gravity_state_t, { file }, "crashreport.tgz")
+filetrans_pattern(gravity_t, gravity_installer_t, gravity_log_t, { file }, "gravity-system.log")
+filetrans_pattern(gravity_t, gravity_installer_t, gravity_log_t, { file }, "gravity-install.log")
+# Transition unit files/sockets to expected domain
+filetrans_pattern(gravity_t, gravity_state_t, gravity_unit_t, { file }, "gravity-installer.service")
+filetrans_pattern(gravity_t, gravity_state_t, gravity_unit_t, { file }, "gravity-agent.service")
+filetrans_pattern(gravity_t, gravity_state_t, gravity_runtime_t, { sock_file }, "installer.sock")
+
+# Domain for socket files (common for planet and gravity)
+type gravity_runtime_t alias gravity_var_run_t;
+files_pid_file(gravity_runtime_t)
+manage_sock_files_pattern(gravity_t, gravity_runtime_t, gravity_runtime_t)
+
+# Domain for gravity (installer) agents
+type gravity_unit_t;
+systemd_unit_file(gravity_unit_t)
+filetrans_pattern(gravity_t, systemd_unit_file_t, gravity_unit_t, { file lnk_file })
+manage_files_pattern(gravity_t, gravity_unit_t, gravity_unit_t)
+allow gravity_t gravity_unit_t:file rw_file_perms;
+allow gravity_t gravity_unit_t:service manage_service_perms;
+# Allow gravity to execute systemctl
+systemd_exec_systemctl(gravity_t)
+systemd_create_unit_file_lnk(gravity_t)
+init_reload_services(gravity_t)
+allow gravity_t systemd_unit_file_type:dir { add_name remove_name search };
+allow gravity_t init_t:system status;
+allow gravity_t init_t:service { disable enable status stop start };
+
+# Network access
+#
+# ports
+type gravity_port_t;
+type gravity_installer_port_t;
+type gravity_agent_port_t;
+type gravity_vxlan_port_t;
+type gravity_docker_port_t;
+type gravity_kubernetes_port_t;
+
+gravity_port(gravity_port_t)
+gravity_port(gravity_installer_port_t)
+gravity_port(gravity_agent_port_t)
+gravity_port(gravity_vxlan_port_t)
+gravity_port(gravity_docker_port_t)
+gravity_port(gravity_kubernetes_port_t)
+# allow bind/rw on kubernetes ports
+corenet_tcp_bind_kubernetes_port(gravity_kubernetes_port_t)
+corenet_tcp_bind_kubernetes_port(gravity_kubernetes_port_t)
+corenet_tcp_sendrecv_kubernetes_port(gravity_kubernetes_port_t)
+corenet_tcp_sendrecv_kubernetes_port(gravity_kubernetes_port_t)
+
+optional_policy(`
+	# allow bind/rw on port 5000
+	corenet_tcp_bind_commplex_main_port(gravity_docker_port_t)
+	corenet_tcp_sendrecv_commplex_main_port(gravity_docker_port_t)
+	# allow bind/rw on port 7001
+	corenet_tcp_bind_afs3_callback_port(gravity_kubernetes_port_t)
+	corenet_tcp_sendrecv_afs3_callback_port(gravity_kubernetes_port_t)
+')
+
+corenet_tcp_bind_generic_node(gravity_t)
+corenet_udp_bind_generic_node(gravity_t)
+corenet_tcp_connect_all_unreserved_ports(gravity_t)
+corenet_tcp_bind_all_unreserved_ports(gravity_t)
+corenet_udp_bind_all_unreserved_ports(gravity_t)
+allow gravity_t gravity_installer_port_t:tcp_socket { connect listen name_bind name_connect };
+allow gravity_t gravity_port_t:tcp_socket { connect listen name_bind name_connect };
+allow gravity_t gravity_kubernetes_port_t:tcp_socket { name_connect };
+allow gravity_t gravity_agent_port_t:tcp_socket { connect listen name_bind bind name_connect };
+allow gravity_t gravity_docker_port_t:tcp_socket { connect name_connect };
+
+# gravity can execute self without domain transition
+can_exec(gravity_t, gravity_exec_t)
+# Allow gravity to execute shell
+#corecmd_exec_shell(gravity_t)
+# Execute mount without domain transition
+mount_exec(gravity_t)
+# read /var/run/mount/utab?
+#mount_manage_pid_files(gravity_t)
+# execute ifconfig and access network configuration
+sysnet_exec_ifconfig(gravity_t)
+sysnet_read_config(gravity_t)
+files_search_etc(gravity_t)
+# Allow gravity_t write access for /etc/modules-load.d/
+files_rw_etc_files(gravity_t)
+# Allow to write unit files under /etc/systemd/system
+allow gravity_t systemd_unit_file_type:file manage_file_perms;
+# Allow RO access to lib/modules/* (preflight checks)
+allow gravity_t modules_object_t:file read_file_perms;
+allow gravity_t modules_object_t:dir search_dir_perms;
+kernel_read_state(gravity_t)
+kernel_read_network_state(gravity_t)
+kernel_read_all_sysctls(gravity_t)
+kernel_read_messages(gravity_t)
+
+# Allow gravity to read process state
+domain_read_all_domains_state(gravity_t)
+logging_send_syslog_msg(gravity_t)
+
+allow gravity_t self:fifo_file rw_fifo_file_perms;
+allow gravity_t self:process setrlimit;
+
+# Allow to search through user's home to be able to read installer content (gravity_installer_t)
+userdom_list_user_home_content(gravity_t)
+userdom_search_user_home_dirs(gravity_t)
+
+# Allow rw access to $TMPDIR
+files_manage_generic_tmp_files(gravity_t)
+userdom_manage_user_tmp_files(gravity_t)
+
+domain_use_interactive_fds(gravity_t)
+auth_use_nsswitch(gravity_t)
+miscfiles_read_localization(gravity_t)
+sysnet_dns_name_resolve(gravity_t)
+selinux_get_enforce_mode(gravity_t)
+
+allow gravity_t self:tcp_socket { accept listen };
+
+#####################################
+# Planet
+#
+type gravity_planet_t;
+type gravity_planet_exec_t;
+init_daemon_domain(gravity_planet_t, gravity_planet_exec_t)
+#gravity_planet_exec(gravity_t)
+gravity_planet_domtrans(gravity_t)
+gravity_planet_stream_connect(gravity_t)
+
+allow gravity_t gravity_planet_exec_t:file manage_file_perms;
+# FIXME: naive attempt to label planet binary
+filetrans_pattern(gravity_t, gravity_state_t, gravity_planet_exec_t, { file })
+
+logging_send_syslog_msg(gravity_planet_t)
+sysnet_read_config(gravity_planet_t)
+auth_read_passwd(gravity_planet_t)
+dev_list_sysfs(gravity_planet_t)	# ??
+kernel_read_system_state(gravity_planet_t)
+
+# FIXME: access to gravity_state_t only as long as rootfs/ is labeled as gravity_state_t
+allow gravity_planet_t gravity_state_t:dir { read search getattr setattr open };
+allow gravity_planet_t gravity_state_t:file { read open getattr setattr write };
+allow gravity_planet_t gravity_state_t:lnk_file { read write create };
+
+allow gravity_planet_t self:udp_socket create;
+allow gravity_planet_t self:unix_dgram_socket create;
+allow gravity_planet_t devlog_t:sock_file write;
+allow gravity_planet_t cert_t:dir search;
+# FIXME: planet requires dac_override when it attempts to write to
+# rootfs/etc/cni/net.d/10-flannel.conf. The whole rootfs does not allow
+# write access for other users/groups (0755).
+allow gravity_planet_t self:capability { chown };
+
+allow gravity_planet_t syslogd_var_run_t:dir write;	# ??
+allow gravity_planet_t cgroup_t:dir search;	# ??
+
+# Manage planet.socket in /var/run
+manage_sock_files_pattern(gravity_planet_t, gravity_runtime_t, gravity_runtime_t)
+files_pid_filetrans(gravity_planet_t, gravity_runtime_t, { sock_file }, "planet.socket")
+
+# ===============================================
+# TODO(dmitri): debugging installer
+#
+# Warning: state of flux beyond this line
+#
+allow gravity_t self:unix_dgram_socket { connect create getattr setopt };
+# DAC_OVERRIDE this seems to be required for boltdb.open('gravity.db')
+allow gravity_t self:capability { dac_override sys_ptrace sys_resource chown fowner fsetid };
+
+allow gravity_t groupadd_exec_t:file getattr;
+allow gravity_t useradd_exec_t:file getattr;
+# FIXME: find out which syscall is this exactly and place in the code base
+allow gravity_t fs_t:filesystem getattr;
+# Allow gravity to install itself into /usr/bin
+allow gravity_t bin_t:dir { add_name write remove_name };
+allow gravity_t bin_t:file { create open write setattr rename unlink };
+
+
+# Allow `gravity report` to collect bash histories
+allow gravity_t user_home_t:dir search_dir_perms;
+allow gravity_t user_home_t:file read_file_perms;
+
+corecmd_exec_shell(gravity_t)
+corecmd_exec_bin(gravity_t)
+
+# Allow lsblk (on behalf of gravity_t) to access /sys/dev/block
+dev_read_sysfs(gravity_t)
+
+# Allow gravity to read unit files
+systemd_read_unit_files(gravity_t)
+
+# lsblk
+allow gravity_t udev_var_run_t:file read;
+allow gravity_t tmpfs_t:filesystem getattr; # ??
+
+# `gravity uninstall` to remove /var/lib/gravity/planet/{docker,registry}
+optional_policy(`
+	gen_require(`
+		type container_share_t, container_var_lib_t, container_log_t;
+	')
+	allow gravity_t container_share_t:dir { remove_name unlink getattr };
+	allow gravity_t container_share_t:file manage_file_perms;
+	allow gravity_t container_var_lib_t:dir { remove_name unlink getattr setattr rmdir read open };
+	allow gravity_t container_var_lib_t:file manage_file_perms;
+	allow gravity_t container_log_t:file manage_file_perms;
+')
+
+# Allow `gravity report` to read journald files (??)
+#systemd_read_journal_files(gravity_t)
