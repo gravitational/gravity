@@ -67,7 +67,11 @@ func startInstall(env *localenv.LocalEnvironment, config InstallConfig) error {
 		}
 		return trace.Wrap(err)
 	}
-	strategy, err := NewInstallerConnectStrategy(env, config, ArgsParserFunc(parseArgs))
+	strategy, err := NewInstallerConnectStrategy(InstallerConnectStrategyConfig{
+		Env:    env,
+		Config: config,
+		Parser: ArgsParserFunc(parseArgs),
+	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -728,15 +732,31 @@ var InterruptSignals = signals.WithSignals(
 	syscall.SIGQUIT,
 )
 
+// InstallerConnectStrategyConfig is the connect strategy configuration.
+type InstallerConnectStrategyConfig struct {
+	// Env is the local environment.
+	Env *localenv.LocalEnvironment
+	// Config is the installer config.
+	Config InstallConfig
+	// Parser is the arguments parser.
+	Parser ArgsParser
+	// FlagsToAdd is additional flags to add to the installed service.
+	FlagsToAdd map[string]string
+	// FlagsToRemove is a list of flags to omit when installing service.
+	FlagsToRemove []string
+}
+
 // NewInstallerConnectStrategy returns default installer service connect strategy
-func NewInstallerConnectStrategy(env *localenv.LocalEnvironment, config InstallConfig, parser ArgsParser) (strategy installerclient.ConnectStrategy, err error) {
-	args, err := updateCommandWithFlags(os.Args[1:], parser, []flag{
-		{
-			// Pass token to service if not explicitly specified
-			name:  "token",
-			value: config.Token,
-		},
-	})
+func NewInstallerConnectStrategy(config InstallerConnectStrategyConfig) (strategy installerclient.ConnectStrategy, err error) {
+	// Pass token to service if not explicitly specified
+	flagsToAdd := []flag{{
+		name:  "token",
+		value: config.Config.Token,
+	}}
+	for k, v := range config.FlagsToAdd {
+		flagsToAdd = append(flagsToAdd, flag{name: k, value: v})
+	}
+	args, err := updateCommandWithFlags(os.Args[1:], config.Parser, flagsToAdd, config.FlagsToRemove)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -748,7 +768,7 @@ func NewInstallerConnectStrategy(env *localenv.LocalEnvironment, config InstallC
 	}
 	return &installerclient.InstallerStrategy{
 		Args:           args,
-		Validate:       environ.ValidateInstall(env),
+		Validate:       environ.ValidateInstall(config.Env),
 		ApplicationDir: utils.Exe.WorkingDir,
 		ServicePath:    servicePath,
 	}, nil
@@ -773,7 +793,7 @@ func newAutoAgentConnectStrategy(env *localenv.LocalEnvironment, config JoinConf
 			name:  "service-addr",
 			value: config.PeerAddrs,
 		},
-	})
+	}, nil)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

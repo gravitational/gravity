@@ -295,10 +295,16 @@ func loadRPCCredentials(ctx context.Context, addr, token string) (*rpcserver.Cre
 
 // updateCommandWithFlags returns new command line for the specified command.
 // flagsToAdd are added to the resulting command line if not yet present.
+// flagsToRemove specifies flags to remove from the resulting command line.
 //
 // The resulting command line adheres to command line format accepted by systemd.
 // See https://www.freedesktop.org/software/systemd/man/systemd.service.html#Command%20lines for details
-func updateCommandWithFlags(command []string, parser ArgsParser, flagsToAdd []flag) (args []string, err error) {
+func updateCommandWithFlags(
+	command []string,
+	parser ArgsParser,
+	flagsToAdd []flag,
+	flagsToRemove []string,
+) (args []string, err error) {
 	ctx, err := parser.ParseArgs(command)
 	if err != nil {
 		log.WithError(err).Warn("Failed to parse command line.")
@@ -310,6 +316,9 @@ func updateCommandWithFlags(command []string, parser ArgsParser, flagsToAdd []fl
 		case *kingpin.ArgClause:
 			args = append(args, strconv.Quote(*el.Value))
 		case *kingpin.FlagClause:
+			if utils.StringInSlice(flagsToRemove, c.Model().Name) {
+				continue
+			}
 			if _, ok := c.Model().Value.(boolFlag); ok {
 				args = append(args, fmt.Sprint("--", c.Model().Name))
 			} else {
