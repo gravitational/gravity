@@ -104,6 +104,7 @@ func (s *GravityResourcesSuite) TestUser(c *check.C) {
 	c.Assert(len(collection.users), check.Equals, 1)
 	user.SetCreatedBy(collection.users[0].GetCreatedBy())
 	user.SetRawObject(collection.users[0].GetRawObject())
+	user.SetTraits(collection.users[0].GetTraits())
 	compare.DeepCompare(c, collection, &userCollection{[]teleservices.User{user}})
 
 	err = s.r.Remove(context.TODO(), resources.RemoveRequest{SiteKey: s.cluster.Key(), Kind: "user", Name: "test"})
