@@ -37,10 +37,11 @@ func (*S) SetUpSuite(c *check.C) {
 
 func (*S) TestUpdatesCommandLine(c *check.C) {
 	var testCases = []struct {
-		comment    string
-		inputArgs  []string
-		flags      []flag
-		outputArgs []string
+		comment     string
+		inputArgs   []string
+		flags       []flag
+		removeFlags []string
+		outputArgs  []string
 	}{
 		{
 			comment:   "Does not overwrite existing flags",
@@ -56,12 +57,13 @@ func (*S) TestUpdatesCommandLine(c *check.C) {
 		},
 		{
 			comment:   "Quotes flags and args",
-			inputArgs: []string{"install", `--token=some token`, "/path/to/data"},
+			inputArgs: []string{"install", `--token=some token`, "/path/to/data", "--cloud-provider=generic"},
 			flags: []flag{
 				{
 					name: "advertise-addr", value: "localhost:8080",
 				},
 			},
+			removeFlags: []string{"cloud-provider"},
 			outputArgs: []string{
 				"install", "--token", `"some token"`, `"/path/to/data"`, "--advertise-addr", `"localhost:8080"`,
 			},
@@ -74,6 +76,7 @@ func (*S) TestUpdatesCommandLine(c *check.C) {
 			testCase.inputArgs,
 			ArgsParserFunc(parseArgs),
 			testCase.flags,
+			testCase.removeFlags,
 		)
 		c.Assert(err, check.IsNil)
 		c.Assert(args, check.DeepEquals, testCase.outputArgs, comment)
