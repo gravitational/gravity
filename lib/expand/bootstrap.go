@@ -23,9 +23,7 @@ import (
 	"github.com/gravitational/gravity/lib/install"
 	"github.com/gravitational/gravity/lib/ops"
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
-	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
-	"github.com/gravitational/gravity/lib/system/environ"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/gravitational/trace"
@@ -45,9 +43,6 @@ func (p *Peer) initEnviron(ctx operationContext) error {
 		return trace.Wrap(err)
 	}
 	if err := p.logIntoPeer(); err != nil {
-		return trace.Wrap(err)
-	}
-	if err := p.configureStateDirectory(); err != nil {
 		return trace.Wrap(err)
 	}
 	if err := p.ensureServiceUserAndBinary(ctx); err != nil {
@@ -83,18 +78,6 @@ func (p *Peer) logIntoPeer() error {
 	return nil
 }
 
-// configureStateDirectory configures local gravity state directory
-func (p *Peer) configureStateDirectory() error {
-	stateDir, err := state.GetStateDir()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	err = environ.ConfigureStateDirectory(stateDir, p.SystemDevice)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	return nil
-}
 
 // ensureServiceUserAndBinary makes sure specified service user exists and installs gravity binary
 func (p *Peer) ensureServiceUserAndBinary(ctx operationContext) error {

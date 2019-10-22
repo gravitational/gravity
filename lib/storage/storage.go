@@ -1207,6 +1207,8 @@ type ProvisioningToken struct {
 	// UserEmail links this token to the user with permissions,
 	// usually it's a site agent user
 	UserEmail string `json:"user_email"`
+	// Upsert specifies whether to update existing token
+	Upsert bool `json:"upsert,omitempty"`
 }
 
 func (p *ProvisioningToken) Check() error {
@@ -1248,8 +1250,10 @@ func (s *ProvisioningTokenType) Check() error {
 // Token types include those for adding new servers to the cluster during install or expand operations
 // or running one-time installations.
 type Tokens interface {
-	// CreateProvisioningToken creates a temporary authentication token
+	// CreateProvisioningToken creates an authentication token
 	CreateProvisioningToken(t ProvisioningToken) (*ProvisioningToken, error)
+	// UpdateProvisioningToken updates an existing authentication token
+	UpdateProvisioningToken(t ProvisioningToken) (*ProvisioningToken, error)
 	// DeleteProvisioningToken deletes a token specified by token
 	DeleteProvisioningToken(token string) error
 	// GetProvisioningToken returns a token if it has not expired yet
@@ -1700,9 +1704,6 @@ func (d DNSOverrides) FormatZones() string {
 // SystemState defines the system configuration for gravity - location
 // of state directory, etc.
 type SystemState struct {
-	// Disk defines the block device (disk or partition) to use
-	// for gravity system state directory
-	Device Device `json:"device"`
 	// StateDir is where all gravity data is stored on the server
 	StateDir string `json:"state_dir"`
 }

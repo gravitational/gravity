@@ -211,7 +211,8 @@ func (s *OpsSuite) InstallInstructions(c *C) {
 		SiteDomain:  site.Domain,
 		UserEmail:   "agent@example.com",
 		OperationID: opKey.OperationID,
-	}, Commentf("expected expand token to exist, got %#v", token))
+		Upsert:      true,
+	})
 
 	joinInstructions, err := s.O.GetSiteInstructions(
 		token.Token, "master", url.Values{})
