@@ -49,6 +49,7 @@ import (
 	"github.com/gravitational/gravity/lib/system/signals"
 	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/utils"
+	"github.com/gravitational/gravity/lib/utils/cli"
 
 	"github.com/fatih/color"
 	"github.com/gravitational/trace"
@@ -67,10 +68,8 @@ func startInstall(env *localenv.LocalEnvironment, config InstallConfig) error {
 		}
 		return trace.Wrap(err)
 	}
-	strategy, err := NewInstallerConnectStrategy(InstallerConnectStrategyConfig{
-		Env:    env,
-		Config: config,
-		Parser: ArgsParserFunc(parseArgs),
+	strategy, err := NewInstallerConnectStrategy(env, config, cli.CommandArgs{
+		Parser: cli.ArgsParserFunc(parseArgs),
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -732,34 +731,9 @@ var InterruptSignals = signals.WithSignals(
 	syscall.SIGQUIT,
 )
 
-// InstallerConnectStrategyConfig is the connect strategy configuration.
-type InstallerConnectStrategyConfig struct {
-	// Env is the local environment.
-	Env *localenv.LocalEnvironment
-	// Config is the installer config.
-	Config InstallConfig
-	// Parser is the arguments parser.
-	Parser ArgsParser
-	// FlagsToAdd is additional flags to add to the installed service.
-	FlagsToAdd map[string]string
-	// FlagsToRemove is a list of flags to omit when installing service.
-	FlagsToRemove []string
-}
-
 // NewInstallerConnectStrategy returns default installer service connect strategy
-func NewInstallerConnectStrategy(config InstallerConnectStrategyConfig) (strategy installerclient.ConnectStrategy, err error) {
-	// Pass token to service if not explicitly specified
-	flagsToAdd := []flag{{
-		name:  "token",
-		value: config.Config.Token,
-	}}
-	for k, v := range config.FlagsToAdd {
-		flagsToAdd = append(flagsToAdd, flag{name: k, value: v})
-	}
-	args, err := updateCommandWithFlags(os.Args[1:], config.Parser, flagsToAdd, config.FlagsToRemove)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
+func NewInstallerConnectStrategy(env *localenv.LocalEnvironment, config InstallConfig, commandArgs cli.CommandArgs) (strategy installerclient.ConnectStrategy, err error) {
+	args, err := commandArgs.Update(os.Args[1:], cli.NewFlag("token", config.Token))
 	args = append([]string{utils.Exe.Path}, args...)
 	args = append(args, "--from-service", utils.Exe.WorkingDir)
 	servicePath, err := state.GravityInstallDir(defaults.GravityRPCInstallerServiceName)
@@ -768,7 +742,7 @@ func NewInstallerConnectStrategy(config InstallerConnectStrategyConfig) (strateg
 	}
 	return &installerclient.InstallerStrategy{
 		Args:           args,
-		Validate:       environ.ValidateInstall(config.Env),
+		Validate:       environ.ValidateInstall(env),
 		ApplicationDir: utils.Exe.WorkingDir,
 		ServicePath:    servicePath,
 	}, nil
@@ -779,21 +753,16 @@ func NewInstallerConnectStrategy(config InstallerConnectStrategyConfig) (strateg
 func newAutoAgentConnectStrategy(env *localenv.LocalEnvironment, config JoinConfig) (strategy installerclient.ConnectStrategy, err error) {
 	// TODO: accept command line parser as argument if the join command
 	// is to be extended on enterprise side
-	args, err := updateCommandWithFlags(os.Args[1:], ArgsParserFunc(parseArgs), []flag{
-		// Pass additional configuration to service if not explicitly specified
-		{
-			name:  "token",
-			value: config.Token,
+	commandArgs := cli.CommandArgs{
+		Parser: cli.ArgsParserFunc(parseArgs),
+		// Pass additional configuration to service if not explicitly specified.
+		FlagsToAdd: []cli.Flag{
+			cli.NewFlag("token", config.Token),
+			cli.NewFlag("advertise-addr", config.AdvertiseAddr),
+			cli.NewFlag("service-addr", config.PeerAddrs),
 		},
-		{
-			name:  "advertise-addr",
-			value: config.AdvertiseAddr,
-		},
-		{
-			name:  "service-addr",
-			value: config.PeerAddrs,
-		},
-	}, nil)
+	}
+	args, err := commandArgs.Update(os.Args[1:])
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
