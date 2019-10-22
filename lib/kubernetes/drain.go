@@ -141,7 +141,7 @@ func (d *drain) deletePod(pod v1.Pod) error {
 		options.GracePeriodSeconds = utils.Int64Ptr(d.gracePeriodSeconds)
 	}
 	// not using rigging.ConvertError on purpose to keep the original error
-	return trace.Wrap(d.client.Core().Pods(pod.Namespace).Delete(pod.Name, options))
+	return trace.Wrap(d.client.CoreV1().Pods(pod.Namespace).Delete(pod.Name, options))
 }
 
 func (d *drain) evictPod(pod v1.Pod, policyGroupVersion string) error {
@@ -161,13 +161,13 @@ func (d *drain) evictPod(pod v1.Pod, policyGroupVersion string) error {
 		DeleteOptions: options,
 	}
 	// not using rigging.ConvertError on purpose to keep the original error
-	return trace.Wrap(d.client.Policy().Evictions(eviction.Namespace).Evict(eviction))
+	return trace.Wrap(d.client.PolicyV1beta1().Evictions(eviction.Namespace).Evict(eviction))
 }
 
 // getPodsForDeletion returns all the pods to delete.
 // DaemonSet pods are always filtered out
 func (d *drain) getPodsForDeletion() (pods []v1.Pod, err error) {
-	podList, err := d.client.Core().Pods(metav1.NamespaceAll).List(metav1.ListOptions{
+	podList, err := d.client.CoreV1().Pods(metav1.NamespaceAll).List(metav1.ListOptions{
 		FieldSelector: fields.SelectorFromSet(fields.Set{"spec.nodeName": d.nodeName}).String()})
 	if err != nil {
 		return nil, rigging.ConvertError(err)

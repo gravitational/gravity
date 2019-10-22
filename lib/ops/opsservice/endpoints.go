@@ -71,11 +71,11 @@ func (o *Operator) GetApplicationEndpoints(key ops.SiteKey) ([]ops.Endpoint, err
 	}
 
 	// query for nodes, we might need them later on
-	nodeList, err := client.Core().Nodes().List(metav1.ListOptions{})
+	nodeList, err := client.CoreV1().Nodes().List(metav1.ListOptions{})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	namespaceList, err := client.Core().Namespaces().List(metav1.ListOptions{})
+	namespaceList, err := client.CoreV1().Namespaces().List(metav1.ListOptions{})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -88,7 +88,7 @@ func (o *Operator) GetApplicationEndpoints(key ops.SiteKey) ([]ops.Endpoint, err
 
 		var serviceList *v1.ServiceList
 		for _, ns := range namespaceList.Items {
-			services, err := client.Core().Services(ns.Name).List(metav1.ListOptions{
+			services, err := client.CoreV1().Services(ns.Name).List(metav1.ListOptions{
 				LabelSelector: utils.MakeSelector(e.Selector).String(),
 			})
 			if err != nil {

@@ -67,14 +67,14 @@ type ConfigMapControl struct {
 func (c *ConfigMapControl) Delete(ctx context.Context, cascade bool) error {
 	c.Infof("delete %v", formatMeta(c.ConfigMap.ObjectMeta))
 
-	err := c.Client.Core().ConfigMaps(c.ConfigMap.Namespace).Delete(c.ConfigMap.Name, nil)
+	err := c.Client.CoreV1().ConfigMaps(c.ConfigMap.Namespace).Delete(c.ConfigMap.Name, nil)
 	return ConvertError(err)
 }
 
 func (c *ConfigMapControl) Upsert(ctx context.Context) error {
 	c.Infof("upsert %v", formatMeta(c.ConfigMap.ObjectMeta))
 
-	configMaps := c.Client.Core().ConfigMaps(c.ConfigMap.Namespace)
+	configMaps := c.Client.CoreV1().ConfigMaps(c.ConfigMap.Namespace)
 	c.ConfigMap.UID = ""
 	c.ConfigMap.SelfLink = ""
 	c.ConfigMap.ResourceVersion = ""
@@ -92,7 +92,7 @@ func (c *ConfigMapControl) Upsert(ctx context.Context) error {
 }
 
 func (c *ConfigMapControl) Status() error {
-	configMaps := c.Client.Core().ConfigMaps(c.ConfigMap.Namespace)
+	configMaps := c.Client.CoreV1().ConfigMaps(c.ConfigMap.Namespace)
 	_, err := configMaps.Get(c.ConfigMap.Name, metav1.GetOptions{})
 	return ConvertError(err)
 }

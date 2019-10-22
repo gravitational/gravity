@@ -91,7 +91,7 @@ func GetUpsertBootstrapResourceFunc(client *kubernetes.Clientset) resources.Reso
 			}
 			log.Debugf("Updated RoleBinding %q.", resource.Name)
 		case *policyv1beta1.PodSecurityPolicy:
-			_, err = client.Policy().PodSecurityPolicies().Create(resource)
+			_, err = client.PolicyV1beta1().PodSecurityPolicies().Create(resource)
 			if err == nil {
 				log.Debugf("Created PodSecurityPolicy %q.", resource.Name)
 				return nil
@@ -99,7 +99,7 @@ func GetUpsertBootstrapResourceFunc(client *kubernetes.Clientset) resources.Reso
 			if !trace.IsAlreadyExists(rigging.ConvertError(err)) {
 				return trace.Wrap(rigging.ConvertError(err))
 			}
-			_, err = client.Policy().PodSecurityPolicies().Update(resource)
+			_, err = client.PolicyV1beta1().PodSecurityPolicies().Update(resource)
 			if err != nil {
 				return trace.Wrap(rigging.ConvertError(err))
 			}
