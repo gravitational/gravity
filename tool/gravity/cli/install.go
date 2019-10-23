@@ -49,6 +49,7 @@ import (
 	"github.com/gravitational/gravity/lib/system/signals"
 	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/utils"
+	"github.com/gravitational/gravity/lib/utils/cli"
 
 	"github.com/fatih/color"
 	"github.com/gravitational/trace"
@@ -67,7 +68,9 @@ func startInstall(env *localenv.LocalEnvironment, config InstallConfig) error {
 		}
 		return trace.Wrap(err)
 	}
-	strategy, err := NewInstallerConnectStrategy(env, config, ArgsParserFunc(parseArgs))
+	strategy, err := NewInstallerConnectStrategy(env, config, cli.CommandArgs{
+		Parser: cli.ArgsParserFunc(parseArgs),
+	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -729,17 +732,8 @@ var InterruptSignals = signals.WithSignals(
 )
 
 // NewInstallerConnectStrategy returns default installer service connect strategy
-func NewInstallerConnectStrategy(env *localenv.LocalEnvironment, config InstallConfig, parser ArgsParser) (strategy installerclient.ConnectStrategy, err error) {
-	args, err := updateCommandWithFlags(os.Args[1:], parser, []flag{
-		{
-			// Pass token to service if not explicitly specified
-			name:  "token",
-			value: config.Token,
-		},
-	})
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
+func NewInstallerConnectStrategy(env *localenv.LocalEnvironment, config InstallConfig, commandArgs cli.CommandArgs) (strategy installerclient.ConnectStrategy, err error) {
+	args, err := commandArgs.Update(os.Args[1:], cli.NewFlag("token", config.Token))
 	args = append([]string{utils.Exe.Path}, args...)
 	args = append(args, "--from-service", utils.Exe.WorkingDir)
 	servicePath, err := state.GravityInstallDir(defaults.GravityRPCInstallerServiceName)
@@ -759,21 +753,16 @@ func NewInstallerConnectStrategy(env *localenv.LocalEnvironment, config InstallC
 func newAutoAgentConnectStrategy(env *localenv.LocalEnvironment, config JoinConfig) (strategy installerclient.ConnectStrategy, err error) {
 	// TODO: accept command line parser as argument if the join command
 	// is to be extended on enterprise side
-	args, err := updateCommandWithFlags(os.Args[1:], ArgsParserFunc(parseArgs), []flag{
-		// Pass additional configuration to service if not explicitly specified
-		{
-			name:  "token",
-			value: config.Token,
+	commandArgs := cli.CommandArgs{
+		Parser: cli.ArgsParserFunc(parseArgs),
+		// Pass additional configuration to service if not explicitly specified.
+		FlagsToAdd: []cli.Flag{
+			cli.NewFlag("token", config.Token),
+			cli.NewFlag("advertise-addr", config.AdvertiseAddr),
+			cli.NewFlag("service-addr", config.PeerAddrs),
 		},
-		{
-			name:  "advertise-addr",
-			value: config.AdvertiseAddr,
-		},
-		{
-			name:  "service-addr",
-			value: config.PeerAddrs,
-		},
-	})
+	}
+	args, err := commandArgs.Update(os.Args[1:])
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
