@@ -118,11 +118,11 @@ func (s *S) TestDrainsNode(c *C) {
 	c.Assert(err, IsNil)
 
 	d := newDeployment("bar", pod.Spec)
-	_, err = s.Extensions().Deployments(testNamespace).Create(d)
+	_, err = s.ExtensionsV1beta1().Deployments(testNamespace).Create(d)
 	c.Assert(err, IsNil)
 
 	ds := newDaemonSet("qux", pod.Spec)
-	_, err = s.Extensions().DaemonSets(testNamespace).Create(ds)
+	_, err = s.ExtensionsV1beta1().DaemonSets(testNamespace).Create(ds)
 	c.Assert(err, IsNil)
 
 	podList, err := s.CoreV1().Pods(testNamespace).List(
