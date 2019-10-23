@@ -1703,6 +1703,14 @@
   version = "v0.1.1"
 
 [[projects]]
+  digest = "1:87e906f1e6fa5b8031355cabec9cfc19ca66d77f61c916aa1711d4944a0ce71c"
+  name = "github.com/opencontainers/selinux"
+  packages = ["go-selinux"]
+  pruneopts = "UT"
+  revision = "bd4431961747d849bd92a9853f63f05235344637"
+  version = "1.3.0"
+
+[[projects]]
   digest = "1:361de06aa7ae272616cbe71c3994a654cc6316324e30998e650f7765b20c5b33"
   name = "github.com/pborman/uuid"
   packages = ["."]
@@ -3010,6 +3018,7 @@
     "github.com/mitchellh/go-ps",
     "github.com/olekukonko/tablewriter",
     "github.com/opencontainers/go-digest",
+    "github.com/opencontainers/selinux/go-selinux",
     "github.com/pborman/uuid",
     "github.com/prometheus/client_golang/api",
     "github.com/prometheus/client_golang/api/prometheus/v1",

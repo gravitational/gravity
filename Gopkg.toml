@@ -134,6 +134,10 @@ ignored = [
   revision = "edc3ab29cdff8694dd6feb85cfeb4b5f1b38ed9c"
 
 [[constraint]]
+  name = "github.com/opencontainers/selinux"
+  version = "=v1.3.0"
+
+[[constraint]]
   name = "github.com/opencontainers/go-digest"
   version = "v1.0.0-rc1"
 

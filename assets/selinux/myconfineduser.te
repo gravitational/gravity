@@ -2,11 +2,8 @@ policy_module(myconfineduser, 0.1)
 
 gen_require(`
 	type unconfined_t, gravity_t, gravity_exec_t;
-	role unconfined_r;
 ')
 
 optional_policy(`
-	gravity_role(unconfined_r, unconfined_t)
-	# FIXME: move to a tunable_policy
-	unconfined_run_to(gravity_t, gravity_exec_t)
+	gravity_run(unconfined_t)
 ')

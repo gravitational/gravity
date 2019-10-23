@@ -1,5 +1,29 @@
-
 ## <summary>policy for gravity</summary>
+
+########################################
+## <summary>
+##	Execute gravity in the gravity domain and allow
+## the specified role access to the gravity domain.
+## </summary>
+## <param name="domain">
+## <summary>
+##	Domain allowed to transition.
+## </summary>
+## </param>
+## <param name="role">
+## <summary>
+## 	Role allowed access.
+## </summary>
+## </param>
+#
+interface(`gravity_run',`
+	gen_require(`
+		attribute_role gravity_roles;
+	')
+
+	gravity_domtrans($1)
+	roleattribute $1 gravity_roles;
+')
 
 ########################################
 ## <summary>
@@ -18,7 +42,7 @@
 #
 interface(`gravity_role',`
 	gen_require(`
-		type gravity_t, gravity_exec_t, gravity_planet_exec_t, gravity_state_t, gravity_log_t;
+		type gravity_t, gravity_exec_t, gravity_container_t, gravity_container_exec_t, gravity_home_t, gravity_log_t;
 		attribute_role gravity_roles;
 	')
 
@@ -27,19 +51,19 @@ interface(`gravity_role',`
 
 	# Allow domain transition for user domain to gravity/planet
 	domtrans_pattern($2, gravity_exec_t, gravity_t)
-	domtrans_pattern($2, gravity_planet_exec_t, gravity_t)
+	domtrans_pattern($2, gravity_container_exec_t, gravity_container_t)
 
 	# Interact with gravity process
 	ps_process_pattern($2, gravity_t)
 	allow $2 gravity_t:process { ptrace signal_perms };
 
 	# Manage gravity state
-	manage_dirs_pattern($2, gravity_state_t, gravity_state_t)
-	manage_files_pattern($2, gravity_state_t, gravity_state_t)
-	manage_lnk_files_pattern($2, gravity_state_t, gravity_state_t)
-	relabel_dirs_pattern($2, gravity_state_t, gravity_state_t)
-	relabel_files_pattern($2, gravity_state_t, gravity_state_t)
-	relabel_lnk_files_pattern($2, gravity_state_t, gravity_state_t)
+	manage_dirs_pattern($2, gravity_home_t, gravity_home_t)
+	manage_files_pattern($2, gravity_home_t, gravity_home_t)
+	manage_lnk_files_pattern($2, gravity_home_t, gravity_home_t)
+	relabel_dirs_pattern($2, gravity_home_t, gravity_home_t)
+	relabel_files_pattern($2, gravity_home_t, gravity_home_t)
+	relabel_lnk_files_pattern($2, gravity_home_t, gravity_home_t)
 
 	# Manage gravity logs
 	manage_dirs_pattern($2, gravity_log_t, gravity_log_t)
@@ -60,7 +84,6 @@ interface(`gravity_role',`
 
 interface(`gravity_port',`
 	gen_require(`
-		type gravity_t;
 		attribute gravity_port_type;
 	')
 
@@ -118,10 +141,10 @@ interface(`gravity_exec',`
 #
 interface(`gravity_search_state',`
 	gen_require(`
-		type gravity_state_t;
+		type gravity_home_t;
 	')
 
-	allow $1 gravity_state_t:dir search_dir_perms;
+	allow $1 gravity_home_t:dir search_dir_perms;
 	files_search_var_lib($1)
 ')
 
@@ -137,11 +160,11 @@ interface(`gravity_search_state',`
 #
 interface(`gravity_read_state_files',`
 	gen_require(`
-		type gravity_state_t;
+		type gravity_home_t;
 	')
 
 	files_search_var_lib($1)
-	read_files_pattern($1, gravity_state_t, gravity_state_t)
+	read_files_pattern($1, gravity_home_t, gravity_home_t)
 ')
 
 ########################################
@@ -156,11 +179,11 @@ interface(`gravity_read_state_files',`
 #
 interface(`gravity_manage_state_files',`
 	gen_require(`
-		type gravity_state_t;
+		type gravity_home_t;
 	')
 
 	files_search_var_lib($1)
-	manage_files_pattern($1, gravity_state_t, gravity_state_t)
+	manage_files_pattern($1, gravity_home_t, gravity_home_t)
 ')
 
 ########################################
@@ -175,11 +198,11 @@ interface(`gravity_manage_state_files',`
 #
 interface(`gravity_manage_state_dirs',`
 	gen_require(`
-		type gravity_state_t;
+		type gravity_home_t;
 	')
 
 	files_search_var_lib($1)
-	manage_dirs_pattern($1, gravity_state_t, gravity_state_t)
+	manage_dirs_pattern($1, gravity_home_t, gravity_home_t)
 ')
 
 ########################################
@@ -202,7 +225,7 @@ interface(`gravity_manage_state_dirs',`
 interface(`gravity_admin',`
 	gen_require(`
 		type gravity_t;
-		type gravity_state_t;
+		type gravity_home_t;
 	')
 
 	allow $1 gravity_t:process { signal_perms };
@@ -213,11 +236,36 @@ interface(`gravity_admin',`
 	')
 
 	files_search_var_lib($1)
-	admin_pattern($1, gravity_state_t)
+	admin_pattern($1, gravity_home_t)
 	optional_policy(`
 		systemd_passwd_agent_exec($1)
 		systemd_read_fifo_file_passwd_run($1)
 	')
+')
+
+########################################
+## <summary>
+##	Execute planet in the planet domain and allow
+## the specified role access to the planet domain.
+## </summary>
+## <param name="domain">
+## <summary>
+##	Domain allowed to transition.
+## </summary>
+## </param>
+## <param name="role">
+## <summary>
+## 	Role allowed access.
+## </summary>
+## </param>
+#
+interface(`gravity_container_run',`
+	gen_require(`
+		attribute_role gravity_container_roles;
+	')
+
+	gravity_container_domtrans($1)
+	roleattribute $2 gravity_container_roles;
 ')
 
 ########################################
@@ -230,23 +278,23 @@ interface(`gravity_admin',`
 ## </summary>
 ## </param>
 #
-interface(`gravity_planet_domtrans',`
+interface(`gravity_container_domtrans',`
 	gen_require(`
-		type gravity_planet_t, gravity_planet_exec_t;
+		type gravity_container_t, gravity_container_exec_t;
 	')
 
 	# FIXME: is this equivalent?
 	#corecmd_search_bin($1)
 	#read_lnk_files_pattern($1, bin_t, bin_t)
 
-	domtrans_pattern($1, gravity_planet_exec_t, gravity_planet_t)
+	domtrans_pattern($1, gravity_container_exec_t, gravity_container_t)
 ')
 
-interface(`gravity_planet_stream_connect',`
+interface(`gravity_container_stream_connect',`
 	gen_require(`
-		type gravity_runtime_t, gravity_t;
+		type gravity_container_var_run_t, gravity_t;
 	')
 
 	files_search_pids($1)
-	stream_connect_pattern($1, gravity_runtime_t, gravity_runtime_t, gravity_t)
+	stream_connect_pattern($1, gravity_container_var_run_t, gravity_container_var_run_t, gravity_t)
 ')

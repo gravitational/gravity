@@ -38,6 +38,7 @@ import (
 
 	"github.com/docker/docker/pkg/archive"
 	"github.com/gravitational/trace"
+	"github.com/opencontainers/selinux/go-selinux"
 	"github.com/sirupsen/logrus"
 )
 
@@ -341,6 +342,11 @@ func (r *PackageUpdater) updatePlanetPackage(update storage.PackageUpdate) (labe
 	}
 
 	planetPath, err := r.Packages.UnpackedPath(update.To)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	err = r.applySelinuxFilecontexts(planetPath)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -732,4 +738,17 @@ func unpack(packages update.LocalPackageService, loc loc.Locator) error {
 		return trace.Wrap(err)
 	}
 	return packages.Unpack(loc, path)
+}
+
+func (r *System) applySelinuxFilecontexts(path string) error {
+	if !selinux.GetEnabled() {
+		return nil
+	}
+	out, err := exec.Command("restorecon", "-R", "-v", path).CombinedOutput()
+	if err != nil {
+		r.WithError(err).Warn("Failed to restorecon file contexts.")
+		return trace.Wrap(err, "failed to restorecon file contexts on %v: %s",
+			path, string(out))
+	}
+	return nil
 }
