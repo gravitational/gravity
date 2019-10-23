@@ -293,68 +293,7 @@ func loadRPCCredentials(ctx context.Context, addr, token string) (*rpcserver.Cre
 	return creds, nil
 }
 
-// updateCommandWithFlags returns new command line for the specified command.
-// flagsToAdd are added to the resulting command line if not yet present.
-//
-// The resulting command line adheres to command line format accepted by systemd.
-// See https://www.freedesktop.org/software/systemd/man/systemd.service.html#Command%20lines for details
-func updateCommandWithFlags(command []string, parser ArgsParser, flagsToAdd []flag) (args []string, err error) {
-	ctx, err := parser.ParseArgs(command)
-	if err != nil {
-		log.WithError(err).Warn("Failed to parse command line.")
-		return nil, trace.Wrap(err)
-	}
-	outputCommand := ctx.SelectedCommand.FullCommand()
-	for _, el := range ctx.Elements {
-		switch c := el.Clause.(type) {
-		case *kingpin.ArgClause:
-			args = append(args, strconv.Quote(*el.Value))
-		case *kingpin.FlagClause:
-			if _, ok := c.Model().Value.(boolFlag); ok {
-				args = append(args, fmt.Sprint("--", c.Model().Name))
-			} else {
-				args = append(args, fmt.Sprint("--", c.Model().Name), strconv.Quote(*el.Value))
-			}
-			for i, flag := range flagsToAdd {
-				model := c.Model()
-				if model.Name == flag.name {
-					flagsToAdd = append(flagsToAdd[:i], flagsToAdd[i+1:]...)
-				}
-			}
-		}
-	}
-	for _, flag := range flagsToAdd {
-		args = append(args, fmt.Sprint("--", flag.name), strconv.Quote(flag.value))
-	}
-	return append([]string{outputCommand}, args...), nil
-}
-
-type flag struct {
-	name  string
-	value string
-}
-
-type boolFlag interface {
-	// IsBoolFlag returns true to indicate a boolean flag
-	IsBoolFlag() bool
-}
-
 func parseArgs(args []string) (*kingpin.ParseContext, error) {
 	app := kingpin.New("gravity", "")
 	return RegisterCommands(app).ParseContext(args)
-}
-
-// ParseArgs parses the specified command line arguments into a parse context
-func (r ArgsParserFunc) ParseArgs(args []string) (*kingpin.ParseContext, error) {
-	return r(args)
-}
-
-// ArgsParserFunc is a functional wrapper for ArgsParser to enable ordinary functions
-// as ArgsParsers
-type ArgsParserFunc func(args []string) (*kingpin.ParseContext, error)
-
-// ArgsParser parses Gravity command line arguments
-type ArgsParser interface {
-	// ParseArgs parses the specified command line arguments into a parse context
-	ParseArgs(args []string) (*kingpin.ParseContext, error)
 }

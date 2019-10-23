@@ -21,10 +21,11 @@ import (
 	"testing"
 
 	"github.com/sirupsen/logrus"
+	"gopkg.in/alecthomas/kingpin.v2"
 	"gopkg.in/check.v1"
 )
 
-func TestUtils(t *testing.T) { check.TestingT(t) }
+func TestCLI(t *testing.T) { check.TestingT(t) }
 
 type S struct{}
 
@@ -37,31 +38,25 @@ func (*S) SetUpSuite(c *check.C) {
 
 func (*S) TestUpdatesCommandLine(c *check.C) {
 	var testCases = []struct {
-		comment    string
-		inputArgs  []string
-		flags      []flag
-		outputArgs []string
+		comment     string
+		inputArgs   []string
+		flags       []Flag
+		removeFlags []string
+		outputArgs  []string
 	}{
 		{
 			comment:   "Does not overwrite existing flags",
 			inputArgs: []string{"install", `--token=token`, "--debug"},
-			flags: []flag{
-				{
-					name: "token", value: "different token",
-				},
-			},
+			flags:     []Flag{NewFlag("token", "different token")},
 			outputArgs: []string{
 				"install", "--token", `"token"`, "--debug",
 			},
 		},
 		{
-			comment:   "Quotes flags and args",
-			inputArgs: []string{"install", `--token=some token`, "/path/to/data"},
-			flags: []flag{
-				{
-					name: "advertise-addr", value: "localhost:8080",
-				},
-			},
+			comment:     "Quotes flags and args",
+			inputArgs:   []string{"install", `--token=some token`, "/path/to/data", "--cloud-provider=generic"},
+			flags:       []Flag{NewFlag("advertise-addr", "localhost:8080")},
+			removeFlags: []string{"cloud-provider"},
 			outputArgs: []string{
 				"install", "--token", `"some token"`, `"/path/to/data"`, "--advertise-addr", `"localhost:8080"`,
 			},
@@ -70,13 +65,24 @@ func (*S) TestUpdatesCommandLine(c *check.C) {
 
 	for _, testCase := range testCases {
 		comment := check.Commentf(testCase.comment)
-		args, err := updateCommandWithFlags(
-			testCase.inputArgs,
-			ArgsParserFunc(parseArgs),
-			testCase.flags,
-		)
+		commandArgs := CommandArgs{
+			Parser:        ArgsParserFunc(parseArgs),
+			FlagsToAdd:    testCase.flags,
+			FlagsToRemove: testCase.removeFlags,
+		}
+		args, err := commandArgs.Update(testCase.inputArgs)
 		c.Assert(err, check.IsNil)
 		c.Assert(args, check.DeepEquals, testCase.outputArgs, comment)
 	}
+}
 
+func parseArgs(args []string) (*kingpin.ParseContext, error) {
+	app := kingpin.New("test", "")
+	app.Flag("debug", "").Bool()
+	cmd := app.Command("install", "")
+	cmd.Arg("path", "").String()
+	cmd.Flag("token", "").String()
+	cmd.Flag("advertise-addr", "").String()
+	cmd.Flag("cloud-provider", "").String()
+	return app.ParseContext(args)
 }
