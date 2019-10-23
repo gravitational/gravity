@@ -493,6 +493,10 @@ extensions:
   monitoring:
     disabled: false
 
+  # This setting will hide Kubernetes tab in the Cluster UI
+  kubernetes:
+    disabled: false
+
   # This setting will not install the Tiller application
   catalog:
     disabled: false
@@ -798,6 +802,10 @@ extensions:
   # This setting will not install system monitoring application and hide
   # Monitoring tab in the Cluster Control Panel UI
   monitoring:
+    disabled: true
+
+  # This setting will hide Kubernetes tab in the Cluster UI
+  kubernetes:
     disabled: true
 
   # This setting will not install the Tiller application
