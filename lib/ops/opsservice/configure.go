@@ -670,6 +670,10 @@ func (s *site) getPlanetMasterSecretsPackage(ctx *operationContext, p planetMast
 			req.Hosts = append(req.Hosts, utils.KubeServiceNames(
 				defaults.LograngeAggregatorServiceName,
 				defaults.KubeSystemNamespace)...)
+		case constants.ETCDKeyPair:
+			// Give etcd certs on master nodes a SAN that can be used from within a pod to access etcd directly
+			// this configuration is discouraged, but currently stolon is using the cluster etcd instance.
+			req.Hosts = append(req.Hosts, constants.KubernetesServiceDomainNames...)
 		}
 		keyPair, err := authority.GenerateCertificate(req, caKeyPair, baseKeyPair.KeyPEM, defaults.CertificateExpiry)
 		if err != nil {
@@ -970,7 +974,7 @@ func (s *site) getPlanetConfig(config planetConfig) (args []string, err error) {
 	if len(kubeletArgs) > 0 {
 		args = append(args, fmt.Sprintf("--kubelet-options=%v", strings.Join(kubeletArgs, " ")))
 	}
-	
+
 	mounts, err := GetMounts(manifest, node.Server)
 	if err != nil {
 		return nil, trace.Wrap(err)
