@@ -194,10 +194,10 @@ func (p *updatePhaseInit) Execute(context.Context) error {
 		return trace.Wrap(err, "failed to update Docker configuration")
 	}
 	for _, server := range p.Servers {
-		if err := p.rotateSecrets(server); err != nil {
-			return trace.Wrap(err, "failed to rotate secrets for %v", server)
-		}
 		if server.Runtime.Update != nil {
+			if err := p.rotateSecrets(server); err != nil {
+				return trace.Wrap(err, "failed to rotate secrets for %v", server)
+			}
 			if err := p.rotatePlanetConfig(server); err != nil {
 				return trace.Wrap(err, "failed to rotate planet configuration for %v", server)
 			}
