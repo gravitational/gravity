@@ -2045,7 +2045,7 @@ transient error
 #### Improvements
 
 * Add support for TLS keypair configuration via resources. Read more [here](/config/#tls-key-pair).
-* Simplify Ops Center [post install configuration](/opscenter/#post-provisioning).
+* Simplify Ops Center [post install configuration](/hub/#post-provisioning).
 
 #### Bugfixes
 
