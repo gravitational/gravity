@@ -116,7 +116,7 @@ func (o *Operator) GetAlerts(key ops.SiteKey) (alerts []storage.Alert, err error
 	options := metav1.ListOptions{
 		LabelSelector: labels.String(),
 	}
-	configmaps, err := client.Core().ConfigMaps(defaults.MonitoringNamespace).List(options)
+	configmaps, err := client.CoreV1().ConfigMaps(defaults.MonitoringNamespace).List(options)
 	if err != nil {
 		return nil, trace.Wrap(rigging.ConvertError(err))
 	}
@@ -158,7 +158,7 @@ func (o *Operator) UpdateAlert(ctx context.Context, key ops.SiteKey, alert stora
 	labels := map[string]string{
 		constants.MonitoringType: constants.MonitoringTypeAlert,
 	}
-	err = updateConfigMap(client.Core().ConfigMaps(defaults.MonitoringNamespace),
+	err = updateConfigMap(client.CoreV1().ConfigMaps(defaults.MonitoringNamespace),
 		alert.GetName(), defaults.MonitoringNamespace, string(data), labels)
 	if err != nil {
 		return trace.Wrap(err)
@@ -183,7 +183,7 @@ func (o *Operator) DeleteAlert(ctx context.Context, key ops.SiteKey, name string
 	options := metav1.ListOptions{
 		LabelSelector: labels.String(),
 	}
-	configmaps, err := client.Core().ConfigMaps(defaults.MonitoringNamespace).List(options)
+	configmaps, err := client.CoreV1().ConfigMaps(defaults.MonitoringNamespace).List(options)
 	if err != nil {
 		return trace.Wrap(rigging.ConvertError(err))
 	}
@@ -199,7 +199,7 @@ func (o *Operator) DeleteAlert(ctx context.Context, key ops.SiteKey, name string
 		return trace.NotFound("alert %q not found", name)
 	}
 
-	err = client.Core().ConfigMaps(defaults.MonitoringNamespace).Delete(name, nil)
+	err = client.CoreV1().ConfigMaps(defaults.MonitoringNamespace).Delete(name, nil)
 	if err != nil {
 		return trace.Wrap(rigging.ConvertError(err))
 	}
@@ -218,7 +218,7 @@ func (o *Operator) GetAlertTargets(key ops.SiteKey) (targets []storage.AlertTarg
 		return nil, trace.Wrap(err)
 	}
 
-	data, err := getConfigMap(client.Core().ConfigMaps(defaults.MonitoringNamespace),
+	data, err := getConfigMap(client.CoreV1().ConfigMaps(defaults.MonitoringNamespace),
 		constants.AlertTargetConfigMap)
 	if err != nil {
 		if trace.IsNotFound(err) {
@@ -250,7 +250,7 @@ func (o *Operator) UpdateAlertTarget(ctx context.Context, key ops.SiteKey, targe
 	labels := map[string]string{
 		constants.MonitoringType: constants.MonitoringTypeAlertTarget,
 	}
-	err = updateConfigMap(client.Core().ConfigMaps(defaults.MonitoringNamespace),
+	err = updateConfigMap(client.CoreV1().ConfigMaps(defaults.MonitoringNamespace),
 		constants.AlertTargetConfigMap, defaults.MonitoringNamespace, string(data), labels)
 	if err != nil {
 		return trace.Wrap(err)
@@ -268,7 +268,7 @@ func (o *Operator) DeleteAlertTarget(ctx context.Context, key ops.SiteKey) error
 		return trace.Wrap(err)
 	}
 
-	err = rigging.ConvertError(client.Core().ConfigMaps(defaults.MonitoringNamespace).Delete(constants.AlertTargetConfigMap, nil))
+	err = rigging.ConvertError(client.CoreV1().ConfigMaps(defaults.MonitoringNamespace).Delete(constants.AlertTargetConfigMap, nil))
 	if err != nil {
 		if trace.IsNotFound(err) {
 			return trace.NotFound("no alert targets found")

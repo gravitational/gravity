@@ -39,7 +39,7 @@ func (o *Operator) GetSMTPConfig(key ops.SiteKey) (storage.SMTPConfig, error) {
 		return nil, trace.Wrap(err)
 	}
 
-	data, err := getSMTPConfig(client.Core().Secrets(defaults.MonitoringNamespace))
+	data, err := getSMTPConfig(client.CoreV1().Secrets(defaults.MonitoringNamespace))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -58,7 +58,7 @@ func (o *Operator) UpdateSMTPConfig(ctx context.Context, key ops.SiteKey, config
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = updateSMTPConfig(client.Core().Secrets(defaults.MonitoringNamespace), config)
+	err = updateSMTPConfig(client.CoreV1().Secrets(defaults.MonitoringNamespace), config)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -73,7 +73,7 @@ func (o *Operator) DeleteSMTPConfig(ctx context.Context, key ops.SiteKey) error 
 		return trace.Wrap(err)
 	}
 
-	err = rigging.ConvertError(client.Core().Secrets(defaults.MonitoringNamespace).Delete(constants.SMTPSecret, nil))
+	err = rigging.ConvertError(client.CoreV1().Secrets(defaults.MonitoringNamespace).Delete(constants.SMTPSecret, nil))
 	if err != nil {
 		if trace.IsNotFound(err) {
 			return trace.NotFound("no SMTP configuration found")

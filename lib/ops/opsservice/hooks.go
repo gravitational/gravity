@@ -295,12 +295,12 @@ func (s *site) runIntegrationHook(ctx *operationContext, job *batchv1.Job, reque
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	_, err = client.Core().Secrets(pack.secret.Namespace).Create(pack.secret)
+	_, err = client.CoreV1().Secrets(pack.secret.Namespace).Create(pack.secret)
 	if err != nil {
 		return rigging.ConvertError(err)
 	}
 	defer func() {
-		err := client.Core().Secrets(pack.secret.Namespace).Delete(pack.secret.Name, nil)
+		err := client.CoreV1().Secrets(pack.secret.Namespace).Delete(pack.secret.Name, nil)
 		if err != nil {
 			ctx.Warningf("Failed to delete secret: %v", trace.DebugReport(err))
 		}
