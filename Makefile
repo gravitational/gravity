@@ -19,7 +19,7 @@ ASSETSDIR=$(TOP)/assets
 BINDIR ?= /usr/bin
 
 # Current Kubernetes version
-K8S_VER := 1.16.0
+K8S_VER := 1.16.2
 # Kubernetes version suffix for the planet package, constructed by concatenating
 # major + minor padded to 2 chars with 0 + patch also padded to 2 chars, e.g.
 # 1.13.5 -> 11305, 1.13.12 -> 11312, 2.0.0 -> 20000 and so on
@@ -46,7 +46,7 @@ RELEASE_OUT ?=
 TELEPORT_TAG = 3.2.13
 # TELEPORT_REPOTAG adapts TELEPORT_TAG to the teleport tagging scheme
 TELEPORT_REPOTAG := v$(TELEPORT_TAG)
-PLANET_TAG := 7.0.10-$(K8S_VER_SUFFIX)
+PLANET_TAG := 7.0.12-$(K8S_VER_SUFFIX)
 PLANET_BRANCH := $(PLANET_TAG)
 K8S_APP_TAG := $(GRAVITY_TAG)
 TELEKUBE_APP_TAG := $(GRAVITY_TAG)
@@ -56,8 +56,8 @@ MONITORING_APP_TAG ?= 6.0.4
 DNS_APP_TAG = 0.3.1
 BANDWAGON_TAG ?= 6.0.1
 RBAC_APP_TAG := $(GRAVITY_TAG)
-TILLER_VERSION = 2.13.1
-TILLER_APP_TAG = 6.0.0
+TILLER_VERSION = 2.15.0
+TILLER_APP_TAG = 7.0.0
 # URI of Wormhole container for default install
 WORMHOLE_IMG ?= quay.io/gravitational/wormhole:0.2.0
 # set this to true if you want to use locally built planet packages
@@ -68,7 +68,8 @@ ARCH := $(shell uname -m)
 CURRENT_COMMIT := $(shell git rev-parse HEAD)
 VERSION_FLAGS := -X github.com/gravitational/gravity/vendor/github.com/gravitational/version.gitCommit=$(CURRENT_COMMIT) \
 	-X github.com/gravitational/gravity/vendor/github.com/gravitational/version.version=$(GRAVITY_VERSION) \
-	-X github.com/gravitational/gravity/lib/defaults.WormholeImg=$(WORMHOLE_IMG)
+	-X github.com/gravitational/gravity/lib/defaults.WormholeImg=$(WORMHOLE_IMG) \
+	-X github.com/gravitational/gravity/lib/defaults.TeleportVersionString=$(TELEPORT_TAG)
 GRAVITY_LINKFLAGS = "$(VERSION_FLAGS) $(GOLFLAGS)"
 
 TELEKUBE_GRAVITY_PKG := gravitational.io/gravity_$(OS)_$(ARCH):$(GRAVITY_TAG)

@@ -86,7 +86,7 @@ func (a *Autoscaler) syncToken(ctx context.Context, operator ops.Operator, clust
 }
 
 func (a *Autoscaler) getServiceURL() (string, error) {
-	service, err := a.Client.Core().Services(constants.KubeSystemNamespace).Get(constants.GravityServiceName, v1.GetOptions{})
+	service, err := a.Client.CoreV1().Services(constants.KubeSystemNamespace).Get(constants.GravityServiceName, v1.GetOptions{})
 	if err != nil {
 		return "", trace.Wrap(err)
 	}

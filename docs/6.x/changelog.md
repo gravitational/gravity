@@ -7,11 +7,11 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 6.2.0         | No  | September 24th, 2019 | -                    | 1.16.0             | 3.2.12           |
-| 6.1.6         | No  | October 10th, 2019   | -                    | 1.15.4             | 3.2.12           |
-| 6.0.9         | No  | September 18th, 2019 | -                    | 1.14.7             | 3.2.12           |
-| 5.6.8         | No  | September 18th, 2019 | -                    | 1.14.7             | 3.0.6-gravity    |
-| 5.5.22        | Yes | October 8th, 2019    | September 7th, 2020  | 1.13.11            | 3.0.6-gravity    |
+| 6.2.2         | No  | October 17th, 2019   | -                    | 1.16.0             | 3.2.12           |
+| 6.1.9         | No  | October 21st, 2019   | -                    | 1.15.4             | 3.2.12           |
+| 6.0.10*       | No  | October 17th, 2019   | -                    | 1.14.7             | 3.2.12           |
+| 5.6.8*        | No  | September 18th, 2019 | -                    | 1.14.7             | 3.0.6-gravity    |
+| 5.5.26        | Yes | October 17th, 2019   | September 7th, 2020  | 1.13.11            | 3.0.6-gravity    |
 | 5.4.10*       | No  | March 26th, 2019     | -                    | 1.13.5             | 2.4.10           |
 | 5.3.9*        | No  | March 7th, 2019      | -                    | 1.12.3             | 2.4.7            |
 | 5.2.16        | Yes | October 11th, 2019   | October 15th, 2019   | 1.11.9             | 2.4.10           |
@@ -35,15 +35,83 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     You can now upgrade existing 5.0.x clusters directly to 5.5.x.
     See [Direct Upgrades From Older LTS Versions](/pack/#direct-upgrades-from-older-lts-versions) for details.
 
-
 ## 6.x Releases
+
+### 6.1.9 (October 21st, 2019)
+
+#### Bugfixes
+
+* Fix the issue with accessing remote clusters via a Hub using `tsh` or web terminal ([#814](https://github.com/gravitational/gravity/pull/814)).
+* Fix the issue with `tiller` server not being upgraded when upgrading from early 6.1 releases ([#818](https://github.com/gravitational/gravity/pull/818)).
+
+### 6.2.2 (October 17th, 2019)
+
+#### Bugfixes
+
+* Upgrade Kubernetes to `v1.16.02` (CVE-2019-11253) ([#808](https://github.com/gravitational/gravity/pull/808)).
+
+!!! warning
+    This release fixes a security vulnerability in kubernetes. Please see
+    [Kubernetes Announcement](https://github.com/kubernetes/kubernetes/issues/83253) for more information.
+
+### 6.1.8 (October 17th, 2019)
+
+#### Bugfixes
+
+* Upgrade Kubernetes to `v1.15.05` (CVE-2019-11253) ([#809](https://github.com/gravitational/gravity/pull/809)).
+* Fix an issue with upgrades related to fetching legacy teleport configuration ([#809](https://github.com/gravitational/gravity/pull/809)).
+
+!!! warning
+    This release fixes a security vulnerability in kubernetes. Please see
+    [Kubernetes Announcement](https://github.com/kubernetes/kubernetes/issues/83253) for more information.
+
+### 6.0.10 (October 17th, 2019)
+
+#### Improvements
+
+* Add support for discovering upstream DNS servers from systemd-resolved configuration ([#740](https://github.com/gravitational/gravity/pull/740)).
+* Improve `gravity report` to capture additional network configuration ([#769](https://github.com/gravitational/gravity/pull/769)).
+
+#### Bugfixes
+
+* Upgrade Kubernetes to `v1.14.08` (CVE-2019-11253) ([#810](https://github.com/gravitational/gravity/pull/810)).
+* Fix the issue with join failing with "bad username or password" when using auto-scaling groups on AWS ([#790](https://github.com/gravitational/gravity/pull/790)).
+
+!!! warning
+    This release fixes a security vulnerability in kubernetes. Please see
+    [Kubernetes Announcement](https://github.com/kubernetes/kubernetes/issues/83253) for more information.
+
+### 6.2.1 (October 11th, 2019)
+
+#### Improvements
+
+* Add support for discovering upstream DNS servers from systemd-resolved configuration ([#782](https://github.com/gravitational/gravity/pull/782)).
+* Improve `gravity report` to capture additional network configuration ([#769](https://github.com/gravitational/gravity/pull/769)).
+* Add ability to specify default cloud provider in cluster manifest ([#761](https://github.com/gravitational/gravity/pull/761)).
+* Add `ebtable_filter` to the list of required gravity kernel modules ([#724](https://github.com/gravitational/gravity/pull/724)).
+* Increase timeout on healthz check and allow optional configuration by environment variable ([#752](https://github.com/gravitational/gravity/pull/752)).
+
+#### Bugfixes
+
+* Fix the issue with join failing with "bad username or password" when using auto-scaling groups on AWS ([#789](https://github.com/gravitational/gravity/pull/789)).
+* Fix the issue with web UI installer displaying the login screen ([#793](https://github.com/gravitational/gravity/pull/793)).
+* Fix the issue with UI showing "user not found" error after choosing a password for a new user ([#793](https://github.com/gravitational/gravity/pull/793)).
+* Fix the issue with `gravity report` accessing journal files ([#732](https://github.com/gravitational/gravity/pull/732)).
+
+### 6.1.7 (October 11th, 2019)
+
+#### Bugfixes
+
+* Fix the issue with join failing with "bad username or password" when using auto-scaling groups on AWS ([#789](https://github.com/gravitational/gravity/pull/789)).
+* Fix the issue with web UI installer displaying the login screen ([#793](https://github.com/gravitational/gravity/pull/793)).
+* Fix the issue with UI showing "user not found" error after choosing a password for a new user ([#793](https://github.com/gravitational/gravity/pull/793)).
 
 ### 6.1.6 (October 10th, 2019)
 
 #### Improvements
 
 * Improves `gravity report` to capture additional network configuration ([#770](https://github.com/gravitational/gravity/pull/770)).
-* Adds ability to specify default cloud provider in application manifest ([#760](https://github.com/gravitational/gravity/pull/760)).
+* Adds ability to specify default cloud provider in cluster manifest ([#760](https://github.com/gravitational/gravity/pull/760)).
 * Provides additional error information when an operation fails ([#746](https://github.com/gravitational/gravity/pull/746)).
 * Increase timeout on healthz check and allow optional configuration by environment variable ([#744](https://github.com/gravitational/gravity/pull/744)).
 * Add support for discovering upstream DNS servers from systemd-resolved configuration ([#739](https://github.com/gravitational/gravity/pull/739)).
@@ -53,7 +121,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 #### Bugfixes
 
 * Fixes a race condition within docker libraries used by gravity ([#778](https://github.com/gravitational/gravity/pull/778)).
-* Fix and issue with `gravity report` accessing journal files ([#733](https://github.com/gravitational/gravity/pull/770)).
+* Fix an issue with `gravity report` accessing journal files ([#733](https://github.com/gravitational/gravity/pull/733)).
 
 ### 6.2.0 (September 24th, 2019)
 
@@ -304,6 +372,25 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 ## 5.x Releases
 
+### 5.5.26 (October 17th, 2019)
+
+#### Bugfixes
+
+* Upgrade Kubernetes to `v1.13.12` (CVE-2019-11253) ([#811](https://github.com/gravitational/gravity/pull/811)).
+* Fixes an issue with timeouts while validating agent connections ([#777](https://github.com/gravitational/gravity/pull/777)).
+* Fixes an issue where upgrade could fail with `latest package not found` error in gravity-site ([#813](https://github.com/gravitational/gravity/pull/813)).
+
+!!! warning
+    This release fixes a security vulnerability in kubernetes. Please see
+    [Kubernetes Announcement](https://github.com/kubernetes/kubernetes/issues/83253) for more information.
+
+### 5.5.24 LTS (October 15th, 2019)
+
+#### Improvements
+
+* Add ability to override peer connect timeout when joining a cluster ([#777](https://github.com/gravitational/gravity/pull/777)).
+
+
 ### 5.2.16 LTS (October 11th, 2019)
 
 #### Improvements
@@ -314,6 +401,18 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 #### Bugfixes
 
 * Skip missing mount points when checking filesystem usage ([#786](https://github.com/gravitational/gravity/pull/786)).
+
+
+### 5.5.23 LTS (October 11th, 2019)
+
+#### Improvements
+
+* Only capture world-readable details in `gravity report` ([#787](https://github.com/gravitational/gravity/pull/787)).
+
+#### Bugfixes
+
+* Fix an issue in 'tele build' not correctly marking intermediate packages ([#775](https://github.com/gravitational/gravity/pull/775)).
+* Skip missing mount points when checking filesystem usage ([#779](https://github.com/gravitational/gravity/pull/779)).
 
 
 ### 5.5.22 LTS (October 8th, 2019)

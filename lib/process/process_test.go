@@ -17,11 +17,18 @@ limitations under the License.
 package process
 
 import (
+	"bytes"
 	"context"
+	"fmt"
 	"path/filepath"
 	"time"
 
+	"github.com/gravitational/gravity/lib/blob/fs"
 	"github.com/gravitational/gravity/lib/constants"
+	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/loc"
+	"github.com/gravitational/gravity/lib/pack"
+	"github.com/gravitational/gravity/lib/pack/localpack"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/keyval"
 	"github.com/gravitational/gravity/lib/utils"
@@ -31,6 +38,7 @@ import (
 	teleservices "github.com/gravitational/teleport/lib/services"
 	teleutils "github.com/gravitational/teleport/lib/utils"
 
+	"github.com/coreos/go-semver/semver"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/check.v1"
@@ -236,4 +244,87 @@ func (s *ProcessSuite) TestReverseTunnelsFromTrustedClusters(c *check.C) {
 		c.Assert(err, check.IsNil)
 		c.Assert(tunnels, check.DeepEquals, testCase.tunnels, check.Commentf(testCase.comment))
 	}
+}
+
+func (s *importerSuite) TestCorrectlySelectsNewTeleportConfig(c *check.C) {
+	// setup
+	s.addTeleportPackages(c,
+		"example.com/teleport-master-config:0.0.12345",
+		"example.com/teleport-master-config:1.0.0",
+		"example.com/teleport-master-config:1.0.1",
+	)
+	teleportVersion := semver.New("1.0.1")
+	i := &importer{
+		backend:  s.backend,
+		packages: s.pack,
+	}
+	// exercise
+	teleportConfig, err := i.findLatestTeleportConfigPackage("example.com", *teleportVersion)
+	// verify
+	c.Assert(err, check.IsNil)
+	c.Assert(teleportConfig, check.DeepEquals, &loc.Locator{
+		Repository: "example.com",
+		Name:       "teleport-master-config",
+		Version:    "1.0.1",
+	})
+}
+
+func (s *importerSuite) TestCorrectlySelectsLegacyTeleportConfig(c *check.C) {
+	// setup
+	s.addTeleportPackages(c,
+		"example.com/teleport-master-config:0.0.12345",
+	)
+	teleportVersion := semver.New("1.0.1")
+	i := &importer{
+		backend:  s.backend,
+		packages: s.pack,
+	}
+	// exercise
+	teleportConfig, err := i.findLatestTeleportConfigPackage("example.com", *teleportVersion)
+	// verify
+	c.Assert(err, check.IsNil)
+	c.Assert(teleportConfig, check.DeepEquals, &loc.Locator{
+		Repository: "example.com",
+		Name:       "teleport-master-config",
+		Version:    "0.0.12345",
+	})
+}
+
+func (s *importerSuite) SetUpTest(c *check.C) {
+	s.dir = c.MkDir()
+
+	var err error
+	s.backend, err = keyval.NewBolt(keyval.BoltConfig{
+		Path: filepath.Join(s.dir, "bolt.db"),
+	})
+	c.Assert(err, check.IsNil)
+
+	objects, err := fs.New(s.dir)
+	c.Assert(err, check.IsNil)
+
+	s.pack, err = localpack.New(localpack.Config{
+		Backend:     s.backend,
+		UnpackedDir: filepath.Join(s.dir, defaults.UnpackedDir),
+		Objects:     objects,
+	})
+	c.Assert(err, check.IsNil)
+}
+
+func (s *importerSuite) addTeleportPackages(c *check.C, packages ...string) {
+	err := s.pack.UpsertRepository("example.com", time.Time{})
+	c.Assert(err, check.IsNil)
+	for i, pkg := range packages {
+		loc := loc.MustParseLocator(pkg)
+		contents := bytes.NewBuffer([]byte(fmt.Sprintf("data%v", i)))
+		_, err := s.pack.CreatePackage(loc, contents, pack.WithLabels(pack.TeleportMasterConfigPackageLabels))
+		c.Assert(err, check.IsNil)
+	}
+}
+
+var _ = check.Suite(&importerSuite{})
+
+type importerSuite struct {
+	dir     string
+	backend storage.Backend
+	pack    pack.PackageService
 }

@@ -73,7 +73,7 @@ ignored = [
 
 [[constraint]]
   name = "github.com/gravitational/satellite"
-  version = "=7.0.2"
+  version = "=7.0.3"
 
 [[constraint]]
   name = "github.com/xtgo/set"
@@ -93,39 +93,39 @@ ignored = [
 
 [[constraint]]
   name = "k8s.io/helm"
-  branch = "release-2.12"
+  branch = "release-2.15"
 
 [[override]]
   name = "k8s.io/apimachinery"
-  version = "kubernetes-1.13.3"
+  version = "kubernetes-1.15.5"
 
 [[override]]
   name = "k8s.io/api"
-  version = "kubernetes-1.13.3"
+  version = "kubernetes-1.15.5"
 
 [[override]]
   name = "k8s.io/apiserver"
-  version = "kubernetes-1.13.3"
+  version = "kubernetes-1.15.5"
 
 [[override]]
   name = "k8s.io/kubernetes"
-  branch = "release-1.13"
+  version = "1.15.5"
 
 [[override]]
   name = "k8s.io/cli-runtime"
-  version = "kubernetes-1.13.3"
+  version = "kubernetes-1.15.5"
 
 [[override]]
   name = "k8s.io/apiextensions-apiserver"
-  version = "kubernetes-1.13.3"
+  version = "kubernetes-1.15.5"
 
 [[override]]
   name = "k8s.io/kube-aggregator"
-  branch = "release-1.13"
+  version = "kubernetes-1.15.5"
 
 [[constraint]]
   name = "github.com/gravitational/rigging"
-  version = "=5.5.2"
+  version = "=7.0.1"
 
 [[override]]
   name = "github.com/docker/distribution"
@@ -239,7 +239,7 @@ ignored = [
 
 [[override]]
   name = "k8s.io/client-go"
-  version = "=v10.0.0"
+  version = "kubernetes-1.15.5"
 
 [[constraint]]
   name = "github.com/gravitational/license"
@@ -288,3 +288,7 @@ ignored = [
 [[constraint]]
   name = "github.com/miekg/dns"
   version = "=v1.0.4"
+
+[[override]]
+  name = "github.com/ghodss/yaml"
+  revision = "c7ce16629ff4cd059ed96ed06419dd3856fd3577"
