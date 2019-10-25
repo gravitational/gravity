@@ -22,6 +22,7 @@ import (
 	"path"
 
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/rpc"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -39,7 +40,7 @@ type Engine interface {
 	GetPlan() (*storage.OperationPlan, error)
 	// RunCommand executes the phase specified by params on the specified
 	// server using the provided runner
-	RunCommand(context.Context, RemoteRunner, storage.Server, Params) error
+	RunCommand(context.Context, rpc.RemoteRunner, storage.Server, Params) error
 	// Complete transitions the operation to a completed state.
 	// Completed state is either successful or failed depending on the state of
 	// the operation plan.
@@ -115,7 +116,7 @@ type Config struct {
 	// Engine is the specific FSM engine
 	Engine
 	// Runner is used to run remote commands
-	Runner RemoteRunner
+	Runner rpc.RemoteRunner
 	// Insecure allows to turn off cert validation in dev mode
 	Insecure bool
 	// Logger allows to override default logger
