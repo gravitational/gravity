@@ -130,7 +130,15 @@ var agentFunctions map[string]agentFunc = map[string]agentFunc{
 	constants.RPCAgentSyncPlanFunction: executeSyncOperationPlan,
 }
 
-func rpcAgentDeploy(localEnv *localenv.LocalEnvironment, leaderParams, nodeParams string) (credentials.TransportCredentials, error) {
+func rpcAgentDeploy(localEnv *localenv.LocalEnvironment, leaderParams, nodeParams string) error {
+	_, err := rpcAgentDeployHelper(context.Background(), localEnv, leaderParams, nodeParams)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+func rpcAgentDeployHelper(ctx context.Context, localEnv *localenv.LocalEnvironment, leaderParams, nodeParams string) (credentials.TransportCredentials, error) {
 	clusterEnv, err := localEnv.NewClusterEnvironment()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -151,7 +159,7 @@ func rpcAgentDeploy(localEnv *localenv.LocalEnvironment, leaderParams, nodeParam
 		return nil, trace.Wrap(err, "failed to create a teleport client")
 	}
 
-	proxy, err := teleportClient.ConnectToProxy(context.TODO())
+	proxy, err := teleportClient.ConnectToProxy(ctx)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to connect to teleport proxy")
 	}
@@ -173,9 +181,9 @@ func rpcAgentDeploy(localEnv *localenv.LocalEnvironment, leaderParams, nodeParam
 			"Make sure you start the operation from one of the cluster master nodes.")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), defaults.AgentDeployTimeout)
+	localCtx, cancel := context.WithTimeout(ctx, defaults.AgentDeployTimeout)
 	defer cancel()
-	return deployAgents(ctx, req)
+	return deployAgents(localCtx, req)
 }
 
 func verifyCluster(ctx context.Context,

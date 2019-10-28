@@ -27,33 +27,30 @@ import (
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/schema"
 
+	"github.com/fatih/color"
 	pb "github.com/gravitational/satellite/agent/proto/agentpb"
 	"github.com/gravitational/trace"
 )
 
 func checkManifest(env *localenv.LocalEnvironment, manifestPath, imagePath, profileName string, autoFix bool) error {
-	// If cluster is already deployed, run pre-upgrade checks.
-	operator, err := env.SiteOperator()
+	_, err := GetLocalClusterInfo(env)
 	if err != nil {
-		return trace.Wrap(err)
+		env.PrintStep("Running install preflight checks")
+		return checkInstall(env, manifestPath, profileName, autoFix)
 	}
+	env.PrintStep("Detected deployed cluster, running upgrade preflight checks")
+	return checkUpgrade(context.Background(), env, manifestPath, imagePath)
+}
 
-	_, err = operator.GetLocalSite()
-	if err == nil {
-		env.PrintStep("Detected deployed cluster, will run pre-upgrade checks")
-		return checkUpgrade(context.TODO(), env, manifestPath, imagePath)
-	}
-
+func checkInstall(env *localenv.LocalEnvironment, manifestPath, profileName string, autoFix bool) error {
 	data, err := ioutil.ReadFile(manifestPath)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
 	manifest, err := schema.ParseManifestYAML(data)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
 	result, err := checks.ValidateLocal(checks.LocalChecksRequest{
 		Manifest: *manifest,
 		Role:     profileName,
@@ -62,7 +59,10 @@ func checkManifest(env *localenv.LocalEnvironment, manifestPath, imagePath, prof
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
+	if len(result.Failed)+len(result.Fixable) == 0 {
+		env.PrintStep(color.GreenString("Checks have succeeded!"))
+		return nil
+	}
 	var failedErr, fixableErr error
 	if len(result.Failed) > 0 {
 		failedErr = trace.BadParameter(fmt.Sprintf("The following checks failed:\n%v",
@@ -72,13 +72,12 @@ func checkManifest(env *localenv.LocalEnvironment, manifestPath, imagePath, prof
 		fixableErr = trace.BadParameter(fmt.Sprintf("The following checks failed, provide --autofix flag to let gravity to autofix them:\n%v",
 			checks.FormatFailedChecks(result.Fixable)))
 	}
-
 	return trace.NewAggregate(failedErr, fixableErr)
 }
 
 func checkUpgrade(ctx context.Context, env *localenv.LocalEnvironment, manifestPath, imagePath string) error {
 	env.PrintStep("Deploying agents on the cluster nodes")
-	credentials, err := rpcAgentDeploy(env, "", "")
+	credentials, err := rpcAgentDeployHelper(ctx, env, "", "")
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -114,9 +113,9 @@ func checkUpgrade(ctx context.Context, env *localenv.LocalEnvironment, manifestP
 		log.WithError(err).Error("Failed to shutdown agents.")
 	}
 	if checksErr != nil {
-		return trace.Wrap(err)
+		return trace.Wrap(checksErr)
 	}
-	env.PrintStep("Checks have succeeded!")
+	env.PrintStep(color.GreenString("Checks have succeeded!"))
 	return nil
 }
 
@@ -124,7 +123,6 @@ func printFailedChecks(failed []*pb.Probe) {
 	if len(failed) == 0 {
 		return
 	}
-
 	fmt.Printf("Failed checks:\n")
 	fmt.Printf(checks.FormatFailedChecks(failed))
 }

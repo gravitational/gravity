@@ -260,9 +260,9 @@ type Checker interface {
 	// Run runs a full set of checks on the nodes configured in the checker.
 	Run(ctx context.Context) error
 	// CheckNode executes checks for the provided individual server.
-	CheckNode(ctx context.Context, server Server) error
+	CheckNode(ctx context.Context, server Server) []*agentpb.Probe
 	// CheckNodes executes checks that take all provided servers into account.
-	CheckNodes(ctx context.Context, servers []Server) error
+	CheckNodes(ctx context.Context, servers []Server) []*agentpb.Probe
 }
 
 type checker struct {
@@ -329,32 +329,36 @@ func (r *checker) Run(ctx context.Context) error {
 		return nil
 	}
 
-	var errors []error
+	var failed []*agentpb.Probe
 
 	// check each server against its profile
 	for _, server := range r.Servers {
-		errors = append(errors, r.CheckNode(ctx, server))
+		failed = append(failed, r.CheckNode(ctx, server)...)
 	}
 
 	// run checks that take all servers into account
-	errors = append(errors, r.CheckNodes(ctx, r.Servers))
+	failed = append(failed, r.CheckNodes(ctx, r.Servers)...)
 
-	return trace.NewAggregate(errors...)
+	if len(failed) != 0 {
+		return trace.BadParameter("The following checks failed:\n%v",
+			FormatFailedChecks(failed))
+	}
+
+	return nil
 }
 
 // CheckNode executes checks for the provided individual server.
-func (r *checker) CheckNode(ctx context.Context, server Server) error {
+func (r *checker) CheckNode(ctx context.Context, server Server) (failed []*agentpb.Probe) {
 	if ifTestsDisabled() {
 		log.Infof("Skipping single-node checks due to %q set.",
 			constants.PreflightChecksOffEnvVar)
 		return nil
 	}
 
-	var errors []error
-
 	requirements := r.Requirements[server.Server.Role]
 	validateCtx, cancel := context.WithTimeout(ctx, defaults.AgentValidationTimeout)
 	defer cancel()
+
 	failed, err := r.Remote.Validate(validateCtx, server.AdvertiseIP, ValidateConfig{
 		Manifest: r.Manifest,
 		Profile:  server.Server.Role,
@@ -362,86 +366,108 @@ func (r *checker) CheckNode(ctx context.Context, server Server) error {
 	})
 	if err != nil {
 		log.WithError(err).Warn("Failed to validate remote node.")
-		errors = append(errors,
-			trace.BadParameter("failed to validate remote node %v", server))
-	}
-	if len(failed) != 0 {
-		errors = append(errors, trace.BadParameter("%v failed checks:\n%v",
-			server, FormatFailedChecks(failed)))
+		failed = append(failed, &agentpb.Probe{
+			Detail: err.Error(),
+			Error:  fmt.Sprintf("failed to validate node %v", server),
+		})
 	}
 
 	err = checkServerProfile(server, requirements)
 	if err != nil {
-		errors = append(errors, err)
+		log.WithError(err).Warn("Failed to validate profile requirements.")
+		failed = append(failed, &agentpb.Probe{
+			Detail: err.Error(),
+			Error:  "failed to validate profile requirements",
+		})
 	}
 
 	dockerConfig := r.Manifest.SystemDocker()
 	if r.TestDockerDevice {
 		err = checkDockerDevice(server, dockerConfig)
 		if err != nil {
-			errors = append(errors, err)
+			log.WithError(err).Warn("Failed to validate docker device.")
+			failed = append(failed, &agentpb.Probe{
+				Detail: err.Error(),
+				Error:  "failed to validate docker device",
+			})
 		}
 	}
 
 	err = checkSystemPackages(server, dockerConfig)
 	if err != nil {
-		errors = append(errors, err)
+		log.WithError(err).Warn("Failed to validate system packages.")
+		failed = append(failed, &agentpb.Probe{
+			Detail: err.Error(),
+			Error:  "failed to validate system packages",
+		})
 	}
 
 	err = r.checkTempDir(ctx, server)
 	if err != nil {
-		errors = append(errors, err)
+		log.WithError(err).Warn("Failed to validate temporary directory.")
+		failed = append(failed, &agentpb.Probe{
+			Detail: err.Error(),
+			Error:  "failed to validate temporary directory",
+		})
 	}
 
 	err = r.checkDisks(ctx, server)
 	if err != nil {
-		errors = append(errors, err)
+		log.WithError(err).Warn("Failed to validate disk requirements.")
+		failed = append(failed, &agentpb.Probe{
+			Detail: err.Error(),
+			Error:  "failed to validate disk requirements",
+		})
 	}
 
-	return trace.NewAggregate(errors...)
+	return failed
 }
 
 // CheckNodes executes checks that take all provided servers into account.
-func (r *checker) CheckNodes(ctx context.Context, servers []Server) error {
+func (r *checker) CheckNodes(ctx context.Context, servers []Server) (failed []*agentpb.Probe) {
 	if ifTestsDisabled() {
 		log.Infof("Skipping multi-node checks due to %q set.",
 			constants.PreflightChecksOffEnvVar)
 		return nil
 	}
 
-	if len(servers) < 2 {
-		log.Infof("Skipping multi-node checks for < 2 servers: %v.",
-			servers)
-		return nil
-	}
-
-	var errors []error
-
 	err := checkSameOS(servers)
 	if err != nil {
-		errors = append(errors, err)
+		failed = append(failed, &agentpb.Probe{
+			Detail: err.Error(),
+			Error:  "failed to validate same OS requirement",
+		})
 	}
 
 	err = checkTime(time.Now().UTC(), servers)
 	if err != nil {
-		errors = append(errors, err)
+		failed = append(failed, &agentpb.Probe{
+			Detail: err.Error(),
+			Error:  "failed to validate time drift requirement",
+		})
 	}
 
 	if r.TestPorts {
 		err = r.checkPorts(ctx, servers)
 		if err != nil {
-			errors = append(errors, err)
+			failed = append(failed, &agentpb.Probe{
+				Detail: err.Error(),
+				Error:  "failed to validate port requirements",
+			})
 		}
 	}
 
 	if r.TestBandwidth {
 		err = r.checkBandwidth(ctx, servers)
 		if err != nil {
-			errors = append(errors, err)
+			failed = append(failed, &agentpb.Probe{
+				Detail: err.Error(),
+				Error:  "failed to validate network bandwidth requirements",
+			})
 		}
 	}
 
-	return trace.NewAggregate(errors...)
+	return failed
 }
 
 // checkDisks verifies that disk performance satisfies the profile requirements.

@@ -133,14 +133,22 @@ func mergeServers(infos checks.ServerInfos, servers []storage.Server) (result []
 	return result, nil
 }
 
+// UpgradeCheckerConfig is the configuration for upgrade pre-flight checker.
 type UpgradeCheckerConfig struct {
+	// ClusterOperator is the operator service of the installed cluster.
 	ClusterOperator Operator
-	ClusterApps     app.Applications
-	UpgradeApps     app.Applications
-	UpgradePackage  loc.Locator
-	Agents          rpc.AgentRepository
+	// ClusterApps is the app service of the installed cluster.
+	ClusterApps app.Applications
+	// UpgradeApps is the app service containing upgrade image.
+	UpgradeApps app.Applications
+	// UpgradePackage is the upgrade image locator.
+	UpgradePackage loc.Locator
+	// Agents is the agent service interface (agents must be already deployed).
+	Agents rpc.AgentRepository
 }
 
+// NewUpgradeChecker creates a checker for validating requirements of the
+// upgrade operation.
 func NewUpgradeChecker(ctx context.Context, config UpgradeCheckerConfig) (checks.Checker, error) {
 	cluster, err := config.ClusterOperator.GetLocalSite()
 	if err != nil {
