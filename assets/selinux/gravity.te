@@ -6,6 +6,9 @@ gen_require(`
     init_t, init_exec_t, unconfined_service_t, devlog_t, systemd_systemctl_exec_t,
     syslogd_var_run_t, journalctl_t,
     sysctl_net_t, sysctl_net_t;
+  type cgroup_t, unlabeled_t, root_t, modules_object_t, tmpfs_t, sysfs_t, devpts_t,
+    kmsg_device_t, usr_t;
+  class passwd rootok;
 ')
 
 ####################################
@@ -99,6 +102,9 @@ files_type(gravity_container_home_t)
 # socket files
 type gravity_container_var_run_t;
 files_pid_file(gravity_container_var_run_t)
+
+type gravity_container_devpts_t;
+term_pty(gravity_container_devpts_t)
 
 role gravity_roles types gravity_container_t;
 
@@ -241,6 +247,12 @@ corenet_tcp_connect_all_unreserved_ports(gravity_t)
 corenet_tcp_bind_all_unreserved_ports(gravity_t)
 corenet_udp_bind_all_unreserved_ports(gravity_t)
 
+corenet_tcp_bind_generic_node(gravity_container_t)
+corenet_udp_bind_generic_node(gravity_container_t)
+corenet_tcp_connect_all_unreserved_ports(gravity_container_t)
+corenet_tcp_bind_all_unreserved_ports(gravity_container_t)
+corenet_udp_bind_all_unreserved_ports(gravity_container_t)
+
 optional_policy(`
   corenet_tcp_bind_kubernetes_port(gravity_kubernetes_port_t)
   corenet_tcp_bind_kubernetes_port(gravity_kubernetes_port_t)
@@ -291,17 +303,108 @@ domain_read_all_domains_state(gravity_t)
 # log to syslog
 logging_send_syslog_msg(gravity_t)
 
-# FIXME: ??
-#term_use_console(gravity_t)
-#term_use_console(gravity_container_t)
-
+########################################
+#
+# Planet local policy
+#
 logging_send_syslog_msg(gravity_container_t)
 sysnet_read_config(gravity_container_t)
 auth_read_passwd(gravity_container_t)
 dev_list_sysfs(gravity_container_t)	# ??
-kernel_read_system_state(gravity_container_t)
 dev_read_sysfs(gravity_container_t)
+kernel_read_system_state(gravity_container_t)
 kernel_read_net_sysctls(gravity_container_t)
+
+allow gravity_container_t cgroup_t:dir getattr;
+allow gravity_container_t gravity_home_t:dir mounton;
+allow gravity_container_t gravity_home_t:file mounton;
+allow gravity_container_t proc_t:filesystem mount;
+allow gravity_container_t modules_object_t:dir getattr;
+# Okt 28 18:08:05 dmitri-centos-node-0 rootfs/usr/bin/planet[20627]: WARN             Failed to start parent process. error:[process_linux.go:474: container init caused "rootfs_linux.go:58: mounting \"devpts\" to rootfs \"/var/lib/gravity/local/packages/unpacked/gravitational.io/planet/6.1.8-11505/rootfs\" at \"/var/lib/gravity/local/packages/unpacked/gravitational.io/planet/6.1.8-11505/rootfs/dev/pts\" caused \"mkdir /var/lib/gravity/local/packages/unpacked/gravitational.io/planet/6.1.8-11505/rootfs/dev/pts: permission denied\""]
+allow gravity_container_t tmpfs_t:dir { add_name create mounton };
+allow gravity_container_t devpts_t:filesystem mount;
+#domain_can_write_kmsg(gravity_container_t)
+allow gravity_container_t kmsg_device_t:chr_file getattr;
+# FIXME: is this why container-selinux creates a tmpfs type?
+allow gravity_container_t tmpfs_t:filesystem mount;
+allow gravity_container_t tmpfs_t:dir setattr;
+allow gravity_container_t tmpfs_t:file { create mounton };
+allow gravity_container_t tmpfs_t:lnk_file { create };
+# Failed to start parent process. error:[process_linux.go:474: container init caused "rootfs_linux.go:70: creating device nodes caused \"open /var/lib/gravity/local/packages/unpacked/gravitational.io/planet/6.1.8-11505/rootfs/dev/sda: permission denied\""]
+allow gravity_container_t tmpfs_t:blk_file { create read setattr write };
+# Failed to start parent process. error:[process_linux.go:474: container init caused "rootfs_linux.go:70: creating device nodes caused \"open /var/lib/gravity/local/packages/unpacked/gravitational.io/planet/6.1.8-11505/rootfs/dev/null: permission denied\""]
+# Failed to start parent process. error:[process_linux.go:474: container init caused "rootfs_linux.go:114: reopening /dev/null inside container caused \"Failed to open /dev/null - open /dev/null: permission denied\""]
+allow gravity_container_t tmpfs_t:chr_file { open create getattr setattr write };
+# Failed to start parent process. error:[close exec fds: ensure /proc/self/fd is on procfs: permission denied]
+allow gravity_container_t proc_t:filesystem getattr;
+# Failed to start parent process. error:[setup user: operation not permitted]
+allow gravity_container_t self:capability { setgid setuid };
+# Okt 28 18:24:30 dmitri-centos-node-0 gravity[25565]: standard_init_linux.go:190: open exec fifo caused "permission denied"
+# Okt 28 18:24:30 dmitri-centos-node-0 gravity[25565]: [ERROR]: failed to initialize container factory
+# Okt 28 18:24:30 dmitri-centos-node-0 gravity[25565]: [ERROR]: container_linux.go:323: open exec fifo for reading caused "open /etc/planet/53c53f50-3ccd-4f59-9e6b-668a90d802fb/exec.fifo: permission denied"
+allow gravity_container_t etc_t:fifo_file { read write open };
+# Failed to start parent process. error:[process_linux.go:474: container init caused "rootfs_linux.go:58: mounting \"/proc\" to rootfs \"/var/lib/gravity/local/packages/unpacked/gravitational.io/planet/6.1.8-11505/rootfs\" at \"/proc\" caused \"permission denied\""]
+allow gravity_container_t usr_t:filesystem mount;
+allow gravity_container_t node_t:tcp_socket node_bind;
+allow gravity_container_t tmpfs_t:lnk_file getattr;
+allow gravity_container_t sysfs_t:filesystem mount;
+allow gravity_container_t self:unix_stream_socket connectto;
+# FIXME: container_runtime_t
+fs_relabel_cgroup_dirs(gravity_container_t)
+allow gravity_container_t cgroup_t:file relabelfrom;
+allow gravity_container_t init_t:key { create view setattr };
+allow gravity_container_t unlabeled_t:key create;
+allow gravity_container_t root_t:dir mounton; # FIXME: use targeted macros
+fs_read_cgroup_files(gravity_container_t)
+fs_manage_cgroup_dirs(gravity_container_t)
+fs_manage_cgroup_files(gravity_container_t)
+
+kernel_read_network_state(gravity_container_t)
+kernel_read_all_sysctls(gravity_container_t)
+kernel_rw_net_sysctls(gravity_container_t)
+kernel_setsched(gravity_container_t)
+kernel_read_all_proc(gravity_container_t)
+kernel_rw_all_sysctls(gravity_container_t)
+domain_use_interactive_fds(gravity_container_t)
+domain_dontaudit_read_all_domains_state(gravity_container_t)
+domain_sigchld_all_domains(gravity_container_t)
+domain_use_interactive_fds(gravity_container_t)
+domain_read_all_domains_state(gravity_container_t)
+domain_getattr_all_domains(gravity_container_t)
+allow gravity_container_t domain:fifo_file rw_fifo_file_perms;
+allow gravity_container_t domain:fd use;
+
+allow gravity_container_t self:capability { chown kill fowner fsetid mknod net_admin net_bind_service net_raw setfcap sys_resource  sys_admin sys_chroot };
+allow gravity_container_t self:tun_socket { create_socket_perms relabelto };
+allow gravity_container_t self:process ~setcurrent;
+allow gravity_container_t self:passwd rootok;
+allow gravity_container_t self:fd use;
+allow gravity_container_t self:file mounton;
+allow gravity_container_t self:fifo_file rw_fifo_file_perms;
+allow gravity_container_t self:fifo_file manage_file_perms;
+allow gravity_container_t self:msg all_msg_perms;
+allow gravity_container_t self:sem create_sem_perms;
+allow gravity_container_t self:shm create_shm_perms;
+allow gravity_container_t self:msgq create_msgq_perms;
+allow gravity_container_t self:unix_stream_socket create_stream_socket_perms;
+allow gravity_container_t self:tcp_socket create_stream_socket_perms;
+allow gravity_container_t self:udp_socket create_socket_perms;
+allow gravity_container_t self:capability2 block_suspend;
+allow gravity_container_t self:filesystem associate;
+allow gravity_container_t self:packet_socket create_socket_perms;
+allow gravity_container_t self:socket create_socket_perms;
+allow gravity_container_t self:rawip_socket create_stream_socket_perms;
+allow gravity_container_t self:netlink_netfilter_socket create_socket_perms;
+allow gravity_container_t self:netlink_kobject_uevent_socket create_socket_perms;
+allow gravity_container_t self:netlink_tcpdiag_socket create_netlink_socket_perms;
+allow gravity_container_t self:netlink_socket create_socket_perms;
+allow gravity_container_t gravity_container_home_t:file entrypoint;
+#allow gravity_container_t self:capability { fsetid sys_admin fowner };
+allow gravity_container_t gravity_container_devpts_t:chr_file { relabelfrom rw_chr_file_perms setattr_chr_file_perms };
+term_create_pty(gravity_container_t, gravity_container_devpts_t)
+term_use_all_ttys(gravity_container_t)
+term_use_all_inherited_terms(gravity_container_t)
+# FIXME: container_runtime_tk
 
 allow gravity_container_t gravity_container_home_t:dir { read search getattr setattr open };
 allow gravity_container_t gravity_container_home_t:file { read open getattr setattr write };
@@ -440,12 +543,13 @@ allow gravity_t gravity_container_home_t:dir mounton;
 # allow gravity_t var_log_t:file read;
 
 # FIXME: starting planet container
-#allow gravity_container_t init_t:process transition;
-allow unconfined_service_t init_t:process transition;
+allow gravity_container_t init_t:process transition;
+#allow unconfined_service_t init_t:process transition;
 # FIXME: this should not be necessary
 allow init_t gravity_container_home_t:file entrypoint;
 allow init_t gravity_container_bin_t:file entrypoint;
 allow init_t systemd_systemctl_exec_t:file entrypoint;
+
 allow gravity_container_t tmpfs_t:chr_file read;
 # FIXME: this is probably because rootfs is labeled as gravity_container_home_t(?)
 allow gravity_container_t gravity_container_home_t:file execute;
@@ -453,6 +557,7 @@ allow gravity_container_t gravity_home_t:lnk_file read;
 allow gravity_container_t tmpfs_t:dir write;
 allow gravity_container_t tmpfs_t:lnk_file read;
 allow gravity_container_t tmpfs_t:sock_file write;
+allow gravity_container_t gravity_var_run_t:sock_file unlink;
 
 # FIXME
 #allow gravity_t udev_var_run_t:file open;
@@ -468,7 +573,7 @@ allow gravity_container_t self:netlink_kobject_uevent_socket { create bind setop
 allow gravity_container_t self:capability dac_read_search;
 
 # FIXME: add gravity_container_config_t for (rootfs/etc/planet)
-allow gravity_container_t etc_t:dir { create write setattr };
+allow gravity_container_t etc_t:dir { create write setattr rmdir };
 allow gravity_container_t etc_t:file { create write unlink mounton };
 allow gravity_container_t etc_t:fifo_file { create setattr unlink };
 files_rw_etc_dirs(gravity_container_t)
@@ -486,7 +591,9 @@ init_start_transient_unit(gravity_container_t)
 
 # time->Fri Oct 25 14:10:43 2019
 # type=USER_AVC msg=audit(1572012643.689:39826): pid=1 uid=0 auid=4294967295 ses=4294967295 subj=system_u:system_r:init_t:s0 msg='avc:  denied  { start } for auid=n/a uid=0 gid=0 path="/run/systemd/system/-planet-12e5ea18-79b1-43a1-ad70-8ac56245a62b.scope" cmdline="rootfs/usr/bin/planet start" scontext=system_u:system_r:gravity_container_t:s0 tcontext=system_u:object_r:systemd_unit_file_t:s0 tclass=service  exe="/usr/lib/systemd/systemd" sauid=0 hostname=? addr=? terminal=?'
-allow gravity_container_t systemd_unit_file_t:service start;
+# time->Mon Oct 28 18:46:34 2019
+# type=USER_AVC msg=audit(1572288394.994:31784): pid=1 uid=0 auid=4294967295 ses=4294967295 subj=system_u:system_r:init_t:s0 msg='avc:  denied  { stop } for auid=n/a uid=0 gid=0 path="/run/systemd/system/-planet-ac9e8b44-6ee3-419f-834f-28cd466601d3.scope" cmdline="rootfs/usr/bin/planet start" scontext=system_u:system_r:gravity_container_t:s0 tcontext=system_u:object_r:systemd_unit_file_t:s0 tclass=service  exe="/usr/lib/systemd/systemd" sauid=0 hostname=? addr=? terminal=?'
+allow gravity_container_t systemd_unit_file_t:service { start stop };
 
 # FIXME: access to /proc inside the container
 # execve("/proc/self/exe")
@@ -503,7 +610,6 @@ allow gravity_container_t tmpfs_t:file { execute execute_no_trans open read };
 # time->Fri Oct 25 14:13:34 2019
 # type=PROCTITLE msg=audit(1572012814.470:40570): proctitle=726F6F7466732F7573722F62696E2F706C616E657400696E697439e a3=1000 items=0 ppid=14621 pid=14646 auid=4294967295 uid=0 gid=0 euid=0 suid=0 fsuid=0 egid=0 sgid=0 fsgid=0 tty=(none) ses=4294967295 comm="exe" exe="/var/lib/gravity/local/packages/unpacked/gravitational.io/planet/6.1.8-11505/rootfs/usr/bin/planet" subj=system_u:system_r:gravity_container_t:s0 key=(null)
 # type=AVC msg=audit(1572012814.470:40570): avc:  denied  { sys_admin } for  pid=14646 comm="exe" capability=21  scontext=system_u:system_r:gravity_container_t:s0 tcontext=system_u:system_r:gravity_container_t:s0 tclass=capability permissive=0
-allow gravity_container_t self:capability { sys_admin };
 allow gravity_container_t fs_t:filesystem { remount unmount getattr };
 
 # FIXME: find out why /proc/1/group is unavailable for reading
@@ -512,7 +618,7 @@ allow gravity_container_t fs_t:filesystem { remount unmount getattr };
 # type=SYSCALL msg=audit(1572013755.155:44308): arch=c000003e syscall=262 success=yes exit=0 a0=ffffffffffffff9c a1=c00038e030 a2=c0000c3148 a3=100 items=0 ppid=1 pid=8577 auid=4294967295 uid=0 gid=0 euid=0 suid=0 fsuid=0 egid=0 sgid=0 fsgid=0 tty=(none) ses=4294967295 comm="planet" exe="/var/lib/gravity/local/packages/unpacked/gravitational.io/planet/6.1.8-11505/rootfs/usr/bin/planet" subj=system_u:system_r:gravity_container_t:s0 key=(null)
 # type=AVC msg=audit(1572013755.155:44308): avc:  denied  { dac_override } for  pid=8577 comm="planet" capability=1  scontext=system_u:system_r:gravity_container_t:s0 tcontext=system_u:system_r:gravity_container_t:s0 tclass=capability permissive=0
 # 2421  openat(AT_FDCWD, "/proc/1/cgroup", O_RDONLY|O_CLOEXEC) = -1 EACCES (Permission denied)
-allow gravity_container_t self:capability { dac_override };
+#allow gravity_container_t self:capability { dac_override };
 
 allow gravity_container_t proc_t:filesystem remount;
 # FIXME: remove /var/run/planet.socket
@@ -527,7 +633,6 @@ allow gravity_container_t gravity_kubernetes_port_t:tcp_socket name_connect;
 allow gravity_container_t gravity_home_t:dir manage_dir_perms;
 allow gravity_container_t gravity_home_t:lnk_file manage_lnk_file_perms;
 allow gravity_container_t gravity_home_t:file { manage_file_perms execute execute_no_trans };
-allow gravity_container_t self:capability fowner;
 
 # FIXME: start planet as container_runtime_t
 allow gravity_t gravity_home_t:file { execute execute_no_trans };
@@ -548,3 +653,4 @@ container_runtime_domtrans(gravity_t)
 allow container_runtime_t init_t:process transition;
 allow gravity_t etc_t:fifo_file create;
 allow init_t gravity_home_t:file entrypoint;
+allow gravity_container_t container_runtime_t:unix_stream_socket connectto;

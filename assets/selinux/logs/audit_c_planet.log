@@ -1,0 +1,147 @@
+type=AVC msg=audit(1570788689.293:785): avc:  denied  { execute_no_trans } for  pid=6552 comm="gravity" path="/var/lib/gravity/local/packages/unpacked/gravitational.io/planet/5.5.29-11311/rootfs/usr/bin/planet" dev="sda1" ino=42953802 scontext=staff_u:unconfined_r:gravity_t:s0-s0:c0.c1023 tcontext=staff_u:object_r:gravity_state_t:s0 tclass=file permissive=1
+
+	Was caused by:
+		Missing type enforcement (TE) allow rule.
+
+		You can use audit2allow to generate a loadable module to allow this access.
+
+type=AVC msg=audit(1570788689.293:785): avc:  denied  { execute } for  pid=6552 comm="gravity" name="planet" dev="sda1" ino=42953802 scontext=staff_u:unconfined_r:gravity_t:s0-s0:c0.c1023 tcontext=staff_u:object_r:gravity_state_t:s0 tclass=file permissive=1
+
+	Was caused by:
+		Missing type enforcement (TE) allow rule.
+
+		You can use audit2allow to generate a loadable module to allow this access.
+
+type=AVC msg=audit(1570788689.324:786): avc:  denied  { read } for  pid=6552 comm="planet" name="hugepages" dev="sysfs" ino=6545 scontext=staff_u:unconfined_r:gravity_t:s0-s0:c0.c1023 tcontext=system_u:object_r:sysfs_t:s0 tclass=dir permissive=1
+
+	Was caused by:
+		Missing type enforcement (TE) allow rule.
+
+		You can use audit2allow to generate a loadable module to allow this access.
+
+type=AVC msg=audit(1570788689.327:787): avc:  denied  { create } for  pid=6552 comm="planet" scontext=staff_u:unconfined_r:gravity_t:s0-s0:c0.c1023 tcontext=staff_u:unconfined_r:gravity_t:s0-s0:c0.c1023 tclass=unix_dgram_socket permissive=1
+
+	Was caused by:
+		Missing type enforcement (TE) allow rule.
+
+		You can use audit2allow to generate a loadable module to allow this access.
+
+type=AVC msg=audit(1570788689.327:788): avc:  denied  { setopt } for  pid=6552 comm="planet" scontext=staff_u:unconfined_r:gravity_t:s0-s0:c0.c1023 tcontext=staff_u:unconfined_r:gravity_t:s0-s0:c0.c1023 tclass=unix_dgram_socket permissive=1
+
+	Was caused by:
+		Missing type enforcement (TE) allow rule.
+
+		You can use audit2allow to generate a loadable module to allow this access.
+
+type=AVC msg=audit(1570788689.327:789): avc:  denied  { sendto } for  pid=6552 comm="planet" path="/dev/log" scontext=staff_u:unconfined_r:gravity_t:s0-s0:c0.c1023 tcontext=system_u:system_r:kernel_t:s0 tclass=unix_dgram_socket permissive=1
+
+	Was caused by:
+		Missing type enforcement (TE) allow rule.
+
+		You can use audit2allow to generate a loadable module to allow this access.
+
+type=AVC msg=audit(1570788689.327:789): avc:  denied  { write } for  pid=6552 comm="planet" name="log" dev="devtmpfs" ino=9012 scontext=staff_u:unconfined_r:gravity_t:s0-s0:c0.c1023 tcontext=system_u:object_r:devlog_t:s0 tclass=sock_file permissive=1
+
+	Was caused by:
+		Missing type enforcement (TE) allow rule.
+
+		You can use audit2allow to generate a loadable module to allow this access.
+
+type=AVC msg=audit(1570788689.327:789): avc:  denied  { connect } for  pid=6552 comm="planet" scontext=staff_u:unconfined_r:gravity_t:s0-s0:c0.c1023 tcontext=staff_u:unconfined_r:gravity_t:s0-s0:c0.c1023 tclass=unix_dgram_socket permissive=1
+
+	Was caused by:
+		Missing type enforcement (TE) allow rule.
+
+		You can use audit2allow to generate a loadable module to allow this access.
+
+type=AVC msg=audit(1570788689.328:790): avc:  denied  { getattr } for  pid=6552 comm="planet" scontext=staff_u:unconfined_r:gravity_t:s0-s0:c0.c1023 tcontext=staff_u:unconfined_r:gravity_t:s0-s0:c0.c1023 tclass=unix_dgram_socket permissive=1
+
+	Was caused by:
+		Missing type enforcement (TE) allow rule.
+
+		You can use audit2allow to generate a loadable module to allow this access.
+
+type=AVC msg=audit(1570788836.447:1097): avc:  denied  { execute_no_trans } for  pid=16244 comm="gravity" path="/var/lib/gravity/local/packages/unpacked/gravitational.io/planet/5.5.29-11311/rootfs/usr/bin/planet" dev="sda1" ino=42953802 scontext=staff_u:unconfined_r:gravity_t:s0-s0:c0.c1023 tcontext=staff_u:object_r:gravity_state_t:s0 tclass=file permissive=1
+
+	Was caused by:
+		Missing type enforcement (TE) allow rule.
+
+		You can use audit2allow to generate a loadable module to allow this access.
+
+type=AVC msg=audit(1570788836.447:1097): avc:  denied  { execute } for  pid=16244 comm="gravity" name="planet" dev="sda1" ino=42953802 scontext=staff_u:unconfined_r:gravity_t:s0-s0:c0.c1023 tcontext=staff_u:object_r:gravity_state_t:s0 tclass=file permissive=1
+
+	Was caused by:
+		Missing type enforcement (TE) allow rule.
+
+		You can use audit2allow to generate a loadable module to allow this access.
+
+type=AVC msg=audit(1570788836.481:1098): avc:  denied  { open } for  pid=16244 comm="planet" path="/proc/stat" dev="proc" ino=4026532029 scontext=staff_u:unconfined_r:gravity_t:s0-s0:c0.c1023 tcontext=system_u:object_r:proc_t:s0 tclass=file permissive=1
+
+	Was caused by:
+		Missing type enforcement (TE) allow rule.
+
+		You can use audit2allow to generate a loadable module to allow this access.
+
+type=AVC msg=audit(1570788836.481:1098): avc:  denied  { read } for  pid=16244 comm="planet" name="stat" dev="proc" ino=4026532029 scontext=staff_u:unconfined_r:gravity_t:s0-s0:c0.c1023 tcontext=system_u:object_r:proc_t:s0 tclass=file permissive=1
+
+	Was caused by:
+		Missing type enforcement (TE) allow rule.
+
+		You can use audit2allow to generate a loadable module to allow this access.
+
+type=AVC msg=audit(1570788836.501:1099): avc:  denied  { getattr } for  pid=16244 comm="planet" path="/proc/stat" dev="proc" ino=4026532029 scontext=staff_u:unconfined_r:gravity_t:s0-s0:c0.c1023 tcontext=system_u:object_r:proc_t:s0 tclass=file permissive=1
+
+	Was caused by:
+		Missing type enforcement (TE) allow rule.
+
+		You can use audit2allow to generate a loadable module to allow this access.
+
+type=AVC msg=audit(1570788836.503:1100): avc:  denied  { read } for  pid=16244 comm="planet" name="hugepages" dev="sysfs" ino=6545 scontext=staff_u:unconfined_r:gravity_t:s0-s0:c0.c1023 tcontext=system_u:object_r:sysfs_t:s0 tclass=dir permissive=1
+
+	Was caused by:
+		Missing type enforcement (TE) allow rule.
+
+		You can use audit2allow to generate a loadable module to allow this access.
+
+type=AVC msg=audit(1570788836.506:1101): avc:  denied  { create } for  pid=16244 comm="planet" scontext=staff_u:unconfined_r:gravity_t:s0-s0:c0.c1023 tcontext=staff_u:unconfined_r:gravity_t:s0-s0:c0.c1023 tclass=unix_dgram_socket permissive=1
+
+	Was caused by:
+		Missing type enforcement (TE) allow rule.
+
+		You can use audit2allow to generate a loadable module to allow this access.
+
+type=AVC msg=audit(1570788836.506:1102): avc:  denied  { setopt } for  pid=16244 comm="planet" scontext=staff_u:unconfined_r:gravity_t:s0-s0:c0.c1023 tcontext=staff_u:unconfined_r:gravity_t:s0-s0:c0.c1023 tclass=unix_dgram_socket permissive=1
+
+	Was caused by:
+		Missing type enforcement (TE) allow rule.
+
+		You can use audit2allow to generate a loadable module to allow this access.
+
+type=AVC msg=audit(1570788836.507:1103): avc:  denied  { sendto } for  pid=16244 comm="planet" path="/dev/log" scontext=staff_u:unconfined_r:gravity_t:s0-s0:c0.c1023 tcontext=system_u:system_r:kernel_t:s0 tclass=unix_dgram_socket permissive=1
+
+	Was caused by:
+		Missing type enforcement (TE) allow rule.
+
+		You can use audit2allow to generate a loadable module to allow this access.
+
+type=AVC msg=audit(1570788836.507:1103): avc:  denied  { write } for  pid=16244 comm="planet" name="log" dev="devtmpfs" ino=9012 scontext=staff_u:unconfined_r:gravity_t:s0-s0:c0.c1023 tcontext=system_u:object_r:devlog_t:s0 tclass=sock_file permissive=1
+
+	Was caused by:
+		Missing type enforcement (TE) allow rule.
+
+		You can use audit2allow to generate a loadable module to allow this access.
+
+type=AVC msg=audit(1570788836.507:1103): avc:  denied  { connect } for  pid=16244 comm="planet" scontext=staff_u:unconfined_r:gravity_t:s0-s0:c0.c1023 tcontext=staff_u:unconfined_r:gravity_t:s0-s0:c0.c1023 tclass=unix_dgram_socket permissive=1
+
+	Was caused by:
+		Missing type enforcement (TE) allow rule.
+
+		You can use audit2allow to generate a loadable module to allow this access.
+
+type=AVC msg=audit(1570788836.507:1104): avc:  denied  { getattr } for  pid=16244 comm="planet" scontext=staff_u:unconfined_r:gravity_t:s0-s0:c0.c1023 tcontext=staff_u:unconfined_r:gravity_t:s0-s0:c0.c1023 tclass=unix_dgram_socket permissive=1
+
+	Was caused by:
+		Missing type enforcement (TE) allow rule.
+
+		You can use audit2allow to generate a loadable module to allow this access.
+

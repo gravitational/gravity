@@ -1,0 +1,12 @@
+
+
+#============= gravity_t ==============
+allow gravity_t devlog_t:sock_file write;
+allow gravity_t gravity_state_t:file { execute execute_no_trans };
+
+#!!!! The file '/dev/log' is mislabeled on your system.  
+#!!!! Fix with $ restorecon -R -v /dev/log
+allow gravity_t kernel_t:unix_dgram_socket sendto;
+allow gravity_t proc_t:file { getattr open read };
+allow gravity_t self:unix_dgram_socket { connect create getattr setopt };
+allow gravity_t sysfs_t:dir read;

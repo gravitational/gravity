@@ -17,12 +17,12 @@
 ## </param>
 #
 interface(`gravity_run',`
-	gen_require(`
-		attribute_role gravity_roles;
-	')
+  gen_require(`
+    attribute_role gravity_roles;
+  ')
 
-	gravity_domtrans($1)
-	roleattribute $1 gravity_roles;
+  gravity_domtrans($1)
+  roleattribute $1 gravity_roles;
 ')
 
 ########################################
@@ -41,54 +41,54 @@ interface(`gravity_run',`
 ## </param>
 #
 interface(`gravity_role',`
-	gen_require(`
-		type gravity_t, gravity_exec_t, gravity_container_t, gravity_container_exec_t, gravity_home_t, gravity_log_t;
-		attribute_role gravity_roles;
-	')
+  gen_require(`
+    type gravity_t, gravity_exec_t, gravity_container_t, gravity_container_exec_t, gravity_home_t, gravity_log_t;
+    attribute_role gravity_roles;
+  ')
 
-	# Allow gravity domain to use the user role
-	roleattribute $1 gravity_roles;
+  # Allow gravity domain to use the user role
+  roleattribute $1 gravity_roles;
 
-	# Allow domain transition for user domain to gravity/planet
-	domtrans_pattern($2, gravity_exec_t, gravity_t)
-	domtrans_pattern($2, gravity_container_exec_t, gravity_container_t)
+  # Allow domain transition for user domain to gravity/planet
+  domtrans_pattern($2, gravity_exec_t, gravity_t)
+  domtrans_pattern($2, gravity_container_exec_t, gravity_container_t)
 
-	# Interact with gravity process
-	ps_process_pattern($2, gravity_t)
-	allow $2 gravity_t:process { ptrace signal_perms };
+  # Interact with gravity process
+  ps_process_pattern($2, gravity_t)
+  allow $2 gravity_t:process { ptrace signal_perms };
 
-	# Manage gravity state
-	manage_dirs_pattern($2, gravity_home_t, gravity_home_t)
-	manage_files_pattern($2, gravity_home_t, gravity_home_t)
-	manage_lnk_files_pattern($2, gravity_home_t, gravity_home_t)
-	relabel_dirs_pattern($2, gravity_home_t, gravity_home_t)
-	relabel_files_pattern($2, gravity_home_t, gravity_home_t)
-	relabel_lnk_files_pattern($2, gravity_home_t, gravity_home_t)
+  # Manage gravity state
+  manage_dirs_pattern($2, gravity_home_t, gravity_home_t)
+  manage_files_pattern($2, gravity_home_t, gravity_home_t)
+  manage_lnk_files_pattern($2, gravity_home_t, gravity_home_t)
+  relabel_dirs_pattern($2, gravity_home_t, gravity_home_t)
+  relabel_files_pattern($2, gravity_home_t, gravity_home_t)
+  relabel_lnk_files_pattern($2, gravity_home_t, gravity_home_t)
 
-	# Manage gravity logs
-	manage_dirs_pattern($2, gravity_log_t, gravity_log_t)
-	manage_files_pattern($2, gravity_log_t, gravity_log_t)
-	manage_lnk_files_pattern($2, gravity_log_t, gravity_log_t)
-	relabel_dirs_pattern($2, gravity_log_t, gravity_log_t)
-	relabel_files_pattern($2, gravity_log_t, gravity_log_t)
-	relabel_lnk_files_pattern($2, gravity_log_t, gravity_log_t)
+  # Manage gravity logs
+  manage_dirs_pattern($2, gravity_log_t, gravity_log_t)
+  manage_files_pattern($2, gravity_log_t, gravity_log_t)
+  manage_lnk_files_pattern($2, gravity_log_t, gravity_log_t)
+  relabel_dirs_pattern($2, gravity_log_t, gravity_log_t)
+  relabel_files_pattern($2, gravity_log_t, gravity_log_t)
+  relabel_lnk_files_pattern($2, gravity_log_t, gravity_log_t)
 
-	# FIXME: figure a way to offload this to a tunable (maybe using attribute-based privileges)
-	# See: https://wiki.gentoo.org/wiki/Project:SELinux/Development_policy
-	# # Support transition to gravity_t domain from unconfined role
-	# gen_tunable(gravity_domtrans_unconfined_role, false)
-	# tunable_policy(`gravity_domtrans_unconfined_role', `
-	# 	unconfined_run_to(gravity_t, gravity_exec_t)
-	# ')
+  # FIXME: figure a way to offload this to a tunable (maybe using attribute-based privileges)
+  # See: https://wiki.gentoo.org/wiki/Project:SELinux/Development_policy
+  # # Support transition to gravity_t domain from unconfined role
+  # gen_tunable(gravity_domtrans_unconfined_role, false)
+  # tunable_policy(`gravity_domtrans_unconfined_role', `
+  # 	unconfined_run_to(gravity_t, gravity_exec_t)
+  # ')
 ')
 
 interface(`gravity_port',`
-	gen_require(`
-		attribute gravity_port_type;
-	')
+  gen_require(`
+    attribute gravity_port_type;
+  ')
 
-	typeattribute $1 gravity_port_type;
-	corenet_port($1)
+  typeattribute $1 gravity_port_type;
+  corenet_port($1)
 ')
 
 ########################################
@@ -102,12 +102,12 @@ interface(`gravity_port',`
 ## </param>
 #
 interface(`gravity_domtrans',`
-	gen_require(`
-		type gravity_t, gravity_exec_t;
-	')
+  gen_require(`
+    type gravity_t, gravity_exec_t;
+  ')
 
-	corecmd_search_bin($1)
-	domtrans_pattern($1, gravity_exec_t, gravity_t)
+  corecmd_search_bin($1)
+  domtrans_pattern($1, gravity_exec_t, gravity_t)
 ')
 
 ######################################
@@ -121,12 +121,12 @@ interface(`gravity_domtrans',`
 ## </param>
 #
 interface(`gravity_exec',`
-	gen_require(`
-		type gravity_exec_t;
-	')
+  gen_require(`
+    type gravity_exec_t;
+  ')
 
-	corecmd_search_bin($1)
-	can_exec($1, gravity_exec_t)
+  corecmd_search_bin($1)
+  can_exec($1, gravity_exec_t)
 ')
 
 ########################################
@@ -140,12 +140,12 @@ interface(`gravity_exec',`
 ## </param>
 #
 interface(`gravity_search_state',`
-	gen_require(`
-		type gravity_home_t;
-	')
+  gen_require(`
+    type gravity_home_t;
+  ')
 
-	allow $1 gravity_home_t:dir search_dir_perms;
-	files_search_var_lib($1)
+  allow $1 gravity_home_t:dir search_dir_perms;
+  files_search_var_lib($1)
 ')
 
 ########################################
@@ -159,12 +159,12 @@ interface(`gravity_search_state',`
 ## </param>
 #
 interface(`gravity_read_state_files',`
-	gen_require(`
-		type gravity_home_t;
-	')
+  gen_require(`
+    type gravity_home_t;
+  ')
 
-	files_search_var_lib($1)
-	read_files_pattern($1, gravity_home_t, gravity_home_t)
+  files_search_var_lib($1)
+  read_files_pattern($1, gravity_home_t, gravity_home_t)
 ')
 
 ########################################
@@ -178,12 +178,12 @@ interface(`gravity_read_state_files',`
 ## </param>
 #
 interface(`gravity_manage_state_files',`
-	gen_require(`
-		type gravity_home_t;
-	')
+  gen_require(`
+    type gravity_home_t;
+  ')
 
-	files_search_var_lib($1)
-	manage_files_pattern($1, gravity_home_t, gravity_home_t)
+  files_search_var_lib($1)
+  manage_files_pattern($1, gravity_home_t, gravity_home_t)
 ')
 
 ########################################
@@ -197,12 +197,12 @@ interface(`gravity_manage_state_files',`
 ## </param>
 #
 interface(`gravity_manage_state_dirs',`
-	gen_require(`
-		type gravity_home_t;
-	')
+  gen_require(`
+    type gravity_home_t;
+  ')
 
-	files_search_var_lib($1)
-	manage_dirs_pattern($1, gravity_home_t, gravity_home_t)
+  files_search_var_lib($1)
+  manage_dirs_pattern($1, gravity_home_t, gravity_home_t)
 ')
 
 ########################################
@@ -223,24 +223,24 @@ interface(`gravity_manage_state_dirs',`
 ## <rolecap/>
 #
 interface(`gravity_admin',`
-	gen_require(`
-		type gravity_t;
-		type gravity_home_t;
-	')
+  gen_require(`
+    type gravity_t;
+    type gravity_home_t;
+  ')
 
-	allow $1 gravity_t:process { signal_perms };
-	ps_process_pattern($1, gravity_t)
+  allow $1 gravity_t:process { signal_perms };
+  ps_process_pattern($1, gravity_t)
 
-	tunable_policy(`deny_ptrace',`',`
-		allow $1 gravity_t:process ptrace;
-	')
+  tunable_policy(`deny_ptrace',`',`
+    allow $1 gravity_t:process ptrace;
+  ')
 
-	files_search_var_lib($1)
-	admin_pattern($1, gravity_home_t)
-	optional_policy(`
-		systemd_passwd_agent_exec($1)
-		systemd_read_fifo_file_passwd_run($1)
-	')
+  files_search_var_lib($1)
+  admin_pattern($1, gravity_home_t)
+  optional_policy(`
+    systemd_passwd_agent_exec($1)
+    systemd_read_fifo_file_passwd_run($1)
+  ')
 ')
 
 ########################################
@@ -260,12 +260,12 @@ interface(`gravity_admin',`
 ## </param>
 #
 interface(`gravity_container_run',`
-	gen_require(`
-		attribute_role gravity_container_roles;
-	')
+  gen_require(`
+    attribute_role gravity_container_roles;
+  ')
 
-	gravity_container_domtrans($1)
-	roleattribute $2 gravity_container_roles;
+  gravity_container_domtrans($1)
+  roleattribute $2 gravity_container_roles;
 ')
 
 ########################################
@@ -279,45 +279,47 @@ interface(`gravity_container_run',`
 ## </param>
 #
 interface(`gravity_container_domtrans',`
-	gen_require(`
-		type gravity_container_t, gravity_container_exec_t;
-	')
+  gen_require(`
+    type gravity_container_t, gravity_container_exec_t;
+  ')
 
-	gravity_container_search_bin($1)
-	domtrans_pattern($1, gravity_container_exec_t, gravity_container_t)
+  corecmd_search_bin($1)
+  gravity_container_search_bin($1) # FIXME
+  domtrans_pattern($1, gravity_container_exec_t, gravity_container_t)
+  allow gravity_container_t $1:fifo_file setattr;
 ')
 
 interface(`gravity_container_exec',`
-	gen_require(`
+  gen_require(`
     type gravity_container_exec_t;
-	')
+  ')
 
-	gravity_container_search_bin($1)
+  gravity_container_search_bin($1)
   can_exec($1, gravity_container_exec_t)
 ')
 
 interface(`gravity_container_search_bin',`
-	gen_require(`
-		type gravity_container_bin_t;
-	')
+  gen_require(`
+    type gravity_container_bin_t;
+  ')
 
-	gravity_container_read_bin_symlinks($1)
-	search_dirs_pattern($1, gravity_container_bin_t, gravity_container_bin_t)
+  gravity_container_read_bin_symlinks($1)
+  search_dirs_pattern($1, gravity_container_bin_t, gravity_container_bin_t)
 ')
 
 interface(`gravity_container_read_bin_symlinks',`
-	gen_require(`
-		type gravity_container_bin_t;
-	')
+  gen_require(`
+    type gravity_container_bin_t;
+  ')
 
-	read_lnk_files_pattern($1, gravity_container_bin_t, gravity_container_bin_t)
+  read_lnk_files_pattern($1, gravity_container_bin_t, gravity_container_bin_t)
 ')
 
 interface(`gravity_container_stream_connect',`
-	gen_require(`
-		type gravity_container_var_run_t, gravity_t;
-	')
+  gen_require(`
+    type gravity_container_var_run_t, gravity_t;
+  ')
 
-	files_search_pids($1)
-	stream_connect_pattern($1, gravity_container_var_run_t, gravity_container_var_run_t, gravity_t)
+  files_search_pids($1)
+  stream_connect_pattern($1, gravity_container_var_run_t, gravity_container_var_run_t, gravity_t)
 ')

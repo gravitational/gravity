@@ -1,0 +1,192 @@
+# ausearch -su staff_u:unconfined_r:gravity_t | audit2allow >audit_c_gravity_context-rules.log
+
+#============= gravity_t ==============
+allow gravity_t NetworkManager_t:dir { getattr open read search };
+allow gravity_t NetworkManager_t:file { getattr open read };
+allow gravity_t NetworkManager_t:lnk_file read;
+allow gravity_t admin_home_t:dir { add_name create write };
+allow gravity_t apmd_t:dir { getattr open read search };
+allow gravity_t apmd_t:file { getattr open read };
+allow gravity_t apmd_t:lnk_file read;
+allow gravity_t audisp_t:dir { getattr open read search };
+allow gravity_t audisp_t:file { getattr open read };
+allow gravity_t audisp_t:lnk_file read;
+allow gravity_t auditd_t:dir { getattr open read search };
+allow gravity_t auditd_t:file { getattr open read };
+allow gravity_t auditd_t:lnk_file read;
+allow gravity_t bin_t:dir { add_name remove_name write };
+
+#!!!! WARNING: 'bin_t' is a base type.
+allow gravity_t bin_t:file { create execute execute_no_trans rename setattr write };
+
+#!!!! WARNING: 'bin_t' is a base type.
+allow gravity_t bin_t:lnk_file create;
+allow gravity_t binfmt_misc_fs_t:filesystem getattr;
+allow gravity_t cgroup_t:dir search;
+allow gravity_t cgroup_t:filesystem getattr;
+allow gravity_t chronyd_t:dir { getattr open read search };
+allow gravity_t chronyd_t:file { getattr open read };
+allow gravity_t chronyd_t:lnk_file read;
+allow gravity_t commplex_main_port_t:tcp_socket name_connect;
+allow gravity_t configfs_t:filesystem getattr;
+allow gravity_t crond_t:dir { getattr open read search };
+allow gravity_t crond_t:file { getattr open read };
+allow gravity_t crond_t:lnk_file read;
+allow gravity_t debugfs_t:filesystem getattr;
+
+#!!!! WARNING: 'device_t' is a base type.
+allow gravity_t device_t:filesystem getattr;
+allow gravity_t devlog_t:sock_file write;
+allow gravity_t devpts_t:filesystem getattr;
+allow gravity_t dhcpc_t:dir { getattr open read search };
+allow gravity_t dhcpc_t:file { getattr open read };
+allow gravity_t dhcpc_t:lnk_file read;
+
+#!!!! WARNING: 'etc_runtime_t' is a base type.
+allow gravity_t etc_runtime_t:file { unlink write };
+
+#!!!! WARNING: 'etc_t' is a base type.
+allow gravity_t etc_t:file write;
+allow gravity_t firewalld_t:dir { getattr open read search };
+allow gravity_t firewalld_t:file { getattr open read };
+allow gravity_t firewalld_t:lnk_file read;
+allow gravity_t fs_t:filesystem getattr;
+allow gravity_t getty_t:dir { getattr open read search };
+allow gravity_t getty_t:file { getattr open read };
+allow gravity_t getty_t:lnk_file read;
+allow gravity_t gravity_state_t:file { execute execute_no_trans };
+allow gravity_t groupadd_exec_t:file getattr;
+
+#!!!! This avc can be allowed using the boolean 'nis_enabled'
+allow gravity_t http_port_t:tcp_socket name_connect;
+allow gravity_t hugetlbfs_t:filesystem getattr;
+allow gravity_t init_t:dir read;
+allow gravity_t init_t:file { getattr open read };
+allow gravity_t init_t:lnk_file read;
+
+#!!!! The file '/run/systemd/private' is mislabeled on your system.  
+#!!!! Fix with $ restorecon -R -v /run/systemd/private
+allow gravity_t init_t:unix_stream_socket connectto;
+allow gravity_t kernel_t:dir { getattr open read search };
+allow gravity_t kernel_t:file { getattr open read };
+
+#!!!! This avc can be allowed using the boolean 'domain_kernel_load_modules'
+allow gravity_t kernel_t:system module_request;
+
+#!!!! The file '/dev/log' is mislabeled on your system.  
+#!!!! Fix with $ restorecon -R -v /dev/log
+allow gravity_t kernel_t:unix_dgram_socket sendto;
+allow gravity_t lvm_control_t:chr_file { getattr ioctl open read write };
+allow gravity_t lvm_etc_t:dir getattr;
+allow gravity_t lvm_exec_t:file { execute execute_no_trans getattr open read };
+allow gravity_t lvm_t:dir { getattr open read search };
+allow gravity_t lvm_t:file { getattr open read };
+allow gravity_t lvm_t:lnk_file read;
+allow gravity_t modules_object_t:dir search;
+allow gravity_t modules_object_t:file { open read };
+allow gravity_t mtrr_device_t:file getattr;
+allow gravity_t policykit_t:dir { getattr open read search };
+allow gravity_t policykit_t:file { getattr open read };
+allow gravity_t policykit_t:lnk_file read;
+allow gravity_t postfix_master_t:dir { getattr open read search };
+allow gravity_t postfix_master_t:file { getattr open read };
+allow gravity_t postfix_master_t:lnk_file read;
+allow gravity_t postfix_pickup_t:dir { getattr open read search };
+allow gravity_t postfix_pickup_t:file { getattr open read };
+allow gravity_t postfix_pickup_t:lnk_file read;
+allow gravity_t postfix_qmgr_t:dir { getattr open read search };
+allow gravity_t postfix_qmgr_t:file { getattr open read };
+allow gravity_t postfix_qmgr_t:lnk_file read;
+allow gravity_t proc_kcore_t:file getattr;
+allow gravity_t proc_kmsg_t:file getattr;
+allow gravity_t proc_mdstat_t:file getattr;
+allow gravity_t proc_net_t:file { open read };
+allow gravity_t proc_t:dir read;
+allow gravity_t proc_t:file { getattr open read };
+allow gravity_t proc_t:filesystem getattr;
+allow gravity_t pstore_t:filesystem getattr;
+
+#!!!! WARNING: 'root_t' is a base type.
+#!!!! This avc can be allowed using the boolean 'daemons_dump_core'
+allow gravity_t root_t:dir { add_name remove_name write };
+
+#!!!! The file '/testfile' is mislabeled on your system.  
+#!!!! Fix with $ restorecon -R -v /testfile
+#!!!! This avc can be allowed using the boolean 'daemons_dump_core'
+allow gravity_t root_t:file { create getattr open unlink write };
+allow gravity_t rpm_t:dir { getattr open read search };
+allow gravity_t rpm_t:file { getattr open read };
+allow gravity_t rpm_t:lnk_file read;
+allow gravity_t self:capability { chown dac_override fowner fsetid sys_ptrace };
+
+#!!!! This avc can be allowed using the boolean 'nis_enabled'
+allow gravity_t self:tcp_socket { accept listen };
+allow gravity_t self:unix_dgram_socket { connect create getattr setopt };
+allow gravity_t setroubleshootd_t:dir { getattr open read search };
+allow gravity_t setroubleshootd_t:file { getattr open read };
+allow gravity_t setroubleshootd_t:lnk_file read;
+allow gravity_t sshd_t:dir { getattr open read search };
+allow gravity_t sshd_t:file { getattr open read };
+allow gravity_t sshd_t:lnk_file read;
+allow gravity_t staff_sudo_t:dir { getattr open read search };
+allow gravity_t staff_sudo_t:file { getattr open read };
+allow gravity_t staff_sudo_t:lnk_file read;
+allow gravity_t staff_t:dir { getattr open read search };
+allow gravity_t staff_t:file { getattr open read };
+allow gravity_t staff_t:lnk_file read;
+allow gravity_t sysctl_fs_t:dir search;
+allow gravity_t sysctl_fs_t:file { getattr open read };
+allow gravity_t sysctl_irq_t:dir getattr;
+allow gravity_t sysctl_net_t:dir search;
+allow gravity_t sysctl_net_t:file { getattr open read };
+allow gravity_t sysctl_t:file getattr;
+allow gravity_t sysfs_t:dir read;
+allow gravity_t sysfs_t:file { getattr open read };
+allow gravity_t sysfs_t:filesystem getattr;
+allow gravity_t sysfs_t:lnk_file read;
+allow gravity_t syslogd_t:dir { getattr open read search };
+allow gravity_t syslogd_t:file { getattr open read };
+allow gravity_t syslogd_t:lnk_file read;
+allow gravity_t system_cronjob_t:dir { getattr open read search };
+allow gravity_t system_cronjob_t:file { getattr open read };
+allow gravity_t system_cronjob_t:lnk_file read;
+allow gravity_t system_dbusd_t:dir { getattr open read search };
+allow gravity_t system_dbusd_t:file { getattr open read };
+allow gravity_t system_dbusd_t:lnk_file read;
+allow gravity_t systemd_logind_t:dir { getattr open read search };
+allow gravity_t systemd_logind_t:file { getattr open read };
+allow gravity_t systemd_logind_t:lnk_file read;
+allow gravity_t systemd_systemctl_exec_t:file { execute execute_no_trans getattr open read };
+allow gravity_t systemd_unit_file_t:dir { add_name write };
+allow gravity_t systemd_unit_file_t:file { create open read write };
+
+#!!!! WARNING: 'tmp_t' is a base type.
+allow gravity_t tmp_t:dir { add_name create read remove_name rmdir setattr write };
+
+#!!!! WARNING: 'tmp_t' is a base type.
+allow gravity_t tmp_t:file { create rename setattr unlink write };
+allow gravity_t tmpfs_t:filesystem getattr;
+allow gravity_t tuned_t:dir { getattr open read search };
+allow gravity_t tuned_t:file { getattr open read };
+allow gravity_t tuned_t:lnk_file read;
+allow gravity_t udev_t:dir { getattr open read search };
+allow gravity_t udev_t:file { getattr open read };
+allow gravity_t udev_t:lnk_file read;
+allow gravity_t udev_var_run_t:file { getattr open read };
+allow gravity_t unconfined_service_t:dir { getattr open read search };
+allow gravity_t unconfined_service_t:file { getattr open read };
+allow gravity_t unconfined_service_t:lnk_file read;
+allow gravity_t unconfined_t:dir { getattr open read search };
+allow gravity_t unconfined_t:file { getattr open read };
+allow gravity_t unconfined_t:lnk_file read;
+
+#!!!! This avc can be allowed using the boolean 'nis_enabled'
+allow gravity_t unreserved_port_t:tcp_socket { name_bind name_connect };
+allow gravity_t user_home_t:dir { add_name getattr remove_name search write };
+allow gravity_t user_home_t:file { create lock open read unlink write };
+allow gravity_t useradd_exec_t:file getattr;
+allow gravity_t usr_t:dir { add_name remove_name write };
+
+#!!!! WARNING: 'usr_t' is a base type.
+allow gravity_t usr_t:file { create setattr unlink write };
+allow gravity_t var_log_t:file { open read };
