@@ -46,6 +46,9 @@ func checkManifest(env *localenv.LocalEnvironment, manifestPath, imagePath, prof
 }
 
 func checkInstall(env *localenv.LocalEnvironment, manifestPath, profileName string, autoFix bool) error {
+	if profileName == "" {
+		return trace.BadParameter("please pass the node profile name via --profile flag, e.g. --profile=worker")
+	}
 	data, err := ioutil.ReadFile(manifestPath)
 	if err != nil {
 		return trace.Wrap(err)
