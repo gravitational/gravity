@@ -221,6 +221,7 @@ build-in-container: buildbox
 		   -e "GRAVITY_VERSION=$(GRAVITY_VERSION)" \
 		   -e "GRAVITY_TAG=$(GRAVITY_TAG)" \
 		   -e 'GRAVITY_LINKFLAGS=$(GRAVITY_LINKFLAGS)' \
+		   -e "GRAVITY_BUILDFLAGS=$(GRAVITY_BUILDFLAGS)" \
 		   -e 'BINARIES=$(BINARIES)' \
 		   $(BBOX) \
 		   dumb-init make -C $(SRCDIR)/build.assets -j $(BINARIES)
@@ -316,7 +317,7 @@ $(GRAVITY_BUILDDIR):
 .PHONY: $(BINARIES)
 $(BINARIES):
 	@echo -e "\n----> Building $(LOCAL_GRAVITY_BUILDDIR)/$@ binary...\n"
-	go build -o $(LOCAL_GRAVITY_BUILDDIR)/$@ -ldflags $(GRAVITY_LINKFLAGS) $(GRAVITY_PKG_PATH)/tool/$@
+	go build -o $(LOCAL_GRAVITY_BUILDDIR)/$@ -ldflags $(GRAVITY_LINKFLAGS) $(GRAVITY_BUILDFLAGS) $(GRAVITY_PKG_PATH)/tool/$@
 	@echo "\nDone --> $(LOCAL_GRAVITY_BUILDDIR)/$@\n"
 
 .PHONY: compile

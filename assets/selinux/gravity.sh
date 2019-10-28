@@ -78,8 +78,6 @@ elif [ $# -ge 2 ] ; then
 fi
 
 build_policy gravity
-build_policy myconfineduser
-
-# build_gravity_manpage
-# restore_gravity_fcontext
-# build_gravity_rpm_package
+build_gravity_manpage
+restore_gravity_fcontext
+build_gravity_rpm_package

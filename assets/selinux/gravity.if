@@ -283,11 +283,34 @@ interface(`gravity_container_domtrans',`
 		type gravity_container_t, gravity_container_exec_t;
 	')
 
-	# FIXME: is this equivalent?
-	#corecmd_search_bin($1)
-	#read_lnk_files_pattern($1, bin_t, bin_t)
-
+	gravity_container_search_bin($1)
 	domtrans_pattern($1, gravity_container_exec_t, gravity_container_t)
+')
+
+interface(`gravity_container_exec',`
+	gen_require(`
+    type gravity_container_exec_t;
+	')
+
+	gravity_container_search_bin($1)
+  can_exec($1, gravity_container_exec_t)
+')
+
+interface(`gravity_container_search_bin',`
+	gen_require(`
+		type gravity_container_bin_t;
+	')
+
+	gravity_container_read_bin_symlinks($1)
+	search_dirs_pattern($1, gravity_container_bin_t, gravity_container_bin_t)
+')
+
+interface(`gravity_container_read_bin_symlinks',`
+	gen_require(`
+		type gravity_container_bin_t;
+	')
+
+	read_lnk_files_pattern($1, gravity_container_bin_t, gravity_container_bin_t)
 ')
 
 interface(`gravity_container_stream_connect',`

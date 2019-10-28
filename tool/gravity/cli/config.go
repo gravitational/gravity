@@ -780,6 +780,8 @@ func (j *JoinConfig) NewPeerConfig(env, joinEnv *localenv.LocalEnvironment) (con
 		StateDir:           joinEnv.StateDir,
 		OperationID:        j.OperationID,
 		SkipWizard:         j.SkipWizard,
+		UserLogFile:        j.UserLogFile,
+		SystemLogFile:      j.SystemLogFile,
 	}, nil
 }
 

@@ -54,6 +54,7 @@ func NewFSMConfig(operator ops.Operator, operationKey ops.SiteOperationKey, conf
 		LocalClusterClient: config.LocalClusterClient,
 		Insecure:           config.Insecure,
 		UserLogFile:        config.UserLogFile,
+		SystemLogFile:      config.SystemLogFile,
 		ReportProgress:     true,
 	}
 	fsmConfig.Spec = FSMSpec(fsmConfig)

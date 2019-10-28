@@ -742,9 +742,14 @@ func unpack(packages update.LocalPackageService, loc loc.Locator) error {
 
 func (r *System) applySelinuxFilecontexts(path string) error {
 	if !selinux.GetEnabled() {
+		logger.Info("SELinux is disabled.")
 		return nil
 	}
 	out, err := exec.Command("restorecon", "-R", "-v", path).CombinedOutput()
+	logger.WithFields(logrus.Fields{
+		logrus.ErrorKey: err,
+		"output":        string(out),
+	}).Info("Restoring file contexts.")
 	if err != nil {
 		r.WithError(err).Warn("Failed to restorecon file contexts.")
 		return trace.Wrap(err, "failed to restorecon file contexts on %v: %s",

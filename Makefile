@@ -68,6 +68,7 @@ VERSION_FLAGS := -X github.com/gravitational/gravity/vendor/github.com/gravitati
 	-X github.com/gravitational/gravity/lib/defaults.WormholeImg=$(WORMHOLE_IMG) \
 	-X github.com/gravitational/gravity/lib/defaults.TeleportVersionString=$(TELEPORT_TAG)
 GRAVITY_LINKFLAGS = "$(VERSION_FLAGS) $(GOLFLAGS)"
+GRAVITY_BUILDFLAGS = -tags "selinux"
 
 TELEKUBE_GRAVITY_PKG := gravitational.io/gravity_$(OS)_$(ARCH):$(GRAVITY_TAG)
 TELEKUBE_TELE_PKG := gravitational.io/tele_$(OS)_$(ARCH):$(GRAVITY_TAG)
@@ -201,7 +202,7 @@ build:
 # 'install' uses the host's Golang to place output into $GOPATH/bin
 .PHONY:install
 install:
-	go install -ldflags "$(VERSION_FLAGS)" ./tool/tele ./tool/gravity
+	go install -ldflags "$(GRAVITY_LINKFLAGS)" $(GRAVITY_BUILDFLAGS) ./tool/tele ./tool/gravity
 
 # 'clean' removes the build artifacts
 .PHONY: clean
@@ -575,7 +576,7 @@ goinstall: remove-temp-files compile
 
 .PHONY: $(BINARIES)
 $(BINARIES):
-	go install -ldflags $(GRAVITY_LINKFLAGS) $(GRAVITY_PKG_PATH)/tool/$@
+	go install -ldflags $(GRAVITY_LINKFLAGS) $(GRAVITY_BUILDFLAGS) $(GRAVITY_PKG_PATH)/tool/$@
 
 .PHONY: wizard-publish
 wizard-publish: BUILD_BUCKET_URL = s3://get.gravitational.io
