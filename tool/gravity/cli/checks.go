@@ -21,10 +21,13 @@ import (
 	"fmt"
 	"io/ioutil"
 
+	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/checks"
+	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
 
 	"github.com/fatih/color"
@@ -76,12 +79,9 @@ func checkInstall(env *localenv.LocalEnvironment, manifestPath, profileName stri
 }
 
 func checkUpgrade(ctx context.Context, env *localenv.LocalEnvironment, manifestPath, imagePath string) error {
-	env.PrintStep("Deploying agents on the cluster nodes")
-	credentials, err := rpcAgentDeployHelper(ctx, env, "", "")
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	tarballEnv, err := localenv.NewTarballEnvironment(localenv.TarballEnvironmentArgs{})
+	tarballEnv, err := localenv.NewTarballEnvironment(localenv.TarballEnvironmentArgs{
+		StateDir: imagePath,
+	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -90,6 +90,22 @@ func checkUpgrade(ctx context.Context, env *localenv.LocalEnvironment, manifestP
 		return trace.Wrap(err)
 	}
 	apps, err := env.SiteApps()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	packages, err := env.ClusterPackages()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	// Need to upload gravity package from the upgrade image, otherwise
+	// RPC agents may fail to deploy because they will be looking for
+	// this gravity package in the cluster's package service.
+	err = uploadGravity(ctx, env, tarballEnv.Packages, packages)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	// Deploy RPC agents that will be used for running checks on the nodes.
+	credentials, err := rpcAgentDeployHelper(ctx, env, "", "")
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -107,7 +123,8 @@ func checkUpgrade(ctx context.Context, env *localenv.LocalEnvironment, manifestP
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	env.PrintStep("Running pre-flight checks for %v", manifest.Locator())
+	env.PrintStep("Running upgrade checks for cluster image %v:%v",
+		manifest.Metadata.Name, manifest.Metadata.ResourceVersion)
 	checksErr := checker.Run(ctx)
 	if err := rpcAgentShutdown(env); err != nil {
 		log.WithError(err).Error("Failed to shutdown agents.")
@@ -116,6 +133,26 @@ func checkUpgrade(ctx context.Context, env *localenv.LocalEnvironment, manifestP
 		return trace.Wrap(checksErr)
 	}
 	env.PrintStep(color.GreenString("Checks have succeeded!"))
+	return nil
+}
+
+// uploadGravity uploads gravity package from the source to the destination.
+func uploadGravity(ctx context.Context, env *localenv.LocalEnvironment, src, dst pack.PackageService) error {
+	gravityPackage, err := pack.FindPackageByName(src, constants.GravityPackage)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	env.PrintStep("Uploading package %v:%v to the local cluster",
+		gravityPackage.Locator.Name, gravityPackage.Locator.Version)
+	puller := &app.Puller{
+		SrcPack: src,
+		DstPack: dst,
+		Upsert:  true,
+	}
+	err = puller.PullPackage(ctx, gravityPackage.Locator)
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	return nil
 }
 

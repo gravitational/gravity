@@ -139,6 +139,8 @@ func rpcAgentDeploy(localEnv *localenv.LocalEnvironment, leaderParams, nodeParam
 }
 
 func rpcAgentDeployHelper(ctx context.Context, localEnv *localenv.LocalEnvironment, leaderParams, nodeParams string) (credentials.TransportCredentials, error) {
+	localEnv.PrintStep("Deploying agents on the cluster nodes")
+
 	clusterEnv, err := localEnv.NewClusterEnvironment()
 	if err != nil {
 		return nil, trace.Wrap(err)

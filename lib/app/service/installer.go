@@ -158,6 +158,8 @@ func (r *applications) GetAppInstaller(req appservice.InstallerRequest) (install
 			archive.ItemFromStringMode(
 				upgradeScriptFilename, upgradeScript, defaults.SharedExecutableMask),
 			archive.ItemFromStringMode(
+				checkScriptFilename, checkScript, defaults.SharedExecutableMask),
+			archive.ItemFromStringMode(
 				readmeFilename, readme, defaults.SharedReadMask))...)
 		writer.CloseWithError(err)
 	}()
@@ -336,6 +338,13 @@ const (
 #
 # Installation script for Gravity-powered multi-host Linux applications.
 #
+# Copyright 2016 Gravitational, Inc.
+#
+# This file is licensed under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
 
 REQMSG="This installer requires a 64-bit Linux desktop"
 
@@ -381,6 +390,13 @@ main "$@"
 #
 # Script for upgrading the currently running application to a new version.
 #
+# Copyright 2016 Gravitational, Inc.
+#
+# This file is licensed under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
 
 if [[ $(id -u) -ne 0 ]]; then
   echo "please run this script as root" && exit 1
@@ -389,6 +405,21 @@ fi
 scriptdir=$(dirname $(realpath $0))
 app=$($scriptdir/gravity app-package --state-dir=$scriptdir)
 $scriptdir/upload && $scriptdir/gravity --insecure update trigger $app
+`
+
+	checkScript = `#!/bin/bash
+#
+# Script for executing preflight checks.
+#
+# Copyright 2019 Gravitational, Inc.
+#
+# This file is licensed under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+
+cd $(dirname $0) && ./gravity check "$@"
 `
 
 	readme = `Requirements
@@ -402,6 +433,22 @@ You also need a direct network connection to the servers
 
 The target servers need to be able to connect to the computer
 the installer is running on during the installation.
+
+Executing preflight checks
+==========================
+
+Before launching install or upgrade operation, you can execute preflight
+checks to make sure the infrastructure satisfies all requirements.
+
+For example, to see if the node satisfies requirements for a particular
+node profile before initial installation, run:
+
+./checks --profile=worker
+
+If the cluster is already installed, the same script can be used to check
+requirements before launching the upgrade operation:
+
+./checks
 
 Starting the installer
 ======================
@@ -440,6 +487,7 @@ status command.
 	installScriptFilename = "install"
 	uploadScriptFilename  = "upload"
 	upgradeScriptFilename = "upgrade"
+	checkScriptFilename   = "check"
 	readmeFilename        = "README"
 )
 
@@ -454,7 +502,7 @@ var uploadScriptTemplate = template.Must(template.New("uploadScript").Parse(`#!/
 # with the License.  You may obtain a copy of the License at
 #
 #    http://www.apache.org/licenses/LICENSE-2.0
-#
+
 SCRIPTDIR="$( cd "$(dirname "$0")" ; pwd -P )"
 "$SCRIPTDIR/gravity" --insecure update upload --data-dir="$SCRIPTDIR"
 `))
