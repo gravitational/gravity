@@ -255,6 +255,16 @@ func DockerConfigFromSchemaValue(dockerSchema schema.Docker) (config storage.Doc
 	}
 }
 
+// Checker defines a preflight checker interface.
+type Checker interface {
+	// Run runs a full set of checks on the nodes configured in the checker.
+	Run(ctx context.Context) error
+	// CheckNode executes checks for the provided individual server.
+	CheckNode(ctx context.Context, server Server) error
+	// CheckNodes executes checks that take all provided servers into account.
+	CheckNodes(ctx context.Context, servers []Server) error
+}
+
 type checker struct {
 	// Config is the checker configuration.
 	Config

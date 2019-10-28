@@ -17,18 +17,33 @@ limitations under the License.
 package cli
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 
 	"github.com/gravitational/gravity/lib/checks"
+	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/localenv"
+	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/schema"
 
 	pb "github.com/gravitational/satellite/agent/proto/agentpb"
 	"github.com/gravitational/trace"
 )
 
-func checkManifest(env *localenv.LocalEnvironment, manifestPath, profileName string, autoFix bool) error {
+func checkManifest(env *localenv.LocalEnvironment, manifestPath, imagePath, profileName string, autoFix bool) error {
+	// If cluster is already deployed, run pre-upgrade checks.
+	operator, err := env.SiteOperator()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	_, err = operator.GetLocalSite()
+	if err == nil {
+		env.PrintStep("Detected deployed cluster, will run pre-upgrade checks")
+		return checkUpgrade(context.TODO(), env, manifestPath, imagePath)
+	}
+
 	data, err := ioutil.ReadFile(manifestPath)
 	if err != nil {
 		return trace.Wrap(err)
@@ -59,6 +74,50 @@ func checkManifest(env *localenv.LocalEnvironment, manifestPath, profileName str
 	}
 
 	return trace.NewAggregate(failedErr, fixableErr)
+}
+
+func checkUpgrade(ctx context.Context, env *localenv.LocalEnvironment, manifestPath, imagePath string) error {
+	env.PrintStep("Deploying agents on the cluster nodes")
+	credentials, err := rpcAgentDeploy(env, "", "")
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	tarballEnv, err := localenv.NewTarballEnvironment(localenv.TarballEnvironmentArgs{})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	operator, err := env.SiteOperator()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	apps, err := env.SiteApps()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	manifest, err := schema.ParseManifest(manifestPath)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	checker, err := ops.NewUpgradeChecker(ctx, ops.UpgradeCheckerConfig{
+		ClusterOperator: operator,
+		ClusterApps:     apps,
+		UpgradeApps:     tarballEnv.Apps,
+		UpgradePackage:  manifest.Locator(),
+		Agents:          fsm.NewAgentRunner(credentials),
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	env.PrintStep("Running pre-flight checks for %v", manifest.Locator())
+	checksErr := checker.Run(ctx)
+	if err := rpcAgentShutdown(env); err != nil {
+		log.WithError(err).Error("Failed to shutdown agents.")
+	}
+	if checksErr != nil {
+		return trace.Wrap(err)
+	}
+	env.PrintStep("Checks have succeeded!")
+	return nil
 }
 
 func printFailedChecks(failed []*pb.Probe) {

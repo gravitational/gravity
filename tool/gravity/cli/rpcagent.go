@@ -130,30 +130,30 @@ var agentFunctions map[string]agentFunc = map[string]agentFunc{
 	constants.RPCAgentSyncPlanFunction: executeSyncOperationPlan,
 }
 
-func rpcAgentDeploy(localEnv, updateEnv *localenv.LocalEnvironment, leaderParams, nodeParams string) error {
+func rpcAgentDeploy(localEnv *localenv.LocalEnvironment, leaderParams, nodeParams string) (credentials.TransportCredentials, error) {
 	clusterEnv, err := localEnv.NewClusterEnvironment()
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 
 	operator, err := localEnv.SiteOperator()
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 
 	cluster, err := operator.GetLocalSite()
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 
 	teleportClient, err := localEnv.TeleportClient(constants.Localhost)
 	if err != nil {
-		return trace.Wrap(err, "failed to create a teleport client")
+		return nil, trace.Wrap(err, "failed to create a teleport client")
 	}
 
 	proxy, err := teleportClient.ConnectToProxy(context.TODO())
 	if err != nil {
-		return trace.Wrap(err, "failed to connect to teleport proxy")
+		return nil, trace.Wrap(err, "failed to connect to teleport proxy")
 	}
 
 	req := deployAgentsRequest{
@@ -168,16 +168,14 @@ func rpcAgentDeploy(localEnv, updateEnv *localenv.LocalEnvironment, leaderParams
 	// Force this node to be the operation leader
 	req.leader, err = findLocalServer(*cluster)
 	if err != nil {
-		log.Warnf("Failed to determine local node: %v.",
-			trace.DebugReport(err))
-		return trace.Wrap(err, "failed to find local node in cluster state.\n"+
+		log.WithError(err).Warn("Failed to determine local node.")
+		return nil, trace.Wrap(err, "failed to find local node in cluster state.\n"+
 			"Make sure you start the operation from one of the cluster master nodes.")
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaults.AgentDeployTimeout)
 	defer cancel()
-	_, err = deployAgents(ctx, req)
-	return trace.Wrap(err)
+	return deployAgents(ctx, req)
 }
 
 func verifyCluster(ctx context.Context,
@@ -319,7 +317,7 @@ func getClientCredentials(ctx context.Context, packages pack.PackageService, sec
 }
 
 func rpcAgentShutdown(env *localenv.LocalEnvironment) error {
-	env.Println("Preparing to shutdown agents.")
+	env.PrintStep("Shutting down the agents")
 	creds, err := fsm.GetClientCredentials()
 	if err != nil {
 		return trace.Wrap(err)

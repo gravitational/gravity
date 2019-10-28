@@ -22,7 +22,10 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/checks"
+	"github.com/gravitational/gravity/lib/loc"
+	"github.com/gravitational/gravity/lib/rpc"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 
@@ -128,4 +131,59 @@ func mergeServers(infos checks.ServerInfos, servers []storage.Server) (result []
 		result = append(result, checks.Server{server, *info})
 	}
 	return result, nil
+}
+
+type UpgradeCheckerConfig struct {
+	ClusterOperator Operator
+	ClusterApps     app.Applications
+	UpgradeApps     app.Applications
+	UpgradePackage  loc.Locator
+	Agents          rpc.AgentRepository
+}
+
+func NewUpgradeChecker(ctx context.Context, config UpgradeCheckerConfig) (checks.Checker, error) {
+	cluster, err := config.ClusterOperator.GetLocalSite()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	installed, err := config.ClusterApps.GetApp(cluster.App.Package)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	upgrade, err := config.UpgradeApps.GetApp(config.UpgradePackage)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	if installed.Name() != upgrade.Name() {
+		return nil, trace.BadParameter("invalid upgrade image %q: %q is installed",
+			upgrade.Name(), installed.Name())
+	}
+	dockerConfig := storage.DockerConfig{
+		StorageDriver: cluster.ClusterState.Docker.StorageDriver,
+	}
+	if upgrade.Manifest.SystemDocker().StorageDriver != "" {
+		dockerConfig.StorageDriver = upgrade.Manifest.SystemDocker().StorageDriver
+	}
+	nodes, err := checks.GetServers(ctx, config.Agents, cluster.ClusterState.Servers)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	reqs, err := checks.RequirementsFromManifests(installed.Manifest, upgrade.Manifest,
+		cluster.ClusterState.Servers.Profiles(), dockerConfig)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	checker, err := checks.New(checks.Config{
+		Remote:       checks.NewRemote(config.Agents),
+		Manifest:     upgrade.Manifest,
+		Servers:      nodes,
+		Requirements: reqs,
+		Features: checks.Features{
+			TestPorts: true,
+		},
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return checker, nil
 }

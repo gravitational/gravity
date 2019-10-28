@@ -210,8 +210,9 @@ func RegisterCommands(app *kingpin.Application) *Application {
 
 	g.CheckCmd.CmdClause = g.Command("check", "check host environment to match manifest")
 	g.CheckCmd.ManifestFile = g.CheckCmd.Arg("manifest", "application manifest in YAML format").Default(defaults.ManifestFileName).String()
-	g.CheckCmd.Profile = g.CheckCmd.Flag("profile", "profile to check").Short('p').Required().String()
+	g.CheckCmd.Profile = g.CheckCmd.Flag("profile", "profile to check").Short('p').String()
 	g.CheckCmd.AutoFix = g.CheckCmd.Flag("autofix", "attempt to fix some of the problems").Bool()
+	g.CheckCmd.ImagePath = g.CheckCmd.Flag("image-path", "Path to unpacked cluster image.").String()
 
 	// restore
 	g.RestoreCmd.CmdClause = g.Command("restore", "Restore state of the local application from a previously taken backup")

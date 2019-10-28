@@ -668,6 +668,8 @@ type CheckCmd struct {
 	Profile *string
 	// AutoFix enables automatic fixing of some failed checks
 	AutoFix *bool
+	// ImagePath is path to unpacked cluster image
+	ImagePath *string
 }
 
 // AppCmd combines subcommands for app service
