@@ -18,9 +18,11 @@ package rpc
 
 import (
 	"context"
+	"io"
 
 	"github.com/gravitational/gravity/lib/defaults"
 	rpcclient "github.com/gravitational/gravity/lib/rpc/client"
+	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
@@ -58,8 +60,21 @@ func shutdownAgent(ctx context.Context, addr string, rpc AgentRepository) error 
 	return trace.Wrap(clt.Shutdown(ctx))
 }
 
-// AgentRepository manages RPC connections to remote servers
+// AgentRepository provides an interface for creating clients for remote RPC
+// agents and executing commands on them.
 type AgentRepository interface {
-	// GetClient returns a client to the remote server specified with addr
+	// RemoteRunner provides an interface for executing remote commands.
+	RemoteRunner
+	// GetClient returns a client to the remote server specified with addr.
 	GetClient(ctx context.Context, addr string) (rpcclient.Client, error)
+}
+
+// RemoteRunner provides an interface for executing remote commands.
+type RemoteRunner interface {
+	io.Closer
+	// Run executes a command on a remote node.
+	Run(ctx context.Context, server storage.Server, command ...string) error
+	// CanExecute determines whether the runner can execute a command
+	// on the specified remote node.
+	CanExecute(context.Context, storage.Server) error
 }

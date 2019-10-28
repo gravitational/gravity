@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2018-2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -44,24 +44,19 @@ import (
 	"github.com/gravitational/satellite/monitoring"
 	"github.com/gravitational/trace"
 	"github.com/pborman/uuid"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
+
+var log = logrus.WithField(trace.Component, "checks")
 
 // New creates a new checker for the specified list of servers using given
 // set of server information payloads and the specified interface for
 // running remote commands.
-func New(remote Remote, servers []Server, manifest schema.Manifest, requirements map[string]Requirements) (*checker, error) {
-	for _, server := range servers {
-		if _, exists := requirements[server.Server.Role]; !exists {
-			return nil, trace.NotFound("no requirements for node profile %q", server.Server.Role)
-		}
+func New(config Config) (*checker, error) {
+	if err := config.check(); err != nil {
+		return nil, trace.Wrap(err)
 	}
-	return &checker{
-		remote:       remote,
-		servers:      servers,
-		manifest:     manifest,
-		requirements: requirements,
-	}, nil
+	return &checker{Config: config}, nil
 }
 
 // ValidateManifest verifies the specified manifest against the host environment.
@@ -222,27 +217,6 @@ func RunLocalChecks(req LocalChecksRequest) error {
 	return nil
 }
 
-// PortsForProfile parses ports ranges from the specified node profile
-func PortsForProfile(profile schema.NodeProfile) (tcp, udp []int, err error) {
-	for _, ports := range profile.Requirements.Network.Ports {
-		for _, portRange := range ports.Ranges {
-			parsed, err := utils.ParsePorts(portRange)
-			if err != nil {
-				return nil, nil, trace.Wrap(err)
-			}
-			switch ports.Protocol {
-			case "tcp":
-				tcp = append(tcp, parsed...)
-			case "udp":
-				udp = append(udp, parsed...)
-			default:
-				return nil, nil, trace.BadParameter("unknown protocol for port: %q", ports.Protocol)
-			}
-		}
-	}
-	return tcp, udp, nil
-}
-
 // FormatFailedChecks returns failed checks formatted as a list
 func FormatFailedChecks(failed []*agentpb.Probe) string {
 	if len(failed) == 0 {
@@ -282,27 +256,51 @@ func DockerConfigFromSchemaValue(dockerSchema schema.Docker) (config storage.Doc
 }
 
 type checker struct {
-	// Features defines which tests to run
+	// Config is the checker configuration.
+	Config
+}
+
+// Config represents the checker configuration.
+type Config struct {
+	// Remote is an interface for validating and executing commands on remote nodes.
+	Remote Remote
+	// Manifest is the cluster manifest the checker validates nodes against.
+	Manifest schema.Manifest
+	// Servers is a list of nodes for validation.
+	Servers []Server
+	// Requirements maps node roles to their validation requirements.
+	Requirements map[string]Requirements
+	// Features allows to turn certain checks off.
 	Features
-	remote   Remote
-	manifest schema.Manifest
-	servers  []Server
-	// requirements maps node profile to a set of requirements
-	requirements map[string]Requirements
+}
+
+// check validates the checker configuration.
+func (c Config) check() error {
+	for _, server := range c.Servers {
+		if _, exists := c.Requirements[server.Server.Role]; !exists {
+			return trace.NotFound("no requirements for node profile %q",
+				server.Server.Role)
+		}
+	}
+	return nil
 }
 
 // Features controls which tests the checker will run
 type Features struct {
-	// TestBandwidth specifies whether the bandwidth test is executed
+	// TestBandwidth specifies whether the network bandwidth test should
+	// be executed.
 	TestBandwidth bool
-	// TestDockerDevice specifies if the docker device test should be executed.
-	// Docker device test is only applicable during install.
+	// TestPorts specifies whether the ports availability test should
+	// be executed.
+	TestPorts bool
+	// TestDockerDevice specifies whether the Docker device test should
+	// be executed. Docker device test is only applicable during install.
 	TestDockerDevice bool
 }
 
 // String return textual representation of this server object
 func (r Server) String() string {
-	return fmt.Sprintf("server(%q, %v)", r.GetHostname(), r.AdvertiseIP)
+	return fmt.Sprintf("%v/%v", r.GetHostname(), r.AdvertiseIP)
 }
 
 // Server describes a remote node
@@ -313,123 +311,121 @@ type Server struct {
 	ServerInfo
 }
 
-// Remote describes the ability to execute remote commands
-// and run communication tests between the nodes.
-type Remote interface {
-	// Exec executes the command remotely on node with given address.
-	// The output is written to out
-	Exec(ctx context.Context, addr string, command []string, out io.Writer) error
-	// CheckPorts executes network test to test port availability
-	CheckPorts(context.Context, PingPongGame) (PingPongGameResults, error)
-	// CheckBandwidth executes network bandwidth test
-	CheckBandwidth(context.Context, PingPongGame) (PingPongGameResults, error)
-	// Validate validates remote nodes by verifying manifest
-	// requirements and running local tests
-	Validate(ctx context.Context, addr string, manifest schema.Manifest, profileName string) ([]*agentpb.Probe, error)
-}
-
-// Requirements defines a set of requirements for a node profile
-type Requirements struct {
-	// CPU describes CPU requirements
-	CPU *schema.CPU
-	// RAM describes RAM requirements
-	RAM *schema.RAM
-	// OS describes OS requirements
-	OS []schema.OS
-	// Network describes network requirements
-	Network Network
-	// Volumes describes volumes requirements
-	Volumes []schema.Volume
-}
-
-// Network describes network requirements
-type Network struct {
-	// MinTransferRate is minimum required transfer rate.
-	// Used in network bandwidth test
-	MinTransferRate utils.TransferRate
-	// Ports specifies requirements for ports to be available on server
-	Ports Ports
-}
-
-// Ports describes port requirements for a specific profile
-type Ports struct {
-	// TCP lists a range of TCP ports
-	TCP []int
-	// UDP lists a range of UDP ports
-	UDP []int
-}
-
 // Run runs a full set of checks on the servers specified in r.servers
 func (r *checker) Run(ctx context.Context) error {
 	if ifTestsDisabled() {
-		log.Infof("Skipping checks due to %q set.", constants.PreflightChecksOffEnvVar)
+		log.Infof("Skipping checks due to %q set.",
+			constants.PreflightChecksOffEnvVar)
 		return nil
 	}
 
 	var errors []error
+
 	// check each server against its profile
-	for _, server := range r.servers {
-		requirements := r.requirements[server.Server.Role]
-		validateCtx, cancel := context.WithTimeout(ctx, defaults.AgentValidationTimeout)
-		defer cancel()
-		failed, err := r.remote.Validate(validateCtx, server.AdvertiseIP, r.manifest, server.Server.Role)
-		if err != nil {
-			log.Warnf("Failed to validate remote node: %v.", trace.DebugReport(err))
-			errors = append(errors,
-				trace.BadParameter("failed to validate remote node %v", server))
-		}
-		if len(failed) != 0 {
-			errors = append(errors, trace.BadParameter("%v failed checks:\n%v",
-				server, FormatFailedChecks(failed)))
-		}
-
-		err = checkServerProfile(server, requirements)
-		if err != nil {
-			errors = append(errors, err)
-		}
-
-		dockerConfig := r.manifest.SystemDocker()
-		if r.TestDockerDevice {
-			err = checkDockerDevice(server, dockerConfig)
-			if err != nil {
-				errors = append(errors, err)
-			}
-		}
-
-		err = checkSystemPackages(server, dockerConfig)
-		if err != nil {
-			errors = append(errors, err)
-		}
-
-		err = r.checkTempDir(ctx, server)
-		if err != nil {
-			errors = append(errors, err)
-		}
+	for _, server := range r.Servers {
+		errors = append(errors, r.CheckNode(ctx, server))
 	}
 
 	// run checks that take all servers into account
-	err := checkSameOS(r.servers)
+	errors = append(errors, r.CheckNodes(ctx, r.Servers))
+
+	return trace.NewAggregate(errors...)
+}
+
+// CheckNode executes checks for the provided individual server.
+func (r *checker) CheckNode(ctx context.Context, server Server) error {
+	if ifTestsDisabled() {
+		log.Infof("Skipping single-node checks due to %q set.",
+			constants.PreflightChecksOffEnvVar)
+		return nil
+	}
+
+	var errors []error
+
+	requirements := r.Requirements[server.Server.Role]
+	validateCtx, cancel := context.WithTimeout(ctx, defaults.AgentValidationTimeout)
+	defer cancel()
+	failed, err := r.Remote.Validate(validateCtx, server.AdvertiseIP, ValidateConfig{
+		Manifest: r.Manifest,
+		Profile:  server.Server.Role,
+		Docker:   requirements.Docker,
+	})
+	if err != nil {
+		log.WithError(err).Warn("Failed to validate remote node.")
+		errors = append(errors,
+			trace.BadParameter("failed to validate remote node %v", server))
+	}
+	if len(failed) != 0 {
+		errors = append(errors, trace.BadParameter("%v failed checks:\n%v",
+			server, FormatFailedChecks(failed)))
+	}
+
+	err = checkServerProfile(server, requirements)
 	if err != nil {
 		errors = append(errors, err)
 	}
 
-	err = checkTime(time.Now().UTC(), r.servers)
+	dockerConfig := r.Manifest.SystemDocker()
+	if r.TestDockerDevice {
+		err = checkDockerDevice(server, dockerConfig)
+		if err != nil {
+			errors = append(errors, err)
+		}
+	}
+
+	err = checkSystemPackages(server, dockerConfig)
 	if err != nil {
 		errors = append(errors, err)
 	}
 
-	err = r.checkDisks(ctx)
+	err = r.checkTempDir(ctx, server)
 	if err != nil {
 		errors = append(errors, err)
 	}
 
-	err = r.checkPorts(ctx)
+	err = r.checkDisks(ctx, server)
 	if err != nil {
 		errors = append(errors, err)
+	}
+
+	return trace.NewAggregate(errors...)
+}
+
+// CheckNodes executes checks that take all provided servers into account.
+func (r *checker) CheckNodes(ctx context.Context, servers []Server) error {
+	if ifTestsDisabled() {
+		log.Infof("Skipping multi-node checks due to %q set.",
+			constants.PreflightChecksOffEnvVar)
+		return nil
+	}
+
+	if len(servers) < 2 {
+		log.Infof("Skipping multi-node checks for < 2 servers: %v.",
+			servers)
+		return nil
+	}
+
+	var errors []error
+
+	err := checkSameOS(servers)
+	if err != nil {
+		errors = append(errors, err)
+	}
+
+	err = checkTime(time.Now().UTC(), servers)
+	if err != nil {
+		errors = append(errors, err)
+	}
+
+	if r.TestPorts {
+		err = r.checkPorts(ctx, servers)
+		if err != nil {
+			errors = append(errors, err)
+		}
 	}
 
 	if r.TestBandwidth {
-		err = r.checkBandwidth(ctx)
+		err = r.checkBandwidth(ctx, servers)
 		if err != nil {
 			errors = append(errors, err)
 		}
@@ -438,38 +434,35 @@ func (r *checker) Run(ctx context.Context) error {
 	return trace.NewAggregate(errors...)
 }
 
-// checkDisks runs disk performance checks on the servers and makes sure the result satisfies
-// profiles
-func (r *checker) checkDisks(ctx context.Context) error {
-	for _, server := range r.servers {
-		requirements := r.requirements[server.Server.Role]
-		targets, err := r.collectTargets(ctx, server, requirements)
-		if err != nil {
-			return trace.Wrap(err)
+// checkDisks verifies that disk performance satisfies the profile requirements.
+func (r *checker) checkDisks(ctx context.Context, server Server) error {
+	requirements := r.Requirements[server.Server.Role]
+	targets, err := r.collectTargets(ctx, server, requirements)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	for _, target := range targets {
+		var maxBps uint64
+
+		// use the maximum throughput measured over a couple of tests
+		for i := 0; i < 3; i++ {
+			speed, err := r.checkServerDisk(ctx, server.Server, target.path)
+			if err != nil {
+				return trace.Wrap(err)
+			}
+			maxBps = utils.MaxInt64(speed, maxBps)
 		}
 
-		for _, target := range targets {
-			var maxBps uint64
-
-			// use the maximum throughput measured over a couple of tests
-			for i := 0; i < 3; i++ {
-				speed, err := r.checkServerDisk(ctx, server.Server, target.path)
-				if err != nil {
-					return trace.Wrap(err)
-				}
-				maxBps = utils.MaxInt64(speed, maxBps)
-			}
-
-			if maxBps < target.rate.BytesPerSecond() {
-				return trace.BadParameter(
-					"server %q disk I/O on %q is %v/s which is lower than required %v",
-					server.ServerInfo.GetHostname(), target, humanize.Bytes(maxBps),
-					target.rate.String())
-			}
-
-			log.Infof("Server %q passed disk I/O check on %v: %v/s.",
-				server.ServerInfo.GetHostname(), target, humanize.Bytes(maxBps))
+		if maxBps < target.rate.BytesPerSecond() {
+			return trace.BadParameter(
+				"server %q disk I/O on %q is %v/s which is lower than required %v",
+				server.ServerInfo.GetHostname(), target, humanize.Bytes(maxBps),
+				target.rate.String())
 		}
+
+		log.Infof("Server %q passed disk I/O check on %v: %v/s.",
+			server.ServerInfo.GetHostname(), target, humanize.Bytes(maxBps))
 	}
 
 	return nil
@@ -483,14 +476,14 @@ func (r *checker) checkServerDisk(ctx context.Context, server storage.Server, ta
 	defer func() {
 		// testfile was created only on real filesystem
 		if !strings.HasPrefix(target, "/dev") {
-			err := r.remote.Exec(ctx, server.AdvertiseIP, []string{"rm", target}, &out)
+			err := r.Remote.Exec(ctx, server.AdvertiseIP, []string{"rm", target}, &out)
 			if err != nil {
 				log.Errorf("Failed to remove test file: %v %v.", out.String(), trace.DebugReport(err))
 			}
 		}
 	}()
 
-	err := r.remote.Exec(ctx, server.AdvertiseIP, []string{
+	err := r.Remote.Exec(ctx, server.AdvertiseIP, []string{
 		"dd", "if=/dev/zero", fmt.Sprintf("of=%v", target),
 		"bs=100K", "count=1024", "conv=fdatasync"}, &out)
 	if err != nil {
@@ -510,13 +503,13 @@ func (r *checker) checkTempDir(ctx context.Context, server Server) error {
 	filename := filepath.Join(server.TempDir, fmt.Sprintf("tmpcheck.%v", uuid.New()))
 	var out bytes.Buffer
 
-	err := r.remote.Exec(ctx, server.AdvertiseIP, []string{"touch", filename}, &out)
+	err := r.Remote.Exec(ctx, server.AdvertiseIP, []string{"touch", filename}, &out)
 	if err != nil {
 		return trace.BadParameter("couldn't create a test file in temp directory %v on %q: %v",
 			server.TempDir, server.ServerInfo.GetHostname(), out.String())
 	}
 
-	err = r.remote.Exec(ctx, server.AdvertiseIP, []string{"rm", filename}, &out)
+	err = r.Remote.Exec(ctx, server.AdvertiseIP, []string{"rm", filename}, &out)
 	if err != nil {
 		log.Errorf("Failed to delete %v on %v: %v %v.",
 			filename, server.AdvertiseIP, trace.DebugReport(err), out.String())
@@ -528,8 +521,8 @@ func (r *checker) checkTempDir(ctx context.Context, server Server) error {
 }
 
 // checkPorts makes sure ports specified in profile are unoccupied and reachable
-func (r *checker) checkPorts(ctx context.Context) error {
-	req, err := constructPingPongRequest(r.servers, r.requirements)
+func (r *checker) checkPorts(ctx context.Context, servers []Server) error {
+	req, err := constructPingPongRequest(servers, r.Requirements)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -541,7 +534,7 @@ func (r *checker) checkPorts(ctx context.Context) error {
 		return nil
 	}
 
-	resp, err := r.remote.CheckPorts(ctx, req)
+	resp, err := r.Remote.CheckPorts(ctx, req)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -557,19 +550,19 @@ func (r *checker) checkPorts(ctx context.Context) error {
 
 // checkBandwidth measures network bandwidth between servers and makes sure it satisfies
 // the profile
-func (r *checker) checkBandwidth(ctx context.Context) error {
-	if len(r.servers) < 2 {
+func (r *checker) checkBandwidth(ctx context.Context, servers []Server) error {
+	if len(servers) < 2 {
 		return nil
 	}
 
-	req, err := constructBandwidthRequest(r.servers)
+	req, err := constructBandwidthRequest(servers)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
 	log.Infof("Bandwidth test request: %v.", req)
 
-	resp, err := r.remote.CheckBandwidth(ctx, req)
+	resp, err := r.Remote.CheckBandwidth(ctx, req)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -582,12 +575,12 @@ func (r *checker) checkBandwidth(ctx context.Context) error {
 
 	for addr, result := range resp {
 		ip, _ := utils.SplitHostPort(addr, "")
-		server, err := findServer(r.servers, ip)
+		server, err := findServer(servers, ip)
 		if err != nil {
 			return trace.Wrap(err)
 		}
 
-		requirements := r.requirements[server.Server.Role]
+		requirements := r.Requirements[server.Server.Role]
 		transferRate := requirements.Network.MinTransferRate
 		if result.BandwidthResult < transferRate.BytesPerSecond() {
 			return trace.BadParameter(
@@ -609,7 +602,7 @@ func (r *checker) checkBandwidth(ctx context.Context) error {
 func (r *checker) collectTargets(ctx context.Context, server Server, requirements Requirements) ([]diskCheckTarget, error) {
 	var targets []diskCheckTarget
 
-	remote := &serverRemote{server, r.remote}
+	remote := &serverRemote{server, r.Remote}
 	// check if there's a system device specified
 	if path := getDevicePath(server.SystemState.Device.Name,
 		storage.DeviceName(server.SystemDevice)); path != "" {
@@ -825,6 +818,8 @@ func checkTime(currentTime time.Time, servers []Server) error {
 				serverTime.Format(constants.HumanDateFormatMilli))
 		}
 	}
+
+	log.Infof("Servers %v passed time drift check.", servers)
 	return nil
 }
 

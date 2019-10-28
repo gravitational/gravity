@@ -60,7 +60,7 @@ type FSMConfig struct {
 	// Credentials is the credentials for gRPC agents
 	Credentials credentials.TransportCredentials
 	// Runner is optional runner to use when running remote commands
-	Runner fsm.AgentRepository
+	Runner rpc.AgentRepository
 	// DebugMode turns on FSM debug mode
 	DebugMode bool
 	// Insecure turns on FSM insecure mode
@@ -184,7 +184,7 @@ func (e *fsmEngine) GetPlan() (*storage.OperationPlan, error) {
 
 // RunCommand executes the phase specified by params on the specified
 // server using the provided runner
-func (e *fsmEngine) RunCommand(ctx context.Context, runner fsm.RemoteRunner, node storage.Server, p fsm.Params) error {
+func (e *fsmEngine) RunCommand(ctx context.Context, runner rpc.RemoteRunner, node storage.Server, p fsm.Params) error {
 	args := []string{"join", "--phase", p.PhaseID, fmt.Sprintf("--force=%v", p.Force)}
 	if e.DebugMode {
 		args = append([]string{"--debug"}, args...)
