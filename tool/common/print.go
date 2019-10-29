@@ -19,23 +19,24 @@ package common
 import (
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
 	"github.com/fatih/color"
 	"github.com/gravitational/trace"
 )
 
-// PrintError prints the red error message to the console
+// PrintError prints the red error message to stderr
 func PrintError(err error) {
-	color.Red("[ERROR]: %v\n", trace.UserMessage(err))
+	fmt.Fprintf(os.Stderr, color.RedString("[ERROR]: %v\n", trace.UserMessage(err)))
 }
 
-// PrintWarn outputs a warning message to stdout.
+// PrintWarn outputs a warning message to stdout
 func PrintWarn(message string, args ...interface{}) {
 	fmt.Println(color.YellowString("[WARN] "+message, args...))
 }
 
-// PrintHeader formats the provided string as a header and prints it to the console
+// PrintHeader formats the provided string as a header and prints it to stdout
 func PrintHeader(val string) {
 	fmt.Printf("\n[%v]\n%v\n", val, strings.Repeat("-", len(val)+2))
 }
