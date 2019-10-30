@@ -146,7 +146,7 @@ type agentStopExecutor struct {
 	// FieldLogger is used for logging
 	logrus.FieldLogger
 	// AgentClient is the RPC agent client
-	AgentClient fsm.AgentRepository
+	AgentClient rpc.AgentRepository
 	// Master is the master node where the agent is deployed
 	Master storage.Server
 	// ExecutorParams is common executor params

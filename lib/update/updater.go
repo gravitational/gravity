@@ -242,7 +242,7 @@ type Config struct {
 	// LocalBackend specifies the authoritative source for operation state
 	LocalBackend storage.Backend
 	// Runner specifies the runner for remote commands
-	Runner fsm.AgentRepository
+	Runner rpc.AgentRepository
 	// FieldLogger is the logger to use
 	log.FieldLogger
 	// Silent controls whether the process outputs messages to stdout
