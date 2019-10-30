@@ -208,11 +208,12 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.BackupCmd.Timeout = g.BackupCmd.Flag("timeout", "Active deadline for the backup job, in Go duration format (e.g. 30s, 5m, etc.). If not specified, the value from manifest is used. If that is not specified as well, the default value of 20 minutes is used").Duration()
 	g.BackupCmd.Follow = g.BackupCmd.Flag("follow", "Output backup job logs to the stdout").Bool()
 
-	g.CheckCmd.CmdClause = g.Command("check", "check host environment to match manifest")
-	g.CheckCmd.ManifestFile = g.CheckCmd.Arg("manifest", "application manifest in YAML format").Default(defaults.ManifestFileName).String()
-	g.CheckCmd.Profile = g.CheckCmd.Flag("profile", "profile to check").Short('p').String()
-	g.CheckCmd.AutoFix = g.CheckCmd.Flag("autofix", "attempt to fix some of the problems").Bool()
-	g.CheckCmd.ImagePath = g.CheckCmd.Flag("image-path", "Path to unpacked cluster image.").String()
+	g.CheckCmd.CmdClause = g.Command("check", "Execute preflight checks")
+	g.CheckCmd.ManifestFile = g.CheckCmd.Arg("manifest", "Cluster image manifest file").Default(defaults.ManifestFileName).String()
+	g.CheckCmd.Profile = g.CheckCmd.Flag("profile", "Name of the node profile to check against").Short('p').String()
+	g.CheckCmd.AutoFix = g.CheckCmd.Flag("autofix", "Attempt to fix some of the discovered problems").Bool()
+	g.CheckCmd.ImagePath = g.CheckCmd.Flag("image-path", "Path to unpacked cluster image").String()
+	g.CheckCmd.Timeout = g.CheckCmd.Flag("timeout", "Checks execution timeout").Default(defaults.PreflightChecksTimeout.String()).Duration()
 
 	// restore
 	g.RestoreCmd.CmdClause = g.Command("restore", "Restore state of the local application from a previously taken backup")

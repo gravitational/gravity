@@ -25,6 +25,7 @@ import (
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/rpc"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/update/cluster/checks"
 
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
@@ -80,7 +81,7 @@ func (p *updatePhaseChecks) PostCheck(context.Context) error {
 // Execute runs preflight checks
 func (p *updatePhaseChecks) Execute(ctx context.Context) error {
 	p.Infof("Executing preflight checks on %v.", storage.Servers(p.servers))
-	checker, err := ops.NewUpgradeChecker(ctx, ops.UpgradeCheckerConfig{
+	checker, err := checks.NewChecker(ctx, checks.CheckerConfig{
 		ClusterOperator: p.operator,
 		ClusterApps:     p.apps,
 		UpgradeApps:     p.apps,

@@ -259,9 +259,11 @@ func DockerConfigFromSchemaValue(dockerSchema schema.Docker) (config storage.Doc
 type Checker interface {
 	// Run runs a full set of checks on the nodes configured in the checker.
 	Run(ctx context.Context) error
-	// CheckNode executes checks for the provided individual server.
+	// CheckNode executes single-node checks (such as CPU/RAM requirements,
+	// disk space, etc) for the provided server.
 	CheckNode(ctx context.Context, server Server) []*agentpb.Probe
-	// CheckNodes executes checks that take all provided servers into account.
+	// CheckNodes executes multi-node checks (such as network reachability,
+	// bandwidth, etc) on the provided set of servers.
 	CheckNodes(ctx context.Context, servers []Server) []*agentpb.Probe
 }
 

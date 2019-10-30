@@ -31,7 +31,7 @@ import (
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	kubeschema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -380,6 +380,23 @@ func (m Manifest) PackageDependencies(profile string) (deps []loc.Locator, err e
 	return loc.Deduplicate(append(m.Dependencies.GetPackages(), *runtimePackage)), nil
 }
 
+// FirstNodeProfile returns the first available node profile.
+func (m Manifest) FirstNodeProfile() (*NodeProfile, error) {
+	if len(m.NodeProfiles) == 0 {
+		return nil, trace.NotFound("manifest does not define any node profiles")
+	}
+	return &m.NodeProfiles[0], nil
+}
+
+// FirstNodeProfileName returns the name of the first available node profile.
+func (m Manifest) FirstNodeProfileName() (string, error) {
+	profile, err := m.FirstNodeProfile()
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+	return profile.Name, nil
+}
+
 // Header is manifest header
 type Header struct {
 	metav1.TypeMeta
@@ -596,7 +613,7 @@ type NodeProfile struct {
 	// Labels is a list of labels nodes of this profile will be marked with
 	Labels map[string]string `json:"labels,omitempty"`
 	// Tains is a list of taints to apply to this profile
-	Taints []v1.Taint `json:"taints,omitempty"`
+	Taints []corev1.Taint `json:"taints,omitempty"`
 	// Providers contains some cloud provider specific settings
 	Providers NodeProviders `json:"providers,omitempty"`
 	// ExpandPolicy specifies whether nodes of this profile can

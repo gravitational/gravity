@@ -131,7 +131,9 @@ var agentFunctions map[string]agentFunc = map[string]agentFunc{
 }
 
 func rpcAgentDeploy(localEnv *localenv.LocalEnvironment, leaderParams, nodeParams string) error {
-	_, err := rpcAgentDeployHelper(context.Background(), localEnv, leaderParams, nodeParams)
+	ctx, cancel := context.WithTimeout(context.Background(), defaults.AgentDeployTimeout)
+	defer cancel()
+	_, err := rpcAgentDeployHelper(ctx, localEnv, leaderParams, nodeParams)
 	if err != nil {
 		return trace.Wrap(err)
 	}

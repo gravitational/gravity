@@ -256,13 +256,6 @@ func ExecutePackageCommand(p PackageService, cmd string, loc loc.Locator, confLo
 	return out, nil
 }
 
-// FindPackageByName returns the first package with the specified name.
-func FindPackageByName(packages PackageService, name string) (*PackageEnvelope, error) {
-	return FindPackage(packages, func(e PackageEnvelope) bool {
-		return e.Locator.Name == name
-	})
-}
-
 // FindPackage finds package matching the predicate fn
 func FindPackage(packages PackageService, fn func(e PackageEnvelope) bool) (*PackageEnvelope, error) {
 	var env *PackageEnvelope

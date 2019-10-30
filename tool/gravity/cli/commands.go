@@ -670,6 +670,8 @@ type CheckCmd struct {
 	AutoFix *bool
 	// ImagePath is path to unpacked cluster image
 	ImagePath *string
+	// Timeotu is checks timeout
+	Timeout *time.Duration
 }
 
 // AppCmd combines subcommands for app service

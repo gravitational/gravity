@@ -403,8 +403,8 @@ if [[ $(id -u) -ne 0 ]]; then
 fi
 
 scriptdir=$(dirname $(realpath $0))
-app=$($scriptdir/gravity app-package --state-dir=$scriptdir)
-$scriptdir/upload && $scriptdir/gravity --insecure update trigger $app
+app=$("$scriptdir/gravity" app-package --state-dir="$scriptdir")
+"$scriptdir/upload" && "$scriptdir/gravity" --insecure update trigger $app
 `
 
 	checkScript = `#!/bin/bash
@@ -419,7 +419,8 @@ $scriptdir/upload && $scriptdir/gravity --insecure update trigger $app
 #
 #    http://www.apache.org/licenses/LICENSE-2.0
 
-cd $(dirname $0) && ./gravity check "$@"
+scriptdir=$(dirname $(realpath $0))
+"$scriptdir/gravity" check --image-path="$scriptdir" "$scriptdir/app.yaml" "$@"
 `
 
 	readme = `Requirements

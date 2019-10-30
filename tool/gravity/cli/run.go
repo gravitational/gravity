@@ -861,11 +861,13 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 	case g.RPCAgentShutdownCmd.FullCommand():
 		return rpcAgentShutdown(localEnv)
 	case g.CheckCmd.FullCommand():
-		return checkManifest(localEnv,
-			*g.CheckCmd.ManifestFile,
-			*g.CheckCmd.ImagePath,
-			*g.CheckCmd.Profile,
-			*g.CheckCmd.AutoFix)
+		return executePreflightChecks(localEnv, preflightChecksConfig{
+			manifestPath: *g.CheckCmd.ManifestFile,
+			imagePath:    *g.CheckCmd.ImagePath,
+			profileName:  *g.CheckCmd.Profile,
+			autoFix:      *g.CheckCmd.AutoFix,
+			timeout:      *g.CheckCmd.Timeout,
+		})
 	}
 	return trace.NotFound("unknown command %v", cmd)
 }
