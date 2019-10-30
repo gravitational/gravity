@@ -9,32 +9,22 @@
 /var/run/planet\.socket	-s	gen_context(system_u:object_r:gravity_var_run_t,s0)
 /run/planet\.socket	-s	gen_context(system_u:object_r:gravity_var_run_t,s0)
 
-# FIXME: debugging
-# # Planet
-# /var/lib/gravity/planet	 -d gen_context(system_u:object_r:gravity_container_home_t,s0)
-# /var/lib/gravity/planet(/.*)	 gen_context(system_u:object_r:gravity_container_home_t,s0)
-# /var/lib/gravity/local/packages/unpacked/gravitational\.io(/.*)/rootfs(/.*)	 gen_context(system_u:object_r:gravity_container_home_t,s0)
-# /var/lib/gravity/local/packages/unpacked/gravitational\.io(/.*)/rootfs/usr/bin	-d gen_context(system_u:object_r:gravity_container_bin_t,s0)
-# /var/lib/gravity/local/packages/unpacked/gravitational\.io(/.*)/rootfs/usr/bin(/.*)	 gen_context(system_u:object_r:gravity_container_bin_t,s0)
-# /var/lib/gravity/local/packages/unpacked/gravitational\.io(/.*)/rootfs/usr/bin/planet	-- gen_context(system_u:object_r:gravity_container_exec_t,s0)
-# #/var/lib/gravity/local/packages/unpacked/gravitational\.io(/.*)/rootfs/usr/bin/etcd.* -- gen_context(system_u:object_r:gravity_etcd_exec_t,s0)
-# #/var/lib/gravity/local/packages/unpacked/gravitational\.io(/.*)/rootfs/usr/bin/flanneld -- gen_context(system_u:object_r:gravity_flannel_exec_t,s0)
-# #/var/lib/gravity/local/packages/unpacked/gravitational\.io(/.*)/rootfs/usr/bin/serf -- gen_context(system_u:object_r:gravity_serf_exec_t,s0)
-# /var/lib/gravity/local/packages/unpacked/gravitational\.io(/.*)/rootfs/usr/bin/registry	-- gen_context(system_u:object_r:container_runtime_exec_t,s0)
-# /var/lib/gravity/local/packages/unpacked/gravitational\.io(/.*)/rootfs/usr/bin/docker.*	-- gen_context(system_u:object_r:container_runtime_exec_t,s0)
-# /var/lib/gravity/local/packages/unpacked/gravitational\.io(/.*)/rootfs/usr/bin/systemctl	-- gen_context(system_u:object_r:systemd_systemctl_exec_t,s0)
-# /var/lib/gravity/local/packages/unpacked/gravitational\.io(/.*)/rootfs/usr/lib/systemd/systemd(-.*)?	-- gen_context(system_u:object_r:init_exec_t,s0)
-# 
-# # Docker
-# /var/lib/gravity/planet/registry(/.*)?	gen_context(system_u:object_r:container_var_lib_t,s0)
-# /var/lib/gravity/planet/docker(/.*)	gen_context(system_u:object_r:container_var_lib_t,s0)
-# /var/lib/gravity/planet/docker/.*/config\.env	gen_context(system_u:object_r:container_share_t,s0)
-# /var/lib/gravity/planet/docker/containers/.*/.*\.log		gen_context(system_u:object_r:container_log_t,s0)
-# /var/lib/gravity/planet/docker/containers/.*/hostname		gen_context(system_u:object_r:container_share_t,s0)
-# /var/lib/gravity/planet/docker/containers/.*/hosts		gen_context(system_u:object_r:container_share_t,s0)
-# /var/lib/gravity/planet/docker/init(/.*)?		gen_context(system_u:object_r:container_share_t,s0)
-# /var/lib/gravity/planet/docker/overlay(/.*)?	gen_context(system_u:object_r:container_share_t,s0)
-# /var/lib/gravity/planet/docker/overlay2(/.*)?	gen_context(system_u:object_r:container_share_t,s0)
+# Planet (in the context of the container)
+/usr/bin/planet	-- gen_context(system_u:object_r:gravity_container_exec_t,s0)
+/usr/bin/registry -- gen_context(system_u:object_r:container_runtime_exec_t,s0)
+
+/var/lib/gravity/planet	 -d gen_context(system_u:object_r:gravity_container_home_t,s0)
+/var/lib/gravity/planet(/.*)	 gen_context(system_u:object_r:gravity_container_home_t,s0)
+# Docker
+/var/lib/gravity/planet/registry(/.*)?	gen_context(system_u:object_r:container_var_lib_t,s0)
+/var/lib/gravity/planet/docker(/.*)	gen_context(system_u:object_r:container_var_lib_t,s0)
+/var/lib/gravity/planet/docker/.*/config\.env	gen_context(system_u:object_r:container_share_t,s0)
+/var/lib/gravity/planet/docker/containers/.*/.*\.log		gen_context(system_u:object_r:container_log_t,s0)
+/var/lib/gravity/planet/docker/containers/.*/hostname		gen_context(system_u:object_r:container_share_t,s0)
+/var/lib/gravity/planet/docker/containers/.*/hosts		gen_context(system_u:object_r:container_share_t,s0)
+/var/lib/gravity/planet/docker/init(/.*)?		gen_context(system_u:object_r:container_share_t,s0)
+/var/lib/gravity/planet/docker/overlay(/.*)?	gen_context(system_u:object_r:container_share_t,s0)
+/var/lib/gravity/planet/docker/overlay2(/.*)?	gen_context(system_u:object_r:container_share_t,s0)
 
 # Etcd
-#/var/lib/gravity/planet/etcd(/.*)?	gen_context(system_u:object_r:gravity_etcd_share_t,s0)
+#/var/lib/gravity/planet/etcd(/.*)?	gen_context(system_u:object_r:gravity_etcd_file_t,s0)

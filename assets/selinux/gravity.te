@@ -147,14 +147,15 @@ sysnet_dns_name_resolve(gravity_t)
 selinux_get_enforce_mode(gravity_t)
 
 # FIXME: use attributes (gravity_domain, gravity_planet_domain)
-#gravity_container_run(gravity_t, gravity_roles)
-gravity_container_domtrans(gravity_t)
+gravity_container_run(gravity_t, gravity_roles)
+#gravity_container_domtrans(gravity_t)
 #gravity_container_exec(gravity_t)
 
 # FIXME
 allow gravity_t gravity_container_exec_t:file manage_file_perms;
 
-container_runtime_exec(gravity_t)
+#container_runtime_exec(gravity_t)
+container_runtime_run(gravity_t, gravity_roles)
 container_manage_lib_files(gravity_t)
 container_manage_lib_dirs(gravity_t)
 container_manage_share_files(gravity_t)
@@ -187,6 +188,9 @@ manage_lnk_files_pattern(gravity_t, gravity_container_home_t, gravity_container_
 manage_dirs_pattern(gravity_container_t, gravity_container_home_t, gravity_container_home_t)
 manage_files_pattern(gravity_container_t, gravity_container_home_t, gravity_container_home_t)
 manage_lnk_files_pattern(gravity_container_t, gravity_container_home_t, gravity_container_home_t)
+manage_dirs_pattern(gravity_container_t, gravity_container_bin_t, gravity_container_bin_t)
+manage_files_pattern(gravity_container_t, gravity_container_bin_t, gravity_container_bin_t)
+manage_lnk_files_pattern(gravity_container_t, gravity_container_bin_t, gravity_container_bin_t)
 relabelto_dirs_pattern(gravity_t, gravity_container_home_t, gravity_container_home_t)
 relabelto_files_pattern(gravity_t, gravity_container_home_t, gravity_container_home_t)
 relabelto_lnk_files_pattern(gravity_t, gravity_container_home_t, gravity_container_home_t)
@@ -625,8 +629,8 @@ allow gravity_container_t proc_t:filesystem remount;
 allow gravity_container_t var_run_t:sock_file unlink;
 
 # FIXME: remove me (debugging planet startup)
-allow gravity_container_t gravity_container_bin_t:dir { search write add_name remove_name };
-allow gravity_container_t gravity_container_bin_t:lnk_file { create unlink };
+#allow gravity_container_t gravity_container_bin_t:dir { getattr ioctl read search write add_name remove_name };
+#allow gravity_container_t gravity_container_bin_t:lnk_file { getattr read open create unlink };
 allow gravity_container_t self:tcp_socket { connect create setopt getopt getattr };
 allow gravity_container_t gravity_kubernetes_port_t:tcp_socket name_connect;
 
@@ -654,3 +658,29 @@ allow container_runtime_t init_t:process transition;
 allow gravity_t etc_t:fifo_file create;
 allow init_t gravity_home_t:file entrypoint;
 allow gravity_container_t container_runtime_t:unix_stream_socket connectto;
+
+# Store container state in /var/run/planet/
+#allow gravity_container_t container_var_run_t:dir { add_name remove_name write rmdir getattr setattr };
+allow gravity_container_t var_run_t:file { create open read write mounton unlink };
+allow gravity_container_t var_run_t:fifo_file { open read unlink };
+allow gravity_container_t var_run_t:dir rmdir;
+allow gravity_container_t gravity_container_home_t:dir mounton;
+allow gravity_container_t gravity_container_home_t:file mounton;
+allow gravity_container_t gravity_container_bin_t:file { open read getattr execute unlink };
+# FIXME:
+allow gravity_container_t bin_t:file { open read getattr execute unlink };
+allow gravity_container_t init_exec_t:file { open read getattr execute };
+allow gravity_container_t init_t:unix_stream_socket connectto;
+allow gravity_container_t init_t:service stop;
+allow gravity_container_t sysfs_t:filesystem getattr;
+allow gravity_container_t systemd_systemctl_exec_t:file { getattr execute };
+allow gravity_container_t gravity_agent_port_t:tcp_socket name_bind;
+allow gravity_container_t systemd_systemctl_exec_t:file { open read };
+allow gravity_container_t gravity_container_bin_t:file execute_no_trans;
+#allow gravity_container_t http_port_t:tcp_socket name_connect;
+allow gravity_container_t init_exec_t:file execute_no_trans;
+# Failed to start parent process. error:[process_linux.go:474: container init caused "rootfs_linux.go:58: mounting \"selinuxfs\" to rootfs \"/var/lib/gravity/local/packages/unpacked/gravitational.io/planet/6.1.8-11505/rootfs\" at \"/var/lib/gravity/local/packages/unpacked/gravitational.io/planet/6.1.8-11505/rootfs/sys/fs/selinux\" caused \"permission denied\""]
+allow gravity_container_t sysfs_t:dir mounton;
+allow gravity_container_t systemd_systemctl_exec_t:file execute_no_trans;
+allow gravity_container_t security_t:filesystem remount;
+allow gravity_container_t gravity_container_bin_t:file entrypoint;
