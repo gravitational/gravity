@@ -141,7 +141,7 @@ func (r *Collector) init() (*libfsm.FSM, error) {
 func (r *Collector) executePlan(ctx context.Context, machine *libfsm.FSM) error {
 	planErr := machine.ExecutePlan(ctx, nil)
 	if planErr != nil {
-		r.Warnf("Failed to execute plan: %v.", trace.DebugReport(planErr))
+		r.WithError(planErr).Warn("Failed to execute plan.")
 	}
 
 	err := machine.Complete(planErr)
