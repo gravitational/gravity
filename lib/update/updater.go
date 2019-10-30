@@ -138,7 +138,7 @@ func (r *Updater) executePlan(ctx context.Context) error {
 
 	planErr := r.machine.ExecutePlan(ctx, progress)
 	if planErr != nil {
-		r.Warnf("Failed to execute plan: %v.", trace.DebugReport(planErr))
+		r.WithError(planErr).Warn("Failed to execute plan.")
 	}
 
 	err := r.machine.Complete(planErr)

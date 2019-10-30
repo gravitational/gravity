@@ -161,8 +161,8 @@ func (s *PlanSuite) TestPlanWithRuntimeAppsUpdate(c *check.C) {
 		GravityPackage: loc.MustParseLocator("gravitational.io/gravity:3.0.0"),
 		Phases: []storage.OperationPhase{
 			params.init(rearrangedServers),
-			params.checks(),
-			params.preUpdate(),
+			params.checks("/init"),
+			params.preUpdate("/init", "/checks"),
 			params.bootstrap(rearrangedServers, gravityPackage, "/checks", "/pre-update"),
 			params.coreDNS("/bootstrap"),
 			params.masters(leadMaster, updates[0:1], gravityPackage, "id", "/coredns"),
@@ -231,9 +231,8 @@ func (s *PlanSuite) TestPlanWithoutRuntimeAppUpdate(c *check.C) {
 		DNSConfig:      storage.DefaultDNSConfig,
 		GravityPackage: gravityInstalledLoc,
 		Phases: []storage.OperationPhase{
-			params.initSimple(),
 			params.checks(),
-			params.preUpdate(),
+			params.preUpdate("/checks"),
 			params.app("/pre-update"),
 			params.cleanup(),
 		},
@@ -380,8 +379,8 @@ func (s *PlanSuite) TestPlanWithIntermediateRuntimeUpdate(c *check.C) {
 		GravityPackage: loc.MustParseLocator("gravitational.io/gravity:3.0.0"),
 		Phases: []storage.OperationPhase{
 			params.init(rearrangedIntermediateServers),
-			params.checks(),
-			params.preUpdate(),
+			params.checks("/init"),
+			params.preUpdate("/init", "/checks"),
 			params.sub("/1.0.0", []string{"/checks", "/pre-update"},
 				params.bootstrapVersioned(rearrangedIntermediateServers, "1.0.0", intermediateGravityPackage),
 				params.masters(intermediateLeadMaster, intermediateOtherMasters, intermediateGravityPackage, "id2", "/bootstrap"),
@@ -569,19 +568,6 @@ func parentize(parentID string, phases []storage.OperationPhase) {
 	}
 }
 
-func (r *params) initSimple() storage.OperationPhase {
-	return storage.OperationPhase{
-		ID:          "/init",
-		Executor:    updateInit,
-		Description: "Initialize update operation",
-		Data: &storage.OperationPhaseData{
-			ExecServer:       &r.leadMaster,
-			Package:          &r.updateApp.Package,
-			InstalledPackage: &r.installedApp.Package,
-		},
-	}
-}
-
 func (r *params) init(servers []storage.UpdateServer) storage.OperationPhase {
 	root := storage.OperationPhase{
 		ID:          "/init",
@@ -621,12 +607,12 @@ func (r *params) initServer(server storage.UpdateServer) storage.OperationPhase 
 	}
 }
 
-func (r *params) checks() storage.OperationPhase {
+func (r *params) checks(requires ...string) storage.OperationPhase {
 	return storage.OperationPhase{
 		ID:          "/checks",
 		Executor:    updateChecks,
 		Description: "Run preflight checks",
-		Requires:    []string{"/init"},
+		Requires:    requires,
 		Data: &storage.OperationPhaseData{
 			Package:          &r.updateApp.Package,
 			InstalledPackage: &r.installedApp.Package,
@@ -634,12 +620,12 @@ func (r *params) checks() storage.OperationPhase {
 	}
 }
 
-func (r *params) preUpdate() storage.OperationPhase {
+func (r *params) preUpdate(requires ...string) storage.OperationPhase {
 	return storage.OperationPhase{
 		ID:          "/pre-update",
 		Executor:    preUpdate,
 		Description: "Run pre-update application hook",
-		Requires:    []string{"/init", "/checks"},
+		Requires:    requires,
 		Data: &storage.OperationPhaseData{
 			Package: &r.updateApp.Package,
 		},

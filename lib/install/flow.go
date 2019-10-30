@@ -333,7 +333,7 @@ func (i *Installer) GetFSM() (*fsm.FSM, error) {
 func (i *Installer) startFSM(fsm *fsm.FSM) {
 	err := fsm.ExecutePlan(i.Context, utils.NewNopProgress())
 	if err != nil {
-		i.Errorf("Failed to execute plan: %v.", trace.DebugReport(err))
+		i.WithError(err).Warn("Failed to execute plan.")
 	}
 	// regardless of the plan execution outcome we need to mark
 	// the operation completed (success or fail) so progress

@@ -34,18 +34,6 @@ import (
 )
 
 func (r phaseBuilder) initPhase() *builder.Phase {
-	if !r.hasRuntimeUpdates() {
-		return builder.NewPhase(storage.OperationPhase{
-			ID:          "init",
-			Executor:    updateInit,
-			Description: "Initialize update operation",
-			Data: &storage.OperationPhaseData{
-				Package:          &r.updateApp.Package,
-				ExecServer:       &r.leadMaster,
-				InstalledPackage: &r.installedApp.Package,
-			},
-		})
-	}
 	if len(r.steps) != 0 {
 		return r.steps[0].initPhase(r.leadMaster, r.installedApp.Package, r.updateApp.Package)
 	}
@@ -155,17 +143,21 @@ func (r phaseBuilder) cleanupPhase() *builder.Phase {
 }
 
 func (r phaseBuilder) newPlan() (*storage.OperationPlan, error) {
+	var root libbuilder.Phase
+	if !r.hasRuntimeUpdates() {
+		root.AddSequential(
+			r.checksPhase(),
+			r.preUpdatePhase(),
+			r.appPhase(),
+			r.cleanupPhase())
+		return r.newPlanFrom(&root), nil
+	}
+
 	initPhase := r.initPhase()
 	checksPhase := r.checksPhase().Require(initPhase)
 	preUpdatePhase := r.preUpdatePhase().Require(initPhase, checksPhase)
 
-	var root libbuilder.Phase
 	root.AddParallel(initPhase, checksPhase, preUpdatePhase)
-
-	if !r.hasRuntimeUpdates() {
-		root.AddSequential(r.appPhase(), r.cleanupPhase())
-		return r.newPlanFrom(&root), nil
-	}
 
 	if len(r.steps) == 0 {
 		// Embed the target runtime step directly into root phase

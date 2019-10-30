@@ -756,13 +756,11 @@ After all phases have completed successfully, complete the operation using "grav
 	go func() {
 		fsmErr := fsm.ExecutePlan(p.Context, utils.NewNopProgress())
 		if err != nil {
-			p.Errorf("Failed to execute plan: %v.",
-				trace.DebugReport(err))
+			p.WithError(err).Warn("Failed to execute plan.")
 		}
 		err := fsm.Complete(fsmErr)
 		if err != nil {
-			p.Errorf("Failed to complete operation: %v.",
-				trace.DebugReport(err))
+			p.WithError(err).Warn("Failed to complete operation.")
 		}
 	}()
 	return nil
