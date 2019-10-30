@@ -435,6 +435,7 @@ func (r *checker) CheckNodes(ctx context.Context, servers []Server) (failed []*a
 
 	err := checkSameOS(servers)
 	if err != nil {
+		log.WithError(err).Warn("Failed to validate same OS requirements.")
 		failed = append(failed, &agentpb.Probe{
 			Detail: err.Error(),
 			Error:  "failed to validate same OS requirement",
@@ -443,6 +444,7 @@ func (r *checker) CheckNodes(ctx context.Context, servers []Server) (failed []*a
 
 	err = checkTime(time.Now().UTC(), servers)
 	if err != nil {
+		log.WithError(err).Warn("Failed to validate time drift requirements.")
 		failed = append(failed, &agentpb.Probe{
 			Detail: err.Error(),
 			Error:  "failed to validate time drift requirement",
@@ -452,6 +454,7 @@ func (r *checker) CheckNodes(ctx context.Context, servers []Server) (failed []*a
 	if r.TestPorts {
 		err = r.checkPorts(ctx, servers)
 		if err != nil {
+			log.WithError(err).Warn("Failed to validate port requirements.")
 			failed = append(failed, &agentpb.Probe{
 				Detail: err.Error(),
 				Error:  "failed to validate port requirements",
@@ -462,6 +465,7 @@ func (r *checker) CheckNodes(ctx context.Context, servers []Server) (failed []*a
 	if r.TestBandwidth {
 		err = r.checkBandwidth(ctx, servers)
 		if err != nil {
+			log.WithError(err).Warn("Failed to validate bandwidth requirements.")
 			failed = append(failed, &agentpb.Probe{
 				Detail: err.Error(),
 				Error:  "failed to validate network bandwidth requirements",

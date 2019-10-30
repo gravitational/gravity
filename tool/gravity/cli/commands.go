@@ -670,7 +670,7 @@ type CheckCmd struct {
 	AutoFix *bool
 	// ImagePath is path to unpacked cluster image
 	ImagePath *string
-	// Timeotu is checks timeout
+	// Timeout is the time allotted to run preflight checks
 	Timeout *time.Duration
 }
 

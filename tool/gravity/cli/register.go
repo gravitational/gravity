@@ -211,7 +211,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.CheckCmd.CmdClause = g.Command("check", "Execute preflight checks")
 	g.CheckCmd.ManifestFile = g.CheckCmd.Arg("manifest", "Cluster image manifest file").Default(defaults.ManifestFileName).String()
 	g.CheckCmd.Profile = g.CheckCmd.Flag("profile", "Name of the node profile to check against").Short('p').String()
-	g.CheckCmd.AutoFix = g.CheckCmd.Flag("autofix", "Attempt to fix some of the discovered problems").Bool()
+	g.CheckCmd.AutoFix = g.CheckCmd.Flag("autofix", "Attempt to fix discovered problems on a best-effort basis").Bool()
 	g.CheckCmd.ImagePath = g.CheckCmd.Flag("image-path", "Path to unpacked cluster image").String()
 	g.CheckCmd.Timeout = g.CheckCmd.Flag("timeout", "Checks execution timeout").Default(defaults.PreflightChecksTimeout.String()).Duration()
 

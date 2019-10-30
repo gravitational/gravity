@@ -441,15 +441,20 @@ Executing preflight checks
 Before launching install or upgrade operation, you can execute preflight
 checks to make sure the infrastructure satisfies all requirements.
 
-For example, to see if the node satisfies requirements for a particular
-node profile before initial installation, run:
+For example, to see if the node satisfies requirements before initial
+installation, run:
 
-./checks --profile=worker
+./run_preflight_checks
+
+To check the node against a specific node profile (defined in app.yaml found
+in the same directory), pass the profile name on the command line:
+
+./run_preflight_checks --profile=worker
 
 If the cluster is already installed, the same script can be used to check
 requirements before launching the upgrade operation:
 
-./checks
+./run_preflight_checks
 
 Starting the installer
 ======================
@@ -488,7 +493,7 @@ status command.
 	installScriptFilename = "install"
 	uploadScriptFilename  = "upload"
 	upgradeScriptFilename = "upgrade"
-	checkScriptFilename   = "check"
+	checkScriptFilename   = "run_preflight_checks"
 	readmeFilename        = "README"
 )
 
