@@ -32,8 +32,8 @@ pages:
     - Cluster Management: cluster.md
     - Cluster Monitoring: monitoring.md
     - Cluster Access: access.md
+    - Application Catalog: catalog.md
     - Gravity Hub (Enterprise): hub.md
-    - hidden: catalog.md
     - CLI Reference: cli.md
     - System Requirements: requirements.md
     - Releases: changelog.md
