@@ -25,6 +25,7 @@ import (
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/rpc"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/update/cluster/checks"
 
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
@@ -34,17 +35,16 @@ import (
 type updatePhaseChecks struct {
 	// FieldLogger specifies the logger used by the executor
 	log.FieldLogger
+	// operator is the cluster operator service
+	operator ops.Operator
 	// apps is the cluster apps service
 	apps app.Applications
 	// servers is the list of local cluster servers
 	servers []storage.Server
 	// updatePackage specifies the updated application package
 	updatePackage loc.Locator
-	// installedPackage specifies the installed application package
-	installedPackage loc.Locator
 	// remote allows remote control of servers
-	remote         rpc.AgentRepository
-	existingDocker storage.DockerConfig
+	remote rpc.AgentRepository
 }
 
 // NewUpdatePhaseChecks creates a new preflight checks phase executor
@@ -58,21 +58,13 @@ func NewUpdatePhaseChecks(
 	if p.Phase.Data.Package == nil {
 		return nil, trace.NotFound("no update application package specified for phase %v", p.Phase)
 	}
-	if p.Phase.Data.InstalledPackage == nil {
-		return nil, trace.NotFound("no installed application package specified for phase %v", p.Phase)
-	}
-	cluster, err := operator.GetLocalSite()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
 	return &updatePhaseChecks{
-		FieldLogger:      logger,
-		apps:             apps,
-		servers:          p.Plan.Servers,
-		updatePackage:    *p.Phase.Data.Package,
-		installedPackage: *p.Phase.Data.InstalledPackage,
-		existingDocker:   cluster.ClusterState.Docker,
-		remote:           remote,
+		FieldLogger:   logger,
+		operator:      operator,
+		apps:          apps,
+		servers:       p.Plan.Servers,
+		updatePackage: *p.Phase.Data.Package,
+		remote:        remote,
 	}, nil
 }
 
@@ -88,26 +80,22 @@ func (p *updatePhaseChecks) PostCheck(context.Context) error {
 
 // Execute runs preflight checks
 func (p *updatePhaseChecks) Execute(ctx context.Context) error {
-	installedApp, err := p.apps.GetApp(p.installedPackage)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	app, err := p.apps.GetApp(p.updatePackage)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	dockerConfig := storage.DockerConfig{
-		StorageDriver: p.existingDocker.StorageDriver,
-	}
-	dockerSchema := app.Manifest.SystemDocker()
-	if dockerSchema.StorageDriver != "" {
-		dockerConfig.StorageDriver = dockerSchema.StorageDriver
-	}
-
 	p.Infof("Executing preflight checks on %v.", storage.Servers(p.servers))
-	err = validate(ctx, p.remote, p.servers, installedApp.Manifest, app.Manifest, dockerConfig)
-	return trace.Wrap(err, "failed to validate requirements")
+	checker, err := checks.NewChecker(ctx, checks.CheckerConfig{
+		ClusterOperator: p.operator,
+		ClusterApps:     p.apps,
+		UpgradeApps:     p.apps,
+		UpgradePackage:  p.updatePackage,
+		Agents:          p.remote,
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = checker.Run(ctx)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
 }
 
 // Rollback is a no-op for this phase

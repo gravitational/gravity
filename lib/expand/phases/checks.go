@@ -87,9 +87,13 @@ func (p *checksExecutor) Execute(ctx context.Context) error {
 	// For multi-node checks, use one of master nodes as an "anchor" so
 	// the joining node will be compared against that master (e.g. for
 	// the OS check, time drift check, etc).
-	return trace.NewAggregate(
-		checker.CheckNode(ctx, *node),
-		checker.CheckNodes(ctx, []checks.Server{*master, *node}))
+	failed := checker.CheckNode(ctx, *node)
+	failed = append(failed, checker.CheckNodes(ctx, []checks.Server{*master, *node})...)
+	if len(failed) != 0 {
+		return trace.BadParameter("The following checks failed:\n%v",
+			checks.FormatFailedChecks(failed))
+	}
+	return nil
 }
 
 // Rollback is no-op for this phase.

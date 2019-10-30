@@ -17,37 +17,89 @@ limitations under the License.
 package cli
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
+	"time"
 
+	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/checks"
+	"github.com/gravitational/gravity/lib/constants"
+	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/localenv"
+	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
+	statusapi "github.com/gravitational/gravity/lib/status"
+	upgradechecks "github.com/gravitational/gravity/lib/update/cluster/checks"
 
+	"github.com/fatih/color"
 	pb "github.com/gravitational/satellite/agent/proto/agentpb"
 	"github.com/gravitational/trace"
 )
 
-func checkManifest(env *localenv.LocalEnvironment, manifestPath, profileName string, autoFix bool) error {
-	data, err := ioutil.ReadFile(manifestPath)
+type preflightChecksConfig struct {
+	manifestPath string
+	imagePath    string
+	profileName  string
+	autoFix      bool
+	timeout      time.Duration
+}
+
+func executePreflightChecks(env *localenv.LocalEnvironment, config preflightChecksConfig) error {
+	ctx, cancel := context.WithTimeout(context.Background(), config.timeout)
+	defer cancel()
+
+	if !detectCluster(ctx) {
+		env.PrintStep("No deployed cluster detected, running install preflight checks")
+		return checkInstall(ctx, env, config)
+	}
+
+	env.PrintStep("Detected deployed cluster, running upgrade preflight checks")
+	return checkUpgrade(ctx, env, config)
+}
+
+// detectsCluster attempts to detect whether the current node has a cluster deployed.
+//
+// Returns true if the cluster is detected and false otherwise.
+func detectCluster(ctx context.Context) bool {
+	_, err := statusapi.FromPlanetAgent(ctx, nil)
+	if err != nil {
+		log.WithError(err).Info("No cluster detected: failed to query planet agent.")
+		return false
+	}
+	return true
+}
+
+func checkInstall(ctx context.Context, env *localenv.LocalEnvironment, config preflightChecksConfig) error {
+	data, err := ioutil.ReadFile(config.manifestPath)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
 	manifest, err := schema.ParseManifestYAML(data)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
+	profileName := config.profileName
+	if profileName == "" {
+		profileName, err = manifest.FirstNodeProfileName()
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	env.PrintStep("Running checks against node profile %q", profileName)
 	result, err := checks.ValidateLocal(checks.LocalChecksRequest{
+		Context:  ctx,
 		Manifest: *manifest,
 		Role:     profileName,
-		AutoFix:  autoFix,
+		AutoFix:  config.autoFix,
 	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
+	if len(result.Failed)+len(result.Fixable) == 0 {
+		env.PrintStep(color.GreenString("Checks have succeeded!"))
+		return nil
+	}
 	var failedErr, fixableErr error
 	if len(result.Failed) > 0 {
 		failedErr = trace.BadParameter(fmt.Sprintf("The following checks failed:\n%v",
@@ -57,15 +109,91 @@ func checkManifest(env *localenv.LocalEnvironment, manifestPath, profileName str
 		fixableErr = trace.BadParameter(fmt.Sprintf("The following checks failed, provide --autofix flag to let gravity to autofix them:\n%v",
 			checks.FormatFailedChecks(result.Fixable)))
 	}
-
 	return trace.NewAggregate(failedErr, fixableErr)
+}
+
+func checkUpgrade(ctx context.Context, env *localenv.LocalEnvironment, config preflightChecksConfig) error {
+	tarballEnv, err := localenv.NewTarballEnvironment(localenv.TarballEnvironmentArgs{
+		StateDir: config.imagePath,
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	operator, err := env.SiteOperator()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	apps, err := env.SiteApps()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	packages, err := env.ClusterPackages()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	manifest, err := schema.ParseManifest(config.manifestPath)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	// Need to upload gravity package from the upgrade image, otherwise
+	// RPC agents may fail to deploy because they will be looking for
+	// this gravity package in the cluster's package service.
+	err = uploadGravity(ctx, env, manifest, tarballEnv.Packages, packages)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	// Deploy RPC agents that will be used for running checks on the nodes.
+	credentials, err := rpcAgentDeployHelper(ctx, env, "", "")
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	checker, err := upgradechecks.NewChecker(ctx, upgradechecks.CheckerConfig{
+		ClusterOperator: operator,
+		ClusterApps:     apps,
+		UpgradeApps:     tarballEnv.Apps,
+		UpgradePackage:  manifest.Locator(),
+		Agents:          fsm.NewAgentRunner(credentials),
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	env.PrintStep("Running upgrade checks for cluster image %v:%v",
+		manifest.Metadata.Name, manifest.Metadata.ResourceVersion)
+	checksErr := checker.Run(ctx)
+	if err := rpcAgentShutdown(env); err != nil {
+		log.WithError(err).Error("Failed to shutdown agents.")
+	}
+	if checksErr != nil {
+		return trace.Wrap(checksErr)
+	}
+	env.PrintStep(color.GreenString("Checks have succeeded!"))
+	return nil
+}
+
+// uploadGravity uploads gravity package from the source to the destination.
+func uploadGravity(ctx context.Context, env *localenv.LocalEnvironment, manifest *schema.Manifest, src, dst pack.PackageService) error {
+	gravityPackage, err := manifest.Dependencies.ByName(constants.GravityPackage)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	env.PrintStep("Uploading package %v:%v to the local cluster",
+		gravityPackage.Name, gravityPackage.Version)
+	puller := &app.Puller{
+		SrcPack: src,
+		DstPack: dst,
+		Upsert:  true,
+	}
+	err = puller.PullPackage(ctx, *gravityPackage)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
 }
 
 func printFailedChecks(failed []*pb.Probe) {
 	if len(failed) == 0 {
 		return
 	}
-
 	fmt.Printf("Failed checks:\n")
 	fmt.Printf(checks.FormatFailedChecks(failed))
 }
