@@ -846,7 +846,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 #### Improvements
 
-* Introduce `ClusterConfiguration` resource, see [Configuring Cluster](/config/general-cluster-configuration) for details.
+* Introduce `ClusterConfiguration` resource, see [Configuring Cluster](/config/#general-cluster-configuration) for details.
 * Introduce `RuntimeEnvironment` resource, see [Configuring Runtime Environment Variables](/config/#runtime-environment-variables) for details.
 * Update 'gravity plan' to support all cluster operations.
 
@@ -1328,7 +1328,7 @@ for details.
 #### Improvements
 
 * Automatically load kernel modules and set kernel parameters required for
-installation. See [Verifying Node Requirements](/manage/#verifying-node-requirements)
+installation. See [Verifying Node Requirements](/requirements/#kernel-modules)
 for more info.
 
 #### Bugfixes
@@ -2052,7 +2052,7 @@ transient error
 #### Improvements
 
 * Add support for TLS keypair configuration via resources. Read more [here](/config/#tls-key-pair).
-* Simplify Ops Center [post install configuration](/opscenter/#post-provisioning).
+* Simplify Ops Center [post install configuration](/hub/#post-provisioning).
 
 #### Bugfixes
 
