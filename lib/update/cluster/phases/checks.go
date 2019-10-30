@@ -23,6 +23,7 @@ import (
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/rpc"
 	"github.com/gravitational/gravity/lib/storage"
 
 	"github.com/gravitational/trace"
@@ -42,7 +43,7 @@ type updatePhaseChecks struct {
 	// installedPackage specifies the installed application package
 	installedPackage loc.Locator
 	// remote allows remote control of servers
-	remote         fsm.AgentRepository
+	remote         rpc.AgentRepository
 	existingDocker storage.DockerConfig
 }
 
@@ -51,7 +52,7 @@ func NewUpdatePhaseChecks(
 	p fsm.ExecutorParams,
 	operator ops.Operator,
 	apps app.Applications,
-	remote fsm.AgentRepository,
+	remote rpc.AgentRepository,
 	logger log.FieldLogger,
 ) (*updatePhaseChecks, error) {
 	if p.Phase.Data.Package == nil {
