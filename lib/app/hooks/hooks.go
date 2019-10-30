@@ -143,7 +143,7 @@ func (r *Runner) DeleteJob(ctx context.Context, req DeleteJobRequest) error {
 			PropagationPolicy: &propagationPolicy,
 		}
 	}
-	err := r.client.Batch().Jobs(req.Namespace).Delete(req.Name, opts)
+	err := r.client.BatchV1().Jobs(req.Namespace).Delete(req.Name, opts)
 	if err = rigging.ConvertError(err); err != nil {
 		return err
 	} else {
@@ -181,7 +181,7 @@ func (r *Runner) Start(ctx context.Context, p Params) (*JobRef, error) {
 	r.Debug(string(jobBytes), ".")
 
 	// try to create the namespace and ignore "already exists" errors
-	_, err = r.client.Core().Namespaces().Create(&v1.Namespace{
+	_, err = r.client.CoreV1().Namespaces().Create(&v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: jobNamespace,
 		},
@@ -192,7 +192,7 @@ func (r *Runner) Start(ctx context.Context, p Params) (*JobRef, error) {
 		}
 	}
 
-	job, err = r.client.Batch().Jobs(jobNamespace).Create(job)
+	job, err = r.client.BatchV1().Jobs(jobNamespace).Create(job)
 	if err = rigging.ConvertError(err); err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -227,7 +227,7 @@ func findFailure(job batchv1.Job) *batchv1.JobCondition {
 func (r *Runner) Wait(ctx context.Context, ref JobRef) error {
 	interval := utils.NewUnlimitedExponentialBackOff()
 	err := utils.RetryWithInterval(ctx, interval, func() error {
-		watcher, err := newJobWatch(r.client.Batch(), ref)
+		watcher, err := newJobWatch(r.client.BatchV1(), ref)
 		if err != nil {
 			return &backoff.PermanentError{Err: err}
 		}
@@ -249,7 +249,7 @@ func (r *Runner) StreamLogs(ctx context.Context, ref JobRef, out io.Writer) erro
 	localContext, localCancel := context.WithCancel(ctx)
 	defer localCancel()
 
-	job, err := r.client.Batch().Jobs(ref.Namespace).Get(ref.Name, metav1.GetOptions{})
+	job, err := r.client.BatchV1().Jobs(ref.Namespace).Get(ref.Name, metav1.GetOptions{})
 	if err != nil {
 		return rigging.ConvertError(err)
 	}
@@ -272,7 +272,7 @@ func (r *Runner) StreamLogs(ctx context.Context, ref JobRef, out io.Writer) erro
 
 	interval := utils.NewUnlimitedExponentialBackOff()
 	err = utils.RetryWithInterval(ctx, interval, func() error {
-		watcher, err := newPodWatch(r.client.Core(), ref)
+		watcher, err := newPodWatch(r.client.CoreV1(), ref)
 		if err != nil {
 			return &backoff.PermanentError{err}
 		}
@@ -419,7 +419,7 @@ func podSelector(job *batchv1.Job) labels.Set {
 // with podName: pod pairs
 func (r *Runner) collectPods(job *batchv1.Job) (map[string]v1.Pod, error) {
 	set := podSelector(job)
-	podList, err := r.client.Core().Pods(job.Namespace).List(metav1.ListOptions{
+	podList, err := r.client.CoreV1().Pods(job.Namespace).List(metav1.ListOptions{
 		LabelSelector: set.AsSelector().String(),
 	})
 	if err != nil {
@@ -441,7 +441,7 @@ func (r *Runner) collectPods(job *batchv1.Job) (map[string]v1.Pod, error) {
 func (r *Runner) streamPodContainerLogs(ctx context.Context, pod *v1.Pod, containerName string, out io.Writer) error {
 	r.Debugf("Start streaming logs for %q, container %q.", describe(pod), containerName)
 	defer r.Debugf("Stopped streaming logs for %q, container %q.", describe(pod), containerName)
-	req := r.client.Core().Pods(pod.Namespace).GetLogs(pod.Name, &v1.PodLogOptions{
+	req := r.client.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &v1.PodLogOptions{
 		Container: containerName,
 		Follow:    true,
 	})

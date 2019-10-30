@@ -67,14 +67,14 @@ type SecretControl struct {
 func (c *SecretControl) Delete(ctx context.Context, cascade bool) error {
 	c.Infof("delete %v", formatMeta(c.Secret.ObjectMeta))
 
-	err := c.Client.Core().Secrets(c.Secret.Namespace).Delete(c.Secret.Name, nil)
+	err := c.Client.CoreV1().Secrets(c.Secret.Namespace).Delete(c.Secret.Name, nil)
 	return ConvertError(err)
 }
 
 func (c *SecretControl) Upsert(ctx context.Context) error {
 	c.Infof("upsert %v", formatMeta(c.Secret.ObjectMeta))
 
-	secrets := c.Client.Core().Secrets(c.Secret.Namespace)
+	secrets := c.Client.CoreV1().Secrets(c.Secret.Namespace)
 	c.Secret.UID = ""
 	c.Secret.SelfLink = ""
 	c.Secret.ResourceVersion = ""
@@ -92,7 +92,7 @@ func (c *SecretControl) Upsert(ctx context.Context) error {
 }
 
 func (c *SecretControl) Status() error {
-	secrets := c.Client.Core().Secrets(c.Secret.Namespace)
+	secrets := c.Client.CoreV1().Secrets(c.Secret.Namespace)
 	_, err := secrets.Get(c.Secret.Name, metav1.GetOptions{})
 	return ConvertError(err)
 }

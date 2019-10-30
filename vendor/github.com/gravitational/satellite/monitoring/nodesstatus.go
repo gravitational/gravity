@@ -243,7 +243,6 @@ var (
 	// DefaultNodeConditions is a list of default Kubernetes node
 	// conditions.
 	DefaultNodeConditions = []v1.NodeConditionType{
-		v1.NodeOutOfDisk,
 		v1.NodeMemoryPressure,
 		v1.NodeDiskPressure,
 		v1.NodePIDPressure,

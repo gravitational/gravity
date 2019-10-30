@@ -122,11 +122,11 @@ spec:
 - [ ] Install a Hub of the previous LTS version.
   - [ ] Push Telekube app of the previous LTS version into it.
   - [ ] Install a single-node Telekube cluster and connect it to the Hub.
-- [ ] Upgrade the Hub to the current version.
-  - [ ] Verify the cluster stays connected & online.
-  - [ ] Verify remote support can be toggled off/on.
 - [ ] Push Telekube app of the current version to the Hub.
 - [ ] Upgrade the cluster to the current version.
+  - [ ] Verify the cluster stays connected & online.
+  - [ ] Verify remote support can be toggled off/on.
+- [ ] Upgrade the Hub to the current version.
   - [ ] Verify the cluster stays connected & online.
   - [ ] Verify remote support can be toggled off/on.
 

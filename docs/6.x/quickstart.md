@@ -25,10 +25,10 @@ of running Kubernetes. For this tutorial, you will need:
 
 * A x86_64 Linux machine or a VM for building a Cluster Image that is running one of the [supported Linux distributions](requirements/#distributions).
 * Docker version 17 or newer. Run `docker info` before continuing to make sure
-  you have Docker up and running. You can quickly install Docker via `curl -L https://get.docker.com/ | bash -` 
+  you have Docker up and running. We recommend following instructions on [installing Docker CE from Docker.com](https://docs.docker.com/install/)
 * You must be a member of the `docker` group. Run `groups` command to make sure
   `docker` group is listed. If not, you can add yourself to the "docker" group via `sudo usermod -aG docker $USER`
-* You must install [Helm](https://docs.helm.sh/using_helm/#installing-helm).
+* You must install [Helm 2.0](https://docs.helm.sh/using_helm/#installing-helm) - [Helm v2.12 Github Release](https://github.com/helm/helm/releases/tag/v2.12.3).
 * You must have `git` installed to clone the example application repo.
 * A _target cluster_ of Linux nodes. It can be just one machine but this example quickstart will use three. The nodes in a target cluster must have at least 2GB of RAM and 40GB of free disk space. They must **_not_** have Docker or any other container runtime installed on them.
 * You must have `sudo` privileges on all nodes.
@@ -51,10 +51,10 @@ everything works:
 
 ```
 $ tele version
-Edition:	  open-source
-Version:	  6.0.1
-Git Commit:	  605cbcfe56eb020ce3a3dc7a22c0fc27e10987c5
-Helm Version: v2.12
+Edition:	open-source
+Version:	6.2.0
+Git Commit:	59f55954483989fef11bbe47a91c4d09743f65fe
+Helm Version:	v2.12
 ```
 
 Clone the sample Git repository which contains the Kubernetes resources for
@@ -130,11 +130,10 @@ in the example manifest.
 ### Step 4: Building the Cluster Image
 
 Before we build our first Cluster Image, let's make sure [Helm](https://helm.sh/) is properly
-initialized and the [helm-template](https://github.com/technosophos/helm-template) plugin is installed:
+initialized.
 
 ```bash
 $ helm init --client-only
-$ helm plugin install https://github.com/technosophos/helm-template
 ```
 
 Now you can build the Cluster Image, which will consist of a Kubernetes
