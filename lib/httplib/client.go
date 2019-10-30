@@ -179,10 +179,7 @@ func GetClient(insecure bool, options ...ClientOption) *http.Client {
 	if insecure {
 		options = append(options, WithInsecure())
 	}
-	client := &http.Client{
-		Transport: transport,
-		Timeout:   defaults.ClientTimeout,
-	}
+	client := &http.Client{Transport: transport}
 	for _, o := range options {
 		o(client)
 	}
