@@ -126,13 +126,6 @@ func (r *Engine) Complete(fsmErr error) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = r.operator.ActivateSite(ops.ActivateSiteRequest{
-		AccountID:  r.Operation.AccountID,
-		SiteDomain: r.Operation.SiteDomain,
-	})
-	if err != nil {
-		return trace.Wrap(err)
-	}
 	r.WithField("operation", r.Operation).Debug("Marked operation complete.")
 	return nil
 }
@@ -205,5 +198,4 @@ type Dispatcher interface {
 type operator interface {
 	CreateProgressEntry(ops.SiteOperationKey, ops.ProgressEntry) error
 	SetOperationState(ops.SiteOperationKey, ops.SetOperationStateRequest) error
-	ActivateSite(ops.ActivateSiteRequest) error
 }

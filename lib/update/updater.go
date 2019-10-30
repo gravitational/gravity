@@ -134,10 +134,7 @@ func (r *Updater) Complete(fsmErr error) error {
 	if err := r.emitAuditEvent(context.TODO()); err != nil {
 		log.WithError(err).Warn("Failed to emit audit event.")
 	}
-	return r.Operator.ActivateSite(ops.ActivateSiteRequest{
-		AccountID:  r.Operation.ClusterKey().AccountID,
-		SiteDomain: r.Operation.ClusterKey().SiteDomain,
-	})
+	return nil
 }
 
 func (r *Updater) emitAuditEvent(ctx context.Context) error {

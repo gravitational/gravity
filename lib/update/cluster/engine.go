@@ -218,13 +218,7 @@ func (f *engine) Complete(fsmErr error) error {
 		return trace.Wrap(err)
 	}
 
-	err = f.commitClusterChanges(cluster, *op)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	err = f.activateCluster(*cluster)
-	return trace.Wrap(err)
+	return f.commitClusterChanges(*cluster, *op)
 }
 
 // GetPlan returns an up-to-date plan
@@ -232,7 +226,7 @@ func (f *engine) GetPlan() (*storage.OperationPlan, error) {
 	return &f.plan, nil
 }
 
-func (f *engine) commitClusterChanges(cluster *storage.Site, op ops.SiteOperation) error {
+func (f *engine) commitClusterChanges(cluster storage.Site, op ops.SiteOperation) error {
 	updateAppLoc, err := op.Update.Package()
 	if err != nil {
 		return trace.Wrap(err)
@@ -259,21 +253,16 @@ func (f *engine) commitClusterChanges(cluster *storage.Site, op ops.SiteOperatio
 	checks.OverrideDockerConfig(&cluster.ClusterState.Docker,
 		checks.DockerConfigFromSchema(updateApp.Manifest.SystemOptions.DockerConfig()))
 
-	return nil
+	return f.updateCluster(cluster)
 }
 
-func (f *engine) activateCluster(cluster storage.Site) error {
-	cluster.State = ops.SiteStateActive
+func (f *engine) updateCluster(cluster storage.Site) error {
 	_, err := f.Backend.UpdateSite(cluster)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
 	_, err = f.LocalBackend.UpdateSite(cluster)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	return nil
+	return trace.Wrap(err)
 }
 
 func (f *engine) ChangePhaseState(ctx context.Context, change fsm.StateChange) error {
