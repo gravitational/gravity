@@ -637,13 +637,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.SystemDevicemapperUnmountCmd.CmdClause = g.SystemDevicemapperCmd.Command("unmount", "remove devicemapper environment").Hidden()
 	g.SystemDevicemapperSystemDirCmd.CmdClause = g.SystemDevicemapperCmd.Command("system-dir", "query the location of the lvm system directory").Hidden()
 
-	// network helpers
-	g.SystemEnablePromiscModeCmd.CmdClause = g.SystemCmd.Command("enable-promisc-mode", "Put network interface into promiscuous mode").Hidden()
-	g.SystemEnablePromiscModeCmd.Iface = g.SystemEnablePromiscModeCmd.Arg("name", "Name of the interface (i.e. docker0)").Default(defaults.DockerBridge).String()
-
-	g.SystemDisablePromiscModeCmd.CmdClause = g.SystemCmd.Command("disable-promisc-mode", "Remove promiscuous mode flag and deduplication rules").Hidden()
-	g.SystemDisablePromiscModeCmd.Iface = g.SystemDisablePromiscModeCmd.Arg("name", "Name of the interface (i.e. docker0)").Default(defaults.DockerBridge).String()
-
+	// journal helpers
 	g.SystemExportRuntimeJournalCmd.CmdClause = g.SystemCmd.Command("export-runtime-journal", "Export runtime journal logs to a file").Hidden()
 	g.SystemExportRuntimeJournalCmd.OutputFile = g.SystemExportRuntimeJournalCmd.Flag("output", "Name of resulting tarball. Output to stdout if unspecified").String()
 

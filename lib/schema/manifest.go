@@ -282,18 +282,6 @@ func dockerConfigWithDefaults(config *Docker) Docker {
 	return docker
 }
 
-// HairpinMode returns the effective hairpin mode for the specified profile
-func (m Manifest) HairpinMode(profile NodeProfile) string {
-	hairpinMode := profile.SystemOptions.HairpinMode()
-	if hairpinMode == "" {
-		hairpinMode = m.SystemOptions.HairpinMode()
-	}
-	if hairpinMode != "" {
-		return hairpinMode
-	}
-	return defaults.HairpinMode
-}
-
 // EtcdArgs returns the list of additional etcd arguments for the specified node profile
 func (m Manifest) EtcdArgs(profile NodeProfile) []string {
 	args := profile.SystemOptions.EtcdArgs()
@@ -1103,16 +1091,7 @@ type Etcd struct {
 type Kubelet struct {
 	// ExternalService defines additional configuration for kubelet
 	ExternalService
-	// HairpinMode configures the network for hairpin packets.
-	// It can be one of "hairpin-veth" and "promiscuous-bridge".
-	// The "hairpin-veth" mode configures hairpin flag on the veth pair of each container.
-	// In "promiscuous-bridge" mode, the docker bridge is placed into promiscuous mode
-	// which forces it to accept hairpin packets. In this mode a couple of ebtables
-	// rules are created to de-duplicate packets.
-	// The difference to the kubelet's "promiscuous-mode" is that kubelet assumes
-	// the existence of cbr0 bridge (managed by kubenet network plugin, for instance)
-	// while this configures docker bridge directly. As a result, in "promiscuous-mode"
-	// kubelet will be configured with "hairpin-mode=none"
+	// HairpinMode is deprecated and no longer used
 	HairpinMode string `json:"hairpinMode,omitempty"`
 }
 
