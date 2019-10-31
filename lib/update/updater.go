@@ -137,6 +137,14 @@ func (r *Updater) Complete(fsmErr error) error {
 	return nil
 }
 
+// Activate activates the cluster.
+func (r *Updater) Activate() error {
+	return r.Operator.ActivateSite(ops.ActivateSiteRequest{
+		AccountID:  r.Operation.AccountID,
+		SiteDomain: r.Operation.SiteDomain,
+	})
+}
+
 func (r *Updater) emitAuditEvent(ctx context.Context) error {
 	clusterOperator, err := localenv.ClusterOperator()
 	if err != nil {
