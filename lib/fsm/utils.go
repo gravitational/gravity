@@ -59,26 +59,6 @@ func MarkCompleted(plan *storage.OperationPlan) {
 	}
 }
 
-// HasFailed returns true if the provided plan has at least one failed phase
-func HasFailed(plan *storage.OperationPlan) bool {
-	for _, phase := range FlattenPlan(plan) {
-		if phase.IsFailed() {
-			return true
-		}
-	}
-	return false
-}
-
-// IsFailed returns true if all phases of the provided plan are either rolled back or unstarted
-func IsFailed(plan *storage.OperationPlan) bool {
-	for _, phase := range FlattenPlan(plan) {
-		if !phase.IsFailed() && !phase.IsRolledBack() && !phase.IsUnstarted() {
-			return false
-		}
-	}
-	return true
-}
-
 // FindPhase finds a phase with the specified id in the provided plan
 func FindPhase(plan *storage.OperationPlan, phaseID string) (*storage.OperationPhase, error) {
 	allPhases := FlattenPlan(plan)
