@@ -23,6 +23,7 @@ import (
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/app/service"
 	"github.com/gravitational/gravity/lib/blob/fs"
+	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/ops/opsservice"
 	"github.com/gravitational/gravity/lib/pack"
@@ -45,7 +46,10 @@ func (r *LocalEnvironment) NewClusterEnvironment(opts ...ClusterEnvironmentOptio
 		log.Errorf("Failed to create Kubernetes client: %v.",
 			trace.DebugReport(err))
 	}
-	auditLog, err := r.AuditLog(context.TODO())
+
+	ctx, cancel := context.WithTimeout(context.TODO(), defaults.AuditLogClientTimeout)
+	defer cancel()
+	auditLog, err := r.AuditLog(ctx)
 	if err != nil {
 		log.Warnf("Failed to create audit log: %v.",
 			trace.DebugReport(err))
