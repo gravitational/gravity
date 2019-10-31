@@ -47,7 +47,7 @@ func (r *LocalEnvironment) NewClusterEnvironment(opts ...ClusterEnvironmentOptio
 			trace.DebugReport(err))
 	}
 
-	ctx, cancel := context.WithTimeout(context.TODO(), defaults.AuditCollectionTimeout)
+	ctx, cancel := context.WithTimeout(context.TODO(), defaults.AuditLogClientTimeout)
 	defer cancel()
 	auditLog, err := r.AuditLog(ctx)
 	if err != nil {
