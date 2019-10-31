@@ -131,17 +131,18 @@ func (r *Updater) Complete(fsmErr error) error {
 	if err := r.machine.Complete(fsmErr); err != nil {
 		return trace.Wrap(err)
 	}
-	req := ops.ActivateSiteRequest{
-		AccountID:  r.Operation.AccountID,
-		SiteDomain: r.Operation.SiteDomain,
-	}
-	if err := r.Operator.ActivateSite(req); err != nil {
-		return trace.Wrap(err)
-	}
 	if err := r.emitAuditEvent(context.TODO()); err != nil {
 		log.WithError(err).Warn("Failed to emit audit event.")
 	}
 	return nil
+}
+
+// Activate activates the cluster.
+func (r *Updater) Activate() error {
+	return r.Operator.ActivateSite(ops.ActivateSiteRequest{
+		AccountID:  r.Operation.AccountID,
+		SiteDomain: r.Operation.SiteDomain,
+	})
 }
 
 func (r *Updater) emitAuditEvent(ctx context.Context) error {
