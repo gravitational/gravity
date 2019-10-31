@@ -59,12 +59,6 @@ func ValidateDocker(d Docker, dir string) (failed []*pb.Probe, err error) {
 
 // ValidateKubelet will check kubelet configuration
 func ValidateKubelet(profile NodeProfile, manifest Manifest) (failed []*pb.Probe) {
-	hairpinMode := manifest.HairpinMode(profile)
-	if hairpinMode != constants.HairpinModePromiscuousBridge {
-		// No validation required
-		return nil
-	}
-
 	checkers := append([]health.Checker{},
 		monitoring.NewKernelModuleChecker(
 			moduleName("ebtables"),

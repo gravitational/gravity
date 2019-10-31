@@ -618,15 +618,6 @@ const (
 	// idle timeout for an AWS load balancer
 	AWSLBIdleTimeoutAnnotation = "service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout"
 
-	// HairpinModeVeth specifies the network mode when hairpin flag is configured on container's veth pair
-	HairpinModeVeth = "hairpin-veth"
-
-	// HairpinModePromiscuousBridge specifies the network mode when the docker bridge is put in promiscuous mode
-	// that forces it to accept hairpin packets.
-	// This is currently different from kubelet's hairpin-mode setting of "promiscuous-bridge" which assumes
-	// existence of the cbr0 bridge (as managed by kubenet network plugin, for instance)
-	HairpinModePromiscuousBridge = "promiscuous-bridge"
-
 	// FinalStep is the number of the final install operation step in UI
 	FinalStep = 9
 
