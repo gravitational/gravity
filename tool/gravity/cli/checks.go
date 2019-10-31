@@ -29,7 +29,6 @@ import (
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
-	statusapi "github.com/gravitational/gravity/lib/status"
 	upgradechecks "github.com/gravitational/gravity/lib/update/cluster/checks"
 
 	"github.com/fatih/color"
@@ -49,25 +48,18 @@ func executePreflightChecks(env *localenv.LocalEnvironment, config preflightChec
 	ctx, cancel := context.WithTimeout(context.Background(), config.timeout)
 	defer cancel()
 
-	if !detectCluster(ctx) {
+	err := localenv.DetectCluster(env)
+	if err != nil && !trace.IsNotFound(err) {
+		return trace.Wrap(err)
+	}
+
+	if trace.IsNotFound(err) {
 		env.PrintStep("No deployed cluster detected, running install preflight checks")
 		return checkInstall(ctx, env, config)
 	}
 
 	env.PrintStep("Detected deployed cluster, running upgrade preflight checks")
 	return checkUpgrade(ctx, env, config)
-}
-
-// detectsCluster attempts to detect whether the current node has a cluster deployed.
-//
-// Returns true if the cluster is detected and false otherwise.
-func detectCluster(ctx context.Context) bool {
-	_, err := statusapi.FromPlanetAgent(ctx, nil)
-	if err != nil {
-		log.WithError(err).Info("No cluster detected: failed to query planet agent.")
-		return false
-	}
-	return true
 }
 
 func checkInstall(ctx context.Context, env *localenv.LocalEnvironment, config preflightChecksConfig) error {
