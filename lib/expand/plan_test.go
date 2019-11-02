@@ -201,13 +201,12 @@ func (s *PlanSuite) TestPlan(c *check.C) {
 		phaseID       string
 		phaseVerifier func(*check.C, storage.OperationPhase)
 	}{
-		{StartAgentPhase, s.verifyStartAgentPhase},
-		{ChecksPhase, s.verifyChecksPhase},
 		{installphases.ConfigurePhase, s.verifyConfigurePhase},
 		{installphases.BootstrapPhase, s.verifyBootstrapPhase},
 		{installphases.PullPhase, s.verifyPullPhase},
 		{PreHookPhase, s.verifyPreHookPhase},
 		{SystemPhase, s.verifySystemPhase},
+		{StartAgentPhase, s.verifyStartAgentPhase},
 		{EtcdBackupPhase, s.verifyEtcdBackupPhase},
 		{EtcdPhase, s.verifyEtcdPhase},
 		{installphases.WaitPhase, s.verifyWaitPhase},
@@ -242,7 +241,6 @@ func (s *PlanSuite) verifyConfigurePhase(c *check.C, phase storage.OperationPhas
 		Data: &storage.OperationPhaseData{
 			ExecServer: &s.joiningNode,
 		},
-		Requires: []string{ChecksPhase},
 	}, phase)
 }
 
@@ -323,6 +321,7 @@ func (s *PlanSuite) verifyStartAgentPhase(c *check.C, phase storage.OperationPha
 				OpsCenterURL: fmt.Sprintf("https://%v:%v", s.masterNode.AdvertiseIP, defaults.GravitySiteNodePort),
 			},
 		},
+		Requires: []string{SystemPhase},
 	}, phase)
 }
 
