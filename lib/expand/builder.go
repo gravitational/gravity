@@ -81,7 +81,6 @@ func (b *planBuilder) AddConfigurePhase(plan *storage.OperationPlan) {
 		Data: &storage.OperationPhaseData{
 			ExecServer: &b.JoiningNode,
 		},
-		Requires: []string{ChecksPhase},
 	})
 }
 
