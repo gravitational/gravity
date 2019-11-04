@@ -22,7 +22,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	installerclient "github.com/gravitational/gravity/lib/install/client"
@@ -90,10 +89,6 @@ func executePhase(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentF
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
-	spew.Config.DisableMethods = true
-	log.Warn("execute phase operation: ", spew.Sdump(op))
-	log.Warn("execute phase params: ", spew.Sdump(params))
 
 	switch op.Type {
 	case ops.OperationInstall:
