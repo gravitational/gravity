@@ -3,6 +3,7 @@ CPU_COUNT ?= 1
 GRAVITY_DIR_SIZE ?= 12000000000
 OS ?= ubuntu
 ANSIBLE_EXTRA_VARS ?=
+NODES_COUNT ?= 3
 
 ifeq ($(OS), centos)
 	IMAGEURL=https://cloud.centos.org/centos/7/images/CentOS-7-x86_64-GenericCloud-1808.qcow2
@@ -10,7 +11,7 @@ endif
 
 IMAGENAME := $(shell basename $(IMAGEURL))
 TF_VARIABLES := TF_VAR_image_name=$(IMAGENAME) TF_VAR_cpu_count=$(CPU_COUNT)\
-	TF_VAR_gravity_dir_size=$(GRAVITY_DIR_SIZE) TF_VAR_username=$(OS)
+	TF_VAR_gravity_dir_size=$(GRAVITY_DIR_SIZE) TF_VAR_username=$(OS) TF_VAR_nodes_count=$(NODES_COUNT)
 
 .PHONY: all
 all: apply install
