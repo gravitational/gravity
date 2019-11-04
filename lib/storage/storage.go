@@ -1618,7 +1618,10 @@ func (s *Server) GetNodeLabels(profileLabels map[string]string) map[string]strin
 		fmt.Sprintf(defaults.KubernetesNodeRoleLabelFormat, s.Role): s.Role,
 	}
 	for k, v := range profileLabels {
-		// labels in the profile shouldn't override our default labels
+		// Several of the labels applied by default are used internally within gravity or gravity components.
+		// allowing a user to override these labels via the profile creates some risk, that they may overwrite a node
+		// label gravity uses itself. As such, for now, only apply the profile labels if they do not conflict with a
+		// default label.
 		if _, ok := labels[k]; !ok {
 			labels[k] = v
 		}
