@@ -321,7 +321,6 @@ func (s *PlanSuite) verifyStartAgentPhase(c *check.C, phase storage.OperationPha
 				OpsCenterURL: fmt.Sprintf("https://%v:%v", s.masterNode.AdvertiseIP, defaults.GravitySiteNodePort),
 			},
 		},
-		Requires: []string{SystemPhase},
 	}, phase)
 }
 
