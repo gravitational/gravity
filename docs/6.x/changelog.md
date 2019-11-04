@@ -8,7 +8,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
 | 6.2.2         | No  | October 17th, 2019   | -                    | 1.16.0             | 3.2.12           |
-| 6.1.10        | No  | October 24th, 2019   | -                    | 1.15.4             | 3.2.12           |
+| 6.1.11        | No  | October 31st, 2019   | -                    | 1.15.4             | 3.2.12           |
 | 6.0.10*       | No  | October 17th, 2019   | -                    | 1.14.7             | 3.2.12           |
 | 5.6.8*        | No  | September 18th, 2019 | -                    | 1.14.7             | 3.0.6-gravity    |
 | 5.5.26        | Yes | October 17th, 2019   | September 7th, 2020  | 1.13.11            | 3.0.6-gravity    |
@@ -36,6 +36,12 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     See [Direct Upgrades From Older LTS Versions](/pack/#direct-upgrades-from-older-lts-versions) for details.
 
 ## 6.x Releases
+
+### 6.1.11 (October 31st, 2019)
+
+#### Bugfixes
+
+* Fix the issue with cluster erroneously returning to the active state after upgrade operation failure ([#846](https://github.com/gravitational/gravity/pull/846), [#857](https://github.com/gravitational/gravity/pull/857)).
 
 ### 6.1.10 (October 24th, 2019)
 
@@ -846,7 +852,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 #### Improvements
 
-* Introduce `ClusterConfiguration` resource, see [Configuring Cluster](/config/general-cluster-configuration) for details.
+* Introduce `ClusterConfiguration` resource, see [Configuring Cluster](/config/#general-cluster-configuration) for details.
 * Introduce `RuntimeEnvironment` resource, see [Configuring Runtime Environment Variables](/config/#runtime-environment-variables) for details.
 * Update 'gravity plan' to support all cluster operations.
 
@@ -1328,7 +1334,7 @@ for details.
 #### Improvements
 
 * Automatically load kernel modules and set kernel parameters required for
-installation. See [Verifying Node Requirements](/manage/#verifying-node-requirements)
+installation. See [Verifying Node Requirements](/requirements/#kernel-modules)
 for more info.
 
 #### Bugfixes
@@ -2052,7 +2058,7 @@ transient error
 #### Improvements
 
 * Add support for TLS keypair configuration via resources. Read more [here](/config/#tls-key-pair).
-* Simplify Ops Center [post install configuration](/opscenter/#post-provisioning).
+* Simplify Ops Center [post install configuration](/hub/#post-provisioning).
 
 #### Bugfixes
 
