@@ -30,7 +30,7 @@ provider "libvirt" {
 
 # Use locally pre-fetched image
 resource "libvirt_volume" "os-qcow2" {
-  name = "os-qcow2"
+  name = "os-disk-${count.index}.qcow2"
   pool = "default"
   source = "/var/lib/libvirt/images/${var.image_name}"
   format = "raw"
