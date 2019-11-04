@@ -672,27 +672,6 @@ const (
 	// KubernetesAdvertiseIPLabel is the kubernetes node label of the advertise IP address
 	KubernetesAdvertiseIPLabel = "gravitational.io/advertise-ip"
 
-	// KubernetesNodeRoleLabelFormat is the kubernetes node label shown in `kubectl get nodes`
-	KubernetesNodeRoleLabelFormat = "node-role.kubernetes.io/%v"
-
-	//
-	// Kubernetes Well Known Labels
-	// https://kubernetes.io/docs/reference/kubernetes-api/labels-annotations-taints/
-	//
-
-	// KubernetesArchLabel is the kubernetes well-known label for arch
-	KubernetesArchLabel = "kubernetes.io/arch"
-
-	// KubernetesOSLabel is the kubernetes well known label for os
-	KubernetesOSLabel = "kubernetes.io/os"
-
-	// KubernetesHostnameLabel is the name of kubernetes well-known label what contains host's IP
-	KubernetesHostnameLabel = "kubernetes.io/hostname"
-
-	//
-	//
-	//
-
 	// RunLevelLabel is the Kubernetes node taint label representing a run-level
 	RunLevelLabel = "gravitational.io/runlevel"
 
@@ -1290,4 +1269,10 @@ func WithTimeout(ctx context.Context) (context.Context, context.CancelFunc) {
 // InstallerAddr returns the complete address of the installer given its IP
 func InstallerAddr(installerIP string) (addr string) {
 	return fmt.Sprintf("%v:%v", installerIP, WizardPackServerPort)
+}
+
+// FormatKubernetesNodeRoleLabel formats the provided gravity role name as a kubernetes node role label as shown in
+// `kubectl get nodes`
+func FormatKubernetesNodeRoleLabel(role string) string {
+	return fmt.Sprintf("node-role.kubernetes.io/%v", role)
 }

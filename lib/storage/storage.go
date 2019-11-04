@@ -45,6 +45,7 @@ import (
 	"github.com/gravitational/trace"
 	"github.com/jonboulle/clockwork"
 	"github.com/tstranex/u2f"
+	v1 "k8s.io/api/core/v1"
 )
 
 // Accounts collection modifies and updates account entries,
@@ -1610,12 +1611,12 @@ func (s *Server) IsMaster() bool {
 // GetNodeLabels returns a consistent set of labels that should be applied to the node
 func (s *Server) GetNodeLabels(profileLabels map[string]string) map[string]string {
 	labels := map[string]string{
-		defaults.KubernetesAdvertiseIPLabel:                         s.AdvertiseIP,
-		defaults.KubernetesRoleLabel:                                s.ClusterRole,
-		defaults.KubernetesHostnameLabel:                            s.KubeNodeID(),
-		defaults.KubernetesArchLabel:                                "amd64", //Only amd64 is currently supported
-		defaults.KubernetesOSLabel:                                  "linux", // Only linux is currently supported
-		fmt.Sprintf(defaults.KubernetesNodeRoleLabelFormat, s.Role): s.Role,
+		defaults.KubernetesAdvertiseIPLabel:            s.AdvertiseIP,
+		defaults.KubernetesRoleLabel:                   s.ClusterRole,
+		v1.LabelHostname:                               s.KubeNodeID(),
+		v1.LabelArchStable:                             "amd64", //Only amd64 is currently supported
+		v1.LabelOSStable:                               "linux", // Only linux is currently supported
+		defaults.FormatKubernetesNodeRoleLabel(s.Role): s.Role,
 	}
 	for k, v := range profileLabels {
 		// Several of the labels applied by default are used internally within gravity or gravity components.

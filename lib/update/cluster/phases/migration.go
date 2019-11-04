@@ -35,6 +35,7 @@ import (
 	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -176,9 +177,9 @@ func (p *phaseUpdateLabels) Execute(ctx context.Context) error {
 	for _, server := range p.Servers {
 		labels := map[string]string{
 			defaults.KubernetesAdvertiseIPLabel: server.AdvertiseIP,
-			defaults.KubernetesHostnameLabel:    server.KubeNodeID(),
-			defaults.KubernetesArchLabel:        "amd64", // Only amd64 is currently supported
-			defaults.KubernetesOSLabel:          "linux", // Only linux is currently supported
+			v1.LabelHostname:                    server.KubeNodeID(),
+			v1.LabelArchStable:                  "amd64", // Only amd64 is currently supported
+			v1.LabelOSStable:                    "linux", // Only linux is currently supported
 		}
 		p.WithField("labels", labels).Infof("Update labels on %v.", server)
 		err := libkubernetes.UpdateLabels(ctx, p.Client.CoreV1().Nodes(), server.KubeNodeID(), labels)

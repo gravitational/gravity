@@ -116,7 +116,7 @@ func UpdateLabels(ctx context.Context, client corev1.NodeInterface, nodeName str
 func GetNode(client *kubernetes.Clientset, server storage.Server) (*v1.Node, error) {
 	nodes, err := client.CoreV1().Nodes().List(metav1.ListOptions{
 		LabelSelector: utils.MakeSelector(map[string]string{
-			defaults.KubernetesHostnameLabel: server.KubeNodeID(),
+			v1.LabelHostname: server.KubeNodeID(),
 		}).String(),
 	})
 	if err != nil {
@@ -126,7 +126,7 @@ func GetNode(client *kubernetes.Clientset, server storage.Server) (*v1.Node, err
 	if len(nodes.Items) == 0 {
 		return nil, trace.NotFound(
 			"could not find a Kubernetes node for %v", server).
-			AddField("label", fmt.Sprintf("%v=%v", defaults.KubernetesHostnameLabel, server.KubeNodeID()))
+			AddField("label", fmt.Sprintf("%v=%v", v1.LabelHostname, server.KubeNodeID()))
 	}
 	if len(nodes.Items) > 1 {
 		return nil, trace.BadParameter(

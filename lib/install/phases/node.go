@@ -25,6 +25,7 @@ import (
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/utils"
+	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
@@ -101,7 +102,7 @@ func (r *registerNodeExecutor) Execute(ctx context.Context) error {
 			},
 		})
 		if err != nil {
-			return trace.Wrap(err)
+			return rigging.ConvertError(err)
 		}
 		return nil
 	})
@@ -109,7 +110,7 @@ func (r *registerNodeExecutor) Execute(ctx context.Context) error {
 	return trace.Wrap(err)
 }
 
-// Rollback deletes the coredns configmap that was created in the execute step
+// Rollback is a noop for this executor
 func (r *registerNodeExecutor) Rollback(context.Context) error {
 	return nil
 }

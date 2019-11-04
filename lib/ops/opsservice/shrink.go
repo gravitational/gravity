@@ -35,6 +35,7 @@ import (
 	"github.com/gravitational/trace"
 	"github.com/pborman/uuid"
 	log "github.com/sirupsen/logrus"
+	v1 "k8s.io/api/core/v1"
 )
 
 // createShrinkOperation initiates shrink operation and starts it immediately
@@ -610,7 +611,7 @@ func (s *site) unlabelNode(server storage.Server, runner *serverRunner) error {
 	}
 
 	command := s.planetEnterCommand(defaults.KubectlBin, "label", "nodes",
-		fmt.Sprintf("-l=%v=%v", defaults.KubernetesHostnameLabel, server.KubeNodeID()))
+		fmt.Sprintf("-l=%v=%v", v1.LabelHostname, server.KubeNodeID()))
 	command = append(command, labelFlags...)
 
 	err = utils.Retry(defaults.RetryInterval, defaults.RetryAttempts, func() error {
@@ -626,7 +627,7 @@ func (s *site) removeNodeFromCluster(server storage.Server, runner *serverRunner
 	commands := [][]string{
 		s.planetEnterCommand(
 			defaults.KubectlBin, "delete", "nodes", "--ignore-not-found=true",
-			fmt.Sprintf("-l=%v=%v", defaults.KubernetesHostnameLabel, server.KubeNodeID())),
+			fmt.Sprintf("-l=%v=%v", v1.LabelHostname, server.KubeNodeID())),
 		// Issue `serf force-leave` from the master node to transition
 		// failed nodes to `left` state in case the node itself failed shutting down
 		s.planetEnterCommand(defaults.SerfBin, "force-leave", provisionedServer.AgentName(s.domainName)),
