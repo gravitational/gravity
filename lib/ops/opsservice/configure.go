@@ -118,7 +118,10 @@ func (o *Operator) ConfigurePackages(req ops.ConfigurePackagesRequest) error {
 	}
 
 	if operation.Type == ops.OperationExpand {
-		err = o.registerKubernetesNode(*operation)
+		// TODO (knisbet) temporary timeout since configure packages overall isn't time limited
+		c, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
+		defer cancel()
+		err = o.registerKubernetesNode(c, *operation)
 		if err != nil {
 			return trace.Wrap(err)
 		}

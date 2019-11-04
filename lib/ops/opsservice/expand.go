@@ -159,7 +159,7 @@ func (s *site) validateExpand(op *ops.SiteOperation, req *ops.OperationUpdateReq
 	return trace.Wrap(err)
 }
 
-func (o *Operator) registerKubernetesNode(operation ops.SiteOperation) error {
+func (o *Operator) registerKubernetesNode(ctx context.Context, operation ops.SiteOperation) error {
 	client, err := o.GetKubeClient()
 	if err != nil {
 		return trace.Wrap(err)
@@ -177,7 +177,7 @@ func (o *Operator) registerKubernetesNode(operation ops.SiteOperation) error {
 			return trace.Wrap(err)
 		}
 
-		err = kubernetes.Retry(context.TODO(), func() error {
+		err = kubernetes.Retry(ctx, func() error {
 			_, err := client.CoreV1().Nodes().Create(&v1.Node{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:   server.KubeNodeID(),
