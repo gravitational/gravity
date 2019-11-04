@@ -1,6 +1,6 @@
 IMAGEURL := https://cloud-images.ubuntu.com/releases/xenial/release/ubuntu-16.04-server-cloudimg-amd64-disk1.img
 CPU_COUNT ?= 1
-GRAVITY_DIR_SIZE ?= 12000000000
+DISK_SIZE ?= 15000000000
 OS ?= ubuntu
 ANSIBLE_EXTRA_VARS ?=
 NODES_COUNT ?= 3
@@ -11,7 +11,7 @@ endif
 
 IMAGENAME := $(shell basename $(IMAGEURL))
 TF_VARIABLES := TF_VAR_image_name=$(IMAGENAME) TF_VAR_cpu_count=$(CPU_COUNT)\
-	TF_VAR_gravity_dir_size=$(GRAVITY_DIR_SIZE) TF_VAR_username=$(OS) TF_VAR_nodes_count=$(NODES_COUNT)
+	TF_VAR_disk_size=$(DISK_SIZE) TF_VAR_username=$(OS) TF_VAR_nodes_count=$(NODES_COUNT)
 
 .PHONY: all
 all: apply install
