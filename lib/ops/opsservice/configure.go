@@ -101,6 +101,7 @@ func (o *Operator) ConfigurePackages(req ops.ConfigurePackagesRequest) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+
 	if operation.Type == ops.OperationInstall {
 		err = site.configurePackages(ctx, req)
 	} else {
@@ -114,6 +115,13 @@ func (o *Operator) ConfigurePackages(req ops.ConfigurePackagesRequest) error {
 				trace.DebugReport(errRemove))
 		}
 		return trace.Wrap(err)
+	}
+
+	if operation.Type == ops.OperationExpand {
+		err = o.registerKubernetesNode(*operation)
+		if err != nil {
+			return trace.Wrap(err)
+		}
 	}
 	return nil
 }
@@ -970,7 +978,7 @@ func (s *site) getPlanetConfig(config planetConfig) (args []string, err error) {
 	if len(kubeletArgs) > 0 {
 		args = append(args, fmt.Sprintf("--kubelet-options=%v", strings.Join(kubeletArgs, " ")))
 	}
-	
+
 	mounts, err := GetMounts(manifest, node.Server)
 	if err != nil {
 		return nil, trace.Wrap(err)

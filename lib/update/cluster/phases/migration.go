@@ -176,8 +176,11 @@ func (p *phaseUpdateLabels) Execute(ctx context.Context) error {
 	for _, server := range p.Servers {
 		labels := map[string]string{
 			defaults.KubernetesAdvertiseIPLabel: server.AdvertiseIP,
+			defaults.KubernetesHostnameLabel:    server.KubeNodeID(),
+			defaults.KubernetesArchLabel:        "amd64", // Only amd64 is currently supported
+			defaults.KubernetesOSLabel:          "linux", // Only linux is currently supported
 		}
-		p.Infof("Update labels on %v.", server)
+		p.WithField("labels", labels).Infof("Update labels on %v.", server)
 		err := libkubernetes.UpdateLabels(ctx, p.Client.CoreV1().Nodes(), server.KubeNodeID(), labels)
 		if err != nil {
 			return trace.Wrap(err)

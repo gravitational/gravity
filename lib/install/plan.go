@@ -79,6 +79,7 @@ func (r *Planner) GetOperationPlan(operator ops.Operator, cluster ops.Site, oper
 	// perform post system install tasks such as waiting for planet
 	// to start up, creating RBAC resources, etc.
 	builder.AddWaitPhase(plan)
+	builder.AddRegisterNodesPhase(plan)
 	builder.AddRBACPhase(plan)
 	builder.AddCorednsPhase(plan)
 

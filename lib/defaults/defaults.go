@@ -660,14 +660,32 @@ const (
 	// MaxRouterIdleConnsPerHost defines tha maximum number of idle connections for "opsroute" transport
 	MaxRouterIdleConnsPerHost = 5
 
-	// KubernetesHostnameLabel is the name of kubernetes label what contains host's IP
-	KubernetesHostnameLabel = "kubernetes.io/hostname"
-
 	// KubernetesRoleLabel is the Kubernetes node label with system role
 	KubernetesRoleLabel = "gravitational.io/k8s-role"
 
 	// KubernetesAdvertiseIPLabel is the kubernetes node label of the advertise IP address
 	KubernetesAdvertiseIPLabel = "gravitational.io/advertise-ip"
+
+	// KubernetesNodeRoleLabelFormat is the kubernetes node label shown in `kubectl get nodes`
+	KubernetesNodeRoleLabelFormat = "node-role.kubernetes.io/%v"
+
+	//
+	// Kubernetes Well Known Labels
+	// https://kubernetes.io/docs/reference/kubernetes-api/labels-annotations-taints/
+	//
+
+	// KubernetesArchLabel is the kubernetes well-known label for arch
+	KubernetesArchLabel = "kubernetes.io/arch"
+
+	// KubernetesOSLabel is the kubernetes well known label for os
+	KubernetesOSLabel = "kubernetes.io/os"
+
+	// KubernetesHostnameLabel is the name of kubernetes well-known label what contains host's IP
+	KubernetesHostnameLabel = "kubernetes.io/hostname"
+
+	//
+	//
+	//
 
 	// RunLevelLabel is the Kubernetes node taint label representing a run-level
 	RunLevelLabel = "gravitational.io/runlevel"

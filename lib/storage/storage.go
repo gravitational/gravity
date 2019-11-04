@@ -1607,6 +1607,25 @@ func (s *Server) IsMaster() bool {
 	return s.ClusterRole == string(schema.ServiceRoleMaster)
 }
 
+// GetNodeLabels returns a consistent set of labels that should be applied to the node
+func (s *Server) GetNodeLabels(profileLabels map[string]string) map[string]string {
+	labels := map[string]string{
+		defaults.KubernetesAdvertiseIPLabel:                         s.AdvertiseIP,
+		defaults.KubernetesRoleLabel:                                s.ClusterRole,
+		defaults.KubernetesHostnameLabel:                            s.KubeNodeID(),
+		defaults.KubernetesArchLabel:                                "amd64", //Only amd64 is currently supported
+		defaults.KubernetesOSLabel:                                  "linux", // Only linux is currently supported
+		fmt.Sprintf(defaults.KubernetesNodeRoleLabelFormat, s.Role): s.Role,
+	}
+	for k, v := range profileLabels {
+		// labels in the profile shouldn't override our default labels
+		if _, ok := labels[k]; !ok {
+			labels[k] = v
+		}
+	}
+	return labels
+}
+
 // Strings formats this server as readable text
 func (s Server) String() string {
 	return fmt.Sprintf("Server(AdvertiseIP=%v, Hostname=%v, Role=%v, ClusterRole=%v)",

@@ -18,6 +18,7 @@ package kubernetes
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/storage"
@@ -27,7 +28,7 @@ import (
 	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -124,7 +125,8 @@ func GetNode(client *kubernetes.Clientset, server storage.Server) (*v1.Node, err
 	}
 	if len(nodes.Items) == 0 {
 		return nil, trace.NotFound(
-			"could not find a Kubernetes node for %v", server)
+			"could not find a Kubernetes node for %v", server).
+			AddField("label", fmt.Sprintf("%v=%v", defaults.KubernetesHostnameLabel, server.KubeNodeID()))
 	}
 	if len(nodes.Items) > 1 {
 		return nil, trace.BadParameter(
