@@ -1,4 +1,4 @@
-IMAGEURL := https://cloud-images.ubuntu.com/releases/xenial/release/ubuntu-16.04-server-cloudimg-amd64-disk1.img
+IMAGEURL := https://cloud-images.ubuntu.com/releases/bionic/release/ubuntu-18.04-server-cloudimg-amd64.img
 CPU_COUNT ?= 1
 DISK_SIZE ?= 15000000000
 OS ?= ubuntu
@@ -6,7 +6,7 @@ ANSIBLE_EXTRA_VARS ?=
 NODES_COUNT ?= 3
 
 ifeq ($(OS), centos)
-	IMAGEURL=https://cloud.centos.org/centos/7/images/CentOS-7-x86_64-GenericCloud-1808.qcow2
+	IMAGEURL=https://cloud.centos.org/centos/7/images/CentOS-7-x86_64-GenericCloud-1907.qcow2
 endif
 
 IMAGENAME := $(shell basename $(IMAGEURL))

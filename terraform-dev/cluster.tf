@@ -1,11 +1,11 @@
 variable "image_name" {
   type = "string"
-  default = "ubuntu-16.04-server-cloudimg-amd64-disk1.img"
+  default = "ubuntu-18.04-server-cloudimg-amd64.img"
 }
 
 variable "disk_size" {
   type = "string"
-  default = "40000000000"
+  default = "15000000000"
 }
 
 variable "memory_size" {
@@ -47,7 +47,6 @@ resource "libvirt_network" "vm_network" {
    }
 }
 
-# 40 GB volume for root disk
 resource "libvirt_volume" "root" {
   name = "root-disk-${count.index}.qcow2"
   base_volume_id = "${element(libvirt_volume.os-qcow2.*.id, count.index)}"
@@ -58,12 +57,12 @@ resource "libvirt_volume" "root" {
 
 # Use CloudInit to add our ssh-key to the instance
 resource "libvirt_cloudinit_disk" "commoninit" {
-  name           = "commoninit-${count.index}.iso"
-  user_data = "${templatefile("cloudinit.cfg", {
+  name      = "commoninit-${count.index}.iso"
+  user_data = templatefile("cloudinit.cfg", {
             ip_address = "172.28.128.${count.index+3}",
             hostname = "telekube${count.index}"
-  })}"
-  count = "${var.nodes_count}"
+            })
+  count     = "${var.nodes_count}"
 }
 
 # Create the machine
