@@ -805,6 +805,12 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 		return exportRuntimeJournal(localEnv, *g.SystemExportRuntimeJournalCmd.OutputFile)
 	case g.SystemStreamRuntimeJournalCmd.FullCommand():
 		return streamRuntimeJournal(localEnv)
+	case g.SystemRestoreFilecontextsCmd.FullCommand():
+		return restoreFilecontexts(localEnv, *g.SystemRestoreFilecontextsCmd.Path)
+	case g.SystemRunCommandFromJailCmd.FullCommand():
+		return execFromJail(localEnv,
+			*g.SystemRunCommandFromJailCmd.Path,
+			*g.SystemRunCommandFromJailCmd.Args)
 	case g.GarbageCollectCmd.FullCommand():
 		return garbageCollect(localEnv, *g.GarbageCollectCmd.Manual, *g.GarbageCollectCmd.Confirmed)
 	case g.SystemGCJournalCmd.FullCommand():

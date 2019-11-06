@@ -674,6 +674,13 @@ func RegisterCommands(app *kingpin.Application) *Application {
 
 	g.SystemStreamRuntimeJournalCmd.CmdClause = g.SystemCmd.Command("stream-runtime-journal", "Stream runtime journal to stdout").Hidden()
 
+	g.SystemRestoreFilecontextsCmd.CmdClause = g.SystemCmd.Command("restore-fcontext", "Restore file contexts on a SELinux-enabled system").Hidden()
+	g.SystemRestoreFilecontextsCmd.Path = g.SystemRestoreFilecontextsCmd.Arg("path", "Path to restore file contexts").Required().String()
+
+	g.SystemRunCommandFromJailCmd.CmdClause = g.SystemCmd.Command("exec-jail", "Run command in a jail environment").Interspersed(false).Hidden()
+	g.SystemRunCommandFromJailCmd.Path = g.SystemRunCommandFromJailCmd.Flag("path", "Path to use as new root").Required().String()
+	g.SystemRunCommandFromJailCmd.Args = g.SystemRunCommandFromJailCmd.Arg("args", "Command and any arguments").Strings()
+
 	// pruning cluster resources
 	g.GarbageCollectCmd.CmdClause = g.Command("gc", "Prune cluster resources")
 	g.GarbageCollectCmd.Manual = g.GarbageCollectCmd.Flag("manual", "Do not start the operation automatically").Short('m').Bool()

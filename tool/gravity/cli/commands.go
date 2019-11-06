@@ -292,6 +292,11 @@ type Application struct {
 	SystemExportRuntimeJournalCmd SystemExportRuntimeJournalCmd
 	// SystemStreamRuntimeJournalCmd streams contents of the runtime journal to a file
 	SystemStreamRuntimeJournalCmd SystemStreamRuntimeJournalCmd
+	// SystemRestoreFilecontextsCmd restores file contexts of files in the specified directory
+	// on a SELinux-enabled system
+	SystemRestoreFilecontextsCmd SystemRestoreFilecontextsCmd
+	// SystemRunCommandFromJailCmd executes a command in a jail environment
+	SystemRunCommandFromJailCmd SystemRunCommandFromJailCmd
 	// SystemGCJournalCmd cleans up stale journal files
 	SystemGCJournalCmd SystemGCJournalCmd
 	// SystemGCPackageCmd removes unused packages
@@ -1573,6 +1578,24 @@ type SystemExportRuntimeJournalCmd struct {
 // SystemStreamRuntimeJournalCmd streams contents of the runtime journal
 type SystemStreamRuntimeJournalCmd struct {
 	*kingpin.CmdClause
+}
+
+// SystemRestoreFilecontextsCmd restores file contexts in the specified path
+// on a SELinux-enabled system
+type SystemRestoreFilecontextsCmd struct {
+	*kingpin.CmdClause
+	// Path specifies the root directory to restore contexts in
+	Path *string
+}
+
+// SystemRunCommandFromJailCmd executes the specified command in a new jail environment
+// with given Path set as new root directory
+type SystemRunCommandFromJailCmd struct {
+	*kingpin.CmdClause
+	// Path specifies the root directory to restore contexts in
+	Path *string
+	// Args specifies the command and any arguments
+	Args *[]string
 }
 
 // SystemGCJournalCmd manages cleanup of journal files

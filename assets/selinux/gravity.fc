@@ -8,13 +8,24 @@
 
 /var/run/planet\.socket	-s	gen_context(system_u:object_r:gravity_var_run_t,s0)
 /run/planet\.socket	-s	gen_context(system_u:object_r:gravity_var_run_t,s0)
+/var/run/dns\.env	--	gen_context(system_u:object_r:gravity_var_run_t,s0)
+/run/dns\.env	--	gen_context(system_u:object_r:gravity_var_run_t,s0)
 
 # Planet (in the context of the container)
 /usr/bin/planet	-- gen_context(system_u:object_r:gravity_container_exec_t,s0)
+/var/lib/gravity/local/packages/unpacked/gravitational\.io(/.*)/rootfs/usr/bin/planet	-- gen_context(system_u:object_r:gravity_container_exec_t,s0)
 /usr/bin/registry -- gen_context(system_u:object_r:container_runtime_exec_t,s0)
-
-/var/lib/gravity/planet	 -d gen_context(system_u:object_r:gravity_container_home_t,s0)
 /var/lib/gravity/planet(/.*)	 gen_context(system_u:object_r:gravity_container_home_t,s0)
+/var/lib/gravity/local/packages/unpacked/gravitational\.io(/.*)/rootfs/var/lib/gravity(/.*)?	gen_context(system_u:object_r:gravity_container_home_t,s0)
+
+/etc/cni(/.*)?	gen_context(system_u:object_r:gravity_container_home_t,s0)
+/var/lib/gravity/local/packages/unpacked/gravitational\.io(/.*)/rootfs/etc/cni(/.*)?	gen_context(system_u:object_r:gravity_container_home_t,s0)
+/var/state(/.*)?		gen_context(system_u:object_r:gravity_container_home_t,s0)
+/var/lib/gravity/local/packages/unpacked/gravitational\.io(/.*)/rootfs/var/state(/.*)?	gen_context(system_u:object_r:gravity_container_home_t,s0)
+# FIXME: remove once https://github.com/gravitational/gravity/pull/759 has been backported to 6.1.x
+/etc/systemd/system/docker.service.d/99-docker-promisc.conf -- gen_context(system_u:object_r:gravity_unit_file_t,s0)
+/var/lib/gravity/local/packages/unpacked/gravitational\.io(/.*)/rootfs/etc/systemd/system/docker.service.d/99-docker-promisc.conf -- gen_context(system_u:object_r:gravity_unit_file_t,s0)
+
 # Docker
 /var/lib/gravity/planet/registry(/.*)?	gen_context(system_u:object_r:container_var_lib_t,s0)
 /var/lib/gravity/planet/docker(/.*)	gen_context(system_u:object_r:container_var_lib_t,s0)

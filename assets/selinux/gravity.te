@@ -7,7 +7,8 @@ gen_require(`
     syslogd_var_run_t, journalctl_t,
     sysctl_net_t, sysctl_net_t;
   type cgroup_t, unlabeled_t, root_t, modules_object_t, tmpfs_t, sysfs_t, devpts_t,
-    kmsg_device_t, usr_t;
+    kmsg_device_t, usr_t, selinux_config_t, lib_t, machineid_t, unconfined_t, systemd_logind_t,
+    syslogd_t, systemd_tmpfiles_t, systemd_sysctl_t, rpcbind_t, auditd_t, audisp_t;
   class passwd rootok;
 ')
 
@@ -114,7 +115,7 @@ role gravity_roles types gravity_container_t;
 #
 
 allow gravity_t self:fifo_file rw_fifo_file_perms;
-allow gravity_t self:process setrlimit;
+allow gravity_t self:process { setrlimit setpgid ptrace };
 allow gravity_t self:tcp_socket { accept listen };
 
 allow gravity_t gravity_exec_t:file { unlink };
@@ -128,9 +129,9 @@ corecmd_exec_bin(gravity_t)
 seutil_exec_setfiles(gravity_t)
 # lsblk access /sys/dev/block
 dev_read_sysfs(gravity_t)
-# allow gravity to install itself into /usr/bin
+# allow gravity to install itself into /usr/bin and run executables
 allow gravity_t bin_t:dir { add_name write remove_name };
-allow gravity_t bin_t:file { create open write setattr rename unlink };
+allow gravity_t bin_t:file { create open write setattr rename unlink entrypoint };
 # allow to create/remove symlinks in /usr/bin/
 allow gravity_t bin_t:lnk_file { unlink create };
 # search through user's home to be able to read installer content
@@ -154,8 +155,6 @@ gravity_container_run(gravity_t, gravity_roles)
 # FIXME
 allow gravity_t gravity_container_exec_t:file manage_file_perms;
 
-#container_runtime_exec(gravity_t)
-container_runtime_run(gravity_t, gravity_roles)
 container_manage_lib_files(gravity_t)
 container_manage_lib_dirs(gravity_t)
 container_manage_share_files(gravity_t)
@@ -232,10 +231,13 @@ manage_sock_files_pattern(gravity_t, gravity_var_run_t, gravity_var_run_t)
 
 filetrans_pattern(gravity_t, gravity_home_t, gravity_unit_file_t, { file }, "gravity-installer.service")
 filetrans_pattern(gravity_t, gravity_home_t, gravity_unit_file_t, { file }, "gravity-agent.service")
-filetrans_pattern(gravity_t, systemd_unit_file_t, gravity_unit_file_t, { file lnk_file })
+#filetrans_pattern(gravity_t, systemd_unit_file_t, gravity_unit_file_t, { file lnk_file })
+systemd_unit_file_filetrans(gravity_t, gravity_unit_file_t, { file lnk_file })
 manage_files_pattern(gravity_t, gravity_unit_file_t, gravity_unit_file_t)
 allow gravity_t gravity_unit_file_t:file rw_file_perms;
 allow gravity_t gravity_unit_file_t:service manage_service_perms;
+allow gravity_container_t gravity_unit_file_t:file rw_file_perms;
+allow gravity_container_t gravity_unit_file_t:service manage_service_perms;
 
 systemd_exec_systemctl(gravity_t)
 systemd_create_unit_file_lnk(gravity_t)
@@ -251,6 +253,7 @@ corenet_tcp_connect_all_unreserved_ports(gravity_t)
 corenet_tcp_bind_all_unreserved_ports(gravity_t)
 corenet_udp_bind_all_unreserved_ports(gravity_t)
 
+corenet_tcp_connect_http_port(gravity_container_t)
 corenet_tcp_bind_generic_node(gravity_container_t)
 corenet_udp_bind_generic_node(gravity_container_t)
 corenet_tcp_connect_all_unreserved_ports(gravity_container_t)
@@ -342,7 +345,7 @@ allow gravity_container_t tmpfs_t:chr_file { open create getattr setattr write }
 # Failed to start parent process. error:[close exec fds: ensure /proc/self/fd is on procfs: permission denied]
 allow gravity_container_t proc_t:filesystem getattr;
 # Failed to start parent process. error:[setup user: operation not permitted]
-allow gravity_container_t self:capability { setgid setuid };
+allow gravity_container_t self:capability { setgid setuid sys_ptrace };
 # Okt 28 18:24:30 dmitri-centos-node-0 gravity[25565]: standard_init_linux.go:190: open exec fifo caused "permission denied"
 # Okt 28 18:24:30 dmitri-centos-node-0 gravity[25565]: [ERROR]: failed to initialize container factory
 # Okt 28 18:24:30 dmitri-centos-node-0 gravity[25565]: [ERROR]: container_linux.go:323: open exec fifo for reading caused "open /etc/planet/53c53f50-3ccd-4f59-9e6b-668a90d802fb/exec.fifo: permission denied"
@@ -426,6 +429,10 @@ files_create_var_run_dirs(gravity_container_t)
 allow gravity_container_t var_run_t:dir setattr;
 files_var_filetrans(gravity_container_t, gravity_container_var_run_t, { dir }, "planet")
 files_pid_filetrans(gravity_container_t, gravity_container_var_run_t, { sock_file }, "planet.socket")
+files_pid_filetrans(gravity_container_t, gravity_container_var_run_t, { file }, "dns.env")
+# FIXME: remove once https://github.com/gravitational/gravity/pull/759 has been backported to 6.1.x
+systemd_unit_file_filetrans(gravity_container_t, gravity_unit_file_t, { file }, "99-docker-promisc.conf")
+files_etc_filetrans(gravity_container_t, gravity_container_home_t, { dir }, "cni")
 gravity_container_stream_connect(gravity_t)
 
 # FIXME: wrap these into interfaces (planet_manage_share_files, planet_manage_share_dirs)
@@ -684,3 +691,156 @@ allow gravity_container_t sysfs_t:dir mounton;
 allow gravity_container_t systemd_systemctl_exec_t:file execute_no_trans;
 allow gravity_container_t security_t:filesystem remount;
 allow gravity_container_t gravity_container_bin_t:file entrypoint;
+
+# gravity uninstall (planet/docker/overlay2/backingXYZDev)
+allow gravity_t container_share_t:blk_file { getattr unlink };
+
+# allow mounting of /etc/selinux
+allow gravity_t self:capability { sys_chroot sys_admin };
+# FIXME: use macros
+allow gravity_t selinux_config_t:dir { read mounton };
+fs_mount_all_fs(gravity_t)
+fs_unmount_all_fs(gravity_t)
+allow gravity_t security_t:filesystem unmount;
+# allow relabelfrom on rootfs during installation to comply with SELinux constraint
+domain_obj_id_change_exemption(gravity_t)
+
+allow gravity_t self:netlink_audit_socket create;
+allow setfiles_t gravity_home_t:file read;
+seutil_read_file_contexts(gravity_t)
+seutil_domtrans_setfiles(gravity_t)
+
+# gravity uninstall after relabelling
+allow gravity_t init_exec_t:file { getattr unlink };
+allow gravity_t setfiles_exec_t:file { unlink relabelfrom relabelto };
+allow gravity_t systemd_systemctl_exec_t:file unlink;
+# allow restorecon to access libraries before they're properly labeled
+allow setfiles_t gravity_home_t:file { open getattr setattr read execute };
+# allow chown on rootfs/run (??)
+allow gravity_t var_run_t:dir setattr;
+
+# allow planet to write local /etc/passwd now that's labeled
+allow gravity_container_t passwd_file_t:file write;
+allow gravity_container_t systemd_unit_file_t:dir search;
+# open /var/lib/gravity/local/packages/unpacked/gravitational.io/planet/6.1.8-11505-6-gd050591/rootfs/etc/systemd/system/docker.service.d/99-docker-promisc.conf: permission denied
+allow gravity_container_t etc_t:file { setattr getattr open read write unlink rename };
+# open /var/lib/gravity/local/packages/unpacked/gravitational.io/planet/6.1.8-11505-6-gd050591/rootfs/etc/hosts: permission denied
+allow gravity_container_t net_conf_t:file { write setattr };
+# open /var/lib/gravity/local/packages/unpacked/gravitational.io/planet/6.1.8-11505-6-gd050591/rootfs/etc/hostname: permission denied
+#allow gravity_container_t hostname_etc_t:file { read write };
+systemd_hostnamed_manage_config(gravity_container_t)
+# starting container process caused "process_linux.go:449: container init caused 'mod keyring permissions: permission denied'"
+allow gravity_container_t self:key { view setattr };
+# allow mount of rootfs/lib/modules
+allow gravity_container_t lib_t:dir mounton;
+#modutils_read_module_config
+allow gravity_container_t lib_t:dir mounton;
+# allow mount of rootfs/run (tmpfs)
+allow gravity_container_t var_run_t:dir mounton;
+# allow mount of rootfs/tmp (tmpfs)
+allow gravity_container_t tmp_t:dir mounton;
+# allow mount of /var/lib/gravity/planet/log
+allow gravity_container_t var_log_t:dir mounton;
+# allow mount of resolv.gravity.conf
+# FIXME: relabel to a gravity-specific type
+allow gravity_container_t net_conf_t:file mounton;
+# FIXME: consequence of systemd starting under wrong context
+allow gravity_container_t tmpfs_t:filesystem remount;
+allow gravity_container_t tmpfs_t:file { getattr unlink };
+allow gravity_container_t tmpfs_t:dir { rmdir read remove_name };
+allow gravity_container_t tmpfs_t:lnk_file unlink;
+allow gravity_container_t tmpfs_t:sock_file create;
+allow gravity_container_t kernel_t : system module_request;
+fs_mount_cgroup(gravity_container_t)
+fs_getattr_cgroup(gravity_container_t)
+# FIXME: systemd running as gravity_container_t??
+allow gravity_container_t machineid_t:file write;
+allow gravity_container_t self:netlink_route_socket { setopt getopt create };
+# allow execute on systemd
+#init_access_check(gravity_container_t)
+init_exec_script_files(gravity_container_t)
+corecmd_exec_shell(gravity_container_t)
+corecmd_exec_bin(gravity_container_t)
+# allow systemd inside planet to start bash??
+allow init_t shell_exec_t:file entrypoint;
+
+# allow starting bash as unconfined_t
+allow gravity_container_t unconfined_t:key create;
+allow gravity_container_t unconfined_t:process transition;
+
+# allow planet etcd init to create a new symlink??
+allow gravity_container_t bin_t:dir { write add_name remove_name };
+allow gravity_container_t bin_t:lnk_file { create unlink };
+
+container_runtime_exec(gravity_t)
+#allow gravity_container_t container_runtime_exec_t:file { execute getattr };
+dbus_exec_dbusd(gravity_t)
+allow gravity_container_t http_port_t:tcp_socket name_connect;
+allow gravity_container_t init_t:system status;
+
+# enable gravity system enable-promisc-mode docker0
+# FIXME: remove once the command/docker bridge has been removed
+allow gravity_t self:capability { net_admin net_raw };
+modutils_exec_insmod(gravity_t)
+kernel_request_load_module(gravity_t)
+allow gravity_t self:rawip_socket { getopt setopt create };
+
+# FIXME: ??
+allow gravity_container_t container_runtime_exec_t:file { execute getattr };
+
+allow gravity_container_t dbusd_exec_t:file execute;
+allow init_t systemd_logind_t:process2 nnp_transition;
+allow systemd_logind_t gravity_home_t:dir search;
+allow systemd_logind_t gravity_home_t:lnk_file read;
+allow gravity_t self:netlink_route_socket nlmsg_write;
+allow init_t syslogd_t:process2 nnp_transition;
+allow systemd_tmpfiles_t init_exec_t:file execute;
+# systemctl start systemd-journald
+allow syslogd_t gravity_home_t:dir search;
+allow syslogd_t gravity_home_t:lnk_file read;
+allow syslogd_t init_exec_t:file { read open getattr execute };
+allow syslogd_t gravity_home_t:lnk_file getattr;
+allow syslogd_t init_var_run_t:file read;
+allow syslogd_t init_var_run_t:lnk_file read;
+# allow auditd inside the container to load libraries
+allow auditd_t gravity_home_t:dir search;
+allow auditd_t gravity_home_t:lnk_file read;
+allow audisp_t gravity_home_t:dir search;
+#allow audisp_t gravity_home_t:lnk_file read;
+allow auditd_t audisp_t:process { noatsecure rlimitinh siginh }; # ??
+# allow rpcbind inside the container to load libraries
+allow rpcbind_t gravity_home_t:dir search;
+allow rpcbind_t gravity_home_t:lnk_file read;
+# allow dbus daemon inside the container to load libraries
+allow system_dbusd_t gravity_home_t:dir search;
+allow system_dbusd_t gravity_home_t:lnk_file read;
+# allow systemd-sysctl inside the container to load libraries
+allow systemd_sysctl_t gravity_home_t:dir search;
+allow systemd_sysctl_t gravity_home_t:lnk_file { read getattr };
+# allow sysctl_t to load /usr/lib/systemd/libsystemd-shared-241.so
+allow systemd_sysctl_t init_exec_t:file { read open getattr execute };
+
+allow auditd_t gravity_container_devpts_t:chr_file { read write };
+allow system_dbusd_t gravity_container_devpts_t:chr_file { read write };
+
+# FIXME: restarting container requires relabeling of /run - otherwise no services will start
+
+# FIXME: ??
+#allow gravity_container_t unconfined_t:process { noatsecure rlimitinh siginh };
+#allow gravity_t gravity_container_t:process { noatsecure rlimitinh siginh };
+
+# SELinux is preventing /usr/bin/etcd-v3.3.12 from bind access on the netlink_route_socket labeled gravity_container_t. For complete SELinux messages run: sealert -l b485526a-f8fd-41da-8da7-60da9ffb9e64
+
+# allow 'planet agent' to start docker (for docker info)
+# FIXME: use socket and client API?
+allow gravity_container_t container_runtime_exec_t:file { open read execute_no_trans };
+allow gravity_container_t dbusd_exec_t:file { open read execute_no_trans };
+# misc planet agent??
+allow gravity_container_t init_var_run_t:file { read open getattr };
+allow gravity_container_t self:netlink_route_socket { bind write nlmsg_read };
+allow gravity_container_t self:netlink_route_socket { read getattr };
+container_stream_connect(gravity_container_t)
+allow gravity_container_t systemd_unit_file_t:service status;
+
+# FIXME: workaround planet having to create safewriteXYZ files in /run
+allow gravity_container_t var_run_t:file { setattr open write read unlink rename };
