@@ -2106,7 +2106,7 @@ transient error
 #### Improvements
 
 * Upgrade to Teleport Enterprise 2.3.
-* Add support for advanced RBAC for cluster access via Ops Centers, see [Cluster RBAC section](/manage/#controlling-access-to-clusters)
+* Add support for advanced RBAC for cluster access via Gravity Hub, see [Cluster RBAC section](/hub/#accessing-gravity-hub)
   for more information.
 
 ### 4.32.0
