@@ -67,7 +67,7 @@ chart and the Alpine image layers.
 ### Publish an Application Image
 
 !!! note:
-    Publishing applications requires a [Gravity Hub](/docs/hub/) and is
+    Publishing applications requires a [Gravity Hub](/hub/) and is
     available only in the Enterprise edition of Gravity.
 
 A built application image can be published to an Gravity Hub. This allows the
