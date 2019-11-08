@@ -848,12 +848,7 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			*g.ResourceGetCmd.Format,
 			*g.ResourceGetCmd.User)
 	case g.RPCAgentDeployCmd.FullCommand():
-		updateEnv, err := g.NewUpdateEnv()
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		defer updateEnv.Close()
-		return rpcAgentDeploy(localEnv, updateEnv,
+		return rpcAgentDeploy(localEnv,
 			*g.RPCAgentDeployCmd.LeaderArgs,
 			*g.RPCAgentDeployCmd.NodeArgs)
 	case g.RPCAgentInstallCmd.FullCommand():
@@ -869,10 +864,13 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 	case g.RPCAgentShutdownCmd.FullCommand():
 		return rpcAgentShutdown(localEnv)
 	case g.CheckCmd.FullCommand():
-		return checkManifest(localEnv,
-			*g.CheckCmd.ManifestFile,
-			*g.CheckCmd.Profile,
-			*g.CheckCmd.AutoFix)
+		return executePreflightChecks(localEnv, preflightChecksConfig{
+			manifestPath: *g.CheckCmd.ManifestFile,
+			imagePath:    *g.CheckCmd.ImagePath,
+			profileName:  *g.CheckCmd.Profile,
+			autoFix:      *g.CheckCmd.AutoFix,
+			timeout:      *g.CheckCmd.Timeout,
+		})
 	case g.TopCmd.FullCommand():
 		return top(localEnv,
 			*g.TopCmd.Interval,
