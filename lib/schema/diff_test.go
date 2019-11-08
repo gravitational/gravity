@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,34 +14,31 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package phases
+package schema
 
 import (
-	"github.com/gravitational/gravity/lib/schema"
-
 	. "gopkg.in/check.v1"
 )
 
-type UpdateSuite struct {
-}
+type DiffSuite struct{}
 
-var _ = Suite(&UpdateSuite{})
+var _ = Suite(&DiffSuite{})
 
-func (_ *UpdateSuite) TestDiffsPorts(c *C) {
+func (_ *DiffSuite) TestDiffsPorts(c *C) {
 	var testCases = []struct {
-		old, new schema.Requirements
+		old, new Requirements
 		tcp      []int
 		udp      []int
 		comment  string
 	}{
 		{
-			old: schema.Requirements{
-				Network: schema.Network{Ports: []schema.Port{
+			old: Requirements{
+				Network: Network{Ports: []Port{
 					{Protocol: "tcp", Ranges: []string{"3000-3099"}},
 					{Protocol: "udp", Ranges: []string{"3200"}},
 				}}},
-			new: schema.Requirements{
-				Network: schema.Network{Ports: []schema.Port{
+			new: Requirements{
+				Network: Network{Ports: []Port{
 					{Protocol: "tcp", Ranges: []string{"3000-3199"}},
 					{Protocol: "udp", Ranges: []string{"3200", "3202"}},
 				}}},
@@ -50,13 +47,13 @@ func (_ *UpdateSuite) TestDiffsPorts(c *C) {
 			comment: "compute difference",
 		},
 		{
-			old: schema.Requirements{
-				Network: schema.Network{Ports: []schema.Port{
+			old: Requirements{
+				Network: Network{Ports: []Port{
 					{Protocol: "tcp", Ranges: []string{"3000-3009", "2099"}},
 					{Protocol: "udp", Ranges: []string{"3200", "1099"}},
 				}}},
-			new: schema.Requirements{
-				Network: schema.Network{Ports: []schema.Port{
+			new: Requirements{
+				Network: Network{Ports: []Port{
 					{Protocol: "tcp", Ranges: []string{"3000-3009", "3199"}},
 					{Protocol: "udp", Ranges: []string{"3200", "3201"}},
 				}}},
@@ -67,66 +64,66 @@ func (_ *UpdateSuite) TestDiffsPorts(c *C) {
 	}
 
 	for _, testCase := range testCases {
-		old := schema.Manifest{
-			NodeProfiles: schema.NodeProfiles{{Name: "test", Requirements: testCase.old}},
+		old := Manifest{
+			NodeProfiles: NodeProfiles{{Name: "test", Requirements: testCase.old}},
 		}
-		new := schema.Manifest{
-			NodeProfiles: schema.NodeProfiles{{Name: "test", Requirements: testCase.new}},
+		new := Manifest{
+			NodeProfiles: NodeProfiles{{Name: "test", Requirements: testCase.new}},
 		}
 
-		tcp, udp, err := diffPorts(old, new, "test")
+		tcp, udp, err := DiffPorts(old, new, "test")
 		c.Assert(err, IsNil)
 		c.Assert(tcp, DeepEquals, testCase.tcp, Commentf(testCase.comment))
 		c.Assert(udp, DeepEquals, testCase.udp, Commentf(testCase.comment))
 	}
 }
 
-func (_ *UpdateSuite) TestDiffsVolumes(c *C) {
+func (_ *DiffSuite) TestDiffsVolumes(c *C) {
 	var testCases = []struct {
-		old, new []schema.Volume
-		diff     []schema.Volume
+		old, new []Volume
+		diff     []Volume
 		comment  string
 	}{
 		{
-			old: []schema.Volume{
-				schema.Volume{Name: "foo", Path: "/foo"},
+			old: []Volume{
+				Volume{Name: "foo", Path: "/foo"},
 			},
-			new: []schema.Volume{
-				schema.Volume{Name: "foo", Path: "/foo"},
+			new: []Volume{
+				Volume{Name: "foo", Path: "/foo"},
 			},
-			diff:    []schema.Volume{},
+			diff:    []Volume{},
 			comment: "no difference",
 		},
 		{
-			old: []schema.Volume{
-				schema.Volume{Path: "/foo"},
-				schema.Volume{Path: "/bar"},
+			old: []Volume{
+				Volume{Path: "/foo"},
+				Volume{Path: "/bar"},
 			},
-			new: []schema.Volume{
-				schema.Volume{Path: "/foo"},
-				schema.Volume{Path: "/bar"},
+			new: []Volume{
+				Volume{Path: "/foo"},
+				Volume{Path: "/bar"},
 			},
-			diff:    []schema.Volume{},
+			diff:    []Volume{},
 			comment: "no difference based on path",
 		},
 		{
-			old: []schema.Volume{
-				schema.Volume{Name: "foo", Path: "/foo"},
-				schema.Volume{Name: "qux", Path: "/qux"},
+			old: []Volume{
+				Volume{Name: "foo", Path: "/foo"},
+				Volume{Name: "qux", Path: "/qux"},
 			},
-			new: []schema.Volume{
-				schema.Volume{Name: "foo", Path: "/foo"},
-				schema.Volume{Name: "bar", Path: "/bar"},
+			new: []Volume{
+				Volume{Name: "foo", Path: "/foo"},
+				Volume{Name: "bar", Path: "/bar"},
 			},
-			diff: []schema.Volume{
-				schema.Volume{Name: "bar", Path: "/bar"},
+			diff: []Volume{
+				Volume{Name: "bar", Path: "/bar"},
 			},
 			comment: "do not account for volumes found only in old",
 		},
 	}
 
 	for _, testCase := range testCases {
-		diff := diffVolumes(testCase.old, testCase.new)
+		diff := DiffVolumes(testCase.old, testCase.new)
 		c.Assert(diff, DeepEquals, testCase.diff, Commentf(testCase.comment))
 	}
 }

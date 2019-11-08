@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2018-2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -60,6 +60,19 @@ type planBuilder struct {
 	DNSConfig storage.DNSConfig
 }
 
+// AddChecksPhase appends preflight checks phase to the plan.
+func (b *planBuilder) AddChecksPhase(plan *storage.OperationPlan) {
+	plan.Phases = append(plan.Phases, storage.OperationPhase{
+		ID:          ChecksPhase,
+		Description: "Execute preflight checks on the joining node",
+		Data: &storage.OperationPhaseData{
+			Server: &b.JoiningNode,
+			Master: &b.Master,
+		},
+		Requires: []string{StartAgentPhase},
+	})
+}
+
 // AddConfigurePhase appends package configuration phase to the plan
 func (b *planBuilder) AddConfigurePhase(plan *storage.OperationPlan) {
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
@@ -68,6 +81,7 @@ func (b *planBuilder) AddConfigurePhase(plan *storage.OperationPlan) {
 		Data: &storage.OperationPhaseData{
 			ExecServer: &b.JoiningNode,
 		},
+		Requires: []string{ChecksPhase},
 	})
 }
 
@@ -167,7 +181,6 @@ func (b *planBuilder) AddStartAgentPhase(plan *storage.OperationPlan) {
 				OpsCenterURL: fmt.Sprintf("https://%v", b.Peer),
 			},
 		},
-		Requires: []string{SystemPhase},
 	})
 }
 

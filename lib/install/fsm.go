@@ -26,6 +26,7 @@ import (
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/opsclient"
 	"github.com/gravitational/gravity/lib/pack"
+	"github.com/gravitational/gravity/lib/rpc"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -241,7 +242,7 @@ func (f *fsmEngine) GetExecutor(p fsm.ExecutorParams, remote fsm.Remote) (fsm.Ph
 
 // RunCommand executes the phase specified by params on the specified server
 // using the provided runner
-func (f *fsmEngine) RunCommand(ctx context.Context, runner fsm.RemoteRunner, server storage.Server, p fsm.Params) error {
+func (f *fsmEngine) RunCommand(ctx context.Context, runner rpc.RemoteRunner, server storage.Server, p fsm.Params) error {
 	args := []string{"plan", "execute",
 		"--phase", p.PhaseID,
 		"--operation-id", p.OperationID,

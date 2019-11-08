@@ -1953,6 +1953,15 @@ func (r Servers) IsEqualTo(other Servers) bool {
 	return true
 }
 
+// Profiles returns a map of node profiles for these servers.
+func (r Servers) Profiles() map[string]string {
+	result := make(map[string]string, len(r))
+	for _, server := range r {
+		result[server.AdvertiseIP] = server.Role
+	}
+	return result
+}
+
 // FindByIP returns a server with the specified IP
 func (r Servers) FindByIP(ip string) *Server {
 	for _, server := range r {
