@@ -42,7 +42,7 @@ func DetectCluster(env *LocalEnvironment) error {
 		if trace.IsNotFound(err) {
 			return trace.NotFound("no cluster detected")
 		}
-		return trace.Wrap(err)
+		return trace.NewAggregate(err, clusterErr)
 	}
 	// There are local packages: assume partial installation state or
 	// degraded state and log the original error for troubleshooting.
