@@ -57,21 +57,8 @@ interface(`gravity_role',`
   ps_process_pattern($2, gravity_t)
   allow $2 gravity_t:process { ptrace signal_perms };
 
-  # Manage gravity state
-  manage_dirs_pattern($2, gravity_home_t, gravity_home_t)
-  manage_files_pattern($2, gravity_home_t, gravity_home_t)
-  manage_lnk_files_pattern($2, gravity_home_t, gravity_home_t)
-  relabel_dirs_pattern($2, gravity_home_t, gravity_home_t)
-  relabel_files_pattern($2, gravity_home_t, gravity_home_t)
-  relabel_lnk_files_pattern($2, gravity_home_t, gravity_home_t)
-
-  # Manage gravity logs
-  manage_dirs_pattern($2, gravity_log_t, gravity_log_t)
-  manage_files_pattern($2, gravity_log_t, gravity_log_t)
-  manage_lnk_files_pattern($2, gravity_log_t, gravity_log_t)
-  relabel_dirs_pattern($2, gravity_log_t, gravity_log_t)
-  relabel_files_pattern($2, gravity_log_t, gravity_log_t)
-  relabel_lnk_files_pattern($2, gravity_log_t, gravity_log_t)
+  admin_pattern($2, gravity_home_t)
+  admin_pattern($2, gravity_log_t)
 
   # FIXME: figure a way to offload this to a tunable (maybe using attribute-based privileges)
   # See: https://wiki.gentoo.org/wiki/Project:SELinux/Development_policy

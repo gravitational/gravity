@@ -9,7 +9,7 @@ DIR="$( cd "$(dirname "$0")" ; pwd -P )"
 
 function setup_file_contexts {
   # Label the current directory for installer
-  semanage fcontext -a -t gravity_installer_home_t "${DIR}(/.*)?"
+  semanage fcontext -a -t gravity_install_home_t "${DIR}(/.*)?"
   # Label the installer
   semanage fcontext -a -t gravity_exec_t -f f "${DIR}/gravity"
   semanage fcontext -a -t gravity_log_t -f f "${DIR}/gravity-(install|system)\.log"
@@ -21,16 +21,21 @@ function setup_file_contexts {
 }
 
 function restore_file_contexts {
-  semanage fcontext -a -t user_home_t "${DIR}(/.*)?"
+  semanage fcontext -d "${DIR}(/.*)?"
+  semanage fcontext -d "${DIR}/gravity"
+  semanage fcontext -d "${DIR}/gravity-(install|system)\.log"
+  semanage fcontext -d "${DIR}/.gravity"
+  semanage fcontext -d "${DIR}/.gravity/gravity-(installer|agent)\.service"
+  semanage fcontext -d "${DIR}/crashreport(.*)?\.tgz"
   restorecon -Rv "${DIR}"
 }
 
 function setup_ports {
   # https://danwalsh.livejournal.com/10607.html
   # Installer-specific ports
-  semanage port -a -t gravity_installer_port_t -p tcp 61009-61010
-  semanage port -a -t gravity_installer_port_t -p tcp 61022-61025
-  semanage port -a -t gravity_installer_port_t -p tcp 61080
+  semanage port -a -t gravity_install_port_t -p tcp 61009-61010
+  semanage port -a -t gravity_install_port_t -p tcp 61022-61025
+  semanage port -a -t gravity_install_port_t -p tcp 61080
   # Cluster ports
   # Gravity RPC agent
   semanage port -a -t gravity_agent_port_t -p tcp 3012
@@ -62,7 +67,7 @@ function setup_ports {
 }
 
 function remove_ports {
-  semanage port -d -t gravity_installer_port_t -p tcp 61009-61010
+  semanage port -d -t gravity_install_port_t -p tcp 61009-61010
   semanage port -d -p tcp 61022-61025
   semanage port -d -p tcp 61080
   semanage port -d -p tcp 3012
