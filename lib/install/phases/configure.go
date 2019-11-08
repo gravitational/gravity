@@ -88,13 +88,14 @@ func (p *configureExecutor) Execute(ctx context.Context) error {
 // Rollback removes the kubernetes node object that's created by ConfigurePackages
 func (p *configureExecutor) Rollback(ctx context.Context) error {
 	if p.ExecutorParams.Plan.OperationType == ops.OperationExpand {
-		utils.RetryFor(ctx, 15*time.Second, func() error {
+		err := utils.RetryFor(ctx, 15*time.Second, func() error {
 			err := rigging.ConvertError(p.Client.CoreV1().Nodes().Delete(p.ExecutorParams.Phase.Data.Server.KubeNodeID(), &metav1.DeleteOptions{}))
 			if trace.IsNotFound(err) {
 				return nil
 			}
 			return trace.Wrap(err)
 		})
+		return trace.Wrap(err)
 	}
 	return nil
 }
