@@ -1614,7 +1614,7 @@ func (s *Server) GetNodeLabels(profileLabels map[string]string) map[string]strin
 		defaults.KubernetesAdvertiseIPLabel:            s.AdvertiseIP,
 		defaults.KubernetesRoleLabel:                   s.ClusterRole,
 		v1.LabelHostname:                               s.KubeNodeID(),
-		v1.LabelArchStable:                             "amd64", //Only amd64 is currently supported
+		v1.LabelArchStable:                             "amd64", // Only amd64 is currently supported
 		v1.LabelOSStable:                               "linux", // Only linux is currently supported
 		defaults.FormatKubernetesNodeRoleLabel(s.Role): s.Role,
 	}

@@ -45,8 +45,13 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 				config.Runner)
 
 		case strings.HasPrefix(p.Phase.ID, installphases.ConfigurePhase):
+			client, err := getKubeClient(p)
+			if err != nil {
+				return nil, trace.Wrap(err)
+			}
 			return installphases.NewConfigure(p,
-				config.Operator)
+				config.Operator,
+				client)
 
 		case strings.HasPrefix(p.Phase.ID, installphases.BootstrapPhase):
 			return installphases.NewBootstrap(p,

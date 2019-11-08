@@ -23,6 +23,7 @@ import (
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/rigging"
 
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
@@ -187,6 +188,11 @@ func (o *Operator) registerKubernetesNode(ctx context.Context, operation ops.Sit
 					Taints: profile.Taints,
 				},
 			})
+			err = rigging.ConvertError(err)
+			// If we're redoing an operation phase, it's possible the node will already exist
+			if trace.IsAlreadyExists(err) {
+				return nil
+			}
 			return trace.Wrap(err)
 		})
 		if err != nil {

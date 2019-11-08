@@ -91,7 +91,7 @@ func (r *registerNodeExecutor) Execute(ctx context.Context) error {
 	r.Progress.NextStep("Configuring Node")
 	r.Info("Configuring Node.")
 
-	err := utils.Retry(1*time.Second, 10, func() error {
+	err := utils.RetryFor(ctx, 10*time.Second, func() error {
 		_, err := r.Client.CoreV1().Nodes().Create(&v1.Node{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:   r.ExecutorParams.Phase.Data.Server.KubeNodeID(),
