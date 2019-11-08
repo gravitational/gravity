@@ -39,20 +39,23 @@ func DetectCluster(env *LocalEnvironment) error {
 	// Otherwise see if there is a partial state by looking at local packages.
 	err := checkLocalPackages(env)
 	if err != nil {
+		if trace.IsNotFound(err) {
+			return trace.NotFound("no cluster detected")
+		}
 		return trace.Wrap(err)
 	}
 	// There are local packages: assume partial installation state or
 	// degraded state and log the original error for troubleshooting.
 	log.WithError(clusterErr).Warn("Failed to query local cluster.")
 	return trace.BadParameter(`Detected local Gravity state on the node but the cluster is inaccessible.
+
 This usually means one of two things:
 
 * The cluster is partially installed.
 * The cluster is degraded.
 
 To clean up the node from the partial state, run "gravity leave --force".
-Otherwise, run "gravity status" and troubleshoot the degraded cluster.
-`)
+Otherwise, run "gravity status" and troubleshoot the degraded cluster.`)
 }
 
 // checkCluster performs a number of checks to see if there is a running
