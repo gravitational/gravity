@@ -11,7 +11,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 | 6.1.11        | No  | October 31st, 2019   | -                    | 1.15.4             | 3.2.12           |
 | 6.0.10*       | No  | October 17th, 2019   | -                    | 1.14.7             | 3.2.12           |
 | 5.6.8*        | No  | September 18th, 2019 | -                    | 1.14.7             | 3.0.6-gravity    |
-| 5.5.26        | Yes | October 17th, 2019   | September 7th, 2020  | 1.13.11            | 3.0.6-gravity    |
+| 5.5.27        | Yes | November 1st, 2019   | September 7th, 2020  | 1.13.11            | 3.0.6-gravity    |
 | 5.4.10*       | No  | March 26th, 2019     | -                    | 1.13.5             | 2.4.10           |
 | 5.3.9*        | No  | March 7th, 2019      | -                    | 1.12.3             | 2.4.7            |
 | 5.2.16        | Yes | October 11th, 2019   | October 15th, 2019   | 1.11.9             | 2.4.10           |
@@ -384,6 +384,20 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 * Add support for using `helm` directly from host.
 
 ## 5.x Releases
+
+### 5.5.27 (November 1st, 2019)
+
+#### Improvements
+
+* Preflight checks are now executed during join operation ([#843](https://github.com/gravitational/gravity/pull/843)).
+* Update `gravity check` command to support upgrade preflight checks ([#845](https://github.com/gravitational/gravity/pull/845)).
+* Disable unused Docker bridge interface ([#851](https://github.com/gravitational/gravity/pull/851),  [planet#517](https://github.com/gravitational/planet/pull/517)).
+* Update kernel module checker to support 5.0/5.1 Linux kernels ([#851](https://github.com/gravitational/gravity/pull/851), [planet#523](https://github.com/gravitational/planet/pull/523)).
+
+#### Bugfixes
+
+* Fix the issue with application-only (without runtime) upgrades ([#847](https://github.com/gravitational/gravity/pull/847)).
+* Restore `procps` package in the planet container ([#851](https://github.com/gravitational/gravity/pull/851), [planet#525](https://github.com/gravitational/planet/pull/525)).
 
 ### 5.5.26 (October 17th, 2019)
 
@@ -2092,7 +2106,7 @@ transient error
 #### Improvements
 
 * Upgrade to Teleport Enterprise 2.3.
-* Add support for advanced RBAC for cluster access via Ops Centers, see [Cluster RBAC section](/manage/#controlling-access-to-clusters)
+* Add support for advanced RBAC for cluster access via Gravity Hub, see [Cluster RBAC section](/hub/#accessing-gravity-hub)
   for more information.
 
 ### 4.32.0
