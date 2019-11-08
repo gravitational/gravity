@@ -202,12 +202,13 @@ func (s *PlanSuite) TestPlan(c *check.C) {
 		phaseID       string
 		phaseVerifier func(*check.C, storage.OperationPhase)
 	}{
+		{StartAgentPhase, s.verifyStartAgentPhase},
+		{ChecksPhase, s.verifyChecksPhase},
 		{installphases.ConfigurePhase, s.verifyConfigurePhase},
 		{installphases.BootstrapPhase, s.verifyBootstrapPhase},
 		{installphases.PullPhase, s.verifyPullPhase},
 		{PreHookPhase, s.verifyPreHookPhase},
 		{SystemPhase, s.verifySystemPhase},
-		{StartAgentPhase, s.verifyStartAgentPhase},
 		{EtcdBackupPhase, s.verifyEtcdBackupPhase},
 		{EtcdPhase, s.verifyEtcdPhase},
 		{installphases.WaitPhase, s.verifyWaitPhase},
@@ -225,12 +226,24 @@ func (s *PlanSuite) TestPlan(c *check.C) {
 	}
 }
 
+func (s *PlanSuite) verifyChecksPhase(c *check.C, phase storage.OperationPhase) {
+	storage.DeepComparePhases(c, storage.OperationPhase{
+		ID: ChecksPhase,
+		Data: &storage.OperationPhaseData{
+			Server: &s.joiningNode,
+			Master: &s.masterNode,
+		},
+		Requires: []string{StartAgentPhase},
+	}, phase)
+}
+
 func (s *PlanSuite) verifyConfigurePhase(c *check.C, phase storage.OperationPhase) {
 	storage.DeepComparePhases(c, storage.OperationPhase{
 		ID: installphases.ConfigurePhase,
 		Data: &storage.OperationPhaseData{
 			ExecServer: &s.joiningNode,
 		},
+		Requires: []string{ChecksPhase},
 	}, phase)
 }
 
@@ -311,7 +324,6 @@ func (s *PlanSuite) verifyStartAgentPhase(c *check.C, phase storage.OperationPha
 				OpsCenterURL: fmt.Sprintf("https://%v:%v", s.masterNode.AdvertiseIP, defaults.GravitySiteNodePort),
 			},
 		},
-		Requires: []string{SystemPhase},
 	}, phase)
 }
 

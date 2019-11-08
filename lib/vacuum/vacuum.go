@@ -237,7 +237,7 @@ type Config struct {
 	// Servers is the list of cluster servers
 	Servers []storage.Server
 	// Runner specifies the runner for remote commands
-	Runner libfsm.AgentRepository
+	Runner rpc.AgentRepository
 	// RuntimePath is the path to the runtime container's rootfs
 	RuntimePath string
 	// FieldLogger is the logger to use
