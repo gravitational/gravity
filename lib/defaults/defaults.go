@@ -1023,6 +1023,9 @@ const (
 	// InstanceTerminationTimeout is the maximum amount of time to wait
 	// for AWS EC2 instance to terminate
 	InstanceTerminationTimeout = 20 * time.Minute
+
+	// PreflightChecksTimeout is the timeout for preflight checks.
+	PreflightChecksTimeout = 5 * time.Minute
 )
 
 var (
