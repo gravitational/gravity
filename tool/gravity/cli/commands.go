@@ -703,6 +703,10 @@ type CheckCmd struct {
 	Profile *string
 	// AutoFix enables automatic fixing of some failed checks
 	AutoFix *bool
+	// ImagePath is path to unpacked cluster image
+	ImagePath *string
+	// Timeout is the time allotted to run preflight checks
+	Timeout *time.Duration
 }
 
 // AppCmd combines subcommands for app service
