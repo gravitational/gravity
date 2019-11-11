@@ -210,9 +210,7 @@ func InitAndCheck(g *Application, cmd string) error {
 
 	// following commands must be run inside the planet container
 	switch cmd {
-	case g.SystemEnablePromiscModeCmd.FullCommand(),
-		g.SystemDisablePromiscModeCmd.FullCommand(),
-		g.SystemGCJournalCmd.FullCommand():
+	case g.SystemGCJournalCmd.FullCommand():
 		if !utils.CheckInPlanet() {
 			return trace.BadParameter("this command must be run inside planet container")
 		}
@@ -776,10 +774,6 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			os.Stdout)
 	case g.SystemStateDirCmd.FullCommand():
 		return printStateDir()
-	case g.SystemEnablePromiscModeCmd.FullCommand():
-		return enablePromiscMode(localEnv, *g.SystemEnablePromiscModeCmd.Iface)
-	case g.SystemDisablePromiscModeCmd.FullCommand():
-		return disablePromiscMode(localEnv, *g.SystemDisablePromiscModeCmd.Iface)
 	case g.SystemExportRuntimeJournalCmd.FullCommand():
 		return exportRuntimeJournal(localEnv, *g.SystemExportRuntimeJournalCmd.OutputFile)
 	case g.SystemStreamRuntimeJournalCmd.FullCommand():
