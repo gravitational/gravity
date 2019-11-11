@@ -1,9 +1,0 @@
-policy_module(myconfineduser, 0.1)
-
-gen_require(`
-	type unconfined_t, gravity_t, gravity_exec_t;
-')
-
-optional_policy(`
-	gravity_run(unconfined_t)
-')

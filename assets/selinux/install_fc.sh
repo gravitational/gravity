@@ -11,7 +11,7 @@ function setup_file_contexts {
   # Label the current directory for installer
   semanage fcontext -a -t gravity_install_home_t "${DIR}(/.*)?"
   # Label the installer
-  semanage fcontext -a -t gravity_exec_t -f f "${DIR}/gravity"
+  semanage fcontext -a -t gravity_install_exec_t -f f "${DIR}/gravity"
   semanage fcontext -a -t gravity_log_t -f f "${DIR}/gravity-(install|system)\.log"
   semanage fcontext -a -t gravity_home_t "${DIR}/.gravity"
   semanage fcontext -a -t gravity_unit_file_t -f f "${DIR}/.gravity/gravity-(installer|agent)\.service"

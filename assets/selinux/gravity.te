@@ -149,7 +149,9 @@ domain_use_interactive_fds(gravity_domain)
 #userdom_user_tmp_filetrans(gravity_t, gravity_tmp_t, dir)
 
 sysnet_dns_name_resolve(gravity_domain)
-selinux_get_enforce_mode(gravity_domain)
+#selinux_get_enforce_mode(gravity_domain)
+selinux_get_enforce_mode(gravity_t)
+selinux_get_enforce_mode(gravity_install_t)
 gravity_container_exec(gravity_domain)
 gravity_container_stream_connect(gravity_domain)
 
@@ -210,9 +212,9 @@ corenet_tcp_connect_http_port(gravity_container_t)
 corenet_tcp_bind_generic_node(gravity_container_t)
 corenet_udp_bind_generic_node(gravity_container_t)
 allow gravity_domain gravity_port_type:tcp_socket { connect name_connect };
-allow gravity_domain gravity_port_type:udp_socket { connect name_connect };
+allow gravity_domain gravity_port_type:udp_socket { connect };
 allow gravity_container_t gravity_port_type:tcp_socket { connect name_connect };
-allow gravity_container_t gravity_port_type:udp_socket { connect name_connect };
+allow gravity_container_t gravity_port_type:udp_socket { connect };
 
 # FIXME: remove me
 #corenet_tcp_connect_all_unreserved_ports(gravity_t)
@@ -263,12 +265,16 @@ allow gravity_domain self:rawip_socket { getopt setopt create };
 kernel_read_state(gravity_domain)
 kernel_read_network_state(gravity_domain)
 kernel_read_all_sysctls(gravity_domain)
-kernel_read_messages(gravity_domain)
+#kernel_read_messages(gravity_domain)
+kernel_read_messages(gravity_t)
+kernel_read_messages(gravity_install_t)
 
 # read process state
 domain_read_all_domains_state(gravity_domain)
 # log to syslog
-logging_send_syslog_msg(gravity_domain)
+#logging_send_syslog_msg(gravity_domain)
+logging_send_syslog_msg(gravity_t)
+logging_send_syslog_msg(gravity_install_t)
 
 
 # allow unconfined domain to use gravity
@@ -286,10 +292,6 @@ allow gravity_domain self:capability { sys_ptrace sys_resource chown fowner fset
 # FIXME: update me
 usermanage_domtrans_groupadd(gravity_install_t)
 usermanage_domtrans_useradd(gravity_install_t)
-
-# enable gravity system enable-promisc-mode docker0
-# FIXME: remove once the command/docker bridge has been removed
-allow gravity_t self:capability { net_admin net_raw };
 
 #userdom_dontaudit_search_user_home_content(gravity_domain)
 # read /home/<user>/.bash_history
@@ -347,8 +349,6 @@ udev_create_kobject_uevent_socket(gravity_container_t)
 files_var_filetrans(gravity_container_t, gravity_container_var_run_t, { dir }, "planet")
 files_pid_filetrans(gravity_container_t, gravity_container_var_run_t, { sock_file }, "planet.socket")
 files_pid_filetrans(gravity_container_t, gravity_container_var_run_t, { file }, "dns.env")
-# FIXME: remove once https://github.com/gravitational/gravity/pull/759 has been backported to 6.1.x
-systemd_unit_file_filetrans(gravity_container_t, gravity_unit_file_t, { file }, "99-docker-promisc.conf")
 
 # FIXME: remove me (should be duplicates from container_runtime_domain)
 # logging_send_syslog_msg(gravity_container_t)
@@ -532,10 +532,6 @@ systemd_unit_file_filetrans(gravity_container_t, gravity_unit_file_t, { file }, 
 #allow gravity_container_t self:capability { dac_override };
 
 # allow gravity_container_t proc_t:filesystem remount;
-
-# FIXME: remove me (debugging planet startup)
-#allow gravity_container_t gravity_container_bin_t:dir { getattr ioctl read search write add_name remove_name };
-#allow gravity_container_t gravity_container_bin_t:lnk_file { getattr read open create unlink };
 
 # allow gravity_container_t gravity_home_t:dir manage_dir_perms;
 # allow gravity_container_t gravity_home_t:lnk_file manage_lnk_file_perms;
