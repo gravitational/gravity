@@ -7,8 +7,8 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 6.2.2         | No  | October 17th, 2019   | -                    | 1.16.0             | 3.2.12           |
-| 6.1.11        | No  | October 31st, 2019   | -                    | 1.15.4             | 3.2.12           |
+| 6.2.2         | No  | October 17th, 2019   | -                    | 1.16.2             | 3.2.12           |
+| 6.1.12        | Yes | November 11th, 2019  | November 10th, 2021  | 1.15.5             | 3.2.12           |
 | 6.0.10*       | No  | October 17th, 2019   | -                    | 1.14.7             | 3.2.12           |
 | 5.6.8*        | No  | September 18th, 2019 | -                    | 1.14.7             | 3.0.6-gravity    |
 | 5.5.27        | Yes | November 1st, 2019   | September 7th, 2020  | 1.13.11            | 3.0.6-gravity    |
@@ -36,6 +36,14 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     See [Direct Upgrades From Older LTS Versions](/pack/#direct-upgrades-from-older-lts-versions) for details.
 
 ## 6.x Releases
+
+### 6.1.12 LTS (November 11th, 2019)
+
+#### Improvements
+
+* Execute preflight checks during join operation ([#853](https://github.com/gravitational/gravity/pull/853)).
+* Update `gravity check` command to support upgrade preflight checks ([#870](https://github.com/gravitational/gravity/pull/870)).
+* Disable unused Docker bridge interface ([#873](https://github.com/gravitational/gravity/pull/873),  [planet#527](https://github.com/gravitational/planet/pull/527)).
 
 ### 6.1.11 (October 31st, 2019)
 
