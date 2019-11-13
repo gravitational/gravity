@@ -1574,23 +1574,23 @@ func (c *Client) GetVersion(ctx context.Context) (*modules.Version, error) {
 
 // PostJSON issues HTTP POST request to the server with the provided JSON data
 func (c *Client) PostJSON(endpoint string, data interface{}) (*roundtrip.Response, error) {
-	return telehttplib.ConvertResponse(c.Client.PostJSON(context.TODO(), endpoint, data))
+	return convertResponse(c.Client.PostJSON(context.TODO(), endpoint, data))
 }
 
 // PostJSONWithContext issues HTTP POST request to the server with the provided JSON data
 // bounded by the specified context
 func (c *Client) PostJSONWithContext(ctx context.Context, endpoint string, data interface{}) (*roundtrip.Response, error) {
-	return telehttplib.ConvertResponse(c.Client.PostJSON(ctx, endpoint, data))
+	return convertResponse(c.Client.PostJSON(ctx, endpoint, data))
 }
 
 // PutJSON issues HTTP PUT request to the server with the provided JSON data
 func (c *Client) PutJSON(endpoint string, data interface{}) (*roundtrip.Response, error) {
-	return telehttplib.ConvertResponse(c.Client.PutJSON(context.TODO(), endpoint, data))
+	return convertResponse(c.Client.PutJSON(context.TODO(), endpoint, data))
 }
 
 // Get issues HTTP GET request to the server
 func (c *Client) Get(endpoint string, params url.Values) (*roundtrip.Response, error) {
-	return telehttplib.ConvertResponse(c.Client.Get(context.TODO(), endpoint, params))
+	return convertResponse(c.Client.Get(context.TODO(), endpoint, params))
 }
 
 // GetFile issues HTTP GET request to the server to download a file
@@ -1614,12 +1614,12 @@ func (c *Client) GetFile(endpoint string, params url.Values) (*roundtrip.FileRes
 
 // Delete issues HTTP DELETE request to the server
 func (c *Client) Delete(endpoint string) (*roundtrip.Response, error) {
-	return telehttplib.ConvertResponse(c.Client.Delete(context.TODO(), endpoint))
+	return convertResponse(c.Client.Delete(context.TODO(), endpoint))
 }
 
 // DeleteWithParams issues HTTP DELETE request to the server
 func (c *Client) DeleteWithParams(endpoint string, params url.Values) (*roundtrip.Response, error) {
-	return telehttplib.ConvertResponse(c.Client.DeleteWithParams(context.TODO(),
+	return convertResponse(c.Client.DeleteWithParams(context.TODO(),
 		endpoint, params))
 }
 
@@ -1648,4 +1648,12 @@ func (c *Client) LocalClusterKey() (ops.SiteKey, error) {
 		SiteDomain: site.Domain,
 	}
 	return siteKey, nil
+}
+
+func convertResponse(resp *roundtrip.Response, err error) (*roundtrip.Response, error) {
+	ret, err := telehttplib.ConvertResponse(resp, err)
+	if err != nil {
+		return ret, trace.WrapProxy(err)
+	}
+	return ret, nil
 }

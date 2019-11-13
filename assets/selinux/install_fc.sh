@@ -1,9 +1,5 @@
 #/bin/bash
-
-# if [ `id --user` != 0 ]; then
-#   echo 'You must be root to run this script'
-#   exit 1
-# fi
+set -eu
 
 DIR="$( cd "$(dirname "$0")" ; pwd -P )"
 
@@ -11,10 +7,11 @@ function setup_file_contexts {
   # Label the current directory for installer
   semanage fcontext -a -t gravity_install_home_t "${DIR}(/.*)?"
   # Label the installer
-  semanage fcontext -a -t gravity_install_exec_t -f f "${DIR}/gravity"
+  semanage fcontext -a -t gravity_exec_t -f f "${DIR}/gravity"
   semanage fcontext -a -t gravity_log_t -f f "${DIR}/gravity-(install|system)\.log"
-  semanage fcontext -a -t gravity_home_t "${DIR}/.gravity"
+  semanage fcontext -a -t gravity_home_t "${DIR}/.gravity(/.*)?"
   semanage fcontext -a -t gravity_unit_file_t -f f "${DIR}/.gravity/gravity-(installer|agent)\.service"
+  semanage fcontext -a -t gravity_var_run_t -f s "${DIR}/.gravity/installer\.sock"
   semanage fcontext -a -t gravity_home_t -f f "${DIR}/crashreport(.*)?\.tgz"
   # Apply labels
   restorecon -Rv "${DIR}"
@@ -22,11 +19,12 @@ function setup_file_contexts {
 
 function restore_file_contexts {
   semanage fcontext -d "${DIR}(/.*)?"
-  semanage fcontext -d "${DIR}/gravity"
-  semanage fcontext -d "${DIR}/gravity-(install|system)\.log"
-  semanage fcontext -d "${DIR}/.gravity"
-  semanage fcontext -d "${DIR}/.gravity/gravity-(installer|agent)\.service"
-  semanage fcontext -d "${DIR}/crashreport(.*)?\.tgz"
+  semanage fcontext -d -f f "${DIR}/gravity"
+  semanage fcontext -d -f f "${DIR}/gravity-(install|system)\.log"
+  semanage fcontext -d "${DIR}/.gravity(/.*)?"
+  semanage fcontext -d -f f "${DIR}/.gravity/gravity-(installer|agent)\.service"
+  semanage fcontext -d -f s "${DIR}/.gravity/installer\.sock"
+  semanage fcontext -d -f f "${DIR}/crashreport(.*)?\.tgz"
   restorecon -Rv "${DIR}"
 }
 

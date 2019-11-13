@@ -42,8 +42,15 @@ interface(`gravity_run',`
 #
 interface(`gravity_role',`
   gen_require(`
-    type gravity_t, gravity_exec_t, gravity_container_t, gravity_container_exec_t, gravity_home_t, gravity_log_t;
     attribute_role gravity_roles;
+    type gravity_t;
+    type gravity_exec_t;
+    type gravity_container_t;
+    type gravity_container_exec_t;
+    type gravity_home_t;
+    type gravity_install_home_t;
+    type gravity_log_t;
+    type gravity_unit_file_t;
   ')
 
   # Allow gravity domain to use the user role
@@ -58,24 +65,9 @@ interface(`gravity_role',`
   allow $2 gravity_t:process { ptrace signal_perms };
 
   admin_pattern($2, gravity_home_t)
+  admin_pattern($2, gravity_install_home_t)
   admin_pattern($2, gravity_log_t)
-
-  # FIXME: figure a way to offload this to a tunable (maybe using attribute-based privileges)
-  # See: https://wiki.gentoo.org/wiki/Project:SELinux/Development_policy
-  # # Support transition to gravity_t domain from unconfined role
-  # gen_tunable(gravity_domtrans_unconfined_role, false)
-  # tunable_policy(`gravity_domtrans_unconfined_role', `
-  # 	unconfined_run_to(gravity_t, gravity_exec_t)
-  # ')
-')
-
-interface(`gravity_port',`
-  gen_require(`
-    attribute gravity_port_type;
-  ')
-
-  typeattribute $1 gravity_port_type;
-  corenet_port($1)
+  allow $2 gravity_unit_file_t:service manage_service_perms;
 ')
 
 ########################################
