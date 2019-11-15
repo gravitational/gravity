@@ -1653,7 +1653,7 @@ func (c *Client) LocalClusterKey() (ops.SiteKey, error) {
 func convertResponse(resp *roundtrip.Response, err error) (*roundtrip.Response, error) {
 	ret, err := telehttplib.ConvertResponse(resp, err)
 	if err != nil {
-		return ret, trace.WrapProxy(err)
+		return ret, trace.Wrap(err)
 	}
 	return ret, nil
 }

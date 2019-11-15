@@ -263,7 +263,6 @@ interface(`gravity_container_domtrans',`
   ')
 
   corecmd_search_bin($1)
-  gravity_container_search_bin($1) # FIXME
   domtrans_pattern($1, gravity_container_exec_t, gravity_container_t)
   allow gravity_container_t $1:fifo_file setattr;
 ')
@@ -273,7 +272,6 @@ interface(`gravity_container_exec',`
     type gravity_container_exec_t;
   ')
 
-  #gravity_container_search_bin($1)
   corecmd_search_bin($1)
   can_exec($1, gravity_container_exec_t)
 ')

@@ -6,16 +6,17 @@
 /etc/systemd/system/gravity__.*\.service --	gen_context(system_u:object_r:gravity_unit_file_t,s0)
 /usr/lib/systemd/system/gravity__.*\.service --	gen_context(system_u:object_r:gravity_unit_file_t,s0)
 
-/var/run/planet\.socket	-s	gen_context(system_u:object_r:gravity_var_run_t,s0)
-/run/planet\.socket	-s	gen_context(system_u:object_r:gravity_var_run_t,s0)
-/var/run/dns\.env	--	gen_context(system_u:object_r:gravity_var_run_t,s0)
-/run/dns\.env	--	gen_context(system_u:object_r:gravity_var_run_t,s0)
+/var/run/planet\.socket	-s	gen_context(system_u:object_r:container_var_run_t,s0)
+/run/planet\.socket	-s	gen_context(system_u:object_r:container_var_run_t,s0)
 
-# Planet (in the context of the container)
-/var/lib/gravity/planet(/.*)	 gen_context(system_u:object_r:gravity_container_home_t,s0)
-/var/lib/gravity/local/packages/unpacked/gravitational\.io/planet(/.*)/rootfs(/.*)?	gen_context(system_u:object_r:container_file_t,s0)
-/var/lib/gravity/local/packages/unpacked/gravitational\.io.planet(/.*)/rootfs/usr/bin/planet	-- gen_context(system_u:object_r:gravity_container_exec_t,s0)
-/var/lib/gravity/local/packages/unpacked/gravitational\.io.planet(/.*)/rootfs/usr/bin/gravity	-- gen_context(system_u:object_r:gravity_exec_t,s0)
+# Planet
+/var/run/planet(/.*)?	gen_context(system_u:object_r:container_var_run_t,s0)
+/var/lib/gravity/planet(/.*)?	 gen_context(system_u:object_r:gravity_container_home_t,s0)
+/var/lib/gravity/local/packages/unpacked/gravitational\.io/planet/.*/rootfs(/.*)?	gen_context(system_u:object_r:container_file_t,s0)
+/var/lib/gravity/local/packages/unpacked/gravitational\.io/planet/.*/rootfs/usr/bin/planet	-- gen_context(system_u:object_r:gravity_container_exec_t,s0)
+/var/lib/gravity/local/packages/unpacked/gravitational\.io/planet/.*/rootfs/usr/bin/gravity	-- gen_context(system_u:object_r:gravity_exec_t,s0)
+/var/lib/gravity/local/packages/unpacked/gravitational\.io/planet/.*/rootfs/usr/bin/registry -- gen_context(system_u:object_r:container_runtime_exec_t,s0)
+/var/lib/gravity/local/packages/unpacked/gravitational\.io/planet/.*/rootfs/usr/bin/docker.* -- gen_context(system_u:object_r:container_runtime_exec_t,s0)
 
 # Docker
 /var/lib/gravity/planet/registry(/.*)?	gen_context(system_u:object_r:container_var_lib_t,s0)
