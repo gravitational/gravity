@@ -352,7 +352,7 @@ func (s *site) updateOperationState(op *ops.SiteOperation, req ops.OperationUpda
 	})
 	if err != nil {
 		if trace.IsCompareFailed(err) {
-			log.Warnf("Failed to CAS operation state: %v.", trace.DebugReport(err))
+			log.WithError(err).Warn("Failed to sync operation state.")
 			err = trace.BadParameter("internal operation state out of sync")
 		}
 		return trace.Wrap(err)
@@ -367,8 +367,11 @@ func (s *site) updateOperationState(op *ops.SiteOperation, req ops.OperationUpda
 				newOpState:     oldStates[0],
 			})
 			if casErr != nil {
-				log.Errorf("failed to reset %v state to %q: %v",
-					op, oldStates[0], trace.DebugReport(casErr))
+				log.WithFields(log.Fields{
+					log.ErrorKey: casErr,
+					"op":         op.ID,
+					"to-state":   oldStates[0],
+				}).Warn("Failed to reset operation state.")
 			}
 		}
 	}()

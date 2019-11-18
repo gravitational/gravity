@@ -34,7 +34,7 @@ func main() {
 	stdlog.SetOutput(log.StandardLogger().Writer())
 	app := kingpin.New("tele", "Gravity tool for building and publishing cluster and application images.")
 	if err := run(app); err != nil {
-		log.Error(trace.DebugReport(err))
+		log.WithError(err).Warn("Command failed.")
 		common.PrintError(err)
 		os.Exit(255)
 	}
