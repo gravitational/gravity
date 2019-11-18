@@ -121,7 +121,12 @@ func checkBuildEnv() error {
 		return trace.BadParameter("tele build is not supported on %v, only "+
 			"Linux is supported", runtime.GOOS)
 	}
-	client, err := docker.NewClient(constants.DockerEngineURL)
+
+	endpoint, docker_host_defined := os.LookupEnv("DOCKER_HOST")
+	if !docker_host_defined {
+		endpoint = constants.DockerEngineURL
+	}
+	client, err := docker.NewClient(endpoint)
 	if err != nil {
 		return trace.Wrap(err)
 	}

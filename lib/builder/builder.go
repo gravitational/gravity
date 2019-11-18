@@ -318,8 +318,12 @@ func (b *Builder) Vendor(ctx context.Context, dir string) (io.ReadCloser, error)
 			return nil, trace.Wrap(err)
 		}
 	}
+	endpoint, docker_host_defined := os.LookupEnv("DOCKER_HOST")
+	if !docker_host_defined {
+		endpoint = constants.DockerEngineURL
+	}
 	vendorer, err := service.NewVendorer(service.VendorerConfig{
-		DockerURL:   constants.DockerEngineURL,
+		DockerURL:   endpoint,
 		RegistryURL: constants.DockerRegistry,
 		Packages:    b.Packages,
 	})
