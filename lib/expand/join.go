@@ -1142,13 +1142,10 @@ func (p *Peer) validateWizardState(operator ops.Operator) (*ops.Site, *ops.SiteO
 		ops.OperationStateInstallPrechecks,
 		ops.OperationStateInstallDeploying,
 		ops.OperationStateFailed:
-		if len(operation.Servers) == 0 {
-			return nil, nil, trace.NotFound("no servers joined yet")
-		}
 		// Consider these states for resuming the installation
 		// (including failed that puts the operation into manual mode).
 		// Be careful about including unrelated peers though
-		if peerPartOfInstallState(p.AdvertiseAddr, operation.Servers) {
+		if len(operation.Servers) == 0 || peerPartOfInstallState(p.AdvertiseAddr, operation.Servers) {
 			break
 		}
 		fallthrough
