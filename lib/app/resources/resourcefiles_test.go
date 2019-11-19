@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2018-2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -41,24 +41,30 @@ func (s *ResourceFilesSuite) TestResourceFiles(c *C) {
 		rFiles = append(rFiles, *rFile)
 	}
 	sourceImages := sorted([]string{
+		"another:3.2.1",
 		"cronjobimage:1.0.0",
 		"dns-install-hook:0.0.1",
+		"extraimage:1.2.3",
 		"image1:1.0.0",
 		"image2:2.0.0",
 		"image3:3.0.0",
 		"image4",
 		"image5",
 		"k8s-install-hook:0.0.1",
+		"systemimage:0.0.1",
 	})
 	rewrittenImages := sorted([]string{
+		"apiserver:5000/another:3.2.1",
 		"apiserver:5000/cronjobimage:1.0.0",
 		"apiserver:5000/dns-install-hook:0.0.1",
+		"apiserver:5000/extraimage:1.2.3",
 		"apiserver:5000/image1:1.0.0",
 		"apiserver:5000/image2:2.0.0",
 		"apiserver:5000/image3:3.0.0",
 		"apiserver:5000/image4",
 		"apiserver:5000/image5",
 		"apiserver:5000/k8s-install-hook:0.0.1",
+		"apiserver:5000/systemimage:0.0.1",
 	})
 
 	images, err := rFiles.Images()
@@ -390,6 +396,10 @@ metadata:
   namespace: kube-system
   name: k8s-aws
   resourceVersion: "1.2.3-1"
+dependencies:
+  additionalImages:
+  - extraimage:1.2.3
+  - another:3.2.1
 hooks:
   install:
     job: |
@@ -415,6 +425,9 @@ metadata:
   namespace: kube-system
   name: dns-app
   resourceVersion: "0.0.1"
+dependencies:
+  additionalImages:
+  - systemimage:0.0.1
 hooks:
   install:
     job: |

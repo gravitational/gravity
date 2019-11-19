@@ -452,6 +452,9 @@ type Dependencies struct {
 	Packages []Dependency `json:"packages,omitempty"`
 	// Apps is a list of dependencies-apps
 	Apps []Dependency `json:"apps,omitempty"`
+	// AdditionalImages is a list of Docker images to vendor in addition to
+	// those discovered among application resource files
+	AdditionalImages []string `json:"additionalImages,omitempty"`
 }
 
 // ByName returns a dependency package locator by its name

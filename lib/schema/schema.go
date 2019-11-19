@@ -101,6 +101,10 @@ const manifestSchema = `
             "apps": {
               "type": "array",
               "items": {"type": "string"}
+            },
+            "additionalImages": {
+              "type": "array",
+              "items": {"type": "string"}
             }
           }
         },

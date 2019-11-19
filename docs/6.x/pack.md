@@ -131,6 +131,54 @@ docker run -e OPS_URL=<opscenter url> \
     by setting `--state-dir`. You can use unique temporary directory
     to avoid sharing state between builds, or use parallel builds instead.
 
+## Vendoring
+
+When you execute the `tele build` command, `tele` discovers all Docker images
+referenced by your cluster or application image resources (Helm charts or plain
+Kubernetes spec files) and packages them inside the resulting cluster or
+application image tarball. This process is called "vendoring" and it gives the
+Gravity images their "self-sufficiency" property: all vendored images are
+synchronized with the in-cluster private Docker registry when the cluster is
+installed and Kubernetes pulls them from this local registry when spinning up
+pods.
+
+#### Private Docker Registries
+
+To be able to vendor a Docker image, it needs to be available via the local
+Docker client. To see a list of images for the local Docker client, you can
+typically use the `docker images` command.
+
+If an image being vendored is not available via the local Docker client, `tele`
+will attempt to pull it from a remote registry specified by the image, or the
+default [Docker Hub](https://hub.docker.com) if the registry is not specified.
+
+In case the image belongs to a private Docker registry, your local Docker client
+must be configured with proper credentials for it (e.g. via `docker login` or
+[TLS certificates](https://docs.docker.com/engine/security/certificates/)) in
+order for `tele` to be able to pull it.
+
+#### Image References Discovery
+
+The `tele` tool can extract image references from all core Kubernetes objects
+such as pods, deployments, replica and daemon sets and so on.
+
+!!! note "Helm chart images":
+    If the cluster image resources include Helm charts, `tele` will render the
+    Helm templates before extracting the image references. Providing a custom
+    values file for template rendering is not supported at the moment.
+
+For some objects, `tele` can't extract images because their schema is not known
+beforehand. An example would be Kubernetes custom resources. To handle this
+scenario, you can declare additional images that should be vendored in the
+manifest file:
+
+```yaml
+dependencies:
+  additionalImages:
+  - nginx:1.17.5
+  - quay.io/bitnami/redis:5.0
+```
+
 ## Image Manifest
 
 The Image Manifest is a YAML file that is passed as an input to `tele build`
@@ -254,6 +302,12 @@ endpoints:
     serviceName: setup-helper
     # This endpoint will be hidden from the list of endpoints generally shown to a user
     hidden: true
+
+# Dependencies section allows to specify cluster or application dependencies.
+dependencies:
+  # Additional images specifies a list of Docker images to vendor in addition
+  # to those discovered from the application resources / Helm charts.
+  additionalImages: []
 
 # Providers allow you to override certain aspects of cloud and generic providers configuration
 providers:

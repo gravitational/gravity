@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2018-2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -203,6 +203,9 @@ func (r *ResourceFiles) RewriteImages(rewriteFunc func(string) string) error {
 						}
 					}
 				}
+				for i, image := range resource.Dependencies.AdditionalImages {
+					resource.Dependencies.AdditionalImages[i] = rewriteFunc(image)
+				}
 			case *corev1.Pod:
 				log.Infof("Rewriting images in Pod %q.", resource.Name)
 				rewrite(&resource.Spec)
@@ -311,6 +314,9 @@ func extractImages(objects []runtime.Object) (*ExtractedImages, error) {
 					containers = append(containers, job.Spec.Template.Spec.Containers...)
 					containers = append(containers, job.Spec.Template.Spec.InitContainers...)
 				}
+			}
+			for _, image := range resource.Dependencies.AdditionalImages {
+				imagesMap[image] = struct{}{}
 			}
 		case *corev1.Pod:
 			containers = append(resource.Spec.Containers, resource.Spec.InitContainers...)
