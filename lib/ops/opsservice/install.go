@@ -396,7 +396,7 @@ func (s *site) updateOperationState(op *ops.SiteOperation, req ops.OperationUpda
 
 	// update operation state with requested server profiles
 	for role, profileRequest := range req.Profiles {
-		// find the server profile with "role" in manifest
+		// find the server profile with the given role in manifest
 		profile, err := s.app.Manifest.NodeProfiles.ByName(role)
 		if err != nil {
 			return trace.Wrap(err)
@@ -432,7 +432,7 @@ func (s *site) updateOperationState(op *ops.SiteOperation, req ops.OperationUpda
 		}
 	}
 
-	// check if the customer-provided license is actually valid for this operation
+	// check if the customer-provided license is valid for this operation
 	err = s.checkLicense(cluster, op, req, infos)
 	if err != nil {
 		return trace.Wrap(err)
@@ -464,7 +464,7 @@ func (s *site) updateOperationState(op *ops.SiteOperation, req ops.OperationUpda
 }
 
 func (s *site) validateInstall(op *ops.SiteOperation, req *ops.OperationUpdateRequest) error {
-	// for onprem installation verify the provided servers satisfy the selected flavor
+	// for onprem installation verify whether provided servers satisfy the selected flavor
 	if op.Provisioner == schema.ProvisionerOnPrem {
 		err := s.checkOnPremServers(*req)
 		if err != nil {
@@ -809,7 +809,7 @@ func (s *site) installOperationStart(ctx *operationContext) error {
 			return trace.BadParameter("%v hook is not defined",
 				schema.HookClusterProvision)
 		}
-		ctx.Infof("Using cluster provisioning hook.")
+		ctx.Info("Using cluster provisioning hook.")
 		err := s.runClusterProvisionHook(ctx)
 		if err != nil {
 			return trace.Wrap(err)
