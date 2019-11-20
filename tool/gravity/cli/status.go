@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2018-2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -262,6 +262,7 @@ func printStatusText(cluster clusterStatus) {
 	w.Init(os.Stdout, 0, 8, 1, '\t', 0)
 
 	if cluster.Cluster != nil {
+		fmt.Fprintf(w, "Cluster name:\t%v\n", unknownFallback(cluster.Cluster.Domain))
 		if cluster.Status.IsDegraded() {
 			fmt.Fprintf(w, "Cluster status:\t%v\n", color.RedString("degraded"))
 		} else {
@@ -271,11 +272,7 @@ func printStatusText(cluster clusterStatus) {
 	}
 
 	if cluster.Agent != nil {
-		var domain string
-		if cluster.Cluster != nil {
-			domain = cluster.Cluster.Domain
-		}
-		fmt.Fprintf(w, "Cluster nodes:\t%v\n", unknownFallback(domain))
+		fmt.Fprintf(w, "Cluster nodes:\n")
 		printAgentStatus(*cluster.Agent, w)
 	}
 
