@@ -51,6 +51,7 @@ function setup_ports {
   # serf peer-to-peer
   semanage port -a -t gravity_kubernetes_port_t -p tcp 7373
   semanage port -a -t gravity_kubernetes_port_t -p tcp 7496
+  semanage port -a -t gravity_kubernetes_port_t -p tcp 6443
   # reserved and overridden in the policy
   # semanage port -a -t gravity_docker_port_t -p tcp 5000
   # Kubernetes (etcd)
