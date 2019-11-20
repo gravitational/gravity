@@ -24,7 +24,7 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	schemadefaults "github.com/gravitational/gravity/lib/schema/defaults"
-	"github.com/gravitational/gravity/lib/schema/v1"
+	v1 "github.com/gravitational/gravity/lib/schema/v1"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/coreos/go-semver/semver"
