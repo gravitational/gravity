@@ -1140,23 +1140,25 @@ func (p *Peer) validateWizardState(operator ops.Operator) (*ops.Site, *ops.SiteO
 	case ops.OperationStateInstallInitiated,
 		ops.OperationStateInstallProvisioning,
 		ops.OperationStateInstallPrechecks,
+		ops.OperationStateInstallDeploying,
 		ops.OperationStateFailed:
 		// Consider these states for resuming the installation
-		// (including failed that puts the operation into manual mode)
+		// (including failed that puts the operation into manual mode).
+		// Be careful about including unrelated peers though
+		if len(operation.Servers) == 0 || peerPartOfInstallState(p.AdvertiseAddr, operation.Servers) {
+			break
+		}
+		fallthrough
 	default:
 		return nil, nil, trace.AlreadyExists("operation %v is in progress",
 			operation)
 	}
+
 	if len(operation.InstallExpand.Profiles) == 0 {
 		return nil, nil,
 			trace.ConnectionProblem(nil, "no server profiles selected yet")
 	}
 
-	if operation.State == ops.OperationStateFailed {
-		// Cannot validate the agents for a failed operation
-		// that has been placed into manual mode
-		return &cluster, operation, nil
-	}
 	return &cluster, operation, nil
 }
 
@@ -1284,6 +1286,10 @@ func isExpandOperationReady(state string) (bool, error) {
 	default:
 		return false, trace.BadParameter("unexpected operation state: %q", state)
 	}
+}
+
+func peerPartOfInstallState(addr string, servers storage.Servers) bool {
+	return servers.FindByIP(addr) != nil
 }
 
 type connectResult struct {
