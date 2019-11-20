@@ -1006,14 +1006,6 @@ func (s *site) getPlanetConfig(config planetConfig) (args []string, err error) {
 		args = append(args, fmt.Sprintf("--device=%v", device.Format()))
 	}
 
-	for _, taint := range profile.Taints {
-		args = append(args, fmt.Sprintf("--taint=%v=%v:%v", taint.Key, taint.Value, taint.Effect))
-	}
-
-	for k, v := range getNodeLabels(node, profile) {
-		args = append(args, fmt.Sprintf("--node-label=%v=%v", k, v))
-	}
-
 	// If the manifest contains an install hook to install a separate overlay network, disable flannel inside planet
 	if manifest.Hooks != nil && manifest.Hooks.NetworkInstall != nil {
 		args = append(args, "--disable-flannel=true")
