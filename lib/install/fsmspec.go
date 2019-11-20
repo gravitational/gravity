@@ -46,13 +46,9 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 				config.OperationKey)
 
 		case p.Phase.ID == phases.ConfigurePhase:
-			client, err := getKubeClient(p)
-			if err != nil {
-				return nil, trace.Wrap(err)
-			}
 			return phases.NewConfigure(p,
 				config.Operator,
-				client)
+				nil)
 
 		case strings.HasPrefix(p.Phase.ID, phases.BootstrapPhase):
 			return phases.NewBootstrap(p,
@@ -170,6 +166,10 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 	}
 }
 
+func getKubeClient(p fsm.ExecutorParams) (*kubernetes.Clientset, error) {
+	client, _, err := httplib.GetClusterKubeClient(p.Plan.DNSConfig.Addr())
+	return client, trace.Wrap(err)
+}
 func getKubeClient(p fsm.ExecutorParams) (*kubernetes.Clientset, error) {
 	client, _, err := httplib.GetClusterKubeClient(p.Plan.DNSConfig.Addr())
 	return client, trace.Wrap(err)
