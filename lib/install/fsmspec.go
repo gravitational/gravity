@@ -170,7 +170,3 @@ func getKubeClient(p fsm.ExecutorParams) (*kubernetes.Clientset, error) {
 	client, _, err := httplib.GetClusterKubeClient(p.Plan.DNSConfig.Addr())
 	return client, trace.Wrap(err)
 }
-func getKubeClient(p fsm.ExecutorParams) (*kubernetes.Clientset, error) {
-	client, _, err := httplib.GetClusterKubeClient(p.Plan.DNSConfig.Addr())
-	return client, trace.Wrap(err)
-}
