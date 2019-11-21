@@ -252,6 +252,7 @@ func (s *credentialsService) getTeleportKeyStore() (*client.FSLocalKeyStore, err
 // currentCluster returns the currently active cluster.
 func (s *credentialsService) currentCluster() (string, error) {
 	if s.Credentials != nil {
+		s.Debugf("Found current cluster in static credentials: %v.", s.Credentials.URL)
 		return s.Credentials.URL, nil
 	}
 	localKeyStore, err := s.getLocalKeyStore()
@@ -260,18 +261,22 @@ func (s *credentialsService) currentCluster() (string, error) {
 	}
 	currentCluster := localKeyStore.GetCurrentOpsCenter()
 	if currentCluster != "" {
+		s.Debugf("Found current cluster in the local key store: %v.", currentCluster)
 		return currentCluster, nil
 	}
 	currentProfile, err := s.currentProfile()
 	if err == nil {
+		s.Debugf("Found current cluster in the Teleport key store: %v.", currentProfile.WebProxyAddr)
 		return fmt.Sprintf("https://%v", currentProfile.WebProxyAddr), nil
 	}
 	if s.dbKeyStore != nil {
 		entries, err := s.dbKeyStore.GetLoginEntries()
 		if err == nil && len(entries) == 1 {
+			s.Debugf("Found current cluster in the local db store: %v.", entries[0].OpsCenterURL)
 			return entries[0].OpsCenterURL, nil
 		}
 	}
+	s.Debug("No currently active cluster credentials found.")
 	return "", trace.NotFound("not currently logged into any cluster")
 }
 
@@ -279,6 +284,11 @@ func (s *credentialsService) currentCluster() (string, error) {
 func (s *credentialsService) currentProfile() (*client.ClientProfile, error) {
 	currentProfilePath := filepath.Join(client.FullProfilePath(s.TeleportKeyStoreDir), client.CurrentProfileSymlink)
 	currentProfile, err := client.ProfileFromFile(currentProfilePath)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	// Make sure that the profile is actually active i.e. that the keys exist.
+	_, err = s.keyForProfile(*currentProfile)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
