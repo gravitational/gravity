@@ -675,9 +675,9 @@ const AWSTerraformSchema = `{
         "terraform_spec": {"type": "string"},
         "instance_spec": {"type": "string"},
         "vpc_id": {"type": "string"},
-        "vpc_cidr": {"type": "string", "default": "10.100.0.0/16"},
+        "vpc_cidr": {"type": "string", "default": "100.100.0.0/16"},
         "subnet_id": {"type": "string"},
-        "subnet_cidr": {"type": "string", "default": "10.100.0.0/24"},
+        "subnet_cidr": {"type": "string", "default": "100.100.0.0/24"},
         "internet_gateway_id": {"type": "string"},
         "docker": {
           "type": "object",

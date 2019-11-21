@@ -28,8 +28,8 @@ export const StepEnum = {
   USER: 'user',
 }
 
-const defaultServiceSubnet = '10.100.0.0/16';
-const defaultPodSubnet = '10.244.0.0/16';
+const defaultServiceSubnet = '100.100.0.0/16';
+const defaultPodSubnet = '100.96.0.0/16';
 
 export default class InstallerStore extends Store {
 
