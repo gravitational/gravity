@@ -76,6 +76,16 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 				config.Operator,
 				client)
 
+		case strings.HasPrefix(p.Phase.ID, phases.RegisterNodesPhase):
+			client, err := getKubeClient(p)
+			if err != nil {
+				return nil, trace.Wrap(err)
+			}
+			return phases.NewRegisterNodePhase(p,
+				config.Operator,
+				config.Apps,
+				client)
+
 		case p.Phase.ID == phases.HealthPhase:
 			return phases.NewHealth(p,
 				config.Operator)
