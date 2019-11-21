@@ -298,6 +298,48 @@ func (b *PlanBuilder) AddWaitPhase(plan *storage.OperationPlan) {
 	})
 }
 
+// AddRegisterNodesPhase appends phases to register each node with the cluster
+func (b *PlanBuilder) AddRegisterNodesPhase(plan *storage.OperationPlan) error {
+	var newPhases []storage.OperationPhase
+
+	for i, node := range b.Masters {
+		newPhases = append(newPhases, storage.OperationPhase{
+			ID:          fmt.Sprintf("%v/%v", phases.RegisterNodesPhase, node.Hostname),
+			Description: fmt.Sprintf("Register %v", node.Hostname),
+			Data: &storage.OperationPhaseData{
+				Server:     &b.Masters[i],
+				ExecServer: &b.Master,
+				Package:    &b.Application.Package,
+			},
+			Requires: []string{phases.WaitPhase},
+			Step:     4,
+		})
+	}
+	for i, node := range b.Nodes {
+		newPhases = append(newPhases, storage.OperationPhase{
+			ID:          fmt.Sprintf("%v/%v", phases.RegisterNodesPhase, node.Hostname),
+			Description: fmt.Sprintf("Register %v", node.Hostname),
+			Data: &storage.OperationPhaseData{
+				Server:     &b.Nodes[i],
+				ExecServer: &b.Master,
+				Package:    &b.Application.Package,
+			},
+			Requires: []string{phases.WaitPhase},
+			Step:     4,
+		})
+	}
+
+	plan.Phases = append(plan.Phases, storage.OperationPhase{
+		ID:          phases.RegisterNodesPhase,
+		Description: "Register nodes with kubernetes",
+		Phases:      newPhases,
+		Requires:    []string{phases.WaitPhase},
+		Parallel:    true,
+		Step:        4,
+	})
+	return nil
+}
+
 // AddHealthPhase appends phase that waits for the cluster to become healthy
 func (b *PlanBuilder) AddHealthPhase(plan *storage.OperationPlan) {
 	plan.Phases = append(plan.Phases, storage.OperationPhase{

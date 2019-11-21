@@ -27,7 +27,6 @@ import (
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/app/hooks"
 	"github.com/gravitational/gravity/lib/archive"
-	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/utils"
@@ -161,7 +160,7 @@ func runBackupRestore(env *localenv.LocalEnvironment, operation string,
 			MountPath: hooks.ContainerBackupDir,
 		}},
 		NodeSelector: map[string]string{
-			defaults.KubernetesHostnameLabel: node.KubeNodeID(),
+			"kubernetes.io/hostname": node.KubeNodeID(),
 		},
 	}
 

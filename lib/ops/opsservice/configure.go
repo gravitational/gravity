@@ -101,6 +101,7 @@ func (o *Operator) ConfigurePackages(req ops.ConfigurePackagesRequest) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+
 	if operation.Type == ops.OperationInstall {
 		err = site.configurePackages(ctx, req)
 	} else {
@@ -114,6 +115,16 @@ func (o *Operator) ConfigurePackages(req ops.ConfigurePackagesRequest) error {
 				trace.DebugReport(errRemove))
 		}
 		return trace.Wrap(err)
+	}
+
+	if operation.Type == ops.OperationExpand {
+		// TODO (knisbet) temporary timeout since configure packages overall isn't time limited
+		c, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
+		defer cancel()
+		err = o.registerKubernetesNode(c, *operation)
+		if err != nil {
+			return trace.Wrap(err)
+		}
 	}
 	return nil
 }
@@ -993,14 +1004,6 @@ func (s *site) getPlanetConfig(config planetConfig) (args []string, err error) {
 	}
 	for _, device := range devices {
 		args = append(args, fmt.Sprintf("--device=%v", device.Format()))
-	}
-
-	for _, taint := range profile.Taints {
-		args = append(args, fmt.Sprintf("--taint=%v=%v:%v", taint.Key, taint.Value, taint.Effect))
-	}
-
-	for k, v := range getNodeLabels(node, profile) {
-		args = append(args, fmt.Sprintf("--node-label=%v=%v", k, v))
 	}
 
 	// If the manifest contains an install hook to install a separate overlay network, disable flannel inside planet
