@@ -133,7 +133,7 @@ func GetMasters(nodes map[string]v1.Node) (ips []string) {
 			// So we fallback to trying to read this from the hostname. Once we no longer need to support
 			// upgrades from prior to 5.0.0 we can remove this code
 			// TODO(knisbet) remove when no longer required
-			if ip, exists := node.Labels[defaults.KubernetesHostnameLabel]; exists {
+			if ip, exists := node.Labels["kubernetes.io/hostname"]; exists {
 				ips = append(ips, ip)
 			}
 		}
@@ -160,7 +160,7 @@ func GetNodes(client corev1.NodeInterface) (nodes map[string]v1.Node, err error)
 		// So we fallback to trying to read this from the hostname. Once we no longer need to support
 		// upgrades from prior to 5.0.0 we can remove this code
 		// TODO(knisbet) remove when no longer required
-		ip, exists = node.Labels[defaults.KubernetesHostnameLabel]
+		ip, exists = node.Labels["kubernetes.io/hostname"]
 		if exists {
 			nodes[ip] = node
 			continue

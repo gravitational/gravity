@@ -18,6 +18,7 @@ package kubernetes
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/storage"
@@ -115,7 +116,7 @@ func UpdateLabels(ctx context.Context, client corev1.NodeInterface, nodeName str
 func GetNode(client *kubernetes.Clientset, server storage.Server) (*v1.Node, error) {
 	nodes, err := client.CoreV1().Nodes().List(metav1.ListOptions{
 		LabelSelector: utils.MakeSelector(map[string]string{
-			defaults.KubernetesHostnameLabel: server.KubeNodeID(),
+			"kubernetes.io/hostname": server.KubeNodeID(),
 		}).String(),
 	})
 	if err != nil {
@@ -124,7 +125,8 @@ func GetNode(client *kubernetes.Clientset, server storage.Server) (*v1.Node, err
 	}
 	if len(nodes.Items) == 0 {
 		return nil, trace.NotFound(
-			"could not find a Kubernetes node for %v", server)
+			"could not find a Kubernetes node for %v", server).
+			AddField("label", fmt.Sprintf("%v=%v", "kubernetes.io/hostname", server.KubeNodeID()))
 	}
 	if len(nodes.Items) > 1 {
 		return nil, trace.BadParameter(

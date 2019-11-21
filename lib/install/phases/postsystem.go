@@ -81,7 +81,6 @@ func (p *waitExecutor) Execute(ctx context.Context) error {
 	case <-ctx.Done():
 		return trace.Wrap(ctx.Err())
 	}
-	return nil
 }
 
 // waitForAPI tries to query the kubernetes API in a loop until it gets a successful result
