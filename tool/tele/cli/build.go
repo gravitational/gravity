@@ -55,7 +55,7 @@ func build(ctx context.Context, params BuildParameters, req service.VendorReques
 		Overwrite:        params.Overwrite,
 		SkipVersionCheck: params.SkipVersionCheck,
 		VendorReq:        req,
-		Progress:         utils.NewProgress(ctx, "Build", 6, params.Silent),
+		Progress:         utils.NewProgress(ctx, "Build", 0, params.Silent),
 	})
 	if err != nil {
 		return trace.Wrap(err)

@@ -17,7 +17,6 @@ limitations under the License.
 package service
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -28,7 +27,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ghodss/yaml"
+	"github.com/gravitational/gravity/lib/app/docker"
 	"github.com/gravitational/gravity/lib/app/hooks"
 	"github.com/gravitational/gravity/lib/app/resources"
 	"github.com/gravitational/gravity/lib/archive"
@@ -43,6 +42,7 @@ import (
 	"github.com/gravitational/gravity/lib/utils"
 
 	dockerarchive "github.com/docker/docker/pkg/archive"
+	"github.com/ghodss/yaml"
 	teleutils "github.com/gravitational/teleport/lib/utils"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
@@ -329,10 +329,25 @@ func printResourceStatus(resourceFile resources.ResourceFile, manifestPath strin
 	if len(extractedImages.Images) == 0 {
 		progressReporter.PrintSubStep("Found no images to vendor in %v %v", resourceType, relPath)
 	}
+	if len(extractedImages.UnrecognizedObjects) > 0 {
+		progressReporter.PrintSubWarn("Some resources in %v %v weren't recognized, check --debug output",
+			resourceType, relPath)
+	}
 	for _, o := range extractedImages.UnrecognizedObjects {
 		gvk := o.GetObjectKind().GroupVersionKind()
-		progressReporter.PrintSubStep("Will skip unrecognized object in %v %v: apiVersion=%v/%v, kind=%v",
-			resourceType, relPath, gvk.Group, gvk.Version, gvk.Kind)
+		unk, err := resources.ToUnknown(o)
+		if err != nil {
+			log.WithError(err).WithFields(log.Fields{
+				"apiVersion": fmt.Sprintf("%v/%v", gvk.Group, gvk.Version),
+				"kind":       gvk.Kind,
+			}).Warn("Failed to convert object to unknown resource.")
+		} else {
+			log.WithFields(log.Fields{
+				"apiVersion": fmt.Sprintf("%v/%v", gvk.Group, gvk.Version),
+				"kind":       gvk.Kind,
+				"name":       unk.Metadata.Name,
+			}).Info("Skip unrecognized object.")
+		}
 	}
 	return nil
 }
@@ -688,13 +703,20 @@ func isChartDirectory(path string) (bool, error) {
 	return !fi.IsDir(), nil
 }
 
-func resourceFromChart(path string) (*resources.Resource, error) {
-	out, err := helm.Render(helm.RenderParameters{Path: path})
+func resourcesFromChart(path string) (resources.ResourceFiles, error) {
+	rendered, err := helm.Render(helm.RenderParameters{Path: path})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	log.WithField("path", path).Debug(string(out))
-	return resources.Decode(bytes.NewReader(out))
+	var result resources.ResourceFiles
+	for k, v := range rendered {
+		resource, err := resources.Decode(strings.NewReader(v))
+		if err != nil {
+			return nil, trace.Wrap(err, "failed to decode: %v", k)
+		}
+		result = append(result, resources.NewResourceFileObject(k, *resource))
+	}
+	return result, nil
 }
 
 // resourcesFromPath collects resource files in root for further processing.
@@ -734,11 +756,12 @@ func resourcesFromPath(root string, includePatterns []string, ignorePatterns []s
 				return nil
 			}
 			log.Infof("Extracting images from Helm chart directory %v.", path)
-			resource, err := resourceFromChart(path)
+			resource, err := resourcesFromChart(path)
 			if err != nil {
-				return trace.Wrap(err)
+				return trace.Wrap(err, "failed to parse resources in Helm chart: %v",
+					utils.TrimPathPrefix(path, root, defaults.ResourcesDir))
 			}
-			chartResources = append(chartResources, resources.NewResourceFileObject(path, *resource))
+			chartResources = append(chartResources, resource...)
 			// Chart dir can also contain manifest file.
 			if _, err := utils.StatFile(filepath.Join(path, defaults.ManifestFileName)); err == nil {
 				resourceFile, err := resources.NewResourceFile(filepath.Join(path, defaults.ManifestFileName))
@@ -756,8 +779,8 @@ func resourcesFromPath(root string, includePatterns []string, ignorePatterns []s
 		}
 		resourceFile, err := resources.NewResourceFile(path)
 		if err != nil {
-			return trace.Wrap(err, "failed to parse resource file %q: %v",
-				utils.TrimPathPrefix(path, root, defaults.ResourcesDir), err)
+			return trace.Wrap(err, "failed to parse resource file: %v",
+				utils.TrimPathPrefix(path, root, defaults.ResourcesDir))
 		}
 		result = append(result, *resourceFile)
 		return nil

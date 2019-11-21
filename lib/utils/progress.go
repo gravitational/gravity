@@ -101,6 +101,8 @@ type Progress interface {
 	PrintCurrentStep(message string, args ...interface{})
 	// PrintSubStep outputs the message as a sub-step of the current step
 	PrintSubStep(message string, args ...interface{})
+	// PrintSubWarn outputs the warning as a sub-step of the current step
+	PrintSubWarn(message string, args ...interface{})
 	// Print outputs the specified message in regular color
 	Print(message string, args ...interface{})
 	// PrintInfo outputs the specified info message in color
@@ -192,6 +194,11 @@ func (p *progressPrinter) PrintCurrentStep(message string, args ...interface{}) 
 func (p *progressPrinter) PrintSubStep(message string, args ...interface{}) {
 	entry := p.updateCurrentEntry(message, args...)
 	fmt.Fprintf(p.w, "\t%v\n", entry.message)
+}
+
+// PrintSubWarn outputs the warning as a sub-step of the current step
+func (p *progressPrinter) PrintSubWarn(message string, args ...interface{}) {
+	p.PrintSubStep(color.YellowString(message, args...))
 }
 
 func (p *progressPrinter) updateCurrentEntry(message string, args ...interface{}) *entry {
@@ -324,7 +331,8 @@ func printStep(out io.Writer, current, target int, message string) {
 	if target > 0 {
 		fmt.Fprintf(out, "* [%v/%v] %v\n", current, target, message)
 	} else {
-		fmt.Fprintf(out, "%v\n", message)
+		ts := color.New(color.Bold).Sprintf("%v", time.Now().UTC().Format(constants.HumanDateFormatSeconds))
+		fmt.Fprintf(out, "%v\t%v\n", ts, message)
 	}
 }
 
@@ -349,6 +357,9 @@ func (*nopProgress) PrintCurrentStep(message string, args ...interface{}) {}
 
 // PrintSubStep outputs the message as a sub-step of the current step
 func (*nopProgress) PrintSubStep(message string, args ...interface{}) {}
+
+// PrintSubWarn outputs warning as a sub-step of the current step
+func (*nopProgress) PrintSubWarn(message string, args ...interface{}) {}
 
 // Print outputs the specified message in regular color
 func (*nopProgress) Print(message string, args ...interface{}) {}

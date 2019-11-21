@@ -25,6 +25,7 @@ import (
 
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
+	admissionv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	appsv1beta1 "k8s.io/api/apps/v1beta1"
 	appsv1beta2 "k8s.io/api/apps/v1beta2"
@@ -42,6 +43,7 @@ import (
 	settingsv1alpha1 "k8s.io/api/settings/v1alpha1"
 	storagev1 "k8s.io/api/storage/v1"
 	storagev1beta1 "k8s.io/api/storage/v1beta1"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	apiregistrationv1beta1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1"
@@ -368,7 +370,6 @@ func extractImages(objects []runtime.Object) (*ExtractedImages, error) {
 			containers = append(resource.Spec.JobTemplate.Spec.Template.Spec.Containers,
 				resource.Spec.JobTemplate.Spec.Template.Spec.InitContainers...)
 		default:
-			log.Debugf("Skipping object: %v.", obj.GetObjectKind().GroupVersionKind().String())
 			if !isKnownNonPodObject(obj) {
 				unrecognizedObjects = append(unrecognizedObjects, obj)
 			}
@@ -430,7 +431,10 @@ func isKnownNonPodObject(object runtime.Object) bool {
 		*corev1.ServiceAccount,
 		*corev1.Service,
 		*storagev1.StorageClass,
-		*storagev1beta1.StorageClass:
+		*storagev1beta1.StorageClass,
+		*v1beta1.CustomResourceDefinition,
+		*admissionv1beta1.ValidatingWebhookConfiguration,
+		*admissionv1beta1.MutatingWebhookConfiguration:
 		return true
 	}
 	return false
