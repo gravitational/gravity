@@ -7,8 +7,8 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 6.2.3         | No  | November 13th, 2019  | -                    | 1.16.3             | 3.2.13           |
-| 6.1.12        | Yes | November 11th, 2019  | November 10th, 2021  | 1.15.5             | 3.2.12           |
+| 6.2.4         | No  | November 20th, 2019  | -                    | 1.16.3             | 3.2.13           |
+| 6.1.13        | Yes | November 20th, 2019  | November 10th, 2021  | 1.15.5             | 3.2.12           |
 | 6.0.10*       | No  | October 17th, 2019   | -                    | 1.14.7             | 3.2.12           |
 | 5.6.8*        | No  | September 18th, 2019 | -                    | 1.14.7             | 3.0.6-gravity    |
 | 5.5.28        | Yes | November 4th, 2019   | September 7th, 2020  | 1.13.11            | 3.0.6-gravity    |
@@ -36,6 +36,28 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     See [Direct Upgrades From Older LTS Versions](/pack/#direct-upgrades-from-older-lts-versions) for details.
 
 ## 6.x Releases
+
+### 6.2.4 (November 20th, 2019)
+
+#### Improvements
+
+* Display cluster name on a separate line in `gravity status` ([#896](https://github.com/gravitational/gravity/pull/896)).
+
+#### Bugfixes
+
+* Fix the issue with `gravity leave --force` leaving the node in partially cleaned up state when run without `sudo` ([#896](https://github.com/gravitational/gravity/pull/896)).
+* Fix the issue with joining agent connecting to the ongoing installation instead of waiting for install to complete ([#893](https://github.com/gravitational/gravity/pull/893)).
+
+### 6.1.13 LTS (November 20th, 2019)
+
+#### Improvements
+
+* Display cluster name on a separate line in `gravity status` ([#895](https://github.com/gravitational/gravity/pull/895)).
+
+#### Bugfixes
+
+* Fix the issue with `gravity leave --force` leaving the node in partially cleaned up state when run without `sudo` ([#895](https://github.com/gravitational/gravity/pull/895)).
+* Fix the issue with joining agent connecting to the ongoing installation instead of waiting for install to complete ([#885](https://github.com/gravitational/gravity/pull/885)).
 
 ### 6.2.3 (November 13th, 2019)
 
