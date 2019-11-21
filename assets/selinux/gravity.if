@@ -144,6 +144,7 @@ interface(`gravity_read_state_files',`
 
   files_search_var_lib($1)
   read_files_pattern($1, gravity_home_t, gravity_home_t)
+  read_lnk_files_pattern($1, gravity_home_t, gravity_home_t)
 ')
 
 ########################################
@@ -163,6 +164,7 @@ interface(`gravity_manage_state_files',`
 
   files_search_var_lib($1)
   manage_files_pattern($1, gravity_home_t, gravity_home_t)
+  manage_lnk_files_pattern($1, gravity_home_t, gravity_home_t)
 ')
 
 ########################################
@@ -183,6 +185,28 @@ interface(`gravity_manage_state_dirs',`
   files_search_var_lib($1)
   manage_dirs_pattern($1, gravity_home_t, gravity_home_t)
 ')
+
+########################################
+## <summary>
+##	Read gravity container state files.
+## </summary>
+## <param name="domain">
+##	<summary>
+##	Domain allowed access.
+##	</summary>
+## </param>
+#
+interface(`gravity_read_container_files',`
+  gen_require(`
+    type gravity_container_home_t;
+  ')
+
+  files_search_var_lib($1)
+  read_files_pattern($1, gravity_container_home_t, gravity_container_home_t)
+  read_lnk_files_pattern($1, gravity_container_home_t, gravity_container_home_t)
+')
+
+
 
 ########################################
 ## <summary>
