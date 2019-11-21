@@ -47,8 +47,7 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 
 		case p.Phase.ID == phases.ConfigurePhase:
 			return phases.NewConfigure(p,
-				config.Operator,
-				nil)
+				config.Operator)
 
 		case strings.HasPrefix(p.Phase.ID, phases.BootstrapPhase):
 			return phases.NewBootstrap(p,

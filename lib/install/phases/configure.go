@@ -18,14 +18,10 @@ package phases
 
 import (
 	"context"
-	"time"
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/ops"
-	"github.com/gravitational/gravity/lib/utils"
-	"github.com/gravitational/rigging"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/gravitational/trace"
@@ -33,7 +29,7 @@ import (
 )
 
 // NewConfigure returns a new "configure" phase executor
-func NewConfigure(p fsm.ExecutorParams, operator ops.Operator, client *kubernetes.Clientset) (*configureExecutor, error) {
+func NewConfigure(p fsm.ExecutorParams, operator ops.Operator) (*configureExecutor, error) {
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithFields(logrus.Fields{
 			constants.FieldPhase: p.Phase.ID,
@@ -51,7 +47,6 @@ func NewConfigure(p fsm.ExecutorParams, operator ops.Operator, client *kubernete
 		FieldLogger:    logger,
 		Operator:       operator,
 		ExecutorParams: p,
-		Client:         client,
 		env:            env,
 		config:         config,
 	}, nil
@@ -85,18 +80,8 @@ func (p *configureExecutor) Execute(ctx context.Context) error {
 	return nil
 }
 
-// Rollback removes the kubernetes node object that's created by ConfigurePackages
+// Rollback is no-op for this phase
 func (p *configureExecutor) Rollback(ctx context.Context) error {
-	if p.ExecutorParams.Plan.OperationType == ops.OperationExpand {
-		err := utils.RetryFor(ctx, 15*time.Second, func() error {
-			err := rigging.ConvertError(p.Client.CoreV1().Nodes().Delete(p.ExecutorParams.Phase.Data.Server.KubeNodeID(), &metav1.DeleteOptions{}))
-			if trace.IsNotFound(err) {
-				return nil
-			}
-			return trace.Wrap(err)
-		})
-		return trace.Wrap(err)
-	}
 	return nil
 }
 
