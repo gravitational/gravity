@@ -2,12 +2,9 @@ policy_module(gravity, 6.0.0)
 
 gen_require(`
   attribute systemd_unit_file_type;
-  role unconfined_r;
-  role system_r;
   type var_run_t;
   type setfiles_t;
   type unconfined_service_t;
-  type container_t;
   type container_file_t;
   type container_log_t;
   type container_share_t;
@@ -84,11 +81,11 @@ corenet_port(gravity_kubernetes_port_t)
 # Planet
 #
 
-container_runtime_domain_template(gravity_container)
-type gravity_container_exec_t;
-init_daemon_domain(gravity_container_t, gravity_container_exec_t)
-can_exec(gravity_container_t, gravity_container_exec_t)
-role gravity_container_roles types gravity_container_t;
+container_runtime_domain_template(gravity_container_runtime)
+type gravity_container_runtime_exec_t;
+init_daemon_domain(gravity_container_runtime_t, gravity_container_runtime_exec_t)
+can_exec(gravity_container_runtime_t, gravity_container_runtime_exec_t)
+role gravity_container_roles types gravity_container_runtime_t;
 
 type gravity_container_home_t;
 files_type(gravity_container_home_t)
@@ -116,7 +113,11 @@ type gravity_service_exec_t;
 init_daemon_domain(gravity_service_t, gravity_service_exec_t)
 can_exec(gravity_service_t, gravity_service_exec_t)
 
-role gravity_roles types gravity_container_t;
+# domain for all not otherwise labeled processes running inside the container
+container_net_domain_template(gravity_container)
+typeattribute gravity_container_t gravity_container_domain;
+
+role gravity_roles types gravity_container_runtime_t;
 
 ####################################
 #
@@ -149,6 +150,7 @@ auth_read_passwd(gravity_domain)
 
 corecmd_bin_filetrans(gravity_domain, gravity_exec_t, file, "gravity")
 logging_log_filetrans(gravity_domain, gravity_log_t, file)
+filetrans_pattern(gravity_domain, gravity_install_home_t, gravity_log_t, file)
 
 # install into /usr/bin and run executables
 allow gravity_domain bin_t:dir { add_name write remove_name };
@@ -166,7 +168,7 @@ domain_use_interactive_fds(gravity_domain)
 
 sysnet_dns_name_resolve(gravity_domain)
 selinux_get_enforce_mode(gravity_t)
-gravity_container_domtrans(gravity_domain)
+gravity_container_runtime_domtrans(gravity_domain)
 gravity_container_stream_connect(gravity_domain)
 
 container_manage_lib_files(gravity_domain)
@@ -199,7 +201,7 @@ filetrans_pattern(gravity_domain, gravity_home_t, gravity_unit_file_t, file, "gr
 filetrans_pattern(gravity_domain, gravity_home_t, gravity_var_run_t, sock_file, "installer.sock")
 filetrans_pattern(gravity_domain, gravity_container_home_t, container_var_lib_t, dir, "registry")
 filetrans_pattern(gravity_domain, gravity_container_home_t, container_var_lib_t, dir, "docker")
-filetrans_pattern(gravity_domain, gravity_container_home_t, gravity_container_exec_t, file, "planet")
+filetrans_pattern(gravity_domain, gravity_container_home_t, gravity_container_runtime_exec_t, file, "planet")
 filetrans_pattern(gravity_domain, gravity_container_home_t, gravity_exec_t, file, "gravity")
 systemd_unit_file_filetrans(gravity_domain, gravity_unit_file_t, { file lnk_file })
 systemd_unit_file_filetrans(gravity_domain, gravity_unit_file_t, file, "gravity-agent.service")
@@ -216,8 +218,8 @@ allow gravity_t container_var_run_t:sock_file { create unlink };
 allow gravity_t container_var_run_t:fifo_file { create setattr unlink };
 allow gravity_t container_var_run_t:file mounton;
 allow gravity_domain gravity_unit_file_t:service manage_service_perms;
-allow gravity_container_t gravity_unit_file_t:file rw_file_perms;
-allow gravity_container_t gravity_unit_file_t:service manage_service_perms;
+allow gravity_container_runtime_t gravity_unit_file_t:file rw_file_perms;
+allow gravity_container_runtime_t gravity_unit_file_t:service manage_service_perms;
 
 # allow to execute inside /var/lib/gravity (i.e. teleport)
 allow gravity_t gravity_home_t:file entrypoint;
@@ -240,13 +242,13 @@ corenet_tcp_bind_generic_node(gravity_domain)
 corenet_udp_bind_generic_node(gravity_domain)
 # allow to connect to AWS metadata endpoint
 corenet_tcp_connect_http_port(gravity_domain)
-corenet_tcp_connect_http_port(gravity_container_t)
-corenet_tcp_bind_generic_node(gravity_container_t)
-corenet_udp_bind_generic_node(gravity_container_t)
+corenet_tcp_connect_http_port(gravity_container_runtime_t)
+corenet_tcp_bind_generic_node(gravity_container_runtime_t)
+corenet_udp_bind_generic_node(gravity_container_runtime_t)
 allow gravity_domain gravity_port_type:tcp_socket { connect name_connect };
 allow gravity_domain gravity_port_type:udp_socket { connect };
-allow gravity_container_t gravity_port_type:tcp_socket { connect name_connect };
-allow gravity_container_t gravity_port_type:udp_socket { connect };
+allow gravity_container_runtime_t gravity_port_type:tcp_socket { connect name_connect };
+allow gravity_container_runtime_t gravity_port_type:udp_socket { connect };
 
 optional_policy(`
   corenet_tcp_bind_kubernetes_port(gravity_domain)
@@ -297,9 +299,12 @@ logging_send_syslog_msg(gravity_t)
 
 
 # allow unconfined domain to use gravity
-# transition to system role for that
 optional_policy(`
+  gen_require(`
+    role unconfined_r;
+  ')
   unconfined_run_to(gravity_t, gravity_exec_t)
+  unconfined_run_to(gravity_container_runtime_t, gravity_container_runtime_exec_t)
   role_transition unconfined_r gravity_exec_t system_r;
 ')
 
@@ -308,7 +313,6 @@ allow gravity_domain self:capability { sys_ptrace sys_admin sys_resource chown f
 # This needs more work as /var/lib/gravity is owned by the service user
 # but (some) commands are requiring root
 allow gravity_domain self:capability { dac_override dac_read_search };
-
 
 # FIXME: update me
 usermanage_domtrans_groupadd(gravity_domain)
@@ -329,9 +333,8 @@ allow setfiles_t gravity_home_t:file read;
 seutil_read_file_contexts(gravity_domain)
 seutil_domtrans_setfiles(gravity_domain)
 
-#allow gravity_t gravity_container_t:process { noatsecure rlimitinh siginh };
-dontaudit gravity_t gravity_container_t:process { noatsecure rlimitinh siginh };
-allow gravity_t gravity_container_exec_t:file unlink;
+dontaudit gravity_t gravity_container_runtime_t:process { noatsecure rlimitinh siginh };
+allow gravity_t gravity_container_runtime_exec_t:file unlink;
 allow gravity_t self:netlink_kobject_uevent_socket { getattr create bind setopt };
 dbus_system_bus_client(gravity_t)
 init_dbus_chat(gravity_t)
@@ -372,14 +375,14 @@ kernel_rw_fs_sysctls(gravity_container_init_t)
 dev_read_kmsg(gravity_container_init_t)
 dev_write_kmsg(gravity_container_init_t)
 allow gravity_container_init_t sysctl_fs_t:file write;
-allow gravity_container_init_t gravity_container_home_t:dir remove_name;
+allow gravity_container_init_t gravity_container_home_t:dir { write remove_name };
 allow gravity_container_init_t gravity_container_home_t:file { setattr ioctl rename lock };
-allow gravity_container_t gravity_container_init_t:key { view create setattr };
-dontaudit gravity_container_t gravity_container_init_t:process { noatsecure rlimitinh siginh };
-allow gravity_container_t gravity_container_init_t:unix_stream_socket { read write };
+allow gravity_container_runtime_t gravity_container_init_t:key { view create setattr };
+dontaudit gravity_container_runtime_t gravity_container_init_t:process { noatsecure rlimitinh siginh };
+allow gravity_container_runtime_t gravity_container_init_t:unix_stream_socket { read write };
 allow gravity_container_init_t container_file_t:dir mounton;
-allow gravity_container_t gravity_home_t:file getattr;
-allow gravity_container_init_t gravity_container_t:process sigchld;
+allow gravity_container_runtime_t gravity_home_t:file getattr;
+allow gravity_container_init_t gravity_container_runtime_t:process sigchld;
 init_rw_stream_sockets(gravity_container_init_t)
 
 # FIXME: verify whether systemd works without this
@@ -397,7 +400,7 @@ allow gravity_container_init_t container_share_t:file write;
 # FIXME: is this systemd creating the /var/log/journal inside the container?
 allow gravity_container_init_t gravity_container_home_t:dir search;
 allow gravity_container_init_t gravity_home_t:dir search;
-allow gravity_container_init_t gravity_container_t:dir search;
+allow gravity_container_init_t gravity_container_runtime_t:dir search;
 
 fs_mount_tmpfs(gravity_container_init_t)
 # FIXME: verify whether systemd works without this
@@ -407,44 +410,34 @@ fs_remount_tmpfs(gravity_container_init_t)
 
 # FIXME: create a custom domain for 'planet agent'
 # Maybe use a symlink for the agent part if it works with a cusom label
-gravity_container_domtrans(gravity_container_init_t)
+gravity_container_runtime_domtrans(gravity_container_init_t)
 container_runtime_domtrans(gravity_container_init_t)
-domtrans_pattern(gravity_container_init_t, container_file_t, container_t)
+domtrans_pattern(gravity_container_init_t, container_file_t, gravity_container_t)
 domtrans_pattern(gravity_container_init_t, gravity_kubernetes_exec_t, gravity_kubernetes_t)
 can_exec(gravity_container_init_t, gravity_kubernetes_exec_t)
 domtrans_pattern(gravity_container_init_t, gravity_service_exec_t, gravity_service_t)
 can_exec(gravity_container_init_t, gravity_service_exec_t)
-allow gravity_container_init_t gravity_kubernetes_t:dir search;
-allow gravity_container_init_t gravity_kubernetes_t:file { getattr read open };
+
+ps_process_pattern(gravity_container_init_t, gravity_kubernetes_t)
 allow gravity_container_init_t gravity_kubernetes_t:process { signull sigkill signal };
-allow gravity_container_init_t gravity_service_t:dir search;
-allow gravity_container_init_t gravity_service_t:file { getattr read open };
-allow gravity_container_init_t gravity_service_t:lnk_file read;
+ps_process_pattern(gravity_container_init_t, gravity_service_t)
 allow gravity_container_init_t gravity_service_t:process { signull sigkill signal };
+ps_process_pattern(gravity_container_init_t, container_runtime_t)
+allow gravity_container_init_t container_runtime_t:process { signull sigkill signal };
+ps_process_pattern(gravity_container_init_t, gravity_container_domain)
+allow gravity_container_init_t gravity_container_domain:process { sigstop sigkill signal signull };
+allow gravity_container_init_t gravity_container_domain:process2 nnp_transition;
+ps_process_pattern(gravity_container_init_t, gravity_container_runtime_t)
+allow gravity_container_init_t gravity_container_runtime_t:process { signull sigkill signal };
+
 allow gravity_container_init_t container_file_t:fifo_file { getattr open };
 allow gravity_container_init_t container_file_t:sock_file setattr;
-allow gravity_container_init_t container_runtime_t:dir search;
-allow gravity_container_init_t container_runtime_t:file read;
-allow gravity_container_init_t container_runtime_t:lnk_file read;
-allow gravity_container_init_t container_t:dir search;
-allow gravity_container_init_t container_t:file read;
-allow gravity_container_init_t container_t:process { getattr sigstop sigkill signal signull };
-allow gravity_container_init_t container_t:process2 nnp_transition;
 allow gravity_container_init_t gravity_container_home_t:dir { read write open getattr create add_name };
 allow gravity_container_init_t gravity_container_home_t:file { create getattr open read write };
-allow gravity_container_init_t gravity_container_t:file { read open getattr };
-allow gravity_container_init_t gravity_container_t:lnk_file read;
-allow gravity_container_init_t gravity_container_t:process { getattr signull sigkill signal };
-allow gravity_container_init_t container_runtime_t:file { open getattr };
-allow gravity_container_init_t container_runtime_t:process { getattr signull sigkill signal };
-allow gravity_container_init_t container_t:file { open read getattr };
-allow gravity_container_init_t container_t:lnk_file read;
-allow gravity_container_init_t container_t:unix_dgram_socket sendto;
-allow gravity_container_init_t container_t:unix_stream_socket { connectto read write };
+allow gravity_container_init_t gravity_container_domain:unix_dgram_socket sendto;
+allow gravity_container_init_t gravity_container_domain:unix_stream_socket { connectto read write };
 allow gravity_container_init_t self:netlink_audit_socket nlmsg_relay;
-#allow gravity_container_init_t self:file getattr; # FIXME
 
-allow container_t gravity_container_t:process signull; # ??
 # dbus-daemon
 allow gravity_container_init_t self:unix_stream_socket { getopt ioctl accept };
 allow gravity_container_init_t self:unix_dgram_socket { getopt setopt };
@@ -455,15 +448,15 @@ gen_require(`
   type configfs_t;
   type debugfs_t;
 ')
-allow container_t configfs_t:filesystem mount;
-allow container_t debugfs_t:filesystem mount;
+allow gravity_container_t configfs_t:filesystem mount;
+allow gravity_container_t debugfs_t:filesystem mount;
 fs_manage_configfs_dirs(gravity_container_init_t)
 fs_manage_configfs_files(gravity_container_init_t)
 fs_manage_configfs_lnk_files(gravity_container_init_t)
 kernel_manage_debugfs(gravity_container_init_t)
 kernel_read_ring_buffer(gravity_container_init_t)
 # comm=dbus-daemon path=/run/dbus/system_bus_socket
-allow container_t gravity_container_init_t:unix_stream_socket { accept getopt ioctl };
+allow gravity_container_domain gravity_container_init_t:unix_stream_socket { accept getopt ioctl };
 # end-of-init process
 
 ##################
@@ -477,45 +470,51 @@ allow gravity_service_t container_file_t:sock_file write;
 allow gravity_service_t gravity_container_init_t:unix_dgram_socket sendto;
 kernel_request_load_module(gravity_service_t)
 
-allow container_t gravity_container_init_t:unix_stream_socket { accept ioctl };
-allow container_t gravity_home_t:file open;
+allow gravity_container_runtime_t gravity_container_domain:unix_dgram_socket sendto;
+allow gravity_container_runtime_t gravity_container_init_t:unix_stream_socket ioctl;
+allow gravity_container_runtime_t container_runtime_t:unix_stream_socket connectto;
 
-allow gravity_container_t container_t:unix_dgram_socket sendto;
-allow gravity_container_t gravity_container_init_t:unix_stream_socket ioctl;
-allow gravity_container_t container_runtime_t:unix_stream_socket connectto;
+# 'planet agent'
+allow gravity_container_runtime_t gravity_home_t:file { open read };
+allow gravity_container_runtime_t gravity_container_init_t:unix_stream_socket connectto;
+
+##################
+# generic container processes
+#
+virt_sandbox_net_domain(gravity_container_t)
+logging_send_syslog_msg(gravity_container_t)
+dev_mounton_sysfs(gravity_container_domain)
+fs_mounton_cgroup(gravity_container_domain)
+fs_unmount_cgroup(gravity_container_domain)
+# /bin/mount mqueue /dev/mqueue -t mqueue
+fs_mount_tmpfs(gravity_container_domain)
+corenet_unconfined(gravity_container_t)
+virt_default_capabilities(gravity_container_t)
+kernel_read_messages(gravity_container_t)
+#allow gravity_container_domain proc_t:filesystem remount;
+# /bin/mount sunrpc /run/rpc_pipefs -t rpc_pipefs
+kernel_request_load_module(gravity_container_t)
 
 gravity_read_container_files(container_domain)
 gravity_search_state(container_domain)
 
-allow container_t gravity_container_t:process sigchld;
+allow gravity_container_domain gravity_container_init_t:unix_stream_socket { accept ioctl };
+allow gravity_container_domain gravity_home_t:file open;
+
 # ps, top
 # allow ps to introspect init
-# FIXME: run ps under custom domain
-allow container_t gravity_container_init_t:process getattr;
-allow container_t gravity_container_init_t:dir { getattr search };
-allow container_t gravity_container_init_t:unix_stream_socket connectto;
-allow container_t gravity_container_init_t:unix_dgram_socket sendto;
-allow container_t gravity_container_init_t:file { read open };
-allow container_t gravity_container_init_t:lnk_file read;
-allow container_t gravity_home_t:file read;
-allow container_t gravity_kubernetes_t:dir getattr;
-allow container_t gravity_kubernetes_t:file { getattr read open };
-allow container_t gravity_service_t:dir getattr;
-allow container_t gravity_service_t:file { getattr read open };
-allow container_t spc_t:dir { getattr search };
-allow container_t spc_t:file { getattr read open };
+domain_read_all_domains_state(gravity_container_domain)
+allow gravity_container_domain domain:process getattr;
 # grep, find
-allow container_t gravity_container_home_t:lnk_file read;
-allow container_t container_log_t:file { getattr open read };
-container_runtime_read_tmpfs_files(container_t)
-# 'planet agent'
-allow gravity_container_t gravity_home_t:file { open read };
-allow gravity_container_t gravity_container_init_t:unix_stream_socket connectto;
+allow gravity_container_domain gravity_container_home_t:lnk_file read;
+allow gravity_container_domain container_log_t:file { getattr open read };
+container_runtime_read_tmpfs_files(gravity_container_domain)
 # strace
-allow container_t gravity_container_init_t:process { ptrace signull }; # ??
-allow container_t gravity_container_init_t:dir { read open };
-allow container_t gravity_container_init_t:netlink_audit_socket getattr;
-allow gravity_container_init_t container_t:process { sigchld signull };
+allow gravity_container_t gravity_container_init_t:process { ptrace signull }; # ??
+allow gravity_container_t gravity_container_init_t:dir { read open };
+allow gravity_container_t gravity_container_init_t:netlink_audit_socket getattr;
+allow gravity_container_init_t gravity_container_t:process { sigchld signull };
+allow gravity_container_t gravity_container_runtime_t:process { sigchld signull }; # ??
 
 
 # Kubernetes components
@@ -525,11 +524,11 @@ kernel_request_load_module(gravity_kubernetes_t)
 allow gravity_kubernetes_t gravity_container_home_t:dir { getattr search open read remove_name write };
 allow gravity_kubernetes_t gravity_service_t:dir { getattr search };
 # append: kube-apiserver, audit.log
-allow gravity_kubernetes_t gravity_container_home_t:file { getattr open append };
+allow gravity_kubernetes_t gravity_container_home_t:file { getattr read open create append };
 allow gravity_kubernetes_t gravity_container_init_t:dir { getattr search };
 allow gravity_kubernetes_t gravity_container_init_t:lnk_file { getattr read open unlink };
-allow gravity_kubernetes_t gravity_container_t:dir { getattr search };
-allow gravity_kubernetes_t gravity_container_t:file { getattr read open };
+allow gravity_kubernetes_t gravity_container_runtime_t:dir { getattr search };
+allow gravity_kubernetes_t gravity_container_runtime_t:file { getattr read open };
 allow gravity_kubernetes_t container_file_t:dir mounton;
 # systemd-run --description=Kubernetes systemd probe --scope true
 allow gravity_kubernetes_t gravity_container_init_t:file { getattr read open };
@@ -545,15 +544,14 @@ allow gravity_kubernetes_t gravity_home_t:file { getattr read open };
 # kubelet
 allow gravity_kubernetes_t container_runtime_t:unix_stream_socket connectto;
 allow gravity_kubernetes_t gravity_service_t:file { getattr read open };
+allow gravity_kubernetes_t gravity_home_t:dir write;
 kernel_read_ring_buffer(gravity_kubernetes_t)
 container_runtime_read_tmpfs_files(gravity_kubernetes_t)
+# kube-apiserver: /var/log/apiserver/audit.log
+allow gravity_kubernetes_t gravity_container_home_t:file write;
+
 # kubelet: /proc/<id>
-# FIXME: allow full (read) access to container_t
-allow gravity_kubernetes_t container_t:dir { getattr search };
-allow gravity_kubernetes_t container_t:file { getattr read open };
-allow gravity_kubernetes_t container_runtime_t:lnk_file read;
-allow gravity_kubernetes_t container_runtime_t:dir { getattr search };
-allow gravity_kubernetes_t container_runtime_t:file { getattr read open };
+domain_read_all_domains_state(gravity_kubernetes_t)
 # kubelet: write /proc/214/oom_score_adj
 allow gravity_kubernetes_t container_runtime_t:file write;
 # kubelet: write /proc/sys/vm/overcommit_memory
@@ -564,7 +562,6 @@ fs_manage_cgroup_files(gravity_kubernetes_t)
 fs_mount_tmpfs(gravity_kubernetes_t)
 fs_unmount_tmpfs(gravity_kubernetes_t)
 allow gravity_kubernetes_t gravity_container_home_t:dir { add_name create };
-
 # kubelet: write resolv.conf
 allow gravity_kubernetes_t container_share_t:file write;
 allow gravity_kubernetes_t container_var_lib_t:file { getattr read open write };
@@ -572,66 +569,63 @@ allow gravity_kubernetes_t gravity_container_home_t:dir rmdir;
 allow gravity_kubernetes_t container_runtime_tmpfs_t:dir getattr;
 allow gravity_kubernetes_t gravity_container_home_t:lnk_file { getattr create read unlink };
 allow gravity_kubernetes_t gravity_home_t:dir getattr;
-allow gravity_kubernetes_t spc_t:dir { search getattr };
-allow gravity_kubernetes_t spc_t:file { getattr read open };
-allow gravity_kubernetes_t spc_t:lnk_file read;
 allow gravity_kubernetes_t spc_t:process sigkill;
 # lsof
-allow container_t container_runtime_t:tcp_socket getattr;
-allow container_t container_runtime_t:unix_dgram_socket getattr;
-allow container_t container_runtime_t:unix_stream_socket getattr;
-allow container_t gravity_container_init_t:lnk_file getattr;
-allow container_t gravity_container_init_t:unix_dgram_socket getattr;
-allow container_t gravity_container_init_t:unix_stream_socket getattr;
-allow container_t gravity_container_t:tcp_socket getattr;
-allow container_t gravity_container_t:unix_dgram_socket getattr;
-allow container_t gravity_container_t:unix_stream_socket getattr;
-dev_read_kmsg(container_t)
+allow gravity_container_domain container_runtime_t:tcp_socket getattr;
+allow gravity_container_domain container_runtime_t:unix_dgram_socket getattr;
+allow gravity_container_domain container_runtime_t:unix_stream_socket getattr;
+allow gravity_container_domain gravity_container_init_t:lnk_file getattr;
+allow gravity_container_domain gravity_container_init_t:unix_dgram_socket getattr;
+allow gravity_container_domain gravity_container_init_t:unix_stream_socket getattr;
+allow gravity_container_domain gravity_container_runtime_t:tcp_socket getattr;
+allow gravity_container_domain gravity_container_runtime_t:unix_dgram_socket getattr;
+allow gravity_container_domain gravity_container_runtime_t:unix_stream_socket getattr;
+dev_read_kmsg(gravity_container_domain)
 # usr/lib/systemd/system-generators/systemd-system-update-generator /run/systemd/generator /run/systemd/generator.early /run/systemd
-dev_write_kmsg(container_t)
+dev_write_kmsg(gravity_container_domain)
 # journalctl
-allow container_t gravity_container_home_t:dir { getattr open read search };
-allow container_t gravity_container_home_t:file { getattr open read };
+allow gravity_container_domain gravity_container_home_t:dir { getattr open read search };
+allow gravity_container_domain gravity_container_home_t:file { getattr open read };
 # systemctl
-allow container_t gravity_container_init_t:file getattr;
-allow container_t gravity_kubernetes_t:dir search;
-allow container_t gravity_service_t:dir search;
+allow gravity_container_domain gravity_container_init_t:file getattr;
+allow gravity_container_domain gravity_kubernetes_t:dir search;
+allow gravity_container_domain gravity_service_t:dir search;
+# systemctl
+allow gravity_container_domain gravity_container_init_t:unix_stream_socket connectto;
+# etcdctl-cmd: /run/systemd/journal/socket
+allow gravity_container_domain gravity_container_init_t:unix_dgram_socket sendto;
 
-allow gravity_container_t container_t:key create;
-allow gravity_container_t gravity_container_init_t:unix_dgram_socket sendto;
+allow gravity_container_runtime_t gravity_container_domain:key create;
+allow gravity_container_runtime_t gravity_container_init_t:unix_dgram_socket sendto;
 # start/stop planet scope units
-systemd_config_generic_services(gravity_container_t)
-admin_pattern(gravity_container_t, gravity_container_var_run_t)
-admin_pattern(gravity_container_t, gravity_container_home_t)
-allow gravity_container_t gravity_home_t:dir { mounton getattr search };
-allow gravity_container_t gravity_home_t:file mounton;
-allow gravity_container_t gravity_container_home_t:dir mounton;
-allow gravity_container_t gravity_container_home_t:file { mounton entrypoint execute };
-allow gravity_container_t gravity_home_t:lnk_file read;
-allow gravity_container_t gravity_var_run_t:sock_file unlink;
-allow gravity_container_t self:capability chown;
-neverallow gravity_container_t self:capability dac_override;
-allow gravity_container_t self:process getattr;
-allow gravity_container_t self:tcp_socket { connect create setopt getopt getattr };
+systemd_config_generic_services(gravity_container_runtime_t)
+admin_pattern(gravity_container_runtime_t, gravity_container_var_run_t)
+admin_pattern(gravity_container_runtime_t, gravity_container_home_t)
+allow gravity_container_runtime_t gravity_home_t:dir { mounton getattr search };
+allow gravity_container_runtime_t gravity_home_t:file mounton;
+allow gravity_container_runtime_t gravity_container_home_t:dir mounton;
+allow gravity_container_runtime_t gravity_container_home_t:file { mounton entrypoint execute };
+allow gravity_container_runtime_t gravity_home_t:lnk_file read;
+allow gravity_container_runtime_t gravity_var_run_t:sock_file unlink;
+allow gravity_container_runtime_t self:capability chown;
+neverallow gravity_container_runtime_t self:capability dac_override;
+allow gravity_container_runtime_t self:process getattr;
+allow gravity_container_runtime_t self:tcp_socket { connect create setopt getopt getattr };
 # remove /var/run/planet.socket
-allow gravity_container_t var_run_t:sock_file unlink;
-init_status(gravity_container_t)
-init_stop_transient_unit(gravity_container_t)
+allow gravity_container_runtime_t var_run_t:sock_file unlink;
+init_status(gravity_container_runtime_t)
+init_stop_transient_unit(gravity_container_runtime_t)
 
-dbus_system_bus_client(gravity_container_t)
+dbus_system_bus_client(gravity_container_runtime_t)
 # udev monitor
-udev_create_kobject_uevent_socket(gravity_container_t)
+udev_create_kobject_uevent_socket(gravity_container_runtime_t)
 
-files_pid_filetrans(gravity_container_t, container_var_run_t, dir, "planet")
-files_pid_filetrans(gravity_container_t, container_var_run_t, sock_file, "planet.socket")
-
-
-# FIXME: which unit specifically triggers this?
-# allow gravity_container_t systemd_unit_file_t:service status;
+files_pid_filetrans(gravity_container_runtime_t, container_var_run_t, dir, "planet")
+files_pid_filetrans(gravity_container_runtime_t, container_var_run_t, sock_file, "planet.socket")
 
 gen_require(`
-	type staff_t;
-	role staff_r;
+  type staff_t;
+  role staff_r;
 ')
 gravity_role(staff_r, staff_t)
 
@@ -639,16 +633,15 @@ allow gravity_t init_t:service { disable enable stop };
 
 gen_require(`
   type rpc_pipefs_t;
+  type unconfined_t;
 ')
-allow container_t spc_t:file getattr;
-allow container_t spc_t:process getattr;
-allow gravity_container_init_t spc_t:dir search;
+allow gravity_container_domain rpc_pipefs_t:filesystem mount;
 allow gravity_container_init_t spc_t:process signull;
-allow container_t rpc_pipefs_t:filesystem mount;
-allow container_t container_runtime_t:process { sigkill signal sigstop };
-allow container_t gravity_container_home_t:dir setattr;
-allow container_t gravity_container_home_t:file setattr;
-allow container_t gravity_container_init_t:unix_dgram_socket { read write };
-allow container_t gravity_container_init_t:unix_stream_socket { read write };
-allow container_t gravity_container_t:process { sigkill signal sigstop };
-allow container_t gravity_home_t:file getattr;
+allow gravity_container_init_t spc_t:dir search;
+allow gravity_container_domain container_runtime_t:process { sigkill signal sigstop }; # ??
+allow gravity_container_domain gravity_container_home_t:dir setattr; # ??
+allow gravity_container_domain gravity_container_home_t:file setattr; # ??
+allow gravity_container_domain gravity_container_init_t:unix_dgram_socket { read write };
+allow gravity_container_domain gravity_container_init_t:unix_stream_socket { read write };
+allow gravity_container_domain gravity_container_runtime_t:process { sigkill signal sigstop }; # ??
+allow gravity_container_domain gravity_home_t:file { getattr read open }; # ??

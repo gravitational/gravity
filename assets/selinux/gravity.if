@@ -22,7 +22,7 @@ interface(`gravity_run',`
   ')
 
   gravity_domtrans($1)
-  roleattribute $1 gravity_roles;
+  roleattribute $2 gravity_roles;
 ')
 
 ########################################
@@ -43,10 +43,11 @@ interface(`gravity_run',`
 interface(`gravity_role',`
   gen_require(`
     attribute_role gravity_roles;
+    attribute gravity_domain;
     type gravity_t;
     type gravity_exec_t;
-    type gravity_container_t;
-    type gravity_container_exec_t;
+    type gravity_container_runtime_t;
+    type gravity_container_runtime_exec_t;
     type gravity_home_t;
     type gravity_install_home_t;
     type gravity_log_t;
@@ -58,11 +59,11 @@ interface(`gravity_role',`
 
   # Allow domain transition for user domain to gravity/planet
   domtrans_pattern($2, gravity_exec_t, gravity_t)
-  domtrans_pattern($2, gravity_container_exec_t, gravity_container_t)
+  domtrans_pattern($2, gravity_container_runtime_exec_t, gravity_container_runtime_t)
 
   # Interact with gravity process
-  ps_process_pattern($2, gravity_t)
-  allow $2 gravity_t:process { ptrace signal_perms };
+  ps_process_pattern($2, gravity_domain)
+  allow $2 gravity_domain:process { ptrace signal_perms };
 
   admin_pattern($2, gravity_home_t)
   admin_pattern($2, gravity_install_home_t)
@@ -262,13 +263,13 @@ interface(`gravity_admin',`
 ## </summary>
 ## </param>
 #
-interface(`gravity_container_run',`
+interface(`gravity_container_runtime_run',`
   gen_require(`
-    attribute_role gravity_container_roles;
+    attribute_role gravity_container_runtime_roles;
   ')
 
-  gravity_container_domtrans($1)
-  roleattribute $2 gravity_container_roles;
+  gravity_container_runtime_domtrans($1)
+  roleattribute $2 gravity_container_runtime_roles;
 ')
 
 ########################################
@@ -281,30 +282,31 @@ interface(`gravity_container_run',`
 ## </summary>
 ## </param>
 #
-interface(`gravity_container_domtrans',`
+interface(`gravity_container_runtime_domtrans',`
   gen_require(`
-    type gravity_container_t, gravity_container_exec_t;
+    type gravity_container_runtime_t, gravity_container_runtime_exec_t;
   ')
 
   corecmd_search_bin($1)
-  domtrans_pattern($1, gravity_container_exec_t, gravity_container_t)
-  allow gravity_container_t $1:fifo_file setattr;
+  domtrans_pattern($1, gravity_container_runtime_exec_t, gravity_container_runtime_t)
+  allow gravity_container_runtime_t $1:fifo_file setattr;
 ')
 
-interface(`gravity_container_exec',`
+interface(`gravity_container_runtime_exec',`
   gen_require(`
-    type gravity_container_exec_t;
+    type gravity_container_runtime_exec_t;
   ')
 
   corecmd_search_bin($1)
-  can_exec($1, gravity_container_exec_t)
+  can_exec($1, gravity_container_runtime_exec_t)
 ')
 
 interface(`gravity_container_stream_connect',`
   gen_require(`
-    type gravity_container_var_run_t, gravity_t;
+    attribute gravity_domain;
+    type gravity_container_var_run_t;
   ')
 
   files_search_pids($1)
-  stream_connect_pattern($1, gravity_container_var_run_t, gravity_container_var_run_t, gravity_t)
+  stream_connect_pattern($1, gravity_container_var_run_t, gravity_container_var_run_t, gravity_domain)
 ')
