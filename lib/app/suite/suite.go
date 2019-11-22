@@ -28,13 +28,13 @@ import (
 	"time"
 
 	"github.com/gravitational/gravity/lib/app"
-	"github.com/gravitational/gravity/lib/app/docker"
 	"github.com/gravitational/gravity/lib/app/service"
 	apptest "github.com/gravitational/gravity/lib/app/service/test"
 	"github.com/gravitational/gravity/lib/archive"
 	"github.com/gravitational/gravity/lib/compare"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/docker"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
@@ -271,7 +271,12 @@ func (r *AppsSuite) ExportsApplication(c *C) {
 	c.Assert(err, IsNil)
 	apps := r.NewService(c, dockerClient, imageService)
 
-	vendorer, err := service.NewVendorerFromClients(dockerClient, imageService, registry.Addr(), r.Packages)
+	vendorer, err := service.NewVendorer(service.VendorerConfig{
+		DockerClient: dockerClient,
+		ImageService: imageService,
+		RegistryURL:  registry.Addr(),
+		Packages:     r.Packages,
+	})
 	c.Assert(err, IsNil)
 	application := r.importApplication(apps, vendorer, c)
 
@@ -623,7 +628,12 @@ func (r *AppsSuite) Charts(c *C) {
 	})
 	c.Assert(err, IsNil)
 
-	vendorer, err := service.NewVendorerFromClients(dockerClient, imageService, registry.Addr(), r.Packages)
+	vendorer, err := service.NewVendorer(service.VendorerConfig{
+		DockerClient: dockerClient,
+		ImageService: imageService,
+		RegistryURL:  registry.Addr(),
+		Packages:     r.Packages,
+	})
 	c.Assert(err, IsNil)
 
 	apps := r.NewService(c, dockerClient, imageService)

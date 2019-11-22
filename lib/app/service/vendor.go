@@ -29,12 +29,12 @@ import (
 	"time"
 
 	"github.com/ghodss/yaml"
-	"github.com/gravitational/gravity/lib/app/docker"
 	"github.com/gravitational/gravity/lib/app/hooks"
 	"github.com/gravitational/gravity/lib/app/resources"
 	"github.com/gravitational/gravity/lib/archive"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/docker"
 	"github.com/gravitational/gravity/lib/helm"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/pack"
@@ -54,38 +54,25 @@ import (
 
 // VendorerConfig is configuration for vendorer
 type VendorerConfig struct {
-	// DockerURL is the URL of docker API
-	DockerURL string
-	// RegistryURL is the URL of a running docker registry
+	// DockerClient is the docker client to use to manage images
+	DockerClient docker.DockerInterface
+	// ImageService is the docker registry service
+	docker.ImageService
+	// RegistryURL is the URL of the active docker registry to use to
 	RegistryURL string
 	// Packages is the pack service
 	Packages pack.PackageService
 }
 
 // NewVendorer creates a new vendorer instance.
-func NewVendorer(conf VendorerConfig) (*vendorer, error) {
-	dockerClient, err := docker.NewClient(conf.DockerURL)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	imageService, err := docker.NewImageService(docker.RegistryConnectionRequest{
-		RegistryAddress: conf.RegistryURL,
-	})
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return NewVendorerFromClients(dockerClient, imageService, conf.RegistryURL, conf.Packages)
-}
-
-// NewVendorerFromClients creates a new vendorer helper from existing docker client - useful in tests.
-func NewVendorerFromClients(dockerClient docker.DockerInterface, imageService docker.ImageService, registryURL string, packages pack.PackageService) (*vendorer, error) {
-	dockerPuller := docker.NewDockerPuller(dockerClient)
+func NewVendorer(config VendorerConfig) (*vendorer, error) {
+	dockerPuller := docker.NewDockerPuller(config.DockerClient)
 	v := &vendorer{
-		dockerClient: dockerClient,
-		imageService: imageService,
+		dockerClient: config.DockerClient,
+		imageService: config.ImageService,
 		dockerPuller: dockerPuller,
-		registryURL:  registryURL,
-		packages:     packages,
+		registryURL:  config.RegistryURL,
+		packages:     config.Packages,
 	}
 	return v, nil
 }
