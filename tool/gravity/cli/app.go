@@ -182,7 +182,7 @@ func importApp(env *localenv.LocalEnvironment, registryURL, dockerURL, source st
 	}
 
 	if req.Vendor {
-		dockerClient, err := docker.NewDefaultClient()
+		dockerClient, err := docker.NewClient(dockerURL)
 		if err != nil {
 			return trace.Wrap(err)
 		}
