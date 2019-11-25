@@ -19,15 +19,12 @@ package docker
 import (
 	"time"
 
-	"github.com/gravitational/trace"
+	"github.com/gravitational/gravity/lib/constants"
+	"github.com/gravitational/gravity/lib/utils"
 
 	dockerapi "github.com/fsouza/go-dockerclient"
+	"github.com/gravitational/trace"
 )
-
-// NewClient creates a docker client using endpoint for connection
-func NewClient(endpoint string) (*dockerapi.Client, error) {
-	return NewClientWithTimeout(endpoint, time.Duration(0))
-}
 
 // NewClientFromEnv creates a docker client using environment
 func NewClientFromEnv() (*dockerapi.Client, error) {
@@ -51,4 +48,19 @@ func NewClientWithTimeout(endpoint string, timeout time.Duration) (*dockerapi.Cl
 	}
 	client.HTTPClient.Timeout = timeout
 	return client, nil
+}
+
+// NewDefaultClient returns a new docker client using defaults
+func NewDefaultClient() (DockerInterface, error) {
+	endpoint := utils.GetenvWithDefault("DOCKER_HOST", constants.DockerEngineURL)
+	client, err := NewClient(endpoint)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return client, nil
+}
+
+// NewClient creates a docker client using endpoint for connection
+func NewClient(endpoint string) (*dockerapi.Client, error) {
+	return NewClientWithTimeout(endpoint, time.Duration(0))
 }

@@ -31,6 +31,7 @@ import (
 	"github.com/gravitational/gravity/lib/app/service"
 	"github.com/gravitational/gravity/lib/archive"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/docker"
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
@@ -181,11 +182,22 @@ func importApp(env *localenv.LocalEnvironment, registryURL, dockerURL, source st
 	}
 
 	if req.Vendor {
+		dockerClient, err := docker.NewClient(dockerURL)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		imageService, err := docker.NewImageService(docker.RegistryConnectionRequest{
+			RegistryAddress: registryURL,
+		})
+		if err != nil {
+			return trace.Wrap(err)
+		}
 		progress.NextStep("vendoring docker images from %v", source)
 		vendorer, err := service.NewVendorer(service.VendorerConfig{
-			DockerURL:   dockerURL,
-			RegistryURL: registryURL,
-			Packages:    packages,
+			DockerClient: dockerClient,
+			ImageService: imageService,
+			RegistryURL:  registryURL,
+			Packages:     packages,
 		})
 		if err != nil {
 			return trace.Wrap(err)

@@ -23,11 +23,10 @@ import (
 	"os"
 	"runtime"
 
-	"github.com/gravitational/gravity/lib/constants"
+	"github.com/gravitational/gravity/lib/docker"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/utils"
 
-	docker "github.com/fsouza/go-dockerclient"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
 )
@@ -121,7 +120,7 @@ func checkBuildEnv() error {
 		return trace.BadParameter("tele build is not supported on %v, only "+
 			"Linux is supported", runtime.GOOS)
 	}
-	client, err := docker.NewClient(constants.DockerEngineURL)
+	client, err := docker.NewDefaultClient()
 	if err != nil {
 		return trace.Wrap(err)
 	}

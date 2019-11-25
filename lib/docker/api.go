@@ -17,9 +17,10 @@ limitations under the License.
 package docker
 
 import (
+	"github.com/gravitational/gravity/lib/utils"
+
 	"github.com/docker/distribution/context"
 	dockerapi "github.com/fsouza/go-dockerclient"
-	"github.com/gravitational/gravity/lib/utils"
 )
 
 // DockerInterfaces defines an interface to docker
@@ -40,6 +41,8 @@ type DockerInterface interface {
 	// ExportContainer exports the contents of the running container given with opts
 	// as a tarball
 	ExportContainer(opts dockerapi.ExportContainerOptions) error
+	// Version returns version information about the docker server.
+	Version() (*dockerapi.Env, error)
 }
 
 // ImageService defines an interface to a private docker registry
