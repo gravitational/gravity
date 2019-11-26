@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2018-2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gravitational/gravity/lib/app/docker"
+	"github.com/fatih/color"
 	"github.com/gravitational/gravity/lib/app/hooks"
 	"github.com/gravitational/gravity/lib/app/resources"
 	"github.com/gravitational/gravity/lib/archive"
@@ -178,16 +178,14 @@ func (v *vendorer) VendorDir(ctx context.Context, unpackedDir string, req Vendor
 		return trace.Wrap(err)
 	}
 
-	log.Infof("Detected raw resource files: %v.", resourceFiles)
-	for _, resourceFile := range resourceFiles {
-		if err := printResourceStatus(resourceFile, req.ManifestPath, req.ProgressReporter, "resource file"); err != nil {
-			return trace.Wrap(err)
-		}
-	}
-
 	// next, rewrite images that were specified by `--set-image` since the
 	// original image tag might not actually exist.
 	err = resourceFiles.RewriteImages(makeRewriteSetImagesFunc(req.SetImages))
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	err = analyzeResources(resourceFiles, chartResources, req)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -204,12 +202,6 @@ func (v *vendorer) VendorDir(ctx context.Context, unpackedDir string, req Vendor
 		return trace.Wrap(err)
 	}
 	log.Infof("Chart images: %v.", chartImages)
-	log.Infof("Found images captured from charts: %v.", chartResources)
-	for _, resourceFile := range chartResources {
-		if err := printResourceStatus(resourceFile, req.ManifestPath, req.ProgressReporter, "Helm chart"); err != nil {
-			return trace.Wrap(err)
-		}
-	}
 
 	images = append(images, chartImages...)
 
@@ -306,6 +298,36 @@ func (v *vendorer) VendorDir(ctx context.Context, unpackedDir string, req Vendor
 	return nil
 }
 
+// analyzeResources looks at the parsed Kubernetes/Helm resource files and
+// prints some helpful information about them to the user.
+func analyzeResources(resourceFiles, chartFiles resources.ResourceFiles, req VendorRequest) error {
+	for _, resourceFile := range append(resourceFiles, chartFiles...) {
+		images, err := resourceFile.Images()
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		if len(images.UnrecognizedObjects) > 0 {
+			req.ProgressReporter.PrintSubWarn("Some resources weren't recognized, run with --verbose (-v) for more details")
+			break
+		}
+	}
+	log.Infof("Detected resource files: %v.", resourceFiles)
+	for _, resourceFile := range resourceFiles {
+		err := printResourceStatus(resourceFile, req, "resource file")
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	log.Infof("Detected chart templates: %v.", chartFiles)
+	for _, resourceFile := range chartFiles {
+		err := printResourceStatus(resourceFile, req, "Helm chart template")
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	return nil
+}
+
 // printResourceStatus prints a user-friendly status message about the provided
 // resource file which gives the user a high-level visibility into the process
 // of discovering images from resources
@@ -314,24 +336,20 @@ func (v *vendorer) VendorDir(ctx context.Context, unpackedDir string, req Vendor
 //  - the fact that this resource file has been detected and is being processed
 //  - an info message in case no Docker images could be extracted from the file
 //    which might help the user spot mistakes in their resource file / chart
-//  - an info message in case an object definition of an unknown version / kind
+//  - a debug message in case an object definition of an unknown version / kind
 //    has been detected
-func printResourceStatus(resourceFile resources.ResourceFile, manifestPath string, progressReporter utils.Progress, resourceType string) error {
-	relPath := utils.TrimPathPrefix(resourceFile.Path(), filepath.Dir(manifestPath))
-	if resourceFile.Path() == manifestPath {
+func printResourceStatus(resourceFile resources.ResourceFile, req VendorRequest, resourceType string) error {
+	relPath := utils.TrimPathPrefix(resourceFile.Path(), filepath.Dir(req.ManifestPath))
+	if resourceFile.Path() == req.ManifestPath {
 		resourceType = "application manifest"
 	}
-	progressReporter.PrintSubStep("Detected %v %v", resourceType, relPath)
+	req.ProgressReporter.PrintSubDebug("Detected %v %v", resourceType, relPath)
 	extractedImages, err := resourceFile.Images()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	if len(extractedImages.Images) == 0 {
-		progressReporter.PrintSubStep("Found no images to vendor in %v %v", resourceType, relPath)
-	}
-	if len(extractedImages.UnrecognizedObjects) > 0 {
-		progressReporter.PrintSubWarn("Some resources in %v %v weren't recognized, check --debug output",
-			resourceType, relPath)
+		req.ProgressReporter.PrintSubDebug("Found no images to vendor in %v %v", resourceType, relPath)
 	}
 	for _, o := range extractedImages.UnrecognizedObjects {
 		gvk := o.GetObjectKind().GroupVersionKind()
@@ -347,6 +365,8 @@ func printResourceStatus(resourceFile resources.ResourceFile, manifestPath strin
 				"kind":       gvk.Kind,
 				"name":       unk.Metadata.Name,
 			}).Info("Skip unrecognized object.")
+			req.ProgressReporter.PrintSubDebug(color.BlueString("Unrecognized object: apiVersion=%v; kind=%v; name=%v",
+				fmt.Sprintf("%v/%v", gvk.Group, gvk.Version), gvk.Kind, unk.Metadata.Name))
 		}
 	}
 	return nil

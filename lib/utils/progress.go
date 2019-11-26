@@ -99,10 +99,12 @@ type Progress interface {
 	Stop()
 	// PrintCurrentStep updates and prints current step
 	PrintCurrentStep(message string, args ...interface{})
-	// PrintSubStep outputs the message as a sub-step of the current step
+	// PrintSubStep outputs the message at info level a sub-step.
 	PrintSubStep(message string, args ...interface{})
-	// PrintSubWarn outputs the warning as a sub-step of the current step
+	// PrintSubWarn outputs the message at warning level as a sub-step.
 	PrintSubWarn(message string, args ...interface{})
+	// PrintSubDebug outputs the message at debug level as a sub-step.
+	PrintSubDebug(message string, args ...interface{})
 	// Print outputs the specified message in regular color
 	Print(message string, args ...interface{})
 	// PrintInfo outputs the specified info message in color
@@ -126,13 +128,20 @@ func NewProgress(ctx context.Context, title string, steps int, silent bool) Prog
 // NewConsoleProgress returns new instance of progress reporter
 // steps is the total amount of steps this progress reporter
 // will report.
-func NewConsoleProgress(ctx context.Context, title string, steps int) *progressPrinter {
+func NewConsoleProgress(ctx context.Context, title string, steps int) Progress {
 	return NewProgressWithConfig(ctx, title, ProgressConfig{Steps: steps})
 }
 
 // NewProgressWithConfig returns new progress reporter for the given set of options
-func NewProgressWithConfig(ctx context.Context, title string, config ProgressConfig) *progressPrinter {
+func NewProgressWithConfig(ctx context.Context, title string, config ProgressConfig) Progress {
+	if config.Silent {
+		return DiscardProgress
+	}
 	config.setDefaults()
+	var level ProgressLevel
+	if config.Verbose {
+		level = ProgressLevelDebug
+	}
 	p := &progressPrinter{
 		title:   title,
 		start:   time.Now(),
@@ -140,6 +149,7 @@ func NewProgressWithConfig(ctx context.Context, title string, config ProgressCon
 		timeout: config.Timeout,
 		steps:   config.Steps,
 		w:       config.Output,
+		level:   level,
 	}
 	return p
 }
@@ -168,7 +178,21 @@ type ProgressConfig struct {
 	// Output specifies the output sink.
 	// Defaults to os.Stdout if unspecified
 	Output io.Writer
+	// Silent turns off all progress output.
+	Silent bool
+	// Verbose enables verbose output level.
+	Verbose bool
 }
+
+// ProgressLevel represents a level at which reporter reports progress.
+type ProgressLevel uint32
+
+const (
+	// ProgressLevelInfo is the level for basic informational messages.
+	ProgressLevelInfo ProgressLevel = iota
+	// ProgressLevelDebug is the level for more detailed information.
+	ProgressLevelDebug
+)
 
 // progressPrinter implements Progress that outputs
 // to the specified writer
@@ -182,6 +206,7 @@ type progressPrinter struct {
 	currentStep  int
 	context      context.Context
 	start        time.Time
+	level        ProgressLevel
 }
 
 // PrintCurrentStep updates message printed for current step that is in progress
@@ -190,15 +215,22 @@ func (p *progressPrinter) PrintCurrentStep(message string, args ...interface{}) 
 	printStep(p.w, entry.current, p.steps, entry.message)
 }
 
-// PrintSubStep outputs the message as a sub-step of the current step
+// PrintSubWarn outputs the message at info level as a sub-step.
 func (p *progressPrinter) PrintSubStep(message string, args ...interface{}) {
 	entry := p.updateCurrentEntry(message, args...)
 	fmt.Fprintf(p.w, "\t%v\n", entry.message)
 }
 
-// PrintSubWarn outputs the warning as a sub-step of the current step
+// PrintSubWarn outputs the message at warning level as a sub-step.
 func (p *progressPrinter) PrintSubWarn(message string, args ...interface{}) {
 	p.PrintSubStep(color.YellowString(message, args...))
+}
+
+// PrintSubDebug outputs the message at debug level as a sub-step.
+func (p *progressPrinter) PrintSubDebug(message string, args ...interface{}) {
+	if p.level >= ProgressLevelDebug {
+		p.PrintSubStep(message, args...)
+	}
 }
 
 func (p *progressPrinter) updateCurrentEntry(message string, args ...interface{}) *entry {
@@ -358,8 +390,11 @@ func (*nopProgress) PrintCurrentStep(message string, args ...interface{}) {}
 // PrintSubStep outputs the message as a sub-step of the current step
 func (*nopProgress) PrintSubStep(message string, args ...interface{}) {}
 
-// PrintSubWarn outputs warning as a sub-step of the current step
+// PrintSubDebug outputs the message at warning level as a sub-step.
 func (*nopProgress) PrintSubWarn(message string, args ...interface{}) {}
+
+// PrintSubDebug outputs the message at debug level as a sub-step.
+func (*nopProgress) PrintSubDebug(message string, args ...interface{}) {}
 
 // Print outputs the specified message in regular color
 func (*nopProgress) Print(message string, args ...interface{}) {}

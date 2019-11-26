@@ -77,6 +77,8 @@ type BuildCmd struct {
 	Parallel *int
 	// Quiet allows to suppress console output
 	Quiet *bool
+	// Verbose enables more detailed build output.
+	Verbose *bool
 }
 
 type ListCmd struct {
