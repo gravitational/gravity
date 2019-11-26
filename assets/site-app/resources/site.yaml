@@ -181,6 +181,8 @@ spec:
             containerPort: 3023
           - name: sshtunnel
             containerPort: 3024
+          - name: kubeproxy
+            containerPort: 3026
           - name: teleport
             containerPort: 3080
           - name: profile

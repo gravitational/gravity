@@ -637,6 +637,9 @@ const (
 	// AWSLBIdleTimeoutAnnotation is the kubernetes annotation that specifies
 	// idle timeout for an AWS load balancer
 	AWSLBIdleTimeoutAnnotation = "service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout"
+	// ExternalDNSHostnameAnnotation is the service annotation that is understood
+	// by external DNS controllers.
+	ExternalDNSHostnameAnnotation = "external-dns.alpha.kubernetes.io/hostname"
 
 	// FinalStep is the number of the final install operation step in UI
 	FinalStep = 9
