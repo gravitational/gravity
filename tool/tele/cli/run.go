@@ -57,6 +57,7 @@ func Run(tele Application) error {
 			Overwrite:        *tele.BuildCmd.Overwrite,
 			SkipVersionCheck: *tele.BuildCmd.SkipVersionCheck,
 			Silent:           *tele.BuildCmd.Quiet,
+			Verbose:          *tele.BuildCmd.Verbose,
 			Insecure:         *tele.Insecure,
 		}, service.VendorRequest{
 			PackageName:            *tele.BuildCmd.Name,

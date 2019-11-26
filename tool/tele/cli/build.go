@@ -40,6 +40,8 @@ type BuildParameters struct {
 	SkipVersionCheck bool
 	// Silent is whether builder should report progress to the console
 	Silent bool
+	// Verbose turns on more details progress output.
+	Verbose bool
 	// Insecure turns on insecure verify mode
 	Insecure bool
 }
@@ -55,7 +57,10 @@ func build(ctx context.Context, params BuildParameters, req service.VendorReques
 		Overwrite:        params.Overwrite,
 		SkipVersionCheck: params.SkipVersionCheck,
 		VendorReq:        req,
-		Progress:         utils.NewProgress(ctx, "Build", 6, params.Silent),
+		Progress: utils.NewProgressWithConfig(ctx, "Build", utils.ProgressConfig{
+			Silent:  params.Silent,
+			Verbose: params.Verbose,
+		}),
 	})
 	if err != nil {
 		return trace.Wrap(err)

@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2018-2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@ limitations under the License.
 package service
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -28,7 +27,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ghodss/yaml"
+	"github.com/fatih/color"
 	"github.com/gravitational/gravity/lib/app/hooks"
 	"github.com/gravitational/gravity/lib/app/resources"
 	"github.com/gravitational/gravity/lib/archive"
@@ -43,6 +42,7 @@ import (
 	"github.com/gravitational/gravity/lib/utils"
 
 	dockerarchive "github.com/docker/docker/pkg/archive"
+	"github.com/ghodss/yaml"
 	teleutils "github.com/gravitational/teleport/lib/utils"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
@@ -178,16 +178,14 @@ func (v *vendorer) VendorDir(ctx context.Context, unpackedDir string, req Vendor
 		return trace.Wrap(err)
 	}
 
-	log.Infof("Detected raw resource files: %v.", resourceFiles)
-	for _, resourceFile := range resourceFiles {
-		if err := printResourceStatus(resourceFile, req.ManifestPath, req.ProgressReporter, "resource file"); err != nil {
-			return trace.Wrap(err)
-		}
-	}
-
 	// next, rewrite images that were specified by `--set-image` since the
 	// original image tag might not actually exist.
 	err = resourceFiles.RewriteImages(makeRewriteSetImagesFunc(req.SetImages))
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	err = analyzeResources(resourceFiles, chartResources, req)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -204,12 +202,6 @@ func (v *vendorer) VendorDir(ctx context.Context, unpackedDir string, req Vendor
 		return trace.Wrap(err)
 	}
 	log.Infof("Chart images: %v.", chartImages)
-	log.Infof("Found images captured from charts: %v.", chartResources)
-	for _, resourceFile := range chartResources {
-		if err := printResourceStatus(resourceFile, req.ManifestPath, req.ProgressReporter, "Helm chart"); err != nil {
-			return trace.Wrap(err)
-		}
-	}
 
 	images = append(images, chartImages...)
 
@@ -306,6 +298,36 @@ func (v *vendorer) VendorDir(ctx context.Context, unpackedDir string, req Vendor
 	return nil
 }
 
+// analyzeResources looks at the parsed Kubernetes/Helm resource files and
+// prints some helpful information about them to the user.
+func analyzeResources(resourceFiles, chartFiles resources.ResourceFiles, req VendorRequest) error {
+	for _, resourceFile := range append(resourceFiles, chartFiles...) {
+		images, err := resourceFile.Images()
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		if len(images.UnrecognizedObjects) > 0 {
+			req.ProgressReporter.PrintSubWarn("Some resources weren't recognized, run with --verbose (-v) for more details")
+			break
+		}
+	}
+	log.Infof("Detected resource files: %v.", resourceFiles)
+	for _, resourceFile := range resourceFiles {
+		err := printResourceStatus(resourceFile, req)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	log.Infof("Detected Helm templates: %v.", chartFiles)
+	for _, resourceFile := range chartFiles {
+		err := printResourceStatus(resourceFile, req)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	return nil
+}
+
 // printResourceStatus prints a user-friendly status message about the provided
 // resource file which gives the user a high-level visibility into the process
 // of discovering images from resources
@@ -314,25 +336,39 @@ func (v *vendorer) VendorDir(ctx context.Context, unpackedDir string, req Vendor
 //  - the fact that this resource file has been detected and is being processed
 //  - an info message in case no Docker images could be extracted from the file
 //    which might help the user spot mistakes in their resource file / chart
-//  - an info message in case an object definition of an unknown version / kind
+//  - a debug message in case an object definition of an unknown version / kind
 //    has been detected
-func printResourceStatus(resourceFile resources.ResourceFile, manifestPath string, progressReporter utils.Progress, resourceType string) error {
-	relPath := utils.TrimPathPrefix(resourceFile.Path(), filepath.Dir(manifestPath))
-	if resourceFile.Path() == manifestPath {
-		resourceType = "application manifest"
-	}
-	progressReporter.PrintSubStep("Detected %v %v", resourceType, relPath)
+func printResourceStatus(resourceFile resources.ResourceFile, req VendorRequest) error {
+	relPath := utils.TrimPathPrefix(resourceFile.Path(), filepath.Dir(req.ManifestPath))
 	extractedImages, err := resourceFile.Images()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	if len(extractedImages.Images) == 0 {
-		progressReporter.PrintSubStep("Found no images to vendor in %v %v", resourceType, relPath)
+		req.ProgressReporter.PrintSubDebug("%v %v:\n\t\tNo images to vendor", resourceFile.Kind(), relPath)
+	} else {
+		req.ProgressReporter.PrintSubDebug("%v %v:", resourceFile.Kind(), relPath)
+		for _, image := range extractedImages.Images {
+			req.ProgressReporter.PrintSubDebug(color.GreenString("\t%v", image))
+		}
 	}
 	for _, o := range extractedImages.UnrecognizedObjects {
 		gvk := o.GetObjectKind().GroupVersionKind()
-		progressReporter.PrintSubStep("Will skip unrecognized object in %v %v: apiVersion=%v/%v, kind=%v",
-			resourceType, relPath, gvk.Group, gvk.Version, gvk.Kind)
+		unk, err := resources.ToUnknown(o)
+		if err != nil {
+			log.WithError(err).WithFields(log.Fields{
+				"apiVersion": fmt.Sprintf("%v/%v", gvk.Group, gvk.Version),
+				"kind":       gvk.Kind,
+			}).Warn("Failed to convert object to unknown resource.")
+		} else {
+			log.WithFields(log.Fields{
+				"apiVersion": fmt.Sprintf("%v/%v", gvk.Group, gvk.Version),
+				"kind":       gvk.Kind,
+				"name":       unk.Metadata.Name,
+			}).Info("Skip unrecognized object.")
+			req.ProgressReporter.PrintSubDebug(color.BlueString("\tUnrecognized object: apiVersion=%v; kind=%v; name=%v",
+				fmt.Sprintf("%v/%v", gvk.Group, gvk.Version), gvk.Kind, unk.Metadata.Name))
+		}
 	}
 	return nil
 }
@@ -688,13 +724,21 @@ func isChartDirectory(path string) (bool, error) {
 	return !fi.IsDir(), nil
 }
 
-func resourceFromChart(path string) (*resources.Resource, error) {
-	out, err := helm.Render(helm.RenderParameters{Path: path})
+func resourcesFromChart(path string) (resources.ResourceFiles, error) {
+	rendered, err := helm.Render(helm.RenderParameters{Path: path})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	log.WithField("path", path).Debug(string(out))
-	return resources.Decode(bytes.NewReader(out))
+	var result resources.ResourceFiles
+	for k, v := range rendered {
+		resource, err := resources.Decode(strings.NewReader(v))
+		if err != nil {
+			return nil, trace.Wrap(err, "failed to decode: %v", k)
+		}
+		result = append(result, resources.NewResourceFileObject(
+			k, resources.KindHelmTemplate, *resource))
+	}
+	return result, nil
 }
 
 // resourcesFromPath collects resource files in root for further processing.
@@ -734,11 +778,12 @@ func resourcesFromPath(root string, includePatterns []string, ignorePatterns []s
 				return nil
 			}
 			log.Infof("Extracting images from Helm chart directory %v.", path)
-			resource, err := resourceFromChart(path)
+			resource, err := resourcesFromChart(path)
 			if err != nil {
-				return trace.Wrap(err)
+				return trace.Wrap(err, "failed to parse resources in Helm chart: %v",
+					utils.TrimPathPrefix(path, root, defaults.ResourcesDir))
 			}
-			chartResources = append(chartResources, resources.NewResourceFileObject(path, *resource))
+			chartResources = append(chartResources, resource...)
 			// Chart dir can also contain manifest file.
 			if _, err := utils.StatFile(filepath.Join(path, defaults.ManifestFileName)); err == nil {
 				resourceFile, err := resources.NewResourceFile(filepath.Join(path, defaults.ManifestFileName))
@@ -756,8 +801,8 @@ func resourcesFromPath(root string, includePatterns []string, ignorePatterns []s
 		}
 		resourceFile, err := resources.NewResourceFile(path)
 		if err != nil {
-			return trace.Wrap(err, "failed to parse resource file %q: %v",
-				utils.TrimPathPrefix(path, root, defaults.ResourcesDir), err)
+			return trace.Wrap(err, "failed to parse resource file: %v",
+				utils.TrimPathPrefix(path, root, defaults.ResourcesDir))
 		}
 		result = append(result, *resourceFile)
 		return nil

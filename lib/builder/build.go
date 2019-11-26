@@ -25,7 +25,6 @@ import (
 
 	"github.com/gravitational/gravity/lib/docker"
 	"github.com/gravitational/gravity/lib/schema"
-	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
@@ -49,11 +48,11 @@ func Build(ctx context.Context, builder *Builder) error {
 
 	switch builder.Manifest.Kind {
 	case schema.KindBundle, schema.KindCluster:
-		builder.Config.Progress = utils.NewProgress(ctx, "Build",
-			clusterBuildSteps, builder.Config.Silent)
+		builder.NextStep("Building cluster image %v %v",
+			locator.Name, locator.Version)
 	case schema.KindApplication:
-		builder.Config.Progress = utils.NewProgress(ctx, "Build",
-			appBuildSteps, builder.Config.Silent)
+		builder.NextStep("Building application image %v %v",
+			locator.Name, locator.Version)
 	default:
 		return trace.BadParameter("unknown manifest kind %q",
 			builder.Manifest.Kind)
@@ -134,10 +133,3 @@ func checkBuildEnv() error {
 	}
 	return nil
 }
-
-const (
-	// clusterBuildSteps is a number of steps when building a cluster image.
-	clusterBuildSteps = 6
-	// appBuildSteps is a number of steps when building an app image.
-	appBuildSteps = 4
-)
