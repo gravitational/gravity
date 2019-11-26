@@ -313,14 +313,14 @@ func analyzeResources(resourceFiles, chartFiles resources.ResourceFiles, req Ven
 	}
 	log.Infof("Detected resource files: %v.", resourceFiles)
 	for _, resourceFile := range resourceFiles {
-		err := printResourceStatus(resourceFile, req, "resource file")
+		err := printResourceStatus(resourceFile, req)
 		if err != nil {
 			return trace.Wrap(err)
 		}
 	}
-	log.Infof("Detected chart templates: %v.", chartFiles)
+	log.Infof("Detected Helm templates: %v.", chartFiles)
 	for _, resourceFile := range chartFiles {
-		err := printResourceStatus(resourceFile, req, "Helm chart template")
+		err := printResourceStatus(resourceFile, req)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -338,18 +338,20 @@ func analyzeResources(resourceFiles, chartFiles resources.ResourceFiles, req Ven
 //    which might help the user spot mistakes in their resource file / chart
 //  - a debug message in case an object definition of an unknown version / kind
 //    has been detected
-func printResourceStatus(resourceFile resources.ResourceFile, req VendorRequest, resourceType string) error {
+func printResourceStatus(resourceFile resources.ResourceFile, req VendorRequest) error {
 	relPath := utils.TrimPathPrefix(resourceFile.Path(), filepath.Dir(req.ManifestPath))
-	if resourceFile.Path() == req.ManifestPath {
-		resourceType = "application manifest"
-	}
-	req.ProgressReporter.PrintSubDebug("Detected %v %v", resourceType, relPath)
+	//req.ProgressReporter.PrintSubDebug("Detected %v %v", resourceFile.Kind(), relPath)
 	extractedImages, err := resourceFile.Images()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	if len(extractedImages.Images) == 0 {
-		req.ProgressReporter.PrintSubDebug("Found no images to vendor in %v %v", resourceType, relPath)
+		req.ProgressReporter.PrintSubDebug("%v %v:\n\t\tNo images to vendor", resourceFile.Kind(), relPath)
+	} else {
+		req.ProgressReporter.PrintSubDebug("%v %v:", resourceFile.Kind(), relPath)
+		for _, image := range extractedImages.Images {
+			req.ProgressReporter.PrintSubDebug(color.GreenString("\t%v", image))
+		}
 	}
 	for _, o := range extractedImages.UnrecognizedObjects {
 		gvk := o.GetObjectKind().GroupVersionKind()
@@ -365,7 +367,7 @@ func printResourceStatus(resourceFile resources.ResourceFile, req VendorRequest,
 				"kind":       gvk.Kind,
 				"name":       unk.Metadata.Name,
 			}).Info("Skip unrecognized object.")
-			req.ProgressReporter.PrintSubDebug(color.BlueString("Unrecognized object: apiVersion=%v; kind=%v; name=%v",
+			req.ProgressReporter.PrintSubDebug(color.BlueString("\tUnrecognized object: apiVersion=%v; kind=%v; name=%v",
 				fmt.Sprintf("%v/%v", gvk.Group, gvk.Version), gvk.Kind, unk.Metadata.Name))
 		}
 	}
@@ -734,7 +736,8 @@ func resourcesFromChart(path string) (resources.ResourceFiles, error) {
 		if err != nil {
 			return nil, trace.Wrap(err, "failed to decode: %v", k)
 		}
-		result = append(result, resources.NewResourceFileObject(k, *resource))
+		result = append(result, resources.NewResourceFileObject(
+			k, resources.KindHelmTemplate, *resource))
 	}
 	return result, nil
 }

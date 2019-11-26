@@ -20,7 +20,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 
+	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/schema"
 
 	"github.com/gravitational/trace"
@@ -72,11 +74,29 @@ type ResourceFiles []ResourceFile
 type ResourceFile struct {
 	Resource
 	path string
+	kind string
 }
+
+const (
+	// KindResourceFile represents a generic Kubernetes resource spec file.
+	KindResourceFile = "Resource file"
+	// KindManifestFile represents a cluster/app image manifest file.
+	KindManifestFile = "Manifest file"
+	// KindHelmTemplate represents a Helm template file.
+	KindHelmTemplate = "Helm template"
+)
 
 // Path returns path to resource
 func (r ResourceFile) Path() string {
 	return r.path
+}
+
+// Kind returns the kind of the resource this file represents.
+func (r ResourceFile) Kind() string {
+	if r.kind != "" {
+		return r.kind
+	}
+	return KindResourceFile
 }
 
 // Images returns a list of Docker images in this resource file
@@ -90,8 +110,8 @@ func (r ResourceFile) String() string {
 }
 
 // NewResourceFileObject returns new resource file created from resource
-func NewResourceFileObject(path string, resource Resource) ResourceFile {
-	return ResourceFile{path: path, Resource: resource}
+func NewResourceFileObject(path, kind string, resource Resource) ResourceFile {
+	return ResourceFile{path: path, kind: kind, Resource: resource}
 }
 
 // NewResourceFile parses the file at path and returns
@@ -110,7 +130,16 @@ func NewResourceFile(path string) (*ResourceFile, error) {
 		return nil, trace.Wrap(err)
 	}
 
-	return &ResourceFile{*resource, path}, nil
+	kind := KindResourceFile
+	if filepath.Base(path) == defaults.ManifestFileName {
+		kind = KindManifestFile
+	}
+
+	return &ResourceFile{
+		Resource: *resource,
+		path:     path,
+		kind:     kind,
+	}, nil
 }
 
 // Images accumulates container image references over the specified range of
