@@ -79,6 +79,10 @@ type BuildCmd struct {
 	Quiet *bool
 	// Verbose enables more detailed build output.
 	Verbose *bool
+	// Set is a list of Helm chart values set on the CLI.
+	Set *[]string
+	// Values is a list of YAML files with Helm chart values.
+	Values *[]string
 }
 
 type ListCmd struct {

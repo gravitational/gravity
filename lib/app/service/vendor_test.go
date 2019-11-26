@@ -20,15 +20,20 @@ import (
 	"bytes"
 	"io/ioutil"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/gravitational/gravity/lib/app/resources"
+	"github.com/gravitational/gravity/lib/compare"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/helm"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/schema"
 
 	. "gopkg.in/check.v1"
+	"k8s.io/helm/pkg/chartutil"
+	"k8s.io/helm/pkg/proto/hapi/chart"
 )
 
 type VendorSuite struct{}
@@ -202,6 +207,60 @@ func (*VendorSuite) TestGeneratesProperPackageNames(c *C) {
 	}
 }
 
+// TestHelmChartRender makes sure that vendorer takes Helm values into account
+// when rendering charts to extract image references from them.
+func (*VendorSuite) TestHelmChartRender(c *C) {
+	chart := &chart.Chart{
+		Metadata: &chart.Metadata{
+			Name:    "test-chart",
+			Version: "0.0.1",
+		},
+		Templates: []*chart.Template{
+			{
+				Name: "templates/resources.yaml",
+				Data: []byte(helmTemplate),
+			},
+		},
+		Values: &chart.Config{
+			Raw: helmValues,
+		},
+	}
+
+	dir := c.MkDir()
+	err := chartutil.SaveDir(chart, dir)
+	c.Assert(err, IsNil)
+
+	_, resources, err := resourcesFromPath(dir, VendorRequest{})
+	c.Assert(err, IsNil)
+
+	images, err := resources.Images()
+	c.Assert(err, IsNil)
+	c.Assert(sort.StringSlice(images), compare.SortedSliceEquals, sort.StringSlice([]string{
+		"quay.io/postgresql:11.0.0",
+		"nginx:10.0.0",
+		"py-worker:1.2.3",
+	}))
+
+	_, resources, err = resourcesFromPath(dir, VendorRequest{
+		Helm: helm.RenderParameters{
+			Set: []string{
+				"psql.tag=9.0.0",
+				"nginx.registry=quay.io/",
+				"worker.name=go-worker",
+			},
+		},
+	})
+	c.Assert(err, IsNil)
+
+	images, err = resources.Images()
+	c.Assert(err, IsNil)
+	c.Assert(sort.StringSlice(images), compare.SortedSliceEquals, sort.StringSlice([]string{
+		"quay.io/postgresql:9.0.0",
+		"quay.io/nginx:10.0.0",
+		"go-worker:1.2.3",
+	}))
+}
+
 func createResourceFile(path, manifest string, c *C) resources.ResourceFiles {
 	dir := c.MkDir()
 	fileName := filepath.Join(dir, path)
@@ -257,3 +316,31 @@ dependencies:
   - gravitational.io/gravity:0.0.0+latest
   apps:
   - gravitational.io/site:0.0.0+latest`
+
+const helmTemplate = `
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx
+  labels:
+    app: nginx
+spec:
+  containers:
+  - name: postgres
+    image: quay.io/postgresql:{{ .Values.psql.tag }}
+  - name: nginx
+    image: {{ .Values.nginx.registry }}nginx:{{ .Values.nginx.tag }}
+  - name: worker
+    image: {{ .Values.worker.name }}:{{ .Values.worker.tag }}
+`
+
+const helmValues = `
+psql:
+  tag: 11.0.0
+nginx:
+  registry:
+  tag: 10.0.0
+worker:
+  name: py-worker
+  tag: 1.2.3
+`
