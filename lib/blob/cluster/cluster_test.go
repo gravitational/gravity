@@ -38,10 +38,10 @@ import (
 	"github.com/gravitational/gravity/lib/storage/keyval"
 	"github.com/gravitational/gravity/lib/users/usersservice"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/gravitational/roundtrip"
 	"github.com/gravitational/trace"
 	"github.com/jonboulle/clockwork"
+	log "github.com/sirupsen/logrus"
 	. "gopkg.in/check.v1"
 )
 
@@ -270,6 +270,7 @@ func (s *RPCSuite) SetUpTest(c *C) {
 			TestMode:         true,
 			GracePeriod:      gracePeriod,
 		})
+		c.Assert(err, IsNil)
 
 		webHandler, err := handler.New(handler.Config{
 			Users:   usersService,
@@ -289,6 +290,7 @@ func (s *RPCSuite) SetUpTest(c *C) {
 						InsecureSkipVerify: true,
 					}}}),
 		)
+		c.Assert(err, IsNil)
 
 		localClient, err := client.NewPeerAuthenticatedClient(
 			webServer.URL, peerUser, key.Token,
