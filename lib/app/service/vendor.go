@@ -340,7 +340,6 @@ func analyzeResources(resourceFiles, chartFiles resources.ResourceFiles, req Ven
 //    has been detected
 func printResourceStatus(resourceFile resources.ResourceFile, req VendorRequest) error {
 	relPath := utils.TrimPathPrefix(resourceFile.Path(), filepath.Dir(req.ManifestPath))
-	//req.ProgressReporter.PrintSubDebug("Detected %v %v", resourceFile.Kind(), relPath)
 	extractedImages, err := resourceFile.Images()
 	if err != nil {
 		return trace.Wrap(err)
