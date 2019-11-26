@@ -132,6 +132,8 @@ type VendorRequest struct {
 	// ProgressReporter is a special writer, if set, vendorer will output user-friendly
 	// information during vendoring
 	ProgressReporter utils.Progress
+	// Helm contains parameters for rendering Helm charts.
+	Helm helm.RenderParameters
 }
 
 // vendorer is a helper struct that encapsulates all services needed to vendor/rewrite images in
@@ -178,7 +180,7 @@ func (v *vendorer) VendorDir(ctx context.Context, unpackedDir string, req Vendor
 	}
 
 	// parse all resources
-	resourceFiles, chartResources, err := resourcesFromPath(unpackedDir, req.ResourcePatterns, req.IgnoreResourcePatterns)
+	resourceFiles, chartResources, err := resourcesFromPath(unpackedDir, req)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -701,8 +703,12 @@ func isChartDirectory(path string) (bool, error) {
 	return !fi.IsDir(), nil
 }
 
-func resourceFromChart(path string) (*resources.Resource, error) {
-	out, err := helm.Render(helm.RenderParameters{Path: path})
+func resourceFromChart(path string, req VendorRequest) (*resources.Resource, error) {
+	out, err := helm.Render(helm.RenderParameters{
+		Path:   path,
+		Values: req.Helm.Values,
+		Set:    req.Helm.Set,
+	})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -714,14 +720,14 @@ func resourceFromChart(path string) (*resources.Resource, error) {
 // It will search for files starting with root and matching a set of file path patterns
 // specified with patterns.
 // Returns a list of collected resource files upon success.
-func resourcesFromPath(root string, includePatterns []string, ignorePatterns []string) (result resources.ResourceFiles, chartResources resources.ResourceFiles, err error) {
+func resourcesFromPath(root string, req VendorRequest) (result resources.ResourceFiles, chartResources resources.ResourceFiles, err error) {
 	err = filepath.Walk(root, func(path string, fileInfo os.FileInfo, err error) error {
 		if err != nil {
 			return trace.Wrap(err)
 		}
 
 		var matched bool
-		for _, pattern := range includePatterns {
+		for _, pattern := range req.ResourcePatterns {
 			matched, _ = archive.PathMatch(archive.PathPattern(pattern), path)
 			if matched {
 				break
@@ -729,7 +735,7 @@ func resourcesFromPath(root string, includePatterns []string, ignorePatterns []s
 		}
 
 		if matched {
-			for _, ignorePattern := range ignorePatterns {
+			for _, ignorePattern := range req.IgnoreResourcePatterns {
 				matchedIgnore, _ := regexp.MatchString(ignorePattern, path)
 				if matchedIgnore {
 					matched = false
@@ -747,7 +753,7 @@ func resourcesFromPath(root string, includePatterns []string, ignorePatterns []s
 				return nil
 			}
 			log.Infof("Extracting images from Helm chart directory %v.", path)
-			resource, err := resourceFromChart(path)
+			resource, err := resourceFromChart(path, req)
 			if err != nil {
 				return trace.Wrap(err)
 			}
