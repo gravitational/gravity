@@ -310,3 +310,12 @@ interface(`gravity_container_stream_connect',`
   files_search_pids($1)
   stream_connect_pattern($1, gravity_container_var_run_t, gravity_container_var_run_t, gravity_domain)
 ')
+
+interface(`gravity_manage_executable_content',`
+  gen_require(`
+    attribute gravity_executable_domain;
+  ')
+
+  # TODO
+  allow $1 gravity_executable_domain:file { setattr unlink };
+')
