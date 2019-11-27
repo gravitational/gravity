@@ -19,6 +19,7 @@ limitations under the License.
 package constants
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/coreos/go-semver/semver"
@@ -769,6 +770,12 @@ var (
 	// HubImageName is the name of the Hub cluster image.
 	HubImageName = "hub"
 )
+
+// ExternalDNS formats the provided hostname as a wildcard A record for use
+// with external DNS provisioners.
+func ExternalDNS(hostname string) string {
+	return fmt.Sprintf("%[1]v,*.%[1]v", hostname)
+}
 
 // Format is the type for supported output formats
 type Format string
