@@ -19,6 +19,7 @@ limitations under the License.
 package constants
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/coreos/go-semver/semver"
@@ -642,6 +643,9 @@ const (
 	// AWSLBIdleTimeoutAnnotation is the kubernetes annotation that specifies
 	// idle timeout for an AWS load balancer
 	AWSLBIdleTimeoutAnnotation = "service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout"
+	// ExternalDNSHostnameAnnotation is the service annotation that is understood
+	// by external DNS controllers.
+	ExternalDNSHostnameAnnotation = "external-dns.alpha.kubernetes.io/hostname"
 
 	// FinalStep is the number of the final install operation step in UI
 	FinalStep = 9
@@ -773,6 +777,12 @@ var (
 	// HubImageName is the name of the Hub cluster image.
 	HubImageName = "hub"
 )
+
+// ExternalDNS formats the provided hostname as a wildcard A record for use
+// with external DNS provisioners.
+func ExternalDNS(hostname string) string {
+	return fmt.Sprintf("%[1]v,*.%[1]v", hostname)
+}
 
 // Format is the type for supported output formats
 type Format string
