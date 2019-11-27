@@ -36,6 +36,7 @@ type gravity_t, gravity_domain;
 type gravity_exec_t, gravity_executable_domain;
 init_daemon_domain(gravity_t, gravity_exec_t)
 can_exec(gravity_t, gravity_exec_t)
+can_exec(gravity_t, gravity_container_file_t)
 role gravity_roles types gravity_t;
 
 # state directory
@@ -152,13 +153,16 @@ allow gravity_domain self:process { setrlimit setpgid ptrace setsched setkeycrea
 allow gravity_domain self:tcp_socket create_socket_perms;
 allow gravity_domain self:tcp_socket create_stream_socket_perms;
 allow gravity_domain self:unix_dgram_socket { connect create getattr setopt };
+allow gravity_domain gravity_container_init_exec_t:lnk_file { getattr unlink };
 
 # lsblk access /sys/dev/block
 dev_read_sysfs(gravity_domain)
 auth_read_passwd(gravity_domain)
 
-allow gravity_domain gravity_exec_t:file { create write };
-corecmd_bin_filetrans(gravity_domain, gravity_exec_t, file, "gravity")
+# cannot use a named transition as the binary is created by
+# first creating a file with a random name and then renaming it to gravity
+allow gravity_domain gravity_exec_t:file { create write rename };
+corecmd_bin_filetrans(gravity_domain, gravity_exec_t, file)
 
 # install into /usr/bin and run executables
 allow gravity_domain bin_t:dir { add_name write remove_name };
@@ -195,14 +199,13 @@ files_tmp_filetrans(gravity_domain, gravity_tmp_t, { file dir lnk_file sock_file
 
 # FIXME: installer home should be read/only
 read_files_pattern(gravity_domain, gravity_install_home_t, gravity_install_home_t)
-allow gravity_domain gravity_install_home_t:file { write };
+allow gravity_domain gravity_install_home_t:file { create append write };
 
 # installer directory file transitions for writable content
 filetrans_pattern(gravity_domain, gravity_install_home_t, gravity_home_t, dir, ".gravity")
 filetrans_pattern(gravity_domain, gravity_install_home_t, gravity_home_t, file, "crashreport.tgz")
 logging_log_filetrans(gravity_domain, gravity_log_t, file)
 filetrans_pattern(gravity_domain, gravity_install_home_t, gravity_log_t, file, "gravity-system.log")
-filetrans_pattern(gravity_domain, gravity_install_home_t, gravity_log_t, file, "gravity-install.log")
 filetrans_pattern(gravity_domain, gravity_home_t, gravity_unit_file_t, file, "gravity-installer.service")
 filetrans_pattern(gravity_domain, gravity_home_t, gravity_unit_file_t, file, "gravity-agent.service")
 filetrans_pattern(gravity_domain, gravity_home_t, gravity_var_run_t, sock_file, "installer.sock")
@@ -302,8 +305,6 @@ kernel_read_network_state(gravity_domain)
 kernel_read_all_sysctls(gravity_domain)
 kernel_read_messages(gravity_t)
 
-# read process state
-domain_read_all_domains_state(gravity_domain)
 # log to syslog
 logging_send_syslog_msg(gravity_t)
 
@@ -467,7 +468,7 @@ allow gravity_container_init_t gravity_container_file_t:blk_file create;
 allow gravity_container_init_t gravity_container_file_t:fifo_file { getattr open create read write };
 allow gravity_container_init_t gravity_container_file_t:sock_file { getattr setattr open create read write unlink };
 allow gravity_container_init_t rpc_pipefs_t:filesystem { mount unmount };
-llow gravity_container_init_t proc_t:filesystem unmount;
+allow gravity_container_init_t proc_t:filesystem unmount;
 allow gravity_container_init_t tmpfs_t:filesystem unmount;
 
 # dbus-daemon
@@ -514,10 +515,6 @@ kernel_request_load_module(gravity_service_t)
 allow gravity_container_runtime_t gravity_container_domain:unix_dgram_socket sendto;
 allow gravity_container_runtime_t gravity_container_init_t:unix_stream_socket ioctl;
 allow gravity_container_runtime_t container_runtime_t:unix_stream_socket connectto;
-
-# gravity report
-# system export-runtime-journal: mount /var/lib/gravity/local/packages/unpacked/gravitational.io/planet/6.1.10-11505/rootfs/tmp/journal
-allow gravity_t gravity_container_file_t:dir mounton;
 
 # 'planet agent'
 allow gravity_container_runtime_t gravity_home_t:file { open read };
@@ -697,12 +694,26 @@ files_pid_filetrans(gravity_container_runtime_t, container_var_run_t, sock_file,
 
 #######################
 # gravity uninstall
+#
 allow gravity_t container_file_t:sock_file { getattr unlink };
 allow gravity_t container_log_t:file unlink;
 allow gravity_t container_share_t:blk_file { getattr unlink };
 allow gravity_t container_share_t:chr_file { getattr unlink };
-allow gravity_t var_lib_t:dir { remove_name write }; # FIXME
+#allow gravity_t var_lib_t:dir { remove_name write }; # FIXME
 
+#######################
+# gravity report
+#
+# read process state (including attributes)
+domain_read_all_domains_state(gravity_domain)
+ps_process_pattern(gravity_domain, domain)
+# df -i
+allow gravity_t configfs_t:dir { list_dir_perms };
+# store bits from /etc
+allow gravity_t selinux_config_t:dir { list_dir_perms };
+# gravity report
+# system export-runtime-journal: mount /var/lib/gravity/local/packages/unpacked/gravitational.io/planet/<version>/rootfs/tmp/journal
+allow gravity_t gravity_container_file_t:dir mounton;
 
 gen_require(`
   type staff_t;
