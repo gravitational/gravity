@@ -677,6 +677,9 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.SystemRestoreFilecontextsCmd.CmdClause = g.SystemCmd.Command("restore-fcontext", "Restore file contexts on a SELinux-enabled system").Hidden()
 	g.SystemRestoreFilecontextsCmd.Path = g.SystemRestoreFilecontextsCmd.Arg("path", "Path to restore file contexts").Required().String()
 
+	g.SystemSelinuxBootstrapCmd.CmdClause = g.SystemCmd.Command("selinux-bootstrap", "Configure SELinux file contexts and ports on the node")
+	g.SystemSelinuxBootstrapCmd.Path = g.SystemSelinuxBootstrapCmd.Flag("output", "Path to output file for bootstrap script").String()
+
 	g.SystemRunCommandFromJailCmd.CmdClause = g.SystemCmd.Command("exec-jail", "Run command in a jail environment").Interspersed(false).Hidden()
 	g.SystemRunCommandFromJailCmd.Path = g.SystemRunCommandFromJailCmd.Flag("path", "Path to use as new root").Required().String()
 	g.SystemRunCommandFromJailCmd.Args = g.SystemRunCommandFromJailCmd.Arg("args", "Command and any arguments").Strings()

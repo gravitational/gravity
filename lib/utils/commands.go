@@ -80,7 +80,7 @@ func (r Executable) PlanetCommand(cmd Command) []string {
 // is returned unaltered.
 // gravityArgs optionally specify additional arguments to the gravity binary
 func (r Executable) PlanetCommandSlice(args []string, gravityArgs ...string) []string {
-	if CheckInPlanet() {
+	if RunningInPlanet() {
 		return args
 	}
 

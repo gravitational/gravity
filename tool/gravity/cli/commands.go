@@ -297,6 +297,8 @@ type Application struct {
 	SystemRestoreFilecontextsCmd SystemRestoreFilecontextsCmd
 	// SystemRunCommandFromJailCmd executes a command in a jail environment
 	SystemRunCommandFromJailCmd SystemRunCommandFromJailCmd
+	// SystemSelinuxBootstrapCmd configures SELinux file contexts and ports on the node
+	SystemSelinuxBootstrapCmd SystemSelinuxBootstrapCmd
 	// SystemGCJournalCmd cleans up stale journal files
 	SystemGCJournalCmd SystemGCJournalCmd
 	// SystemGCPackageCmd removes unused packages
@@ -1596,6 +1598,14 @@ type SystemRunCommandFromJailCmd struct {
 	Path *string
 	// Args specifies the command and any arguments
 	Args *[]string
+}
+
+// SystemSelinuxBootstrapCmd configures SELinux file contexts and ports on the node
+type SystemSelinuxBootstrapCmd struct {
+	*kingpin.CmdClause
+	// Path specifies the optional output file where the bootstrap script is saved.
+	// In this case, the command does not execute the script
+	Path *string
 }
 
 // SystemGCJournalCmd manages cleanup of journal files

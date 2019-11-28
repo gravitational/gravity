@@ -1,4 +1,61 @@
-#/bin/bash
+package selinux
+
+import (
+	"io"
+	"io/ioutil"
+	"os"
+	"os/exec"
+
+	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/log"
+
+	"github.com/gravitational/trace"
+	"github.com/sirupsen/logrus"
+)
+
+// Bootstrap executes the bootstrap script for the specified directory
+func Bootstrap(workingDir string) error {
+	path, err := tempFilename(workingDir)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	f, err := os.OpenFile(path, os.O_RDWR|os.O_EXCL, defaults.SharedExecutableMask)
+	if err != nil {
+		return trace.ConvertSystemError(err)
+	}
+	defer func() {
+		f.Close()
+		os.Remove(f.Name())
+	}()
+	if err := WriteBootstrapScript(f); err != nil {
+		return trace.Wrap(err)
+	}
+	cmd := exec.Command("bash", path)
+	logger := log.New(logrus.WithField(trace.Component, "system:selinux"))
+	w := logger.Writer()
+	cmd.Stdout = w
+	cmd.Stderr = w
+	return cmd.Run()
+}
+
+// WriteBootstrapScript creates the bootstrap script using the specified writer
+func WriteBootstrapScript(w io.Writer) error {
+	_, err := io.WriteString(w, bootstrapScript)
+	return trace.ConvertSystemError(err)
+}
+
+func tempFilename(dir string) (filename string, err error) {
+	f, err := ioutil.TempFile(dir, "bootstrap")
+	if err != nil {
+		return "", trace.ConvertSystemError(err)
+	}
+	if err := f.Close(); err != nil {
+		return "", trace.ConvertSystemError(err)
+	}
+	return f.Name(), nil
+}
+
+const bootstrapScript = `#/bin/bash
 set -eu
 
 DIR="$( cd "$(dirname "$0")" ; pwd -P )"
@@ -86,5 +143,4 @@ function remove_ports {
 
 setup_file_contexts
 setup_ports
-
-# TODO
+`

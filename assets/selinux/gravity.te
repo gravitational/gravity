@@ -315,7 +315,6 @@ optional_policy(`
     role unconfined_r;
   ')
   unconfined_run_to(gravity_t, gravity_exec_t)
-  #unconfined_run_to(gravity_container_runtime_t, gravity_container_runtime_exec_t)
   role_transition unconfined_r gravity_exec_t system_r;
 ')
 
@@ -536,6 +535,9 @@ kernel_read_messages(gravity_container_t)
 #allow gravity_container_domain proc_t:filesystem remount;
 # /bin/mount sunrpc /run/rpc_pipefs -t rpc_pipefs
 kernel_request_load_module(gravity_container_t)
+# execute gravity inside the container in its domain
+can_exec(gravity_container_t, gravity_exec_t)
+gravity_domtrans(gravity_container_t)
 
 manage_dirs_pattern(gravity_container_domain,  gravity_container_file_t, gravity_container_file_t)
 manage_files_pattern(gravity_container_domain, gravity_container_file_t, gravity_container_file_t)
@@ -739,3 +741,7 @@ allow gravity_container_domain gravity_home_t:file { getattr read open }; # ??
 
 # FIXME
 allow gravity_kubernetes_t gravity_container_init_exec_t:file getattr;
+
+# gravity: /root/.gravity
+#allow gravity_domain admin_home_t:dir write;
+#allow gravity_domain admin_home_t:file { read_file_perms };

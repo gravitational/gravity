@@ -222,7 +222,7 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.PlanRollbackCmd.FullCommand(),
 		g.PlanResumeCmd.FullCommand(),
 		g.EnterCmd.FullCommand():
-		if utils.CheckInPlanet() {
+		if utils.RunningInPlanet() {
 			return trace.BadParameter("this command must be run outside of planet container")
 		}
 	}
@@ -230,7 +230,7 @@ func InitAndCheck(g *Application, cmd string) error {
 	// following commands must be run inside the planet container
 	switch cmd {
 	case g.SystemGCJournalCmd.FullCommand():
-		if !utils.CheckInPlanet() {
+		if !utils.RunningInPlanet() {
 			return trace.BadParameter("this command must be run inside planet container")
 		}
 	}
@@ -811,6 +811,9 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 		return execFromJail(localEnv,
 			*g.SystemRunCommandFromJailCmd.Path,
 			*g.SystemRunCommandFromJailCmd.Args)
+	case g.SystemSelinuxBootstrapCmd.FullCommand():
+		return bootstrapSelinux(localEnv,
+			*g.SystemSelinuxBootstrapCmd.Path)
 	case g.GarbageCollectCmd.FullCommand():
 		return garbageCollect(localEnv, *g.GarbageCollectCmd.Manual, *g.GarbageCollectCmd.Confirmed)
 	case g.SystemGCJournalCmd.FullCommand():

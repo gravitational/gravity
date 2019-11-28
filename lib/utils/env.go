@@ -78,9 +78,9 @@ func DetectPlanetEnvironment() {
 	})
 }
 
-// CheckInPlanet returns whether the process was started inside
+// RunningInPlanet returns whether the process was started inside
 // the container
-func CheckInPlanet() bool {
+func RunningInPlanet() bool {
 	return runningInsideContainer
 }
 

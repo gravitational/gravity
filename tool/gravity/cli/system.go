@@ -40,6 +40,7 @@ import (
 	libsystem "github.com/gravitational/gravity/lib/system"
 	"github.com/gravitational/gravity/lib/system/environ"
 	"github.com/gravitational/gravity/lib/system/mount"
+	"github.com/gravitational/gravity/lib/system/selinux"
 	"github.com/gravitational/gravity/lib/system/service"
 	"github.com/gravitational/gravity/lib/system/signals"
 	"github.com/gravitational/gravity/lib/systemservice"
@@ -54,6 +55,18 @@ import (
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
 )
+
+func bootstrapSelinux(env *localenv.LocalEnvironment, path string) error {
+	if path == "" {
+		return selinux.Bootstrap(utils.Exe.WorkingDir)
+	}
+	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_EXCL, defaults.SharedExecutableMask)
+	if err != nil {
+		return trace.ConvertSystemError(err)
+	}
+	defer f.Close()
+	return selinux.WriteBootstrapScript(f)
+}
 
 func restoreFilecontexts(env *localenv.LocalEnvironment, rootfsDir string) error {
 	logger := log.WithField("rootfs", rootfsDir)
