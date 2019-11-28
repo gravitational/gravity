@@ -56,8 +56,11 @@ func (o *Operator) UpdatePersistentStorage(ctx context.Context, req ops.UpdatePe
 		return trace.BadParameter("persistent storage is not configured")
 	}
 	ndmConfig, err := o.cfg.OpenEBS.GetNDMConfig()
-	if err != nil {
+	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
+	}
+	if trace.IsNotFound(err) {
+		ndmConfig = storage.DefaultNDMConfig()
 	}
 	ndmConfig.Apply(req.Resource)
 	err = o.cfg.OpenEBS.UpdateNDMConfig(ndmConfig)
