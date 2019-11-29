@@ -25,7 +25,9 @@ func Bootstrap(workingDir string) error {
 	}
 	defer func() {
 		f.Close()
-		os.Remove(f.Name())
+		if err := os.Remove(f.Name()); err != nil {
+			logrus.WithError(err).Warn("Failed to clean up bootstrap script.")
+		}
 	}()
 	if err := WriteBootstrapScript(f); err != nil {
 		return trace.Wrap(err)
@@ -35,7 +37,7 @@ func Bootstrap(workingDir string) error {
 	w := logger.Writer()
 	cmd.Stdout = w
 	cmd.Stderr = w
-	return cmd.Run()
+	return trace.Wrap(cmd.Run())
 }
 
 // WriteBootstrapScript creates the bootstrap script using the specified writer
@@ -56,7 +58,9 @@ func tempFilename(dir string) (filename string, err error) {
 }
 
 const bootstrapScript = `#/bin/bash
-set -eu
+set -o nounset
+set -o errexit
+set -o xtrace
 
 DIR="$( cd "$(dirname "$0")" ; pwd -P )"
 
@@ -75,6 +79,21 @@ function setup_file_contexts {
   restorecon -Rv /var/lib/gravity
 }
 
+function upsert_port {
+  local setype=$1
+  local porttype=$2
+  local range=$3
+  output=$(semanage port -a -t $setype -p $porttype $range 2>&1 1>/dev/null)
+  ret=$?
+  if [[ $ret -eq 0 ]]; then
+    return 0
+  fi
+  if ! echo $output | grep 'already defined'; then
+    return $ret
+  fi
+  semanage port -m -t $setype -p $porttype $range
+}
+
 function restore_file_contexts {
   semanage fcontext -d "${DIR}(/.*)?"
   semanage fcontext -d -f f "${DIR}/gravity"
@@ -87,40 +106,42 @@ function restore_file_contexts {
 }
 
 function setup_ports {
+  set +o errexit
   # https://danwalsh.livejournal.com/10607.html
   # Installer-specific ports
-  semanage port -a -t gravity_install_port_t -p tcp 61009-61010
-  semanage port -a -t gravity_install_port_t -p tcp 61022-61025
-  semanage port -a -t gravity_install_port_t -p tcp 61080
+  upsert_port gravity_install_port_t tcp 61009-61010
+  upsert_port gravity_install_port_t tcp 61022-61025
+  upsert_port gravity_install_port_t tcp 61080
   # Cluster ports
   # Gravity RPC agent
-  semanage port -a -t gravity_agent_port_t -p tcp 3012
-  semanage port -a -t gravity_agent_port_t -p tcp 7575
+  upsert_port gravity_agent_port_t tcp 3012
+  upsert_port gravity_agent_port_t tcp 7575
   # Gravity Hub control panel
-  semanage port -a -t gravity_port_t -p tcp 32009
+  upsert_port gravity_port_t tcp 32009
   # Gravity (teleport internal SSH control plane)
-  semanage port -a -t gravity_port_t -p tcp 3022-3025
+  upsert_port gravity_port_t tcp 3022-3025
   # Gravity (teleport web UI)
-  semanage port -a -t gravity_port_t -p tcp 3080
+  upsert_port gravity_port_t tcp 3080
   # Gravity (internal gravity services)
-  semanage port -a -t gravity_port_t -p tcp 3008-3011
+  upsert_port gravity_port_t tcp 3008-3011
   # Gravity (vxlan)
-  semanage port -a -t gravity_vxlan_port_t -p tcp 8472
+  upsert_port gravity_vxlan_port_t tcp 8472
   # serf peer-to-peer
-  semanage port -a -t gravity_kubernetes_port_t -p tcp 7373
-  semanage port -a -t gravity_kubernetes_port_t -p tcp 7496
-  semanage port -a -t gravity_kubernetes_port_t -p tcp 6443
+  upsert_port gravity_kubernetes_port_t tcp 7373
+  upsert_port gravity_kubernetes_port_t tcp 7496
+  upsert_port gravity_kubernetes_port_t tcp 6443
   # reserved and overridden in the policy
   # semanage port -a -t gravity_docker_port_t -p tcp 5000
   # Kubernetes (etcd)
-  semanage port -a -t gravity_kubernetes_port_t -p tcp 2379-2380
+  upsert_port gravity_kubernetes_port_t tcp 2379-2380
   # reserved and overridden in the policy
   # semanage port -a -t gravity_kubernetes_port_t -p tcp 4001
   # semanage port -a -t gravity_kubernetes_port_t -p tcp 7001
   # Kubernetes (apiserver)
   # semanage port -a -t gravity_kubernetes_port_t -p tcp 6443
   # Kubernetes (kubelet)
-  semanage port -a -t gravity_kubernetes_port_t -p tcp 10248-10255
+  upsert_port gravity_kubernetes_port_t tcp 10248-10255
+  set -o errexit
 }
 
 function remove_ports {

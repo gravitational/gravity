@@ -153,6 +153,9 @@ type InstallConfig struct {
 	ProcessConfig *processconfig.Config
 	// ServiceUser is the computed service user
 	ServiceUser *systeminfo.User
+	// SELinux specifies whether the installer runs with SELinux support.
+	// This makes the installer run in its own domain
+	SELinux bool
 	// FromService specifies whether the process runs in service mode
 	FromService bool
 	// AcceptEULA allows to auto-accept end-user license agreement.
@@ -204,6 +207,7 @@ func NewInstallConfig(env *localenv.LocalEnvironment, g *Application) InstallCon
 		DNSZones:           *g.InstallCmd.DNSZones,
 		Flavor:             *g.InstallCmd.Flavor,
 		Remote:             *g.InstallCmd.Remote,
+		SELinux:            *g.InstallCmd.SELinux,
 		FromService:        *g.InstallCmd.FromService,
 		AcceptEULA:         *g.InstallCmd.AcceptEULA,
 		Printer:            env,
@@ -683,6 +687,7 @@ func NewWizardConfig(env *localenv.LocalEnvironment, g *Application) InstallConf
 		ServiceGID:         *g.WizardCmd.ServiceGID,
 		AdvertiseAddr:      *g.WizardCmd.AdvertiseAddr,
 		Token:              *g.WizardCmd.Token,
+		SELinux:            *g.WizardCmd.SELinux,
 		FromService:        *g.WizardCmd.FromService,
 		Remote:             true,
 		Printer:            env,
