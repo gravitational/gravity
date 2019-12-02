@@ -23,10 +23,10 @@ import (
 	_ "net/http/pprof"
 	"strings"
 
-	"github.com/gravitational/gravity/lib/app/docker"
 	appservice "github.com/gravitational/gravity/lib/app/service"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/docker"
 	"github.com/gravitational/gravity/lib/install"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"

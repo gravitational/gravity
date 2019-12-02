@@ -32,6 +32,7 @@ import (
 	blobfs "github.com/gravitational/gravity/lib/blob/fs"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/docker"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/localenv/credentials"
@@ -318,10 +319,15 @@ func (b *Builder) Vendor(ctx context.Context, dir string) (io.ReadCloser, error)
 			return nil, trace.Wrap(err)
 		}
 	}
+	dockerClient, err := docker.NewDefaultClient()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	vendorer, err := service.NewVendorer(service.VendorerConfig{
-		DockerURL:   constants.DockerEngineURL,
-		RegistryURL: constants.DockerRegistry,
-		Packages:    b.Packages,
+		DockerClient: dockerClient,
+		ImageService: docker.NewDefaultImageService(),
+		RegistryURL:  constants.DockerRegistry,
+		Packages:     b.Packages,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)

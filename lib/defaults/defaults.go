@@ -666,9 +666,6 @@ const (
 	// MaxRouterIdleConnsPerHost defines tha maximum number of idle connections for "opsroute" transport
 	MaxRouterIdleConnsPerHost = 5
 
-	// KubernetesHostnameLabel is the name of kubernetes label what contains host's IP
-	KubernetesHostnameLabel = "kubernetes.io/hostname"
-
 	// KubernetesRoleLabel is the Kubernetes node label with system role
 	KubernetesRoleLabel = "gravitational.io/k8s-role"
 
@@ -1275,4 +1272,10 @@ func WithTimeout(ctx context.Context) (context.Context, context.CancelFunc) {
 // InstallerAddr returns the complete address of the installer given its IP
 func InstallerAddr(installerIP string) (addr string) {
 	return fmt.Sprintf("%v:%v", installerIP, WizardPackServerPort)
+}
+
+// FormatKubernetesNodeRoleLabel formats the provided gravity role name as a kubernetes node role label as shown in
+// `kubectl get nodes`
+func FormatKubernetesNodeRoleLabel(role string) string {
+	return fmt.Sprintf("node-role.kubernetes.io/%v", role)
 }

@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2018-2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -25,7 +25,8 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 
 	"github.com/gravitational/teleport"
-	teleservices "github.com/gravitational/teleport/lib/services"
+	"github.com/gravitational/teleport/lib/services"
+
 	"github.com/gravitational/version"
 	helm "k8s.io/helm/pkg/version"
 )
@@ -37,7 +38,9 @@ type Modules interface {
 	// InstallModes returns a list of modes gravity install supports
 	InstallModes() []string
 	// DefaultAuthPreference returns default authentication preference based on process mode
-	DefaultAuthPreference(processMode string) (teleservices.AuthPreference, error)
+	DefaultAuthPreference(processMode string) (services.AuthPreference, error)
+	// ProxyFeatures returns additional features Teleport proxy supports based on process mode
+	ProxyFeatures(processMode string) []string
 	// SupportedConnectors returns a list of supported auth connector kinds
 	SupportedConnectors() []string
 	// Version returns the tool version
@@ -110,19 +113,24 @@ func (m *defaultModules) InstallModes() []string {
 }
 
 // DefaultAuthPreference returns default auth preference based on run mode
-func (m *defaultModules) DefaultAuthPreference(string) (teleservices.AuthPreference, error) {
-	return teleservices.NewAuthPreference(
-		teleservices.AuthPreferenceSpecV2{
+func (m *defaultModules) DefaultAuthPreference(string) (services.AuthPreference, error) {
+	return services.NewAuthPreference(
+		services.AuthPreferenceSpecV2{
 			Type:         teleport.Local,
 			SecondFactor: teleport.OFF,
 		})
 }
 
+// ProxyFeatures returns additional features Teleport proxy supports based on process mode
+func (m *defaultModules) ProxyFeatures(string) []string {
+	return nil
+}
+
 // SupportedConnectors returns a list of supported auth connector kinds
 func (m *defaultModules) SupportedConnectors() []string {
 	return []string{
-		teleservices.KindOIDCConnector,
-		teleservices.KindGithubConnector,
+		services.KindOIDCConnector,
+		services.KindGithubConnector,
 	}
 }
 

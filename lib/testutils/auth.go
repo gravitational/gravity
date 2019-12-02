@@ -23,7 +23,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/gravitational/gravity/lib/app/docker"
+	"github.com/gravitational/gravity/lib/docker"
 	"github.com/gravitational/gravity/lib/storage"
 
 	"github.com/gravitational/teleport"

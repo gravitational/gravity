@@ -120,6 +120,7 @@ func (s *BLOBSuite) BLOBWriteTwice(c *C) {
 	c.Assert(err, IsNil)
 
 	r, err := s.Objects.OpenBLOB(e.SHA512)
+	c.Assert(err, IsNil)
 	defer r.Close()
 
 	out, err := ioutil.ReadAll(r)

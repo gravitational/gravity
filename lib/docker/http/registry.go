@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package docker
+package http
 
 import (
 	"context"
@@ -22,6 +22,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/users"
+	"github.com/gravitational/teleport/lib/auth"
 
 	"github.com/docker/distribution/configuration"
 	"github.com/docker/distribution/registry/handlers"
@@ -35,6 +36,8 @@ type Config struct {
 	Context context.Context
 	// Users is the cluster users service.
 	Users users.Identity
+	// Authenticator is the request authentication service.
+	Authenticator users.Authenticator
 }
 
 // Check validates the registry handler configuration.
@@ -44,6 +47,9 @@ func (c Config) Check() error {
 	}
 	if c.Users == nil {
 		return trace.BadParameter("missing Users")
+	}
+	if c.Authenticator == nil {
+		return trace.BadParameter("missing Authenticator")
 	}
 	return nil
 }
@@ -72,9 +78,15 @@ func NewRegistry(config Config) (http.Handler, error) {
 			// The parameters here will be passed to the access controller's
 			// constructor.
 			"gravityACL": configuration.Parameters{
-				"users": config.Users,
+				"authenticator": config.Authenticator,
 			},
 		},
 	})
-	return app, nil
+
+	authMiddleware := &auth.AuthMiddleware{
+		AccessPoint: users.NewAccessPoint(config.Users),
+	}
+	authMiddleware.Wrap(app)
+
+	return authMiddleware, nil
 }

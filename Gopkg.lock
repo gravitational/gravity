@@ -1030,7 +1030,7 @@
 
 [[projects]]
   branch = "branch/3.2-g"
-  digest = "1:4a91818747f47ffe1cffbfe616b09678a4e4d1d52b8adb19c434274a4e0bd148"
+  digest = "1:3b2c7ae9fd7edd18cf2e9b634c40fc1a4309372190fad24161d463af82b29e88"
   name = "github.com/gravitational/teleport"
   packages = [
     ".",
@@ -1044,6 +1044,7 @@
     "lib/backend/dynamo",
     "lib/backend/etcdbk",
     "lib/client",
+    "lib/client/extensions",
     "lib/config",
     "lib/defaults",
     "lib/events",
@@ -1086,14 +1087,15 @@
     "lib/wrappers",
   ]
   pruneopts = "UT"
-  revision = "de3929eb86f7cc3411acde9ff93ed7c528e8f5d4"
+  revision = "6280a8f001681cc2321397be09c5894e569e479a"
 
 [[projects]]
-  digest = "1:9aea6c85145b6ff99ad423d35c6026e098a12cd7f19cce9775cc7eb73aa78d47"
+  digest = "1:3afdc8c5bad39bda75ede9cd18bf590c385ff9a28c742f7330e3d3e19c685c47"
   name = "github.com/gravitational/trace"
   packages = ["."]
   pruneopts = "UT"
-  revision = "3822600263648f166b2b2a14bc693e92947af68b"
+  revision = "42a8fffe760db82cf94b0c3e0112f91c3526a604"
+  version = "1.1.9"
 
 [[projects]]
   digest = "1:841d5835e94129658adabece66a4cc54d2cec9a40fa8b51743ea35d0519dd6c2"
@@ -3075,6 +3077,7 @@
     "gopkg.in/alecthomas/kingpin.v2",
     "gopkg.in/check.v1",
     "gopkg.in/yaml.v2",
+    "k8s.io/api/admissionregistration/v1beta1",
     "k8s.io/api/apps/v1",
     "k8s.io/api/apps/v1beta1",
     "k8s.io/api/apps/v1beta2",
@@ -3124,7 +3127,6 @@
     "k8s.io/helm/pkg/helm/helmpath",
     "k8s.io/helm/pkg/helm/portforwarder",
     "k8s.io/helm/pkg/kube",
-    "k8s.io/helm/pkg/manifest",
     "k8s.io/helm/pkg/proto/hapi/chart",
     "k8s.io/helm/pkg/proto/hapi/release",
     "k8s.io/helm/pkg/provenance",

@@ -45,6 +45,7 @@ import (
 	"github.com/gravitational/trace"
 	"github.com/jonboulle/clockwork"
 	"github.com/tstranex/u2f"
+	v1 "k8s.io/api/core/v1"
 )
 
 // Accounts collection modifies and updates account entries,
@@ -1605,6 +1606,28 @@ func (s *Server) KubeNodeID() string {
 // IsMaster returns true if the server has a master role
 func (s *Server) IsMaster() bool {
 	return s.ClusterRole == string(schema.ServiceRoleMaster)
+}
+
+// GetNodeLabels returns a consistent set of labels that should be applied to the node
+func (s *Server) GetNodeLabels(profileLabels map[string]string) map[string]string {
+	labels := map[string]string{
+		defaults.KubernetesAdvertiseIPLabel:            s.AdvertiseIP,
+		defaults.KubernetesRoleLabel:                   s.ClusterRole,
+		v1.LabelHostname:                               s.KubeNodeID(),
+		v1.LabelArchStable:                             "amd64", // Only amd64 is currently supported
+		v1.LabelOSStable:                               "linux", // Only linux is currently supported
+		defaults.FormatKubernetesNodeRoleLabel(s.Role): s.Role,
+	}
+	for k, v := range profileLabels {
+		// Several of the labels applied by default are used internally within gravity or gravity components.
+		// allowing a user to override these labels via the profile creates some risk, that they may overwrite a node
+		// label gravity uses itself. As such, for now, only apply the profile labels if they do not conflict with a
+		// default label.
+		if _, ok := labels[k]; !ok {
+			labels[k] = v
+		}
+	}
+	return labels
 }
 
 // Strings formats this server as readable text

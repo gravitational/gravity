@@ -65,6 +65,16 @@ rules:
   - get
   - list
   - watch
+# The following permissions are required to allow gravity-site to create the node object when running a join and
+# setting permissions that are restricted by the NodeAuthorizer.
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  verbs:
+  - create
+  - update
+  - patch
 # The following permissions are required for Teleport's Kubernetes proxy
 # functionality which uses Kubernetes Impersonation API.
 - apiGroups:
@@ -181,6 +191,8 @@ spec:
             containerPort: 3023
           - name: sshtunnel
             containerPort: 3024
+          - name: kubeproxy
+            containerPort: 3026
           - name: teleport
             containerPort: 3080
           - name: profile

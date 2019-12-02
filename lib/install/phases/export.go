@@ -21,9 +21,9 @@ import (
 	"path/filepath"
 
 	"github.com/gravitational/gravity/lib/app"
-	"github.com/gravitational/gravity/lib/app/docker"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/docker"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"

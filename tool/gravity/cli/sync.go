@@ -19,8 +19,8 @@ package cli
 import (
 	"context"
 
-	"github.com/gravitational/gravity/lib/app/docker"
 	"github.com/gravitational/gravity/lib/app/service"
+	"github.com/gravitational/gravity/lib/docker"
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/localenv"
 
