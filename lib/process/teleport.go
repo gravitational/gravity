@@ -18,6 +18,7 @@ package process
 
 import (
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/ops/opsservice"
 	"github.com/gravitational/gravity/lib/processconfig"
 	"github.com/gravitational/gravity/lib/storage"
@@ -151,6 +152,7 @@ func (p *Process) proxySettings() client.ProxySettings {
 		SSH: client.SSHProxySettings{
 			ListenAddr: p.teleportConfig.Proxy.SSHAddr.String(),
 		},
+		Features: modules.Get().ProxyFeatures(p.mode),
 	}
 	if len(p.teleportConfig.Proxy.Kube.PublicAddrs) > 0 {
 		settings.Kube.PublicAddr = p.teleportConfig.Proxy.Kube.PublicAddrs[0].String()

@@ -22,6 +22,7 @@ import (
 	"os"
 
 	"github.com/gravitational/gravity/lib/app/service"
+	"github.com/gravitational/gravity/lib/helm"
 	"github.com/gravitational/gravity/lib/localenv"
 
 	teleutils "github.com/gravitational/teleport/lib/utils"
@@ -57,6 +58,7 @@ func Run(tele Application) error {
 			Overwrite:        *tele.BuildCmd.Overwrite,
 			SkipVersionCheck: *tele.BuildCmd.SkipVersionCheck,
 			Silent:           *tele.BuildCmd.Quiet,
+			Verbose:          *tele.BuildCmd.Verbose,
 			Insecure:         *tele.Insecure,
 		}, service.VendorRequest{
 			PackageName:            *tele.BuildCmd.Name,
@@ -67,6 +69,10 @@ func Run(tele Application) error {
 			SetDeps:                *tele.BuildCmd.SetDeps,
 			Parallel:               *tele.BuildCmd.Parallel,
 			VendorRuntime:          true,
+			Helm: helm.RenderParameters{
+				Values: *tele.BuildCmd.Values,
+				Set:    *tele.BuildCmd.Set,
+			},
 		})
 	}
 

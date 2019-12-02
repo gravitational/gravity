@@ -30,6 +30,7 @@ import (
 	"github.com/docker/distribution/registry/listener"
 	_ "github.com/docker/distribution/registry/storage/driver/filesystem"
 	"github.com/docker/distribution/version"
+
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 	sysloghook "github.com/sirupsen/logrus/hooks/syslog"

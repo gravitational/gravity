@@ -94,6 +94,16 @@ func (r RegistryConnectionRequest) String() string {
 		r.RegistryAddress, r.CACertPath, r.ClientCertPath, r.ClientKeyPath)
 }
 
+// NewDefaultImageService returns a new instance of the ImageService using defaults
+func NewDefaultImageService() ImageService {
+	return &imageService{
+		RegistryConnectionRequest: RegistryConnectionRequest{
+			RegistryAddress: constants.DockerRegistry,
+		},
+		FieldLogger: log.WithField("registry", constants.DockerRegistry),
+	}
+}
+
 // NewImageService creates an image service using the supplied
 // address and certificate name to connect to the remote registry
 func NewImageService(req RegistryConnectionRequest) (ImageService, error) {

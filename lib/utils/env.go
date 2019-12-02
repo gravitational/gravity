@@ -96,6 +96,15 @@ func Getenv(envs ...string) (environ map[string]string) {
 	return environ
 }
 
+// GetenvWithDefault returns the value of the environment variable given
+// with name or defaultValue if the variable does not exist
+func GetenvWithDefault(name, defaultValue string) string {
+	if value, ok := os.LookupEnv(name); ok {
+		return value
+	}
+	return defaultValue
+}
+
 // runningInsideContainer specifies if this process is executing inside
 // planet container
 var runningInsideContainer bool

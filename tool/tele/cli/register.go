@@ -53,6 +53,9 @@ func RegisterCommands(app *kingpin.Application) Application {
 	tele.BuildCmd.SkipVersionCheck = tele.BuildCmd.Flag("skip-version-check", "Skip version compatibility check.").Hidden().Bool()
 	tele.BuildCmd.Parallel = tele.BuildCmd.Flag("parallel", "Specifies the number of concurrent tasks. If < 0, the number of tasks is not restricted, if unspecified, then tasks are capped at the number of logical CPU cores.").Int()
 	tele.BuildCmd.Quiet = tele.BuildCmd.Flag("quiet", "Suppress any output to stdout.").Short('q').Bool()
+	tele.BuildCmd.Verbose = tele.BuildCmd.Flag("verbose", "Produce more detailed build output, can be useful for troubleshooting.").Short('v').Bool()
+	tele.BuildCmd.Set = tele.BuildCmd.Flag("set", "Set Helm chart values on the command line. Can be specified multiple times and/or as comma-separated values: key1=val1,key2=val2.").Strings()
+	tele.BuildCmd.Values = tele.BuildCmd.Flag("values", "Set Helm chart values from the provided YAML file. Can be specified multiple times.").Strings()
 
 	tele.ListCmd.CmdClause = app.Command("ls", "List cluster and application images published to Gravity Hub.")
 	tele.ListCmd.Runtimes = tele.ListCmd.Flag("runtimes", "Show only runtimes.").Short('r').Hidden().Bool()

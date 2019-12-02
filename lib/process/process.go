@@ -45,7 +45,7 @@ import (
 	cloudaws "github.com/gravitational/gravity/lib/cloudprovider/aws"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
-	"github.com/gravitational/gravity/lib/docker"
+	docker "github.com/gravitational/gravity/lib/docker/http"
 	"github.com/gravitational/gravity/lib/helm"
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/loc"
@@ -1202,8 +1202,9 @@ func (p *Process) initService(ctx context.Context) (err error) {
 
 	if p.inKubernetes() {
 		p.handlers.Registry, err = docker.NewRegistry(docker.Config{
-			Context: ctx,
-			Users:   p.identity,
+			Context:       ctx,
+			Users:         p.identity,
+			Authenticator: authenticator,
 		})
 		if err != nil {
 			return trace.Wrap(err)
