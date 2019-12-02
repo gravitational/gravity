@@ -40,7 +40,7 @@ export default function Subnets({ onChange, podSubnet, serviceSubnet, ...styles}
         label="Service Subnet"
         mr="3"
         onChange={onChangeServiceSubnet}
-        placeholder="10.0.0.0/16"
+        placeholder="100.100.0.0/16"
         rule={validCidr}
         value={serviceSubnet}
       />
@@ -49,7 +49,7 @@ export default function Subnets({ onChange, podSubnet, serviceSubnet, ...styles}
         autoComplete="off"
         label="Pod Subnet"
         onChange={onChangePodnet}
-        placeholder="10.0.0.0/16"
+        placeholder="100.96.0.0/16"
         rule={validPod}
         value={podSubnet}
       />
