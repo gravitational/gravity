@@ -182,7 +182,7 @@ type MountServiceSpec struct {
 	Type string `json:"type"`
 	// Options lists mount options to use when mounting
 	// This setting is optional
-	Options []string `json:"options,emitempty"`
+	Options []string `json:"options,omitempty"`
 	// TimeoutSec configures the time to wait for the mount command to finish.
 	// Takes a unit-less value in seconds, or a time span value such as "5min 20s".
 	// Pass "0" to disable the timeout logic.
