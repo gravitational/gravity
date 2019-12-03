@@ -69,7 +69,7 @@ type OperationPhase struct {
 	// Executor is function which should execute this phase
 	Executor string `json:"executor"`
 	// Description is verbose description of the phase
-	Description string `json:"description,omitepty" yaml:"description,omitempty"`
+	Description string `json:"description,omitempty" yaml:"description,omitempty"`
 	// State is the current phase state
 	State string `json:"state,omitempty" yaml:"state,omitempty"`
 	// Step maps the phase to its corresponding step on the UI progress screen
