@@ -1,4 +1,5 @@
 /usr/bin/gravity		--	gen_context(system_u:object_r:gravity_exec_t,s0)
+/usr/bin/kubectl	-l	gen_context(system_u:object_r:gravity_kubernetes_exec_t,s0)
 /usr/local/bin/gravity		--	gen_context(system_u:object_r:gravity_exec_t,s0)
 /var/lib/gravity(/.*)?		gen_context(system_u:object_r:gravity_home_t,s0)
 /var/log/gravity-(install|system)\.log	--	gen_context(system_u:object_r:gravity_log_t,s0)
@@ -22,6 +23,7 @@
 /var/lib/gravity/local/packages/unpacked/gravitational\.io/planet/.*/rootfs/usr/bin/etcd.* -- gen_context(system_u:object_r:gravity_service_exec_t,s0)
 /var/lib/gravity/local/packages/unpacked/gravitational\.io/planet/.*/rootfs/usr/bin/flannel -- gen_context(system_u:object_r:gravity_service_exec_t,s0)
 /var/lib/gravity/local/packages/unpacked/gravitational\.io/planet/.*/rootfs/usr/bin/kube.*	-- gen_context(system_u:object_r:gravity_kubernetes_exec_t,s0)
+/var/lib/gravity/local/packages/unpacked/gravitational\.io/planet/.*/rootfs/usr/local/bin/kubectl	-- gen_context(system_u:object_r:gravity_kubernetes_exec_t,s0)
 /var/lib/gravity/local/packages/unpacked/gravitational\.io/planet/.*/rootfs/usr/bin/systemd	-l gen_context(system_u:object_r:gravity_container_init_exec_t,s0)
 /var/lib/gravity/local/packages/unpacked/gravitational\.io/planet/.*/rootfs/usr/bin/systemd-.*	-- gen_context(system_u:object_r:gravity_container_init_exec_t,s0)
 /var/lib/gravity/local/packages/unpacked/gravitational\.io/planet/.*/rootfs/usr/bin/docker.* -- gen_context(system_u:object_r:container_runtime_exec_t,s0)

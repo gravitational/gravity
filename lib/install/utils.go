@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/gravitational/gravity/lib/app"
@@ -40,15 +41,50 @@ import (
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
+	libselinux "github.com/gravitational/gravity/lib/system/selinux"
 	"github.com/gravitational/gravity/lib/systeminfo"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/cenkalti/backoff"
 	"github.com/gravitational/trace"
 	"github.com/kardianos/osext"
+	"github.com/opencontainers/selinux/go-selinux"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc/credentials"
 )
+
+// BootstrapSELinuxAndRespawn prepares the node for the installation with SELinux support
+// and restarts the process under the proper SELinux context if necessary
+func BootstrapSELinuxAndRespawn() error {
+	if !selinux.GetEnabled() {
+		return nil
+	}
+	// FIXME: need to relabel /var/log/gravity-*.log as these might have been created as var_log_t
+	if err := libselinux.Bootstrap(utils.Exe.WorkingDir); err != nil {
+		return trace.Wrap(err)
+	}
+	label, err := selinux.CurrentLabel()
+	log.WithField("label", label).Info("Current process label.")
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	procContext, err := selinux.NewContext(label)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if procContext["type"] != libselinux.GravityProcessContext["type"] {
+		newProcContext := libselinux.MustNewContext(label)
+		newProcContext["type"] = libselinux.GravityProcessContext["type"]
+		log.WithField("context", newProcContext).Info("Set process context.")
+		if err := selinux.SetExecLabel(newProcContext.Get()); err != nil {
+			return trace.Wrap(err)
+		}
+		log.WithField("args", os.Args).Info("Respawn.")
+		cmd := os.Args[0]
+		return syscall.Exec(cmd, os.Args, nil)
+	}
+	return nil
+}
 
 // GetAppPackage finds the user app in the provided service and returns its locator
 func GetAppPackage(service app.Applications) (*loc.Locator, error) {

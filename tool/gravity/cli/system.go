@@ -65,7 +65,7 @@ func bootstrapSelinux(env *localenv.LocalEnvironment, path string) error {
 		return trace.ConvertSystemError(err)
 	}
 	defer f.Close()
-	return selinux.WriteBootstrapScript(f)
+	return selinux.WriteBootstrapScript(f, utils.Exe.WorkingDir)
 }
 
 func restoreFilecontexts(env *localenv.LocalEnvironment, rootfsDir string) error {

@@ -56,6 +56,13 @@ import (
 )
 
 func startInstall(env *localenv.LocalEnvironment, config InstallConfig) error {
+	if config.SELinux {
+		env.PrintStep("Bootstrapping installer for SELinux")
+		if err := install.BootstrapSELinuxAndRespawn(); err != nil {
+			return trace.Wrap(err)
+		}
+	}
+
 	env.PrintStep("Starting installer")
 	if err := config.CheckAndSetDefaults(); err != nil {
 		return trace.Wrap(err)
@@ -669,6 +676,12 @@ func InstallerClient(env *localenv.LocalEnvironment, config installerclient.Conf
 
 // join executes the join command and runs either the client or the service depending on the configuration
 func join(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, config JoinConfig) error {
+	if config.SELinux {
+		env.PrintStep("Bootstrapping installer for SELinux")
+		if err := install.BootstrapSELinuxAndRespawn(); err != nil {
+			return trace.Wrap(err)
+		}
+	}
 	env.PrintStep("Starting agent")
 
 	if err := config.CheckAndSetDefaults(); err != nil {

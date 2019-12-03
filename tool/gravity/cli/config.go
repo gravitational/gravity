@@ -726,6 +726,9 @@ type JoinConfig struct {
 	Phase string
 	// OperationID is ID of existing expand operation
 	OperationID string
+	// SELinux specifies whether the installer runs with SELinux support.
+	// This makes the installer run in its own domain
+	SELinux bool
 	// FromService specifies whether the process runs in service mode
 	FromService bool
 	// SkipWizard specifies to the join agents that this join request is not too a wizard,
@@ -746,6 +749,7 @@ func NewJoinConfig(g *Application) JoinConfig {
 		SystemDevice:  *g.JoinCmd.SystemDevice,
 		Mounts:        *g.JoinCmd.Mounts,
 		OperationID:   *g.JoinCmd.OperationID,
+		SELinux:       *g.JoinCmd.SELinux,
 		FromService:   *g.JoinCmd.FromService,
 	}
 }
