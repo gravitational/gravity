@@ -659,9 +659,16 @@ const (
 	ReportTarball = "report.tar.gz"
 
 	// ServiceSubnet is a subnet dedicated to the services in cluster
-	ServiceSubnet = "10.100.0.0/16"
+	// Notes on 100.64.0.0/10 - https://tools.ietf.org/html/rfc6598
+	//
+	// We're sort of abusing rfc6598 here, since the intended purpose of this range is specifically for carrier grade NAT.
+	// However, because this range has many shared properties with normal private IP space, it should be less likely to
+	// conflict than picking addresses in RFC1918 private space. Some other kubernetes distributions also appear to use
+	// 100.64.0.0/10 by default. Since the majority of our installs are in networks where this range is likely not used
+	// this seems like a sensible default. The setting can also be overridden at installation time.
+	ServiceSubnet = "100.100.0.0/16"
 	// PodSubnet is a subnet dedicated to the pods in the cluster
-	PodSubnet = "10.244.0.0/16"
+	PodSubnet = "100.96.0.0/16"
 
 	// MaxRouterIdleConnsPerHost defines tha maximum number of idle connections for "opsroute" transport
 	MaxRouterIdleConnsPerHost = 5
