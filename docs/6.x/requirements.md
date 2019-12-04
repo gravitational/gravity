@@ -71,7 +71,7 @@ installations.
 
 | Role   | CPU    | RAM | Disk                                               |
 |--------|--------|-----|----------------------------------------------------|
-| master | 2 cVPU | 4GB | 100GB SSD for Gravity data, 20GB SSD for etcd data |
+| master | 2 vCPU | 4GB | 100GB SSD for Gravity data, 20GB SSD for etcd data |
 | node   | 1 vCPU | 2GB | 100GB SSD for Gravity data                         |
 
 ## Network
