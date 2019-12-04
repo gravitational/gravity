@@ -190,7 +190,7 @@ type AWSTerraformSpec struct {
 // VirshProvisioner defines configuration for a virsh provisioner
 type VirshProvisioner struct {
 	// Spec defines the configuration parameters for the virsh provisioner
-	Spec VirshSpec `json:"variables,omitemty"`
+	Spec VirshSpec `json:"variables,omitempty"`
 	// Commands lists all the commands the provisioner runs during provisioning
 	Commands []string `json:"commands,omitempty"`
 }
