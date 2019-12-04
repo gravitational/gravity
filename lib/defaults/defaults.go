@@ -955,15 +955,15 @@ const (
 	// ServiceUserID specifies the ID of the service user created by default.
 	// This is the value used in previous versions and serves the purpose of keeping
 	// the same defaults if the user is not overridden.
-	ServiceUserID = "1000"
+	ServiceUserID = "980665"
 	// ServiceUID is a numeric default service user ID
-	ServiceUID = 1000
+	ServiceUID = 980665
 	// ServiceGroupID specifies the ID of the service group created by default.
 	// This is the value used in previous versions and serves the purpose of keeping
 	// the same defaults if the user is not overridden.
-	ServiceGroupID = "1000"
+	ServiceGroupID = "980665"
 	// ServiceGID is a numeric default service group ID
-	ServiceGID = 1000
+	ServiceGID = 980665
 	// PlaceholderUserID is a placeholder for a real user ID.
 	// Used to differentiate a valid ID from an empty value
 	PlaceholderUserID = -1

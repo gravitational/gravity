@@ -181,7 +181,7 @@ multizone=true`,
 		"etcd-initial-cluster-state": {"new"},
 		"secrets-dir":                {"/var/lib/gravity/secrets"},
 		"election-enabled":           {"true"},
-		"service-uid":                {"1000"},
+		"service-uid":                {"980665"},
 		"env":                        {`VAR="value"`, `VAR2="value2"`, `VAR3="value1,value2"`},
 		"volume": {
 			"/var/lib/gravity/planet/etcd:/ext/etcd",
@@ -273,7 +273,7 @@ func (s *ConfigureSuite) TestCanSetCloudProviderWithoutCloudConfig(c *check.C) {
 		"etcd-initial-cluster-state": {"new"},
 		"secrets-dir":                {"/var/lib/gravity/secrets"},
 		"election-enabled":           {"true"},
-		"service-uid":                {"1000"},
+		"service-uid":                {"980665"},
 		"volume": {
 			"/var/lib/gravity/planet/etcd:/ext/etcd",
 			"/var/lib/gravity/planet/docker:/ext/docker",
