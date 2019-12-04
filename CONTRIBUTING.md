@@ -2,7 +2,7 @@
 
 Gravity is an open source project.
 
-It is the work of tens of contributors. We appricate your help!
+It is the work of tens of contributors. We appreciate your help!
 
 We follow a [code of conduct](./CODE_OF_CONDUCT.md).
 
@@ -24,7 +24,7 @@ Gravity contributors will triage the issue shortly.
 ## Contributing A Patch
 
 If you're working on an existing issue, respond to the issue and express
-interest in working on it.  This helps other people know that the issue is
+interest in working on it. This helps other people know that the issue is
 active, and hopefully prevents duplicated efforts.
 
 If you want to work on a new idea of relatively small scope:
