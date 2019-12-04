@@ -167,6 +167,10 @@ documentation to reflect the differences between the proprietary and
 community/OSS editions of the software. We are also working on providing open
 source users with pre-built binaries on a regular basis.
 
+## Contributing
+
+To contribute, please read the [contribution guidelines](./CONTRIBUTING.md).
+
 ## Talk to us
 
 * Want to join our team to hack on Gravity? [We are always hiring!](https://gravitational.com/careers/systems-engineer/)
