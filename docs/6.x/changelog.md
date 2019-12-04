@@ -7,7 +7,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 6.2.4         | No  | November 20th, 2019  | -                    | 1.16.3             | 3.2.13           |
+| 6.2.5         | No  | December 3rd, 2019   | -                    | 1.16.3             | 3.2.13           |
 | 6.1.13        | Yes | November 20th, 2019  | November 10th, 2021  | 1.15.5             | 3.2.12           |
 | 6.0.10*       | No  | October 17th, 2019   | -                    | 1.14.7             | 3.2.12           |
 | 5.6.8*        | No  | September 18th, 2019 | -                    | 1.14.7             | 3.0.6-gravity    |
@@ -36,6 +36,16 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     See [Direct Upgrades From Older LTS Versions](/pack/#direct-upgrades-from-older-lts-versions) for details.
 
 ## 6.x Releases
+
+### 6.2.5 (December 3rd, 2019)
+
+#### Improvements
+
+* Add ability to pass Helm values to `tele build` ([#912](https://github.com/gravitational/gravity/pull/912)).
+
+#### Bugfixes
+
+* Expose Kubernetes proxy port in `gravity-public` service ([#916](https://github.com/gravitational/gravity/pull/916)).
 
 ### 6.2.4 (November 20th, 2019)
 
