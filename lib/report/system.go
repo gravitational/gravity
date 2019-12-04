@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
-	"strings"
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/utils"
@@ -40,7 +39,6 @@ func NewSystemCollector() Collectors {
 	add(syslogExportLogs())
 	add(systemFileLogs()...)
 	add(planetLogs()...)
-	add(bashHistoryCollector{})
 
 	return collectors
 }
@@ -72,9 +70,11 @@ func basicSystemInfo() Collectors {
 		// system
 		Cmd("lscpu", "lscpu"),
 		Cmd("lsmod", "lsmod"),
-		Cmd("running-processes", "/bin/ps", "aux", "--forest"),
-		Cmd("systemctl-host", "/bin/systemctl", "status"),
-		Cmd("dmesg", "cat", "/var/log/dmesg"),
+		Cmd("running-processes", "/bin/ps", "auxZ", "--forest"),
+		Cmd("host-system-status", "/bin/systemctl", "status", "--full"),
+		Cmd("host-system-failed", "/bin/systemctl", "--failed", "--full"),
+		Cmd("host-system-jobs", "/bin/systemctl", "list-jobs", "--full"),
+		Cmd("dmesg", "dmesg", "--raw"),
 		// Fetch world-readable parts of /etc/
 		fetchEtc("etc-logs.tar.gz"),
 		// memory
@@ -88,10 +88,12 @@ func basicSystemInfo() Collectors {
 func planetServices() Collectors {
 	return Collectors{
 		// etcd cluster health
-		Cmd("etcdctl", utils.PlanetCommandArgs("/usr/bin/etcdctl", "cluster-health")...),
+		Cmd("etcd-status", utils.PlanetCommandArgs("/usr/bin/etcdctl", "cluster-health")...),
 		Cmd("planet-status", utils.PlanetCommandArgs("/usr/bin/planet", "status")...),
-		// status of systemd units
-		Cmd("systemctl", utils.PlanetCommandArgs("/bin/systemctl", "status")...),
+		// system status in the container
+		Cmd("planet-system-status", utils.PlanetCommandArgs("/bin/systemctl", "status", "--full")...),
+		Cmd("planet-system-failed", utils.PlanetCommandArgs("/bin/systemctl", "--failed", "--full")...),
+		Cmd("planet-system-jobs", utils.PlanetCommandArgs("/bin/systemctl", "list-jobs", "--full")...),
 	}
 }
 
@@ -100,20 +102,11 @@ func planetServices() Collectors {
 func syslogExportLogs() Collector {
 	const script = `
 #!/bin/bash
-/bin/journalctl --no-pager --output=export %v | /bin/gzip -f`
-	syslogID := func(id string) string {
-		return fmt.Sprintf("SYSLOG_IDENTIFIER=%v", id)
-	}
-	matches := []string{
-		syslogID("./gravity"),
-		syslogID("gravity"),
-		syslogID(defaults.GravityBin),
-	}
-
-	return Script("gravity-system.log.gz", fmt.Sprintf(script, strings.Join(matches, " ")))
+/bin/journalctl --no-pager --output=export --since=yesterday | /bin/gzip -f`
+	return Script("gravity-system.log.gz", script)
 }
 
-// systemFileLogs fetches gravity log files
+// systemFileLogs fetches gravity platform-related logs
 func systemFileLogs() Collectors {
 	const template = `
 #!/bin/bash
