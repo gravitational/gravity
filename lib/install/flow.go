@@ -375,7 +375,7 @@ func (i *Installer) formatProfiles(profiles map[string]int) string {
 	fmt.Fprintf(w, "----\t-----\t-------\n")
 	for role, nodes := range profiles {
 		fmt.Fprintf(w, "%v\t%v\t%v\n", role, nodes,
-			fmt.Sprintf("gravity join %v --token=%v --role=%v",
+			fmt.Sprintf("./gravity join %v --token=%v --role=%v",
 				i.AdvertiseAddr, i.Token.Token, role))
 	}
 	w.Flush()
