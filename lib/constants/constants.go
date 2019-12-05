@@ -653,6 +653,11 @@ const (
 	// by external DNS controllers.
 	ExternalDNSHostnameAnnotation = "external-dns.alpha.kubernetes.io/hostname"
 
+	// AttachDetachAnnotation is the Kubernetes node annotation that indicates
+	// that the node is managed by attach-detach controller running as a part
+	// of the controller manager.
+	AttachDetachAnnotation = "volumes.kubernetes.io/controller-managed-attach-detach"
+
 	// FinalStep is the number of the final install operation step in UI
 	FinalStep = 9
 
