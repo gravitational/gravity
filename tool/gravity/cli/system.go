@@ -18,7 +18,6 @@ package cli
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -39,10 +38,7 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	libsystem "github.com/gravitational/gravity/lib/system"
 	"github.com/gravitational/gravity/lib/system/environ"
-	"github.com/gravitational/gravity/lib/system/mount"
-	"github.com/gravitational/gravity/lib/system/selinux"
 	"github.com/gravitational/gravity/lib/system/service"
-	"github.com/gravitational/gravity/lib/system/signals"
 	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/update/system"
 	"github.com/gravitational/gravity/lib/utils"
@@ -55,67 +51,6 @@ import (
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
 )
-
-func bootstrapSelinux(env *localenv.LocalEnvironment, path string) error {
-	if path == "" {
-		return selinux.Bootstrap(utils.Exe.WorkingDir)
-	}
-	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_EXCL, defaults.SharedExecutableMask)
-	if err != nil {
-		return trace.ConvertSystemError(err)
-	}
-	defer f.Close()
-	return selinux.WriteBootstrapScript(f, utils.Exe.WorkingDir)
-}
-
-func restoreFilecontexts(env *localenv.LocalEnvironment, rootfsDir string) error {
-	logger := log.WithField("rootfs", rootfsDir)
-	mounts := []string{
-		"/etc/selinux",
-		"/sys/fs/selinux",
-	}
-	m := mount.NewMounter(rootfsDir)
-	for _, mount := range mounts {
-		if err := m.BindMount(mount, mount); err != nil {
-			return trace.Wrap(err, "failed to mount %v", mount)
-		}
-	}
-	defer func() {
-		for _, mount := range mounts {
-			if err := m.Unmount(mount); err != nil {
-				logger.WithFields(logrus.Fields{
-					logrus.ErrorKey: err,
-					"dir":           mount,
-				}).Warn("Failed to unmount.")
-			}
-		}
-	}()
-	ctx, cancel := context.WithCancel(context.Background())
-	interrupt := signals.WatchTerminationSignals(ctx, cancel, env)
-	defer interrupt.Close()
-
-	args := []string{
-		"system", "exec-jail", "--path", rootfsDir,
-		defaults.RestoreconBin,
-		"-R",
-		"-vvv",
-		"-i",
-		"-e", "/etc/selinux",
-		"-e", "/sys/fs/selinux",
-		"-0",
-		"-f", "/.relabelpaths",
-	}
-	args = utils.Self(args...)
-	cmd := exec.Command(args[0], args[1:]...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err := cmd.Run()
-	logger.WithFields(logrus.Fields{
-		logrus.ErrorKey: err,
-		"rootfs":        rootfsDir,
-	}).Info("Restore file contexts in rootfs.")
-	return trace.Wrap(err)
-}
 
 func execFromJail(env *localenv.LocalEnvironment, rootDir string, args []string) error {
 	log.WithFields(logrus.Fields{

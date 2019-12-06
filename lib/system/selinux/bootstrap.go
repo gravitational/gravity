@@ -61,7 +61,7 @@ func WriteBootstrapScript(w io.Writer, path string) error {
 // bootstrapScript defines the set of modifications to bootstrap the installer from
 // the location specified with .Path as the installer location.
 // The commands are used in conjuction with `semanage import/export`
-var bootstrapScript = template.Must(template.New("selinux").Parse(`
+var bootstrapScript = template.Must(template.New("selinux-bootstrap").Parse(`
 port -d -p tcp 61009-61010
 port -d -p tcp 61022-61025
 port -d -p tcp 61080
@@ -109,4 +109,30 @@ fcontext -a -f a -t gravity_home_t -r 's0' '{{.Path}}/.gravity(/.*)?'
 fcontext -a -f f -t gravity_unit_file_t -r 's0' '{{.Path}}/.gravity/gravity-(installer|agent)\.service'
 fcontext -a -f s -t gravity_var_run_t -r 's0' '{{.Path}}/.gravity/installer\.sock'
 fcontext -a -f f -t gravity_home_t -r 's0' '{{.Path}}/crashreport(.*)?\.tgz'
+`))
+
+var unloadScript = template.Must(template.New("selinux-unload").Parse(`
+port -d -p tcp 61009-61010
+port -d -p tcp 61022-61025
+port -d -p tcp 61080
+port -d -p tcp 7575
+port -d -p tcp 3012
+port -d -p tcp 3022-3025
+port -d -p tcp 3008-3011
+port -d -p tcp 3080
+port -d -p tcp 32009
+port -d -p tcp 2379-2380
+port -d -p tcp 6443
+port -d -p tcp 7373
+port -d -p tcp 7496
+port -d -p tcp 10248-10255
+port -d -p tcp 8472
+
+fcontext -d -f a '{{.Path}}(/.*)?'
+fcontext -d -f f '{{.Path}}/gravity'
+fcontext -d -f f '{{.Path}}/gravity-(install|system)\.log'
+fcontext -d -f a '{{.Path}}/.gravity(/.*)?'
+fcontext -d -f f '{{.Path}}/.gravity/gravity-(installer|agent)\.service'
+fcontext -d -f s '{{.Path}}/.gravity/installer\.sock'
+fcontext -d -f f '{{.Path}}/crashreport(.*)?\.tgz'
 `))

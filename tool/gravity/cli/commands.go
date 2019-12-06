@@ -305,6 +305,10 @@ type Application struct {
 	SystemGCPackageCmd SystemGCPackageCmd
 	// SystemGCRegistryCmd removes unused docker images
 	SystemGCRegistryCmd SystemGCRegistryCmd
+	// PolicyCmd manages the gravity SELinux policy
+	PolicyCmd PolicyCmd
+	// PolicyInstallCmd installs the gravity SELinux policy
+	PolicyInstallCmd PolicyInstallCmd
 	// GarbageCollectCmd prunes unused resources (package/journal files/docker images)
 	// in the cluster
 	GarbageCollectCmd GarbageCollectCmd
@@ -1648,6 +1652,18 @@ type SystemGCRegistryCmd struct {
 	// DryRun displays the images to be removed
 	// without actually removing anything
 	DryRun *bool
+}
+
+// PolicyCmd manages the gravity SELinux policy
+type PolicyCmd struct {
+	*kingpin.CmdClause
+}
+
+// PolicyInstallCmd installs the SELinux policy on a node
+type PolicyInstallCmd struct {
+	*kingpin.CmdClause
+	// Addr specifies the address of either the wizard or cluster controller
+	Addr *string
 }
 
 // GarbageCollectCmd prunes unused cluster resources

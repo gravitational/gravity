@@ -141,6 +141,7 @@ TILLER_APP_OUT := $(GRAVITY_BUILDDIR)/tiller-app.tar.gz
 TELEKUBE_OUT := $(GRAVITY_BUILDDIR)/telekube.tar
 TF_PROVIDER_GRAVITY_OUT := $(GRAVITY_BUILDDIR)/terraform-provider-gravity
 TF_PROVIDER_GRAVITYENTERPRISE_OUT := $(GRAVITY_BUILDDIR)/terraform-provider-gravityenterprise
+SELINUX_OUT := $(GRAVITY_BUILDDIR)/selinux-policy.tgz
 
 GRAVITY_DIR := /var/lib/gravity
 GRAVITY_ASSETS_DIR := /usr/local/share/gravity
@@ -751,5 +752,8 @@ fix-logrus:
 	find tool -type f -print0 | xargs -0 sed -i 's/Sirupsen/sirupsen/g'
 	rm -rf vendor/github.com/Sirupsen/logrus
 
+.PHONY: selinux
+selinux:
+	$(MAKE) -C build.assets $(SELINUX_OUT)
 
 include build.assets/etcd.mk

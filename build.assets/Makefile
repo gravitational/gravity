@@ -29,6 +29,8 @@ MONITORING_APP_TAG ?= 0.0.1
 MONITORING_APP_BRANCH ?= $(MONITORING_APP_TAG)
 K8S_APP_TAG ?= 0.0.1
 TILLER_APP_TAG ?= 0.0.1
+SELINUX_BRANCH ?= distro/centos_rhel/7
+
 GOLFLAGS ?= -w -s
 
 # Git repositories
@@ -37,6 +39,7 @@ PLANET_REPO = git@github.com:gravitational/planet.git
 LOGGING_APP_REPO = git@github.com:gravitational/logging-app.git
 MONITORING_APP_REPO = git@github.com:gravitational/monitoring-app.git
 BANDWAGON_REPO = git@github.com:gravitational/bandwagon.git
+SELINUX_REPO = git@github.com:gravitational/selinux.git
 
 # Amazon S3
 BUILD_BUCKET_URL = s3://clientbuilds.gravitational.io
@@ -288,7 +291,7 @@ publish-telekube-s3:
 # publish artifacts to S3
 #
 .PHONY: publish
-publish: push-teleport push-gravity push-bandwagon push-logging-app push-monitoring-app
+publish: push-teleport push-gravity push-bandwagon push-logging-app push-monitoring-app push-selinux
 
 #
 # prepare ansible variables for publishing to the hub
@@ -562,6 +565,23 @@ push-monitoring-app: $(MONITORING_APP_OUT)
 .PHONY: enter
 enter:
 	docker run -ti --rm=true $(BBOX) /bin/bash
+
+
+.PHONY: push-selinux
+push-selinux:
+	$(AWS) s3 cp $(S3_OPTS) $(SELINUX_OUT) $(BUILD_BUCKET_URL)/selinux/centos/$(SELINUX_VERSION)
+
+$(SELINUX_OUT): | $(GRAVITY_BUILDDIR)
+	if ! $(AWS) s3 cp $(S3_OPTS) $(BUILD_BUCKET_URL)/selinux/centos/$(SELINUX_VERSION) $@; then \
+		mkdir -p $(BUILDDIR) && cd $(BUILDDIR) && \
+		( test -d $(BUILDDIR)/selinux || git clone $(SELINUX_REPO) selinux ) && \
+		cd $(BUILDDIR)/selinux && \
+		git fetch --all && \
+		git checkout $(SELINUX_BRANCH) && \
+		git pull origin $(SELINUX_BRANCH) && git submodule update --init --recursive && \
+		make -C $(BUILDDIR)/selinux && \
+		tar czf $@ -C $(BUILDDIR)/selinux/output gravity.pp.bz2 container.pp.bz2; \
+	fi
 
 #
 # buildbox container: container used for building packages
