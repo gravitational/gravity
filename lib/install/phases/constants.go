@@ -45,6 +45,8 @@ const (
 	RBACPhase = "/rbac"
 	// CorednsPhase is a phase that generates coredns configuration for the cluster
 	CorednsPhase = "/coredns"
+	// OpenEBSPhase is a phase that creates OpenEBS configuration.
+	OpenEBSPhase = "/openebs"
 	// SystemResourcesPhase is a phase that creates system Kubernetes resources
 	SystemResourcesPhase = "/system-resources"
 	// UserResourcesPhase is a phase that creates user supplied Kubernetes resources

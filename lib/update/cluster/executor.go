@@ -19,6 +19,7 @@ package cluster
 import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/fsm"
+	installphases "github.com/gravitational/gravity/lib/install/phases"
 	"github.com/gravitational/gravity/lib/ops"
 	libphase "github.com/gravitational/gravity/lib/update/cluster/phases"
 
@@ -77,6 +78,8 @@ const (
 	updateEtcdRestartGravity = "etcd_restart_gravity"
 	// cleanupNode is the phase to clean up a node after the upgrade
 	cleanupNode = "cleanup_node"
+	// openebs is the phase that creates OpenEBS configuration
+	openebs = "openebs"
 )
 
 // fsmSpec returns the function that returns an appropriate phase executor
@@ -158,6 +161,8 @@ func fsmSpec(c Config) fsm.FSMSpecFunc {
 			return libphase.NewPhaseUpgradeGravitySiteRestart(p.Phase, c.Client, logger)
 		case cleanupNode:
 			return libphase.NewGarbageCollectPhase(p, remote, logger)
+		case openebs:
+			return installphases.NewOpenEBS(p, c.Operator, c.Client)
 		default:
 			return nil, trace.BadParameter(
 				"phase %q requires executor %q (potential mismatch between upgrade versions)",

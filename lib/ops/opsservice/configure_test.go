@@ -186,6 +186,7 @@ multizone=true`,
 		"volume": {
 			"/var/lib/gravity/planet/etcd:/ext/etcd",
 			"/var/lib/gravity/planet/docker:/ext/docker",
+			"/var/lib/gravity/planet/kubelet:/ext/kubelet",
 			"/var/lib/gravity/planet/registry:/ext/registry",
 			"/var/lib/gravity/planet/share:/ext/share",
 			"/var/lib/gravity/planet/state:/ext/state",
@@ -277,6 +278,7 @@ func (s *ConfigureSuite) TestCanSetCloudProviderWithoutCloudConfig(c *check.C) {
 		"volume": {
 			"/var/lib/gravity/planet/etcd:/ext/etcd",
 			"/var/lib/gravity/planet/docker:/ext/docker",
+			"/var/lib/gravity/planet/kubelet:/ext/kubelet",
 			"/var/lib/gravity/planet/registry:/ext/registry",
 			"/var/lib/gravity/planet/share:/ext/share",
 			"/var/lib/gravity/planet/state:/ext/state",

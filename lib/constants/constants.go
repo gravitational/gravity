@@ -551,6 +551,12 @@ const (
 	// ClusterConfigurationMap is the name of the ConfigMap that hosts cluster configuration resource
 	ClusterConfigurationMap = "cluster-configuration"
 
+	// OpenEBSNDMConfigMap is the name of the ConfigMap with OpenEBS node device
+	// manager configuration.
+	OpenEBSNDMConfigMap = "openebs-ndm-config"
+	// OpenEBSNDMDaemonSet is the name of the OpenEBS node device manager DaemonSet
+	OpenEBSNDMDaemonSet = "openebs-ndm"
+
 	// ClusterInfoMap is the name of the ConfigMap that contains cluster information.
 	ClusterInfoMap = "cluster-info"
 	// ClusterNameEnv is the environment variable that contains cluster domain name.
@@ -646,6 +652,11 @@ const (
 	// ExternalDNSHostnameAnnotation is the service annotation that is understood
 	// by external DNS controllers.
 	ExternalDNSHostnameAnnotation = "external-dns.alpha.kubernetes.io/hostname"
+
+	// AttachDetachAnnotation is the Kubernetes node annotation that indicates
+	// that the node is managed by attach-detach controller running as a part
+	// of the controller manager.
+	AttachDetachAnnotation = "volumes.kubernetes.io/controller-managed-attach-detach"
 
 	// FinalStep is the number of the final install operation step in UI
 	FinalStep = 9

@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2018-2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -272,6 +272,10 @@ func NewWebHandler(cfg WebHandlerConfig) (*WebHandler, error) {
 	h.GET("/portal/v1/accounts/:account_id/sites/:site_domain/config", h.needsAuth(h.getClusterConfiguration))
 	h.PUT("/portal/v1/accounts/:account_id/sites/:site_domain/config", h.needsAuth(h.updateClusterConfig))
 	h.POST("/portal/v1/accounts/:account_id/sites/:site_domain/operations/config", h.needsAuth(h.createUpdateConfigOperation))
+
+	// persistent storage configuration
+	h.GET("/portal/v1/accounts/:account_id/sites/:site_domain/persistentstorage", h.needsAuth(h.getPersistentStorage))
+	h.PUT("/portal/v1/accounts/:account_id/sites/:site_domain/persistentstorage", h.needsAuth(h.updatePersistentStorage))
 
 	// validation
 	h.POST("/portal/v1/accounts/:account_id/sites/:site_domain/validation/remoteaccess", h.needsAuth(h.validateRemoteAccess))

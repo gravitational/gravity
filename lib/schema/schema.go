@@ -320,6 +320,17 @@ const manifestSchema = `
             "generic": {"$ref": "#/definitions/providerGeneric"}
           }
         },
+        "storage": {
+          "type": "object",
+          "properties": {
+            "openebs": {
+              "type": "object",
+              "properties": {
+                "enabled": {"type": "boolean"}
+              }
+            }
+          }
+        },
         "license": {
           "type": "object",
           "additionalProperties": false,

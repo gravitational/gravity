@@ -234,6 +234,11 @@ var (
 		Name: InviteCreatedEvent,
 		Code: UserInviteCreatedCode,
 	}
+	// PersistentStorageUpdated is emitted when persistent storage configuration is updated.
+	PersistentStorageUpdated = events.Event{
+		Name: PersistentStorageUpdatedEvent,
+		Code: PersistentStorageUpdatedCode,
+	}
 	// ClusterUnhealthy is emitted when cluster becomes unhealthy.
 	ClusterUnhealthy = events.Event{
 		Name: ClusterDegradedEvent,
@@ -368,6 +373,8 @@ const (
 	AuthGatewayUpdatedCode = "G1009I"
 	// UserInviteCreatedCode is the user invite created event code.
 	UserInviteCreatedCode = "G1010I"
+	// PersistentStorageUpdatedCode is the persistent storage updated event code.
+	PersistentStorageUpdatedCode = "G1011I"
 	// ClusterUnhealthyCode is the cluster goes unhealthy event code.
 	ClusterUnhealthyCode = "G3000W"
 	// ClusterHealthyCode is the cluster goes healthy event code.
@@ -437,6 +444,8 @@ const (
 	AuthGatewayUpdatedEvent = "authgateway.updated"
 	// InviteCreatedEvent fires when a new user invitation is generated.
 	InviteCreatedEvent = "invite.created"
+	// PersistentStorageUpdatedEvent fires when persistent storage configuration is updated.
+	PersistentStorageUpdatedEvent = "persistentstorage.updated"
 
 	// ClusterDegradedEvent fires when cluster health check fails.
 	ClusterDegradedEvent = "cluster.degraded"

@@ -728,3 +728,47 @@ func formatFeatureGates(features map[string]bool) string {
 	}
 	return strings.Join(result, ",")
 }
+
+type storageCollection struct {
+	storage.PersistentStorage
+}
+
+// WriteText serializes collection in human-friendly text format.
+func (c storageCollection) WriteText(w io.Writer) error {
+	t := goterm.NewTable(0, 10, 5, ' ', 0)
+	common.PrintTableHeader(t, []string{"Parameter", "Value"})
+	fmt.Fprint(t, "Mount Points:\n")
+	fmt.Fprintf(t, "  Exclude:\t%v\n", strings.Join(c.GetMountExcludes(), ", "))
+	fmt.Fprint(t, "Vendors:\n")
+	fmt.Fprintf(t, "  Include:\t%v\n", strings.Join(c.GetVendorIncludes(), ", "))
+	fmt.Fprintf(t, "  Exclude:\t%v\n", strings.Join(c.GetVendorExcludes(), ", "))
+	fmt.Fprint(t, "Devices:\n")
+	fmt.Fprintf(t, "  Include:\t%v\n", strings.Join(c.GetDeviceIncludes(), ", "))
+	fmt.Fprintf(t, "  Exclude:\t%v\n", strings.Join(c.GetDeviceExcludes(), ", "))
+	_, err := io.WriteString(w, t.String())
+	return trace.Wrap(err)
+}
+
+// Resources converts the object to the generic resources collection.
+func (c storageCollection) Resources() ([]teleservices.UnknownResource, error) {
+	resource, err := utils.ToUnknownResource(c.PersistentStorage)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return []teleservices.UnknownResource{*resource}, nil
+}
+
+// WriteJSON serializes collection into JSON format.
+func (c storageCollection) WriteJSON(w io.Writer) error {
+	return utils.WriteJSON(c, w)
+}
+
+// WriteYAML serializes collection into YAML format.
+func (c storageCollection) WriteYAML(w io.Writer) error {
+	return utils.WriteYAML(c, w)
+}
+
+// ToMarshal retursn the object to marshal.
+func (c storageCollection) ToMarshal() interface{} {
+	return c.PersistentStorage
+}

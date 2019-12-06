@@ -33,6 +33,7 @@ pages:
     - Cluster Monitoring: monitoring.md
     - Cluster Access: access.md
     - Application Catalog: catalog.md
+    - Persistent Storage: storage.md
     - Gravity Hub (Enterprise): hub.md
     - CLI Reference: cli.md
     - System Requirements: requirements.md

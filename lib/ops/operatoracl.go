@@ -821,6 +821,22 @@ func (o *OperatorACL) UpdateClusterConfiguration(req UpdateClusterConfigRequest)
 	return o.operator.UpdateClusterConfiguration(req)
 }
 
+// GetPersistentStorage retrieves cluster persistent storage configuration.
+func (o *OperatorACL) GetPersistentStorage(ctx context.Context, key SiteKey) (storage.PersistentStorage, error) {
+	if err := o.ClusterAction(key.SiteDomain, storage.KindPersistentStorage, teleservices.VerbRead); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return o.operator.GetPersistentStorage(ctx, key)
+}
+
+// UpdatePersistentStorage updates persistent storage configuration.
+func (o *OperatorACL) UpdatePersistentStorage(ctx context.Context, req UpdatePersistentStorageRequest) error {
+	if err := o.ClusterAction(req.SiteDomain, storage.KindPersistentStorage, teleservices.VerbUpdate); err != nil {
+		return trace.Wrap(err)
+	}
+	return o.operator.UpdatePersistentStorage(ctx, req)
+}
+
 func (o *OperatorACL) GetApplicationEndpoints(key SiteKey) ([]Endpoint, error) {
 	if err := o.ClusterAction(key.SiteDomain, storage.KindCluster, teleservices.VerbRead); err != nil {
 		return nil, trace.Wrap(err)

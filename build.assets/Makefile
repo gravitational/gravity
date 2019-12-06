@@ -27,6 +27,8 @@ LOGGING_APP_TAG ?= 0.0.1
 LOGGING_APP_BRANCH ?= $(LOGGING_APP_TAG)
 MONITORING_APP_TAG ?= 0.0.1
 MONITORING_APP_BRANCH ?= $(MONITORING_APP_TAG)
+STORAGE_APP_TAG ?= 0.0.1
+STORAGE_APP_BRANCH ?= $(STORAGE_APP_TAG)
 K8S_APP_TAG ?= 0.0.1
 TILLER_APP_TAG ?= 0.0.1
 GOLFLAGS ?= -w -s
@@ -36,6 +38,7 @@ TELEPORT_REPO = git@github.com:gravitational/teleport.git
 PLANET_REPO = git@github.com:gravitational/planet.git
 LOGGING_APP_REPO = git@github.com:gravitational/logging-app.git
 MONITORING_APP_REPO = git@github.com:gravitational/monitoring-app.git
+STORAGE_APP_REPO = git@github.com:gravitational/storage-app.git
 BANDWAGON_REPO = git@github.com:gravitational/bandwagon.git
 FIO_REPO = git@github.com:axboe/fio.git
 
@@ -283,7 +286,7 @@ publish-telekube-s3:
 # publish artifacts to S3
 #
 .PHONY: publish
-publish: push-teleport push-gravity push-fio push-bandwagon push-logging-app push-monitoring-app
+publish: push-teleport push-gravity push-fio push-bandwagon push-logging-app push-monitoring-app push-storage-app
 
 #
 # prepare ansible variables for publishing to the hub
@@ -345,6 +348,7 @@ K8S_IMPORT_OPTIONS := \
 		--set-dep=$(DNS_APP_PKG) \
 		--set-dep=$(LOGGING_APP_PKG) \
 		--set-dep=$(MONITORING_APP_PKG) \
+		--set-dep=$(STORAGE_APP_PKG) \
 		--set-dep=$(BANDWAGON_PKG) \
 		--set-dep=$(TILLER_APP_PKG) \
 		--set-dep=$(SITE_APP_PKG)
@@ -357,7 +361,7 @@ rbac-app:
 	$(GRAVITY) package export $(RBAC_APP_PKG) $(RBAC_APP_OUT)
 
 .PHONY: k8s-app
-k8s-app: gravity-package teleport fio planet web-assets site-app monitoring-app logging-app tiller-app rbac-app dns-app bandwagon
+k8s-app: gravity-package teleport fio planet web-assets site-app monitoring-app logging-app storage-app tiller-app rbac-app dns-app bandwagon
 	@echo -e "\n----> Building kubernetes-app...\n"
 	- $(GRAVITY) app delete $(K8S_APP_PKG) $(DELETE_OPTS) && \
 	  $(GRAVITY) app import $(ASSETSDIR)/kubernetes $(VENDOR_OPTS) $(K8S_IMPORT_OPTIONS) \
@@ -609,6 +613,21 @@ $(MONITORING_APP_OUT):
 
 push-monitoring-app: $(MONITORING_APP_OUT)
 	$(AWS) s3 cp $(S3_OPTS) $(MONITORING_APP_OUT) $(BUILD_BUCKET_URL)/monitoring-app/$(MONITORING_APP_TAG)
+
+#
+# dependency: storage app
+#
+.PHONY: storage-app push-storage-app
+storage-app: $(STORAGE_APP_OUT)
+	if ! $(GRAVITY) package list | grep $(STORAGE_APP_PKG); then \
+		$(GRAVITY) app import $(STORAGE_APP_OUT) $(IMPORT_OPTS) ; \
+	fi
+
+$(STORAGE_APP_OUT):
+	$(call build_app,storage-app,$(STORAGE_APP_REPO),$(STORAGE_APP_BRANCH),$(STORAGE_APP_PKG),$(STORAGE_APP_TAG))
+
+push-storage-app: $(STORAGE_APP_OUT)
+	$(AWS) s3 cp $(S3_OPTS) $(STORAGE_APP_OUT) $(BUILD_BUCKET_URL)/storage-app/$(STORAGE_APP_TAG)
 
 #
 # enters bbox container (for debugging the containerized build process)

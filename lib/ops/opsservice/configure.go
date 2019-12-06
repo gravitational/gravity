@@ -917,6 +917,7 @@ func (s *site) getPlanetConfig(config planetConfig) (args []string, err error) {
 		fmt.Sprintf("--volume=%v:/ext/docker", node.InGravity("planet", "docker")),
 		fmt.Sprintf("--volume=%v:/ext/share", node.InGravity("planet", "share")),
 		fmt.Sprintf("--volume=%v:/ext/state", node.InGravity("planet", "state")),
+		fmt.Sprintf("--volume=%v:/ext/kubelet", node.InGravity("planet", "kubelet")),
 		fmt.Sprintf("--volume=%v:/var/log", node.InGravity("planet", "log")),
 		fmt.Sprintf("--volume=%v:%v", node.StateDir(), defaults.GravityDir),
 		fmt.Sprintf("--service-uid=%v", s.uid()),
@@ -1011,7 +1012,7 @@ func (s *site) getPlanetConfig(config planetConfig) (args []string, err error) {
 		args = append(args, "--disable-flannel=true")
 	}
 
-	if manifest.SystemOptions != nil && manifest.SystemOptions.AllowPrivileged {
+	if manifest.PrivilegedEnabled() {
 		args = append(args, "--allow-privileged=true")
 	}
 

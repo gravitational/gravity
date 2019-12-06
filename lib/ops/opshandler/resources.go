@@ -316,6 +316,51 @@ func (h *WebHandler) deleteGithubConnector(w http.ResponseWriter, r *http.Reques
 	return nil
 }
 
+/* getPersistentStorage retrieves cluster persistent storage configuration.
+
+     GET /portal/v1/accounts/:account_id/sites/:site_domain/persistentstorage
+
+   Success response:
+
+     storage.PersistentStorage
+*/
+func (h *WebHandler) getPersistentStorage(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
+	ps, err := context.Operator.GetPersistentStorage(r.Context(), siteKey(p))
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	bytes, err := storage.MarshalPersistentStorage(ps)
+	return rawMessage(w, bytes, err)
+}
+
+/* updatePersistentStorage updates persistent storage configuration.
+
+     PUT /portal/v1/accounts/:account_id/sites/:site_domain/persistentstorage
+
+   Success response:
+
+     { "message": "persistent storage configuration updated" }
+*/
+func (h *WebHandler) updatePersistentStorage(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *HandlerContext) error {
+	var req opsclient.UpsertResourceRawReq
+	if err := telehttplib.ReadJSON(r, &req); err != nil {
+		return trace.Wrap(err)
+	}
+	ps, err := storage.UnmarshalPersistentStorage(req.Resource)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = ctx.Operator.UpdatePersistentStorage(r.Context(), ops.UpdatePersistentStorageRequest{
+		SiteKey:  siteKey(p),
+		Resource: ps,
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	roundtrip.ReplyJSON(w, http.StatusOK, message("persistent storage configuration updated"))
+	return nil
+}
+
 func rawMessage(w http.ResponseWriter, data []byte, err error) error {
 	if err != nil {
 		return trace.Wrap(err)

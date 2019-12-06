@@ -610,6 +610,8 @@ const (
 	KubeSystemNamespace = "kube-system"
 	// MonitoringNamespace is the name of k8s namespace for the monitoring-related resources
 	MonitoringNamespace = "monitoring"
+	// OpenEBSNamespace is the name of k8s namespace where OpenEBS is deployed.
+	OpenEBSNamespace = "openebs"
 
 	// SystemServiceWantedBy sets default target for system services installed by gravity
 	SystemServiceWantedBy = "multi-user.target"
@@ -1097,6 +1099,8 @@ var (
 	MonitoringAppName = "monitoring-app"
 	// TillerAppName is the name of the tiller application
 	TillerAppName = "tiller-app"
+	// StorageAppName is the name of the gravity application with OpenEBS
+	StorageAppName = "storage-app"
 
 	// KubeletArgs is a list of default command line options for kubelet
 	KubeletArgs = []string{

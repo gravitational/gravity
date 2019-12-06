@@ -242,6 +242,19 @@ func (r *Resources) Create(ctx context.Context, req resources.CreateRequest) err
 	case storage.KindRuntimeEnvironment, storage.KindClusterConfiguration:
 		err := r.ClusterOperationHandler.UpdateResource(req)
 		return trace.Wrap(err)
+	case storage.KindPersistentStorage:
+		ps, err := storage.UnmarshalPersistentStorage(req.Resource.Raw)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		err = r.Operator.UpdatePersistentStorage(ctx, ops.UpdatePersistentStorageRequest{
+			SiteKey:  req.SiteKey,
+			Resource: ps,
+		})
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		r.Println("Updated persistent storage configuration")
 	case "":
 		return trace.BadParameter("missing resource kind")
 	default:
@@ -395,6 +408,12 @@ func (r *Resources) GetCollection(req resources.ListRequest) (resources.Collecti
 			return nil, trace.Wrap(err)
 		}
 		return configCollection{Interface: config}, nil
+	case storage.KindPersistentStorage:
+		ps, err := r.Operator.GetPersistentStorage(context.TODO(), req.SiteKey)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		return storageCollection{PersistentStorage: ps}, nil
 	case "":
 		return nil, trace.BadParameter("missing resource kind")
 	}
@@ -540,6 +559,8 @@ func Validate(resource storage.UnknownResource) (err error) {
 		_, err = storage.UnmarshalEnvironmentVariables(resource.Raw)
 	case storage.KindClusterConfiguration:
 		_, err = clusterconfig.Unmarshal(resource.Raw)
+	case storage.KindPersistentStorage:
+		_, err = storage.UnmarshalPersistentStorage(resource.Raw)
 	default:
 		return trace.NotImplemented("unsupported resource %q, supported are: %v",
 			resource.Kind, modules.GetResources().SupportedResources())

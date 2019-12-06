@@ -96,6 +96,13 @@ func (r *registerNodeExecutor) Execute(ctx context.Context) error {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:   r.ExecutorParams.Phase.Data.Server.KubeNodeID(),
 				Labels: r.Labels,
+				Annotations: map[string]string{
+					// This annotation indicates that the node is managed
+					// by the attach-detach controller that's running in
+					// the controller manager. Without it, persistent volumes
+					// won't be properly attached to the node.
+					constants.AttachDetachAnnotation: "true",
+				},
 			},
 			Spec: v1.NodeSpec{
 				Taints: r.Taints,

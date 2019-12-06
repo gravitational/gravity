@@ -109,6 +109,15 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 				config.Operator,
 				client)
 
+		case p.Phase.ID == phases.OpenEBSPhase:
+			client, err := getKubeClient(p)
+			if err != nil {
+				return nil, trace.Wrap(err)
+			}
+			return phases.NewOpenEBS(p,
+				config.Operator,
+				client)
+
 		case p.Phase.ID == phases.SystemResourcesPhase:
 			client, err := getKubeClient(p)
 			if err != nil {

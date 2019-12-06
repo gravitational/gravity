@@ -189,6 +189,9 @@ hooks:
     job: file://clusterDeprovision.yaml
   preUpdate:
     job: file://preUpdate.yaml
+storage:
+  openebs:
+    enabled: true
 systemOptions:
   runtime:
     version: "0.0.0+latest"
