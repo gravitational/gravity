@@ -63,6 +63,17 @@ nodeProfiles:
     distribution-specific files.
     Additionally, the installer will use `lsb_release` if installed to query the release metadata.
 
+## Hardware
+
+Hardware requirements are specific to the workload running in the cluster but
+the following guidelines are recommended to support bare Gravity cluster
+installations.
+
+| Role   | CPU    | RAM | Disk                                               |
+|--------|--------|-----|----------------------------------------------------|
+| master | 2 vCPU | 4GB | 100GB SSD for Gravity data, 20GB SSD for etcd data |
+| node   | 1 vCPU | 2GB | 100GB SSD for Gravity data                         |
+
 ## Network
 
 #### Network backends
