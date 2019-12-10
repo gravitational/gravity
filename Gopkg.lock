@@ -958,6 +958,17 @@
   revision = "785686550a08e8e2e77641c91714280a6dfb08ee"
 
 [[projects]]
+  branch = "roman/crd"
+  digest = "1:d94ef911dde840ae21bdf208e07a9cec0b37dc4066a0590d956c39dff9ac16a3"
+  name = "github.com/gravitational/lens"
+  packages = [
+    "pkg/apis/lens",
+    "pkg/apis/lens/v1beta1",
+  ]
+  pruneopts = "UT"
+  revision = "ed32b8ca6845b60fe801034ec0df7a715c80b38a"
+
+[[projects]]
   digest = "1:39993926ed3306d6496f51ebbaaa6b9f0bc9371e4e39e2ffc40290a5ecc9eafc"
   name = "github.com/gravitational/license"
   packages = [
@@ -2995,6 +3006,7 @@
     "github.com/gravitational/coordinate/leader",
     "github.com/gravitational/form",
     "github.com/gravitational/go-vhost",
+    "github.com/gravitational/lens/pkg/apis/lens/v1beta1",
     "github.com/gravitational/license",
     "github.com/gravitational/license/authority",
     "github.com/gravitational/rigging",
@@ -3104,6 +3116,7 @@
     "k8s.io/apimachinery/pkg/runtime",
     "k8s.io/apimachinery/pkg/runtime/schema",
     "k8s.io/apimachinery/pkg/runtime/serializer/json",
+    "k8s.io/apimachinery/pkg/types",
     "k8s.io/apimachinery/pkg/util/intstr",
     "k8s.io/apimachinery/pkg/util/net",
     "k8s.io/apimachinery/pkg/util/rand",
@@ -3114,6 +3127,7 @@
     "k8s.io/client-go/discovery",
     "k8s.io/client-go/kubernetes",
     "k8s.io/client-go/kubernetes/scheme",
+    "k8s.io/client-go/kubernetes/typed/apps/v1",
     "k8s.io/client-go/kubernetes/typed/batch/v1",
     "k8s.io/client-go/kubernetes/typed/core/v1",
     "k8s.io/client-go/plugin/pkg/client/auth",

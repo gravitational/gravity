@@ -223,6 +223,10 @@ ignored = [
   version = "1.0.1"
 
 [[constraint]]
+  name = "github.com/gravitational/lens"
+  branch = "roman/crd"
+
+[[constraint]]
   name = "github.com/julienschmidt/httprouter"
   version = "1.1.0"
 
