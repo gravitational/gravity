@@ -74,7 +74,7 @@ func basicSystemInfo() Collectors {
 		Cmd("host-system-status", "/bin/systemctl", "status", "--full"),
 		Cmd("host-system-failed", "/bin/systemctl", "--failed", "--full"),
 		Cmd("host-system-jobs", "/bin/systemctl", "list-jobs", "--full"),
-		Cmd("dmesg", "dmesg", "--raw"),
+		Cmd("dmesg", "/bin/dmesg", "--raw"),
 		// Fetch world-readable parts of /etc/
 		fetchEtc("etc-logs.tar.gz"),
 		// memory
@@ -97,12 +97,11 @@ func planetServices() Collectors {
 	}
 }
 
-// syslogExportLogs fetches logs for gravity binary invocations
-// (including installation logs)
+// syslogExportLogs fetches host journal logs
 func syslogExportLogs() Collector {
 	const script = `
 #!/bin/bash
-/bin/journalctl --no-pager --output=export --since=yesterday | /bin/gzip -f`
+/bin/journalctl --no-pager --output=export | /bin/gzip -f`
 	return Script("gravity-system.log.gz", script)
 }
 

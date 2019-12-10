@@ -138,12 +138,18 @@ func ExecUnprivileged(ctx context.Context, command string, args []string, opts .
 		return trace.ConvertSystemError(err)
 	}
 	cmd := exec.CommandContext(ctx, command, args...)
-	uid, _ := strconv.Atoi(nobody.Uid)
-	gid, _ := strconv.Atoi(nobody.Gid)
+	uid, err := getUid(*nobody)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	gid, err := getGid(*nobody)
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Credential: &syscall.Credential{
-			Uid: uint32(uid),
-			Gid: uint32(gid),
+			Uid: uid,
+			Gid: gid,
 		},
 	}
 	for _, opt := range opts {
@@ -246,4 +252,20 @@ fi
 type Command interface {
 	// Args returns the complete command line of this command
 	Args() []string
+}
+
+func getUid(u user.User) (uid uint32, err error) {
+	id, err := strconv.Atoi(u.Uid)
+	if err != nil {
+		return 0, trace.BadParameter("invalid UID for user %v: %v", u.Username, u.Uid)
+	}
+	return uint32(id), nil
+}
+
+func getGid(u user.User) (gid uint32, err error) {
+	id, err := strconv.Atoi(u.Gid)
+	if err != nil {
+		return 0, trace.BadParameter("invalid GID for user %v: %v", u.Username, u.Gid)
+	}
+	return uint32(id), nil
 }
