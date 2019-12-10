@@ -122,8 +122,6 @@ cat %v 2> /dev/null || true`
 // planetLogs fetches planet syslog messages as well as the fresh journal entries
 func planetLogs() Collectors {
 	return Collectors{
-		// Fetch planet syslog messages as a tarball
-		Script("planet-logs.tar.gz", tarball(defaults.InGravity("planet/log/messages*"))),
 		// Fetch planet journal entries for the last two days
 		// The log can be imported as a journal with systemd-journal-remote:
 		//

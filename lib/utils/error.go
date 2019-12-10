@@ -208,7 +208,8 @@ func isEtcdClusterError(err error) bool {
 }
 
 func isEtcdClusterErrorMessage(message string) bool {
-	return isEtcdClusterMisconfigured(message) || isEtcdClusterHasNoLeader(message)
+	return isEtcdClusterMisconfigured(message) || isEtcdClusterHasNoLeader(message) ||
+		isEtcdClusterLeaderChanged(message)
 }
 
 func isEtcdClusterMisconfigured(message string) bool {
@@ -218,6 +219,10 @@ func isEtcdClusterMisconfigured(message string) bool {
 func isEtcdClusterHasNoLeader(message string) bool {
 	return strings.Contains(message, "etcd member") &&
 		strings.Contains(message, "has no leader")
+}
+
+func isEtcdClusterLeaderChanged(message string) bool {
+	return strings.Contains(message, "etcdserver: leader changed")
 }
 
 // MarshalJSON marshals this message as JSON.
