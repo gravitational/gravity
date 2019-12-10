@@ -23,8 +23,11 @@ import (
 	"io"
 	"io/ioutil"
 	"os/exec"
+	"os/user"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/gravitational/gravity/lib/constants"
@@ -128,6 +131,33 @@ func RunStream(ctx context.Context, w io.Writer, args ...string) error {
 	return trace.Wrap(cmd.Wait())
 }
 
+// ExecUnprivileged executes the specified command as unprivileged user
+func ExecUnprivileged(ctx context.Context, command string, args []string, opts ...CommandOptionSetter) error {
+	nobody, err := user.Lookup("nobody")
+	if err != nil {
+		return trace.ConvertSystemError(err)
+	}
+	cmd := exec.CommandContext(ctx, command, args...)
+	uid, err := getUid(*nobody)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	gid, err := getGid(*nobody)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Credential: &syscall.Credential{
+			Uid: uid,
+			Gid: gid,
+		},
+	}
+	for _, opt := range opts {
+		opt(cmd)
+	}
+	return cmd.Run()
+}
+
 // ExecL executes the specified cmd and logs the command line to the specified entry
 func ExecL(cmd *exec.Cmd, out io.Writer, logger log.FieldLogger, setters ...CommandOptionSetter) error {
 	var stderr, stdout bytes.Buffer
@@ -222,4 +252,20 @@ fi
 type Command interface {
 	// Args returns the complete command line of this command
 	Args() []string
+}
+
+func getUid(u user.User) (uid uint32, err error) {
+	id, err := strconv.Atoi(u.Uid)
+	if err != nil {
+		return 0, trace.BadParameter("invalid UID for user %v: %v", u.Username, u.Uid)
+	}
+	return uint32(id), nil
+}
+
+func getGid(u user.User) (gid uint32, err error) {
+	id, err := strconv.Atoi(u.Gid)
+	if err != nil {
+		return 0, trace.BadParameter("invalid GID for user %v: %v", u.Username, u.Gid)
+	}
+	return uint32(id), nil
 }

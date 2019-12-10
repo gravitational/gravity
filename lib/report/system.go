@@ -17,12 +17,14 @@ limitations under the License.
 package report
 
 import (
+	"context"
 	"fmt"
+	"io/ioutil"
 	"path/filepath"
-	"strings"
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/utils"
+	"github.com/gravitational/trace"
 )
 
 // NewSystemCollector returns a list of collectors to fetch system information
@@ -37,7 +39,6 @@ func NewSystemCollector() Collectors {
 	add(syslogExportLogs())
 	add(systemFileLogs()...)
 	add(planetLogs()...)
-	add(bashHistoryCollector{})
 
 	return collectors
 }
@@ -69,11 +70,13 @@ func basicSystemInfo() Collectors {
 		// system
 		Cmd("lscpu", "lscpu"),
 		Cmd("lsmod", "lsmod"),
-		Cmd("running-processes", "/bin/ps", "aux", "--forest"),
-		Cmd("systemctl-host", "/bin/systemctl", "status"),
-		Cmd("dmesg", "cat", "/var/log/dmesg"),
+		Cmd("running-processes", "/bin/ps", "auxZ", "--forest"),
+		Cmd("host-system-status", "/bin/systemctl", "status", "--full"),
+		Cmd("host-system-failed", "/bin/systemctl", "--failed", "--full"),
+		Cmd("host-system-jobs", "/bin/systemctl", "list-jobs", "--full"),
+		Cmd("dmesg", "/bin/dmesg", "--raw"),
 		// Fetch world-readable parts of /etc/
-		Script("etc-logs.tar.gz", tarball("/etc/")),
+		fetchEtc("etc-logs.tar.gz"),
 		// memory
 		Cmd("free", "free", "--human"),
 		Cmd("slabtop", "slabtop", "--once"),
@@ -85,29 +88,21 @@ func basicSystemInfo() Collectors {
 func planetServices() Collectors {
 	return Collectors{
 		// etcd cluster health
-		Cmd("etcdctl", utils.PlanetCommandArgs("/usr/bin/etcdctl", "cluster-health")...),
+		Cmd("etcd-status", utils.PlanetCommandArgs("/usr/bin/etcdctl", "cluster-health")...),
 		Cmd("planet-status", utils.PlanetCommandArgs("/usr/bin/planet", "status")...),
-		// status of systemd units
-		Cmd("systemctl", utils.PlanetCommandArgs("/bin/systemctl", "status")...),
+		// system status in the container
+		Cmd("planet-system-status", utils.PlanetCommandArgs("/bin/systemctl", "status", "--full")...),
+		Cmd("planet-system-failed", utils.PlanetCommandArgs("/bin/systemctl", "--failed", "--full")...),
+		Cmd("planet-system-jobs", utils.PlanetCommandArgs("/bin/systemctl", "list-jobs", "--full")...),
 	}
 }
 
-// syslogExportLogs fetches logs for gravity binary invocations
-// (including installation logs)
+// syslogExportLogs fetches host journal logs
 func syslogExportLogs() Collector {
 	const script = `
 #!/bin/bash
-/bin/journalctl --no-pager --output=export %v | /bin/gzip -f`
-	syslogID := func(id string) string {
-		return fmt.Sprintf("SYSLOG_IDENTIFIER=%v", id)
-	}
-	matches := []string{
-		syslogID("./gravity"),
-		syslogID("gravity"),
-		syslogID(defaults.GravityBin),
-	}
-
-	return Script("gravity-system.log.gz", fmt.Sprintf(script, strings.Join(matches, " ")))
+/bin/journalctl --no-pager --output=export | /bin/gzip -f`
+	return Script("gravity-system.log.gz", script)
 }
 
 // systemFileLogs fetches gravity platform-related logs
@@ -115,9 +110,12 @@ func systemFileLogs() Collectors {
 	const template = `
 #!/bin/bash
 cat %v 2> /dev/null || true`
+	workingDir := filepath.Dir(utils.Exe.Path)
 	return Collectors{
-		Script(filepath.Base(defaults.GravitySystemLog), fmt.Sprintf(template, defaults.GravitySystemLog)),
-		Script(filepath.Base(defaults.GravityUserLog), fmt.Sprintf(template, defaults.GravityUserLog)),
+		Script("gravity-system.log", fmt.Sprintf(template, defaults.GravitySystemLog)),
+		Script("gravity-system-local.log", fmt.Sprintf(template, filepath.Join(workingDir, defaults.GravitySystemLogFile))),
+		Script("gravity-install.log", fmt.Sprintf(template, defaults.GravityUserLog)),
+		Script("gravity-install-local.log", fmt.Sprintf(template, filepath.Join(workingDir, defaults.GravityUserLogFile))),
 	}
 }
 
@@ -142,4 +140,23 @@ func etcdBackup() Collectors {
 			"--prefix", defaults.EtcdPlanetPrefix,
 			"--prefix", defaults.EtcdGravityPrefix)...),
 	}
+}
+
+func fetchEtc(name string) CollectorFunc {
+	args := []string{
+		"cz", "--ignore-failed-read", "--dereference", "--ignore-command-error",
+		"--absolute-names", "--directory", "/",
+		"--exclude=/etc/ssl/**", "--exclude=/etc/fonts/**",
+		"/etc",
+	}
+	return CollectorFunc(func(ctx context.Context, reportWriter FileWriter, _ utils.CommandRunner) error {
+		w, err := reportWriter.NewWriter(name)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		return utils.ExecUnprivileged(ctx, "/bin/tar", args,
+			utils.Stderr(ioutil.Discard),
+			utils.Stdout(w),
+		)
+	})
 }
