@@ -160,14 +160,14 @@ endef
 # build gravity binaries
 #
 .PHONY: build
-build:
-	@if [ "$(OS)" = "darwin" ]; then \
-		$(MAKE) build-on-host; \
-		ln -sf $(GRAVITY_BUILDDIR) $(GRAVITY_CURRENT_BUILDDIR); \
-	else \
-		$(MAKE) build-in-container; \
-		ln --symbolic --force --no-target-directory $(GRAVITY_BUILDDIR) $(GRAVITY_CURRENT_BUILDDIR); \
-	fi;
+build: selinux
+ifeq ($(OS),darwin)
+	$(MAKE) build-on-host
+	ln -sf $(GRAVITY_BUILDDIR) $(GRAVITY_CURRENT_BUILDDIR)
+else
+	$(MAKE) build-in-container
+	ln --symbolic --force --no-target-directory $(GRAVITY_BUILDDIR) $(GRAVITY_CURRENT_BUILDDIR)
+endif
 
 #
 # generate gRPC code
@@ -566,10 +566,18 @@ push-monitoring-app: $(MONITORING_APP_OUT)
 enter:
 	docker run -ti --rm=true $(BBOX) /bin/bash
 
+.PHONY: selinux
+selinux: $(SELINUX_ASSETS)
+ifeq ($(OS),linux)
+	make -C $(TOP)/lib/system/selinux
+endif
 
 .PHONY: push-selinux
-push-selinux:
+push-selinux: $(SELINUX_OUT)
 	$(AWS) s3 cp $(S3_OPTS) $(SELINUX_OUT) $(BUILD_BUCKET_URL)/selinux/centos/$(SELINUX_VERSION)
+
+$(SELINUX_ASSETS): $(SELINUX_OUT)
+	tar xf $^ -C $(@D)
 
 $(SELINUX_OUT): | $(GRAVITY_BUILDDIR)
 	if ! $(AWS) s3 cp $(S3_OPTS) $(BUILD_BUCKET_URL)/selinux/centos/$(SELINUX_VERSION) $@; then \
@@ -580,7 +588,9 @@ $(SELINUX_OUT): | $(GRAVITY_BUILDDIR)
 		git checkout $(SELINUX_BRANCH) && \
 		git pull origin $(SELINUX_BRANCH) && git submodule update --init --recursive && \
 		make -C $(BUILDDIR)/selinux && \
-		tar czf $@ -C $(BUILDDIR)/selinux/output gravity.pp.bz2 container.pp.bz2; \
+		cp gravity.if $(BUILDDIR)/selinux/output/ && \
+		cp container-selinux/container.if $(BUILDDIR)/selinux/output/ && \
+		tar czf $@ -C $(BUILDDIR)/selinux/output gravity.if container.if gravity.pp.bz2 container.pp.bz2; \
 	fi
 
 #

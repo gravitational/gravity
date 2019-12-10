@@ -813,7 +813,8 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			*g.SystemRunCommandFromJailCmd.Args)
 	case g.SystemSelinuxBootstrapCmd.FullCommand():
 		return bootstrapSelinux(localEnv,
-			*g.SystemSelinuxBootstrapCmd.Path)
+			*g.SystemSelinuxBootstrapCmd.Path,
+			*g.SystemSelinuxBootstrapCmd.VxlanPort)
 	case g.GarbageCollectCmd.FullCommand():
 		return garbageCollect(localEnv, *g.GarbageCollectCmd.Manual, *g.GarbageCollectCmd.Confirmed)
 	case g.SystemGCJournalCmd.FullCommand():

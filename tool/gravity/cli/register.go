@@ -682,6 +682,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 
 	g.SystemSelinuxBootstrapCmd.CmdClause = g.SystemCmd.Command("selinux-bootstrap", "Configure SELinux file contexts and ports on the node")
 	g.SystemSelinuxBootstrapCmd.Path = g.SystemSelinuxBootstrapCmd.Flag("output", "Path to output file for bootstrap script").String()
+	g.SystemSelinuxBootstrapCmd.VxlanPort = g.SystemSelinuxBootstrapCmd.Flag("vxlan-port", "Custom vxlan port").Int()
 
 	g.SystemRunCommandFromJailCmd.CmdClause = g.SystemCmd.Command("exec-jail", "Run command in a jail environment").Interspersed(false).Hidden()
 	g.SystemRunCommandFromJailCmd.Path = g.SystemRunCommandFromJailCmd.Flag("path", "Path to use as new root").Required().String()

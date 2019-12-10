@@ -45,6 +45,7 @@ import (
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/system/environ"
+	"github.com/gravitational/gravity/lib/system/selinux"
 	"github.com/gravitational/gravity/lib/system/service"
 	"github.com/gravitational/gravity/lib/system/signals"
 	"github.com/gravitational/gravity/lib/systemservice"
@@ -58,7 +59,9 @@ import (
 func startInstall(env *localenv.LocalEnvironment, config InstallConfig) error {
 	if config.SELinux {
 		env.PrintStep("Bootstrapping installer for SELinux")
-		if err := install.BootstrapSELinuxAndRespawn(); err != nil {
+		if err := BootstrapSELinuxAndRespawn(selinux.BootstrapConfig{
+			VxlanPort: config.VxlanPort,
+		}); err != nil {
 			return trace.Wrap(err)
 		}
 	}
@@ -678,7 +681,7 @@ func InstallerClient(env *localenv.LocalEnvironment, config installerclient.Conf
 func join(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, config JoinConfig) error {
 	if config.SELinux {
 		env.PrintStep("Bootstrapping installer for SELinux")
-		if err := install.BootstrapSELinuxAndRespawn(); err != nil {
+		if err := BootstrapSELinuxAndRespawn(selinux.BootstrapConfig{}); err != nil {
 			return trace.Wrap(err)
 		}
 	}

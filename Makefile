@@ -68,7 +68,7 @@ VERSION_FLAGS := -X github.com/gravitational/gravity/vendor/github.com/gravitati
 	-X github.com/gravitational/gravity/lib/defaults.WormholeImg=$(WORMHOLE_IMG) \
 	-X github.com/gravitational/gravity/lib/defaults.TeleportVersionString=$(TELEPORT_TAG)
 GRAVITY_LINKFLAGS = "$(VERSION_FLAGS) $(GOLFLAGS)"
-GRAVITY_BUILDFLAGS = -tags "selinux"
+GRAVITY_BUILDTAGS = selinux selinux_embed
 
 TELEKUBE_GRAVITY_PKG := gravitational.io/gravity_$(OS)_$(ARCH):$(GRAVITY_TAG)
 TELEKUBE_TELE_PKG := gravitational.io/tele_$(OS)_$(ARCH):$(GRAVITY_TAG)
@@ -141,6 +141,11 @@ TILLER_APP_OUT := $(GRAVITY_BUILDDIR)/tiller-app.tar.gz
 TELEKUBE_OUT := $(GRAVITY_BUILDDIR)/telekube.tar
 TF_PROVIDER_GRAVITY_OUT := $(GRAVITY_BUILDDIR)/terraform-provider-gravity
 TF_PROVIDER_GRAVITYENTERPRISE_OUT := $(GRAVITY_BUILDDIR)/terraform-provider-gravityenterprise
+SELINUX_ASSETSDIR := $(TOP)/lib/system/selinux/assets/
+SELINUX_ASSETS := $(SELINUX_ASSETSDIR)/gravity.pp \
+		$(SELINUX_ASSETSDIR)/gravity.if \
+		$(SELINUX_ASSETSDIR)/container.pp \
+		$(SELINUX_ASSETSDIR)/container.if
 SELINUX_OUT := $(GRAVITY_BUILDDIR)/selinux-policy.tgz
 
 GRAVITY_DIR := /var/lib/gravity
@@ -203,7 +208,7 @@ build:
 # 'install' uses the host's Golang to place output into $GOPATH/bin
 .PHONY:install
 install:
-	go install -ldflags "$(GRAVITY_LINKFLAGS)" $(GRAVITY_BUILDFLAGS) ./tool/tele ./tool/gravity
+	go install -ldflags $(GRAVITY_LINKFLAGS) -tags "$(GRAVITY_BUILDTAGS)" ./tool/tele ./tool/gravity
 
 # 'clean' removes the build artifacts
 .PHONY: clean
@@ -577,7 +582,7 @@ goinstall: remove-temp-files compile
 
 .PHONY: $(BINARIES)
 $(BINARIES):
-	go install -ldflags $(GRAVITY_LINKFLAGS) $(GRAVITY_BUILDFLAGS) $(GRAVITY_PKG_PATH)/tool/$@
+	go install -ldflags $(GRAVITY_LINKFLAGS) -tags "$(GRAVITY_BUILDTAGS)" $(GRAVITY_PKG_PATH)/tool/$@
 
 .PHONY: wizard-publish
 wizard-publish: BUILD_BUCKET_URL = s3://get.gravitational.io
@@ -653,7 +658,7 @@ robotest-installer-ready:
 	mv $(GRAVITY_BUILDDIR)/telekube.tar $(GRAVITY_BUILDDIR)/telekube_ready.tar
 
 .PHONY: dev
-dev: goinstall
+dev: selinux goinstall
 
 # Clean up development environment:
 #  + remove development directories
@@ -754,6 +759,6 @@ fix-logrus:
 
 .PHONY: selinux
 selinux:
-	$(MAKE) -C build.assets $(SELINUX_OUT)
+	$(MAKE) -C build.assets	selinux
 
 include build.assets/etcd.mk

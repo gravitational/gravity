@@ -20,17 +20,52 @@ import (
 	"context"
 	"os"
 	"os/exec"
+	"syscall"
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/system/mount"
-	"github.com/gravitational/gravity/lib/system/selinux"
+	libselinux "github.com/gravitational/gravity/lib/system/selinux"
 	"github.com/gravitational/gravity/lib/system/signals"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
+	"github.com/opencontainers/selinux/go-selinux"
 	"github.com/sirupsen/logrus"
 )
+
+// BootstrapSELinuxAndRespawn prepares the node for the installation with SELinux support
+// and restarts the process under the proper SELinux context if necessary
+func BootstrapSELinuxAndRespawn(config libselinux.BootstrapConfig) error {
+	if !selinux.GetEnabled() {
+		return nil
+	}
+	// FIXME: need to relabel /var/log/gravity-*.log as these might have been created as var_log_t
+	if err := libselinux.Bootstrap(config); err != nil {
+		return trace.Wrap(err)
+	}
+	label, err := selinux.CurrentLabel()
+	log.WithField("label", label).Info("Current process label.")
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	procContext, err := selinux.NewContext(label)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if procContext["type"] != libselinux.GravityProcessContext["type"] {
+		newProcContext := libselinux.MustNewContext(label)
+		newProcContext["type"] = libselinux.GravityProcessContext["type"]
+		log.WithField("context", newProcContext).Info("Set process context.")
+		if err := selinux.SetExecLabel(newProcContext.Get()); err != nil {
+			return trace.Wrap(err)
+		}
+		log.WithField("args", os.Args).Info("Respawn.")
+		cmd := os.Args[0]
+		return syscall.Exec(cmd, os.Args, nil)
+	}
+	return nil
+}
 
 func policyInstall(env *localenv.LocalEnvironment, addr string) error {
 	// TODO
@@ -43,16 +78,19 @@ func policyInstall(env *localenv.LocalEnvironment, addr string) error {
 	return nil
 }
 
-func bootstrapSelinux(env *localenv.LocalEnvironment, path string) error {
+func bootstrapSelinux(env *localenv.LocalEnvironment, path string, vxlanPort int) error {
+	config := libselinux.BootstrapConfig{
+		VxlanPort: vxlanPort,
+	}
 	if path == "" {
-		return selinux.Bootstrap(utils.Exe.WorkingDir)
+		return libselinux.Bootstrap(config)
 	}
 	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_EXCL, defaults.SharedExecutableMask)
 	if err != nil {
 		return trace.ConvertSystemError(err)
 	}
 	defer f.Close()
-	return selinux.WriteBootstrapScript(f, utils.Exe.WorkingDir)
+	return libselinux.WriteBootstrapScript(f, config)
 }
 
 func restoreFilecontexts(env *localenv.LocalEnvironment, rootfsDir string) error {
