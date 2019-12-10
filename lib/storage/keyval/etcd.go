@@ -572,7 +572,7 @@ func (r retryApi) retry(ctx context.Context, fn apiCall) (resp *client.Response,
 	err = backoff.Retry(func() (err error) {
 		resp, err = fn()
 		if utils.IsTransientClusterError(err) {
-			log.Debugf("retrying on transient etcd error: %v", err)
+			log.WithError(err).Debug("Retry on transient etcd error.")
 			return trace.Wrap(err)
 		}
 		if err != nil {
