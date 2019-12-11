@@ -24,8 +24,9 @@ import (
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
@@ -71,11 +72,7 @@ func (o *Operator) GetApplicationEndpoints(key ops.SiteKey) ([]ops.Endpoint, err
 	}
 
 	// query for nodes, we might need them later on
-	nodeList, err := client.Core().Nodes().List(metav1.ListOptions{})
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	namespaceList, err := client.Core().Namespaces().List(metav1.ListOptions{})
+	nodeList, err := client.CoreV1().Nodes().List(metav1.ListOptions{})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -86,19 +83,11 @@ func (o *Operator) GetApplicationEndpoints(key ops.SiteKey) ([]ops.Endpoint, err
 			continue
 		}
 
-		var serviceList *v1.ServiceList
-		for _, ns := range namespaceList.Items {
-			services, err := client.Core().Services(ns.Name).List(metav1.ListOptions{
-				LabelSelector: utils.MakeSelector(e.Selector).String(),
-			})
-			if err != nil {
-				return nil, trace.Wrap(err)
-			}
-			if serviceList == nil {
-				serviceList = services
-			} else {
-				serviceList.Items = append(serviceList.Items, services.Items...)
-			}
+		serviceList, err := client.CoreV1().Services(constants.AllNamespaces).List(metav1.ListOptions{
+			LabelSelector: utils.MakeSelector(e.Selector).String(),
+		})
+		if err != nil {
+			return nil, rigging.ConvertError(err)
 		}
 
 		if serviceList == nil {
