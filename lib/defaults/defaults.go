@@ -669,9 +669,6 @@ const (
 	// DockerCertsDir is the directory where Docker looks for certs
 	DockerCertsDir = "/etc/docker/certs.d"
 
-	// HairpinMode specifies the default hairpin mode
-	HairpinMode = constants.HairpinModePromiscuousBridge
-
 	// VendorPattern is the default app vendor pattern that matches all yaml files
 	VendorPattern = "**/*.yaml"
 
