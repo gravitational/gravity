@@ -137,20 +137,17 @@ When you execute the `tele build` command, `tele` discovers all Docker images
 referenced by your cluster or application image resources (Helm charts or plain
 Kubernetes spec files) and packages them inside the resulting cluster or
 application image tarball. This process is called "vendoring" and it gives the
-Gravity images their "self-sufficiency" property: all vendored images are
-synchronized with the in-cluster private Docker registry when the cluster is
-installed and Kubernetes pulls them from this local registry when spinning up
+Gravity images their "self-sufficiency" property: all vendored images become
+available in the in-cluster private Docker registry when the cluster is
+installed and Kubernetes pulls them from this local registry when creating the
 pods.
 
 #### Private Docker Registries
 
-To be able to vendor a Docker image, it needs to be available via the local
-Docker client. To see a list of images for the local Docker client, you can
-typically use the `docker images` command.
-
-If an image being vendored is not available via the local Docker client, `tele`
-will attempt to pull it from a remote registry specified by the image, or the
-default [Docker Hub](https://hub.docker.com) if the registry is not specified.
+To vendor a Docker image, it needs to be available locally. If an image being
+vendored is not available via the local Docker client, `tele` will attempt to
+pull it from the remote registry specified by the image, or the default [Docker
+Hub](https://hub.docker.com) if the registry is not specified.
 
 In case the image belongs to a private Docker registry, your local Docker client
 must be configured with proper credentials for it (e.g. via `docker login` or
@@ -167,11 +164,9 @@ such as pods, deployments, replica and daemon sets and so on.
     render the Helm templates before extracting the image references. You can
     use `--set` and `--values` flags to provide custom Helm values to `tele build`.
 
-For some objects, `tele` can't extract images because their schema is not known
-beforehand. An example would be Kubernetes custom resources. To handle this
-scenario, you can create a special custom resource `tele` recognizes that lists
-additional images that need to be vendored and drop it among your application
-resources:
+A special `ImageSet` custom resource allows to list additional images to vendor,
+which `tele` would otherwise not be able to extract (for example, from custom
+resource types):
 
 ```yaml
 apiVersion: lens.gravitational.io/v1beta1
@@ -183,6 +178,9 @@ spec:
   - image: nginx:1.11.0
   - image: quay.io/bitnami/redis:5.0
 ```
+
+!!! note:
+    The `ImageSet` resource support is available starting from Gravity 7.0.
 
 ## Image Manifest
 

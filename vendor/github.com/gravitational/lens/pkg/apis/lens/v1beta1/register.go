@@ -30,7 +30,7 @@ var SchemeGroupVersion = schema.GroupVersion{
 	Version: "v1beta1",
 }
 
-// Kind takes an unqualified kind and returns back a Group qualified GroupKind.
+// Kind takes an unqualified kind and returns a Group qualified GroupKind.
 func Kind(kind string) schema.GroupKind {
 	return SchemeGroupVersion.WithKind(kind).GroupKind()
 }
@@ -43,7 +43,7 @@ func Resource(resource string) schema.GroupResource {
 var (
 	// SchemeBuilder initializes a scheme builder.
 	SchemeBuilder = runtime.NewSchemeBuilder(addKnownTypes)
-	// AddToScheme is a global function that registers this API group & version to a scheme.
+	// AddToScheme is a global function that registers this API group & version in a scheme.
 	AddToScheme = SchemeBuilder.AddToScheme
 )
 

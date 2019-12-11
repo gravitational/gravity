@@ -959,14 +959,14 @@
 
 [[projects]]
   branch = "roman/crd"
-  digest = "1:d94ef911dde840ae21bdf208e07a9cec0b37dc4066a0590d956c39dff9ac16a3"
+  digest = "1:5775d3f5b4e4371041b228c64d634ae5254ea1fd4939f48a3dc025ffc86f94c2"
   name = "github.com/gravitational/lens"
   packages = [
     "pkg/apis/lens",
     "pkg/apis/lens/v1beta1",
   ]
   pruneopts = "UT"
-  revision = "ed32b8ca6845b60fe801034ec0df7a715c80b38a"
+  revision = "67cad0a5ad5bf646e9a02a8f8393025e30810c15"
 
 [[projects]]
   digest = "1:39993926ed3306d6496f51ebbaaa6b9f0bc9371e4e39e2ffc40290a5ecc9eafc"

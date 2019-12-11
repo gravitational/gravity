@@ -35,7 +35,7 @@ type ImageSet struct {
 	Status ImageSetStatus `json:"status"`
 }
 
-//ImageSetSpec is the image set specification.
+//ImageSetSpec contains a list of Docker image references.
 type ImageSetSpec struct {
 	// Images is a list of image references.
 	Images []ImageSetImage `json:"images"`
