@@ -24,6 +24,7 @@ import (
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -86,7 +87,7 @@ func (o *Operator) GetApplicationEndpoints(key ops.SiteKey) ([]ops.Endpoint, err
 			LabelSelector: utils.MakeSelector(e.Selector).String(),
 		})
 		if err != nil {
-			return nil, trace.Wrap(err)
+			return nil, rigging.ConvertError(err)
 		}
 
 		if serviceList == nil {
