@@ -17,7 +17,7 @@ limitations under the License.
 package schema
 
 import (
-	lensv1beta1 "github.com/gravitational/lens/pkg/apis/lens/v1beta1"
+	lensv1beta1 "github.com/gravitational/gravity/lib/apis/lens/v1beta1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/util/runtime"

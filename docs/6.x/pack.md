@@ -159,16 +159,19 @@ order for `tele` to be able to pull it.
 The `tele` tool can extract image references from all core Kubernetes objects
 such as pods, deployments, replica and daemon sets and so on.
 
-!!! note "Helm chart images":
-    When building cluster or application image out of a Helm chart, `tele` will
-    render the Helm templates before extracting the image references. You can
-    use `--set` and `--values` flags to provide custom Helm values to `tele build`.
+When building cluster or application image out of a Helm chart, `tele` will
+render the Helm templates before extracting the image references. You can
+use `--set` and `--values` flags to provide custom Helm values to `tele build`.
 
 A special `ImageSet` custom resource allows to list additional images to vendor,
 which `tele` would otherwise not be able to extract (for example, from custom
-resource types):
+resource types).
+
+!!! note:
+    The `ImageSet` resource support will be available starting from Gravity 7.0.
 
 ```yaml
+# Note that the ImageSet resource resides in the "lens.gravitational.io" group.
 apiVersion: lens.gravitational.io/v1beta1
 kind: ImageSet
 metadata:
@@ -178,9 +181,6 @@ spec:
   - image: nginx:1.11.0
   - image: quay.io/bitnami/redis:5.0
 ```
-
-!!! note:
-    The `ImageSet` resource support is available starting from Gravity 7.0.
 
 ## Image Manifest
 

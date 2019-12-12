@@ -20,6 +20,10 @@
 #  name = "github.com/x/y"
 #  version = "2.4.0"
 
+required = [
+  "k8s.io/code-generator"
+]
+
 ignored = [
   "github.com/Sirupsen/logrus",
   "github.com/gravitational/gravity/build/*",
@@ -120,6 +124,14 @@ ignored = [
 
 [[override]]
   name = "k8s.io/kube-aggregator"
+  version = "kubernetes-1.15.5"
+
+[[override]]
+  name = "k8s.io/code-generator"
+  version = "kubernetes-1.15.5"
+
+[[override]]
+  name = "k8s.io/client-go"
   version = "kubernetes-1.15.5"
 
 [[constraint]]
@@ -223,10 +235,6 @@ ignored = [
   version = "1.0.1"
 
 [[constraint]]
-  name = "github.com/gravitational/lens"
-  branch = "roman/crd"
-
-[[constraint]]
   name = "github.com/julienschmidt/httprouter"
   version = "1.1.0"
 
@@ -239,10 +247,6 @@ ignored = [
   source = "github.com/gravitational/kingpin"
   #version = "=v2.2.7"
   branch = "telekube"
-
-[[override]]
-  name = "k8s.io/client-go"
-  version = "kubernetes-1.15.5"
 
 [[constraint]]
   name = "github.com/gravitational/license"

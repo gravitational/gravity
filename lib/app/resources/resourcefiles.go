@@ -25,7 +25,7 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/schema"
 
-	lensv1beta1 "github.com/gravitational/lens/pkg/apis/lens/v1beta1"
+	lensv1beta1 "github.com/gravitational/gravity/lib/apis/lens/v1beta1"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 	admissionv1beta1 "k8s.io/api/admissionregistration/v1beta1"

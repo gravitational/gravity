@@ -958,17 +958,6 @@
   revision = "785686550a08e8e2e77641c91714280a6dfb08ee"
 
 [[projects]]
-  branch = "roman/crd"
-  digest = "1:5775d3f5b4e4371041b228c64d634ae5254ea1fd4939f48a3dc025ffc86f94c2"
-  name = "github.com/gravitational/lens"
-  packages = [
-    "pkg/apis/lens",
-    "pkg/apis/lens/v1beta1",
-  ]
-  pruneopts = "UT"
-  revision = "67cad0a5ad5bf646e9a02a8f8393025e30810c15"
-
-[[projects]]
   digest = "1:39993926ed3306d6496f51ebbaaa6b9f0bc9371e4e39e2ffc40290a5ecc9eafc"
   name = "github.com/gravitational/license"
   packages = [
@@ -2206,6 +2195,60 @@
   revision = "fbb02b2291d28baffd63558aa44b4b56f178d650"
 
 [[projects]]
+  branch = "master"
+  digest = "1:68b490402e3babcbe39c67b6a0ff30a7696a867f8b4aa0ccdc0588c00ce09857"
+  name = "golang.org/x/tools"
+  packages = [
+    "go/ast/astutil",
+    "go/gcexportdata",
+    "go/internal/gcimporter",
+    "go/internal/packagesdriver",
+    "go/packages",
+    "go/types/typeutil",
+    "imports",
+    "internal/fastwalk",
+    "internal/gopathwalk",
+    "internal/imports",
+    "internal/module",
+    "internal/semver",
+  ]
+  pruneopts = "UT"
+  revision = "825cb0626375eeecd4d401e7f1653c1ec405d2c8"
+
+[[projects]]
+  digest = "1:603b52231ff92af88b953a4552210987b3e1fced222fafc583b2ba6c4b81edaa"
+  name = "gonum.org/v1/gonum"
+  packages = [
+    "blas",
+    "blas/blas64",
+    "blas/cblas128",
+    "blas/gonum",
+    "floats",
+    "graph",
+    "graph/internal/linear",
+    "graph/internal/ordered",
+    "graph/internal/set",
+    "graph/internal/uid",
+    "graph/iterator",
+    "graph/simple",
+    "graph/topo",
+    "graph/traverse",
+    "internal/asm/c128",
+    "internal/asm/c64",
+    "internal/asm/f32",
+    "internal/asm/f64",
+    "internal/cmplx64",
+    "internal/math32",
+    "lapack",
+    "lapack/gonum",
+    "lapack/lapack64",
+    "mat",
+  ]
+  pruneopts = "UT"
+  revision = "ef62c3b63e85fdc2902c339d3ca49d34546d21f4"
+  version = "v0.6.1"
+
+[[projects]]
   digest = "1:193950893ea275f89ed92e5da11ed8fa1436872f755a9ea5d4afa83dc9d9c3a8"
   name = "google.golang.org/appengine"
   packages = [
@@ -2506,11 +2549,12 @@
   version = "kubernetes-1.15.5"
 
 [[projects]]
-  digest = "1:2b84c9e8369cbb65ef1a5499e44aeb983515e76379bf86a5016fba5476ec6373"
+  digest = "1:fce78308609bf7a1aa15d25482bbcfc04f09c020f03b882c4d69f72e2b59eaeb"
   name = "k8s.io/client-go"
   packages = [
     "discovery",
     "discovery/cached/disk",
+    "discovery/fake",
     "dynamic",
     "dynamic/dynamicinformer",
     "dynamic/dynamiclister",
@@ -2656,6 +2700,7 @@
     "scale/scheme/autoscalingv1",
     "scale/scheme/extensionsint",
     "scale/scheme/extensionsv1beta1",
+    "testing",
     "third_party/forked/golang/template",
     "tools/auth",
     "tools/cache",
@@ -2687,12 +2732,72 @@
   version = "kubernetes-1.15.5"
 
 [[projects]]
+  digest = "1:41cad8a2135e8463def300f5e4cea8fe4db1709062139edb149654fffa676f6a"
+  name = "k8s.io/code-generator"
+  packages = [
+    ".",
+    "cmd/client-gen",
+    "cmd/client-gen/args",
+    "cmd/client-gen/generators",
+    "cmd/client-gen/generators/fake",
+    "cmd/client-gen/generators/scheme",
+    "cmd/client-gen/generators/util",
+    "cmd/client-gen/path",
+    "cmd/client-gen/types",
+    "cmd/conversion-gen",
+    "cmd/conversion-gen/args",
+    "cmd/conversion-gen/generators",
+    "cmd/deepcopy-gen",
+    "cmd/deepcopy-gen/args",
+    "cmd/defaulter-gen",
+    "cmd/defaulter-gen/args",
+    "cmd/go-to-protobuf",
+    "cmd/go-to-protobuf/protobuf",
+    "cmd/import-boss",
+    "cmd/informer-gen",
+    "cmd/informer-gen/args",
+    "cmd/informer-gen/generators",
+    "cmd/lister-gen",
+    "cmd/lister-gen/args",
+    "cmd/lister-gen/generators",
+    "cmd/register-gen",
+    "cmd/register-gen/args",
+    "cmd/register-gen/generators",
+    "cmd/set-gen",
+    "pkg/namer",
+    "pkg/util",
+    "third_party/forked/golang/reflect",
+  ]
+  pruneopts = "UT"
+  revision = "18da4a14b22b17d2fa761e50037fabfbacec225b"
+  version = "kubernetes-1.15.5"
+
+[[projects]]
   branch = "master"
   digest = "1:661387e3ba412767f773c327c3752e05f13b280677661d77de30345e598ddc01"
   name = "k8s.io/component-base"
   packages = ["featuregate"]
   pruneopts = "UT"
   revision = "d338b9159fb61f886b84ce9c7664b7039a0f21d2"
+
+[[projects]]
+  branch = "master"
+  digest = "1:d12e7dfed2955d02b2df383eb34a3d9b05501e5d1832fcd1fa25d71387a9e977"
+  name = "k8s.io/gengo"
+  packages = [
+    "args",
+    "examples/deepcopy-gen/generators",
+    "examples/defaulter-gen/generators",
+    "examples/import-boss/generators",
+    "examples/set-gen/generators",
+    "examples/set-gen/sets",
+    "generator",
+    "namer",
+    "parser",
+    "types",
+  ]
+  pruneopts = "UT"
+  revision = "e74f70b9b27e1167f8aba52265fe03a6805efdcd"
 
 [[projects]]
   branch = "release-2.15"
@@ -3006,7 +3111,6 @@
     "github.com/gravitational/coordinate/leader",
     "github.com/gravitational/form",
     "github.com/gravitational/go-vhost",
-    "github.com/gravitational/lens/pkg/apis/lens/v1beta1",
     "github.com/gravitational/license",
     "github.com/gravitational/license/authority",
     "github.com/gravitational/rigging",
@@ -3115,6 +3219,7 @@
     "k8s.io/apimachinery/pkg/labels",
     "k8s.io/apimachinery/pkg/runtime",
     "k8s.io/apimachinery/pkg/runtime/schema",
+    "k8s.io/apimachinery/pkg/runtime/serializer",
     "k8s.io/apimachinery/pkg/runtime/serializer/json",
     "k8s.io/apimachinery/pkg/types",
     "k8s.io/apimachinery/pkg/util/intstr",
@@ -3125,6 +3230,7 @@
     "k8s.io/apimachinery/pkg/version",
     "k8s.io/apimachinery/pkg/watch",
     "k8s.io/client-go/discovery",
+    "k8s.io/client-go/discovery/fake",
     "k8s.io/client-go/kubernetes",
     "k8s.io/client-go/kubernetes/scheme",
     "k8s.io/client-go/kubernetes/typed/apps/v1",
@@ -3132,8 +3238,12 @@
     "k8s.io/client-go/kubernetes/typed/core/v1",
     "k8s.io/client-go/plugin/pkg/client/auth",
     "k8s.io/client-go/rest",
+    "k8s.io/client-go/testing",
+    "k8s.io/client-go/tools/cache",
     "k8s.io/client-go/tools/clientcmd",
     "k8s.io/client-go/tools/clientcmd/api",
+    "k8s.io/client-go/util/flowcontrol",
+    "k8s.io/code-generator",
     "k8s.io/helm/pkg/chartutil",
     "k8s.io/helm/pkg/getter",
     "k8s.io/helm/pkg/helm",
