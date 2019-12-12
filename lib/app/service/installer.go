@@ -406,7 +406,7 @@ fi
 
 scriptdir=$(dirname $(realpath $0))
 app=$("$scriptdir/gravity" app-package --state-dir="$scriptdir")
-"$scriptdir/upload" && "$scriptdir/gravity" --insecure update trigger $app
+"$scriptdir/upload" && "$scriptdir/gravity" --insecure upgrade $app
 `
 
 	checkScript = `#!/bin/bash
