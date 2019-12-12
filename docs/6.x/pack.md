@@ -131,6 +131,57 @@ docker run -e OPS_URL=<opscenter url> \
     by setting `--state-dir`. You can use unique temporary directory
     to avoid sharing state between builds, or use parallel builds instead.
 
+## Vendoring
+
+When you execute the `tele build` command, `tele` discovers all Docker images
+referenced by your cluster or application image resources (Helm charts or plain
+Kubernetes spec files) and packages them inside the resulting cluster or
+application image tarball. This process is called "vendoring" and it gives the
+Gravity images their "self-sufficiency" property: all vendored images become
+available in the in-cluster private Docker registry when the cluster is
+installed and Kubernetes pulls them from this local registry when creating the
+pods.
+
+#### Private Docker Registries
+
+To vendor a Docker image, it needs to be available locally. If an image being
+vendored is not available via the local Docker client, `tele` will attempt to
+pull it from the remote registry specified by the image, or the default [Docker
+Hub](https://hub.docker.com) if the registry is not specified.
+
+In case the image belongs to a private Docker registry, your local Docker client
+must be configured with proper credentials for it (e.g. via `docker login` or
+[TLS certificates](https://docs.docker.com/engine/security/certificates/)) in
+order for `tele` to be able to pull it.
+
+#### Image References Discovery
+
+The `tele` tool can extract image references from all core Kubernetes objects
+such as pods, deployments, replica and daemon sets and so on.
+
+When building cluster or application image out of a Helm chart, `tele` will
+render the Helm templates before extracting the image references. You can
+use `--set` and `--values` flags to provide custom Helm values to `tele build`.
+
+A special `ImageSet` custom resource allows to list additional images to vendor,
+which `tele` would otherwise not be able to extract (for example, from custom
+resource types).
+
+!!! note:
+    The `ImageSet` resource support will be available starting from Gravity 7.0.
+
+```yaml
+# Note that the ImageSet resource resides in the "lens.gravitational.io" group.
+apiVersion: lens.gravitational.io/v1beta1
+kind: ImageSet
+metadata:
+  name: extra-images
+spec:
+  images:
+  - image: nginx:1.11.0
+  - image: quay.io/bitnami/redis:5.0
+```
+
 ## Image Manifest
 
 The Image Manifest is a YAML file that is passed as an input to `tele build`

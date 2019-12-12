@@ -113,6 +113,8 @@ TELEPORT_SRCDIR := $(TELEPORT_BUILDDIR)/src
 TELEPORT_BINDIR := $(TELEPORT_BUILDDIR)/bin/$(TELEPORT_TAG)
 TF_PROVIDER_DIR := $(HOME)/.terraform.d/plugins
 FIO_BUILDDIR := $(BUILDDIR)/fio-$(FIO_VER)
+HACK_DIR := $(TOP)/hack
+GENERATED_DIR := $(TOP)/lib/client
 
 LOCAL_BUILDDIR ?= /gopath/src/github.com/gravitational/gravity/build
 LOCAL_GRAVITY_BUILDDIR ?= /gopath/src/github.com/gravitational/gravity/build/$(GRAVITY_VERSION)
@@ -745,6 +747,18 @@ run-docs:
 .PHONY: get-k8s-tag
 get-k8s-tag:
 	@echo $(K8S_APP_TAG)
+
+.PHONY: update-codegen
+update-codegen: clean-codegen
+	bash $(HACK_DIR)/update-codegen.sh
+
+.PHONY: verify-codegen
+verify-codegen:
+	bash $(HACK_DIR)/verify-codegen.sh
+
+.PHONY: clean-codegen
+clean-codegen:
+	rm -r $(GENERATED_DIR)
 
 #
 # this is a temporary target until we upgrade docker packages
