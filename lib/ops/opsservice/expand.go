@@ -172,7 +172,6 @@ func (o *Operator) registerKubernetesNode(ctx context.Context, operation ops.Sit
 	}
 
 	for _, server := range operation.Servers {
-
 		profile, err := app.Manifest.NodeProfiles.ByName(server.Role)
 		if err != nil {
 			return trace.Wrap(err)

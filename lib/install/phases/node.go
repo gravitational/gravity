@@ -86,7 +86,7 @@ func (r *registerNodeExecutor) PostCheck(context.Context) error {
 	return nil
 }
 
-// Execute generates coredns configuration
+// Execute creates a new kubernetes node with the specified taints and labels
 func (r *registerNodeExecutor) Execute(ctx context.Context) error {
 	r.Progress.NextStep("Configuring Node")
 	r.Info("Configuring Node.")
