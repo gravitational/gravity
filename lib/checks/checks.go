@@ -839,8 +839,6 @@ func defaultPortChecker(options *validationpb.ValidateOptions) health.Checker {
 	}
 	var portRanges []monitoring.PortRange
 	portRanges = append(portRanges, portRange(schema.DefaultPortRanges.Kubernetes)...)
-	portRanges = append(portRanges, portRange(schema.DefaultPortRanges.Agent)...)
-	portRanges = append(portRanges, portRange(schema.DefaultPortRanges.Installer)...)
 	portRanges = append(portRanges, portRange(schema.DefaultPortRanges.Generic)...)
 	portRanges = append(portRanges, portRange(schema.DefaultPortRanges.Reserved)...)
 	portRanges = append(portRanges, monitoring.PortRange{

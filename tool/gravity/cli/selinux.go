@@ -40,7 +40,6 @@ func BootstrapSELinuxAndRespawn(config libselinux.BootstrapConfig) error {
 	if !selinux.GetEnabled() {
 		return nil
 	}
-	// FIXME: need to relabel /var/log/gravity-*.log as these might have been created as var_log_t
 	if err := libselinux.Bootstrap(config); err != nil {
 		return trace.Wrap(err)
 	}
@@ -53,18 +52,18 @@ func BootstrapSELinuxAndRespawn(config libselinux.BootstrapConfig) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	if procContext["type"] != libselinux.GravityProcessContext["type"] {
-		newProcContext := libselinux.MustNewContext(label)
-		newProcContext["type"] = libselinux.GravityProcessContext["type"]
-		log.WithField("context", newProcContext).Info("Set process context.")
-		if err := selinux.SetExecLabel(newProcContext.Get()); err != nil {
-			return trace.Wrap(err)
-		}
-		log.WithField("args", os.Args).Info("Respawn.")
-		cmd := os.Args[0]
-		return syscall.Exec(cmd, os.Args, nil)
+	if procContext["type"] == libselinux.GravityInstallerProcessContext["type"] {
+		return nil
 	}
-	return nil
+	newProcContext := libselinux.MustNewContext(label)
+	newProcContext["type"] = libselinux.GravityInstallerProcessContext["type"]
+	log.WithField("context", newProcContext).Info("Set process context.")
+	if err := selinux.SetExecLabel(newProcContext.Get()); err != nil {
+		return trace.Wrap(err)
+	}
+	log.WithField("args", os.Args).Info("Respawn.")
+	cmd := os.Args[0]
+	return syscall.Exec(cmd, os.Args, nil)
 }
 
 func policyInstall(env *localenv.LocalEnvironment, addr string) error {
@@ -85,7 +84,7 @@ func bootstrapSelinux(env *localenv.LocalEnvironment, path string, vxlanPort int
 	if path == "" {
 		return libselinux.Bootstrap(config)
 	}
-	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_EXCL, defaults.SharedExecutableMask)
+	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_EXCL, defaults.SharedReadMask)
 	if err != nil {
 		return trace.ConvertSystemError(err)
 	}

@@ -1,5 +1,25 @@
 ## <summary>policy for gravity</summary>
 
+interface(`gravity_home_content_filetrans',`
+	gen_require(`
+		type gravity_home_t;
+	')
+
+	filetrans_pattern($1, user_home_t, $2, $3, $4)
+	allow $1 gravity_home_t:dir search_dir_perms;
+	files_search_home($1)
+')
+
+interface(`gravity_roletrans_gravity',`
+  gen_require(`
+    role gravity_roles;
+    type gravity_t, gravity_exec_t;
+  ')
+  allow $1 gravity_roles;
+  role_transition $1 gravity_exec_t gravity_roles;
+  gravity_domtrans($2)
+')
+
 ########################################
 ## <summary>
 ##	Execute gravity in the gravity domain and allow
@@ -49,7 +69,6 @@ interface(`gravity_role',`
     type gravity_container_runtime_t;
     type gravity_container_runtime_exec_t;
     type gravity_home_t;
-    type gravity_install_home_t;
     type gravity_log_t;
     type gravity_unit_file_t;
   ')
@@ -66,7 +85,6 @@ interface(`gravity_role',`
   allow $2 gravity_domain:process { ptrace signal_perms };
 
   admin_pattern($2, gravity_home_t)
-  admin_pattern($2, gravity_install_home_t)
   admin_pattern($2, gravity_log_t)
   allow $2 gravity_unit_file_t:service manage_service_perms;
 ')
@@ -88,6 +106,25 @@ interface(`gravity_domtrans',`
 
   corecmd_search_bin($1)
   domtrans_pattern($1, gravity_exec_t, gravity_t)
+')
+
+########################################
+## <summary>
+##	Execute gravity installer in the specified domain.
+## </summary>
+## <param name="domain">
+## <summary>
+##	Domain allowed to transition.
+## </summary>
+## </param>
+#
+interface(`gravity_installer_domtrans',`
+  gen_require(`
+    type gravity_installer_t, gravity_installer_exec_t;
+  ')
+
+  corecmd_search_bin($1)
+  domtrans_pattern($1, gravity_installer_exec_t, gravity_installer_t)
 ')
 
 ######################################

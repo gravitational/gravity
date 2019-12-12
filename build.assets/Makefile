@@ -577,7 +577,7 @@ push-selinux: $(SELINUX_OUT)
 	$(AWS) s3 cp $(S3_OPTS) $(SELINUX_OUT) $(BUILD_BUCKET_URL)/selinux/centos/$(SELINUX_VERSION)
 
 $(SELINUX_ASSETS): $(SELINUX_OUT)
-	tar xf $^ -C $(@D)
+	tar xf $^ -C $(@D) $(@F)
 
 $(SELINUX_OUT): | $(GRAVITY_BUILDDIR)
 	if ! $(AWS) s3 cp $(S3_OPTS) $(BUILD_BUCKET_URL)/selinux/centos/$(SELINUX_VERSION) $@; then \

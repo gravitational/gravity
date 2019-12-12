@@ -24,7 +24,7 @@ ignored = [
   "github.com/Sirupsen/logrus",
   "github.com/gravitational/gravity/build/*",
   "github.com/gravitational/gravity/e/build/*",
-  "github.com/gravitationa/gravity/lib/system/selinux/generate"
+  "github.com/gravitational/gravity/lib/system/selinux/generate"
 ]
 
 [prune]

@@ -57,7 +57,7 @@ import (
 )
 
 func startInstall(env *localenv.LocalEnvironment, config InstallConfig) error {
-	if config.SELinux {
+	if config.SELinux && !config.FromService {
 		env.PrintStep("Bootstrapping installer for SELinux")
 		if err := BootstrapSELinuxAndRespawn(selinux.BootstrapConfig{
 			VxlanPort: config.VxlanPort,

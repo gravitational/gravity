@@ -1,3 +1,5 @@
+// +build generate_policy
+
 package main
 
 import (
