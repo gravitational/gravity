@@ -99,6 +99,7 @@ func (p *hookExecutor) runHooks(ctx context.Context, hooks ...schema.HookType) e
 		req := app.HookRunRequest{
 			Application: locator,
 			Hook:        hook,
+			Values:      p.Phase.Data.Values,
 			ServiceUser: storage.OSUser{
 				Name: p.ServiceUser.Name,
 				UID:  strconv.Itoa(p.ServiceUser.UID),

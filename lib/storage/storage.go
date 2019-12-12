@@ -1812,6 +1812,8 @@ type OperationVariables struct {
 	OnPrem OnPremVariables `json:"onprem"`
 	// AWS is a set of AWS-specific variables
 	AWS AWSVariables `json:"aws"`
+	// Values are helm values in a marshaled yaml format
+	Values []byte `json:"values,omitempty"`
 }
 
 // ToMap converts operation variables into a JSON object for easier use in templates

@@ -319,6 +319,7 @@ func (r *applications) StartAppHook(ctx context.Context, req appservice.HookRunR
 		AgentPassword:      creds.Password,
 		GravityPackage:     req.GravityPackage,
 		ServiceUser:        req.ServiceUser,
+		Values:             req.Values,
 	}
 
 	ref, err := runner.Start(ctx, params)

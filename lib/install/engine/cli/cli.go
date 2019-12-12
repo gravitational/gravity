@@ -182,6 +182,7 @@ func (r *executor) createOperation() (*ops.SiteOperation, error) {
 				ServiceCIDR: r.config.ServiceCIDR,
 				VxlanPort:   r.config.VxlanPort,
 			},
+			Values: r.config.Values,
 		},
 		Profiles: install.ServerRequirements(*r.config.Flavor),
 	})

@@ -216,6 +216,8 @@ type HookRunRequest struct {
 	NodeSelector map[string]string `json:"node_selector"`
 	// Env defines additional environment variables to pass to the hook job
 	Env map[string]string `json:"env"`
+	// Values are helm values in a marshaled yaml format
+	Values []byte `json:"values,omitempty"`
 	// SkipInitContainers skips injection of init containers
 	SkipInitContainers bool `json:"skip_init_containers"`
 	// HostNetwork specifies whether the hook job runs in host network namespace

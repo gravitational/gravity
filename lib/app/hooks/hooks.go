@@ -83,6 +83,8 @@ type Params struct {
 	// ServiceUser specifies the service user which overrides the default
 	// security context for the job's Pod
 	ServiceUser storage.OSUser
+	// Values are helm values in a marshaled yaml format
+	Values []byte
 }
 
 // JobRef is a reference to a hook job

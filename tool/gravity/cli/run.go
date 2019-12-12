@@ -291,7 +291,11 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 	case g.WizardCmd.FullCommand():
 		return startInstall(localEnv, NewWizardConfig(localEnv, g))
 	case g.InstallCmd.FullCommand():
-		return startInstall(localEnv, NewInstallConfig(localEnv, g))
+		config, err := NewInstallConfig(localEnv, g)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		return startInstall(localEnv, *config)
 	case g.JoinCmd.FullCommand():
 		return join(localEnv, g, NewJoinConfig(g))
 	case g.AutoJoinCmd.FullCommand():

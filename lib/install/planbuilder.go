@@ -43,6 +43,8 @@ import (
 type PlanBuilder struct {
 	// Cluster is the cluster being installed
 	Cluster storage.Site
+	// Operation is the operation the builder is for
+	Operation ops.SiteOperation
 	// Application is the app being installed
 	Application app.Application
 	// Runtime is the Runtime of the app being installed
@@ -577,6 +579,7 @@ func (b *PlanBuilder) AddApplicationPhase(plan *storage.OperationPlan) error {
 				Server:      &b.Master,
 				Package:     &applicationLocators[i],
 				ServiceUser: &b.ServiceUser,
+				Values:      b.Operation.GetVars().Values,
 			},
 			Requires: []string{phases.RuntimePhase},
 			Step:     6,
@@ -698,7 +701,8 @@ func (c *Config) GetPlanBuilder(operator ops.Operator, cluster ops.Site, op ops.
 		return nil, trace.Wrap(err)
 	}
 	builder := &PlanBuilder{
-		Cluster: ops.ConvertOpsSite(cluster),
+		Cluster:   ops.ConvertOpsSite(cluster),
+		Operation: op,
 		Application: app.Application{
 			Package:         cluster.App.Package,
 			PackageEnvelope: cluster.App.PackageEnvelope,

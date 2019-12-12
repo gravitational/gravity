@@ -145,7 +145,7 @@ func configureVolumes(job *batchv1.Job, p Params) {
 			},
 		},
 		{
-			Name: VolumeKubectl,
+			Name: VolumeKubectlBin,
 			VolumeSource: v1.VolumeSource{
 				HostPath: &v1.HostPathVolumeSource{
 					Path: defaults.KubectlBin,
@@ -153,7 +153,7 @@ func configureVolumes(job *batchv1.Job, p Params) {
 			},
 		},
 		{
-			Name: VolumeHelm,
+			Name: VolumeHelmBin,
 			VolumeSource: v1.VolumeSource{
 				HostPath: &v1.HostPathVolumeSource{
 					Path: defaults.HelmBin,
@@ -183,6 +183,12 @@ func configureVolumes(job *batchv1.Job, p Params) {
 			},
 		},
 		{
+			Name: VolumeHelm,
+			VolumeSource: v1.VolumeSource{
+				EmptyDir: &v1.EmptyDirVolumeSource{},
+			},
+		},
+		{
 			Name: VolumeStateDir,
 			VolumeSource: v1.VolumeSource{
 				EmptyDir: &v1.EmptyDirVolumeSource{},
@@ -203,11 +209,11 @@ func configureVolumeMounts(job *batchv1.Job, p Params) {
 			MountPath: ContainerHostBinDir,
 		},
 		{
-			Name:      VolumeKubectl,
+			Name:      VolumeKubectlBin,
 			MountPath: KubectlPath,
 		},
 		{
-			Name:      VolumeHelm,
+			Name:      VolumeHelmBin,
 			MountPath: HelmPath,
 		},
 		{
@@ -217,6 +223,10 @@ func configureVolumeMounts(job *batchv1.Job, p Params) {
 		{
 			Name:      VolumeResources,
 			MountPath: ResourcesDir,
+		},
+		{
+			Name:      VolumeHelm,
+			MountPath: HelmDir,
 		},
 	}...)
 
@@ -331,12 +341,15 @@ func configureNetwork(job *batchv1.Job, p Params) {
 // initScript builds a shell script used as init container entrypoint for this hook
 func initScript(w io.Writer, p Params) error {
 	ctx := initScriptContext{
-		Package:       p.Locator.String(),
-		AgentUser:     p.AgentUser,
-		AgentPassword: p.AgentPassword,
-		ResourcesDir:  ResourcesDir,
-		StateDir:      StateDir,
-		ServiceUser:   p.ServiceUser,
+		Package:        p.Locator.String(),
+		AgentUser:      p.AgentUser,
+		AgentPassword:  p.AgentPassword,
+		ResourcesDir:   ResourcesDir,
+		StateDir:       StateDir,
+		ServiceUser:    p.ServiceUser,
+		HelmDir:        HelmDir,
+		HelmValuesFile: HelmValuesFile,
+		HelmValues:     string(p.Values),
 	}
 	if !p.GravityPackage.IsEmpty() {
 		ctx.GravityPackage = p.GravityPackage.String()
@@ -374,10 +387,20 @@ TMPDIR={{.StateDir}} {{.StateDir}}/gravity --state-dir={{.StateDir}} app unpack 
 	--service-uid={{.ServiceUser.UID}} \
 	--insecure --ops-url=$ops_url \
 	{{.Package}} {{.ResourcesDir}}
+{{if .HelmValues}}
+cat <<EOF > {{.HelmDir}}/{{.HelmValuesFile}}
+{{.HelmValues}}
+EOF
+{{end}}
 `))
 
 var initInstallScriptTemplate = template.Must(template.New("sh").Parse(`
 TMPDIR={{.StateDir}} /opt/bin/gravity app unpack --service-uid={{.ServiceUser.UID}} {{.Package}} {{.ResourcesDir}}
+{{if .HelmValues}}
+cat <<EOF > {{.HelmDir}}/{{.HelmValuesFile}}
+{{.HelmValues}}
+EOF
+{{end}}
 `))
 
 type initScriptContext struct {
@@ -409,4 +432,10 @@ type initScriptContext struct {
 	// ServiceUser specifies the service user to use for overriding
 	// the security context of the hook
 	ServiceUser storage.OSUser
+	// HelmDir is the directory where helm-related data is mounted
+	HelmDir string
+	// HelmValuesFile is the name of the file with helm values
+	HelmValuesFile string
+	// HelmValues are helm values in a marshaled yaml format
+	HelmValues string
 }
