@@ -981,7 +981,7 @@ func (s *site) getPlanetConfig(config planetConfig) (args []string, err error) {
 	if len(kubeletArgs) > 0 {
 		args = append(args, fmt.Sprintf("--kubelet-options=%v", strings.Join(kubeletArgs, " ")))
 	}
-	
+
 	mounts, err := GetMounts(manifest, node.Server)
 	if err != nil {
 		return nil, trace.Wrap(err)
