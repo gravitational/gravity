@@ -616,8 +616,12 @@ func (i *InstallConfig) validateCloudConfig(manifest schema.Manifest) (err error
 }
 
 // NewWizardConfig returns new configuration for the interactive installer
-func NewWizardConfig(env *localenv.LocalEnvironment, g *Application) InstallConfig {
-	return InstallConfig{
+func NewWizardConfig(env *localenv.LocalEnvironment, g *Application) (*InstallConfig, error) {
+	values, err := helm.Vals(*g.InstallCmd.Values, *g.InstallCmd.Set, nil, nil, "", "", "")
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &InstallConfig{
 		Mode:               constants.InstallModeInteractive,
 		Insecure:           *g.Insecure,
 		UserLogFile:        *g.UserLogFile,
@@ -634,7 +638,8 @@ func NewWizardConfig(env *localenv.LocalEnvironment, g *Application) InstallConf
 		LocalApps:          env.Apps,
 		LocalBackend:       env.Backend,
 		LocalClusterClient: env.SiteOperator,
-	}
+		Values:             values,
+	}, nil
 }
 
 // JoinConfig describes command line configuration of the join command

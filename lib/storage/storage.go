@@ -2065,6 +2065,8 @@ type UpdateOperationState struct {
 	ServerUpdates []ServerUpdate `json:"server_updates,omitempty"`
 	// Manual specifies whether this update operation was created in manual mode
 	Manual bool `json:"manual"`
+	// Vars are variables specific to this operation
+	Vars OperationVariables `json:"vars"`
 }
 
 // UpdateEnvarsOperationState describes the state of the operation to update cluster environment variables.

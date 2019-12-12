@@ -63,6 +63,7 @@ func NewUpdatePhaseApp(
 	return &updatePhaseApp{
 		phaseApp: phaseApp{
 			FieldLogger:    logger,
+			ExecutorParams: p,
 			Apps:           apps,
 			Client:         client,
 			GravityPackage: p.Plan.GravityPackage,
@@ -135,6 +136,7 @@ func NewUpdatePhaseBeforeApp(
 	return &updatePhaseBeforeApp{
 		phaseApp: phaseApp{
 			FieldLogger:    logger,
+			ExecutorParams: p,
 			Apps:           apps,
 			Client:         client,
 			GravityPackage: p.Plan.GravityPackage,
@@ -170,7 +172,10 @@ type phaseApp struct {
 	Servers []storage.Server
 	// ServiceUser is the user used for services and system storage
 	ServiceUser storage.OSUser
+	// FieldLogger is used for logging
 	log.FieldLogger
+	// ExecutorParams is the common phase parameters
+	fsm.ExecutorParams
 }
 
 // PreCheck makes sure this phase is being executed on a master node
@@ -189,6 +194,7 @@ func (p *phaseApp) runHooks(ctx context.Context, hooks ...schema.HookType) error
 			Application:    p.Package,
 			GravityPackage: p.GravityPackage,
 			Hook:           hook,
+			Values:         p.Phase.Data.Values,
 			Env: map[string]string{
 				// TODO(r0mant) see if we can get rid of this flag
 				constants.ManualUpdateEnvVar: "true",

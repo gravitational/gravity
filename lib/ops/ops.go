@@ -1352,6 +1352,8 @@ type CreateSiteAppUpdateOperationRequest struct {
 	App string `json:"package"`
 	// StartAgents specifies whether the operation will automatically start the update agents
 	StartAgents bool `json:"start_agents"`
+	// Vars are variables specific to this operation
+	Vars storage.OperationVariables `json:"vars"`
 }
 
 // Check validates this request
