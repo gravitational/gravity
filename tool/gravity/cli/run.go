@@ -324,11 +324,11 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			return trace.Wrap(err)
 		}
 		defer updateEnv.Close()
-		config, err := newUpgradeConfig(g)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		return updateTrigger(localEnv, updateEnv, *config)
+		return updateTrigger(localEnv, updateEnv, upgradeConfig{
+			UpgradePackage:   *g.UpdateTriggerCmd.App,
+			Manual:           *g.UpdateTriggerCmd.Manual,
+			SkipVersionCheck: *g.UpdateTriggerCmd.SkipVersionCheck,
+		})
 	case g.UpdatePlanInitCmd.FullCommand():
 		updateEnv, err := g.NewUpdateEnv()
 		if err != nil {
@@ -354,11 +354,11 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 					SkipVersionCheck: *g.UpgradeCmd.SkipVersionCheck,
 				})
 		}
-		return updateTrigger(localEnv, updateEnv, upgradeConfig{
-			UpgradePackage:   *g.UpdateTriggerCmd.App,
-			Manual:           *g.UpdateTriggerCmd.Manual,
-			SkipVersionCheck: *g.UpdateTriggerCmd.SkipVersionCheck,
-		})
+		config, err := newUpgradeConfig(g)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		return updateTrigger(localEnv, updateEnv, *config)
 	case g.ResumeCmd.FullCommand():
 		return resumeOperation(localEnv, g,
 			PhaseParams{
