@@ -56,6 +56,7 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 	"github.com/gravitational/gravity/lib/system/environ"
+	"github.com/gravitational/gravity/lib/system/selinux"
 	"github.com/gravitational/gravity/lib/system/signals"
 	"github.com/gravitational/gravity/lib/systeminfo"
 	"github.com/gravitational/gravity/lib/systemservice"
@@ -478,6 +479,18 @@ func (i *InstallConfig) RunLocalChecks() error {
 	}))
 }
 
+// BootstrapSELinux installs the default SELinux policy on the node
+func (i *InstallConfig) BootstrapSELinux(printer utils.Printer) error {
+	if !i.SELinux || i.FromService {
+		return nil
+	}
+	printer.PrintStep("Bootstrapping installer for SELinux")
+	err := BootstrapSELinuxAndRespawn(selinux.BootstrapConfig{
+		VxlanPort: i.VxlanPort,
+	})
+	return trace.Wrap(err)
+}
+
 func (i *InstallConfig) validateApplicationDir() error {
 	_, err := i.getApp()
 	return trace.Wrap(err)
@@ -816,6 +829,15 @@ func (j *JoinConfig) GetRuntimeConfig() proto.RuntimeConfig {
 	}
 }
 
+func (j *JoinConfig) bootstrapSELinux(printer utils.Printer) error {
+	if !j.SELinux || j.FromService {
+		return nil
+	}
+	printer.PrintStep("Bootstrapping installer for SELinux")
+	// TODO: vxlanPort configuration
+	return BootstrapSELinuxAndRespawn(selinux.BootstrapConfig{})
+}
+
 func (r *removeConfig) checkAndSetDefaults() error {
 	if r.server == "" {
 		return trace.BadParameter("server flag is required")
@@ -861,6 +883,15 @@ func (r *autojoinConfig) checkAndSetDefaults() error {
 	return nil
 }
 
+func (r *autojoinConfig) bootstrapSELinux(printer utils.Printer) error {
+	if !r.selinux || r.fromService {
+		return nil
+	}
+	printer.PrintStep("Bootstrapping installer for SELinux")
+	// TODO: vxlanPort configuration
+	return BootstrapSELinuxAndRespawn(selinux.BootstrapConfig{})
+}
+
 type autojoinConfig struct {
 	systemLogFile string
 	userLogFile   string
@@ -872,6 +903,7 @@ type autojoinConfig struct {
 	serviceURL    string
 	advertiseAddr string
 	token         string
+	selinux       bool
 }
 
 func (r *agentConfig) newServiceArgs(gravityPath string) (args []string) {

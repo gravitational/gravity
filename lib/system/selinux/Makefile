@@ -8,7 +8,7 @@ POLICY_OUT:=policy_embed.go
 
 all: buildbox $(POLICY_OUT)
 
-$(POLICY_OUT): policy.go assets/container.if assets/container.pp.bz2 assets/gravity.if assets/gravity.pp.bz2
+$(POLICY_OUT): policy.go assets/container.pp.bz2 assets/gravity.pp.bz2
 	$(CONTAINER_RUNTIME) run \
 		--name=$(BUILDBOX_INSTANCE) \
 		-v ${DIR}:/go/src/$(GRAVITY_REPOSITORY) \

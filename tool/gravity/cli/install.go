@@ -45,7 +45,6 @@ import (
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/system/environ"
-	"github.com/gravitational/gravity/lib/system/selinux"
 	"github.com/gravitational/gravity/lib/system/service"
 	"github.com/gravitational/gravity/lib/system/signals"
 	"github.com/gravitational/gravity/lib/systemservice"
@@ -57,13 +56,8 @@ import (
 )
 
 func startInstall(env *localenv.LocalEnvironment, config InstallConfig) error {
-	if config.SELinux && !config.FromService {
-		env.PrintStep("Bootstrapping installer for SELinux")
-		if err := BootstrapSELinuxAndRespawn(selinux.BootstrapConfig{
-			VxlanPort: config.VxlanPort,
-		}); err != nil {
-			return trace.Wrap(err)
-		}
+	if err := config.BootstrapSELinux(env); err != nil {
+		return trace.Wrap(err)
 	}
 
 	env.PrintStep("Starting installer")
@@ -412,6 +406,10 @@ func remove(env *localenv.LocalEnvironment, c removeConfig) error {
 }
 
 func autojoin(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, d autojoinConfig) (err error) {
+	if err := d.bootstrapSELinux(env); err != nil {
+		return trace.Wrap(err)
+	}
+
 	if d.fromService {
 		return autojoinFromService(env, environ, d)
 	}
@@ -679,12 +677,10 @@ func InstallerClient(env *localenv.LocalEnvironment, config installerclient.Conf
 
 // join executes the join command and runs either the client or the service depending on the configuration
 func join(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, config JoinConfig) error {
-	if config.SELinux {
-		env.PrintStep("Bootstrapping installer for SELinux")
-		if err := BootstrapSELinuxAndRespawn(selinux.BootstrapConfig{}); err != nil {
-			return trace.Wrap(err)
-		}
+	if err := config.bootstrapSELinux(env); err != nil {
+		return trace.Wrap(err)
 	}
+
 	env.PrintStep("Starting agent")
 
 	if err := config.CheckAndSetDefaults(); err != nil {
