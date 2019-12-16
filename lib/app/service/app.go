@@ -839,6 +839,10 @@ func (r *applications) canDelete(locator loc.Locator) error {
 		return trace.Wrap(err)
 	}
 	for _, app := range apps {
+		base := app.Manifest.Base()
+		if base != nil && base.IsEqualTo(locator) {
+			return trace.BadParameter("%v is a base app for %v", locator, app)
+		}
 		for _, dep := range app.Manifest.Dependencies.Apps {
 			if dep.Locator.IsEqualTo(locator) {
 				return trace.BadParameter("%v depends on %v", app, locator)
