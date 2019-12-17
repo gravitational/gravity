@@ -1148,7 +1148,6 @@ var (
 	// TeleportVersion specifies the version of the bundled teleport package as a semver
 	TeleportVersion = semver.New(TeleportVersionString)
 
-
 	// MetricsInterval is the default interval cluster metrics are displayed for.
 	MetricsInterval = time.Hour
 	// MetricsStep is the default interval b/w cluster metrics data points.

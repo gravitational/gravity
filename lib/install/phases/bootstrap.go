@@ -177,8 +177,8 @@ func (p *bootstrapExecutor) configureDeviceMapper() error {
 	return nil
 }
 
-// configureSystemDirectories creates necessary system directories with
-// proper permissions
+// configureSystemDirectories creates the necessary directories under the
+// configured system directory with proper permissions
 func (p *bootstrapExecutor) configureSystemDirectories() error {
 	p.Progress.NextStep("Configuring system directories")
 	p.Info("Configuring system directories.")

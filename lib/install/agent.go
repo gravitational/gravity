@@ -33,7 +33,7 @@ import (
 
 // NewAgent returns a new unstarted agent instance
 func NewAgent(config AgentConfig) (*rpcserver.PeerServer, error) {
-	if err := config.CheckAndSetDefaults(); err != nil {
+	if err := config.checkAndSetDefaults(); err != nil {
 		return nil, trace.Wrap(err)
 	}
 	if err := FetchCloudMetadata(config.CloudProvider, &config.RuntimeConfig); err != nil {
@@ -72,8 +72,8 @@ func NewAgent(config AgentConfig) (*rpcserver.PeerServer, error) {
 	return agent, nil
 }
 
-// CheckAndSetDefaults validates this config object and sets defaults
-func (r *AgentConfig) CheckAndSetDefaults() (err error) {
+// checkAndSetDefaults validates this config object and sets defaults
+func (r *AgentConfig) checkAndSetDefaults() (err error) {
 	if r.AdvertiseAddr == "" {
 		r.AdvertiseAddr, err = utils.PickAdvertiseIP()
 		if err != nil {
@@ -104,8 +104,8 @@ type AgentConfig struct {
 	// WatchCh specifies the channel to receive peer reconnect updates
 	WatchCh chan rpcserver.WatchEvent
 	// StopHandler specifies an optional handler for when the agent is stopped.
-	// boolean flag indicates wether this is the result of a successfully completed operation
-	StopHandler func(context.Context, bool) error
+	// completed indicates whether this is the result of a successfully completed operation
+	StopHandler func(ctx context.Context, completed bool) error
 	// AbortHandler specifies an optional handler for abort requests
 	AbortHandler func(context.Context) error
 }

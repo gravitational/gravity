@@ -38,13 +38,16 @@ func (r *ResumeStrategy) connect(ctx context.Context) (installpb.AgentClient, er
 	r.Info("Connect to running service.")
 	ctx, cancel := context.WithTimeout(ctx, r.ConnectTimeout)
 	defer cancel()
+	serviceName := serviceName(r.ServicePath)
 	client, err := installpb.NewClient(ctx, installpb.ClientConfig{
-		FieldLogger: r.FieldLogger,
-		SocketPath:  r.SocketPath,
+		FieldLogger:     r.FieldLogger,
+		SocketPath:      r.SocketPath,
+		IsServiceFailed: isServiceFailed(serviceName),
 	})
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to connect to the installer service.\n"+
-			"Use 'gravity install' to start the installation.")
+			"Use 'journalctl -u %v' to check the service logs for errors.\n"+
+			"Use 'gravity install' or 'gravity join' to start the installation.", serviceName)
 	}
 	return client, nil
 }
@@ -57,6 +60,10 @@ func (r *ResumeStrategy) checkAndSetDefaults() (err error) {
 		}
 		r.ServicePath, err = environ.GetServicePath(stateDir)
 		if err != nil {
+			if trace.IsNotFound(err) {
+				return trace.Wrap(err,
+					"failed to find installer service. Start the installation with 'gravity install'")
+			}
 			return trace.Wrap(err)
 		}
 	}

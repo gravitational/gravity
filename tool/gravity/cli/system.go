@@ -39,6 +39,7 @@ import (
 	"github.com/gravitational/gravity/lib/system/environ"
 	"github.com/gravitational/gravity/lib/system/service"
 	"github.com/gravitational/gravity/lib/systemservice"
+	"github.com/gravitational/gravity/lib/update/system"
 	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/gravity/tool/common"
 
@@ -223,12 +224,16 @@ func systemHistory(env *localenv.LocalEnvironment) error {
 
 func systemReinstall(env *localenv.LocalEnvironment, newPackage loc.Locator, serviceName string, labels map[string]string) error {
 	if serviceName == "" {
+		updater, err := system.NewPackageUpdater(env.Packages)
+		if err != nil {
+			return trace.Wrap(err)
+		}
 		update := storage.PackageUpdate{
 			From:   newPackage,
 			To:     newPackage,
 			Labels: labels,
 		}
-		return trace.Wrap(systemBlockingReinstall(env, update))
+		return trace.Wrap(updater.Reinstall(update))
 	}
 
 	args := []string{"system", "reinstall", newPackage.String()}

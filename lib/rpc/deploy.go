@@ -210,11 +210,11 @@ func deployAgentOnNode(ctx context.Context, req DeployAgentsRequest, node, nodeS
 	err = utils.NewSSHCommands(nodeClient.Client).
 		C("rm -rf %s", secretsHostDir).
 		C("mkdir -p %s", secretsHostDir).
-		WithRetries("%s enter -- --notty %s -- package unpack %s %s --debug --ops-url=%s --insecure",
-			constants.GravityBin, defaults.GravityBin, secretsPackage, secretsPlanetDir, defaults.GravityServiceURL).
+		WithRetries("%s package unpack %s %s --debug --ops-url=%s --insecure",
+			constants.GravityBin, secretsPackage, secretsPlanetDir, defaults.GravityServiceURL).
 		IgnoreError("/usr/bin/systemctl stop %s", defaults.GravityRPCAgentServiceName).
-		WithRetries("%s enter -- --notty %s -- package export --file-mask=%o %s %s --ops-url=%s --insecure",
-			constants.GravityBin, defaults.GravityBin, defaults.SharedExecutableMask,
+		WithRetries("%s package export --file-mask=%o %s %s --ops-url=%s --insecure",
+			constants.GravityBin, defaults.SharedExecutableMask,
 			req.GravityPackage, gravityPlanetPath, defaults.GravityServiceURL).
 		C(runCmd).
 		WithLogger(req.WithField("node", node)).

@@ -131,4 +131,10 @@ var (
 		defaults.GravityBin,
 		defaults.GravityBinAlternate,
 	}
+
+	// KubectlBinPaths is a list of possible kubectl binary locations on host
+	KubectlBinPaths = []string{
+		defaults.KubectlBin,
+		defaults.KubectlBinAlternate,
+	}
 )

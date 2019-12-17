@@ -208,8 +208,8 @@ func RunLocalChecks(ctx context.Context, req LocalChecksRequest) error {
 		return trace.Wrap(err)
 	}
 	if len(result.GetFailed()) != 0 {
-		return trace.BadParameter(fmt.Sprintf("The following pre-flight checks failed:\n%v",
-			FormatFailedChecks(result.GetFailed())))
+		return trace.BadParameter("The following pre-flight checks failed:\n%v",
+			FormatFailedChecks(result.GetFailed()))
 	}
 	return nil
 }
@@ -464,7 +464,8 @@ func (r *checker) checkDisks(ctx context.Context, server Server) error {
 		for i := 0; i < 3; i++ {
 			speed, err := r.checkServerDisk(ctx, server.Server, target.path)
 			if err != nil {
-				return trace.Wrap(err)
+				return trace.Wrap(err, "failed to sample disk performance at %v on %v",
+					target.path, server.ServerInfo.GetHostname())
 			}
 			maxBps = utils.MaxInt64(speed, maxBps)
 		}
@@ -493,7 +494,7 @@ func (r *checker) checkServerDisk(ctx context.Context, server storage.Server, ta
 		if !strings.HasPrefix(target, "/dev") {
 			err := r.Remote.Exec(ctx, server.AdvertiseIP, []string{"rm", target}, &out)
 			if err != nil {
-				log.Errorf("Failed to remove test file: %v %v.", out.String(), trace.DebugReport(err))
+				log.WithField("output", out.String()).Warn("Failed to remove test file.")
 			}
 		}
 	}()
@@ -502,7 +503,12 @@ func (r *checker) checkServerDisk(ctx context.Context, server storage.Server, ta
 		"dd", "if=/dev/zero", fmt.Sprintf("of=%v", target),
 		"bs=100K", "count=1024", "conv=fdatasync"}, &out)
 	if err != nil {
-		return 0, trace.Wrap(err)
+		log.WithFields(logrus.Fields{
+			"addr":   server.AdvertiseIP,
+			"target": target,
+			"output": out.String(),
+		}).Warn("Failed to sample disk performance.")
+		return 0, trace.Wrap(err, "failed to sample disk performance: %s", out.String())
 	}
 
 	speed, err := utils.ParseDDOutput(out.String())
@@ -520,14 +526,22 @@ func (r *checker) checkTempDir(ctx context.Context, server Server) error {
 
 	err := r.Remote.Exec(ctx, server.AdvertiseIP, []string{"touch", filename}, &out)
 	if err != nil {
-		return trace.BadParameter("couldn't create a test file in temp directory %v on %q: %v",
-			server.TempDir, server.ServerInfo.GetHostname(), out.String())
+		log.WithFields(logrus.Fields{
+			"filename": filename,
+			"addr":     server.AdvertiseIP,
+			"hostname": server.ServerInfo.GetHostname(),
+		}).Warn("Failed to create a test file.")
+		return trace.BadParameter("failed to create a test file %v on %q: %v",
+			filepath.Join(server.TempDir, filename), server.ServerInfo.GetHostname(), out.String())
 	}
 
 	err = r.Remote.Exec(ctx, server.AdvertiseIP, []string{"rm", filename}, &out)
 	if err != nil {
-		log.Errorf("Failed to delete %v on %v: %v %v.",
-			filename, server.AdvertiseIP, trace.DebugReport(err), out.String())
+		log.WithFields(logrus.Fields{
+			"path":   filename,
+			"server": server.AdvertiseIP,
+			"output": out.String(),
+		}).Warn("Failed to delete.")
 	}
 
 	log.Infof("Server %q passed temp directory check: %v.",
@@ -616,6 +630,12 @@ func (r *checker) checkBandwidth(ctx context.Context, servers []Server) error {
 // for the disk performance test
 func (r *checker) collectTargets(ctx context.Context, server Server, requirements Requirements) ([]diskCheckTarget, error) {
 	var targets []diskCheckTarget
+
+	// Explicit system state directory disk performance target
+	targets = append(targets, diskCheckTarget{
+		path: filepath.Join(server.Server.StateDir(), "testfile"),
+		rate: defaultTransferRate,
+	})
 
 	remote := &serverRemote{server, r.Remote}
 	// check if there's a system device specified

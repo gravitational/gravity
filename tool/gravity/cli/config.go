@@ -26,11 +26,10 @@ import (
 	"strings"
 	"time"
 
-	gcemeta "cloud.google.com/go/compute/metadata"
-	"github.com/fatih/color"
 	"github.com/gravitational/gravity/lib/app"
 	appservice "github.com/gravitational/gravity/lib/app"
 	autoscaleaws "github.com/gravitational/gravity/lib/autoscale/aws"
+	"github.com/gravitational/gravity/lib/checks"
 	awscloud "github.com/gravitational/gravity/lib/cloudprovider/aws"
 	cloudaws "github.com/gravitational/gravity/lib/cloudprovider/aws"
 	cloudgce "github.com/gravitational/gravity/lib/cloudprovider/gce"
@@ -43,10 +42,11 @@ import (
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/modules"
+	validationpb "github.com/gravitational/gravity/lib/network/validation/proto"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/opsclient"
 	"github.com/gravitational/gravity/lib/ops/resources"
-	"github.com/gravitational/gravity/lib/pack"
+	"github.com/gravitational/gravity/lib/pack/localpack"
 	"github.com/gravitational/gravity/lib/process"
 	"github.com/gravitational/gravity/lib/processconfig"
 	"github.com/gravitational/gravity/lib/report"
@@ -62,7 +62,9 @@ import (
 	"github.com/gravitational/gravity/lib/users"
 	"github.com/gravitational/gravity/lib/utils"
 
+	gcemeta "cloud.google.com/go/compute/metadata"
 	"github.com/docker/docker/pkg/namesgenerator"
+	"github.com/fatih/color"
 	"github.com/gravitational/configure"
 	teledefaults "github.com/gravitational/teleport/lib/defaults"
 	"github.com/gravitational/trace"
@@ -121,7 +123,7 @@ type InstallConfig struct {
 	// Insecure allows to turn off cert validation
 	Insecure bool
 	// LocalPackages is the machine-local package service
-	LocalPackages pack.PackageService
+	LocalPackages *localpack.PackageServer
 	// LocalApps is the machine-local apps service
 	LocalApps appservice.Applications
 	// LocalBackend is the machine-local backend
@@ -372,7 +374,6 @@ func (i *InstallConfig) NewInstallerConfig(
 		StateDir:           i.StateDir,
 		WriteStateDir:      i.writeStateDir,
 		UserLogFile:        i.UserLogFile,
-		SystemLogFile:      i.SystemLogFile,
 		CloudProvider:      i.CloudProvider,
 		GCENodeTags:        i.GCENodeTags,
 		SystemDevice:       i.SystemDevice,
@@ -399,6 +400,37 @@ func (i *InstallConfig) NewInstallerConfig(
 		LocalAgent:         !i.Remote,
 	}, nil
 
+}
+
+// RunLocalChecks executes host-local preflight checks for this configuration
+func (i *InstallConfig) RunLocalChecks() error {
+	ctx, cancel := context.WithCancel(context.Background())
+	interrupt := signals.WatchTerminationSignals(ctx, cancel, utils.DiscardPrinter)
+	defer interrupt.Close()
+
+	app, err := i.getApp()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	flavor, err := getFlavor(i.Flavor, app.Manifest, i.FieldLogger)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	role, err := validateRole(i.Role, *flavor, app.Manifest.NodeProfiles, i.FieldLogger)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return trace.Wrap(checks.RunLocalChecks(ctx, checks.LocalChecksRequest{
+		Manifest: app.Manifest,
+		Role:     role,
+		Docker:   i.Docker,
+		Options: &validationpb.ValidateOptions{
+			VxlanPort: int32(i.VxlanPort),
+			DnsAddrs:  i.DNSConfig.Addrs,
+			DnsPort:   int32(i.DNSConfig.Port),
+		},
+		AutoFix: true,
+	}))
 }
 
 func (i *InstallConfig) validateApplicationDir() error {
@@ -448,7 +480,7 @@ func (i *InstallConfig) getApp() (app *app.Application, err error) {
 	if err != nil {
 		i.WithError(err).Warn("Failed to find application package.")
 		if trace.IsNotFound(err) {
-			return nil, trace.NotFound("the specified state dir %v does not "+
+			return nil, trace.NotFound("specified state directory %v does not "+
 				"contain application data, please provide a path to the "+
 				"unpacked installer tarball or specify an application "+
 				"package via --app flag", i.StateDir)
