@@ -104,8 +104,6 @@ type InstallConfig struct {
 	ClusterResources []storage.UnknownResource
 	// SystemDevice is a device for gravity data
 	SystemDevice string
-	// DockerDevice is a device for docker
-	DockerDevice string
 	// Mounts is a list of mount points (name -> source pairs)
 	Mounts map[string]string
 	// DNSOverrides contains installer node DNS overrides
@@ -179,7 +177,6 @@ func NewInstallConfig(env *localenv.LocalEnvironment, g *Application) InstallCon
 		SiteDomain:    *g.InstallCmd.Cluster,
 		Role:          *g.InstallCmd.Role,
 		SystemDevice:  *g.InstallCmd.SystemDevice,
-		DockerDevice:  *g.InstallCmd.DockerDevice,
 		Mounts:        *g.InstallCmd.Mounts,
 		PodCIDR:       *g.InstallCmd.PodCIDR,
 		ServiceCIDR:   *g.InstallCmd.ServiceCIDR,
@@ -379,7 +376,6 @@ func (i *InstallConfig) NewInstallerConfig(
 		CloudProvider:      i.CloudProvider,
 		GCENodeTags:        i.GCENodeTags,
 		SystemDevice:       i.SystemDevice,
-		DockerDevice:       i.DockerDevice,
 		Mounts:             i.Mounts,
 		DNSConfig:          i.DNSConfig,
 		PodCIDR:            i.PodCIDR,
@@ -643,8 +639,6 @@ type JoinConfig struct {
 	Role string
 	// SystemDevice is device for gravity data
 	SystemDevice string
-	// DockerDevice is device for docker data
-	DockerDevice string
 	// Mounts is a list of additional mounts
 	Mounts map[string]string
 	// CloudProvider is the node cloud provider
@@ -673,7 +667,6 @@ func NewJoinConfig(g *Application) JoinConfig {
 		Token:         *g.JoinCmd.Token,
 		Role:          *g.JoinCmd.Role,
 		SystemDevice:  *g.JoinCmd.SystemDevice,
-		DockerDevice:  *g.JoinCmd.DockerDevice,
 		Mounts:        *g.JoinCmd.Mounts,
 		OperationID:   *g.JoinCmd.OperationID,
 		FromService:   *g.JoinCmd.FromService,
@@ -736,7 +729,6 @@ func (j *JoinConfig) GetRuntimeConfig() proto.RuntimeConfig {
 		Token:        j.Token,
 		Role:         j.Role,
 		SystemDevice: j.SystemDevice,
-		DockerDevice: j.DockerDevice,
 		Mounts:       convertMounts(j.Mounts),
 	}
 }
@@ -760,7 +752,6 @@ func (r *autojoinConfig) newJoinConfig() JoinConfig {
 		UserLogFile:   r.userLogFile,
 		Role:          r.role,
 		SystemDevice:  r.systemDevice,
-		DockerDevice:  r.dockerDevice,
 		Mounts:        r.mounts,
 		AdvertiseAddr: r.advertiseAddr,
 		PeerAddrs:     r.serviceURL,
@@ -793,7 +784,6 @@ type autojoinConfig struct {
 	clusterName   string
 	role          string
 	systemDevice  string
-	dockerDevice  string
 	mounts        map[string]string
 	fromService   bool
 	serviceURL    string

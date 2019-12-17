@@ -117,8 +117,6 @@ type Config struct {
 	ClusterResources []storage.UnknownResource
 	// SystemDevice is a device for gravity data
 	SystemDevice string
-	// DockerDevice is a device for docker
-	DockerDevice string
 	// Mounts is a list of mount points (name -> source pairs)
 	Mounts map[string]string
 	// DNSOverrides contains installer node DNS overrides
@@ -310,7 +308,6 @@ func newAgent(ctx context.Context, config Config) (*rpcserver.PeerServer, error)
 	}
 	runtimeConfig := pb.RuntimeConfig{
 		SystemDevice: config.SystemDevice,
-		DockerDevice: config.DockerDevice,
 		Role:         config.Role,
 		Mounts:       mounts,
 	}

@@ -68,7 +68,6 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.InstallCmd.Wizard = g.InstallCmd.Flag("wizard", "Start installation using web wizard interface.").Bool()
 	g.InstallCmd.Mode = g.InstallCmd.Flag("mode", fmt.Sprintf("Install mode. One of: %v.",
 		modules.Get().InstallModes())).Default(constants.InstallModeCLI).Hidden().String()
-	g.InstallCmd.DockerDevice = g.InstallCmd.Flag("docker-device", "Device to use for docker storage.").Hidden().String()
 	g.InstallCmd.SystemDevice = g.InstallCmd.Flag("system-device", "Device to use for system data directory.").Hidden().String()
 	g.InstallCmd.Mounts = configure.KeyValParam(g.InstallCmd.Flag("mount", "One or several mount overrides in the following format: <mount-name>:<path>, e.g. data:/var/lib/data."))
 	g.InstallCmd.PodCIDR = g.InstallCmd.Flag("pod-network-cidr", "Subnet range for Kubernetes pods network. Must be a minimum of /16.").Default(defaults.PodSubnet).String()
@@ -102,7 +101,6 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.JoinCmd.AdvertiseAddr = g.JoinCmd.Flag("advertise-addr", "IP address this node will advertise to other cluster nodes.").String()
 	g.JoinCmd.Token = g.JoinCmd.Flag("token", "Unique token to authorize this node to join the cluster.").String()
 	g.JoinCmd.Role = g.JoinCmd.Flag("role", "Role of this node.").String()
-	g.JoinCmd.DockerDevice = g.JoinCmd.Flag("docker-device", "Docker device to use.").Hidden().String()
 	g.JoinCmd.SystemDevice = g.JoinCmd.Flag("system-device", "Device to use for system data directory.").Hidden().String()
 	g.JoinCmd.ServerAddr = g.JoinCmd.Flag("server-addr", "Address of the agent server.").Hidden().String()
 	g.JoinCmd.Mounts = configure.KeyValParam(g.JoinCmd.Flag("mount", "One or several mounts in form <mount-name>:<path>, e.g. data:/var/lib/data."))
@@ -113,7 +111,6 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.AutoJoinCmd.CmdClause = g.Command("autojoin", "Use cloud provider data to join a node to existing cluster.")
 	g.AutoJoinCmd.ClusterName = g.AutoJoinCmd.Arg("cluster-name", "Cluster name used for discovery.").Required().String()
 	g.AutoJoinCmd.Role = g.AutoJoinCmd.Flag("role", "Role of this node.").String()
-	g.AutoJoinCmd.DockerDevice = g.AutoJoinCmd.Flag("docker-device", "Docker device to use.").Hidden().String()
 	g.AutoJoinCmd.SystemDevice = g.AutoJoinCmd.Flag("system-device", "Device to use for system data directory.").Hidden().String()
 	g.AutoJoinCmd.Mounts = configure.KeyValParam(g.AutoJoinCmd.Flag("mount", "One or several mounts in form <mount-name>:<path>, e.g. data:/var/lib/data."))
 	g.AutoJoinCmd.ServiceAddr = g.AutoJoinCmd.Flag("service-addr", "Service URL of the cluster to join.").String()

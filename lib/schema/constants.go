@@ -53,9 +53,6 @@ const (
 	// SystemDevice defines the name of the agent download URI query parameter for system (state) device
 	SystemDevice = "system_device"
 
-	// DockerDevice defines the name of the agent download URI query parameter for docker devicemapper device
-	DockerDevice = "docker_device"
-
 	// AdvertiseAddr is advertise IP address used in agents
 	AdvertiseAddr = "advertise_addr"
 
