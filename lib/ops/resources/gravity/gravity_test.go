@@ -106,7 +106,9 @@ func (s *GravityResourcesSuite) TestUser(c *check.C) {
 	c.Assert(err, check.IsNil)
 
 	collectionI, err = s.r.GetCollection(resources.ListRequest{SiteKey: s.cluster.Key(), Kind: "user", Name: "test"})
-	c.Assert(err, check.FitsTypeOf, trace.NotFound(""))
+	if !trace.IsNotFound(err) {
+		c.Error("Expected the error to be of type NotFound.")
+	}
 }
 
 func (s *GravityResourcesSuite) TestToken(c *check.C) {
@@ -123,7 +125,9 @@ func (s *GravityResourcesSuite) TestToken(c *check.C) {
 	c.Assert(err, check.IsNil)
 
 	collection, err = s.r.GetCollection(resources.ListRequest{SiteKey: s.cluster.Key(), Kind: "token", Name: "test", User: s.s.Creds.Email})
-	c.Assert(err, check.FitsTypeOf, trace.NotFound(""))
+	if !trace.IsNotFound(err) {
+		c.Error("Expected the error to be of type NotFound.")
+	}
 }
 
 func toUnknown(c *check.C, resource teleservices.Resource) teleservices.UnknownResource {

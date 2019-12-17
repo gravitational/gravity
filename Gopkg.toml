@@ -32,11 +32,13 @@ ignored = [
 
 [[override]]
   name = "github.com/gravitational/trace"
-  version = "=1.1.8"
+  #version = "=1.1.9"
+  branch = "dmitri/proxy-error"
 
 [[override]]
   name = "github.com/mitchellh/go-ps"
-  branch = "master"
+  source = "github.com/gravitational/go-ps"
+  version = "=1.0.0"
 
 [[override]]
   name = "github.com/spf13/pflag"
@@ -56,7 +58,8 @@ ignored = [
 
 [[constraint]]
   name = "github.com/gravitational/configure"
-  branch = "master"
+  #branch = "master"
+  branch = "dmitri/kingpin-bool-flag"
 
 [[constraint]]
   name = "github.com/santhosh-tekuri/jsonschema"
@@ -151,10 +154,11 @@ ignored = [
   source = "github.com/gravitational/certificate-transparency-go"
   branch = "version/5.0.x"
 
-[[constraint]]
+[[override]]
   name = "github.com/sirupsen/logrus"
   source = "github.com/gravitational/logrus"
-  version = "1.0.6"
+  #version = "=1.4.3"
+  branch = "dmitri/update-upstream"
 
 [[constraint]]
   name = "github.com/aws/aws-sdk-go"
