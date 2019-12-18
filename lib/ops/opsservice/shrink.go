@@ -610,7 +610,7 @@ func (s *site) unlabelNode(server storage.Server, runner *serverRunner) error {
 	}
 
 	command := s.planetEnterCommand(defaults.KubectlBin, "label", "nodes",
-		fmt.Sprintf("-l=%v=%v", defaults.KubernetesHostnameLabel, server.KubeNodeID()))
+		fmt.Sprintf("-l=%v=%v", "kubernetes.io/hostname", server.KubeNodeID()))
 	command = append(command, labelFlags...)
 
 	err = utils.Retry(defaults.RetryInterval, defaults.RetryAttempts, func() error {
@@ -626,7 +626,7 @@ func (s *site) removeNodeFromCluster(server storage.Server, runner *serverRunner
 	commands := [][]string{
 		s.planetEnterCommand(
 			defaults.KubectlBin, "delete", "nodes", "--ignore-not-found=true",
-			fmt.Sprintf("-l=%v=%v", defaults.KubernetesHostnameLabel, server.KubeNodeID())),
+			fmt.Sprintf("-l=%v=%v", "kubernetes.io/hostname", server.KubeNodeID())),
 		// Issue `serf force-leave` from the master node to transition
 		// failed nodes to `left` state in case the node itself failed shutting down
 		s.planetEnterCommand(defaults.SerfBin, "force-leave", provisionedServer.AgentName(s.domainName)),
