@@ -22,6 +22,7 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/ops"
+	"k8s.io/client-go/kubernetes"
 
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
@@ -58,6 +59,8 @@ type configureExecutor struct {
 	Operator ops.Operator
 	// ExecutorParams is common executor params
 	fsm.ExecutorParams
+	// Client is the Kubernetes client
+	Client *kubernetes.Clientset
 	env    map[string]string
 	config []byte
 }
@@ -78,7 +81,7 @@ func (p *configureExecutor) Execute(ctx context.Context) error {
 }
 
 // Rollback is no-op for this phase
-func (*configureExecutor) Rollback(ctx context.Context) error {
+func (p *configureExecutor) Rollback(ctx context.Context) error {
 	return nil
 }
 

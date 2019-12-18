@@ -89,6 +89,7 @@ func executePhase(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentF
 	if err != nil {
 		return trace.Wrap(err)
 	}
+
 	switch op.Type {
 	case ops.OperationInstall:
 		return executeInstallPhase(localEnv, params, op)
