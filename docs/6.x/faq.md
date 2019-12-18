@@ -147,3 +147,12 @@ systemOptions:
 ```
 
 See [Securing a Cluster](/cluster/#securing-a-cluster) for more details.
+
+## Customizing Helm Values
+
+When using Helm charts, it is possible to customize Helm values at
+build/install/upgrade time by providing `--values` and `--set` flags to
+the respective `tele build`, `gravity install` and `gravity upgrade`
+commands.
+
+See [Helm Integration](/pack/#helm-integration) for more details.

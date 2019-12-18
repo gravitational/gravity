@@ -463,6 +463,9 @@ func (s *SiteOperation) Vars() OperationVariables {
 	if s.Uninstall != nil {
 		return s.Uninstall.Vars
 	}
+	if s.Update != nil {
+		return s.Update.Vars
+	}
 	return OperationVariables{}
 }
 
