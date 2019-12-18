@@ -55,6 +55,7 @@ RBAC_APP_TAG := $(GRAVITY_TAG)
 # IMPORTANT: When updating tiller version, DO NOT FORGET to bump TILLER_APP_TAG as well!
 TILLER_VERSION = 2.14.3
 TILLER_APP_TAG = 6.1.0
+SELINUX_VERSION ?= 6.0.0
 # URI of Wormhole container for default install
 WORMHOLE_IMG ?= quay.io/gravitational/wormhole:0.3.1
 # set this to true if you want to use locally built planet packages
@@ -88,7 +89,7 @@ TELEKUBE_APP_PKG := gravitational.io/telekube:$(TELEKUBE_APP_TAG)
 BANDWAGON_PKG := gravitational.io/bandwagon:$(BANDWAGON_TAG)
 RBAC_APP_PKG := gravitational.io/rbac-app:$(RBAC_APP_TAG)
 TILLER_APP_PKG := gravitational.io/tiller-app:$(TILLER_APP_TAG)
-
+SELINUX_POLICY_PKG := gravitational.io/selinux:$(SELINUX_VERSION)
 
 # Output directory that stores all of the build artifacts.
 # Artifacts from the gravity build (the binary and any internal packages)
@@ -344,45 +345,39 @@ ci:
 # '$(MAKE) packages' builds and imports all dependency packages
 #
 .PHONY: packages
-packages:
-	if [ -z "$(DEV_PLANET)" ]; then \
-	  $(MAKE) planet-packages; \
-	else \
-	  $(MAKE) dev-planet-packages; \
-	fi;
+packages: planet-packages binary-packages teleport-package gravity-packages dns-packages\
+	rbac-app-package bandwagon-package tiller-package monitoring-package\
+	log-package k8s-packages telekube-packages selinux-policy-package
 
-# binary packages for quick download
-	$(MAKE) binary-packages
-
+.PHONY: teleport-package
+teleport-package:
 # teleport - access and identity layer
 	$(GRAVITY) package delete $(TELEPORT_PKG) $(DELETE_OPTS) && \
 	$(GRAVITY) package import $(TELEPORT_OUT) $(TELEPORT_PKG) --ops-url=$(OPS_URL)
 
-	$(MAKE) gravity-packages
-
-	-$(MAKE) dns-packages
-	-$(MAKE) rbac-app-package
-
+.PHONY: bandwagon-package
+bandwagon-package:
 # Bandwagon - installer extension
 	- $(GRAVITY) app delete $(BANDWAGON_PKG) $(DELETE_OPTS) && \
 	  $(GRAVITY) app import $(BANDWAGON_OUT) $(VENDOR_OPTS)
 
+.PHONY: tiller-package
+tiller-package:
 # Tiller server
 	- $(GRAVITY) app delete $(TILLER_APP_PKG) $(DELETE_OPTS) && \
 	  $(GRAVITY) app import $(TILLER_APP_OUT) $(VENDOR_OPTS)
 
+.PHONY: monitoring-package
+monitoring-package:
 # Monitoring - influxdb/grafana
 	- $(GRAVITY) app delete $(MONITORING_APP_PKG) $(DELETE_OPTS) && \
 	  $(GRAVITY) app import $(MONITORING_APP_OUT) $(VENDOR_OPTS)
 
+.PHONY: log-package
+log-package:
 # Logging - log forwarding and storage
 	- $(GRAVITY) app delete $(LOGGING_APP_PKG) $(DELETE_OPTS) && \
 	  $(GRAVITY) app import $(LOGGING_APP_OUT) $(VENDOR_OPTS)
-
-	-$(MAKE) k8s-packages
-	-$(MAKE) telekube-packages
-
-
 
 .PHONY: binary-packages
 binary-packages:
@@ -391,7 +386,6 @@ binary-packages:
 
 	$(GRAVITY_OUT) package delete --state-dir=$(LOCAL_STATE_DIR) --force $(TELEKUBE_TELE_PKG) && \
 	$(GRAVITY_OUT) package import --state-dir=$(LOCAL_STATE_DIR) $(TELE_OUT) $(TELEKUBE_TELE_PKG)
-
 
 .PHONY: rbac-app-package
 rbac-app-package:
@@ -419,12 +413,23 @@ telekube-packages:
 	  $(GRAVITY) app import $(TELEKUBE_APP_OUT) --version=$(TELEKUBE_APP_TAG) $(VENDOR_OPTS)
 
 .PHONY: planet-packages
-planet-packages:
+ifndef DEV_PLANET
+planet-packages: planet-package
+else
+planet-packages: dev-planet-package
+endif
+
+.PHONY: planet-package
+planet-package:
 # planet master - RUNC container with k8s master
 	$(GRAVITY) package delete $(PLANET_PKG) $(DELETE_OPTS) && \
 	$(GRAVITY) package import $(PLANET_OUT) $(PLANET_PKG) \
 		--labels=purpose:runtime \
 		--ops-url=$(OPS_URL)
+
+.PHONY: dev-planet-package
+dev-planet-package: PLANET_OUT := $(GOPATH)/src/github.com/gravitational/planet/build/planet.tar.gz
+dev-planet-package: planet-package
 
 .PHONY: dns-packages
 dns-packages:
@@ -437,10 +442,10 @@ web-assets:
 	$(GRAVITY) package delete $(WEB_ASSETS_PKG) $(DELETE_OPTS) && \
 	$(GRAVITY) package import $(WEB_ASSETS_OUT) $(WEB_ASSETS_PKG) --ops-url=$(OPS_URL)
 
-
-.PHONY: dev-planet-packages
-dev-planet-packages: PLANET_OUT := $(GOPATH)/src/github.com/gravitational/planet/build/planet.tar.gz
-dev-planet-packages: planet-packages
+.PHONY: selinux-policy-package
+selinux-policy-package:
+	$(GRAVITY) package delete $(SELINUX_POLICY_PKG) $(DELETE_OPTS) && \
+	$(GRAVITY) package import $(SELINUX_OUT) $(SELINUX_POLICY_PKG) --ops-url=$(OPS_URL)
 
 #
 # publish-artifacts uploads build artifacts to the distribution Ops Center
@@ -469,7 +474,6 @@ $(GRAVITY_BUILDDIR)/telekube.tar: packages
 		--state-dir=$(PACKAGES_DIR) \
 		--skip-version-check \
 		-o $(GRAVITY_BUILDDIR)/telekube.tar
-
 
 #
 # builds wormhole installer

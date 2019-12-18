@@ -559,6 +559,12 @@ $(MONITORING_APP_OUT):
 push-monitoring-app: $(MONITORING_APP_OUT)
 	$(AWS) s3 cp $(S3_OPTS) $(MONITORING_APP_OUT) $(BUILD_BUCKET_URL)/monitoring-app/$(MONITORING_APP_TAG)
 
+.PHONY: selinux-policy-package
+selinux-policy-package: $(SELINUX_OUT)
+	$(GRAVITY) package delete $(SELINUX_POLICY_PKG) $(DELETE_OPTS) && \
+		$(GRAVITY) package import $(SELINUX_OUT) $(SELINUX_POLICY_PKG)
+
+
 #
 # enters bbox container (for debugging the containerized build process)
 #
