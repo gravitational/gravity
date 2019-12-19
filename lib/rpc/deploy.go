@@ -191,12 +191,8 @@ func deployAgentOnNode(ctx context.Context, req DeployAgentsRequest, node, nodeS
 
 	gravityHostPath := filepath.Join(
 		state.GravityRPCAgentDir(nodeStateDir), constants.GravityPackage)
-	gravityPlanetPath := filepath.Join(
-		defaults.GravityRPCAgentDir, constants.GravityPackage)
 	secretsHostDir := filepath.Join(
 		state.GravityRPCAgentDir(nodeStateDir), defaults.SecretsDir)
-	secretsPlanetDir := filepath.Join(
-		defaults.GravityRPCAgentDir, defaults.SecretsDir)
 
 	var runCmd string
 	if leader {
@@ -211,11 +207,11 @@ func deployAgentOnNode(ctx context.Context, req DeployAgentsRequest, node, nodeS
 		C("rm -rf %s", secretsHostDir).
 		C("mkdir -p %s", secretsHostDir).
 		WithRetries("%s package unpack %s %s --debug --ops-url=%s --insecure",
-			constants.GravityBin, secretsPackage, secretsPlanetDir, defaults.GravityServiceURL).
-		IgnoreError("/usr/bin/systemctl stop %s", defaults.GravityRPCAgentServiceName).
+			constants.GravityBin, secretsPackage, secretsHostDir, defaults.GravityServiceURL).
+		IgnoreError("/bin/systemctl stop %s", defaults.GravityRPCAgentServiceName).
 		WithRetries("%s package export --file-mask=%o %s %s --ops-url=%s --insecure",
 			constants.GravityBin, defaults.SharedExecutableMask,
-			req.GravityPackage, gravityPlanetPath, defaults.GravityServiceURL).
+			req.GravityPackage, gravityHostPath, defaults.GravityServiceURL).
 		C(runCmd).
 		WithLogger(req.WithField("node", node)).
 		Run(ctx)
