@@ -180,7 +180,7 @@ multizone=true`,
 		"initial-cluster":            {"172.12.13.0.example.com"},
 		"etcd-initial-cluster-state": {"new"},
 		"secrets-dir":                {"/var/lib/gravity/secrets"},
-		"election-enabled":           {"true"},
+		"election-enabled":           []string(nil),
 		"service-uid":                {"1000"},
 		"env":                        {`VAR="value"`, `VAR2="value2"`, `VAR3="value1,value2"`},
 		"volume": {
@@ -272,7 +272,7 @@ func (s *ConfigureSuite) TestCanSetCloudProviderWithoutCloudConfig(c *check.C) {
 		"initial-cluster":            {"172.12.13.0.example.com"},
 		"etcd-initial-cluster-state": {"new"},
 		"secrets-dir":                {"/var/lib/gravity/secrets"},
-		"election-enabled":           {"true"},
+		"election-enabled":           []string(nil),
 		"service-uid":                {"1000"},
 		"volume": {
 			"/var/lib/gravity/planet/etcd:/ext/etcd",
@@ -298,6 +298,11 @@ func (s *ConfigureSuite) TestCanSetCloudProviderWithoutCloudConfig(c *check.C) {
 func mapToArgs(args map[string][]string) sort.Interface {
 	var result []string
 	for k, v := range args {
+		if v == nil {
+			// Boolean flag
+			result = append(result, fmt.Sprintf("--%v", k))
+			continue
+		}
 		for _, arg := range v {
 			result = append(result, fmt.Sprintf("--%v=%v", k, arg))
 		}

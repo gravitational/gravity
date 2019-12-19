@@ -846,8 +846,8 @@
   version = "v1.7.0"
 
 [[projects]]
-  branch = "master"
-  digest = "1:9b64357c6cd473275e65a3f8fc2ed1d27a8f65efd35053df6d8d660d9e022cd7"
+  branch = "dmitri/kingpin-bool-flag"
+  digest = "1:3f0e2b612474389329577aa2efef8bb3fe17d8f6102c3afad137cc0c77058236"
   name = "github.com/gravitational/configure"
   packages = [
     ".",
@@ -856,7 +856,7 @@
     "schema",
   ]
   pruneopts = "UT"
-  revision = "c3428bd84c23f0cfcc759f2ef12632be5ff5d95d"
+  revision = "fce91dea0d0df90e464aaa1b2ffd9acb8dd7b5c7"
 
 [[projects]]
   digest = "1:6f323c8ee44a44f7be69a733288612635ac279e07ea1e08815c553599a0543d0"
@@ -1025,12 +1025,12 @@
   revision = "de3929eb86f7cc3411acde9ff93ed7c528e8f5d4"
 
 [[projects]]
-  digest = "1:418247f700939c99867b42639d985686ba229fd9f8ee9e119c7cc3ffde6e0fe3"
+  branch = "dmitri/proxy-error"
+  digest = "1:dc84545f9f2a442b14864f2f7e54ae556cae53bd437a05a456572fea9e73cc87"
   name = "github.com/gravitational/trace"
   packages = ["."]
   pruneopts = "UT"
-  revision = "a535a178675fb4a11ba74818491754a8c5575dd6"
-  version = "1.1.8"
+  revision = "77b3c434fd3c42252e252dded824da41ae07b71b"
 
 [[projects]]
   digest = "1:841d5835e94129658adabece66a4cc54d2cec9a40fa8b51743ea35d0519dd6c2"
@@ -1355,6 +1355,14 @@
   revision = "ae77be60afb1dcacde03767a8c37337fad28ac14"
 
 [[projects]]
+  digest = "1:31e761d97c76151dde79e9d28964a812c46efc5baee4085b86f68f0c654450de"
+  name = "github.com/konsorten/go-windows-terminal-sequences"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "f55edac94c9bbba5d6182a4be46d86a2c9b5b50e"
+  version = "v1.0.2"
+
+[[projects]]
   digest = "1:ca955a9cd5b50b0f43d2cc3aeb35c951473eeca41b34eb67507f1dbcc0542394"
   name = "github.com/kr/pretty"
   packages = ["."]
@@ -1539,12 +1547,13 @@
   version = "v1.0.0"
 
 [[projects]]
-  branch = "master"
-  digest = "1:d0c95a34e79df79eb96ca870d6b6fc43361d34c9c05495f93a5ad0077f7bbb24"
+  digest = "1:a0994625805159ac8bc7e313ffefc839dfd19563069b5905e85817090c989fd3"
   name = "github.com/mitchellh/go-ps"
   packages = ["."]
   pruneopts = "UT"
-  revision = "4fdf99ab29366514c69ccccddab5dc58b8d84062"
+  revision = "e4db5bf9c2843548a77769573f0d723fa1a56f33"
+  source = "github.com/gravitational/go-ps"
+  version = "1.0.0"
 
 [[projects]]
   digest = "1:42eb1f52b84a06820cedc9baec2e710bfbda3ee6dac6cdb97f8b9a5066134ec6"
@@ -1850,16 +1859,16 @@
   revision = "86672fcb3f950f35f2e675df2240550f2a50762f"
 
 [[projects]]
-  digest = "1:2dc4fddf37503f952699873c7433efc11b569253ecd90d3ad4d8081431df100f"
+  branch = "dmitri/update-upstream"
+  digest = "1:68881bada573c001a65c7d3dd5f0d52301204d05b981cf5c030662728871b251"
   name = "github.com/sirupsen/logrus"
   packages = [
     ".",
     "hooks/syslog",
   ]
   pruneopts = "UT"
-  revision = "dcdb95d728dbb6fe4b9fbe6b3b9d1fb268e68036"
+  revision = "b1b7578d8a6f702e625185029eab4922c4cb2a77"
   source = "github.com/gravitational/logrus"
-  version = "1.0.6"
 
 [[projects]]
   digest = "1:645cabccbb4fa8aab25a956cbcbdf6a6845ca736b2c64e197ca7cbb9d210b939"

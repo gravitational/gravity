@@ -62,7 +62,7 @@ xfs
 		},
 		{
 			lsblk: failingRunner{trace.Errorf("error")},
-			err:   `error, failed to determine filesystem type on /dev/foo`,
+			err:   `failed to determine filesystem type on /dev/foo\n\terror`,
 		},
 	}
 	for _, testCase := range testCases {
