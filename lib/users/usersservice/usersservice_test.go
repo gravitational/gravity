@@ -64,6 +64,7 @@ func (s *UsersSuite) SetUpTest(c *C) {
 	s.backend, err = keyval.NewBolt(keyval.BoltConfig{
 		Path: filepath.Join(s.dir, "bolt.db"),
 	})
+	c.Assert(err, IsNil)
 
 	s.suite.Users, err = New(Config{
 		Backend: s.backend,
