@@ -91,7 +91,7 @@ func InitAndCheck(g *Application, cmd string) error {
 	systemLogSet := true
 	if *g.SystemLogFile == "" {
 		systemLogSet = false
-		*g.SystemLogFile = defaults.GravitySystemLog
+		*g.SystemLogFile = defaults.GravitySystemLogPath
 	}
 	switch cmd {
 	case g.SiteStartCmd.FullCommand():
@@ -137,13 +137,13 @@ func InitAndCheck(g *Application, cmd string) error {
 		// own location
 		switch cmd {
 		case g.InstallCmd.FullCommand(), g.JoinCmd.FullCommand():
-			if *g.SystemLogFile == defaults.GravitySystemLog {
+			if *g.SystemLogFile == defaults.GravitySystemLogPath {
 				utils.InitLogging(defaults.GravitySystemLogFile)
 			}
 		}
 	default:
 		if systemLogSet {
-			// For all commands, use the system log file explcitly set on command line
+			// For all commands, use the system log file explicitly set on command line
 			utils.InitLogging(*g.SystemLogFile)
 		}
 	}

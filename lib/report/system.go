@@ -86,6 +86,7 @@ func planetServices() Collectors {
 	return Collectors{
 		// etcd cluster health
 		Cmd("etcd-status", utils.PlanetCommandArgs("/usr/bin/etcdctl", "cluster-health")...),
+		Cmd("etcd3-status", utils.PlanetCommandArgs("/usr/bin/etcdctl3", "endpoint", "health", "--cluster")...),
 		Cmd("planet-status", utils.PlanetCommandArgs("/usr/bin/planet", "status")...),
 		// system status in the container
 		Cmd("planet-system-status", utils.PlanetCommandArgs("/bin/systemctl", "status", "--full")...),
@@ -109,7 +110,7 @@ func systemFileLogs() Collectors {
 #!/bin/bash
 cat %v 2> /dev/null || true`
 	return Collectors{
-		Script("gravity-system.log", fmt.Sprintf(template, defaults.GravitySystemLog)),
+		Script("gravity-system.log", fmt.Sprintf(template, defaults.GravitySystemLogPath)),
 		Script("gravity-install.log", fmt.Sprintf(template, defaults.GravityUserLog)),
 		Script("gravity-local-system.log", fmt.Sprintf(template, defaults.GravitySystemLogFile)),
 		Script("gravity-local-install.log", fmt.Sprintf(template, defaults.GravityUserLogFile)),

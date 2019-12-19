@@ -145,7 +145,6 @@ type InstallerStrategy struct {
 // isServiceFailed returns an error if the service has failed.
 func isServiceFailed(serviceName string) func() error {
 	return func() error {
-		// serviceName := service.Name(r.ServicePath)
 		failed, err := service.IsFailed(serviceName)
 		if err == nil && failed {
 			return trace.Errorf("service %q has failed. Check journal log for details.",

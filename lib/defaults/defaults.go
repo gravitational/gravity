@@ -1094,8 +1094,8 @@ var (
 	// during cluster installation (such as apiserver, etcd, kubelet, etc.)
 	CertificateExpiry = 10 * 365 * 24 * time.Hour // 10 years
 
-	// GravitySystemLog defines the default location for the system log
-	GravitySystemLog = filepath.Join(SystemLogDir, GravitySystemLogFile)
+	// GravitySystemLogPath defines the default location for the system log
+	GravitySystemLogPath = filepath.Join(SystemLogDir, GravitySystemLogFile)
 
 	// GravityUserLog the default location for user-facing log file
 	GravityUserLog = filepath.Join(SystemLogDir, GravityUserLogFile)

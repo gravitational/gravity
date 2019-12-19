@@ -409,10 +409,7 @@ func (r *AgentPeerStore) RemovePeer(ctx netcontext.Context, req pb.PeerLeaveRequ
 func (r *AgentPeerStore) authenticatePeer(token string) (*storage.ProvisioningToken, storage.User, error) {
 	provToken, err := r.users.GetProvisioningToken(token)
 	if err != nil {
-		r.WithFields(log.Fields{
-			log.ErrorKey: err,
-			"token":      token,
-		}).Warn("Invalid peer auth token.")
+		r.WithError(err).Warn("Invalid peer auth token.")
 		return nil, nil, status.Errorf(codes.PermissionDenied, "peer auth failed: %v",
 			trace.UserMessage(err))
 	}

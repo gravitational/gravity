@@ -250,13 +250,8 @@ func (i *Installer) maybeStartAgent() error {
 
 func (i *Installer) execute(req *installpb.ExecuteRequest) (dispatcher.Status, error) {
 	i.WithField("req", req).Info("Execute.")
-	existingOperation, _ := ops.GetWizardOperation(i.config.Operator)
-	if req.HasSpecificPhase() {
-		phase := req.Phase
-		if phase == nil {
-			phase = phaseForOperation(*existingOperation)
-		}
-		return i.executePhase(*phase)
+	if !req.HasResume() {
+		return i.executePhase(*req.Phase)
 	}
 	status, err := i.config.Engine.Execute(i.ctx, i, i.config.Config)
 	if err != nil {
