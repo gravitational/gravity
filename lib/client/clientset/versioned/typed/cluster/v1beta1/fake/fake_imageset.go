@@ -19,7 +19,7 @@ limitations under the License.
 package fake
 
 import (
-	v1beta1 "github.com/gravitational/gravity/lib/apis/lens/v1beta1"
+	v1beta1 "github.com/gravitational/gravity/lib/apis/cluster/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -30,13 +30,13 @@ import (
 
 // FakeImageSets implements ImageSetInterface
 type FakeImageSets struct {
-	Fake *FakeLensV1beta1
+	Fake *FakeClusterV1beta1
 	ns   string
 }
 
-var imagesetsResource = schema.GroupVersionResource{Group: "lens.gravitational.io", Version: "v1beta1", Resource: "imagesets"}
+var imagesetsResource = schema.GroupVersionResource{Group: "cluster.gravitational.io", Version: "v1beta1", Resource: "imagesets"}
 
-var imagesetsKind = schema.GroupVersionKind{Group: "lens.gravitational.io", Version: "v1beta1", Kind: "ImageSet"}
+var imagesetsKind = schema.GroupVersionKind{Group: "cluster.gravitational.io", Version: "v1beta1", Kind: "ImageSet"}
 
 // Get takes name of the imageSet, and returns the corresponding imageSet object, and an error if there is any.
 func (c *FakeImageSets) Get(name string, options v1.GetOptions) (result *v1beta1.ImageSet, err error) {

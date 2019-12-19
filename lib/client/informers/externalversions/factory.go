@@ -24,8 +24,8 @@ import (
 	time "time"
 
 	versioned "github.com/gravitational/gravity/lib/client/clientset/versioned"
+	cluster "github.com/gravitational/gravity/lib/client/informers/externalversions/cluster"
 	internalinterfaces "github.com/gravitational/gravity/lib/client/informers/externalversions/internalinterfaces"
-	lens "github.com/gravitational/gravity/lib/client/informers/externalversions/lens"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -172,9 +172,9 @@ type SharedInformerFactory interface {
 	ForResource(resource schema.GroupVersionResource) (GenericInformer, error)
 	WaitForCacheSync(stopCh <-chan struct{}) map[reflect.Type]bool
 
-	Lens() lens.Interface
+	Cluster() cluster.Interface
 }
 
-func (f *sharedInformerFactory) Lens() lens.Interface {
-	return lens.New(f, f.namespace, f.tweakListOptions)
+func (f *sharedInformerFactory) Cluster() cluster.Interface {
+	return cluster.New(f, f.namespace, f.tweakListOptions)
 }

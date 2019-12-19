@@ -14,9 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package lens
+// +k8s:deepcopy-gen=package
+// +groupName=cluster.gravitational.io
 
-const (
-	// GroupName is the Kubernetes API group name for resources in this package.
-	GroupName = "lens.gravitational.io"
-)
+// Package v1beta1 is the v1beta1 version of the API.
+package v1beta1

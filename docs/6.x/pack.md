@@ -171,8 +171,8 @@ resource types).
     The `ImageSet` resource support will be available starting from Gravity 7.0.
 
 ```yaml
-# Note that the ImageSet resource resides in the "lens.gravitational.io" group.
-apiVersion: lens.gravitational.io/v1beta1
+# Note that the ImageSet resource resides in the "cluster.gravitational.io" group.
+apiVersion: cluster.gravitational.io/v1beta1
 kind: ImageSet
 metadata:
   name: extra-images
