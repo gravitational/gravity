@@ -118,8 +118,8 @@ func importLocalChanges(config BootstrapConfig) error {
 	}
 	cmd = exec.Command("restorecon", "-Rvi",
 		config.Path,
-		defaults.GravitySystemLog,
-		defaults.GravityUserLog,
+		defaults.GravitySystemLogPath,
+		defaults.GravityUserLogPath,
 	)
 	cmd.Stdout = w
 	cmd.Stderr = w

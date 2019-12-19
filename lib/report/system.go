@@ -111,7 +111,7 @@ func systemFileLogs() Collectors {
 cat %v 2> /dev/null || true`
 	return Collectors{
 		Script("gravity-system.log", fmt.Sprintf(template, defaults.GravitySystemLogPath)),
-		Script("gravity-install.log", fmt.Sprintf(template, defaults.GravityUserLog)),
+		Script("gravity-install.log", fmt.Sprintf(template, defaults.GravityUserLogPath)),
 		Script("gravity-local-system.log", fmt.Sprintf(template, defaults.GravitySystemLogFile)),
 		Script("gravity-local-install.log", fmt.Sprintf(template, defaults.GravityUserLogFile)),
 	}

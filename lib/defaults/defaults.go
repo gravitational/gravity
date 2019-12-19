@@ -1102,8 +1102,8 @@ var (
 	// GravitySystemLogPath defines the default location for the system log
 	GravitySystemLogPath = filepath.Join(SystemLogDir, GravitySystemLogFile)
 
-	// GravityUserLog the default location for user-facing log file
-	GravityUserLog = filepath.Join(SystemLogDir, GravityUserLogFile)
+	// GravityUserLogPath the default location for user-facing log file
+	GravityUserLogPath = filepath.Join(SystemLogDir, GravityUserLogFile)
 
 	// TransientErrorTimeout specifies the maximum amount of time to attempt
 	// an operation experiencing transient errors

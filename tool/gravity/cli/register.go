@@ -49,7 +49,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.GID = g.Flag("gid", "Effective group ID for this operation. Must be >= 0.").Default(strconv.Itoa(defaults.PlaceholderGroupID)).Hidden().Int()
 	g.ProfileEndpoint = g.Flag("httpprofile", "Enable profiling endpoint on specified host/port i.e. localhost:6060.").Hidden().String()
 	g.ProfileTo = g.Flag("profile-dir", "Store periodic state snapshots in the specified directory.").Hidden().String()
-	g.UserLogFile = g.Flag("log-file", "Path to the log file with diagnostic information.").Default(defaults.GravityUserLog).String()
+	g.UserLogFile = g.Flag("log-file", "Path to the log file with diagnostic information.").Default(defaults.GravityUserLogPath).String()
 	g.SystemLogFile = g.Flag("system-log-file", "Path to the log file with system level logs.").Hidden().String()
 
 	g.VersionCmd.CmdClause = g.Command("version", "Print version information and exit.")
