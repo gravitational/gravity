@@ -404,6 +404,9 @@ func (i *InstallConfig) NewInstallerConfig(
 
 // RunLocalChecks executes host-local preflight checks for this configuration
 func (i *InstallConfig) RunLocalChecks() error {
+	if i.Mode == constants.InstallModeInteractive {
+		return nil
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	interrupt := signals.WatchTerminationSignals(ctx, cancel, utils.DiscardPrinter)
 	defer interrupt.Close()
