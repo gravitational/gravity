@@ -43,6 +43,14 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 #### Improvements
 
 * Upgrade Kubernetes to `v1.17.0` ([#967](https://github.com/gravitational/gravity/pull/967), [planet#537](https://github.com/gravitational/planet/pull/537)).
+* Remove Docker brigde and promiscuous mode configurations ([#959](https://github.com/gravitational/gravity/pull/959), [planet#536](https://github.com/gravitational/planet/pull/536)).
+* Use relative binary path when displaying `gravity join` command hint ([#935](https://github.com/gravitational/gravity/pull/935)).
+
+#### Bugfixes
+
+* Fix the issue with kubelet failing to start with unsupported labels ([#953](https://github.com/gravitational/gravity/pull/953)).
+* Fix the issue with `gravity status` becoming slow when there are a lot of namespaces ([#956](https://github.com/gravitational/gravity/pull/956)).
+* Fix the issue with disconnecting clusters from the Hub ([#964](https://github.com/gravitational/gravity/pull/964)).
 
 ### 6.2.5 (December 3rd, 2019)
 
