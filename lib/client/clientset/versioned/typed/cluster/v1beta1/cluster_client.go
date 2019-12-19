@@ -19,27 +19,27 @@ limitations under the License.
 package v1beta1
 
 import (
-	v1beta1 "github.com/gravitational/gravity/lib/apis/lens/v1beta1"
+	v1beta1 "github.com/gravitational/gravity/lib/apis/cluster/v1beta1"
 	"github.com/gravitational/gravity/lib/client/clientset/versioned/scheme"
 	rest "k8s.io/client-go/rest"
 )
 
-type LensV1beta1Interface interface {
+type ClusterV1beta1Interface interface {
 	RESTClient() rest.Interface
 	ImageSetsGetter
 }
 
-// LensV1beta1Client is used to interact with features provided by the lens.gravitational.io group.
-type LensV1beta1Client struct {
+// ClusterV1beta1Client is used to interact with features provided by the cluster.gravitational.io group.
+type ClusterV1beta1Client struct {
 	restClient rest.Interface
 }
 
-func (c *LensV1beta1Client) ImageSets(namespace string) ImageSetInterface {
+func (c *ClusterV1beta1Client) ImageSets(namespace string) ImageSetInterface {
 	return newImageSets(c, namespace)
 }
 
-// NewForConfig creates a new LensV1beta1Client for the given config.
-func NewForConfig(c *rest.Config) (*LensV1beta1Client, error) {
+// NewForConfig creates a new ClusterV1beta1Client for the given config.
+func NewForConfig(c *rest.Config) (*ClusterV1beta1Client, error) {
 	config := *c
 	if err := setConfigDefaults(&config); err != nil {
 		return nil, err
@@ -48,12 +48,12 @@ func NewForConfig(c *rest.Config) (*LensV1beta1Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &LensV1beta1Client{client}, nil
+	return &ClusterV1beta1Client{client}, nil
 }
 
-// NewForConfigOrDie creates a new LensV1beta1Client for the given config and
+// NewForConfigOrDie creates a new ClusterV1beta1Client for the given config and
 // panics if there is an error in the config.
-func NewForConfigOrDie(c *rest.Config) *LensV1beta1Client {
+func NewForConfigOrDie(c *rest.Config) *ClusterV1beta1Client {
 	client, err := NewForConfig(c)
 	if err != nil {
 		panic(err)
@@ -61,9 +61,9 @@ func NewForConfigOrDie(c *rest.Config) *LensV1beta1Client {
 	return client
 }
 
-// New creates a new LensV1beta1Client for the given RESTClient.
-func New(c rest.Interface) *LensV1beta1Client {
-	return &LensV1beta1Client{c}
+// New creates a new ClusterV1beta1Client for the given RESTClient.
+func New(c rest.Interface) *ClusterV1beta1Client {
+	return &ClusterV1beta1Client{c}
 }
 
 func setConfigDefaults(config *rest.Config) error {
@@ -81,7 +81,7 @@ func setConfigDefaults(config *rest.Config) error {
 
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
-func (c *LensV1beta1Client) RESTClient() rest.Interface {
+func (c *ClusterV1beta1Client) RESTClient() rest.Interface {
 	if c == nil {
 		return nil
 	}

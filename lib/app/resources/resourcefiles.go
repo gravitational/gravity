@@ -25,7 +25,7 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/schema"
 
-	lensv1beta1 "github.com/gravitational/gravity/lib/apis/lens/v1beta1"
+	clusterv1beta1 "github.com/gravitational/gravity/lib/apis/cluster/v1beta1"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 	admissionv1beta1 "k8s.io/api/admissionregistration/v1beta1"
@@ -344,7 +344,7 @@ func extractImages(objects []runtime.Object) (*ExtractedImages, error) {
 					containers = append(containers, job.Spec.Template.Spec.InitContainers...)
 				}
 			}
-		case *lensv1beta1.ImageSet:
+		case *clusterv1beta1.ImageSet:
 			for _, spec := range resource.Spec.Images {
 				imagesMap[spec.Image] = struct{}{}
 			}

@@ -19,7 +19,7 @@ limitations under the License.
 package versioned
 
 import (
-	lensv1beta1 "github.com/gravitational/gravity/lib/client/clientset/versioned/typed/lens/v1beta1"
+	clusterv1beta1 "github.com/gravitational/gravity/lib/client/clientset/versioned/typed/cluster/v1beta1"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
@@ -27,19 +27,19 @@ import (
 
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
-	LensV1beta1() lensv1beta1.LensV1beta1Interface
+	ClusterV1beta1() clusterv1beta1.ClusterV1beta1Interface
 }
 
 // Clientset contains the clients for groups. Each group has exactly one
 // version included in a Clientset.
 type Clientset struct {
 	*discovery.DiscoveryClient
-	lensV1beta1 *lensv1beta1.LensV1beta1Client
+	clusterV1beta1 *clusterv1beta1.ClusterV1beta1Client
 }
 
-// LensV1beta1 retrieves the LensV1beta1Client
-func (c *Clientset) LensV1beta1() lensv1beta1.LensV1beta1Interface {
-	return c.lensV1beta1
+// ClusterV1beta1 retrieves the ClusterV1beta1Client
+func (c *Clientset) ClusterV1beta1() clusterv1beta1.ClusterV1beta1Interface {
+	return c.clusterV1beta1
 }
 
 // Discovery retrieves the DiscoveryClient
@@ -58,7 +58,7 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 	}
 	var cs Clientset
 	var err error
-	cs.lensV1beta1, err = lensv1beta1.NewForConfig(&configShallowCopy)
+	cs.clusterV1beta1, err = clusterv1beta1.NewForConfig(&configShallowCopy)
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +74,7 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 // panics if there is an error in the config.
 func NewForConfigOrDie(c *rest.Config) *Clientset {
 	var cs Clientset
-	cs.lensV1beta1 = lensv1beta1.NewForConfigOrDie(c)
+	cs.clusterV1beta1 = clusterv1beta1.NewForConfigOrDie(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClientForConfigOrDie(c)
 	return &cs
@@ -83,7 +83,7 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 // New creates a new Clientset for the given RESTClient.
 func New(c rest.Interface) *Clientset {
 	var cs Clientset
-	cs.lensV1beta1 = lensv1beta1.New(c)
+	cs.clusterV1beta1 = clusterv1beta1.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)
 	return &cs

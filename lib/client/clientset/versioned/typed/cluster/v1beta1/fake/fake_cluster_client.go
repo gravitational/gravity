@@ -19,22 +19,22 @@ limitations under the License.
 package fake
 
 import (
-	v1beta1 "github.com/gravitational/gravity/lib/client/clientset/versioned/typed/lens/v1beta1"
+	v1beta1 "github.com/gravitational/gravity/lib/client/clientset/versioned/typed/cluster/v1beta1"
 	rest "k8s.io/client-go/rest"
 	testing "k8s.io/client-go/testing"
 )
 
-type FakeLensV1beta1 struct {
+type FakeClusterV1beta1 struct {
 	*testing.Fake
 }
 
-func (c *FakeLensV1beta1) ImageSets(namespace string) v1beta1.ImageSetInterface {
+func (c *FakeClusterV1beta1) ImageSets(namespace string) v1beta1.ImageSetInterface {
 	return &FakeImageSets{c, namespace}
 }
 
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
-func (c *FakeLensV1beta1) RESTClient() rest.Interface {
+func (c *FakeClusterV1beta1) RESTClient() rest.Interface {
 	var ret *rest.RESTClient
 	return ret
 }
