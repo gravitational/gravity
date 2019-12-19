@@ -58,7 +58,6 @@ func CheckServers(ctx context.Context,
 		Features: checks.Features{
 			TestBandwidth:    true,
 			TestPorts:        true,
-			TestDockerDevice: true,
 		},
 	})
 	if err != nil {

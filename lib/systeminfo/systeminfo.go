@@ -158,11 +158,6 @@ func collect() (*storage.SystemSpecV2, error) {
 
 	info.SystemPackages = GetSystemPackages(*osInfo)
 
-	info.LVMSystemDirectory, err = devicemapper.GetSystemDirectory()
-	if err != nil && !trace.IsNotFound(err) {
-		return nil, trace.Wrap(err, "failed to query LVM system directory")
-	}
-
 	userInfo, err := GetRealUser()
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to obtain current user info")

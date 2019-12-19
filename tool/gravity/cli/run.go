@@ -300,7 +300,6 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			clusterName:   *g.AutoJoinCmd.ClusterName,
 			role:          *g.AutoJoinCmd.Role,
 			systemDevice:  *g.AutoJoinCmd.SystemDevice,
-			dockerDevice:  *g.AutoJoinCmd.DockerDevice,
 			mounts:        *g.AutoJoinCmd.Mounts,
 			fromService:   *g.AutoJoinCmd.FromService,
 			serviceURL:    *g.AutoJoinCmd.ServiceAddr,
