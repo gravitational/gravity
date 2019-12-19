@@ -736,6 +736,9 @@ To see more examples of specific hooks, please refer to the following documentat
 Gravity has a first-class [Helm](https://docs.helm.sh/) support and lets you use Helm
 charts as a way to package and install applications.
 
+!!! note "Helm version":
+    Gravity 6 works with Helm 2. We are currently working on Helm 3 integration.
+
 Suppose you have the application resources directory with the following layout:
 
 ```
