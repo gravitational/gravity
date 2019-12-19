@@ -21,10 +21,10 @@ package v1beta1
 import (
 	time "time"
 
-	lensv1beta1 "github.com/gravitational/gravity/lib/apis/lens/v1beta1"
+	clusterv1beta1 "github.com/gravitational/gravity/lib/apis/cluster/v1beta1"
 	versioned "github.com/gravitational/gravity/lib/client/clientset/versioned"
 	internalinterfaces "github.com/gravitational/gravity/lib/client/informers/externalversions/internalinterfaces"
-	v1beta1 "github.com/gravitational/gravity/lib/client/listers/lens/v1beta1"
+	v1beta1 "github.com/gravitational/gravity/lib/client/listers/cluster/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -61,16 +61,16 @@ func NewFilteredImageSetInformer(client versioned.Interface, namespace string, r
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.LensV1beta1().ImageSets(namespace).List(options)
+				return client.ClusterV1beta1().ImageSets(namespace).List(options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.LensV1beta1().ImageSets(namespace).Watch(options)
+				return client.ClusterV1beta1().ImageSets(namespace).Watch(options)
 			},
 		},
-		&lensv1beta1.ImageSet{},
+		&clusterv1beta1.ImageSet{},
 		resyncPeriod,
 		indexers,
 	)
@@ -81,7 +81,7 @@ func (f *imageSetInformer) defaultInformer(client versioned.Interface, resyncPer
 }
 
 func (f *imageSetInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&lensv1beta1.ImageSet{}, f.defaultInformer)
+	return f.factory.InformerFor(&clusterv1beta1.ImageSet{}, f.defaultInformer)
 }
 
 func (f *imageSetInformer) Lister() v1beta1.ImageSetLister {

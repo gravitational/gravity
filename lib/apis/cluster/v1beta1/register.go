@@ -17,7 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
-	"github.com/gravitational/gravity/lib/apis/lens"
+	"github.com/gravitational/gravity/lib/apis/cluster"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -26,7 +26,7 @@ import (
 
 // SchemeGroupVersion is group version used to register these objects.
 var SchemeGroupVersion = schema.GroupVersion{
-	Group:   lens.GroupName,
+	Group:   cluster.GroupName,
 	Version: "v1beta1",
 }
 

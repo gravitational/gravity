@@ -21,7 +21,7 @@ package v1beta1
 import (
 	"time"
 
-	v1beta1 "github.com/gravitational/gravity/lib/apis/lens/v1beta1"
+	v1beta1 "github.com/gravitational/gravity/lib/apis/cluster/v1beta1"
 	scheme "github.com/gravitational/gravity/lib/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -56,7 +56,7 @@ type imageSets struct {
 }
 
 // newImageSets returns a ImageSets
-func newImageSets(c *LensV1beta1Client, namespace string) *imageSets {
+func newImageSets(c *ClusterV1beta1Client, namespace string) *imageSets {
 	return &imageSets{
 		client: c.RESTClient(),
 		ns:     namespace,

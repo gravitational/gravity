@@ -20,8 +20,8 @@ package fake
 
 import (
 	clientset "github.com/gravitational/gravity/lib/client/clientset/versioned"
-	lensv1beta1 "github.com/gravitational/gravity/lib/client/clientset/versioned/typed/lens/v1beta1"
-	fakelensv1beta1 "github.com/gravitational/gravity/lib/client/clientset/versioned/typed/lens/v1beta1/fake"
+	clusterv1beta1 "github.com/gravitational/gravity/lib/client/clientset/versioned/typed/cluster/v1beta1"
+	fakeclusterv1beta1 "github.com/gravitational/gravity/lib/client/clientset/versioned/typed/cluster/v1beta1/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
@@ -76,7 +76,7 @@ func (c *Clientset) Tracker() testing.ObjectTracker {
 
 var _ clientset.Interface = &Clientset{}
 
-// LensV1beta1 retrieves the LensV1beta1Client
-func (c *Clientset) LensV1beta1() lensv1beta1.LensV1beta1Interface {
-	return &fakelensv1beta1.FakeLensV1beta1{Fake: &c.Fake}
+// ClusterV1beta1 retrieves the ClusterV1beta1Client
+func (c *Clientset) ClusterV1beta1() clusterv1beta1.ClusterV1beta1Interface {
+	return &fakeclusterv1beta1.FakeClusterV1beta1{Fake: &c.Fake}
 }

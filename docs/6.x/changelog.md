@@ -7,7 +7,8 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 6.2.5         | No  | December 3rd, 2019   | -                    | 1.16.3             | 3.2.13           |
+| 6.3.0         | No  | December 18th, 2019  | -                    | 1.17.0             | 3.2.13           |
+| 6.2.5*        | No  | December 3rd, 2019   | -                    | 1.16.3             | 3.2.13           |
 | 6.1.13        | Yes | November 20th, 2019  | November 10th, 2021  | 1.15.5             | 3.2.12           |
 | 6.0.10*       | No  | October 17th, 2019   | -                    | 1.14.7             | 3.2.12           |
 | 5.6.8*        | No  | September 18th, 2019 | -                    | 1.14.7             | 3.0.6-gravity    |
@@ -36,6 +37,20 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     See [Direct Upgrades From Older LTS Versions](/pack/#direct-upgrades-from-older-lts-versions) for details.
 
 ## 6.x Releases
+
+### 6.3.0 (December 18th, 2019)
+
+#### Improvements
+
+* Upgrade Kubernetes to `v1.17.0` ([#967](https://github.com/gravitational/gravity/pull/967), [planet#537](https://github.com/gravitational/planet/pull/537)).
+* Remove Docker brigde and promiscuous mode configurations ([#959](https://github.com/gravitational/gravity/pull/959), [planet#536](https://github.com/gravitational/planet/pull/536)).
+* Use relative binary path when displaying `gravity join` command hint ([#935](https://github.com/gravitational/gravity/pull/935)).
+
+#### Bugfixes
+
+* Fix the issue with kubelet failing to start with unsupported labels ([#953](https://github.com/gravitational/gravity/pull/953)).
+* Fix the issue with `gravity status` becoming slow when there are a lot of namespaces ([#956](https://github.com/gravitational/gravity/pull/956)).
+* Fix the issue with disconnecting clusters from the Hub ([#964](https://github.com/gravitational/gravity/pull/964)).
 
 ### 6.2.5 (December 3rd, 2019)
 

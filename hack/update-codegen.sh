@@ -23,5 +23,5 @@ SCRIPT_ROOT=$(dirname "${BASH_SOURCE[0]}")/..
 "${SCRIPT_ROOT}"/vendor/k8s.io/code-generator/generate-groups.sh all \
   github.com/gravitational/gravity/lib/client \
   github.com/gravitational/gravity/lib/apis \
-  lens:v1beta1 \
+  cluster:v1beta1 \
   --go-header-file "${SCRIPT_ROOT}/hack/boilerplate.go.txt"
