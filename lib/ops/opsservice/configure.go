@@ -525,6 +525,8 @@ func (s *site) configurePlanetCertAuthority(ctx *operationContext) error {
 	// we have to share the same private key for various apiservers
 	// due to this issue:
 	// https://github.com/kubernetes/kubernetes/issues/11000#issuecomment-232469678
+	// TODO(security) separate this out to a separate secret for serviceaccounttokens
+	// For reference: https://github.com/kelseyhightower/kubernetes-the-hard-way/issues/248
 	apiServer, err := authority.GenerateCertificate(csr.CertificateRequest{
 		CN:    constants.APIServerKeyPair,
 		Hosts: []string{"127.0.0.1"},
@@ -600,7 +602,9 @@ func (s *site) getPlanetMasterSecretsPackage(ctx *operationContext, p planetMast
 		return nil, trace.Wrap(err)
 	}
 
-	baseKeyPair, err := archive.GetKeyPair(constants.APIServerKeyPair)
+	// Don't rotate apiserver secrets, as this secret is currently used to authenticate service account tokens
+	// TODO(securty) support rotation of apiserver / serviceaccount secrets
+	apiserverKeyPair, err := archive.GetKeyPair(constants.APIServerKeyPair)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -649,6 +653,8 @@ func (s *site) getPlanetMasterSecretsPackage(ctx *operationContext, p planetMast
 		if config.group != "" {
 			req.Names = []csr.Name{{O: config.group}}
 		}
+
+		var privateKeyPEM []byte
 		switch name {
 		case constants.APIServerKeyPair:
 			req.Hosts = append(req.Hosts,
@@ -674,6 +680,10 @@ func (s *site) getPlanetMasterSecretsPackage(ctx *operationContext, p planetMast
 						s.domainName, host}, "."))
 				}
 			}
+
+			// Don't rotate the APIServer key, the secret is currently used for validating serviceaccounttokens
+			// TODO(security) enable rotation of secret for apiserver/serviceaccounttokens
+			privateKeyPEM = apiserverKeyPair.KeyPEM
 		case constants.ProxyKeyPair:
 			req.Hosts = append(req.Hosts,
 				constants.APIServerDomainNameGravity,
@@ -683,7 +693,8 @@ func (s *site) getPlanetMasterSecretsPackage(ctx *operationContext, p planetMast
 				defaults.LograngeAggregatorServiceName,
 				defaults.KubeSystemNamespace)...)
 		}
-		keyPair, err := authority.GenerateCertificate(req, caKeyPair, baseKeyPair.KeyPEM, defaults.CertificateExpiry)
+
+		keyPair, err := authority.GenerateCertificate(req, caKeyPair, privateKeyPEM, defaults.CertificateExpiry)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
@@ -750,7 +761,6 @@ func (s *site) getPlanetNodeSecretsPackage(ctx *operationContext, node *Provisio
 		constants.LograngeCollectorKeyPair: {},
 	}
 
-	var privateKeyPEM []byte
 	for keyName, config := range keyPairTypes {
 		req := csr.CertificateRequest{
 			Hosts: []string{constants.LoopbackIP, node.AdvertiseIP, node.Hostname},
@@ -771,14 +781,9 @@ func (s *site) getPlanetNodeSecretsPackage(ctx *operationContext, node *Provisio
 		if config.group != "" {
 			req.Names = []csr.Name{{O: config.group}}
 		}
-		keyPair, err := authority.GenerateCertificate(req, caKeyPair, privateKeyPEM, defaults.CertificateExpiry)
+		keyPair, err := authority.GenerateCertificate(req, caKeyPair, nil, defaults.CertificateExpiry)
 		if err != nil {
 			return nil, trace.Wrap(err)
-		}
-		// Store the private key from the first generated key pair and re-use
-		// it on subsequent requests to speed up certificate generation
-		if len(privateKeyPEM) == 0 {
-			privateKeyPEM = keyPair.KeyPEM
 		}
 		if err := newArchive.AddKeyPair(keyName, *keyPair); err != nil {
 			return nil, trace.Wrap(err)
