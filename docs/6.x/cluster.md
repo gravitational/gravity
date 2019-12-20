@@ -46,7 +46,8 @@ way:
 
 * `gravity` runs its own local Docker registry which is used as a Cluster-level
   cache for container images. This makes application upgrades and restarts
-  faster and more reliable.
+  faster and more reliable. See [Interacting with Cluster Registry](#interacting-with-cluster-registry)
+  for details.
 
 * `gravity` provides the ability to perform Cluster state snapshots as part of
   Cluster upgrades or to be used independently.
