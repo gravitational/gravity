@@ -55,7 +55,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 #### Bugfixes
 
-* Fix a security issue where secrets are being reused for multiple certificates and secrets are not being rotated during certificate rotation [#979](https://github.com/gravitational/gravity/pull/979).
+* Fix a security issue where secrets are being reused for multiple certificates and secrets are not being rotated during certificate rotation [#980](https://github.com/gravitational/gravity/pull/980).
 * Fix an issue where node labels specified within the app.yaml could prevent cluster installation [#954](https://github.com/gravitational/gravity/pull/954).
 * Prevent deletion of the base app [#966](https://github.com/gravitational/gravity/pull/966).
 * Fix a performance issue with displaying cluster endpoints [#952](https://github.com/gravitational/gravity/pull/952)
@@ -487,7 +487,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 #### Bugfixes
 
-* Fix a security issue where secrets are being reused for multiple certificates and secrets are not being rotated during certificate rotation [#979](https://github.com/gravitational/gravity/pull/979).
+* Fix a security issue where secrets are being reused for multiple certificates and secrets are not being rotated during certificate rotation [#981](https://github.com/gravitational/gravity/pull/981).
 
 !!! warning
     This release fixes a security vulnerability in gravity.
