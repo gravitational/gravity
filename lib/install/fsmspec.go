@@ -59,7 +59,7 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 
 		case strings.HasPrefix(p.Phase.ID, phases.MastersPhase), strings.HasPrefix(p.Phase.ID, phases.NodesPhase):
 			return phases.NewSystem(p,
-				config.Operator, remote)
+				config.Operator, config.LocalPackages, remote)
 
 		case p.Phase.ID == phases.WaitPhase:
 			client, err := getKubeClient(p)

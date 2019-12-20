@@ -779,6 +779,12 @@ func ExternalDNS(hostname string) string {
 	return fmt.Sprintf("%[1]v,*.%[1]v", hostname)
 }
 
+// InstallerClusterName returns the name for the installer trusted cluster
+// for the specified cluster
+func InstallerClusterName(clusterName string) string {
+	return fmt.Sprintf("%v%v", InstallerTunnelPrefix, clusterName)
+}
+
 // Format is the type for supported output formats
 type Format string
 

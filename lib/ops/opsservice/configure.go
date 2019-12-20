@@ -251,7 +251,7 @@ func (s *site) configureExpandPackages(ctx context.Context, opCtx *operationCont
 			masterParams.sniHost = trustedCluster.GetSNIHost()
 		}
 		err = s.configurePlanetMasterSecrets(opCtx, masterParams)
-		if err != nil {
+		if err != nil && !trace.IsAlreadyExists(err) {
 			return trace.Wrap(err)
 		}
 		planetConfig.master = masterConfig{
@@ -272,7 +272,7 @@ func (s *site) configureExpandPackages(ctx context.Context, opCtx *operationCont
 		}
 	} else {
 		err = s.configurePlanetNodeSecrets(opCtx, provisionedServer, secretsPackage)
-		if err != nil {
+		if err != nil && !trace.IsAlreadyExists(err) {
 			return trace.Wrap(err)
 		}
 		err = s.configurePlanetNode(planetConfig, secretsPackage, configPackage)
@@ -300,7 +300,7 @@ func (s *site) configurePackages(ctx *operationContext, req ops.ConfigurePackage
 	}
 
 	err = s.configureRemoteCluster()
-	if err != nil {
+	if err != nil && !trace.IsAlreadyExists(err) {
 		return trace.Wrap(err)
 	}
 
@@ -351,7 +351,7 @@ func (s *site) configurePackages(ctx *operationContext, req ops.ConfigurePackage
 			serviceSubnetCIDR: ctx.operation.InstallExpand.Subnets.Service,
 			sniHost:           s.service.cfg.SNIHost,
 		})
-		if err != nil {
+		if err != nil && !trace.IsAlreadyExists(err) {
 			return trace.Wrap(err)
 		}
 
@@ -413,7 +413,8 @@ func (s *site) configurePackages(ctx *operationContext, req ops.ConfigurePackage
 
 		secretsPackage := s.planetSecretsPackage(node, planetPackage.Version)
 
-		if err := s.configurePlanetNodeSecrets(ctx, node, secretsPackage); err != nil {
+		err = s.configurePlanetNodeSecrets(ctx, node, secretsPackage)
+		if err != nil && !trace.IsAlreadyExists(err) {
 			return trace.Wrap(err)
 		}
 
@@ -1173,7 +1174,7 @@ func (s *site) configureTeleportMaster(ctx *operationContext, master *Provisione
 		return trace.Wrap(err)
 	}
 	_, err = s.packages().CreatePackage(resp.Locator, resp.Reader, pack.WithLabels(resp.Labels))
-	if err != nil {
+	if err != nil && !trace.IsAlreadyExists(err) {
 		return trace.Wrap(err)
 	}
 	return nil
@@ -1287,7 +1288,7 @@ func (s *site) configureTeleportNode(ctx *operationContext, masterIPs []string, 
 		return trace.Wrap(err)
 	}
 	_, err = s.packages().CreatePackage(resp.Locator, resp.Reader, pack.WithLabels(resp.Labels))
-	if err != nil {
+	if err != nil && !trace.IsAlreadyExists(err) {
 		return trace.Wrap(err)
 	}
 	return nil
@@ -1326,7 +1327,7 @@ func (s *site) configureSiteExportPackage(ctx *operationContext) (*loc.Locator, 
 			pack.OperationIDLabel: ctx.operation.ID,
 		},
 	))
-	if err != nil {
+	if err != nil && !trace.IsAlreadyExists(err) {
 		return nil, trace.Wrap(err)
 	}
 

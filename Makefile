@@ -559,12 +559,15 @@ tele-mac: flags
 goinstall: remove-temp-files compile
 	mkdir -p $(GRAVITY_BUILDDIR)
 	mkdir -p $(TF_PROVIDER_DIR)
-	cp $(GOPATH)/bin/gravity $(GRAVITY_OUT)
-	cp $(GOPATH)/bin/tele $(TELE_OUT)
+	for bin in ${BINARIES} ; do \
+		cp $(GOPATH)/bin/$${bin} $(GRAVITY_BUILDDIR)/$${bin} ; \
+	done
 	for provider in ${TF_PROVIDERS} ; do \
 		echo $${provider} ; \
-		cp $(GOPATH)/bin/$${provider} $(GRAVITY_BUILDDIR)/$${provider} ; \
-		cp $(GOPATH)/bin/$${provider} $(TF_PROVIDER_DIR)/$${provider} ; \
+		if [ -f $(GOPATH)/bin/$${provider} ]; then \
+			cp $(GOPATH)/bin/$${provider} $(GRAVITY_BUILDDIR)/$${provider} ; \
+			cp $(GOPATH)/bin/$${provider} $(TF_PROVIDER_DIR)/$${provider} ; \
+		fi; \
 	done
 	$(GRAVITY) package delete $(GRAVITY_PKG) $(DELETE_OPTS) && \
 		$(GRAVITY) package import $(GRAVITY_OUT) $(GRAVITY_PKG)

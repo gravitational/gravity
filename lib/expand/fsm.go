@@ -26,6 +26,7 @@ import (
 	"github.com/gravitational/gravity/lib/install"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
+	"github.com/gravitational/gravity/lib/pack/localpack"
 	"github.com/gravitational/gravity/lib/rpc"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
@@ -51,7 +52,7 @@ type FSMConfig struct {
 	// LocalApps is local apps service of the joining node
 	LocalApps app.Applications
 	// LocalPackages is local package service of the joining node
-	LocalPackages pack.PackageService
+	LocalPackages *localpack.PackageServer
 	// JoinBackend is the local backend that stores join-specific data
 	JoinBackend storage.Backend
 	// Spec is the FSM spec

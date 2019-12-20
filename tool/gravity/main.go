@@ -47,6 +47,7 @@ func main() {
 			}
 			os.Exit(errCode.ExitCode())
 		}
+		log.WithError(err).Warn("Command failed.")
 		common.PrintError(err)
 		os.Exit(255)
 	}

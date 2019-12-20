@@ -17,7 +17,6 @@ package client
 
 import (
 	"context"
-	"fmt"
 	"path/filepath"
 
 	"github.com/gravitational/gravity/lib/defaults"
@@ -304,10 +303,6 @@ type Lifecycle interface {
 	// Abort handles clean up of state files and directories
 	// the installer maintains throughout the operation
 	Abort(context.Context, *Client) error
-}
-
-func removeSocketFileCommand(socketPath string) (cmd string) {
-	return fmt.Sprintf("-/usr/bin/rm -f %v", socketPath)
 }
 
 var _ signals.Stopper = (*Client)(nil)

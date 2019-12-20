@@ -21,14 +21,13 @@ import (
 	"strconv"
 
 	"github.com/gravitational/gravity/lib/app"
-	"github.com/gravitational/gravity/lib/checks"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/install/engine"
-	validationpb "github.com/gravitational/gravity/lib/network/validation/proto"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/opsclient"
 	"github.com/gravitational/gravity/lib/pack"
+	"github.com/gravitational/gravity/lib/pack/localpack"
 	"github.com/gravitational/gravity/lib/process"
 	pb "github.com/gravitational/gravity/lib/rpc/proto"
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
@@ -61,21 +60,6 @@ func NewFSMConfig(operator ops.Operator, operationKey ops.SiteOperationKey, conf
 	return fsmConfig
 }
 
-// RunLocalChecks executes host-local preflight checks for this configuration
-func (c *Config) RunLocalChecks(ctx context.Context) error {
-	return trace.Wrap(checks.RunLocalChecks(ctx, checks.LocalChecksRequest{
-		Manifest: c.App.Manifest,
-		Role:     c.Role,
-		Docker:   c.Docker,
-		Options: &validationpb.ValidateOptions{
-			VxlanPort: int32(c.VxlanPort),
-			DnsAddrs:  c.DNSConfig.Addrs,
-			DnsPort:   int32(c.DNSConfig.Port),
-		},
-		AutoFix: true,
-	}))
-}
-
 // GetWizardAddr returns the advertise address of the wizard process
 func (c *Config) GetWizardAddr() (addr string) {
 	return c.Process.Config().WizardAddr()
@@ -99,8 +83,6 @@ type Config struct {
 	WriteStateDir string
 	// UserLogFile is the log file where user-facing operation logs go
 	UserLogFile string
-	// SystemLogFile is the log file for system logs
-	SystemLogFile string
 	// SiteDomain is the name of the cluster
 	SiteDomain string
 	// Flavor is installation flavor
@@ -136,7 +118,7 @@ type Config struct {
 	// Process is the gravity process running inside the installer
 	Process process.GravityProcess
 	// LocalPackages is the machine-local package service
-	LocalPackages pack.PackageService
+	LocalPackages *localpack.PackageServer
 	// LocalApps is the machine-local application service
 	LocalApps app.Applications
 	// LocalBackend is the machine-local backend
