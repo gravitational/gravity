@@ -48,6 +48,8 @@ func (r *registryConnectionRequest) checkAndSetDefaults(env *localenv.LocalEnvir
 		if err != nil {
 			return trace.Wrap(err)
 		}
+	} else {
+		r.address = utils.EnsurePort(r.address, constants.DockerRegistryPort)
 	}
 	stateDir, err := state.GetStateDir()
 	if err != nil {
