@@ -693,6 +693,13 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 		return resetPassword(localEnv)
 	case g.StatusResetCmd.FullCommand():
 		return resetClusterState(localEnv)
+	case g.RegistryListCmd.FullCommand():
+		return listRegistryContents(context.Background(), localEnv, registryConnectionRequest{
+			address:  *g.RegistryListCmd.Registry,
+			caPath:   *g.RegistryListCmd.CAPath,
+			certPath: *g.RegistryListCmd.CertPath,
+			keyPath:  *g.RegistryListCmd.KeyPath,
+		}, *g.RegistryListCmd.Format)
 	case g.LocalSiteCmd.FullCommand():
 		return getLocalSite(localEnv)
 	// system service commands

@@ -46,7 +46,8 @@ way:
 
 * `gravity` runs its own local Docker registry which is used as a Cluster-level
   cache for container images. This makes application upgrades and restarts
-  faster and more reliable.
+  faster and more reliable. See [Interacting with Cluster Registry](#interacting-with-cluster-registry)
+  for details.
 
 * `gravity` provides the ability to perform Cluster state snapshots as part of
   Cluster upgrades or to be used independently.
@@ -1436,6 +1437,32 @@ The CoreDNS configuration can be edited after installation, by updating the `kub
 [PodSecurityPolicies]: https://kubernetes.io/docs/concepts/policy/pod-security-policy/
 [RBAC]: https://kubernetes.io/docs/admin/authorization/rbac/
 [promiscuous-mode]: https://en.wikipedia.org/wiki/Promiscuous_mode
+
+## Interacting with Cluster Registry
+
+Gravity clusters run private Docker registries on the master nodes. These registries are maintained
+in-sync by Gravity and contain Docker images for Gravity cluster and application images.
+
+To view a list of Docker images currently published in the cluster registry, Gravity provides
+a convenience command:
+
+```bash
+$ gravity registry list
+```
+
+By default the command will contact the registry server running at `registry.local:5000` address
+which resolves to the registry running on the currently active master node. To list images in a
+specific registry, provide a `--registry` flag to the command:
+
+```bash
+$ gravity registry list --registry=192.168.1.1
+```
+
+The command can also output the images in the json or yaml format which can come handy in scripting:
+
+```bash
+$ gravity registry list --format=json
+```
 
 ## Troubleshooting
 

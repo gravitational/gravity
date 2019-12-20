@@ -1032,6 +1032,13 @@ const (
 
 	// PreflightChecksTimeout is the timeout for preflight checks.
 	PreflightChecksTimeout = 5 * time.Minute
+
+	// RegistryCAFilename is filename of cluster Docker registry CA certificate
+	RegistryCAFilename = RootCertFilename
+	// RegistryCertFilename is filename of cluster Docker registry certificate
+	RegistryCertFilename = KubeletCertFilename
+	// RegistryKeyFilename is filename of cluster Docker registry private key
+	RegistryKeyFilename = KubeletKeyFilename
 )
 
 var (

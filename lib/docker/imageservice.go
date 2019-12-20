@@ -127,9 +127,9 @@ func NewClusterImageService(registry string) (ImageService, error) {
 	return NewImageService(RegistryConnectionRequest{
 		RegistryAddress: registry,
 		CertName:        constants.DockerRegistry,
-		CACertPath:      state.Secret(stateDir, defaults.RootCertFilename),
-		ClientCertPath:  state.Secret(stateDir, "kubelet.cert"),
-		ClientKeyPath:   state.Secret(stateDir, "kubelet.key"),
+		CACertPath:      state.Secret(stateDir, defaults.RegistryCAFilename),
+		ClientCertPath:  state.Secret(stateDir, defaults.RegistryCertFilename),
+		ClientKeyPath:   state.Secret(stateDir, defaults.RegistryKeyFilename),
 	})
 }
 
@@ -140,6 +140,32 @@ type imageService struct {
 	log.FieldLogger
 
 	remoteStore *remoteStore
+}
+
+// List fetches a list of all images from the registry
+func (r *imageService) List(ctx context.Context) (result []Image, err error) {
+	if err := r.connect(ctx); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	repositories, err := ListRepos(ctx, r.remoteStore)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	for _, name := range repositories {
+		repository, err := r.remoteStore.Repository(ctx, name)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		tags, err := repository.Tags(ctx).All(ctx)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		result = append(result, Image{
+			Repository: name,
+			Tags:       tags,
+		})
+	}
+	return result, nil
 }
 
 // Sync synchronizes the contents of the local directory specified with dir

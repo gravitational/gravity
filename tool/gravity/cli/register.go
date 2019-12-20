@@ -215,6 +215,15 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	// reset cluster state, for debugging/emergencies
 	g.StatusResetCmd.CmdClause = g.Command("status-reset", "Reset the cluster state to 'active'").Hidden()
 
+	// interacting with in-cluster registry
+	g.RegistryCmd.CmdClause = g.Command("registry", "Interact with the cluster private Docker registry.")
+	g.RegistryListCmd.CmdClause = g.RegistryCmd.Command("list", "List images in the registry.")
+	g.RegistryListCmd.Registry = g.RegistryListCmd.Flag("registry", "Address of the registry to list the contents of. Defaults to the currently active private cluster registry.").String()
+	g.RegistryListCmd.CAPath = g.RegistryListCmd.Flag("ca-path", "Optional registry CA certificate path.").String()
+	g.RegistryListCmd.CertPath = g.RegistryListCmd.Flag("cert-path", "Optional registry client certificate path.").String()
+	g.RegistryListCmd.KeyPath = g.RegistryListCmd.Flag("key-path", "Optional registry client private key path.").String()
+	g.RegistryListCmd.Format = common.Format(g.RegistryListCmd.Flag("format", fmt.Sprintf("Output format: %v.", constants.OutputFormats)).Default(string(constants.EncodingText)))
+
 	// backup
 	g.BackupCmd.CmdClause = g.Command("backup", "Launch the cluster's backup hook.")
 	g.BackupCmd.Tarball = g.BackupCmd.Arg("to", "Tarball to create with results of the backup hook.").Required().String()
