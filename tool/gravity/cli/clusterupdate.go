@@ -32,6 +32,7 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/update"
 	clusterupdate "github.com/gravitational/gravity/lib/update/cluster"
+	"github.com/gravitational/gravity/lib/utils/helm"
 	"github.com/gravitational/version"
 
 	"github.com/coreos/go-semver/semver"
@@ -53,19 +54,43 @@ func updateCheck(env *localenv.LocalEnvironment, updatePackage string) error {
 	return trace.Wrap(err)
 }
 
+func newUpgradeConfig(g *Application) (*upgradeConfig, error) {
+	values, err := helm.Vals(*g.UpgradeCmd.Values, *g.UpgradeCmd.Set, nil, nil, "", "", "")
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &upgradeConfig{
+		UpgradePackage:   *g.UpgradeCmd.App,
+		Manual:           *g.UpgradeCmd.Manual,
+		SkipVersionCheck: *g.UpgradeCmd.SkipVersionCheck,
+		Values:           values,
+	}, nil
+}
+
+// upgradeConfig is the configuration of a triggered upgrade operation.
+type upgradeConfig struct {
+	// UpgradePackage is the name of the new package.
+	UpgradePackage string
+	// Manual is whether the operation is started in manual mode.
+	Manual bool
+	// SkipVersionCheck allows to bypass gravity version compatibility check.
+	SkipVersionCheck bool
+	// Values are helm values in a marshaled yaml format.
+	Values []byte
+}
+
 func updateTrigger(
 	localEnv *localenv.LocalEnvironment,
 	updateEnv *localenv.LocalEnvironment,
-	updatePackage string,
-	manual, noValidateVersion bool,
+	config upgradeConfig,
 ) error {
 	ctx := context.TODO()
-	updater, err := newClusterUpdater(ctx, localEnv, updateEnv, updatePackage, manual, noValidateVersion)
+	updater, err := newClusterUpdater(ctx, localEnv, updateEnv, config)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	defer updater.Close()
-	if !manual {
+	if !config.Manual {
 		// The cluster is updating in background
 		return nil
 	}
@@ -76,18 +101,18 @@ func updateTrigger(
 func newClusterUpdater(
 	ctx context.Context,
 	localEnv, updateEnv *localenv.LocalEnvironment,
-	updatePackage string,
-	manual, noValidateVersion bool,
+	config upgradeConfig,
 ) (updater, error) {
 	init := &clusterInitializer{
-		updatePackage: updatePackage,
-		unattended:    !manual,
+		updatePackage: config.UpgradePackage,
+		unattended:    !config.Manual,
+		values:        config.Values,
 	}
 	updater, err := newUpdater(ctx, localEnv, updateEnv, init)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	if noValidateVersion {
+	if config.SkipVersionCheck {
 		return updater, nil
 	}
 	if err := validateBinaryVersion(updater); err != nil {
@@ -214,6 +239,9 @@ func (r clusterInitializer) newOperation(operator ops.Operator, cluster ops.Site
 		AccountID:  cluster.AccountID,
 		SiteDomain: cluster.Domain,
 		App:        r.updateLoc.String(),
+		Vars: storage.OperationVariables{
+			Values: r.values,
+		},
 	})
 }
 
@@ -273,6 +301,7 @@ type clusterInitializer struct {
 	updateLoc     loc.Locator
 	updatePackage string
 	unattended    bool
+	values        []byte
 }
 
 const (

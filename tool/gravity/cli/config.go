@@ -63,6 +63,7 @@ import (
 	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/users"
 	"github.com/gravitational/gravity/lib/utils"
+	"github.com/gravitational/gravity/lib/utils/helm"
 
 	"github.com/cenkalti/backoff"
 	"github.com/docker/docker/pkg/namesgenerator"
@@ -161,17 +162,23 @@ type InstallConfig struct {
 	// writeStateDir is the directory where installer stores state for the duration
 	// of the operation
 	writeStateDir string
+	// Values are helm values in marshaled yaml format
+	Values []byte
 }
 
 // NewInstallConfig creates install config from the passed CLI args and flags
-func NewInstallConfig(env *localenv.LocalEnvironment, g *Application) InstallConfig {
+func NewInstallConfig(env *localenv.LocalEnvironment, g *Application) (*InstallConfig, error) {
 	mode := *g.InstallCmd.Mode
 	if *g.InstallCmd.Wizard {
 		// this is obsolete parameter but take it into account in
 		// case somebody is still using it
 		mode = constants.InstallModeInteractive
 	}
-	return InstallConfig{
+	values, err := helm.Vals(*g.InstallCmd.Values, *g.InstallCmd.Set, nil, nil, "", "", "")
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &InstallConfig{
 		Insecure:      *g.Insecure,
 		StateDir:      *g.InstallCmd.Path,
 		UserLogFile:   *g.UserLogFile,
@@ -207,8 +214,9 @@ func NewInstallConfig(env *localenv.LocalEnvironment, g *Application) InstallCon
 		Flavor:             *g.InstallCmd.Flavor,
 		Remote:             *g.InstallCmd.Remote,
 		FromService:        *g.InstallCmd.FromService,
+		Values:             values,
 		Printer:            env,
-	}
+	}, nil
 }
 
 // CheckAndSetDefaults validates the configuration object and populates default values
@@ -404,6 +412,7 @@ func (i *InstallConfig) NewInstallerConfig(
 		Packages:           wizard.Packages,
 		Operator:           wizard.Operator,
 		LocalAgent:         !i.Remote,
+		Values:             i.Values,
 	}, nil
 
 }
@@ -607,8 +616,12 @@ func (i *InstallConfig) validateCloudConfig(manifest schema.Manifest) (err error
 }
 
 // NewWizardConfig returns new configuration for the interactive installer
-func NewWizardConfig(env *localenv.LocalEnvironment, g *Application) InstallConfig {
-	return InstallConfig{
+func NewWizardConfig(env *localenv.LocalEnvironment, g *Application) (*InstallConfig, error) {
+	values, err := helm.Vals(*g.WizardCmd.Values, *g.WizardCmd.Set, nil, nil, "", "", "")
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &InstallConfig{
 		Mode:               constants.InstallModeInteractive,
 		Insecure:           *g.Insecure,
 		UserLogFile:        *g.UserLogFile,
@@ -625,7 +638,8 @@ func NewWizardConfig(env *localenv.LocalEnvironment, g *Application) InstallConf
 		LocalApps:          env.Apps,
 		LocalBackend:       env.Backend,
 		LocalClusterClient: env.SiteOperator,
-	}
+		Values:             values,
+	}, nil
 }
 
 // JoinConfig describes command line configuration of the join command

@@ -463,6 +463,9 @@ func (s *SiteOperation) Vars() OperationVariables {
 	if s.Uninstall != nil {
 		return s.Uninstall.Vars
 	}
+	if s.Update != nil {
+		return s.Update.Vars
+	}
 	return OperationVariables{}
 }
 
@@ -1812,6 +1815,8 @@ type OperationVariables struct {
 	OnPrem OnPremVariables `json:"onprem"`
 	// AWS is a set of AWS-specific variables
 	AWS AWSVariables `json:"aws"`
+	// Values are helm values in a marshaled yaml format
+	Values []byte `json:"values,omitempty"`
 }
 
 // ToMap converts operation variables into a JSON object for easier use in templates
@@ -2063,6 +2068,8 @@ type UpdateOperationState struct {
 	ServerUpdates []ServerUpdate `json:"server_updates,omitempty"`
 	// Manual specifies whether this update operation was created in manual mode
 	Manual bool `json:"manual"`
+	// Vars are variables specific to this operation
+	Vars OperationVariables `json:"vars"`
 }
 
 // UpdateEnvarsOperationState describes the state of the operation to update cluster environment variables.

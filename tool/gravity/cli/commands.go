@@ -394,6 +394,10 @@ type InstallCmd struct {
 	// the client will simply connect to the service and stream its output and errors
 	// and control whether it should stop
 	FromService *bool
+	// Set is a list of Helm chart values set on the CLI.
+	Set *[]string
+	// Values is a list of YAML files with Helm chart values.
+	Values *[]string
 }
 
 // JoinCmd joins to the installer or existing cluster
@@ -646,6 +650,10 @@ type UpgradeCmd struct {
 	Resume *bool
 	// SkipVersionCheck suppresses version mismatch errors
 	SkipVersionCheck *bool
+	// Set is a list of Helm chart values set on the CLI.
+	Set *[]string
+	// Values is a list of YAML files with Helm chart values.
+	Values *[]string
 }
 
 // StatusCmd displays cluster status
@@ -975,6 +983,10 @@ type WizardCmd struct {
 	// the client will simply connect to the service and stream its output and errors
 	// and control whether it should stop
 	FromService *bool
+	// Set is a list of Helm chart values set on the CLI.
+	Set *[]string
+	// Values is a list of YAML files with Helm chart values.
+	Values *[]string
 }
 
 // AppPackageCmd displays the name of app in installer tarball

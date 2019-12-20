@@ -96,6 +96,8 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.InstallCmd.DNSZones = g.InstallCmd.Flag("dns-zone", "Specify an upstream server for the given zone within the cluster. Accepts <zone>/<nameserver> format where <nameserver> can be either <ip> or <ip>:<port>. Can be specified multiple times.").Strings()
 	g.InstallCmd.Remote = g.InstallCmd.Flag("remote", "Do not use this node in the cluster.").Bool()
 	g.InstallCmd.FromService = g.InstallCmd.Flag("from-service", "Run in service mode.").Hidden().Bool()
+	g.InstallCmd.Set = g.InstallCmd.Flag("set", "Set Helm chart values on the command line. Can be specified multiple times and/or as comma-separated values: key1=val1,key2=val2.").Strings()
+	g.InstallCmd.Values = g.InstallCmd.Flag("values", "Set Helm chart values from the provided YAML file. Can be specified multiple times.").Strings()
 
 	g.JoinCmd.CmdClause = g.Command("join", "Join the existing cluster or an on-going install operation.")
 	g.JoinCmd.PeerAddr = g.JoinCmd.Arg("peer-addrs", "One or several IP addresses of cluster nodes to join, as comma-separated values.").String()
@@ -186,6 +188,8 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.UpgradeCmd.Force = g.UpgradeCmd.Flag("force", "Force phase execution even if pre-conditions are not satisfied.").Bool()
 	g.UpgradeCmd.Resume = g.UpgradeCmd.Flag("resume", "Resume upgrade from the last failed step.").Bool()
 	g.UpgradeCmd.SkipVersionCheck = g.UpgradeCmd.Flag("skip-version-check", "Bypass version compatibility check.").Hidden().Bool()
+	g.UpgradeCmd.Set = g.UpgradeCmd.Flag("set", "Set Helm chart values on the command line. Can be specified multiple times and/or as comma-separated values: key1=val1,key2=val2.").Strings()
+	g.UpgradeCmd.Values = g.UpgradeCmd.Flag("values", "Set Helm chart values from the provided YAML file. Can be specified multiple times.").Strings()
 
 	g.UpdateUploadCmd.CmdClause = g.UpdateCmd.Command("upload", "Upload update package to locally running site").Hidden()
 	g.UpdateUploadCmd.OpsCenterURL = g.UpdateUploadCmd.Flag("ops-url", "Optional Gravity Hub URL to upload new packages to (defaults to local gravity site)").Default(defaults.GravityServiceURL).String()
@@ -364,6 +368,8 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.WizardCmd.AdvertiseAddr = g.WizardCmd.Flag("advertise-addr", "The IP address to advertise. Will be selected automatically if unspecified").String()
 	g.WizardCmd.Token = g.WizardCmd.Flag("token", "Unique install token to authorize other nodes to join the cluster. Generated automatically if unspecified").String()
 	g.WizardCmd.FromService = g.WizardCmd.Flag("from-service", "Run in service mode").Hidden().Bool()
+	g.WizardCmd.Set = g.WizardCmd.Flag("set", "Set Helm chart values on the command line. Can be specified multiple times and/or as comma-separated values: key1=val1,key2=val2.").Strings()
+	g.WizardCmd.Values = g.WizardCmd.Flag("values", "Set Helm chart values from the provided YAML file. Can be specified multiple times.").Strings()
 
 	g.AppPackageCmd.CmdClause = g.Command("app-package", "Display the name of application package from installer tarball").Hidden()
 

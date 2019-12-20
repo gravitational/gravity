@@ -158,6 +158,8 @@ type Config struct {
 	Packages pack.PackageService
 	// LocalAgent specifies whether the installer will also run an agent
 	LocalAgent bool
+	// Values are helm values in marshaled yaml format
+	Values []byte
 }
 
 // checkAndSetDefaults checks the parameters and autodetects some defaults

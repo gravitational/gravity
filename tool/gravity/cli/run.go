@@ -289,9 +289,17 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			cloudProvider: *g.OpsAgentCmd.CloudProvider,
 		})
 	case g.WizardCmd.FullCommand():
-		return startInstall(localEnv, NewWizardConfig(localEnv, g))
+		config, err := NewWizardConfig(localEnv, g)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		return startInstall(localEnv, *config)
 	case g.InstallCmd.FullCommand():
-		return startInstall(localEnv, NewInstallConfig(localEnv, g))
+		config, err := NewInstallConfig(localEnv, g)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		return startInstall(localEnv, *config)
 	case g.JoinCmd.FullCommand():
 		return join(localEnv, g, NewJoinConfig(g))
 	case g.AutoJoinCmd.FullCommand():
@@ -316,11 +324,11 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			return trace.Wrap(err)
 		}
 		defer updateEnv.Close()
-		return updateTrigger(localEnv, updateEnv,
-			*g.UpdateTriggerCmd.App,
-			*g.UpdateTriggerCmd.Manual,
-			*g.UpdateTriggerCmd.SkipVersionCheck,
-		)
+		return updateTrigger(localEnv, updateEnv, upgradeConfig{
+			UpgradePackage:   *g.UpdateTriggerCmd.App,
+			Manual:           *g.UpdateTriggerCmd.Manual,
+			SkipVersionCheck: *g.UpdateTriggerCmd.SkipVersionCheck,
+		})
 	case g.UpdatePlanInitCmd.FullCommand():
 		updateEnv, err := g.NewUpdateEnv()
 		if err != nil {
@@ -346,11 +354,11 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 					SkipVersionCheck: *g.UpgradeCmd.SkipVersionCheck,
 				})
 		}
-		return updateTrigger(localEnv, updateEnv,
-			*g.UpgradeCmd.App,
-			*g.UpgradeCmd.Manual,
-			*g.UpgradeCmd.SkipVersionCheck,
-		)
+		config, err := newUpgradeConfig(g)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		return updateTrigger(localEnv, updateEnv, *config)
 	case g.ResumeCmd.FullCommand():
 		return resumeOperation(localEnv, g,
 			PhaseParams{
