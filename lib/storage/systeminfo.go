@@ -94,7 +94,10 @@ func UnmarshalSystemInfo(data []byte) (*SystemV2, error) {
 		var info SystemV2
 		err := teleutils.UnmarshalWithSchema(GetSystemInfoSchema(), &info, jsonData)
 		if err != nil {
-			log.Errorf("Invalid JSON: %s.", jsonData)
+			log.WithFields(log.Fields{
+				log.ErrorKey: err,
+				"source":     string(jsonData),
+			}).Warn("Failed to validate JSON against schema.")
 			return nil, trace.BadParameter(err.Error())
 		}
 		info.Metadata.CheckAndSetDefaults()

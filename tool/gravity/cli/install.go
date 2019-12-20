@@ -68,6 +68,9 @@ func startInstall(env *localenv.LocalEnvironment, config InstallConfig) error {
 		}
 		return trace.Wrap(err)
 	}
+	if err := config.RunLocalChecks(); err != nil {
+		return trace.Wrap(err)
+	}
 	strategy, err := NewInstallerConnectStrategy(env, config, cli.CommandArgs{
 		Parser: cli.ArgsParserFunc(parseArgs),
 	})
@@ -721,6 +724,9 @@ func NewServiceListener() (net.Listener, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	if err := os.RemoveAll(socketPath); err != nil {
+		return nil, trace.Wrap(trace.ConvertSystemError(err), "failed to remove installer socket")
+	}
 	return net.Listen("unix", socketPath)
 }
 
@@ -819,7 +825,7 @@ func printInstallInstructionsBanner(printer utils.Printer) {
 To abort the installation and clean up the system,
 press Ctrl+C two times in a row.
 
-If the you get disconnected from the terminal, you can reconnect to the installer
+If you get disconnected from the terminal, you can reconnect to the installer
 agent by issuing 'gravity resume' command.
 
 If the installation fails, use 'gravity plan' to inspect the state and
@@ -833,7 +839,7 @@ func printJoinInstructionsBanner(printer utils.Printer) {
 To abort the agent and clean up the system,
 press Ctrl+C two times in a row.
 
-If the you get disconnected from the terminal, you can reconnect to the installer
+If you get disconnected from the terminal, you can reconnect to the installer
 agent by issuing 'gravity resume' command.
 See https://gravitational.com/gravity/docs/cluster/#managing-an-ongoing-operation for details.
 `))

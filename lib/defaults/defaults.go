@@ -1094,8 +1094,8 @@ var (
 	// during cluster installation (such as apiserver, etcd, kubelet, etc.)
 	CertificateExpiry = 10 * 365 * 24 * time.Hour // 10 years
 
-	// GravitySystemLog defines the default location for the system log
-	GravitySystemLog = filepath.Join(SystemLogDir, GravitySystemLogFile)
+	// GravitySystemLogPath defines the default location for the system log
+	GravitySystemLogPath = filepath.Join(SystemLogDir, GravitySystemLogFile)
 
 	// GravityUserLog the default location for user-facing log file
 	GravityUserLog = filepath.Join(SystemLogDir, GravityUserLogFile)
@@ -1147,7 +1147,6 @@ var (
 
 	// TeleportVersion specifies the version of the bundled teleport package as a semver
 	TeleportVersion = semver.New(TeleportVersionString)
-
 
 	// MetricsInterval is the default interval cluster metrics are displayed for.
 	MetricsInterval = time.Hour

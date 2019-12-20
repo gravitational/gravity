@@ -27,6 +27,7 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
+	"github.com/gravitational/gravity/lib/log"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/state"
 	libstatus "github.com/gravitational/gravity/lib/status"
@@ -224,40 +225,15 @@ type PackageUpdates struct {
 	Teleport *storage.PackageUpdate
 }
 
-func (r *System) blockingReinstall(update storage.PackageUpdate) error {
-	labelUpdates, err := r.reinstallPackage(update)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	if len(labelUpdates) == 0 {
-		return nil
-	}
-	return applyLabelUpdates(r.Packages, labelUpdates)
-}
-
-func (r *System) reinstallPackage(update storage.PackageUpdate) ([]pack.LabelUpdate, error) {
-	r.WithField("update", update).Info("Reinstalling package.")
-	switch {
-	case update.To.Name == constants.GravityPackage:
-		return r.updateGravityPackage(update.To)
-	case pack.IsPlanetPackage(update.To, update.Labels):
-		updates, err := r.updatePlanetPackage(update)
-		return updates, trace.Wrap(err)
-	case update.To.Name == constants.TeleportPackage:
-		updates, err := r.updateTeleportPackage(update)
-		return updates, trace.Wrap(err)
-	case pack.IsSecretsPackage(update.To, update.Labels):
-		updates, err := r.reinstallSecretsPackage(update.To)
-		return updates, trace.Wrap(err)
-	}
-	return nil, trace.BadParameter("unsupported package: %v", update.To)
-}
-
 func (r *System) applyUpdates(updates []storage.PackageUpdate) error {
 	var errors []error
+	packageUpdater := &PackageUpdater{
+		Logger:   log.New(r.WithField(trace.Component, "update:package")),
+		Packages: r.Packages,
+	}
 	for _, u := range updates {
 		r.WithField("update", u).Info("Applying.")
-		err := r.blockingReinstall(u)
+		err := packageUpdater.Reinstall(u)
 		if err != nil {
 			r.WithFields(logrus.Fields{
 				logrus.ErrorKey: err,
@@ -290,10 +266,77 @@ func (r *System) getChangesetByID(changesetID string) (*storage.PackageChangeset
 	return changeset, nil
 }
 
-func (r *System) updatePlanetPackage(update storage.PackageUpdate) (labelUpdates []pack.LabelUpdate, err error) {
+// NewPackageUpdater creates a new package updater for the specified package service
+func NewPackageUpdater(packages update.LocalPackageService) (*PackageUpdater, error) {
+	p := &PackageUpdater{
+		Packages: packages,
+	}
+	if err := p.checkAndSetDefaults(); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return p, nil
+}
+
+// Reinstall reinstalls the package specified by update
+func (r *PackageUpdater) Reinstall(update storage.PackageUpdate) error {
+	labelUpdates, err := r.reinstallPackage(update)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if len(labelUpdates) == 0 {
+		return nil
+	}
+	return applyLabelUpdates(r.Packages, labelUpdates)
+}
+
+func (r *PackageUpdater) reinstallPackage(update storage.PackageUpdate) ([]pack.LabelUpdate, error) {
+	r.WithField("update", update).Info("Reinstalling package.")
+	switch {
+	case update.To.Name == constants.GravityPackage:
+		return r.updateGravityPackage(update.To)
+	case pack.IsPlanetPackage(update.To, update.Labels):
+		updates, err := r.updatePlanetPackage(update)
+		return updates, trace.Wrap(err)
+	case update.To.Name == constants.TeleportPackage:
+		updates, err := r.updateTeleportPackage(update)
+		return updates, trace.Wrap(err)
+	case pack.IsSecretsPackage(update.To, update.Labels):
+		updates, err := r.reinstallSecretsPackage(update.To)
+		return updates, trace.Wrap(err)
+	}
+	return nil, trace.BadParameter("unsupported package: %v", update.To)
+}
+
+func (r *PackageUpdater) updateGravityPackage(newPackage loc.Locator) (labelUpdates []pack.LabelUpdate, err error) {
+	for _, targetPath := range state.GravityBinPaths {
+		labelUpdates, err = reinstallBinaryPackage(r.Packages, newPackage, targetPath)
+		if err == nil {
+			break
+		}
+		r.WithFields(logrus.Fields{
+			logrus.ErrorKey: err,
+			"path":          targetPath,
+		}).Warn("Failed to install gravity binary.")
+	}
+	if err != nil {
+		return nil, trace.Wrap(err, "failed to install gravity binary in any of %v",
+			state.GravityBinPaths)
+	}
+	planetPath, err := getRuntimePackagePath(r.Packages)
+	if err != nil {
+		return nil, trace.Wrap(err, "failed to find planet package")
+	}
+	err = copyGravityToPlanet(newPackage, r.Packages, planetPath)
+	if err != nil {
+		return nil, trace.Wrap(err, "failed to copy gravity inside planet")
+	}
+	return labelUpdates, nil
+}
+
+func (r *PackageUpdater) updatePlanetPackage(update storage.PackageUpdate) (labelUpdates []pack.LabelUpdate, err error) {
 	var gravityPackageFilter = loc.MustCreateLocator(
 		defaults.SystemAccountOrg, constants.GravityPackage, loc.ZeroVersion)
-	err = r.Packages.Unpack(update.To, "")
+	err = unpack(r.Packages, update.To)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to unpack package %v", update.To)
 	}
@@ -314,7 +357,7 @@ func (r *System) updatePlanetPackage(update storage.PackageUpdate) (labelUpdates
 		return nil, trace.Wrap(err, "failed to copy gravity inside planet")
 	}
 
-	err = updateKubectl(planetPath, r.FieldLogger)
+	err = updateKubectl(planetPath, r.Logger)
 	if err != nil {
 		r.WithError(err).Warn("kubectl will not work on host.")
 	}
@@ -331,7 +374,7 @@ func (r *System) updatePlanetPackage(update storage.PackageUpdate) (labelUpdates
 	return labelUpdates, nil
 }
 
-func (r *System) updateTeleportPackage(update storage.PackageUpdate) (labelUpdates []pack.LabelUpdate, err error) {
+func (r *PackageUpdater) updateTeleportPackage(update storage.PackageUpdate) (labelUpdates []pack.LabelUpdate, err error) {
 	updates, err := r.reinstallService(update)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -357,7 +400,7 @@ func (r *System) updateTeleportPackage(update storage.PackageUpdate) (labelUpdat
 	), nil
 }
 
-func (r *System) reinstallSecretsPackage(newPackage loc.Locator) (labelUpdates []pack.LabelUpdate, err error) {
+func (r *PackageUpdater) reinstallSecretsPackage(newPackage loc.Locator) (labelUpdates []pack.LabelUpdate, err error) {
 	prevPackage, err := pack.FindInstalledPackage(r.Packages, newPackage)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -392,13 +435,13 @@ func (r *System) reinstallSecretsPackage(newPackage loc.Locator) (labelUpdates [
 	return labelUpdates, nil
 }
 
-func (r *System) reinstallService(update storage.PackageUpdate) (labelUpdates []pack.LabelUpdate, err error) {
+func (r *PackageUpdater) reinstallService(update storage.PackageUpdate) (labelUpdates []pack.LabelUpdate, err error) {
 	services, err := systemservice.New()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	packageUpdates, err := uninstallPackage(services, update.From, r.FieldLogger)
+	packageUpdates, err := uninstallPackage(services, update.From, r.Logger)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -459,30 +502,19 @@ func (r *System) reinstallService(update storage.PackageUpdate) (labelUpdates []
 	return labelUpdates, nil
 }
 
-func (r *System) updateGravityPackage(newPackage loc.Locator) (labelUpdates []pack.LabelUpdate, err error) {
-	for _, targetPath := range state.GravityBinPaths {
-		labelUpdates, err = reinstallBinaryPackage(r.Packages, newPackage, targetPath)
-		if err == nil {
-			break
-		}
-		r.WithFields(logrus.Fields{
-			logrus.ErrorKey: err,
-			"path":          targetPath,
-		}).Warn("Failed to install gravity binary.")
+func (r *PackageUpdater) checkAndSetDefaults() error {
+	if r.Logger == nil {
+		r.Logger = log.New(logrus.WithField(trace.Component, "update:package"))
 	}
-	if err != nil {
-		return nil, trace.Wrap(err, "failed to install gravity binary in any of %v",
-			state.GravityBinPaths)
-	}
-	planetPath, err := getRuntimePackagePath(r.Packages)
-	if err != nil {
-		return nil, trace.Wrap(err, "failed to find planet package")
-	}
-	err = copyGravityToPlanet(newPackage, r.Packages, planetPath)
-	if err != nil {
-		return nil, trace.Wrap(err, "failed to copy gravity inside planet")
-	}
-	return labelUpdates, nil
+	return nil
+}
+
+// PackageUpdater manages the updates to a known subset of packages
+type PackageUpdater struct {
+	// Logger specifies the logger
+	log.Logger
+	// Packages specifies the package service to use
+	Packages update.LocalPackageService
 }
 
 func getRuntimePackagePath(packages update.LocalPackageService) (packagePath string, err error) {
@@ -497,7 +529,7 @@ func getRuntimePackagePath(packages update.LocalPackageService) (packagePath str
 	return packagePath, nil
 }
 
-func updateKubectl(planetPath string, logger logrus.FieldLogger) (err error) {
+func updateKubectl(planetPath string, logger log.Logger) (err error) {
 	// update kubectl symlink
 	kubectlPath := filepath.Join(planetPath, constants.PlanetRootfs, defaults.KubectlScript)
 	var out []byte
@@ -608,7 +640,7 @@ func applyLabelUpdates(packages pack.PackageService, labelUpdates []pack.LabelUp
 func uninstallPackage(
 	services systemservice.ServiceManager,
 	servicePackage loc.Locator,
-	logger logrus.FieldLogger,
+	logger log.Logger,
 ) (updates []pack.LabelUpdate, err error) {
 	installed, err := services.IsPackageServiceInstalled(servicePackage)
 	if err != nil {
