@@ -38,7 +38,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 ## 6.x Releases
 
-### 6.3.1 (December 19th, 2019)
+### 6.3.1 (December 20th, 2019)
 
 #### Bugfixes
 
@@ -47,7 +47,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 !!! warning
     This release fixes a security vulnerability in gravity.
 
-### 6.1.14 (December 19th, 2019)
+### 6.1.14 (December 20th, 2019)
 
 #### Improvements
 
@@ -483,7 +483,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 ## 5.x Releases
 
-### 5.5.31 (December 19th, 2019)
+### 5.5.31 (December 20th, 2019)
 
 #### Bugfixes
 
