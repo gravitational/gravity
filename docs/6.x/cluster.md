@@ -1437,6 +1437,32 @@ The CoreDNS configuration can be edited after installation, by updating the `kub
 [RBAC]: https://kubernetes.io/docs/admin/authorization/rbac/
 [promiscuous-mode]: https://en.wikipedia.org/wiki/Promiscuous_mode
 
+## Interacting with Cluster Registry
+
+Gravity clusters run private Docker registries on the master nodes. These registries are maintained
+in-sync by Gravity and contain Docker images for Gravity cluster and application images.
+
+To view a list of Docker images currently published in the cluster registry, Gravity provides
+a convenience command:
+
+```bash
+$ gravity registry list
+```
+
+By default the command will contact the registry server running at `registry.local:5000` address
+which resolves to the registry running on the currently active master node. To list images in a
+specific registry, provide a `--registry` flag to the command:
+
+```bash
+$ gravity registry list --registry=192.168.1.1:5000
+```
+
+The command can also output the images in the json or yaml format which can come handy in scripting:
+
+```bash
+$ gravity registry list --format=json
+```
+
 ## Troubleshooting
 
 To collect diagnostic information about a Cluster (e.g. to submit a bug report or get assistance in troubleshooting Cluster problems),

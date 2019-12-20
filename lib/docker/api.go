@@ -57,6 +57,17 @@ type ImageService interface {
 	// Unwrap translates the specified image name to point to the original repository
 	// if it's prefixed with this registry address - functional inverse of Wrap
 	Unwrap(image string) string
+
+	// List fetches a list of all images from the registry
+	List(context.Context) ([]Image, error)
+}
+
+// Image represents a single Docker image.
+type Image struct {
+	// Repository is the image name.
+	Repository string `json:"repository" yaml:"repository"`
+	// Tags is the image tags.
+	Tags []string `json:"tags" yaml:"tags"`
 }
 
 // DockerPuller defines an interface to pull images

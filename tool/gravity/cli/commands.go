@@ -102,6 +102,10 @@ type Application struct {
 	StatusCmd StatusCmd
 	// StatusResetCmd resets the cluster to active state
 	StatusResetCmd StatusResetCmd
+	// RegistryCmd allows to interact with the cluster private registry
+	RegistryCmd RegistryCmd
+	// RegistryListCmd displays images from the registry
+	RegistryListCmd RegistryListCmd
 	// BackupCmd launches app backup hook
 	BackupCmd BackupCmd
 	// RestoreCmd launches app restore hook
@@ -666,6 +670,26 @@ type StatusCmd struct {
 // StatusResetCmd resets cluster to active state
 type StatusResetCmd struct {
 	*kingpin.CmdClause
+}
+
+// RegistryCmd allows to interact with the cluster private registry
+type RegistryCmd struct {
+	*kingpin.CmdClause
+}
+
+// RegistryListCmd lists images in the registry
+type RegistryListCmd struct {
+	*kingpin.CmdClause
+	// Registry is the address of registry to list contents in
+	Registry *string
+	// CAPath is path to registry CA certificate
+	CAPath *string
+	// CertPath is path to registry client certificate
+	CertPath *string
+	// KeyPath is path to registry client private key
+	KeyPath *string
+	// Format is the output format
+	Format *constants.Format
 }
 
 // BackupCmd launches app backup hook
