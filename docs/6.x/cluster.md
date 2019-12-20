@@ -1455,7 +1455,7 @@ which resolves to the registry running on the currently active master node. To l
 specific registry, provide a `--registry` flag to the command:
 
 ```bash
-$ gravity registry list --registry=192.168.1.1:5000
+$ gravity registry list --registry=192.168.1.1
 ```
 
 The command can also output the images in the json or yaml format which can come handy in scripting:
