@@ -7,12 +7,12 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 6.3.0         | No  | December 18th, 2019  | -                    | 1.17.0             | 3.2.13           |
+| 6.3.1         | No  | December 20th, 2019  | -                    | 1.17.0             | 3.2.13           |
 | 6.2.5*        | No  | December 3rd, 2019   | -                    | 1.16.3             | 3.2.13           |
-| 6.1.13        | Yes | November 20th, 2019  | November 10th, 2021  | 1.15.5             | 3.2.12           |
+| 6.1.14        | Yes | December 20th, 2019  | November 10th, 2021  | 1.15.5             | 3.2.12           |
 | 6.0.10*       | No  | October 17th, 2019   | -                    | 1.14.7             | 3.2.12           |
 | 5.6.8*        | No  | September 18th, 2019 | -                    | 1.14.7             | 3.0.6-gravity    |
-| 5.5.28        | Yes | November 4th, 2019   | September 7th, 2020  | 1.13.11            | 3.0.6-gravity    |
+| 5.5.31        | Yes | December 20th, 2019  | September 7th, 2020  | 1.13.11            | 3.0.6-gravity    |
 | 5.4.10*       | No  | March 26th, 2019     | -                    | 1.13.5             | 2.4.10           |
 | 5.3.9*        | No  | March 7th, 2019      | -                    | 1.12.3             | 2.4.7            |
 | 5.2.16        | Yes | October 11th, 2019   | October 15th, 2019   | 1.11.9             | 2.4.10           |
@@ -37,6 +37,34 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     See [Direct Upgrades From Older LTS Versions](/pack/#direct-upgrades-from-older-lts-versions) for details.
 
 ## 6.x Releases
+
+### 6.3.1 (December 19th, 2019)
+
+#### Bugfixes
+
+* Fix a security issue where secrets are being reused for multiple certificates and secrets are not being rotated during certificate rotation [#979](https://github.com/gravitational/gravity/pull/979).
+
+!!! warning
+    This release fixes a security vulnerability in gravity.
+
+### 6.1.14 (December 19th, 2019)
+
+#### Improvements
+
+* Add ability to override Helm values during tele build [#909](https://github.com/gravitational/gravity/pull/909).
+
+#### Bugfixes
+
+* Fix a security issue where secrets are being reused for multiple certificates and secrets are not being rotated during certificate rotation [#980](https://github.com/gravitational/gravity/pull/980).
+* Fix an issue where node labels specified within the app.yaml could prevent cluster installation [#954](https://github.com/gravitational/gravity/pull/954).
+* Prevent deletion of the base app [#966](https://github.com/gravitational/gravity/pull/966).
+* Fix a performance issue with displaying cluster endpoints [#952](https://github.com/gravitational/gravity/pull/952)
+* Fix a display issue with how the join command is displayed [#933](https://github.com/gravitational/gravity/pull/933).
+* Expose the teleport kubernetes proxy as part of the gravity-site load balancer [#913](https://github.com/gravitational/gravity/pull/913).
+
+
+!!! warning
+    This release fixes a security vulnerability in gravity.
 
 ### 6.3.0 (December 18th, 2019)
 
@@ -454,6 +482,16 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 * Add support for using `helm` directly from host.
 
 ## 5.x Releases
+
+### 5.5.31 (December 19th, 2019)
+
+#### Bugfixes
+
+* Fix a security issue where secrets are being reused for multiple certificates and secrets are not being rotated during certificate rotation [#981](https://github.com/gravitational/gravity/pull/981).
+
+!!! warning
+    This release fixes a security vulnerability in gravity.
+
 
 ### 5.5.28 (November 4th, 2019)
 
