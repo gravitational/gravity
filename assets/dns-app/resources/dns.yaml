@@ -101,7 +101,6 @@ spec:
       tolerations:
         - operator: "Exists"
       nodeSelector:
-        kubernetes.io/os: linux
         gravitational.io/k8s-role: master
       containers:
       - name: coredns
@@ -184,7 +183,6 @@ spec:
       tolerations:
         - operator: "Exists"
       nodeSelector:
-        kubernetes.io/os: linux
         gravitational.io/k8s-role: node
       containers:
       - name: coredns
