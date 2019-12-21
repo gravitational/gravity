@@ -7,9 +7,9 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 6.3.1         | No  | December 20th, 2019  | -                    | 1.17.0             | 3.2.13           |
+| 6.3.2         | No  | December 20th, 2019  | -                    | 1.17.0             | 3.2.13           |
 | 6.2.5*        | No  | December 3rd, 2019   | -                    | 1.16.3             | 3.2.13           |
-| 6.1.14        | Yes | December 20th, 2019  | November 10th, 2021  | 1.15.5             | 3.2.12           |
+| 6.1.15        | Yes | December 20th, 2019  | November 10th, 2021  | 1.15.5             | 3.2.12           |
 | 6.0.10*       | No  | October 17th, 2019   | -                    | 1.14.7             | 3.2.12           |
 | 5.6.8*        | No  | September 18th, 2019 | -                    | 1.14.7             | 3.0.6-gravity    |
 | 5.5.31        | Yes | December 20th, 2019  | September 7th, 2020  | 1.13.11            | 3.0.6-gravity    |
@@ -37,6 +37,18 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     See [Direct Upgrades From Older LTS Versions](/pack/#direct-upgrades-from-older-lts-versions) for details.
 
 ## 6.x Releases
+
+### 6.3.2 (December 20th, 2019)
+
+#### Bugfixes
+
+* Fix an issue with CoreDNS pods not being scheduled due to discrepancy between node selector and node labels ([#985](https://github.com/gravitational/gravity/pull/985)).
+
+### 6.1.15 (December 20th, 2019)
+
+#### Bugfixes
+
+* Fix an issue with CoreDNS pods not being scheduled due to discrepancy between node selector and node labels ([#986](https://github.com/gravitational/gravity/pull/986)).
 
 ### 6.3.1 (December 20th, 2019)
 
