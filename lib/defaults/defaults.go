@@ -986,6 +986,8 @@ const (
 
 	// HubBucket is the name of S3 bucket that stores binaries and artifacts
 	HubBucket = "hub.gravitational.io"
+	// HubAddress is the address of the open-source Hub
+	HubAddress = "s3://hub.gravitational.io"
 	// HubTelekubePrefix is key prefix under which Telekube artifacts are stored
 	HubTelekubePrefix = "gravity/oss"
 
