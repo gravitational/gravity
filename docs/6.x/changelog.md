@@ -495,13 +495,13 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 ## 5.x Releases
 
-### 5.5.32 (December 23rd, 2019)
+### 5.5.32 LTS (December 23rd, 2019)
 
 #### Bugfixes
 
 * Fix the issue with installing cluster images that require a license ([#990](https://github.com/gravitational/gravity/pull/990)).
 
-### 5.5.31 (December 20th, 2019)
+### 5.5.31 LTS (December 20th, 2019)
 
 #### Bugfixes
 
@@ -511,13 +511,13 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     This release fixes a security vulnerability in gravity.
 
 
-### 5.5.28 (November 4th, 2019)
+### 5.5.28 LTS (November 4th, 2019)
 
 #### Bugfixes
 
 * Fix the issue with join operation failing if started while installer is still running ([#861](https://github.com/gravitational/gravity/pull/861)).
 
-### 5.5.27 (November 1st, 2019)
+### 5.5.27 LTS (November 1st, 2019)
 
 #### Improvements
 
@@ -531,7 +531,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 * Fix the issue with application-only (without runtime) upgrades ([#847](https://github.com/gravitational/gravity/pull/847)).
 * Restore `procps` package in the planet container ([#851](https://github.com/gravitational/gravity/pull/851), [planet#525](https://github.com/gravitational/planet/pull/525)).
 
-### 5.5.26 (October 17th, 2019)
+### 5.5.26 LTS (October 17th, 2019)
 
 #### Bugfixes
 
