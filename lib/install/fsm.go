@@ -248,7 +248,7 @@ func (f *fsmEngine) GetExecutor(p fsm.ExecutorParams, remote fsm.Remote) (fsm.Ph
 // RunCommand executes the phase specified by params on the specified server
 // using the provided runner
 func (f *fsmEngine) RunCommand(ctx context.Context, runner rpc.RemoteRunner, server storage.Server, p fsm.Params) error {
-	args := []string{"plan", "execute", "--phase", p.PhaseID}
+	args := []string{"install", "--phase", p.PhaseID}
 	if p.Force {
 		args = append(args, "--force")
 	}
