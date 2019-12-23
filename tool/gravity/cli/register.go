@@ -677,9 +677,6 @@ func RegisterCommands(app *kingpin.Application) *Application {
 
 	g.SystemStreamRuntimeJournalCmd.CmdClause = g.SystemCmd.Command("stream-runtime-journal", "Stream runtime journal to stdout").Hidden()
 
-	g.SystemRestoreFilecontextsCmd.CmdClause = g.SystemCmd.Command("restore-fcontext", "Restore file contexts on a SELinux-enabled system").Hidden()
-	g.SystemRestoreFilecontextsCmd.Path = g.SystemRestoreFilecontextsCmd.Arg("path", "Path to restore file contexts").Required().String()
-
 	g.SystemSelinuxBootstrapCmd.CmdClause = g.SystemCmd.Command("selinux-bootstrap", "Configure SELinux file contexts and ports on the node")
 	g.SystemSelinuxBootstrapCmd.Path = g.SystemSelinuxBootstrapCmd.Flag("output", "Path to output file for bootstrap script").String()
 	g.SystemSelinuxBootstrapCmd.VxlanPort = g.SystemSelinuxBootstrapCmd.Flag("vxlan-port", "Custom vxlan port").Int()

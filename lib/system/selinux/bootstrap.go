@@ -73,6 +73,8 @@ type BootstrapConfig struct {
 	// VxlanPort specifies the custom vxlan port.
 	// Defaults to defaults.VxlanPort
 	VxlanPort int
+	// Force forces the update of the policy
+	Force bool
 }
 
 func (r *BootstrapConfig) checkAndSetDefaults() error {

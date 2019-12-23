@@ -5,7 +5,7 @@ package main
 import (
 	"github.com/gravitational/gravity/lib/system/selinux"
 
-	"github.com/shurcooL/vfsgen"
+	"github.com/gravitational/vfsgen"
 	log "github.com/sirupsen/logrus"
 )
 
