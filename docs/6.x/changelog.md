@@ -12,7 +12,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 | 6.1.15        | Yes | December 20th, 2019  | November 10th, 2021  | 1.15.5             | 3.2.12           |
 | 6.0.10*       | No  | October 17th, 2019   | -                    | 1.14.7             | 3.2.12           |
 | 5.6.8*        | No  | September 18th, 2019 | -                    | 1.14.7             | 3.0.6-gravity    |
-| 5.5.31        | Yes | December 20th, 2019  | September 7th, 2020  | 1.13.11            | 3.0.6-gravity    |
+| 5.5.32        | Yes | December 23rd, 2019  | September 7th, 2020  | 1.13.11            | 3.0.6-gravity    |
 | 5.4.10*       | No  | March 26th, 2019     | -                    | 1.13.5             | 2.4.10           |
 | 5.3.9*        | No  | March 7th, 2019      | -                    | 1.12.3             | 2.4.7            |
 | 5.2.16        | Yes | October 11th, 2019   | October 15th, 2019   | 1.11.9             | 2.4.10           |
@@ -495,7 +495,13 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 ## 5.x Releases
 
-### 5.5.31 (December 20th, 2019)
+### 5.5.32 LTS (December 23rd, 2019)
+
+#### Bugfixes
+
+* Fix the issue with installing cluster images that require a license ([#990](https://github.com/gravitational/gravity/pull/990)).
+
+### 5.5.31 LTS (December 20th, 2019)
 
 #### Bugfixes
 
@@ -505,13 +511,13 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     This release fixes a security vulnerability in gravity.
 
 
-### 5.5.28 (November 4th, 2019)
+### 5.5.28 LTS (November 4th, 2019)
 
 #### Bugfixes
 
 * Fix the issue with join operation failing if started while installer is still running ([#861](https://github.com/gravitational/gravity/pull/861)).
 
-### 5.5.27 (November 1st, 2019)
+### 5.5.27 LTS (November 1st, 2019)
 
 #### Improvements
 
@@ -525,7 +531,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 * Fix the issue with application-only (without runtime) upgrades ([#847](https://github.com/gravitational/gravity/pull/847)).
 * Restore `procps` package in the planet container ([#851](https://github.com/gravitational/gravity/pull/851), [planet#525](https://github.com/gravitational/planet/pull/525)).
 
-### 5.5.26 (October 17th, 2019)
+### 5.5.26 LTS (October 17th, 2019)
 
 #### Bugfixes
 
