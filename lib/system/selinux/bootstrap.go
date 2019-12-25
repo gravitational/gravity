@@ -12,6 +12,7 @@ import (
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/gravitational/satellite/monitoring"
 	"github.com/gravitational/trace"
 	"github.com/opencontainers/selinux/go-selinux"
 	log "github.com/sirupsen/logrus"
@@ -22,7 +23,14 @@ func Bootstrap(config BootstrapConfig) error {
 	if err := config.checkAndSetDefaults(); err != nil {
 		return trace.Wrap(err)
 	}
-	if err := utils.WithTempDir(installDefaultPolicy, "policy"); err != nil {
+	metadata, err := monitoring.GetOSRelease()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = utils.WithTempDir(func(dir string) error {
+		return installDefaultPolicy(dir, *metadata)
+	}, "policy")
+	if err != nil {
 		return trace.Wrap(err)
 	}
 	return importLocalChanges(config)
@@ -87,11 +95,17 @@ func (r *BootstrapConfig) checkAndSetDefaults() error {
 	return nil
 }
 
-func installDefaultPolicy(dir string) error {
+func installDefaultPolicy(dir string, metadata monitoring.OSRelease) error {
 	for _, policy := range []string{"container.pp.bz2", "gravity.pp.bz2"} {
-		f, err := Policy.Open(policy)
-		if err != nil {
+		f, err := Policy.Open(filepath.Join(metadata.ID, policy))
+		if err != nil && !trace.IsNotFound(err) {
 			return trace.Wrap(err)
+		}
+		if trace.IsNotFound(err) {
+			f, err = Policy.Open(filepath.Join(defaultRelease, policy))
+			if err != nil {
+				return trace.Wrap(err)
+			}
 		}
 		defer f.Close()
 		path := filepath.Join(dir, policy)
@@ -190,3 +204,8 @@ fcontext -d -f a '{{.Path}}/.gravity(/.*)?'
 fcontext -d -f f '{{.Path}}/.gravity/gravity-(installer|agent)\.service'
 fcontext -d -f s '{{.Path}}/.gravity/installer\.sock'
 `))
+
+// defaultRelease specifies the default OS distribution name
+// that defines the policy files to use if the existing distribution
+// is not supported
+const defaultRelease = "centos"

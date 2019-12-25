@@ -57,7 +57,7 @@ func updateTrigger(
 	localEnv *localenv.LocalEnvironment,
 	updateEnv *localenv.LocalEnvironment,
 	updatePackage string,
-	manual, noValidateVersion bool,
+	manual, noValidateVersion, selinux bool,
 ) error {
 	ctx := context.TODO()
 	updater, err := newClusterUpdater(ctx, localEnv, updateEnv, updatePackage, manual, noValidateVersion)

@@ -441,6 +441,7 @@ func (i *InstallConfig) NewInstallerConfig(
 		Packages:           wizard.Packages,
 		Operator:           wizard.Operator,
 		LocalAgent:         !i.Remote,
+		SELinux:            i.SELinux,
 	}, nil
 
 }

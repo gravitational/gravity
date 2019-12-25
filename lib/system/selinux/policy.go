@@ -23,7 +23,7 @@ func newPolicyFS(fs http.FileSystem) policyFS {
 func (r policyFS) Open(name string) (http.File, error) {
 	f, err := r.fs.Open(name)
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return nil, trace.ConvertSystemError(err)
 	}
 	return policyFile{File: f}, nil
 }

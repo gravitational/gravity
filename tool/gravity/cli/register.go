@@ -177,6 +177,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.UpdateTriggerCmd.CmdClause = g.UpdateCmd.Command("trigger", "Trigger an upgrade operation for the given cluster image.").Hidden()
 	g.UpdateTriggerCmd.App = g.UpdateTriggerCmd.Arg("image", "Cluster image version to upgrade to in the 'name:version' or 'name' (for latest version) format.").String()
 	g.UpdateTriggerCmd.Manual = g.UpdateTriggerCmd.Flag("manual", "Manual operation. Do not trigger automatic update.").Short('m').Bool()
+	g.UpdateTriggerCmd.SELinux = g.UpdateTriggerCmd.Flag("selinux", "Run with SELinux support.").Bool()
 	g.UpdateTriggerCmd.SkipVersionCheck = g.UpdateTriggerCmd.Flag("skip-version-check", "Bypass version compatibility check.").Hidden().Bool()
 
 	g.UpdatePlanInitCmd.CmdClause = g.UpdateCmd.Command("init-plan", "Initialize operation plan.").Hidden()
@@ -185,6 +186,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.UpgradeCmd.CmdClause = g.Command("upgrade", "Trigger an upgrade operation.").Hidden()
 	g.UpgradeCmd.App = g.UpgradeCmd.Arg("image", "Cluster image version to upgrade to in the 'name:version' or 'name' (for latest version) format. Defaults to the local cluster image.").String()
 	g.UpgradeCmd.Manual = g.UpgradeCmd.Flag("manual", "Manual upgrade mode.").Short('m').Bool()
+	g.UpgradeCmd.SELinux = g.UpgradeCmd.Flag("selinux", "Run with SELinux support.").Bool()
 	g.UpgradeCmd.Phase = g.UpgradeCmd.Flag("phase", "Operation phase to execute.").String()
 	g.UpgradeCmd.Timeout = g.UpgradeCmd.Flag("timeout", "Phase execution timeout.").Default(defaults.PhaseTimeout).Hidden().Duration()
 	g.UpgradeCmd.Force = g.UpgradeCmd.Flag("force", "Force phase execution even if pre-conditions are not satisfied.").Bool()

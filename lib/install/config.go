@@ -138,6 +138,9 @@ type Config struct {
 	Packages pack.PackageService
 	// LocalAgent specifies whether the installer will also run an agent
 	LocalAgent bool
+	// SELinux specifies whether the installer runs with SELinux support.
+	// This makes the installer run in its own domain
+	SELinux bool
 }
 
 // checkAndSetDefaults checks the parameters and autodetects some defaults
