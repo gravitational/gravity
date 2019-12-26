@@ -74,7 +74,7 @@ func pull(env localenv.LocalEnvironment, app, outFile string, force, quiet bool)
 	}
 	defer f.Close()
 
-	progress := utils.NewProgress(context.TODO(), "Download", 1, quiet)
+	progress := utils.NewProgress(context.TODO(), "Download", 0, quiet)
 	defer progress.Stop()
 
 	progress.NextStep(fmt.Sprintf("Downloading %v:%v", name, locator.Version))
