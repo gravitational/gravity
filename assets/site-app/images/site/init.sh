@@ -25,8 +25,8 @@ sed -i -E "s/devmode:.+/devmode: $DEVMODE/g" /var/lib/gravity/resources/config/g
 # create all resources
 #
 
-# create empty hub configuration
-/usr/local/bin/kubectl apply -f /var/lib/gravity/resources/opscenter.yaml
+# create empty hub configuration, ignore if already exists
+/usr/local/bin/kubectl create -f /var/lib/gravity/resources/opscenter.yaml || true
 
 # create config from directory
 if ! silent_kubectl get configmap/gravity-site --namespace=kube-system ; then
