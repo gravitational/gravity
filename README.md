@@ -173,7 +173,7 @@ To contribute, please read the [contribution guidelines](./CONTRIBUTING.md).
 
 ## Talk to us
 
-* Want to join our team to hack on Gravity? [We are always hiring!](https://gravitational.com/careers/systems-engineer/)
+* Want to join our team to hack on Gravity? [We are always hiring!](https://gravitational.breezy.hr/)
 * Want to stop managing Kubernetes and have autonomous appliance-like clusters?
 * Want to take your complex SaaS application and convert it into a downloadable
   appliance so your customers can run it on their own AWS account or in a colo?
