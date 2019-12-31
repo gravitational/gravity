@@ -594,7 +594,7 @@ func diskSpaceProbeErrorDetail(p pb.Probe) (string, error) {
 		return p.Detail, nil
 	}
 	// if status command was run inside planet, the default error message is fine
-	if utils.RunningInPlanet() {
+	if utils.CheckInPlanet() {
 		return p.Detail, nil
 	}
 	// otherwise determine the real state directory on host and reconstruct the message

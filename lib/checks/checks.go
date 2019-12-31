@@ -336,7 +336,7 @@ func (r *checker) Run(ctx context.Context) error {
 	failed = append(failed, r.CheckNodes(ctx, r.Servers)...)
 
 	if len(failed) != 0 {
-		return trace.BadParameter("following checks failed:\n%v",
+		return trace.BadParameter("The following checks failed:\n%v",
 			FormatFailedChecks(failed))
 	}
 

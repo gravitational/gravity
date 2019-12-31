@@ -286,10 +286,6 @@ type PeerConfig struct {
 	// SkipWizard specifies to the peer agents that the peer is not a wizard
 	// and attempts to contact the wizard should be skipped
 	SkipWizard bool
-	// UserLogFile is the log file where user-facing operation logs go
-	UserLogFile string
-	// SystemLogFile is the log file for system logs
-	SystemLogFile string
 }
 
 // CheckAndSetDefaults checks the parameters and autodetects some defaults
@@ -1088,8 +1084,6 @@ func (p *Peer) newInstallFSM(ctx operationContext) (*fsm.FSM, error) {
 		LocalApps:          p.LocalApps,
 		LocalPackages:      p.LocalPackages,
 		Insecure:           p.Insecure,
-		UserLogFile:        p.UserLogFile,
-		SystemLogFile:      p.SystemLogFile,
 	})
 }
 
@@ -1106,8 +1100,6 @@ func (p *Peer) newJoinFSM(ctx operationContext) (*fsm.FSM, error) {
 		Credentials:   ctx.Creds.Client,
 		DebugMode:     p.DebugMode,
 		Insecure:      p.Insecure,
-		UserLogFile:   p.UserLogFile,
-		SystemLogFile: p.SystemLogFile,
 	})
 }
 

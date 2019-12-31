@@ -90,7 +90,7 @@ func (p *checksExecutor) Execute(ctx context.Context) error {
 	failed := checker.CheckNode(ctx, *node)
 	failed = append(failed, checker.CheckNodes(ctx, []checks.Server{*master, *node})...)
 	if len(failed) != 0 {
-		return trace.BadParameter("following checks failed:\n%v",
+		return trace.BadParameter("The following checks failed:\n%v",
 			checks.FormatFailedChecks(failed))
 	}
 	return nil

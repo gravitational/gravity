@@ -34,17 +34,6 @@ func (b *backend) CreateProvisioningToken(t storage.ProvisioningToken) (*storage
 	return &t, nil
 }
 
-func (b *backend) UpdateProvisioningToken(t storage.ProvisioningToken) (*storage.ProvisioningToken, error) {
-	if err := t.Check(); err != nil {
-		return nil, trace.Wrap(err)
-	}
-	err := b.updateVal(b.key(provisioningTokensP, t.Token), t, b.ttl(t.Expires))
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return &t, nil
-}
-
 func (b *backend) DeleteProvisioningToken(token string) error {
 	if token == "" {
 		return trace.BadParameter("missing token")

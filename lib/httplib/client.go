@@ -279,7 +279,7 @@ func DialWithServiceResolver(ctx context.Context, network, addr string) (conn ne
 	log.Infof("Dialing service %v in namespace %v.", serviceName, namespace)
 
 	kubeconfigPath := constants.Kubeconfig
-	if !utils.RunningInPlanet() {
+	if !utils.CheckInPlanet() {
 		kubeconfigPath, err = getKubeconfigPath()
 		if err != nil {
 			return nil, trace.Wrap(err, "failed to resolve %v://%v using kubernetes service resolver",

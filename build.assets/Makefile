@@ -594,9 +594,7 @@ $(SELINUX_OUT): | $(GRAVITY_BUILDDIR)
 		git checkout $(SELINUX_BRANCH) && \
 		git pull origin $(SELINUX_BRANCH) && git submodule update --init --recursive && \
 		make -C $(BUILDDIR)/selinux && \
-		cp gravity.if $(BUILDDIR)/selinux/output/ && \
-		cp container-selinux/container.if $(BUILDDIR)/selinux/output/ && \
-		tar czf $@ -C $(BUILDDIR)/selinux/output gravity.if container.if gravity.pp.bz2 container.pp.bz2; \
+		tar czf $@ -C $(BUILDDIR)/selinux/output gravity.pp.bz2 container.pp.bz2; \
 	fi
 
 #

@@ -32,7 +32,9 @@ import (
 	"github.com/gravitational/gravity/lib/install/dispatcher"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/schema"
+	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/system/environ"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/fatih/color"
@@ -120,6 +122,10 @@ func (r *executor) bootstrap() error {
 	err := install.InstallBinary(r.config.ServiceUser.UID, r.config.ServiceUser.GID, r.FieldLogger)
 	if err != nil {
 		return trace.Wrap(err, "failed to install binary")
+	}
+	err = configureStateDirectory(r.config.SystemDevice)
+	if err != nil {
+		return trace.Wrap(err, "failed to configure state directory")
 	}
 	return nil
 }
@@ -269,6 +275,16 @@ func formatProfiles(profiles map[string]int, addr, token string) string {
 	}
 	w.Flush()
 	return buf.String()
+}
+
+// configureStateDirectory configures local gravity state directory
+func configureStateDirectory(systemDevice string) error {
+	stateDir, err := state.GetStateDir()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = environ.ConfigureStateDirectory(stateDir, systemDevice)
+	return trace.Wrap(err)
 }
 
 func formatNeededAndExtra(needed map[string]int, extra []checks.ServerInfo) string {

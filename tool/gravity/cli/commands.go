@@ -292,11 +292,6 @@ type Application struct {
 	SystemExportRuntimeJournalCmd SystemExportRuntimeJournalCmd
 	// SystemStreamRuntimeJournalCmd streams contents of the runtime journal to a file
 	SystemStreamRuntimeJournalCmd SystemStreamRuntimeJournalCmd
-	// SystemRestoreFilecontextsCmd restores file contexts of files in the specified directory
-	// on a SELinux-enabled system
-	SystemRestoreFilecontextsCmd SystemRestoreFilecontextsCmd
-	// SystemRunCommandFromJailCmd executes a command in a jail environment
-	SystemRunCommandFromJailCmd SystemRunCommandFromJailCmd
 	// SystemSelinuxBootstrapCmd configures SELinux file contexts and ports on the node
 	SystemSelinuxBootstrapCmd SystemSelinuxBootstrapCmd
 	// SystemGCJournalCmd cleans up stale journal files
@@ -305,10 +300,6 @@ type Application struct {
 	SystemGCPackageCmd SystemGCPackageCmd
 	// SystemGCRegistryCmd removes unused docker images
 	SystemGCRegistryCmd SystemGCRegistryCmd
-	// PolicyCmd manages the gravity SELinux policy
-	PolicyCmd PolicyCmd
-	// PolicyInstallCmd installs the gravity SELinux policy
-	PolicyInstallCmd PolicyInstallCmd
 	// GarbageCollectCmd prunes unused resources (package/journal files/docker images)
 	// in the cluster
 	GarbageCollectCmd GarbageCollectCmd
@@ -1601,24 +1592,6 @@ type SystemStreamRuntimeJournalCmd struct {
 	*kingpin.CmdClause
 }
 
-// SystemRestoreFilecontextsCmd restores file contexts in the specified path
-// on a SELinux-enabled system
-type SystemRestoreFilecontextsCmd struct {
-	*kingpin.CmdClause
-	// Path specifies the root directory to restore contexts in
-	Path *string
-}
-
-// SystemRunCommandFromJailCmd executes the specified command in a new jail environment
-// with given Path set as new root directory
-type SystemRunCommandFromJailCmd struct {
-	*kingpin.CmdClause
-	// Path specifies the root directory to restore contexts in
-	Path *string
-	// Args specifies the command and any arguments
-	Args *[]string
-}
-
 // SystemSelinuxBootstrapCmd configures SELinux file contexts and ports on the node
 type SystemSelinuxBootstrapCmd struct {
 	*kingpin.CmdClause
@@ -1660,18 +1633,6 @@ type SystemGCRegistryCmd struct {
 	// DryRun displays the images to be removed
 	// without actually removing anything
 	DryRun *bool
-}
-
-// PolicyCmd manages the gravity SELinux policy
-type PolicyCmd struct {
-	*kingpin.CmdClause
-}
-
-// PolicyInstallCmd installs the SELinux policy on a node
-type PolicyInstallCmd struct {
-	*kingpin.CmdClause
-	// Addr specifies the address of either the wizard or cluster controller
-	Addr *string
 }
 
 // GarbageCollectCmd prunes unused cluster resources

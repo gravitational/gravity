@@ -434,17 +434,3 @@ func CopyWithRetries(ctx context.Context, targetPath string, open func() (io.Rea
 	})
 	return trace.Wrap(err)
 }
-
-// TempFileFromReader creates a new file in tempDir with the given name pattern.
-// Returns the path to the created file or an error.
-// Caller is responsible to removing the file after use.
-// For semantics of tempDir and pattern see https://godoc.org/io/ioutil#TempFile.
-func TempFileFromReader(tempDir, pattern string, r io.Reader) (path string, err error) {
-	f, err := ioutil.TempFile(tempDir, pattern)
-	if err != nil {
-		return "", trace.ConvertSystemError(err)
-	}
-	defer f.Close()
-	_, err = io.Copy(f, r)
-	return f.Name(), trace.ConvertSystemError(err)
-}

@@ -73,8 +73,6 @@ type FSMConfig struct {
 	Insecure bool
 	// UserLogFile is the user-friendly install log file
 	UserLogFile string
-	// SystemLogFile is the system install log file
-	SystemLogFile string
 	// ReportProgress controls whether engine should report progress to Operator
 	ReportProgress bool
 	// DNSConfig specifies the DNS configuration to use

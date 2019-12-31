@@ -683,14 +683,6 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.SystemSelinuxBootstrapCmd.Path = g.SystemSelinuxBootstrapCmd.Flag("output", "Path to output file for bootstrap script").String()
 	g.SystemSelinuxBootstrapCmd.VxlanPort = g.SystemSelinuxBootstrapCmd.Flag("vxlan-port", "Custom vxlan port").Int()
 
-	g.SystemRunCommandFromJailCmd.CmdClause = g.SystemCmd.Command("exec-jail", "Run command in a jail environment").Interspersed(false).Hidden()
-	g.SystemRunCommandFromJailCmd.Path = g.SystemRunCommandFromJailCmd.Flag("path", "Path to use as new root").Required().String()
-	g.SystemRunCommandFromJailCmd.Args = g.SystemRunCommandFromJailCmd.Arg("args", "Command and any arguments").Strings()
-
-	g.PolicyCmd.CmdClause = g.Command("policy", "Manage gravity SELinux policy")
-	g.PolicyInstallCmd.CmdClause = g.PolicyCmd.Command("install", "Install policy and bootstrap the installer").Hidden()
-	g.PolicyInstallCmd.Addr = g.PolicyInstallCmd.Flag("addr", "Address of the cluster controller").String()
-
 	// pruning cluster resources
 	g.GarbageCollectCmd.CmdClause = g.Command("gc", "Prune cluster resources")
 	g.GarbageCollectCmd.Manual = g.GarbageCollectCmd.Flag("manual", "Do not start the operation automatically").Short('m').Bool()

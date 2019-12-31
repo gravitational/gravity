@@ -65,10 +65,6 @@ type FSMConfig struct {
 	DebugMode bool
 	// Insecure turns on FSM insecure mode
 	Insecure bool
-	// UserLogFile is the log file where user-facing operation logs go
-	UserLogFile string
-	// SystemLogFile is the log file for system logs
-	SystemLogFile string
 }
 
 // CheckAndSetDefaults validates expand FSM configuration and sets defaults

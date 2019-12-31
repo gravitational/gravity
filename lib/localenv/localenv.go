@@ -350,15 +350,8 @@ func (env *LocalEnvironment) PackageService(opsCenterURL string, options ...http
 		return nil, trace.Wrap(err)
 	}
 
-	return env.PackageServiceWithOptions(entry, options...)
-}
-
-// PackageService returns a service managing gravity packages on the specified OpsCenter
-// or the local packages if the OpsCenter has not been specified.
-func (env *LocalEnvironment) PackageServiceWithOptions(entry *users.LoginEntry, options ...httplib.ClientOption) (pack.PackageService, error) {
-	// TODO
 	httpClient := roundtrip.HTTPClient(env.HTTPClient(options...))
-	client, err := newPackClient(*entry, entry.OpsCenterURL, httpClient)
+	client, err := newPackClient(*entry, opsCenterURL, httpClient)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
