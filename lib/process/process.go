@@ -621,6 +621,67 @@ func (p *Process) runRegistrySynchronizer(ctx context.Context) {
 	}
 }
 
+func (p *Process) reconcileNodeLabels(client *kubernetes.Clientset) error {
+	cluster, err := p.operator.GetLocalSite()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	nodes, err := utils.GetNodes(client.CoreV1().Nodes())
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	for ip, node := range nodes {
+		server, err := cluster.ClusterState.FindServerByIP(ip)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		profile, err := cluster.App.Manifest.NodeProfiles.ByName(server.Role)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		requiredLabels := server.GetNodeLabels(profile.Labels)
+		missingLabels := make(map[string]string)
+		for key, val := range requiredLabels {
+			if _, ok := node.Labels[key]; !ok {
+				missingLabels[key] = val
+			}
+		}
+		if len(missingLabels) != 0 {
+			p.Infof("Adding missing labels to node %v/%v: %v.", node.Name, ip, missingLabels)
+			for key, val := range missingLabels {
+				node.Labels[key] = val
+				_, err := client.CoreV1().Nodes().Update(&node)
+				if err != nil {
+					return trace.Wrap(err)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (p *Process) runNodeLabelsReconciler(client *kubernetes.Clientset) clusterService {
+	return func(ctx context.Context) {
+		p.Info("Starting node labels reconciler.")
+		if err := p.reconcileNodeLabels(client); err != nil {
+			p.WithError(err).Error("Failed to reconcile node labels.")
+		}
+		ticker := time.NewTicker(defaults.NodeLabelsReconcileInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				if err := p.reconcileNodeLabels(client); err != nil {
+					p.WithError(err).Error("Failed to reconcile node labels.")
+				}
+			case <-ctx.Done():
+				p.Info("Stopping node labels reconciler.")
+				return
+			}
+		}
+	}
+}
+
 // runSiteStatusChecker periodically invokes app status hook; should be run in a goroutine
 func (p *Process) runSiteStatusChecker(ctx context.Context) {
 	p.Info("Starting cluster status checker.")
@@ -1324,6 +1385,7 @@ func (p *Process) initService(ctx context.Context) (err error) {
 		p.startService(p.runReloadEventsWatch(client))
 		p.startService(p.runRegistrySynchronizer)
 		p.startService(p.runApplicationsSynchronizer)
+		p.startService(p.runNodeLabelsReconciler(client))
 
 		if err := p.startAutoscale(p.context); err != nil {
 			return trace.Wrap(err)

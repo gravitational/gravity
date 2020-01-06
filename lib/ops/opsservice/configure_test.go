@@ -200,8 +200,15 @@ multizone=true`,
 		"docker-backend":  {"overlay2"},
 		"docker-options":  {"--storage-opt=overlay2.override_kernel_check=1"},
 		"kubelet-config":  {base64.StdEncoding.EncodeToString(configBytes)},
-		"service-subnet":  {"10.0.0.1/8"},
-		"pod-subnet":      {"10.0.1.1/8"},
+		"node-label": {
+			"gravitational.io/advertise-ip=172.12.13.0",
+			"gravitational.io/k8s-role=master",
+			"kubernetes.io/arch=amd64",
+			"kubernetes.io/hostname=172.12.13.0",
+			"kubernetes.io/os=linux",
+		},
+		"service-subnet": {"10.0.0.1/8"},
+		"pod-subnet":     {"10.0.1.1/8"},
 	}))
 	assertFeatures(features, []string{"FeatureA=true", "FeatureB=false"}, c)
 }
@@ -290,8 +297,15 @@ func (s *ConfigureSuite) TestCanSetCloudProviderWithoutCloudConfig(c *check.C) {
 		"dns-port":        {"53"},
 		"docker-backend":  {"overlay2"},
 		"docker-options":  {"--storage-opt=overlay2.override_kernel_check=1"},
-		"service-subnet":  {"10.0.0.1/8"},
-		"pod-subnet":      {"10.0.1.1/8"},
+		"node-label": {
+			"gravitational.io/advertise-ip=172.12.13.0",
+			"gravitational.io/k8s-role=master",
+			"kubernetes.io/arch=amd64",
+			"kubernetes.io/hostname=172.12.13.0",
+			"kubernetes.io/os=linux",
+		},
+		"service-subnet": {"10.0.0.1/8"},
+		"pod-subnet":     {"10.0.1.1/8"},
 	}))
 }
 

@@ -37,7 +37,6 @@ import (
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/utils"
-	"k8s.io/helm/pkg/repo"
 
 	teleservices "github.com/gravitational/teleport/lib/services"
 	teleutils "github.com/gravitational/teleport/lib/utils"
@@ -45,6 +44,8 @@ import (
 	"github.com/gravitational/trace"
 	"github.com/jonboulle/clockwork"
 	"github.com/tstranex/u2f"
+	"k8s.io/helm/pkg/repo"
+	kubeletapis "k8s.io/kubernetes/pkg/kubelet/apis"
 )
 
 // Accounts collection modifies and updates account entries,
@@ -1627,6 +1628,22 @@ func (s *Server) GetNodeLabels(profileLabels map[string]string) map[string]strin
 		}
 	}
 	return labels
+}
+
+// GetKubeletLabels returns the node's labels that can be set by kubelet.
+func (s *Server) GetKubeletLabels(profileLabels map[string]string) map[string]string {
+	allLabels := s.GetNodeLabels(profileLabels)
+	result := make(map[string]string)
+	for key, val := range allLabels {
+		if utils.IsKubernetesLabel(key) {
+			if kubeletapis.IsKubeletLabel(key) {
+				result[key] = val
+			}
+		} else {
+			result[key] = val
+		}
+	}
+	return result
 }
 
 // Strings formats this server as readable text

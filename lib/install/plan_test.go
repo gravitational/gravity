@@ -219,7 +219,6 @@ func (s *PlanSuite) TestPlan(c *check.C) {
 		{phases.MastersPhase, s.verifyMastersPhase},
 		{phases.NodesPhase, s.verifyNodesPhase},
 		{phases.WaitPhase, s.verifyWaitPhase},
-		{phases.RegisterNodesPhase, s.verifyRegisterNodesPhase},
 		{phases.RBACPhase, s.verifyRBACPhase},
 		{phases.CorednsPhase, s.verifyCorednsPhase},
 		{phases.SystemResourcesPhase, s.verifySystemResourcesPhase},
@@ -405,34 +404,6 @@ func (s *PlanSuite) verifyWaitPhase(c *check.C, phase storage.OperationPhase) {
 			Server: &s.masterNode,
 		},
 		Requires: []string{phases.MastersPhase, phases.NodesPhase},
-	}, phase)
-}
-
-func (s *PlanSuite) verifyRegisterNodesPhase(c *check.C, phase storage.OperationPhase) {
-	storage.DeepComparePhases(c, storage.OperationPhase{
-		ID: phases.RegisterNodesPhase,
-		Phases: []storage.OperationPhase{
-			{
-				ID: fmt.Sprintf("%v/%v", phases.RegisterNodesPhase, s.masterNode.Hostname),
-				Data: &storage.OperationPhaseData{
-					Server:     &s.masterNode,
-					ExecServer: &s.masterNode,
-					Package:    &s.installer.config.App.Package,
-				},
-				Requires: []string{phases.WaitPhase},
-			},
-			{
-				ID: fmt.Sprintf("%v/%v", phases.RegisterNodesPhase, s.regularNode.Hostname),
-				Data: &storage.OperationPhaseData{
-					Server:     &s.regularNode,
-					ExecServer: &s.masterNode,
-					Package:    &s.installer.config.App.Package,
-				},
-				Requires: []string{phases.WaitPhase},
-			},
-		},
-		Requires: []string{phases.WaitPhase},
-		Parallel: true,
 	}, phase)
 }
 

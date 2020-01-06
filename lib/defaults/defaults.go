@@ -581,6 +581,9 @@ const (
 	// AppSyncInterval is how often app images are synced with the local registry
 	AppSyncInterval = 30 * time.Second
 
+	// NodeLabelsReconcileInterval is how often node labels reconciler runs.
+	NodeLabelsReconcileInterval = 1 * time.Minute
+
 	// KubeSystemNamespace is the name of k8s namespace where all our system stuff goes
 	KubeSystemNamespace = "kube-system"
 	// MonitoringNamespace is the name of k8s namespace for the monitoring-related resources
@@ -1147,7 +1150,6 @@ var (
 
 	// TeleportVersion specifies the version of the bundled teleport package as a semver
 	TeleportVersion = semver.New(TeleportVersionString)
-
 
 	// MetricsInterval is the default interval cluster metrics are displayed for.
 	MetricsInterval = time.Hour
