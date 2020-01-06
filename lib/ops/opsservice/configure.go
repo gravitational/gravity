@@ -1029,7 +1029,7 @@ func (s *site) getPlanetConfig(config planetConfig) (args []string, err error) {
 		args = append(args, fmt.Sprintf("--%v=%v", k, v))
 	}
 
-	if config.installExpand.InstallExpand.SELinux {
+	if config.installExpand.InstallExpand.Vars.System.SELinux {
 		args = append(args, "--selinux")
 	}
 
