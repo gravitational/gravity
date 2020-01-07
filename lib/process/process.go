@@ -85,11 +85,13 @@ import (
 
 	"github.com/cloudflare/cfssl/csr"
 	"github.com/gravitational/license/authority"
+	"github.com/gravitational/rigging"
 	"github.com/gravitational/roundtrip"
 	"github.com/gravitational/teleport"
 	"github.com/gravitational/trace"
 	"github.com/julienschmidt/httprouter"
 	"github.com/sirupsen/logrus"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/kubernetes"
 )
@@ -635,16 +637,9 @@ func (p *Process) reconcileNodeLabels(client *kubernetes.Clientset) error {
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		profile, err := cluster.App.Manifest.NodeProfiles.ByName(server.Role)
+		missingLabels, err := getMissingLabels(*cluster, *server, node)
 		if err != nil {
 			return trace.Wrap(err)
-		}
-		requiredLabels := server.GetNodeLabels(profile.Labels)
-		missingLabels := make(map[string]string)
-		for key, val := range requiredLabels {
-			if _, ok := node.Labels[key]; !ok {
-				missingLabels[key] = val
-			}
 		}
 		if len(missingLabels) != 0 {
 			p.Infof("Adding missing labels to node %v/%v: %v.", node.Name, ip, missingLabels)
@@ -652,12 +647,27 @@ func (p *Process) reconcileNodeLabels(client *kubernetes.Clientset) error {
 				node.Labels[key] = val
 				_, err := client.CoreV1().Nodes().Update(&node)
 				if err != nil {
-					return trace.Wrap(err)
+					return rigging.ConvertError(err)
 				}
 			}
 		}
 	}
 	return nil
+}
+
+func getMissingLabels(cluster ops.Site, server storage.Server, node v1.Node) (map[string]string, error) {
+	profile, err := cluster.App.Manifest.NodeProfiles.ByName(server.Role)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	missingLabels := make(map[string]string)
+	requiredLabels := server.GetNodeLabels(profile.Labels)
+	for key, val := range requiredLabels {
+		if _, ok := node.Labels[key]; !ok {
+			missingLabels[key] = val
+		}
+	}
+	return missingLabels, nil
 }
 
 func (p *Process) runNodeLabelsReconciler(client *kubernetes.Clientset) clusterService {
