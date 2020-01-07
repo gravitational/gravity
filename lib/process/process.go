@@ -633,24 +633,32 @@ func (p *Process) reconcileNodeLabels(client *kubernetes.Clientset) error {
 		return trace.Wrap(err)
 	}
 	for ip, node := range nodes {
-		server, err := cluster.ClusterState.FindServerByIP(ip)
-		if err != nil {
-			return trace.Wrap(err)
+		if err := p.reconcileNode(client, *cluster, ip, node); err != nil {
+			p.WithError(err).Errorf("Failed to reconcile labels for node %v/%v.",
+				node.Name, ip)
 		}
-		missingLabels, err := getMissingLabels(*cluster, *server, node)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		if len(missingLabels) != 0 {
-			p.Infof("Adding missing labels to node %v/%v: %v.", node.Name, ip, missingLabels)
-			for key, val := range missingLabels {
-				node.Labels[key] = val
-				_, err := client.CoreV1().Nodes().Update(&node)
-				if err != nil {
-					return rigging.ConvertError(err)
-				}
-			}
-		}
+	}
+	return nil
+}
+
+func (p *Process) reconcileNode(client *kubernetes.Clientset, cluster ops.Site, ip string, node v1.Node) error {
+	server, err := cluster.ClusterState.FindServerByIP(ip)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	missingLabels, err := getMissingLabels(cluster, *server, node)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if len(missingLabels) == 0 {
+		return nil
+	}
+	p.Infof("Adding missing labels to node %v/%v: %v.", node.Name, ip, missingLabels)
+	for key, val := range missingLabels {
+		node.Labels[key] = val
+	}
+	if _, err := client.CoreV1().Nodes().Update(&node); err != nil {
+		return rigging.ConvertError(err)
 	}
 	return nil
 }
