@@ -253,20 +253,6 @@ func (b *planBuilder) AddWaitPhase(plan *storage.OperationPlan) {
 	})
 }
 
-// AddRegisterNodesPhase appends phases to register each node with the cluster
-func (b *planBuilder) AddRegisterNodesPhase(plan *storage.OperationPlan) {
-	plan.Phases = append(plan.Phases, storage.OperationPhase{
-		ID:          installphases.RegisterNodesPhase,
-		Description: fmt.Sprintf("Register %v", b.JoiningNode.Hostname),
-		Data: &storage.OperationPhaseData{
-			Server:     &b.JoiningNode,
-			ExecServer: &b.Master,
-			Package:    &b.Application.Package,
-		},
-		Requires: []string{installphases.BootstrapPhase},
-	})
-}
-
 // AddStopAgentPhase appends phase that stops RPC agent on a master node
 func (b *planBuilder) AddStopAgentPhase(plan *storage.OperationPlan) {
 	plan.Phases = append(plan.Phases, storage.OperationPhase{

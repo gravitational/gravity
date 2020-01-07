@@ -21,10 +21,8 @@ import (
 
 	"github.com/gravitational/gravity/lib/expand/phases"
 	"github.com/gravitational/gravity/lib/fsm"
-	"github.com/gravitational/gravity/lib/httplib"
 	installphases "github.com/gravitational/gravity/lib/install/phases"
 	"github.com/gravitational/gravity/lib/schema"
-	"k8s.io/client-go/kubernetes"
 
 	"github.com/gravitational/trace"
 )
@@ -54,17 +52,6 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 				config.Apps,
 				config.LocalBackend,
 				remote)
-
-		case strings.HasPrefix(p.Phase.ID, installphases.RegisterNodesPhase):
-			client, err := getKubeClient(p)
-			if err != nil {
-				return nil, trace.Wrap(err)
-			}
-			return installphases.NewRegisterNodePhase(p,
-				config.Operator,
-				config.Apps,
-				client,
-			)
 
 		case strings.HasPrefix(p.Phase.ID, installphases.PullPhase):
 			return installphases.NewPull(p,
@@ -127,11 +114,6 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 			return nil, trace.BadParameter("unknown phase %q", p.Phase.ID)
 		}
 	}
-}
-
-func getKubeClient(p fsm.ExecutorParams) (*kubernetes.Clientset, error) {
-	client, _, err := httplib.GetClusterKubeClient(p.Plan.DNSConfig.Addr())
-	return client, trace.Wrap(err)
 }
 
 const (
