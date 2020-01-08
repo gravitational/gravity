@@ -85,11 +85,13 @@ import (
 
 	"github.com/cloudflare/cfssl/csr"
 	"github.com/gravitational/license/authority"
+	"github.com/gravitational/rigging"
 	"github.com/gravitational/roundtrip"
 	"github.com/gravitational/teleport"
 	"github.com/gravitational/trace"
 	"github.com/julienschmidt/httprouter"
 	"github.com/sirupsen/logrus"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/kubernetes"
 )
@@ -617,6 +619,83 @@ func (p *Process) runRegistrySynchronizer(ctx context.Context) {
 		case <-ctx.Done():
 			p.Info("Stopping registry synchronizer.")
 			return
+		}
+	}
+}
+
+func (p *Process) reconcileNodeLabels(client *kubernetes.Clientset) error {
+	cluster, err := p.operator.GetLocalSite()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	nodes, err := utils.GetNodes(client.CoreV1().Nodes())
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	for ip, node := range nodes {
+		if err := p.reconcileNode(client, *cluster, ip, node); err != nil {
+			p.WithError(err).Errorf("Failed to reconcile labels for node %v/%v.",
+				node.Name, ip)
+		}
+	}
+	return nil
+}
+
+func (p *Process) reconcileNode(client *kubernetes.Clientset, cluster ops.Site, ip string, node v1.Node) error {
+	server, err := cluster.ClusterState.FindServerByIP(ip)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	missingLabels, err := getMissingLabels(cluster, *server, node)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if len(missingLabels) == 0 {
+		return nil
+	}
+	p.Infof("Adding missing labels to node %v/%v: %v.", node.Name, ip, missingLabels)
+	for key, val := range missingLabels {
+		node.Labels[key] = val
+	}
+	if _, err := client.CoreV1().Nodes().Update(&node); err != nil {
+		return rigging.ConvertError(err)
+	}
+	return nil
+}
+
+func getMissingLabels(cluster ops.Site, server storage.Server, node v1.Node) (map[string]string, error) {
+	profile, err := cluster.App.Manifest.NodeProfiles.ByName(server.Role)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	missingLabels := make(map[string]string)
+	requiredLabels := server.GetNodeLabels(profile.Labels)
+	for key, val := range requiredLabels {
+		if _, ok := node.Labels[key]; !ok {
+			missingLabels[key] = val
+		}
+	}
+	return missingLabels, nil
+}
+
+func (p *Process) runNodeLabelsReconciler(client *kubernetes.Clientset) clusterService {
+	return func(ctx context.Context) {
+		p.Info("Starting node labels reconciler.")
+		if err := p.reconcileNodeLabels(client); err != nil {
+			p.WithError(err).Error("Failed to reconcile node labels.")
+		}
+		ticker := time.NewTicker(defaults.NodeLabelsReconcileInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				if err := p.reconcileNodeLabels(client); err != nil {
+					p.WithError(err).Error("Failed to reconcile node labels.")
+				}
+			case <-ctx.Done():
+				p.Info("Stopping node labels reconciler.")
+				return
+			}
 		}
 	}
 }
@@ -1339,6 +1418,7 @@ func (p *Process) initService(ctx context.Context) (err error) {
 		p.startService(p.runReloadEventsWatch(client))
 		p.startService(p.runRegistrySynchronizer)
 		p.startService(p.runApplicationsSynchronizer)
+		p.startService(p.runNodeLabelsReconciler(client))
 
 		if err := p.startAutoscale(p.context); err != nil {
 			return trace.Wrap(err)
