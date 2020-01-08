@@ -118,6 +118,7 @@ func (s *PlanSuite) SetUpSuite(c *check.C) {
 		ClusterName: s.cluster.Domain,
 		Admin:       true,
 	})
+	c.Assert(err, check.IsNil)
 	s.regularAgent, err = s.services.Operator.GetClusterAgent(ops.ClusterAgentRequest{
 		AccountID:   account.ID,
 		ClusterName: s.cluster.Domain,
