@@ -380,6 +380,10 @@ func (r *PackageUpdater) updatePlanetPackage(update storage.PackageUpdate) (labe
 }
 
 func (r *PackageUpdater) updateTeleportPackage(update storage.PackageUpdate) (labelUpdates []pack.LabelUpdate, err error) {
+	err = unpack(r.Packages, update.To)
+	if err != nil {
+		return nil, trace.Wrap(err, "failed to unpack package %v", update.To)
+	}
 	updates, err := r.reinstallService(update)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -451,11 +455,6 @@ func (r *PackageUpdater) reinstallService(update storage.PackageUpdate) (labelUp
 		return nil, trace.Wrap(err)
 	}
 	labelUpdates = append(labelUpdates, packageUpdates...)
-
-	err = unpack(r.Packages, update.To)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
 
 	manifest, err := r.Packages.GetPackageManifest(update.To)
 	if err != nil {
