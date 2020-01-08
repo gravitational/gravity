@@ -117,15 +117,6 @@ func (o *Operator) ConfigurePackages(req ops.ConfigurePackagesRequest) error {
 		return trace.Wrap(err)
 	}
 
-	if operation.Type == ops.OperationExpand {
-		// TODO (knisbet) temporary timeout since configure packages overall isn't time limited
-		c, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
-		defer cancel()
-		err = o.registerKubernetesNode(c, *operation)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-	}
 	return nil
 }
 
@@ -1011,6 +1002,14 @@ func (s *site) getPlanetConfig(config planetConfig) (args []string, err error) {
 		args = append(args, fmt.Sprintf("--device=%v", device.Format()))
 	}
 
+	for _, taint := range profile.Taints {
+		args = append(args, fmt.Sprintf("--taint=%v=%v:%v", taint.Key, taint.Value, taint.Effect))
+	}
+
+	for k, v := range node.GetKubeletLabels(profile.Labels) {
+		args = append(args, fmt.Sprintf("--node-label=%v=%v", k, v))
+	}
+
 	// If the manifest contains an install hook to install a separate overlay network, disable flannel inside planet
 	if manifest.Hooks != nil && manifest.Hooks.NetworkInstall != nil {
 		args = append(args, "--disable-flannel=true")
@@ -1026,23 +1025,6 @@ func (s *site) getPlanetConfig(config planetConfig) (args []string, err error) {
 
 	log.WithField("args", args).Info("Runtime configuration.")
 	return args, nil
-}
-
-// getNodeLabels returns labels a Kubernetes node should register with
-func getNodeLabels(node ProvisionedServer, profile *schema.NodeProfile) map[string]string {
-	labels := profile.Labels
-	if labels == nil {
-		labels = make(map[string]string)
-	}
-	if _, ok := labels[defaults.KubernetesRoleLabel]; ok {
-		role := schema.ServiceRoleNode
-		if node.IsMaster() {
-			role = schema.ServiceRoleMaster
-		}
-		labels[defaults.KubernetesRoleLabel] = string(role)
-	}
-	labels[defaults.KubernetesAdvertiseIPLabel] = node.AdvertiseIP
-	return labels
 }
 
 func (s *site) configurePlanetServer(config planetConfig) error {
