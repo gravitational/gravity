@@ -133,6 +133,10 @@ func SetupWebsocketClient(ctx context.Context, c *roundtrip.Client, endpoint str
 	if !tlsConfig.InsecureSkipVerify {
 		if tlsConfig.ServerName == "" {
 			tlsConfig.ServerName, err = utils.URLHostname(u.Host)
+			if err != nil {
+				conn.Close()
+				return nil, trace.Wrap(err)
+			}
 		}
 		if err := tlsConn.VerifyHostname(tlsConfig.ServerName); err != nil {
 			conn.Close()
