@@ -708,6 +708,10 @@ const (
 	//
 	// Used in audit events.
 	ServiceSystem = "@system"
+
+	// GravitySystemContainerType specifies the SELinux domain for the system containers.
+	// For instance, application hook init containers run as system containers
+	GravitySystemContainerType = "gravity_container_system_t"
 )
 
 var (

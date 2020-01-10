@@ -75,7 +75,10 @@ TELEKUBE_TSH_TAG := v3.2.13
 # Extra flags that may be provided when publishing telekube artifacts (e.g. --insecure)
 TELEKUBE_PUBLISH_FLAGS ?=
 
+GOCACHE ?= $(HOME)/.cache/go-build
 BINARIES ?= tele gravity terraform-provider-gravity
+TARGETS ?= $(addprefix $(LOCAL_GRAVITY_BUILDDIR)/, $(BINARIES))
+HOST_TARGETS ?= $(addprefix $(GRAVITY_BUILDDIR)/, $(BINARIES))
 
 # release tarball path
 RELEASE_TARBALL_NAME := gravity-$(GRAVITY_VERSION)-$(OS)-$(ARCH)-bin.tar.gz
@@ -225,9 +228,11 @@ build-in-container: buildbox
 		   -e "GRAVITY_TAG=$(GRAVITY_TAG)" \
 		   -e 'GRAVITY_LINKFLAGS=$(GRAVITY_LINKFLAGS)' \
 		   -e "GRAVITY_BUILDFLAGS=$(GRAVITY_BUILDFLAGS)" \
-		   -e 'BINARIES=$(BINARIES)' \
+		   -e "GRAVITY_BUILDTAGS=$(GRAVITY_BUILDTAGS)" \
+		   -v $(GOCACHE):$(GOCACHE) \
+		   -e "GOCACHE=$(GOCACHE)" \
 		   $(BBOX) \
-		   dumb-init make -C $(SRCDIR)/build.assets -j $(BINARIES)
+		   dumb-init make -C $(SRCDIR)/build.assets -j $(TARGETS)
 
 #
 # build gravity binaries on host
@@ -235,9 +240,8 @@ build-in-container: buildbox
 .PHONY: build-on-host
 build-on-host:
 	cd $(GOPATH)/src && \
-		LOCAL_GRAVITY_BUILDDIR=$(GRAVITY_BUILDDIR) \
-			$(MAKE) -C $(GOPATH)/src/github.com/gravitational/gravity/build.assets -j \
-			$(BINARIES)
+		$(MAKE) -C $(GOPATH)/src/github.com/gravitational/gravity/build.assets -j \
+		$(HOST_TARGETS)
 
 #
 # removes build artifacts.
@@ -316,12 +320,21 @@ push-gravity:
 $(GRAVITY_BUILDDIR):
 	mkdir -p $@
 
+$(GOCACHE):
+	mkdir -p $@
+
 # Builds binaries inside a docker container
-.PHONY: $(BINARIES)
-$(BINARIES):
-	@echo -e "\n----> Building $(LOCAL_GRAVITY_BUILDDIR)/$@ binary...\n"
-	go build -o $(LOCAL_GRAVITY_BUILDDIR)/$@ -ldflags $(GRAVITY_LINKFLAGS) $(GRAVITY_BUILDFLAGS) $(GRAVITY_PKG_PATH)/tool/$@
-	@echo "\nDone --> $(LOCAL_GRAVITY_BUILDDIR)/$@\n"
+.PHONY: $(TARGETS)
+$(TARGETS): | $(GOCACHE)
+	@echo -e "\n----> Building $@ binary...\n"
+	go build -o $@ -ldflags $(GRAVITY_LINKFLAGS) $(GRAVITY_BUILDFLAGS) -tags "$(GRAVITY_BUILDTAGS)" $(GRAVITY_PKG_PATH)/tool/$(@F)
+	@echo "\nDone --> $@\n"
+
+.PHONY: $(HOST_TARGETS)
+$(HOST_TARGETS): | $(GOCACHE)
+	@echo -e "\n----> Building $@ binary...\n"
+	go build -o $@ -ldflags $(GRAVITY_LINKFLAGS) $(GRAVITY_BUILDFLAGS) -tags "$(GRAVITY_BUILDTAGS)" $(GRAVITY_PKG_PATH)/tool/$(@F)
+	@echo "\nDone --> $@\n"
 
 .PHONY: compile
 compile: | $(GRAVITY_BUILDDIR)
@@ -398,7 +411,12 @@ site-app:
 	$(eval TMPDIR := $(shell mktemp -d --tmpdir=$(GRAVITY_BUILDDIR)))
 	cp -r $(ASSETSDIR)/site-app/* $(TMPDIR)
 	cp $(GRAVITY_BUILDDIR)/gravity $(TMPDIR)/images/site
-	cd $(TMPDIR) && VERSION=$(GRAVITY_TAG) GRAVITY="$(GRAVITY)" OPS_URL=$(OPS_URL) make import
+	cd $(TMPDIR) && \
+		VERSION=$(GRAVITY_TAG) \
+		GRAVITY="$(GRAVITY)" \
+		OPS_URL=$(OPS_URL) \
+		DOCKER_ARGS=$(DOCKER_ARGS) \
+		make import
 	$(GRAVITY) package export $(SITE_APP_PKG) $(SITE_APP_OUT)
 	rm -rf $(TMPDIR)
 

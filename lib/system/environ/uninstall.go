@@ -230,6 +230,7 @@ func getStateDirectories() (dirs []string) {
 	}
 	return append(dirs,
 		defaults.ModulesPath,
+		defaults.PlanetStateDir,
 		defaults.SysctlPath,
 		defaults.GravityEphemeralDir,
 	)

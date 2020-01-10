@@ -200,12 +200,12 @@ TF_PROVIDERS ?= terraform-provider-gravity
 export
 
 # the default target is a containerized CI/CD build
-.PHONY:build
+.PHONY: build
 build:
 	$(MAKE) -C build.assets build
 
 # 'install' uses the host's Golang to place output into $GOPATH/bin
-.PHONY:install
+.PHONY: install
 install:
 	go install -ldflags $(GRAVITY_LINKFLAGS) -tags "$(GRAVITY_BUILDTAGS)" ./tool/tele ./tool/gravity
 
@@ -217,12 +217,11 @@ clean:
 	@rm -f $(GOPATH)/bin/tele $(GOPATH)/bin/gravity
 
 
-.PHONY:
+.PHONY: production
 production: TMP := $(shell mktemp -d)
 production:
 	GRAVITY="$(GRAVITY_OUT) --state-dir=$(TMP)" $(MAKE) -C build.assets production
 	rm -rf $(TMP)
-
 
 #
 # generate GRPC files
