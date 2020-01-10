@@ -965,7 +965,7 @@
 
 [[projects]]
   branch = "branch/3.2-g"
-  digest = "1:4946ded9ce710327c0ed0ba2e28c819310b1670d8bb37932c861a1e177698527"
+  digest = "1:fa6825491e864b7d06f6997346ddfffd71ac73e861c81bbc55340c6bd850853c"
   name = "github.com/gravitational/teleport"
   packages = [
     ".",
@@ -979,6 +979,7 @@
     "lib/backend/dynamo",
     "lib/backend/etcdbk",
     "lib/client",
+    "lib/client/extensions",
     "lib/config",
     "lib/defaults",
     "lib/events",
@@ -1022,7 +1023,7 @@
     "lib/wrappers",
   ]
   pruneopts = "UT"
-  revision = "de3929eb86f7cc3411acde9ff93ed7c528e8f5d4"
+  revision = "f4445fa6001335437357b4300010f97979af7789"
 
 [[projects]]
   branch = "dmitri/proxy-error"
