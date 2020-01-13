@@ -581,6 +581,9 @@ const (
 	// AppSyncInterval is how often app images are synced with the local registry
 	AppSyncInterval = 30 * time.Second
 
+	// NodeLabelsReconcileInterval is how often node labels reconciler runs.
+	NodeLabelsReconcileInterval = 1 * time.Minute
+
 	// KubeSystemNamespace is the name of k8s namespace where all our system stuff goes
 	KubeSystemNamespace = "kube-system"
 	// MonitoringNamespace is the name of k8s namespace for the monitoring-related resources

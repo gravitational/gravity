@@ -22,7 +22,6 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/ops"
-	"k8s.io/client-go/kubernetes"
 
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
@@ -59,8 +58,6 @@ type configureExecutor struct {
 	Operator ops.Operator
 	// ExecutorParams is common executor params
 	fsm.ExecutorParams
-	// Client is the Kubernetes client
-	Client *kubernetes.Clientset
 	env    map[string]string
 	config []byte
 }
