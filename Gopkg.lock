@@ -395,6 +395,14 @@
   revision = "1914e367e85eaf0c25d495b48e060dfe6190f8d0"
 
 [[projects]]
+  digest = "1:ec66ad050342a3573ed2f5a4337d51b4c6d5d2a717cc6c9ecf86b081235a5759"
+  name = "github.com/cyphar/filepath-securejoin"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "a261ee33d7a517f054effbf451841abaafe3e0fd"
+  version = "v0.2.2"
+
+[[projects]]
   digest = "1:a2c1d0e43bd3baaa071d1b9ed72c27d78169b2b269f71c105ac4ba34b1be4a39"
   name = "github.com/davecgh/go-spew"
   packages = ["spew"]
@@ -906,7 +914,7 @@
 
 [[projects]]
   branch = "branch/3.2-g"
-  digest = "1:4946ded9ce710327c0ed0ba2e28c819310b1670d8bb37932c861a1e177698527"
+  digest = "1:fa6825491e864b7d06f6997346ddfffd71ac73e861c81bbc55340c6bd850853c"
   name = "github.com/gravitational/teleport"
   packages = [
     ".",
@@ -920,6 +928,7 @@
     "lib/backend/dynamo",
     "lib/backend/etcdbk",
     "lib/client",
+    "lib/client/extensions",
     "lib/config",
     "lib/defaults",
     "lib/events",
@@ -963,7 +972,7 @@
     "lib/wrappers",
   ]
   pruneopts = "UT"
-  revision = "de3929eb86f7cc3411acde9ff93ed7c528e8f5d4"
+  revision = "f4445fa6001335437357b4300010f97979af7789"
 
 [[projects]]
   digest = "1:418247f700939c99867b42639d985686ba229fd9f8ee9e119c7cc3ffde6e0fe3"
@@ -1585,6 +1594,14 @@
   pruneopts = "UT"
   revision = "5f041e8faa004a95c88a202771f4cc3e991971e6"
   version = "v2.0.1"
+
+[[projects]]
+  digest = "1:9053d7051fbebf02ad72d984134c2ba462eb46f7506e1145534550e6d0f702a5"
+  name = "github.com/pkg/errors"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "49f8f617296114c890ae0b7ac18c5953d2b1ca0f"
+  version = "v0.9.0"
 
 [[projects]]
   digest = "1:0028cb19b2e4c3112225cd871870f2d9cf49b9b4276531f03438a88e94be86fe"
@@ -2766,6 +2783,7 @@
     "k8s.io/helm/pkg/version",
     "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1",
     "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1",
+    "k8s.io/kubernetes/pkg/kubelet/apis",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1
