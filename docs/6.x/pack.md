@@ -816,6 +816,10 @@ correct image references.
 
 ### Customizing Helm values
 
+!!! note "Version support":
+    The ability to customize Helm values during install is available starting with
+    Gravity 7.0.
+
 It is possible to customize values of your Helm charts when installing or
 upgrading the application. To provide custom Helm values at install time,
 pass them via `--values` and `--set` flags to `gravity install` command:
