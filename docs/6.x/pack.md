@@ -114,16 +114,14 @@ Now you should have `tele-buildbox` container on the build machine. Next, do the
 The command below assumes that `build.sh` is located in the same working directory as the application:
 
 ```bsh
-docker run -e OPS_URL=<opscenter url> \
-       -e OPS_TOKEN=<token> \
-       -e TELE_FLAGS="--state-dir=/mnt/tele-cache" \
+docker run \
        -v /tmp/tele-cache:/mnt/tele-cache \
        -v /var/run/docker.sock:/var/run/docker.sock \
        -v $(pwd):/mnt/app \
        -w /mnt/cluster \
         --net=host \
         tele-buildbox:latest \
-        bash -c "tele build -o cluster.tar"
+        bash -c "tele --state-dir=/mnt/tele-cache build -o cluster.tar"
 ```
 
 !!! note:
@@ -815,6 +813,10 @@ correct image references.
     that demonstrates this workflow.
 
 ### Customizing Helm values
+
+!!! note "Version support":
+    The ability to customize Helm values during install is available starting with
+    Gravity 7.0.
 
 It is possible to customize values of your Helm charts when installing or
 upgrading the application. To provide custom Helm values at install time,
