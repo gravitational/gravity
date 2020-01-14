@@ -1030,7 +1030,7 @@
 
 [[projects]]
   branch = "branch/3.2-g"
-  digest = "1:3b2c7ae9fd7edd18cf2e9b634c40fc1a4309372190fad24161d463af82b29e88"
+  digest = "1:ccb96a0ee188599f5b2577dff7b292cb6cee0122b668e56c9f9ad51181d7bf77"
   name = "github.com/gravitational/teleport"
   packages = [
     ".",
@@ -1087,7 +1087,7 @@
     "lib/wrappers",
   ]
   pruneopts = "UT"
-  revision = "6280a8f001681cc2321397be09c5894e569e479a"
+  revision = "f4445fa6001335437357b4300010f97979af7789"
 
 [[projects]]
   digest = "1:3afdc8c5bad39bda75ede9cd18bf590c385ff9a28c742f7330e3d3e19c685c47"
@@ -2874,7 +2874,7 @@
   revision = "0317810137be915b9cf888946c6e115c1bfac693"
 
 [[projects]]
-  digest = "1:493057fd7afced95115108c63966342d3fe6a176cbb3ae9429eab521f6e3a2d3"
+  digest = "1:d37af175787bb6bdf35b24c0cd225c833727facc5c61e6deea77c71236f8beea"
   name = "k8s.io/kubernetes"
   packages = [
     "pkg/api/legacyscheme",
@@ -2965,6 +2965,7 @@
     "pkg/kubectl/util/term",
     "pkg/kubectl/validation",
     "pkg/kubectl/version",
+    "pkg/kubelet/apis",
     "pkg/kubelet/types",
     "pkg/master/ports",
     "pkg/printers",
@@ -3261,6 +3262,7 @@
     "k8s.io/helm/pkg/version",
     "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1",
     "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1",
+    "k8s.io/kubernetes/pkg/kubelet/apis",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1

@@ -7,7 +7,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 6.3.2         | No  | December 20th, 2019  | -                    | 1.17.0             | 3.2.13           |
+| 6.3.3         | No  | January 9th, 2020    | -                    | 1.17.0             | 3.2.13           |
 | 6.2.5*        | No  | December 3rd, 2019   | -                    | 1.16.3             | 3.2.13           |
 | 6.1.15        | Yes | December 20th, 2019  | November 10th, 2021  | 1.15.5             | 3.2.12           |
 | 6.0.10*       | No  | October 17th, 2019   | -                    | 1.14.7             | 3.2.12           |
@@ -37,6 +37,12 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     See [Direct Upgrades From Older LTS Versions](/pack/#direct-upgrades-from-older-lts-versions) for details.
 
 ## 6.x Releases
+
+### 6.3.3 (January 8th, 2020)
+
+#### Bugfixes
+
+* Restore automatic node registration via kubelet ([#1001](https://github.com/gravitational/gravity/pull/1001), [planet#539](https://github.com/gravitational/planet/pull/539)).
 
 ### 6.3.2 (December 20th, 2019)
 
