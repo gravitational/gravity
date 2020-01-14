@@ -201,3 +201,27 @@ func KubeServiceNames(serviceName, namespace string) []string {
 }
 
 var flattener = strings.NewReplacer(".", "", "+", "-")
+
+// IsKubernetesLabel returns true if the provided label key is in Kubernetes
+// namespace.
+//
+// This and getLabelNamespace function below are adopted from:
+//
+// https://github.com/kubernetes/kubernetes/blob/release-1.16/cmd/kubelet/app/options/options.go#L249.
+func IsKubernetesLabel(key string) bool {
+	namespace := getLabelNamespace(key)
+	if namespace == "kubernetes.io" || strings.HasSuffix(namespace, ".kubernetes.io") {
+		return true
+	}
+	if namespace == "k8s.io" || strings.HasSuffix(namespace, ".k8s.io") {
+		return true
+	}
+	return false
+}
+
+func getLabelNamespace(key string) string {
+	if parts := strings.SplitN(key, "/", 2); len(parts) == 2 {
+		return parts[0]
+	}
+	return ""
+}

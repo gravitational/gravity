@@ -2691,7 +2691,7 @@
 
 [[projects]]
   branch = "release-1.15"
-  digest = "1:493057fd7afced95115108c63966342d3fe6a176cbb3ae9429eab521f6e3a2d3"
+  digest = "1:d37af175787bb6bdf35b24c0cd225c833727facc5c61e6deea77c71236f8beea"
   name = "k8s.io/kubernetes"
   packages = [
     "pkg/api/legacyscheme",
@@ -2782,6 +2782,7 @@
     "pkg/kubectl/util/term",
     "pkg/kubectl/validation",
     "pkg/kubectl/version",
+    "pkg/kubelet/apis",
     "pkg/kubelet/types",
     "pkg/master/ports",
     "pkg/printers",
@@ -3067,6 +3068,7 @@
     "k8s.io/helm/pkg/version",
     "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1",
     "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1",
+    "k8s.io/kubernetes/pkg/kubelet/apis",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1
