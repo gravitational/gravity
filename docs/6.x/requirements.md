@@ -17,6 +17,7 @@ Gravity supports the following Linux distributions:
 | Ubuntu-Core              | 16.04           | `devicemapper`*, `overlay`, `overlay2` |
 | openSuse                 | 12 SP2 - 12 SP3 | `overlay`, `overlay2`                 |
 | Suse Linux Enterprise    | 12 SP2 - 12 SP3 | `overlay`, `overlay2`                 |
+| Amazon Linux             | 2               | `overlay`, `overlay2`                 |
 
 !!! note
     devicemapper has been deprecated by the docker project, and is not supported by gravity 5.3.4 or later
@@ -41,6 +42,7 @@ specified in the manifest:
 | Ubuntu-Core              | ubuntu                     | 16.04          |
 | openSuse                 | suse, opensuse, opensuse-* | 12-SP2, 12-SP3 |
 | Suse Linux Enterprise    | sles, sles_sap             | 12-SP2, 12-SP3 |
+| Amazon Linux             | amz                        | 2              |
 
 For example, to specify openSUSE as a dependency and support both services packs:
 
