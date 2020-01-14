@@ -87,6 +87,8 @@ nodeProfiles:
           versions: ["12"]
         - name: sles  # Suse Linux Enterprise Server
           versions: ["12"]
+        - name: amz
+          versions: ["2"]
       volumes:
         - path: /var/lib/gravity
           capacity: "10GB"
@@ -123,6 +125,8 @@ nodeProfiles:
           versions: ["12"]
         - name: sles  # Suse Linux Enterprise Server
           versions: ["12"]
+        - name: amz
+          versions: ["2"]
       volumes:
         - path: /var/lib/gravity
           capacity: "10GB"
@@ -164,6 +168,8 @@ nodeProfiles:
           versions: ["12"]
         - name: sles  # Suse Linux Enterprise Server
           versions: ["12"]
+        - name: amz
+          versions: ["2"]
       volumes:
         - path: /var/lib/gravity
           capacity: "10GB"
