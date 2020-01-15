@@ -71,6 +71,9 @@ func startInstall(env *localenv.LocalEnvironment, config InstallConfig) error {
 	strategy, err := NewInstallerConnectStrategy(env, config, cli.CommandArgs{
 		Parser: cli.ArgsParserFunc(parseArgs),
 	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	err = InstallerClient(env, installerclient.Config{
 		ConnectStrategy: strategy,
 		Lifecycle: &installerclient.AutomaticLifecycle{
