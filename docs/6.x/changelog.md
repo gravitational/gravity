@@ -7,9 +7,9 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 6.3.3         | No  | January 9th, 2020    | -                    | 1.17.0             | 3.2.13           |
+| 6.3.4         | No  | January 14th, 2020   | -                    | 1.17.0             | 3.2.13           |
 | 6.2.5*        | No  | December 3rd, 2019   | -                    | 1.16.3             | 3.2.13           |
-| 6.1.15        | Yes | December 20th, 2019  | November 10th, 2021  | 1.15.5             | 3.2.12           |
+| 6.1.16        | Yes | January 14th, 2020   | November 10th, 2021  | 1.15.5             | 3.2.12           |
 | 6.0.10*       | No  | October 17th, 2019   | -                    | 1.14.7             | 3.2.12           |
 | 5.6.8*        | No  | September 18th, 2019 | -                    | 1.14.7             | 3.0.6-gravity    |
 | 5.5.32        | Yes | December 23rd, 2019  | September 7th, 2020  | 1.13.11            | 3.0.6-gravity    |
@@ -38,6 +38,28 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 ## 6.x Releases
 
+### 6.3.4 (January 14th, 2020)
+
+#### Improvements
+
+* Add Amazon Linux 2 to supported distros of the base Gravity image ([#1019](https://github.com/gravitational/gravity/pull/1019)).
+
+#### Bugfixes
+
+* Fix the issue with "role not found" error when trying to access remote clusters via Gravity Hub ([#1012](https://github.com/gravitational/gravity/pull/1012)).
+
+### 6.1.16 LTS (January 14th, 2020)
+
+#### Improvements
+
+* Add Amazon Linux 2 to supported distros of the base Gravity image ([#1018](https://github.com/gravitational/gravity/pull/1018)).
+
+#### Bugfixes
+
+* Fix the issue with Gravity Hub installation ([#994](https://github.com/gravitational/gravity/pull/994)).
+* Restore automatic node registration via kubelet ([#1014](https://github.com/gravitational/gravity/pull/1014), [planet#541](https://github.com/gravitational/planet/pull/541)).
+* Fix the issue with "role not found" error when trying to access remote clusters via Gravity Hub ([#1010](https://github.com/gravitational/gravity/pull/1010)).
+
 ### 6.3.3 (January 8th, 2020)
 
 #### Bugfixes
@@ -50,7 +72,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 * Fix an issue with CoreDNS pods not being scheduled due to discrepancy between node selector and node labels ([#985](https://github.com/gravitational/gravity/pull/985)).
 
-### 6.1.15 (December 20th, 2019)
+### 6.1.15 LTS (December 20th, 2019)
 
 #### Bugfixes
 
@@ -65,7 +87,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 !!! warning
     This release fixes a security vulnerability in gravity.
 
-### 6.1.14 (December 20th, 2019)
+### 6.1.14 LTS (December 20th, 2019)
 
 #### Improvements
 
@@ -79,7 +101,6 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 * Fix a performance issue with displaying cluster endpoints [#952](https://github.com/gravitational/gravity/pull/952)
 * Fix a display issue with how the join command is displayed [#933](https://github.com/gravitational/gravity/pull/933).
 * Expose the teleport kubernetes proxy as part of the gravity-site load balancer [#913](https://github.com/gravitational/gravity/pull/913).
-
 
 !!! warning
     This release fixes a security vulnerability in gravity.
