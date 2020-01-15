@@ -267,9 +267,12 @@ func (r *System) getChangesetByID(changesetID string) (*storage.PackageChangeset
 }
 
 // NewPackageUpdater creates a new package updater for the specified package service
-func NewPackageUpdater(packages update.LocalPackageService) (*PackageUpdater, error) {
+func NewPackageUpdater(packages update.LocalPackageService, opts ...PackageUpdaterOption) (*PackageUpdater, error) {
 	p := &PackageUpdater{
 		Packages: packages,
+	}
+	for _, opt := range opts {
+		opt(p)
 	}
 	if err := p.checkAndSetDefaults(); err != nil {
 		return nil, trace.Wrap(err)
@@ -514,7 +517,7 @@ func (r *PackageUpdater) checkAndSetDefaults() error {
 }
 
 func (r *PackageUpdater) applySelinuxFilecontexts(path string) error {
-	if !selinux.GetEnabled() {
+	if !(selinux.GetEnabled() && r.SELinux) {
 		r.Info("SELinux is disabled.")
 		return nil
 	}
@@ -531,12 +534,24 @@ func (r *PackageUpdater) applySelinuxFilecontexts(path string) error {
 	return nil
 }
 
+// WithSELinux sets SELinux support
+func WithSELinux(on bool) PackageUpdaterOption {
+	return func(p *PackageUpdater) {
+		p.SELinux = on
+	}
+}
+
+// PackageUpdaterOption is a functional configuration option for PackageUpdater
+type PackageUpdaterOption func(*PackageUpdater)
+
 // PackageUpdater manages the updates to a known subset of packages
 type PackageUpdater struct {
 	// Logger specifies the logger
 	log.Logger
 	// Packages specifies the package service to use
 	Packages update.LocalPackageService
+	// SELinux specifies whether SELinux support is on
+	SELinux bool
 }
 
 func getRuntimePackagePath(packages update.LocalPackageService) (packagePath string, err error) {

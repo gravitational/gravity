@@ -46,6 +46,7 @@ func (r *Planner) GetOperationPlan(operator ops.Operator, cluster ops.Site, oper
 		ClusterName:   operation.SiteDomain,
 		Servers:       append(builder.Masters, builder.Nodes...),
 		DNSConfig:     cluster.DNSConfig,
+		SELinux:       operation.InstallExpand.Vars.System.SELinux,
 	}
 
 	if r.preflightChecks {

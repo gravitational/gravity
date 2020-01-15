@@ -42,7 +42,7 @@ func NewSystem(p fsm.ExecutorParams, operator ops.Operator, localPackages *local
 		Operator: operator,
 		Server:   p.Phase.Data.Server,
 	}
-	updater, err := system.NewPackageUpdater(localPackages)
+	updater, err := system.NewPackageUpdater(localPackages, system.WithSELinux(p.Plan.SELinux))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
