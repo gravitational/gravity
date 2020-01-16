@@ -200,7 +200,7 @@ func (p *bootstrapExecutor) configureSystemDirectories() error {
 		filepath.Join(stateDir, "planet", "kubelet"),
 		filepath.Join(stateDir, "planet", "share", "hooks"),
 		filepath.Join(stateDir, "planet", "log", "journal"),
-		filepath.Join(stateDir, "site", "teleport"),
+		filepath.Join(stateDir, "site", "teleport", "log"),
 		filepath.Join(stateDir, "site", "packages", "unpacked"),
 		filepath.Join(stateDir, "site", "packages", "blobs"),
 		filepath.Join(stateDir, "site", "packages", "tmp"),
