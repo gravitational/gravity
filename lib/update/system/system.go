@@ -525,9 +525,8 @@ func (r *PackageUpdater) applySelinuxFilecontexts(path string) error {
 	r.WithFields(logrus.Fields{
 		logrus.ErrorKey: err,
 		"output":        string(out),
-	}).Info("Restoring file contexts.")
+	}).Info("Restore file contexts.")
 	if err != nil {
-		r.WithError(err).Warn("Failed to restorecon file contexts.")
 		return trace.Wrap(err, "failed to restorecon file contexts on %v: %s",
 			path, string(out))
 	}

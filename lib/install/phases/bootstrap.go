@@ -38,6 +38,7 @@ import (
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
+	"github.com/opencontainers/selinux/go-selinux"
 	"github.com/sirupsen/logrus"
 )
 
@@ -126,7 +127,7 @@ func (p *bootstrapExecutor) Execute(ctx context.Context) error {
 			return trace.Wrap(err)
 		}
 	}
-	err = p.configureSystemDirectories()
+	err = p.configureSystemDirectories(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -179,7 +180,7 @@ func (p *bootstrapExecutor) configureDeviceMapper() error {
 
 // configureSystemDirectories creates the necessary directories under the
 // configured system directory with proper permissions
-func (p *bootstrapExecutor) configureSystemDirectories() error {
+func (p *bootstrapExecutor) configureSystemDirectories(ctx context.Context) error {
 	p.Progress.NextStep("Configuring system directories")
 	p.Info("Configuring system directories.")
 	// make sure we account for possible custom gravity data dir
@@ -205,6 +206,7 @@ func (p *bootstrapExecutor) configureSystemDirectories() error {
 		filepath.Join(stateDir, "site", "packages", "tmp"),
 		filepath.Join(stateDir, "secrets"),
 		filepath.Join(stateDir, "backup"),
+		filepath.Join(stateDir, "logrange"),
 	}
 	for _, dir := range mkdirList {
 		p.Infof("Creating system directory %v.", dir)
@@ -251,6 +253,10 @@ func (p *bootstrapExecutor) configureSystemDirectories() error {
 			return trace.Wrap(err)
 		}
 	}
+	if err := p.applySelinuxFilecontexts(ctx, stateDir); err != nil {
+		return trace.Wrap(err)
+	}
+
 	return nil
 }
 
@@ -348,6 +354,23 @@ func (p *bootstrapExecutor) PreCheck(ctx context.Context) error {
 
 // PostCheck is no-op for this phase
 func (*bootstrapExecutor) PostCheck(ctx context.Context) error {
+	return nil
+}
+
+func (p *bootstrapExecutor) applySelinuxFilecontexts(ctx context.Context, stateDir string) error {
+	if !(selinux.GetEnabled() && p.Plan.SELinux) {
+		p.Info("SELinux is disabled.")
+		return nil
+	}
+	out, err := exec.CommandContext(ctx, "restorecon", "-R", "-v", stateDir).CombinedOutput()
+	p.WithFields(logrus.Fields{
+		logrus.ErrorKey: err,
+		"output":        string(out),
+	}).Info("Restore file contexts.")
+	if err != nil {
+		return trace.Wrap(err, "failed to restorecon file contexts on %v",
+			stateDir)
+	}
 	return nil
 }
 
