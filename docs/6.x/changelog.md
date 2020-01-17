@@ -7,7 +7,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 6.3.4         | No  | January 14th, 2020   | -                    | 1.17.0             | 3.2.13           |
+| 6.3.5         | No  | January 16th, 2020   | -                    | 1.17.0             | 3.2.13           |
 | 6.2.5*        | No  | December 3rd, 2019   | -                    | 1.16.3             | 3.2.13           |
 | 6.1.16        | Yes | January 14th, 2020   | November 10th, 2021  | 1.15.5             | 3.2.12           |
 | 6.0.10*       | No  | October 17th, 2019   | -                    | 1.14.7             | 3.2.12           |
@@ -37,6 +37,12 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     See [Direct Upgrades From Older LTS Versions](/pack/#direct-upgrades-from-older-lts-versions) for details.
 
 ## 6.x Releases
+
+### 6.3.5 (January 16th, 2020)
+
+#### Bugfixes
+
+* Fix the issue with gravity-site sometimes failing to start with bad permissions error ([#1024](https://github.com/gravitational/gravity/pull/1024)).
 
 ### 6.3.4 (January 14th, 2020)
 
