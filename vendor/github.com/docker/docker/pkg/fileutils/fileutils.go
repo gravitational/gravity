@@ -10,7 +10,7 @@ import (
 	"strings"
 	"text/scanner"
 
-	"github.com/sirupsen/logrus"
+	"github.com/Sirupsen/logrus"
 )
 
 // exclusion returns true if the specified pattern is an exclusion
