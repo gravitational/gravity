@@ -75,6 +75,9 @@ func resourceGravityClusterAuthPreferenceCreate(d *schema.ResourceData, m interf
 			Facets: ExpandStringList(u2fFacets),
 		},
 	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
 
 	err = client.UpsertClusterAuthPreference(context.TODO(), clusterKey, authPreference)
 	if err != nil {
