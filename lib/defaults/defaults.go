@@ -1245,8 +1245,7 @@ func InstallerAddr(installerIP string) (addr string) {
 	return fmt.Sprintf("%v:%v", installerIP, WizardPackServerPort)
 }
 
-// FormatKubernetesNodeRoleLabel formats the provided gravity role name as a kubernetes node role label as shown in
-// `kubectl get nodes`
-func FormatKubernetesNodeRoleLabel(role string) string {
+// KubernetesNodeRoleLabel returns a kubernetes node role label for the specified role
+func KubernetesNodeRoleLabel(role string) string {
 	return fmt.Sprintf("node-role.kubernetes.io/%v", role)
 }

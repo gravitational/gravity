@@ -1611,12 +1611,12 @@ func (s *Server) IsMaster() bool {
 // GetNodeLabels returns a consistent set of labels that should be applied to the node
 func (s *Server) GetNodeLabels(profileLabels map[string]string) map[string]string {
 	labels := map[string]string{
-		defaults.KubernetesAdvertiseIPLabel:            s.AdvertiseIP,
-		defaults.KubernetesRoleLabel:                   s.ClusterRole,
-		"kubernetes.io/hostname":                       s.KubeNodeID(),
-		"kubernetes.io/arch":                           "amd64", // Only amd64 is currently supported
-		"kubernetes.io/os":                             "linux", // Only linux is currently supported
-		defaults.FormatKubernetesNodeRoleLabel(s.Role): s.Role,
+		defaults.KubernetesAdvertiseIPLabel:      s.AdvertiseIP,
+		defaults.KubernetesRoleLabel:             s.ClusterRole,
+		"kubernetes.io/hostname":                 s.KubeNodeID(),
+		"kubernetes.io/arch":                     "amd64", // Only amd64 is currently supported
+		"kubernetes.io/os":                       "linux", // Only linux is currently supported
+		defaults.KubernetesNodeRoleLabel(s.Role): "true",
 	}
 	for k, v := range profileLabels {
 		// Several of the labels applied by default are used internally within gravity or gravity components.
