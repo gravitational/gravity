@@ -647,6 +647,9 @@ const (
 	// KubernetesRoleLabel is the Kubernetes node label with system role
 	KubernetesRoleLabel = "gravitational.io/k8s-role"
 
+	// KubernetesNodeRoleLabel is the Kubernetes node label with application role
+	KubernetesNodeRoleLabel = "kubernetes.io/role"
+
 	// KubernetesAdvertiseIPLabel is the kubernetes node label of the advertise IP address
 	KubernetesAdvertiseIPLabel = "gravitational.io/advertise-ip"
 
@@ -1243,9 +1246,4 @@ func WithTimeout(ctx context.Context) (context.Context, context.CancelFunc) {
 // InstallerAddr returns the complete address of the installer given its IP
 func InstallerAddr(installerIP string) (addr string) {
 	return fmt.Sprintf("%v:%v", installerIP, WizardPackServerPort)
-}
-
-// KubernetesNodeRoleLabel returns a kubernetes node role label for the specified role
-func KubernetesNodeRoleLabel(role string) string {
-	return fmt.Sprintf("node-role.kubernetes.io/%v", role)
 }
