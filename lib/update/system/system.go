@@ -357,7 +357,7 @@ func (r *PackageUpdater) updatePlanetPackage(update storage.PackageUpdate) (labe
 		return nil, trace.Wrap(err, "failed to copy gravity inside planet")
 	}
 
-	err = updateKubectl(planetPath, r.Logger)
+	err = updateSymlinks(planetPath, r.Logger)
 	if err != nil {
 		r.WithError(err).Warn("kubectl will not work on host.")
 	}
@@ -529,7 +529,7 @@ func getRuntimePackagePath(packages update.LocalPackageService) (packagePath str
 	return packagePath, nil
 }
 
-func updateKubectl(planetPath string, logger log.Logger) (err error) {
+func updateSymlinks(planetPath string, logger log.Logger) (err error) {
 	// update kubectl symlink
 	kubectlPath := filepath.Join(planetPath, constants.PlanetRootfs, defaults.KubectlScript)
 	var out []byte
@@ -562,6 +562,17 @@ func updateKubectl(planetPath string, logger log.Logger) (err error) {
 	if err != nil {
 		return trace.Wrap(err, "failed to update %v symlink: %v",
 			kubectlSymlink, string(out))
+	}
+
+	// update helm symlink
+	helmPath := filepath.Join(planetPath, constants.PlanetRootfs, defaults.HelmScript)
+	for _, path := range []string{defaults.HelmBin, defaults.HelmBinAlternate} {
+		out, err = exec.Command("ln", "-sfT", helmPath, path).CombinedOutput()
+		if err == nil {
+			logger.Infof("Updated helm symlink: %v -> %v.", path, helmPath)
+			break
+		}
+		logger.WithError(err).Warnf("Failed to update helm symlink: %s.", out)
 	}
 
 	environment[constants.EnvKubeConfig] = kubeConfigPath
