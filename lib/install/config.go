@@ -223,6 +223,7 @@ func (r *clusterFactory) NewCluster() ops.NewSiteRequest {
 		DNSOverrides: r.DNSOverrides,
 		DNSConfig:    r.DNSConfig,
 		Docker:       r.Docker,
+		SELinux:      r.SELinux,
 	}
 }
 

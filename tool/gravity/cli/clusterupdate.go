@@ -18,6 +18,8 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
+	"os/exec"
 
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
@@ -29,7 +31,9 @@ import (
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/rpc"
 	"github.com/gravitational/gravity/lib/schema"
+	libstatus "github.com/gravitational/gravity/lib/status"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/system/selinux"
 	"github.com/gravitational/gravity/lib/update"
 	clusterupdate "github.com/gravitational/gravity/lib/update/cluster"
 	"github.com/gravitational/version"
@@ -57,10 +61,13 @@ func updateTrigger(
 	localEnv *localenv.LocalEnvironment,
 	updateEnv *localenv.LocalEnvironment,
 	updatePackage string,
-	manual, noValidateVersion, selinux bool,
+	manual, noValidateVersion bool,
 ) error {
-	ctx := context.TODO()
-	updater, err := newClusterUpdater(ctx, localEnv, updateEnv, updatePackage, manual, noValidateVersion)
+	err := selinuxBootstrap()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	updater, err := newClusterUpdater(context.TODO(), localEnv, updateEnv, updatePackage, manual, noValidateVersion)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -391,4 +398,33 @@ Please use the gravity binary from the upgrade installer tarball to execute the 
 	}
 
 	return nil
+}
+
+func selinuxBootstrap() error {
+	status, err := queryClusterStatus()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	selinuxEnabled := status.Cluster != nil && status.Cluster.SELinux
+	if !selinuxEnabled {
+		// Nothing to do
+		return nil
+	}
+	var config selinux.BootstrapConfig
+	if status.Cluster.Overrides.VxlanPort != defaults.VxlanPort {
+		config.VxlanPort = status.Cluster.Overrides.VxlanPort
+	}
+	return selinux.Bootstrap(config)
+}
+
+func queryClusterStatus() (status *libstatus.Status, err error) {
+	out, err := exec.Command("gravity", "status", "--output=json").CombinedOutput()
+	log.WithField("output", string(out)).Info("Query cluster status.")
+	if err != nil {
+		return nil, trace.Wrap(err, "failed to fetch cluster status: %s", out)
+	}
+	if err := json.Unmarshal(out, status); err != nil {
+		return nil, trace.Wrap(err, "failed to interpret status as JSON")
+	}
+	return status, nil
 }

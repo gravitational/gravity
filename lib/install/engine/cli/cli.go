@@ -168,8 +168,7 @@ func (r *executor) createOperation() (*ops.SiteOperation, error) {
 		Provisioner: schema.ProvisionerOnPrem,
 		Variables: storage.OperationVariables{
 			System: storage.SystemVariables{
-				Docker:  r.config.Docker,
-				SELinux: r.config.SELinux,
+				Docker: r.config.Docker,
 			},
 			OnPrem: storage.OnPremVariables{
 				PodCIDR:     r.config.PodCIDR,

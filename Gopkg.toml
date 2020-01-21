@@ -161,8 +161,7 @@ ignored = [
 [[override]]
   name = "github.com/sirupsen/logrus"
   source = "github.com/gravitational/logrus"
-  #version = "=1.4.3"
-  branch = "dmitri/update-upstream"
+  version = "=1.4.3-alpha.1"
 
 [[constraint]]
   name = "github.com/aws/aws-sdk-go"

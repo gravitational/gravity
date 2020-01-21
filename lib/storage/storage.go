@@ -585,6 +585,8 @@ type Site struct {
 	DNSConfig DNSConfig `json:"dns_config"`
 	// InstallToken specifies the original token the cluster was installed with
 	InstallToken string `json:"install_token"`
+	// SELinux specifies whether the cluster is using SELinux support
+	SELinux bool `json:"selinux,omitempty"`
 }
 
 func (s *Site) Check() error {
@@ -1864,8 +1866,6 @@ type SystemVariables struct {
 	TeleportProxyAddress string `json:"teleport_proxy_address"`
 	// Docker overrides configuration from the manifest
 	Docker DockerConfig `json:"docker"`
-	// SELinux specifies whether the cluster is using SELinux support
-	SELinux bool `json:"selinux,omitempty"`
 }
 
 // IsEmpty returns whether this configuration is empty

@@ -90,10 +90,6 @@ func (s *site) getDownloadInstructions(token, serverProfile string) (string, err
 // getJoinInstructions returns a bash script source that starts agents for
 // a wizard installation or expand
 func (s *site) getJoinInstructions(token storage.ProvisioningToken, serverProfile string, params url.Values) (string, error) {
-	installOperation, _, err := ops.GetInstallOperation(s.key, s.service)
-	if err != nil {
-		return "", trace.Wrap(err)
-	}
 	agentToken, err := s.service.GetClusterAgent(ops.ClusterAgentRequest{
 		AccountID:   token.AccountID,
 		ClusterName: token.SiteDomain,
@@ -118,7 +114,7 @@ func (s *site) getJoinInstructions(token storage.ProvisioningToken, serverProfil
 		"gravity_bin_path":  defaults.GravityBin,
 		"cloud_provider":    s.provider,
 		"operation_id":      token.OperationID,
-		"selinux":           installOperation.GetVars().System.SELinux,
+		"selinux":           s.selinuxEnabled(),
 	}
 	var out bytes.Buffer
 	err = joinTemplate.Execute(&out, vars)

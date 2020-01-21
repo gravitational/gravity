@@ -36,6 +36,17 @@ func Bootstrap(config BootstrapConfig) error {
 	return importLocalChanges(config)
 }
 
+// Unload removes the policy modules and local modifications
+func Unload(config BootstrapConfig) error {
+	if err := config.checkAndSetDefaults(); err != nil {
+		return trace.Wrap(err)
+	}
+	if err := removeLocalChanges(config); err != nil {
+		return trace.Wrap(err)
+	}
+	return removePolicy()
+}
+
 // GravityInstallerProcessContext specifies the SELinux process context template
 // for the installer process.
 // Will be used to verify the context of the running process and make bootstrapping
@@ -75,8 +86,6 @@ func WriteBootstrapScript(w io.Writer, config BootstrapConfig) error {
 // BootstrapConfig defines the SELinux bootstrap configuration
 type BootstrapConfig struct {
 	// Path specifies the location of the installer files
-	// FIXME: remove gravity_installer_home_t and use user_home_t with
-	// custom type transitions
 	Path string
 	// VxlanPort specifies the custom vxlan port.
 	// Defaults to defaults.VxlanPort
@@ -155,6 +164,55 @@ func installPolicyFile(path string, r io.Reader) error {
 	cmd.Stdout = w
 	cmd.Stderr = w
 	return trace.Wrap(cmd.Run())
+}
+
+func removeLocalChanges(config BootstrapConfig) error {
+	var buf bytes.Buffer
+	if err := writeUnloadScript(&buf, config); err != nil {
+		return trace.Wrap(err)
+	}
+	cmd := exec.Command("semanage", "import")
+	logger := liblog.New(log.WithField(trace.Component, "system:selinux"))
+	w := logger.Writer()
+	defer w.Close()
+	cmd.Stdin = &buf
+	cmd.Stdout = w
+	cmd.Stderr = w
+	return trace.Wrap(cmd.Run())
+}
+
+func removePolicy() error {
+	// Leave the container package intact as we might not be
+	// the only client
+	return removePolicyFile("gravity")
+}
+
+func removePolicyFile(module string) error {
+	logger := liblog.New(log.WithField(trace.Component, "selinux"))
+	logger.WithField("module", module).Info("Remove policy module.")
+	cmd := exec.Command("semodule", "--remove", module)
+	w := logger.Writer()
+	defer w.Close()
+	cmd.Stdout = w
+	cmd.Stderr = w
+	return trace.Wrap(cmd.Run())
+}
+
+// writeUnloadScript creates the unload script using the specified writer
+func writeUnloadScript(w io.Writer, config BootstrapConfig) error {
+	var values = struct {
+		Path       string
+		PortRanges portRanges
+	}{
+		Path: config.Path,
+		PortRanges: portRanges{
+			Installer:  schema.DefaultPortRanges.Installer,
+			Kubernetes: schema.DefaultPortRanges.Kubernetes,
+			Generic:    schema.DefaultPortRanges.Generic,
+			VxlanPort:  config.VxlanPort,
+		},
+	}
+	return trace.Wrap(unloadScript.Execute(w, values))
 }
 
 type portRanges struct {

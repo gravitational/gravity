@@ -75,7 +75,11 @@ TELEKUBE_TSH_TAG := v3.2.13
 # Extra flags that may be provided when publishing telekube artifacts (e.g. --insecure)
 TELEKUBE_PUBLISH_FLAGS ?=
 
+GOCACHE_DOCKER_OPTIONS ?=
 GOCACHE ?= $(HOME)/.cache/go-build
+ifdef GOCACHE_ENABLED
+GOCACHE_DOCKER_OPTIONS = -v $(GOCACHE):$(GOCACHE) -e "GOCACHE=$(GOCACHE)"
+endif
 BINARIES ?= tele gravity terraform-provider-gravity
 TARGETS ?= $(addprefix $(LOCAL_GRAVITY_BUILDDIR)/, $(BINARIES))
 HOST_TARGETS ?= $(addprefix $(GRAVITY_BUILDDIR)/, $(BINARIES))
@@ -229,8 +233,7 @@ build-in-container: buildbox
 		   -e 'GRAVITY_LINKFLAGS=$(GRAVITY_LINKFLAGS)' \
 		   -e "GRAVITY_BUILDFLAGS=$(GRAVITY_BUILDFLAGS)" \
 		   -e "GRAVITY_BUILDTAGS=$(GRAVITY_BUILDTAGS)" \
-		   -v $(GOCACHE):$(GOCACHE) \
-		   -e "GOCACHE=$(GOCACHE)" \
+		   $(GOCACHE_DOCKER_OPTIONS) \
 		   $(BBOX) \
 		   dumb-init make -C $(SRCDIR)/build.assets -j $(TARGETS)
 

@@ -268,6 +268,7 @@ func printStatusText(cluster clusterStatus) {
 
 	if cluster.Cluster != nil {
 		fmt.Fprintf(w, "Cluster name:\t%v\n", unknownFallback(cluster.Cluster.Domain))
+		fmt.Fprintf(w, "Gravity version:\t%v\n", cluster.Version)
 		if cluster.Status.IsDegraded() {
 			fmt.Fprintf(w, "Cluster status:\t%v\n", color.RedString("degraded"))
 		} else {
@@ -296,6 +297,7 @@ func formatVersion(version *modules.Version) string {
 }
 
 func printClusterStatus(cluster statusapi.Cluster, w io.Writer) {
+	fmt.Fprintf(w, "SELinux support:\t%v\n", formatSELinuxStatus(cluster.SELinux))
 	if cluster.App.Name != "" {
 		fmt.Fprintf(w, "Application:\t%v, version %v\n", cluster.App.Name,
 			cluster.App.Version)
@@ -399,6 +401,13 @@ func printNodeStatus(node statusapi.ClusterServer, w io.Writer) {
 	} else {
 		fmt.Fprintf(w, "            Remote access:\t%v\n", color.YellowString("offline"))
 	}
+}
+
+func formatSELinuxStatus(on bool) string {
+	if on {
+		return "on"
+	}
+	return "off"
 }
 
 func unknownFallback(text string) string {

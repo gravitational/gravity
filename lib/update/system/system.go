@@ -349,11 +349,6 @@ func (r *PackageUpdater) updatePlanetPackage(update storage.PackageUpdate) (labe
 		return nil, trace.Wrap(err)
 	}
 
-	err = r.applySelinuxFilecontexts(planetPath)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
 	// Look up installed packages
 	gravityPackage, err := pack.FindInstalledPackage(r.Packages, gravityPackageFilter)
 	if err != nil {
@@ -371,6 +366,11 @@ func (r *PackageUpdater) updatePlanetPackage(update storage.PackageUpdate) (labe
 	}
 
 	labelUpdates, err = r.reinstallService(update)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	err = r.applySelinuxFilecontexts(planetPath)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

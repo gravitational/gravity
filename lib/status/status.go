@@ -40,6 +40,7 @@ import (
 	pb "github.com/gravitational/satellite/agent/proto/agentpb"
 	"github.com/gravitational/satellite/monitoring"
 	"github.com/gravitational/trace"
+	"github.com/gravitational/version"
 	"github.com/sirupsen/logrus"
 )
 
@@ -235,6 +236,8 @@ type Status struct {
 	*Cluster `json:",inline,omitempty"`
 	// Agent describes the status of the system and individual nodes
 	*Agent `json:",inline,omitempty"`
+	// Version indicates the version of the gravity binary
+	Version version.Info `json:"version"`
 }
 
 // Cluster encapsulates collected cluster status information
