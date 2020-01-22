@@ -898,7 +898,7 @@
 
 [[projects]]
   branch = "branch/3.0-g"
-  digest = "1:751217e18d5aefd6658ccd402efe87f338f07ebd3832f6ea955f40e8d43df963"
+  digest = "1:c6645b07439c305c52e0845ee979bbb9c5cb9a170a5a07bfc8e9b4cf5bcfbe7d"
   name = "github.com/gravitational/teleport"
   packages = [
     ".",
@@ -954,7 +954,7 @@
     "lib/wrappers",
   ]
   pruneopts = "UT"
-  revision = "3a1108b34670f51c8a48d306635ff4fb1e1fbd6e"
+  revision = "cdbeea01bfdb0053a9defb1a1f0bfe5c89bc4c2f"
 
 [[projects]]
   digest = "1:418247f700939c99867b42639d985686ba229fd9f8ee9e119c7cc3ffde6e0fe3"
@@ -2653,6 +2653,7 @@
     "google.golang.org/grpc",
     "google.golang.org/grpc/codes",
     "google.golang.org/grpc/credentials",
+    "google.golang.org/grpc/grpclog",
     "google.golang.org/grpc/health",
     "google.golang.org/grpc/health/grpc_health_v1",
     "google.golang.org/grpc/status",
