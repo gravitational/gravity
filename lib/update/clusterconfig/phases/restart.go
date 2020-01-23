@@ -20,8 +20,10 @@ import (
 	"context"
 
 	libfsm "github.com/gravitational/gravity/lib/fsm"
+	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 	"github.com/gravitational/gravity/lib/update"
 	libbasephase "github.com/gravitational/gravity/lib/update/internal/rollingupdate/phases"
 
@@ -35,27 +37,34 @@ import (
 func NewRestart(
 	params libfsm.ExecutorParams,
 	operator libbasephase.LocalClusterGetter,
-	operationID string,
+	operation ops.SiteOperation,
 	apps appGetter,
 	backend storage.Backend,
 	packages pack.PackageService,
 	localPackages update.LocalPackageService,
 	logger log.FieldLogger,
 ) (*restart, error) {
-	base, err := libbasephase.NewRestart(params, operator, operationID, apps, backend, packages, localPackages, logger)
+	base, err := libbasephase.NewRestart(params, operator, operation.ID, apps, backend, packages, localPackages, logger)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	config, err := clusterconfig.Unmarshal(operation.UpdateConfig.Config)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return &restart{
 		FieldLogger: logger,
+		config:      *config,
 		base:        base,
 	}, nil
 }
 
 // Execute restarts the runtime container with the new configuration package
 func (r *restart) Execute(ctx context.Context) error {
-	if err := r.removeCNIBridge(); err != nil {
-		return trace.Wrap(err)
+	if config := r.config.GetGlobalConfig(); shouldUpdatePodCIDR(config) {
+		if err := r.removeCNIBridge(); err != nil {
+			return trace.Wrap(err)
+		}
 	}
 	return trace.Wrap(r.base.Execute(ctx))
 }
@@ -95,7 +104,15 @@ func (r *restart) removeCNIBridge() error {
 type restart struct {
 	// FieldLogger specifies the logger for the phase
 	log.FieldLogger
-	base libfsm.PhaseExecutor
+	config clusterconfig.Resource
+	base   libfsm.PhaseExecutor
+}
+
+func shouldUpdatePodCIDR(config *clusterconfig.Global) bool {
+	if config == nil {
+		return false
+	}
+	return len(config.PodCIDR) != 0
 }
 
 func isLinkNotFoundError(err error) bool {

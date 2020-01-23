@@ -78,7 +78,7 @@ func (r *dispatcher) Dispatch(config rollingupdate.Config, params fsm.ExecutorPa
 			logger)
 	case libphase.RestartContainer:
 		return phases.NewRestart(params,
-			config.Operator, config.Operation.ID,
+			config.Operator, *config.Operation,
 			config.Apps, config.LocalBackend,
 			config.ClusterPackages, config.HostLocalPackages,
 			logger)
