@@ -404,6 +404,9 @@ func (t *teleportProxyService) ExecuteCommand(ctx context.Context, siteName, nod
 			defaults.PathEnv: defaults.PathEnvVal,
 		},
 	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	return trace.Wrap(proxyClient.SSH(ctx, strings.Split(command, " "), false))
 }
 
