@@ -192,7 +192,11 @@ func SetDefaults(manifest *Manifest) error {
 	}
 
 	for i := range manifest.NodeProfiles {
-		setNodeProfileRoleDefaults(&manifest.NodeProfiles[i])
+		if manifest.NodeProfiles[i].Labels[constants.NodeLabel] == constants.True {
+			manifest.NodeProfiles[i].ServiceRole = ServiceRoleNode
+		} else if manifest.NodeProfiles[i].Labels[constants.MasterLabel] == constants.True {
+			manifest.NodeProfiles[i].ServiceRole = ServiceRoleMaster
+		}
 	}
 	return nil
 }
@@ -206,21 +210,6 @@ func setProviderDefaults(manifest *Manifest) {
 	}
 	if manifest.Providers.Generic.Networking.Type == "" {
 		manifest.Providers.Generic.Networking.Type = NetworkingFlannel
-	}
-}
-
-func setNodeProfileRoleDefaults(nodeProfile *NodeProfile) {
-	if nodeProfile.Labels[constants.NodeLabel] == constants.True {
-		delete(nodeProfile.Labels, constants.NodeLabel)
-		nodeProfile.Labels[ServiceLabelRole] = string(ServiceRoleNode)
-	} else if nodeProfile.Labels[constants.MasterLabel] == constants.True {
-		delete(nodeProfile.Labels, constants.MasterLabel)
-		nodeProfile.Labels[ServiceLabelRole] = string(ServiceRoleMaster)
-	}
-	if nodeProfile.Labels[ServiceLabelRole] == string(ServiceRoleMaster) {
-		nodeProfile.ServiceRole = ServiceRoleMaster
-	} else if nodeProfile.Labels[ServiceLabelRole] == string(ServiceRoleNode) {
-		nodeProfile.ServiceRole = ServiceRoleNode
 	}
 }
 
