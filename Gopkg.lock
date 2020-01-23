@@ -1774,6 +1774,25 @@
   version = "v0.5.4"
 
 [[projects]]
+  digest = "1:1314b5ef1c0b25257ea02e454291bf042478a48407cfe3ffea7e20323bbf5fdf"
+  name = "github.com/vishvananda/netlink"
+  packages = [
+    ".",
+    "nl",
+  ]
+  pruneopts = "UT"
+  revision = "f049be6f391489d3f374498fe0c8df8449258372"
+  version = "v1.1.0"
+
+[[projects]]
+  branch = "master"
+  digest = "1:975cb0c04431bf92e60b636a15897c4a3faba9f7dc04da505646630ac91d29d3"
+  name = "github.com/vishvananda/netns"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "0a2b9b5464df8343199164a0321edf3313202f7e"
+
+[[projects]]
   digest = "1:f2e0a698933a91cc2f93c70f7bcac5851e301fb3c620a7dc292cb2188cc16d6d"
   name = "github.com/vulcand/oxy"
   packages = [
@@ -2638,6 +2657,7 @@
     "github.com/sirupsen/logrus/hooks/syslog",
     "github.com/stretchr/testify/assert",
     "github.com/tstranex/u2f",
+    "github.com/vishvananda/netlink",
     "github.com/vulcand/oxy/forward",
     "github.com/vulcand/predicate",
     "github.com/xtgo/set",

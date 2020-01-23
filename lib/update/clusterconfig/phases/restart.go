@@ -17,19 +17,17 @@ limitations under the License.
 package phases
 
 import (
-	"bytes"
 	"context"
-	"os/exec"
 
 	libfsm "github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/update"
 	libbasephase "github.com/gravitational/gravity/lib/update/internal/rollingupdate/phases"
-	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
+	"github.com/vishvananda/netlink"
 )
 
 // NewRestart returns a new executor to restart the runtime container to apply
@@ -56,10 +54,8 @@ func NewRestart(
 
 // Execute restarts the runtime container with the new configuration package
 func (r *restart) Execute(ctx context.Context) error {
-	r.Info("Removing network interface cni0")
-	var out bytes.Buffer
-	if err := utils.Exec(exec.Command("ip", "link", "del", "cni0"), &out); err != nil {
-		return trace.Wrap(err, out.String())
+	if err := r.removeCNIBridge(); err != nil {
+		return trace.Wrap(err)
 	}
 	return trace.Wrap(r.base.Execute(ctx))
 }
@@ -67,6 +63,9 @@ func (r *restart) Execute(ctx context.Context) error {
 // Rollback reverses the update and restarts the container with the old
 // configuration package
 func (r *restart) Rollback(ctx context.Context) error {
+	// cni0 bridge should be recreated on kubelet restart
+	// when the flannel->bridge cni plugin executes ADD operation
+	// for the next container
 	return trace.Wrap(r.base.Rollback(ctx))
 }
 
@@ -80,8 +79,26 @@ func (*restart) PostCheck(context.Context) error {
 	return nil
 }
 
+func (r *restart) removeCNIBridge() error {
+	link, err := netlink.LinkByName("cni0")
+	if err == nil {
+		r.Info("Removing network interface cni0")
+		return netlink.LinkDel(link)
+	}
+	if !isLinkNotFoundError(err) {
+		return trace.Wrap(err)
+	}
+	// Nothing to do
+	return nil
+}
+
 type restart struct {
 	// FieldLogger specifies the logger for the phase
 	log.FieldLogger
 	base libfsm.PhaseExecutor
+}
+
+func isLinkNotFoundError(err error) bool {
+	_, ok := err.(netlink.LinkNotFoundError)
+	return ok
 }
