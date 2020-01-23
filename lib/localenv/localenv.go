@@ -657,19 +657,19 @@ func SiteUnpackedDir() (string, error) {
 }
 
 // Printf outputs specified arguments to stdout if the silent mode is not on.
-func (r Silent) Printf(format string, args ...interface{}) (n int, err error) {
-	if !r {
-		return fmt.Printf(format, args...)
+func (r Silent) Printf(format string, args ...interface{}) {
+	if r {
+		return
 	}
-	return 0, nil
+	fmt.Printf(format, args...) //nolint:errcheck
 }
 
 // Print outputs specified arguments to stdout if the silent mode is not on.
-func (r Silent) Print(args ...interface{}) (n int, err error) {
-	if !r {
-		return fmt.Print(args...)
+func (r Silent) Print(args ...interface{}) {
+	if r {
+		return
 	}
-	return 0, nil
+	fmt.Print(args...) //nolint:errcheck
 }
 
 // Println outputs specified arguments to stdout if the silent mode is not on.
@@ -693,7 +693,8 @@ func (r Silent) PrintStep(format string, args ...interface{}) {
 // Write outputs specified arguments to stdout if the silent mode is not on.
 // Write implements io.Writer
 func (r Silent) Write(p []byte) (n int, err error) {
-	return r.Printf(string(p))
+	r.Printf(string(p))
+	return 0, nil
 }
 
 // Silent implements a silent flag and controls console output.

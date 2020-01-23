@@ -203,7 +203,7 @@ func ExecWithInput(cmd *exec.Cmd, input string, out io.Writer, setters ...Comman
 	}
 
 	if stdin != nil {
-		io.WriteString(stdin, input)
+		io.WriteString(stdin, input) //nolint:errcheck
 	}
 
 	if err := cmd.Wait(); err != nil {

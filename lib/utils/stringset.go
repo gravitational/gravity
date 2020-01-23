@@ -44,7 +44,7 @@ func (s StringSet) Remove(v string) {
 
 func (s StringSet) Slice() (slice []string) {
 	slice = make([]string, 0, len(s))
-	for key, _ := range s {
+	for key := range s {
 		slice = append(slice, key)
 	}
 	sort.Strings(slice)
@@ -58,7 +58,7 @@ func (s StringSet) AddSlice(slice []string) {
 }
 
 func (s StringSet) AddSet(right StringSet) {
-	for el, _ := range right {
+	for el := range right {
 		s.Add(el)
 	}
 }

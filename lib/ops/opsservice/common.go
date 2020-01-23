@@ -124,7 +124,7 @@ func (s *site) createLogEntry(key ops.SiteOperationKey, entry ops.LogEntry) erro
 		return trace.Wrap(err)
 	}
 	defer writer.Close()
-	_, err = fmt.Fprintf(writer, entry.String())
+	_, err = fmt.Fprint(writer, entry.String())
 	if err != nil {
 		return trace.Wrap(err)
 	}

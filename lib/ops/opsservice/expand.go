@@ -110,7 +110,7 @@ func (s *site) expandOperationStart(ctx *operationContext) error {
 		Message: "The node is up",
 	})
 
-	op, err = s.compareAndSwapOperationState(swap{
+	_, err = s.compareAndSwapOperationState(swap{
 		key:            ctx.key(),
 		expectedStates: []string{ops.OperationStateExpandProvisioning},
 		newOpState:     ops.OperationStateReady,

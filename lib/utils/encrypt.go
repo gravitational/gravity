@@ -19,8 +19,8 @@ package utils
 import (
 	"io"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/gravitational/trace"
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/crypto/openpgp"
 )
 
@@ -34,13 +34,13 @@ func EncryptPGP(data io.Reader, passphrase string) (io.ReadCloser, error) {
 		}, nil)
 		if err != nil {
 			log.Infof(trace.DebugReport(err))
-			pw.CloseWithError(err)
+			pw.CloseWithError(err) //nolint:errcheck
 			return
 		}
 
 		_, err = io.Copy(w, data)
 		w.Close()
-		pw.CloseWithError(err)
+		pw.CloseWithError(err) //nolint:errcheck
 	}()
 
 	return pr, nil

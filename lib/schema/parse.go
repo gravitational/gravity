@@ -172,9 +172,7 @@ func CheckAndSetDefaults(manifest *Manifest) error {
 		return trace.NewAggregate(errors...)
 	}
 
-	SetDefaults(manifest)
-
-	return nil
+	return SetDefaults(manifest)
 }
 
 // SetDefaults enforces defaults on fields that require a value

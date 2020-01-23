@@ -45,7 +45,7 @@ func (r *S) TestPeerReconnects(c *C) {
 	})
 	c.Assert(err, IsNil)
 	go srv.Serve()
-	defer withTestCtx(srv.Stop)
+	defer withTestCtx(srv.Stop, c)
 
 	watchCh := make(chan WatchEvent, 2)
 	checkTimeout := 100 * time.Millisecond
@@ -56,7 +56,7 @@ func (r *S) TestPeerReconnects(c *C) {
 	}
 	p := r.newPeer(c, config, proxyAddr, log)
 	go p.Serve()
-	defer withTestCtx(p.Stop)
+	defer withTestCtx(p.Stop, c)
 
 	ctx, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
 	c.Assert(store.expect(ctx, 1), IsNil)
@@ -99,10 +99,10 @@ func (r *S) TestPeerReconnects(c *C) {
 }
 
 // withTestCtx calls the provided method passing it a test context with a timeout
-func withTestCtx(fn func(context.Context) error) {
+func withTestCtx(fn func(context.Context) error, c *C) {
 	ctx, cancel := context.WithTimeout(context.Background(), testContextTimeout)
 	defer cancel()
-	fn(ctx)
+	c.Assert(fn(ctx), IsNil)
 }
 
 // testContextTimeout is the default timeout for the context used in tests

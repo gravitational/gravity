@@ -364,10 +364,6 @@ type ClusterServer struct {
 	WarnProbes []string `json:"warn_probes,omitempty"`
 }
 
-func (r ClusterOperation) isFailed() bool {
-	return r.State == ops.OperationStateFailed
-}
-
 func fromOperationAndProgress(operation ops.SiteOperation, progress ops.ProgressEntry) *ClusterOperation {
 	return &ClusterOperation{
 		Type:       operation.Type,

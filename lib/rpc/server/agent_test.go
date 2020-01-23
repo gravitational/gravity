@@ -18,7 +18,6 @@ package server
 
 import (
 	"bytes"
-	"strings"
 	"sync"
 	"time"
 
@@ -84,12 +83,12 @@ func (r *S) TestAgentsConnectToController(c *C) {
 	c.Assert(err, IsNil)
 
 	go srv.Serve()
-	defer withTestCtx(srv.Stop)
+	defer withTestCtx(srv.Stop, c)
 
 	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 	peer := r.newPeer(c, PeerConfig{Config: Config{Listener: listen(c)}}, srv.Addr().String(), log)
 	go peer.Serve()
-	defer withTestCtx(peer.Stop)
+	defer withTestCtx(peer.Stop, c)
 
 	err = store.expect(ctx, 1)
 	cancel()
@@ -117,7 +116,7 @@ func (r *S) TestPeerDisconnect(c *C) {
 	})
 	c.Assert(err, IsNil)
 	go srv.Serve()
-	defer withTestCtx(srv.Stop)
+	defer withTestCtx(srv.Stop, c)
 
 	// launch two peers
 	peer1, err := NewPeer(PeerConfig{
@@ -130,7 +129,7 @@ func (r *S) TestPeerDisconnect(c *C) {
 	}, srv.Addr().String())
 	c.Assert(err, IsNil)
 	go peer1.Serve()
-	defer withTestCtx(peer1.Stop)
+	defer withTestCtx(peer1.Stop, c)
 
 	peer2, err := NewPeer(PeerConfig{
 		Config: Config{
@@ -142,7 +141,7 @@ func (r *S) TestPeerDisconnect(c *C) {
 	}, srv.Addr().String())
 	c.Assert(err, IsNil)
 	go peer2.Serve()
-	defer withTestCtx(peer2.Stop)
+	defer withTestCtx(peer2.Stop, c)
 
 	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 	defer cancel()
@@ -178,7 +177,7 @@ func (r *S) TestServerReportsHealth(c *C) {
 	c.Assert(err, IsNil)
 
 	go srv.Serve()
-	defer withTestCtx(srv.Stop)
+	defer withTestCtx(srv.Stop, c)
 
 	clt, err := newClient(ctx, creds.Client, srv.Addr().String())
 	c.Assert(err, IsNil)
@@ -206,7 +205,7 @@ func (r *S) TestWaitsUntilAgentShutsDown(c *C) {
 
 	go srv.Serve()
 
-	withTestCtx(srv.Stop)
+	withTestCtx(srv.Stop, c)
 	select {
 	case <-srv.Done():
 	case <-ctx.Done():
@@ -228,7 +227,7 @@ func (r *S) TestRejectsPeer(c *C) {
 	c.Assert(err, IsNil)
 
 	go srv.Serve()
-	defer withTestCtx(srv.Stop)
+	defer withTestCtx(srv.Stop, c)
 
 	watchCh := make(chan WatchEvent, 1)
 	config := PeerConfig{
@@ -246,7 +245,7 @@ func (r *S) TestRejectsPeer(c *C) {
 	p, err := NewPeer(config, srv.Addr().String())
 	c.Assert(err, IsNil)
 	go p.Serve()
-	defer withTestCtx(p.Stop)
+	defer withTestCtx(p.Stop, c)
 
 	select {
 	case update := <-watchCh:
@@ -302,7 +301,7 @@ func (r *S) TestQueriesSystemInfo(c *C) {
 	c.Assert(err, IsNil)
 
 	go srv.Serve()
-	defer withTestCtx(srv.Stop)
+	defer withTestCtx(srv.Stop, c)
 
 	ctx, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
 	defer cancel()
@@ -321,7 +320,7 @@ func (r *S) TestQueriesSystemInfo(c *C) {
 }
 
 func (r *S) clientExecutesCommandsWithClient(c *C, clt client.Client, srv *agentServer, expectedOutput string) {
-	defer withTestCtx(srv.Stop)
+	defer withTestCtx(srv.Stop, c)
 
 	clientLog := r.WithField(trace.Component, "client")
 	var buf bytes.Buffer
@@ -435,8 +434,4 @@ func (r *peerStore) remove(peer Peer) {
 	r.Lock()
 	defer r.Unlock()
 	delete(r.peers, peer.Addr())
-}
-
-func isPeerDeniedError(err error) bool {
-	return strings.Contains(err.Error(), "peer not authorized")
 }

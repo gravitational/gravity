@@ -315,7 +315,9 @@ func (s *AgentSuite) testPingPong(c *C, req checks.PingPongRequest, fn func(agen
 }
 
 func (s *AgentSuite) testConnectValidatesCondition(c *C, hostnames [2]string, expectedError string) {
-	go s.agentServer.Serve()
+	go func() {
+		c.Assert(s.agentServer.Serve(), IsNil)
+	}()
 
 	// simulate that there is already a connected agent
 	s.agentService.peerStore.groups[s.key] = newTestAgentGroup(c, "192.168.1.1", hostnames[0])
@@ -337,8 +339,12 @@ func (s *AgentSuite) testConnectValidatesCondition(c *C, hostnames [2]string, ex
 	}
 	agent := rpcserver.NewTestPeer(c, config, s.agentServer.Addr().String(),
 		rpcserver.NewTestCommand("test"), newSystemInfo(hostnames[1]))
-	go agent.Serve()
-	defer agent.Stop(context.TODO())
+	go func() {
+		c.Assert(agent.Serve(), IsNil)
+	}()
+	defer func() {
+		c.Assert(agent.Stop(context.TODO()), IsNil)
+	}()
 
 	select {
 	case update := <-watchCh:

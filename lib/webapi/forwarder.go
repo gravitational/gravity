@@ -228,7 +228,9 @@ func (f *forwarder) newKubeForwarder(ctx *sessionContext) (*forward.Forwarder, e
 	if ttl <= time.Second {
 		return nil, trace.NotFound("session has expired")
 	}
-	f.kubeForwarders.Set(ctx.key(), fwd, ttl)
+	if err := f.kubeForwarders.Set(ctx.key(), fwd, ttl); err != nil {
+		return nil, trace.Wrap(err)
+	}
 	return fwd, nil
 }
 

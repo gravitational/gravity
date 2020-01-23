@@ -26,7 +26,6 @@ import (
 
 	"github.com/gravitational/gravity/lib/compare"
 	"github.com/gravitational/gravity/lib/defaults"
-	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/opsclient"
 	"github.com/gravitational/gravity/lib/ops/opsservice"
@@ -46,17 +45,13 @@ import (
 func TestOpsHandler(t *testing.T) { TestingT(t) }
 
 type OpsHandlerSuite struct {
-	backend     storage.Backend
-	suite       suite.OpsSuite
-	webServer   *httptest.Server
-	users       users.Identity
-	clock       *timetools.FreezedTime
-	adminUser   string
-	testAppPath string
-	testApp     loc.Locator
-	client      *opsclient.Client
-
-	dir string
+	backend   storage.Backend
+	suite     suite.OpsSuite
+	webServer *httptest.Server
+	users     users.Identity
+	clock     *timetools.FreezedTime
+	adminUser string
+	client    *opsclient.Client
 }
 
 var _ = Suite(&OpsHandlerSuite{

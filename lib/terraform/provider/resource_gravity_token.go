@@ -57,6 +57,7 @@ func resourceGravityTokenRead(d *schema.ResourceData, m interface{}) error {
 	for _, key := range keys {
 		if key.Token == token {
 			found = true
+			//nolint:errcheck
 			d.Set("user", key.UserEmail)
 			break
 		}
@@ -90,6 +91,7 @@ func createToken(d *schema.ResourceData, m interface{}, upsert bool) error {
 		return trace.Wrap(err)
 	}
 
+	//nolint:errcheck
 	d.SetId(token)
 
 	return nil

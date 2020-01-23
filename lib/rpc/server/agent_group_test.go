@@ -26,8 +26,8 @@ import (
 	"github.com/cenkalti/backoff"
 	"github.com/gravitational/trace"
 	"golang.org/x/net/context"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	. "gopkg.in/check.v1"
 )
 
@@ -41,7 +41,7 @@ func (_ *S) TestAgentGroupConnectError(c *C) {
 	group, err := NewAgentGroup(config, peers)
 	c.Assert(err, IsNil)
 	group.Start()
-	defer withTestCtx(group.Close)
+	defer withTestCtx(group.Close, c)
 
 	select {
 	case <-watchCh:
@@ -65,17 +65,23 @@ func (r *S) TestAgentGroupExecutesCommandsRemotety(c *C) {
 		commandExecutor: testCommand{"server output"},
 	})
 	c.Assert(err, IsNil)
-	go srv.Serve()
-	defer withTestCtx(srv.Stop)
+	go func() {
+		c.Assert(srv.Serve(), IsNil)
+	}()
+	defer withTestCtx(srv.Stop, c)
 
 	serverAddr := srv.Addr().String()
 	p1 := r.newPeer(c, PeerConfig{Config: Config{Listener: listen(c)}}, serverAddr, log)
-	go p1.Serve()
-	defer withTestCtx(p1.Stop)
+	go func() {
+		c.Assert(p1.Serve(), IsNil)
+	}()
+	defer withTestCtx(p1.Stop, c)
 
 	p2 := r.newPeer(c, PeerConfig{Config: Config{Listener: listen(c)}}, serverAddr, log)
-	go p2.Serve()
-	defer withTestCtx(p2.Stop)
+	go func() {
+		c.Assert(p2.Serve(), IsNil)
+	}()
+	defer withTestCtx(p2.Stop, c)
 
 	c.Assert(store.expect(ctx, 2), IsNil)
 
@@ -89,7 +95,7 @@ func (r *S) TestAgentGroupExecutesCommandsRemotety(c *C) {
 	group, err := NewAgentGroup(config, store.getPeers())
 	c.Assert(err, IsNil)
 	group.Start()
-	defer withTestCtx(group.Close)
+	defer withTestCtx(group.Close, c)
 
 	timeout := time.After(1 * time.Minute)
 	for i := 0; i < 2; i++ {
@@ -119,8 +125,10 @@ func (r *S) TestAgentGroupReconnects(c *C) {
 		commandExecutor: testCommand{"server output"},
 	})
 	c.Assert(err, IsNil)
-	go srv.Serve()
-	defer withTestCtx(srv.Stop)
+	go func() {
+		c.Assert(srv.Serve(), IsNil)
+	}()
+	defer withTestCtx(srv.Stop, c)
 
 	upstream := listen(c)
 	local := listen(c)
@@ -130,12 +138,16 @@ func (r *S) TestAgentGroupReconnects(c *C) {
 
 	serverAddr := srv.Addr().String()
 	p1 := r.newPeer(c, PeerConfig{Config: Config{Listener: listen(c)}}, serverAddr, log)
-	go p1.Serve()
-	defer withTestCtx(p1.Stop)
+	go func() {
+		c.Assert(p1.Serve(), IsNil)
+	}()
+	defer withTestCtx(p1.Stop, c)
 	// Have peer 2 go through a proxy so its connection can be manipulated
 	p2 := r.newPeer(c, PeerConfig{Config: Config{Listener: upstream}, proxyAddr: proxyAddr}, serverAddr, log)
-	go p2.Serve()
-	defer withTestCtx(p2.Stop)
+	go func() {
+		c.Assert(p2.Serve(), IsNil)
+	}()
+	defer withTestCtx(p2.Stop, c)
 
 	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 	c.Assert(store.expect(ctx, 2), IsNil)
@@ -165,7 +177,7 @@ func (r *S) TestAgentGroupReconnects(c *C) {
 	group, err := NewAgentGroup(config, store.getPeers())
 	c.Assert(err, IsNil)
 	group.Start()
-	defer withTestCtx(group.Close)
+	defer withTestCtx(group.Close, c)
 
 	// Wait for reconnects
 	<-doneCh
@@ -181,7 +193,7 @@ func (r *S) TestAgentGroupReconnects(c *C) {
 	err = group.WithContext(ctx, proxyAddr).Command(ctx, log, ioutil.Discard, "test")
 	cancel()
 	c.Assert(err, Not(IsNil))
-	errorCode := grpc.Code(trace.Unwrap(err))
+	errorCode := status.Code(trace.Unwrap(err))
 	assertCodeOneOf(c, errorCode, codes.Unavailable, codes.Unknown)
 
 	// Restore connection to peer 2
@@ -222,8 +234,10 @@ func (r *S) TestAgentGroupRemovesPeerItCannotReconnect(c *C) {
 		ReconnectTimeout: 1 * time.Second,
 	})
 	c.Assert(err, IsNil)
-	go srv.Serve()
-	defer withTestCtx(srv.Stop)
+	go func() {
+		c.Assert(srv.Serve(), IsNil)
+	}()
+	defer withTestCtx(srv.Stop, c)
 
 	upstream := listen(c)
 	local := listen(c)
@@ -234,8 +248,10 @@ func (r *S) TestAgentGroupRemovesPeerItCannotReconnect(c *C) {
 	serverAddr := srv.Addr().String()
 	// Have peer go through a proxy so its connection can be manipulated
 	p := r.newPeer(c, PeerConfig{Config: Config{Listener: upstream}, proxyAddr: proxyAddr}, serverAddr, log)
-	go p.Serve()
-	defer withTestCtx(p.Stop)
+	go func() {
+		c.Assert(p.Serve(), IsNil)
+	}()
+	defer withTestCtx(p.Stop, c)
 
 	ctx, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
 	c.Assert(store.expect(ctx, 1), IsNil)
@@ -255,7 +271,7 @@ func (r *S) TestAgentGroupRemovesPeerItCannotReconnect(c *C) {
 	group, err := NewAgentGroup(config, store.getPeers())
 	c.Assert(err, IsNil)
 	group.Start()
-	defer withTestCtx(group.Close)
+	defer withTestCtx(group.Close, c)
 
 	select {
 	case resp := <-watchCh:

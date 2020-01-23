@@ -215,10 +215,8 @@ type systemInfo interface {
 type agentServer struct {
 	Config
 	grpcServer *grpc.Server
-	// listener is the server's listener
-	listener net.Listener
-	ctx      context.Context
-	cancel   context.CancelFunc
+	ctx        context.Context
+	cancel     context.CancelFunc
 }
 
 type closer interface {

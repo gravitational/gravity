@@ -69,7 +69,9 @@ func NewClient(addr string, params ...ClientParam) (*Client, error) {
 	}
 	client := &Client{Client: *c}
 	for _, param := range params {
-		param(client)
+		if err := param(client); err != nil {
+			return nil, trace.Wrap(err)
+		}
 	}
 	return client, nil
 }

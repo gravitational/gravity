@@ -57,13 +57,11 @@ func OperatorWithACL(operator Operator, users users.Identity, user storage.User,
 // OperatorACL is a wrapper around any Operator service that
 // implements ACLs - access control lists for every operation
 type OperatorACL struct {
-	isOneTimeLink bool
-	backend       storage.Backend
-	operator      Operator
-	users         users.Identity
-	username      string
-	checker       teleservices.AccessChecker
-	user          storage.User
+	operator Operator
+	users    users.Identity
+	username string
+	checker  teleservices.AccessChecker
+	user     storage.User
 	log.FieldLogger
 }
 

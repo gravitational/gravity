@@ -87,7 +87,7 @@ func resourceGravityClusterAuthPreferenceCreate(d *schema.ResourceData, m interf
 	// Gravity apparently only supports a single auth preference resource,
 	// so we don't really have a unique identifier for the object, so just
 	// hardcode the id in terraform due to this restriction on the resource.
-	d.SetId("cluster_auth_preference")
+	d.SetId("cluster_auth_preference") //nolint:errcheck
 	return nil
 }
 
@@ -103,16 +103,21 @@ func resourceGravityClusterAuthPreferenceRead(d *schema.ResourceData, m interfac
 		return trace.Wrap(err)
 	}
 
-	d.Set("type", authPreference.GetType())
-	d.Set("second_factor", authPreference.GetSecondFactor())
-	d.Set("connector_name", authPreference.GetConnectorName())
+	//nolint:errcheck
+	{
+		d.Set("type", authPreference.GetType())
+		d.Set("second_factor", authPreference.GetSecondFactor())
+		d.Set("connector_name", authPreference.GetConnectorName())
+	}
 
 	u2f, err := authPreference.GetU2F()
 	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
 	}
 	if err == nil {
+		//nolint:errcheck
 		d.Set("u2f_appid", u2f.AppID)
+		//nolint:errcheck
 		d.Set("u2f_facets", u2f.Facets)
 	}
 

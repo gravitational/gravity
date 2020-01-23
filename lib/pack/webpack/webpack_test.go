@@ -48,7 +48,6 @@ import (
 func TestWebpack(t *testing.T) { TestingT(t) }
 
 type WebpackSuite struct {
-	server    *Server
 	backend   storage.Backend
 	suite     suite.PackageSuite
 	webServer *httptest.Server

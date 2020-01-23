@@ -45,7 +45,6 @@ import (
 func TestUsers(t *testing.T) { TestingT(t) }
 
 type UsersSuite struct {
-	server  *UsersService
 	backend storage.Backend
 	suite   suite.CredsSuite
 	dir     string
