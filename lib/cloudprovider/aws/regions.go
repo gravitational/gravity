@@ -54,7 +54,7 @@ type RegionName string
 // NOTE: Currently this function is aware only of certain regions/instance types that some
 // of our customers care about and can be extended further as needed
 func SupportsInstanceType(region, instanceType string) bool {
-	switch region {
+	switch RegionName(region) {
 	case Seoul, Mumbai:
 		if strings.HasPrefix(instanceType, "c3.") || strings.HasPrefix(instanceType, "m3.") {
 			return false
@@ -77,20 +77,20 @@ func SupportedInstanceTypes(region string, instanceTypes []string) []string {
 
 const (
 	NVirginia   RegionName = "us-east-1"
-	Ohio                   = "us-east-2"
-	NCalifornia            = "us-west-1"
-	Oregon                 = "us-west-2"
-	Ireland                = "eu-west-1"
-	London                 = "eu-west-2"
-	Paris                  = "eu-west-3"
-	Canada                 = "ca-central-1"
-	Beijing                = "cn-north-1"
-	Frankfurt              = "eu-central-1"
-	Tokyo                  = "ap-northeast-1"
-	Seoul                  = "ap-northeast-2"
-	OsakaLocal             = "ap-northeast-3"
-	Singapore              = "ap-southeast-1"
-	Sydney                 = "ap-southeast-2"
-	Mumbai                 = "ap-south-1"
-	SPaulo                 = "sa-east-1"
+	Ohio        RegionName = "us-east-2"
+	NCalifornia RegionName = "us-west-1"
+	Oregon      RegionName = "us-west-2"
+	Ireland     RegionName = "eu-west-1"
+	London      RegionName = "eu-west-2"
+	Paris       RegionName = "eu-west-3"
+	Canada      RegionName = "ca-central-1"
+	Beijing     RegionName = "cn-north-1"
+	Frankfurt   RegionName = "eu-central-1"
+	Tokyo       RegionName = "ap-northeast-1"
+	Seoul       RegionName = "ap-northeast-2"
+	OsakaLocal  RegionName = "ap-northeast-3"
+	Singapore   RegionName = "ap-southeast-1"
+	Sydney      RegionName = "ap-southeast-2"
+	Mumbai      RegionName = "ap-south-1"
+	SPaulo      RegionName = "sa-east-1"
 )

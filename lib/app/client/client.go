@@ -74,7 +74,9 @@ func NewClient(addr string, params ...ClientParam) (*Client, error) {
 	}
 	client := &Client{Client: *c}
 	for _, param := range params {
-		param(client)
+		if err := param(client); err != nil {
+			return nil, trace.Wrap(err)
+		}
 	}
 	return client, nil
 }
@@ -125,21 +127,18 @@ func (c *Client) CreateImportOperation(req *app.ImportRequest) (*storage.AppOper
 			close(errorc)
 			close(progressc)
 		}()
-		for {
-			select {
-			case <-time.After(progressPollInterval):
-				var progress *app.ProgressEntry
-				progress, err = c.GetOperationProgress(op)
-				if err != nil {
-					return
+		for range time.After(progressPollInterval) {
+			var progress *app.ProgressEntry
+			progress, err = c.GetOperationProgress(op)
+			if err != nil {
+				return
+			}
+			progressc <- progress
+			if progress.IsCompleted() {
+				if progress.State == app.ProgressStateFailed.State() {
+					err = trace.Errorf(progress.Message)
 				}
-				progressc <- progress
-				if progress.IsCompleted() {
-					if progress.State == app.ProgressStateFailed.State() {
-						err = trace.Errorf(progress.Message)
-					}
-					return
-				}
+				return
 			}
 		}
 	}

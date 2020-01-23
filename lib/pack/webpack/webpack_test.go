@@ -122,6 +122,7 @@ func (s *WebpackSuite) SetUpTest(c *C) {
 	s.suite.S, err = NewAuthenticatedClient(
 		s.webServer.URL, s.adminUser.GetName(), "admin-password",
 		roundtrip.HTTPClient(s.webServer.Client()))
+	c.Assert(err, IsNil)
 
 	s.suite.O = objects
 	s.suite.C = s.clock
@@ -196,6 +197,7 @@ func (s *WebpackSuite) TestPermissionsCRUD(c *C) {
 
 	_, err = s.suite.S.CreatePackage(
 		loc1, bytes.NewBuffer(pack1Data))
+	c.Assert(err, IsNil)
 
 	role, err := teleservices.NewRole(s.agentUser.GetName(), teleservices.RoleSpecV3{
 		Allow: teleservices.RoleConditions{
@@ -247,6 +249,7 @@ func (s *WebpackSuite) TestPermissionsCRUD(c *C) {
 
 	_, err = s.suite.S.CreatePackage(
 		loc2, bytes.NewBuffer(pack2Data))
+	c.Assert(err, IsNil)
 
 	err = s.suite.S.DeletePackage(loc2)
 	c.Assert(err, IsNil)

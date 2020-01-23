@@ -97,7 +97,7 @@ func validateWithContext(clientCtx *clientContext, probes Probes, validator reso
 		}
 	}
 
-	for _ = range probes {
+	for range probes {
 		select {
 		case r := <-resultC:
 			if r.err == nil {
@@ -136,7 +136,7 @@ var AllProbes Probes
 // permission is implicitly required.
 var ActionDependencies = map[Action][]Action{
 	// Adding a role to instance profile implies enabled PassRole permission
-	Action{IAM, "AddRoleToInstanceProfile"}: []Action{{IAM, "PassRole"}},
+	{IAM, "AddRoleToInstanceProfile"}: {{IAM, "PassRole"}},
 }
 
 type Probes []ResourceProbe

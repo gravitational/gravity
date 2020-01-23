@@ -681,12 +681,13 @@ func (r Silent) Println(args ...interface{}) (n int, err error) {
 }
 
 // PrintStep outputs the message with timestamp to stdout
-func (r Silent) PrintStep(format string, args ...interface{}) (n int, err error) {
-	if !r {
-		return fmt.Printf("%v\t%v\n", time.Now().UTC().Format(
-			constants.HumanDateFormatSeconds), fmt.Sprintf(format, args...))
+func (r Silent) PrintStep(format string, args ...interface{}) {
+	if r {
+		return
 	}
-	return 0, nil
+	// nolint:errcheck
+	fmt.Printf("%v\t%v\n", time.Now().UTC().Format(
+		constants.HumanDateFormatSeconds), fmt.Sprintf(format, args...))
 }
 
 // Write outputs specified arguments to stdout if the silent mode is not on.

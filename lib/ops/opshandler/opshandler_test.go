@@ -109,6 +109,7 @@ func (s *OpsHandlerSuite) SetUpTest(c *C) {
 	s.client, err = opsclient.NewAuthenticatedClient(
 		s.webServer.URL, s.adminUser, "admin-password",
 		opsclient.HTTPClient(s.webServer.Client()))
+	c.Assert(err, IsNil)
 
 	s.suite.O = s.client
 	s.suite.U = s.users
@@ -171,6 +172,7 @@ func (s *OpsHandlerSuite) TestGithubConnector(c *C) {
 	connectorWithoutSecrets := connector
 	connectorWithoutSecrets.Spec.ClientSecret = ""
 	out, err = s.client.GetGithubConnector(key, connector.GetName(), !withSecrets)
+	c.Assert(err, IsNil)
 	compare.DeepCompare(c, out, connectorWithoutSecrets)
 
 	err = s.client.DeleteGithubConnector(context.TODO(), key, connector.GetName())

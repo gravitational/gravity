@@ -170,7 +170,7 @@ func (s *ClusterMultiPeers) SetUpTest(c *C) {
 		})
 		c.Assert(err, IsNil)
 		objects[i] = obj.(*cluster)
-		objects[i].heartbeat()
+		c.Assert(objects[i].heartbeat(), IsNil)
 		clients[i] = obj
 	}
 
@@ -303,7 +303,7 @@ func (s *RPCSuite) SetUpTest(c *C) {
 
 		c.Assert(err, IsNil)
 		objects[i] = obj.(*cluster)
-		objects[i].heartbeat()
+		c.Assert(objects[i].heartbeat(), IsNil)
 		clients[i] = clusterClient
 		localClients[i] = localClient
 	}

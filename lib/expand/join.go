@@ -143,8 +143,7 @@ func (p *Peer) Run(listener net.Listener) error {
 // Implements signals.Stopper
 func (p *Peer) Stop(ctx context.Context) error {
 	p.Info("Stop.")
-	p.server.ManualStop(ctx, false)
-	return nil
+	return p.server.ManualStop(ctx, false)
 }
 
 // Execute executes the peer operation (join or just serving an agent).
@@ -191,7 +190,6 @@ func (p *Peer) Execute(req *installpb.ExecuteRequest, stream installpb.Agent_Exe
 			return nil
 		}
 	}
-	return nil
 }
 
 // SetPhase sets phase state without executing it.
@@ -438,12 +436,15 @@ func (p *Peer) startProgressLoop(ctx operationContext) {
 	p.wg.Add(1)
 	go func() {
 		defer p.wg.Done()
-		install.ProgressPoller{
+		err := install.ProgressPoller{
 			FieldLogger:  p.FieldLogger,
 			Operator:     ctx.Operator,
 			OperationKey: ctx.Operation.Key(),
 			Dispatcher:   p.dispatcher,
 		}.Run(p.ctx)
+		if err != nil {
+			p.Warnf("Failed to stop progress poller: %v.", err)
+		}
 	}()
 }
 
@@ -503,7 +504,6 @@ func (p *Peer) executeConcurrentStep(req *installpb.ExecuteRequest, stream insta
 			return trace.Wrap(err)
 		}
 	}
-	return nil
 }
 
 func (p *Peer) executePhase(ctx context.Context, opCtx operationContext, phase installpb.Phase, disp dispatcher.EventDispatcher) (dispatcher.Status, error) {
@@ -790,14 +790,13 @@ func (p *Peer) connectLoop() (*operationContext, error) {
 	}
 }
 
-func (p *Peer) stop() error {
+func (p *Peer) stop() {
 	ctx, cancel := context.WithTimeout(context.Background(), defaults.ShutdownTimeout)
 	defer cancel()
 	p.cancel()
 	p.wg.Wait()
 	p.dispatcher.Close()
 	p.server.Stop(ctx)
-	return nil
 }
 
 func (p *Peer) tryConnect(operationID string) (ctx *operationContext, err error) {

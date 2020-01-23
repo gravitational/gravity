@@ -137,7 +137,6 @@ func ReadTLSArchive(source io.Reader) (TLSArchive, error) {
 		var hdr *tar.Header
 		hdr, err = reader.Next()
 		if err == io.EOF {
-			err = nil
 			break
 		}
 		if err != nil {

@@ -92,10 +92,6 @@ func (r *InstallerStrategy) installSelfAsService() error {
 	return trace.Wrap(service.Reinstall(req))
 }
 
-func (r *InstallerStrategy) serviceName() (name string) {
-	return filepath.Base(r.ServicePath)
-}
-
 func (r *InstallerStrategy) checkAndSetDefaults() (err error) {
 	if len(r.Args) == 0 {
 		return trace.BadParameter("Args is required")

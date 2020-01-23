@@ -123,11 +123,11 @@ func (r *AutomaticLifecycle) generateDebugReport(ctx context.Context, c *Client)
 	if r.DebugReportPath == "" {
 		return nil
 	}
-	c.PrintStep("Saving debug report to %v", r.DebugReportPath)
+	c.PrintStep("Saving debug report to %v", r.DebugReportPath) // nolint:errcheck
 	err := c.generateDebugReport(ctx, r.DebugReportPath)
 	if err != nil {
 		if r.LocalDebugReporter != nil {
-			r.LocalDebugReporter(ctx, r.DebugReportPath)
+			err = r.LocalDebugReporter(ctx, r.DebugReportPath)
 		}
 	}
 	return trace.Wrap(err)

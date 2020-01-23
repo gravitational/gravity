@@ -176,9 +176,7 @@ func computeDiff(expected []*pb.Addr, actual []*pb.ServerResult) (diff []*pb.Add
 
 	for _, result := range actual {
 		repr := result.Server.Address()
-		if _, exists := total[repr]; exists {
-			delete(total, repr)
-		}
+		delete(total, repr)
 	}
 
 	for _, server := range total {

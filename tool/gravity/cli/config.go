@@ -1192,7 +1192,12 @@ func (i *InstallConfig) validateOrDetectCloudProvider(cloudProvider string, mani
 	}
 	switch cloudProvider {
 	case schema.ProviderAWS, schema.ProvisionerAWSTerraform:
-		if !awscloud.IsRunningOnAWS() {
+		runningOnAWS, err := awscloud.IsRunningOnAWS()
+		if err != nil {
+			// TODO: fallthrough instead of failing to keep backwards compat
+			log.WithError(err).Warn("Failed to determine whether running on AWS.")
+		}
+		if !runningOnAWS {
 			return "", trace.BadParameter("cloud provider %q was specified "+
 				"but the process does not appear to be running on an AWS "+
 				"instance", cloudProvider)
@@ -1210,7 +1215,12 @@ func (i *InstallConfig) validateOrDetectCloudProvider(cloudProvider string, mani
 	case "":
 		log.Info("Will auto-detect provider.")
 		// Detect cloud provider
-		if awscloud.IsRunningOnAWS() {
+		runningOnAWS, err := awscloud.IsRunningOnAWS()
+		if err != nil {
+			// TODO: fallthrough instead of failing to keep backwards compat
+			log.WithError(err).Warn("Failed to determine whether running on AWS.")
+		}
+		if runningOnAWS {
 			log.Info("Detected AWS cloud provider.")
 			return schema.ProviderAWS, nil
 		}

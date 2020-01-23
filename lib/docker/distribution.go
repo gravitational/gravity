@@ -59,32 +59,25 @@ func NewRegistry(config *configuration.Configuration) (*Registry, error) {
 // Starts starts the registry server and returns when the server
 // has actually started listening.
 func (r *Registry) Start() error {
-	initC := make(chan error, 1)
-	go r.listenAndServe(initC)
-	return trace.Wrap(<-initC)
+	listener, err := listener.NewListener(r.config.HTTP.Net, r.config.HTTP.Addr)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	registrycontext.GetLogger(r.app).Infof("Listening on %v.", listener.Addr())
+	go func() {
+		if err := r.listenAndServe(listener); err != nil {
+			registrycontext.GetLogger(r.app).Warnf("Failed to serve: %v.", err)
+		}
+	}()
+	return trace.Wrap(err)
 }
 
 // listenAndServe runs the registry's HTTP server.
-func (r *Registry) listenAndServe(initC chan error) error {
-	config := r.config
-
-	listener, err := listener.NewListener(config.HTTP.Net, config.HTTP.Addr)
-	if err != nil {
-		initC <- err
-		close(initC)
-		return trace.Wrap(err)
-	}
-
-	r.addr = listener.Addr()
-	registrycontext.GetLogger(r.app).Infof("listening on %v", r.addr)
-	close(initC)
-
-	go func() {
-		<-r.ctx.Done()
-		listener.Close()
-	}()
-
-	return r.server.Serve(listener)
+// listener is closed upon exit
+func (r *Registry) listenAndServe(listener net.Listener) error {
+	err := r.server.Serve(listener)
+	listener.Close()
+	return trace.Wrap(err)
 }
 
 // Addr returns the address this registry listens on.

@@ -276,7 +276,7 @@ func (r *Runner) StreamLogs(ctx context.Context, ref JobRef, out io.Writer) erro
 	err = utils.RetryWithInterval(ctx, interval, func() error {
 		watcher, err := newPodWatch(r.client.CoreV1(), ref)
 		if err != nil {
-			return &backoff.PermanentError{err}
+			return &backoff.PermanentError{Err: err}
 		}
 		err = r.monitorPods(localContext, watcher.ResultChan(), *job, *jobControl, out)
 		watcher.Stop()

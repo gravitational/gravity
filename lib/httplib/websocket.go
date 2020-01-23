@@ -74,6 +74,10 @@ func SetupWebsocketClient(ctx context.Context, c *roundtrip.Client, endpoint str
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	serverName, err := utils.URLHostname(u.Host)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	if u.Scheme == "http" {
 		u.Scheme = "ws"
 	} else {
@@ -92,11 +96,11 @@ func SetupWebsocketClient(ctx context.Context, c *roundtrip.Client, endpoint str
 	if !ok {
 		transport = &http.Transport{}
 	}
-	dial := transport.Dial
+	dial := transport.DialContext
 	if dial == nil {
-		dial = net.Dial
+		dial = (&net.Dialer{}).DialContext
 	}
-	conn, err := dial("tcp", u.Host)
+	conn, err := dial(ctx, "tcp", u.Host)
 	if err != nil {
 		// try to dial using local resolver in case of error
 		log.Warningf("got error, re-dialing with local resolver: %v", trace.DebugReport(err))
@@ -115,8 +119,7 @@ func SetupWebsocketClient(ctx context.Context, c *roundtrip.Client, endpoint str
 
 	tlsConn := tls.Client(conn, wscfg.TlsConfig)
 	errC := make(chan error, 2)
-	var timer *time.Timer // for canceling TLS handshake
-	timer = time.AfterFunc(defaults.DialTimeout, func() {
+	timer := time.AfterFunc(defaults.DialTimeout, func() {
 		errC <- trace.ConnectionProblem(nil, "handshake timeout")
 	})
 	go func() {
@@ -131,8 +134,9 @@ func SetupWebsocketClient(ctx context.Context, c *roundtrip.Client, endpoint str
 		return nil, trace.Wrap(err)
 	}
 	if !tlsConfig.InsecureSkipVerify {
+		// TODO: this path is not taken as tlsConfig is implicitly insecure (see above)
 		if tlsConfig.ServerName == "" {
-			tlsConfig.ServerName, err = utils.URLHostname(u.Host)
+			tlsConfig.ServerName = serverName
 		}
 		if err := tlsConn.VerifyHostname(tlsConfig.ServerName); err != nil {
 			conn.Close()

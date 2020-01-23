@@ -336,12 +336,12 @@ func (s *systemdManager) UninstallService(req UninstallServiceRequest) error {
 	serviceName := serviceName(req.Name)
 	out, err := invokeSystemctl("stop", serviceName)
 	if err != nil && !IsUnknownServiceError(err) {
-		return trace.Wrap(err)
+		return trace.Wrap(err, out)
 	}
 
 	out, err = invokeSystemctl("disable", serviceName)
 	if err != nil && !IsUnknownServiceError(err) {
-		return trace.Wrap(err)
+		return trace.Wrap(err, out)
 	}
 
 	out, err = invokeSystemctl("is-failed", serviceName)
