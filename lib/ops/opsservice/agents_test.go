@@ -54,7 +54,6 @@ func TestOpsService(t *testing.T) { TestingT(t) }
 
 type AgentSuite struct {
 	backend      storage.Backend
-	dir          string
 	users        users.Identity
 	accessToken  string
 	installer    ops.Operator
@@ -131,7 +130,7 @@ func (s *AgentSuite) TearDownTest(c *C) {
 	if s.agentServer != nil {
 		ctx, cancel := context.WithTimeout(s.ctx, 2*time.Second)
 		defer cancel()
-		s.agentServer.Stop(ctx)
+		s.agentServer.Stop(ctx) //nolint:errcheck
 	}
 }
 
@@ -268,7 +267,9 @@ func (s *AgentSuite) TestPingPongFailure(c *C) {
 }
 
 func (s *AgentSuite) testPingPong(c *C, req checks.PingPongRequest, fn func(agentAddr string, resp checks.PingPongGameResults)) {
-	go s.agentServer.Serve()
+	go func() {
+		c.Assert(s.agentServer.Serve(), IsNil)
+	}()
 
 	listener, err := net.Listen("tcp", "localhost:0")
 	c.Assert(err, IsNil)
@@ -285,8 +286,12 @@ func (s *AgentSuite) testPingPong(c *C, req checks.PingPongRequest, fn func(agen
 	}
 	agent := rpcserver.NewTestPeer(c, config, s.agentServer.Addr().String(),
 		rpcserver.NewTestCommand("test"), newSystemInfo("node-1"))
-	go agent.Serve()
-	defer agent.Stop(context.TODO())
+	go func() {
+		c.Assert(agent.Serve(), IsNil)
+	}()
+	defer func() {
+		c.Assert(agent.Stop(context.TODO()), IsNil)
+	}()
 
 	select {
 	case update := <-watchCh:

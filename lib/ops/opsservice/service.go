@@ -661,7 +661,11 @@ func (o *Operator) CreateSite(r ops.NewSiteRequest) (*ops.Site, error) {
 			OpsCenter: opsCenter,
 		}))
 	if err != nil {
-		defer o.DeleteSite(siteKey)
+		defer func() {
+			if err := o.DeleteSite(siteKey); err != nil {
+				log.WithError(err).Warn("Failed to delete cluster.")
+			}
+		}()
 		return nil, trace.Wrap(err)
 	}
 

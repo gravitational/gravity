@@ -410,7 +410,14 @@ func (s *site) executeOperation(key ops.SiteOperationKey, fn func(ctx *operation
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	go s.executeOperationWithContext(ctx, op, fn)
+	go func() {
+		if err := s.executeOperationWithContext(ctx, op, fn); err != nil {
+			s.WithFields(log.Fields{
+				log.ErrorKey: err,
+				"operation":  op,
+			}).Warn("Failed to execute operation.")
+		}
+	}()
 	return nil
 }
 

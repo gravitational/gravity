@@ -56,7 +56,11 @@ func getAWSCreds() (*credentials.Value, error) {
 		return nil, trace.Wrap(err)
 	}
 	if running {
-		creds, err = ec2rolecreds.NewCredentials(session.New()).Get()
+		session, err := session.NewSession()
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		creds, err = ec2rolecreds.NewCredentials(session).Get()
 		if err == nil {
 			log.Debug("Found AWS credentials using ec2 metadata API.")
 			return &creds, nil

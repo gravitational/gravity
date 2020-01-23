@@ -141,15 +141,7 @@ func (s *site) newTeleportServerRunner(ctx *operationContext, server remoteServe
 	}
 }
 
-// commandRunner defines interface for running commands
-type commandRunner interface {
-	RunStream(io.Writer, ...string) error
-	Run(...string) ([]byte, error)
-	RunCmd(operationContext, Command) ([]byte, error)
-}
-
 // serverRunner runs commands on the server it was initialized with,
-// implements commandRunner
 type serverRunner struct {
 	server remoteServer
 	runner remoteRunner

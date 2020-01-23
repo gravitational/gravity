@@ -65,7 +65,6 @@ const (
 	etcdProxyOn         = "on"
 	etcdNewCluster      = "new"
 	etcdExistingCluster = "existing"
-	etcdPeerPort        = 2380
 	etcdEndpointPort    = 2379
 )
 

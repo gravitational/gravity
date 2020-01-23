@@ -358,7 +358,9 @@ func (h *WebHandler) getSiteInstructions(w http.ResponseWriter, r *http.Request,
 	w.Header().Set("Content-Type", "text/plain")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(instructions))
+	if _, err := w.Write([]byte(instructions)); err != nil {
+		log.WithError(err).Warn("Failed to write response.")
+	}
 }
 
 /*

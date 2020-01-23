@@ -673,11 +673,11 @@ func (r Silent) Print(args ...interface{}) (n int, err error) {
 }
 
 // Println outputs specified arguments to stdout if the silent mode is not on.
-func (r Silent) Println(args ...interface{}) (n int, err error) {
-	if !r {
-		return fmt.Println(args...)
+func (r Silent) Println(args ...interface{}) {
+	if r {
+		return
 	}
-	return 0, nil
+	fmt.Println(args...) //nolint:errcheck
 }
 
 // PrintStep outputs the message with timestamp to stdout
