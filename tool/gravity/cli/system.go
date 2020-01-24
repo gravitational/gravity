@@ -1074,10 +1074,6 @@ func systemUninstall(env *localenv.LocalEnvironment, confirmed bool) error {
 		return trace.Wrap(err)
 	}
 
-	if err := removeMounts(env, svm, stateDir); err != nil {
-		log.WithError(err).Warnf("Failed to remove mounts: %v.", err)
-	}
-
 	env.PrintStep("Deleting all local data at %v", stateDir)
 	if err = os.RemoveAll(stateDir); err != nil {
 		// do not fail if the state directory cannot be removed, probably
