@@ -17,7 +17,9 @@ limitations under the License.
 package phases
 
 import (
+	"bytes"
 	"context"
+	"os/exec"
 
 	libfsm "github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/ops"
@@ -29,7 +31,6 @@ import (
 
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
-	"github.com/vishvananda/netlink"
 )
 
 // NewRestart returns a new executor to restart the runtime container to apply
@@ -75,6 +76,11 @@ func (r *restart) Rollback(ctx context.Context) error {
 	// cni0 bridge should be recreated on kubelet restart
 	// when the flannel->bridge cni plugin executes ADD operation
 	// for the next container
+	if config := r.config.GetGlobalConfig(); shouldUpdatePodCIDR(config) {
+		if err := r.removeCNIBridge(); err != nil {
+			return trace.Wrap(err)
+		}
+	}
 	return trace.Wrap(r.base.Rollback(ctx))
 }
 
@@ -89,13 +95,13 @@ func (*restart) PostCheck(context.Context) error {
 }
 
 func (r *restart) removeCNIBridge() error {
-	link, err := netlink.LinkByName("cni0")
-	if err == nil {
+	exists, err := linkExists(cniBridge)
+	if exists {
 		r.Info("Removing network interface cni0")
-		return netlink.LinkDel(link)
+		return linkDel(cniBridge)
 	}
-	if !isLinkNotFoundError(err) {
-		return trace.Wrap(err)
+	if err != nil {
+		r.WithError(err).Warn("Failed to determine whether cni0 bridge exists.")
 	}
 	// Nothing to do
 	return nil
@@ -115,7 +121,26 @@ func shouldUpdatePodCIDR(config *clusterconfig.Global) bool {
 	return len(config.PodCIDR) != 0
 }
 
-func isLinkNotFoundError(err error) bool {
-	_, ok := err.(netlink.LinkNotFoundError)
-	return ok
+func linkDel(name string) error {
+	out, err := exec.Command("ip", "link", "del", name).CombinedOutput()
+	if err != nil {
+		return trace.Wrap(err, string(out))
+	}
+	return nil
 }
+
+func linkExists(name string) (exists bool, err error) {
+	var buf, errBuf bytes.Buffer
+	cmd := exec.Command("ip", "link", "show", name)
+	cmd.Stderr = &errBuf
+	cmd.Stdout = &buf
+	if err := cmd.Run(); err != nil {
+		return false, trace.Wrap(err, errBuf.String())
+	}
+	if len(bytes.TrimSpace(buf.Bytes())) == 0 {
+		return false, nil
+	}
+	return true, nil
+}
+
+const cniBridge = "cni0"
