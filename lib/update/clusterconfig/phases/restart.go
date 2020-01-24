@@ -141,7 +141,7 @@ func linkExists(name string) (exists bool, err error) {
 	if utils.ExitStatusFromError(err) == nil {
 		return false, trace.Wrap(err, buf.String())
 	}
-	log.WithError(err).Warn("Failed to find link device for %q.", name)
+	log.WithError(err).Warnf("Failed to find link device for %q.", name)
 	// Failed to match an existing link device
 	return false, nil
 }
