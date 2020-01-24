@@ -48,15 +48,15 @@ import Modal from '../Modal';
 
 export const StyledPopover = styled.div`
   max-width: calc(100% - 32px);
-  maxHeight: calc(100% - 32px);
+  max-height: calc(100% - 32px);
   min-height: 16px;
   min-width: 16px;
   outline: none;
-  overflowX: hidden;
-  overflowY: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
   position: absolute;
-  ${ props => props.popoverCss && props.popoverCss(props) }
-`
+  ${props => props.popoverCss && props.popoverCss(props)}
+`;
 
 function getOffsetTop(rect, vertical) {
   let offset = 0;
@@ -111,7 +111,6 @@ function getAnchorEl(anchorEl) {
 }
 
 class Popover extends React.Component {
-
   handleGetOffsetTop = getOffsetTop;
 
   handleGetOffsetLeft = getOffsetLeft;
@@ -128,7 +127,7 @@ class Popover extends React.Component {
         }
 
         this.setPositioningStyles(this.paperRef);
-      }
+      };
     }
   }
 
@@ -270,15 +269,7 @@ class Popover extends React.Component {
   };
 
   render() {
-    const {
-      anchorEl,
-      children,
-      container: containerProp,
-      open,
-      popoverCss,
-      ...other
-    } = this.props;
-
+    const { anchorEl, children, container: containerProp, open, popoverCss, ...other } = this.props;
 
     // If the container prop is provided, use that
     // If the anchorEl prop is provided, use its parent body element as the container
@@ -287,15 +278,8 @@ class Popover extends React.Component {
       containerProp || (anchorEl ? ownerDocument(getAnchorEl(anchorEl)).body : undefined);
 
     return (
-      <Modal
-        container={container}
-        open={open}
-        BackdropProps={{ invisible: true }}
-        {...other}
-      >
-        <Transition
-          onEntering={this.handleEntering}
-        >
+      <Modal container={container} open={open} BackdropProps={{ invisible: true }} {...other}>
+        <Transition onEntering={this.handleEntering}>
           <StyledPopover
             popoverCss={popoverCss}
             data-mui-test="Popover"
@@ -433,7 +417,6 @@ Popover.propTypes = {
     vertical: PropTypes.oneOfType([PropTypes.number, PropTypes.oneOf(['top', 'center', 'bottom'])])
       .isRequired,
   }),
-
 
   /**
    * Properties applied to the `Transition` element.
