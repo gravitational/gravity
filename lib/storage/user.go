@@ -542,6 +542,9 @@ func (u *UserV2) Check() error {
 
 // CheckAndSetDefaults checks that the user is valid and sets some defaults
 func (u *UserV2) CheckAndSetDefaults() error {
+	if err := u.Metadata.CheckAndSetDefaults(); err != nil {
+		return trace.Wrap(err)
+	}
 	if u.Spec.AccountID == "" {
 		u.Spec.AccountID = defaults.SystemAccountID
 	}
@@ -662,8 +665,9 @@ func UnmarshalUser(bytes []byte) (User, error) {
 		if err := teleutils.UnmarshalWithSchema(teleservices.GetUserSchema(UserSpecV2Extension), &u, bytes); err != nil {
 			return nil, trace.BadParameter(err.Error())
 		}
-		u.Metadata.CheckAndSetDefaults()
-		u.CheckAndSetDefaults()
+		if err := u.CheckAndSetDefaults(); err != nil {
+			return nil, trace.Wrap(err)
+		}
 		utils.UTC(&u.Spec.CreatedBy.Time)
 		utils.UTC(&u.Spec.Expires)
 		utils.UTC(&u.Spec.Status.LockExpires)

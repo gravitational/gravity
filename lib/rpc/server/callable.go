@@ -51,14 +51,17 @@ func (c *osCommand) exec(ctx context.Context, stream pb.OutgoingMessageStream, a
 		return trace.Wrap(err, "failed to start %v", cmd.Path)
 	}
 
-	stream.Send(&pb.Message{Element: &pb.Message_ExecStarted{ExecStarted: &pb.ExecStarted{
+	err = stream.Send(&pb.Message{Element: &pb.Message_ExecStarted{ExecStarted: &pb.ExecStarted{
 		Args: args,
 		Seq:  seq,
 	}}})
+	if err != nil {
+		// Do not wrap gRPC-specific error
+		return err
+	}
 	err = cmd.Wait()
 	if err == nil {
-		err = stream.Send(&pb.Message{Element: &pb.Message_ExecCompleted{ExecCompleted: &pb.ExecCompleted{Seq: seq}}})
-		return trace.Wrap(err)
+		return stream.Send(&pb.Message{Element: &pb.Message_ExecCompleted{ExecCompleted: &pb.ExecCompleted{Seq: seq}}})
 	}
 
 	exitCode := ExitCodeUndefined
@@ -68,15 +71,11 @@ func (c *osCommand) exec(ctx context.Context, stream pb.OutgoingMessageStream, a
 		}
 	}
 
-	errWrite := stream.Send(&pb.Message{Element: &pb.Message_ExecCompleted{ExecCompleted: &pb.ExecCompleted{
+	return stream.Send(&pb.Message{Element: &pb.Message_ExecCompleted{ExecCompleted: &pb.ExecCompleted{
 		Seq:      seq,
 		ExitCode: int32(exitCode),
 		Error:    pb.EncodeError(trace.Wrap(err)),
 	}}})
-	if errWrite != nil {
-		log.WithError(errWrite).Warnf("Failed to send exec completed message: %v.", errWrite)
-	}
-	return trace.Wrap(err)
 }
 
 type osCommand struct {

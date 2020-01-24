@@ -18,10 +18,8 @@ package cli
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	_ "net/http/pprof"
-	"strings"
 
 	appservice "github.com/gravitational/gravity/lib/app/service"
 	"github.com/gravitational/gravity/lib/constants"
@@ -41,34 +39,13 @@ import (
 	"github.com/gravitational/trace"
 )
 
-func selectNetworkInterface() (string, error) {
-	for {
-		addr, autoselected, err := selectInterface()
-		if err != nil {
-			return "", trace.Wrap(err)
-		}
-		if autoselected {
-			return addr, nil
-		}
-		confirmed, err := confirmWithTitle(fmt.Sprintf(
-			"\nConfirm the selected interface [%v]", addr))
-		if err != nil {
-			return "", trace.Wrap(err)
-		}
-		if !confirmed {
-			continue
-		}
-		return addr, nil
-	}
-}
-
-func mustJSON(i interface{}) string {
-	bytes, err := json.Marshal(i)
-	if err != nil {
-		panic(err)
-	}
-	return string(bytes)
-}
+// func mustJSON(i interface{}) string {
+// 	bytes, err := json.Marshal(i)
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// 	return string(bytes)
+// }
 
 func appPackage(env *localenv.LocalEnvironment) error {
 	apps, err := env.AppServiceLocal(localenv.AppConfig{})
@@ -273,22 +250,4 @@ func listOpsCenters(env *localenv.LocalEnvironment) error {
 	}
 	fmt.Printf("\n")
 	return nil
-}
-
-type envvars map[string]string
-
-func newEnvironSource(env []string) (result envvars) {
-	result = make(map[string]string)
-	for _, variable := range env {
-		keyvalue := strings.Split(variable, "=")
-		if len(keyvalue) == 2 {
-			key, value := keyvalue[0], keyvalue[1]
-			result[key] = value
-		}
-	}
-	return result
-}
-
-func (r envvars) GetEnv(name string) string {
-	return r[name]
 }

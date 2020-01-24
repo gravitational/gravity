@@ -127,18 +127,22 @@ func (c *Client) CreateImportOperation(req *app.ImportRequest) (*storage.AppOper
 			close(errorc)
 			close(progressc)
 		}()
-		for range time.After(progressPollInterval) {
-			var progress *app.ProgressEntry
-			progress, err = c.GetOperationProgress(op)
-			if err != nil {
-				return
-			}
-			progressc <- progress
-			if progress.IsCompleted() {
-				if progress.State == app.ProgressStateFailed.State() {
-					err = trace.Errorf(progress.Message)
+		//nolint:gosimple
+		for {
+			select {
+			case <-time.After(progressPollInterval):
+				var progress *app.ProgressEntry
+				progress, err = c.GetOperationProgress(op)
+				if err != nil {
+					return
 				}
-				return
+				progressc <- progress
+				if progress.IsCompleted() {
+					if progress.State == app.ProgressStateFailed.State() {
+						err = trace.Errorf(progress.Message)
+					}
+					return
+				}
 			}
 		}
 	}

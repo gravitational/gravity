@@ -65,16 +65,12 @@ func (r *S) TestAgentGroupExecutesCommandsRemotety(c *C) {
 		commandExecutor: testCommand{"server output"},
 	})
 	c.Assert(err, IsNil)
-	go func() {
-		c.Assert(srv.Serve(), IsNil)
-	}()
+	go c.Assert(srv.Serve(), IsNil)
 	defer withTestCtx(srv.Stop, c)
 
 	serverAddr := srv.Addr().String()
 	p1 := r.newPeer(c, PeerConfig{Config: Config{Listener: listen(c)}}, serverAddr, log)
-	go func() {
-		c.Assert(p1.Serve(), IsNil)
-	}()
+	go c.Assert(p1.Serve(), IsNil)
 	defer withTestCtx(p1.Stop, c)
 
 	p2 := r.newPeer(c, PeerConfig{Config: Config{Listener: listen(c)}}, serverAddr, log)
@@ -125,22 +121,18 @@ func (r *S) TestAgentGroupReconnects(c *C) {
 		commandExecutor: testCommand{"server output"},
 	})
 	c.Assert(err, IsNil)
-	go func() {
-		c.Assert(srv.Serve(), IsNil)
-	}()
+	go c.Assert(srv.Serve(), IsNil)
 	defer withTestCtx(srv.Stop, c)
 
 	upstream := listen(c)
 	local := listen(c)
 	proxyAddr := local.Addr().String()
 	proxyLink := proxy.New(proxy.NetLink{Local: local, Upstream: upstream.Addr().String()}, log)
-	proxyLink.Start()
+	c.Assert(proxyLink.Start(), IsNil)
 
 	serverAddr := srv.Addr().String()
 	p1 := r.newPeer(c, PeerConfig{Config: Config{Listener: listen(c)}}, serverAddr, log)
-	go func() {
-		c.Assert(p1.Serve(), IsNil)
-	}()
+	go c.Assert(p1.Serve(), IsNil)
 	defer withTestCtx(p1.Stop, c)
 	// Have peer 2 go through a proxy so its connection can be manipulated
 	p2 := r.newPeer(c, PeerConfig{Config: Config{Listener: upstream}, proxyAddr: proxyAddr}, serverAddr, log)
@@ -199,7 +191,7 @@ func (r *S) TestAgentGroupReconnects(c *C) {
 	// Restore connection to peer 2
 	local = listenAddr(proxyAddr, c)
 	proxyLink = proxy.New(proxy.NetLink{Local: local, Upstream: upstream.Addr().String()}, log)
-	proxyLink.Start()
+	c.Assert(proxyLink.Start(), IsNil)
 	defer proxyLink.Stop()
 
 	select {
@@ -234,23 +226,19 @@ func (r *S) TestAgentGroupRemovesPeerItCannotReconnect(c *C) {
 		ReconnectTimeout: 1 * time.Second,
 	})
 	c.Assert(err, IsNil)
-	go func() {
-		c.Assert(srv.Serve(), IsNil)
-	}()
+	go c.Assert(srv.Serve(), IsNil)
 	defer withTestCtx(srv.Stop, c)
 
 	upstream := listen(c)
 	local := listen(c)
 	proxyAddr := local.Addr().String()
 	proxyLink := proxy.New(proxy.NetLink{Local: local, Upstream: upstream.Addr().String()}, log)
-	proxyLink.Start()
+	c.Assert(proxyLink.Start(), IsNil)
 
 	serverAddr := srv.Addr().String()
 	// Have peer go through a proxy so its connection can be manipulated
 	p := r.newPeer(c, PeerConfig{Config: Config{Listener: upstream}, proxyAddr: proxyAddr}, serverAddr, log)
-	go func() {
-		c.Assert(p.Serve(), IsNil)
-	}()
+	go c.Assert(p.Serve(), IsNil)
 	defer withTestCtx(p.Stop, c)
 
 	ctx, cancel := context.WithTimeout(context.TODO(), 1*time.Second)

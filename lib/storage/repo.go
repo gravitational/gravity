@@ -110,6 +110,7 @@ func (r *RepositoryV1) V2() *RepositoryV2 {
 	if !r.Expires.IsZero() {
 		new.SetExpiry(r.Expires)
 	}
+	//nolint:errcheck
 	new.Metadata.CheckAndSetDefaults()
 	return new
 }
@@ -149,7 +150,9 @@ func UnmarshalRepository(data []byte) (Repository, error) {
 			return nil, trace.BadParameter(err.Error())
 		}
 		// we are ignoring error from this function on purpose here
-		repository.Metadata.CheckAndSetDefaults()
+		if err := repository.Metadata.CheckAndSetDefaults(); err != nil {
+			return nil, trace.Wrap(err)
+		}
 		return &repository, nil
 	case "":
 		var repository RepositoryV1

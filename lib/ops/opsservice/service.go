@@ -47,7 +47,6 @@ import (
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/cloudflare/cfssl/signer"
-	"github.com/docker/docker/pkg/archive"
 	"github.com/gravitational/configure/cstrings"
 	"github.com/gravitational/license/authority"
 	teleevents "github.com/gravitational/teleport/lib/events"
@@ -290,10 +289,6 @@ func (o *Operator) packages() pack.PackageService {
 
 func (o *Operator) users() users.Identity {
 	return o.cfg.Users
-}
-
-func (o *Operator) clock() timetools.TimeProvider {
-	return o.cfg.Clock
 }
 
 func (o *Operator) publicURL() string {
@@ -1448,21 +1443,21 @@ func (o *Operator) openSiteInternal(data *storage.Site) (*site, error) {
 	return st, trace.Wrap(err)
 }
 
-func (o *Operator) getSpecPath(sitePackage loc.Locator) (string, error) {
-	packagePath := pack.PackagePath(o.cfg.StateDir, sitePackage)
-	// unpack the site package to find the manifest
-	log.Infof("getSpecPath(packagePath=%v)", packagePath)
-	err := pack.Unpack(
-		o.cfg.Packages, sitePackage, packagePath,
-		&archive.TarOptions{
-			NoLchown:        true,
-			ExcludePatterns: []string{"registry"},
-		})
-	if err != nil {
-		return "", trace.Wrap(err)
-	}
-	return filepath.Join(packagePath, "resources"), nil
-}
+//func (o *Operator) getSpecPath(sitePackage loc.Locator) (string, error) {
+//	packagePath := pack.PackagePath(o.cfg.StateDir, sitePackage)
+//	// unpack the site package to find the manifest
+//	log.Infof("getSpecPath(packagePath=%v)", packagePath)
+//	err := pack.Unpack(
+//		o.cfg.Packages, sitePackage, packagePath,
+//		&archive.TarOptions{
+//			NoLchown:        true,
+//			ExcludePatterns: []string{"registry"},
+//		})
+//	if err != nil {
+//		return "", trace.Wrap(err)
+//	}
+//	return filepath.Join(packagePath, "resources"), nil
+//}
 
 // isAWSProvisioner returns true if the provisioner is using AWS
 func isAWSProvisioner(provisioner string) bool {

@@ -17,16 +17,11 @@ limitations under the License.
 package opsservice
 
 import (
-	"bytes"
-	"context"
-	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
-	"text/template"
 
 	appservice "github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
@@ -159,19 +154,6 @@ func (s *site) newOperationRecorder(key ops.SiteOperationKey, additionalLogFiles
 	}
 	writers = append(writers, f)
 	return utils.NewMultiWriteCloser(writers...), nil
-}
-
-func (s *site) loadProvisionerState(state interface{}) error {
-	s.Infof("loadProvisionerState")
-	st, err := s.backend().GetSite(s.key.SiteDomain)
-
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	if st.ProvisionerState == nil {
-		return trace.NotFound("no provisioner state found")
-	}
-	return trace.Wrap(json.Unmarshal(st.ProvisionerState, state))
 }
 
 func (s *site) installToken() string {
@@ -380,27 +362,6 @@ func (s *site) setSiteState(state string) error {
 	return trace.Wrap(err)
 }
 
-func (s *site) updateSiteApp(appPackage string) error {
-	loc, err := loc.ParseLocator(appPackage)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	site, err := s.backend().GetSite(s.key.SiteDomain)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	envelope, err := s.service.cfg.Packages.ReadPackageEnvelope(*loc)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	site.App = envelope.ToPackage()
-	_, err = s.backend().UpdateSite(*site)
-	return trace.Wrap(err)
-}
-
 func (s *site) executeOperation(key ops.SiteOperationKey, fn func(ctx *operationContext) error) error {
 	op, err := s.getSiteOperation(key.OperationID)
 	if err != nil {
@@ -450,8 +411,10 @@ func (s *site) executeOperationWithContext(ctx *operationContext, op *ops.SiteOp
 	return trace.Wrap(err)
 }
 
+//nolint:unused
 type transformFn func(reader io.Reader) (io.ReadCloser, error)
 
+//nolint:unused
 func (s *site) copyFile(src, dst string, transform transformFn) error {
 	s.Infof("copyFile(src=%v, dst=%v)", src, dst)
 	file, err := os.Open(src)
@@ -477,12 +440,7 @@ func (s *site) copyFile(src, dst string, transform transformFn) error {
 	return nil
 }
 
-func (s *site) copyFileFromString(data, dst string, transform transformFn) error {
-	s.Debugf("rendering \n%s\n to %v", data, dst)
-	reader := strings.NewReader(data)
-	return s.copyFileFromStream(ioutil.NopCloser(reader), dst, transform)
-}
-
+//nolint:unused
 func (s *site) copyFileFromStream(stream io.ReadCloser, dst string, transform transformFn) (err error) {
 	if transform != nil {
 		stream, err = transform(stream)
@@ -501,85 +459,6 @@ func (s *site) copyFileFromStream(stream io.ReadCloser, dst string, transform tr
 		return trace.Wrap(err)
 	}
 	return nil
-}
-
-func (s *site) copyDir(src, dst string, t transformFn) error {
-	s.Infof("copyDir(src=%v, dst=%v)", src, dst)
-	info, err := os.Stat(src)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	if err := os.MkdirAll(dst, info.Mode()); err != nil {
-		return trace.Wrap(err)
-	}
-	dir, err := os.Open(src)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	defer dir.Close()
-
-	fileinfos, err := dir.Readdir(-1)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	for _, f := range fileinfos {
-		fsrc := filepath.Join(src, f.Name())
-		fdst := filepath.Join(dst, f.Name())
-		if f.IsDir() {
-			if err := s.copyDir(fsrc, fdst, t); err != nil {
-				return trace.Wrap(err)
-			}
-		} else {
-			if err := s.copyFile(fsrc, fdst, t); err != nil {
-				return trace.Wrap(err)
-			}
-		}
-	}
-	return nil
-}
-
-func (s *site) render(data []byte, server map[string]interface{}, ctx *operationContext) (io.Reader, error) {
-	t := template.New("tpl")
-	t, err := t.Parse(string(data))
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	site, err := s.backend().GetSite(s.domainName)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	variables, err := ctx.operation.GetVars().ToMap()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	context := map[string]interface{}{
-		"variables":   variables,
-		"server":      server,
-		"site_labels": site.Labels,
-		"networking":  s.getNetworkType(ctx),
-	}
-	buf := &bytes.Buffer{}
-	if err := t.Execute(buf, context); err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return buf, nil
-}
-
-func (s *site) getNetworkType(ctx *operationContext) string {
-	return s.app.Manifest.GetNetworkType(s.provider, ctx.operation.Provisioner)
-}
-
-func (s *site) renderString(data []byte, server map[string]interface{}, ctx *operationContext) (string, error) {
-	r, err := s.render(data, server, ctx)
-	if err != nil {
-		return "", trace.Wrap(err)
-	}
-	out, err := ioutil.ReadAll(r)
-	if err != nil {
-		return "", trace.Wrap(err)
-	}
-	return string(out), nil
 }
 
 func (s *site) compareAndSwapOperationState(swap swap) (*ops.SiteOperation, error) {

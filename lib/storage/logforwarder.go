@@ -199,7 +199,10 @@ func (m *logForwarderMarshaler) Unmarshal(data []byte) (LogForwarder, error) {
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
-		l.Metadata.CheckAndSetDefaults()
+		err = l.Metadata.CheckAndSetDefaults()
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
 		return &l, nil
 	}
 

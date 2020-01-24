@@ -178,17 +178,6 @@ func (s *site) getTeleportMasters(ctx context.Context) (servers []teleportServer
 	return servers, nil
 }
 
-func (s *site) getTeleportMaster(ctx context.Context) (*teleportServer, error) {
-	masters, err := s.getTeleportMasters(ctx)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	if len(masters) == 0 {
-		return nil, trace.NotFound("no master servers found")
-	}
-	return &masters[0], nil
-}
-
 func (s *site) configureExpandPackages(ctx context.Context, opCtx *operationContext) error {
 	teleportMasterIPs, err := s.getTeleportMasterIPs(ctx)
 	if err != nil {
@@ -1361,10 +1350,10 @@ func (s *site) planetCertAuthorityPackage() (*loc.Locator, error) {
 
 // opsCertAuthorityPackage is a shorthand to return locator for OpsCenter's certificate
 // authority package
-func (s *site) opsCertAuthorityPackage() (*loc.Locator, error) {
-	return loc.ParseLocator(
-		fmt.Sprintf("%v/%v", defaults.SystemAccountOrg, constants.OpsCenterCAPackage))
-}
+//func (s *site) opsCertAuthorityPackage() (*loc.Locator, error) {
+//	return loc.ParseLocator(
+//		fmt.Sprintf("%v/%v", defaults.SystemAccountOrg, constants.OpsCenterCAPackage))
+//}
 
 // siteExport package exports site state as BoltDB database dump
 func (s *site) siteExportPackage() (*loc.Locator, error) {

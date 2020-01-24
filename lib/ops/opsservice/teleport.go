@@ -23,7 +23,6 @@ import (
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/ops"
-	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/utils"
 	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
@@ -104,14 +103,14 @@ func (t *teleportServer) HostName() string { return t.Labels[ops.Hostname] }
 // Debug implements remoteServer.Debug
 func (t *teleportServer) Debug() string { return t.Addr }
 
-func (t *teleportServer) getLabel(name string) string {
-	return t.Labels[name]
-}
+//func (t *teleportServer) getLabel(name string) string {
+//	return t.Labels[name]
+//}
 
-func (t *teleportServer) isMaster() bool {
-	role := schema.ServiceRole(t.Labels[schema.ServiceLabelRole])
-	return (role == schema.ServiceRoleMaster)
-}
+//func (t *teleportServer) isMaster() bool {
+//	role := schema.ServiceRole(t.Labels[schema.ServiceLabelRole])
+//	return (role == schema.ServiceRoleMaster)
+//}
 
 func (s *site) getTeleportServerNoRetry(labelName, labelValue string) (server *teleportServer, err error) {
 	const noRetry = 1
@@ -202,16 +201,6 @@ func queryReturnsAtLeastOneServer(domainName string, servers []teleservices.Serv
 		return trace.NotFound("no servers found for %q", domainName)
 	}
 	return nil
-}
-
-type recorder struct{}
-
-func (r recorder) Record(format string, args ...interface{}) {
-	log.Infof(format, args...)
-}
-
-func (r recorder) WithFields(fields log.Fields) *log.Entry {
-	return log.WithFields(fields)
 }
 
 func (r teleservers) getWithLabels(labels labels) (result teleservers) {

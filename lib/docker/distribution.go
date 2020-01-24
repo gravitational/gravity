@@ -63,6 +63,7 @@ func (r *Registry) Start() error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	r.addr = listener.Addr()
 	registrycontext.GetLogger(r.app).Infof("Listening on %v.", listener.Addr())
 	go func() {
 		if err := r.listenAndServe(listener); err != nil {

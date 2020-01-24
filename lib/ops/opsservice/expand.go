@@ -19,16 +19,12 @@ package opsservice
 import (
 	"context"
 
-	"github.com/gravitational/gravity/lib/kubernetes"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
-	"github.com/gravitational/rigging"
 
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // createExpandOperation initiates expand operation
@@ -158,46 +154,4 @@ func (s *site) validateExpand(op *ops.SiteOperation, req *ops.OperationUpdateReq
 
 	err = setClusterRoles(req.Servers, *s.app, len(masters))
 	return trace.Wrap(err)
-}
-
-func (o *Operator) registerKubernetesNode(ctx context.Context, operation ops.SiteOperation) error {
-	client, err := o.GetKubeClient()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	app, err := o.cfg.Apps.GetApp(operation.InstallExpand.Package)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	for _, server := range operation.Servers {
-
-		profile, err := app.Manifest.NodeProfiles.ByName(server.Role)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-
-		err = kubernetes.Retry(ctx, func() error {
-			_, err := client.CoreV1().Nodes().Create(&v1.Node{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:   server.KubeNodeID(),
-					Labels: server.GetNodeLabels(profile.Labels),
-				},
-				Spec: v1.NodeSpec{
-					Taints: profile.Taints,
-				},
-			})
-			err = rigging.ConvertError(err)
-			// If we're redoing an operation phase, it's possible the node will already exist
-			if trace.IsAlreadyExists(err) {
-				return nil
-			}
-			return trace.Wrap(err)
-		})
-		if err != nil {
-			return trace.Wrap(err)
-		}
-	}
-	return nil
 }

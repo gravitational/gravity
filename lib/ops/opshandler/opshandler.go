@@ -2328,14 +2328,6 @@ func (h *WebHandler) emitAuditEvent(w http.ResponseWriter, r *http.Request, p ht
 	return nil
 }
 
-func (s *WebHandler) wrap(fn func(w http.ResponseWriter, r *http.Request, p httprouter.Params) error) httprouter.Handle {
-	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		if err := fn(w, r, p); err != nil {
-			trace.WriteError(w, err)
-		}
-	}
-}
-
 func (s *WebHandler) needsAuth(fn ServiceHandle) httprouter.Handle {
 	return NeedsAuth(s.cfg.Devmode, s.cfg.Backend, s.cfg.Operator, s.cfg.Authenticator, s.cfg.Users, fn)
 }

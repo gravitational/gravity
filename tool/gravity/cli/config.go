@@ -422,23 +422,6 @@ func (i *InstallConfig) validateApplicationDir() error {
 	return trace.Wrap(err)
 }
 
-// getAdvertiseAddr returns the advertise address to use for the ???
-// asks the user to choose it among the host's interfaces
-func (i *InstallConfig) getAdvertiseAddr() (string, error) {
-	// if it was set explicitly with --advertise-addr flag, use it
-	if i.AdvertiseAddr != "" {
-		return i.AdvertiseAddr, nil
-	}
-	// otherwise, try to pick an address among machine's interfaces
-	addr, err := utils.PickAdvertiseIP()
-	if err != nil {
-		return "", trace.Wrap(err, "could not pick advertise address among "+
-			"the host's network interfaces, please set the advertise address "+
-			"via --advertise-addr flag")
-	}
-	return addr, nil
-}
-
 // getApp returns the application package for this installer
 func (i *InstallConfig) getApp() (app *app.Application, err error) {
 	env, err := localenv.NewLocalEnvironment(localenv.LocalEnvironmentArgs{

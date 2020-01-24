@@ -341,7 +341,11 @@ func (r *Runner) checkJob(ctx context.Context, job *batchv1.Job, jobControl *rig
 		for _, containerDiff := range diff.containers {
 			// stream logs for running containers
 			if containerDiff.new.State.Running != nil {
-				go r.streamPodContainerLogs(ctx, &pod, containerDiff.name, out)
+				go func() {
+					if err := r.streamPodContainerLogs(ctx, &pod, containerDiff.name, out); err != nil {
+						r.WithError(err).Warn("Failed to stream container logs.")
+					}
+				}()
 			}
 		}
 	}

@@ -27,7 +27,6 @@ import (
 	"time"
 
 	"github.com/gravitational/gravity/lib/defaults"
-	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/roundtrip"
 	"github.com/gravitational/trace"
@@ -71,10 +70,6 @@ func WebsocketClientForURL(URL string, headers http.Header) (*websocket.Conn, er
 // SetupWebsocketClient sets up roundtrip client to dial web socket method
 func SetupWebsocketClient(ctx context.Context, c *roundtrip.Client, endpoint string, localDialer Dialer) (io.ReadCloser, error) {
 	u, err := url.Parse(endpoint)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	serverName, err := utils.URLHostname(u.Host)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -132,16 +127,6 @@ func SetupWebsocketClient(ctx context.Context, c *roundtrip.Client, endpoint str
 	if err := <-errC; err != nil {
 		conn.Close()
 		return nil, trace.Wrap(err)
-	}
-	if !tlsConfig.InsecureSkipVerify {
-		// TODO: this path is not taken as tlsConfig is implicitly insecure (see above)
-		if tlsConfig.ServerName == "" {
-			tlsConfig.ServerName = serverName
-		}
-		if err := tlsConn.VerifyHostname(tlsConfig.ServerName); err != nil {
-			conn.Close()
-			return nil, trace.Wrap(err)
-		}
 	}
 	clt, err := websocket.NewClient(wscfg, tlsConn)
 	if err != nil {

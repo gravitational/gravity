@@ -353,11 +353,12 @@ func (s *UsersSuite) TestCreateUserWithToken(c *C) {
 
 func (s *UsersSuite) TestBuiltinRoles(c *C) {
 	type check struct {
-		hasAccess        bool
-		verb             string
-		namespace        string
-		rule             string
-		context          *users.Context
+		hasAccess bool
+		verb      string
+		namespace string
+		rule      string
+		context   *users.Context
+		//nolint:structcheck
 		kubernetesGroups []string
 	}
 	testCases := []struct {

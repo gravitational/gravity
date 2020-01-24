@@ -68,21 +68,10 @@ func (s *site) newOperationContext(operation ops.SiteOperation) (*operationConte
 	return ctx, nil
 }
 
+//nolint:unused
 func (c *operationContext) removeAll() bool {
 	// this is a special case and means - remove all servers
 	return len(c.serversToRemove) == 0
-}
-
-func (c *operationContext) shouldRemoveServer(name string) bool {
-	if c.removeAll() {
-		return true
-	}
-	for _, s := range c.serversToRemove {
-		if s.Hostname == name {
-			return true
-		}
-	}
-	return false
 }
 
 func (c *operationContext) profiles() (result map[string]storage.ServerProfile) {
@@ -152,18 +141,4 @@ func (c *operationContext) Close() error {
 func (c *operationContext) Write(b []byte) (int, error) {
 	c.Entry.Print(string(b))
 	return len(b), nil
-}
-
-// logRecorder implements Recorder interface and uses standard logging, so it
-// can be used where operationContext is not available
-type logRecorder struct {
-	*log.Entry
-}
-
-func (r logRecorder) WithFields(fields log.Fields) *log.Entry {
-	return r.Entry.WithFields(fields)
-}
-
-func (r logRecorder) Record(format string, a ...interface{}) {
-	r.Infof(format, a...)
 }

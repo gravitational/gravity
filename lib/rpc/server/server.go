@@ -161,6 +161,7 @@ type Config struct {
 	// Being an interface provides necessary flexibiltiy for testing.
 	commandExecutor
 	// closers lists additional resources to close upon receiving a stop command
+	//nolint:structcheck
 	closers []closer
 }
 
