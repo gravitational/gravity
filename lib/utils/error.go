@@ -24,6 +24,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"strings"
 	"syscall"
 
@@ -339,6 +340,20 @@ func IsConnectionResetError(err error) bool {
 func IsConnectionRefusedError(err error) bool {
 	return strings.Contains(trace.Unwrap(err).Error(),
 		"connection refused")
+}
+
+// ExitStatusFromError returns the exit status from the specified error.
+// If the error is not exit status error, return nil
+func ExitStatusFromError(err error) *int {
+	exitErr, ok := trace.Unwrap(err).(*exec.ExitError)
+	if !ok {
+		return nil
+	}
+	if waitStatus, ok := exitErr.ProcessState.Sys().(syscall.WaitStatus); ok {
+		status := waitStatus.ExitStatus()
+		return &status
+	}
+	return nil
 }
 
 // ShouldReconnectPeer implements the error classification for peer connection errors
