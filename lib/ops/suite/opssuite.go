@@ -212,10 +212,11 @@ func (s *OpsSuite) InstallInstructions(c *C) {
 func (s *OpsSuite) generateInstallToken(c *C, token, clusterName string) {
 	_, err := s.O.CreateInstallToken(
 		ops.NewInstallTokenRequest{
-			AccountID: defaults.SystemAccountID,
-			UserType:  storage.AdminUser,
-			UserEmail: fmt.Sprintf("agent@%v", clusterName),
-			Token:     token,
+			AccountID:   defaults.SystemAccountID,
+			Application: s.testApp.String(),
+			UserType:    storage.AgentUser,
+			UserEmail:   fmt.Sprintf("agent@%v", clusterName),
+			Token:       token,
 		},
 	)
 	c.Assert(err, IsNil)

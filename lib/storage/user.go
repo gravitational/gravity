@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/user"
+	"runtime/debug"
 	"time"
 
 	"github.com/gravitational/gravity/lib/constants"
@@ -530,6 +531,7 @@ func (u *UserV2) Check() error {
 			u.GetType(), SupportedUserTypes)
 	}
 	if u.GetType() != AgentUser && u.GetPassword() == "" {
+		fmt.Printf("Failed to validate user %#v: %s\n.", u, string(debug.Stack()))
 		return trace.BadParameter("parameter 'password' is not set")
 	}
 	for _, id := range u.Spec.OIDCIdentities {
