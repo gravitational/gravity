@@ -28,6 +28,7 @@ import (
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 	"github.com/gravitational/gravity/lib/update"
 	libbasephase "github.com/gravitational/gravity/lib/update/internal/rollingupdate/phases"
+	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
@@ -130,17 +131,19 @@ func linkDel(name string) error {
 }
 
 func linkExists(name string) (exists bool, err error) {
-	var buf, errBuf bytes.Buffer
+	var buf bytes.Buffer
 	cmd := exec.Command("ip", "link", "show", name)
-	cmd.Stderr = &errBuf
-	cmd.Stdout = &buf
-	if err := cmd.Run(); err != nil {
-		return false, trace.Wrap(err, errBuf.String())
+	cmd.Stderr = &buf
+	err = cmd.Run()
+	if err == nil {
+		return true, nil
 	}
-	if len(bytes.TrimSpace(buf.Bytes())) == 0 {
-		return false, nil
+	if utils.ExitStatusFromError(err) == nil {
+		return false, trace.Wrap(err, buf.String())
 	}
-	return true, nil
+	log.WithError(err).Warn("Failed to find link device for %q.", name)
+	// Failed to match an existing link device
+	return false, nil
 }
 
 const cniBridge = "cni0"
