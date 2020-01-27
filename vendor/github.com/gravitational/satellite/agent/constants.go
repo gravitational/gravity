@@ -16,6 +16,11 @@ limitations under the License.
 
 package agent
 
+import (
+	"crypto/tls"
+	"time"
+)
+
 // MemberStatus describes the state of a serf node.
 type MemberStatus string
 
@@ -33,3 +38,69 @@ const (
 	RoleMaster Role = "master"
 	RoleNode        = "node"
 )
+
+// Timeout values
+const (
+	// lastSeenTTL specifies the time to live for the stored lastSeen values.
+	// This ensures agents do not hold on to unused information when a member
+	// leaves the cluster.
+	lastSeenTTL = 3 * time.Minute
+
+	// timelineInitTimeout specifies the amount of time to wait for the
+	// timeline to initialize.
+	timelineInitTimeout = 5 * time.Second
+
+	// updateTimelineTimeout specifies the amount of time to wait for events
+	// to be stored into the timeline.
+	updateTimelineTimeout = 5 * time.Second
+
+	// statusUpdateTimeout is the amount of time to wait between status update collections.
+	statusUpdateTimeout = 30 * time.Second
+
+	// recycleTimeout is the amount of time to wait between recycle attempts.
+	// Recycle is a request to clean up / remove stale data that backends can choose to
+	// implement.
+	recycleTimeout = 10 * time.Minute
+
+	// statusQueryReplyTimeout specifies the amount of time to wait for the cluster
+	// status query reply.
+	statusQueryReplyTimeout = 30 * time.Second
+
+	// nodeStatusTimeout specifies the amount of time to wait for a node status
+	// query reply. The timeout is smaller than the statusQueryReplyTimeout so
+	// that the node status collection step can return results before the
+	// deadline.
+	nodeStatusTimeout = statusQueryReplyTimeout - (5 * time.Second)
+
+	// checksTimeout specifies the amount of time to wait for a check to complete.
+	// The checksTimeout is smaller than the nodeStatusTimeout so that the checks
+	// can return results before the deadline.
+	checksTimeout = nodeStatusTimeout - (5 * time.Second)
+
+	// probeTimeout specifies the amount of time to wait for a probe to complete.
+	// The probeTimeout is smaller than the checksTimeout so that the probe
+	// collection step can return results before the deadline.
+	probeTimeout = checksTimeout - (5 * time.Second)
+)
+
+// maxConcurrentCheckers specifies the maximum number of checkers active at
+// any given time.
+const maxConcurrentCheckers = 10
+
+// RPCPort specifies the default RPC port.
+const RPCPort = 7575 // FIXME: use serf to discover agents
+
+// defaultCipherSuites specify default cipher suites  to be used when creating
+// tls config.
+// Use TLS Modern capability suites
+// https://wiki.mozilla.org/Security/Server_Side_TLS
+var defaultCipherSuites = []uint16{
+	tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+	tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+	tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
+	tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
+	tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+	tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+	tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
+	tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
+}

@@ -170,6 +170,65 @@ func statusOnce(ctx context.Context, operator ops.Operator, operationID string, 
 	return status, nil
 }
 
+// statusHistory collects cluster status history and prints out the information
+// to stdout.
+func statusHistory() error {
+	ctx, cancel := context.WithTimeout(context.Background(), defaults.StatusCollectionTimeout)
+	defer cancel()
+	timeline, err := statusapi.Timeline(ctx)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	for _, event := range timeline.GetEvents() {
+		printEvent(os.Stdout, event)
+	}
+
+	return nil
+}
+
+func printEvent(out io.Writer, event *pb.TimelineEvent) {
+	// stamp defines default timestamp format.
+	const stamp = "Jan _2 15:04:05 UTC"
+
+	w := new(tabwriter.Writer)
+	w.Init(out, 0, 8, 1, '\t', 0)
+
+	timestamp := event.GetTimestamp().ToTime()
+
+	switch event.GetData().(type) {
+	case *pb.TimelineEvent_ClusterDegraded:
+		eventString := fmt.Sprintf("[%s] Cluster Degraded\n", timestamp)
+		fmt.Fprintf(w, color.RedString(eventString))
+	case *pb.TimelineEvent_ClusterRecovered:
+		eventString := fmt.Sprintf("[%s] Cluster Recovered\n", timestamp)
+		fmt.Fprintf(w, color.GreenString(eventString))
+	case *pb.TimelineEvent_NodeAdded:
+		eventString := fmt.Sprintf("[%s] Node Added\t[%s]\n", timestamp, event.GetNodeAdded().GetNode())
+		fmt.Fprintf(w, color.YellowString(eventString))
+	case *pb.TimelineEvent_NodeRemoved:
+		eventString := fmt.Sprintf("[%s] Node Removed\t[%s]\n", timestamp, event.GetNodeRemoved().GetNode())
+		fmt.Fprintf(w, color.YellowString(eventString))
+	case *pb.TimelineEvent_NodeDegraded:
+		eventString := fmt.Sprintf("[%s] Node Degraded\t[%s]\n", timestamp, event.GetNodeDegraded().GetNode())
+		fmt.Fprintf(w, color.RedString(eventString))
+	case *pb.TimelineEvent_NodeRecovered:
+		eventString := fmt.Sprintf("[%s] Node Recovered\t[%s]\n", timestamp, event.GetNodeRecovered().GetNode())
+		fmt.Fprintf(w, color.GreenString(eventString))
+	case *pb.TimelineEvent_ProbeFailed:
+		e := event.GetProbeFailed()
+		eventString := fmt.Sprintf("[%s] Probe Failed\t[%s]\t[%s]\n", timestamp, e.GetNode(), e.GetProbe())
+		fmt.Fprintf(w, color.RedString(eventString))
+	case *pb.TimelineEvent_ProbeSucceeded:
+		e := event.GetProbeSucceeded()
+		eventString := fmt.Sprintf("[%s] Probe Succeeded\t[%s]\t[%s]\n", timestamp, e.GetNode(), e.GetProbe())
+		fmt.Fprintf(w, color.GreenString(eventString))
+	default:
+		fmt.Fprintf(w, color.YellowString("[%s] UnknownEvent", timestamp))
+
+	}
+}
+
 // printStatus calls an appropriate "print" method based on the printing options
 func printStatus(operator ops.Operator, status clusterStatus, printOptions printOptions) error {
 	switch {

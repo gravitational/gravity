@@ -220,6 +220,9 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.StatusCmd.Seconds = g.StatusCmd.Flag("seconds", "Continuously display status every N seconds.").Short('s').Int()
 	g.StatusCmd.Output = common.Format(g.StatusCmd.Flag("output", "Output format: json or text.").Default(string(constants.EncodingText)))
 
+	// display cluster status history
+	g.StatusHistoryCmd.CmdClause = g.Command("status-history", "Display cluster status history.")
+
 	// reset cluster state, for debugging/emergencies
 	g.StatusResetCmd.CmdClause = g.Command("status-reset", "Reset the cluster state to 'active'").Hidden()
 

@@ -77,7 +77,7 @@ ignored = [
 
 [[constraint]]
   name = "github.com/gravitational/satellite"
-  version = "=7.0.3"
+  branch = "bernard/timeline-testing"
 
 [[constraint]]
   name = "github.com/xtgo/set"

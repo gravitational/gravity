@@ -50,7 +50,7 @@ func (s StringSet) Slice() (slice []string) {
 	return slice
 }
 
-// AddSlice appends elements of slice to set 
+// AddSlice appends elements of slice to set
 func (s StringSet) AddSlice(slice []string) {
 	for _, el := range slice {
 		s.Add(el)
