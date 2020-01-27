@@ -212,12 +212,10 @@ func (l *hubLister) Hub() string {
 // cluster images and displays them in the specified format.
 func List(lister Lister, all bool, format constants.Format) error {
 	if !all {
-		//nolint:staticcheck
-		fmt.Printf(color.YellowString("Displaying latest stable versions of application and cluster images in %v. Use --all flag to show all.\n\n",
+		fmt.Print(color.YellowString("Displaying latest stable versions of application and cluster images in %v. Use --all flag to show all.\n\n",
 			FormatHub(lister.Hub())))
 	} else {
-		//nolint:staticcheck
-		fmt.Printf(color.YellowString("Displaying all available application and cluster images in %v.\n\n",
+		fmt.Print(color.YellowString("Displaying all available application and cluster images in %v.\n\n",
 			FormatHub(lister.Hub())))
 	}
 	items, err := lister.List(all)

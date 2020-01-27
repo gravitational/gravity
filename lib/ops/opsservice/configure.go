@@ -1348,13 +1348,6 @@ func (s *site) planetCertAuthorityPackage() (*loc.Locator, error) {
 	return PlanetCertAuthorityPackage(s.siteRepoName())
 }
 
-// opsCertAuthorityPackage is a shorthand to return locator for OpsCenter's certificate
-// authority package
-//func (s *site) opsCertAuthorityPackage() (*loc.Locator, error) {
-//	return loc.ParseLocator(
-//		fmt.Sprintf("%v/%v", defaults.SystemAccountOrg, constants.OpsCenterCAPackage))
-//}
-
 // siteExport package exports site state as BoltDB database dump
 func (s *site) siteExportPackage() (*loc.Locator, error) {
 	return loc.ParseLocator(

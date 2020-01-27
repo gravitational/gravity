@@ -400,10 +400,6 @@ func getActiveOperationFromList(operations []ops.SiteOperation) (*ops.SiteOperat
 	return nil, trace.NotFound("no active operations found")
 }
 
-// func isActiveOperation(op ops.SiteOperation) bool {
-// 	return op.IsFailed() || !op.IsCompleted()
-// }
-
 func (r oplist) String() string {
 	var ops []string
 	for _, op := range r {

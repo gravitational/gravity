@@ -39,14 +39,6 @@ import (
 	"github.com/gravitational/trace"
 )
 
-// func mustJSON(i interface{}) string {
-// 	bytes, err := json.Marshal(i)
-// 	if err != nil {
-// 		panic(err)
-// 	}
-// 	return string(bytes)
-// }
-
 func appPackage(env *localenv.LocalEnvironment) error {
 	apps, err := env.AppServiceLocal(localenv.AppConfig{})
 	if err != nil {

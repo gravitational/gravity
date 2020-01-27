@@ -238,12 +238,12 @@ func (r *imageService) Sync(ctx context.Context, dir string, progress utils.Prin
 			// remote registry either does not have this reference, or it is
 			// different from the local one
 			if remoteManifest == nil || !compareManifests(localManifest, remoteManifest) {
-				progress.PrintStep("Pushing image %s", tagSpec) //nolint:errcheck
+				progress.PrintStep("Pushing image %s", tagSpec)
 				if err = r.remoteStore.updateRepo(ctx, remoteRepo, localRepo, localManifest, tag); err != nil {
 					return nil, trace.Wrap(err, "failed to update remote for tag %q", tagSpec)
 				}
 			} else {
-				progress.PrintStep("Image %s is up-to-date", tagSpec) //nolint:errcheck
+				progress.PrintStep("Image %s is up-to-date", tagSpec)
 			}
 			installedTags = append(installedTags, tagSpec)
 		}

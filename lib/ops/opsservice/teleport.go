@@ -103,15 +103,6 @@ func (t *teleportServer) HostName() string { return t.Labels[ops.Hostname] }
 // Debug implements remoteServer.Debug
 func (t *teleportServer) Debug() string { return t.Addr }
 
-//func (t *teleportServer) getLabel(name string) string {
-//	return t.Labels[name]
-//}
-
-//func (t *teleportServer) isMaster() bool {
-//	role := schema.ServiceRole(t.Labels[schema.ServiceLabelRole])
-//	return (role == schema.ServiceRoleMaster)
-//}
-
 func (s *site) getTeleportServerNoRetry(labelName, labelValue string) (server *teleportServer, err error) {
 	const noRetry = 1
 	labels := map[string]string{labelName: labelValue}
