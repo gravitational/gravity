@@ -86,7 +86,7 @@ func (r *RoleV2) CheckAndSetDefaults() error {
 			return trace.BadParameter("wildcard matcher is not allowed in logins")
 		}
 		if !cstrings.IsValidUnixUser(login) {
-			return trace.BadParameter("'%v' is not a valid user name", login)
+			return trace.BadParameter("%q is not a valid user name", login)
 		}
 	}
 	for key, val := range r.Spec.NodeLabels {

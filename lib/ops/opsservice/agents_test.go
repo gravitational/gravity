@@ -355,10 +355,6 @@ func (s *AgentSuite) testConnectValidatesCondition(c *C, hostnames [2]string, ex
 	}
 }
 
-//func (s *AgentSuite) token(tok string) string {
-//	return fmt.Sprintf("%v.%v", tok, s.key.OperationID)
-//}
-
 func newTestAgentGroup(c *C, addr, hostname string) *agentGroup {
 	group, err := rpcserver.NewAgentGroup(rpcserver.AgentGroupConfig{}, []rpcserver.Peer{testPeer{addr: addr}})
 	c.Assert(err, IsNil)

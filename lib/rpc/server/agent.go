@@ -62,7 +62,7 @@ func (srv *agentServer) PeerJoin(ctx context.Context, req *pb.PeerJoinRequest) (
 		reconnectTimeout: srv.Config.ReconnectTimeout,
 	})
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return nil, err
 	}
 	return &types.Empty{}, nil
 }

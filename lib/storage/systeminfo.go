@@ -36,6 +36,7 @@ func NewSystemInfo(spec SystemSpecV2) *SystemV2 {
 		Kind:    KindSystemInfo,
 		Version: teleservices.V2,
 		Metadata: teleservices.Metadata{
+			Name:      "systeminfo",
 			Namespace: teledefaults.Namespace,
 		},
 		Spec: spec,

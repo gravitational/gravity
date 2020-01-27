@@ -56,7 +56,9 @@ func (r *S) TestClientExecutesCommandsRemotely(c *C) {
 		commandExecutor: cmd,
 	})
 	c.Assert(err, IsNil)
-	go c.Assert(srv.Serve(), IsNil)
+	go func() {
+		c.Assert(srv.Serve(), IsNil)
+	}()
 
 	ctx, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
 	defer cancel()
@@ -82,12 +84,16 @@ func (r *S) TestAgentsConnectToController(c *C) {
 	})
 	c.Assert(err, IsNil)
 
-	go c.Assert(srv.Serve(), IsNil)
+	go func() {
+		c.Assert(srv.Serve(), IsNil)
+	}()
 	defer withTestCtx(srv.Stop, c)
 
 	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 	peer := r.newPeer(c, PeerConfig{Config: Config{Listener: listen(c)}}, srv.Addr().String(), log)
-	go c.Assert(peer.Serve(), IsNil)
+	go func() {
+		c.Assert(peer.Serve(), IsNil)
+	}()
 	defer withTestCtx(peer.Stop, c)
 
 	err = store.expect(ctx, 1)
@@ -115,7 +121,9 @@ func (r *S) TestPeerDisconnect(c *C) {
 		PeerStore:   store,
 	})
 	c.Assert(err, IsNil)
-	go c.Assert(srv.Serve(), IsNil)
+	go func() {
+		c.Assert(srv.Serve(), IsNil)
+	}()
 	defer withTestCtx(srv.Stop, c)
 
 	// launch two peers
@@ -128,7 +136,9 @@ func (r *S) TestPeerDisconnect(c *C) {
 		},
 	}, srv.Addr().String())
 	c.Assert(err, IsNil)
-	go c.Assert(peer1.Serve(), IsNil)
+	go func() {
+		c.Assert(peer1.Serve(), IsNil)
+	}()
 	defer withTestCtx(peer1.Stop, c)
 
 	peer2, err := NewPeer(PeerConfig{
@@ -140,7 +150,9 @@ func (r *S) TestPeerDisconnect(c *C) {
 		},
 	}, srv.Addr().String())
 	c.Assert(err, IsNil)
-	go c.Assert(peer2.Serve(), IsNil)
+	go func() {
+		c.Assert(peer2.Serve(), IsNil)
+	}()
 	defer withTestCtx(peer2.Stop, c)
 
 	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
@@ -176,7 +188,9 @@ func (r *S) TestServerReportsHealth(c *C) {
 	})
 	c.Assert(err, IsNil)
 
-	go c.Assert(srv.Serve(), IsNil)
+	go func() {
+		c.Assert(srv.Serve(), IsNil)
+	}()
 	defer withTestCtx(srv.Stop, c)
 
 	clt, err := newClient(ctx, creds.Client, srv.Addr().String())
@@ -203,7 +217,9 @@ func (r *S) TestWaitsUntilAgentShutsDown(c *C) {
 	})
 	c.Assert(err, IsNil)
 
-	go c.Assert(srv.Serve(), IsNil)
+	go func() {
+		c.Assert(srv.Serve(), IsNil)
+	}()
 
 	withTestCtx(srv.Stop, c)
 	select {
@@ -226,7 +242,9 @@ func (r *S) TestRejectsPeer(c *C) {
 	})
 	c.Assert(err, IsNil)
 
-	go c.Assert(srv.Serve(), IsNil)
+	go func() {
+		c.Assert(srv.Serve(), IsNil)
+	}()
 	defer withTestCtx(srv.Stop, c)
 
 	watchCh := make(chan WatchEvent, 1)
@@ -244,7 +262,9 @@ func (r *S) TestRejectsPeer(c *C) {
 	}
 	p, err := NewPeer(config, srv.Addr().String())
 	c.Assert(err, IsNil)
-	go c.Assert(p.Serve(), IsNil)
+	go func() {
+		c.Assert(p.Serve(), IsNil)
+	}()
 	defer withTestCtx(p.Stop, c)
 
 	select {
@@ -300,7 +320,9 @@ func (r *S) TestQueriesSystemInfo(c *C) {
 	})
 	c.Assert(err, IsNil)
 
-	go c.Assert(srv.Serve(), IsNil)
+	go func() {
+		c.Assert(srv.Serve(), IsNil)
+	}()
 	defer withTestCtx(srv.Stop, c)
 
 	ctx, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
@@ -314,8 +336,6 @@ func (r *S) TestQueriesSystemInfo(c *C) {
 
 	obtained, err := clt.GetSystemInfo(ctx)
 	c.Assert(err, IsNil)
-	// Namespace is not serialized
-	sysinfo.Namespace = ""
 	compare.DeepCompare(c, obtained, sysinfo)
 }
 

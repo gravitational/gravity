@@ -44,7 +44,9 @@ func (r *S) TestPeerReconnects(c *C) {
 		commandExecutor: testCommand{"server output"},
 	})
 	c.Assert(err, IsNil)
-	go c.Assert(srv.Serve(), IsNil)
+	go func() {
+		c.Assert(srv.Serve(), IsNil)
+	}()
 	defer withTestCtx(srv.Stop, c)
 
 	watchCh := make(chan WatchEvent, 2)
@@ -55,7 +57,9 @@ func (r *S) TestPeerReconnects(c *C) {
 		HealthCheckTimeout: checkTimeout,
 	}
 	p := r.newPeer(c, config, proxyAddr, log)
-	go c.Assert(p.Serve(), IsNil)
+	go func() {
+		c.Assert(p.Serve(), IsNil)
+	}()
 	defer withTestCtx(p.Stop, c)
 
 	ctx, cancel := context.WithTimeout(context.TODO(), 1*time.Second)

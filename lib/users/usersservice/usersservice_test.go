@@ -493,7 +493,7 @@ func newInstallTokenRole(name string, clusterName, repoName string) storage.Role
 		Namespaces:    []string{teleservices.Wildcard},
 		// do not allow any valid logins but the login list should not be empty,
 		// otherwise teleport will reject the web session
-		Logins: []string{""},
+		Logins: []string{"invalid-login"},
 		Resources: map[string][]string{
 			storage.KindCluster:   teleservices.RW(),
 			storage.KindApp:       teleservices.RO(),
