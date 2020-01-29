@@ -18,6 +18,7 @@ package opsservice
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -35,9 +36,11 @@ import (
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 	"github.com/gravitational/gravity/lib/users"
 	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/cenkalti/backoff"
 	"github.com/gravitational/license"
 	"github.com/gravitational/trace"
 	"github.com/mailgun/timetools"
@@ -649,6 +652,32 @@ func (s site) gid() string {
 		return s.backendSite.ServiceUser.GID
 	}
 	return defaults.ServiceUserID
+}
+
+func (s *site) getClusterEnvironmentVariables() (env storage.EnvironmentVariables, err error) {
+	b := backoff.NewExponentialBackOff()
+	b.MaxElapsedTime = defaults.APIWaitTimeout
+	err = utils.RetryTransient(context.TODO(), b, func() error {
+		env, err = s.service.GetClusterEnvironmentVariables(s.key)
+		return trace.Wrap(err)
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return env, nil
+}
+
+func (s *site) getClusterConfiguration() (config clusterconfig.Interface, err error) {
+	b := backoff.NewExponentialBackOff()
+	b.MaxElapsedTime = defaults.APIWaitTimeout
+	err = utils.RetryTransient(context.TODO(), b, func() error {
+		config, err = s.service.GetClusterConfiguration(s.key)
+		return trace.Wrap(err)
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return config, nil
 }
 
 func convertSite(in storage.Site, apps appservice.Applications) (*ops.Site, error) {

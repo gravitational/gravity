@@ -206,11 +206,11 @@ func (s *site) configureExpandPackages(ctx context.Context, opCtx *operationCont
 	}
 	secretsPackage := s.planetSecretsPackage(provisionedServer, planetPackage.Version)
 	configPackage := s.planetConfigPackage(provisionedServer, planetPackage.Version)
-	env, err := s.service.GetClusterEnvironmentVariables(s.key)
+	env, err := s.getClusterEnvironmentVariables()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	config, err := s.service.GetClusterConfiguration(s.key)
+	config, err := s.getClusterConfiguration()
 	if err != nil {
 		return trace.Wrap(err)
 	}
