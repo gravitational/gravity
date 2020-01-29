@@ -1023,6 +1023,9 @@ const (
 	// on a master node
 	ElectionWaitTimeout = 1 * time.Minute
 
+	// APIWaitTimeout specifies the maximum amount of time to wait for API call to succeed
+	APIWaitTimeout = 1 * time.Minute
+
 	// ImageRegistryVar is a local cluster registry variable that gets
 	// substituted in Helm templates.
 	ImageRegistryVar = "image.registry"
