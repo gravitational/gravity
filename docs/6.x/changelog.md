@@ -12,7 +12,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 | 6.1.16        | Yes | January 14th, 2020   | November 10th, 2021  | 1.15.5             | 3.2.12           |
 | 6.0.10*       | No  | October 17th, 2019   | -                    | 1.14.7             | 3.2.12           |
 | 5.6.8*        | No  | September 18th, 2019 | -                    | 1.14.7             | 3.0.6-gravity    |
-| 5.5.33        | Yes | January 24th, 2019   | September 7th, 2020  | 1.13.11            | 3.0.6-gravity    |
+| 5.5.34        | Yes | January 28th, 2020   | September 7th, 2020  | 1.13.11            | 3.0.6-gravity    |
 | 5.4.10*       | No  | March 26th, 2019     | -                    | 1.13.5             | 2.4.10           |
 | 5.3.9*        | No  | March 7th, 2019      | -                    | 1.12.3             | 2.4.7            |
 | 5.2.16        | Yes | October 11th, 2019   | October 15th, 2019   | 1.11.9             | 2.4.10           |
@@ -527,6 +527,12 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 * Add support for using `helm` directly from host.
 
 ## 5.x Releases
+
+### 5.5.34 LTS (January 28th, 2020)
+
+#### Bugfixes
+
+* Fix the issue with updating pod CIDR via Cluster Configuration resource ([#1040](https://github.com/gravitational/gravity/pull/1040)).
 
 ### 5.5.33 LTS (January 24th, 2020)
 
