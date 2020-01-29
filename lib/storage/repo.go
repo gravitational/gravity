@@ -150,9 +150,8 @@ func UnmarshalRepository(data []byte) (Repository, error) {
 			return nil, trace.BadParameter(err.Error())
 		}
 		// we are ignoring error from this function on purpose here
-		if err := repository.Metadata.CheckAndSetDefaults(); err != nil {
-			return nil, trace.Wrap(err)
-		}
+		//nolint:errcheck
+		repository.Metadata.CheckAndSetDefaults()
 		return &repository, nil
 	case "":
 		var repository RepositoryV1

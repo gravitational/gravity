@@ -125,10 +125,8 @@ func UnmarshalAlert(data []byte) (*AlertV2, error) {
 		if err != nil {
 			return nil, trace.BadParameter(err.Error())
 		}
-		err = alert.Metadata.CheckAndSetDefaults()
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
+		//nolint:errcheck
+		alert.Metadata.CheckAndSetDefaults()
 		return &alert, nil
 	}
 	return nil, trace.BadParameter(
@@ -243,10 +241,8 @@ func UnmarshalAlertTarget(data []byte) (*AlertTargetV2, error) {
 		if err != nil {
 			return nil, trace.BadParameter(err.Error())
 		}
-		err = target.Metadata.CheckAndSetDefaults()
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
+		//nolint:errcheck
+		target.Metadata.CheckAndSetDefaults()
 		return &target, nil
 	}
 	return nil, trace.BadParameter(

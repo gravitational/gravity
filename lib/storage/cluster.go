@@ -248,10 +248,8 @@ func UnmarshalCluster(data []byte) (Cluster, error) {
 		if err != nil {
 			return nil, trace.BadParameter(err.Error())
 		}
-		err = t.Metadata.CheckAndSetDefaults()
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
+		//nolint:errcheck
+		t.Metadata.CheckAndSetDefaults()
 		return &t, nil
 	}
 	return nil, trace.BadParameter(

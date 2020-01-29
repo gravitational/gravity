@@ -96,7 +96,6 @@ func DefaultPersistentStorage() PersistentStorage {
 		Kind:    KindPersistentStorage,
 		Version: services.V1,
 	}
-	// TODO: is this accurate?
 	//nolint:errcheck
 	ps.CheckAndSetDefaults()
 	return ps
