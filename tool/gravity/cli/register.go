@@ -96,7 +96,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.InstallCmd.DNSHosts = g.InstallCmd.Flag("dns-host", "Specify an IP address that will be returned for the given domain within the cluster. Accepts <domain>/<ip> format. Can be specified multiple times.").Hidden().Strings()
 	g.InstallCmd.DNSZones = g.InstallCmd.Flag("dns-zone", "Specify an upstream server for the given zone within the cluster. Accepts <zone>/<nameserver> format where <nameserver> can be either <ip> or <ip>:<port>. Can be specified multiple times.").Strings()
 	g.InstallCmd.Remote = g.InstallCmd.Flag("remote", "Do not use this node in the cluster.").Bool()
-	g.InstallCmd.SELinux = g.InstallCmd.Flag("selinux", "Run with SELinux support.").Bool()
+	g.InstallCmd.SELinux = g.InstallCmd.Flag("selinux", "Run with SELinux support.").Default("true").Bool()
 	g.InstallCmd.FromService = g.InstallCmd.Flag("from-service", "Run in service mode.").Hidden().Bool()
 	g.InstallCmd.AcceptEULA = g.InstallCmd.Flag("accept-eula", "Auto-accept the end-user license agreement if the application requires it.").Bool()
 
@@ -112,7 +112,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.JoinCmd.Mounts = configure.KeyValParam(g.JoinCmd.Flag("mount", "One or several mounts in form <mount-name>:<path>, e.g. data:/var/lib/data."))
 	g.JoinCmd.CloudProvider = g.JoinCmd.Flag("cloud-provider", "[DEPRECATED] This flag has no effect and will be removed in a future version.").String()
 	g.JoinCmd.OperationID = g.JoinCmd.Flag("operation-id", "ID of the operation that was created via UI.").Hidden().String()
-	g.JoinCmd.SELinux = g.JoinCmd.Flag("selinux", "Run with SELinux support.").Bool()
+	g.JoinCmd.SELinux = g.JoinCmd.Flag("selinux", "Run with SELinux support.").Default("true").Bool()
 	g.JoinCmd.FromService = g.JoinCmd.Flag("from-service", "Run in service mode.").Hidden().Bool()
 
 	g.AutoJoinCmd.CmdClause = g.Command("autojoin", "Use cloud provider data to join a node to existing cluster.")
@@ -374,7 +374,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.WizardCmd.ServiceGID = g.WizardCmd.Flag("service-gid", fmt.Sprintf("Service group ID for planet. %q group will created and used if none specified", defaults.ServiceUserGroup)).Default(defaults.ServiceGroupID).OverrideDefaultFromEnvar(constants.ServiceGroupEnvVar).String()
 	g.WizardCmd.AdvertiseAddr = g.WizardCmd.Flag("advertise-addr", "The IP address to advertise. Will be selected automatically if unspecified").String()
 	g.WizardCmd.Token = g.WizardCmd.Flag("token", "Unique install token to authorize other nodes to join the cluster. Generated automatically if unspecified").String()
-	g.WizardCmd.SELinux = g.WizardCmd.Flag("selinux", "Run with SELinux support.").Bool()
+	g.WizardCmd.SELinux = g.WizardCmd.Flag("selinux", "Run with SELinux support.").Default("true").Bool()
 	g.WizardCmd.FromService = g.WizardCmd.Flag("from-service", "Run in service mode").Hidden().Bool()
 
 	g.AppPackageCmd.CmdClause = g.Command("app-package", "Display the name of application package from installer tarball").Hidden()
