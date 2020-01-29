@@ -287,9 +287,8 @@ func (*roleMarshaler) UnmarshalRole(data []byte) (teleservices.Role, error) {
 			return nil, trace.BadParameter(err.Error())
 		}
 		// we are ignoring error from this function on purpose here
-		if err := role.CheckAndSetDefaults(); err != nil {
-			return nil, trace.Wrap(err)
-		}
+		//nolint:errcheck
+		role.CheckAndSetDefaults()
 		roleV3 := role.V3()
 		roleV3.SetRawObject(role)
 
@@ -300,9 +299,8 @@ func (*roleMarshaler) UnmarshalRole(data []byte) (teleservices.Role, error) {
 			return nil, trace.BadParameter(err.Error())
 		}
 		// we are ignoring error from this function on purpose here
-		if err := role.CheckAndSetDefaults(); err != nil {
-			return nil, trace.Wrap(err)
-		}
+		//nolint:errcheck
+		role.CheckAndSetDefaults()
 		return &role, nil
 	}
 
