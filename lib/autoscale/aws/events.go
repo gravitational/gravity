@@ -107,10 +107,10 @@ func (a *Autoscaler) processEvent(ctx context.Context, operator Operator, event 
 			return trace.Wrap(err)
 		}
 	case InstanceTerminating:
-		if err := a.ensureInstanceTerminated(ctx, event); err != nil {
+		if err := a.removeInstance(ctx, operator, event); err != nil && !trace.IsNotFound(err) {
 			return trace.Wrap(err)
 		}
-		if err := a.removeInstance(ctx, operator, event); err != nil && !trace.IsNotFound(err) {
+		if err := a.ensureInstanceTerminated(ctx, event); err != nil {
 			return trace.Wrap(err)
 		}
 		if err := a.DeleteEvent(ctx, event); err != nil {
