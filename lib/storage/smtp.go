@@ -144,7 +144,7 @@ type SMTPConfigSpecV2 struct {
 const SMTPConfigSpecV2Schema = `{
   "type": "object",
   "additionalProperties": false,
-  "required": ["host", "username", "password"],
+  "required": ["host"],
   "properties": {
     "host": {"type": "string"},
     "port": {"type": "integer"},
