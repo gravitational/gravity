@@ -17,6 +17,8 @@ limitations under the License.
 package clusterconfig
 
 import (
+	"fmt"
+
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
@@ -80,6 +82,7 @@ func newOperationPlan(
 		return nil, trace.NotFound("no master servers found in cluster state")
 	}
 	shouldUpdateNodes := shouldUpdateNodes(clusterConfig, len(nodes))
+	fmt.Println("Should update nodes:", shouldUpdateNodes)
 	updateServers := updates
 	if !shouldUpdateNodes {
 		updateServers = masters
@@ -116,9 +119,8 @@ func shouldUpdateNodes(clusterConfig clusterconfig.Interface, numWorkerNodes int
 		return false
 	}
 	var hasComponentUpdate, hasCIDRUpdate bool
-	if config := clusterConfig.GetGlobalConfig(); config != nil {
-		hasComponentUpdate = len(config.FeatureGates) != 0
-		hasCIDRUpdate = len(config.PodCIDR) != 0 || len(config.ServiceCIDR) != 0
-	}
-	return clusterConfig.GetKubeletConfig() != nil || hasComponentUpdate || hasCIDRUpdate
+	config := clusterConfig.GetGlobalConfig()
+	hasComponentUpdate = len(config.FeatureGates) != 0
+	hasCIDRUpdate = len(config.PodCIDR) != 0 || len(config.ServiceCIDR) != 0
+	return !clusterConfig.GetKubeletConfig().IsEmpty() || hasComponentUpdate || hasCIDRUpdate
 }

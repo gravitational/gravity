@@ -115,15 +115,12 @@ type restart struct {
 	base   libfsm.PhaseExecutor
 }
 
-func shouldUpdatePodCIDR(config *clusterconfig.Global) bool {
-	if config == nil {
-		return false
-	}
-	return len(config.PodCIDR) != 0
+func shouldUpdatePodCIDR(config clusterconfig.Global) bool {
+	return config.PodCIDR != ""
 }
 
 func linkDel(name string) error {
-	out, err := exec.Command("ip", "link", "del", name).CombinedOutput()
+	out, err := command("ip", "link", "del", name).CombinedOutput()
 	if err != nil {
 		return trace.Wrap(err, string(out))
 	}
@@ -132,7 +129,7 @@ func linkDel(name string) error {
 
 func linkExists(name string) (exists bool, err error) {
 	var buf bytes.Buffer
-	cmd := exec.Command("ip", "link", "show", name)
+	cmd := command("ip", "link", "show", name)
 	cmd.Stderr = &buf
 	err = cmd.Run()
 	if err == nil {
@@ -144,6 +141,11 @@ func linkExists(name string) (exists bool, err error) {
 	log.WithError(err).Warnf("Failed to find link device for %q.", name)
 	// Failed to match an existing link device
 	return false, nil
+}
+
+func command(args ...string) *exec.Cmd {
+	args = utils.Exe.PlanetCommandSlice(args)
+	return exec.Command(args[0], args[1:]...)
 }
 
 const cniBridge = "cni0"

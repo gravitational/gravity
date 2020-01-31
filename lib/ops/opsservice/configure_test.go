@@ -152,7 +152,7 @@ func (s *ConfigureSuite) TestGeneratesPlanetConfigPackage(c *check.C) {
 				ComponentConfigs: clusterconfig.ComponentConfigs{
 					Kubelet: &clusterconfig.Kubelet{Config: configBytes},
 				},
-				Global: &clusterconfig.Global{
+				Global: clusterconfig.Global{
 					CloudProvider: "gce",
 					CloudConfig: `
 [global]
@@ -192,17 +192,17 @@ multizone=true`,
 			"/var/lib/gravity/planet/log:/var/log",
 			"/var/lib/gravity:/var/lib/gravity",
 		},
-		"cloud-provider":          {"gce"},
-		"cloud-config":            {base64.StdEncoding.EncodeToString([]byte("\n[global]\nnode-tags=example-com\nmultizone=true"))},
-		"role":                    {"node"},
-		"dns-listen-addr":         {"127.0.0.2"},
-		"dns-port":                {"53"},
-		"docker-backend":          {"overlay2"},
-		"docker-options":          {"--storage-opt=overlay2.override_kernel_check=1"},
-		"kubelet-config":          {base64.StdEncoding.EncodeToString(configBytes)},
-		"node-label":              {"gravitational.io/advertise-ip=172.12.13.0"},
-		"service-subnet":          {"10.0.0.1/8"},
-		"pod-subnet":              {"10.0.1.1/8"},
+		"cloud-provider":  {"gce"},
+		"cloud-config":    {base64.StdEncoding.EncodeToString([]byte("\n[global]\nnode-tags=example-com\nmultizone=true"))},
+		"role":            {"node"},
+		"dns-listen-addr": {"127.0.0.2"},
+		"dns-port":        {"53"},
+		"docker-backend":  {"overlay2"},
+		"docker-options":  {"--storage-opt=overlay2.override_kernel_check=1"},
+		"kubelet-config":  {base64.StdEncoding.EncodeToString(configBytes)},
+		"node-label":      {"gravitational.io/advertise-ip=172.12.13.0"},
+		"service-subnet":  {"10.0.0.1/8"},
+		"pod-subnet":      {"10.0.1.1/8"},
 	}))
 	assertFeatures(features, []string{"FeatureA=true", "FeatureB=false"}, c)
 }
@@ -284,16 +284,16 @@ func (s *ConfigureSuite) TestCanSetCloudProviderWithoutCloudConfig(c *check.C) {
 			"/var/lib/gravity/planet/log:/var/log",
 			"/var/lib/gravity:/var/lib/gravity",
 		},
-		"cloud-provider":          {"gce"},
-		"gce-node-tags":           {"example-com"},
-		"role":                    {"node"},
-		"dns-listen-addr":         {"127.0.0.2"},
-		"dns-port":                {"53"},
-		"docker-backend":          {"overlay2"},
-		"docker-options":          {"--storage-opt=overlay2.override_kernel_check=1"},
-		"node-label":              {"gravitational.io/advertise-ip=172.12.13.0"},
-		"service-subnet":          {"10.0.0.1/8"},
-		"pod-subnet":              {"10.0.1.1/8"},
+		"cloud-provider":  {"gce"},
+		"gce-node-tags":   {"example-com"},
+		"role":            {"node"},
+		"dns-listen-addr": {"127.0.0.2"},
+		"dns-port":        {"53"},
+		"docker-backend":  {"overlay2"},
+		"docker-options":  {"--storage-opt=overlay2.override_kernel_check=1"},
+		"node-label":      {"gravitational.io/advertise-ip=172.12.13.0"},
+		"service-subnet":  {"10.0.0.1/8"},
+		"pod-subnet":      {"10.0.1.1/8"},
 	}))
 }
 
