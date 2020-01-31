@@ -49,11 +49,12 @@ import (
 // 4. Shutdown etcd (all servers) // API outage starts
 // 6. Start the cluster masters, but with clients bound to an alternative address (127.0.0.2) and using new data dir
 //      The data directory is chosen as /ext/etcd/<version>, so when upgrading, etcd will start with a blank database
-//      To rollback, we start the old version of etcd, pointed to the data directory that it used
+//      To rollback, we start the old version of etcd, pointed to the data directory from the previous version
 //      We also delete the data from a previous upgrade, so we can only roll back once
-// 7. Restore the etcd data using the API to the new version, and migrate /registry (kubernetes) data to v3 datastore
-// 8. Restart etcd on the correct ports// API outage ends
-// 9. Restart gravity-site to fix elections
+// 7. Shutdown the temporary etcd node, and do an offline database restore to the newly created database
+// 8. Restore the etcd data using the API to the new version, and migrate /registry (kubernetes) data to v3 datastore
+// 9. Restart etcd on the correct ports// API outage ends
+// 10. Restart gravity-site to fix elections
 //
 //
 // Rollback
@@ -183,24 +184,24 @@ func (p *PhaseUpgradeEtcd) Execute(ctx context.Context) error {
 	}
 	p.Info("command output: ", string(out))
 
-	out, err = utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "enable", "--upgrade")
+	/*out, err = utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "enable", "--upgrade")
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	p.Info("command output: ", string(out))
-
+	*/
 	return nil
 }
 
 func (p *PhaseUpgradeEtcd) Rollback(ctx context.Context) error {
-	p.Info("Rollback upgrade of etcd.")
+	/*p.Info("Rollback upgrade of etcd.")
 	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "disable", "--upgrade")
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	p.Info("command output: ", string(out))
-
-	out, err = utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "rollback")
+	*/
+	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "rollback")
 	if err != nil {
 		return trace.Wrap(err)
 	}
