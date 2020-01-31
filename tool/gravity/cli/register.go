@@ -245,6 +245,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 
 	// operations on gravity applications
 	g.AppCmd.CmdClause = g.Command("app", "Operations with application images and releases.")
+	g.AppCmd.TillerNamespace = g.AppCmd.Flag("tiller-namespace", "Namespace where Tiller is running").String()
 
 	// helm-specific flags
 	g.AppInstallCmd.CmdClause = g.AppCmd.Command("install", "Install an application from the specified application image.")
@@ -257,6 +258,9 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.AppInstallCmd.RegistryCA = g.AppInstallCmd.Flag("registry-ca", "Docker registry CA certificate path.").String()
 	g.AppInstallCmd.RegistryCert = g.AppInstallCmd.Flag("registry-cert", "Docker registry client certificate path.").String()
 	g.AppInstallCmd.RegistryKey = g.AppInstallCmd.Flag("registry-key", "Docker registry client private key path.").String()
+	g.AppInstallCmd.RegistryUsername = g.AppInstallCmd.Flag("registry-username", "Docker registry username.").String()
+	g.AppInstallCmd.RegistryPassword = g.AppInstallCmd.Flag("registry-password", "Docker registry password.").String()
+	g.AppInstallCmd.RegistryDomain = g.AppInstallCmd.Flag("registry-domain", "Repository prefix.").String()
 
 	g.AppListCmd.CmdClause = g.AppCmd.Command("ls", "Show all application releases.").Alias("list")
 	g.AppListCmd.All = g.AppListCmd.Flag("all", "Do not filter releases by status.").Short('a').Bool()
@@ -270,6 +274,9 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.AppUpgradeCmd.RegistryCA = g.AppUpgradeCmd.Flag("registry-ca", "Docker registry CA certificate path.").String()
 	g.AppUpgradeCmd.RegistryCert = g.AppUpgradeCmd.Flag("registry-cert", "Docker registry client certificate path.").String()
 	g.AppUpgradeCmd.RegistryKey = g.AppUpgradeCmd.Flag("registry-key", "Docker registry client private key path.").String()
+	g.AppUpgradeCmd.RegistryUsername = g.AppUpgradeCmd.Flag("registry-username", "Docker registry username.").String()
+	g.AppUpgradeCmd.RegistryPassword = g.AppUpgradeCmd.Flag("registry-password", "Docker registry password.").String()
+	g.AppUpgradeCmd.RegistryDomain = g.AppUpgradeCmd.Flag("registry-domain", "Repository prefix.").String()
 
 	g.AppRollbackCmd.CmdClause = g.AppCmd.Command("rollback", "Rollback a release.")
 	g.AppRollbackCmd.Release = g.AppRollbackCmd.Arg("release", "Release name to rollback.").Required().String()
@@ -287,6 +294,9 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.AppSyncCmd.RegistryCA = g.AppSyncCmd.Flag("registry-ca", "Docker registry CA certificate path.").String()
 	g.AppSyncCmd.RegistryCert = g.AppSyncCmd.Flag("registry-cert", "Docker registry client certificate path.").String()
 	g.AppSyncCmd.RegistryKey = g.AppSyncCmd.Flag("registry-key", "Docker registry client private key path.").String()
+	g.AppSyncCmd.RegistryUsername = g.AppSyncCmd.Flag("registry-username", "Docker registry username.").String()
+	g.AppSyncCmd.RegistryPassword = g.AppSyncCmd.Flag("registry-password", "Docker registry password.").String()
+	g.AppSyncCmd.RegistryDomain = g.AppSyncCmd.Flag("registry-domain", "Repository prefix.").String()
 
 	g.AppSearchCmd.CmdClause = g.AppCmd.Command("search", "Search for applications.")
 	g.AppSearchCmd.Pattern = g.AppSearchCmd.Arg("pattern", "Application name pattern, treated as a substring.").String()
