@@ -648,7 +648,6 @@ func (s site) gid() string {
 }
 
 func (s *site) getClusterConfiguration() (*clusterconfig.Resource, error) {
-	s.Info("Query existing cluster configuration.")
 	client, err := s.service.GetKubeClient()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -669,15 +668,12 @@ func (s *site) getClusterConfiguration() (*clusterconfig.Resource, error) {
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
-		s.Infof("Existing cluster configuration: %#v (%s).", config, spec)
 	} else {
 		config = clusterconfig.NewEmpty()
-		s.Infof("Existing (empty) cluster configuration: %#v (%s).", config, spec)
 	}
 	if err := s.setClusterConfigDefaults(config); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	s.Infof("Existing cluster configuration with defaults: %#v.", config)
 	return config, nil
 }
 

@@ -17,8 +17,6 @@ limitations under the License.
 package clusterconfig
 
 import (
-	"fmt"
-
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
@@ -82,7 +80,6 @@ func newOperationPlan(
 		return nil, trace.NotFound("no master servers found in cluster state")
 	}
 	shouldUpdateNodes := shouldUpdateNodes(clusterConfig, len(nodes))
-	fmt.Println("Should update nodes:", shouldUpdateNodes)
 	updateServers := updates
 	if !shouldUpdateNodes {
 		updateServers = masters

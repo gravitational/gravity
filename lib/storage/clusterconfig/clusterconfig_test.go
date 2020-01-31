@@ -188,7 +188,7 @@ spec:
 			comment: "consumes global configuration",
 		},
 	}
-	for _, tc := range testCases[5:6] {
+	for _, tc := range testCases {
 		comment := Commentf(tc.comment)
 		resource, err := Unmarshal([]byte(tc.in))
 		if tc.error != nil {
