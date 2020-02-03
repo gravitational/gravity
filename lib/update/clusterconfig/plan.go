@@ -116,9 +116,8 @@ func shouldUpdateNodes(clusterConfig clusterconfig.Interface, numWorkerNodes int
 		return false
 	}
 	var hasComponentUpdate, hasCIDRUpdate bool
-	if config := clusterConfig.GetGlobalConfig(); config != nil {
-		hasComponentUpdate = len(config.FeatureGates) != 0
-		hasCIDRUpdate = len(config.PodCIDR) != 0 || len(config.ServiceCIDR) != 0
-	}
-	return clusterConfig.GetKubeletConfig() != nil || hasComponentUpdate || hasCIDRUpdate
+	config := clusterConfig.GetGlobalConfig()
+	hasComponentUpdate = len(config.FeatureGates) != 0
+	hasCIDRUpdate = len(config.PodCIDR) != 0 || len(config.ServiceCIDR) != 0
+	return !clusterConfig.GetKubeletConfig().IsEmpty() || hasComponentUpdate || hasCIDRUpdate
 }

@@ -30,7 +30,7 @@ import (
 	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
 	"github.com/pborman/uuid"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
@@ -45,11 +45,25 @@ func (o *Operator) CreateUpdateConfigOperation(req ops.CreateUpdateConfigOperati
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	config, err := o.getClusterConfiguration()
+	existing, err := cluster.getClusterConfiguration()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	key, err := cluster.createUpdateConfigOperation(req, []byte(config))
+	update, err := clusterconfig.Unmarshal(req.Config)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	merged := existing.Merge(*update)
+	existingBytes, err := clusterconfig.Marshal(existing)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	mergedBytes, err := clusterconfig.Marshal(&merged)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	req.Config = mergedBytes
+	key, err := cluster.createUpdateConfigOperation(req, existingBytes)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -57,35 +71,12 @@ func (o *Operator) CreateUpdateConfigOperation(req ops.CreateUpdateConfigOperati
 }
 
 // GetClusterConfiguration retrieves the cluster configuration
-func (o *Operator) GetClusterConfiguration(ops.SiteKey) (config clusterconfig.Interface, err error) {
-	spec, err := o.getClusterConfiguration()
+func (o *Operator) GetClusterConfiguration(key ops.SiteKey) (config clusterconfig.Interface, err error) {
+	cluster, err := o.openSite(key)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	if len(spec) != 0 {
-		config, err = clusterconfig.Unmarshal([]byte(spec))
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-	} else {
-		config = clusterconfig.NewEmpty()
-	}
-	return config, nil
-}
-
-func (o *Operator) getClusterConfiguration() (config string, err error) {
-	client, err := o.GetKubeClient()
-	if err != nil {
-		return "", trace.Wrap(err)
-	}
-	configmap, err := client.CoreV1().ConfigMaps(defaults.KubeSystemNamespace).
-		Get(constants.ClusterConfigurationMap, metav1.GetOptions{})
-	err = rigging.ConvertError(err)
-	if err != nil && !trace.IsNotFound(err) {
-		return "", trace.Wrap(err)
-	}
-	config = configmap.Data["spec"]
-	return config, nil
+	return cluster.getClusterConfiguration()
 }
 
 // UpdateClusterConfiguration updates the cluster configuration to the value given
