@@ -22,7 +22,7 @@ import (
 	"github.com/gravitational/trace"
 )
 
-// ClusterConfiguration validates that the update can update existing
+// ClusterConfiguration validates that `update` can update `existing` without invalidating consistency.
 func ClusterConfiguration(existing, update clusterconfig.Interface) error {
 	if newGlobalConfig := update.GetGlobalConfig(); !isCloudConfigEmpty(newGlobalConfig) {
 		// TODO(dmitri): require cloud provider if cloud-config is being updated

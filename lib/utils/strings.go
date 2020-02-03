@@ -52,7 +52,7 @@ func StringsInSlice(haystack []string, needles ...string) bool {
 // StringSlicesEqual determines whether the two slices are equal.
 // The slices are treated as immutable.
 // If the slices contain the same set of values in different order, the slices
-// must be sorted to correctly determine they are the same
+// must be sorted prior to calling this to correctly determine whether they are the same
 func StringSlicesEqual(a, b []string) bool {
 	if len(a) != len(b) {
 		return false

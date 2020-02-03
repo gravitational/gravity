@@ -228,7 +228,7 @@ func (*S) TestMergesClusterConfiguration(c *C) {
 				Spec: Spec{
 					ComponentConfigs: ComponentConfigs{
 						Kubelet: &Kubelet{
-							ExtraArgs: []string{"--node-labels=foo:bar"},
+							ExtraArgs: []string{"--node-labels=foo=bar"},
 						},
 					},
 					Global: Global{
@@ -245,7 +245,7 @@ func (*S) TestMergesClusterConfiguration(c *C) {
 				Spec: Spec{
 					ComponentConfigs: ComponentConfigs{
 						Kubelet: &Kubelet{
-							ExtraArgs: []string{"--node-labels=foo:bar"},
+							ExtraArgs: []string{"--node-labels=foo=bar"},
 						},
 					},
 					Global: Global{
@@ -265,7 +265,7 @@ func (*S) TestMergesClusterConfiguration(c *C) {
 				Spec: Spec{
 					ComponentConfigs: ComponentConfigs{
 						Kubelet: &Kubelet{
-							ExtraArgs: []string{"--node-labels=foo:bar"},
+							ExtraArgs: []string{"--node-labels=foo=bar"},
 							Config: []byte(`
 kind: KubeletConfiguration
 apiVersion: kubelet.config.k8s.io/v1beta1

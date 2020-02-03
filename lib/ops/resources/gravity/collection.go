@@ -646,7 +646,7 @@ func (r configCollection) WriteText(w io.Writer) error {
 		fmt.Fprintf(t, "Proxy Port Range:\t%v\n", config.ProxyPortRange)
 	}
 	if len(config.FeatureGates) != 0 {
-		fmt.Fprintf(t, "FeatureGates:\t%v\n", formatFeatureGates(config.FeatureGates))
+		fmt.Fprintf(t, "Feature Gates:\t%v\n", formatFeatureGates(config.FeatureGates))
 	}
 	_, err := io.WriteString(w, t.String())
 	return trace.Wrap(err)

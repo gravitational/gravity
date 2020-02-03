@@ -117,7 +117,8 @@ func (r *Resource) SetCloudProvider(provider string) {
 }
 
 // Merge merges changes from other into this resource.
-// Only non-empty fields in other different from those in r will be set in r
+// Only non-empty fields in other different from those in r will be set in r.
+// Returns a copy of r with necessary modifications
 func (r Resource) Merge(other Resource) Resource {
 	if updateKubelet := other.Spec.ComponentConfigs.Kubelet; updateKubelet != nil {
 		if r.Spec.ComponentConfigs.Kubelet == nil {
@@ -228,7 +229,7 @@ type ComponentConfigs struct {
 	Kubelet *Kubelet `json:"kubelet,omitempty"`
 }
 
-// IsEmpty determines whether this global configuration is empty.
+// IsEmpty determines whether this kubelet configuration is empty.
 // A nil receiver is considered empty
 func (r *Kubelet) IsEmpty() bool {
 	if r == nil {

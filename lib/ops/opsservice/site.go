@@ -685,6 +685,9 @@ func (s *site) setClusterConfigDefaults(config *clusterconfig.Resource) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	if installOp == nil {
+		return trace.NotFound("no install operation found for cluster %q", s.key.SiteDomain)
+	}
 	if config.Spec.Global.PodCIDR == "" {
 		config.Spec.Global.PodCIDR = installOp.InstallExpand.Vars.OnPrem.PodCIDR
 	}
