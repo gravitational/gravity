@@ -81,12 +81,8 @@ func (r *SMTPConfigV2) CheckAndSetDefaults() error {
 		return trace.BadParameter("missing parameter Host")
 	}
 
-	if r.Spec.Username == "" {
-		return trace.BadParameter("Username cannot be empty")
-	}
-
-	if r.Spec.Password == "" {
-		return trace.BadParameter("Password cannot be empty")
+	if r.Spec.Port < 0 || r.Spec.Port > 65535 {
+		return trace.BadParameter("Invalid port %v", r.Spec.Port)
 	}
 
 	if r.Spec.Port == 0 {
@@ -148,7 +144,7 @@ type SMTPConfigSpecV2 struct {
 const SMTPConfigSpecV2Schema = `{
   "type": "object",
   "additionalProperties": false,
-  "required": ["host", "username", "password"],
+  "required": ["host"],
   "properties": {
     "host": {"type": "string"},
     "port": {"type": "integer"},
