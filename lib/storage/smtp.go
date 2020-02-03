@@ -81,7 +81,7 @@ func (r *SMTPConfigV2) CheckAndSetDefaults() error {
 		return trace.BadParameter("missing parameter Host")
 	}
 
-	if r.Spec.Port < 0 {
+	if r.Spec.Port < 0 || r.Spec.Port > 65535 {
 		return trace.BadParameter("Invalid port %v", r.Spec.Port)
 	}
 
