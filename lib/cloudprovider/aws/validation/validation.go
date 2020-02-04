@@ -43,7 +43,10 @@ func Validate(accessKey, secretKey, sessionToken, regionName string, probes Prob
 
 // ValidateWithCreds is an overload of Validate accepting specified credentials object.
 func ValidateWithCreds(creds *credentials.Credentials, regionName string, probes Probes, ctx context.Context) (actions Actions, err error) {
-	session := session.New()
+	session, err := session.NewSession()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	config := &aws.Config{
 		Credentials: creds,
 		Region:      aws.String(regionName),
