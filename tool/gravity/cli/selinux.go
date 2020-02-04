@@ -65,9 +65,12 @@ func BootstrapSELinuxAndRespawn(config libselinux.BootstrapConfig) error {
 	return syscall.Exec(cmd, os.Args, nil)
 }
 
-func bootstrapSelinux(env *localenv.LocalEnvironment, path string, vxlanPort int) error {
+func bootstrapSelinux(env *localenv.LocalEnvironment, path, stateDir string, vxlanPort int) error {
 	config := libselinux.BootstrapConfig{
-		VxlanPort: vxlanPort,
+		StateDir: stateDir,
+	}
+	if vxlanPort != defaults.VxlanPort {
+		config.VxlanPort = &vxlanPort
 	}
 	if path == "" {
 		return libselinux.Bootstrap(config)

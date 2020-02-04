@@ -85,6 +85,10 @@ type InstallConfig struct {
 	CloudProvider string
 	// StateDir is directory with local installer state
 	StateDir string
+	// SystemStateDir specifies the custom state directory.
+	// If specified, will affect the local file contexts generated
+	// when SELinux configuration is bootstrapped
+	SystemStateDir string
 	// UserLogFile is the log file where user-facing operation logs go
 	UserLogFile string
 	// SystemLogFile is the log file for system logs
@@ -175,20 +179,21 @@ func NewInstallConfig(env *localenv.LocalEnvironment, g *Application) InstallCon
 		mode = constants.InstallModeInteractive
 	}
 	return InstallConfig{
-		Insecure:      *g.Insecure,
-		StateDir:      *g.InstallCmd.Path,
-		UserLogFile:   *g.UserLogFile,
-		SystemLogFile: *g.SystemLogFile,
-		AdvertiseAddr: *g.InstallCmd.AdvertiseAddr,
-		Token:         *g.InstallCmd.Token,
-		CloudProvider: *g.InstallCmd.CloudProvider,
-		SiteDomain:    *g.InstallCmd.Cluster,
-		Role:          *g.InstallCmd.Role,
-		SystemDevice:  *g.InstallCmd.SystemDevice,
-		Mounts:        *g.InstallCmd.Mounts,
-		PodCIDR:       *g.InstallCmd.PodCIDR,
-		ServiceCIDR:   *g.InstallCmd.ServiceCIDR,
-		VxlanPort:     *g.InstallCmd.VxlanPort,
+		Insecure:       *g.Insecure,
+		SystemStateDir: *g.StateDir,
+		StateDir:       *g.InstallCmd.Path,
+		UserLogFile:    *g.UserLogFile,
+		SystemLogFile:  *g.SystemLogFile,
+		AdvertiseAddr:  *g.InstallCmd.AdvertiseAddr,
+		Token:          *g.InstallCmd.Token,
+		CloudProvider:  *g.InstallCmd.CloudProvider,
+		SiteDomain:     *g.InstallCmd.Cluster,
+		Role:           *g.InstallCmd.Role,
+		SystemDevice:   *g.InstallCmd.SystemDevice,
+		Mounts:         *g.InstallCmd.Mounts,
+		PodCIDR:        *g.InstallCmd.PodCIDR,
+		ServiceCIDR:    *g.InstallCmd.ServiceCIDR,
+		VxlanPort:      *g.InstallCmd.VxlanPort,
 		Docker: storage.DockerConfig{
 			StorageDriver: g.InstallCmd.DockerStorageDriver.value,
 			Args:          *g.InstallCmd.DockerArgs,
@@ -487,7 +492,8 @@ func (i *InstallConfig) BootstrapSELinux(printer utils.Printer) error {
 	}
 	printer.PrintStep("Bootstrapping installer for SELinux")
 	err := BootstrapSELinuxAndRespawn(selinux.BootstrapConfig{
-		VxlanPort: i.VxlanPort,
+		StateDir:  i.SystemStateDir,
+		VxlanPort: &i.VxlanPort,
 	})
 	return trace.Wrap(err)
 }
@@ -748,23 +754,28 @@ type JoinConfig struct {
 	// SkipWizard specifies to the join agents that this join request is not too a wizard,
 	// and as such wizard connectivity should be skipped
 	SkipWizard bool
+	// SystemStateDir specifies the custom state directory.
+	// If specified, will affect the local file contexts generated
+	// when SELinux configuration is bootstrapped
+	SystemStateDir string
 }
 
 // NewJoinConfig populates join configuration from the provided CLI application
 func NewJoinConfig(g *Application) JoinConfig {
 	return JoinConfig{
-		SystemLogFile: *g.SystemLogFile,
-		UserLogFile:   *g.UserLogFile,
-		PeerAddrs:     *g.JoinCmd.PeerAddr,
-		AdvertiseAddr: *g.JoinCmd.AdvertiseAddr,
-		ServerAddr:    *g.JoinCmd.ServerAddr,
-		Token:         *g.JoinCmd.Token,
-		Role:          *g.JoinCmd.Role,
-		SystemDevice:  *g.JoinCmd.SystemDevice,
-		Mounts:        *g.JoinCmd.Mounts,
-		OperationID:   *g.JoinCmd.OperationID,
-		SELinux:       *g.JoinCmd.SELinux,
-		FromService:   *g.JoinCmd.FromService,
+		SystemLogFile:  *g.SystemLogFile,
+		UserLogFile:    *g.UserLogFile,
+		PeerAddrs:      *g.JoinCmd.PeerAddr,
+		AdvertiseAddr:  *g.JoinCmd.AdvertiseAddr,
+		ServerAddr:     *g.JoinCmd.ServerAddr,
+		Token:          *g.JoinCmd.Token,
+		Role:           *g.JoinCmd.Role,
+		SystemDevice:   *g.JoinCmd.SystemDevice,
+		Mounts:         *g.JoinCmd.Mounts,
+		OperationID:    *g.JoinCmd.OperationID,
+		SELinux:        *g.JoinCmd.SELinux,
+		FromService:    *g.JoinCmd.FromService,
+		SystemStateDir: *g.StateDir,
 	}
 }
 
@@ -803,6 +814,7 @@ func (j *JoinConfig) NewPeerConfig(env, joinEnv *localenv.LocalEnvironment) (con
 		StateDir:           joinEnv.StateDir,
 		OperationID:        j.OperationID,
 		SkipWizard:         j.SkipWizard,
+		SELinux:            j.SELinux,
 	}, nil
 }
 
@@ -833,8 +845,9 @@ func (j *JoinConfig) bootstrapSELinux(printer utils.Printer) error {
 		return nil
 	}
 	printer.PrintStep("Bootstrapping installer for SELinux")
-	// TODO: vxlanPort configuration
-	return BootstrapSELinuxAndRespawn(selinux.BootstrapConfig{})
+	return BootstrapSELinuxAndRespawn(selinux.BootstrapConfig{
+		StateDir: j.SystemStateDir,
+	})
 }
 
 func (r *removeConfig) checkAndSetDefaults() error {
@@ -887,7 +900,6 @@ func (r *autojoinConfig) bootstrapSELinux(printer utils.Printer) error {
 		return nil
 	}
 	printer.PrintStep("Bootstrapping installer for SELinux")
-	// TODO: vxlanPort configuration
 	return BootstrapSELinuxAndRespawn(selinux.BootstrapConfig{})
 }
 

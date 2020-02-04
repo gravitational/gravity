@@ -144,7 +144,8 @@ TF_PROVIDER_GRAVITY_OUT := $(GRAVITY_BUILDDIR)/terraform-provider-gravity
 TF_PROVIDER_GRAVITYENTERPRISE_OUT := $(GRAVITY_BUILDDIR)/terraform-provider-gravityenterprise
 SELINUX_ASSETSDIR := $(TOP)/lib/system/selinux/assets/centos
 SELINUX_ASSETS := $(SELINUX_ASSETSDIR)/gravity.pp.bz2 \
-		$(SELINUX_ASSETSDIR)/container.pp.bz2
+		$(SELINUX_ASSETSDIR)/container.pp.bz2 \
+		$(SELINUX_ASSETSDIR)/gravity.statedir.fc.template
 SELINUX_OUT := $(GRAVITY_BUILDDIR)/selinux-policy.tgz
 
 GRAVITY_DIR := /var/lib/gravity

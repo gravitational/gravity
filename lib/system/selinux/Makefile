@@ -10,7 +10,7 @@ ASSETSDIR:=assets/$(OS_RELEASE)
 
 all: buildbox $(POLICY_OUT)
 
-$(POLICY_OUT): policy.go $(ASSETSDIR)/container.pp.bz2 $(ASSETSDIR)/gravity.pp.bz2
+$(POLICY_OUT): policy.go $(ASSETSDIR)/container.pp.bz2 $(ASSETSDIR)/gravity.pp.bz2 $(ASSETSDIR)/gravity.statedir.fc.template
 	$(CONTAINER_RUNTIME) run \
 		--name=$(BUILDBOX_INSTANCE) \
 		-v ${DIR}:/go/src/$(GRAVITY_REPOSITORY) \

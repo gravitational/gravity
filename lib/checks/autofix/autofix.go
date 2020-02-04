@@ -45,7 +45,7 @@ func Fix(ctx context.Context, probes []*agentpb.Probe, progress utils.Progress) 
 		if probe.Status != agentpb.Probe_Failed {
 			continue
 		}
-		if err := fixProbe(ctx, probe, progress); err != nil {
+		if err := fixProbe(ctx, probe, progress); err != nil && !trace.IsNotImplemented(err) {
 			logrus.Debugf("Failed to auto-fix probe %#v: %v", *probe, err)
 			unfixed = append(unfixed, probe)
 		} else {

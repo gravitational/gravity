@@ -24,6 +24,7 @@ import (
 	pb "github.com/gravitational/satellite/agent/proto/agentpb"
 
 	"github.com/gravitational/trace"
+	log "github.com/sirupsen/logrus"
 )
 
 // NewPortChecker returns a new port range checker

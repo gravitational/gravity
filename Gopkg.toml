@@ -287,6 +287,10 @@ ignored = [
   version = "=v2.3.0"
 
 [[constraint]]
+  name = "github.com/google/shlex"
+  branch = "master"
+
+[[constraint]]
   name = "gopkg.in/check.v1"
   branch = "v1"
 

@@ -803,6 +803,14 @@
   revision = "bbcb9da2d746f8bdbd6a936686a0a6067ada0ec5"
 
 [[projects]]
+  branch = "master"
+  digest = "1:ae4407ca7731ceb7b54b059fced30f335d32486a2148e262b19067261f959b42"
+  name = "github.com/google/shlex"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "e7afc7fbc51079733e9468cdfd1efcd7d196cd1d"
+
+[[projects]]
   digest = "1:236d7e1bdb50d8f68559af37dbcf9d142d56b431c9b2176d41e2a009b664cda8"
   name = "github.com/google/uuid"
   packages = ["."]
@@ -2961,6 +2969,7 @@
     "github.com/gokyle/hotp",
     "github.com/golang/protobuf/proto",
     "github.com/golang/protobuf/ptypes/any",
+    "github.com/google/shlex",
     "github.com/gravitational/configure",
     "github.com/gravitational/configure/cstrings",
     "github.com/gravitational/configure/schema",

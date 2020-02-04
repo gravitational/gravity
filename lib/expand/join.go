@@ -50,12 +50,14 @@ import (
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
+	libselinux "github.com/gravitational/gravity/lib/system/selinux"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/cenkalti/backoff"
 	"github.com/gravitational/coordinate/leader"
 	"github.com/gravitational/roundtrip"
 	"github.com/gravitational/trace"
+	"github.com/opencontainers/selinux/go-selinux"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -286,6 +288,9 @@ type PeerConfig struct {
 	// SkipWizard specifies to the peer agents that the peer is not a wizard
 	// and attempts to contact the wizard should be skipped
 	SkipWizard bool
+	// SELinux specifies whether the installer runs with SELinux support.
+	// This makes the agent run in its own domain
+	SELinux bool
 }
 
 // CheckAndSetDefaults checks the parameters and autodetects some defaults
@@ -608,12 +613,6 @@ func (p *Peer) dialCluster(addr, operationID string) (*operationContext, error) 
 	if err != nil {
 		return nil, utils.Abort(err)
 	}
-	if shouldRunLocalChecks(*ctx) {
-		err = p.runLocalChecksExpand(ctx.Operator, ctx.Cluster)
-		if err != nil {
-			return nil, utils.Abort(err)
-		}
-	}
 	if ctx.hasOperation() {
 		return ctx, nil
 	}
@@ -622,6 +621,12 @@ func (p *Peer) dialCluster(addr, operationID string) (*operationContext, error) 
 		return nil, trace.Wrap(err)
 	}
 	ctx.Operation = *operation
+	if shouldRunLocalChecks(*ctx) {
+		err = p.runLocalChecksExpand(ctx.Operator, ctx.Cluster)
+		if err != nil {
+			return nil, utils.Abort(err)
+		}
+	}
 	return ctx, nil
 }
 
@@ -707,6 +712,10 @@ func (p *Peer) getOrCreateExpandOperation(operator ops.Operator, cluster ops.Sit
 
 func (p *Peer) runLocalChecksExpand(operator ops.Operator, cluster ops.Site) error {
 	installOperation, _, err := ops.GetInstallOperation(cluster.Key(), operator)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = patchSELinuxConfig(libselinux.PatchConfig{VxlanPort: vxlanPort(*installOperation)})
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -1284,6 +1293,17 @@ func isExpandOperationReady(state string) (bool, error) {
 
 func peerPartOfInstallState(addr string, servers storage.Servers) bool {
 	return servers.FindByIP(addr) != nil
+}
+
+func patchSELinuxConfig(config libselinux.PatchConfig) error {
+	if !selinux.GetEnabled() {
+		return nil
+	}
+	return config.Patch()
+}
+
+func vxlanPort(op ops.SiteOperation) int {
+	return op.InstallExpand.Vars.OnPrem.VxlanPort
 }
 
 type connectResult struct {

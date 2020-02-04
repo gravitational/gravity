@@ -410,11 +410,7 @@ func selinuxBootstrap() error {
 		// Nothing to do
 		return nil
 	}
-	var config selinux.BootstrapConfig
-	if status.Cluster.Overrides.VxlanPort != defaults.VxlanPort {
-		config.VxlanPort = status.Cluster.Overrides.VxlanPort
-	}
-	return selinux.Bootstrap(config)
+	return selinux.Bootstrap(selinux.BootstrapConfig{})
 }
 
 func queryClusterStatus() (status *libstatus.Status, err error) {
