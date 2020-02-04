@@ -18,11 +18,12 @@ limitations under the License.
 package membership
 
 import (
+	"context"
 	"net"
 
-	"github.com/gravitational/satellite/lib/client"
+	"github.com/gravitational/satellite/lib/rpc/client"
 
-	"golang.org/x/net/context"
+	"github.com/hashicorp/serf/coordinate"
 )
 
 // ClusterMembership is interface to interact with a cluster membership service.
@@ -40,7 +41,7 @@ type ClusterMembership interface {
 	// UpdateTags will modify the tags on a running member.
 	UpdateTags(tags map[string]string, delTags []string) error
 	// GetCoordinate returns the Serf Coordinate for a specific node
-	// GetCoordinate(node string) (*coordinate.Coordinate, error)
+	GetCoordinate(node string) (*coordinate.Coordinate, error)
 }
 
 // ClusterMember is interface to interact with a cluster member.

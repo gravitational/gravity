@@ -26,7 +26,7 @@ import (
 	"github.com/gravitational/satellite/agent"
 	"github.com/gravitational/satellite/agent/health"
 	pb "github.com/gravitational/satellite/agent/proto/agentpb"
-	"github.com/gravitational/satellite/lib/client"
+	"github.com/gravitational/satellite/lib/rpc/client"
 
 	"github.com/gravitational/trace"
 	"github.com/gravitational/ttlmap"

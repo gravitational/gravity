@@ -999,24 +999,25 @@
   version = "v1.0.0"
 
 [[projects]]
-  branch = "bernard/timeline-testing"
-  digest = "1:7159d8cf85e9f7dcbd884166bd773e1402c1dd1798577d3d988538aa4cfbbd59"
+  branch = "bernard/timeline"
+  digest = "1:5743846e8a4b77bdb8c77143ad85142a125b305e01677f32ce3dacbceccc4b10"
   name = "github.com/gravitational/satellite"
   packages = [
     "agent",
     "agent/cache",
     "agent/health",
     "agent/proto/agentpb",
-    "lib/client",
     "lib/history",
     "lib/history/sqlite",
     "lib/kubernetes",
     "lib/membership",
+    "lib/rpc",
+    "lib/rpc/client",
     "monitoring",
     "utils",
   ]
   pruneopts = "UT"
-  revision = "c0b81a6d6d71aa21e680cdcdab13c1775e0bb02c"
+  revision = "d96593a91d06b382bb356698e238b449781c0e80"
 
 [[projects]]
   digest = "1:49f6abbce9ade5f43508429e4af1adcce55d27adcd62719fea049decc766a7c9"
@@ -3130,7 +3131,7 @@
     "github.com/gravitational/roundtrip",
     "github.com/gravitational/satellite/agent/health",
     "github.com/gravitational/satellite/agent/proto/agentpb",
-    "github.com/gravitational/satellite/lib/client",
+    "github.com/gravitational/satellite/lib/rpc/client",
     "github.com/gravitational/satellite/monitoring",
     "github.com/gravitational/tail",
     "github.com/gravitational/teleport",

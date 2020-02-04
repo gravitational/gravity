@@ -21,8 +21,12 @@ type MemberStatus string
 
 // Possible membership statuses.
 const (
-	MemberAlive   MemberStatus = "alive"
+	// MemberAlive indicates serf member is active.
+	MemberAlive MemberStatus = "alive"
+	// MemberLeaving indicates serf member is in the process of leaving the cluster.
 	MemberLeaving MemberStatus = "leaving"
-	MemberLeft    MemberStatus = "left"
-	MemberFailed  MemberStatus = "failed"
+	// MemberLeft indicates serf member has left the cluster.
+	MemberLeft MemberStatus = "left"
+	// MemberFailed indicates failure has been detected on serf member.
+	MemberFailed MemberStatus = "failed"
 )

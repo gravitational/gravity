@@ -114,7 +114,7 @@ func NewTimeline(ctx context.Context, config Config) (*Timeline, error) {
 func (t *Timeline) initSQLite(ctx context.Context) error {
 	dir := filepath.Dir(t.config.DBPath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
-		return trace.Wrap(err, "failed to make database directory")
+		return trace.ConvertSystemError(err)
 	}
 
 	database, err := sqlx.ConnectContext(ctx, "sqlite3", t.config.DBPath)

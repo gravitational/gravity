@@ -77,7 +77,7 @@ ignored = [
 
 [[constraint]]
   name = "github.com/gravitational/satellite"
-  branch = "bernard/timeline-testing"
+  branch = "bernard/timeline"
 
 [[constraint]]
   name = "github.com/xtgo/set"

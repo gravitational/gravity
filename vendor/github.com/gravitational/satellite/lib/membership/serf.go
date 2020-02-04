@@ -17,16 +17,17 @@ limitations under the License.
 package membership
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"sync"
 
-	"github.com/gravitational/satellite/lib/client"
+	"github.com/gravitational/satellite/lib/rpc"
+	"github.com/gravitational/satellite/lib/rpc/client"
 
 	"github.com/gravitational/trace"
 	serf "github.com/hashicorp/serf/client"
 	"github.com/hashicorp/serf/coordinate"
-	"golang.org/x/net/context"
 )
 
 // RetryingClient is an rpc client used to make requests to a serf agent.
@@ -184,11 +185,9 @@ type SerfMember struct {
 
 // Dial attempts to create client connection to the serf member.
 func (r SerfMember) Dial(ctx context.Context, caFile, certFile, keyFile string) (client.Client, error) {
-	// RPCPort defines default rpc port
-	const RPCPort = 7575
 
 	config := client.Config{
-		Address:  fmt.Sprintf("%s:%d", r.Member.Addr.String(), RPCPort),
+		Address:  fmt.Sprintf("%s:%d", r.Member.Addr.String(), rpc.Port),
 		CAFile:   caFile,
 		CertFile: certFile,
 		KeyFile:  keyFile,

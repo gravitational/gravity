@@ -19,16 +19,17 @@ limitations under the License.
 package client
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
 	"io/ioutil"
 
 	pb "github.com/gravitational/satellite/agent/proto/agentpb"
+	"github.com/gravitational/satellite/lib/rpc"
 
 	"github.com/gravitational/trace"
 	serf "github.com/hashicorp/serf/client"
-	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
@@ -118,18 +119,7 @@ func NewClient(ctx context.Context, config Config) (*client, error) {
 		RootCAs:      certPool,
 		Certificates: []tls.Certificate{cert},
 		MinVersion:   tls.VersionTLS12,
-		// Use TLS Modern capability suites
-		// https://wiki.mozilla.org/Security/Server_Side_TLS
-		CipherSuites: []uint16{
-			tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
-			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-			tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
-			tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
-			tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-			tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-			tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
-			tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
-		},
+		CipherSuites: rpc.DefaultCipherSuites,
 	})
 	return NewClientWithCreds(ctx, config.Address, creds)
 }
@@ -218,12 +208,10 @@ type DialRPC func(context.Context, *serf.Member) (Client, error)
 // DefaultDialRPC is a default RPC client factory function.
 // It creates a new client based on address details from the specific serf member.
 func DefaultDialRPC(caFile, certFile, keyFile string) DialRPC {
-	// RPCPort specifies the default RPC port.
-	const RPCPort = 7575 // FIXME: use serf to discover agents
 
 	return func(ctx context.Context, member *serf.Member) (Client, error) {
 		config := Config{
-			Address:  fmt.Sprintf("%s:%d", member.Addr.String(), RPCPort),
+			Address:  fmt.Sprintf("%s:%d", member.Addr.String(), rpc.Port),
 			CAFile:   caFile,
 			CertFile: certFile,
 			KeyFile:  keyFile,
