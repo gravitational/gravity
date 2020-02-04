@@ -44,7 +44,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 * Fix an issue with flannel incorrectly recovering from a watch failure ([#1070](https://github.com/gravitational/gravity/pull/1070)).
 * Fix an issue with changes to pod CIDR within cluster configuration ([#1043](https://github.com/gravitational/gravity/pull/1043)).
-* Fix broken menu height and scollbars ([#1042](https://github.com/gravitational/gravity/pull/1042)).
+* Fix broken menu height and scrollbars ([#1042](https://github.com/gravitational/gravity/pull/1042)).
 * Fix a UI issue with null items returned by kubernetes API ([#1039](https://github.com/gravitational/gravity/pull/1039)).
 * Enable all kubernetes default admission controllers ([#1069](https://github.com/gravitational/gravity/pull/1069)).
 
