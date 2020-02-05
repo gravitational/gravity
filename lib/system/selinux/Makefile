@@ -18,7 +18,7 @@ $(POLICY_OUT): policy.go $(ASSETSDIR)/container.pp.bz2 $(ASSETSDIR)/gravity.pp.b
 		/go/bin/generate
 
 .PHONY: buildbox
-buildbox: generate/generate.go
+buildbox: internal/generate/generate.go
 	$(CONTAINER_RUNTIME) build \
 		-t $(BUILDBOX) \
 		-f Dockerfile \

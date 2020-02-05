@@ -2,19 +2,20 @@ package selinux
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"text/template"
 
-	"github.com/Azure/go-autorest/logger"
 	"github.com/gravitational/gravity/lib/defaults"
 	liblog "github.com/gravitational/gravity/lib/log"
 	libschema "github.com/gravitational/gravity/lib/schema"
-	"github.com/gravitational/gravity/lib/system/selinux/schema"
+	"github.com/gravitational/gravity/lib/system/selinux/internal/schema"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/satellite/monitoring"
@@ -32,7 +33,7 @@ func Bootstrap(config BootstrapConfig) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	b := newBootstrapper(config, metadata)
+	b := newBootstrapper(config, *metadata)
 	err = utils.WithTempDir(func(dir string) error {
 		return b.installDefaultPolicy(dir)
 	}, "policy")
@@ -51,12 +52,15 @@ func Unload(config BootstrapConfig) error {
 	if err := config.checkAndSetDefaults(); err != nil {
 		return trace.Wrap(err)
 	}
-	// FIXME: rewrite using bootstrapper
-	// FIXME: unload script needs to use another API - not writeBootstrapScript
-	if err := removeLocalChanges(config); err != nil {
+	metadata, err := monitoring.GetOSRelease()
+	if err != nil {
 		return trace.Wrap(err)
 	}
-	return removePolicy()
+	b := newBootstrapper(config, *metadata)
+	return b.removeLocalChanges()
+	// TODO: remove the policy module.
+	// Note, this is only possible whebn there're no more gravity-labeled
+	// files/directories.
 }
 
 // Patch executes the patch script with the underlying configuration
@@ -111,9 +115,11 @@ func WriteBootstrapScript(w io.Writer, config BootstrapConfig) error {
 	if err := config.checkAndSetDefaults(); err != nil {
 		return trace.Wrap(err)
 	}
-	// FIXME
-	var metadata monitoring.OSRelease
-	return newBootstrapper(config, metadata).writeBootstrapScript(w)
+	metadata, err := monitoring.GetOSRelease()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return newBootstrapper(config, *metadata).writeBootstrapScript(w)
 }
 
 // BootstrapConfig defines the SELinux bootstrap configuration
@@ -125,20 +131,27 @@ type BootstrapConfig struct {
 	StateDir string
 	// VxlanPort specifies the custom vxlan port.
 	// If left unspecified (nil), will not be configured
-	VxlanPort *int
-	// Force forces the update of the policy
-	Force bool
+	VxlanPort  *int
+	portRanges *portRanges
 }
 
 func (r *BootstrapConfig) checkAndSetDefaults() error {
 	if r.Path == "" {
 		r.Path = utils.Exe.WorkingDir
 	}
+	if r.portRanges == nil {
+		r.portRanges = &portRanges{
+			Installer:  libschema.DefaultPortRanges.Installer,
+			Kubernetes: libschema.DefaultPortRanges.Kubernetes,
+			Generic:    libschema.DefaultPortRanges.Generic,
+			VxlanPort:  r.VxlanPort,
+		}
+	}
 	return nil
 }
 
 func (r *BootstrapConfig) isCustomStateDir() bool {
-	return r.StateDir != defaults.GravityDir
+	return r.StateDir != "" && r.StateDir != defaults.GravityDir
 }
 
 // PatchConfig describes the configuration to update parts of the SELinux configuration
@@ -150,54 +163,27 @@ type PatchConfig struct {
 func newBootstrapper(config BootstrapConfig, metadata monitoring.OSRelease) *bootstrapper {
 	logger := liblog.New(log.WithField(trace.Component, "selinux"))
 	return &bootstrapper{
-		config:   config,
-		metadata: metadata,
-		logger:   logger,
+		config:           config,
+		metadata:         metadata,
+		logger:           logger,
+		policyFileReader: withPolicy(Policy),
 	}
 }
 
 type bootstrapper struct {
-	config   BootstrapConfig
-	metadata monitoring.OSRelease
-	logger   liblog.Logger
-}
-
-func (r *bootstrapper) writeBootstrapScript(w io.Writer) error {
-	var values = struct {
-		Path       string
-		PortRanges portRanges
-	}{
-		Path: r.config.Path,
-		PortRanges: portRanges{
-			Installer:  libschema.DefaultPortRanges.Installer,
-			Kubernetes: libschema.DefaultPortRanges.Kubernetes,
-			Generic:    libschema.DefaultPortRanges.Generic,
-			VxlanPort:  r.config.VxlanPort,
-		},
-	}
-	if err := trace.Wrap(bootstrapScript.Execute(w, values)); err != nil {
-		return trace.Wrap(err)
-	}
-	if !r.config.isCustomStateDir() {
-		return nil
-	}
-	f, err := r.openFile("gravity.statedir.fc.template")
-	if err != nil {
-		return trace.ConvertSystemError(err)
-	}
-	defer f.Close()
-	var fcontext bytes.Buffer
-	return renderFcontext(&fcontext, r.config.StateDir, f)
+	config           BootstrapConfig
+	metadata         monitoring.OSRelease
+	logger           liblog.Logger
+	policyFileReader policyFileReader
 }
 
 func (r *bootstrapper) installDefaultPolicy(dir string) error {
 	for _, policy := range []string{"container.pp.bz2", "gravity.pp.bz2"} {
-		// f, err := r.openFile(filepath.Join(mapDistro(metadata.ID), policy))
 		f, err := r.openFile(policy)
 		if err != nil {
 			if os.IsNotExist(err) {
 				return trace.NotFound("no SELinux policy for the specified OS distribution %v",
-					r.metadata.ID).AddField("distribution", r.metadata.ID)
+					r.metadata.ID).AddField("os", r.metadata.ID)
 			}
 			return trace.Wrap(err)
 		}
@@ -211,9 +197,9 @@ func (r *bootstrapper) installDefaultPolicy(dir string) error {
 	return nil
 }
 
-func (r *bootstrapper) importLocalChanges(config BootstrapConfig) error {
+func (r *bootstrapper) importLocalChanges() error {
 	var buf bytes.Buffer
-	w := logger.Writer()
+	w := r.logger.Writer()
 	defer w.Close()
 	if err := r.writeBootstrapScript(io.MultiWriter(&buf, w)); err != nil {
 		return trace.Wrap(err)
@@ -223,17 +209,84 @@ func (r *bootstrapper) importLocalChanges(config BootstrapConfig) error {
 		return trace.Wrap(err)
 	}
 	cmd := exec.Command("restorecon", "-Rvi",
-		config.Path,
+		r.config.Path,
 		defaults.GravitySystemLogPath,
 		defaults.GravityUserLogPath,
 	)
 	cmd.Stdout = w
 	cmd.Stderr = w
-	log.WithField("cmd", cmd.Args).Info("Restore file contexts.")
+	r.logger.WithField("cmd", cmd.Args).Info("Restore file contexts.")
 	return trace.Wrap(cmd.Run())
 }
 
-func renderFcontext(w io.Writer, stateDir string, fcontextTemplate io.Reader) error {
+func (r *bootstrapper) removeLocalChanges() error {
+	var buf bytes.Buffer
+	if err := r.writeUnloadScript(&buf); err != nil {
+		return trace.Wrap(err)
+	}
+	return importLocalChangesFromReader(&buf)
+}
+
+func (r *bootstrapper) writeBootstrapScript(w io.Writer) error {
+	var values = struct {
+		Path       string
+		PortRanges portRanges
+	}{
+		Path: r.config.Path,
+	}
+	if r.config.portRanges != nil {
+		values.PortRanges = *r.config.portRanges
+	}
+	values.PortRanges.VxlanPort = r.config.VxlanPort
+	if err := bootstrapScript.Execute(w, values); err != nil {
+		return trace.Wrap(err)
+	}
+	return r.renderFcontext(w, schema.FcontextFileItem.AsAddCommand)
+}
+
+func (r *bootstrapper) writeUnloadScript(w io.Writer) error {
+	var values = struct {
+		StateDir   string
+		Path       string
+		PortRanges portRanges
+	}{
+		StateDir: r.config.StateDir,
+		Path:     r.config.Path,
+	}
+	if r.config.portRanges != nil {
+		values.PortRanges = *r.config.portRanges
+		values.PortRanges.VxlanPort = r.config.VxlanPort
+		if values.PortRanges.VxlanPort == nil {
+			values.PortRanges.VxlanPort = utils.IntPtr(defaults.VxlanPort)
+		}
+	}
+	if err := unloadScript.Execute(w, values); err != nil {
+		return trace.Wrap(err)
+	}
+	return r.renderFcontext(w, schema.FcontextFileItem.AsRemoveCommand)
+}
+
+func (r *bootstrapper) renderFcontext(w io.Writer, renderer commandRenderer) error {
+	if !r.config.isCustomStateDir() {
+		return nil
+	}
+	f, err := r.openFile("gravity.statedir.fc.template")
+	if err != nil {
+		return trace.ConvertSystemError(err)
+	}
+	defer f.Close()
+	return renderFcontext(w, r.config.StateDir, f, renderer)
+}
+
+func (r *bootstrapper) openFile(name string) (io.ReadCloser, error) {
+	f, err := r.policyFileReader.OpenFile(filepath.Join(mapDistro(r.metadata.ID), name))
+	if err != nil {
+		return nil, trace.ConvertSystemError(err)
+	}
+	return f, nil
+}
+
+func renderFcontext(w io.Writer, stateDir string, fcontextTemplate io.Reader, renderer commandRenderer) error {
 	b, err := ioutil.ReadAll(fcontextTemplate)
 	if err != nil {
 		return trace.ConvertSystemError(err)
@@ -256,12 +309,34 @@ func renderFcontext(w io.Writer, stateDir string, fcontextTemplate io.Reader) er
 		return trace.Wrap(err)
 	}
 	for _, item := range items {
-		if _, err := io.WriteString(w, item.AsAddCommand()); err != nil {
+		if _, err := fmt.Fprint(w, renderer(item), "\n"); err != nil {
 			return trace.Wrap(err)
 		}
 	}
 	return nil
 }
+
+func withPolicy(policy http.FileSystem) policyFileReader {
+	return policyFileReaderFunc(func(path string) (io.ReadCloser, error) {
+		f, err := policy.Open(path)
+		if err != nil {
+			return nil, trace.ConvertSystemError(err)
+		}
+		return f, nil
+	})
+}
+
+type policyFileReader interface {
+	OpenFile(name string) (io.ReadCloser, error)
+}
+
+func (r policyFileReaderFunc) OpenFile(name string) (io.ReadCloser, error) {
+	return r(name)
+}
+
+type policyFileReaderFunc func(name string) (io.ReadCloser, error)
+
+type commandRenderer func(schema.FcontextFileItem) string
 
 func installPolicyFile(path string, r io.Reader) error {
 	logger := liblog.New(log.WithField(trace.Component, "selinux"))
@@ -296,14 +371,6 @@ func getLocalPortChangeForVxlan() (*schema.PortCommand, error) {
 	return nil, trace.NotFound("no override for vxlan port")
 }
 
-func removeLocalChanges(config BootstrapConfig) error {
-	var buf bytes.Buffer
-	if err := writeUnloadScript(&buf, config); err != nil {
-		return trace.Wrap(err)
-	}
-	return importLocalChangesFromReader(&buf)
-}
-
 func importLocalChangesFromReader(r io.Reader) error {
 	cmd := exec.Command("semanage", "import")
 	logger := liblog.New(log.WithField(trace.Component, "system:selinux"))
@@ -332,23 +399,6 @@ func removePolicyByName(module string) error {
 	return trace.Wrap(cmd.Run())
 }
 
-// writeUnloadScript creates the unload script using the specified writer
-func writeUnloadScript(w io.Writer, config BootstrapConfig) error {
-	var values = struct {
-		Path       string
-		PortRanges portRanges
-	}{
-		Path: config.Path,
-		PortRanges: portRanges{
-			Installer:  libschema.DefaultPortRanges.Installer,
-			Kubernetes: libschema.DefaultPortRanges.Kubernetes,
-			Generic:    libschema.DefaultPortRanges.Generic,
-			VxlanPort:  config.VxlanPort,
-		},
-	}
-	return trace.Wrap(unloadScript.Execute(w, values))
-}
-
 type portRanges struct {
 	Installer  []libschema.PortRange
 	Kubernetes []libschema.PortRange
@@ -366,28 +416,32 @@ var bootstrapScript = template.Must(template.New("selinux-bootstrap").Parse(`
 port -D
 fcontext -D
 
-{{range .PortRanges.Installer}}
-port -a -t gravity_install_port_t -r 's0' -p {{.Protocol}} {{.From}}-{{.To}}{{end -}}
-{{range .PortRanges.Kubernetes}}
-port -a -t gravity_kubernetes_port_t -r 's0' -p {{.Protocol}} {{.From}}-{{.To}}{{end -}}
-{{range .PortRanges.Generic}}
+{{- range .PortRanges.Installer}}
+port -a -t gravity_install_port_t -r 's0' -p {{.Protocol}} {{.From}}-{{.To}}{{end}}
+{{- range .PortRanges.Kubernetes}}
+port -a -t gravity_kubernetes_port_t -r 's0' -p {{.Protocol}} {{.From}}-{{.To}}{{end}}
+{{- range .PortRanges.Generic}}
 port -a -t gravity_port_t -r 's0' -p {{.Protocol}} {{.From}}-{{.To}}{{end}}
 {{if .PortRanges.VxlanPort}}port -a -t gravity_vxlan_port_t -r 's0' -p udp {{.PortRanges.VxlanPort}}{{end}}
-
 fcontext -a -f f -t gravity_installer_exec_t -r 's0' '{{.Path}}/gravity'
 fcontext -a -f f -t gravity_log_t -r 's0' '{{.Path}}/gravity-(install|system)\.log'
 fcontext -a -f a -t gravity_home_t -r 's0' '{{.Path}}/.gravity(/.*)?'
-
 `))
 
 var unloadScript = template.Must(template.New("selinux-unload").Parse(`
+port -D
+fcontext -D
+`))
+
+// TODO: reflect the actual state of local customizations (incl. custom vxlan port)
+var unloadScript0 = template.Must(template.New("selinux-unload0").Parse(`
 {{range .PortRanges.Installer}}
-port -d -p {{.Protocol}} {{.From}}-{{.To}}{{end -}}
-{{range .PortRanges.Kubernetes}}
-port -d -p {{.Protocol}} {{.From}}-{{.To}}{{end -}}
-{{range .PortRanges.Generic}}
 port -d -p {{.Protocol}} {{.From}}-{{.To}}{{end}}
-{{if .PortRanges.VxlanPort}}port -d -p udp {{.PortRanges.VxlanPort}}{{end}}
+{{- range .PortRanges.Kubernetes}}
+port -d -p {{.Protocol}} {{.From}}-{{.To}}{{end}}
+{{- range .PortRanges.Generic}}
+port -d -p {{.Protocol}} {{.From}}-{{.To}}{{end}}
+port -d -p udp {{.PortRanges.VxlanPort}}
 
 fcontext -d -f f '{{.Path}}/gravity'
 fcontext -d -f f '{{.Path}}/gravity-(install|system)\.log'
@@ -402,13 +456,8 @@ port -a -t gravity_vxlan_port_t -r 's0' -p udp {{.VxlanPort}}
 func mapDistro(distroID string) string {
 	switch distroID {
 	case "centos", "rhel":
-		return defaultRelease
+		return "centos"
 	default:
-		return ""
+		return distroID
 	}
 }
-
-// defaultRelease specifies the default OS distribution name
-// that defines the policy files to use if the existing distribution
-// is not supported
-const defaultRelease = "centos"

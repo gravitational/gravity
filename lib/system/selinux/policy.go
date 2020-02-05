@@ -3,6 +3,7 @@
 package selinux
 
 import (
+	"io"
 	"net/http"
 	"os"
 	"time"
@@ -17,6 +18,16 @@ func newPolicyFS(fs http.FileSystem) policyFS {
 	return policyFS{
 		fs: fs,
 	}
+}
+
+// OpenFile opens a file with the specified name and returns
+// an io.ReadCloser
+func (r policyFS) OpenFile(name string) (io.ReadCloser, error) {
+	f, err := r.Open(name)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return f, nil
 }
 
 // Open returns a new http.File for the given name

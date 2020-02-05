@@ -19,6 +19,7 @@ package schema
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"io"
 	"strings"
 	"text/scanner"
@@ -50,53 +51,22 @@ func ParseFcontextFile(r io.Reader) (result []FcontextFileItem, err error) {
 	return result, nil
 }
 
-// Reference: https://github.com/SELinuxProject/selinux/blob/master/libsemanage/src/fcontexts_file.c#L81
-func parseFcontextFileItem(s string) (item *FcontextFileItem, err error) {
-	s = strings.TrimSpace(s)
-	index := strings.IndexFunc(s, isWhitespace)
-	if index == -1 {
-		return nil, trace.BadParameter("invalid filecontext: expected '<path> [<file type>] <context>' but got %q",
-			s)
-	}
-	var fileType, context string
-	// First segment is the path
-	path := s[:index]
-	s = strings.TrimSpace(s[index:])
-	if hasFileTypePrefix(s) {
-		index = strings.IndexFunc(s, isWhitespace)
-		if index == -1 {
-			return nil, trace.BadParameter("invalid filecontext: expected '<file type> <context>' but got %q",
-				s)
-		}
-		// Have file type segment
-		fileType = s[:index]
-		context = strings.TrimSpace(s[index:])
-	} else {
-		// Have no file type segment
-		context = s
-	}
-	label, err := parseContext(context)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	ftype, err := parseFileType(fileType)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return &FcontextFileItem{
-		Path:     path,
-		FileType: *ftype,
-		Label:    *label,
-	}, nil
-}
-
 // AsAddCommand formats this item as a 'semanage fcontext' command
 // to add a new local rule
 func (r FcontextFileItem) AsAddCommand() string {
-	return fmt.Sprintf("fcontext --add --ftype %v --type %v --range '%v' %v",
+	return fmt.Sprintf("fcontext --add --ftype %v --type %v --range '%v' '%v'",
 		r.FileType.AsParameter(),
 		r.Label.Type,
 		r.Label.SecurityRange,
+		r.Path,
+	)
+}
+
+// AsRemoveCommand formats this item as a 'semanage fcontext' command
+// to remove an existing local rule
+func (r FcontextFileItem) AsRemoveCommand() string {
+	return fmt.Sprintf("fcontext --delete --ftype %v '%v'",
+		r.FileType.AsParameter(),
 		r.Path,
 	)
 }
@@ -201,6 +171,46 @@ const (
 	Directory
 )
 
+// Reference: https://github.com/SELinuxProject/selinux/blob/master/libsemanage/src/fcontexts_file.c#L81
+func parseFcontextFileItem(s string) (item *FcontextFileItem, err error) {
+	s = strings.TrimSpace(s)
+	index := strings.IndexFunc(s, isWhitespace)
+	if index == -1 {
+		return nil, trace.BadParameter("invalid filecontext: expected '<path> [<file type>] <context>' but got %q",
+			s)
+	}
+	var fileType, context string
+	// First segment is the path
+	path := s[:index]
+	s = strings.TrimSpace(s[index:])
+	if hasFileTypePrefix(s) {
+		index = strings.IndexFunc(s, isWhitespace)
+		if index == -1 {
+			return nil, trace.BadParameter("invalid filecontext: expected '<file type> <context>' but got %q",
+				s)
+		}
+		// Have file type segment
+		fileType = s[:index]
+		context = strings.TrimSpace(s[index:])
+	} else {
+		// Have no file type segment
+		context = s
+	}
+	label, err := parseContext(context)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	ftype, err := parseFileType(fileType)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &FcontextFileItem{
+		Path:     path,
+		FileType: *ftype,
+		Label:    *label,
+	}, nil
+}
+
 func hasFileTypePrefix(s string) bool {
 	if len(s) < 2 {
 		return false
@@ -266,9 +276,9 @@ func (p *contextParser) parse() (*Label, error) {
 }
 
 func (p *contextParser) ident(tok string) {
-	p.next()
-	if p.t.Text() != tok {
-		p.error("expected %q but got %q in %v at %v", tok, p.t.Text(), p.s, p.t.Position())
+	typ := p.next()
+	if p.t.Text() != tok || typ != scanner.Ident {
+		p.error("expected identifier %q but got %q in %v at %v", tok, p.t.Text(), p.s, p.t.Position())
 		return
 	}
 }
@@ -300,13 +310,15 @@ func (p *contextParser) securityRange() {
 	p.state.SecurityRange = p.t.Text()
 }
 
-func (p *contextParser) next() {
+func (p *contextParser) next() rune {
 	if p.err != nil {
-		return
+		return scanner.EOF
 	}
-	if ch := p.t.Next(); ch == scanner.EOF {
+	ch := p.t.Next()
+	if ch == scanner.EOF {
 		p.err = io.EOF
 	}
+	return ch
 }
 
 func (p *contextParser) error(format string, args ...interface{}) {

@@ -23,12 +23,12 @@ import (
 )
 
 func (*S) TestParsesFcontextFile(c *C) {
-	items, err := parseFcontextFile(strings.NewReader(fcontext))
+	items, err := ParseFcontextFile(strings.NewReader(fcontext))
 	c.Assert(err, IsNil)
 	c.Assert(items, DeepEquals, []FcontextFileItem{
 		{
 			Path:     "/var/lib/gravity(/.*)?",
-			FileType: AnyFile,
+			FileType: AllFiles,
 			Label:    withType("gravity_home_t"),
 		},
 		{

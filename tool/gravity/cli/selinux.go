@@ -44,11 +44,6 @@ func BootstrapSELinuxAndRespawn(config libselinux.BootstrapConfig) error {
 		return trace.Wrap(err)
 	}
 	if procContext["type"] == libselinux.GravityInstallerProcessContext["type"] {
-		if config.Force {
-			if err := libselinux.Bootstrap(config); err != nil {
-				return trace.Wrap(err)
-			}
-		}
 		return nil
 	}
 	if err := libselinux.Bootstrap(config); err != nil {

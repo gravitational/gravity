@@ -147,6 +147,7 @@ func InitAndCheck(g *Application, cmd string) error {
 			utils.InitLogging(*g.SystemLogFile)
 		}
 	}
+	log.WithField("args", os.Args).Info("Start.")
 
 	if *g.ProfileEndpoint != "" {
 		err := process.StartProfiling(context.TODO(), *g.ProfileEndpoint, *g.ProfileTo)

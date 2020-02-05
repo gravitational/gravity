@@ -28,10 +28,12 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/devicemapper"
 	"github.com/gravitational/gravity/lib/state"
+	libselinux "github.com/gravitational/gravity/lib/system/selinux"
 	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
+	"github.com/opencontainers/selinux/go-selinux"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -54,6 +56,9 @@ func UninstallSystem(printer utils.Printer, logger log.FieldLogger) (err error) 
 	pathsToRemove := append(getStateDirectories(), state.GravityBinPaths...)
 	pathsToRemove = append(pathsToRemove, state.KubectlBinPaths...)
 	if err := removePaths(printer, logger, pathsToRemove...); err != nil {
+		errors = append(errors, err)
+	}
+	if err := unloadSELinuxPolicy(); err != nil {
 		errors = append(errors, err)
 	}
 	return trace.NewAggregate(errors...)
@@ -116,6 +121,19 @@ func DisableAgentServices(logger log.FieldLogger) error {
 		}
 	}
 	return trace.NewAggregate(errors...)
+}
+
+func unloadSELinuxPolicy() error {
+	if !selinux.GetEnabled() {
+		return nil
+	}
+	stateDir, err := state.GetStateDir()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return libselinux.Unload(libselinux.BootstrapConfig{
+		StateDir: stateDir,
+	})
 }
 
 func uninstallPackageServices(svm systemservice.ServiceManager, printer utils.Printer, logger log.FieldLogger) error {
