@@ -143,6 +143,7 @@ func (s *PackageSuite) PackagesCRUD(c *C) {
 	c.Assert(err, IsNil)
 
 	packages, err = s.S.GetPackages(repoA)
+	c.Assert(err, IsNil)
 	c.Assert(packages, DeepEquals, []pack.PackageEnvelope{*pack1v2, *pack2})
 }
 
