@@ -34,7 +34,7 @@ func (r *S) TestPeerReconnects(c *C) {
 	log := r.Logger.WithField("test", "PeerReconnects")
 	proxyAddr := local.Addr().String()
 	proxyLink := proxy.New(proxy.NetLink{Local: local, Upstream: upstream.Addr().String()}, log)
-	proxyLink.Start()
+	c.Assert(proxyLink.Start(), IsNil)
 
 	srv, err := New(Config{
 		FieldLogger:     log.WithField("server", upstream.Addr()),
@@ -44,8 +44,10 @@ func (r *S) TestPeerReconnects(c *C) {
 		commandExecutor: testCommand{"server output"},
 	})
 	c.Assert(err, IsNil)
-	go srv.Serve()
-	defer withTestCtx(srv.Stop)
+	go func() {
+		c.Assert(srv.Serve(), IsNil)
+	}()
+	defer withTestCtx(srv.Stop, c)
 
 	watchCh := make(chan WatchEvent, 2)
 	checkTimeout := 100 * time.Millisecond
@@ -55,8 +57,10 @@ func (r *S) TestPeerReconnects(c *C) {
 		HealthCheckTimeout: checkTimeout,
 	}
 	p := r.newPeer(c, config, proxyAddr, log)
-	go p.Serve()
-	defer withTestCtx(p.Stop)
+	go func() {
+		c.Assert(p.Serve(), IsNil)
+	}()
+	defer withTestCtx(p.Stop, c)
 
 	ctx, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
 	c.Assert(store.expect(ctx, 1), IsNil)
@@ -83,7 +87,7 @@ func (r *S) TestPeerReconnects(c *C) {
 	// Restore connection to server
 	local = listenAddr(proxyAddr, c)
 	proxyLink = proxy.New(proxy.NetLink{Local: local, Upstream: upstream.Addr().String()}, log)
-	proxyLink.Start()
+	c.Assert(proxyLink.Start(), IsNil)
 	defer proxyLink.Stop()
 
 	select {
@@ -99,10 +103,10 @@ func (r *S) TestPeerReconnects(c *C) {
 }
 
 // withTestCtx calls the provided method passing it a test context with a timeout
-func withTestCtx(fn func(context.Context) error) {
+func withTestCtx(fn func(context.Context) error, c *C) {
 	ctx, cancel := context.WithTimeout(context.Background(), testContextTimeout)
 	defer cancel()
-	fn(ctx)
+	c.Assert(fn(ctx), IsNil)
 }
 
 // testContextTimeout is the default timeout for the context used in tests

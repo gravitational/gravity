@@ -78,7 +78,7 @@ func resourceGravityUserUpsert(d *schema.ResourceData, m interface{}) error {
 
 	err = client.UpsertUser(context.TODO(), clusterKey, user)
 	if err != nil {
-		trace.Wrap(err)
+		return trace.Wrap(err)
 	}
 
 	d.SetId(name)
@@ -100,10 +100,13 @@ func resourceGravityUserRead(d *schema.ResourceData, m interface{}) error {
 	}
 	user := u.(storage.User)
 
-	d.Set("full_name", user.GetFullName())
-	// skip password, because the server will change to bcrypt, which will conflict with the tf state
-	d.Set("type", user.GetType())
-	d.Set("roles", user.GetRoles())
+	//nolint:errcheck
+	{
+		d.Set("full_name", user.GetFullName())
+		// skip password, because the server will change to bcrypt, which will conflict with the tf state
+		d.Set("type", user.GetType())
+		d.Set("roles", user.GetRoles())
+	}
 
 	return nil
 }

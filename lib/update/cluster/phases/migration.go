@@ -328,21 +328,6 @@ func (p *phaseMigrateRoles) rewriteRole(role teleservices.Role, condition telese
 	return kubeGroups, rules, nil
 }
 
-func (p *phaseMigrateRoles) extractKubeGroups(rules []teleservices.Rule) (result []string, err error) {
-	for _, rule := range rules {
-		for _, action := range rule.Actions {
-			if strings.HasPrefix(action, constants.AssignKubernetesGroupsFnName) {
-				groups, err := users.ExtractKubeGroups(action)
-				if err != nil {
-					return nil, trace.Wrap(err)
-				}
-				result = append(result, groups...)
-			}
-		}
-	}
-	return result, nil
-}
-
 // backupRole saves the provided role in the operation's backup backend
 func (p *phaseMigrateRoles) backupRole(role teleservices.Role) error {
 	backend, err := p.getBackupBackend(p.OperationID)

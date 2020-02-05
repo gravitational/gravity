@@ -48,9 +48,8 @@ import (
 func TestCluster(t *testing.T) { TestingT(t) }
 
 type ClusterSinglePeer struct {
-	suite   suite.BLOBSuite
-	dir     string
-	cluster *cluster
+	suite suite.BLOBSuite
+	dir   string
 }
 
 var _ = Suite(&ClusterSinglePeer{})
@@ -170,7 +169,7 @@ func (s *ClusterMultiPeers) SetUpTest(c *C) {
 		})
 		c.Assert(err, IsNil)
 		objects[i] = obj.(*cluster)
-		objects[i].heartbeat()
+		c.Assert(objects[i].heartbeat(), IsNil)
 		clients[i] = obj
 	}
 
@@ -213,8 +212,6 @@ func (s *ClusterMultiPeers) TestCleanup(c *C) {
 type RPCSuite struct {
 	suite        suite.BLOBSuite
 	clusterSuite clusterSuite
-	dir          string
-	objects      []*cluster
 }
 
 func (s *RPCSuite) SetUpTest(c *C) {
@@ -303,7 +300,7 @@ func (s *RPCSuite) SetUpTest(c *C) {
 
 		c.Assert(err, IsNil)
 		objects[i] = obj.(*cluster)
-		objects[i].heartbeat()
+		c.Assert(objects[i].heartbeat(), IsNil)
 		clients[i] = clusterClient
 		localClients[i] = localClient
 	}

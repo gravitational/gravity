@@ -134,22 +134,7 @@ func (r *agentRunner) RunCmd(ctx operationContext, server remoteServer, cmd Comm
 	return out, nil
 }
 
-func (s *site) newTeleportServerRunner(ctx *operationContext, server remoteServer) *serverRunner {
-	return &serverRunner{
-		runner: &teleportRunner{ctx, s.domainName, s.teleport()},
-		server: server,
-	}
-}
-
-// commandRunner defines interface for running commands
-type commandRunner interface {
-	RunStream(io.Writer, ...string) error
-	Run(...string) ([]byte, error)
-	RunCmd(operationContext, Command) ([]byte, error)
-}
-
 // serverRunner runs commands on the server it was initialized with,
-// implements commandRunner
 type serverRunner struct {
 	server remoteServer
 	runner remoteRunner

@@ -24,7 +24,6 @@ import (
 	"os"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
@@ -47,8 +46,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/credentials"
 )
-
-var cDialTimeout = 1 * time.Second
 
 func rpcAgentInstall(env *localenv.LocalEnvironment, args []string) error {
 	gravityPath, err := os.Executable()
@@ -93,7 +90,9 @@ func runAgentFunction(
 	defer func() {
 		ctx, cancel := context.WithTimeout(context.Background(), defaults.ShutdownTimeout)
 		defer cancel()
-		agent.Stop(ctx)
+		if err := agent.Stop(ctx); err != nil {
+			log.Warnf("Failed to stop agent: %v.", err)
+		}
 	}()
 	var wg sync.WaitGroup
 	wg.Add(2)

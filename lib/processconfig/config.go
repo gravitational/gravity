@@ -379,21 +379,6 @@ type OpsCenterConfig struct {
 	SeedConfig *ops.SeedConfig `yaml:"seed_config"`
 }
 
-type packageLocator loc.Locator
-
-func (r *packageLocator) UnmarshalYAML(unmarshal func(interface{}) error) (err error) {
-	var text string
-	if err = unmarshal(&text); err != nil {
-		return trace.Wrap(err)
-	}
-	locator, err := loc.ParseLocator(text)
-	if err != nil {
-		return trace.Wrap(err, text)
-	}
-	*r = packageLocator(*locator)
-	return nil
-}
-
 type Locators []loc.Locator
 
 func (l *Locators) UnmarshalYAML(unmarshal func(interface{}) error) error {

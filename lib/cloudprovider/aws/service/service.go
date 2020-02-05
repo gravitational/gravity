@@ -144,7 +144,10 @@ func (r *provider) Validate(probes validation.Probes, policyVersion string, ctx 
 		return nil, VerificationError{Actions: actions}
 	}
 
-	session := session.New()
+	session, err := session.NewSession()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 
 	regions, err := describeRegions(session, r.creds, ctx)
 	if err != nil {
@@ -171,7 +174,11 @@ func (r *provider) Validate(probes validation.Probes, policyVersion string, ctx 
 
 // GetAvailabilityZones returns a list of available availability zones for the specified region
 func (r *provider) GetAvailabilityZones(region string) ([]string, error) {
-	conn := ec2.New(session.New(), &awsapi.Config{
+	session, err := session.NewSession()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	conn := ec2.New(session, &awsapi.Config{
 		Credentials: r.creds,
 		Region:      &region,
 	})
@@ -200,7 +207,11 @@ func (r *provider) GetAvailabilityZones(region string) ([]string, error) {
 
 // GetInternetGatewayID returns ID of the internet gateway attached to the specified VPC
 func (r *provider) GetInternetGatewayID(region, vpcID string) (string, error) {
-	conn := ec2.New(session.New(), &awsapi.Config{
+	session, err := session.NewSession()
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+	conn := ec2.New(session, &awsapi.Config{
 		Credentials: r.creds,
 		Region:      &region,
 	})
@@ -221,7 +232,11 @@ func (r *provider) GetInternetGatewayID(region, vpcID string) (string, error) {
 
 // FindVPCByTag returns the first VPC in region matching the provided tag
 func (r *provider) FindVPCByTag(region, key, value string) (*VPC, error) {
-	conn := ec2.New(session.New(), &awsapi.Config{
+	session, err := session.NewSession()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	conn := ec2.New(session, &awsapi.Config{
 		Credentials: r.creds,
 		Region:      &region,
 	})
@@ -246,7 +261,11 @@ func (r *provider) FindVPCByTag(region, key, value string) (*VPC, error) {
 
 // GetSubnets returns a list of all subnets found in the specified VPC
 func (r *provider) GetSubnets(region, vpcID string) ([]Subnet, error) {
-	conn := ec2.New(session.New(), &awsapi.Config{
+	session, err := session.NewSession()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	conn := ec2.New(session, &awsapi.Config{
 		Credentials: r.creds,
 		Region:      &region,
 	})
@@ -276,7 +295,11 @@ func (r *provider) GetSubnets(region, vpcID string) ([]Subnet, error) {
 
 // GetCIDRBlocks returns CIDR blocks for the specified VPC and all its subnets
 func (r *provider) GetCIDRBlocks(region, vpcID string) (vpcBlock string, subnetBlocks []string, err error) {
-	conn := ec2.New(session.New(), &awsapi.Config{
+	session, err := session.NewSession()
+	if err != nil {
+		return "", nil, trace.Wrap(err)
+	}
+	conn := ec2.New(session, &awsapi.Config{
 		Credentials: r.creds,
 		Region:      &region,
 	})
@@ -349,7 +372,7 @@ func (r *provider) describeVPCs(session *session.Session, regions map[string]*Re
 	}
 
 	var errors []error
-	for _ = range regions {
+	for range regions {
 		select {
 		case result := <-resultC:
 			if result.err != nil {
@@ -400,7 +423,7 @@ func (r *provider) describeKeyPairs(session *session.Session, regions map[string
 	}
 
 	var errors []error
-	for _ = range regions {
+	for range regions {
 		select {
 		case result := <-resultC:
 			if result.err != nil {

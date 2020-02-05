@@ -198,4 +198,4 @@ func encodeLogo(mime string, data []byte) string {
 }
 
 // reEnvVar matches an environment variable reference, e.g. $(ENVVAR)
-var reEnvVar = regexp.MustCompile("\\$\\{[A-Za-z0-9_]+\\}")
+var reEnvVar = regexp.MustCompile(`\$\{[A-Za-z0-9_]+\}`)

@@ -30,7 +30,6 @@ import (
 	"sort"
 	"strings"
 	"time"
-	"unicode"
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
@@ -267,13 +266,6 @@ type UserToken struct {
 	Created time.Time `json:"created"`
 	// URL is this token URL
 	URL string `json:"url"`
-}
-
-func dropSpecialChars(r rune) rune {
-	if unicode.IsLetter(r) || unicode.IsDigit(r) {
-		return r
-	}
-	return -1
 }
 
 // CheckUserToken returns nil if the value is correct, error otherwise

@@ -45,7 +45,7 @@ type HookEvent struct {
 
 // GetQueueURL returns queue URL associated with this cluster
 func (a *Autoscaler) GetQueueURL(ctx context.Context) (string, error) {
-	expr, err := regexp.Compile("[^a-zA-Z0-9\\-]")
+	expr, err := regexp.Compile(`[^a-zA-Z0-9\-]`)
 	if err != nil {
 		return "", trace.Wrap(err)
 	}

@@ -400,10 +400,6 @@ func getActiveOperationFromList(operations []ops.SiteOperation) (*ops.SiteOperat
 	return nil, trace.NotFound("no active operations found")
 }
 
-func isActiveOperation(op ops.SiteOperation) bool {
-	return op.IsFailed() || !op.IsCompleted()
-}
-
 func (r oplist) String() string {
 	var ops []string
 	for _, op := range r {
@@ -432,37 +428,6 @@ func getOperationFromBackend(backend storage.Backend) operationGetter {
 		}
 		return (*ops.SiteOperation)(op), nil
 	})
-}
-
-func getOperationFromWizardBackend(backend storage.Backend) operationGetter {
-	return operationGetterFunc(func() (*ops.SiteOperation, error) {
-		cluster, err := getLocalClusterFromBackend(backend)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-		op, err := storage.GetLastOperationForCluster(backend, cluster.Domain)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-		return (*ops.SiteOperation)(op), nil
-	})
-}
-
-func getLocalClusterFromBackend(backend storage.Backend) (cluster *storage.Site, err error) {
-	// TODO(dmitri): when cluster is created by the wizard, it is not local
-	// so resort to look up
-	clusters, err := backend.GetSites(defaults.SystemAccountID)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	log.WithField("clusters", clusters).Info("Fetched clusters from wizard backend.")
-	if len(clusters) == 0 {
-		return nil, trace.NotFound("no clusters found")
-	}
-	if len(clusters) != 1 {
-		return nil, trace.BadParameter("expected a single cluster, but found %v", len(clusters))
-	}
-	return &clusters[0], nil
 }
 
 func getLocalClusterFromOperator(operator ops.Operator) (cluster *ops.Site, err error) {

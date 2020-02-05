@@ -18,7 +18,6 @@ package report
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -178,11 +177,4 @@ func (r ScriptCollector) Collect(ctx context.Context, reportWriter FileWriter, r
 type ScriptCollector struct {
 	name   string
 	script string
-}
-
-func tarball(pattern string) string {
-	return fmt.Sprintf(`
-#!/bin/bash
-/bin/tar cz --ignore-failed-read --dereference --ignore-command-error -f /dev/stdout -C / $(readlink -e %v) -P 2> /dev/null
-`, pattern)
 }

@@ -27,7 +27,7 @@ import (
 	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	policy "k8s.io/api/policy/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -216,9 +216,6 @@ type drain struct {
 	// gracePeriodSeconds defines the grace period for eviction.
 	// -1 means default grace period defined for a pod is used
 	gracePeriodSeconds int64
-	// timeout sets the timeout for the operation.
-	// zero value means no timeout
-	timeout time.Duration
 }
 
 // queryEvictionPolicyGroupVersion uses Discovery API to find out if the server supports eviction subresource.

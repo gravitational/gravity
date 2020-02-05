@@ -168,7 +168,10 @@ func (r *ClusterClients) newOpsClient(clusterName string) (ops.Operator, error) 
 		return nil, trace.Wrap(err)
 	}
 
-	r.opsClients.Set(clusterName, client, defaults.ClientCacheTTL)
+	err = r.opsClients.Set(clusterName, client, defaults.ClientCacheTTL)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	return client, nil
 }
 
@@ -192,7 +195,10 @@ func (r *ClusterClients) newAppsClient(clusterName string) (app.Applications, er
 		return nil, trace.Wrap(err)
 	}
 
-	r.appsClients.Set(clusterName, client, defaults.ClientCacheTTL)
+	err = r.appsClients.Set(clusterName, client, defaults.ClientCacheTTL)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	return client, nil
 }
 
@@ -238,8 +244,11 @@ func (r *ClusterClients) newKubeClient(operator ops.Operator, user ops.UserInfo,
 	}
 	r.Lock()
 	defer r.Unlock()
-	r.kubeClients.Set(fmt.Sprintf("%v.%v", clusterName, user.User.GetName()),
+	err = r.kubeClients.Set(fmt.Sprintf("%v.%v", clusterName, user.User.GetName()),
 		client, defaults.ClientCacheTTL)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	return client, nil
 }
 

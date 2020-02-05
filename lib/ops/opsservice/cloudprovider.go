@@ -19,7 +19,6 @@ package opsservice
 import (
 	"golang.org/x/net/context"
 
-	awsservice "github.com/gravitational/gravity/lib/cloudprovider/aws/service"
 	"github.com/gravitational/gravity/lib/cloudprovider/aws/validation"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/trace"
@@ -45,13 +44,6 @@ func (r *aws) verifyPermissions(ctx context.Context, manifest *schema.Manifest) 
 	}
 	return validation.Validate(r.accessKey, r.secretKey, r.sessionToken,
 		r.regionName, probes, ctx)
-}
-
-// getAvailabilityZones returns a list of availability zones for the configured client
-func (r *aws) getAvailabilityZones() ([]string, error) {
-	client := awsservice.New(r.accessKey, r.secretKey, r.sessionToken)
-	result, err := client.GetAvailabilityZones(r.regionName)
-	return result, trace.Wrap(err)
 }
 
 // aws implements AWS cloud provider

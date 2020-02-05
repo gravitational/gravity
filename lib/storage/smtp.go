@@ -116,6 +116,7 @@ func UnmarshalSMTPConfig(data []byte) (SMTPConfig, error) {
 		if err != nil {
 			return nil, trace.BadParameter(err.Error())
 		}
+		//nolint:errcheck
 		config.Metadata.CheckAndSetDefaults()
 		return &config, nil
 	}

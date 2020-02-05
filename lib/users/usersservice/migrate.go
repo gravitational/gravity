@@ -21,7 +21,6 @@ import (
 
 	"github.com/gravitational/gravity/lib/storage"
 
-	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 )
@@ -66,20 +65,6 @@ func (u *UsersService) Migrate() error {
 		}
 	}
 	return nil
-}
-
-func (u *UsersService) updateUserWithRoles(user storage.User, roles ...teleservices.Role) error {
-	for i := range roles {
-		if err := u.backend.UpsertRole(roles[i], storage.Forever); err != nil {
-			return trace.Wrap(err)
-		}
-		user.AddRole(roles[i].GetName())
-	}
-	roleNames := user.GetRoles()
-	updateReq := storage.UpdateUserReq{
-		Roles: &roleNames,
-	}
-	return u.backend.UpdateUser(user.GetName(), updateReq)
 }
 
 // insertAdminClusterAgent inserts an admin cluster agent for the specified agent

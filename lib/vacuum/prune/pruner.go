@@ -39,7 +39,7 @@ func (r Config) PrintStep(format string, args ...interface{}) {
 		format = "[dry-run] " + format
 	}
 	message := fmt.Sprintf(format, args...)
-	_, _ = r.Silent.Printf("%v\t%v\n", time.Now().UTC().Format(constants.HumanDateFormatSeconds),
+	r.Silent.Printf("%v\t%v\n", time.Now().UTC().Format(constants.HumanDateFormatSeconds),
 		message)
 }
 
