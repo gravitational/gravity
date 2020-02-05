@@ -81,6 +81,23 @@ func (r *RegistryConnectionRequest) HasBasicAuth() bool {
 	return r.Username != "" && r.Password != ""
 }
 
+// TLSClientConfig returns client TLS config for this request.
+func (r *RegistryConnectionRequest) TLSClientConfig() (*tls.Config, error) {
+	certificate, err := tls.LoadX509KeyPair(r.ClientCertPath, r.ClientKeyPath)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	roots, err := newCertPool([]string{r.CACertPath})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &tls.Config{
+		Certificates: []tls.Certificate{certificate},
+		MinVersion:   tls.VersionTLS10,
+		RootCAs:      roots,
+	}, nil
+}
+
 // CheckAndSetDefaults makes sure the request is valid and sets some defaults
 func (r *RegistryConnectionRequest) CheckAndSetDefaults() error {
 	if r.RegistryAddress == "" {
@@ -368,49 +385,33 @@ func initTransport(req RegistryConnectionRequest) (http.RoundTripper, string, er
 	// Figure out the registry address scheme (http or https). If the scheme
 	// was specified explicitly, keep it as-is. Otherwise, default to https
 	// unless the insecure flag was provided.
-	registryAddress, err := url.Parse(req.RegistryAddress)
-	if err != nil {
-		return nil, "", trace.Wrap(err)
+	defaultScheme := "https"
+	if req.Insecure {
+		defaultScheme = "http"
 	}
-	if registryAddress.Scheme == "" {
-		if req.Insecure {
-			registryAddress.Scheme = "http"
-		} else {
-			registryAddress.Scheme = "https"
-		}
-	}
-
-	cert, err := tls.LoadX509KeyPair(req.ClientCertPath, req.ClientKeyPath)
-	if err == nil {
-		roots, err := newCertPool([]string{req.CACertPath})
-		if err == nil {
-			transport.TLSClientConfig = &tls.Config{
-				Certificates: []tls.Certificate{cert},
-				MinVersion:   tls.VersionTLS10,
-				RootCAs:      roots,
-			}
-		}
-	}
-
-	if transport.TLSClientConfig != nil {
-		log.Debugf("Found TLS trust for %s.", req)
-	} else {
-		log.WithError(err).Debugf("No TLS trust for %s.", req)
-	}
+	registryAddress := utils.EnsureScheme(req.RegistryAddress, defaultScheme)
 
 	// If the scheme was set explicitly to https, along with the insecure
 	// flag, ignore the certificate error (this is what Docker does too).
-	if req.Insecure && registryAddress.Scheme == "https" {
+	var err error
+	if req.Insecure && strings.HasPrefix(registryAddress, "https://") {
 		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	} else if strings.HasPrefix(registryAddress, "https://") {
+		transport.TLSClientConfig, err = req.TLSClientConfig()
+		if err != nil {
+			log.WithError(err).Debugf("No TLS trust for %s.", req)
+		} else {
+			log.Debugf("Found TLS trust for %s.", req)
+		}
 	}
 
-	challengeManager, err := ping(transport, registryAddress.String())
+	challengeManager, err := ping(transport, registryAddress)
 	if err != nil {
 		return nil, "", trace.Wrap(err)
 	}
 
 	if !req.HasBasicAuth() {
-		return transport, registryAddress.String(), nil
+		return transport, registryAddress, nil
 	}
 
 	// If basic auth credentials were provided, set up the authorizer
@@ -427,7 +428,7 @@ func initTransport(req RegistryConnectionRequest) (http.RoundTripper, string, er
 			Credentials: credentials,
 		})
 	authorizer := registryauth.NewAuthorizer(challengeManager, tokenHandler, basicHandler)
-	return registrytransport.NewTransport(transport, authorizer), registryAddress.String(), nil
+	return registrytransport.NewTransport(transport, authorizer), registryAddress, nil
 }
 
 // ConnectRegistry connects to the registry with the specified address
