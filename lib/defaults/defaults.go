@@ -541,6 +541,8 @@ const (
 	InfluxDBAdminUser = "root"
 	// InfluxDBAdminPassword is the InfluxDB admin user password
 	InfluxDBAdminPassword = "root"
+	// InfluxDBSecretName is the name of secret containing InfluxDB administrator credentials
+	InfluxDBSecretName = "influxdb"
 
 	// WriteFactor is a default amount of acknowledged writes for object storage
 	// to be considered successfull

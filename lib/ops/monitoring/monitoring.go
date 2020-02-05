@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+		http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -57,4 +57,24 @@ func GetNamespace(client corev1.CoreV1Interface) (string, error) {
 		}
 	}
 	return "", trace.NotFound("service %q was not found", defaults.GrafanaServiceName)
+}
+
+// GetInfluxDBCredentials uses to get username and password for
+// InfluxDB administrator user
+func GetInfluxDBCredentials(client corev1.CoreV1Interface) (username, password []byte, err error) {
+	secret, err := client.Secrets(defaults.MonitoringNamespace).Get(defaults.InfluxDBSecretName, metav1.GetOptions{})
+	if err != nil {
+		return nil, nil, trace.Wrap(rigging.ConvertError(err))
+	}
+
+	username, ok := secret.Data["username"]
+	if !ok {
+		return nil, nil, trace.NotFound("username for InfuxDB administrator not found")
+	}
+	password, ok = secret.Data["password"]
+	if !ok {
+		return nil, nil, trace.NotFound("password for InfuxDB administrator not found")
+	}
+
+	return username, password, nil
 }
