@@ -198,34 +198,26 @@ func printEvent(out io.Writer, event *pb.TimelineEvent) {
 
 	switch event.GetData().(type) {
 	case *pb.TimelineEvent_ClusterDegraded:
-		eventString := fmt.Sprintf("[%s] Cluster Degraded\n", timestamp)
-		fmt.Fprintf(w, color.RedString(eventString))
+		fmt.Fprint(w, color.RedString("[%s] Cluster Degraded\n", timestamp))
 	case *pb.TimelineEvent_ClusterRecovered:
-		eventString := fmt.Sprintf("[%s] Cluster Recovered\n", timestamp)
-		fmt.Fprintf(w, color.GreenString(eventString))
+		fmt.Fprint(w, color.GreenString("[%s] Cluster Recovered\n", timestamp))
 	case *pb.TimelineEvent_NodeAdded:
-		eventString := fmt.Sprintf("[%s] Node Added\t[%s]\n", timestamp, event.GetNodeAdded().GetNode())
-		fmt.Fprintf(w, color.YellowString(eventString))
+		fmt.Fprint(w, color.YellowString("[%s] Node Added\t[%s]\n", timestamp, event.GetNodeAdded().GetNode()))
 	case *pb.TimelineEvent_NodeRemoved:
-		eventString := fmt.Sprintf("[%s] Node Removed\t[%s]\n", timestamp, event.GetNodeRemoved().GetNode())
-		fmt.Fprintf(w, color.YellowString(eventString))
+		fmt.Fprint(w, color.YellowString("[%s] Node Removed\t[%s]\n", timestamp, event.GetNodeRemoved().GetNode()))
 	case *pb.TimelineEvent_NodeDegraded:
-		eventString := fmt.Sprintf("[%s] Node Degraded\t[%s]\n", timestamp, event.GetNodeDegraded().GetNode())
-		fmt.Fprintf(w, color.RedString(eventString))
+		fmt.Fprint(w, color.RedString("[%s] Node Degraded\t[%s]\n", timestamp, event.GetNodeDegraded().GetNode()))
 	case *pb.TimelineEvent_NodeRecovered:
-		eventString := fmt.Sprintf("[%s] Node Recovered\t[%s]\n", timestamp, event.GetNodeRecovered().GetNode())
-		fmt.Fprintf(w, color.GreenString(eventString))
+		fmt.Fprint(w, color.GreenString("[%s] Node Recovered\t[%s]\n", timestamp, event.GetNodeRecovered().GetNode()))
 	case *pb.TimelineEvent_ProbeFailed:
 		e := event.GetProbeFailed()
-		eventString := fmt.Sprintf("[%s] Probe Failed\t[%s]\t[%s]\n", timestamp, e.GetNode(), e.GetProbe())
-		fmt.Fprintf(w, color.RedString(eventString))
+		fmt.Fprint(w, color.RedString("[%s] Probe Failed\t[%s]\t[%s]\n", timestamp, e.GetNode(), e.GetProbe()))
 	case *pb.TimelineEvent_ProbeSucceeded:
 		e := event.GetProbeSucceeded()
-		eventString := fmt.Sprintf("[%s] Probe Succeeded\t[%s]\t[%s]\n", timestamp, e.GetNode(), e.GetProbe())
-		fmt.Fprintf(w, color.GreenString(eventString))
+		fmt.Fprint(w, color.GreenString("[%s] Probe Succeeded\t[%s]\t[%s]\n", timestamp, e.GetNode(), e.GetProbe()))
 	default:
-		fmt.Fprintf(w, color.YellowString("[%s] UnknownEvent", timestamp))
-
+		fmt.Fprint(w, color.YellowString("Unknown event"))
+		log.WithField("event", event).Warn("Received unknown event type.")
 	}
 }
 
