@@ -102,8 +102,10 @@ type Application struct {
 	UpdateSystemCmd UpdateSystemCmd
 	// UpgradeCmd launches app upgrade
 	UpgradeCmd UpgradeCmd
-	// StatusCmd displays cluster status
+	// StatusCmd combines subcommands for displaying status information
 	StatusCmd StatusCmd
+	// StatusClusterCmd displays the current cluster status
+	StatusClusterCmd StatusClusterCmd
 	// StatusHistoryCmd displays the cluster status history
 	StatusHistoryCmd StatusHistoryCmd
 	// StatusResetCmd resets the cluster to active state
@@ -666,8 +668,13 @@ type UpgradeCmd struct {
 	Values *[]string
 }
 
-// StatusCmd displays cluster status
+// StatusCmd combines subcommands for displaying status information
 type StatusCmd struct {
+	*kingpin.CmdClause
+}
+
+// StatusClusterCmd displays current cluster status
+type StatusClusterCmd struct {
 	*kingpin.CmdClause
 	// Token displays only join token
 	Token *bool
