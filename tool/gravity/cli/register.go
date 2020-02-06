@@ -213,7 +213,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.UpdateSystemCmd.WithStatus = g.UpdateSystemCmd.Flag("with-status", "Verify the system status at the end of the operation").Bool()
 	g.UpdateSystemCmd.RuntimePackage = Locator(g.UpdateSystemCmd.Flag("runtime-package", "The name of the runtime package to update to").Required())
 
-	g.StatusCmd.CmdClause = g.Command("status", "Display overall cluster status.").Default()
+	g.StatusCmd.CmdClause = g.Command("status", "Display overall cluster status.")
 
 	g.StatusClusterCmd.CmdClause = g.StatusCmd.Command("cluster", "Display overall cluster status.").Default()
 	g.StatusClusterCmd.Token = g.StatusClusterCmd.Flag("token", "Display only the cluster join token.").Bool()
