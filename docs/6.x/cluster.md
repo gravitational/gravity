@@ -208,6 +208,33 @@ $ curl -sk https://localhost:7575 | python -m json.tool
 
 In this case the response HTTP status code will be `503 Service Unavailable`.
 
+### Cluster Status History
+
+Running `gravity status history` will display a history of changes to the 
+cluster status. 
+
+Example output may looks something like the following:
+
+```bsh
+$ gravity status history
+Feb  6 21:36:07 UTC [Node Degraded]     node=node-1
+Feb  6 21:36:11 UTC [Node Degraded]     node=node-2
+Feb  6 21:36:25 UTC [Node Degraded]     node=node-3
+Feb  6 21:36:56 UTC [Probe Succeeded]   node=node-1 checker=node-status
+Feb  6 21:36:58 UTC [Probe Succeeded]   node=node-2 checker=node-status
+Feb  6 21:36:58 UTC [Probe Succeeded]   node=node-2 checker=time-drift
+Feb  6 21:36:59 UTC [Probe Succeeded]   node=node-3 checker=node-status
+Feb  6 21:37:07 UTC [Probe Succeeded]   node=node-1 checker=kube-apiserver
+Feb  6 21:37:07 UTC [Node Recovered]    node=node-1
+Feb  6 21:37:08 UTC [Probe Succeeded]   node=node-2 checker=kube-apiserver
+Feb  6 21:37:08 UTC [Node Recovered]    node=node-2
+Feb  6 21:37:11 UTC [Probe Succeeded]   node=node-3 checker=kube-apiserver
+Feb  6 21:37:11 UTC [Node Recovered]    node=node-3
+```
+
+The `gravity status history` command is available on all `master` nodes of the
+cluster and provides an eventual consistent history between nodes. 
+
 ## Application Status
 
 Gravity provides a way to automatically monitor the application health.
