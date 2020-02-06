@@ -1166,11 +1166,13 @@ func (p *Process) initService(ctx context.Context) (err error) {
 		Backend: p.backend,
 	})
 
-	mon, err := monitoring.NewInfluxDB()
-	if err != nil {
-		return trace.Wrap(err)
+	var mon monitoring.Monitoring
+	if p.inKubernetes() {
+		mon, err = monitoring.NewInfluxDB(p.KubeClient())
+		if err != nil {
+			return trace.Wrap(err)
+		}
 	}
-
 	var logs opsservice.LogForwardersControl
 	if p.inKubernetes() {
 		logs = opsservice.NewLogForwardersControl(client)

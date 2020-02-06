@@ -541,6 +541,8 @@ const (
 	InfluxDBAdminUser = "root"
 	// InfluxDBAdminPassword is the InfluxDB admin user password
 	InfluxDBAdminPassword = "root"
+	// InfluxDBSecretName is the name of secret containing InfluxDB administrator credentials
+	InfluxDBSecretName = "influxdb"
 
 	// WriteFactor is a default amount of acknowledged writes for object storage
 	// to be considered successfull
@@ -1216,4 +1218,9 @@ func GravityRPCAgentAddr(host string) string {
 // WithTimeout returns a default timeout context
 func WithTimeout(ctx context.Context) (context.Context, context.CancelFunc) {
 	return context.WithTimeout(ctx, RetryAttempts*RetryInterval)
+}
+
+// InfluxDBAddr returns the address of the InfluxDB cluster endpoint
+func InfluxDBAddr() string {
+	return fmt.Sprintf("http://%v:%v", InfluxDBServiceAddr, InfluxDBServicePort)
 }

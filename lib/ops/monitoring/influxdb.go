@@ -19,13 +19,17 @@ package monitoring
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"net/url"
 	"time"
 
 	"github.com/gravitational/gravity/lib/defaults"
+
 	"github.com/gravitational/roundtrip"
 	"github.com/gravitational/teleport/lib/httplib"
 	"github.com/gravitational/trace"
+	"k8s.io/client-go/kubernetes"
+	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
 type influxDB struct {
@@ -33,19 +37,64 @@ type influxDB struct {
 }
 
 // NewInfluxDB returns a new InfluxDB monitoring provider
-func NewInfluxDB() (Monitoring, error) {
-	client, err := roundtrip.NewClient(
-		fmt.Sprintf("http://%v:%v", defaults.InfluxDBServiceAddr, defaults.InfluxDBServicePort), "",
-		roundtrip.BasicAuth(defaults.InfluxDBAdminUser, defaults.InfluxDBAdminPassword))
+func NewInfluxDB(kubeClient *kubernetes.Clientset) (Monitoring, error) {
+	client, err := newInfluxDBClient(kubeClient.CoreV1())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return &influxDB{Client: client}, nil
 }
 
+func newInfluxDBClient(kclient corev1.CoreV1Interface) (*roundtrip.Client, error) {
+	authParam, err := getInfluxDBCredentials(kclient)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	client, err := roundtrip.NewClient(defaults.InfluxDBAddr(), "", authParam)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	if err := verifyAuth(client); err == nil {
+		return client, nil
+	}
+	if !trace.IsAccessDenied(err) {
+		return nil, trace.Wrap(err)
+	}
+	return backwardsCompatibleClient()
+}
+
+func verifyAuth(client *roundtrip.Client) error {
+	response, err := Get(client, client.Endpoint("query"), url.Values{"q": []string{showQuery}})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if response.Code() == http.StatusUnauthorized {
+		return trace.AccessDenied("auth failed")
+	}
+	return nil
+}
+
+func backwardsCompatibleClient() (*roundtrip.Client, error) {
+	client, err := roundtrip.NewClient(defaults.InfluxDBAddr(), "",
+		roundtrip.BasicAuth(
+			defaults.InfluxDBAdminUser,
+			defaults.InfluxDBAdminPassword,
+		))
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return client, nil
+}
+
+// Get performs a GET HTTP request to the specified endpoint using the given client.
+// Any errors are automatically converted to trace type space upon return
+func Get(client *roundtrip.Client, endpoint string, params url.Values) (*roundtrip.Response, error) {
+	return httplib.ConvertResponse(client.Get(endpoint, params))
+}
+
 // GetRetentionPolicies returns a list of retention policies for the site
 func (i *influxDB) GetRetentionPolicies() ([]RetentionPolicy, error) {
-	response, err := i.Get(i.Endpoint("query"), url.Values{"q": []string{showQuery}})
+	response, err := Get(i.Client, i.Endpoint("query"), url.Values{"q": []string{showQuery}})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -103,11 +152,6 @@ func (i *influxDB) UpdateRetentionPolicy(policy RetentionPolicy) error {
 		"q": []string{fmt.Sprintf(updateQuery, policy.Name, policy.Duration.Hours())},
 	})
 	return trace.Wrap(err)
-}
-
-// Get is like roundtrip.Client.Get but converts returned HTTP errors into trace errors
-func (i *influxDB) Get(endpoint string, params url.Values) (*roundtrip.Response, error) {
-	return httplib.ConvertResponse(i.Client.Get(endpoint, params))
 }
 
 // PostForm is like roundtrip.Client.PostForm but converts returned HTTP errors into trace errors
