@@ -1286,9 +1286,14 @@ type AgentService interface {
 	// GetServerInfos returns a list of server information objects
 	GetServerInfos(ctx context.Context, key SiteOperationKey) (checks.ServerInfos, error)
 
-	// Exec executes command on a remote server
-	// that is identified by meeting point and agent's address addr
+	// Exec executes the command specified with args on a remote server given with addr.
+	// It streams the process's output to the given writer out.
 	Exec(ctx context.Context, opKey SiteOperationKey, addr string, args []string, out io.Writer) error
+
+	// ExecNoLog executes the command specified with args on a remote server given with addr.
+	// It streams the process's output to the given writer out.
+	// Underlying remote call output is not logged
+	ExecNoLog(ctx context.Context, opKey SiteOperationKey, addr string, args []string, out io.Writer) error
 
 	// Validate executes preflight checks on the node specified with addr
 	// against the specified manifest and profile.

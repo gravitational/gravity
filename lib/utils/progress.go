@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"strings"
 	"sync"
@@ -313,3 +314,12 @@ func (nilEmitter) PrintStep(format string, args ...interface{}) (n int, err erro
 }
 
 type nilEmitter struct{}
+
+// DiscardingLog is a logger that discards output
+var DiscardingLog = newDiscardingLogger()
+
+func newDiscardingLogger() (logger *logrus.Logger) {
+	logger = logrus.New()
+	logger.Out = ioutil.Discard
+	return logger
+}

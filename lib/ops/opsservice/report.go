@@ -41,7 +41,22 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func (s *site) getSiteOperationCrashReport(op ops.SiteOperation) (io.ReadCloser, error) {
+func (s *site) getClusterReport() (io.ReadCloser, error) {
+	op, err := storage.GetLastOperationForCluster(s.backend(), s.domainName)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	s.WithField("op", op).Info("Capture debug report for operation.")
+	switch {
+	case isActiveInstallOperation((ops.SiteOperation)(*op)):
+		return s.getClusterInstallReport((ops.SiteOperation)(*op))
+	default:
+		return s.getClusterGenericReport()
+	}
+}
+
+func (s *site) getClusterInstallReport(op ops.SiteOperation) (io.ReadCloser, error) {
 	ctx, err := s.newOperationContext(op)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -66,7 +81,7 @@ func (s *site) getSiteOperationCrashReport(op ops.SiteOperation) (io.ReadCloser,
 	return s.getReport(runner, remoteServers, master)
 }
 
-func (s *site) getSiteReport() (io.ReadCloser, error) {
+func (s *site) getClusterGenericReport() (io.ReadCloser, error) {
 	const noRetry = 1
 	servers, err := s.getTeleportServersWithTimeout(
 		nil,
@@ -79,7 +94,11 @@ func (s *site) getSiteReport() (io.ReadCloser, error) {
 	}
 
 	var master remoteServer
-	teleportRunner := &teleportRunner{logRecorder{Entry: s.WithFields(log.Fields{})}, s.domainName, s.teleport()}
+	teleportRunner := &teleportRunner{
+		FieldLogger:          log.WithField(trace.Component, "teleport-runner"),
+		TeleportProxyService: s.teleport(),
+		domainName:           s.domainName,
+	}
 	remoteServers := make([]remoteServer, 0, len(servers))
 	for _, server := range servers {
 		teleportServer, err := newTeleportServer(server)
@@ -102,29 +121,34 @@ func (s *site) getReport(runner remoteRunner, servers []remoteServer, master rem
 		return nil, trace.Wrap(err)
 	}
 
-	err = runCollectors(*s, dir, runner)
+	err = runCollectors(*s, dir)
 	if err != nil {
 		// Intermediate steps in diagnostics collection are not fatal
 		// to collect all possible pieces in best-effort
 		log.Errorf("failed to run cluster collectors: %v", trace.DebugReport(err))
 	}
 
-	collectOperationsLogs(*s, dir)
+	if err := collectOperationsLogs(*s, dir); err != nil {
+		log.WithError(err).Warn("Failed to collect operation logs.")
+	}
 
 	if len(servers) > 0 {
 		// Use the first master server to collect kubernetes diagnostics
 		server := master
 		if server == nil {
 			server = servers[0]
-			log.Warningf("no master servers, collecting kubernetes diagnostics from %v", server)
+			log.Warningf("No master servers, collecting Kubernetes diagnostics from %v.", server)
 		}
 		serverRunner := &serverRunner{server: server, runner: runner}
 		reportWriter := getReportWriterForServer(dir, server)
-		s.collectKubernetesInfo(reportWriter, serverRunner)
-
-		err = s.collectDebugInfoFromServers(dir, servers, runner)
-		if err != nil {
-			log.Errorf("failed to collect diagnostics from some nodes: %v", trace.DebugReport(err))
+		if err := s.collectKubernetesInfo(reportWriter, serverRunner); err != nil {
+			log.WithError(err).Error("Failed to collect Kubernetes info.")
+		}
+		if err := s.collectEtcdBackup(reportWriter, serverRunner); err != nil {
+			log.WithError(err).Error("Failed to collect etcd backup.")
+		}
+		if err := s.collectDebugInfoFromServers(dir, servers, runner); err != nil {
+			log.WithError(err).Error("Failed to collect diagnostics from some nodes.")
 		}
 	}
 
@@ -170,15 +194,15 @@ func (s *site) collectDebugInfoFromServers(dir string, servers []remoteServer, r
 	return nil
 }
 
-func (s *site) collectDebugInfo(reportWriter report.Writer, runner *serverRunner) error {
-	w, err := reportWriter("debug-logs.tar")
+func (s *site) collectDebugInfo(reportWriter report.FileWriter, runner *serverRunner) error {
+	w, err := reportWriter.NewWriter("debug-logs.tar.gz")
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	defer w.Close()
 
 	err = runner.RunStream(w, s.gravityCommand("system", "report",
-		fmt.Sprintf("--filter=%v", constants.ReportFilterSystem),
+		fmt.Sprintf("--filter=%v", report.FilterSystem),
 		"--compressed")...)
 	if err != nil {
 		return trace.Wrap(err, "failed to collect diagnostics")
@@ -186,22 +210,36 @@ func (s *site) collectDebugInfo(reportWriter report.Writer, runner *serverRunner
 	return nil
 }
 
-func (s *site) collectKubernetesInfo(reportWriter report.Writer, runner *serverRunner) error {
-	w, err := reportWriter("k8s-logs.tar")
+func (s *site) collectKubernetesInfo(reportWriter report.FileWriter, runner *serverRunner) error {
+	w, err := reportWriter.NewWriter("k8s-logs.tar.gz")
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	defer w.Close()
 
 	err = runner.RunStream(w, s.gravityCommand("system", "report",
-		fmt.Sprintf("--filter=%v", constants.ReportFilterKubernetes), "--compressed")...)
+		fmt.Sprintf("--filter=%v", report.FilterKubernetes), "--compressed")...)
 	if err != nil {
 		return trace.Wrap(err, "failed to collect kubernetes diagnostics")
 	}
 	return nil
 }
 
-func runCollectors(site site, dir string, runner remoteRunner) error {
+func (s *site) collectEtcdBackup(reportWriter report.FileWriter, runner *serverRunner) error {
+	w, err := reportWriter.NewWriter("etcd-backup.json.tar.gz")
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer w.Close()
+	err = runner.RunStream(w, s.gravityCommand("system", "report", fmt.Sprintf(
+		"--filter=%v", report.FilterEtcd), "--compressed")...)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+func runCollectors(site site, dir string) error {
 	storageSite, err := site.service.cfg.Backend.GetSite(site.domainName)
 	if err != nil {
 		return trace.Wrap(err)
@@ -243,8 +281,8 @@ func collectOperationsLogs(site site, dir string) error {
 
 // collectSiteInfo returns JSON-formatted site information
 func collectSiteInfo(s storage.Site) collectorFn {
-	return func(reportWriter report.Writer, site site) error {
-		w, err := reportWriter(siteInfoFilename)
+	return func(reportWriter report.FileWriter, site site) error {
+		w, err := reportWriter.NewWriter(siteInfoFilename)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -261,12 +299,12 @@ func collectSiteInfo(s storage.Site) collectorFn {
 }
 
 // collectDumpHook returns the output of the dump hook
-func collectDumpHook(reportWriter report.Writer, site site) error {
+func collectDumpHook(reportWriter report.FileWriter, site site) error {
 	if !site.app.Manifest.HasHook(schema.HookDump) {
 		return nil
 	}
 
-	w, err := reportWriter(dumpHookFilename)
+	w, err := reportWriter.NewWriter(dumpHookFilename)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -286,8 +324,8 @@ func collectDumpHook(reportWriter report.Writer, site site) error {
 }
 
 // collectOperationLogs streams logs of the specified operation using the specified writer
-func collectOperationLogs(site site, operation ops.SiteOperation, reportWriter report.Writer) error {
-	w, err := reportWriter(fmt.Sprintf(opLogsFilename, operation.Type, operation.ID))
+func collectOperationLogs(site site, operation ops.SiteOperation, reportWriter report.FileWriter) error {
+	w, err := reportWriter.NewWriter(fmt.Sprintf(opLogsFilename, operation.Type, operation.ID))
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -303,13 +341,17 @@ func collectOperationLogs(site site, operation ops.SiteOperation, reportWriter r
 	return trace.Wrap(err)
 }
 
-type collectorFn func(report.Writer, site) error
+type collectorFn func(report.FileWriter, site) error
 
-func getReportWriterForServer(dir string, server remoteServer) report.Writer {
-	return func(name string) (io.WriteCloser, error) {
+func getReportWriterForServer(dir string, server remoteServer) report.FileWriter {
+	return report.FileWriterFunc(func(name string) (io.WriteCloser, error) {
 		fileName := filepath.Join(dir, fmt.Sprintf("%s-%s", server.HostName(), name))
 		return report.NewPendingFileWriter(fileName), nil
-	}
+	})
+}
+
+func isActiveInstallOperation(op ops.SiteOperation) bool {
+	return op.Type == ops.OperationInstall && !op.IsCompleted()
 }
 
 const (

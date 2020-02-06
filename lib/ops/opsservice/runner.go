@@ -48,7 +48,7 @@ type remoteServer interface {
 }
 
 type teleportRunner struct {
-	recorder   Recorder
+	log.FieldLogger
 	domainName string
 	ops.TeleportProxyService
 }
@@ -58,12 +58,12 @@ func (r *teleportRunner) RunStream(server remoteServer, w io.Writer, args ...str
 	command := strings.Join(args, " ")
 	err := r.ExecuteCommand(context.TODO(), r.domainName, server.Address(), command, w)
 
-	entry := r.recorder.WithFields(log.Fields{
+	logger := r.WithFields(log.Fields{
 		constants.FieldServer:             server.Address(),
 		constants.FieldCommandError:       (err != nil),
 		constants.FieldCommandErrorReport: trace.UserMessage(err),
 	})
-	entry.Info(command)
+	logger.Info(command)
 
 	if err != nil {
 		return trace.Wrap(err)
@@ -98,7 +98,7 @@ type agentRunner struct {
 
 // RunStream runs the provided command on the specified server and streams output to w
 func (r *agentRunner) RunStream(server remoteServer, w io.Writer, args ...string) error {
-	err := r.AgentService.Exec(context.TODO(), r.ctx.key(), server.Address(), args, w)
+	err := r.AgentService.ExecNoLog(context.TODO(), r.ctx.key(), server.Address(), args, w)
 
 	entry := r.ctx.WithFields(log.Fields{
 		constants.FieldServer:             server.Address(),
@@ -134,22 +134,7 @@ func (r *agentRunner) RunCmd(ctx operationContext, server remoteServer, cmd Comm
 	return out, nil
 }
 
-func (s *site) newTeleportServerRunner(ctx *operationContext, server remoteServer) *serverRunner {
-	return &serverRunner{
-		runner: &teleportRunner{ctx, s.domainName, s.teleport()},
-		server: server,
-	}
-}
-
-// commandRunner defines interface for running commands
-type commandRunner interface {
-	RunStream(io.Writer, ...string) error
-	Run(...string) ([]byte, error)
-	RunCmd(operationContext, Command) ([]byte, error)
-}
-
 // serverRunner runs commands on the server it was initialized with,
-// implements commandRunner
 type serverRunner struct {
 	server remoteServer
 	runner remoteRunner

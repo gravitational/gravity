@@ -25,13 +25,12 @@ import (
 	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/gravity/lib/utils/kubectl"
 
-	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 )
 
-// KubernetesInfo returns a list of collectors to fetch kubernetes-related
+// NewKubernetesCollector returns a list of collectors to fetch kubernetes-specific
 // diagnostics.
-func KubernetesInfo(ctx context.Context, runner utils.CommandRunner) Collectors {
+func NewKubernetesCollector(ctx context.Context, runner utils.CommandRunner) Collectors {
 	runner = planetContextRunner{runner}
 	// general kubernetes info
 	commands := Collectors{
@@ -43,13 +42,14 @@ func KubernetesInfo(ctx context.Context, runner utils.CommandRunner) Collectors 
 			"get", "pods", "-o", "yaml", "--all-namespaces"))...),
 		Cmd("k8s-events", utils.PlanetCommand(kubectl.Command(
 			"get", "events", "--all-namespaces"))...),
+		Cmd("k8s-cluster-info-dump", utils.PlanetCommand(kubectl.Command(
+			"cluster-info", "dump", "--all-namespaces"))...),
 	}
 
 	namespaces, err := kubectl.GetNamespaces(ctx, runner)
 	if err != nil || len(namespaces) == 0 {
 		namespaces = defaults.UsedNamespaces
 	}
-	log.Debugf("kubernetes namespaces: %v", namespaces)
 
 	for _, namespace := range namespaces {
 		for _, resourceType := range defaults.KubernetesReportResourceTypes {
@@ -58,25 +58,33 @@ func KubernetesInfo(ctx context.Context, runner utils.CommandRunner) Collectors 
 				utils.PlanetCommand(kubectl.Command("describe", resourceType, "--namespace", namespace))...))
 		}
 
+		logger := log.WithField("namespace", namespace)
 		// fetch pod logs
 		pods, err := kubectl.GetPods(ctx, namespace, runner)
 		if err != nil {
-			log.Errorf("failed to query pods in namespace %v: %v", namespace, trace.DebugReport(err))
+			logger.WithError(err).Warn("Failed to query pods.")
 			continue
 		}
 		for _, pod := range pods {
 			containers, err := kubectl.GetPodContainers(ctx, namespace, pod, runner)
 			if err != nil {
-				log.Errorf("failed to query container in pod %v in namespace %v: %v",
-					pod, namespace, trace.DebugReport(err))
+				logger.WithFields(log.Fields{
+					log.ErrorKey: err,
+					"pod":        pod,
+				}).Warn("Failed to query container.")
 				continue
 			}
 			for _, container := range containers {
 				name := fmt.Sprintf("k8s-logs-%v-%v-%v", namespace, pod, container)
 				commands = append(commands, Cmd(name, utils.PlanetCommand(kubectl.Command("logs", pod,
 					"--namespace", namespace,
-					fmt.Sprintf("-c=%v", container)))...),
-				)
+					fmt.Sprintf("-c=%v", container)))...))
+				// Also collect logs for the previous instance
+				// of the container if there's any.
+				name = fmt.Sprintf("%v-prev", name)
+				commands = append(commands, Cmd(name, utils.PlanetCommand(kubectl.Command("logs", pod,
+					"--namespace", namespace, "-p",
+					fmt.Sprintf("-c=%v", container)))...))
 			}
 		}
 	}
