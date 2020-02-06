@@ -999,7 +999,6 @@
   version = "v1.0.0"
 
 [[projects]]
-  branch = "bernard/timeline"
   digest = "1:5743846e8a4b77bdb8c77143ad85142a125b305e01677f32ce3dacbceccc4b10"
   name = "github.com/gravitational/satellite"
   packages = [
@@ -1017,7 +1016,8 @@
     "utils",
   ]
   pruneopts = "UT"
-  revision = "d96593a91d06b382bb356698e238b449781c0e80"
+  revision = "d2c1e14945c28cb5ed35f771da26cb62cf0106f2"
+  version = "7.0.5"
 
 [[projects]]
   digest = "1:49f6abbce9ade5f43508429e4af1adcce55d27adcd62719fea049decc766a7c9"

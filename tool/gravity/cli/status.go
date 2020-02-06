@@ -198,25 +198,25 @@ func printEvent(out io.Writer, event *pb.TimelineEvent) {
 
 	switch event.GetData().(type) {
 	case *pb.TimelineEvent_ClusterDegraded:
-		fmt.Fprint(w, color.RedString("[%s] Cluster Degraded\n", timestamp))
+		fmt.Fprintln(w, color.RedString("[%s] Cluster Degraded", timestamp))
 	case *pb.TimelineEvent_ClusterRecovered:
-		fmt.Fprint(w, color.GreenString("[%s] Cluster Recovered\n", timestamp))
+		fmt.Fprintln(w, color.GreenString("[%s] Cluster Recovered", timestamp))
 	case *pb.TimelineEvent_NodeAdded:
-		fmt.Fprint(w, color.YellowString("[%s] Node Added\t[%s]\n", timestamp, event.GetNodeAdded().GetNode()))
+		fmt.Fprintln(w, color.YellowString("[%s] Node Added\t[%s]", timestamp, event.GetNodeAdded().GetNode()))
 	case *pb.TimelineEvent_NodeRemoved:
-		fmt.Fprint(w, color.YellowString("[%s] Node Removed\t[%s]\n", timestamp, event.GetNodeRemoved().GetNode()))
+		fmt.Fprintln(w, color.YellowString("[%s] Node Removed\t[%s]", timestamp, event.GetNodeRemoved().GetNode()))
 	case *pb.TimelineEvent_NodeDegraded:
-		fmt.Fprint(w, color.RedString("[%s] Node Degraded\t[%s]\n", timestamp, event.GetNodeDegraded().GetNode()))
+		fmt.Fprintln(w, color.RedString("[%s] Node Degraded\t[%s]", timestamp, event.GetNodeDegraded().GetNode()))
 	case *pb.TimelineEvent_NodeRecovered:
-		fmt.Fprint(w, color.GreenString("[%s] Node Recovered\t[%s]\n", timestamp, event.GetNodeRecovered().GetNode()))
+		fmt.Fprintln(w, color.GreenString("[%s] Node Recovered\t[%s]", timestamp, event.GetNodeRecovered().GetNode()))
 	case *pb.TimelineEvent_ProbeFailed:
 		e := event.GetProbeFailed()
-		fmt.Fprint(w, color.RedString("[%s] Probe Failed\t[%s]\t[%s]\n", timestamp, e.GetNode(), e.GetProbe()))
+		fmt.Fprintln(w, color.RedString("[%s] Probe Failed\t[%s]\t[%s]", timestamp, e.GetNode(), e.GetProbe()))
 	case *pb.TimelineEvent_ProbeSucceeded:
 		e := event.GetProbeSucceeded()
-		fmt.Fprint(w, color.GreenString("[%s] Probe Succeeded\t[%s]\t[%s]\n", timestamp, e.GetNode(), e.GetProbe()))
+		fmt.Fprintln(w, color.GreenString("[%s] Probe Succeeded\t[%s]\t[%s]", timestamp, e.GetNode(), e.GetProbe()))
 	default:
-		fmt.Fprint(w, color.YellowString("Unknown event"))
+		fmt.Fprintln(w, color.YellowString("Unknown event"))
 		log.WithField("event", event).Warn("Received unknown event type.")
 	}
 }
