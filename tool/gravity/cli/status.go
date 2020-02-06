@@ -179,42 +179,55 @@ func statusHistory() error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
-	for _, event := range timeline.GetEvents() {
-		printEvent(os.Stdout, event)
-	}
-
+	printEvents(timeline.GetEvents())
 	return nil
 }
 
-func printEvent(out io.Writer, event *pb.TimelineEvent) {
+func printEvents(events []*pb.TimelineEvent) {
+	w := new(tabwriter.Writer)
+	w.Init(os.Stdout, 0, 8, 1, '\t', 0)
+	if len(events) == 0 {
+		fmt.Fprintln(w, "No status history available to display.")
+		return
+	}
+	for _, event := range events {
+		printEvent(os.Stdout, event)
+	}
+}
+
+func printEvent(w io.Writer, event *pb.TimelineEvent) {
 	// stamp defines default timestamp format.
 	const stamp = "Jan _2 15:04:05 UTC"
-
-	w := new(tabwriter.Writer)
-	w.Init(out, 0, 8, 1, '\t', 0)
 
 	timestamp := event.GetTimestamp().ToTime()
 
 	switch event.GetData().(type) {
 	case *pb.TimelineEvent_ClusterDegraded:
-		fmt.Fprintln(w, color.RedString("[%s] Cluster Degraded", timestamp))
+		fmt.Fprintln(w, color.RedString("%s [Cluster Degraded]",
+			timestamp.Format(stamp)))
 	case *pb.TimelineEvent_ClusterRecovered:
-		fmt.Fprintln(w, color.GreenString("[%s] Cluster Recovered", timestamp))
+		fmt.Fprintln(w, color.GreenString("%s [Cluster Recovered]",
+			timestamp.Format(stamp)))
 	case *pb.TimelineEvent_NodeAdded:
-		fmt.Fprintln(w, color.YellowString("[%s] Node Added\t[%s]", timestamp, event.GetNodeAdded().GetNode()))
+		fmt.Fprintln(w, color.YellowString("%s [Node Added]\tnode=%s",
+			timestamp.Format(stamp), event.GetNodeAdded().GetNode()))
 	case *pb.TimelineEvent_NodeRemoved:
-		fmt.Fprintln(w, color.YellowString("[%s] Node Removed\t[%s]", timestamp, event.GetNodeRemoved().GetNode()))
+		fmt.Fprintln(w, color.YellowString("%s [Node Removed]\tnode=%s",
+			timestamp.Format(stamp), event.GetNodeRemoved().GetNode()))
 	case *pb.TimelineEvent_NodeDegraded:
-		fmt.Fprintln(w, color.RedString("[%s] Node Degraded\t[%s]", timestamp, event.GetNodeDegraded().GetNode()))
+		fmt.Fprintln(w, color.RedString("%s [Node Degraded]\tnode=%s",
+			timestamp.Format(stamp), event.GetNodeDegraded().GetNode()))
 	case *pb.TimelineEvent_NodeRecovered:
-		fmt.Fprintln(w, color.GreenString("[%s] Node Recovered\t[%s]", timestamp, event.GetNodeRecovered().GetNode()))
+		fmt.Fprintln(w, color.GreenString("%s [Node Recovered]\tnode=%s",
+			timestamp.Format(stamp), event.GetNodeRecovered().GetNode()))
 	case *pb.TimelineEvent_ProbeFailed:
 		e := event.GetProbeFailed()
-		fmt.Fprintln(w, color.RedString("[%s] Probe Failed\t[%s]\t[%s]", timestamp, e.GetNode(), e.GetProbe()))
+		fmt.Fprintln(w, color.RedString("%s [Probe Failed]\tnode=%s\tchecker=%s",
+			timestamp.Format(stamp), e.GetNode(), e.GetProbe()))
 	case *pb.TimelineEvent_ProbeSucceeded:
 		e := event.GetProbeSucceeded()
-		fmt.Fprintln(w, color.GreenString("[%s] Probe Succeeded\t[%s]\t[%s]", timestamp, e.GetNode(), e.GetProbe()))
+		fmt.Fprintln(w, color.GreenString("%s [Probe Succeeded]\tnode=%s\tchecker=%s",
+			timestamp.Format(stamp), e.GetNode(), e.GetProbe()))
 	default:
 		fmt.Fprintln(w, color.YellowString("Unknown event"))
 		log.WithField("event", event).Warn("Received unknown event type.")
