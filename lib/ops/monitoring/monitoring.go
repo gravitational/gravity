@@ -21,6 +21,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/rigging"
+	"github.com/gravitational/roundtrip"
 	"github.com/gravitational/trace"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -59,22 +60,20 @@ func GetNamespace(client corev1.CoreV1Interface) (string, error) {
 	return "", trace.NotFound("service %q was not found", defaults.GrafanaServiceName)
 }
 
-// GetInfluxDBCredentials uses to get username and password for
-// InfluxDB administrator user
-func GetInfluxDBCredentials(client corev1.CoreV1Interface) (username, password []byte, err error) {
-	secret, err := client.Secrets(defaults.MonitoringNamespace).Get(defaults.InfluxDBSecretName, metav1.GetOptions{})
+// getInfluxDBCredentials returns basic auth configuration for
+// the InfluxDB administrator user
+func getInfluxDBCredentials(kclient corev1.CoreV1Interface) (client roundtrip.ClientParam, err error) {
+	secret, err := kclient.Secrets(defaults.MonitoringNamespace).Get(defaults.InfluxDBSecretName, metav1.GetOptions{})
 	if err != nil {
-		return nil, nil, trace.Wrap(rigging.ConvertError(err))
+		return nil, trace.Wrap(rigging.ConvertError(err))
 	}
-
 	username, ok := secret.Data["username"]
 	if !ok {
-		return nil, nil, trace.NotFound("username for InfuxDB administrator not found")
+		return nil, trace.NotFound("username for InfuxDB administrator not found")
 	}
-	password, ok = secret.Data["password"]
+	password, ok := secret.Data["password"]
 	if !ok {
-		return nil, nil, trace.NotFound("password for InfuxDB administrator not found")
+		return nil, trace.NotFound("password for InfuxDB administrator not found")
 	}
-
-	return username, password, nil
+	return roundtrip.BasicAuth(string(username), string(password)), nil
 }

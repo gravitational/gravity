@@ -1219,3 +1219,8 @@ func GravityRPCAgentAddr(host string) string {
 func WithTimeout(ctx context.Context) (context.Context, context.CancelFunc) {
 	return context.WithTimeout(ctx, RetryAttempts*RetryInterval)
 }
+
+// InfluxDBAddr returns the address of the InfluxDB cluster endpoint
+func InfluxDBAddr() string {
+	return fmt.Sprintf("http://%v:%v", InfluxDBServiceAddr, InfluxDBServicePort)
+}

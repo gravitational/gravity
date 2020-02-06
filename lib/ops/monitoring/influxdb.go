@@ -19,6 +19,7 @@ package monitoring
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"net/url"
 	"time"
 
@@ -28,6 +29,7 @@ import (
 	"github.com/gravitational/teleport/lib/httplib"
 	"github.com/gravitational/trace"
 	"k8s.io/client-go/kubernetes"
+	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
 type influxDB struct {
@@ -36,44 +38,56 @@ type influxDB struct {
 
 // NewInfluxDB returns a new InfluxDB monitoring provider
 func NewInfluxDB(kubeClient *kubernetes.Clientset) (Monitoring, error) {
-	username, password, err := GetInfluxDBCredentials(kubeClient.CoreV1())
+	client, err := newInfluxDBClient(kubeClient.CoreV1())
 	if err != nil {
 		return nil, trace.Wrap(err)
-	}
-
-	client, err := roundtrip.NewClient(
-		fmt.Sprintf("http://%v:%v", defaults.InfluxDBServiceAddr, defaults.InfluxDBServicePort), "",
-		roundtrip.BasicAuth(string(username), string(password)))
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	response, err := Get(client, client.Endpoint("query"), url.Values{"q": []string{showQuery}})
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	// check response for authentication failure
-	if response.Code() == 401 {
-		client, err = backwardCompatibleClient()
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
 	}
 	return &influxDB{Client: client}, nil
 }
 
-func backwardCompatibleClient() (*roundtrip.Client, error) {
-	client, err := roundtrip.NewClient(
-		fmt.Sprintf("http://%v:%v", defaults.InfluxDBServiceAddr, defaults.InfluxDBServicePort), "",
-		roundtrip.BasicAuth(defaults.InfluxDBAdminUser, defaults.InfluxDBAdminPassword))
+func newInfluxDBClient(kclient corev1.CoreV1Interface) (*roundtrip.Client, error) {
+	authParam, err := getInfluxDBCredentials(kclient)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	client, err := roundtrip.NewClient(defaults.InfluxDBAddr(), "", authParam)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	if err := verifyAuth(client); err == nil {
+		return client, nil
+	}
+	if !trace.IsAccessDenied(err) {
+		return nil, trace.Wrap(err)
+	}
+	return backwardsCompatibleClient()
+}
 
+func verifyAuth(client *roundtrip.Client) error {
+	response, err := Get(client, client.Endpoint("query"), url.Values{"q": []string{showQuery}})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if response.Code() == http.StatusUnauthorized {
+		return trace.AccessDenied("auth failed")
+	}
+	return nil
+}
+
+func backwardsCompatibleClient() (*roundtrip.Client, error) {
+	client, err := roundtrip.NewClient(defaults.InfluxDBAddr(), "",
+		roundtrip.BasicAuth(
+			defaults.InfluxDBAdminUser,
+			defaults.InfluxDBAdminPassword,
+		))
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	return client, nil
 }
 
-// Get is like roundtrip.Client.Get but converts returned HTTP errors into trace errors
+// Get performs a GET HTTP request to the specified endpoint using the given client.
+// Any errors are automatically converted to trace type space upon return
 func Get(client *roundtrip.Client, endpoint string, params url.Values) (*roundtrip.Response, error) {
 	return httplib.ConvertResponse(client.Get(endpoint, params))
 }
