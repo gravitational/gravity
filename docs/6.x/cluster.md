@@ -1464,6 +1464,61 @@ The command can also output the images in the json or yaml format which can come
 $ gravity registry list --format=json
 ```
 
+## Migrating a Cluster
+
+!!! note "Supported version":
+    Cluster migration is supported starting from Gravity 7.
+
+Gravity provides a way to migrate a single-node cluster to a different node.
+
+This helps support a scenario where you might want to install and preconfigure a cluster and your applications and then
+package the entire environment as a single virtual appliance (such as AMI in case of Amazon EC2, OVF/OVA in case of VMWare
+or other virtualization platforms, etc.) and then ship it to customers so they can deploy it to their environment
+without having to perform a full installation.
+
+There are a few restrictions and assumptions about this procedure to keep in mind:
+
+* Only single-node clusters can be migrated this way. Clusters can be expanded after the deployment.
+* Only the node's advertise IP and hostname are allowed to change, e.g. cluster name and other changes are not supported.
+* Unpacked cluster image used for initial installation must be available on the node.
+* All Gravity and application data from the original installation is assumed to be a part of the packaged VM image.
+
+With the above requirements satisfied, the operation of migrating a single-node cluster can be performed using the
+following steps.
+
+First, install a single-node cluster and perform necessary configurations. Make sure to keep the cluster image
+tarball on the node.
+
+Then, stop and disable all Gravity and Kubernetes services on the node. Gravity provides the following command to do so:
+
+```bash
+$ sudo gravity system stop --disable
+```
+
+At this point you can create a machine image (AMI/OVF/OVA/etc). If needed, restart the services on the node after the
+image has been created:
+
+```bash
+$ sudo gravity system start --enable
+```
+
+Once the created image has been deployed onto a new node, the cluster needs to be reconfigured in order to take account
+of the new advertise IP address, hostname and regenerate secrets.
+
+To reconfigure the cluster, launch from the original unpacked cluster image directory:
+
+```bash
+$ sudo ./gravity reconfigure --advertise-addr=<new-ip>
+```
+
+Gravity will perform necessary configuration updates and start all the services on the node at which point all pods
+that were originally deployed in this cluster will be started as well.
+
+!!! note:
+    As a part of the reconfiguration operation, all the pods previously present in the cluster are recreated which
+    means that any pods not managed by controllers (deployments, daemonsets, etc.) will be deleted permanently, so
+    make sure to not use pods directly and use controllers instead.
+
 ## Troubleshooting
 
 To collect diagnostic information about a Cluster (e.g. to submit a bug report or get assistance in troubleshooting Cluster problems),

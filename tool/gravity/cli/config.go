@@ -166,6 +166,38 @@ type InstallConfig struct {
 	Values []byte
 }
 
+// NewReconfigureConfig creates config for the reconfigure operation.
+//
+// Reconfiguration is very similar to initial installation so the install
+// config is reused.
+func NewReconfigureConfig(env *localenv.LocalEnvironment, g *Application) (*InstallConfig, error) {
+	return &InstallConfig{
+		Insecure:           *g.Insecure,
+		StateDir:           *g.ReconfigureCmd.Path,
+		UserLogFile:        *g.UserLogFile,
+		SystemLogFile:      *g.SystemLogFile,
+		AdvertiseAddr:      *g.ReconfigureCmd.AdvertiseAddr,
+		FromService:        *g.ReconfigureCmd.FromService,
+		LocalPackages:      env.Packages,
+		LocalApps:          env.Apps,
+		LocalBackend:       env.Backend,
+		LocalClusterClient: env.SiteOperator,
+		Mode:               constants.InstallModeCLI,
+		Printer:            env,
+	}, nil
+}
+
+// Apply updates the config with the data found from the cluster/operation.
+func (c *InstallConfig) Apply(cluster storage.Site, operation storage.SiteOperation) {
+	c.SiteDomain = cluster.Domain
+	c.CloudProvider = cluster.Provider
+	c.PodCIDR = operation.Vars().OnPrem.PodCIDR
+	c.ServiceCIDR = operation.Vars().OnPrem.ServiceCIDR
+	c.VxlanPort = operation.Vars().OnPrem.VxlanPort
+	c.ServiceUID = cluster.ServiceUser.UID
+	c.ServiceGID = cluster.ServiceUser.GID
+}
+
 // NewInstallConfig creates install config from the passed CLI args and flags
 func NewInstallConfig(env *localenv.LocalEnvironment, g *Application) (*InstallConfig, error) {
 	mode := *g.InstallCmd.Mode

@@ -76,7 +76,7 @@ func (o *Operator) ConfigurePackages(req ops.ConfigurePackagesRequest) error {
 		return trace.Wrap(err)
 	}
 	switch operation.Type {
-	case ops.OperationInstall, ops.OperationExpand:
+	case ops.OperationInstall, ops.OperationExpand, ops.OperationReconfigure:
 	default:
 		return trace.BadParameter("expected install or expand operation, got: %v",
 			operation)
@@ -101,7 +101,7 @@ func (o *Operator) ConfigurePackages(req ops.ConfigurePackagesRequest) error {
 		return trace.Wrap(err)
 	}
 
-	if operation.Type == ops.OperationInstall {
+	if operation.Type == ops.OperationInstall || operation.Type == ops.OperationReconfigure {
 		err = site.configurePackages(ctx, req)
 	} else {
 		err = site.configureExpandPackages(context.TODO(), ctx)

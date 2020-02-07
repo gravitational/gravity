@@ -759,6 +759,27 @@ func NewInstallerConnectStrategy(env *localenv.LocalEnvironment, config InstallC
 	}, nil
 }
 
+// newReconfiguratorConnectStrategy returns a new service connect strategy
+// for the agent executing the cluster reconfiguration operation.
+func newReconfiguratorConnectStrategy(env *localenv.LocalEnvironment, config InstallConfig, commandArgs cli.CommandArgs) (strategy installerclient.ConnectStrategy, err error) {
+	args, err := commandArgs.Update(os.Args[1:])
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	args = append([]string{utils.Exe.Path}, args...)
+	args = append(args, "--from-service", utils.Exe.WorkingDir)
+	servicePath, err := state.GravityInstallDir(defaults.GravityRPCInstallerServiceName)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &installerclient.InstallerStrategy{
+		Args:           args,
+		Validate:       func() error { return nil },
+		ApplicationDir: utils.Exe.WorkingDir,
+		ServicePath:    servicePath,
+	}, nil
+}
+
 // newAutoAgentConnectStrategy returns a new service connect strategy for a joining agent
 // in autojoin scenario
 func newAutoAgentConnectStrategy(env *localenv.LocalEnvironment, config JoinConfig) (strategy installerclient.ConnectStrategy, err error) {

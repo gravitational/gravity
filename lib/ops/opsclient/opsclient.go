@@ -562,6 +562,19 @@ func (c *Client) CreateClusterGarbageCollectOperation(ctx context.Context, req o
 	return &key, nil
 }
 
+// CreateClusterReconfigureOperation creates a new cluster reconfiguration operation.
+func (c *Client) CreateClusterReconfigureOperation(ctx context.Context, req ops.CreateClusterReconfigureOperationRequest) (*ops.SiteOperationKey, error) {
+	out, err := c.PostJSON(c.Endpoint("accounts", req.AccountID, "sites", req.SiteDomain, "operations", "reconfigure"), req)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	var key ops.SiteOperationKey
+	if err := json.Unmarshal(out.Bytes(), &key); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &key, nil
+}
+
 // CreateUpdateEnvarsOperation creates a new operation to update cluster runtime environment variables
 func (c *Client) CreateUpdateEnvarsOperation(ctx context.Context, req ops.CreateUpdateEnvarsOperationRequest) (*ops.SiteOperationKey, error) {
 	out, err := c.PostJSON(c.Endpoint("accounts", req.ClusterKey.AccountID, "sites", req.ClusterKey.SiteDomain, "operations", "envars"), req)

@@ -433,6 +433,8 @@ type SiteOperation struct {
 	UpdateEnviron *UpdateEnvarsOperationState `json:"update_environ,omitempty"`
 	// UpdateConfig defines the state of the cluster configuration update operation
 	UpdateConfig *UpdateConfigOperationState `json:"update_config,omitempty"`
+	// Reconfigure contains reconfiguration operation state
+	Reconfigure *ReconfigureOperationState `json:"reconfigure,omitempty"`
 }
 
 func (s *SiteOperation) Check() error {
@@ -2104,6 +2106,12 @@ type UpdateConfigOperationState struct {
 	PrevConfig []byte `json:"prev_config,omitempty"`
 	// Config specifies the raw configuration resource
 	Config []byte `json:"config,omitempty"`
+}
+
+// ReconfigureOperationState defines the reconfiguration operation state.
+type ReconfigureOperationState struct {
+	// AdvertiseAddr is the advertise address the node's being changed to.
+	AdvertiseAddr string `json:"advertise_addr"`
 }
 
 // ServerUpdate represents server that is being updated

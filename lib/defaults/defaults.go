@@ -1225,6 +1225,14 @@ var (
 	// A failed precondition usually means a configuration error when an operation cannot be retried.
 	// The exit code is used to prevent the agent service from restarting after shutdown
 	FailedPreconditionExitCode = 252
+
+	// NetworkIntefaces is a list of Kubernetes-specific network interface prefixes.
+	NetworkInterfaces = []string{
+		"docker",
+		"flannel",
+		"cni",
+		"wormhole",
+	}
 )
 
 // HookSecurityContext returns default securityContext for hook pods

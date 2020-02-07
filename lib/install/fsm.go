@@ -127,8 +127,8 @@ func NewFSM(config FSMConfig) (*fsm.FSM, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	if op.Type != ops.OperationInstall {
-		return nil, trace.BadParameter("expected %v to be install operation, not %v",
+	if op.Type != ops.OperationInstall && op.Type != ops.OperationReconfigure {
+		return nil, trace.BadParameter("expected %v to be install or reconfigure operation, not %v",
 			config.OperationKey, op.Type)
 	}
 	logger := logrus.WithFields(logrus.Fields{
@@ -196,7 +196,11 @@ func (f *fsmEngine) Complete(fsmErr error) error {
 	if fsm.IsCompleted(plan) {
 		err = ops.CompleteOperation(f.OperationKey, f.Operator)
 	} else {
-		err = ops.FailOperation(f.OperationKey, f.Operator, trace.Unwrap(fsmErr).Error())
+		var message string
+		if fsmErr != nil {
+			message = trace.Unwrap(fsmErr).Error()
+		}
+		err = ops.FailOperation(f.OperationKey, f.Operator, message)
 	}
 	if err != nil {
 		return trace.Wrap(err)

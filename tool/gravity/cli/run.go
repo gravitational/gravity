@@ -113,6 +113,7 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.WizardCmd.FullCommand(),
 		g.JoinCmd.FullCommand(),
 		g.AutoJoinCmd.FullCommand(),
+		g.ReconfigureCmd.FullCommand(),
 		g.UpdateTriggerCmd.FullCommand(),
 		g.UpdatePlanInitCmd.FullCommand(),
 		g.UpgradeCmd.FullCommand(),
@@ -127,11 +128,11 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.ResourceRemoveCmd.FullCommand(),
 		g.OpsAgentCmd.FullCommand():
 		utils.InitLogging(*g.SystemLogFile)
-		// install and join command also duplicate their logs to the file in
+		// several command also duplicate their logs to the file in
 		// the current directory for convenience, unless the user set their
 		// own location
 		switch cmd {
-		case g.InstallCmd.FullCommand(), g.JoinCmd.FullCommand():
+		case g.InstallCmd.FullCommand(), g.JoinCmd.FullCommand(), g.ReconfigureCmd.FullCommand():
 			if *g.SystemLogFile == defaults.GravitySystemLog {
 				utils.InitLogging(defaults.GravitySystemLogFile)
 			}
@@ -162,6 +163,7 @@ func InitAndCheck(g *Application, cmd string) error {
 	case g.SystemUpdateCmd.FullCommand(),
 		g.UpgradeCmd.FullCommand(),
 		g.SystemRollbackCmd.FullCommand(),
+		g.SystemStopCmd.FullCommand(),
 		g.SystemUninstallCmd.FullCommand(),
 		g.UpdateSystemCmd.FullCommand(),
 		g.RPCAgentShutdownCmd.FullCommand(),
@@ -180,6 +182,7 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.PlanResumeCmd.FullCommand(),
 		g.PlanCompleteCmd.FullCommand(),
 		g.InstallCmd.FullCommand(),
+		g.ReconfigureCmd.FullCommand(),
 		g.JoinCmd.FullCommand(),
 		g.AutoJoinCmd.FullCommand(),
 		g.LeaveCmd.FullCommand(),
@@ -300,6 +303,12 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			return trace.Wrap(err)
 		}
 		return startInstall(localEnv, *config)
+	case g.ReconfigureCmd.FullCommand():
+		config, err := NewReconfigureConfig(localEnv, g)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		return reconfigureCluster(localEnv, *config, *g.ReconfigureCmd.Confirm)
 	case g.JoinCmd.FullCommand():
 		return join(localEnv, g, NewJoinConfig(g))
 	case g.AutoJoinCmd.FullCommand():
@@ -784,6 +793,14 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 		return systemServiceStatus(localEnv,
 			*g.SystemServiceStatusCmd.Package,
 			*g.SystemServiceStatusCmd.Name)
+	case g.SystemStopCmd.FullCommand():
+		return systemStop(localEnv,
+			*g.SystemStopCmd.Confirmed,
+			*g.SystemStopCmd.Disable)
+	case g.SystemStartCmd.FullCommand():
+		return systemStart(localEnv,
+			*g.SystemStartCmd.Confirmed,
+			*g.SystemStartCmd.Enable)
 	case g.SystemUninstallCmd.FullCommand():
 		return systemUninstall(localEnv, *g.SystemUninstallCmd.Confirmed)
 	case g.SystemReportCmd.FullCommand():

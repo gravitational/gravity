@@ -139,6 +139,12 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.ResumeCmd.Force = g.ResumeCmd.Flag("force", "Force execution of specified phase.").Bool()
 	g.ResumeCmd.PhaseTimeout = g.ResumeCmd.Flag("timeout", "Phase execution timeout.").Default(defaults.PhaseTimeout).Hidden().Duration()
 
+	g.ReconfigureCmd.CmdClause = g.Command("reconfigure", `Reconfigure the advertise address used by the node. Supported for single-node clusters only. Cluster services must be stopped (e.g. using "gravity system stop") prior to initiating the operation.`)
+	g.ReconfigureCmd.Path = g.ReconfigureCmd.Arg("path", "Path to the directory with the unpacked cluster image. Defaults to the current directory.").String()
+	g.ReconfigureCmd.AdvertiseAddr = g.ReconfigureCmd.Flag("advertise-addr", "New advertise address the node will use. Must be present on the node. Will be auto-selected if not specified.").String()
+	g.ReconfigureCmd.FromService = g.ReconfigureCmd.Flag("from-service", "Run in service mode.").Hidden().Bool()
+	g.ReconfigureCmd.Confirm = g.ReconfigureCmd.Flag("confirm", "Suppress confirmation prompt.").Bool()
+
 	g.PlanCmd.CmdClause = g.Command("plan", "Manage operation plan.")
 	g.PlanCmd.OperationID = g.PlanCmd.Flag("operation-id", "ID of the active operation. It not specified, the last operation will be used.").Hidden().String()
 	g.PlanCmd.SkipVersionCheck = g.PlanCmd.Flag("skip-version-check", "Bypass version compatibility check.").Hidden().Bool()
@@ -592,6 +598,15 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.SystemExportCACmd.CmdClause = g.SystemCmd.Command("export-ca", "Export cluster CA, must be run on a master node").Hidden()
 	g.SystemExportCACmd.ClusterName = g.SystemExportCACmd.Arg("cluster-name", "Name of the local cluster").Required().String()
 	g.SystemExportCACmd.CAPath = g.SystemExportCACmd.Arg("path", "File path to export CA at").Required().String()
+
+	// TODO(r0mant): Add flags --planet and --teleport to stop/start command.
+	g.SystemStopCmd.CmdClause = g.SystemCmd.Command("stop", "Stop Gravity services on the node.")
+	g.SystemStopCmd.Confirmed = g.SystemStopCmd.Flag("confirm", "Suppress confirmation prompt.").Bool()
+	g.SystemStopCmd.Disable = g.SystemStopCmd.Flag("disable", "Disable systemd services as well.").Bool()
+
+	g.SystemStartCmd.CmdClause = g.SystemCmd.Command("start", "Start Gravity services on the node.")
+	g.SystemStartCmd.Confirmed = g.SystemStartCmd.Flag("confirm", "Suppress confirmation prompt.").Bool()
+	g.SystemStartCmd.Enable = g.SystemStartCmd.Flag("enable", "Enable systemd services as well.").Bool()
 
 	g.SystemUninstallCmd.CmdClause = g.SystemCmd.Command("uninstall", "uninstall gravity from the host").Hidden()
 	g.SystemUninstallCmd.Confirmed = g.SystemUninstallCmd.Flag("confirm", "confirm uninstall").Bool()

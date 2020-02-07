@@ -81,6 +81,32 @@ func CleanupOperationState(printer utils.Printer, logger log.FieldLogger) error 
 	return trace.Wrap(removePaths(printer, logger, stateDir))
 }
 
+// StopServices stops gravity systemd services on the node.
+func StopServices(printer utils.Printer, disable bool, logger log.FieldLogger) error {
+	svm, err := systemservice.New()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = stopPackageServices(svm, disable, printer, logger)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+// StartServices starts gravity systemd services on the node.
+func StartServices(printer utils.Printer, enable bool, logger log.FieldLogger) error {
+	svm, err := systemservice.New()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = startPackageServices(svm, enable, printer, logger)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
 // UninstallServices stops and uninstalls all relevant services
 func UninstallServices(printer utils.Printer, logger log.FieldLogger) error {
 	svm, err := systemservice.New()
@@ -125,6 +151,57 @@ func DisableAgentServices(logger log.FieldLogger) error {
 		}
 		if err := svm.DisableService(req); err != nil && !systemservice.IsUnknownServiceError(err) {
 			logger.WithError(err).Warn("Failed to disable agent service.")
+			errors = append(errors, err)
+		}
+	}
+	return trace.NewAggregate(errors...)
+}
+
+func stopPackageServices(svm systemservice.ServiceManager, disable bool, printer utils.Printer, logger log.FieldLogger) error {
+	services, err := svm.ListPackageServices()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	var errors []error
+	for _, service := range services {
+		printer.PrintStep("Stopping system service %s", service.Package)
+		log := logger.WithField("package", service.Package)
+		err := svm.StopPackageService(service.Package)
+		if err != nil {
+			log.WithError(err).Warn("Failed to stop service.")
+			errors = append(errors, err)
+		} else if disable {
+			printer.PrintStep("Disabling system service %s", service.Package)
+			err := svm.DisablePackageService(service.Package)
+			if err != nil {
+				log.WithError(err).Warn("Failed to disable service.")
+				errors = append(errors, err)
+			}
+		}
+	}
+	return trace.NewAggregate(errors...)
+}
+
+func startPackageServices(svm systemservice.ServiceManager, enable bool, printer utils.Printer, logger log.FieldLogger) error {
+	services, err := svm.ListPackageServices()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	var errors []error
+	for _, service := range services {
+		log := logger.WithField("package", service.Package)
+		if enable {
+			printer.PrintStep("Enabling system service %s", service.Package)
+			err := svm.EnablePackageService(service.Package)
+			if err != nil {
+				log.WithError(err).Warn("Failed to enable service.")
+				errors = append(errors, err)
+			}
+		}
+		printer.PrintStep("Starting system service %s", service.Package)
+		err := svm.StartPackageService(service.Package, false)
+		if err != nil {
+			log.WithError(err).Warn("Failed to start service.")
 			errors = append(errors, err)
 		}
 	}
@@ -206,7 +283,7 @@ func removeInterfaces(printer utils.Printer) error {
 	}
 	var errors []error
 	for _, iface := range ifaces {
-		if utils.HasOneOfPrefixes(iface.Name, "docker", "flannel", "cni", "wormhole") {
+		if utils.HasOneOfPrefixes(iface.Name, defaults.NetworkInterfaces...) {
 			printer.PrintStep("Removing network interface %q", iface.Name)
 			var out bytes.Buffer
 			if err := utils.Exec(exec.Command("ip", "link", "del", iface.Name), &out); err != nil {
