@@ -141,11 +141,12 @@ func (s *site) getReport(runner remoteRunner, servers []remoteServer, master rem
 		}
 		serverRunner := &serverRunner{server: server, runner: runner}
 		reportWriter := getReportWriterForServer(dir, server)
+		logger := log.WithField("server", server.Address())
 		if err := s.collectKubernetesInfo(reportWriter, serverRunner); err != nil {
-			log.WithError(err).Error("Failed to collect Kubernetes info.")
+			logger.WithError(err).Error("Failed to collect Kubernetes info.")
 		}
 		if err := s.collectEtcdBackup(reportWriter, serverRunner); err != nil {
-			log.WithError(err).Error("Failed to collect etcd backup.")
+			logger.WithError(err).Error("Failed to collect etcd backup.")
 		}
 		if err := s.collectDebugInfoFromServers(dir, servers, runner); err != nil {
 			log.WithError(err).Error("Failed to collect diagnostics from some nodes.")
@@ -201,11 +202,12 @@ func (s *site) collectDebugInfo(reportWriter report.FileWriter, runner *serverRu
 	}
 	defer w.Close()
 
-	err = runner.RunStream(w, s.gravityCommand("system", "report",
+	var stderr bytes.Buffer
+	err = runner.RunStream(w, &stderr, s.gravityCommand("system", "report",
 		fmt.Sprintf("--filter=%v", report.FilterSystem),
 		"--compressed")...)
 	if err != nil {
-		return trace.Wrap(err, "failed to collect diagnostics")
+		return trace.Wrap(err, "failed to collect diagnostics: %s", stderr.String())
 	}
 	return nil
 }
@@ -217,10 +219,11 @@ func (s *site) collectKubernetesInfo(reportWriter report.FileWriter, runner *ser
 	}
 	defer w.Close()
 
-	err = runner.RunStream(w, s.gravityCommand("system", "report",
+	var stderr bytes.Buffer
+	err = runner.RunStream(w, &stderr, s.gravityCommand("system", "report",
 		fmt.Sprintf("--filter=%v", report.FilterKubernetes), "--compressed")...)
 	if err != nil {
-		return trace.Wrap(err, "failed to collect kubernetes diagnostics")
+		return trace.Wrap(err, "failed to collect kubernetes diagnostics: %s", stderr.String())
 	}
 	return nil
 }
@@ -231,10 +234,11 @@ func (s *site) collectEtcdBackup(reportWriter report.FileWriter, runner *serverR
 		return trace.Wrap(err)
 	}
 	defer w.Close()
-	err = runner.RunStream(w, s.gravityCommand("system", "report", fmt.Sprintf(
+	var stderr bytes.Buffer
+	err = runner.RunStream(w, &stderr, s.gravityCommand("system", "report", fmt.Sprintf(
 		"--filter=%v", report.FilterEtcd), "--compressed")...)
 	if err != nil {
-		return trace.Wrap(err)
+		return trace.Wrap(err, "failed to collect etcd backup: %s", stderr.String())
 	}
 	return nil
 }
@@ -246,7 +250,7 @@ func runCollectors(site site, dir string) error {
 	}
 
 	collectors := []collectorFn{
-		collectSiteInfo(*storageSite),
+		collectClusterInfo(*storageSite),
 		collectDumpHook,
 	}
 	reportWriter := report.NewFileWriter(dir)
@@ -255,7 +259,7 @@ func runCollectors(site site, dir string) error {
 	for _, collector := range collectors {
 		err := collector(reportWriter, site)
 		if err != nil {
-			log.Errorf("failed to collect diagnostics: %v", trace.DebugReport(err))
+			log.WithError(err).Error("Failed to collect diagnostics.")
 		}
 	}
 	return nil
@@ -279,10 +283,10 @@ func collectOperationsLogs(site site, dir string) error {
 	return nil
 }
 
-// collectSiteInfo returns JSON-formatted site information
-func collectSiteInfo(s storage.Site) collectorFn {
+// collectClusterInfo returns JSON-formatted cluster information
+func collectClusterInfo(s storage.Site) collectorFn {
 	return func(reportWriter report.FileWriter, site site) error {
-		w, err := reportWriter.NewWriter(siteInfoFilename)
+		w, err := reportWriter.NewWriter(clusterInfoFilename)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -355,8 +359,8 @@ func isActiveInstallOperation(op ops.SiteOperation) bool {
 }
 
 const (
-	// siteInfoFilename is the name of the file with JSON-dumped site
-	siteInfoFilename = "site.json"
+	// clusterInfoFilename is the name of the file with JSON-encoded cluster metadata
+	clusterInfoFilename = "cluster.json"
 	// dumpHookFilename is the name of the file with dump hook output
 	dumpHookFilename = "dump-hook"
 	// opLogsFilename defines the file pattern that stores operation log for a particular

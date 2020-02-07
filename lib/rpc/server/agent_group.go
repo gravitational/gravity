@@ -232,11 +232,11 @@ func (r *AgentGroup) updateLoop() {
 	}
 }
 
-func (r errorPeer) Command(context.Context, log.FieldLogger, io.Writer, ...string) error {
+func (r errorPeer) Command(ctx context.Context, log log.FieldLogger, stdout, stderr io.Writer, args ...string) error {
 	return trace.Wrap(r.error)
 }
 
-func (r errorPeer) GravityCommand(context.Context, log.FieldLogger, io.Writer, ...string) error {
+func (r errorPeer) GravityCommand(ctx context.Context, log log.FieldLogger, stdout, stderr io.Writer, args ...string) error {
 	return trace.Wrap(r.error)
 }
 

@@ -37,9 +37,9 @@ import (
 // Client is high level RPC agent interface
 type Client interface {
 	// Command executes the command specified with args remotely
-	Command(ctx context.Context, log logrus.FieldLogger, out io.Writer, args ...string) error
+	Command(ctx context.Context, log logrus.FieldLogger, stdout, stderr io.Writer, args ...string) error
 	// GravityCommand executes the gravity command specified with args remotely
-	GravityCommand(ctx context.Context, log logrus.FieldLogger, out io.Writer, args ...string) error
+	GravityCommand(ctx context.Context, log logrus.FieldLogger, stdout, stderr io.Writer, args ...string) error
 	// Validate validates the node against the specified manifest and profile.
 	// Returns the list of failed probes
 	Validate(ctx context.Context, req *validationpb.ValidateRequest) ([]*agentpb.Probe, error)

@@ -143,25 +143,25 @@ func (r *AgentService) GetServerInfos(ctx context.Context, key ops.SiteOperation
 
 // Exec executes command on a remote server
 // that is identified by meeting point and agent's address addr
-func (r *AgentService) Exec(ctx context.Context, key ops.SiteOperationKey, addr string, args []string, out io.Writer) error {
-	return r.exec(ctx, key, addr, args, out, r.FieldLogger)
+func (r *AgentService) Exec(ctx context.Context, key ops.SiteOperationKey, addr string, args []string, stdout, stderr io.Writer) error {
+	return r.exec(ctx, key, addr, args, stdout, stderr, r.FieldLogger)
 }
 
 // ExecNoLog executes the command specified with args on a remote server given with addr.
 // It streams the process's output to the given writer out.
 // Underlying remote call output is not logged
-func (r *AgentService) ExecNoLog(ctx context.Context, key ops.SiteOperationKey, addr string, args []string, out io.Writer) error {
-	return r.exec(ctx, key, addr, args, out, utils.DiscardingLog)
+func (r *AgentService) ExecNoLog(ctx context.Context, key ops.SiteOperationKey, addr string, args []string, stdout, stderr io.Writer) error {
+	return r.exec(ctx, key, addr, args, stdout, stderr, utils.DiscardingLog)
 }
 
-func (r *AgentService) exec(ctx context.Context, key ops.SiteOperationKey, addr string, args []string, out io.Writer, log log.FieldLogger) error {
+func (r *AgentService) exec(ctx context.Context, key ops.SiteOperationKey, addr string, args []string, stdout, stderr io.Writer, log log.FieldLogger) error {
 	group, err := r.peerStore.getOrCreateGroup(key)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
 	addr = rpc.AgentAddr(addr)
-	return trace.Wrap(group.WithContext(ctx, addr).Command(ctx, r.FieldLogger, out, args...))
+	return trace.Wrap(group.WithContext(ctx, addr).Command(ctx, r.FieldLogger, stdout, stderr, args...))
 }
 
 // Validate executes preflight checks on the node specified with addr

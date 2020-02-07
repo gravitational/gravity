@@ -99,10 +99,11 @@ func (r *S) TestAgentGroupExecutesCommandsRemotety(c *C) {
 		}
 	}
 
-	var buf bytes.Buffer
-	err = group.WithContext(ctx, p2.Addr().String()).Command(ctx, log, &buf, "test")
+	var stdout, stderr bytes.Buffer
+	err = group.WithContext(ctx, p2.Addr().String()).Command(ctx, log, &stdout, &stderr, "test")
 	c.Assert(err, IsNil)
-	c.Assert(buf.String(), DeepEquals, "test output")
+	c.Assert(stdout.String(), Equals, "test output")
+	c.Assert(stderr.String(), Equals, "")
 }
 
 func (r *S) TestAgentGroupReconnects(c *C) {
@@ -176,7 +177,7 @@ func (r *S) TestAgentGroupReconnects(c *C) {
 	time.Sleep(checkTimeout)
 
 	ctx, cancel = context.WithTimeout(context.TODO(), 1*time.Second)
-	err = group.WithContext(ctx, proxyAddr).Command(ctx, log, ioutil.Discard, "test")
+	err = group.WithContext(ctx, proxyAddr).Command(ctx, log, ioutil.Discard, ioutil.Discard, "test")
 	cancel()
 	c.Assert(err, Not(IsNil))
 	errorCode := grpc.Code(trace.Unwrap(err))
@@ -199,12 +200,13 @@ func (r *S) TestAgentGroupReconnects(c *C) {
 		c.Error("timeout waiting for reconnect")
 	}
 
-	var buf bytes.Buffer
+	var stdout, stderr bytes.Buffer
 	ctx, cancel = context.WithTimeout(context.TODO(), 1*time.Second)
-	err = group.WithContext(ctx, proxyAddr).Command(ctx, log, &buf, "test")
+	err = group.WithContext(ctx, proxyAddr).Command(ctx, log, &stdout, &stderr, "test")
 	cancel()
 	c.Assert(err, IsNil)
-	c.Assert(buf.String(), DeepEquals, "test output")
+	c.Assert(stdout.String(), Equals, "test output")
+	c.Assert(stderr.String(), Equals, "")
 }
 
 func (r *S) TestAgentGroupRemovesPeerItCannotReconnect(c *C) {

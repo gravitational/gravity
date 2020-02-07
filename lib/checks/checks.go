@@ -518,18 +518,18 @@ func (r *checker) checkServerDisk(ctx context.Context, server storage.Server, ta
 	defer func() {
 		// testfile was created only on real filesystem
 		if !strings.HasPrefix(target, "/dev") {
-			err := r.Remote.Exec(ctx, server.AdvertiseIP, []string{"rm", target}, &out)
+			err := r.Remote.Exec(ctx, server.AdvertiseIP, []string{"rm", target}, nil, &out)
 			if err != nil {
-				log.Errorf("Failed to remove test file: %v %v.", out.String(), trace.DebugReport(err))
+				log.WithError(err).Errorf("Failed to remove test file: %v.", out.String())
 			}
 		}
 	}()
 
 	err := r.Remote.Exec(ctx, server.AdvertiseIP, []string{
 		"dd", "if=/dev/zero", fmt.Sprintf("of=%v", target),
-		"bs=100K", "count=1024", "conv=fdatasync"}, &out)
+		"bs=100K", "count=1024", "conv=fdatasync"}, &out, &out)
 	if err != nil {
-		return 0, trace.Wrap(err)
+		return 0, trace.Wrap(err, "failed to copy file: %s", out.String())
 	}
 
 	speed, err := utils.ParseDDOutput(out.String())
@@ -543,18 +543,18 @@ func (r *checker) checkServerDisk(ctx context.Context, server storage.Server, ta
 // checkTempDir makes sure agents can create temporary files on servers
 func (r *checker) checkTempDir(ctx context.Context, server Server) error {
 	filename := filepath.Join(server.TempDir, fmt.Sprintf("tmpcheck.%v", uuid.New()))
-	var out bytes.Buffer
+	var stderr bytes.Buffer
 
-	err := r.Remote.Exec(ctx, server.AdvertiseIP, []string{"touch", filename}, &out)
+	err := r.Remote.Exec(ctx, server.AdvertiseIP, []string{"touch", filename}, nil, &stderr)
 	if err != nil {
-		return trace.BadParameter("couldn't create a test file in temp directory %v on %q: %v",
-			server.TempDir, server.ServerInfo.GetHostname(), out.String())
+		return trace.BadParameter("failed to create a test file in temp directory %v on %q: %v",
+			server.TempDir, server.ServerInfo.GetHostname(), stderr.String())
 	}
 
-	err = r.Remote.Exec(ctx, server.AdvertiseIP, []string{"rm", filename}, &out)
+	err = r.Remote.Exec(ctx, server.AdvertiseIP, []string{"rm", filename}, nil, &stderr)
 	if err != nil {
-		log.Errorf("Failed to delete %v on %v: %v %v.",
-			filename, server.AdvertiseIP, trace.DebugReport(err), out.String())
+		log.WithError(err).Errorf("Failed to delete %v on %v: %v.",
+			filename, server.AdvertiseIP, stderr.String())
 	}
 
 	log.Infof("Server %q passed temp directory check: %v.",
@@ -1062,8 +1062,8 @@ func ifTestsDisabled() bool {
 
 // RunStream executes the specified command on r.server.
 // Implements utils.CommandRunner
-func (r *serverRemote) RunStream(ctx context.Context, w io.Writer, args ...string) error {
-	return trace.Wrap(r.remote.Exec(ctx, r.server.AdvertiseIP, args, w))
+func (r *serverRemote) RunStream(ctx context.Context, stdout, stderr io.Writer, args ...string) error {
+	return trace.Wrap(r.remote.Exec(ctx, r.server.AdvertiseIP, args, stdout, stderr))
 }
 
 type serverRemote struct {
