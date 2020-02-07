@@ -232,8 +232,16 @@ Feb  6 21:37:11 UTC [Probe Succeeded]   node=node-3 checker=kube-apiserver
 Feb  6 21:37:11 UTC [Node Recovered]    node=node-3
 ```
 
+There are just a few event types that are currently being tracked.
+- `Node Degraded` / `Node Recovered` specifies a change in the node status. The node
+key specifies the name of the node (node-1, node-2, node-3).
+- `Probe Succeeded` / `Probe Failed` specifies a change in a probe result. The checker
+key specifies the name of the health check (time-drift, kube-apiserver).
+- A few other events will be tracked and are WIP. We plan to track cluster 
+resizing, gravity upgrades, network partitions, etc...
+
 The `gravity status history` command is available on all `master` nodes of the
-cluster and provides an eventual consistent history between nodes. 
+cluster and provides an eventually consistent history between nodes. 
 
 ## Application Status
 
