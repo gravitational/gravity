@@ -34,8 +34,9 @@ func BootstrapSELinuxAndRespawn(config libselinux.BootstrapConfig) error {
 	if !selinux.GetEnabled() {
 		return nil
 	}
+	logger := log.WithField(trace.Component, "selinux")
 	label, err := selinux.CurrentLabel()
-	log.WithField("label", label).Info("Current process label.")
+	logger.WithField("label", label).Info("Current process label.")
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -51,11 +52,11 @@ func BootstrapSELinuxAndRespawn(config libselinux.BootstrapConfig) error {
 	}
 	newProcContext := libselinux.MustNewContext(label)
 	newProcContext["type"] = libselinux.GravityInstallerProcessContext["type"]
-	log.WithField("context", newProcContext).Info("Set process context.")
+	logger.WithField("context", newProcContext).Info("Set process context.")
 	if err := selinux.SetExecLabel(newProcContext.Get()); err != nil {
 		return trace.Wrap(err)
 	}
-	log.WithField("args", os.Args).Info("Respawn.")
+	logger.WithField("args", os.Args).Info("Respawn.")
 	cmd := os.Args[0]
 	return syscall.Exec(cmd, os.Args, nil)
 }

@@ -28,6 +28,7 @@ import (
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/system/selinux"
 	"github.com/gravitational/gravity/lib/utils"
 
 	teleclient "github.com/gravitational/teleport/lib/client"
@@ -227,9 +228,11 @@ func deployAgentOnNode(ctx context.Context, req DeployAgentsRequest, node, nodeS
 		WithRetries("%s package unpack %s %s --debug --ops-url=%s --insecure",
 			constants.GravityBin, secretsPackage, secretsHostDir, defaults.GravityServiceURL).
 		IgnoreError("/bin/systemctl stop %s", defaults.GravityRPCAgentServiceName).
-		WithRetries("%s package export --file-mask=%o %s %s --ops-url=%s --insecure",
+		WithRetries("%s package export --file-mask=%o %s %s --ops-url=%s --insecure --file-label=%s",
 			constants.GravityBin, defaults.SharedExecutableMask,
-			req.GravityPackage, gravityHostPath, defaults.GravityServiceURL).
+			req.GravityPackage, gravityHostPath, defaults.GravityServiceURL,
+			selinux.GravityProcessLabel,
+		).
 		C(runCmd).
 		WithLogger(req.WithField("node", node)).
 		Run(ctx)

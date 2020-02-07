@@ -427,6 +427,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.PackExportCmd.File = g.PackExportCmd.Arg("file", "output file with a package").Required().String()
 	g.PackExportCmd.OpsCenterURL = g.PackExportCmd.Flag("ops-url", "optional remote Gravity Hub URL").String()
 	g.PackExportCmd.FileMask = g.PackExportCmd.Flag("file-mask", "optional output file access mode (octal, as specified with chmod)").Default(strconv.FormatUint(defaults.SharedReadWriteMask, 8)).String()
+	g.PackExportCmd.FileLabel = g.PackExportCmd.Flag("file-label", "optional SELinux label").String()
 
 	// list packages
 	g.PackListCmd.CmdClause = g.PackCmd.Command("list", "list local packages").Hidden()

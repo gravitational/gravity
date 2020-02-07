@@ -53,7 +53,7 @@ func UninstallSystem(printer utils.Printer, logger log.FieldLogger) (err error) 
 	if err := removeInterfaces(printer); err != nil {
 		errors = append(errors, err)
 	}
-	pathsToRemove := append(getStateDirectories(), state.GravityBinPaths...)
+	pathsToRemove := append(getStatePaths(), state.GravityBinPaths...)
 	pathsToRemove = append(pathsToRemove, state.KubectlBinPaths...)
 	if err := removePaths(printer, logger, pathsToRemove...); err != nil {
 		errors = append(errors, err)
@@ -237,16 +237,16 @@ func dockerInfo() (*utils.DockerInfo, error) {
 	return utils.ParseDockerInfo(&out)
 }
 
-func getStateDirectories() (dirs []string) {
+func getStatePaths() (paths []string) {
 	stateDir, err := state.GetStateDir()
 	if err == nil {
-		dirs = append(dirs, stateDir)
+		paths = append(paths, stateDir)
 	}
-	dirs = append(dirs, state.StateLocatorPaths...)
+	paths = append(paths, state.StateLocatorPaths...)
 	if stateDir, err := state.GravityInstallDir(); err == nil {
-		dirs = append(dirs, stateDir)
+		paths = append(paths, stateDir)
 	}
-	return append(dirs,
+	return append(paths,
 		defaults.ModulesPath,
 		defaults.PlanetStateDir,
 		defaults.SysctlPath,

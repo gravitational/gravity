@@ -617,7 +617,8 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			*g.PackExportCmd.Locator,
 			*g.PackExportCmd.OpsCenterURL,
 			*g.PackExportCmd.File,
-			os.FileMode(mode))
+			os.FileMode(mode),
+			*g.PackExportCmd.FileLabel)
 	case g.PackListCmd.FullCommand():
 		return listPackages(localEnv,
 			*g.PackListCmd.Repository,

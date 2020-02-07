@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"text/template"
 
 	"github.com/gravitational/gravity/lib/defaults"
@@ -59,7 +58,7 @@ func Unload(config BootstrapConfig) error {
 	b := newBootstrapper(config, *metadata)
 	return b.removeLocalChanges()
 	// TODO: remove the policy module.
-	// Note, this is only possible whebn there're no more gravity-labeled
+	// Note, this is only possible when there're no more gravity-labeled
 	// files/directories.
 }
 
@@ -67,38 +66,32 @@ func Unload(config BootstrapConfig) error {
 func (r PatchConfig) Patch() error {
 	logger := liblog.New(log.WithField(trace.Component, "selinux"))
 	port, err := getLocalPortChangeForVxlan()
-	if err != nil {
+	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
-	}
-	if port.Range == strconv.Itoa(r.VxlanPort) {
-		// Nothing to do
-		log.Info("Vxlan port is default: nothing to do.")
-		return nil
 	}
 	var buf bytes.Buffer
 	w := logger.Writer()
 	defer w.Close()
-	if err := r.writeTo(io.MultiWriter(&buf, w)); err != nil {
+	var values = struct {
+		ExistingVxlanPort *string
+		VxlanPort         int
+	}{
+		ExistingVxlanPort: port,
+		VxlanPort:         r.VxlanPort,
+	}
+	if err := patchScript.Execute(io.MultiWriter(&buf, w), values); err != nil {
 		return trace.Wrap(err)
 	}
 	return importLocalChangesFromReader(&buf)
-}
-
-// writeTo writes the patch script to the specified writer
-func (r PatchConfig) writeTo(w io.Writer) error {
-	var values = struct {
-		DefaultVxlanPort, VxlanPort int
-	}{
-		DefaultVxlanPort: defaults.VxlanPort,
-		VxlanPort:        r.VxlanPort,
-	}
-	return trace.Wrap(patchScript.Execute(w, values))
 }
 
 // GravityInstallerProcessContext specifies the expected SELinux process domain.
 // During bootstrapping, after the policy has been loaded, the process is
 // configured to start under a new domain (if not already) and restarted.
 var GravityInstallerProcessContext = MustNewContext("system_u:system_r:gravity_installer_t:s0")
+
+// GravityProcessLabel specifies the file label for a gravity binary
+const GravityProcessLabel = "system_u:object_r:gravity_exec_t:s0"
 
 // MustNewContext parses the specified label as SELinux context.
 // Panics if label is not a valid SELinux label
@@ -148,6 +141,29 @@ func (r *BootstrapConfig) checkAndSetDefaults() error {
 		}
 	}
 	return nil
+}
+
+// paths returns the list of paths to relabel upon loading
+// the policy and the local fcontexts
+func (r BootstrapConfig) paths() []string {
+	return []string{
+		r.Path,
+		r.stateDir(),
+		defaults.PlanetStateDir,
+		defaults.GravityEphemeralDir,
+		// TODO: even though it is sort of possible to override the log file paths
+		// from command line, the locations are not persisted anywhere so subsequent
+		// command will just use the default locations.
+		defaults.GravitySystemLogPath,
+		defaults.GravityUserLogPath,
+	}
+}
+
+func (r *BootstrapConfig) stateDir() string {
+	if r.StateDir != "" {
+		return r.StateDir
+	}
+	return defaults.GravityDir
 }
 
 func (r *BootstrapConfig) isCustomStateDir() bool {
@@ -208,11 +224,9 @@ func (r *bootstrapper) importLocalChanges() error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	cmd := exec.Command("restorecon", "-Rvi",
-		r.config.Path,
-		defaults.GravitySystemLogPath,
-		defaults.GravityUserLogPath,
-	)
+	args := []string{"-Rvi"}
+	args = append(args, r.config.paths()...)
+	cmd := exec.Command("restorecon", args...)
 	cmd.Stdout = w
 	cmd.Stderr = w
 	r.logger.WithField("cmd", cmd.Args).Info("Restore file contexts.")
@@ -221,7 +235,9 @@ func (r *bootstrapper) importLocalChanges() error {
 
 func (r *bootstrapper) removeLocalChanges() error {
 	var buf bytes.Buffer
-	if err := r.writeUnloadScript(&buf); err != nil {
+	w := r.logger.Writer()
+	defer w.Close()
+	if err := r.writeUnloadScript(io.MultiWriter(&buf, w)); err != nil {
 		return trace.Wrap(err)
 	}
 	return importLocalChangesFromReader(&buf)
@@ -352,7 +368,7 @@ func installPolicyFile(path string, r io.Reader) error {
 	return trace.Wrap(cmd.Run())
 }
 
-func getLocalPortChangeForVxlan() (*schema.PortCommand, error) {
+func getLocalPortChangeForVxlan() (port *string, err error) {
 	const gravityVxlanPortType = "gravity_vxlan_port_t"
 	cmd := exec.Command("semanage", "port", "--extract")
 	out, err := cmd.CombinedOutput()
@@ -365,10 +381,10 @@ func getLocalPortChangeForVxlan() (*schema.PortCommand, error) {
 	}
 	for _, port := range localPorts {
 		if port.Type == gravityVxlanPortType {
-			return &port, nil
+			return &port.Range, nil
 		}
 	}
-	return nil, trace.NotFound("no override for vxlan port")
+	return nil, trace.NotFound("no local vxlan port configuration")
 }
 
 func importLocalChangesFromReader(r io.Reader) error {
@@ -449,7 +465,7 @@ fcontext -d -f a '{{.Path}}/.gravity(/.*)?'
 `))
 
 var patchScript = template.Must(template.New("selinux-patch").Parse(`
-port -d -p udp {{.DefaultVxlanPort}}
+{{if .ExistingVxlanPort}}port -d -p udp {{.ExistingVxlanPort}}{{end}}
 port -a -t gravity_vxlan_port_t -r 's0' -p udp {{.VxlanPort}}
 `))
 
