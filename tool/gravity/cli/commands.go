@@ -769,8 +769,8 @@ type AppInstallCmd struct {
 	RegistryUsername *string
 	// RegistryPassword is registry password for basic auth.
 	RegistryPassword *string
-	// RegistryDomain is registry prefix when pushing images.
-	RegistryDomain *string
+	// RegistryPrefix is registry prefix when pushing images.
+	RegistryPrefix *string
 }
 
 // AppListCmd shows all application releases.
@@ -803,8 +803,8 @@ type AppUpgradeCmd struct {
 	RegistryUsername *string
 	// RegistryPassword is registry password for basic auth.
 	RegistryPassword *string
-	// RegistryDomain is registry prefix when pushing images.
-	RegistryDomain *string
+	// RegistryPrefix is registry prefix when pushing images.
+	RegistryPrefix *string
 }
 
 // AppRollbackCmd rolls back a release.
@@ -847,8 +847,8 @@ type AppSyncCmd struct {
 	RegistryUsername *string
 	// RegistryPassword is registry password for basic auth.
 	RegistryPassword *string
-	// RegistryDomain is registry prefix when pushing images.
-	RegistryDomain *string
+	// RegistryPrefix is registry prefix when pushing images.
+	RegistryPrefix *string
 }
 
 // AppSearchCmd searches for applications.

@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2018-2020 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -70,8 +70,8 @@ type RegistryConnectionRequest struct {
 	Username string
 	// Password specifies optional registry password for basic auth
 	Password string
-	// Domain specifies optional registry prefix when pushing images
-	Domain string
+	// Prefix specifies optional registry prefix when pushing images
+	Prefix string
 	// Insecure indicates a plain http registry
 	Insecure bool
 }
@@ -91,11 +91,10 @@ func (r *RegistryConnectionRequest) TLSClientConfig() (*tls.Config, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return &tls.Config{
-		Certificates: []tls.Certificate{certificate},
-		MinVersion:   tls.VersionTLS10,
-		RootCAs:      roots,
-	}, nil
+	tlsConfig := defaults.TLSConfig()
+	tlsConfig.Certificates = []tls.Certificate{certificate}
+	tlsConfig.RootCAs = roots
+	return tlsConfig, nil
 }
 
 // CheckAndSetDefaults makes sure the request is valid and sets some defaults
@@ -231,12 +230,12 @@ func (r *imageService) Sync(ctx context.Context, dir string, progress utils.Prin
 		// to that domain - some registries (such as OpenShift) require a
 		// specific namespace where images should be pushed so an image like
 		// gravitational/debian-tall would become <namespace>/debian-tall.
-		if r.Domain != "" {
+		if r.Prefix != "" {
 			named, err := parseNamed(localRepoName)
 			if err != nil {
 				return nil, trace.Wrap(err)
 			}
-			remoteRepoName = fmt.Sprintf("%v/%v", r.Domain, Path(named))
+			remoteRepoName = fmt.Sprintf("%v/%v", r.Prefix, Path(named))
 		}
 		remoteRepo, err := r.remoteStore.Repository(ctx, remoteRepoName)
 		if err != nil {
@@ -385,11 +384,7 @@ func initTransport(req RegistryConnectionRequest) (http.RoundTripper, string, er
 	// Figure out the registry address scheme (http or https). If the scheme
 	// was specified explicitly, keep it as-is. Otherwise, default to https
 	// unless the insecure flag was provided.
-	defaultScheme := "https"
-	if req.Insecure {
-		defaultScheme = "http"
-	}
-	registryAddress := utils.EnsureScheme(req.RegistryAddress, defaultScheme)
+	registryAddress := utils.EnsureScheme(req.RegistryAddress, "https")
 
 	// If the scheme was set explicitly to https, along with the insecure
 	// flag, ignore the certificate error (this is what Docker does too).
@@ -400,6 +395,7 @@ func initTransport(req RegistryConnectionRequest) (http.RoundTripper, string, er
 		transport.TLSClientConfig, err = req.TLSClientConfig()
 		if err != nil {
 			log.WithError(err).Debugf("No TLS trust for %s.", req)
+			transport.TLSClientConfig = defaults.TLSConfig()
 		} else {
 			log.Debugf("Found TLS trust for %s.", req)
 		}
@@ -407,7 +403,7 @@ func initTransport(req RegistryConnectionRequest) (http.RoundTripper, string, er
 
 	challengeManager, err := ping(transport, registryAddress)
 	if err != nil {
-		return nil, "", trace.Wrap(err)
+		return nil, "", trace.Wrap(err, "failed to ping Docker registry").AddField("req", req)
 	}
 
 	if !req.HasBasicAuth() {

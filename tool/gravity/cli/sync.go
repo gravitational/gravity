@@ -48,8 +48,8 @@ type registryConfig struct {
 	Username string
 	// Password is optional password for basic auth.
 	Password string
-	// Domain is optional registry prefix when pushing images.
-	Domain string
+	// Prefix is optional registry prefix when pushing images.
+	Prefix string
 	// Insecure indicates insecure registry.
 	Insecure bool
 }
@@ -63,7 +63,7 @@ func (c registryConfig) imageService() (docker.ImageService, error) {
 		ClientKeyPath:   c.KeyPath,
 		Username:        c.Username,
 		Password:        c.Password,
-		Domain:          c.Domain,
+		Prefix:          c.Prefix,
 		Insecure:        c.Insecure,
 	})
 }

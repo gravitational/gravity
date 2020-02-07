@@ -458,7 +458,7 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 				KeyPath:  *g.AppInstallCmd.RegistryKey,
 				Username: *g.AppInstallCmd.RegistryUsername,
 				Password: *g.AppInstallCmd.RegistryPassword,
-				Domain:   *g.AppInstallCmd.RegistryDomain,
+				Prefix:   *g.AppInstallCmd.RegistryPrefix,
 				Insecure: *g.Insecure,
 			},
 		})
@@ -484,7 +484,7 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 				KeyPath:  *g.AppUpgradeCmd.RegistryKey,
 				Username: *g.AppInstallCmd.RegistryUsername,
 				Password: *g.AppInstallCmd.RegistryPassword,
-				Domain:   *g.AppInstallCmd.RegistryDomain,
+				Prefix:   *g.AppInstallCmd.RegistryPrefix,
 				Insecure: *g.Insecure,
 			},
 		})
@@ -520,7 +520,7 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 				KeyPath:  *g.AppSyncCmd.RegistryKey,
 				Username: *g.AppInstallCmd.RegistryUsername,
 				Password: *g.AppInstallCmd.RegistryPassword,
-				Domain:   *g.AppInstallCmd.RegistryDomain,
+				Prefix:   *g.AppInstallCmd.RegistryPrefix,
 				Insecure: *g.Insecure,
 			},
 		})
