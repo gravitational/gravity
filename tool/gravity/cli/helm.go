@@ -49,6 +49,8 @@ type releaseInstallConfig struct {
 	Name string
 	// Namespace is a namespace to install release into.
 	Namespace string
+	// helmConfig combines Helm configuration parameters.
+	helmConfig
 	// valuesConfig combines values set on the CLI.
 	valuesConfig
 	// registryConfig is registry configuration.
@@ -68,6 +70,8 @@ type releaseUpgradeConfig struct {
 	Release string
 	// Image is an application image to upgrade to, can be path or locator.
 	Image string
+	// helmConfig combines Helm configuration parameters.
+	helmConfig
 	// valuesConfig combines values set on the CLI.
 	valuesConfig
 	// registryConfig is registry configuration.
@@ -87,16 +91,27 @@ type releaseRollbackConfig struct {
 	Release string
 	// Revision is a version number to rollback to.
 	Revision int
+	// helmConfig combines Helm configuration parameters.
+	helmConfig
 }
 
 type releaseUninstallConfig struct {
 	// Release is a release name to uninstall.
 	Release string
+	// helmConfig combines Helm configuration parameters.
+	helmConfig
 }
 
 type releaseHistoryConfig struct {
 	// Release is a release name to display revisions for.
 	Release string
+	// helmConfig combines Helm configuration parameters.
+	helmConfig
+}
+
+type helmConfig struct {
+	// TillerNamespace is the namespace where Tiller server is running.
+	TillerNamespace string
 }
 
 type valuesConfig struct {
@@ -166,7 +181,8 @@ func releaseInstall(env *localenv.LocalEnvironment, conf releaseInstallConfig) e
 		return trace.Wrap(err)
 	}
 	helmClient, err := helm.NewClient(helm.ClientConfig{
-		DNSAddress: env.DNS.Addr(),
+		DNSAddress:      env.DNS.Addr(),
+		TillerNamespace: conf.TillerNamespace,
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -187,9 +203,10 @@ func releaseInstall(env *localenv.LocalEnvironment, conf releaseInstallConfig) e
 	return nil
 }
 
-func releaseList(env *localenv.LocalEnvironment, all bool) error {
+func releaseList(env *localenv.LocalEnvironment, all bool, tillerNamespace string) error {
 	helmClient, err := helm.NewClient(helm.ClientConfig{
-		DNSAddress: env.DNS.Addr(),
+		DNSAddress:      env.DNS.Addr(),
+		TillerNamespace: tillerNamespace,
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -236,7 +253,8 @@ func releaseUpgrade(env *localenv.LocalEnvironment, conf releaseUpgradeConfig) e
 		defer result.Close() // Remove downloaded tarball after upgrade.
 	}
 	helmClient, err := helm.NewClient(helm.ClientConfig{
-		DNSAddress: env.DNS.Addr(),
+		DNSAddress:      env.DNS.Addr(),
+		TillerNamespace: conf.TillerNamespace,
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -286,7 +304,8 @@ func releaseUpgrade(env *localenv.LocalEnvironment, conf releaseUpgradeConfig) e
 
 func releaseRollback(env *localenv.LocalEnvironment, conf releaseRollbackConfig) error {
 	helmClient, err := helm.NewClient(helm.ClientConfig{
-		DNSAddress: env.DNS.Addr(),
+		DNSAddress:      env.DNS.Addr(),
+		TillerNamespace: conf.TillerNamespace,
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -306,7 +325,8 @@ func releaseRollback(env *localenv.LocalEnvironment, conf releaseRollbackConfig)
 
 func releaseUninstall(env *localenv.LocalEnvironment, conf releaseUninstallConfig) error {
 	helmClient, err := helm.NewClient(helm.ClientConfig{
-		DNSAddress: env.DNS.Addr(),
+		DNSAddress:      env.DNS.Addr(),
+		TillerNamespace: conf.TillerNamespace,
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -323,7 +343,8 @@ func releaseUninstall(env *localenv.LocalEnvironment, conf releaseUninstallConfi
 
 func releaseHistory(env *localenv.LocalEnvironment, conf releaseHistoryConfig) error {
 	helmClient, err := helm.NewClient(helm.ClientConfig{
-		DNSAddress: env.DNS.Addr(),
+		DNSAddress:      env.DNS.Addr(),
+		TillerNamespace: conf.TillerNamespace,
 	})
 	if err != nil {
 		return trace.Wrap(err)

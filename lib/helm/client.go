@@ -72,6 +72,8 @@ type client struct {
 type ClientConfig struct {
 	// DNSAddress is an optional in-cluster DNS address.
 	DNSAddress string
+	// TillerNamespace is an optional namespace where Tiller server is running.
+	TillerNamespace string
 	// TODO Add Helm TLS flags.
 }
 
@@ -81,7 +83,7 @@ func NewClient(conf ClientConfig) (Client, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	tunnel, err := portforwarder.New("kube-system", kubeClient, kubeConfig)
+	tunnel, err := portforwarder.New(conf.TillerNamespace, kubeClient, kubeConfig)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
