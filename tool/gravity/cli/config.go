@@ -526,7 +526,7 @@ func (i *InstallConfig) updateClusterConfig(resources []storage.UnknownResource)
 	var config clusterconfig.Interface
 	if clusterConfig == nil {
 		config = clusterconfig.New(clusterconfig.Spec{
-			Global: &clusterconfig.Global{CloudProvider: i.CloudProvider},
+			Global: clusterconfig.Global{CloudProvider: i.CloudProvider},
 		})
 	} else {
 		config, err = clusterconfig.Unmarshal(clusterConfig.Raw)
@@ -534,10 +534,9 @@ func (i *InstallConfig) updateClusterConfig(resources []storage.UnknownResource)
 			return nil, trace.Wrap(err)
 		}
 	}
-	if config := config.GetGlobalConfig(); config != nil {
-		if config.CloudProvider != "" {
-			i.CloudProvider = config.CloudProvider
-		}
+	globalConfig := config.GetGlobalConfig()
+	if globalConfig.CloudProvider != "" {
+		i.CloudProvider = globalConfig.CloudProvider
 	}
 	// Serialize the cluster configuration and add to resources
 	configResource, err := clusterconfig.ToUnknown(config)

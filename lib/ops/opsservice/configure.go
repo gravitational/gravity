@@ -1384,9 +1384,7 @@ func (s *site) addCloudConfig(config clusterconfig.Interface) (args []string) {
 	args = append(args, fmt.Sprintf("--cloud-provider=%v", s.cloudProviderName()))
 	var cloudConfig string
 	if config != nil {
-		if globalConfig := config.GetGlobalConfig(); globalConfig != nil {
-			cloudConfig = globalConfig.CloudConfig
-		}
+		cloudConfig = config.GetGlobalConfig().CloudConfig
 	}
 	if cloudConfig != "" {
 		args = append(args, fmt.Sprintf("--cloud-config=%v",
@@ -1402,15 +1400,12 @@ func (s *site) addClusterConfig(config clusterconfig.Interface, overrideArgs map
 		return nil
 	}
 
-	if config := config.GetKubeletConfig(); config != nil {
+	if config := config.GetKubeletConfig(); config != nil && len(config.Config) != 0 {
 		args = append(args, fmt.Sprintf("--kubelet-config=%v",
 			base64.StdEncoding.EncodeToString(config.Config)))
 	}
 
 	globalConfig := config.GetGlobalConfig()
-	if globalConfig == nil {
-		return args
-	}
 	if globalConfig.ServiceCIDR != "" {
 		overrideArgs["service-subnet"] = globalConfig.ServiceCIDR
 	}
