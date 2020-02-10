@@ -299,7 +299,9 @@ func (i *InstallConfig) CheckAndSetDefaults() (err error) {
 	}
 	err = i.validateApplicationDir()
 	if err != nil {
-		return trace.Wrap(err)
+		return trace.Wrap(err, "failed to validate installer directory. "+
+			"Make sure you're running the installer from the directory with the contents "+
+			"of the installer tarball")
 	}
 	if i.DNSConfig.IsEmpty() {
 		i.DNSConfig = storage.DefaultDNSConfig

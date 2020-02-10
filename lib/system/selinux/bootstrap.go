@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -182,7 +181,7 @@ func newBootstrapper(config BootstrapConfig, metadata monitoring.OSRelease) *boo
 		config:           config,
 		metadata:         metadata,
 		logger:           logger,
-		policyFileReader: withPolicy(Policy),
+		policyFileReader: policyFileReaderFunc(withPolicy),
 	}
 }
 
@@ -332,14 +331,12 @@ func renderFcontext(w io.Writer, stateDir string, fcontextTemplate io.Reader, re
 	return nil
 }
 
-func withPolicy(policy http.FileSystem) policyFileReader {
-	return policyFileReaderFunc(func(path string) (io.ReadCloser, error) {
-		f, err := policy.Open(path)
-		if err != nil {
-			return nil, trace.ConvertSystemError(err)
-		}
-		return f, nil
-	})
+func withPolicy(path string) (io.ReadCloser, error) {
+	f, err := Policy.Open(path)
+	if err != nil {
+		return nil, trace.ConvertSystemError(err)
+	}
+	return f, nil
 }
 
 type policyFileReader interface {
