@@ -74,7 +74,7 @@ func (b *backend) GetRepositories() ([]storage.Repository, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	sort.Sort(sort.StringSlice(keys))
+	sort.Strings(keys)
 	out := make([]storage.Repository, 0)
 	for _, name := range keys {
 		r, err := b.GetRepository(name)
@@ -139,14 +139,14 @@ func (b *backend) GetPackages(repository string) ([]storage.Package, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	sort.Sort(sort.StringSlice(packageNames))
+	sort.Strings(packageNames)
 	out := make([]storage.Package, 0)
 	for _, packageName := range packageNames {
 		packageVers, err := b.getKeys(b.key(repositoriesP, repository, packagesP, packageName, versionsP))
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
-		sort.Sort(sort.StringSlice(packageVers))
+		sort.Strings(packageVers)
 		for _, packageVer := range packageVers {
 			p, err := b.GetPackage(repository, packageName, packageVer)
 			if err != nil {

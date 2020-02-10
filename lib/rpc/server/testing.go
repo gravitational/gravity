@@ -70,6 +70,7 @@ func TestServerCredentials(c *C) credentials.TransportCredentials {
 	return credentials.NewTLS(&tls.Config{Certificates: []tls.Certificate{cert}})
 }
 
+// nolint:errcheck
 func (r testCommand) exec(ctx context.Context, stream pb.OutgoingMessageStream, args []string, log log.FieldLogger) error {
 	stream.Send(&pb.Message{Element: &pb.Message_ExecStarted{ExecStarted: &pb.ExecStarted{Seq: 1, Args: args}}})
 	stream.Send(&pb.Message{Element: &pb.Message_ExecOutput{ExecOutput: &pb.ExecOutput{Data: []byte(r.output)}}})

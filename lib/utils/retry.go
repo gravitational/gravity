@@ -115,7 +115,7 @@ func RetryFor(ctx context.Context, timeout time.Duration, fn func() error) error
 		if err == nil {
 			return nil
 		}
-		if time.Now().Sub(start) > timeout {
+		if time.Since(start) > timeout {
 			return trace.Wrap(err, "retry exceeded %v", timeout)
 		}
 		switch origErr := err.(type) {
@@ -133,7 +133,6 @@ func RetryFor(ctx context.Context, timeout time.Duration, fn func() error) error
 			return trace.Wrap(err)
 		}
 	}
-	return nil
 }
 
 // RetryRead reads the contents of the reader to the temporary file

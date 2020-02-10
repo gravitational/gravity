@@ -128,7 +128,9 @@ func (s *site) getReport(runner remoteRunner, servers []remoteServer, master rem
 		log.Errorf("failed to run cluster collectors: %v", trace.DebugReport(err))
 	}
 
-	collectOperationsLogs(*s, dir)
+	if err := collectOperationsLogs(*s, dir); err != nil {
+		log.WithError(err).Warn("Failed to collect operation logs.")
+	}
 
 	if len(servers) > 0 {
 		// Use the first master server to collect kubernetes diagnostics
@@ -158,7 +160,7 @@ func (s *site) getReport(runner remoteRunner, servers []remoteServer, master rem
 	go func() {
 		err := archive.CompressDirectory(dir, gzWriter)
 		gzWriter.Close()
-		writer.CloseWithError(err)
+		writer.CloseWithError(err) //nolint:errcheck
 	}()
 
 	return &utils.CleanupReadCloser{

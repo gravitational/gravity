@@ -36,6 +36,7 @@ func NewSystemInfo(spec SystemSpecV2) *SystemV2 {
 		Kind:    KindSystemInfo,
 		Version: teleservices.V2,
 		Metadata: teleservices.Metadata{
+			Name:      "systeminfo",
 			Namespace: teledefaults.Namespace,
 		},
 		Spec: spec,
@@ -99,7 +100,10 @@ func UnmarshalSystemInfo(data []byte) (*SystemV2, error) {
 			log.Errorf("Invalid JSON: %s.", jsonData)
 			return nil, trace.BadParameter(err.Error())
 		}
-		info.Metadata.CheckAndSetDefaults()
+		err = info.Metadata.CheckAndSetDefaults()
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
 		return &info, nil
 	}
 	return nil, trace.BadParameter(

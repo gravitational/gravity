@@ -170,7 +170,6 @@ type Engine struct {
 type executor struct {
 	Config
 	install.Interface
-	config   install.Config
-	ctx      context.Context
-	operator ops.Operator
+	config install.Config
+	ctx    context.Context
 }

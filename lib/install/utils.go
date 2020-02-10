@@ -33,7 +33,6 @@ import (
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
-	"github.com/gravitational/gravity/lib/process"
 	"github.com/gravitational/gravity/lib/rpc"
 	pb "github.com/gravitational/gravity/lib/rpc/proto"
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
@@ -374,21 +373,6 @@ func isOperationSuccessful(progress ops.ProgressEntry) bool {
 
 type eventDispatcher interface {
 	Send(dispatcher.Event)
-}
-
-func wait(ctx context.Context, cancel context.CancelFunc, p process.GravityProcess) error {
-	errC := make(chan error, 1)
-	go func() {
-		err := p.Wait()
-		cancel()
-		errC <- err
-	}()
-	select {
-	case err := <-errC:
-		return trace.Wrap(err)
-	case <-ctx.Done():
-		return trace.Wrap(ctx.Err())
-	}
 }
 
 func tryInstallBinary(targetPath string, uid, gid int, logger log.FieldLogger) error {

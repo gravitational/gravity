@@ -312,8 +312,7 @@ func (m *Handler) CallbackHandler(w http.ResponseWriter, r *http.Request, p Call
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		telehttplib.SafeRedirect(w, r, p.ClientRedirectURL)
-		return nil
+		return telehttplib.SafeRedirect(w, r, p.ClientRedirectURL)
 	}
 	if len(p.PublicKey) == 0 {
 		return trace.BadParameter("not a web or console login request")

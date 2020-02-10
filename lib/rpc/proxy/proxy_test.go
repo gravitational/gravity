@@ -37,16 +37,22 @@ var _ = Suite(&S{})
 
 func (_ *S) TestProxiesConnections(c *C) {
 	link := newLocalLink()
+	defer link.stop()
 	proxy := New(link, log.WithField("test", "TestProxiesConnections"))
-	proxy.Start()
+	notifyCh := make(chan struct{}, 1)
+	proxy.notifyCh = notifyCh
+	c.Assert(proxy.Start(), IsNil)
 	defer proxy.Stop()
 
 	conn, err := link.local.Dial()
 	c.Assert(err, IsNil)
 
+	// wait for new connection: this blocks until the proxy has accepted
+	// the connection and created handler loop
+	<-notifyCh
+
 	s := newServer(1)
 	go s.serve(link.upstream)
-	defer link.stop()
 
 	payload := []byte("test")
 	_, err = conn.Write(payload)
@@ -65,7 +71,7 @@ func (_ *S) TestProxiesConnections(c *C) {
 func (_ *S) TestCanStopProxyOnDemand(c *C) {
 	payload := []byte("test")
 	link := newLocalLink()
-	logger := log.WithField("test", ") TestCanStopProxyOnDemand")
+	logger := log.WithField("test", "TestCanStopProxyOnDemand")
 	proxy := New(link, logger)
 	notifyCh := make(chan struct{}, 1)
 	proxy.notifyCh = notifyCh
@@ -145,10 +151,9 @@ func (r *localLink) resetLocal() {
 	r.local = inprocess.Listen()
 }
 
-func (r *localLink) stop() error {
+func (r *localLink) stop() {
 	r.local.Close()
 	r.upstream.Close()
-	return nil
 }
 
 type localLink struct {

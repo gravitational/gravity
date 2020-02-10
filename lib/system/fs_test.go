@@ -78,7 +78,7 @@ xfs
 }
 
 func (r testRunner) RunStream(ctx context.Context, w io.Writer, args ...string) error {
-	fmt.Fprintf(w, string(r))
+	fmt.Fprint(w, string(r))
 	return nil
 }
 

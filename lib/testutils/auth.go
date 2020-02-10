@@ -95,7 +95,6 @@ func (s FakeReverseTunnel) Close() error {
 }
 
 func (s FakeReverseTunnel) Wait() {
-	return
 }
 
 func (s FakeReverseTunnel) Shutdown(context.Context) error {
@@ -164,7 +163,6 @@ type AuthClient struct {
 }
 
 func (s *AuthClient) SetAuth(auth.ClientI) {
-	return
 }
 
 func (s *AuthClient) DeleteGithubConnector(id string) error {

@@ -91,8 +91,7 @@ func (i *Installer) Run(listener net.Listener) error {
 // Implements signals.Stopper
 func (i *Installer) Stop(ctx context.Context) error {
 	i.Info("Stop service.")
-	i.server.ManualStop(ctx, false)
-	return nil
+	return i.server.ManualStop(ctx, false)
 }
 
 // Execute executes the install operation using the configured engine.
@@ -223,7 +222,9 @@ func (i *Installer) startExecuteLoop() {
 					i.execDoneC <- result
 				}
 				if status == dispatcher.StatusCompletedPending {
-					i.wait()
+					if err := i.wait(); err != nil {
+						i.WithError(err).Warn("Failed to wait for installer to complete.")
+					}
 				}
 			case <-i.ctx.Done():
 				return

@@ -18,6 +18,7 @@ package defaults
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -26,6 +27,7 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 
 	"github.com/coreos/go-semver/semver"
+	"github.com/gravitational/teleport/lib/utils"
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -1023,6 +1025,9 @@ const (
 	// on a master node
 	ElectionWaitTimeout = 1 * time.Minute
 
+	// APIWaitTimeout specifies the maximum amount of time to wait for API call to succeed
+	APIWaitTimeout = 1 * time.Minute
+
 	// ImageRegistryVar is a local cluster registry variable that gets
 	// substituted in Helm templates.
 	ImageRegistryVar = "image.registry"
@@ -1301,4 +1306,13 @@ func InstallerAddr(installerIP string) (addr string) {
 // `kubectl get nodes`
 func FormatKubernetesNodeRoleLabel(role string) string {
 	return fmt.Sprintf("node-role.kubernetes.io/%v", role)
+}
+
+// TLSConfig returns default TLS configuration.
+func TLSConfig() *tls.Config {
+	return &tls.Config{
+		MinVersion:               tls.VersionTLS12,
+		CipherSuites:             utils.DefaultCipherSuites(),
+		PreferServerCipherSuites: true,
+	}
 }

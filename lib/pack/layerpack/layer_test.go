@@ -32,8 +32,8 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/keyval"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/mailgun/timetools"
+	log "github.com/sirupsen/logrus"
 	. "gopkg.in/check.v1"
 )
 
@@ -160,7 +160,8 @@ func (s *LayerSuite) TestLayers(c *C) {
 	suite.CompareAsSets(c, []string{"inner.example.com", "outer.example.com"}, repos)
 
 	// inner/outer repositories should be deduplicated
-	s.server.UpsertRepository("inner.example.com", time.Time{})
+	err = s.server.UpsertRepository("inner.example.com", time.Time{})
+	c.Assert(err, IsNil)
 	repos, err = s.server.GetRepositories()
 	c.Assert(err, IsNil)
 	suite.CompareAsSets(c, []string{"inner.example.com", "outer.example.com"}, repos)

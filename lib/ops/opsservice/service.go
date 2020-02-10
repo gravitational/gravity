@@ -47,7 +47,6 @@ import (
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/cloudflare/cfssl/signer"
-	"github.com/docker/docker/pkg/archive"
 	"github.com/gravitational/configure/cstrings"
 	"github.com/gravitational/license/authority"
 	teleevents "github.com/gravitational/teleport/lib/events"
@@ -290,10 +289,6 @@ func (o *Operator) packages() pack.PackageService {
 
 func (o *Operator) users() users.Identity {
 	return o.cfg.Users
-}
-
-func (o *Operator) clock() timetools.TimeProvider {
-	return o.cfg.Clock
 }
 
 func (o *Operator) publicURL() string {
@@ -583,15 +578,6 @@ func (o *Operator) CreateSite(r ops.NewSiteRequest) (*ops.Site, error) {
 		return nil, trace.Wrap(err)
 	}
 
-	// expand token is used when joining nodes to the cluster
-	expandToken := r.InstallToken
-	if expandToken == "" {
-		expandToken, err = users.CryptoRandomToken(defaults.ProvisioningTokenBytes)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-	}
-
 	b := o.backend()
 
 	account, err := b.GetAccount(r.AccountID)
@@ -670,7 +656,11 @@ func (o *Operator) CreateSite(r ops.NewSiteRequest) (*ops.Site, error) {
 			OpsCenter: opsCenter,
 		}))
 	if err != nil {
-		defer o.DeleteSite(siteKey)
+		defer func() {
+			if err := o.DeleteSite(siteKey); err != nil {
+				log.WithError(err).Warn("Failed to delete cluster.")
+			}
+		}()
 		return nil, trace.Wrap(err)
 	}
 
@@ -1451,22 +1441,6 @@ func (o *Operator) openSiteInternal(data *storage.Site) (*site, error) {
 	})
 
 	return st, trace.Wrap(err)
-}
-
-func (o *Operator) getSpecPath(sitePackage loc.Locator) (string, error) {
-	packagePath := pack.PackagePath(o.cfg.StateDir, sitePackage)
-	// unpack the site package to find the manifest
-	log.Infof("getSpecPath(packagePath=%v)", packagePath)
-	err := pack.Unpack(
-		o.cfg.Packages, sitePackage, packagePath,
-		&archive.TarOptions{
-			NoLchown:        true,
-			ExcludePatterns: []string{"registry"},
-		})
-	if err != nil {
-		return "", trace.Wrap(err)
-	}
-	return filepath.Join(packagePath, "resources"), nil
 }
 
 // isAWSProvisioner returns true if the provisioner is using AWS

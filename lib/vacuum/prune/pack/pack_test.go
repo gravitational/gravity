@@ -552,14 +552,6 @@ func (r packageEnvelope) String() string {
 
 type packageEnvelope pack.PackageEnvelope
 
-func (emitter) PrintStep(format string, args ...interface{}) (int, error) {
-	fmt.Printf(format, args...)
-	fmt.Println()
-	return 0, nil
-}
-
-type emitter struct{}
-
 func (r byLocator) GoString() string {
 	var result []string
 	for _, env := range r {

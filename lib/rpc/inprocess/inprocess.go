@@ -61,7 +61,6 @@ func (r *listener) Accept() (net.Conn, error) {
 	case <-r.doneCh:
 		return nil, errClosed
 	}
-	return nil, nil
 }
 
 // Close closes the listener.

@@ -185,6 +185,6 @@ func printFailedChecks(failed []*pb.Probe) {
 	if len(failed) == 0 {
 		return
 	}
-	fmt.Printf("Failed checks:\n")
-	fmt.Printf(checks.FormatFailedChecks(failed))
+	fmt.Println("Failed checks:")
+	fmt.Print(checks.FormatFailedChecks(failed))
 }

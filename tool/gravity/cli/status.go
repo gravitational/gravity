@@ -143,16 +143,16 @@ func statusPeriodic(env *localenv.LocalEnvironment, printOptions printOptions, s
 
 	ticker := time.NewTicker(time.Duration(seconds) * time.Second)
 	defer ticker.Stop()
-	for {
-		select {
-		case <-ticker.C:
-			status, err := statusOnce(context.TODO(), operator, printOptions.operationID, env)
-			if err != nil {
-				return trace.Wrap(err)
-			}
-			printStatus(operator, clusterStatus{*status, nil}, printOptions)
+	for range ticker.C {
+		status, err := statusOnce(context.TODO(), operator, printOptions.operationID, env)
+		if err != nil {
+			log.WithError(err).Warn("Failed to query cluster status.")
+			continue
 		}
+		//nolint:errcheck
+		printStatus(operator, clusterStatus{*status, nil}, printOptions)
 	}
+	return nil
 }
 
 // statusOnce collects cluster status information
@@ -183,7 +183,6 @@ func printStatus(operator ops.Operator, status clusterStatus, printOptions print
 			return nil
 		}
 		fmt.Printf("%v\n", status.Operation.State)
-		return nil
 
 	case printOptions.token:
 		fmt.Print(status.Token.Token)
@@ -253,7 +252,7 @@ func printStatusJSON(out io.Writer, status clusterStatus) error {
 		return trace.Wrap(err, "failed to marshal")
 	}
 
-	fmt.Fprintf(out, string(bytes))
+	fmt.Fprint(out, string(bytes))
 	return clusterStatusError(status)
 }
 
@@ -296,6 +295,7 @@ func printClusterStatus(cluster statusapi.Cluster, w io.Writer) {
 		fmt.Fprintf(w, "Join token:\t%v\n", cluster.Token.Token)
 	}
 	if cluster.Extension != nil {
+		//nolint:errcheck
 		cluster.Extension.WriteTo(w)
 	}
 	if len(cluster.ActiveOperations) != 0 {
@@ -308,6 +308,7 @@ func printClusterStatus(cluster statusapi.Cluster, w io.Writer) {
 		fmt.Fprintf(w, "Last completed operation:\n")
 		printOperation(cluster.Operation, w)
 	}
+	//nolint:errcheck
 	cluster.Endpoints.Cluster.WriteTo(w)
 }
 
@@ -398,7 +399,7 @@ func printPrometheusAlerts(alerts []*models.GettableAlert, w io.Writer) {
 	}
 	fmt.Fprintln(w, "Cluster alerts:")
 	for _, alert := range print {
-		duration := time.Now().Sub(time.Time(*alert.StartsAt)).Round(time.Second)
+		duration := time.Since(time.Time(*alert.StartsAt)).Round(time.Second)
 		fmt.Fprintf(w, "    * %v [%v]\n", alert.Labels["alertname"], duration)
 		fmt.Fprintf(w, "      - %v\n", alert.Annotations["message"])
 	}

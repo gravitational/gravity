@@ -358,7 +358,9 @@ func (h *WebHandler) getSiteInstructions(w http.ResponseWriter, r *http.Request,
 	w.Header().Set("Content-Type", "text/plain")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(instructions))
+	if _, err := w.Write([]byte(instructions)); err != nil {
+		log.WithError(err).Warn("Failed to write response.")
+	}
 }
 
 /*
@@ -2324,14 +2326,6 @@ func (h *WebHandler) emitAuditEvent(w http.ResponseWriter, r *http.Request, p ht
 	events.Emit(r.Context(), context.Operator, req.Event, events.Fields(req.Fields))
 	roundtrip.ReplyJSON(w, http.StatusOK, message("audit log event saved"))
 	return nil
-}
-
-func (s *WebHandler) wrap(fn func(w http.ResponseWriter, r *http.Request, p httprouter.Params) error) httprouter.Handle {
-	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		if err := fn(w, r, p); err != nil {
-			trace.WriteError(w, err)
-		}
-	}
 }
 
 func (s *WebHandler) needsAuth(fn ServiceHandle) httprouter.Handle {

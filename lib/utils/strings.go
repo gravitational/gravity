@@ -25,38 +25,31 @@ import (
 )
 
 func StringInSlice(haystack []string, needle string) bool {
-	found := false
 	for i := range haystack {
 		if haystack[i] == needle {
-			found = true
-			break
+			return true
 		}
 	}
-	return found
+	return false
 }
 
 func StringsInSlice(haystack []string, needles ...string) bool {
 	for _, needle := range needles {
-		found := false
 		for i := range haystack {
 			if haystack[i] == needle {
-				found = true
-				break
+				return true
 			}
 		}
-		if found == false {
-			return false
-		}
 	}
-	return true
+	return false
 }
 
 func CompareStringSlices(a, b []string) bool {
 	if len(a) != len(b) {
 		return false
 	}
-	sort.Sort(sort.StringSlice(a))
-	sort.Sort(sort.StringSlice(b))
+	sort.Strings(a)
+	sort.Strings(b)
 	return reflect.DeepEqual(a, b)
 }
 

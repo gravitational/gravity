@@ -740,6 +740,8 @@ type CheckCmd struct {
 // AppCmd combines subcommands for app service
 type AppCmd struct {
 	*kingpin.CmdClause
+	// TillerNamespace specifies namespace where Tiller server is running.
+	TillerNamespace *string
 }
 
 // AppInstallCmd installs an application from an application image.
@@ -763,6 +765,12 @@ type AppInstallCmd struct {
 	RegistryCert *string
 	// RegistryKey is a registry client private key path.
 	RegistryKey *string
+	// RegistryUsername is registry username for basic auth.
+	RegistryUsername *string
+	// RegistryPassword is registry password for basic auth.
+	RegistryPassword *string
+	// RegistryPrefix is registry prefix when pushing images.
+	RegistryPrefix *string
 }
 
 // AppListCmd shows all application releases.
@@ -791,6 +799,12 @@ type AppUpgradeCmd struct {
 	RegistryCert *string
 	// RegistryKey is a registry client private key path.
 	RegistryKey *string
+	// RegistryUsername is registry username for basic auth.
+	RegistryUsername *string
+	// RegistryPassword is registry password for basic auth.
+	RegistryPassword *string
+	// RegistryPrefix is registry prefix when pushing images.
+	RegistryPrefix *string
 }
 
 // AppRollbackCmd rolls back a release.
@@ -829,6 +843,12 @@ type AppSyncCmd struct {
 	RegistryCert *string
 	// RegistryKey is a registry client private key path.
 	RegistryKey *string
+	// RegistryUsername is registry username for basic auth.
+	RegistryUsername *string
+	// RegistryPassword is registry password for basic auth.
+	RegistryPassword *string
+	// RegistryPrefix is registry prefix when pushing images.
+	RegistryPrefix *string
 }
 
 // AppSearchCmd searches for applications.

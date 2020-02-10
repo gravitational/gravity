@@ -41,10 +41,6 @@ const (
 	InstanceLaunching = "autoscaling:EC2_INSTANCE_LAUNCHING"
 	// InstanceTermination is AWS instance terminating lifecycle autoscaling event
 	InstanceTerminating = "autoscaling:EC2_INSTANCE_TERMINATING"
-	// sourceDestCheck is AWS source destination check property
-	sourceDestCheck = "sourceDestCheck"
-	// instanceIDFilter is AWS instance ID filter
-	instanceIDFilter = "instance-id"
 )
 
 // Autoscaler is AWS autoscaler server, it enables nodes

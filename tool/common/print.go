@@ -28,7 +28,7 @@ import (
 
 // PrintError prints the red error message to stderr
 func PrintError(err error) {
-	fmt.Fprintf(os.Stderr, color.RedString("[ERROR]: %v\n", trace.UserMessage(err)))
+	fmt.Fprint(os.Stderr, color.RedString("[ERROR]: %v\n", trace.UserMessage(err)))
 }
 
 // PrintWarn outputs a warning message to stdout

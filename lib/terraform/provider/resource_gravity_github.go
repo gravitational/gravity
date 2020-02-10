@@ -153,11 +153,14 @@ func resourceGravityGithubRead(d *schema.ResourceData, m interface{}) error {
 		return trace.Wrap(err)
 	}
 
-	d.Set("name", connector.GetName())
-	d.Set("client_id", connector.GetClientID())
-	d.Set("client_secret", connector.GetClientSecret())
-	d.Set("redirect_url", connector.GetRedirectURL())
-	d.Set("display", connector.GetDisplay())
+	//nolint:errcheck
+	{
+		d.Set("name", connector.GetName())
+		d.Set("client_id", connector.GetClientID())
+		d.Set("client_secret", connector.GetClientSecret())
+		d.Set("redirect_url", connector.GetRedirectURL())
+		d.Set("display", connector.GetDisplay())
+	}
 
 	mappings := connector.GetTeamsToLogins()
 	var teamsToLogins []interface{}
@@ -168,6 +171,7 @@ func resourceGravityGithubRead(d *schema.ResourceData, m interface{}) error {
 			"logins":       mapping.Logins,
 		})
 	}
+	//nolint:errcheck
 	d.Set("teams_to_logins", teamsToLogins)
 
 	return nil

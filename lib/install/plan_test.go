@@ -128,6 +128,7 @@ func (s *PlanSuite) SetUpSuite(c *check.C) {
 			Provider:   schema.ProviderAWS,
 			DNSConfig:  s.dnsConfig,
 		})
+	c.Assert(err, check.IsNil)
 	_, err = s.services.Users.CreateClusterAdminAgent(s.cluster.Domain,
 		storage.NewUser(storage.ClusterAdminAgent(s.cluster.Domain), storage.UserSpecV2{
 			AccountID: defaults.SystemAccountID,
@@ -138,6 +139,7 @@ func (s *PlanSuite) SetUpSuite(c *check.C) {
 		ClusterName: s.cluster.Domain,
 		Admin:       true,
 	})
+	c.Assert(err, check.IsNil)
 	s.regularAgent, err = s.services.Operator.GetClusterAgent(ops.ClusterAgentRequest{
 		AccountID:   account.ID,
 		ClusterName: s.cluster.Domain,

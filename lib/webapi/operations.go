@@ -199,25 +199,6 @@ func init() {
 	}
 }
 
-type siteOperation struct {
-	ops.SiteOperation
-	// Steps defines the state space for this operation as a sequence of state progressions.
-	// Each element in Steps is a human-readable description of the step
-	Steps []string `json:"steps"`
-}
-
-func formatSiteOperation(operation *ops.SiteOperation) *siteOperation {
-	var steps []string
-	switch operation.Type {
-	case ops.OperationInstall:
-		steps = operationStates[operationInstall].Titles()
-	}
-	return &siteOperation{
-		SiteOperation: *operation,
-		Steps:         steps,
-	}
-}
-
 type operationType byte
 
 const (
