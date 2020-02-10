@@ -21,26 +21,24 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
-	"strings"
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/trace"
 )
 
-// SystemInfo returns a list of collectors to fetch various bits of system information
-func SystemInfo() Collectors {
+// NewSystemCollector returns a list of collectors to fetch system information
+func NewSystemCollector() Collectors {
 	var collectors Collectors
 	add := func(additional ...Collector) {
 		collectors = append(collectors, additional...)
 	}
 
 	add(basicSystemInfo()...)
-	add(planetServices()...)
+	add(systemStatus()...)
 	add(syslogExportLogs())
 	add(systemFileLogs()...)
 	add(planetLogs()...)
-	add(bashHistoryCollector{})
 
 	return collectors
 }
@@ -51,7 +49,6 @@ func basicSystemInfo() Collectors {
 		Cmd("iptables", "iptables-save"),
 		Cmd("route", "route", "-n"),
 		Cmd("ifconfig", "ifconfig", "-a"),
-		Cmd("ipaddr", "ip", "addr"),
 		Cmd("ip-addr", "ip", "-d", "addr", "show"),
 		Cmd("ip-route", "ip", "-d", "route", "show", "table", "all"),
 		Cmd("ip-link", "ip", "-d", "link", "show"),
@@ -73,9 +70,11 @@ func basicSystemInfo() Collectors {
 		// system
 		Cmd("lscpu", "lscpu"),
 		Cmd("lsmod", "lsmod"),
-		Cmd("running-processes", "/bin/ps", "aux", "--forest"),
-		Cmd("systemctl-host", "/bin/systemctl", "status"),
-		Cmd("dmesg", "cat", "/var/log/dmesg"),
+		Cmd("running-processes", "/bin/ps", "auxZ", "--forest"),
+		Cmd("host-system-status", "/bin/systemctl", "status", "--full"),
+		Cmd("host-system-failed", "/bin/systemctl", "--failed", "--full"),
+		Cmd("host-system-jobs", "/bin/systemctl", "list-jobs", "--full"),
+		Cmd("dmesg", "/bin/dmesg", "--raw"),
 		// Fetch world-readable parts of /etc/
 		fetchEtc("etc-logs.tar.gz"),
 		// memory
@@ -86,35 +85,28 @@ func basicSystemInfo() Collectors {
 	}
 }
 
-func planetServices() Collectors {
+func systemStatus() Collectors {
 	return Collectors{
+		Cmd("cluster-status", "/usr/bin/gravity", "status", "--output=json"),
 		// etcd cluster health
-		Cmd("etcdctl", utils.PlanetCommandArgs("/usr/bin/etcdctl", "cluster-health")...),
+		Cmd("etcd-status", utils.PlanetCommandArgs("/usr/bin/etcdctl", "cluster-health")...),
 		Cmd("planet-status", utils.PlanetCommandArgs("/usr/bin/planet", "status")...),
-		// status of systemd units
-		Cmd("systemctl", utils.PlanetCommandArgs("/bin/systemctl", "status")...),
+		// system status in the container
+		Cmd("planet-system-status", utils.PlanetCommandArgs("/bin/systemctl", "status", "--full")...),
+		Cmd("planet-system-failed", utils.PlanetCommandArgs("/bin/systemctl", "--failed", "--full")...),
+		Cmd("planet-system-jobs", utils.PlanetCommandArgs("/bin/systemctl", "list-jobs", "--full")...),
 	}
 }
 
-// syslogExportLogs fetches logs for gravity binary invocations
-// (including installation logs)
+// syslogExportLogs fetches host journal logs
 func syslogExportLogs() Collector {
 	const script = `
 #!/bin/bash
-/bin/journalctl --no-pager --output=export %v | /bin/gzip -f`
-	syslogID := func(id string) string {
-		return fmt.Sprintf("SYSLOG_IDENTIFIER=%v", id)
-	}
-	matches := []string{
-		syslogID("./gravity"),
-		syslogID("gravity"),
-		syslogID(defaults.GravityBin),
-	}
-
-	return Script("gravity-system.log.gz", fmt.Sprintf(script, strings.Join(matches, " ")))
+/bin/journalctl --no-pager --output=export | /bin/gzip -f`
+	return Script("gravity-system.log.gz", script)
 }
 
-// systemFileLogs fetches gravity log files
+// systemFileLogs fetches gravity platform-related logs
 func systemFileLogs() Collectors {
 	const template = `
 #!/bin/bash
@@ -131,14 +123,21 @@ cat %v 2> /dev/null || true`
 // planetLogs fetches planet syslog messages as well as the fresh journal entries
 func planetLogs() Collectors {
 	return Collectors{
-		// Fetch planet syslog messages as a tarball
-		Script("planet-logs.tar.gz", tarball(defaults.InGravity("planet/log/messages*"))),
 		// Fetch planet journal entries for the last two days
 		// The log can be imported as a journal with systemd-journal-remote:
 		//
 		// $ cat ./node-1-planet-journal-export.log | /lib/systemd/systemd-journal-remote -o ./journal/system.journal -
 		Self("planet-journal-export.log.gz",
 			"system", "export-runtime-journal"),
+	}
+}
+
+// etcdBackup fetches etcd data for gravity and planet
+func etcdBackup() Collectors {
+	return Collectors{
+		Cmd("etcd-backup.json", utils.PlanetCommandArgs(defaults.PlanetBin, "etcd", "backup",
+			"--prefix", defaults.EtcdPlanetPrefix,
+			"--prefix", defaults.EtcdGravityPrefix)...),
 	}
 }
 
@@ -149,8 +148,8 @@ func fetchEtc(name string) CollectorFunc {
 		"--exclude=/etc/ssl/**", "--exclude=/etc/fonts/**",
 		"/etc",
 	}
-	return CollectorFunc(func(ctx context.Context, reportWriter Writer, _ utils.CommandRunner) error {
-		w, err := reportWriter(name)
+	return CollectorFunc(func(ctx context.Context, reportWriter FileWriter, _ utils.CommandRunner) error {
+		w, err := reportWriter.NewWriter(name)
 		if err != nil {
 			return trace.Wrap(err)
 		}

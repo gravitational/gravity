@@ -50,6 +50,7 @@ func (_ *S) TestFetchesFilesystem(c *C) {
 			lsblk:      testRunner(""),
 			filesystem: "",
 			err:        "no filesystem found for /dev/foo",
+			comment:    "missing filesystem on device",
 		},
 		{
 			lsblk: testRunner(`LVM_member
@@ -61,15 +62,16 @@ xfs
 			comment:    "only uses the top result",
 		},
 		{
-			lsblk: failingRunner{trace.Errorf("error")},
-			err:   `error, failed to determine filesystem type on /dev/foo`,
+			lsblk:   failingRunner{trace.Errorf("error")},
+			err:     `error, failed to determine filesystem type on /dev/foo: error`,
+			comment: "lsblk fails",
 		},
 	}
 	for _, testCase := range testCases {
 		comment := Commentf(testCase.comment)
 		filesystem, err := GetFilesystem(context.TODO(), "/dev/foo", testCase.lsblk)
 		if len(testCase.err) != 0 {
-			c.Assert(err, ErrorMatches, testCase.err)
+			c.Assert(err, ErrorMatches, testCase.err, comment)
 		} else {
 			c.Assert(err, IsNil, comment)
 		}
@@ -77,14 +79,15 @@ xfs
 	}
 }
 
-func (r testRunner) RunStream(ctx context.Context, w io.Writer, args ...string) error {
-	fmt.Fprintf(w, string(r))
+func (r testRunner) RunStream(ctx context.Context, stdout, stderr io.Writer, args ...string) error {
+	fmt.Fprintf(stdout, string(r))
 	return nil
 }
 
 type testRunner string
 
-func (r failingRunner) RunStream(context.Context, io.Writer, ...string) error {
+func (r failingRunner) RunStream(ctx context.Context, stdout, stderr io.Writer, args ...string) error {
+	fmt.Fprintf(stderr, string(r.error.Error()))
 	return r.error
 }
 

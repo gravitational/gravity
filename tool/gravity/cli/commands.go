@@ -248,6 +248,8 @@ type Application struct {
 	SystemReinstallCmd SystemReinstallCmd
 	// SystemHistoryCmd displays system update history
 	SystemHistoryCmd SystemHistoryCmd
+	// SystemClusterInfoCmd dumps cluster info suitable for debugging
+	SystemClusterInfoCmd SystemClusterInfoCmd
 	// SystemStepDownCmd asks active gravity master to step down
 	SystemStepDownCmd SystemStepDownCmd
 	// SystemRollbackCmd rolls back last system update
@@ -1366,6 +1368,12 @@ type SystemHistoryCmd struct {
 	*kingpin.CmdClause
 }
 
+// SystemClusterInfoCmd dumps kubernetes cluster info suitable for debugging.
+// It is a convenience wrapper around 'kubectl cluster-info dump --all-namespaces'
+type SystemClusterInfoCmd struct {
+	*kingpin.CmdClause
+}
+
 // SystemStepDownCmd asks active gravity master to step down
 type SystemStepDownCmd struct {
 	*kingpin.CmdClause
@@ -1446,6 +1454,9 @@ type SystemReportCmd struct {
 	Filter *[]string
 	// Compressed allows to gzip the tarball
 	Compressed *bool
+	// File optionally specifies the output file.
+	// If unspecified, stdout is used
+	File *string
 }
 
 // SystemStateDirCmd shows local state directory

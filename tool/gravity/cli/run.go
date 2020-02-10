@@ -707,6 +707,8 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			*g.SystemReinstallCmd.Labels)
 	case g.SystemHistoryCmd.FullCommand():
 		return systemHistory(localEnv)
+	case g.SystemClusterInfoCmd.FullCommand():
+		return systemClusterInfo(localEnv)
 	case g.SystemPullUpdatesCmd.FullCommand():
 		return systemPullUpdates(localEnv,
 			*g.SystemPullUpdatesCmd.OpsCenterURL,
@@ -775,7 +777,8 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 	case g.SystemReportCmd.FullCommand():
 		return systemReport(localEnv,
 			*g.SystemReportCmd.Filter,
-			*g.SystemReportCmd.Compressed)
+			*g.SystemReportCmd.Compressed,
+			*g.SystemReportCmd.File)
 	case g.SystemStateDirCmd.FullCommand():
 		return printStateDir()
 	case g.SystemExportRuntimeJournalCmd.FullCommand():

@@ -81,7 +81,7 @@ type TeleportProxyService interface {
 
 	// ExecuteCommand executes a command on a remote node addrress
 	// for a given site domain
-	ExecuteCommand(ctx context.Context, domainName, nodeAddr, command string, out io.Writer) error
+	ExecuteCommand(ctx context.Context, domainName, nodeAddr, command string, stdout, stderr io.Writer) error
 
 	// GetClient returns admin client to local proxy
 	GetClient() teleauth.ClientI
@@ -1286,9 +1286,14 @@ type AgentService interface {
 	// GetServerInfos returns a list of server information objects
 	GetServerInfos(ctx context.Context, key SiteOperationKey) (checks.ServerInfos, error)
 
-	// Exec executes command on a remote server
-	// that is identified by meeting point and agent's address addr
-	Exec(ctx context.Context, opKey SiteOperationKey, addr string, args []string, out io.Writer) error
+	// Exec executes the command specified with args on a remote server given with addr.
+	// It streams the process's output to the given writer out.
+	Exec(ctx context.Context, opKey SiteOperationKey, addr string, args []string, stdout, stderr io.Writer) error
+
+	// ExecNoLog executes the command specified with args on a remote server given with addr.
+	// It streams the process's output to the given writer out.
+	// Underlying remote call output is not logged
+	ExecNoLog(ctx context.Context, opKey SiteOperationKey, addr string, args []string, stdout, stderr io.Writer) error
 
 	// Validate executes preflight checks on the node specified with addr
 	// against the specified manifest and profile.

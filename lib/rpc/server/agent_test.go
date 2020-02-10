@@ -247,19 +247,19 @@ func (r *S) TestQueriesSystemInfo(c *C) {
 	sysinfo := storage.NewSystemInfo(storage.SystemSpecV2{
 		Hostname: "foo",
 		Filesystems: []storage.Filesystem{
-			storage.Filesystem{
+			{
 				DirName: "/foo/bar",
 				Type:    "tmpfs",
 			},
 		},
 		FilesystemStats: map[string]storage.FilesystemUsage{
-			"/foo/bar": storage.FilesystemUsage{
+			"/foo/bar": {
 				TotalKB: 512,
 				FreeKB:  0,
 			},
 		},
 		NetworkInterfaces: map[string]storage.NetworkInterface{
-			"device0": storage.NetworkInterface{
+			"device0": {
 				Name: "device0",
 				IPv4: "172.168.0.1",
 			},
@@ -310,17 +310,18 @@ func (r *S) clientExecutesCommandsWithClient(c *C, clt client.Client, srv *agent
 	defer withTestCtx(srv.Stop)
 
 	clientLog := r.WithField(trace.Component, "client")
-	var buf bytes.Buffer
+	var stdout, stderr bytes.Buffer
 	ctx, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
 	defer cancel()
-	err := clt.Command(ctx, clientLog, &buf, "test")
+	err := clt.Command(ctx, clientLog, &stdout, &stderr, "test")
 	c.Assert(err, IsNil)
 
 	err = clt.Shutdown(ctx)
 	clt.Close()
 
 	c.Assert(err, IsNil)
-	c.Assert(buf.String(), Equals, expectedOutput)
+	c.Assert(stdout.String(), Equals, expectedOutput)
+	c.Assert(stderr.String(), Equals, "")
 }
 
 func (r *S) newPeer(c *C, config PeerConfig, serverAddr string, log log.FieldLogger) *PeerServer {

@@ -585,6 +585,8 @@ func RegisterCommands(app *kingpin.Application) *Application {
 
 	g.SystemHistoryCmd.CmdClause = g.SystemCmd.Command("history", "list system update history").Hidden()
 
+	g.SystemClusterInfoCmd.CmdClause = g.SystemCmd.Command("cluster-info", "dump kubernetes cluster info suitable for debugging").Hidden()
+
 	// ask the current active master to step down
 	g.SystemStepDownCmd.CmdClause = g.SystemCmd.Command("step-down", "Ask the active master to step down").Hidden()
 
@@ -627,6 +629,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.SystemReportCmd.CmdClause = g.SystemCmd.Command("report", "collect system diagnostics and output as gzipped tarball to terminal").Hidden()
 	g.SystemReportCmd.Filter = g.SystemReportCmd.Flag("filter", "collect only specific diagnostics ('system', 'kubernetes'). Collect everything if unspecified").Strings()
 	g.SystemReportCmd.Compressed = g.SystemReportCmd.Flag("compressed", "whether to compress the tarball").Default("true").Bool()
+	g.SystemReportCmd.File = g.SystemReportCmd.Arg("file", "optional output path").String()
 
 	g.SystemStateDirCmd.CmdClause = g.SystemCmd.Command("state-dir", "show where all gravity data is stored on the node").Hidden()
 

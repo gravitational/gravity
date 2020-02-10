@@ -856,6 +856,11 @@ const (
 	// EtcdAPIPort is etcd client API port
 	EtcdAPIPort = 2379
 
+	// EtcdGravityPrefix is etcd prefix under which gravity keeps its data
+	EtcdGravityPrefix = "/gravity"
+	// EtcdPlanetPrefix is etcd prefix under which planet keeps its data
+	EtcdPlanetPrefix = "/planet"
+
 	// SchedulerKeyFilename is the kube-scheduler private key filename
 	SchedulerKeyFilename = "scheduler.key"
 	// SchedulerCertFilename is the kube-scheduler certificate filename

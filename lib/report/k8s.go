@@ -21,62 +21,50 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/gravity/lib/utils/kubectl"
 
-	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 )
 
-// KubernetesInfo returns a list of collectors to fetch kubernetes-related
+// NewKubernetesCollector returns a list of collectors to fetch kubernetes-specific
 // diagnostics.
-func KubernetesInfo(ctx context.Context, runner utils.CommandRunner) Collectors {
+func NewKubernetesCollector(ctx context.Context, runner utils.CommandRunner) Collectors {
 	runner = planetContextRunner{runner}
 	// general kubernetes info
 	commands := Collectors{
-		Cmd("k8s-nodes", utils.PlanetCommand(kubectl.Command("get", "nodes", "-o", "yaml"))...),
-		Cmd("k8s-nodes-describe", utils.PlanetCommand(kubectl.Command("describe", "nodes"))...),
-		Cmd("k8s-podlist", utils.PlanetCommand(kubectl.Command(
-			"get", "pods", "--all-namespaces", "--output", "wide"))...),
-		Cmd("k8s-pod-yaml", utils.PlanetCommand(kubectl.Command(
-			"get", "pods", "-o", "yaml", "--all-namespaces"))...),
-		Cmd("k8s-events", utils.PlanetCommand(kubectl.Command(
-			"get", "events", "--all-namespaces"))...),
+		Cmd("k8s-cluster-info-dump.tgz",
+			constants.GravityBin, "system", "cluster-info"),
 	}
 
 	namespaces, err := kubectl.GetNamespaces(ctx, runner)
 	if err != nil || len(namespaces) == 0 {
 		namespaces = defaults.UsedNamespaces
 	}
-	log.Debugf("kubernetes namespaces: %v", namespaces)
-
 	for _, namespace := range namespaces {
-		for _, resourceType := range defaults.KubernetesReportResourceTypes {
-			name := fmt.Sprintf("k8s-%s-%s", namespace, resourceType)
-			commands = append(commands, Cmd(name,
-				utils.PlanetCommand(kubectl.Command("describe", resourceType, "--namespace", namespace))...))
-		}
-
-		// fetch pod logs
+		logger := log.WithField("namespace", namespace)
 		pods, err := kubectl.GetPods(ctx, namespace, runner)
 		if err != nil {
-			log.Errorf("failed to query pods in namespace %v: %v", namespace, trace.DebugReport(err))
+			logger.WithError(err).Warn("Failed to query pods.")
 			continue
 		}
 		for _, pod := range pods {
 			containers, err := kubectl.GetPodContainers(ctx, namespace, pod, runner)
 			if err != nil {
-				log.Errorf("failed to query container in pod %v in namespace %v: %v",
-					pod, namespace, trace.DebugReport(err))
+				logger.WithFields(log.Fields{
+					log.ErrorKey: err,
+					"pod":        pod,
+				}).Warn("Failed to query container.")
 				continue
 			}
 			for _, container := range containers {
-				name := fmt.Sprintf("k8s-logs-%v-%v-%v", namespace, pod, container)
-				commands = append(commands, Cmd(name, utils.PlanetCommand(kubectl.Command("logs", pod,
-					"--namespace", namespace,
-					fmt.Sprintf("-c=%v", container)))...),
-				)
+				// Collect logs for the previous instance of the container if there's any.
+				name := fmt.Sprintf("k8s-logs-%v-%v-%v-prev", namespace, pod, container)
+				commands = append(commands, Cmd(name, kubectl.Command("logs", pod,
+					"--namespace", namespace, "-p",
+					fmt.Sprintf("-c=%v", container)).Args()...))
 			}
 		}
 	}
@@ -86,8 +74,8 @@ func KubernetesInfo(ctx context.Context, runner utils.CommandRunner) Collectors 
 
 // RunStream executes the command specified with args in the context of the planet container
 // Implements utils.CommandRunner
-func (r planetContextRunner) RunStream(ctx context.Context, w io.Writer, args ...string) error {
-	return r.CommandRunner.RunStream(ctx, w, utils.PlanetCommandSlice(args)...)
+func (r planetContextRunner) RunStream(ctx context.Context, stdout, stderr io.Writer, args ...string) error {
+	return r.CommandRunner.RunStream(ctx, stdout, stderr, utils.PlanetCommandSlice(args)...)
 }
 
 type planetContextRunner struct {
