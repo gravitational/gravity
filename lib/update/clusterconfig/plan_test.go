@@ -498,7 +498,7 @@ address: "0.0.0.0"`),
 
 	plan, err := newOperationPlan(app, storage.DefaultDNSConfig, testOperator, operation, clusterConfig, servers)
 	c.Assert(err, IsNil)
-	c.Assert(plan, compare.DeepEquals, &storage.OperationPlan{
+	c.Assert(plan, DeepEquals, &storage.OperationPlan{
 		OperationID:   operation.ID,
 		OperationType: operation.Type,
 		AccountID:     operation.AccountID,

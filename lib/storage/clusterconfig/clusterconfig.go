@@ -17,6 +17,7 @@ limitations under the License.
 package clusterconfig
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -26,6 +27,7 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 
 	teleservices "github.com/gravitational/teleport/lib/services"
+	"github.com/gravitational/teleport/lib/utils"
 	teleutils "github.com/gravitational/teleport/lib/utils"
 	"github.com/gravitational/trace"
 	"github.com/jonboulle/clockwork"
@@ -38,7 +40,7 @@ type Interface interface {
 	// GetKubeletConfig returns the configuration of the kubelet
 	GetKubeletConfig() *Kubelet
 	// GetGlobalConfig returns the global configuration
-	GetGlobalConfig() *Global
+	GetGlobalConfig() Global
 	// SetCloudProvider sets the cloud provider for this configuration
 	SetCloudProvider(provider string)
 }
@@ -105,16 +107,55 @@ func (r *Resource) GetKubeletConfig() *Kubelet {
 }
 
 // GetGlobalConfig returns the global configuration
-func (r *Resource) GetGlobalConfig() *Global {
+func (r *Resource) GetGlobalConfig() Global {
 	return r.Spec.Global
 }
 
 // SetCloudProvider sets the cloud provider for this configuration
 func (r *Resource) SetCloudProvider(provider string) {
-	if r.Spec.Global == nil {
-		r.Spec.Global = &Global{}
-	}
 	r.Spec.Global.CloudProvider = provider
+}
+
+// Merge merges changes from other into this resource.
+// Only non-empty fields in other different from those in r will be set in r.
+// Returns a copy of r with necessary modifications
+func (r Resource) Merge(other Resource) Resource {
+	if updateKubelet := other.Spec.ComponentConfigs.Kubelet; updateKubelet != nil {
+		if r.Spec.ComponentConfigs.Kubelet == nil {
+			r.Spec.ComponentConfigs.Kubelet = &Kubelet{}
+		}
+		if len(updateKubelet.ExtraArgs) != 0 &&
+			!utils.StringSlicesEqual(updateKubelet.ExtraArgs, r.Spec.ComponentConfigs.Kubelet.ExtraArgs) {
+			r.Spec.ComponentConfigs.Kubelet.ExtraArgs = other.Spec.ComponentConfigs.Kubelet.ExtraArgs
+		}
+		if len(updateKubelet.Config) != 0 &&
+			!bytes.Equal(updateKubelet.Config, r.Spec.ComponentConfigs.Kubelet.Config) {
+			r.Spec.ComponentConfigs.Kubelet.Config = other.Spec.ComponentConfigs.Kubelet.Config
+		}
+	}
+	// Changing cloud provider is not supported
+	if other.Spec.Global.PodCIDR != "" {
+		r.Spec.Global.PodCIDR = other.Spec.Global.PodCIDR
+	}
+	if other.Spec.Global.ServiceCIDR != "" {
+		r.Spec.Global.ServiceCIDR = other.Spec.Global.ServiceCIDR
+	}
+	if other.Spec.Global.CloudConfig != "" {
+		r.Spec.Global.CloudConfig = other.Spec.Global.CloudConfig
+	}
+	if other.Spec.Global.ServiceNodePortRange != "" {
+		r.Spec.Global.ServiceNodePortRange = other.Spec.Global.ServiceNodePortRange
+	}
+	if other.Spec.Global.ProxyPortRange != "" {
+		r.Spec.Global.ProxyPortRange = other.Spec.Global.ProxyPortRange
+	}
+	if len(other.Spec.Global.FeatureGates) != 0 {
+		r.Spec.Global.FeatureGates = make(map[string]bool, len(other.Spec.Global.FeatureGates))
+		for k, v := range other.Spec.Global.FeatureGates {
+			r.Spec.Global.FeatureGates[k] = v
+		}
+	}
+	return r
 }
 
 // Unmarshal unmarshals the resource from either YAML- or JSON-encoded data
@@ -179,13 +220,22 @@ type Spec struct {
 	ComponentConfigs
 	// TODO: Scheduler, ControllerManager, Proxy
 	// Global describes global configuration
-	Global *Global `json:"global,omitempty"`
+	Global Global `json:"global,omitempty"`
 }
 
 // ComponentsConfigs groups component configurations
 type ComponentConfigs struct {
 	// Kubelet defines kubelet configuration
 	Kubelet *Kubelet `json:"kubelet,omitempty"`
+}
+
+// IsEmpty determines whether this kubelet configuration is empty.
+// A nil receiver is considered empty
+func (r *Kubelet) IsEmpty() bool {
+	if r == nil {
+		return true
+	}
+	return len(r.ExtraArgs) == 0 && len(r.Config) == 0
 }
 
 // Kubelet defines kubelet configuration
@@ -202,13 +252,20 @@ type ControlPlaneComponent struct {
 	json.RawMessage
 }
 
+// IsEmpty determines whether this global configuration is empty.
+func (r Global) IsEmpty() bool {
+	return r.CloudConfig == "" && r.ServiceCIDR == "" && r.PodCIDR == "" &&
+		r.ServiceNodePortRange == "" && r.ProxyPortRange == "" &&
+		len(r.FeatureGates) == 0
+}
+
 // Global describes global configuration
 type Global struct {
 	// CloudProvider specifies the cloud provider
 	CloudProvider string `json:"cloudProvider,omitempty"`
 	// CloudConfig describes the cloud configuration.
 	// The configuration is provider-specific
-	CloudConfig string `json:"cloudConfig"`
+	CloudConfig string `json:"cloudConfig,omitempty"`
 	// ServiceCIDR represents the IP range from which to assign service cluster IPs.
 	// This must not overlap with any IP ranges assigned to nodes for pods.
 	// Targets: api server, controller manager
