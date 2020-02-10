@@ -379,9 +379,8 @@ func getKubeClient(dnsAddr string, tlsConfig rest.TLSClientConfig, options ...Ku
 			defaults.APIServerSecurePort),
 		TLSClientConfig: tlsConfig,
 		WrapTransport: func(t http.RoundTripper) http.RoundTripper {
-			switch t.(type) {
-			case *http.Transport:
-				t.(*http.Transport).DialContext = DialFromEnviron(dnsAddr)
+			if transport, ok := t.(*http.Transport); ok {
+				transport.DialContext = DialFromEnviron(dnsAddr)
 			}
 			return t
 		},

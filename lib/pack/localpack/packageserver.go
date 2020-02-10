@@ -57,7 +57,6 @@ type Config struct {
 // PackageServer manages BLOBs of data and their metadata as packages
 type PackageServer struct {
 	cfg     Config
-	clock   timetools.TimeProvider
 	backend storage.Backend
 }
 

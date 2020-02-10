@@ -289,12 +289,11 @@ func CopyReaderWithPerms(dst string, src io.Reader, perm os.FileMode) error {
 		return trace.ConvertSystemError(err)
 	}
 
-	cleanup := func() error {
+	cleanup := func() {
 		err := os.Remove(tmp.Name())
 		if err != nil {
-			log.Errorf("failed to remove %q: %v", tmp.Name(), err)
+			log.WithError(err).Warnf("Failed to remove %q.", tmp.Name())
 		}
-		return trace.ConvertSystemError(err)
 	}
 
 	_, err = io.Copy(tmp, src)

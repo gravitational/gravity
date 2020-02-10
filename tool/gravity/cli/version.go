@@ -36,7 +36,7 @@ func printVersion(format constants.Format) error {
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		fmt.Printf(string(bytes))
+		fmt.Print(string(bytes))
 	}
 	return nil
 }

@@ -135,45 +135,6 @@ func (g *Application) getEnvWithArgs(args localenv.LocalEnvironmentArgs) (*local
 	return localenv.NewLocalEnvironment(args)
 }
 
-// isUpdateCommand returns true if the specified command is
-// an upgrade related command
-func (g *Application) isUpdateCommand(cmd string) bool {
-	switch cmd {
-	case g.PlanCmd.FullCommand(),
-		g.PlanDisplayCmd.FullCommand(),
-		g.PlanExecuteCmd.FullCommand(),
-		g.PlanRollbackCmd.FullCommand(),
-		g.PlanResumeCmd.FullCommand(),
-		g.PlanCompleteCmd.FullCommand(),
-		g.UpdatePlanInitCmd.FullCommand(),
-		g.UpdateTriggerCmd.FullCommand(),
-		g.UpgradeCmd.FullCommand():
-		return true
-	case g.RPCAgentRunCmd.FullCommand():
-		return len(*g.RPCAgentRunCmd.Args) > 0
-	case g.RPCAgentDeployCmd.FullCommand():
-		return len(*g.RPCAgentDeployCmd.LeaderArgs) > 0 ||
-			len(*g.RPCAgentDeployCmd.NodeArgs) > 0
-	}
-	return false
-}
-
-// isExpandCommand returns true if the specified command is
-// expand-related command
-func (g *Application) isExpandCommand(cmd string) bool {
-	switch cmd {
-	case g.AutoJoinCmd.FullCommand(),
-		g.PlanCmd.FullCommand(),
-		g.PlanDisplayCmd.FullCommand(),
-		g.PlanExecuteCmd.FullCommand(),
-		g.PlanRollbackCmd.FullCommand(),
-		g.PlanCompleteCmd.FullCommand(),
-		g.PlanResumeCmd.FullCommand():
-		return true
-	}
-	return false
-}
-
 // ConfigureNoProxy configures the current process to not use any configured HTTP proxy when connecting to any
 // destination by IP address, or a domain with a suffix of .local. Gravity internally connects to nodes by IP address,
 // and by queries to kubernetes using the .local suffix. The side effect is, connections towards the internet by IP

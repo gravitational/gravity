@@ -839,7 +839,7 @@ func (s *site) installOperationStart(ctx *operationContext) error {
 		Message: "All servers are up",
 	})
 
-	op, err = s.compareAndSwapOperationState(swap{
+	_, err = s.compareAndSwapOperationState(swap{
 		key:            ctx.key(),
 		expectedStates: []string{ops.OperationStateInstallProvisioning},
 		newOpState:     ops.OperationStateInstallDeploying,

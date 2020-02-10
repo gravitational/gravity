@@ -26,11 +26,11 @@ import (
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/users"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/gravitational/form"
 	"github.com/gravitational/roundtrip"
 	"github.com/gravitational/trace"
 	"github.com/julienschmidt/httprouter"
+	log "github.com/sirupsen/logrus"
 )
 
 // Config is a config for HTTP handler
@@ -47,8 +47,7 @@ type Config struct {
 // Server is HTTP server implementing BLOB storage over HTTP
 type Server struct {
 	httprouter.Router
-	cfg        Config
-	fileServer http.Handler
+	cfg Config
 }
 
 // New returns new instance of HTTP  BLOB server
@@ -198,14 +197,3 @@ func (s *Server) needsAuth(fn authHandle, objects blob.Objects) httprouter.Handl
 
 type authHandle func(
 	http.ResponseWriter, *http.Request, httprouter.Params, blob.Objects) error
-
-type authContext struct {
-	UserName  string
-	AccountID string
-	SiteID    string
-}
-
-type labels struct {
-	AddLabels    map[string]string `json:"add_labels"`
-	RemoveLabels []string          `json:"remove_labels"`
-}

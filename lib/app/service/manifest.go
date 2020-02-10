@@ -111,7 +111,7 @@ func unpackedResources(appPackage io.Reader) (rc io.ReadCloser, err error) {
 		if err != nil {
 			log.WithError(err).Warn("Failed to unpack resources.")
 		}
-		writer.CloseWithError(err)
+		writer.CloseWithError(err) //nolint:errcheck
 	}()
 	return reader, nil
 }

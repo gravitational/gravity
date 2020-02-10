@@ -45,7 +45,6 @@ import (
 func TestUsers(t *testing.T) { TestingT(t) }
 
 type UsersSuite struct {
-	server  *UsersService
 	backend storage.Backend
 	suite   suite.CredsSuite
 	dir     string
@@ -354,11 +353,12 @@ func (s *UsersSuite) TestCreateUserWithToken(c *C) {
 
 func (s *UsersSuite) TestBuiltinRoles(c *C) {
 	type check struct {
-		hasAccess        bool
-		verb             string
-		namespace        string
-		rule             string
-		context          *users.Context
+		hasAccess bool
+		verb      string
+		namespace string
+		rule      string
+		context   *users.Context
+		//nolint:structcheck
 		kubernetesGroups []string
 	}
 	testCases := []struct {
@@ -493,7 +493,7 @@ func newInstallTokenRole(name string, clusterName, repoName string) storage.Role
 		Namespaces:    []string{teleservices.Wildcard},
 		// do not allow any valid logins but the login list should not be empty,
 		// otherwise teleport will reject the web session
-		Logins: []string{""},
+		Logins: []string{"invalid-login"},
 		Resources: map[string][]string{
 			storage.KindCluster:   teleservices.RW(),
 			storage.KindApp:       teleservices.RO(),

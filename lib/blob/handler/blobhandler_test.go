@@ -41,14 +41,12 @@ import (
 func TestHandler(t *testing.T) { TestingT(t) }
 
 type HandlerSuite struct {
-	server    *Server
 	backend   storage.Backend
 	suite     suite.BLOBSuite
 	webServer *httptest.Server
 	users     users.Identity
 	clock     clockwork.FakeClock
 
-	agentUser storage.User
 	adminUser storage.User
 
 	dir string

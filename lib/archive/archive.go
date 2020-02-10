@@ -177,7 +177,6 @@ func TarGlob(source *tar.Reader, dir string, patterns []string, handler func(mat
 		var hdr *tar.Header
 		hdr, err = source.Next()
 		if err == io.EOF {
-			err = nil
 			break
 		}
 		if err != nil {
@@ -212,7 +211,6 @@ func TarGlobWithPrefix(source *tar.Reader, prefix string, handler TarGlobHandler
 		var hdr *tar.Header
 		hdr, err = source.Next()
 		if err == io.EOF {
-			err = nil
 			break
 		}
 		if err != nil {

@@ -18,7 +18,6 @@ package server
 
 import (
 	"bytes"
-	"strings"
 	"sync"
 	"time"
 
@@ -57,7 +56,9 @@ func (r *S) TestClientExecutesCommandsRemotely(c *C) {
 		commandExecutor: cmd,
 	})
 	c.Assert(err, IsNil)
-	go srv.Serve()
+	go func() {
+		c.Assert(srv.Serve(), IsNil)
+	}()
 
 	ctx, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
 	defer cancel()
@@ -83,13 +84,17 @@ func (r *S) TestAgentsConnectToController(c *C) {
 	})
 	c.Assert(err, IsNil)
 
-	go srv.Serve()
-	defer withTestCtx(srv.Stop)
+	go func() {
+		c.Assert(srv.Serve(), IsNil)
+	}()
+	defer withTestCtx(srv.Stop, c)
 
 	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 	peer := r.newPeer(c, PeerConfig{Config: Config{Listener: listen(c)}}, srv.Addr().String(), log)
-	go peer.Serve()
-	defer withTestCtx(peer.Stop)
+	go func() {
+		c.Assert(peer.Serve(), IsNil)
+	}()
+	defer withTestCtx(peer.Stop, c)
 
 	err = store.expect(ctx, 1)
 	cancel()
@@ -116,8 +121,10 @@ func (r *S) TestPeerDisconnect(c *C) {
 		PeerStore:   store,
 	})
 	c.Assert(err, IsNil)
-	go srv.Serve()
-	defer withTestCtx(srv.Stop)
+	go func() {
+		c.Assert(srv.Serve(), IsNil)
+	}()
+	defer withTestCtx(srv.Stop, c)
 
 	// launch two peers
 	peer1, err := NewPeer(PeerConfig{
@@ -129,8 +136,10 @@ func (r *S) TestPeerDisconnect(c *C) {
 		},
 	}, srv.Addr().String())
 	c.Assert(err, IsNil)
-	go peer1.Serve()
-	defer withTestCtx(peer1.Stop)
+	go func() {
+		c.Assert(peer1.Serve(), IsNil)
+	}()
+	defer withTestCtx(peer1.Stop, c)
 
 	peer2, err := NewPeer(PeerConfig{
 		Config: Config{
@@ -141,8 +150,10 @@ func (r *S) TestPeerDisconnect(c *C) {
 		},
 	}, srv.Addr().String())
 	c.Assert(err, IsNil)
-	go peer2.Serve()
-	defer withTestCtx(peer2.Stop)
+	go func() {
+		c.Assert(peer2.Serve(), IsNil)
+	}()
+	defer withTestCtx(peer2.Stop, c)
 
 	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 	defer cancel()
@@ -177,8 +188,10 @@ func (r *S) TestServerReportsHealth(c *C) {
 	})
 	c.Assert(err, IsNil)
 
-	go srv.Serve()
-	defer withTestCtx(srv.Stop)
+	go func() {
+		c.Assert(srv.Serve(), IsNil)
+	}()
+	defer withTestCtx(srv.Stop, c)
 
 	clt, err := newClient(ctx, creds.Client, srv.Addr().String())
 	c.Assert(err, IsNil)
@@ -204,9 +217,11 @@ func (r *S) TestWaitsUntilAgentShutsDown(c *C) {
 	})
 	c.Assert(err, IsNil)
 
-	go srv.Serve()
+	go func() {
+		c.Assert(srv.Serve(), IsNil)
+	}()
 
-	withTestCtx(srv.Stop)
+	withTestCtx(srv.Stop, c)
 	select {
 	case <-srv.Done():
 	case <-ctx.Done():
@@ -227,8 +242,10 @@ func (r *S) TestRejectsPeer(c *C) {
 	})
 	c.Assert(err, IsNil)
 
-	go srv.Serve()
-	defer withTestCtx(srv.Stop)
+	go func() {
+		c.Assert(srv.Serve(), IsNil)
+	}()
+	defer withTestCtx(srv.Stop, c)
 
 	watchCh := make(chan WatchEvent, 1)
 	config := PeerConfig{
@@ -245,8 +262,10 @@ func (r *S) TestRejectsPeer(c *C) {
 	}
 	p, err := NewPeer(config, srv.Addr().String())
 	c.Assert(err, IsNil)
-	go p.Serve()
-	defer withTestCtx(p.Stop)
+	go func() {
+		c.Assert(p.Serve(), IsNil)
+	}()
+	defer withTestCtx(p.Stop, c)
 
 	select {
 	case update := <-watchCh:
@@ -301,8 +320,10 @@ func (r *S) TestQueriesSystemInfo(c *C) {
 	})
 	c.Assert(err, IsNil)
 
-	go srv.Serve()
-	defer withTestCtx(srv.Stop)
+	go func() {
+		c.Assert(srv.Serve(), IsNil)
+	}()
+	defer withTestCtx(srv.Stop, c)
 
 	ctx, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
 	defer cancel()
@@ -315,13 +336,11 @@ func (r *S) TestQueriesSystemInfo(c *C) {
 
 	obtained, err := clt.GetSystemInfo(ctx)
 	c.Assert(err, IsNil)
-	// Namespace is not serialized
-	sysinfo.Namespace = ""
 	compare.DeepCompare(c, obtained, sysinfo)
 }
 
 func (r *S) clientExecutesCommandsWithClient(c *C, clt client.Client, srv *agentServer, expectedOutput string) {
-	defer withTestCtx(srv.Stop)
+	defer withTestCtx(srv.Stop, c)
 
 	clientLog := r.WithField(trace.Component, "client")
 	var buf bytes.Buffer
@@ -435,8 +454,4 @@ func (r *peerStore) remove(peer Peer) {
 	r.Lock()
 	defer r.Unlock()
 	delete(r.peers, peer.Addr())
-}
-
-func isPeerDeniedError(err error) bool {
-	return strings.Contains(err.Error(), "peer not authorized")
 }

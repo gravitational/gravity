@@ -75,11 +75,11 @@ type Config struct {
 // note that if connection is unavailable, it will try to establish it
 // until context provided expires
 func New(ctx context.Context, config Config) (*client, error) {
-	opts := append([]grpc.DialOption{
+	opts := []grpc.DialOption{
 		grpc.WithBackoffMaxDelay(defaults.RPCAgentBackoffThreshold),
 		grpc.WithBlock(),
 		grpc.WithTransportCredentials(config.Credentials),
-	})
+	}
 
 	conn, err := grpc.DialContext(ctx, config.ServerAddr, opts...)
 	if err != nil {

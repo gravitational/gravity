@@ -342,12 +342,6 @@ func (s *Server) needsAuth(fn authHandle) httprouter.Handle {
 type authHandle func(
 	http.ResponseWriter, *http.Request, httprouter.Params, pack.PackageService) error
 
-type authContext struct {
-	UserName  string
-	AccountID string
-	SiteID    string
-}
-
 type labels struct {
 	AddLabels    map[string]string `json:"add_labels"`
 	RemoveLabels []string          `json:"remove_labels"`
