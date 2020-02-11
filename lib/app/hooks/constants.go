@@ -76,10 +76,13 @@ const (
 	// VolumeStateDir is the name of the volume for temporary state
 	VolumeStateDir = "state-dir"
 
-	// ApplicationPackage specifies the name of the environment variable
+	// ApplicationPackageEnv specifies the name of the environment variable
 	// that defines the name of the application package the hook originated from.
 	// This environment variable is made available to the hook job's init container
 	ApplicationPackageEnv = "APP_PACKAGE"
+
+	// PodIPEnv specifies the name of variable associated with Pod IP address
+	PodIPEnv = "POD_IP"
 )
 
 // InitContainerImage is the image for the init container
