@@ -1071,6 +1071,14 @@
 
 [[projects]]
   branch = "master"
+  digest = "1:98450c86949b8cdc4637b80c1c686ca955e503d3fbae9296d1f49c532895d281"
+  name = "github.com/gravitational/vfsgen"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "6a9ea43bcacdf716a5c1b38efff722c07adf0069"
+
+[[projects]]
+  branch = "master"
   digest = "1:86c1210529e69d69860f2bb3ee9ccce0b595aa3f9165e7dd1388e5c612915888"
   name = "github.com/gregjones/httpcache"
   packages = [
@@ -1897,6 +1905,14 @@
   packages = ["."]
   pruneopts = "UT"
   revision = "e2103e2c35297fb7e17febb81e49b312087a2372"
+
+[[projects]]
+  branch = "master"
+  digest = "1:68cecd4c1137f77dfa2db1f13a0ceef2b5606d6b69d66fa69f7df1b2f2fe9afc"
+  name = "github.com/shurcooL/httpfs"
+  packages = ["vfsutil"]
+  pruneopts = "UT"
+  revision = "8d4bc4ba774931155e6cd5ef6098cb038dd45135"
 
 [[projects]]
   branch = "master"
@@ -3014,6 +3030,7 @@
     "github.com/gravitational/trace",
     "github.com/gravitational/ttlmap",
     "github.com/gravitational/version",
+    "github.com/gravitational/vfsgen",
     "github.com/hashicorp/terraform/helper/schema",
     "github.com/hashicorp/terraform/plugin",
     "github.com/hashicorp/terraform/terraform",
