@@ -35,7 +35,7 @@ import (
 	teleutils "github.com/gravitational/teleport/lib/utils"
 	"github.com/gravitational/trace"
 	batchv1 "k8s.io/api/batch/v1"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 )
 
 // configureJob augments the provided job spec with the proper metadata (e.g. to ensure unique name),
@@ -282,19 +282,39 @@ func configureInitContainer(job *batchv1.Job, p Params) error {
 		}, job.Spec.Template.Spec.InitContainers...)
 	}
 
-Loop:
 	for i, container := range job.Spec.Template.Spec.InitContainers {
 		// only add the environment variable if it doesn't already exist
+		isExist := false
 		for _, e := range container.Env {
 			if e.Name == ApplicationPackageEnv {
-				continue Loop
+				isExist = true
 			}
 		}
 
-		job.Spec.Template.Spec.InitContainers[i].Env = append(job.Spec.Template.Spec.InitContainers[i].Env, v1.EnvVar{
-			Name:  ApplicationPackageEnv,
-			Value: p.Locator.String(),
-		})
+		if !isExist {
+			job.Spec.Template.Spec.InitContainers[i].Env = append(job.Spec.Template.Spec.InitContainers[i].Env, v1.EnvVar{
+				Name:  ApplicationPackageEnv,
+				Value: p.Locator.String(),
+			})
+		}
+
+		isExist = false
+		for _, e := range container.Env {
+			if e.Name == PodIPEnv {
+				isExist = true
+			}
+		}
+
+		if !isExist {
+			job.Spec.Template.Spec.InitContainers[i].Env = append(job.Spec.Template.Spec.InitContainers[i].Env, v1.EnvVar{
+				Name: PodIPEnv,
+				ValueFrom: &v1.EnvVarSource{
+					FieldRef: &v1.ObjectFieldSelector{
+						FieldPath: "status.podIP",
+					},
+				},
+			})
+		}
 	}
 
 	return nil
