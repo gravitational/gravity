@@ -5,7 +5,7 @@
 Gravity is an [upstream Kubernetes](https://kubernetes.io/) packaging solution
 that takes the drama out of deploying and running applications in someone
 else's cloud accounts, on-premise data centers, edge locations and other
-"uncharted territory" environments.
+"unchartered territories".
 
 With Gravity, your Kubernetes apps can run and be regularly updated anywhere in
 the world without a massive DevOps team.
