@@ -12,7 +12,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 | 6.1.18        | Yes | February 4th, 2020   | November 10th, 2021  | 1.15.5             | 3.2.12           |
 | 6.0.10*       | No  | October 17th, 2019   | -                    | 1.14.7             | 3.2.12           |
 | 5.6.8*        | No  | September 18th, 2019 | -                    | 1.14.7             | 3.0.6-gravity    |
-| 5.5.36        | Yes | February 6th, 2020   | September 7th, 2020  | 1.13.11            | 3.0.6-gravity    |
+| 5.5.37        | Yes | February 11th, 2020  | September 7th, 2020  | 1.13.11            | 3.0.6-gravity    |
 | 5.4.10*       | No  | March 26th, 2019     | -                    | 1.13.5             | 2.4.10           |
 | 5.3.9*        | No  | March 7th, 2019      | -                    | 1.12.3             | 2.4.7            |
 | 5.2.16        | Yes | October 11th, 2019   | October 15th, 2019   | 1.11.9             | 2.4.10           |
@@ -549,6 +549,16 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 * Add support for using `helm` directly from host.
 
 ## 5.x Releases
+
+### 5.5.37 LTS (February 11th, 2020)
+
+#### Improvements
+
+* Include etcd dump and gravity status output into gravity report. ([#1081](https://github.com/gravitational/gravity/pull/1081))
+
+#### Bugfixes
+
+* Fix the issue with service name resolution inside init containers in Gravity hooks. ([#1095](https://github.com/gravitational/gravity/pull/1095))
 
 ### 5.5.36 LTS (February 6th, 2020)
 
