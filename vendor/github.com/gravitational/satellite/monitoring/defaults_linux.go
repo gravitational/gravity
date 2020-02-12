@@ -114,7 +114,12 @@ func DefaultBootConfigParams() health.Checker {
 		BootConfigParam{Name: "CONFIG_VETH"},
 		BootConfigParam{Name: "CONFIG_BRIDGE"},
 		BootConfigParam{Name: "CONFIG_BRIDGE_NETFILTER"},
-		BootConfigParam{Name: "CONFIG_NF_NAT_IPV4"},
+		BootConfigParam{
+			// https://cateee.net/lkddb/web-lkddb/NF_NAT_IPV4.html
+			// CONFIG_NF_NAT_IPV4 has been removed as of kernel 5.1
+			Name:             "CONFIG_NF_NAT_IPV4",
+			KernelConstraint: KernelVersionLessThan(KernelVersion{Release: 5, Major: 1}),
+		},
 		BootConfigParam{Name: "CONFIG_IP_NF_FILTER"},
 		BootConfigParam{Name: "CONFIG_IP_NF_TARGET_MASQUERADE"},
 		BootConfigParam{Name: "CONFIG_NETFILTER_XT_MATCH_ADDRTYPE"},
@@ -122,7 +127,12 @@ func DefaultBootConfigParams() health.Checker {
 		BootConfigParam{Name: "CONFIG_NETFILTER_XT_MATCH_IPVS"},
 		BootConfigParam{Name: "CONFIG_IP_NF_NAT"},
 		BootConfigParam{Name: "CONFIG_NF_NAT"},
-		BootConfigParam{Name: "CONFIG_NF_NAT_NEEDED"},
+		BootConfigParam{
+			// https://cateee.net/lkddb/web-lkddb/NF_NAT_NEEDED.html
+			// CONFIG_NF_NAT_NEEDED has been removed as of kernel 5.2
+			Name:             "CONFIG_NF_NAT_NEEDED",
+			KernelConstraint: KernelVersionLessThan(KernelVersion{Release: 5, Major: 2}),
+		},
 		BootConfigParam{Name: "CONFIG_POSIX_MQUEUE"},
 		BootConfigParam{
 			// See: https://lists.gt.net/linux/kernel/2465684#2465684
