@@ -1,3 +1,19 @@
+/*
+Copyright 2020 Gravitational, Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package selinux
 
 import (
@@ -13,6 +29,7 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	liblog "github.com/gravitational/gravity/lib/log"
 	libschema "github.com/gravitational/gravity/lib/schema"
+	"github.com/gravitational/gravity/lib/system/selinux/internal/policy"
 	"github.com/gravitational/gravity/lib/system/selinux/internal/schema"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -22,24 +39,16 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// Bootstrap executes the bootstrap script for the specified directory
+// Bootstrap configures SELinux on the node
 func Bootstrap(config BootstrapConfig) error {
 	if err := config.checkAndSetDefaults(); err != nil {
 		return trace.Wrap(err)
 	}
-	metadata, err := monitoring.GetOSRelease()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	b := newBootstrapper(config, *metadata)
-	err = utils.WithTempDir(func(dir string) error {
+	b := newBootstrapper(config)
+	err := utils.WithTempDir(func(dir string) error {
 		return b.installDefaultPolicy(dir)
 	}, "policy")
 	if err != nil {
-		if trace.IsNotFound(err) {
-			log.WithError(err).Warn("OS distribution is not supported, SELinux will not be turned on.")
-			return nil
-		}
 		return trace.Wrap(err)
 	}
 	return b.importLocalChanges()
@@ -50,15 +59,22 @@ func Unload(config BootstrapConfig) error {
 	if err := config.checkAndSetDefaults(); err != nil {
 		return trace.Wrap(err)
 	}
-	metadata, err := monitoring.GetOSRelease()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	b := newBootstrapper(config, *metadata)
+	b := newBootstrapper(config)
 	return b.removeLocalChanges()
 	// TODO: remove the policy module.
 	// Note, this is only possible when there're no more gravity-labeled
 	// files/directories.
+}
+
+// IsSystemSupported returns true if the system specified with given ID
+// is supported
+func IsSystemSupported(systemID string) bool {
+	switch systemID {
+	case "centos", "rhel":
+		return true
+	default:
+		return false
+	}
 }
 
 // Patch executes the patch script with the underlying configuration
@@ -107,11 +123,7 @@ func WriteBootstrapScript(w io.Writer, config BootstrapConfig) error {
 	if err := config.checkAndSetDefaults(); err != nil {
 		return trace.Wrap(err)
 	}
-	metadata, err := monitoring.GetOSRelease()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	return newBootstrapper(config, *metadata).writeBootstrapScript(w)
+	return newBootstrapper(config).writeBootstrapScript(w)
 }
 
 // BootstrapConfig defines the SELinux bootstrap configuration
@@ -123,7 +135,9 @@ type BootstrapConfig struct {
 	StateDir string
 	// VxlanPort specifies the custom vxlan port.
 	// If left unspecified (nil), will not be configured
-	VxlanPort  *int
+	VxlanPort *int
+	// OS specifies the OS distribution metadata
+	OS         monitoring.OSRelease
 	portRanges *portRanges
 }
 
@@ -175,11 +189,22 @@ type PatchConfig struct {
 	VxlanPort int
 }
 
-func newBootstrapper(config BootstrapConfig, metadata monitoring.OSRelease) *bootstrapper {
+// Error returns the readable error message
+func (r DistributionNotSupportedError) Error() string {
+	return fmt.Sprintf("no SELinux policy for OS distribution %v", r.ID)
+}
+
+// DistributionNotSupportedError describes an error configuring SELinux
+// on an distribution that we do not support SELinux on yet
+type DistributionNotSupportedError struct {
+	// ID specifies the OS distribution id
+	ID string
+}
+
+func newBootstrapper(config BootstrapConfig) *bootstrapper {
 	logger := liblog.New(log.WithField(trace.Component, "selinux"))
 	return &bootstrapper{
 		config:           config,
-		metadata:         metadata,
 		logger:           logger,
 		policyFileReader: policyFileReaderFunc(withPolicy),
 	}
@@ -187,7 +212,6 @@ func newBootstrapper(config BootstrapConfig, metadata monitoring.OSRelease) *boo
 
 type bootstrapper struct {
 	config           BootstrapConfig
-	metadata         monitoring.OSRelease
 	logger           liblog.Logger
 	policyFileReader policyFileReader
 }
@@ -197,8 +221,7 @@ func (r *bootstrapper) installDefaultPolicy(dir string) error {
 		f, err := r.openFile(policy)
 		if err != nil {
 			if os.IsNotExist(err) {
-				return trace.NotFound("no SELinux policy for the specified OS distribution %v",
-					r.metadata.ID).AddField("os", r.metadata.ID)
+				return DistributionNotSupportedError{ID: r.config.OS.ID}
 			}
 			return trace.Wrap(err)
 		}
@@ -294,11 +317,22 @@ func (r *bootstrapper) renderFcontext(w io.Writer, renderer commandRenderer) err
 }
 
 func (r *bootstrapper) openFile(name string) (io.ReadCloser, error) {
-	f, err := r.policyFileReader.OpenFile(filepath.Join(mapDistro(r.metadata.ID), name))
+	f, err := r.policyFileReader.OpenFile(r.pathJoin(name))
 	if err != nil {
 		return nil, trace.ConvertSystemError(err)
 	}
 	return f, nil
+}
+
+func (r *bootstrapper) pathJoin(elems ...string) string {
+	var root string
+	switch r.config.OS.ID {
+	case "centos", "rhel":
+		root = "centos"
+	default:
+		root = r.config.OS.ID
+	}
+	return filepath.Join(append([]string{root}, elems...)...)
 }
 
 func renderFcontext(w io.Writer, stateDir string, fcontextTemplate io.Reader, renderer commandRenderer) error {
@@ -332,7 +366,7 @@ func renderFcontext(w io.Writer, stateDir string, fcontextTemplate io.Reader, re
 }
 
 func withPolicy(path string) (io.ReadCloser, error) {
-	f, err := Policy.Open(path)
+	f, err := policy.Policy.Open(path)
 	if err != nil {
 		return nil, trace.ConvertSystemError(err)
 	}
@@ -465,12 +499,3 @@ var patchScript = template.Must(template.New("selinux-patch").Parse(`
 {{if .ExistingVxlanPort}}port -d -p udp {{.ExistingVxlanPort}}{{end}}
 port -a -t gravity_vxlan_port_t -r 's0' -p udp {{.VxlanPort}}
 `))
-
-func mapDistro(distroID string) string {
-	switch distroID {
-	case "centos", "rhel":
-		return "centos"
-	default:
-		return distroID
-	}
-}

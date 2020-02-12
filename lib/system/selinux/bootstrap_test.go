@@ -48,6 +48,7 @@ func (*S) TestWritesBootstrapScript(c *C) {
 	}{
 		{
 			config: BootstrapConfig{
+				OS:   testSystem,
 				Path: "/path/to/installer",
 			},
 			expected: `
@@ -62,6 +63,7 @@ fcontext -a -f a -t gravity_home_t -r 's0' '/path/to/installer/.gravity(/.*)?'
 		},
 		{
 			config: BootstrapConfig{
+				OS:       testSystem,
 				Path:     "/path/to/installer",
 				StateDir: "/custom/state/dir",
 			},
@@ -76,6 +78,7 @@ fcontext -a -f a -t gravity_home_t -r 's0' '/path/to/installer/.gravity(/.*)?'
 /custom/state/dir/bdev -b gen_context(system_u:object_r:bdev_type_t, s0)
 /custom/state/dir/cdev -c gen_context(system_u:object_r:cdev_type_t, s0)
 /custom/state/dir/dir2(/.*)? 	gen_context(system_u:object_r:file_type_t,	s0)
+/custom/state/dir3(/.*)? 	<<none>>
 `,
 			expected: `
 port -D
@@ -92,11 +95,13 @@ fcontext --add --ftype p --type pipe_type_t --range 's0' '/custom/state/dir/pipe
 fcontext --add --ftype b --type bdev_type_t --range 's0' '/custom/state/dir/bdev'
 fcontext --add --ftype c --type cdev_type_t --range 's0' '/custom/state/dir/cdev'
 fcontext --add --ftype a --type file_type_t --range 's0' '/custom/state/dir/dir2(/.*)?'
+
 `,
 			comment: "includes custom fcontext entries for a custom state directory",
 		},
 		{
 			config: BootstrapConfig{
+				OS:         testSystem,
 				Path:       "/path/to/installer",
 				StateDir:   "/custom/state/dir",
 				VxlanPort:  utils.IntPtr(8474),
@@ -129,11 +134,8 @@ fcontext -a -f a -t gravity_home_t -r 's0' '/path/to/installer/.gravity(/.*)?'
 
 func newTestBootstrapper(config BootstrapConfig, s, testCase string) *bootstrapper {
 	return &bootstrapper{
-		logger: liblog.New(log.WithField(trace.Component, testCase)),
-		config: config,
-		metadata: monitoring.OSRelease{
-			ID: "distro",
-		},
+		logger:           liblog.New(log.WithField(trace.Component, testCase)),
+		config:           config,
 		policyFileReader: policyFileFromLiteral("distro/gravity.statedir.fc.template", s),
 	}
 }
@@ -181,4 +183,8 @@ func policyFileFromLiteral(fname, content string) policyFileReaderFunc {
 		}
 		return ioutil.NopCloser(strings.NewReader(content)), nil
 	}
+}
+
+var testSystem = monitoring.OSRelease{
+	ID: "distro",
 }

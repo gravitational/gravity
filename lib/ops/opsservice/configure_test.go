@@ -185,6 +185,7 @@ multizone=true`,
 		"env":                        {`VAR="value"`, `VAR2="value2"`, `VAR3="value1,value2"`},
 		"volume": {
 			"/var/lib/gravity/planet/etcd:/ext/etcd",
+			"/var/lib/gravity/planet/kubelet:/var/lib/kubelet",
 			"/var/lib/gravity/planet/docker:/ext/docker",
 			"/var/lib/gravity/planet/registry:/ext/registry",
 			"/var/lib/gravity/planet/share:/ext/share",
@@ -283,6 +284,7 @@ func (s *ConfigureSuite) TestCanSetCloudProviderWithoutCloudConfig(c *check.C) {
 		"service-uid":                {"1000"},
 		"volume": {
 			"/var/lib/gravity/planet/etcd:/ext/etcd",
+			"/var/lib/gravity/planet/kubelet:/var/lib/kubelet",
 			"/var/lib/gravity/planet/docker:/ext/docker",
 			"/var/lib/gravity/planet/registry:/ext/registry",
 			"/var/lib/gravity/planet/share:/ext/share",

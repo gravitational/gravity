@@ -31,6 +31,7 @@ import (
 	libselinux "github.com/gravitational/gravity/lib/system/selinux"
 	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/utils"
+	"github.com/gravitational/satellite/monitoring"
 
 	"github.com/gravitational/trace"
 	"github.com/opencontainers/selinux/go-selinux"
@@ -131,8 +132,13 @@ func unloadSELinuxPolicy() error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	metadata, err := monitoring.GetOSRelease()
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	return libselinux.Unload(libselinux.BootstrapConfig{
 		StateDir: stateDir,
+		OS:       *metadata,
 	})
 }
 
@@ -182,8 +188,6 @@ func unmountDevicemapper(printer utils.Printer, logger log.FieldLogger) error {
 	}
 	return nil
 }
-
-// FIXME: unlinkat //.gravity/packages/unpacked
 
 func removePaths(printer utils.Printer, logger log.FieldLogger, paths ...string) error {
 	var errors []error

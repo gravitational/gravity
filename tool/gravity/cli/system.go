@@ -36,7 +36,6 @@ import (
 	"github.com/gravitational/gravity/lib/pack/localpack"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
-	libsystem "github.com/gravitational/gravity/lib/system"
 	"github.com/gravitational/gravity/lib/system/environ"
 	"github.com/gravitational/gravity/lib/system/service"
 	"github.com/gravitational/gravity/lib/systemservice"
@@ -51,23 +50,6 @@ import (
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
 )
-
-func execFromJail(env *localenv.LocalEnvironment, rootDir string, args []string) error {
-	log.WithFields(logrus.Fields{
-		"root-dir": rootDir,
-		"args":     args,
-	}).Info("Execute in jail environ.")
-	// NB: allow gravity_t self:capability sys_chroot;
-	if err := libsystem.Chroot(rootDir); err != nil {
-		return trace.Wrap(err)
-	}
-	cmd := args[0]
-	if err := syscall.Exec(cmd, args, nil); err != nil {
-		return trace.Wrap(trace.ConvertSystemError(err),
-			"failed to execve(%q, %q)", cmd, args)
-	}
-	return nil
-}
 
 // systemPullUpdates pulls new packages from remote Ops Center
 func systemPullUpdates(env *localenv.LocalEnvironment, opsCenterURL string, runtimePackage loc.Locator) error {

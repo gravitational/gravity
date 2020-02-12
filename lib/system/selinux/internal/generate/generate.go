@@ -3,17 +3,18 @@
 package main
 
 import (
-	"github.com/gravitational/gravity/lib/system/selinux"
+	"log"
+
+	"github.com/gravitational/gravity/lib/system/selinux/internal/policy"
 
 	"github.com/gravitational/vfsgen"
-	log "github.com/sirupsen/logrus"
 )
 
 func main() {
-	err := vfsgen.Generate(selinux.Policy, vfsgen.Options{
+	err := vfsgen.Generate(policy.Policy, vfsgen.Options{
 		Filename:     "policy_embed.go",
 		BuildTags:    "selinux_embed",
-		PackageName:  "selinux",
+		PackageName:  "policy",
 		VariableName: "Policy",
 	})
 	if err != nil {

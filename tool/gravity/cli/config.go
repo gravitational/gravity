@@ -62,6 +62,7 @@ import (
 	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/users"
 	"github.com/gravitational/gravity/lib/utils"
+	"github.com/gravitational/satellite/monitoring"
 
 	gcemeta "cloud.google.com/go/compute/metadata"
 	"github.com/docker/docker/pkg/namesgenerator"
@@ -492,12 +493,21 @@ func (i *InstallConfig) BootstrapSELinux(printer utils.Printer) error {
 	if !i.SELinux || i.FromService {
 		return nil
 	}
+	metadata, err := monitoring.GetOSRelease()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if !selinux.IsSystemSupported(metadata.ID) {
+		log.WithField("os", metadata).Info("No SELinux policy for specified system, will skip.")
+		i.SELinux = false
+		return nil
+	}
 	printer.PrintStep("Bootstrapping installer for SELinux")
-	err := BootstrapSELinuxAndRespawn(selinux.BootstrapConfig{
+	return BootstrapSELinuxAndRespawn(selinux.BootstrapConfig{
 		StateDir:  i.SystemStateDir,
 		VxlanPort: &i.VxlanPort,
+		OS:        *metadata,
 	})
-	return trace.Wrap(err)
 }
 
 func (i *InstallConfig) validateApplicationDir() error {
@@ -846,9 +856,19 @@ func (j *JoinConfig) bootstrapSELinux(printer utils.Printer) error {
 	if !j.SELinux || j.FromService {
 		return nil
 	}
+	metadata, err := monitoring.GetOSRelease()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if !selinux.IsSystemSupported(metadata.ID) {
+		log.WithField("os", metadata).Info("No SELinux policy for specified system, will skip.")
+		j.SELinux = false
+		return nil
+	}
 	printer.PrintStep("Bootstrapping installer for SELinux")
 	return BootstrapSELinuxAndRespawn(selinux.BootstrapConfig{
 		StateDir: j.SystemStateDir,
+		OS:       *metadata,
 	})
 }
 
@@ -901,8 +921,19 @@ func (r *autojoinConfig) bootstrapSELinux(printer utils.Printer) error {
 	if !r.selinux || r.fromService {
 		return nil
 	}
+	metadata, err := monitoring.GetOSRelease()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if !selinux.IsSystemSupported(metadata.ID) {
+		log.WithField("os", metadata).Info("No SELinux policy for specified system, will skip.")
+		r.selinux = false
+		return nil
+	}
 	printer.PrintStep("Bootstrapping installer for SELinux")
-	return BootstrapSELinuxAndRespawn(selinux.BootstrapConfig{})
+	return BootstrapSELinuxAndRespawn(selinux.BootstrapConfig{
+		OS: *metadata,
+	})
 }
 
 type autojoinConfig struct {

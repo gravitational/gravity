@@ -2,7 +2,7 @@
 
 // +build selinux_embed
 
-package selinux
+package policy
 
 import (
 	"bytes"
@@ -3237,8 +3237,6 @@ func (f *vfsgen۰FileInfo) Readdir(count int) ([]os.FileInfo, error) {
 	return nil, fmt.Errorf("cannot Readdir from file %s", f.name)
 }
 func (f *vfsgen۰FileInfo) Stat() (os.FileInfo, error) { return f, nil }
-
-func (f *vfsgen۰FileInfo) NotWorthGzipCompressing() {}
 
 func (f *vfsgen۰FileInfo) Name() string       { return f.name }
 func (f *vfsgen۰FileInfo) Size() int64        { return int64(len(f.content)) }

@@ -62,7 +62,7 @@ func (*S) TestUpdatesCommandLine(c *check.C) {
 			},
 		},
 		{
-			comment:   "Handles negation flags",
+			comment:   "Handles negated flags",
 			inputArgs: []string{"install", "--no-selinux", "/path/to/data"},
 			outputArgs: []string{
 				"install", "--no-selinux", `"/path/to/data"`,

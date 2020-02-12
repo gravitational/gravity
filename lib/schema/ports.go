@@ -35,7 +35,7 @@ var DefaultPortRanges = PortRanges{
 	},
 }
 
-// PortRanges arrange ports into groups
+// PortRanges arranges ports into groups
 type PortRanges struct {
 	// Kubernetes lists kubernetes-specific ports
 	Kubernetes []PortRange

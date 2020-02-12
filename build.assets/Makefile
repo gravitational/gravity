@@ -233,6 +233,7 @@ build-in-container: buildbox
 		   -e 'GRAVITY_LINKFLAGS=$(GRAVITY_LINKFLAGS)' \
 		   -e "GRAVITY_BUILDFLAGS=$(GRAVITY_BUILDFLAGS)" \
 		   -e "GRAVITY_BUILDTAGS=$(GRAVITY_BUILDTAGS)" \
+		   -e "TARGETS=$(TARGETS)" \
 		   $(GOCACHE_DOCKER_OPTIONS) \
 		   $(BBOX) \
 		   dumb-init make -C $(SRCDIR)/build.assets -j $(TARGETS)
@@ -596,7 +597,7 @@ enter:
 .PHONY: selinux
 selinux: $(SELINUX_ASSETS)
 ifeq ($(OS),linux)
-	make -C $(TOP)/lib/system/selinux
+	$(MAKE) -C $(TOP)/lib/system/selinux
 endif
 
 .PHONY: push-selinux

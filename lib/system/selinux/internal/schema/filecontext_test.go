@@ -74,8 +74,8 @@ func (*S) TestParsesFcontextFile(c *C) {
 	})
 }
 
-func withType(typ string) Label {
-	return Label{
+func withType(typ string) *Label {
+	return &Label{
 		User:          "system_u",
 		Role:          "object_r",
 		Type:          typ,

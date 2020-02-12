@@ -54,6 +54,9 @@ func ParseFcontextFile(r io.Reader) (result []FcontextFileItem, err error) {
 // AsAddCommand formats this item as a 'semanage fcontext' command
 // to add a new local rule
 func (r FcontextFileItem) AsAddCommand() string {
+	if r.Label == nil {
+		return ""
+	}
 	return fmt.Sprintf("fcontext --add --ftype %v --type %v --range '%v' '%v'",
 		r.FileType.AsParameter(),
 		r.Label.Type,
@@ -81,7 +84,7 @@ type FcontextFileItem struct {
 	// targets: any, regular files, sockets, symlinks, etc.
 	FileType FileType
 	// Label specifies the SELinux label of this entry
-	Label Label
+	Label *Label
 }
 
 // String returns a text representation of this SELinux context
@@ -207,7 +210,7 @@ func parseFcontextFileItem(s string) (item *FcontextFileItem, err error) {
 	return &FcontextFileItem{
 		Path:     path,
 		FileType: *ftype,
-		Label:    *label,
+		Label:    label,
 	}, nil
 }
 
@@ -247,7 +250,7 @@ func parseFileType(s string) (*FileType, error) {
 
 func parseContext(s string) (*Label, error) {
 	if s == "<<none>>" {
-		// TODO: placeholder?
+		// Relabelling application should not relabel this location
 		return nil, nil
 	}
 	p := newContextParser(s)
@@ -272,7 +275,7 @@ func (p *contextParser) parse() (*Label, error) {
 	p.skip(",")
 	p.securityRange()
 	p.skip(")")
-	return &p.state, p.err
+	return p.state, p.err
 }
 
 func (p *contextParser) ident(tok string) {
@@ -298,7 +301,7 @@ func (p *contextParser) label() {
 		p.error("invalid security context: expected '<user>:<role>:<type>' but got %q", p.t.Text())
 		return
 	}
-	p.state = Label{
+	p.state = &Label{
 		User: pieces[0],
 		Role: pieces[1],
 		Type: pieces[2],
@@ -330,7 +333,7 @@ func (p *contextParser) error(format string, args ...interface{}) {
 type contextParser struct {
 	t     *tokenizer
 	s     string
-	state Label
+	state *Label
 	err   error
 }
 
