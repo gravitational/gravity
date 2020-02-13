@@ -471,14 +471,3 @@ func localAppEnviron() (registryHostPort string, err error) {
 	registryHostPort = fmt.Sprintf("%v:5000", host)
 	return registryHostPort, nil
 }
-
-func ensureNoApp(locator loc.Locator, apps appservice.Applications) error {
-	app, err := apps.GetApp(locator)
-	if err != nil {
-		if !trace.IsNotFound(err) {
-			return trace.Wrap(err)
-		}
-		return nil
-	}
-	return trace.AlreadyExists("%v already exists", app)
-}

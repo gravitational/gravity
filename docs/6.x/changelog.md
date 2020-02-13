@@ -7,12 +7,12 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 6.3.5         | No  | January 16th, 2020   | -                    | 1.17.0             | 3.2.13           |
+| 6.3.6         | No  | February 4th, 2020   | -                    | 1.17.0             | 3.2.13           |
 | 6.2.5*        | No  | December 3rd, 2019   | -                    | 1.16.3             | 3.2.13           |
-| 6.1.16        | Yes | January 14th, 2020   | November 10th, 2021  | 1.15.5             | 3.2.12           |
+| 6.1.18        | Yes | February 4th, 2020   | November 10th, 2021  | 1.15.5             | 3.2.12           |
 | 6.0.10*       | No  | October 17th, 2019   | -                    | 1.14.7             | 3.2.12           |
 | 5.6.8*        | No  | September 18th, 2019 | -                    | 1.14.7             | 3.0.6-gravity    |
-| 5.5.34        | Yes | January 28th, 2020   | September 7th, 2020  | 1.13.11            | 3.0.6-gravity    |
+| 5.5.37        | Yes | February 11th, 2020  | September 7th, 2020  | 1.13.11            | 3.0.6-gravity    |
 | 5.4.10*       | No  | March 26th, 2019     | -                    | 1.13.5             | 2.4.10           |
 | 5.3.9*        | No  | March 7th, 2019      | -                    | 1.12.3             | 2.4.7            |
 | 5.2.16        | Yes | October 11th, 2019   | October 15th, 2019   | 1.11.9             | 2.4.10           |
@@ -37,6 +37,28 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     See [Direct Upgrades From Older LTS Versions](/pack/#direct-upgrades-from-older-lts-versions) for details.
 
 ## 6.x Releases
+
+### 6.3.6 (February 4th, 2020)
+
+#### Bugfixes
+
+* Fix an issue with flannel incorrectly recovering from a watch failure ([#1070](https://github.com/gravitational/gravity/pull/1070)).
+* Fix an issue with changes to pod CIDR within cluster configuration ([#1043](https://github.com/gravitational/gravity/pull/1043)).
+* Fix broken menu height and scrollbars ([#1042](https://github.com/gravitational/gravity/pull/1042)).
+* Fix a UI issue with null items returned by kubernetes API ([#1039](https://github.com/gravitational/gravity/pull/1039)).
+* Enable all kubernetes default admission controllers ([#1069](https://github.com/gravitational/gravity/pull/1069)).
+
+### 6.1.18 LTS (February 4th, 2020)
+
+#### Improvements
+
+* Make username/password for SMTP configuration optional ([#1062](https://github.com/gravitational/gravity/pull/1062)).
+
+#### Bugfixes
+
+* Fix an issue with flannel incorrectly recovering from a watch failure ([#1070](https://github.com/gravitational/gravity/pull/1070)).
+* Enable all kubernetes default admission controllers ([#1070](https://github.com/gravitational/gravity/pull/1070)).
+
 
 ### 6.3.5 (January 16th, 2020)
 
@@ -527,6 +549,34 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 * Add support for using `helm` directly from host.
 
 ## 5.x Releases
+
+### 5.5.37 LTS (February 11th, 2020)
+
+#### Improvements
+
+* Include etcd dump and gravity status output into gravity report. ([#1081](https://github.com/gravitational/gravity/pull/1081))
+
+#### Bugfixes
+
+* Fix the issue with service name resolution inside init containers in Gravity hooks. ([#1095](https://github.com/gravitational/gravity/pull/1095))
+
+### 5.5.36 LTS (February 6th, 2020)
+
+#### Bugfixes
+
+* Fix an issue with Monitoring tab not working due to InfluxDB authorization failures ([#1076](https://github.com/gravitational/gravity/pull/1076)).
+
+### 5.5.35 LTS (February 4th, 2020)
+
+#### Improvements
+
+* Make username/password for SMTP configuration optional ([#1060](https://github.com/gravitational/gravity/pull/1060))
+
+#### Bugfixes
+
+* Fix an issue with flannel incorrectly recovering from a watch failure ([#1071](https://github.com/gravitational/gravity/pull/1071))
+* Fix an issue with merging ClusterConfiguration resource and validation checks ([#1061](https://github.com/gravitational/gravity/pull/1061))
+
 
 ### 5.5.34 LTS (January 28th, 2020)
 

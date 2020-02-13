@@ -449,7 +449,7 @@ func (e *engine) getKeys(key key) ([]string, error) {
 	for _, n := range re.Node.Nodes {
 		vals = append(vals, suffix(n.Key))
 	}
-	sort.Sort(sort.StringSlice(vals))
+	sort.Strings(vals)
 	return vals, nil
 }
 
@@ -476,6 +476,7 @@ func convertErr(e error) error {
 }
 
 func isDir(n *client.Node) bool {
+	//nolint:gosimple
 	return n != nil && n.Dir == true
 }
 
@@ -576,7 +577,7 @@ func (r retryApi) retry(ctx context.Context, fn apiCall) (resp *client.Response,
 			return trace.Wrap(err)
 		}
 		if err != nil {
-			return &backoff.PermanentError{err}
+			return &backoff.PermanentError{Err: err}
 		}
 		return nil
 	}, b)

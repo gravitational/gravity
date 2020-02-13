@@ -133,6 +133,7 @@ func newUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironm
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	//nolint:errcheck
 	localEnv.EmitOperationEvent(ctx, *operation)
 	return updater, nil
 }

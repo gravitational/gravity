@@ -662,7 +662,9 @@ func UnmarshalUser(bytes []byte) (User, error) {
 		if err := teleutils.UnmarshalWithSchema(teleservices.GetUserSchema(UserSpecV2Extension), &u, bytes); err != nil {
 			return nil, trace.BadParameter(err.Error())
 		}
+		//nolint:errcheck
 		u.Metadata.CheckAndSetDefaults()
+		//nolint:errcheck
 		u.CheckAndSetDefaults()
 		utils.UTC(&u.Spec.CreatedBy.Time)
 		utils.UTC(&u.Spec.Expires)

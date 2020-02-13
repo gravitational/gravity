@@ -276,7 +276,7 @@ func SSHRunAndParse(
 
 // ParseDiscard returns a no-op parser function that discards the input
 func ParseDiscard(r *bufio.Reader) error {
-	io.Copy(ioutil.Discard, r)
+	io.Copy(ioutil.Discard, r) //nolint:errcheck
 	return nil
 }
 

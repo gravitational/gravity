@@ -21,7 +21,7 @@ import (
 	"fmt"
 
 	log "github.com/sirupsen/logrus"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 )
 
 func (r Endpoints) String() string {
@@ -30,9 +30,9 @@ func (r Endpoints) String() string {
 	}
 	var buf bytes.Buffer
 	for _, endpoint := range r[:len(r)-1] {
-		fmt.Fprintf(&buf, fmt.Sprintf("endpoint(subsets: %v),", EndpointSubsets(endpoint.Subsets)))
+		fmt.Fprintf(&buf, "endpoint(subsets: %v),", EndpointSubsets(endpoint.Subsets))
 	}
-	fmt.Fprintf(&buf, fmt.Sprintf("endpoint(subsets: %v)", EndpointSubsets(r[len(r)-1].Subsets)))
+	fmt.Fprintf(&buf, "endpoint(subsets: %v)", EndpointSubsets(r[len(r)-1].Subsets))
 	return buf.String()
 }
 
@@ -44,9 +44,9 @@ func (r EndpointSubsets) String() string {
 	}
 	var buf bytes.Buffer
 	for _, subset := range r[:len(r)-1] {
-		fmt.Fprintf(&buf, fmt.Sprintf("subset(addresses: %v),", EndpointAddrs(subset.Addresses)))
+		fmt.Fprintf(&buf, "subset(addresses: %v),", EndpointAddrs(subset.Addresses))
 	}
-	fmt.Fprintf(&buf, fmt.Sprintf("subset(addresses: %v)", EndpointAddrs(r[len(r)-1].Addresses)))
+	fmt.Fprintf(&buf, "subset(addresses: %v)", EndpointAddrs(r[len(r)-1].Addresses))
 	return buf.String()
 }
 
@@ -58,12 +58,12 @@ func (r EndpointAddrs) String() string {
 	}
 	var buf bytes.Buffer
 	for _, addr := range r[:len(r)-1] {
-		fmt.Fprintf(&buf, fmt.Sprintf("address(ip: %v, hostname: %q, nodename: %q),",
-			addr.IP, addr.Hostname, safeStr(addr.NodeName)))
+		fmt.Fprintf(&buf, "address(ip: %v, hostname: %q, nodename: %q),",
+			addr.IP, addr.Hostname, safeStr(addr.NodeName))
 	}
 	addr := r[len(r)-1]
-	fmt.Fprintf(&buf, fmt.Sprintf("address(ip: %v, hostname: %q, nodename: %q)",
-		addr.IP, addr.Hostname, safeStr(addr.NodeName)))
+	fmt.Fprintf(&buf, "address(ip: %v, hostname: %q, nodename: %q)",
+		addr.IP, addr.Hostname, safeStr(addr.NodeName))
 	return buf.String()
 }
 

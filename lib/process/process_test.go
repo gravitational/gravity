@@ -72,12 +72,13 @@ func (s *ProcessSuite) TestAuthGatewayConfigReload(c *check.C) {
 	}
 
 	// Update auth gateway setting that should trigger reload.
-	process.reloadAuthGatewayConfig(storage.NewAuthGateway(
+	err = process.reloadAuthGatewayConfig(storage.NewAuthGateway(
 		storage.AuthGatewaySpecV1{
 			ConnectionLimits: &storage.ConnectionLimits{
 				MaxConnections: utils.Int64Ptr(50),
 			},
 		}))
+	c.Assert(err, check.IsNil)
 	// Make sure reload event was broadcast.
 	ch := make(chan service.Event)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -90,10 +91,11 @@ func (s *ProcessSuite) TestAuthGatewayConfigReload(c *check.C) {
 	}
 
 	// Now update principals.
-	process.reloadAuthGatewayConfig(storage.NewAuthGateway(
+	err = process.reloadAuthGatewayConfig(storage.NewAuthGateway(
 		storage.AuthGatewaySpecV1{
 			PublicAddr: &[]string{"example.com"},
 		}))
+	c.Assert(err, check.IsNil)
 	// Make sure process config is updated.
 	config := process.TeleportProcess.Config
 	comparePrincipals(c, config.Auth.PublicAddrs, []string{"example.com"})
@@ -123,10 +125,7 @@ func (s *ProcessSuite) TestClusterServices(c *check.C) {
 	service1 := func(ctx context.Context) {
 		close(service1Launched)
 		defer close(service1Done)
-		select {
-		case <-ctx.Done():
-			return
-		}
+		<-ctx.Done()
 	}
 
 	service2Launched := make(chan bool)
@@ -134,10 +133,7 @@ func (s *ProcessSuite) TestClusterServices(c *check.C) {
 	service2 := func(ctx context.Context) {
 		close(service2Launched)
 		defer close(service2Done)
-		select {
-		case <-ctx.Done():
-			return
-		}
+		<-ctx.Done()
 	}
 
 	// launch services

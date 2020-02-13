@@ -3,7 +3,12 @@
 </a>
 
 Gravity is an [upstream Kubernetes](https://kubernetes.io/) packaging solution
-that takes the drama out of on-premises deployments.
+that takes the drama out of deploying and running applications in someone
+else's cloud accounts, on-premise data centers, edge locations and other
+"uncharted territory" environments.
+
+With Gravity, your Kubernetes apps can run and be regularly updated anywhere in
+the world without a massive DevOps team.
 
 |Project Links| Description
 |---|----
@@ -62,17 +67,12 @@ on compliance and reducing the overhead of managing Kubernetes**:
 We have seen the following primary use cases for using a image-based Kubernetes approach
 (there may be others):
 
-* Deploying complex SaaS applications into on-premises enterprise environments.
-* Managing many idempotent Kubernetes clusters in environments where compliance
-  and security matters. An example would be if you want the same, compliant
-  Kubernetes environment across a variety of organizations or infrastructure
-  environments.
-* Environments where autonomous Kubernetes is required, such as large multi-node
-  hardware appliances, production floors, edge deployments, etc.
+* Deploying and running complex SaaS applications into on-premises enterprise environments.
+* Deploying and running complex SaaS applications in thousands of edge locations (retail, transportation, energy, etc).
 
 Anyone who needs Kubernetes best practices out of the box, without having to
-proactively manage it can benefit from Gravity. It allows you to focus on building 
-your product instead of managing Kubernetes.
+proactively manage it can benefit from Gravity. It allows you to focus on
+building your product instead of managing Kubernetes.
 
 ## Cluster Images
 
@@ -88,6 +88,28 @@ A Cluster Image produced by Gravity includes:
 An image is all one needs to re-create the complete replica of the original
 Kubernetes cluster, with all deployed applications inside, even in an
 air-gapped server room.
+
+## How do Initial Deployments work?
+
+A cluster image created with Gravity can be used for:
+
+1. Creating many Kubernetes clusters from scratch, on any infrastructure.
+2. Installing applications contained in the cluster image into an existing
+   Kubernetes cluster, like OpenShift.
+
+## How do Updates work?
+
+Developers can continuously update their applications using different methods:
+
+1. Vanilla CI/CD using Kubernetes APIs, which is available for every cluster.
+   This is probably what you're already doing.
+2. Via "polling model", when each Gravity cluster will automatically download
+   updates from a Gravity Hub, letting cluster users decide when/if they want
+   to upgrade. This method is recommended for traditional on-premise
+   environments when developers do not have access to each deployment site.
+3. Offline method, when a developer prepares a new cluster image which can be
+   distributed via offline media. This method is suitable for air-gapped
+   environments.
 
 ## Remote Access and Compliance
 

@@ -136,7 +136,7 @@ func mergeServers(infos checks.ServerInfos, servers []storage.Server) (result []
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
-		result = append(result, checks.Server{server, *info})
+		result = append(result, checks.Server{Server: server, ServerInfo: *info})
 	}
 	return result, nil
 }

@@ -79,7 +79,9 @@ func resourceGravityLogForwarderRead(d *schema.ResourceData, m interface{}) erro
 
 	for _, forwarder := range forwarders {
 		if forwarder.GetName() == name {
+			//nolint:errcheck
 			d.Set("address", forwarder.GetAddress())
+			//nolint:errcheck
 			d.Set("protocol", forwarder.GetProtocol())
 			return nil
 		}

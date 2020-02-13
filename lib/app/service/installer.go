@@ -199,7 +199,8 @@ func (r *applications) GetAppInstaller(req appservice.InstallerRequest) (install
 				checkScriptFilename, checkScript, defaults.SharedExecutableMask),
 			archive.ItemFromStringMode(
 				readmeFilename, readme, defaults.SharedReadMask))...)
-		writer.CloseWithError(err)
+		// always returns nil
+		writer.CloseWithError(err) //nolint:errcheck
 	}()
 	return &fileutils.CleanupReadCloser{
 		ReadCloser: reader,

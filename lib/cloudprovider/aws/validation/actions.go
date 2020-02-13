@@ -107,7 +107,7 @@ func (r Action) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON reads an Action value from JSON
 func (r *Action) UnmarshalJSON(data []byte) (err error) {
 	err = (&r.Context).UnmarshalText(data[1:4])
-	r.Name = string(data[4:len(data)])
+	r.Name = string(data[4:])
 	return trace.Wrap(err)
 }
 

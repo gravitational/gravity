@@ -85,7 +85,9 @@ func startInstall(env *localenv.LocalEnvironment, config InstallConfig) error {
 	})
 	if utils.IsContextCancelledError(err) {
 		// We only end up here if the initialization has not been successful - clean up the state
-		InstallerCleanup()
+		if err := InstallerCleanup(); err != nil {
+			log.Warnf("Failed to clean up installer: %v.", err)
+		}
 		return trace.Wrap(err, "installer interrupted")
 	}
 	return trace.Wrap(err)
@@ -244,7 +246,9 @@ func restartInstallOrJoin(env *localenv.LocalEnvironment) error {
 	})
 	if utils.IsContextCancelledError(err) {
 		// We only end up here if the initialization has not been successful - clean up the state
-		InstallerCleanup()
+		if err := InstallerCleanup(); err != nil {
+			log.Warnf("Failed to clean up installer: %v.", err)
+		}
 		return trace.Wrap(err, "installer interrupted")
 	}
 	return trace.Wrap(err)
@@ -428,7 +432,9 @@ func autojoin(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, d
 	})
 	if utils.IsContextCancelledError(err) {
 		// We only end up here if the initialization has not been successful - clean up the state
-		InstallerCleanup()
+		if err := InstallerCleanup(); err != nil {
+			log.Warnf("Failed to clean up installer: %v.", err)
+		}
 		return trace.Wrap(err, "agent interrupted")
 	}
 	return trace.Wrap(err)
@@ -695,7 +701,9 @@ func join(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, confi
 	})
 	if utils.IsContextCancelledError(err) {
 		// We only end up here if the initialization has not been successful - clean up the state
-		InstallerCleanup()
+		if err := InstallerCleanup(); err != nil {
+			log.Warnf("Failed to clean up installer: %v.", err)
+		}
 		return trace.Wrap(err, "agent interrupted")
 	}
 	return trace.Wrap(err)

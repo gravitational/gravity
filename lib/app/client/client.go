@@ -74,7 +74,9 @@ func NewClient(addr string, params ...ClientParam) (*Client, error) {
 	}
 	client := &Client{Client: *c}
 	for _, param := range params {
-		param(client)
+		if err := param(client); err != nil {
+			return nil, trace.Wrap(err)
+		}
 	}
 	return client, nil
 }
@@ -125,6 +127,7 @@ func (c *Client) CreateImportOperation(req *app.ImportRequest) (*storage.AppOper
 			close(errorc)
 			close(progressc)
 		}()
+		//nolint:gosimple
 		for {
 			select {
 			case <-time.After(progressPollInterval):

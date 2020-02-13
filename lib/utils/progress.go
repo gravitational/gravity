@@ -37,19 +37,19 @@ import (
 // Printer describes a capability to output to standard output
 type Printer interface {
 	io.Writer
-	Printf(format string, args ...interface{}) (int, error)
-	Print(args ...interface{}) (int, error)
-	Println(args ...interface{}) (int, error)
-	PrintStep(format string, args ...interface{}) (int, error)
+	Printf(format string, args ...interface{})
+	Print(args ...interface{})
+	Println(args ...interface{})
+	PrintStep(format string, args ...interface{})
 }
 
 var DiscardPrinter = nopPrinter{}
 
-func (nopPrinter) Write(p []byte) (int, error)                               { return 0, nil }
-func (nopPrinter) Printf(format string, args ...interface{}) (int, error)    { return 0, nil }
-func (nopPrinter) Print(args ...interface{}) (int, error)                    { return 0, nil }
-func (nopPrinter) Println(args ...interface{}) (int, error)                  { return 0, nil }
-func (nopPrinter) PrintStep(format string, args ...interface{}) (int, error) { return 0, nil }
+func (nopPrinter) Write(p []byte) (int, error)                  { return 0, nil }
+func (nopPrinter) Printf(format string, args ...interface{})    {}
+func (nopPrinter) Print(args ...interface{})                    {}
+func (nopPrinter) Println(args ...interface{})                  {}
+func (nopPrinter) PrintStep(format string, args ...interface{}) {}
 
 type nopPrinter struct {
 }

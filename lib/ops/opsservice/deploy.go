@@ -38,11 +38,6 @@ func (s *site) planetEnterCommand(args ...string) []string {
 	return exe.PlanetCommandSlice(args, s.contextArgs()...)
 }
 
-// planetStatusCommand returns a command that outputs planet status
-func (s *site) planetStatusCommand() []string {
-	return s.gravityCommand("planet", "status")
-}
-
 // gravityCommand generates a command line for a gravity sub-command specified with args.
 // It adds additional flags depending on the context.
 func (s *site) gravityCommand(args ...string) []string {

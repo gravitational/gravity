@@ -26,7 +26,6 @@ import (
 
 	"github.com/gravitational/gravity/lib/compare"
 	"github.com/gravitational/gravity/lib/defaults"
-	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/opsclient"
 	"github.com/gravitational/gravity/lib/ops/opsservice"
@@ -46,17 +45,13 @@ import (
 func TestOpsHandler(t *testing.T) { TestingT(t) }
 
 type OpsHandlerSuite struct {
-	backend     storage.Backend
-	suite       suite.OpsSuite
-	webServer   *httptest.Server
-	users       users.Identity
-	clock       *timetools.FreezedTime
-	adminUser   string
-	testAppPath string
-	testApp     loc.Locator
-	client      *opsclient.Client
-
-	dir string
+	backend   storage.Backend
+	suite     suite.OpsSuite
+	webServer *httptest.Server
+	users     users.Identity
+	clock     *timetools.FreezedTime
+	adminUser string
+	client    *opsclient.Client
 }
 
 var _ = Suite(&OpsHandlerSuite{
@@ -109,6 +104,7 @@ func (s *OpsHandlerSuite) SetUpTest(c *C) {
 	s.client, err = opsclient.NewAuthenticatedClient(
 		s.webServer.URL, s.adminUser, "admin-password",
 		opsclient.HTTPClient(s.webServer.Client()))
+	c.Assert(err, IsNil)
 
 	s.suite.O = s.client
 	s.suite.U = s.users
@@ -171,6 +167,7 @@ func (s *OpsHandlerSuite) TestGithubConnector(c *C) {
 	connectorWithoutSecrets := connector
 	connectorWithoutSecrets.Spec.ClientSecret = ""
 	out, err = s.client.GetGithubConnector(key, connector.GetName(), !withSecrets)
+	c.Assert(err, IsNil)
 	compare.DeepCompare(c, out, connectorWithoutSecrets)
 
 	err = s.client.DeleteGithubConnector(context.TODO(), key, connector.GetName())

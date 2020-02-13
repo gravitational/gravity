@@ -23,7 +23,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gravitational/gravity/lib/blob"
 	"github.com/gravitational/gravity/lib/blob/fs"
 	"github.com/gravitational/gravity/lib/compare"
 	"github.com/gravitational/gravity/lib/defaults"
@@ -41,7 +40,6 @@ func TestLocal(t *testing.T) { TestingT(t) }
 
 type LocalSuite struct {
 	server  *PackageServer
-	objects blob.Objects
 	backend storage.Backend
 	suite   suite.PackageSuite
 	dir     string

@@ -190,8 +190,7 @@ func (r *PeerServer) ValidateConnection(ctx context.Context) error {
 
 // Stop stops this server and its internal goroutines
 func (r *PeerServer) Stop(ctx context.Context) error {
-	err := r.server.Stop(ctx)
-	return trace.Wrap(err)
+	return r.server.Stop(ctx)
 }
 
 // Close stops this server and its internal goroutines

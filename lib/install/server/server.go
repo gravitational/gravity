@@ -18,7 +18,6 @@ package server
 import (
 	"context"
 	"net"
-	"sync"
 
 	installpb "github.com/gravitational/gravity/lib/install/proto"
 	"github.com/gravitational/gravity/lib/ops"
@@ -197,24 +196,27 @@ type Server struct {
 	rpc      *grpc.Server
 	executor Executor
 
-	doneOnce sync.Once
-
 	// errC signals the error from either the execute or
 	// operation being aborted
 	errC chan error
 }
 
 func (r *Server) done(ctx context.Context, err error) {
-	r.executor.HandleStopped(ctx)
-	r.errC <- err
+	r.errC <- r.executor.HandleStopped(ctx)
 }
 
 func (r *Server) aborted(ctx context.Context) {
-	r.executor.HandleAborted(ctx)
-	r.errC <- installpb.ErrAborted
+	err := installpb.ErrAborted
+	if errAbort := r.executor.HandleAborted(ctx); errAbort != nil {
+		err = errAbort
+	}
+	r.errC <- err
 }
 
 func (r *Server) complete(ctx context.Context) {
-	r.executor.HandleCompleted(ctx)
-	r.errC <- installpb.ErrCompleted
+	err := installpb.ErrCompleted
+	if errComplete := r.executor.HandleCompleted(ctx); errComplete != nil {
+		err = errComplete
+	}
+	r.errC <- err
 }

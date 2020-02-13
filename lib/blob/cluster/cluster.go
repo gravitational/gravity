@@ -139,12 +139,6 @@ func (c *cluster) GetBLOBEnvelope(hash string) (*blob.Envelope, error) {
 	return c.Local.GetBLOBEnvelope(hash)
 }
 
-type resultTuple struct {
-	envelope *blob.Envelope
-	error    error
-	peer     storage.Peer
-}
-
 func (c *cluster) periodically(name string, fn func() error) {
 	ticker := time.NewTicker(defaults.HeartbeatPeriod)
 	defer ticker.Stop()

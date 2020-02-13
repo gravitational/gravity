@@ -47,28 +47,6 @@ chmod 755 {{.gravity_bin_path}}
 echo "$(date) [INFO] Install agent will be using ${TMPDIR:-/tmp} for temporary files"
 `
 
-	// installTemplate is a template for instructions to run on nodes during
-	// Ops Center initiated installation
-	installTemplate = template.Must(
-		template.New("instructions").Parse(fmt.Sprintf(`
-%v
-{{.service_user_env}}={{.service_uid}} \
-{{.service_group_env}}={{.service_gid}} \
-{{.gravity_bin_path}} {{if .devmode}}--insecure{{end}} --debug install \
-    --advertise-addr={{.advertise_addr}} \
-    --token={{.install_token}} \
-    --cluster={{.cluster_name}} \
-    --app={{.app}} \
-    --role={{.profile}} \
-    --mode={{.mode}} \
-    --cloud-provider={{.cloud_provider}} \
-    --operation-id={{.operation_id}} \
-    --ops-url={{.ops_url}} \
-    --ops-token={{.ops_token}} \
-    --ops-sni-host={{.ops_sni_host}} {{if .gce_node_tags}}--gce-node-tags={{.gce_node_tags}} {{end}}\
-    --ops-tunnel-token={{.ops_tunnel_token}} {{if .background}}1>/dev/null 2>&1 &{{end}}
-`, gravityTemplateSource)))
-
 	// FIXME: remove profiling endpoints when completed
 	// joinTemplate is a template for instructions to run on nodes during
 	// wizard installation or expand

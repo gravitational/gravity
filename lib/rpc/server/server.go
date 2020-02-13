@@ -161,6 +161,7 @@ type Config struct {
 	// Being an interface provides necessary flexibiltiy for testing.
 	commandExecutor
 	// closers lists additional resources to close upon receiving a stop command
+	//nolint:structcheck
 	closers []closer
 }
 
@@ -215,10 +216,8 @@ type systemInfo interface {
 type agentServer struct {
 	Config
 	grpcServer *grpc.Server
-	// listener is the server's listener
-	listener net.Listener
-	ctx      context.Context
-	cancel   context.CancelFunc
+	ctx        context.Context
+	cancel     context.CancelFunc
 }
 
 type closer interface {

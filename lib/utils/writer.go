@@ -44,7 +44,6 @@ func NewTailReader(path string) (io.ReadCloser, error) {
 
 type TailReader struct {
 	reader *tail.Tail
-	closed bool
 	in     net.Conn
 	out    net.Conn
 }

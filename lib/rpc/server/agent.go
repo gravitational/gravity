@@ -62,7 +62,7 @@ func (srv *agentServer) PeerJoin(ctx context.Context, req *pb.PeerJoinRequest) (
 		reconnectTimeout: srv.Config.ReconnectTimeout,
 	})
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return nil, err
 	}
 	return &types.Empty{}, nil
 }
@@ -135,7 +135,11 @@ func (srv *agentServer) Shutdown(ctx context.Context, req *pb.ShutdownRequest) (
 	if srv.StopHandler != nil {
 		err = srv.StopHandler(ctx, req.Completed)
 	}
-	go srv.Stop(ctx)
+	go func() {
+		if err := srv.Stop(ctx); err != nil {
+			srv.Warnf("Failed to shutdown: %v.", err)
+		}
+	}()
 	return &types.Empty{}, trace.Wrap(err)
 }
 
@@ -144,7 +148,11 @@ func (srv *agentServer) Abort(ctx context.Context, req *types.Empty) (resp *type
 	if srv.AbortHandler != nil {
 		err = srv.AbortHandler(ctx)
 	}
-	go srv.Stop(ctx)
+	go func() {
+		if err := srv.Stop(ctx); err != nil {
+			srv.Warnf("Failed to stop server: %v.", err)
+		}
+	}()
 	return &types.Empty{}, trace.Wrap(err)
 }
 
@@ -160,10 +168,9 @@ func (srv *agentServer) command(req pb.CommandArgs, stream pb.Agent_CommandServe
 
 	err = srv.commandExecutor.exec(stream.Context(), stream, req.Args, makeRemoteLogger(stream, srv.FieldLogger))
 	if err != nil {
-		stream.Send(pb.ErrorToMessage(err))
 		log.WithError(err).Warn("Command completed with error.")
-	} else {
-		log.Debug("Command completed OK.")
+		return stream.Send(pb.ErrorToMessage(err))
 	}
-	return trace.Wrap(err)
+	log.Debug("Command completed OK.")
+	return nil
 }

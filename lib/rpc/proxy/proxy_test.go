@@ -41,7 +41,7 @@ func (_ *S) TestProxiesConnections(c *C) {
 	proxy := New(link, log.WithField("test", "TestProxiesConnections"))
 	notifyCh := make(chan struct{}, 1)
 	proxy.notifyCh = notifyCh
-	proxy.Start()
+	c.Assert(proxy.Start(), IsNil)
 	defer proxy.Stop()
 
 	conn, err := link.local.Dial()
@@ -151,10 +151,9 @@ func (r *localLink) resetLocal() {
 	r.local = inprocess.Listen()
 }
 
-func (r *localLink) stop() error {
+func (r *localLink) stop() {
 	r.local.Close()
 	r.upstream.Close()
-	return nil
 }
 
 type localLink struct {

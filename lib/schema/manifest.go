@@ -1189,7 +1189,7 @@ func init() {
 }
 
 // addKnownTypes adds the list of known types to the given scheme.
-func addKnownTypes(scheme *runtime.Scheme) error {
+func addKnownTypes(scheme *runtime.Scheme) {
 	scheme.AddKnownTypeWithName(SchemeGroupVersion.WithKind(KindSystemApplication), &Manifest{})
 	scheme.AddKnownTypeWithName(SchemeGroupVersion.WithKind(KindBundle), &Manifest{})
 	scheme.AddKnownTypeWithName(SchemeGroupVersion.WithKind(KindRuntime), &Manifest{})
@@ -1197,7 +1197,6 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypeWithName(SchemeGroupVersion.WithKind(KindApplication), &Manifest{})
 	scheme.AddKnownTypeWithName(ClusterGroupVersion.WithKind(KindCluster), &Manifest{})
 	scheme.AddKnownTypeWithName(AppGroupVersion.WithKind(KindApplication), &Manifest{})
-	return nil
 }
 
 var (

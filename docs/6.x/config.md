@@ -289,7 +289,8 @@ $ gravity resource create admin.yaml
 The new user can now log into the Cluster via the Web UI with the user
 credentials created above.
 
-!!! tip "Password Restrictions":
+!!! tip "Username and Password Restrictions":
+    Usernames should be composed of characters, hyphens, the at symbol and dots. 
     Passwords must be between 6 and 128 characters long.
 
 
