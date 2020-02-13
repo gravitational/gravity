@@ -24,6 +24,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"text/template"
 
 	"github.com/gravitational/gravity/lib/defaults"
@@ -83,6 +84,12 @@ func (r PatchConfig) Patch() error {
 	port, err := getLocalPortChangeForVxlan()
 	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
+	}
+	if port != nil {
+		if *port == strconv.Itoa(defaults.VxlanPort) {
+			// Nothing to do
+			return nil
+		}
 	}
 	var buf bytes.Buffer
 	w := logger.Writer()

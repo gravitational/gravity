@@ -249,7 +249,7 @@ func getStatePaths() (paths []string) {
 		paths = append(paths, stateDir)
 	}
 	paths = append(paths, state.StateLocatorPaths...)
-	if utils.Exe.WorkingDir != "" {
+	if utils.Exe.WorkingDir != "/" {
 		if stateDir, err := state.GravityInstallDir(); err == nil {
 			paths = append(paths, stateDir)
 		}

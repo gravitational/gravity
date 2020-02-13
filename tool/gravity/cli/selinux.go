@@ -17,20 +17,23 @@ limitations under the License.
 package cli
 
 import (
+	"fmt"
 	"os"
 	"syscall"
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/localenv"
 	libselinux "github.com/gravitational/gravity/lib/system/selinux"
+	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/gravitational/satellite/monitoring"
 	"github.com/gravitational/trace"
 	"github.com/opencontainers/selinux/go-selinux"
 )
 
 // BootstrapSELinuxAndRespawn prepares the node for the installation with SELinux support
 // and restarts the process under the proper SELinux context if necessary
-func BootstrapSELinuxAndRespawn(config libselinux.BootstrapConfig) error {
+func BootstrapSELinuxAndRespawn(config libselinux.BootstrapConfig, printer utils.Printer) error {
 	if !selinux.GetEnabled() {
 		return nil
 	}
@@ -44,11 +47,14 @@ func BootstrapSELinuxAndRespawn(config libselinux.BootstrapConfig) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	if !isSELinuxAlreadyBootstrapped() {
+		printer.PrintStep("Bootstrapping installer for SELinux")
+		if err := libselinux.Bootstrap(config); err != nil {
+			return trace.Wrap(err)
+		}
+	}
 	if procContext["type"] == libselinux.GravityInstallerProcessContext["type"] {
 		return nil
-	}
-	if err := libselinux.Bootstrap(config); err != nil {
-		return trace.Wrap(err)
 	}
 	newProcContext := libselinux.MustNewContext(label)
 	newProcContext["type"] = libselinux.GravityInstallerProcessContext["type"]
@@ -58,12 +64,17 @@ func BootstrapSELinuxAndRespawn(config libselinux.BootstrapConfig) error {
 	}
 	logger.WithField("args", os.Args).Info("Respawn.")
 	cmd := os.Args[0]
-	return syscall.Exec(cmd, os.Args, nil)
+	return syscall.Exec(cmd, os.Args, newRespawnEnviron())
 }
 
 func bootstrapSelinux(env *localenv.LocalEnvironment, path, stateDir string, vxlanPort int) error {
+	metadata, err := monitoring.GetOSRelease()
+	if err != nil {
+		return trace.ConvertSystemError(err)
+	}
 	config := libselinux.BootstrapConfig{
 		StateDir: stateDir,
+		OS:       *metadata,
 	}
 	if vxlanPort != defaults.VxlanPort {
 		config.VxlanPort = &vxlanPort
@@ -78,3 +89,14 @@ func bootstrapSelinux(env *localenv.LocalEnvironment, path, stateDir string, vxl
 	defer f.Close()
 	return libselinux.WriteBootstrapScript(f, config)
 }
+
+func isSELinuxAlreadyBootstrapped() bool {
+	_, ok := os.LookupEnv(alreadyBootstrappedEnv)
+	return ok
+}
+
+func newRespawnEnviron() (environ []string) {
+	return append(os.Environ(), fmt.Sprintf("%v=yes", alreadyBootstrappedEnv))
+}
+
+const alreadyBootstrappedEnv = "GRAVITY_SELINUX_BOOTSTRAPPED"

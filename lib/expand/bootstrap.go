@@ -26,9 +26,11 @@ import (
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/system/environ"
-	log "github.com/sirupsen/logrus"
+	libselinux "github.com/gravitational/gravity/lib/system/selinux"
 
 	"github.com/gravitational/trace"
+	"github.com/opencontainers/selinux/go-selinux"
+	log "github.com/sirupsen/logrus"
 )
 
 // init initializes the peer after a successful connect
@@ -51,6 +53,9 @@ func (p *Peer) initEnviron(ctx operationContext) error {
 		return trace.Wrap(err)
 	}
 	if err := p.ensureServiceUserAndBinary(ctx); err != nil {
+		return trace.Wrap(err)
+	}
+	if err := patchSELinuxConfig(ctx); err != nil {
 		return trace.Wrap(err)
 	}
 	return nil
@@ -199,4 +204,18 @@ func getPeerAddrAndToken(ctx operationContext, role string) (peerAddr, token str
 			role, ctx.Operation.InstallExpand)
 	}
 	return peerAddr, instructions.Token, nil
+}
+
+func patchSELinuxConfig(ctx operationContext) error {
+	if !selinux.GetEnabled() {
+		return nil
+	}
+	installOperation, _, err := ops.GetInstallOperation(ctx.Cluster.Key(), ctx.Operator)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	config := libselinux.PatchConfig{
+		VxlanPort: installOperation.InstallExpand.Vars.OnPrem.VxlanPort,
+	}
+	return config.Patch()
 }
