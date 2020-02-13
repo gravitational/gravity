@@ -141,9 +141,7 @@ listed on the [Gravitational web site](https://gravitational.com)
 ## Why did We Build Gravity?
 
 Gravity was built by [Gravitational Inc](https://gravitational.com), a company
-based in Oakland, California. Gravitational's mission is to allow software
-creators to easily share their products with customers without having to
-convert themselves into software operators.
+based in Oakland, California. 
 
 The original use case for Gravity was to allow Kubernetes applications to be
 deployed into 3rd party environments, like on-premises datacenters. That's why
@@ -153,8 +151,8 @@ for providing remote support.
 
 These features also resonated with security-minded teams who need to run
 applications in environments where _compliance matters_. Gravity clusters are
-always identical and do not allow any configuration drift over time, which
-allows _cluster designers_ (aka, Devops or SREs) to "publish" clusters that are approved for
+always identical and do not allow any configuration drift over time. This
+allows _cluster architects_ (aka, Devops or SREs) to "publish" clusters that are approved for
 production and allow multiple teams within the organization to rapidly scale their
 Kubernetes adoption without having to become security and Kubernetes experts themselves.
 
