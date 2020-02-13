@@ -80,13 +80,16 @@ func IsSystemSupported(systemID string) bool {
 
 // Patch executes the patch script with the underlying configuration
 func (r PatchConfig) Patch() error {
+	if err := r.checkAndSetDefaults(); err != nil {
+		return trace.Wrap(err)
+	}
 	logger := liblog.New(log.WithField(trace.Component, "selinux"))
 	port, err := getLocalPortChangeForVxlan()
 	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
 	}
 	if port != nil {
-		if *port == strconv.Itoa(defaults.VxlanPort) {
+		if *port == strconv.Itoa(r.VxlanPort) {
 			// Nothing to do
 			return nil
 		}
@@ -144,7 +147,7 @@ type BootstrapConfig struct {
 	// If left unspecified (nil), will not be configured
 	VxlanPort *int
 	// OS specifies the OS distribution metadata
-	OS         monitoring.OSRelease
+	OS         *monitoring.OSRelease
 	portRanges *portRanges
 }
 
@@ -159,6 +162,13 @@ func (r *BootstrapConfig) checkAndSetDefaults() error {
 			Generic:    libschema.DefaultPortRanges.Generic,
 			VxlanPort:  r.VxlanPort,
 		}
+	}
+	if r.OS == nil {
+		metadata, err := monitoring.GetOSRelease()
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		r.OS = metadata
 	}
 	return nil
 }
@@ -194,6 +204,13 @@ func (r *BootstrapConfig) isCustomStateDir() bool {
 type PatchConfig struct {
 	// VxlanPort specifies the custom vxlan port.
 	VxlanPort int
+}
+
+func (r *PatchConfig) checkAndSetDefaults() error {
+	if r.VxlanPort == 0 {
+		return trace.BadParameter("Vxlan port is required")
+	}
+	return nil
 }
 
 // Error returns the readable error message
@@ -437,7 +454,7 @@ func importLocalChangesFromReader(r io.Reader) error {
 }
 
 func removePolicy() error {
-	// Leave the container package intact as we might not be
+	// Leave the container policy module in-place as we might not be
 	// the only client
 	return removePolicyByName("gravity")
 }

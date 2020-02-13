@@ -505,7 +505,7 @@ func (i *InstallConfig) BootstrapSELinux(printer utils.Printer) error {
 	return BootstrapSELinuxAndRespawn(selinux.BootstrapConfig{
 		StateDir:  i.SystemStateDir,
 		VxlanPort: &i.VxlanPort,
-		OS:        *metadata,
+		OS:        metadata,
 	}, printer)
 }
 
@@ -866,7 +866,7 @@ func (j *JoinConfig) bootstrapSELinux(printer utils.Printer) error {
 	}
 	return BootstrapSELinuxAndRespawn(selinux.BootstrapConfig{
 		StateDir: j.SystemStateDir,
-		OS:       *metadata,
+		OS:       metadata,
 	}, printer)
 }
 
@@ -929,7 +929,7 @@ func (r *autojoinConfig) bootstrapSELinux(printer utils.Printer) error {
 		return nil
 	}
 	return BootstrapSELinuxAndRespawn(selinux.BootstrapConfig{
-		OS: *metadata,
+		OS: metadata,
 	}, printer)
 }
 

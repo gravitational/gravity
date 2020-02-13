@@ -625,9 +625,11 @@ func (p *Peer) dialCluster(addr, operationID string) (*operationContext, error) 
 		return nil, trace.Wrap(err)
 	}
 	ctx.Operation = *operation
-	err = p.runLocalChecks(*ctx)
-	if err != nil {
-		return nil, utils.Abort(err)
+	if shouldRunLocalChecks(*ctx) {
+		err = p.runLocalChecks(*ctx)
+		if err != nil {
+			return nil, utils.Abort(err)
+		}
 	}
 	return ctx, nil
 }
@@ -1249,12 +1251,12 @@ func shouldRunLocalChecks(ctx operationContext) bool {
 		return true
 	}
 	switch ctx.Operation.State {
-	// Keep this in sync with opsservice#updateOperationState
 	case ops.OperationStateExpandInitiated,
 		ops.OperationStateExpandProvisioning,
 		ops.OperationStateInstallInitiated,
 		ops.OperationStateInstallProvisioning,
 		ops.OperationStateReady:
+		// Keep this in sync with opsservice#updateOperationState
 		return true
 	default:
 		return false

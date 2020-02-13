@@ -29,8 +29,8 @@ import (
 )
 
 // ParseFcontextFile parses a filecontext file given with r.
-// The parser is relatively naive and is line-driven hence it does not support
-// 'ifdef' and other complex constructs we don't use.
+// The parser is simple and line-driven hence it does not support
+// complex constructs like 'ifdef'.
 func ParseFcontextFile(r io.Reader) (result []FcontextFileItem, err error) {
 	s := bufio.NewScanner(r)
 	s.Split(bufio.ScanLines)

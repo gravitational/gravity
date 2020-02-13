@@ -48,7 +48,7 @@ func (*S) TestWritesBootstrapScript(c *C) {
 	}{
 		{
 			config: BootstrapConfig{
-				OS:   testSystem,
+				OS:   &testSystem,
 				Path: "/path/to/installer",
 			},
 			expected: `
@@ -63,7 +63,7 @@ fcontext -a -f a -t gravity_home_t -r 's0' '/path/to/installer/.gravity(/.*)?'
 		},
 		{
 			config: BootstrapConfig{
-				OS:       testSystem,
+				OS:       &testSystem,
 				Path:     "/path/to/installer",
 				StateDir: "/custom/state/dir",
 			},
@@ -101,7 +101,7 @@ fcontext --add --ftype a --type file_type_t --range 's0' '/custom/state/dir/dir2
 		},
 		{
 			config: BootstrapConfig{
-				OS:         testSystem,
+				OS:         &testSystem,
 				Path:       "/path/to/installer",
 				StateDir:   "/custom/state/dir",
 				VxlanPort:  utils.IntPtr(8474),

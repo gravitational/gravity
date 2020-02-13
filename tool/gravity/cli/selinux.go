@@ -26,7 +26,6 @@ import (
 	libselinux "github.com/gravitational/gravity/lib/system/selinux"
 	"github.com/gravitational/gravity/lib/utils"
 
-	"github.com/gravitational/satellite/monitoring"
 	"github.com/gravitational/trace"
 	"github.com/opencontainers/selinux/go-selinux"
 )
@@ -68,13 +67,8 @@ func BootstrapSELinuxAndRespawn(config libselinux.BootstrapConfig, printer utils
 }
 
 func bootstrapSelinux(env *localenv.LocalEnvironment, path, stateDir string, vxlanPort int) error {
-	metadata, err := monitoring.GetOSRelease()
-	if err != nil {
-		return trace.ConvertSystemError(err)
-	}
 	config := libselinux.BootstrapConfig{
 		StateDir: stateDir,
-		OS:       *metadata,
 	}
 	if vxlanPort != defaults.VxlanPort {
 		config.VxlanPort = &vxlanPort
