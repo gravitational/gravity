@@ -40,11 +40,11 @@ import (
 func NewState(p fsm.ExecutorParams, operator ops.Operator) (*stateExecutor, error) {
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithField(constants.FieldPhase, p.Phase.ID),
-		Key:         opKey(p.Plan),
+		Key:         p.Key(),
 		Operator:    operator,
 		Server:      p.Phase.Data.Server,
 	}
-	operation, err := operator.GetSiteOperation(opKey(p.Plan))
+	operation, err := operator.GetSiteOperation(p.Key())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -107,7 +107,7 @@ func (p *stateExecutor) removeAuthorities(backend storage.Backend) error {
 		if err != nil && !trace.IsNotFound(err) {
 			return trace.Wrap(err)
 		}
-		p.Debug("Removed %s from the cluster state.", authID)
+		p.Debugf("Removed %s from the cluster state.", authID)
 	}
 	return nil
 }

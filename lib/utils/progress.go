@@ -143,13 +143,14 @@ func NewProgressWithConfig(ctx context.Context, title string, config ProgressCon
 		level = ProgressLevelDebug
 	}
 	p := &progressPrinter{
-		title:   title,
-		start:   time.Now(),
-		context: ctx,
-		timeout: config.Timeout,
-		steps:   config.Steps,
-		w:       config.Output,
-		level:   level,
+		title:         title,
+		start:         time.Now(),
+		context:       ctx,
+		timeout:       config.Timeout,
+		steps:         config.Steps,
+		w:             config.Output,
+		level:         level,
+		autoTimestamp: config.AutoTimestamp,
 	}
 	return p
 }
@@ -182,6 +183,8 @@ type ProgressConfig struct {
 	Silent bool
 	// Verbose enables verbose output level.
 	Verbose bool
+	// AutoTimestamp automatically prepends timestamp to the progress messages.
+	AutoTimestamp bool
 }
 
 // ProgressLevel represents a level at which reporter reports progress.
@@ -199,20 +202,21 @@ const (
 type progressPrinter struct {
 	w io.Writer
 	sync.Mutex
-	title        string
-	currentEntry *entry
-	timeout      time.Duration
-	steps        int
-	currentStep  int
-	context      context.Context
-	start        time.Time
-	level        ProgressLevel
+	title         string
+	currentEntry  *entry
+	timeout       time.Duration
+	steps         int
+	currentStep   int
+	context       context.Context
+	start         time.Time
+	level         ProgressLevel
+	autoTimestamp bool
 }
 
 // PrintCurrentStep updates message printed for current step that is in progress
 func (p *progressPrinter) PrintCurrentStep(message string, args ...interface{}) {
 	entry := p.updateCurrentEntry(message, args...)
-	printStep(p.w, entry.current, p.steps, entry.message)
+	p.printStep(p.w, entry.current, p.steps, entry.message)
 }
 
 // PrintSubWarn outputs the message at info level as a sub-step.
@@ -245,17 +249,17 @@ func (p *progressPrinter) updateCurrentEntry(message string, args ...interface{}
 
 // Print outputs the specified message in regular color
 func (p *progressPrinter) Print(message string, args ...interface{}) {
-	printStep(p.w, 0, 0, fmt.Sprintf(message, args...))
+	p.printStep(p.w, 0, 0, fmt.Sprintf(message, args...))
 }
 
 // PrintInfo outputs the specified info message in color
 func (p *progressPrinter) PrintInfo(message string, args ...interface{}) {
-	printStep(p.w, 0, 0, color.BlueString(fmt.Sprintf(message, args...)))
+	p.printStep(p.w, 0, 0, color.BlueString(fmt.Sprintf(message, args...)))
 }
 
 // PrintWarn outputs the specified warning message in color and logs the error
 func (p *progressPrinter) PrintWarn(err error, message string, args ...interface{}) {
-	printStep(p.w, 0, 0, color.YellowString(fmt.Sprintf(message, args...)))
+	p.printStep(p.w, 0, 0, color.YellowString(fmt.Sprintf(message, args...)))
 	if err != nil {
 		logrus.Warnf("%v: %v", fmt.Sprintf(message, args...), err)
 	}
@@ -263,7 +267,7 @@ func (p *progressPrinter) PrintWarn(err error, message string, args ...interface
 
 func (p *progressPrinter) printPeriodic(current int, message string, ctx context.Context) {
 	start := time.Now()
-	printStep(p.w, current, p.steps, message)
+	p.printStep(p.w, current, p.steps, message)
 
 	go func() {
 		ticker := time.NewTicker(p.timeout)
@@ -347,24 +351,27 @@ func (p *progressPrinter) Stop() {
 	p.currentEntry.cancel()
 	if p.steps <= 0 {
 		diff := humanize.RelTime(p.start, time.Now(), "", "")
-		printStep(p.w, p.currentEntry.current, p.steps, fmt.Sprintf("%v finished in %v", p.title, diff))
+		p.printStep(p.w, p.currentEntry.current, p.steps, fmt.Sprintf("%v finished in %v", p.title, diff))
 	} else if p.currentEntry.current == p.steps {
 		diff := humanize.RelTime(p.start, time.Now(), "", "")
-		printStep(p.w, p.currentEntry.current, p.steps, fmt.Sprintf("%v completed in %v", p.title, diff))
+		p.printStep(p.w, p.currentEntry.current, p.steps, fmt.Sprintf("%v completed in %v", p.title, diff))
 	} else {
 		diff := humanize.RelTime(p.start, time.Now(), "", "")
-		printStep(p.w, p.currentEntry.current, p.steps, fmt.Sprintf("%v aborted after %v", p.title, diff))
+		p.printStep(p.w, p.currentEntry.current, p.steps, fmt.Sprintf("%v aborted after %v", p.title, diff))
 	}
 	p.currentEntry = nil
 }
 
 // printStep prints step instead of the progress bar
-func printStep(out io.Writer, current, target int, message string) {
+func (p *progressPrinter) printStep(out io.Writer, current, target int, message string) {
 	if target > 0 {
 		fmt.Fprintf(out, "* [%v/%v] %v\n", current, target, message)
 	} else {
-		ts := color.New(color.Bold).Sprintf("%v", time.Now().UTC().Format(constants.HumanDateFormatSeconds))
-		fmt.Fprintf(out, "%v\t%v\n", ts, message)
+		if p.autoTimestamp {
+			timestamp := color.New(color.Bold).Sprintf("%v", time.Now().UTC().Format(constants.HumanDateFormatSeconds))
+			message = fmt.Sprintf("%v\t%v", timestamp, message)
+		}
+		fmt.Fprintf(out, "%v\n", message)
 	}
 }
 

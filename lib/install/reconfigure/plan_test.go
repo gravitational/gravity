@@ -65,14 +65,22 @@ func (s *ReconfiguratorSuite) TestPlan(c *check.C) {
 		phaseID  string
 		verifier func(*check.C, storage.OperationPhase)
 	}{
-		{phases.PreCleanupPhase, s.verifyPreCleanupPhase},
+		{phases.NetworkPhase, s.verifyNetworkPhase},
+		{phases.LocalPackagesPhase, s.verifyLocalPackagesPhase},
 		{installphases.ChecksPhase, s.verifyChecksPhase},
 		{installphases.ConfigurePhase, s.verifyConfigurePhase},
 		{installphases.PullPhase, s.verifyPullPhase},
 		{installphases.MastersPhase, s.suite.VerifyMastersPhase},
 		{installphases.WaitPhase, s.verifyWaitPhase},
 		{installphases.HealthPhase, s.verifyHealthPhase},
-		{phases.PostCleanupPhase, s.verifyPostCleanupPhase},
+		{phases.StatePhase, s.verifyStatePhase},
+		{phases.TokensPhase, s.verifyTokensPhase},
+		{phases.NodePhase, s.verifyNodePhase},
+		{phases.DirectoriesPhase, s.verifyDirectoriesPhase},
+		{phases.PodsPhase, s.verifyPodsPhase},
+		{phases.TeleportPhase, s.verifyTeleportPhase},
+		{phases.GravityPhase, s.verifyGravityPhase},
+		{phases.ClusterPackagesPhase, s.verifyClusterPackagesPhase},
 	}
 
 	c.Assert(len(expected), check.Equals, len(plan.Phases))
@@ -83,57 +91,102 @@ func (s *ReconfiguratorSuite) TestPlan(c *check.C) {
 	}
 }
 
-func (s *ReconfiguratorSuite) verifyPreCleanupPhase(c *check.C, phase storage.OperationPhase) {
+func (s *ReconfiguratorSuite) verifyNetworkPhase(c *check.C, phase storage.OperationPhase) {
 	master := s.suite.Master()
 	storage.DeepComparePhases(c, storage.OperationPhase{
-		ID: phases.PreCleanupPhase,
-		Phases: []storage.OperationPhase{
-			{
-				ID:   fmt.Sprintf("%v%v", phases.PreCleanupPhase, phases.NetworkPhase),
-				Data: &storage.OperationPhaseData{Server: &master},
-			},
-			{
-				ID:   fmt.Sprintf("%v%v", phases.PreCleanupPhase, phases.PackagesPhase),
-				Data: &storage.OperationPhaseData{Server: &master},
-			},
-			{
-				ID:   fmt.Sprintf("%v%v", phases.PreCleanupPhase, phases.DirectoriesPhase),
-				Data: &storage.OperationPhaseData{Server: &master},
-			},
+		ID: phases.NetworkPhase,
+		Data: &storage.OperationPhaseData{
+			Server: &master,
 		},
 	}, phase)
 }
 
-func (s *ReconfiguratorSuite) verifyPostCleanupPhase(c *check.C, phase storage.OperationPhase) {
+func (s *ReconfiguratorSuite) verifyLocalPackagesPhase(c *check.C, phase storage.OperationPhase) {
 	master := s.suite.Master()
 	storage.DeepComparePhases(c, storage.OperationPhase{
-		ID:       phases.PostCleanupPhase,
-		Requires: []string{installphases.HealthPhase},
-		Phases: []storage.OperationPhase{
-			{
-				ID:   fmt.Sprintf("%v%v", phases.PostCleanupPhase, phases.StatePhase),
-				Data: &storage.OperationPhaseData{Server: &master},
-			},
-			{
-				ID:   fmt.Sprintf("%v%v", phases.PostCleanupPhase, phases.TokensPhase),
-				Data: &storage.OperationPhaseData{Server: &master},
-			},
-			{
-				ID:   fmt.Sprintf("%v%v", phases.PostCleanupPhase, phases.NodePhase),
-				Data: &storage.OperationPhaseData{Server: &master},
-			},
-			{
-				ID:   fmt.Sprintf("%v%v", phases.PostCleanupPhase, phases.PodsPhase),
-				Data: &storage.OperationPhaseData{Server: &master},
-			},
-			{
-				ID:   fmt.Sprintf("%v%v", phases.PostCleanupPhase, phases.GravityPhase),
-				Data: &storage.OperationPhaseData{Server: &master},
-			},
-			{
-				ID:   fmt.Sprintf("%v%v", phases.PostCleanupPhase, phases.PackagesPhase),
-				Data: &storage.OperationPhaseData{Server: &master},
-			},
+		ID: phases.LocalPackagesPhase,
+		Data: &storage.OperationPhaseData{
+			Server: &master,
+		},
+	}, phase)
+}
+
+func (s *ReconfiguratorSuite) verifyStatePhase(c *check.C, phase storage.OperationPhase) {
+	master := s.suite.Master()
+	storage.DeepComparePhases(c, storage.OperationPhase{
+		ID: phases.StatePhase,
+		Data: &storage.OperationPhaseData{
+			Server: &master,
+		},
+	}, phase)
+}
+
+func (s *ReconfiguratorSuite) verifyTokensPhase(c *check.C, phase storage.OperationPhase) {
+	master := s.suite.Master()
+	storage.DeepComparePhases(c, storage.OperationPhase{
+		ID: phases.TokensPhase,
+		Data: &storage.OperationPhaseData{
+			Server: &master,
+		},
+	}, phase)
+}
+
+func (s *ReconfiguratorSuite) verifyNodePhase(c *check.C, phase storage.OperationPhase) {
+	master := s.suite.Master()
+	storage.DeepComparePhases(c, storage.OperationPhase{
+		ID: phases.NodePhase,
+		Data: &storage.OperationPhaseData{
+			Server: &master,
+		},
+	}, phase)
+}
+
+func (s *ReconfiguratorSuite) verifyDirectoriesPhase(c *check.C, phase storage.OperationPhase) {
+	master := s.suite.Master()
+	storage.DeepComparePhases(c, storage.OperationPhase{
+		ID: phases.DirectoriesPhase,
+		Data: &storage.OperationPhaseData{
+			Server: &master,
+		},
+	}, phase)
+}
+
+func (s *ReconfiguratorSuite) verifyPodsPhase(c *check.C, phase storage.OperationPhase) {
+	master := s.suite.Master()
+	storage.DeepComparePhases(c, storage.OperationPhase{
+		ID: phases.PodsPhase,
+		Data: &storage.OperationPhaseData{
+			Server: &master,
+		},
+	}, phase)
+}
+
+func (s *ReconfiguratorSuite) verifyTeleportPhase(c *check.C, phase storage.OperationPhase) {
+	master := s.suite.Master()
+	storage.DeepComparePhases(c, storage.OperationPhase{
+		ID: phases.TeleportPhase,
+		Data: &storage.OperationPhaseData{
+			Server: &master,
+		},
+	}, phase)
+}
+
+func (s *ReconfiguratorSuite) verifyGravityPhase(c *check.C, phase storage.OperationPhase) {
+	master := s.suite.Master()
+	storage.DeepComparePhases(c, storage.OperationPhase{
+		ID: phases.GravityPhase,
+		Data: &storage.OperationPhaseData{
+			Server: &master,
+		},
+	}, phase)
+}
+
+func (s *ReconfiguratorSuite) verifyClusterPackagesPhase(c *check.C, phase storage.OperationPhase) {
+	master := s.suite.Master()
+	storage.DeepComparePhases(c, storage.OperationPhase{
+		ID: phases.ClusterPackagesPhase,
+		Data: &storage.OperationPhaseData{
+			Server: &master,
 		},
 	}, phase)
 }

@@ -283,9 +283,11 @@ func (s *site) configurePackages(ctx *operationContext, req ops.ConfigurePackage
 		return trace.Wrap(err)
 	}
 
-	_, err = s.configureSiteExportPackage(ctx)
-	if err != nil {
-		return trace.Wrap(err)
+	if ctx.operation.Type == ops.OperationInstall {
+		_, err = s.configureSiteExportPackage(ctx)
+		if err != nil {
+			return trace.Wrap(err)
+		}
 	}
 
 	_, err = s.configureLicensePackage(ctx)

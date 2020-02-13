@@ -464,6 +464,14 @@ func (s *SiteOperation) Vars() OperationVariables {
 	return OperationVariables{}
 }
 
+// IsEqualTo returns true if the operation is equal to the provided operation.
+func (s *SiteOperation) IsEqualTo(other SiteOperation) bool {
+	// Compare a few essential fields only.
+	return s.ID == other.ID && s.AccountID == other.AccountID &&
+		s.SiteDomain == other.SiteDomain && s.Type == other.Type &&
+		s.State == other.State
+}
+
 // SiteOperations colection represents a list of operations performed
 // on the site, e.g. provisioning servers, or upgrading applications
 type SiteOperations interface {
@@ -584,6 +592,7 @@ type Site struct {
 	InstallToken string `json:"install_token"`
 }
 
+// Check validates the cluster object's fields.
 func (s *Site) Check() error {
 	if s.AccountID == "" {
 		return trace.BadParameter("missing parameter AccountID")
@@ -600,6 +609,11 @@ func (s *Site) Check() error {
 	return nil
 }
 
+// Servers returns the cluster's servers.
+func (s *Site) Servers() Servers {
+	return s.ClusterState.Servers
+}
+
 // ClusterState defines the state of the cluster
 type ClusterState struct {
 	// Servers is a list of servers in the cluster
@@ -607,6 +621,7 @@ type ClusterState struct {
 	// Docker specifies current cluster Docker configuration
 	Docker DockerConfig `json:"docker"`
 }
+
 type nodeKey struct {
 	profile      string
 	instanceType string

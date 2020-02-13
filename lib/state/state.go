@@ -89,6 +89,11 @@ func GravityUpdateDir(baseDir string) string {
 	return filepath.Join(baseDir, defaults.SiteDir, defaults.UpdateDir)
 }
 
+// GravityLocalDir returns full path to the directory with local gravity state.
+func GravityLocalDir(baseDir string) string {
+	return filepath.Join(baseDir, defaults.LocalDir)
+}
+
 // GravityRPCAgentDir returns full path to the RPC agent directory
 func GravityRPCAgentDir(baseDir string) string {
 	return filepath.Join(baseDir, defaults.SiteDir, defaults.UpdateDir, defaults.AgentDir)

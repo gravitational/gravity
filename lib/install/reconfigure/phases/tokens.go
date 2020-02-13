@@ -22,9 +22,11 @@ import (
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/fsm"
+	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/ops"
 
 	"github.com/gravitational/rigging"
+	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,12 +38,16 @@ import (
 // During the reconfigure operation, the secrets get regenerated thus
 // invalidating old service account tokens. Kubernetes will recreate
 // them automatically when they are deleted during this phase.
-func NewTokens(p fsm.ExecutorParams, operator ops.Operator, client *kubernetes.Clientset) (*tokensExecutor, error) {
+func NewTokens(p fsm.ExecutorParams, operator ops.Operator) (*tokensExecutor, error) {
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithField(constants.FieldPhase, p.Phase.ID),
-		Key:         opKey(p.Plan),
+		Key:         p.Key(),
 		Operator:    operator,
 		Server:      p.Phase.Data.Server,
+	}
+	client, _, err := httplib.GetClusterKubeClient(p.Plan.DNSConfig.Addr())
+	if err != nil {
+		return nil, trace.Wrap(err)
 	}
 	return &tokensExecutor{
 		FieldLogger:    logger,
@@ -80,7 +86,7 @@ func (p *tokensExecutor) Execute(ctx context.Context) error {
 		}
 		err := p.Client.CoreV1().Secrets(secret.Namespace).Delete(secret.Name, &metav1.DeleteOptions{})
 		if err != nil {
-			p.Errorf("Failed to remove secret %v/%v: %v", secret.Namespace, secret.Name, err)
+			return trace.Wrap(err, "failed to remove secret %v/%v: %v", secret.Namespace, secret.Name, err)
 		} else {
 			p.Infof("Removed secret %v/%v", secret.Namespace, secret.Name)
 		}

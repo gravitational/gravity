@@ -36,7 +36,7 @@ import (
 func NewNetwork(p fsm.ExecutorParams, operator ops.Operator) (*networkExecutor, error) {
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithField(constants.FieldPhase, p.Phase.ID),
-		Key:         opKey(p.Plan),
+		Key:         p.Key(),
 		Operator:    operator,
 		Server:      p.Phase.Data.Server,
 	}
@@ -61,7 +61,7 @@ func (p *networkExecutor) Execute(ctx context.Context) error {
 		return trace.Wrap(err)
 	}
 	for _, iface := range ifaces {
-		if utils.HasOneOfPrefixes(iface.Name, defaults.NetworkInterfaces...) {
+		if utils.HasOneOfPrefixes(iface.Name, defaults.NetworkInterfacePrefixes...) {
 			err := utils.Exec(exec.Command("ip", "link", "del", iface.Name), os.Stdout)
 			if err != nil {
 				return trace.Wrap(err)

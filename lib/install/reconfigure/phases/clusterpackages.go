@@ -39,11 +39,11 @@ import (
 func NewClusterPackages(p fsm.ExecutorParams, operator ops.Operator, localPackages pack.PackageService) (*clusterPackagesExecutor, error) {
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithField(constants.FieldPhase, p.Phase.ID),
-		Key:         opKey(p.Plan),
+		Key:         p.Key(),
 		Operator:    operator,
 		Server:      p.Phase.Data.Server,
 	}
-	operation, err := operator.GetSiteOperation(opKey(p.Plan))
+	operation, err := operator.GetSiteOperation(p.Key())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

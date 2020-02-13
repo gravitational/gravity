@@ -20,7 +20,7 @@ import (
 	"context"
 
 	"github.com/gravitational/gravity/lib/install"
-	installerclient "github.com/gravitational/gravity/lib/install/client"
+	"github.com/gravitational/gravity/lib/install/client"
 	"github.com/gravitational/gravity/lib/install/reconfigure"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/system/signals"
@@ -29,9 +29,10 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/gravitational/trace"
+	"github.com/sirupsen/logrus"
 )
 
-const reconfigureMessage = `WARNING: This action will launch the operation of reconfiguring the cluster installed on this node to use a new advertise IP %v.
+const reconfigureMessage = `This action will launch the operation of reconfiguring this node to use a new advertise address %v.
 Would you like to proceed? You can launch the command with --confirm flag to suppress this prompt in future.`
 
 // reconfigureCluster starts the cluster reconfiguration operation.
@@ -39,24 +40,12 @@ Would you like to proceed? You can launch the command with --confirm flag to sup
 // Currently, the reconfiguration operation only allows to change advertise
 // address for single-node clusters.
 func reconfigureCluster(env *localenv.LocalEnvironment, config InstallConfig, confirmed bool) error {
-	// See if there's a cluster at all and whether it's running. The operation
-	// can be only performed when everything's stopped.
-	err := localenv.DetectCluster(env)
-	if err != nil && trace.IsNotFound(err) {
-		return trace.NotFound("The cluster doesn't appear to be installed on this node.")
-	}
-	if err == nil {
-		return trace.NotFound(`The cluster appears to be running on this node. Please stop all services using "gravity system stop" prior to initiating the operation.`)
-	}
-	// Obtain some information about the existing cluster.
-	localState, err := reconfigure.GetLocalState(env.Packages)
+	// Validate that the operation is ok to launch.
+	localState, err := validateReconfiguration(env, config)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	log.Infof("Determined local cluster state: %#v.", localState)
-	if err := reconfigure.ValidateLocalState(localState); err != nil {
-		return trace.Wrap(err)
-	}
+	log.Infof("Local cluster state: %#v.", localState)
 	config.Apply(localState.Cluster, localState.InstallOperation)
 	if err := config.CheckAndSetDefaults(); err != nil {
 		return trace.Wrap(err)
@@ -80,24 +69,24 @@ func reconfigureCluster(env *localenv.LocalEnvironment, config InstallConfig, co
 			return nil
 		}
 	}
-	env.PrintStep("Starting advertise IP reconfiguration to %v", config.AdvertiseAddr)
+	env.PrintStep("Starting advertise address reconfiguration to %v", config.AdvertiseAddr)
 	strategy, err := newReconfiguratorConnectStrategy(env, config, cli.CommandArgs{
 		Parser: cli.ArgsParserFunc(parseArgs),
 	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = InstallerClient(env, installerclient.Config{
+	err = InstallerClient(env, client.Config{
 		ConnectStrategy: strategy,
-		Lifecycle: &installerclient.AutomaticLifecycle{
-			Aborter:            AborterForMode(config.Mode, env),
-			Completer:          InstallerCompleteOperation(env),
-			DebugReportPath:    DebugReportPath(),
-			LocalDebugReporter: InstallerGenerateLocalReport(env),
+		Lifecycle: &client.AutomaticLifecycle{
+			Aborter:   AborterForMode(config.Mode, env),
+			Completer: InstallerCompleteOperation(env),
 		},
 	})
 	if utils.IsContextCancelledError(err) {
-		InstallerCleanup()
+		if err := InstallerCleanup(); err != nil {
+			logrus.WithError(err).Error("Failed to clean up installer.")
+		}
 		return trace.Wrap(err, "reconfigurator interrupted")
 	}
 	return trace.Wrap(err)
@@ -149,4 +138,34 @@ func newReconfigurator(ctx context.Context, config *install.Config, state *recon
 		return nil, trace.Wrap(err)
 	}
 	return installer, nil
+}
+
+// validateReconfiguration determines if reconfiguration can be launched on this
+// node.
+//
+// If all checks pass, returns information about the existing cluster state such
+// as the cluster object and the original install operation.
+func validateReconfiguration(env *localenv.LocalEnvironment, config InstallConfig) (*reconfigure.State, error) {
+	// The cluster should be installed but not running.
+	err := localenv.DetectCluster(env)
+	if err != nil && trace.IsNotFound(err) {
+		return nil, trace.BadParameter("Cluster doesn't appear to be installed on this node.")
+	}
+	if err == nil {
+		return nil, trace.BadParameter(`Cluster appears to be running on this node. Please stop it using "gravity stop" first.`)
+	}
+	localState, err := reconfigure.GetLocalState(env.Backend)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	// Only single-node clusters are supported.
+	servers := localState.Cluster.ClusterState.Servers
+	if len(servers) != 1 {
+		return nil, trace.BadParameter("Only single-node clusters can be reconfigured.")
+	}
+	advertiseIP := servers[0].AdvertiseIP
+	if advertiseIP == config.AdvertiseAddr {
+		return nil, trace.BadParameter("This node is already using advertise address %v.", advertiseIP)
+	}
+	return localState, nil
 }

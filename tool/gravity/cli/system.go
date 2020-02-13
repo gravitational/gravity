@@ -39,7 +39,6 @@ import (
 	"github.com/gravitational/gravity/tool/common"
 
 	"github.com/coreos/go-semver/semver"
-	"github.com/fatih/color"
 	"github.com/gravitational/configure"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
@@ -556,68 +555,6 @@ func systemServiceStatus(env *localenv.LocalEnvironment, pkg loc.Locator, servic
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return nil
-}
-
-const systemStopMessage = `WARNING: This action will stop all Gravity and Kubernetes services on the node.
-Would you like to proceed? You can launch the command with --confirm flag to suppress this prompt in future.`
-
-func systemStop(env *localenv.LocalEnvironment, confirmed, disable bool) error {
-	if !confirmed {
-		env.Println(color.YellowString(systemStopMessage))
-		confirmed, err := confirm()
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		if !confirmed {
-			env.Println("Action cancelled by user.")
-			return nil
-		}
-	}
-
-	logger := log.WithField(trace.Component, "system:stop")
-	err := environ.StopServices(env, disable, logger)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	if disable {
-		env.PrintStep("Gravity services have been stopped and disabled")
-	} else {
-		env.PrintStep("Gravity services have been stopped")
-	}
-
-	return nil
-}
-
-const systemStartMessage = `WARNING: This action will start all Gravity and Kubernetes services on the node.
-Would you like to proceed? You can launch the command with --confirm flag to suppress this prompt in future.`
-
-func systemStart(env *localenv.LocalEnvironment, confirmed, enable bool) error {
-	if !confirmed {
-		env.Println(color.YellowString(systemStartMessage))
-		confirmed, err := confirm()
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		if !confirmed {
-			env.Println("Action cancelled by user.")
-			return nil
-		}
-	}
-
-	logger := log.WithField(trace.Component, "system:start")
-	err := environ.StartServices(env, enable, logger)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	if enable {
-		env.PrintStep("Gravity services have been enabled and started")
-	} else {
-		env.PrintStep("Gravity services have been started")
-	}
-
 	return nil
 }
 

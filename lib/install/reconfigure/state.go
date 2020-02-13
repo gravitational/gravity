@@ -17,15 +17,9 @@ limitations under the License.
 package reconfigure
 
 import (
-	"io"
-	"io/ioutil"
-	"os"
-
-	"github.com/gravitational/gravity/lib/constants"
+	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/ops"
-	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/storage"
-	"github.com/gravitational/gravity/lib/storage/keyval"
 
 	"github.com/gravitational/trace"
 )
@@ -43,43 +37,14 @@ type State struct {
 func (s State) Server() (*storage.Server, error) {
 	servers := s.Cluster.ClusterState.Servers
 	if len(servers) != 1 {
-		return nil, trace.BadParameter("expected 1 server, got: %#v", servers)
+		return nil, trace.BadParameter("expected 1 server, got: %s", servers)
 	}
 	return &servers[0], nil
 }
 
-// GetLocalState returns the state of the cluster installed on the reconfigure node.
-//
-// As there is no cluster running on the node before the reconfigure operation
-// (since all services are supposed to be stopped), we use packages in the node
-// local state, specifically site-export package, to obtain this information.
-func GetLocalState(packages pack.PackageService) (*State, error) {
-	exportPackage, err := pack.FindPackage(packages, func(e pack.PackageEnvelope) bool {
-		return e.Locator.Name == constants.SiteExportPackage
-	})
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	_, reader, err := packages.ReadPackage(exportPackage.Locator)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	defer reader.Close()
-	tempFile, err := ioutil.TempFile("", "")
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	defer os.Remove(tempFile.Name())
-	_, err = io.Copy(tempFile, reader)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	backend, err := keyval.NewBolt(keyval.BoltConfig{Path: tempFile.Name()})
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	defer backend.Close()
-	cluster, err := backend.GetSite(exportPackage.Locator.Repository)
+// GetLocalState returns cluster state from the local node state.
+func GetLocalState(backend storage.Backend) (*State, error) {
+	cluster, err := backend.GetLocalSite(defaults.SystemAccountID)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -95,22 +60,5 @@ func GetLocalState(packages pack.PackageService) (*State, error) {
 			}, nil
 		}
 	}
-	return nil, trace.NotFound("install operation not found")
-}
-
-// ValidateLocalState executes a few sanity checks on the state of the local
-// cluster (collected by the function above) to make sure that it can be
-// reconfigured.
-func ValidateLocalState(state *State) error {
-	// Only single-node clusters are supported.
-	// TODO(r0mant): Because the above function uses the original site-export
-	// package to build the cluster state, this check can either fail if a
-	// multi-node cluster was shrunk down to 1 node, or will let the operation
-	// through if a 1-node cluster was expanded. Need some way to deduce the
-	// most recent cluster state based on the local state.
-	if len(state.Cluster.ClusterState.Servers) != 1 {
-		return trace.BadParameter("reconfiguration is only supported for single-node clusters, this one appears to have %v nodes",
-			len(state.Cluster.ClusterState.Servers))
-	}
-	return nil
+	return nil, trace.NotFound("no install operation found in the local state")
 }

@@ -159,32 +159,26 @@ func (e *Engine) createOperation(ctx context.Context, config install.Config) (*o
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	existingServer, err := e.State.Server()
+	server, err := e.State.Server()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	// Create a new server object using the system information collected for
 	// this node and filling in other things using the original server.
-	server := storage.Server{
-		AdvertiseIP: config.AdvertiseAddr,
-		Hostname:    systemInfo.GetHostname(),
-		Role:        existingServer.Role,
-		ClusterRole: string(schema.ServiceRoleMaster),
-		Provisioner: schema.ProvisionerOnPrem,
-		OSInfo:      systemInfo.GetOS(),
-		Mounts:      existingServer.Mounts,
-		SystemState: existingServer.SystemState,
-		Docker:      existingServer.Docker,
-		User:        systemInfo.GetUser(),
-		Created:     time.Now().UTC(),
-	}
+	server.AdvertiseIP = config.AdvertiseAddr
+	server.Hostname = systemInfo.GetHostname()
+	server.ClusterRole = string(schema.ServiceRoleMaster)
+	server.Provisioner = schema.ProvisionerOnPrem
+	server.OSInfo = systemInfo.GetOS()
+	server.User = systemInfo.GetUser()
+	server.Created = time.Now().UTC()
 	req := ops.CreateClusterReconfigureOperationRequest{
 		SiteKey: ops.SiteKey{
 			AccountID:  defaults.SystemAccountID,
 			SiteDomain: config.SiteDomain,
 		},
 		AdvertiseAddr: config.AdvertiseAddr,
-		Servers:       []storage.Server{server},
+		Servers:       []storage.Server{*server},
 		InstallExpand: e.State.InstallOperation.InstallExpand,
 	}
 	key, err := e.Operator.CreateClusterReconfigureOperation(ctx, req)

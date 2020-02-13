@@ -32,7 +32,7 @@ import (
 func NewChecks(p fsm.ExecutorParams, operator ops.Operator) (*checksExecutor, error) {
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithField(constants.FieldPhase, p.Phase.ID),
-		Key:         opKey(p.Plan),
+		Key:         p.Key(),
 		Operator:    operator,
 		Server:      p.Phase.Data.Server,
 	}

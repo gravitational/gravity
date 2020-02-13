@@ -58,8 +58,9 @@ func build(ctx context.Context, params BuildParameters, req service.VendorReques
 		SkipVersionCheck: params.SkipVersionCheck,
 		VendorReq:        req,
 		Progress: utils.NewProgressWithConfig(ctx, "Build", utils.ProgressConfig{
-			Silent:  params.Silent,
-			Verbose: params.Verbose,
+			Silent:        params.Silent,
+			Verbose:       params.Verbose,
+			AutoTimestamp: true,
 		}),
 	})
 	if err != nil {

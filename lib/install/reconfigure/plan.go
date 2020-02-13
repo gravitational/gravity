@@ -37,10 +37,10 @@ func NewPlanner(getter install.PlanBuilderGetter, cluster storage.Site) *Planner
 
 // GetOperationPlan creates operation plan for the reconfigure operation.
 func (p *Planner) GetOperationPlan(operator ops.Operator, cluster ops.Site, operation ops.SiteOperation) (*storage.OperationPlan, error) {
-	masters, _ := fsm.SplitServers(operation.Servers)
-	if len(masters) == 0 {
-		return nil, trace.BadParameter(
-			"at least one master server is required: %v", operation.Servers)
+	// Advertise IP can only be reconfigured on single-node clusters only atm.
+	masters, nodes := fsm.SplitServers(operation.Servers)
+	if len(masters) != 1 || len(nodes) != 0 {
+		return nil, trace.BadParameter("the reconfigure operation only supports single-node clusters, but got: %v", operation.Servers)
 	}
 
 	teleportPackage, err := cluster.App.Manifest.Dependencies.ByName(
@@ -75,14 +75,24 @@ func (p *Planner) GetOperationPlan(operator ops.Operator, cluster ops.Site, oper
 		DNSConfig:     cluster.DNSConfig,
 	}
 
-	builder.AddPreCleanupPhase(plan)
+	builder.AddNetworkPhase(plan)
+	builder.AddLocalPackagesPhase(plan)
 	builder.AddChecksPhase(plan)
 	builder.AddConfigurePhase(plan)
 	builder.AddPullPhase(plan)
-	builder.AddMastersPhase(plan)
+	if err := builder.AddMastersPhase(plan); err != nil {
+		return nil, trace.Wrap(err)
+	}
 	builder.AddWaitPhase(plan)
 	builder.AddHealthPhase(plan)
-	builder.AddPostCleanupPhase(plan)
+	builder.AddStatePhase(plan)
+	builder.AddTokensPhase(plan)
+	builder.AddNodePhase(plan)
+	builder.AddDirectoriesPhase(plan)
+	builder.AddPodsPhase(plan)
+	builder.AddTeleportPhase(plan)
+	builder.AddGravityPhase(plan)
+	builder.AddClusterPackagesPhase(plan)
 
 	return plan, nil
 }

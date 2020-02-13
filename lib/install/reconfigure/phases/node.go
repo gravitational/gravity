@@ -21,6 +21,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/fsm"
+	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -32,12 +33,16 @@ import (
 )
 
 // NewNode returns executor that removes old Kubernetes node object.
-func NewNode(p fsm.ExecutorParams, operator ops.Operator, client *kubernetes.Clientset) (*nodeExecutor, error) {
+func NewNode(p fsm.ExecutorParams, operator ops.Operator) (*nodeExecutor, error) {
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithField(constants.FieldPhase, p.Phase.ID),
-		Key:         opKey(p.Plan),
+		Key:         p.Key(),
 		Operator:    operator,
 		Server:      p.Phase.Data.Server,
+	}
+	client, _, err := httplib.GetClusterKubeClient(p.Plan.DNSConfig.Addr())
+	if err != nil {
+		return nil, trace.Wrap(err)
 	}
 	return &nodeExecutor{
 		FieldLogger:    logger,

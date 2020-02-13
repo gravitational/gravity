@@ -21,6 +21,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/fsm"
+	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -36,12 +37,16 @@ import (
 // reconfiguration to ensure that no old pods are lingering (Kubernetes may
 // get confused after the old node is gone and keep pods in terminating state
 // for a long time) and that they mount proper service tokens.
-func NewPods(p fsm.ExecutorParams, operator ops.Operator, client *kubernetes.Clientset) (*podsExecutor, error) {
+func NewPods(p fsm.ExecutorParams, operator ops.Operator) (*podsExecutor, error) {
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithField(constants.FieldPhase, p.Phase.ID),
-		Key:         opKey(p.Plan),
+		Key:         p.Key(),
 		Operator:    operator,
 		Server:      p.Phase.Data.Server,
+	}
+	client, _, err := httplib.GetClusterKubeClient(p.Plan.DNSConfig.Addr())
+	if err != nil {
+		return nil, trace.Wrap(err)
 	}
 	return &podsExecutor{
 		FieldLogger:    logger,

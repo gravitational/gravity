@@ -1464,12 +1464,13 @@ The command can also output the images in the json or yaml format which can come
 $ gravity registry list --format=json
 ```
 
-## Migrating a Cluster
+## Changing a Node's Advertise Address
 
 !!! note "Supported version":
-    Cluster migration is supported starting from Gravity 7.
+    Changing a node's advertise address is supported starting from Gravity 7.
 
-Gravity provides a way to migrate a single-node cluster to a different node.
+Gravity provides a way to migrate a single-node cluster to a different node, or reconfigure it to use a different
+network inteface as its advertise address.
 
 This helps support a scenario where you might want to install and preconfigure a cluster and your applications and then
 package the entire environment as a single virtual appliance (such as AMI in case of Amazon EC2, OVF/OVA in case of VMWare
@@ -1480,39 +1481,34 @@ There are a few restrictions and assumptions about this procedure to keep in min
 
 * Only single-node clusters can be migrated this way. Clusters can be expanded after the deployment.
 * Only the node's advertise IP and hostname are allowed to change, e.g. cluster name and other changes are not supported.
-* Unpacked cluster image used for initial installation must be available on the node.
-* All Gravity and application data from the original installation is assumed to be a part of the packaged VM image.
+* Gravity and application data is assumed to be a part of the packaged VM image.
 
-With the above requirements satisfied, the operation of migrating a single-node cluster can be performed using the
+With the above requirements satisfied, the operation of changing the node's advertise address can be performed using the
 following steps.
 
-First, install a single-node cluster and perform necessary configurations. Make sure to keep the cluster image
-tarball on the node.
-
-Then, stop and disable all Gravity and Kubernetes services on the node. Gravity provides the following command to do so:
+Stop and optionally disable all Gravity and Kubernetes services on the node:
 
 ```bash
-$ sudo gravity system stop --disable
+$ sudo gravity stop [--disable]
 ```
 
-At this point you can create a machine image (AMI/OVF/OVA/etc). If needed, restart the services on the node after the
-image has been created:
+At this point the machine's snapshot (AMI/OVF/OVA/etc) can be taken. The `--disable` flag can be provided to ensure that
+Gravity services will not attempt to start with invalid configuration when deployed to another node. When reconfiguring
+the cluster on the same node to use a different network interface, it is not necessary to disable the services.
+
+To start Gravity back on the original node, if needed, and optionally re-enable the services, use the command:
 
 ```bash
-$ sudo gravity system start --enable
+$ sudo gravity start [--enable]
 ```
 
-Once the created image has been deployed onto a new node, the cluster needs to be reconfigured in order to take account
-of the new advertise IP address, hostname and regenerate secrets.
-
-To reconfigure the cluster, launch from the original unpacked cluster image directory:
+Once the image has been deployed on a new node, start the cluster services providing a new advertise address configuration:
 
 ```bash
-$ sudo ./gravity reconfigure --advertise-addr=<new-ip>
+$ sudo gravity start --advertise-addr=<new-ip>
 ```
 
-Gravity will perform necessary configuration updates and start all the services on the node at which point all pods
-that were originally deployed in this cluster will be started as well.
+Gravity will regenerate all necessary configurations and cluster secrets and start all the services back.
 
 !!! note:
     As a part of the reconfiguration operation, all the pods previously present in the cluster are recreated which

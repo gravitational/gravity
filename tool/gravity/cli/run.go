@@ -97,6 +97,8 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.PlanCmd.FullCommand(),
 		g.PlanDisplayCmd.FullCommand(),
 		g.UpgradeCmd.FullCommand(),
+		g.StartCmd.FullCommand(),
+		g.StopCmd.FullCommand(),
 		g.ResourceCreateCmd.FullCommand():
 		if *g.Debug {
 			teleutils.InitLogger(teleutils.LoggingForDaemon, level)
@@ -113,7 +115,7 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.WizardCmd.FullCommand(),
 		g.JoinCmd.FullCommand(),
 		g.AutoJoinCmd.FullCommand(),
-		g.ReconfigureCmd.FullCommand(),
+		g.StartCmd.FullCommand(),
 		g.UpdateTriggerCmd.FullCommand(),
 		g.UpdatePlanInitCmd.FullCommand(),
 		g.UpgradeCmd.FullCommand(),
@@ -132,7 +134,7 @@ func InitAndCheck(g *Application, cmd string) error {
 		// the current directory for convenience, unless the user set their
 		// own location
 		switch cmd {
-		case g.InstallCmd.FullCommand(), g.JoinCmd.FullCommand(), g.ReconfigureCmd.FullCommand():
+		case g.InstallCmd.FullCommand(), g.JoinCmd.FullCommand(), g.StartCmd.FullCommand():
 			if *g.SystemLogFile == defaults.GravitySystemLog {
 				utils.InitLogging(defaults.GravitySystemLogFile)
 			}
@@ -163,7 +165,8 @@ func InitAndCheck(g *Application, cmd string) error {
 	case g.SystemUpdateCmd.FullCommand(),
 		g.UpgradeCmd.FullCommand(),
 		g.SystemRollbackCmd.FullCommand(),
-		g.SystemStopCmd.FullCommand(),
+		g.StopCmd.FullCommand(),
+		g.StartCmd.FullCommand(),
 		g.SystemUninstallCmd.FullCommand(),
 		g.UpdateSystemCmd.FullCommand(),
 		g.RPCAgentShutdownCmd.FullCommand(),
@@ -182,7 +185,6 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.PlanResumeCmd.FullCommand(),
 		g.PlanCompleteCmd.FullCommand(),
 		g.InstallCmd.FullCommand(),
-		g.ReconfigureCmd.FullCommand(),
 		g.JoinCmd.FullCommand(),
 		g.AutoJoinCmd.FullCommand(),
 		g.LeaveCmd.FullCommand(),
@@ -303,12 +305,24 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			return trace.Wrap(err)
 		}
 		return startInstall(localEnv, *config)
-	case g.ReconfigureCmd.FullCommand():
-		config, err := NewReconfigureConfig(localEnv, g)
-		if err != nil {
-			return trace.Wrap(err)
+	case g.StopCmd.FullCommand():
+		return stopGravity(localEnv,
+			*g.StopCmd.Confirmed,
+			*g.StopCmd.Disable)
+	case g.StartCmd.FullCommand():
+		// If advertise address was explicitly provided to the start command,
+		// launch the reconfigure operation.
+		if *g.StartCmd.AdvertiseAddr != "" {
+			config, err := NewReconfigureConfig(localEnv, g)
+			if err != nil {
+				return trace.Wrap(err)
+			}
+			return reconfigureCluster(localEnv, *config,
+				*g.StartCmd.Confirmed)
 		}
-		return reconfigureCluster(localEnv, *config, *g.ReconfigureCmd.Confirm)
+		return startGravity(localEnv,
+			*g.StartCmd.Confirmed,
+			*g.StartCmd.Enable)
 	case g.JoinCmd.FullCommand():
 		return join(localEnv, g, NewJoinConfig(g))
 	case g.AutoJoinCmd.FullCommand():
@@ -793,14 +807,6 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 		return systemServiceStatus(localEnv,
 			*g.SystemServiceStatusCmd.Package,
 			*g.SystemServiceStatusCmd.Name)
-	case g.SystemStopCmd.FullCommand():
-		return systemStop(localEnv,
-			*g.SystemStopCmd.Confirmed,
-			*g.SystemStopCmd.Disable)
-	case g.SystemStartCmd.FullCommand():
-		return systemStart(localEnv,
-			*g.SystemStartCmd.Confirmed,
-			*g.SystemStartCmd.Enable)
 	case g.SystemUninstallCmd.FullCommand():
 		return systemUninstall(localEnv, *g.SystemUninstallCmd.Confirmed)
 	case g.SystemReportCmd.FullCommand():

@@ -66,8 +66,10 @@ type Application struct {
 	LeaveCmd LeaveCmd
 	// RemoveCmd removes the specified node from the cluster
 	RemoveCmd RemoveCmd
-	// ReconfigureCmd launches cluster reconfiguration operation
-	ReconfigureCmd ReconfigureCmd
+	// StopCmd stops all gravity services on the node
+	StopCmd StopCmd
+	// StartCmd starts all gravity services on the node
+	StartCmd StartCmd
 	// PlanCmd manages an operation plan
 	PlanCmd PlanCmd
 	// UpdatePlanInitCmd creates a new update operation plan
@@ -248,10 +250,6 @@ type Application struct {
 	SystemRotateCertsCmd SystemRotateCertsCmd
 	// SystemExportCACmd exports cluster CA
 	SystemExportCACmd SystemExportCACmd
-	// SystemStopCmd stops all gravity services on the node
-	SystemStopCmd SystemStopCmd
-	// SystemStartCmd starts all gravity services on the node
-	SystemStartCmd SystemStartCmd
 	// SystemUninstallCmd uninstalls all gravity services from local node
 	SystemUninstallCmd SystemUninstallCmd
 	// SystemPullUpdatesCmd pulls updates for system packages
@@ -485,19 +483,6 @@ type RemoveCmd struct {
 	// Force suppresses operation failures
 	Force *bool
 	// Confirm suppresses confirmation prompt
-	Confirm *bool
-}
-
-// ReconfigureCmd launches cluster reconfiguration operation.
-type ReconfigureCmd struct {
-	*kingpin.CmdClause
-	// Path is the path to the unpacked cluster image tarball.
-	Path *string
-	// AdvertiseAddr is the new node advertise address.
-	AdvertiseAddr *string
-	// FromService indicates that the commadn is running as a systemd service.
-	FromService *bool
-	// Confirm suppresses the operaiton launch confirmation prompt.
 	Confirm *bool
 }
 
@@ -1423,8 +1408,8 @@ type SystemExportCACmd struct {
 	CAPath *string
 }
 
-// SystemStopCmd stops all Gravity services on the node.
-type SystemStopCmd struct {
+// StopCmd stops all Gravity services on the node.
+type StopCmd struct {
 	*kingpin.CmdClause
 	// Confirmed suppresses confirmation prompt.
 	Confirmed *bool
@@ -1432,9 +1417,13 @@ type SystemStopCmd struct {
 	Disable *bool
 }
 
-// SystemStartCmd starts all Gravity services on the node.
-type SystemStartCmd struct {
+// StartCmd starts all Gravity services on the node.
+type StartCmd struct {
 	*kingpin.CmdClause
+	// AdvertiseAddr is the new node advertise address.
+	AdvertiseAddr *string
+	// FromService indicates that the commadn is running as a systemd service.
+	FromService *bool
 	// Confirmed suppresses confirmation prompt.
 	Confirmed *bool
 	// Enable enables systemd services as well.

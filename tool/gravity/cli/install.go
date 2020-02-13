@@ -767,7 +767,7 @@ func newReconfiguratorConnectStrategy(env *localenv.LocalEnvironment, config Ins
 		return nil, trace.Wrap(err)
 	}
 	args = append([]string{utils.Exe.Path}, args...)
-	args = append(args, "--from-service", utils.Exe.WorkingDir)
+	args = append(args, "--from-service")
 	servicePath, err := state.GravityInstallDir(defaults.GravityRPCInstallerServiceName)
 	if err != nil {
 		return nil, trace.Wrap(err)

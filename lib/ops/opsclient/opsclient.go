@@ -110,6 +110,14 @@ func WithLocalDialer(dialer httplib.Dialer) ClientParam {
 // ClientParam defines the API to override configuration on client c
 type ClientParam func(c *Client) error
 
+func (c *Client) Ping() error {
+	_, err := c.Get(c.Endpoint("status"), url.Values{})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
 func (c *Client) GetAccount(accountID string) (*ops.Account, error) {
 	out, err := c.Get(c.Endpoint("accounts", accountID), url.Values{})
 	if err != nil {
