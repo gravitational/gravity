@@ -2,9 +2,9 @@ FROM golang:1.12.9-buster
 
 RUN set -ex && \
 	mkdir -p /go/src/github.com/gravitational/gravity/lib/system/selinux/internal/generate && \
-	mkdir -p /go/src/github.com/gravitational/gravity/lib/system/selinux/internal/policy
+	mkdir -p /go/src/github.com/gravitational/gravity/lib/system/selinux/internal/policy/assets/centos
 
-COPY ./internal/policy /go/src/github.com/gravitational/gravity/lib/system/selinux/internal/policy/
+COPY ./internal/policy/policy.go /go/src/github.com/gravitational/gravity/lib/system/selinux/internal/policy/policy.go
 COPY ./internal/generate /go/src/github.com/gravitational/gravity/lib/system/selinux/internal/generate/
 
 RUN set -ex && \
