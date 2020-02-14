@@ -1413,8 +1413,6 @@ type StopCmd struct {
 	*kingpin.CmdClause
 	// Confirmed suppresses confirmation prompt.
 	Confirmed *bool
-	// Disable disables systemd services as well.
-	Disable *bool
 }
 
 // StartCmd starts all Gravity services on the node.
@@ -1422,12 +1420,10 @@ type StartCmd struct {
 	*kingpin.CmdClause
 	// AdvertiseAddr is the new node advertise address.
 	AdvertiseAddr *string
-	// FromService indicates that the commadn is running as a systemd service.
+	// FromService indicates that the command is running as a systemd service.
 	FromService *bool
 	// Confirmed suppresses confirmation prompt.
 	Confirmed *bool
-	// Enable enables systemd services as well.
-	Enable *bool
 }
 
 // SystemUninstallCmd uninstalls all gravity services from local node

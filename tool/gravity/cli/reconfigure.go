@@ -149,10 +149,10 @@ func validateReconfiguration(env *localenv.LocalEnvironment, config InstallConfi
 	// The cluster should be installed but not running.
 	err := localenv.DetectCluster(env)
 	if err != nil && trace.IsNotFound(err) {
-		return nil, trace.BadParameter("Cluster doesn't appear to be installed on this node.")
+		return nil, trace.BadParameter("Gravity doesn't appear to be installed on this node.")
 	}
 	if err == nil {
-		return nil, trace.BadParameter(`Cluster appears to be running on this node. Please stop it using "gravity stop" first.`)
+		return nil, trace.BadParameter(`Gravity appears to be running on this node. Please stop it using "gravity stop" first.`)
 	}
 	localState, err := reconfigure.GetLocalState(env.Backend)
 	if err != nil {

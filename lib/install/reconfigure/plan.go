@@ -37,14 +37,13 @@ func NewPlanner(getter install.PlanBuilderGetter, cluster storage.Site) *Planner
 
 // GetOperationPlan creates operation plan for the reconfigure operation.
 func (p *Planner) GetOperationPlan(operator ops.Operator, cluster ops.Site, operation ops.SiteOperation) (*storage.OperationPlan, error) {
-	// Advertise IP can only be reconfigured on single-node clusters only atm.
+	// Advertise IP can only be reconfigured on single-node clusters atm.
 	masters, nodes := fsm.SplitServers(operation.Servers)
 	if len(masters) != 1 || len(nodes) != 0 {
-		return nil, trace.BadParameter("the reconfigure operation only supports single-node clusters, but got: %v", operation.Servers)
+		return nil, trace.BadParameter("the reconfigure operation only supports single-node clusters, but got: %s", operation.Servers)
 	}
 
-	teleportPackage, err := cluster.App.Manifest.Dependencies.ByName(
-		constants.TeleportPackage)
+	teleportPackage, err := cluster.App.Manifest.Dependencies.ByName(constants.TeleportPackage)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

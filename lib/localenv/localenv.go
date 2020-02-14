@@ -686,7 +686,7 @@ func (r Silent) PrintStep(format string, args ...interface{}) {
 	if r {
 		return
 	}
-	timestamp := color.New(color.Bold).Sprintf("%v", time.Now().UTC().Format(constants.HumanDateFormatSeconds))
+	timestamp := color.New(color.Bold).Sprint(time.Now().UTC().Format(constants.HumanDateFormatSeconds))
 	// nolint:errcheck
 	fmt.Printf("%v\t%v\n", timestamp, fmt.Sprintf(format, args...))
 }

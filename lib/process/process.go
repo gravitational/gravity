@@ -602,8 +602,21 @@ func (p *Process) runApplicationsSynchronizer(ctx context.Context) {
 	}
 }
 
-// syncClusterState syncs current cluster state to the provided backend.
-func (p *Process) syncClusterState(backend storage.Backend) error {
+// syncClusterState syncs current cluster state to the local backend.
+func (p *Process) syncClusterState() error {
+	backend, err := keyval.NewBolt(keyval.BoltConfig{
+		Path:  filepath.Join(p.cfg.ImportDir, defaults.GravityDBFile),
+		Multi: true,
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer func() {
+		if err := backend.Close(); err != nil {
+			p.WithError(err).WithField("path", p.cfg.ImportDir).Warn(
+				"Failed to close backend.")
+		}
+	}()
 	cluster, err := p.backend.GetLocalSite(defaults.SystemAccountID)
 	if err != nil {
 		return trace.Wrap(err)
@@ -637,20 +650,13 @@ func (p *Process) syncClusterState(backend storage.Backend) error {
 	return nil
 }
 
-func (p *Process) runClusterStateSynchronizer(ctx context.Context) error {
+func (p *Process) runClusterStateSynchronizer(ctx context.Context) {
 	if p.cfg.ImportDir == "" {
 		p.Info("Import dir not provided, cluster state synchronizer won't start.")
-		return nil
-	}
-	backend, err := keyval.NewBolt(keyval.BoltConfig{
-		Path:  filepath.Join(p.cfg.ImportDir, defaults.GravityDBFile),
-		Multi: true,
-	})
-	if err != nil {
-		return trace.Wrap(err)
+		return
 	}
 	p.Info("Starting cluster state synchronizer.")
-	if err := p.syncClusterState(backend); err != nil { // Sync immediately upon starting.
+	if err := p.syncClusterState(); err != nil { // Sync immediately upon starting.
 		p.WithError(err).Error("Failed to sync cluster state.")
 	}
 	ticker := time.NewTicker(defaults.StateSyncInterval)
@@ -658,12 +664,12 @@ func (p *Process) runClusterStateSynchronizer(ctx context.Context) error {
 	for {
 		select {
 		case <-ticker.C:
-			if err := p.syncClusterState(backend); err != nil {
+			if err := p.syncClusterState(); err != nil {
 				p.WithError(err).Error("Failed to sync cluster state.")
 			}
 		case <-ctx.Done():
 			p.Info("Stopping cluster state synchronizer.")
-			return nil
+			return
 		}
 	}
 }
@@ -1484,8 +1490,7 @@ func (p *Process) initService(ctx context.Context) (err error) {
 		p.startService(p.runRegistrySynchronizer)
 		p.startService(p.runApplicationsSynchronizer)
 		p.startService(p.runNodeLabelsReconciler(client))
-
-		go p.runClusterStateSynchronizer(p.context)
+		p.startService(p.runClusterStateSynchronizer)
 
 		if err := p.startAutoscale(p.context); err != nil {
 			return trace.Wrap(err)
@@ -1659,7 +1664,7 @@ func (p *Process) WaitForAPI(ctx context.Context) error {
 		return trace.Wrap(err)
 	}
 	err = utils.RetryFor(ctx, time.Minute, func() error {
-		if err := client.Ping(); err != nil {
+		if err := client.Ping(ctx); err != nil {
 			p.Infof("Process API isn't available yet: %v.", err)
 			return trace.Wrap(err)
 		}

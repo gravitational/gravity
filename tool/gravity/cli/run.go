@@ -307,8 +307,7 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 		return startInstall(localEnv, *config)
 	case g.StopCmd.FullCommand():
 		return stopGravity(localEnv,
-			*g.StopCmd.Confirmed,
-			*g.StopCmd.Disable)
+			*g.StopCmd.Confirmed)
 	case g.StartCmd.FullCommand():
 		// If advertise address was explicitly provided to the start command,
 		// launch the reconfigure operation.
@@ -321,8 +320,7 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 				*g.StartCmd.Confirmed)
 		}
 		return startGravity(localEnv,
-			*g.StartCmd.Confirmed,
-			*g.StartCmd.Enable)
+			*g.StartCmd.Confirmed)
 	case g.JoinCmd.FullCommand():
 		return join(localEnv, g, NewJoinConfig(g))
 	case g.AutoJoinCmd.FullCommand():

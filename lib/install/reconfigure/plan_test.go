@@ -166,7 +166,8 @@ func (s *ReconfiguratorSuite) verifyTeleportPhase(c *check.C, phase storage.Oper
 	storage.DeepComparePhases(c, storage.OperationPhase{
 		ID: phases.TeleportPhase,
 		Data: &storage.OperationPhaseData{
-			Server: &master,
+			Server:  &master,
+			Package: s.suite.TeleportPackage(),
 		},
 	}, phase)
 }

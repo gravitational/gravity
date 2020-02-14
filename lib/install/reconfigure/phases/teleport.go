@@ -21,6 +21,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/fsm"
+	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/systemservice"
 
@@ -40,6 +41,7 @@ func NewTeleport(p fsm.ExecutorParams, operator ops.Operator) (*teleportExecutor
 	return &teleportExecutor{
 		FieldLogger:    logger,
 		ExecutorParams: p,
+		Package:        *p.Phase.Data.Package,
 	}, nil
 }
 
@@ -48,6 +50,8 @@ type teleportExecutor struct {
 	logrus.FieldLogger
 	// ExecutorParams are common executor parameters.
 	fsm.ExecutorParams
+	// Package is the locator of the installed teleport package.
+	Package loc.Locator
 }
 
 // Execute restarts teleport node service.
@@ -56,17 +60,9 @@ func (p *teleportExecutor) Execute(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	services, err := svm.ListPackageServices()
-	if err != nil {
+	p.Progress.NextStep("Restarting system service %s", p.Package)
+	if err := svm.RestartPackageService(p.Package); err != nil {
 		return trace.Wrap(err)
-	}
-	for _, service := range services {
-		if service.Package.Name == constants.TeleportPackage {
-			p.Progress.NextStep("Restarting service %s", service.Package)
-			if err := svm.RestartPackageService(service.Package); err != nil {
-				return trace.Wrap(err)
-			}
-		}
 	}
 	return nil
 }

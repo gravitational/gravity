@@ -29,7 +29,7 @@ import (
 const systemStopMessage = `This action will stop all Gravity and Kubernetes services on the node.
 Would you like to proceed? You can launch the command with --confirm flag to suppress this prompt in future.`
 
-func stopGravity(env *localenv.LocalEnvironment, confirmed, disable bool) error {
+func stopGravity(env *localenv.LocalEnvironment, confirmed bool) error {
 	if !confirmed {
 		env.Println(color.YellowString(systemStopMessage))
 		confirmed, err := confirm()
@@ -54,32 +54,23 @@ func stopGravity(env *localenv.LocalEnvironment, confirmed, disable bool) error 
 
 	for _, pack := range packages {
 		env.PrintStep("Stopping system service %s", pack)
-		err := svm.StopPackageService(pack)
-		if err != nil {
+		if err := svm.StopPackageService(pack); err != nil {
 			return trace.Wrap(err)
 		}
-		if disable {
-			env.PrintStep("Disabling system service %s", pack)
-			err := svm.DisablePackageService(pack)
-			if err != nil {
-				return trace.Wrap(err)
-			}
+		env.PrintStep("Disabling system service %s", pack)
+		if err := svm.DisablePackageService(pack); err != nil {
+			return trace.Wrap(err)
 		}
 	}
 
-	if disable {
-		env.PrintStep("Gravity services have been stopped and disabled")
-	} else {
-		env.PrintStep("Gravity services have been stopped")
-	}
-
+	env.PrintStep("Gravity services have been stopped and disabled")
 	return nil
 }
 
 const systemStartMessage = `This action will start all Gravity and Kubernetes services on the node.
 Would you like to proceed? You can launch the command with --confirm flag to suppress this prompt in future.`
 
-func startGravity(env *localenv.LocalEnvironment, confirmed, enable bool) error {
+func startGravity(env *localenv.LocalEnvironment, confirmed bool) error {
 	if !confirmed {
 		env.Println(color.YellowString(systemStartMessage))
 		confirmed, err := confirm()
@@ -103,26 +94,17 @@ func startGravity(env *localenv.LocalEnvironment, confirmed, enable bool) error 
 	}
 
 	for _, pack := range packages {
-		if enable {
-			env.PrintStep("Enabling system service %s", pack)
-			err := svm.EnablePackageService(pack)
-			if err != nil {
-				return trace.Wrap(err)
-			}
+		env.PrintStep("Enabling system service %s", pack)
+		if err := svm.EnablePackageService(pack); err != nil {
+			return trace.Wrap(err)
 		}
 		env.PrintStep("Starting system service %s", pack)
-		err := svm.StartPackageService(pack, false)
-		if err != nil {
+		if err := svm.StartPackageService(pack, false); err != nil {
 			return trace.Wrap(err)
 		}
 	}
 
-	if enable {
-		env.PrintStep("Gravity services have been enabled and started")
-	} else {
-		env.PrintStep("Gravity services have been started")
-	}
-
+	env.PrintStep("Gravity services have been enabled and started")
 	return nil
 }
 

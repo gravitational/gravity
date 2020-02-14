@@ -110,8 +110,9 @@ func WithLocalDialer(dialer httplib.Dialer) ClientParam {
 // ClientParam defines the API to override configuration on client c
 type ClientParam func(c *Client) error
 
-func (c *Client) Ping() error {
-	_, err := c.Get(c.Endpoint("status"), url.Values{})
+// Ping calls the operator service status endpoint.
+func (c *Client) Ping(ctx context.Context) error {
+	_, err := c.Get(ctx, c.Endpoint("status"), url.Values{})
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -119,7 +120,7 @@ func (c *Client) Ping() error {
 }
 
 func (c *Client) GetAccount(accountID string) (*ops.Account, error) {
-	out, err := c.Get(c.Endpoint("accounts", accountID), url.Values{})
+	out, err := c.Get(context.TODO(), c.Endpoint("accounts", accountID), url.Values{})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -143,7 +144,7 @@ func (c *Client) CreateAccount(req ops.NewAccountRequest) (*ops.Account, error) 
 }
 
 func (c *Client) GetAccounts() ([]ops.Account, error) {
-	out, err := c.Get(c.Endpoint("accounts"), url.Values{})
+	out, err := c.Get(context.TODO(), c.Endpoint("accounts"), url.Values{})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -192,7 +193,7 @@ func (c *Client) CreateAPIKey(ctx context.Context, req ops.NewAPIKeyRequest) (*s
 }
 
 func (c *Client) GetAPIKeys(userEmail string) ([]storage.APIKey, error) {
-	out, err := c.Get(c.Endpoint("apikeys", "user", userEmail), url.Values{})
+	out, err := c.Get(context.TODO(), c.Endpoint("apikeys", "user", userEmail), url.Values{})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -232,7 +233,7 @@ func (c *Client) CreateProvisioningToken(token storage.ProvisioningToken) error 
 }
 
 func (c *Client) GetExpandToken(key ops.SiteKey) (*storage.ProvisioningToken, error) {
-	out, err := c.Get(c.Endpoint(
+	out, err := c.Get(context.TODO(), c.Endpoint(
 		"accounts", key.AccountID, "sites", key.SiteDomain, "tokens", "expand"), url.Values{})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -246,7 +247,7 @@ func (c *Client) GetExpandToken(key ops.SiteKey) (*storage.ProvisioningToken, er
 
 // TODO(r0mant) Move to enterprise.
 func (c *Client) GetTrustedClusterToken(key ops.SiteKey) (storage.Token, error) {
-	out, err := c.Get(c.Endpoint(
+	out, err := c.Get(context.TODO(), c.Endpoint(
 		"accounts", key.AccountID, "sites", key.SiteDomain, "tokens", "trustedcluster"), url.Values{})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -281,7 +282,7 @@ func (c *Client) DeleteSite(siteKey ops.SiteKey) error {
 }
 
 func (c *Client) GetSiteByDomain(domainName string) (*ops.Site, error) {
-	out, err := c.Get(c.Endpoint("sites", "domain", domainName), url.Values{})
+	out, err := c.Get(context.TODO(), c.Endpoint("sites", "domain", domainName), url.Values{})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -293,7 +294,7 @@ func (c *Client) GetSiteByDomain(domainName string) (*ops.Site, error) {
 }
 
 func (c *Client) GetSite(siteKey ops.SiteKey) (*ops.Site, error) {
-	out, err := c.Get(c.Endpoint("accounts", siteKey.AccountID, "sites", siteKey.SiteDomain), url.Values{})
+	out, err := c.Get(context.TODO(), c.Endpoint("accounts", siteKey.AccountID, "sites", siteKey.SiteDomain), url.Values{})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -306,7 +307,7 @@ func (c *Client) GetSite(siteKey ops.SiteKey) (*ops.Site, error) {
 
 // GetCurrentUserInfo returns user that is currently logged in
 func (c *Client) GetCurrentUserInfo() (*ops.UserInfo, error) {
-	out, err := c.Get(c.Endpoint("currentuserinfo"), url.Values{})
+	out, err := c.Get(context.TODO(), c.Endpoint("currentuserinfo"), url.Values{})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -320,7 +321,7 @@ func (c *Client) GetCurrentUserInfo() (*ops.UserInfo, error) {
 
 // GetCurrentUser returns user that is currently logged in
 func (c *Client) GetCurrentUser() (storage.User, error) {
-	out, err := c.Get(c.Endpoint("currentuser"), url.Values{})
+	out, err := c.Get(context.TODO(), c.Endpoint("currentuser"), url.Values{})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -328,7 +329,7 @@ func (c *Client) GetCurrentUser() (storage.User, error) {
 }
 
 func (c *Client) GetLocalSite() (*ops.Site, error) {
-	out, err := c.Get(c.Endpoint("localsite"), url.Values{})
+	out, err := c.Get(context.TODO(), c.Endpoint("localsite"), url.Values{})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -340,7 +341,7 @@ func (c *Client) GetLocalSite() (*ops.Site, error) {
 }
 
 func (c *Client) GetLocalUser(key ops.SiteKey) (storage.User, error) {
-	out, err := c.Get(c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "localuser"), url.Values{})
+	out, err := c.Get(context.TODO(), c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "localuser"), url.Values{})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -348,7 +349,7 @@ func (c *Client) GetLocalUser(key ops.SiteKey) (storage.User, error) {
 }
 
 func (c *Client) GetClusterAgent(req ops.ClusterAgentRequest) (*storage.LoginEntry, error) {
-	out, err := c.Get(c.Endpoint("accounts", req.AccountID, "sites", req.ClusterName, "agent"), url.Values{
+	out, err := c.Get(context.TODO(), c.Endpoint("accounts", req.AccountID, "sites", req.ClusterName, "agent"), url.Values{
 		"admin": []string{strconv.FormatBool(req.Admin)},
 	})
 	if err != nil {
@@ -364,7 +365,7 @@ func (c *Client) GetClusterAgent(req ops.ClusterAgentRequest) (*storage.LoginEnt
 
 // GetClusterNodes returns a real-time information about cluster nodes
 func (c *Client) GetClusterNodes(key ops.SiteKey) ([]ops.Node, error) {
-	out, err := c.Get(c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "nodes"), url.Values{})
+	out, err := c.Get(context.TODO(), c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "nodes"), url.Values{})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -395,7 +396,7 @@ func (c *Client) ResetUserPassword(req ops.ResetUserPasswordRequest) (string, er
 // params are url query parameters that are optional
 // and can optionally specify selected interface
 func (c *Client) GetSiteInstructions(tokenID string, serverProfile string, params url.Values) (string, error) {
-	out, err := c.Get(c.Endpoint("tokens", tokenID, serverProfile), params)
+	out, err := c.Get(context.TODO(), c.Endpoint("tokens", tokenID, serverProfile), params)
 	if err != nil {
 		return "", trace.Wrap(err)
 	}
@@ -403,7 +404,7 @@ func (c *Client) GetSiteInstructions(tokenID string, serverProfile string, param
 }
 
 func (c *Client) GetSites(accountID string) ([]ops.Site, error) {
-	out, err := c.Get(c.Endpoint("accounts", accountID, "sites"), url.Values{})
+	out, err := c.Get(context.TODO(), c.Endpoint("accounts", accountID, "sites"), url.Values{})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -437,12 +438,12 @@ func (c *Client) CompleteFinalInstallStep(req ops.CompleteFinalInstallStepReques
 
 // CheckSiteStatus runs app status hook and updates site status appropriately.
 func (c *Client) CheckSiteStatus(ctx context.Context, key ops.SiteKey) error {
-	_, err := c.Get(c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "status"), url.Values{})
+	_, err := c.Get(context.TODO(), c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "status"), url.Values{})
 	return trace.Wrap(err)
 }
 
 func (c *Client) GetSiteOperations(siteKey ops.SiteKey) (ops.SiteOperations, error) {
-	out, err := c.Get(c.Endpoint("accounts", siteKey.AccountID, "sites", siteKey.SiteDomain, "operations", "common"),
+	out, err := c.Get(context.TODO(), c.Endpoint("accounts", siteKey.AccountID, "sites", siteKey.SiteDomain, "operations", "common"),
 		url.Values{})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -455,7 +456,7 @@ func (c *Client) GetSiteOperations(siteKey ops.SiteKey) (ops.SiteOperations, err
 }
 
 func (c *Client) GetSiteOperation(key ops.SiteOperationKey) (*ops.SiteOperation, error) {
-	out, err := c.Get(c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "operations", "common", key.OperationID),
+	out, err := c.Get(context.TODO(), c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "operations", "common", key.OperationID),
 		url.Values{})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -490,7 +491,7 @@ func (c *Client) ResumeShrink(key ops.SiteKey) (*ops.SiteOperationKey, error) {
 }
 
 func (c *Client) GetSiteInstallOperationAgentReport(key ops.SiteOperationKey) (*ops.AgentReport, error) {
-	out, err := c.Get(c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "operations", "install",
+	out, err := c.Get(context.TODO(), c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "operations", "install",
 		key.OperationID, "agent-report"), url.Values{})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -518,7 +519,7 @@ func (c *Client) SiteInstallOperationStart(req ops.SiteOperationKey) error {
 }
 
 func (c *Client) GetSiteExpandOperationAgentReport(key ops.SiteOperationKey) (*ops.AgentReport, error) {
-	out, err := c.Get(c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "operations", "expand", key.OperationID, "agent-report"), url.Values{})
+	out, err := c.Get(context.TODO(), c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "operations", "expand", key.OperationID, "agent-report"), url.Values{})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -679,7 +680,7 @@ func (c *Client) StreamOperationLogs(key ops.SiteOperationKey, reader io.Reader)
 }
 
 func (c *Client) GetSiteOperationProgress(key ops.SiteOperationKey) (*ops.ProgressEntry, error) {
-	out, err := c.Get(c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "operations", "common", key.OperationID, "progress"), url.Values{})
+	out, err := c.Get(context.TODO(), c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "operations", "common", key.OperationID, "progress"), url.Values{})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -737,7 +738,7 @@ func (c *Client) GetRepositories(prev string, limit int) ([]string, error) {
 		"prev":  []string{prev},
 		"limit": []string{fmt.Sprintf("%v", limit)},
 	}
-	out, err := c.Get(c.Endpoint("repositories"), params)
+	out, err := c.Get(context.TODO(), c.Endpoint("repositories"), params)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -756,7 +757,7 @@ func (c *Client) GetPackages(repository string, prev *pack.PackageEnvelope, limi
 		params.Set("prev_name", prev.Locator.Name)
 		params.Set("prev_version", prev.Locator.Version)
 	}
-	out, err := c.Get(c.Endpoint("repositories", repository, "packages"), params)
+	out, err := c.Get(context.TODO(), c.Endpoint("repositories", repository, "packages"), params)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -808,7 +809,7 @@ func (c *Client) ReadPackage(loc loc.Locator) (*pack.PackageEnvelope, io.ReadClo
 }
 
 func (c *Client) ReadPackageEnvelope(loc loc.Locator) (*pack.PackageEnvelope, error) {
-	out, err := c.Get(
+	out, err := c.Get(context.TODO(),
 		c.Endpoint("repositories", loc.Repository,
 			"packages", loc.Name, loc.Version, "envelope"), url.Values{})
 	if err != nil {
@@ -822,7 +823,7 @@ func (c *Client) ReadPackageEnvelope(loc loc.Locator) (*pack.PackageEnvelope, er
 }
 
 func (c *Client) ValidateDomainName(domainName string) error {
-	if _, err := c.Get(c.Endpoint("domains", domainName), url.Values{}); err != nil {
+	if _, err := c.Get(context.TODO(), c.Endpoint("domains", domainName), url.Values{}); err != nil {
 		return trace.Wrap(err)
 	}
 	return nil
@@ -899,7 +900,7 @@ func (c *Client) CreateOperationPlanChange(key ops.SiteOperationKey, change stor
 
 // GetOperationPlan returns plan for the specified operation
 func (c *Client) GetOperationPlan(key ops.SiteOperationKey) (*storage.OperationPlan, error) {
-	out, err := c.Get(c.Endpoint(
+	out, err := c.Get(context.TODO(), c.Endpoint(
 		"accounts", key.AccountID, "sites", key.SiteDomain, "operations", "common", key.OperationID, "plan"),
 		url.Values{})
 	if err != nil {
@@ -949,7 +950,7 @@ func (c *Client) ConfigureNode(req ops.ConfigureNodeRequest) error {
 
 // GetLogForwarders returns a list of configured log forwarders
 func (c *Client) GetLogForwarders(key ops.SiteKey) ([]storage.LogForwarder, error) {
-	out, err := c.Get(c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "logs", "forwarders"), url.Values{})
+	out, err := c.Get(context.TODO(), c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "logs", "forwarders"), url.Values{})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -1012,7 +1013,7 @@ func (c *Client) DeleteLogForwarder(ctx context.Context, key ops.SiteKey, forwar
 
 // GetClusterMetrics returns basic CPU/RAM metrics for the specified cluster.
 func (c *Client) GetClusterMetrics(ctx context.Context, req ops.ClusterMetricsRequest) (*ops.ClusterMetricsResponse, error) {
-	response, err := c.Get(c.Endpoint("accounts", req.AccountID, "sites",
+	response, err := c.Get(context.TODO(), c.Endpoint("accounts", req.AccountID, "sites",
 		req.SiteDomain, "monitoring", "metrics"), url.Values{
 		"interval": []string{req.Interval.String()},
 		"step":     []string{req.Step.String()},
@@ -1029,7 +1030,7 @@ func (c *Client) GetClusterMetrics(ctx context.Context, req ops.ClusterMetricsRe
 
 // GetSMTPConfig returns the cluster SMTP configuration
 func (c *Client) GetSMTPConfig(key ops.SiteKey) (storage.SMTPConfig, error) {
-	response, err := c.Get(c.Endpoint(
+	response, err := c.Get(context.TODO(), c.Endpoint(
 		"accounts", key.AccountID, "sites", key.SiteDomain, "smtp"), url.Values{})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -1068,7 +1069,7 @@ func (c *Client) DeleteSMTPConfig(ctx context.Context, key ops.SiteKey) error {
 
 // GetAlerts returns a list of monitoring alerts for the cluster
 func (c *Client) GetAlerts(key ops.SiteKey) ([]storage.Alert, error) {
-	response, err := c.Get(c.Endpoint(
+	response, err := c.Get(context.TODO(), c.Endpoint(
 		"accounts", key.AccountID, "sites", key.SiteDomain, "monitoring", "alerts"), url.Values{})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -1110,7 +1111,7 @@ func (c *Client) DeleteAlert(ctx context.Context, key ops.SiteKey, name string) 
 
 // GetAlertTargets returns a list of monitoring alert targets for the cluster
 func (c *Client) GetAlertTargets(key ops.SiteKey) ([]storage.AlertTarget, error) {
-	response, err := c.Get(c.Endpoint(
+	response, err := c.Get(context.TODO(), c.Endpoint(
 		"accounts", key.AccountID, "sites", key.SiteDomain, "monitoring", "alert-targets"), url.Values{})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -1151,7 +1152,7 @@ func (c *Client) DeleteAlertTarget(ctx context.Context, key ops.SiteKey) error {
 
 // GetClusterEnvironmentVariables retrieves the cluster runtime environment variables
 func (c *Client) GetClusterEnvironmentVariables(key ops.SiteKey) (storage.EnvironmentVariables, error) {
-	response, err := c.Get(c.Endpoint(
+	response, err := c.Get(context.TODO(), c.Endpoint(
 		"accounts", key.AccountID, "sites", key.SiteDomain, "envars"), url.Values{})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -1181,7 +1182,7 @@ func (c *Client) UpdateClusterEnvironmentVariables(req ops.UpdateClusterEnvironR
 
 // GetClusterConfiguration retrieves the cluster configuration
 func (c *Client) GetClusterConfiguration(key ops.SiteKey) (clusterconfig.Interface, error) {
-	response, err := c.Get(c.Endpoint(
+	response, err := c.Get(context.TODO(), c.Endpoint(
 		"accounts", key.AccountID, "sites", key.SiteDomain, "config"), url.Values{})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -1210,7 +1211,7 @@ func (c *Client) UpdateClusterConfiguration(req ops.UpdateClusterConfigRequest) 
 
 // GetPersistentStorage retrieves cluster persistent storage configuration.
 func (c *Client) GetPersistentStorage(ctx context.Context, key ops.SiteKey) (storage.PersistentStorage, error) {
-	response, err := c.Get(c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "persistentstorage"), url.Values{})
+	response, err := c.Get(context.TODO(), c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "persistentstorage"), url.Values{})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -1238,7 +1239,7 @@ func (c *Client) UpdatePersistentStorage(ctx context.Context, req ops.UpdatePers
 }
 
 func (c *Client) GetApplicationEndpoints(key ops.SiteKey) ([]ops.Endpoint, error) {
-	out, err := c.Get(c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "endpoints"), url.Values{})
+	out, err := c.Get(context.TODO(), c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "endpoints"), url.Values{})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -1305,7 +1306,7 @@ func (c *Client) SignSSHKey(req ops.SSHSignRequest) (*ops.SSHSignResponse, error
 
 // GetClusterAuthPreference returns cluster auth preference
 func (c *Client) GetClusterAuthPreference(key ops.SiteKey) (teleservices.AuthPreference, error) {
-	out, err := c.Get(c.Endpoint(
+	out, err := c.Get(context.TODO(), c.Endpoint(
 		"accounts", key.AccountID, "sites", key.SiteDomain, "authentication", "preference"), url.Values{})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -1332,7 +1333,7 @@ func (c *Client) UpsertClusterAuthPreference(ctx context.Context, key ops.SiteKe
 
 // GetClusterCertificate returns the cluster certificate
 func (c *Client) GetClusterCertificate(key ops.SiteKey, withSecrets bool) (*ops.ClusterCertificate, error) {
-	out, err := c.Get(c.Endpoint(
+	out, err := c.Get(context.TODO(), c.Endpoint(
 		"accounts", key.AccountID, "sites", key.SiteDomain, "certificate"), url.Values{constants.WithSecretsParam: []string{fmt.Sprintf("%t", withSecrets)}})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -1404,7 +1405,7 @@ func (c *Client) GetUser(key ops.SiteKey, name string) (teleservices.User, error
 	if name == "" {
 		return nil, trace.BadParameter("missing username")
 	}
-	out, err := c.Get(c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "users", name), url.Values{})
+	out, err := c.Get(context.TODO(), c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "users", name), url.Values{})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -1413,7 +1414,7 @@ func (c *Client) GetUser(key ops.SiteKey, name string) (teleservices.User, error
 
 // GetUsers returns all cluster users
 func (c *Client) GetUsers(key ops.SiteKey) ([]teleservices.User, error) {
-	out, err := c.Get(c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "users"), url.Values{})
+	out, err := c.Get(context.TODO(), c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "users"), url.Values{})
 	if err != nil {
 		return nil, err
 	}
@@ -1456,7 +1457,7 @@ func (c *Client) CreateUserInvite(ctx context.Context, req ops.CreateUserInviteR
 
 // GetUserInvites returns all active user invites.
 func (c *Client) GetUserInvites(ctx context.Context, key ops.SiteKey) ([]storage.UserInvite, error) {
-	out, err := c.Get(c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "tokens", "userinvites"), url.Values{})
+	out, err := c.Get(context.TODO(), c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "tokens", "userinvites"), url.Values{})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -1512,7 +1513,7 @@ func (c *Client) GetGithubConnector(key ops.SiteKey, name string, withSecrets bo
 	if name == "" {
 		return nil, trace.BadParameter("missing connector name")
 	}
-	out, err := c.Get(c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "github", "connectors", name),
+	out, err := c.Get(context.TODO(), c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "github", "connectors", name),
 		url.Values{constants.WithSecretsParam: []string{fmt.Sprintf("%t", withSecrets)}})
 	if err != nil {
 		return nil, err
@@ -1524,7 +1525,7 @@ func (c *Client) GetGithubConnector(key ops.SiteKey, name string, withSecrets bo
 //
 // Returned connectors exclude client secret unless withSecrets is true.
 func (c *Client) GetGithubConnectors(key ops.SiteKey, withSecrets bool) ([]teleservices.GithubConnector, error) {
-	out, err := c.Get(c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "github", "connectors"),
+	out, err := c.Get(context.TODO(), c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "github", "connectors"),
 		url.Values{constants.WithSecretsParam: []string{fmt.Sprintf("%t", withSecrets)}})
 	if err != nil {
 		return nil, err
@@ -1571,7 +1572,7 @@ func (c *Client) UpsertAuthGateway(ctx context.Context, key ops.SiteKey, gw stor
 
 // GetAuthGateway returns auth gateway configuration.
 func (c *Client) GetAuthGateway(key ops.SiteKey) (storage.AuthGateway, error) {
-	response, err := c.Get(c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "authgateway"),
+	response, err := c.Get(context.TODO(), c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "authgateway"),
 		url.Values{})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -1581,7 +1582,7 @@ func (c *Client) GetAuthGateway(key ops.SiteKey) (storage.AuthGateway, error) {
 
 // ListReleases returns all currently installed application releases in a cluster.
 func (c *Client) ListReleases(req ops.ListReleasesRequest) ([]storage.Release, error) {
-	response, err := c.Get(c.Endpoint("accounts", req.AccountID, "sites", req.SiteDomain, "releases"),
+	response, err := c.Get(context.TODO(), c.Endpoint("accounts", req.AccountID, "sites", req.SiteDomain, "releases"),
 		url.Values{"include_icons": []string{strconv.FormatBool(req.IncludeIcons)}})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -1627,8 +1628,8 @@ func (c *Client) PutJSON(endpoint string, data interface{}) (*roundtrip.Response
 }
 
 // Get issues HTTP GET request to the server
-func (c *Client) Get(endpoint string, params url.Values) (*roundtrip.Response, error) {
-	return telehttplib.ConvertResponse(c.Client.Get(context.TODO(), endpoint, params))
+func (c *Client) Get(ctx context.Context, endpoint string, params url.Values) (*roundtrip.Response, error) {
+	return telehttplib.ConvertResponse(c.Client.Get(ctx, endpoint, params))
 }
 
 // GetFile issues HTTP GET request to the server to download a file

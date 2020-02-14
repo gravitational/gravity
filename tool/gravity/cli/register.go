@@ -139,16 +139,13 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.ResumeCmd.Force = g.ResumeCmd.Flag("force", "Force execution of specified phase.").Bool()
 	g.ResumeCmd.PhaseTimeout = g.ResumeCmd.Flag("timeout", "Phase execution timeout.").Default(defaults.PhaseTimeout).Hidden().Duration()
 
-	// TODO(r0mant): Add flags --planet and --teleport to stop/start command.
 	g.StopCmd.CmdClause = g.Command("stop", "Stop Gravity services on the node.")
 	g.StopCmd.Confirmed = g.StopCmd.Flag("confirm", "Suppress confirmation prompt.").Bool()
-	g.StopCmd.Disable = g.StopCmd.Flag("disable", "Disable systemd services as well.").Bool()
 
 	g.StartCmd.CmdClause = g.Command("start", "Start Gravity services on the node.")
 	g.StartCmd.AdvertiseAddr = g.StartCmd.Flag("advertise-addr", "New advertise address the node will use. Must be present on the node.").String()
 	g.StartCmd.FromService = g.StartCmd.Flag("from-service", "Run in service mode.").Hidden().Bool()
 	g.StartCmd.Confirmed = g.StartCmd.Flag("confirm", "Suppress confirmation prompt.").Bool()
-	g.StartCmd.Enable = g.StartCmd.Flag("enable", "Enable systemd services as well.").Bool()
 
 	g.PlanCmd.CmdClause = g.Command("plan", "Manage operation plan.")
 	g.PlanCmd.OperationID = g.PlanCmd.Flag("operation-id", "ID of the active operation. It not specified, the last operation will be used.").Hidden().String()

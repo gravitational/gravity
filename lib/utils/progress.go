@@ -368,7 +368,7 @@ func (p *progressPrinter) printStep(out io.Writer, current, target int, message 
 		fmt.Fprintf(out, "* [%v/%v] %v\n", current, target, message)
 	} else {
 		if p.autoTimestamp {
-			timestamp := color.New(color.Bold).Sprintf("%v", time.Now().UTC().Format(constants.HumanDateFormatSeconds))
+			timestamp := color.New(color.Bold).Sprint(time.Now().UTC().Format(constants.HumanDateFormatSeconds))
 			message = fmt.Sprintf("%v\t%v", timestamp, message)
 		}
 		fmt.Fprintf(out, "%v\n", message)

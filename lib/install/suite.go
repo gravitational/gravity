@@ -97,6 +97,10 @@ func (s *PlanSuite) Package() *loc.Locator {
 	return &s.installer.config.App.Package
 }
 
+func (s *PlanSuite) TeleportPackage() *loc.Locator {
+	return s.teleportPackage
+}
+
 func (s *PlanSuite) SetUpSuite(c *check.C) {
 	s.services = opsservice.SetupTestServices(c)
 	// use encrypted package service to test decryption phase as well

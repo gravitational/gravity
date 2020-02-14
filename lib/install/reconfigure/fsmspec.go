@@ -33,10 +33,6 @@ import (
 func FSMSpec(config install.FSMConfig) fsm.FSMSpecFunc {
 	return func(p fsm.ExecutorParams, remote fsm.Remote) (fsm.PhaseExecutor, error) {
 		switch {
-		case p.Phase.ID == installphases.ChecksPhase:
-			return phases.NewChecks(p, config.Operator)
-		case p.Phase.ID == installphases.ConfigurePhase:
-			return installphases.NewConfigure(p, config.Operator)
 		case strings.HasPrefix(p.Phase.ID, installphases.PullPhase):
 			return installphases.NewPull(p,
 				config.Operator,
@@ -49,36 +45,41 @@ func FSMSpec(config install.FSMConfig) fsm.FSMSpecFunc {
 		// so only "/masters" phase can be present.
 		case strings.HasPrefix(p.Phase.ID, installphases.MastersPhase):
 			return installphases.NewSystem(p, config.Operator, remote)
-		case p.Phase.ID == installphases.WaitPhase:
+		}
+		switch p.Phase.ID {
+		case installphases.ChecksPhase:
+			return phases.NewChecks(p, config.Operator)
+		case installphases.ConfigurePhase:
+			return installphases.NewConfigure(p, config.Operator)
+		case installphases.WaitPhase:
 			client, _, err := httplib.GetClusterKubeClient(p.Plan.DNSConfig.Addr())
 			if err != nil {
 				return nil, trace.Wrap(err)
 			}
 			return installphases.NewWait(p, config.Operator, client)
-		case p.Phase.ID == installphases.HealthPhase:
+		case installphases.HealthPhase:
 			return installphases.NewHealth(p, config.Operator)
-		case p.Phase.ID == phases.NetworkPhase:
+		case phases.NetworkPhase:
 			return phases.NewNetwork(p, config.Operator)
-		case p.Phase.ID == phases.LocalPackagesPhase:
+		case phases.LocalPackagesPhase:
 			return phases.NewPackages(p, config.Operator, config.LocalPackages)
-		case p.Phase.ID == phases.StatePhase:
+		case phases.StatePhase:
 			return phases.NewState(p, config.Operator)
-		case p.Phase.ID == phases.TokensPhase:
+		case phases.TokensPhase:
 			return phases.NewTokens(p, config.Operator)
-		case p.Phase.ID == phases.NodePhase:
+		case phases.NodePhase:
 			return phases.NewNode(p, config.Operator)
-		case p.Phase.ID == phases.DirectoriesPhase:
+		case phases.DirectoriesPhase:
 			return phases.NewDirectories(p, config.Operator)
-		case p.Phase.ID == phases.PodsPhase:
+		case phases.PodsPhase:
 			return phases.NewPods(p, config.Operator)
-		case p.Phase.ID == phases.TeleportPhase:
+		case phases.TeleportPhase:
 			return phases.NewTeleport(p, config.Operator)
-		case p.Phase.ID == phases.GravityPhase:
+		case phases.GravityPhase:
 			return phases.NewGravity(p, config.Operator)
-		case p.Phase.ID == phases.ClusterPackagesPhase:
+		case phases.ClusterPackagesPhase:
 			return phases.NewClusterPackages(p, config.Operator, config.LocalPackages)
-		default:
-			return nil, trace.BadParameter("unknown phase %q", p.Phase.ID)
 		}
+		return nil, trace.BadParameter("unknown phase %q", p.Phase.ID)
 	}
 }

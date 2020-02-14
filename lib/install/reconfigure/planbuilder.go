@@ -123,7 +123,8 @@ func (b *PlanBuilder) AddTeleportPhase(plan *storage.OperationPlan) {
 		ID:          phases.TeleportPhase,
 		Description: "Restart Teleport service",
 		Data: &storage.OperationPhaseData{
-			Server: &b.Master,
+			Server:  &b.Master,
+			Package: &b.TeleportPackage,
 		},
 	})
 }

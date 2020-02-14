@@ -1470,7 +1470,7 @@ $ gravity registry list --format=json
     Changing a node's advertise address is supported starting from Gravity 7.
 
 Gravity provides a way to migrate a single-node cluster to a different node, or reconfigure it to use a different
-network inteface as its advertise address.
+network interface as its advertise address.
 
 This helps support a scenario where you might want to install and preconfigure a cluster and your applications and then
 package the entire environment as a single virtual appliance (such as AMI in case of Amazon EC2, OVF/OVA in case of VMWare
@@ -1486,29 +1486,26 @@ There are a few restrictions and assumptions about this procedure to keep in min
 With the above requirements satisfied, the operation of changing the node's advertise address can be performed using the
 following steps.
 
-Stop and optionally disable all Gravity and Kubernetes services on the node:
+Stop and disable all Gravity and Kubernetes services on the node:
 
 ```bash
-$ sudo gravity stop [--disable]
+$ sudo gravity stop
 ```
 
-At this point the machine's snapshot (AMI/OVF/OVA/etc) can be taken. The `--disable` flag can be provided to ensure that
-Gravity services will not attempt to start with invalid configuration when deployed to another node. When reconfiguring
-the cluster on the same node to use a different network interface, it is not necessary to disable the services.
-
-To start Gravity back on the original node, if needed, and optionally re-enable the services, use the command:
+At this point the machine's snapshot (AMI/OVF/OVA/etc) can be taken. To start Gravity back on the original node if needed,
+use the command:
 
 ```bash
-$ sudo gravity start [--enable]
+$ sudo gravity start
 ```
 
-Once the image has been deployed on a new node, start the cluster services providing a new advertise address configuration:
+Once the image has been deployed on a new node, start the cluster providing a new advertise address configuration:
 
 ```bash
 $ sudo gravity start --advertise-addr=<new-ip>
 ```
 
-Gravity will regenerate all necessary configurations and cluster secrets and start all the services back.
+Gravity will regenerate all necessary configurations and cluster secrets and restart all the services.
 
 !!! note:
     As a part of the reconfiguration operation, all the pods previously present in the cluster are recreated which
