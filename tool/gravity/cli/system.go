@@ -968,13 +968,28 @@ func systemServiceJournal(env *localenv.LocalEnvironment, packagePattern string,
 	return execJournalctl(*loc, args...)
 }
 
+// systemServiceStatus prints status of this service
+func systemServiceStatus(env *localenv.LocalEnvironment, packagePattern string) error {
+	services, err := systemservice.New()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if loc, err := loc.ParseLocator(packagePattern); err == nil {
+		return outputServiceStatus(services, *loc, env)
+	}
+	loc, err := queryPackageServiceByPattern(services, packagePattern)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return outputServiceStatus(services, *loc, env)
+}
+
 func queryPackageServiceByPattern(services systemservice.ServiceManager, packagePattern string) (*loc.Locator, error) {
 	statuses, err := services.ListPackageServices(systemservice.ListServiceOptions{
 		All:     true,
 		Type:    systemservice.UnitTypeService,
-		Pattern: fmt.Sprintf("*%v*", packagePattern),
+		Pattern: packageServicePattern(packagePattern),
 	})
-	log.WithField("status", statuses).Info("Query services.")
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -985,29 +1000,6 @@ func queryPackageServiceByPattern(services systemservice.ServiceManager, package
 		return nil, trace.BadParameter("invalid service pattern %q specified", packagePattern)
 	}
 	return &statuses[0].Package, nil
-}
-
-// systemServiceStatus prints status of this service
-func systemServiceStatus(env *localenv.LocalEnvironment, pkg loc.Locator, serviceName string) error {
-	services, err := systemservice.New()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	var status string
-	if serviceName != "" {
-		status, err = services.StatusService(serviceName)
-	} else if !pkg.IsEmpty() {
-		status, err = services.StatusPackageService(pkg)
-	} else {
-		return trace.BadParameter("need either package name or service name")
-	}
-	if status != "" {
-		fmt.Printf("%v", status)
-	}
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	return nil
 }
 
 // systemUninstall uninstalls all gravity components
@@ -1040,13 +1032,29 @@ func systemUninstall(env *localenv.LocalEnvironment, confirmed bool) error {
 }
 
 func execJournalctl(loc loc.Locator, args ...string) error {
-	const cmd = "/bin/journalctl"
+	const cmd = defaults.JournalctlBin
 	args = append([]string{cmd, "--unit", systemservice.PackageServiceName(loc)}, args...)
 	if err := syscall.Exec(cmd, args, os.Environ()); err != nil {
 		return trace.Wrap(trace.ConvertSystemError(err),
-			"failed to execve(%q, %q)", cmd, args)
+			"failed to execve(%v, %v)", cmd, args)
 	}
 	return nil
+}
+
+func outputServiceStatus(services systemservice.ServiceManager, loc loc.Locator, printer utils.Printer) error {
+	status, err := services.StatusPackageService(loc)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	printer.Print(status)
+	return nil
+}
+
+func packageServicePattern(pattern string) string {
+	if strings.Index(pattern, "*") != -1 {
+		return pattern
+	}
+	return fmt.Sprintf("*%v*", pattern)
 }
 
 // findPackageUpdate searches for remote update for the local package specified with req

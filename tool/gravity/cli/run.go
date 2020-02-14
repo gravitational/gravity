@@ -784,8 +784,7 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			*g.SystemServiceJournalCmd.Args)
 	case g.SystemServiceStatusCmd.FullCommand():
 		return systemServiceStatus(localEnv,
-			*g.SystemServiceStatusCmd.Package,
-			*g.SystemServiceStatusCmd.Name)
+			*g.SystemServiceStatusCmd.Package)
 	case g.SystemUninstallCmd.FullCommand():
 		return systemUninstall(localEnv, *g.SystemUninstallCmd.Confirmed)
 	case g.SystemReportCmd.FullCommand():

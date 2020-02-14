@@ -262,7 +262,7 @@ type Application struct {
 	SystemServiceInstallCmd SystemServiceInstallCmd
 	// SystemServiceUninstallCmd uninstalls systemd service
 	SystemServiceUninstallCmd SystemServiceUninstallCmd
-	// SystemServiceStatusCmd displays status of systemd service
+	// SystemServiceStatusCmd queries the runtime status of a package service
 	SystemServiceStatusCmd SystemServiceStatusCmd
 	// SystemServiceListCmd lists systemd services
 	SystemServiceListCmd SystemServiceListCmd
@@ -1472,13 +1472,12 @@ type SystemServiceUninstallCmd struct {
 	Name *string
 }
 
-// SystemServiceStatusCmd displays status of systemd service
+// SystemServiceStatusCmd queries the runtime status of a package service
 type SystemServiceStatusCmd struct {
 	*kingpin.CmdClause
-	// Package is system service package locator
-	Package *loc.Locator
-	// Name is service name
-	Name *string
+	// Package specifies the service either a package locator
+	// or a partial unique pattern (i.e. 'planet')
+	Package *string
 }
 
 // SystemServiceListCmd lists systemd services
