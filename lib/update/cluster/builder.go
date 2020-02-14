@@ -411,14 +411,14 @@ func (r phaseBuilder) etcdPlan(
 	}
 	restartMasters.AddWithDependency(
 		update.DependencyForServer(restoreData, leadMaster),
-		r.etcdRestart(leadMaster, restartMasters))
+		r.etcdRestart(leadMaster, leadMaster, restartMasters))
 
 	for _, server := range otherMasters {
-		p := r.etcdRestart(server, restartMasters)
+		p := r.etcdRestart(server, leadMaster, restartMasters)
 		restartMasters.AddWithDependency(update.DependencyForServer(upgradeServers, server), p)
 	}
 	for _, server := range workers {
-		p := r.etcdRestart(server, restartMasters)
+		p := r.etcdRestart(server, leadMaster, restartMasters)
 		restartMasters.AddWithDependency(update.DependencyForServer(upgradeServers, server), p)
 	}
 
@@ -470,13 +470,14 @@ func (r phaseBuilder) etcdUpgrade(server storage.Server, parent update.Phase) up
 	}
 }
 
-func (r phaseBuilder) etcdRestart(server storage.Server, parent update.Phase) update.Phase {
+func (r phaseBuilder) etcdRestart(server storage.Server, leadMaster storage.Server, parent update.Phase) update.Phase {
 	return update.Phase{
 		ID:          parent.ChildLiteral(server.Hostname),
 		Description: fmt.Sprintf("Restart etcd on node %q", server.Hostname),
 		Executor:    updateEtcdRestart,
 		Data: &storage.OperationPhaseData{
 			Server: &server,
+			Master: &leadMaster,
 		},
 	}
 }

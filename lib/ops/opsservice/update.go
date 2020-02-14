@@ -223,7 +223,7 @@ func (o *Operator) RotatePlanetConfig(req ops.RotatePlanetConfigRequest) (*ops.R
 	if memberList.HasMember(node.EtcdMemberName(cluster.domainName)) {
 		etcd = etcdConfig{
 			initialCluster:      initialCluster,
-			initialClusterState: etcdNewCluster,
+			initialClusterState: etcdExistingCluster,
 			proxyMode:           etcdProxyOff,
 		}
 	} else {

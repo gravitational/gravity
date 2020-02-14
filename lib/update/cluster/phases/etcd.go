@@ -18,6 +18,7 @@ package phases
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 
 	"github.com/gravitational/gravity/lib/constants"
@@ -271,12 +272,14 @@ func (*PhaseUpgradeEtcdRestore) PostCheck(context.Context) error {
 type PhaseUpgradeEtcdRestart struct {
 	log.FieldLogger
 	Server storage.Server
+	Master storage.Server
 }
 
 func NewPhaseUpgradeEtcdRestart(phase storage.OperationPhase, logger log.FieldLogger) (fsm.PhaseExecutor, error) {
 	return &PhaseUpgradeEtcdRestart{
 		FieldLogger: logger,
 		Server:      *phase.Data.Server,
+		Master:      *phase.Data.Master,
 	}, nil
 }
 
@@ -288,10 +291,18 @@ func (p *PhaseUpgradeEtcdRestart) Execute(ctx context.Context) error {
 	}
 	p.Info("command output: ", string(out))
 
-	out, err = utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "enable")
-	if err != nil {
-		return trace.Wrap(err)
+	if p.Server.IsEqualTo(p.Master) {
+		out, err = utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "enable")
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	} else {
+		out, err = utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "enable", "--join-master", fmt.Sprintf("https://%v:2379", p.Master.AdvertiseIP))
+		if err != nil {
+			return trace.Wrap(err)
+		}
 	}
+
 	p.Info("command output: ", string(out))
 	return nil
 }
