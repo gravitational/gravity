@@ -40,10 +40,20 @@ type BuildParameters struct {
 	SkipVersionCheck bool
 	// Silent is whether builder should report progress to the console
 	Silent bool
-	// Verbose turns on more details progress output.
+	// Verbose turns on more detailed progress output
 	Verbose bool
 	// Insecure turns on insecure verify mode
 	Insecure bool
+}
+
+// Level returns level at which the progress should be reported based on the CLI parameters.
+func (p BuildParameters) Level() utils.ProgressLevel {
+	if p.Silent { // No output.
+		return utils.ProgressLevelNone
+	} else if p.Verbose { // Detailed output.
+		return utils.ProgressLevelDebug
+	}
+	return utils.ProgressLevelInfo // Normal output.
 }
 
 // build builds an installer tarball according to the provided parameters
@@ -57,11 +67,7 @@ func build(ctx context.Context, params BuildParameters, req service.VendorReques
 		Overwrite:        params.Overwrite,
 		SkipVersionCheck: params.SkipVersionCheck,
 		VendorReq:        req,
-		Progress: utils.NewProgressWithConfig(ctx, "Build", utils.ProgressConfig{
-			Silent:        params.Silent,
-			Verbose:       params.Verbose,
-			AutoTimestamp: true,
-		}),
+		Level:            params.Level(),
 	})
 	if err != nil {
 		return trace.Wrap(err)

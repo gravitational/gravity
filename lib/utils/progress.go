@@ -134,23 +134,19 @@ func NewConsoleProgress(ctx context.Context, title string, steps int) Progress {
 
 // NewProgressWithConfig returns new progress reporter for the given set of options
 func NewProgressWithConfig(ctx context.Context, title string, config ProgressConfig) Progress {
-	if config.Silent {
+	if config.Level == ProgressLevelNone {
 		return DiscardProgress
 	}
 	config.setDefaults()
-	var level ProgressLevel
-	if config.Verbose {
-		level = ProgressLevelDebug
-	}
 	p := &progressPrinter{
-		title:         title,
-		start:         time.Now(),
-		context:       ctx,
-		timeout:       config.Timeout,
-		steps:         config.Steps,
-		w:             config.Output,
-		level:         level,
-		autoTimestamp: config.AutoTimestamp,
+		title:     title,
+		start:     time.Now(),
+		context:   ctx,
+		timeout:   config.Timeout,
+		steps:     config.Steps,
+		w:         config.Output,
+		level:     config.Level,
+		printStep: config.StepPrinter,
 	}
 	return p
 }
@@ -166,6 +162,9 @@ func (r *ProgressConfig) setDefaults() {
 	if r.Output == nil {
 		r.Output = &consoleOutput{}
 	}
+	if r.StepPrinter == nil {
+		r.StepPrinter = DefaultStepPrinter
+	}
 }
 
 // ProgressConfig defines configuration for the progress printer
@@ -179,18 +178,18 @@ type ProgressConfig struct {
 	// Output specifies the output sink.
 	// Defaults to os.Stdout if unspecified
 	Output io.Writer
-	// Silent turns off all progress output.
-	Silent bool
-	// Verbose enables verbose output level.
-	Verbose bool
-	// AutoTimestamp automatically prepends timestamp to the progress messages.
-	AutoTimestamp bool
+	// Level defines the reporting level.
+	Level ProgressLevel
+	// StepPrinter allows to override printer that prints a single step.
+	StepPrinter StepPrinter
 }
 
 // ProgressLevel represents a level at which reporter reports progress.
-type ProgressLevel uint32
+type ProgressLevel int32
 
 const (
+	// ProgressLevelNone disables all output.
+	ProgressLevelNone ProgressLevel = -1
 	// ProgressLevelInfo is the level for basic informational messages.
 	ProgressLevelInfo ProgressLevel = iota
 	// ProgressLevelDebug is the level for more detailed information.
@@ -202,15 +201,15 @@ const (
 type progressPrinter struct {
 	w io.Writer
 	sync.Mutex
-	title         string
-	currentEntry  *entry
-	timeout       time.Duration
-	steps         int
-	currentStep   int
-	context       context.Context
-	start         time.Time
-	level         ProgressLevel
-	autoTimestamp bool
+	title        string
+	currentEntry *entry
+	timeout      time.Duration
+	steps        int
+	currentStep  int
+	context      context.Context
+	start        time.Time
+	level        ProgressLevel
+	printStep    StepPrinter
 }
 
 // PrintCurrentStep updates message printed for current step that is in progress
@@ -362,17 +361,22 @@ func (p *progressPrinter) Stop() {
 	p.currentEntry = nil
 }
 
-// printStep prints step instead of the progress bar
-func (p *progressPrinter) printStep(out io.Writer, current, target int, message string) {
+// StepPrinter prints a single step message.
+type StepPrinter func(out io.Writer, current, target int, message string)
+
+// DefaultStepPrinter outputs the message to out as it is.
+func DefaultStepPrinter(out io.Writer, current, target int, message string) {
 	if target > 0 {
 		fmt.Fprintf(out, "* [%v/%v] %v\n", current, target, message)
 	} else {
-		if p.autoTimestamp {
-			timestamp := color.New(color.Bold).Sprint(time.Now().UTC().Format(constants.HumanDateFormatSeconds))
-			message = fmt.Sprintf("%v\t%v", timestamp, message)
-		}
 		fmt.Fprintf(out, "%v\n", message)
 	}
+}
+
+// TimestampedStepPrinter adds timestamps to the printed messages.
+func TimestampedStepPrinter(out io.Writer, current, target int, message string) {
+	timestamp := color.New(color.Bold).Sprint(time.Now().UTC().Format(constants.HumanDateFormatSeconds))
+	fmt.Fprintf(out, "%v\t%v\n", timestamp, message)
 }
 
 // DiscardProgress is a progress reporter that discards all progress output
