@@ -62,6 +62,17 @@ func (b *PlanBuilder) AddLocalPackagesPhase(plan *storage.OperationPlan) {
 	})
 }
 
+// AddEtcdPhase updates etcd member's peer advertise URL.
+func (b *PlanBuilder) AddEtcdPhase(plan *storage.OperationPlan) {
+	plan.Phases = append(plan.Phases, storage.OperationPhase{
+		ID:          phases.EtcdPhase,
+		Description: "Update etcd member peer advertise URL",
+		Data: &storage.OperationPhaseData{
+			Server: &b.Master,
+		},
+	})
+}
+
 // AddStatePhase adds phase that updates cluster state in the database.
 func (b *PlanBuilder) AddStatePhase(plan *storage.OperationPlan) {
 	plan.Phases = append(plan.Phases, storage.OperationPhase{

@@ -63,6 +63,8 @@ func FSMSpec(config install.FSMConfig) fsm.FSMSpecFunc {
 			return phases.NewNetwork(p, config.Operator)
 		case phases.LocalPackagesPhase:
 			return phases.NewPackages(p, config.Operator, config.LocalPackages)
+		case phases.EtcdPhase:
+			return phases.NewEtcd(p, config.Operator)
 		case phases.StatePhase:
 			return phases.NewState(p, config.Operator)
 		case phases.TokensPhase:

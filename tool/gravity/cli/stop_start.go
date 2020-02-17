@@ -20,6 +20,7 @@ import (
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/pack"
+	"github.com/gravitational/gravity/lib/systeminfo"
 	"github.com/gravitational/gravity/lib/systemservice"
 
 	"github.com/fatih/color"
@@ -83,6 +84,11 @@ func startGravity(env *localenv.LocalEnvironment, confirmed bool) error {
 		}
 	}
 
+	err := checkAdvertiseAddress(env.Packages)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
 	packages, err := findInstalledPackages(env.Packages)
 	if err != nil {
 		return trace.Wrap(err)
@@ -118,4 +124,42 @@ func findInstalledPackages(packages pack.PackageService) ([]loc.Locator, error) 
 		return nil, trace.Wrap(err)
 	}
 	return []loc.Locator{*teleport, *planet}, nil
+}
+
+// checkAdvertiseAddress makes sure that the node has a network interface for
+// its configured advertise address.
+//
+// This helps prevent scenarios when, for example, a node is migrated to
+// another machine and user does not provide a new advertise address to the
+// start command.
+func checkAdvertiseAddress(packages pack.PackageService) error {
+	// Use the runtime package label to determine the current advertise address.
+	locator, err := pack.FindInstalledPackage(packages, loc.Planet)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	envelope, err := packages.ReadPackageEnvelope(*locator)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	advertiseIP := envelope.RuntimeLabels[pack.AdvertiseIPLabel]
+	if advertiseIP == "" {
+		log.Warnf("No %v label on %v.", pack.AdvertiseIPLabel, envelope)
+		return nil
+	}
+	ifaces, err := systeminfo.NetworkInterfaces()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	var ips []string
+	for _, iface := range ifaces {
+		ips = append(ips, iface.IPv4)
+	}
+	for _, ip := range ips {
+		if ip == advertiseIP {
+			return nil
+		}
+	}
+	return trace.NotFound(`The cluster node is configured with advertise address %v but it's not present on the machine. Available addresses are: %v.
+If you wish to reconfigure the node to use a different advertise address, use "gravity start --advertise-addr=<new-ip>" command.`, ips)
 }

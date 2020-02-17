@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package reconfigure
+package localenv
 
 import (
 	"github.com/gravitational/gravity/lib/defaults"
@@ -24,9 +24,9 @@ import (
 	"github.com/gravitational/trace"
 )
 
-// State represents the local state of the cluster/node at the start of the
-// reconfiguration operation.
-type State struct {
+// LocalState describes the local state of the cluster as represented by
+// the information found in the node-local backend.
+type LocalState struct {
 	// Cluster is the cluster that's installed on the node.
 	Cluster storage.Site
 	// InstallOperation is the original install operation.
@@ -34,7 +34,10 @@ type State struct {
 }
 
 // Server returns the server from the state.
-func (s State) Server() (*storage.Server, error) {
+//
+// The method currenly expects the state to contain only 1 server and returns
+// an error otherwise.
+func (s LocalState) Server() (*storage.Server, error) {
 	servers := s.Cluster.ClusterState.Servers
 	if len(servers) != 1 {
 		return nil, trace.BadParameter("expected 1 server, got: %s", servers)
@@ -42,19 +45,19 @@ func (s State) Server() (*storage.Server, error) {
 	return &servers[0], nil
 }
 
-// GetLocalState returns cluster state from the local node state.
-func GetLocalState(backend storage.Backend) (*State, error) {
-	cluster, err := backend.GetLocalSite(defaults.SystemAccountID)
+// GetLocalState returns cluster state from the local node backend.
+func (env *LocalEnvironment) GetLocalState() (*LocalState, error) {
+	cluster, err := env.Backend.GetLocalSite(defaults.SystemAccountID)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	operations, err := storage.GetOperations(backend)
+	operations, err := storage.GetOperations(env.Backend)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	for _, operation := range operations {
 		if operation.Type == ops.OperationInstall {
-			return &State{
+			return &LocalState{
 				Cluster:          *cluster,
 				InstallOperation: operation,
 			}, nil

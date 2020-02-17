@@ -73,6 +73,7 @@ func (s *ReconfiguratorSuite) TestPlan(c *check.C) {
 		{installphases.MastersPhase, s.suite.VerifyMastersPhase},
 		{installphases.WaitPhase, s.verifyWaitPhase},
 		{installphases.HealthPhase, s.verifyHealthPhase},
+		{phases.EtcdPhase, s.verifyEtcdPhase},
 		{phases.StatePhase, s.verifyStatePhase},
 		{phases.TokensPhase, s.verifyTokensPhase},
 		{phases.NodePhase, s.verifyNodePhase},
@@ -105,6 +106,16 @@ func (s *ReconfiguratorSuite) verifyLocalPackagesPhase(c *check.C, phase storage
 	master := s.suite.Master()
 	storage.DeepComparePhases(c, storage.OperationPhase{
 		ID: phases.LocalPackagesPhase,
+		Data: &storage.OperationPhaseData{
+			Server: &master,
+		},
+	}, phase)
+}
+
+func (s *ReconfiguratorSuite) verifyEtcdPhase(c *check.C, phase storage.OperationPhase) {
+	master := s.suite.Master()
+	storage.DeepComparePhases(c, storage.OperationPhase{
+		ID: phases.EtcdPhase,
 		Data: &storage.OperationPhaseData{
 			Server: &master,
 		},

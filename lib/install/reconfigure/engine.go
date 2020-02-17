@@ -58,7 +58,7 @@ type Config struct {
 	// Operator specifies the service operator
 	ops.Operator
 	// State represents the existing cluster state
-	State *State
+	State *localenv.LocalState
 }
 
 func (c *Config) checkAndSetDefaults() error {

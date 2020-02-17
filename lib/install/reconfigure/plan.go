@@ -84,6 +84,7 @@ func (p *Planner) GetOperationPlan(operator ops.Operator, cluster ops.Site, oper
 	}
 	builder.AddWaitPhase(plan)
 	builder.AddHealthPhase(plan)
+	builder.AddEtcdPhase(plan)
 	builder.AddStatePhase(plan)
 	builder.AddTokensPhase(plan)
 	builder.AddNodePhase(plan)

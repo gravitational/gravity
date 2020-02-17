@@ -23,6 +23,8 @@ const (
 	ClusterPackagesPhase = "/cluster-packages"
 	// DirectoriesPhase cleans up some directories.
 	DirectoriesPhase = "/directories"
+	// EtcdPhase updates etcd member's peer advertise URL.
+	EtcdPhase = "/etcd"
 	// StatePhase updates the cluster state.
 	StatePhase = "/state"
 	// NetworkPhase removes old network interfaces.

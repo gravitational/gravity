@@ -1616,6 +1616,11 @@ func (s *Server) KubeNodeID() string {
 	return s.AdvertiseIP
 }
 
+// EtcdPeerURL returns etcd peer advertise URL with the server's IP.
+func (s *Server) EtcdPeerURL() string {
+	return fmt.Sprintf("https://%v:%v", s.AdvertiseIP, defaults.EtcdPeerPort)
+}
+
 // IsMaster returns true if the server has a master role
 func (s *Server) IsMaster() bool {
 	return s.ClusterRole == string(schema.ServiceRoleMaster)

@@ -92,7 +92,7 @@ func reconfigureCluster(env *localenv.LocalEnvironment, config InstallConfig, co
 	return trace.Wrap(err)
 }
 
-func startReconfiguratorFromService(env *localenv.LocalEnvironment, config InstallConfig, state *reconfigure.State) error {
+func startReconfiguratorFromService(env *localenv.LocalEnvironment, config InstallConfig, state *localenv.LocalState) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	interrupt := signals.NewInterruptHandler(ctx, cancel, InterruptSignals)
 	defer interrupt.Close()
@@ -118,7 +118,7 @@ func startReconfiguratorFromService(env *localenv.LocalEnvironment, config Insta
 	return trace.Wrap(installer.Run(listener))
 }
 
-func newReconfigurator(ctx context.Context, config *install.Config, state *reconfigure.State) (*install.Installer, error) {
+func newReconfigurator(ctx context.Context, config *install.Config, state *localenv.LocalState) (*install.Installer, error) {
 	engine, err := reconfigure.NewEngine(reconfigure.Config{
 		Operator: config.Operator,
 		State:    state,
@@ -145,7 +145,7 @@ func newReconfigurator(ctx context.Context, config *install.Config, state *recon
 //
 // If all checks pass, returns information about the existing cluster state such
 // as the cluster object and the original install operation.
-func validateReconfiguration(env *localenv.LocalEnvironment, config InstallConfig) (*reconfigure.State, error) {
+func validateReconfiguration(env *localenv.LocalEnvironment, config InstallConfig) (*localenv.LocalState, error) {
 	// The cluster should be installed but not running.
 	err := localenv.DetectCluster(env)
 	if err != nil && trace.IsNotFound(err) {
@@ -154,7 +154,7 @@ func validateReconfiguration(env *localenv.LocalEnvironment, config InstallConfi
 	if err == nil {
 		return nil, trace.BadParameter(`Gravity appears to be running on this node. Please stop it using "gravity stop" first.`)
 	}
-	localState, err := reconfigure.GetLocalState(env.Backend)
+	localState, err := env.GetLocalState()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
