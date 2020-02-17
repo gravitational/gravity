@@ -774,10 +774,17 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			*g.SystemServiceUninstallCmd.Name)
 	case g.SystemServiceListCmd.FullCommand():
 		return systemServiceList(localEnv)
+	case g.SystemServiceStartCmd.FullCommand():
+		return systemServiceStart(localEnv, *g.SystemServiceStartCmd.Package)
+	case g.SystemServiceStopCmd.FullCommand():
+		return systemServiceStop(localEnv, *g.SystemServiceStopCmd.Package)
+	case g.SystemServiceJournalCmd.FullCommand():
+		return systemServiceJournal(localEnv,
+			*g.SystemServiceJournalCmd.Package,
+			*g.SystemServiceJournalCmd.Args)
 	case g.SystemServiceStatusCmd.FullCommand():
 		return systemServiceStatus(localEnv,
-			*g.SystemServiceStatusCmd.Package,
-			*g.SystemServiceStatusCmd.Name)
+			*g.SystemServiceStatusCmd.Package)
 	case g.SystemUninstallCmd.FullCommand():
 		return systemUninstall(localEnv, *g.SystemUninstallCmd.Confirmed)
 	case g.SystemReportCmd.FullCommand():
