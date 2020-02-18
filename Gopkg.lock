@@ -999,20 +999,25 @@
   version = "v1.0.0"
 
 [[projects]]
-  digest = "1:5920d2c1bba4c8e52217dbdcc9f2d7e3e42fa46576e221c86b2950946e20ea12"
+  digest = "1:5743846e8a4b77bdb8c77143ad85142a125b305e01677f32ce3dacbceccc4b10"
   name = "github.com/gravitational/satellite"
   packages = [
     "agent",
     "agent/cache",
     "agent/health",
     "agent/proto/agentpb",
+    "lib/history",
+    "lib/history/sqlite",
     "lib/kubernetes",
+    "lib/membership",
+    "lib/rpc",
+    "lib/rpc/client",
     "monitoring",
     "utils",
   ]
   pruneopts = "UT"
-  revision = "565557d2342d36e16652473b0908cde416bf8b2b"
-  version = "7.0.3"
+  revision = "d2c1e14945c28cb5ed35f771da26cb62cf0106f2"
+  version = "7.0.5"
 
 [[projects]]
   digest = "1:49f6abbce9ade5f43508429e4af1adcce55d27adcd62719fea049decc766a7c9"
@@ -1550,6 +1555,14 @@
   packages = ["."]
   pruneopts = "UT"
   revision = "737072b4e32b7a5018b4a7125da8d12de90e8045"
+
+[[projects]]
+  digest = "1:f4d329a16a6f1a7f694148ec7531f85d62cfa6a79bb8200ca612667e40d09923"
+  name = "github.com/mattn/go-sqlite3"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "590d44c02bca83987d23f6eab75e6d0ddf95f644"
+  version = "v1.13.0"
 
 [[projects]]
   digest = "1:fb04e8f83a0a1be6c248fb11e439edf7a1540da1eb903801d5e1c2047ce9f091"
@@ -3118,6 +3131,7 @@
     "github.com/gravitational/roundtrip",
     "github.com/gravitational/satellite/agent/health",
     "github.com/gravitational/satellite/agent/proto/agentpb",
+    "github.com/gravitational/satellite/lib/rpc/client",
     "github.com/gravitational/satellite/monitoring",
     "github.com/gravitational/tail",
     "github.com/gravitational/teleport",
@@ -3155,7 +3169,6 @@
     "github.com/julienschmidt/httprouter",
     "github.com/kardianos/osext",
     "github.com/kylelemons/godebug/diff",
-    "github.com/mailgun/lemma/secret",
     "github.com/mailgun/timetools",
     "github.com/miekg/dns",
     "github.com/mitchellh/go-ps",
@@ -3223,7 +3236,6 @@
     "k8s.io/apimachinery/pkg/runtime/serializer",
     "k8s.io/apimachinery/pkg/runtime/serializer/json",
     "k8s.io/apimachinery/pkg/types",
-    "k8s.io/apimachinery/pkg/util/intstr",
     "k8s.io/apimachinery/pkg/util/net",
     "k8s.io/apimachinery/pkg/util/rand",
     "k8s.io/apimachinery/pkg/util/runtime",
@@ -3246,10 +3258,7 @@
     "k8s.io/client-go/util/flowcontrol",
     "k8s.io/code-generator",
     "k8s.io/helm/pkg/chartutil",
-    "k8s.io/helm/pkg/getter",
     "k8s.io/helm/pkg/helm",
-    "k8s.io/helm/pkg/helm/environment",
-    "k8s.io/helm/pkg/helm/helmpath",
     "k8s.io/helm/pkg/helm/portforwarder",
     "k8s.io/helm/pkg/kube",
     "k8s.io/helm/pkg/proto/hapi/chart",
