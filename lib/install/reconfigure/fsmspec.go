@@ -59,6 +59,12 @@ func FSMSpec(config install.FSMConfig) fsm.FSMSpecFunc {
 			return installphases.NewWait(p, config.Operator, client)
 		case installphases.HealthPhase:
 			return installphases.NewHealth(p, config.Operator)
+		case installphases.CorednsPhase:
+			client, _, err := httplib.GetClusterKubeClient(p.Plan.DNSConfig.Addr())
+			if err != nil {
+				return nil, trace.Wrap(err)
+			}
+			return installphases.NewCorednsPhase(p, config.Operator, client)
 		case phases.NetworkPhase:
 			return phases.NewNetwork(p, config.Operator)
 		case phases.LocalPackagesPhase:

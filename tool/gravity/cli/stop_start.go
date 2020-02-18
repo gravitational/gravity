@@ -134,7 +134,7 @@ func findInstalledPackages(packages pack.PackageService) ([]loc.Locator, error) 
 // start command.
 func checkAdvertiseAddress(packages pack.PackageService) error {
 	// Use the runtime package label to determine the current advertise address.
-	locator, err := pack.FindInstalledPackage(packages, loc.Planet)
+	locator, err := pack.FindInstalledConfigPackage(packages, loc.Planet)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -160,6 +160,7 @@ func checkAdvertiseAddress(packages pack.PackageService) error {
 			return nil
 		}
 	}
-	return trace.NotFound(`The cluster node is configured with advertise address %v but it's not present on the machine. Available addresses are: %v.
-If you wish to reconfigure the node to use a different advertise address, use "gravity start --advertise-addr=<new-ip>" command.`, ips)
+	return trace.NotFound(`The cluster node is configured with advertise address %v but it's not present on the machine.
+Available addresses are: %v.
+If you wish to reconfigure the node to use a different advertise address, use "gravity start --advertise-addr=<new-ip>" command.`, advertiseIP, ips)
 }

@@ -52,6 +52,7 @@ func NewState(p fsm.ExecutorParams, operator ops.Operator) (*stateExecutor, erro
 		FieldLogger:    logger,
 		ExecutorParams: p,
 		Operation:      *operation,
+		Server:         *p.Phase.Data.Server,
 	}, nil
 }
 
@@ -62,6 +63,8 @@ type stateExecutor struct {
 	fsm.ExecutorParams
 	// Operation is the current reconfigure operation.
 	Operation ops.SiteOperation
+	// Server is the server undergoing the reconfigure operation.
+	Server storage.Server
 }
 
 // Execute updates the server information in the cluster state.
@@ -71,7 +74,7 @@ func (p *stateExecutor) Execute(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	if err := p.updateNode(clusterEnv.Backend, *p.Phase.Data.Server); err != nil {
+	if err := p.updateNode(clusterEnv.Backend); err != nil {
 		return trace.Wrap(err)
 	}
 	if err := p.createOperation(clusterEnv.Backend); err != nil {
@@ -80,20 +83,66 @@ func (p *stateExecutor) Execute(ctx context.Context) error {
 	if err := p.removeAuthorities(clusterEnv.Backend); err != nil {
 		return trace.Wrap(err)
 	}
+	if err := p.updatePeers(clusterEnv.Backend); err != nil {
+		return trace.Wrap(err)
+	}
+	if err := p.updateBlobs(clusterEnv.Backend); err != nil {
+		return trace.Wrap(err)
+	}
 	return nil
 }
 
-func (p *stateExecutor) updateNode(backend storage.Backend, node storage.Server) error {
+func (p *stateExecutor) updateNode(backend storage.Backend) error {
 	cluster, err := backend.GetLocalSite(defaults.SystemAccountID)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	cluster.ClusterState.Servers = storage.Servers{node}
+	cluster.ClusterState.Servers = storage.Servers{p.Server}
 	_, err = backend.UpdateSite(*cluster)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	p.Debug("Updated node in the cluster state.")
+	return nil
+}
+
+func (p *stateExecutor) updatePeers(backend storage.Backend) error {
+	peers, err := backend.GetPeers()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	for _, peer := range peers {
+		if peer.ID != p.Server.AdvertiseIP {
+			err := backend.DeletePeer(peer.ID)
+			if err != nil {
+				return trace.Wrap(err)
+			}
+			p.Debugf("Deleted peer %v.", peer)
+		}
+	}
+	return nil
+}
+
+func (p *stateExecutor) updateBlobs(backend storage.Backend) error {
+	blobs, err := backend.GetObjects()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	for _, blob := range blobs {
+		peers, err := backend.GetObjectPeers(blob)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		err = backend.DeleteObjectPeers(blob, peers)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		err = backend.UpsertObjectPeers(blob, []string{p.Server.AdvertiseIP}, 0)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		p.Debugf("Updated peers for object %v.", blob)
+	}
 	return nil
 }
 

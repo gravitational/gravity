@@ -87,6 +87,7 @@ func (p *Planner) GetOperationPlan(operator ops.Operator, cluster ops.Site, oper
 	builder.AddEtcdPhase(plan)
 	builder.AddStatePhase(plan)
 	builder.AddTokensPhase(plan)
+	builder.AddCorednsPhase(plan)
 	builder.AddNodePhase(plan)
 	builder.AddDirectoriesPhase(plan)
 	builder.AddPodsPhase(plan)

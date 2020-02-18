@@ -76,6 +76,7 @@ func (s *ReconfiguratorSuite) TestPlan(c *check.C) {
 		{phases.EtcdPhase, s.verifyEtcdPhase},
 		{phases.StatePhase, s.verifyStatePhase},
 		{phases.TokensPhase, s.verifyTokensPhase},
+		{installphases.CorednsPhase, s.verifyCorednsPhase},
 		{phases.NodePhase, s.verifyNodePhase},
 		{phases.DirectoriesPhase, s.verifyDirectoriesPhase},
 		{phases.PodsPhase, s.verifyPodsPhase},
@@ -139,6 +140,17 @@ func (s *ReconfiguratorSuite) verifyTokensPhase(c *check.C, phase storage.Operat
 		Data: &storage.OperationPhaseData{
 			Server: &master,
 		},
+	}, phase)
+}
+
+func (s *ReconfiguratorSuite) verifyCorednsPhase(c *check.C, phase storage.OperationPhase) {
+	master := s.suite.Master()
+	storage.DeepComparePhases(c, storage.OperationPhase{
+		ID: installphases.CorednsPhase,
+		Data: &storage.OperationPhaseData{
+			Server: &master,
+		},
+		Requires: []string{installphases.WaitPhase},
 	}, phase)
 }
 
