@@ -161,7 +161,12 @@ func GenerateCorefile(config CorednsConfig) (string, error) {
 	}
 
 	config.UpstreamNameservers = mergeUpstreamResolvers(resolvConf, systemdResolvConf)
-	config.Rotate = resolvConf.Rotate || systemdResolvConf.Rotate
+	if resolvConf != nil && resolvConf.Rotate {
+		config.Rotate = true
+	}
+	if systemdResolvConf != nil && systemdResolvConf.Rotate {
+		config.Rotate = true
+	}
 
 	result, err := generateCorefile(config)
 	return result, trace.Wrap(err)
