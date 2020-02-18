@@ -867,20 +867,25 @@
   revision = "6a87d116a90b9c4e73bedc19ebc9c17f1b43d826"
 
 [[projects]]
-  digest = "1:f988bf36d4f9bd69a6439f4da89fc5f7336751e9bf2719f5b1fb2077e3c55631"
+  digest = "1:f560959bdd0707bc01ef77848f659bb05db658109f3644c8384b83c8e42168aa"
   name = "github.com/gravitational/satellite"
   packages = [
     "agent",
     "agent/cache",
     "agent/health",
     "agent/proto/agentpb",
+    "lib/history",
+    "lib/history/sqlite",
     "lib/kubernetes",
+    "lib/membership",
+    "lib/rpc",
+    "lib/rpc/client",
     "monitoring",
     "utils",
   ]
   pruneopts = "UT"
-  revision = "696449702d913ab770809e8519fd3aaceeb010de"
-  version = "5.5.7"
+  revision = "73961bdc6c6b5efb516ba2c35b14697e77e4f248"
+  version = "5.5.9"
 
 [[projects]]
   digest = "1:49f6abbce9ade5f43508429e4af1adcce55d27adcd62719fea049decc766a7c9"
@@ -1244,12 +1249,23 @@
   revision = "0b12d6b5"
 
 [[projects]]
-  digest = "1:75ab90ae3f5d876167e60f493beadfe66f0ed861a710f283fb06c86437a09538"
+  digest = "1:6c41d4f998a03b6604227ccad36edaed6126c397e5d78709ef4814a1145a6757"
+  name = "github.com/jmoiron/sqlx"
+  packages = [
+    ".",
+    "reflectx",
+  ]
+  pruneopts = "UT"
+  revision = "d161d7a76b5661016ad0b085869f77fd410f3e6a"
+  version = "v1.2.0"
+
+[[projects]]
+  branch = "master"
+  digest = "1:35f49695a600c368ad7811a672d583b3e004b44fe883a0a1eb2a6c0d75eaeb1b"
   name = "github.com/jonboulle/clockwork"
   packages = ["."]
   pruneopts = "UT"
-  revision = "2eee05ed794112d45db504eb05aa693efd2b8b09"
-  version = "v0.1.0"
+  revision = "62fb9bc030d14f92c58df3c1601e50a0e445edef"
 
 [[projects]]
   digest = "1:3e551bbb3a7c0ab2a2bf4660e7fcad16db089fdcfbb44b0199e62838038623ea"
@@ -1379,6 +1395,14 @@
   packages = ["."]
   pruneopts = "UT"
   revision = "737072b4e32b7a5018b4a7125da8d12de90e8045"
+
+[[projects]]
+  digest = "1:f4d329a16a6f1a7f694148ec7531f85d62cfa6a79bb8200ca612667e40d09923"
+  name = "github.com/mattn/go-sqlite3"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "590d44c02bca83987d23f6eab75e6d0ddf95f644"
+  version = "v1.13.0"
 
 [[projects]]
   digest = "1:fb04e8f83a0a1be6c248fb11e439edf7a1540da1eb903801d5e1c2047ce9f091"
@@ -1593,9 +1617,12 @@
   revision = "54653902c20e47f3417541d35435cb6d6162e28a"
 
 [[projects]]
-  digest = "1:b6221ec0f8903b556e127c449e7106b63e6867170c2d10a7c058623d086f2081"
+  digest = "1:d14a5f4bfecf017cb780bdde1b6483e5deb87e12c332544d2c430eda58734bcb"
   name = "github.com/prometheus/client_golang"
-  packages = ["prometheus"]
+  packages = [
+    "prometheus",
+    "prometheus/promhttp",
+  ]
   pruneopts = "UT"
   revision = "c5b7fccd204277076155f10851dad72b76a49317"
   version = "v0.8.0"
@@ -2589,6 +2616,7 @@
     "github.com/gravitational/roundtrip",
     "github.com/gravitational/satellite/agent/health",
     "github.com/gravitational/satellite/agent/proto/agentpb",
+    "github.com/gravitational/satellite/lib/rpc/client",
     "github.com/gravitational/satellite/monitoring",
     "github.com/gravitational/tail",
     "github.com/gravitational/teleport",
@@ -2626,7 +2654,6 @@
     "github.com/julienschmidt/httprouter",
     "github.com/kardianos/osext",
     "github.com/kylelemons/godebug/diff",
-    "github.com/mailgun/lemma/secret",
     "github.com/mailgun/timetools",
     "github.com/miekg/dns",
     "github.com/mitchellh/go-ps",
@@ -2686,7 +2713,6 @@
     "k8s.io/apimachinery/pkg/runtime",
     "k8s.io/apimachinery/pkg/runtime/schema",
     "k8s.io/apimachinery/pkg/runtime/serializer/json",
-    "k8s.io/apimachinery/pkg/util/intstr",
     "k8s.io/apimachinery/pkg/util/net",
     "k8s.io/apimachinery/pkg/util/rand",
     "k8s.io/apimachinery/pkg/util/runtime",
@@ -2703,10 +2729,7 @@
     "k8s.io/client-go/tools/clientcmd",
     "k8s.io/client-go/tools/clientcmd/api",
     "k8s.io/helm/pkg/chartutil",
-    "k8s.io/helm/pkg/getter",
     "k8s.io/helm/pkg/helm",
-    "k8s.io/helm/pkg/helm/environment",
-    "k8s.io/helm/pkg/helm/helmpath",
     "k8s.io/helm/pkg/helm/portforwarder",
     "k8s.io/helm/pkg/kube",
     "k8s.io/helm/pkg/manifest",
