@@ -1464,7 +1464,7 @@ The command can also output the images in the json or yaml format which can come
 $ gravity registry list --format=json
 ```
 
-## Changing a Node's Advertise Address
+## Changing Node Advertise Address
 
 !!! note "Supported version":
     Changing a node's advertise address is supported starting from Gravity 7.
@@ -1486,13 +1486,13 @@ There are a few restrictions and assumptions about this procedure to keep in min
 With the above requirements satisfied, the operation of changing the node's advertise address can be performed using the
 following steps.
 
-Stop and disable all Gravity and Kubernetes services on the node:
+On the node where a single-node cluster is running, stop and disable all Gravity and Kubernetes services:
 
 ```bash
 $ sudo gravity stop
 ```
 
-At this point the machine's snapshot (AMI/OVF/OVA/etc) can be taken. To start Gravity back on the original node if needed,
+At this point the machine's snapshot (AMI/OVF/OVA/etc) can be taken. To start the cluster back on the original node if needed,
 use the command:
 
 ```bash
@@ -1508,8 +1508,8 @@ $ sudo gravity start --advertise-addr=<new-ip>
 Gravity will regenerate all necessary configurations and cluster secrets and restart all the services.
 
 !!! note:
-    As a part of the reconfiguration operation, all the pods previously present in the cluster are recreated which
-    means that any pods not managed by controllers (deployments, daemonsets, etc.) will be deleted permanently, so
+    As a part of the advertise address change operation, all pods previously present in the cluster are recreated which
+    means that any pods not managed by controllers (deployments, daemon sets, etc.) will be deleted permanently, so
     make sure to not use pods directly and use controllers instead.
 
 ## Troubleshooting

@@ -157,10 +157,10 @@ commands.
 
 See [Helm Integration](/pack/#helm-integration) for more details.
 
-## Changing Node IP
+## Changing Node Advertise Address
 
-Gravity provides a way to migrate a single-node cluster to a different node, for
+Gravity provides a way to move a single-node cluster to a different node, for
 example to support a use-case of delivering a Gravity cluster as a part of the
 AMI/OVA/OVF appliance.
 
-See [Migrating a Cluster](/cluster/#migrating-a-cluster) for more details.
+See [Changing Node Advertise Address](/cluster/#changing-node-advertise-address) for more details.
