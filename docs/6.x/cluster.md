@@ -217,19 +217,19 @@ Example output may looks something like the following:
 
 ```bsh
 $ gravity status history
-Feb  6 21:36:07 UTC [Node Degraded]     node=node-1
-Feb  6 21:36:11 UTC [Node Degraded]     node=node-2
-Feb  6 21:36:25 UTC [Node Degraded]     node=node-3
-Feb  6 21:36:56 UTC [Probe Succeeded]   node=node-1 checker=node-status
-Feb  6 21:36:58 UTC [Probe Succeeded]   node=node-2 checker=node-status
-Feb  6 21:36:58 UTC [Probe Succeeded]   node=node-2 checker=time-drift
-Feb  6 21:36:59 UTC [Probe Succeeded]   node=node-3 checker=node-status
-Feb  6 21:37:07 UTC [Probe Succeeded]   node=node-1 checker=kube-apiserver
-Feb  6 21:37:07 UTC [Node Recovered]    node=node-1
-Feb  6 21:37:08 UTC [Probe Succeeded]   node=node-2 checker=kube-apiserver
-Feb  6 21:37:08 UTC [Node Recovered]    node=node-2
-Feb  6 21:37:11 UTC [Probe Succeeded]   node=node-3 checker=kube-apiserver
-Feb  6 21:37:11 UTC [Node Recovered]    node=node-3
+2020-02-18T01:36:07Z [Node Degraded]     node=node-1
+2020-02-18T21:36:11Z [Node Degraded]     node=node-2
+2020-02-18T21:36:25Z [Node Degraded]     node=node-3
+2020-02-18T21:36:56Z [Probe Succeeded]   node=node-1 checker=node-status
+2020-02-18T21:36:58Z [Probe Succeeded]   node=node-2 checker=node-status
+2020-02-18T21:36:58Z [Probe Succeeded]   node=node-2 checker=time-drift
+2020-02-18T21:36:59Z [Probe Succeeded]   node=node-3 checker=node-status
+2020-02-18T21:37:07Z [Probe Succeeded]   node=node-1 checker=kube-apiserver
+2020-02-18T21:37:07Z [Node Recovered]    node=node-1
+2020-02-18T21:37:08Z [Probe Succeeded]   node=node-2 checker=kube-apiserver
+2020-02-18T21:37:08Z [Node Recovered]    node=node-2
+2020-02-18T21:37:11Z [Probe Succeeded]   node=node-3 checker=kube-apiserver
+2020-02-18T21:37:11Z [Node Recovered]    node=node-3
 ```
 
 Here's an example of how to view the history remotely via `tsh`:
@@ -249,9 +249,6 @@ There are just a few event types that are currently being tracked.
 key specifies the name of the node (node-1, node-2, node-3).
 - `Probe Succeeded` / `Probe Failed` specifies a change in a probe result. The checker
 key specifies the name of the health check (time-drift, kube-apiserver).
-- A few other events will be tracked and are WIP. We plan to track cluster 
-resizing, gravity upgrades, network partitions, etc...
-- If you have suggestions for other types of events to be tracked, let us know [here](https://github.com/gravitational/gravity/issues/new/choose).
 
 The `gravity status history` command is available on all `master` nodes of the
 cluster and provides an eventually consistent history between nodes. 
