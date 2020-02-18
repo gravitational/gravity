@@ -16,38 +16,143 @@ limitations under the License.
 
 package schema
 
+import "github.com/gravitational/gravity/lib/defaults"
+
 // DefaultPortRanges defines the list of default ports for the cluster
 var DefaultPortRanges = PortRanges{
 	Kubernetes: []PortRange{
-		{Protocol: "tcp", From: 2379, To: 2380, Description: "etcd"},
-		{Protocol: "tcp", From: 6443, To: 6443, Description: "kubernetes API server"},
 		{Protocol: "tcp", From: 10248, To: 10255, Description: "kubernetes internal services range"},
-		{Protocol: "tcp", From: 7496, To: 7496, Description: "serf (health check agents) peer to peer"},
-		{Protocol: "tcp", From: 7373, To: 7373, Description: "serf (health check agents) peer to peer"},
+		{
+			Protocol:    "tcp",
+			From:        defaults.EtcdAPIPort,
+			To:          defaults.EtcdAPIPort,
+			Description: "etcd API port",
+		},
+		{
+			Protocol:    "tcp",
+			From:        defaults.EtcdPeerPort,
+			To:          defaults.EtcdPeerPort,
+			Description: "etcd peer port",
+		},
+		{
+			Protocol:    "tcp",
+			From:        defaults.APIServerSecurePort,
+			To:          defaults.APIServerSecurePort,
+			Description: "kubernetes API server",
+		},
+		{
+			Protocol:    "tcp",
+			From:        defaults.SerfAgentPort,
+			To:          defaults.SerfAgentPort,
+			Description: "serf (health check agents) peer to peer",
+		},
 	},
 	Installer: []PortRange{
-		{Protocol: "tcp", From: 61009, To: 61010, Description: "installer ports"},
-		{Protocol: "tcp", From: 61022, To: 61025, Description: "installer ports"},
-		{Protocol: "tcp", From: 61080, To: 61080, Description: "installer ports"},
-		{Protocol: "tcp", From: 3012, To: 3012, Description: "gravity agent RPC"},
+		{
+			Protocol:    "tcp",
+			From:        defaults.WizardPackServerPort,
+			To:          defaults.WizardPackServerPort,
+			Description: "wizard package service",
+		},
+		{
+			Protocol:    "tcp",
+			From:        defaults.WizardHealthPort,
+			To:          defaults.WizardHealthPort,
+			Description: "wizard health endpoint",
+		},
+		{
+			Protocol:    "tcp",
+			From:        defaults.WizardSSHServerPort,
+			To:          defaults.WizardSSHServerPort,
+			Description: "wizard SSH port",
+		},
+		{
+			Protocol:    "tcp",
+			From:        defaults.WizardProxyServerPort,
+			To:          defaults.WizardProxyServerPort,
+			Description: "wizard proxy port",
+		},
+		{
+			Protocol:    "tcp",
+			From:        defaults.WizardReverseTunnelPort,
+			To:          defaults.WizardReverseTunnelPort,
+			Description: "installer reverse tunnel port",
+		},
+		{
+			Protocol:    "tcp",
+			From:        defaults.WizardAuthServerPort,
+			To:          defaults.WizardAuthServerPort,
+			Description: "installer auth port",
+		},
+		{
+			Protocol:    "tcp",
+			From:        defaults.GravityRPCAgentPort,
+			To:          defaults.GravityRPCAgentPort,
+			Description: "gravity agent RPC",
+		},
+		{
+			Protocol:    "tcp",
+			From:        defaults.BandwidthTestPort,
+			To:          defaults.BandwidthTestPort,
+			Description: "bandwidth test port",
+		},
 	},
 	Vxlan: PortRange{
-		Protocol: "udp", From: 8472, To: 8472, Description: "overlay network",
+		Protocol:    "udp",
+		From:        defaults.VxlanPort,
+		To:          defaults.VxlanPort,
+		Description: "overlay network",
 	},
 	Generic: []PortRange{
-		{Protocol: "tcp", From: 3022, To: 3025, Description: "teleport internal SSH control panel"},
-		{Protocol: "tcp", From: 3080, To: 3080, Description: "teleport Web UI"},
-		{Protocol: "tcp", From: 3008, To: 3011, Description: "internal gravity services"},
-		{Protocol: "tcp", From: 32009, To: 32009, Description: "gravity Hub control panel"},
-		{Protocol: "tcp", From: 7575, To: 7575, Description: "planet agent RPC"},
+		{Protocol: "tcp", From: 3022, To: 3026, Description: "teleport internal SSH control panel"},
+		{Protocol: "tcp", From: 3007, To: 3011, Description: "internal gravity services"},
+		{
+			Protocol:    "tcp",
+			From:        defaults.GravitySiteNodePort,
+			To:          defaults.GravitySiteNodePort,
+			Description: "gravity Hub control panel",
+		},
+		{
+			Protocol:    "tcp",
+			From:        defaults.SatelliteRPCAgentPort,
+			To:          defaults.SatelliteRPCAgentPort,
+			Description: "planet agent RPC",
+		},
+		{
+			Protocol:    "tcp",
+			From:        defaults.SatelliteMetricsPort,
+			To:          defaults.SatelliteMetricsPort,
+			Description: "planet agent monitoring API port",
+		},
+		{
+			Protocol:    "tcp",
+			From:        defaults.SatelliteSerfRPCPort,
+			To:          defaults.SatelliteSerfRPCPort,
+			Description: "serf RPC port",
+		},
 	},
 	Reserved: []PortRange{
-		// Defines as kubernetes_port_t by default
-		{Protocol: "tcp", From: 4001, To: 4001, Description: "etcd"},
-		// Defines as afs3_callback_port_t by default
-		{Protocol: "tcp", From: 7001, To: 7001, Description: "etcd"},
-		// Defines as commplex_main_port_t by default
-		{Protocol: "tcp", From: 5000, To: 5000, Description: "docker registry"},
+		// Defined as kubernetes_port_t by default
+		{
+			Protocol:    "tcp",
+			From:        defaults.EtcdAPILegacyPort,
+			To:          defaults.EtcdAPILegacyPort,
+			Description: "etcd",
+		},
+		// Defined as afs3_callback_port_t by default
+		{
+			Protocol:    "tcp",
+			From:        defaults.EtcdPeerLegacyPort,
+			To:          defaults.EtcdPeerLegacyPort,
+			Description: "etcd",
+		},
+		// Defined as commplex_main_port_t by default
+		{
+			Protocol:    "tcp",
+			From:        defaults.DockerRegistryPort,
+			To:          defaults.DockerRegistryPort,
+			Description: "docker registry",
+		},
 	},
 }
 

@@ -22,6 +22,7 @@ import (
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/fsm"
+	"github.com/gravitational/gravity/lib/install/phases"
 	installphases "github.com/gravitational/gravity/lib/install/phases"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
@@ -58,6 +59,19 @@ type planBuilder struct {
 	ServiceUser storage.OSUser
 	// DNSConfig specifies the custom cluster DNS configuration
 	DNSConfig storage.DNSConfig
+}
+
+// AddBootstrapSELinuxPhase appends the phase to configure SELinux on a node
+func (b *planBuilder) AddBootstrapSELinuxPhase(plan *storage.OperationPlan) {
+	plan.Phases = append(plan.Phases, storage.OperationPhase{
+		ID:          phases.BootstrapSELinuxPhase,
+		Description: "Configure SELinux",
+		Data: &storage.OperationPhaseData{
+			Server:     &b.JoiningNode,
+			ExecServer: &b.JoiningNode,
+			Package:    &b.Application.Package,
+		},
+	})
 }
 
 // AddChecksPhase appends preflight checks phase to the plan.

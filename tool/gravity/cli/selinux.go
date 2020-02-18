@@ -1,5 +1,5 @@
 /*
-Copyright 2019 Gravitational, Inc.
+Copyright 2020 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ limitations under the License.
 package cli
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"syscall"
@@ -32,7 +33,7 @@ import (
 
 // BootstrapSELinuxAndRespawn prepares the node for the installation with SELinux support
 // and restarts the process under the proper SELinux context if necessary
-func BootstrapSELinuxAndRespawn(config libselinux.BootstrapConfig, printer utils.Printer) error {
+func BootstrapSELinuxAndRespawn(ctx context.Context, config libselinux.BootstrapConfig, printer utils.Printer) error {
 	if !selinux.GetEnabled() {
 		return nil
 	}
@@ -48,11 +49,12 @@ func BootstrapSELinuxAndRespawn(config libselinux.BootstrapConfig, printer utils
 	}
 	if !isSELinuxAlreadyBootstrapped() {
 		printer.PrintStep("Bootstrapping installer for SELinux")
-		if err := libselinux.Bootstrap(config); err != nil {
+		if err := libselinux.Bootstrap(ctx, config); err != nil {
 			return trace.Wrap(err)
 		}
 	}
 	if procContext["type"] == libselinux.GravityInstallerProcessContext["type"] {
+		// Already running in the expected SELinux domain
 		return nil
 	}
 	newProcContext := libselinux.MustNewContext(label)
@@ -66,15 +68,12 @@ func BootstrapSELinuxAndRespawn(config libselinux.BootstrapConfig, printer utils
 	return syscall.Exec(cmd, os.Args, newRespawnEnviron())
 }
 
-func bootstrapSelinux(env *localenv.LocalEnvironment, path, stateDir string, vxlanPort int) error {
+func bootstrapSELinux(env *localenv.LocalEnvironment, path, stateDir string, vxlanPort int) error {
 	config := libselinux.BootstrapConfig{
 		StateDir: stateDir,
 	}
-	if vxlanPort != defaults.VxlanPort {
-		config.VxlanPort = &vxlanPort
-	}
 	if path == "" {
-		return libselinux.Bootstrap(config)
+		return libselinux.Bootstrap(context.TODO(), config)
 	}
 	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_EXCL, defaults.SharedReadMask)
 	if err != nil {

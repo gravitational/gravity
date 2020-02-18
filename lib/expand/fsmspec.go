@@ -31,6 +31,11 @@ import (
 func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 	return func(p fsm.ExecutorParams, remote fsm.Remote) (fsm.PhaseExecutor, error) {
 		switch {
+		case strings.HasPrefix(p.Phase.ID, installphases.BootstrapSELinuxPhase):
+			return installphases.NewSELinux(p,
+				config.Operator,
+				config.Apps)
+
 		case strings.HasPrefix(p.Phase.ID, ChecksPhase):
 			return phases.NewChecks(p,
 				config.Operator,

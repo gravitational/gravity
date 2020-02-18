@@ -49,6 +49,10 @@ func (r *Planner) GetOperationPlan(operator ops.Operator, cluster ops.Site, oper
 		SELinux:       cluster.SELinux,
 	}
 
+	if cluster.SELinux {
+		builder.AddBootstrapSELinuxPhase(plan)
+	}
+
 	if r.preflightChecks {
 		builder.AddChecksPhase(plan)
 	}

@@ -17,6 +17,7 @@ limitations under the License.
 package phases
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -34,6 +35,7 @@ import (
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
+	libselinux "github.com/gravitational/gravity/lib/system/selinux"
 	"github.com/gravitational/gravity/lib/systeminfo"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -254,7 +256,7 @@ func (p *bootstrapExecutor) configureSystemDirectories(ctx context.Context) erro
 			return trace.Wrap(err)
 		}
 	}
-	if err := p.applySelinuxFilecontexts(ctx, stateDir); err != nil {
+	if err := p.applySELinuxFileContexts(ctx, stateDir); err != nil {
 		return trace.Wrap(err)
 	}
 
@@ -358,20 +360,17 @@ func (*bootstrapExecutor) PostCheck(ctx context.Context) error {
 	return nil
 }
 
-func (p *bootstrapExecutor) applySelinuxFilecontexts(ctx context.Context, stateDir string) error {
+func (p *bootstrapExecutor) applySELinuxFileContexts(ctx context.Context, stateDir string) error {
 	if !(selinux.GetEnabled() && p.Plan.SELinux) {
 		p.Info("SELinux is disabled.")
 		return nil
 	}
-	out, err := exec.CommandContext(ctx, "restorecon", "-R", "-v", stateDir).CombinedOutput()
-	p.WithFields(logrus.Fields{
-		logrus.ErrorKey: err,
-		"output":        string(out),
-	}).Info("Restore file contexts.")
-	if err != nil {
-		return trace.Wrap(err, "failed to restorecon file contexts on %v",
-			stateDir)
+	var out bytes.Buffer
+	// Set file/directory labels as defined by the policy on the state directory
+	if err := libselinux.ApplyFileContexts(ctx, &out, stateDir); err != nil {
+		return trace.Wrap(err, "failed to restore file contexts: %s", out.String())
 	}
+	p.WithField("output", out.String()).Info("Restore file contexts.")
 	return nil
 }
 

@@ -18,6 +18,7 @@ package environ
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"net"
 	"os"
@@ -38,7 +39,7 @@ import (
 )
 
 // UninstallSystem removes all state from the system on best-effort basis
-func UninstallSystem(printer utils.Printer, logger log.FieldLogger) (err error) {
+func UninstallSystem(ctx context.Context, printer utils.Printer, logger log.FieldLogger) (err error) {
 	var errors []error
 	if err := unmountDevicemapper(printer, logger); err != nil {
 		errors = append(errors, err)
@@ -58,7 +59,7 @@ func UninstallSystem(printer utils.Printer, logger log.FieldLogger) (err error) 
 	if err := removePaths(printer, logger, pathsToRemove...); err != nil {
 		errors = append(errors, err)
 	}
-	if err := unloadSELinuxPolicy(); err != nil {
+	if err := unloadSELinuxPolicy(ctx); err != nil {
 		errors = append(errors, err)
 	}
 	return trace.NewAggregate(errors...)
@@ -123,7 +124,7 @@ func DisableAgentServices(logger log.FieldLogger) error {
 	return trace.NewAggregate(errors...)
 }
 
-func unloadSELinuxPolicy() error {
+func unloadSELinuxPolicy(ctx context.Context) error {
 	if !selinux.GetEnabled() {
 		return nil
 	}
@@ -131,7 +132,7 @@ func unloadSELinuxPolicy() error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return libselinux.Unload(libselinux.BootstrapConfig{
+	return libselinux.Unload(ctx, libselinux.BootstrapConfig{
 		StateDir: stateDir,
 	})
 }
@@ -243,7 +244,9 @@ func getStatePaths() (paths []string) {
 		paths = append(paths, stateDir)
 	}
 	paths = append(paths, state.StateLocatorPaths...)
-	if utils.Exe.WorkingDir != "/" {
+	// do not attempt to remove state directory if started with root
+	// as a working directory
+	if !isRunningInRootDir() {
 		if stateDir, err := state.GravityInstallDir(); err == nil {
 			paths = append(paths, stateDir)
 		}
@@ -254,6 +257,10 @@ func getStatePaths() (paths []string) {
 		defaults.SysctlPath,
 		defaults.GravityEphemeralDir,
 	)
+}
+
+func isRunningInRootDir() bool {
+	return utils.Exe.WorkingDir == "/"
 }
 
 func uninstallServices(svm systemservice.ServiceManager, services ...string) error {

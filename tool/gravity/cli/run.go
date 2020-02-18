@@ -808,7 +808,7 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 	case g.SystemStreamRuntimeJournalCmd.FullCommand():
 		return streamRuntimeJournal(localEnv)
 	case g.SystemSelinuxBootstrapCmd.FullCommand():
-		return bootstrapSelinux(localEnv,
+		return bootstrapSELinux(localEnv,
 			*g.SystemSelinuxBootstrapCmd.Path,
 			*g.StateDir,
 			*g.SystemSelinuxBootstrapCmd.VxlanPort)

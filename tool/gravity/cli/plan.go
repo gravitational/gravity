@@ -57,7 +57,7 @@ func initUpdateOperationPlan(localEnv, updateEnv *localenv.LocalEnvironment) err
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	_, err = clusterupdate.InitOperationPlan(ctx, localEnv, updateEnv, clusterEnv, operation.Key(), leader)
+	_, err = clusterupdate.InitOperationPlan(ctx, localEnv, updateEnv, clusterEnv, operation.Key(), leader, false)
 	if err != nil {
 		return trace.Wrap(err)
 	}

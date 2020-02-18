@@ -63,11 +63,17 @@ func updateTrigger(
 	updatePackage string,
 	manual, noValidateVersion bool,
 ) error {
-	err := selinuxBootstrap()
+	seLinuxEnabled, err := querySELinuxEnabled(context.TODO())
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	updater, err := newClusterUpdater(context.TODO(), localEnv, updateEnv, updatePackage, manual, noValidateVersion)
+	if seLinuxEnabled {
+		if err := BootstrapSELinuxAndRespawn(context.TODO(), selinux.BootstrapConfig{}, localEnv); err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	updater, err := newClusterUpdater(context.TODO(), localEnv, updateEnv, updatePackage,
+		manual, noValidateVersion, seLinuxEnabled)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -84,11 +90,12 @@ func newClusterUpdater(
 	ctx context.Context,
 	localEnv, updateEnv *localenv.LocalEnvironment,
 	updatePackage string,
-	manual, noValidateVersion bool,
+	manual, noValidateVersion, seLinuxEnabled bool,
 ) (updater, error) {
 	init := &clusterInitializer{
 		updatePackage: updatePackage,
 		unattended:    !manual,
+		seLinux:       seLinuxEnabled,
 	}
 	updater, err := newUpdater(ctx, localEnv, updateEnv, init)
 	if err != nil {
@@ -240,7 +247,7 @@ func (r clusterInitializer) newOperationPlan(
 	leader *storage.Server,
 ) (*storage.OperationPlan, error) {
 	plan, err := clusterupdate.InitOperationPlan(
-		ctx, localEnv, updateEnv, clusterEnv, operation.Key(), leader,
+		ctx, localEnv, updateEnv, clusterEnv, operation.Key(), leader, r.seLinux,
 	)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -286,6 +293,7 @@ type clusterInitializer struct {
 	updateLoc     loc.Locator
 	updatePackage string
 	unattended    bool
+	seLinux       bool
 }
 
 const (
@@ -400,27 +408,25 @@ Please use the gravity binary from the upgrade installer tarball to execute the 
 	return nil
 }
 
-func selinuxBootstrap() error {
-	status, err := queryClusterStatus()
+func querySELinuxEnabled(ctx context.Context) (enabled bool, err error) {
+	status, err := queryClusterStatus(ctx)
 	if err != nil {
-		return trace.Wrap(err)
+		return false, trace.Wrap(err)
 	}
-	selinuxEnabled := status.Cluster != nil && status.Cluster.SELinux
-	if !selinuxEnabled {
-		// Nothing to do
-		return nil
-	}
-	return selinux.Bootstrap(selinux.BootstrapConfig{})
+	return status.Cluster != nil && status.Cluster.SELinux, nil
 }
 
-func queryClusterStatus() (status *libstatus.Status, err error) {
-	out, err := exec.Command("gravity", "status", "--output=json").CombinedOutput()
+func queryClusterStatus(ctx context.Context) (*libstatus.Status, error) {
+	out, err := exec.CommandContext(ctx, "gravity", "status", "--output=json").CombinedOutput()
 	log.WithField("output", string(out)).Info("Query cluster status.")
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to fetch cluster status: %s", out)
 	}
-	if err := json.Unmarshal(out, status); err != nil {
+	var status struct {
+		libstatus.Status `json:"cluster"`
+	}
+	if err := json.Unmarshal(out, &status); err != nil {
 		return nil, trace.Wrap(err, "failed to interpret status as JSON")
 	}
-	return status, nil
+	return &status.Status, nil
 }

@@ -190,7 +190,7 @@ func (s *site) agentUser() (storage.User, error) {
 	return s.users().GetTelekubeUser(s.agentUserEmail())
 }
 
-func (s *site) selinuxEnabled() (enabled bool) {
+func (s *site) seLinuxEnabled() (enabled bool) {
 	return s.backendSite.SELinux
 }
 

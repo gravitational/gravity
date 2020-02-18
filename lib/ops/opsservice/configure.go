@@ -1030,7 +1030,7 @@ func (s *site) getPlanetConfig(config planetConfig) (args []string, err error) {
 		args = append(args, fmt.Sprintf("--%v=%v", k, v))
 	}
 
-	if s.selinuxEnabled() {
+	if s.seLinuxEnabled() {
 		args = append(args, "--selinux")
 	}
 

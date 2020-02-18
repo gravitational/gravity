@@ -243,7 +243,8 @@ const manifestSchema = `
                         "recursive": {"type": "boolean"},
                         "mode": {"type": "string"},
                         "uid": {"type": "number"},
-                        "gid": {"type": "number"}
+                        "gid": {"type": "number"},
+                        "label": {"type": "string"}
                       }
                     }
                   },

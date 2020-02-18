@@ -32,6 +32,7 @@ import (
 	"github.com/gravitational/gravity/lib/state"
 	libstatus "github.com/gravitational/gravity/lib/status"
 	"github.com/gravitational/gravity/lib/storage"
+	libselinux "github.com/gravitational/gravity/lib/system/selinux"
 	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/update"
 	"github.com/gravitational/gravity/lib/utils"
@@ -82,7 +83,7 @@ func (r *System) Update(ctx context.Context, withStatus bool) error {
 		return trace.Wrap(err)
 	}
 
-	err = r.applyUpdates(changes)
+	err = r.applyUpdates(ctx, changes)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -122,7 +123,7 @@ func (r *System) Rollback(ctx context.Context, withStatus bool) (err error) {
 		return trace.Wrap(err)
 	}
 
-	err = r.applyUpdates(changes)
+	err = r.applyUpdates(ctx, changes)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -225,7 +226,7 @@ type PackageUpdates struct {
 	Teleport *storage.PackageUpdate
 }
 
-func (r *System) applyUpdates(updates []storage.PackageUpdate) error {
+func (r *System) applyUpdates(ctx context.Context, updates []storage.PackageUpdate) error {
 	var errors []error
 	packageUpdater := &PackageUpdater{
 		Logger:   log.New(r.WithField(trace.Component, "update:package")),
@@ -233,7 +234,7 @@ func (r *System) applyUpdates(updates []storage.PackageUpdate) error {
 	}
 	for _, u := range updates {
 		r.WithField("update", u).Info("Applying.")
-		err := packageUpdater.Reinstall(u)
+		err := packageUpdater.Reinstall(ctx, u)
 		if err != nil {
 			r.WithFields(logrus.Fields{
 				logrus.ErrorKey: err,
@@ -281,8 +282,8 @@ func NewPackageUpdater(packages update.LocalPackageService, opts ...PackageUpdat
 }
 
 // Reinstall reinstalls the package specified by update
-func (r *PackageUpdater) Reinstall(update storage.PackageUpdate) error {
-	labelUpdates, err := r.reinstallPackage(update)
+func (r *PackageUpdater) Reinstall(ctx context.Context, update storage.PackageUpdate) error {
+	labelUpdates, err := r.reinstallPackage(ctx, update)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -292,13 +293,13 @@ func (r *PackageUpdater) Reinstall(update storage.PackageUpdate) error {
 	return applyLabelUpdates(r.Packages, labelUpdates)
 }
 
-func (r *PackageUpdater) reinstallPackage(update storage.PackageUpdate) ([]pack.LabelUpdate, error) {
+func (r *PackageUpdater) reinstallPackage(ctx context.Context, update storage.PackageUpdate) ([]pack.LabelUpdate, error) {
 	r.WithField("update", update).Info("Reinstalling package.")
 	switch {
 	case update.To.Name == constants.GravityPackage:
 		return r.updateGravityPackage(update.To)
 	case pack.IsPlanetPackage(update.To, update.Labels):
-		updates, err := r.updatePlanetPackage(update)
+		updates, err := r.updatePlanetPackage(ctx, update)
 		return updates, trace.Wrap(err)
 	case update.To.Name == constants.TeleportPackage:
 		updates, err := r.updateTeleportPackage(update)
@@ -336,7 +337,7 @@ func (r *PackageUpdater) updateGravityPackage(newPackage loc.Locator) (labelUpda
 	return labelUpdates, nil
 }
 
-func (r *PackageUpdater) updatePlanetPackage(update storage.PackageUpdate) (labelUpdates []pack.LabelUpdate, err error) {
+func (r *PackageUpdater) updatePlanetPackage(ctx context.Context, update storage.PackageUpdate) (labelUpdates []pack.LabelUpdate, err error) {
 	var gravityPackageFilter = loc.MustCreateLocator(
 		defaults.SystemAccountOrg, constants.GravityPackage, loc.ZeroVersion)
 	err = unpack(r.Packages, update.To)
@@ -370,7 +371,7 @@ func (r *PackageUpdater) updatePlanetPackage(update storage.PackageUpdate) (labe
 		return nil, trace.Wrap(err)
 	}
 
-	err = r.applySelinuxFilecontexts(planetPath)
+	err = r.applySELinuxFileContexts(ctx, planetPath)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -516,21 +517,14 @@ func (r *PackageUpdater) checkAndSetDefaults() error {
 	return nil
 }
 
-func (r *PackageUpdater) applySelinuxFilecontexts(path string) error {
+func (r *PackageUpdater) applySELinuxFileContexts(ctx context.Context, path string) error {
 	if !(selinux.GetEnabled() && r.SELinux) {
 		r.Info("SELinux is disabled.")
 		return nil
 	}
-	out, err := exec.Command("restorecon", "-R", "-v", path).CombinedOutput()
-	r.WithFields(logrus.Fields{
-		logrus.ErrorKey: err,
-		"output":        string(out),
-	}).Info("Restore file contexts.")
-	if err != nil {
-		return trace.Wrap(err, "failed to restorecon file contexts on %v: %s",
-			path, string(out))
-	}
-	return nil
+	w := r.Logger.Writer()
+	defer w.Close()
+	return libselinux.ApplyFileContexts(ctx, w, path)
 }
 
 // WithSELinux sets SELinux support

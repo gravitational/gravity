@@ -25,7 +25,6 @@ import (
 
 	liblog "github.com/gravitational/gravity/lib/log"
 	"github.com/gravitational/gravity/lib/schema"
-	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/satellite/monitoring"
 
 	"github.com/gravitational/trace"
@@ -54,7 +53,6 @@ func (*S) TestWritesBootstrapScript(c *C) {
 			expected: `
 port -D
 fcontext -D
-
 fcontext -a -f f -t gravity_installer_exec_t -r 's0' '/path/to/installer/gravity'
 fcontext -a -f f -t gravity_log_t -r 's0' '/path/to/installer/gravity-(install|system)\.log'
 fcontext -a -f a -t gravity_home_t -r 's0' '/path/to/installer/.gravity(/.*)?'
@@ -83,7 +81,6 @@ fcontext -a -f a -t gravity_home_t -r 's0' '/path/to/installer/.gravity(/.*)?'
 			expected: `
 port -D
 fcontext -D
-
 fcontext -a -f f -t gravity_installer_exec_t -r 's0' '/path/to/installer/gravity'
 fcontext -a -f f -t gravity_log_t -r 's0' '/path/to/installer/gravity-(install|system)\.log'
 fcontext -a -f a -t gravity_home_t -r 's0' '/path/to/installer/.gravity(/.*)?'
@@ -104,8 +101,7 @@ fcontext --add --ftype a --type file_type_t --range 's0' '/custom/state/dir/dir2
 				OS:         &testSystem,
 				Path:       "/path/to/installer",
 				StateDir:   "/custom/state/dir",
-				VxlanPort:  utils.IntPtr(8474),
-				portRanges: newPortRanges(8474),
+				portRanges: newPortRanges(),
 			},
 			expected: `
 port -D
@@ -114,7 +110,6 @@ port -a -t gravity_install_port_t -r 's0' -p tcp 1000-1001
 port -a -t gravity_kubernetes_port_t -r 's0' -p udp 2000-2000
 port -a -t gravity_port_t -r 's0' -p tcp 3000-3000
 port -a -t gravity_port_t -r 's0' -p udp 4000-4002
-port -a -t gravity_vxlan_port_t -r 's0' -p udp 8474
 fcontext -a -f f -t gravity_installer_exec_t -r 's0' '/path/to/installer/gravity'
 fcontext -a -f f -t gravity_log_t -r 's0' '/path/to/installer/gravity-(install|system)\.log'
 fcontext -a -f a -t gravity_home_t -r 's0' '/path/to/installer/.gravity(/.*)?'
@@ -140,8 +135,8 @@ func newTestBootstrapper(config BootstrapConfig, s, testCase string) *bootstrapp
 	}
 }
 
-func newPortRanges(vxlanPort int) *portRanges {
-	return &portRanges{
+func newPortRanges() portRanges {
+	return portRanges{
 		Installer: []schema.PortRange{
 			{
 				Protocol:    "tcp",
@@ -172,7 +167,6 @@ func newPortRanges(vxlanPort int) *portRanges {
 				Description: "another gravity service port",
 			},
 		},
-		VxlanPort: utils.IntPtr(vxlanPort),
 	}
 }
 

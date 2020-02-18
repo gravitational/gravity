@@ -258,6 +258,15 @@ const (
 	// SatelliteRPCAgentPort is port used by satellite agent to expose its status
 	SatelliteRPCAgentPort = 7575
 
+	// SatelliteRPCAgentPort is port used by satellite agent to expose metrics
+	SatelliteMetricsPort = 7580
+
+	// SatelliteRPCAgentPort is port used by satellite agent to communicate to the serf cluster
+	SatelliteSerfRPCPort = 7373
+
+	// SerfAgentPort is port that serf agent on a node binds on
+	SerfAgentPort = 7496
+
 	// GravityWebAssetsDir is the directory where gravity stores assets (including web)
 	// depending on the work mode.
 	// In development mode, the assets are looked up in web/dist relative to the current directory.
@@ -506,8 +515,6 @@ const (
 
 	// APIPrefix defines the URL prefix for kubernetes-related queries tunneled from a master node
 	APIPrefix = "/k8s"
-	// APIServerPort defines the port of the kubernetes API server
-	APIServerPort = 8080
 	// APIServerSecurePort is api server secure port
 	APIServerSecurePort = 6443
 
@@ -847,10 +854,14 @@ const (
 	// EtcdUpgradeBackupFile is the filename to store a temporary backup of the etcd database when recreating the etcd datastore
 	EtcdUpgradeBackupFile = "etcd.bak"
 
-	// EtcdPeerPort is etcd inter-cluster communication port
+	// EtcdPeerPort is the etcd inter-cluster communication port
 	EtcdPeerPort = 2380
-	// EtcdAPIPort is etcd client API port
+	// EtcdPeerLegacyPort is the legacy etcd inter-cluster communication port
+	EtcdPeerLegacyPort = 7001
+	// EtcdAPIPort is the etcd client API port
 	EtcdAPIPort = 2379
+	// EtcdAPILegacyPort is the legacy etcd client API port
+	EtcdAPILegacyPort = 4001
 
 	// SchedulerKeyFilename is the kube-scheduler private key filename
 	SchedulerKeyFilename = "scheduler.key"
@@ -993,6 +1004,95 @@ const (
 
 	// PreflightChecksTimeout is the timeout for preflight checks.
 	PreflightChecksTimeout = 5 * time.Minute
+
+	// DockerRegistryPort is the default port for connecting to private docker registries
+	DockerRegistryPort = 5000
+
+	// MetricsInterval is the default interval cluster metrics are displayed for.
+	MetricsInterval = time.Hour
+	// MetricsStep is the default interval b/w cluster metrics data points.
+	MetricsStep = 15 * time.Second
+
+	// AbortedOperationExitCode specifies the exit code for this process when an operation is aborted.
+	// The exit code is used to prevent the installer service from restarting in case the operation
+	// is aborted
+	AbortedOperationExitCode = 254
+
+	// CompletedOperationExitCode specifies the exit code for this process when an operation completes
+	// successfully.
+	// The exit code is used to prevent the agent service from restarting after shut down
+	CompletedOperationExitCode = 253
+
+	// FailedPreconditionExitCode specifies the exit code to indicate a precondition failure.
+	// A failed precondition usually means a configuration error when an operation cannot be retried.
+	// The exit code is used to prevent the agent service from restarting after shutdown
+	FailedPreconditionExitCode = 252
+
+	// RSAPrivateKeyBits is default bits for RSA private key
+	RSAPrivateKeyBits = 4096
+
+	// HookContainerNameTag identifies the container image used for application hooks
+	HookContainerNameTag = "gravitational/debian-tall:buster"
+
+	// UpdateAppSyncTimeout defines the maximum amount of time to sync application
+	// state with an updated node during update
+	UpdateAppSyncTimeout = 5 * time.Minute
+
+	// ContainerEnvironmentFile specifies the location of the file for container environment
+	ContainerEnvironmentFile = "/etc/container-environment"
+
+	// DebugReportFile specifies the name of the file with diagnostics information
+	DebugReportFile = "crashreport.tgz"
+
+	// BandwagonPackageName is the name of bandwagon app package
+	BandwagonPackageName = "bandwagon"
+	// BandwagonServiceName is the name of the default setup endpoint service
+	BandwagonServiceName = "bandwagon"
+
+	// LoggingAppName is the name of the logging application
+	LoggingAppName = "logging-app"
+	// MonitoringAppName is the name of the monitoring application
+	MonitoringAppName = "monitoring-app"
+	// TillerAppName is the name of the tiller application
+	TillerAppName = "tiller-app"
+
+	// InstallGroupTTL is for how long installer IP is kept in a TTL map in
+	// an install group
+	InstallGroupTTL = 10 * time.Second
+
+	// LBIdleTimeout is the idle timeout for AWS load balancers
+	LBIdleTimeout = "3600"
+
+	// DiscoveryPublishInterval specifies the frequency to publish changes cluster discovery details
+	DiscoveryPublishInterval = 5 * time.Second
+	// DiscoveryResyncInterval specifies the frequency to force publish cluster discovery details
+	DiscoveryResyncInterval = 10 * time.Minute
+
+	// CACertificateExpiry is the validity period of self-signed CA generated
+	// for clusters during installation
+	CACertificateExpiry = 20 * 365 * 24 * time.Hour // 20 years
+	// CertificateExpiry is the validity period of certificates generated
+	// during cluster installation (such as apiserver, etcd, kubelet, etc.)
+	CertificateExpiry = 10 * 365 * 24 * time.Hour // 10 years
+
+	// TransientErrorTimeout specifies the maximum amount of time to attempt
+	// an operation experiencing transient errors
+	TransientErrorTimeout = 15 * time.Minute
+
+	// NodeStatusTimeout specifies the maximum amount of time to wait for
+	// healthy node status
+	NodeStatusTimeout = 5 * time.Minute
+
+	// NodeLeaveTimeout specifies the maximum amount of time to wait for
+	// node to leave the cluster
+	NodeLeaveTimeout = 1 * time.Minute
+
+	// AgentWaitTimeout specifies the maximum amount of time to wait for
+	// agents to form a cluster before commencing the operation
+	AgentWaitTimeout = 5 * time.Minute
+
+	// ContainerFileLabel specifies the default SELinux container file label
+	ContainerFileLabel = "system_u:object_r:container_file_t:s0"
 )
 
 var (
@@ -1027,44 +1127,12 @@ var (
 	LogServiceURL = fmt.Sprintf("http://%v:%v",
 		fmt.Sprintf(ServiceAddr, LogServiceName, KubeSystemNamespace), LogServicePort)
 
-	// RSAPrivateKeyBits is default bits for RSA private key
-	RSAPrivateKeyBits = 4096
-
-	// HookContainerNameTag identifies the container image used for application hooks
-	HookContainerNameTag = "gravitational/debian-tall:buster"
-
-	// UpdateAppSyncTimeout defines the maximum amount of time to sync application
-	// state with an updated node during update
-	UpdateAppSyncTimeout = 5 * time.Minute
-
-	// ContainerEnvironmentFile specifies the location of the file for container environment
-	ContainerEnvironmentFile = "/etc/container-environment"
-
-	// DebugReportFile specifies the name of the file with diagnostics information
-	DebugReportFile = "crashreport.tgz"
-
-	// BandwagonPackageName is the name of bandwagon app package
-	BandwagonPackageName = "bandwagon"
-	// BandwagonServiceName is the name of the default setup endpoint service
-	BandwagonServiceName = "bandwagon"
-
-	// LoggingAppName is the name of the logging application
-	LoggingAppName = "logging-app"
-	// MonitoringAppName is the name of the monitoring application
-	MonitoringAppName = "monitoring-app"
-	// TillerAppName is the name of the tiller application
-	TillerAppName = "tiller-app"
-
 	// KubeletArgs is a list of default command line options for kubelet
 	KubeletArgs = []string{
 		`--eviction-hard="nodefs.available<5%,imagefs.available<5%,nodefs.inodesFree<5%,imagefs.inodesFree<5%"`,
 		`--eviction-soft="nodefs.available<10%,imagefs.available<10%,nodefs.inodesFree<10%,imagefs.inodesFree<10%"`,
 		`--eviction-soft-grace-period="nodefs.available=1h,imagefs.available=1h,nodefs.inodesFree=1h,imagefs.inodesFree=1h"`,
 	}
-
-	// InstallGroupTTL is for how long installer IP is kept in a TTL map in
-	// an install group
-	InstallGroupTTL = 10 * time.Second
 
 	// LocalWizardURL is the local URL of the wizard process API
 	LocalWizardURL = fmt.Sprintf("https://%v:%v", constants.Localhost,
@@ -1075,42 +1143,11 @@ var (
 		ApplicationLabel: GravityClusterLabel,
 	}
 
-	// LBIdleTimeout is the idle timeout for AWS load balancers
-	LBIdleTimeout = "3600"
-
-	// DiscoveryPublishInterval specifies the frequency to publish changes cluster discovery details
-	DiscoveryPublishInterval = 5 * time.Second
-	// DiscoveryResyncInterval specifies the frequency to force publish cluster discovery details
-	DiscoveryResyncInterval = 10 * time.Minute
-
-	// CACertificateExpiry is the validity period of self-signed CA generated
-	// for clusters during installation
-	CACertificateExpiry = 20 * 365 * 24 * time.Hour // 20 years
-	// CertificateExpiry is the validity period of certificates generated
-	// during cluster installation (such as apiserver, etcd, kubelet, etc.)
-	CertificateExpiry = 10 * 365 * 24 * time.Hour // 10 years
-
 	// GravitySystemLogPath defines the default location for the system log
 	GravitySystemLogPath = filepath.Join(SystemLogDir, GravitySystemLogFile)
 
 	// GravityUserLogPath the default location for user-facing log file
 	GravityUserLogPath = filepath.Join(SystemLogDir, GravityUserLogFile)
-
-	// TransientErrorTimeout specifies the maximum amount of time to attempt
-	// an operation experiencing transient errors
-	TransientErrorTimeout = 15 * time.Minute
-
-	// NodeStatusTimeout specifies the maximum amount of time to wait for
-	// healthy node status
-	NodeStatusTimeout = 5 * time.Minute
-
-	// NodeLeaveTimeout specifies the maximum amount of time to wait for
-	// node to leave the cluster
-	NodeLeaveTimeout = 1 * time.Minute
-
-	// AgentWaitTimeout specifies the maximum amount of time to wait for
-	// agents to form a cluster before commencing the operation
-	AgentWaitTimeout = 5 * time.Minute
 
 	// WormholeImg is the docker image reference to use when embedding wormhole
 	// Note: This is a build parameter, and the build scripts will replace this with an image reference
@@ -1144,25 +1181,11 @@ var (
 	// TeleportVersion specifies the version of the bundled teleport package as a semver
 	TeleportVersion = semver.New(TeleportVersionString)
 
-	// MetricsInterval is the default interval cluster metrics are displayed for.
-	MetricsInterval = time.Hour
-	// MetricsStep is the default interval b/w cluster metrics data points.
-	MetricsStep = 15 * time.Second
+	// DockerRegistry is a default name for private docker registry
+	DockerRegistry = DockerRegistryAddr("leader.telekube.local")
 
-	// AbortedOperationExitCode specifies the exit code for this process when an operation is aborted.
-	// The exit code is used to prevent the installer service from restarting in case the operation
-	// is aborted
-	AbortedOperationExitCode = 254
-
-	// CompletedOperationExitCode specifies the exit code for this process when an operation completes
-	// successfully.
-	// The exit code is used to prevent the agent service from restarting after shut down
-	CompletedOperationExitCode = 253
-
-	// FailedPreconditionExitCode specifies the exit code to indicate a precondition failure.
-	// A failed precondition usually means a configuration error when an operation cannot be retried.
-	// The exit code is used to prevent the agent service from restarting after shutdown
-	FailedPreconditionExitCode = 252
+	// LocalRegistryAddr is the address of the local docker registry
+	LocalRegistryAddr = DockerRegistryAddr("127.0.0.1")
 )
 
 // HookSecurityContext returns default securityContext for hook pods
@@ -1208,9 +1231,9 @@ var BaseTaintsVersion = semver.Must(semver.NewVersion("4.36.0"))
 // can update
 var BaseUpdateVersion = semver.Must(semver.NewVersion("3.51.0"))
 
-// DockerRegistryAddr returns the address of docker registry running on server
-func DockerRegistryAddr(server string) string {
-	return fmt.Sprintf("%v:%v", server, constants.DockerRegistryPort)
+// DockerRegistryAddr combines the specified address with the default registry port
+func DockerRegistryAddr(addr string) string {
+	return fmt.Sprintf("%v:%v", addr, DockerRegistryPort)
 }
 
 // InSystemUnitDir returns the path of the user service given with serviceName

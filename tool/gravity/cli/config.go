@@ -502,10 +502,9 @@ func (i *InstallConfig) BootstrapSELinux(printer utils.Printer) error {
 		i.SELinux = false
 		return nil
 	}
-	return BootstrapSELinuxAndRespawn(selinux.BootstrapConfig{
-		StateDir:  i.SystemStateDir,
-		VxlanPort: &i.VxlanPort,
-		OS:        metadata,
+	return BootstrapSELinuxAndRespawn(context.TODO(), selinux.BootstrapConfig{
+		StateDir: i.SystemStateDir,
+		OS:       metadata,
 	}, printer)
 }
 
@@ -864,7 +863,7 @@ func (j *JoinConfig) bootstrapSELinux(printer utils.Printer) error {
 		j.SELinux = false
 		return nil
 	}
-	return BootstrapSELinuxAndRespawn(selinux.BootstrapConfig{
+	return BootstrapSELinuxAndRespawn(context.TODO(), selinux.BootstrapConfig{
 		StateDir: j.SystemStateDir,
 		OS:       metadata,
 	}, printer)
@@ -928,7 +927,7 @@ func (r *autojoinConfig) bootstrapSELinux(printer utils.Printer) error {
 		r.selinux = false
 		return nil
 	}
-	return BootstrapSELinuxAndRespawn(selinux.BootstrapConfig{
+	return BootstrapSELinuxAndRespawn(context.TODO(), selinux.BootstrapConfig{
 		OS: metadata,
 	}, printer)
 }
@@ -1156,7 +1155,7 @@ func installerAbortOperation(env *localenv.LocalEnvironment) func(context.Contex
 			}
 		}
 		logger.Info("Uninstalling system.")
-		if err := environ.UninstallSystem(utils.DiscardPrinter, logger); err != nil {
+		if err := environ.UninstallSystem(ctx, utils.DiscardPrinter, logger); err != nil {
 			logger.WithError(err).Warn("Failed to uninstall system.")
 		}
 		logger.Info("System uninstalled.")
