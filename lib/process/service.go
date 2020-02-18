@@ -45,6 +45,8 @@ type GravityProcess interface {
 	UsersService() users.Identity
 	// Config returns the proces config
 	Config() *processconfig.Config
+	// WaitForAPI blocks until the process API is available or the context expires
+	WaitForAPI(context.Context) error
 	// Shutdown starts graceful shutdown of the process,
 	// blocks until all resources are freed and go-routines have shut down
 	Shutdown(context.Context)
@@ -80,7 +82,7 @@ func Run(ctx context.Context, configDir, importDir string, newProcess NewGravity
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = WaitForServiceStarted(ctx, process)
+	err = process.WaitForAPI(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}

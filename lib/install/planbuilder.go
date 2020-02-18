@@ -194,7 +194,7 @@ func (b *PlanBuilder) AddPullPhase(plan *storage.OperationPlan) {
 				Package:     &b.Application.Package,
 				ServiceUser: &b.ServiceUser,
 			},
-			Requires: []string{phases.ConfigurePhase, phases.BootstrapPhase},
+			Requires: fsm.RequireIfPresent(plan, phases.ConfigurePhase, phases.BootstrapPhase),
 			Step:     3,
 		})
 	}
@@ -202,7 +202,7 @@ func (b *PlanBuilder) AddPullPhase(plan *storage.OperationPlan) {
 		ID:          phases.PullPhase,
 		Description: "Pull configured packages",
 		Phases:      pullPhases,
-		Requires:    []string{phases.ConfigurePhase, phases.BootstrapPhase},
+		Requires:    fsm.RequireIfPresent(plan, phases.ConfigurePhase, phases.BootstrapPhase),
 		Parallel:    true,
 		Step:        3,
 	})

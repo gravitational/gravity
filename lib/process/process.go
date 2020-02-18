@@ -52,6 +52,7 @@ import (
 	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/monitoring"
+	"github.com/gravitational/gravity/lib/ops/opsclient"
 	"github.com/gravitational/gravity/lib/ops/opshandler"
 	"github.com/gravitational/gravity/lib/ops/opsroute"
 	"github.com/gravitational/gravity/lib/ops/opsservice"
@@ -177,6 +178,11 @@ type rpcCredentials struct {
 type ServiceStartedEvent struct {
 	// Error is set if the service has failed to initialize
 	Error error
+}
+
+// String returns event string representation.
+func (e ServiceStartedEvent) String() string {
+	return fmt.Sprintf("ServiceStartedEvent(Error=%v)", e.Error)
 }
 
 // New returns and starts a new instance of gravity, either Site or OpsCenter,
@@ -591,6 +597,78 @@ func (p *Process) runApplicationsSynchronizer(ctx context.Context) {
 			}
 		case <-ctx.Done():
 			p.Info("Stopping app images synchronizer.")
+			return
+		}
+	}
+}
+
+// syncClusterState syncs current cluster state to the local backend.
+func (p *Process) syncClusterState() error {
+	backend, err := keyval.NewBolt(keyval.BoltConfig{
+		Path:  filepath.Join(p.cfg.ImportDir, defaults.GravityDBFile),
+		Multi: true,
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer func() {
+		if err := backend.Close(); err != nil {
+			p.WithError(err).WithField("path", p.cfg.ImportDir).Warn(
+				"Failed to close backend.")
+		}
+	}()
+	cluster, err := p.backend.GetLocalSite(defaults.SystemAccountID)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	clusterLocal, err := backend.GetLocalSite(defaults.SystemAccountID)
+	if err != nil && !trace.IsNotFound(err) {
+		return trace.Wrap(err)
+	}
+	if clusterLocal == nil || !clusterLocal.Servers().IsEqualTo(cluster.Servers()) {
+		if err := storage.UpsertCluster(backend, *cluster); err != nil {
+			return trace.Wrap(err)
+		}
+		p.Infof("Synced cluster %v to local backend.", cluster.Domain)
+	}
+	operations, err := p.backend.GetSiteOperations(cluster.Domain)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	for _, operation := range operations {
+		operationLocal, err := backend.GetSiteOperation(cluster.Domain, operation.ID)
+		if err != nil && !trace.IsNotFound(err) {
+			return trace.Wrap(err)
+		}
+		if operationLocal == nil || !operationLocal.IsEqualTo(operation) {
+			if err := storage.UpsertOperation(backend, operation); err != nil {
+				return trace.Wrap(err)
+			}
+			p.Infof("Synced operation %v/%v to local backend.", operation.ID, operation.Type)
+		}
+	}
+	return nil
+}
+
+func (p *Process) runClusterStateSynchronizer(ctx context.Context) {
+	if p.cfg.ImportDir == "" {
+		p.Info("Import dir not provided, cluster state synchronizer won't start.")
+		return
+	}
+	p.Info("Starting cluster state synchronizer.")
+	if err := p.syncClusterState(); err != nil { // Sync immediately upon starting.
+		p.WithError(err).Error("Failed to sync cluster state.")
+	}
+	ticker := time.NewTicker(defaults.StateSyncInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			if err := p.syncClusterState(); err != nil {
+				p.WithError(err).Error("Failed to sync cluster state.")
+			}
+		case <-ctx.Done():
+			p.Info("Stopping cluster state synchronizer.")
 			return
 		}
 	}
@@ -1182,6 +1260,7 @@ func (p *Process) initService(ctx context.Context) (err error) {
 		readBackend, err := keyval.NewBolt(keyval.BoltConfig{
 			Path:     filepath.Join(p.cfg.Pack.ReadDir, defaults.GravityDBFile),
 			Readonly: true,
+			Multi:    true,
 		})
 		if err != nil {
 			return trace.Wrap(err)
@@ -1411,6 +1490,7 @@ func (p *Process) initService(ctx context.Context) (err error) {
 		p.startService(p.runRegistrySynchronizer)
 		p.startService(p.runApplicationsSynchronizer)
 		p.startService(p.runNodeLabelsReconciler(client))
+		p.startService(p.runClusterStateSynchronizer)
 
 		if err := p.startAutoscale(p.context); err != nil {
 			return trace.Wrap(err)
@@ -1574,6 +1654,26 @@ func (p *Process) ServeHealth() error {
 		// TODO(dmitri): add a cancelation point for p.context
 		return trace.Wrap(p.healthServer.ListenAndServe())
 	})
+	return nil
+}
+
+// WaitForAPI blocks until the process API is available or retry attempts reached.
+func (p *Process) WaitForAPI(ctx context.Context) error {
+	client, err := opsclient.NewClient(p.packages.PortalURL(), opsclient.HTTPClient(httplib.GetClient(true)))
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = utils.RetryFor(ctx, time.Minute, func() error {
+		if err := client.Ping(ctx); err != nil {
+			p.Infof("Process API isn't available yet: %v.", err)
+			return trace.Wrap(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	p.Info("Process API is available.")
 	return nil
 }
 

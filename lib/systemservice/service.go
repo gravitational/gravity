@@ -246,6 +246,9 @@ type ServiceManager interface {
 	// DisablePackageService disables service without stopping it
 	DisablePackageService(pkg loc.Locator) error
 
+	// EnablePackageService enables service without starting it
+	EnablePackageService(pkg loc.Locator) error
+
 	// ListPackageServices lists installed package services
 	ListPackageServices() ([]PackageServiceStatus, error)
 

@@ -126,7 +126,7 @@ func (g *operationGroup) canCreateOperation(operation ops.SiteOperation) error {
 	}
 
 	switch operation.Type {
-	case ops.OperationInstall, ops.OperationUninstall:
+	case ops.OperationInstall, ops.OperationUninstall, ops.OperationReconfigure:
 		// no special checks for install/uninstall are needed
 	case ops.OperationExpand:
 		// expand has to undergo some checks

@@ -66,6 +66,10 @@ type Application struct {
 	LeaveCmd LeaveCmd
 	// RemoveCmd removes the specified node from the cluster
 	RemoveCmd RemoveCmd
+	// StopCmd stops all gravity services on the node
+	StopCmd StopCmd
+	// StartCmd starts all gravity services on the node
+	StartCmd StartCmd
 	// PlanCmd manages an operation plan
 	PlanCmd PlanCmd
 	// UpdatePlanInitCmd creates a new update operation plan
@@ -1422,6 +1426,24 @@ type SystemExportCACmd struct {
 	ClusterName *string
 	// CAPath is path to export CA to
 	CAPath *string
+}
+
+// StopCmd stops all Gravity services on the node.
+type StopCmd struct {
+	*kingpin.CmdClause
+	// Confirmed suppresses confirmation prompt.
+	Confirmed *bool
+}
+
+// StartCmd starts all Gravity services on the node.
+type StartCmd struct {
+	*kingpin.CmdClause
+	// AdvertiseAddr is the new node advertise address.
+	AdvertiseAddr *string
+	// FromService indicates that the command is running as a systemd service.
+	FromService *bool
+	// Confirmed suppresses confirmation prompt.
+	Confirmed *bool
 }
 
 // SystemUninstallCmd uninstalls all gravity services from local node

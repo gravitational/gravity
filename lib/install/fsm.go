@@ -23,6 +23,7 @@ import (
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/fsm"
+	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/opsclient"
 	"github.com/gravitational/gravity/lib/pack"
@@ -57,7 +58,7 @@ type FSMConfig struct {
 	// Operator is authenticated installer ops client
 	Operator ops.Operator
 	// LocalClusterClient is a factory for creating a client to the installed cluster.
-	LocalClusterClient func() (*opsclient.Client, error)
+	LocalClusterClient func(...httplib.ClientOption) (*opsclient.Client, error)
 	// LocalPackages is the machine-local pack service
 	LocalPackages pack.PackageService
 	// LocalApps is the machine-local apps service
@@ -127,8 +128,8 @@ func NewFSM(config FSMConfig) (*fsm.FSM, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	if op.Type != ops.OperationInstall {
-		return nil, trace.BadParameter("expected %v to be install operation, not %v",
+	if op.Type != ops.OperationInstall && op.Type != ops.OperationReconfigure {
+		return nil, trace.BadParameter("expected %v to be install or reconfigure operation, not %v",
 			config.OperationKey, op.Type)
 	}
 	logger := logrus.WithFields(logrus.Fields{
@@ -196,7 +197,11 @@ func (f *fsmEngine) Complete(fsmErr error) error {
 	if fsm.IsCompleted(plan) {
 		err = ops.CompleteOperation(f.OperationKey, f.Operator)
 	} else {
-		err = ops.FailOperation(f.OperationKey, f.Operator, trace.Unwrap(fsmErr).Error())
+		var message string
+		if fsmErr != nil {
+			message = trace.Unwrap(fsmErr).Error()
+		}
+		err = ops.FailOperation(f.OperationKey, f.Operator, message)
 	}
 	if err != nil {
 		return trace.Wrap(err)

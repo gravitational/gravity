@@ -97,6 +97,8 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.PlanCmd.FullCommand(),
 		g.PlanDisplayCmd.FullCommand(),
 		g.UpgradeCmd.FullCommand(),
+		g.StartCmd.FullCommand(),
+		g.StopCmd.FullCommand(),
 		g.ResourceCreateCmd.FullCommand():
 		if *g.Debug {
 			teleutils.InitLogger(teleutils.LoggingForDaemon, level)
@@ -113,6 +115,7 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.WizardCmd.FullCommand(),
 		g.JoinCmd.FullCommand(),
 		g.AutoJoinCmd.FullCommand(),
+		g.StartCmd.FullCommand(),
 		g.UpdateTriggerCmd.FullCommand(),
 		g.UpdatePlanInitCmd.FullCommand(),
 		g.UpgradeCmd.FullCommand(),
@@ -127,11 +130,11 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.ResourceRemoveCmd.FullCommand(),
 		g.OpsAgentCmd.FullCommand():
 		utils.InitLogging(*g.SystemLogFile)
-		// install and join command also duplicate their logs to the file in
+		// several command also duplicate their logs to the file in
 		// the current directory for convenience, unless the user set their
 		// own location
 		switch cmd {
-		case g.InstallCmd.FullCommand(), g.JoinCmd.FullCommand():
+		case g.InstallCmd.FullCommand(), g.JoinCmd.FullCommand(), g.StartCmd.FullCommand():
 			if *g.SystemLogFile == defaults.GravitySystemLog {
 				utils.InitLogging(defaults.GravitySystemLogFile)
 			}
@@ -162,6 +165,8 @@ func InitAndCheck(g *Application, cmd string) error {
 	case g.SystemUpdateCmd.FullCommand(),
 		g.UpgradeCmd.FullCommand(),
 		g.SystemRollbackCmd.FullCommand(),
+		g.StopCmd.FullCommand(),
+		g.StartCmd.FullCommand(),
 		g.SystemUninstallCmd.FullCommand(),
 		g.UpdateSystemCmd.FullCommand(),
 		g.RPCAgentShutdownCmd.FullCommand(),
@@ -300,6 +305,22 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			return trace.Wrap(err)
 		}
 		return startInstall(localEnv, *config)
+	case g.StopCmd.FullCommand():
+		return stopGravity(localEnv,
+			*g.StopCmd.Confirmed)
+	case g.StartCmd.FullCommand():
+		// If advertise address was explicitly provided to the start command,
+		// launch the reconfigure operation.
+		if *g.StartCmd.AdvertiseAddr != "" {
+			config, err := NewReconfigureConfig(localEnv, g)
+			if err != nil {
+				return trace.Wrap(err)
+			}
+			return reconfigureCluster(localEnv, *config,
+				*g.StartCmd.Confirmed)
+		}
+		return startGravity(localEnv,
+			*g.StartCmd.Confirmed)
 	case g.JoinCmd.FullCommand():
 		return join(localEnv, g, NewJoinConfig(g))
 	case g.AutoJoinCmd.FullCommand():
