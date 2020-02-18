@@ -433,6 +433,8 @@ type SiteOperation struct {
 	UpdateEnviron *UpdateEnvarsOperationState `json:"update_environ,omitempty"`
 	// UpdateConfig defines the state of the cluster configuration update operation
 	UpdateConfig *UpdateConfigOperationState `json:"update_config,omitempty"`
+	// Reconfigure contains reconfiguration operation state
+	Reconfigure *ReconfigureOperationState `json:"reconfigure,omitempty"`
 }
 
 func (s *SiteOperation) Check() error {
@@ -460,6 +462,14 @@ func (s *SiteOperation) Vars() OperationVariables {
 		return s.Update.Vars
 	}
 	return OperationVariables{}
+}
+
+// IsEqualTo returns true if the operation is equal to the provided operation.
+func (s *SiteOperation) IsEqualTo(other SiteOperation) bool {
+	// Compare a few essential fields only.
+	return s.ID == other.ID && s.AccountID == other.AccountID &&
+		s.SiteDomain == other.SiteDomain && s.Type == other.Type &&
+		s.State == other.State
 }
 
 // SiteOperations colection represents a list of operations performed
@@ -582,6 +592,7 @@ type Site struct {
 	InstallToken string `json:"install_token"`
 }
 
+// Check validates the cluster object's fields.
 func (s *Site) Check() error {
 	if s.AccountID == "" {
 		return trace.BadParameter("missing parameter AccountID")
@@ -598,6 +609,11 @@ func (s *Site) Check() error {
 	return nil
 }
 
+// Servers returns the cluster's servers.
+func (s *Site) Servers() Servers {
+	return s.ClusterState.Servers
+}
+
 // ClusterState defines the state of the cluster
 type ClusterState struct {
 	// Servers is a list of servers in the cluster
@@ -605,6 +621,7 @@ type ClusterState struct {
 	// Docker specifies current cluster Docker configuration
 	Docker DockerConfig `json:"docker"`
 }
+
 type nodeKey struct {
 	profile      string
 	instanceType string
@@ -1599,6 +1616,11 @@ func (s *Server) KubeNodeID() string {
 	return s.AdvertiseIP
 }
 
+// EtcdPeerURL returns etcd peer advertise URL with the server's IP.
+func (s *Server) EtcdPeerURL() string {
+	return fmt.Sprintf("https://%v:%v", s.AdvertiseIP, defaults.EtcdPeerPort)
+}
+
 // IsMaster returns true if the server has a master role
 func (s *Server) IsMaster() bool {
 	return s.ClusterRole == string(schema.ServiceRoleMaster)
@@ -2104,6 +2126,12 @@ type UpdateConfigOperationState struct {
 	PrevConfig []byte `json:"prev_config,omitempty"`
 	// Config specifies the raw configuration resource
 	Config []byte `json:"config,omitempty"`
+}
+
+// ReconfigureOperationState defines the reconfiguration operation state.
+type ReconfigureOperationState struct {
+	// AdvertiseAddr is the advertise address the node's being changed to.
+	AdvertiseAddr string `json:"advertise_addr"`
 }
 
 // ServerUpdate represents server that is being updated

@@ -221,6 +221,7 @@ func (p *pullExecutor) pullConfiguredPackages() (err error) {
 			DstPack: p.LocalPackages,
 			Package: e.Locator,
 			Labels:  e.RuntimeLabels,
+			Upsert:  true,
 		})
 		// Ignore already exists as the steps need to be re-entrant
 		if err != nil && !trace.IsAlreadyExists(err) {

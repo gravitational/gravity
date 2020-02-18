@@ -24,6 +24,7 @@ import (
 	"github.com/gravitational/gravity/lib/checks"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
+	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/install/engine"
 	validationpb "github.com/gravitational/gravity/lib/network/validation/proto"
 	"github.com/gravitational/gravity/lib/ops"
@@ -149,7 +150,7 @@ type Config struct {
 	// GCENodeTags specifies additional VM instance tags on GCE
 	GCENodeTags []string
 	// LocalClusterClient is a factory for creating client to the installed cluster
-	LocalClusterClient func() (*opsclient.Client, error)
+	LocalClusterClient func(...httplib.ClientOption) (*opsclient.Client, error)
 	// Operator specifies the wizard's operator service
 	Operator ops.Operator
 	// Apps specifies the wizard's application service

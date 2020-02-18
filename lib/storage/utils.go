@@ -98,6 +98,36 @@ func GetClusterLoginEntry(backend Backend) (*LoginEntry, error) {
 	return entry, nil
 }
 
+// UpsertCluster creates or updates cluster in the provided backend.
+func UpsertCluster(backend Backend, cluster Site) error {
+	_, err := backend.UpdateSite(cluster)
+	if err != nil && !trace.IsNotFound(err) {
+		return trace.Wrap(err)
+	}
+	if trace.IsNotFound(err) {
+		_, err := backend.CreateSite(cluster)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	return nil
+}
+
+// UpsertOperation creates or updates operation in the provided backend.
+func UpsertOperation(backend Backend, operation SiteOperation) error {
+	_, err := backend.UpdateSiteOperation(operation)
+	if err != nil && !trace.IsNotFound(err) {
+		return trace.Wrap(err)
+	}
+	if trace.IsNotFound(err) {
+		_, err := backend.CreateSiteOperation(operation)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	return nil
+}
+
 // GetLastOperation returns the last operation for the local cluster
 func GetLastOperation(backend Backend) (*SiteOperation, error) {
 	operations, err := GetOperations(backend)

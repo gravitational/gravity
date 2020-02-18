@@ -348,6 +348,11 @@ func (r *Router) CreateClusterGarbageCollectOperation(ctx context.Context, req o
 	return r.Local.CreateClusterGarbageCollectOperation(ctx, req)
 }
 
+// CreateClusterReconfigureOperation creates a new cluster reconfiguration operation.
+func (r *Router) CreateClusterReconfigureOperation(ctx context.Context, req ops.CreateClusterReconfigureOperationRequest) (*ops.SiteOperationKey, error) {
+	return r.Local.CreateClusterReconfigureOperation(ctx, req)
+}
+
 // CreateUpdateEnvarsOperation creates a new operation to update cluster runtime environment variables
 func (r *Router) CreateUpdateEnvarsOperation(ctx context.Context, req ops.CreateUpdateEnvarsOperationRequest) (*ops.SiteOperationKey, error) {
 	return r.Local.CreateUpdateEnvarsOperation(ctx, req)

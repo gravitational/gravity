@@ -222,6 +222,9 @@ func NewWebHandler(cfg WebHandlerConfig) (*WebHandler, error) {
 	// garbage collection
 	h.POST("/portal/v1/accounts/:account_id/sites/:site_domain/operations/gc", h.needsAuth(h.createClusterGarbageCollectOperation))
 
+	// cluster reconfiguration
+	h.POST("/portal/v1/accounts/:account_id/sites/:site_domain/operations/reconfigure", h.needsAuth(h.createClusterReconfigureOperation))
+
 	// update - update installed application to a new version
 	h.POST("/portal/v1/accounts/:account_id/sites/:site_domain/operations/update", h.needsAuth(h.createSiteUpdateOperation))
 
@@ -2029,6 +2032,23 @@ func (h *WebHandler) createClusterGarbageCollectOperation(w http.ResponseWriter,
 
 	log.Infof("got operation: %#v", op)
 	roundtrip.ReplyJSON(w, http.StatusOK, op)
+	return nil
+}
+
+/* createClusterReconfigureOperation creates a new cluster reconfiguration operation.
+
+   POST /portal/v1/accounts/:account_id/sites/:site_domain/operations/reconfigure
+*/
+func (h *WebHandler) createClusterReconfigureOperation(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
+	var req ops.CreateClusterReconfigureOperationRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		return trace.BadParameter(err.Error())
+	}
+	key, err := context.Operator.CreateClusterReconfigureOperation(r.Context(), req)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	roundtrip.ReplyJSON(w, http.StatusOK, key)
 	return nil
 }
 

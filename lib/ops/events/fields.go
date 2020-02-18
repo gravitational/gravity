@@ -105,6 +105,13 @@ func EventForOperation(operation ops.SiteOperation) (events.Event, error) {
 			return OperationConfigFailure, nil
 		}
 		return OperationConfigStart, nil
+	case ops.OperationReconfigure:
+		if operation.IsCompleted() {
+			return OperationReconfigureComplete, nil
+		} else if operation.IsFailed() {
+			return OperationReconfigureFailure, nil
+		}
+		return OperationReconfigureStart, nil
 	}
 	return events.Event{}, trace.NotFound(
 		"operation does not have corresponding event: %v", operation)
@@ -151,6 +158,10 @@ func fieldsForOperation(operation ops.SiteOperation) (Fields, error) {
 			}
 			fields[FieldName] = locator.Name
 			fields[FieldVersion] = locator.Version
+		}
+	case ops.OperationReconfigure:
+		if operation.Reconfigure != nil {
+			fields[FieldNodeIP] = operation.Reconfigure.AdvertiseAddr
 		}
 	}
 	return fields, nil
