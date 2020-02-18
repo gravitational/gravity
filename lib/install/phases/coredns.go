@@ -163,8 +163,13 @@ func GenerateCorefile(config CorednsConfig) (string, error) {
 	config.UpstreamNameservers = mergeUpstreamResolvers(resolvConf, systemdResolvConf)
 	config.Rotate = resolvConf.Rotate || systemdResolvConf.Rotate
 
+	result, err := generateCorefile(config)
+	return result, trace.Wrap(err)
+}
+
+func generateCorefile(config CorednsConfig) (string, error) {
 	var coredns bytes.Buffer
-	err = coreDNSTemplate.Execute(&coredns, config)
+	err := coreDNSTemplate.Execute(&coredns, config)
 	if err != nil {
 		return "", trace.Wrap(err)
 	}
