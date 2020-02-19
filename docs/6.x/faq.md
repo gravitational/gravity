@@ -164,3 +164,8 @@ example to support a use-case of delivering a Gravity cluster as a part of the
 AMI/OVA/OVF appliance.
 
 See [Changing Node Advertise Address](/cluster/#changing-node-advertise-address) for more details.
+
+## Cluster Status
+
+Gravity provides the `gravity status` command to view [Cluster Status](/cluster/#cluster-status).
+This tool can help identify issues with the Cluster.

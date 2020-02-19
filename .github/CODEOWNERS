@@ -2,7 +2,7 @@
 # https://help.github.com/en/github/creating-cloning-and-archiving-repositories/about-code-owners
 
 # Global Owners
-*  @r0mant @a-palchikov @knisbet
+*  @gravitational/codeowners-gravity-code
 
 # Web UI
-/web/ @alex-kovoy
+/web/ @gravitational/codeowners-gravity-web
