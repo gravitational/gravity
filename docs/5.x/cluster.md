@@ -221,6 +221,51 @@ $ curl -sk https://localhost:7575 | python -m json.tool
 
 In this case the response HTTP status code will be `503 Service Unavailable`.
 
+### Cluster Status History
+
+Running `gravity status history` will display a history of changes to the 
+cluster status. 
+
+Example output may looks something like the following:
+
+```bsh
+$ gravity status history
+2020-02-18T01:36:07Z [Node Degraded]     node=node-1
+2020-02-18T21:36:11Z [Node Degraded]     node=node-2
+2020-02-18T21:36:25Z [Node Degraded]     node=node-3
+2020-02-18T21:36:56Z [Probe Succeeded]   node=node-1 checker=node-status
+2020-02-18T21:36:58Z [Probe Succeeded]   node=node-2 checker=node-status
+2020-02-18T21:36:58Z [Probe Succeeded]   node=node-2 checker=time-drift
+2020-02-18T21:36:59Z [Probe Succeeded]   node=node-3 checker=node-status
+2020-02-18T21:37:07Z [Probe Succeeded]   node=node-1 checker=kube-apiserver
+2020-02-18T21:37:07Z [Node Recovered]    node=node-1
+2020-02-18T21:37:08Z [Probe Succeeded]   node=node-2 checker=kube-apiserver
+2020-02-18T21:37:08Z [Node Recovered]    node=node-2
+2020-02-18T21:37:11Z [Probe Succeeded]   node=node-3 checker=kube-apiserver
+2020-02-18T21:37:11Z [Node Recovered]    node=node-3
+```
+
+Here's an example of how to view the history remotely via `tsh`:
+
+```bsh
+$ tsh --cluster=production ssh admin@node gravity status history
+```
+
+The `gravity status history` command is an additional tool to help debug issues
+with a Cluster. The `gravity status` command only displays the current status
+and provides limited visibility into the state of the Cluster. The
+`gravity status history` command is there to help fill in the gaps. The history
+lets you observe when and where problems have occurred within the Cluster.
+
+There are just a few event types that are currently being tracked.
+- `Node Degraded` / `Node Recovered` specifies a change in the node status. The node
+key specifies the name of the node (node-1, node-2, node-3).
+- `Probe Succeeded` / `Probe Failed` specifies a change in a probe result. The checker
+key specifies the name of the health check (time-drift, kube-apiserver).
+
+The `gravity status history` command is available on all `master` nodes of the
+cluster and provides an eventually consistent history between nodes. 
+
 ## Application Status
 
 Gravity provides a way to automatically monitor the application health.
