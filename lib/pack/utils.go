@@ -696,6 +696,21 @@ func FindSecretsPackage(packages PackageService) (*loc.Locator, error) {
 	return &env.Locator, nil
 }
 
+// ExportExecutable downloads the specified package from the package service
+// into the provided path as an executable.
+func ExportExecutable(packages PackageService, locator loc.Locator, path string) error {
+	_, reader, err := packages.ReadPackage(locator)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer reader.Close()
+	err = utils.CopyReaderWithPerms(path, reader, defaults.SharedExecutableMask)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
 // IsSecretsPackage returns true if the specified package is a runtime secrets package
 func IsSecretsPackage(loc loc.Locator, labels map[string]string) bool {
 	if Labels(labels).HasPurpose(PurposePlanetSecrets) {
