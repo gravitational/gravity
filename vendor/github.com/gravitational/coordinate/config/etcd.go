@@ -22,6 +22,7 @@ import (
 	"github.com/gravitational/trace"
 
 	etcd "github.com/coreos/etcd/client"
+	etcdv3 "github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/pkg/transport"
 )
 
@@ -86,5 +87,29 @@ func (r *Config) NewClient() (etcd.Client, error) {
 		return nil, trace.Wrap(err)
 	}
 
+	return client, nil
+}
+
+// NewClientV3 creates a new instance of an etcdv3 client
+func (r *Config) NewClientV3() (*etcdv3.Client, error) {
+	info := transport.TLSInfo{
+		CertFile: r.CertFile,
+		KeyFile:  r.KeyFile,
+		CAFile:   r.CAFile,
+	}
+
+	tlsConfig, err := info.ClientConfig()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	client, err := etcdv3.New(etcdv3.Config{
+		Endpoints:   r.Endpoints,
+		TLS:         tlsConfig,
+		DialTimeout: r.DialTimeout,
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	return client, nil
 }

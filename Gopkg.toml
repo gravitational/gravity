@@ -25,7 +25,6 @@ required = [
 ]
 
 ignored = [
-  "github.com/Sirupsen/logrus",
   "github.com/gravitational/gravity/build/*",
   "github.com/gravitational/gravity/e/build/*"
 ]
@@ -78,6 +77,10 @@ ignored = [
 [[constraint]]
   name = "github.com/gravitational/satellite"
   version = "=7.0.3"
+
+[[constraint]]
+  name = "github.com/gravitational/coordinate"
+  branch = "master"
 
 [[constraint]]
   name = "github.com/xtgo/set"
@@ -150,7 +153,7 @@ ignored = [
 
 [[override]]
   name = "github.com/docker/docker"
-  version = "v1.4.1-4831-g0f5c9d3"
+  revision = "be7ac8be2ae072032a4005e8f232be3fc57e4127"
 
 [[override]]
   name = "golang.org/x/sys"
