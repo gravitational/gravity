@@ -5,4 +5,4 @@
 *  @gravitational/codeowners-gravity-code
 
 # Web UI
-/web/ @gravitational/codeowners-web
+/web/ @gravitational/codeowners-gravity-web
