@@ -171,7 +171,7 @@ func statusOnce(ctx context.Context, operator ops.Operator, operationID string) 
 	return status, nil
 }
 
-// statusHistory collects cluster status history and prints out the information
+// statusHistory collects cluster status history and prints the information
 // to stdout.
 func statusHistory() error {
 	ctx, cancel := context.WithTimeout(context.Background(), defaults.StatusCollectionTimeout)
@@ -185,14 +185,15 @@ func statusHistory() error {
 }
 
 func printEvents(events []*pb.TimelineEvent) {
-	w := new(tabwriter.Writer)
-	w.Init(os.Stdout, 0, 8, 1, '\t', 0)
 	if len(events) == 0 {
-		fmt.Fprintln(w, "No status history available to display.")
+		fmt.Println("No status history available to display.")
 		return
 	}
+
+	w := new(tabwriter.Writer)
+	w.Init(os.Stdout, 0, 8, 1, '\t', 0)
 	for _, event := range events {
-		printEvent(os.Stdout, event)
+		printEvent(w, event)
 	}
 }
 
