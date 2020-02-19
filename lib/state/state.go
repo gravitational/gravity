@@ -74,6 +74,15 @@ type stateLocator struct {
 	StateDir string `json:"stateDir,omitempty"`
 }
 
+// InStateDir returns the provided path elements joined with the state dir.
+func InStateDir(elems ...string) (string, error) {
+	stateDir, err := GetStateDir()
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+	return filepath.Join(append([]string{stateDir}, elems...)...), nil
+}
+
 // Secret returns a full path to a secret
 func Secret(baseDir, secretName string) string {
 	return filepath.Join(baseDir, defaults.SecretsDir, secretName)
