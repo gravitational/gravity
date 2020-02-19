@@ -29,6 +29,7 @@ import (
 	"github.com/gravitational/teleport/lib/utils"
 
 	"github.com/alecthomas/template"
+	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
@@ -113,7 +114,7 @@ func (r *corednsExecutor) Execute(ctx context.Context) error {
 		return trace.Wrap(err)
 	}
 
-	_, err = r.Client.CoreV1().ConfigMaps(constants.KubeSystemNamespace).Create(&v1.ConfigMap{
+	configMap := &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "coredns",
 			Namespace: constants.KubeSystemNamespace,
@@ -121,11 +122,25 @@ func (r *corednsExecutor) Execute(ctx context.Context) error {
 		Data: map[string]string{
 			"Corefile": conf,
 		},
-	})
+	}
+
+	_, err = r.Client.CoreV1().ConfigMaps(constants.KubeSystemNamespace).Create(configMap)
+	if err == nil {
+		r.Infof("Created config map %v/%v.", configMap.Namespace, configMap.Name)
+		return nil
+	}
+
+	err = rigging.ConvertError(err)
+	if !trace.IsAlreadyExists(err) {
+		return trace.Wrap(err)
+	}
+
+	_, err = r.Client.CoreV1().ConfigMaps(constants.KubeSystemNamespace).Update(configMap)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
+	r.Infof("Updated config map %v/%v.", configMap.Namespace, configMap.Name)
 	return nil
 }
 

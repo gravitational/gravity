@@ -97,8 +97,7 @@ type etcdExecutor struct {
 // Execute adds the joining node to the cluster's etcd cluster
 func (p *etcdExecutor) Execute(ctx context.Context) error {
 	p.Progress.NextStep("Adding etcd member")
-	member, err := p.Etcd.Add(ctx, fmt.Sprintf("https://%v:%v",
-		p.Phase.Data.Server.AdvertiseIP, defaults.EtcdPeerPort))
+	member, err := p.Etcd.Add(ctx, p.Phase.Data.Server.EtcdPeerURL())
 	if err != nil {
 		return trace.Wrap(err)
 	}

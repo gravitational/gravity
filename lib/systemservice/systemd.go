@@ -247,7 +247,7 @@ func (s *systemdManager) IsPackageServiceInstalled(pkg loc.Locator) (bool, error
 func (s *systemdManager) ListPackageServices() ([]PackageServiceStatus, error) {
 	var services []PackageServiceStatus
 
-	out, err := invokeSystemctl("list-units", "--plain", "--no-legend")
+	out, err := invokeSystemctl("list-units", "--plain", "--no-legend", "--all")
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to list-units: %v", out)
 	}

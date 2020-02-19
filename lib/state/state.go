@@ -89,9 +89,24 @@ func GravityUpdateDir(baseDir string) string {
 	return filepath.Join(baseDir, defaults.SiteDir, defaults.UpdateDir)
 }
 
+// GravityLocalDir returns full path to the directory with local gravity state.
+func GravityLocalDir(baseDir string) string {
+	return filepath.Join(baseDir, defaults.LocalDir)
+}
+
 // GravityRPCAgentDir returns full path to the RPC agent directory
 func GravityRPCAgentDir(baseDir string) string {
 	return filepath.Join(baseDir, defaults.SiteDir, defaults.UpdateDir, defaults.AgentDir)
+}
+
+// TeleportNodeDataDir returns full path to the directory where teleport node keeps its data.
+func TeleportNodeDataDir(baseDir string) string {
+	return filepath.Join(baseDir, defaults.TeleportDir)
+}
+
+// TeleportAuthDataDir returns full path to the directory where teleport auth server keeps its data.
+func TeleportAuthDataDir(baseDir string) string {
+	return filepath.Join(baseDir, defaults.SiteDir, defaults.TeleportDir)
 }
 
 // ShareDir returns full path to the planet share directory

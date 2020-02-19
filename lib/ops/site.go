@@ -33,6 +33,7 @@ func IsInstalledState(siteState string) bool {
 		SiteStateNotInstalled,
 		SiteStateFailed,
 		SiteStateInstalling,
+		SiteStateReconfiguring,
 		SiteStateUninstalling,
 	}
 	return !utils.StringInSlice(notInstalledStates, siteState)

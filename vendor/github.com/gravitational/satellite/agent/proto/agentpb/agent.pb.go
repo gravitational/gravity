@@ -48,7 +48,7 @@ func (x SystemStatus_Type) String() string {
 }
 
 func (SystemStatus_Type) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_56ede974c0020f77, []int{4, 0}
+	return fileDescriptor_56ede974c0020f77, []int{6, 0}
 }
 
 type MemberStatus_Type int32
@@ -82,7 +82,7 @@ func (x MemberStatus_Type) String() string {
 }
 
 func (MemberStatus_Type) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_56ede974c0020f77, []int{5, 0}
+	return fileDescriptor_56ede974c0020f77, []int{7, 0}
 }
 
 type NodeStatus_Type int32
@@ -110,7 +110,7 @@ func (x NodeStatus_Type) String() string {
 }
 
 func (NodeStatus_Type) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_56ede974c0020f77, []int{6, 0}
+	return fileDescriptor_56ede974c0020f77, []int{8, 0}
 }
 
 type Probe_Type int32
@@ -141,7 +141,7 @@ func (x Probe_Type) String() string {
 }
 
 func (Probe_Type) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_56ede974c0020f77, []int{7, 0}
+	return fileDescriptor_56ede974c0020f77, []int{9, 0}
 }
 
 // Severity defines the severity of the probe.
@@ -174,7 +174,7 @@ func (x Probe_Severity) String() string {
 }
 
 func (Probe_Severity) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_56ede974c0020f77, []int{7, 1}
+	return fileDescriptor_56ede974c0020f77, []int{9, 1}
 }
 
 type StatusRequest struct {
@@ -349,6 +349,104 @@ func (m *LocalStatusResponse) GetStatus() *NodeStatus {
 	return nil
 }
 
+// LastSeenRequest requests the last seen timestamp for the specified member.
+type LastSeenRequest struct {
+	// Name specifies the member's serf name.
+	Name                 string   `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *LastSeenRequest) Reset()         { *m = LastSeenRequest{} }
+func (m *LastSeenRequest) String() string { return proto.CompactTextString(m) }
+func (*LastSeenRequest) ProtoMessage()    {}
+func (*LastSeenRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_56ede974c0020f77, []int{4}
+}
+func (m *LastSeenRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *LastSeenRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_LastSeenRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *LastSeenRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_LastSeenRequest.Merge(m, src)
+}
+func (m *LastSeenRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *LastSeenRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_LastSeenRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_LastSeenRequest proto.InternalMessageInfo
+
+func (m *LastSeenRequest) GetName() string {
+	if m != nil {
+		return m.Name
+	}
+	return ""
+}
+
+// LastSeenResponse returns the last seen timestamp for the requested member.
+type LastSeenResponse struct {
+	// Timestamp specifies the last seen timestamp.
+	Timestamp            *Timestamp `protobuf:"bytes,1,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}   `json:"-"`
+	XXX_unrecognized     []byte     `json:"-"`
+	XXX_sizecache        int32      `json:"-"`
+}
+
+func (m *LastSeenResponse) Reset()         { *m = LastSeenResponse{} }
+func (m *LastSeenResponse) String() string { return proto.CompactTextString(m) }
+func (*LastSeenResponse) ProtoMessage()    {}
+func (*LastSeenResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_56ede974c0020f77, []int{5}
+}
+func (m *LastSeenResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *LastSeenResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_LastSeenResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *LastSeenResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_LastSeenResponse.Merge(m, src)
+}
+func (m *LastSeenResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *LastSeenResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_LastSeenResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_LastSeenResponse proto.InternalMessageInfo
+
+func (m *LastSeenResponse) GetTimestamp() *Timestamp {
+	if m != nil {
+		return m.Timestamp
+	}
+	return nil
+}
+
 // System describes the health status of the cluster.
 type SystemStatus struct {
 	Status SystemStatus_Type `protobuf:"varint,1,opt,name=status,proto3,enum=agentpb.SystemStatus_Type" json:"status,omitempty"`
@@ -366,7 +464,7 @@ func (m *SystemStatus) Reset()         { *m = SystemStatus{} }
 func (m *SystemStatus) String() string { return proto.CompactTextString(m) }
 func (*SystemStatus) ProtoMessage()    {}
 func (*SystemStatus) Descriptor() ([]byte, []int) {
-	return fileDescriptor_56ede974c0020f77, []int{4}
+	return fileDescriptor_56ede974c0020f77, []int{6}
 }
 func (m *SystemStatus) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -438,7 +536,7 @@ func (m *MemberStatus) Reset()         { *m = MemberStatus{} }
 func (m *MemberStatus) String() string { return proto.CompactTextString(m) }
 func (*MemberStatus) ProtoMessage()    {}
 func (*MemberStatus) Descriptor() ([]byte, []int) {
-	return fileDescriptor_56ede974c0020f77, []int{5}
+	return fileDescriptor_56ede974c0020f77, []int{7}
 }
 func (m *MemberStatus) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -511,7 +609,7 @@ func (m *NodeStatus) Reset()         { *m = NodeStatus{} }
 func (m *NodeStatus) String() string { return proto.CompactTextString(m) }
 func (*NodeStatus) ProtoMessage()    {}
 func (*NodeStatus) Descriptor() ([]byte, []int) {
-	return fileDescriptor_56ede974c0020f77, []int{6}
+	return fileDescriptor_56ede974c0020f77, []int{8}
 }
 func (m *NodeStatus) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -593,7 +691,7 @@ func (m *Probe) Reset()         { *m = Probe{} }
 func (m *Probe) String() string { return proto.CompactTextString(m) }
 func (*Probe) ProtoMessage()    {}
 func (*Probe) Descriptor() ([]byte, []int) {
-	return fileDescriptor_56ede974c0020f77, []int{7}
+	return fileDescriptor_56ede974c0020f77, []int{9}
 }
 func (m *Probe) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -683,7 +781,7 @@ func (m *Timestamp) Reset()         { *m = Timestamp{} }
 func (m *Timestamp) String() string { return proto.CompactTextString(m) }
 func (*Timestamp) ProtoMessage()    {}
 func (*Timestamp) Descriptor() ([]byte, []int) {
-	return fileDescriptor_56ede974c0020f77, []int{8}
+	return fileDescriptor_56ede974c0020f77, []int{10}
 }
 func (m *Timestamp) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -737,7 +835,7 @@ func (m *TimeRequest) Reset()         { *m = TimeRequest{} }
 func (m *TimeRequest) String() string { return proto.CompactTextString(m) }
 func (*TimeRequest) ProtoMessage()    {}
 func (*TimeRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_56ede974c0020f77, []int{9}
+	return fileDescriptor_56ede974c0020f77, []int{11}
 }
 func (m *TimeRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -779,7 +877,7 @@ func (m *TimeResponse) Reset()         { *m = TimeResponse{} }
 func (m *TimeResponse) String() string { return proto.CompactTextString(m) }
 func (*TimeResponse) ProtoMessage()    {}
 func (*TimeResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_56ede974c0020f77, []int{10}
+	return fileDescriptor_56ede974c0020f77, []int{12}
 }
 func (m *TimeResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -815,6 +913,582 @@ func (m *TimeResponse) GetTimestamp() *Timestamp {
 	return nil
 }
 
+// UpdateRequest requests a new event be added to the timeline.
+type UpdateRequest struct {
+	// Name specifies the serf name of the requesting node.
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// Event specifies the event to be added to the timeline.
+	Event                *TimelineEvent `protobuf:"bytes,2,opt,name=event,proto3" json:"event,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}       `json:"-"`
+	XXX_unrecognized     []byte         `json:"-"`
+	XXX_sizecache        int32          `json:"-"`
+}
+
+func (m *UpdateRequest) Reset()         { *m = UpdateRequest{} }
+func (m *UpdateRequest) String() string { return proto.CompactTextString(m) }
+func (*UpdateRequest) ProtoMessage()    {}
+func (*UpdateRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_56ede974c0020f77, []int{13}
+}
+func (m *UpdateRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *UpdateRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_UpdateRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *UpdateRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_UpdateRequest.Merge(m, src)
+}
+func (m *UpdateRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *UpdateRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_UpdateRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_UpdateRequest proto.InternalMessageInfo
+
+func (m *UpdateRequest) GetName() string {
+	if m != nil {
+		return m.Name
+	}
+	return ""
+}
+
+func (m *UpdateRequest) GetEvent() *TimelineEvent {
+	if m != nil {
+		return m.Event
+	}
+	return nil
+}
+
+// UpdateResponse indicates a successful update.
+type UpdateResponse struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *UpdateResponse) Reset()         { *m = UpdateResponse{} }
+func (m *UpdateResponse) String() string { return proto.CompactTextString(m) }
+func (*UpdateResponse) ProtoMessage()    {}
+func (*UpdateResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_56ede974c0020f77, []int{14}
+}
+func (m *UpdateResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *UpdateResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_UpdateResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *UpdateResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_UpdateResponse.Merge(m, src)
+}
+func (m *UpdateResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *UpdateResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_UpdateResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_UpdateResponse proto.InternalMessageInfo
+
+type TimelineRequest struct {
+	// Params will be used to filter the timeline response.
+	Params               map[string]string `protobuf:"bytes,1,rep,name=params,proto3" json:"params,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
+	XXX_unrecognized     []byte            `json:"-"`
+	XXX_sizecache        int32             `json:"-"`
+}
+
+func (m *TimelineRequest) Reset()         { *m = TimelineRequest{} }
+func (m *TimelineRequest) String() string { return proto.CompactTextString(m) }
+func (*TimelineRequest) ProtoMessage()    {}
+func (*TimelineRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_56ede974c0020f77, []int{15}
+}
+func (m *TimelineRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *TimelineRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_TimelineRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *TimelineRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_TimelineRequest.Merge(m, src)
+}
+func (m *TimelineRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *TimelineRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_TimelineRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_TimelineRequest proto.InternalMessageInfo
+
+func (m *TimelineRequest) GetParams() map[string]string {
+	if m != nil {
+		return m.Params
+	}
+	return nil
+}
+
+type TimelineResponse struct {
+	// Events contains a list of timeline events that occurred.
+	Events               []*TimelineEvent `protobuf:"bytes,1,rep,name=events,proto3" json:"events,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
+	XXX_unrecognized     []byte           `json:"-"`
+	XXX_sizecache        int32            `json:"-"`
+}
+
+func (m *TimelineResponse) Reset()         { *m = TimelineResponse{} }
+func (m *TimelineResponse) String() string { return proto.CompactTextString(m) }
+func (*TimelineResponse) ProtoMessage()    {}
+func (*TimelineResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_56ede974c0020f77, []int{16}
+}
+func (m *TimelineResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *TimelineResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_TimelineResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *TimelineResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_TimelineResponse.Merge(m, src)
+}
+func (m *TimelineResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *TimelineResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_TimelineResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_TimelineResponse proto.InternalMessageInfo
+
+func (m *TimelineResponse) GetEvents() []*TimelineEvent {
+	if m != nil {
+		return m.Events
+	}
+	return nil
+}
+
+type TimelineEvent struct {
+	// Timestamp is the node's local timestamp in UTC.
+	Timestamp *Timestamp `protobuf:"bytes,1,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
+	// Data contains event specific data.
+	//
+	// Types that are valid to be assigned to Data:
+	//	*TimelineEvent_ClusterRecovered
+	//	*TimelineEvent_ClusterDegraded
+	//	*TimelineEvent_ClusterUpgrade
+	//	*TimelineEvent_NodeAdded
+	//	*TimelineEvent_NodeRemoved
+	//	*TimelineEvent_NodeRecovered
+	//	*TimelineEvent_NodeDegraded
+	//	*TimelineEvent_ProbeSucceeded
+	//	*TimelineEvent_ProbeFailed
+	Data                 isTimelineEvent_Data `protobuf_oneof:"data"`
+	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
+	XXX_unrecognized     []byte               `json:"-"`
+	XXX_sizecache        int32                `json:"-"`
+}
+
+func (m *TimelineEvent) Reset()         { *m = TimelineEvent{} }
+func (m *TimelineEvent) String() string { return proto.CompactTextString(m) }
+func (*TimelineEvent) ProtoMessage()    {}
+func (*TimelineEvent) Descriptor() ([]byte, []int) {
+	return fileDescriptor_56ede974c0020f77, []int{17}
+}
+func (m *TimelineEvent) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *TimelineEvent) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_TimelineEvent.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *TimelineEvent) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_TimelineEvent.Merge(m, src)
+}
+func (m *TimelineEvent) XXX_Size() int {
+	return m.Size()
+}
+func (m *TimelineEvent) XXX_DiscardUnknown() {
+	xxx_messageInfo_TimelineEvent.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_TimelineEvent proto.InternalMessageInfo
+
+type isTimelineEvent_Data interface {
+	isTimelineEvent_Data()
+	MarshalTo([]byte) (int, error)
+	Size() int
+}
+
+type TimelineEvent_ClusterRecovered struct {
+	ClusterRecovered *ClusterRecovered `protobuf:"bytes,2,opt,name=clusterRecovered,proto3,oneof"`
+}
+type TimelineEvent_ClusterDegraded struct {
+	ClusterDegraded *ClusterDegraded `protobuf:"bytes,3,opt,name=clusterDegraded,proto3,oneof"`
+}
+type TimelineEvent_ClusterUpgrade struct {
+	ClusterUpgrade *ClusterUpgrade `protobuf:"bytes,4,opt,name=clusterUpgrade,proto3,oneof"`
+}
+type TimelineEvent_NodeAdded struct {
+	NodeAdded *NodeAdded `protobuf:"bytes,5,opt,name=nodeAdded,proto3,oneof"`
+}
+type TimelineEvent_NodeRemoved struct {
+	NodeRemoved *NodeRemoved `protobuf:"bytes,6,opt,name=nodeRemoved,proto3,oneof"`
+}
+type TimelineEvent_NodeRecovered struct {
+	NodeRecovered *NodeRecovered `protobuf:"bytes,7,opt,name=nodeRecovered,proto3,oneof"`
+}
+type TimelineEvent_NodeDegraded struct {
+	NodeDegraded *NodeDegraded `protobuf:"bytes,8,opt,name=nodeDegraded,proto3,oneof"`
+}
+type TimelineEvent_ProbeSucceeded struct {
+	ProbeSucceeded *ProbeSucceeded `protobuf:"bytes,9,opt,name=probeSucceeded,proto3,oneof"`
+}
+type TimelineEvent_ProbeFailed struct {
+	ProbeFailed *ProbeFailed `protobuf:"bytes,10,opt,name=probeFailed,proto3,oneof"`
+}
+
+func (*TimelineEvent_ClusterRecovered) isTimelineEvent_Data() {}
+func (*TimelineEvent_ClusterDegraded) isTimelineEvent_Data()  {}
+func (*TimelineEvent_ClusterUpgrade) isTimelineEvent_Data()   {}
+func (*TimelineEvent_NodeAdded) isTimelineEvent_Data()        {}
+func (*TimelineEvent_NodeRemoved) isTimelineEvent_Data()      {}
+func (*TimelineEvent_NodeRecovered) isTimelineEvent_Data()    {}
+func (*TimelineEvent_NodeDegraded) isTimelineEvent_Data()     {}
+func (*TimelineEvent_ProbeSucceeded) isTimelineEvent_Data()   {}
+func (*TimelineEvent_ProbeFailed) isTimelineEvent_Data()      {}
+
+func (m *TimelineEvent) GetData() isTimelineEvent_Data {
+	if m != nil {
+		return m.Data
+	}
+	return nil
+}
+
+func (m *TimelineEvent) GetTimestamp() *Timestamp {
+	if m != nil {
+		return m.Timestamp
+	}
+	return nil
+}
+
+func (m *TimelineEvent) GetClusterRecovered() *ClusterRecovered {
+	if x, ok := m.GetData().(*TimelineEvent_ClusterRecovered); ok {
+		return x.ClusterRecovered
+	}
+	return nil
+}
+
+func (m *TimelineEvent) GetClusterDegraded() *ClusterDegraded {
+	if x, ok := m.GetData().(*TimelineEvent_ClusterDegraded); ok {
+		return x.ClusterDegraded
+	}
+	return nil
+}
+
+func (m *TimelineEvent) GetClusterUpgrade() *ClusterUpgrade {
+	if x, ok := m.GetData().(*TimelineEvent_ClusterUpgrade); ok {
+		return x.ClusterUpgrade
+	}
+	return nil
+}
+
+func (m *TimelineEvent) GetNodeAdded() *NodeAdded {
+	if x, ok := m.GetData().(*TimelineEvent_NodeAdded); ok {
+		return x.NodeAdded
+	}
+	return nil
+}
+
+func (m *TimelineEvent) GetNodeRemoved() *NodeRemoved {
+	if x, ok := m.GetData().(*TimelineEvent_NodeRemoved); ok {
+		return x.NodeRemoved
+	}
+	return nil
+}
+
+func (m *TimelineEvent) GetNodeRecovered() *NodeRecovered {
+	if x, ok := m.GetData().(*TimelineEvent_NodeRecovered); ok {
+		return x.NodeRecovered
+	}
+	return nil
+}
+
+func (m *TimelineEvent) GetNodeDegraded() *NodeDegraded {
+	if x, ok := m.GetData().(*TimelineEvent_NodeDegraded); ok {
+		return x.NodeDegraded
+	}
+	return nil
+}
+
+func (m *TimelineEvent) GetProbeSucceeded() *ProbeSucceeded {
+	if x, ok := m.GetData().(*TimelineEvent_ProbeSucceeded); ok {
+		return x.ProbeSucceeded
+	}
+	return nil
+}
+
+func (m *TimelineEvent) GetProbeFailed() *ProbeFailed {
+	if x, ok := m.GetData().(*TimelineEvent_ProbeFailed); ok {
+		return x.ProbeFailed
+	}
+	return nil
+}
+
+// XXX_OneofFuncs is for the internal use of the proto package.
+func (*TimelineEvent) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
+	return _TimelineEvent_OneofMarshaler, _TimelineEvent_OneofUnmarshaler, _TimelineEvent_OneofSizer, []interface{}{
+		(*TimelineEvent_ClusterRecovered)(nil),
+		(*TimelineEvent_ClusterDegraded)(nil),
+		(*TimelineEvent_ClusterUpgrade)(nil),
+		(*TimelineEvent_NodeAdded)(nil),
+		(*TimelineEvent_NodeRemoved)(nil),
+		(*TimelineEvent_NodeRecovered)(nil),
+		(*TimelineEvent_NodeDegraded)(nil),
+		(*TimelineEvent_ProbeSucceeded)(nil),
+		(*TimelineEvent_ProbeFailed)(nil),
+	}
+}
+
+func _TimelineEvent_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*TimelineEvent)
+	// data
+	switch x := m.Data.(type) {
+	case *TimelineEvent_ClusterRecovered:
+		_ = b.EncodeVarint(2<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.ClusterRecovered); err != nil {
+			return err
+		}
+	case *TimelineEvent_ClusterDegraded:
+		_ = b.EncodeVarint(3<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.ClusterDegraded); err != nil {
+			return err
+		}
+	case *TimelineEvent_ClusterUpgrade:
+		_ = b.EncodeVarint(4<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.ClusterUpgrade); err != nil {
+			return err
+		}
+	case *TimelineEvent_NodeAdded:
+		_ = b.EncodeVarint(5<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.NodeAdded); err != nil {
+			return err
+		}
+	case *TimelineEvent_NodeRemoved:
+		_ = b.EncodeVarint(6<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.NodeRemoved); err != nil {
+			return err
+		}
+	case *TimelineEvent_NodeRecovered:
+		_ = b.EncodeVarint(7<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.NodeRecovered); err != nil {
+			return err
+		}
+	case *TimelineEvent_NodeDegraded:
+		_ = b.EncodeVarint(8<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.NodeDegraded); err != nil {
+			return err
+		}
+	case *TimelineEvent_ProbeSucceeded:
+		_ = b.EncodeVarint(9<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.ProbeSucceeded); err != nil {
+			return err
+		}
+	case *TimelineEvent_ProbeFailed:
+		_ = b.EncodeVarint(10<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.ProbeFailed); err != nil {
+			return err
+		}
+	case nil:
+	default:
+		return fmt.Errorf("TimelineEvent.Data has unexpected type %T", x)
+	}
+	return nil
+}
+
+func _TimelineEvent_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*TimelineEvent)
+	switch tag {
+	case 2: // data.clusterRecovered
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(ClusterRecovered)
+		err := b.DecodeMessage(msg)
+		m.Data = &TimelineEvent_ClusterRecovered{msg}
+		return true, err
+	case 3: // data.clusterDegraded
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(ClusterDegraded)
+		err := b.DecodeMessage(msg)
+		m.Data = &TimelineEvent_ClusterDegraded{msg}
+		return true, err
+	case 4: // data.clusterUpgrade
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(ClusterUpgrade)
+		err := b.DecodeMessage(msg)
+		m.Data = &TimelineEvent_ClusterUpgrade{msg}
+		return true, err
+	case 5: // data.nodeAdded
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(NodeAdded)
+		err := b.DecodeMessage(msg)
+		m.Data = &TimelineEvent_NodeAdded{msg}
+		return true, err
+	case 6: // data.nodeRemoved
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(NodeRemoved)
+		err := b.DecodeMessage(msg)
+		m.Data = &TimelineEvent_NodeRemoved{msg}
+		return true, err
+	case 7: // data.nodeRecovered
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(NodeRecovered)
+		err := b.DecodeMessage(msg)
+		m.Data = &TimelineEvent_NodeRecovered{msg}
+		return true, err
+	case 8: // data.nodeDegraded
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(NodeDegraded)
+		err := b.DecodeMessage(msg)
+		m.Data = &TimelineEvent_NodeDegraded{msg}
+		return true, err
+	case 9: // data.probeSucceeded
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(ProbeSucceeded)
+		err := b.DecodeMessage(msg)
+		m.Data = &TimelineEvent_ProbeSucceeded{msg}
+		return true, err
+	case 10: // data.probeFailed
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(ProbeFailed)
+		err := b.DecodeMessage(msg)
+		m.Data = &TimelineEvent_ProbeFailed{msg}
+		return true, err
+	default:
+		return false, nil
+	}
+}
+
+func _TimelineEvent_OneofSizer(msg proto.Message) (n int) {
+	m := msg.(*TimelineEvent)
+	// data
+	switch x := m.Data.(type) {
+	case *TimelineEvent_ClusterRecovered:
+		s := proto.Size(x.ClusterRecovered)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *TimelineEvent_ClusterDegraded:
+		s := proto.Size(x.ClusterDegraded)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *TimelineEvent_ClusterUpgrade:
+		s := proto.Size(x.ClusterUpgrade)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *TimelineEvent_NodeAdded:
+		s := proto.Size(x.NodeAdded)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *TimelineEvent_NodeRemoved:
+		s := proto.Size(x.NodeRemoved)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *TimelineEvent_NodeRecovered:
+		s := proto.Size(x.NodeRecovered)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *TimelineEvent_NodeDegraded:
+		s := proto.Size(x.NodeDegraded)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *TimelineEvent_ProbeSucceeded:
+		s := proto.Size(x.ProbeSucceeded)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *TimelineEvent_ProbeFailed:
+		s := proto.Size(x.ProbeFailed)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case nil:
+	default:
+		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
+	}
+	return n
+}
+
 func init() {
 	proto.RegisterEnum("agentpb.SystemStatus_Type", SystemStatus_Type_name, SystemStatus_Type_value)
 	proto.RegisterEnum("agentpb.MemberStatus_Type", MemberStatus_Type_name, MemberStatus_Type_value)
@@ -825,6 +1499,8 @@ func init() {
 	proto.RegisterType((*StatusResponse)(nil), "agentpb.StatusResponse")
 	proto.RegisterType((*LocalStatusRequest)(nil), "agentpb.LocalStatusRequest")
 	proto.RegisterType((*LocalStatusResponse)(nil), "agentpb.LocalStatusResponse")
+	proto.RegisterType((*LastSeenRequest)(nil), "agentpb.LastSeenRequest")
+	proto.RegisterType((*LastSeenResponse)(nil), "agentpb.LastSeenResponse")
 	proto.RegisterType((*SystemStatus)(nil), "agentpb.SystemStatus")
 	proto.RegisterType((*MemberStatus)(nil), "agentpb.MemberStatus")
 	proto.RegisterMapType((map[string]string)(nil), "agentpb.MemberStatus.TagsEntry")
@@ -833,58 +1509,87 @@ func init() {
 	proto.RegisterType((*Timestamp)(nil), "agentpb.Timestamp")
 	proto.RegisterType((*TimeRequest)(nil), "agentpb.TimeRequest")
 	proto.RegisterType((*TimeResponse)(nil), "agentpb.TimeResponse")
+	proto.RegisterType((*UpdateRequest)(nil), "agentpb.UpdateRequest")
+	proto.RegisterType((*UpdateResponse)(nil), "agentpb.UpdateResponse")
+	proto.RegisterType((*TimelineRequest)(nil), "agentpb.TimelineRequest")
+	proto.RegisterMapType((map[string]string)(nil), "agentpb.TimelineRequest.ParamsEntry")
+	proto.RegisterType((*TimelineResponse)(nil), "agentpb.TimelineResponse")
+	proto.RegisterType((*TimelineEvent)(nil), "agentpb.TimelineEvent")
 }
 
 func init() { proto.RegisterFile("agent.proto", fileDescriptor_56ede974c0020f77) }
 
 var fileDescriptor_56ede974c0020f77 = []byte{
-	// 735 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x55, 0xcf, 0x6e, 0xd3, 0x4e,
-	0x10, 0x8e, 0x1d, 0x3b, 0x7f, 0x26, 0x6e, 0x7e, 0xd6, 0x36, 0x6d, 0xad, 0xfc, 0x50, 0x08, 0x3e,
-	0xa0, 0x22, 0x44, 0xa8, 0x52, 0x21, 0x50, 0x41, 0x40, 0x4b, 0x01, 0x09, 0x95, 0x0a, 0xb9, 0x41,
-	0x1c, 0xab, 0x4d, 0x3c, 0x04, 0xab, 0xf1, 0x3a, 0xd8, 0x9b, 0xa0, 0xbc, 0x49, 0xdf, 0x08, 0x8e,
-	0xdc, 0xb8, 0xa2, 0x22, 0x21, 0xf1, 0x16, 0xc8, 0xeb, 0x75, 0x62, 0xa7, 0xa9, 0x80, 0xdb, 0xce,
-	0x37, 0x33, 0xdf, 0xcc, 0x7c, 0x19, 0x4f, 0xa0, 0x46, 0x87, 0xc8, 0x78, 0x67, 0x1c, 0x06, 0x3c,
-	0x20, 0x65, 0x61, 0x8c, 0xfb, 0xf6, 0x7f, 0xb0, 0x76, 0xc2, 0x29, 0x9f, 0x44, 0x0e, 0x7e, 0x9c,
-	0x60, 0xc4, 0xed, 0x27, 0x50, 0x4f, 0x81, 0x68, 0x1c, 0xb0, 0x08, 0xc9, 0x1d, 0x28, 0x45, 0x02,
-	0xb1, 0x94, 0xb6, 0xb2, 0x5d, 0xeb, 0x6e, 0x74, 0x64, 0x72, 0xe7, 0x64, 0x16, 0x71, 0xf4, 0x65,
-	0xb8, 0x0c, 0xb2, 0x1b, 0x40, 0x8e, 0x82, 0x01, 0x1d, 0xe5, 0x69, 0x0f, 0x60, 0x3d, 0x87, 0x4a,
-	0xee, 0xdb, 0x4b, 0xdc, 0xeb, 0x73, 0xee, 0xe3, 0xc0, 0xc5, 0x25, 0xe6, 0x5f, 0x0a, 0x18, 0xd9,
-	0x92, 0xa4, 0x9b, 0xcb, 0xae, 0x77, 0x9b, 0x2b, 0x3b, 0xeb, 0xf4, 0x66, 0x63, 0x4c, 0x49, 0xc8,
-	0x2d, 0xd0, 0x59, 0xe0, 0x62, 0x64, 0xa9, 0xed, 0xe2, 0x55, 0x05, 0x93, 0x08, 0xb2, 0x03, 0x55,
-	0xee, 0xf9, 0x18, 0x71, 0xea, 0x8f, 0xad, 0xa2, 0xe8, 0x8f, 0xcc, 0xc3, 0x7b, 0xa9, 0xc7, 0x59,
-	0x04, 0x11, 0x0b, 0xca, 0xd1, 0xc4, 0xf7, 0x69, 0x38, 0xb3, 0xb4, 0xb6, 0xb2, 0x5d, 0x75, 0x52,
-	0xd3, 0xee, 0x80, 0x16, 0xb7, 0x41, 0x6a, 0x50, 0x7e, 0xcb, 0xce, 0x58, 0xf0, 0x89, 0x99, 0x85,
-	0xd8, 0x70, 0x26, 0x8c, 0x79, 0x6c, 0x68, 0x2a, 0xc4, 0x80, 0xca, 0x21, 0x0e, 0x43, 0xea, 0xa2,
-	0x6b, 0xaa, 0xf6, 0xb9, 0x0a, 0xc6, 0x6b, 0xf4, 0xfb, 0x18, 0xca, 0x59, 0x09, 0x68, 0x8c, 0xfa,
-	0x28, 0x26, 0xad, 0x3a, 0xe2, 0x1d, 0x63, 0xd4, 0x75, 0x43, 0x4b, 0x4d, 0xb0, 0xf8, 0x9d, 0xd1,
-	0xa4, 0xb8, 0xa4, 0x49, 0x96, 0x2e, 0xaf, 0xc9, 0x2e, 0x68, 0x9c, 0x0e, 0x23, 0x4b, 0x13, 0x92,
-	0x5c, 0xbf, 0x22, 0x83, 0x0e, 0xa3, 0xe7, 0x8c, 0x87, 0x33, 0x47, 0x04, 0x37, 0xef, 0x43, 0x75,
-	0x0e, 0x11, 0x13, 0x8a, 0x67, 0x38, 0x93, 0xcd, 0xc5, 0x4f, 0xd2, 0x00, 0x7d, 0x4a, 0x47, 0x13,
-	0x94, 0xcd, 0x25, 0xc6, 0x9e, 0xfa, 0x40, 0xb1, 0x1f, 0x4b, 0x29, 0x2a, 0xa0, 0x1d, 0x07, 0x0c,
-	0xcd, 0x02, 0xa9, 0x82, 0xbe, 0x3f, 0xf2, 0xa6, 0x68, 0x2a, 0xb1, 0x24, 0x47, 0x48, 0xa7, 0xb1,
-	0x24, 0x6a, 0x1c, 0x71, 0x84, 0xef, 0xb9, 0x59, 0x24, 0x00, 0xa5, 0x17, 0xd4, 0x1b, 0xa1, 0x6b,
-	0x6a, 0xf6, 0x4f, 0x05, 0x60, 0xf1, 0x63, 0xad, 0x14, 0x66, 0x0f, 0xd6, 0x7c, 0xd1, 0xfb, 0xa9,
-	0xd4, 0x42, 0x5d, 0xda, 0xdc, 0xec, 0x64, 0x8e, 0xe1, 0x67, 0x85, 0xde, 0x59, 0x12, 0xd0, 0x5a,
-	0xb1, 0x21, 0x79, 0xf9, 0x6e, 0x42, 0x69, 0x1c, 0x06, 0x7d, 0x4c, 0x05, 0xac, 0xcf, 0x33, 0xde,
-	0xc4, 0xb0, 0x23, 0xbd, 0xff, 0xbc, 0x03, 0xdf, 0x54, 0xd0, 0x05, 0x43, 0xbc, 0x57, 0x83, 0x0f,
-	0x38, 0x38, 0xc3, 0x50, 0x8e, 0x99, 0x9a, 0x64, 0x13, 0x4a, 0x2e, 0x72, 0xea, 0x8d, 0xa4, 0xce,
-	0xd2, 0x8a, 0x55, 0x19, 0x04, 0x2e, 0x8a, 0x19, 0xaa, 0x8e, 0x78, 0x67, 0x3e, 0x36, 0x4d, 0x4c,
-	0xb6, 0x9e, 0xef, 0x33, 0x3f, 0x54, 0x03, 0x74, 0x0c, 0xc3, 0x20, 0xb4, 0xf4, 0xe4, 0xf7, 0x13,
-	0x06, 0xb9, 0x01, 0x86, 0xac, 0x7c, 0xea, 0x52, 0x4e, 0xad, 0x52, 0x5b, 0xd9, 0x36, 0x9c, 0x9a,
-	0xc4, 0x0e, 0x29, 0xa7, 0x64, 0x17, 0x2a, 0x11, 0x4e, 0x31, 0xf4, 0xf8, 0xcc, 0x2a, 0x8b, 0x3a,
-	0x5b, 0x4b, 0x75, 0x4e, 0xa4, 0xdb, 0x99, 0x07, 0xda, 0x8f, 0xfe, 0x28, 0xcd, 0x62, 0x03, 0x54,
-	0x52, 0x07, 0xe8, 0x61, 0xe8, 0x7b, 0x8c, 0x72, 0x74, 0xcd, 0xa2, 0x7d, 0x17, 0x2a, 0x29, 0x67,
-	0x66, 0xab, 0x0c, 0xa8, 0x3c, 0x0b, 0x3d, 0xee, 0x0d, 0xe8, 0x28, 0x59, 0xac, 0x77, 0x34, 0x14,
-	0x64, 0xaa, 0xfd, 0x12, 0xaa, 0xbd, 0xdc, 0x47, 0x8b, 0x83, 0x80, 0xb9, 0xc9, 0x19, 0x29, 0x3a,
-	0xa9, 0x49, 0xda, 0x50, 0x63, 0x94, 0x05, 0xa9, 0x37, 0x56, 0x58, 0x77, 0xb2, 0x90, 0xbd, 0x06,
-	0xb5, 0x98, 0x28, 0xbd, 0x72, 0x4f, 0xc1, 0x48, 0x4c, 0x79, 0xde, 0x72, 0x17, 0x44, 0xf9, 0x8b,
-	0x0b, 0xd2, 0xfd, 0xac, 0x80, 0xbe, 0x1f, 0x07, 0x90, 0x87, 0x50, 0x92, 0x1b, 0xb9, 0xb9, 0x38,
-	0x6b, 0xd9, 0x9b, 0xda, 0xdc, 0xba, 0x84, 0x27, 0x65, 0xed, 0x02, 0x79, 0x05, 0xb5, 0xcc, 0xb9,
-	0x25, 0xff, 0xcf, 0x23, 0x2f, 0x9f, 0xe6, 0xe6, 0xb5, 0xd5, 0xce, 0x39, 0xd7, 0x3d, 0xd0, 0xe2,
-	0x56, 0x49, 0x23, 0xd7, 0x79, 0x9a, 0xbd, 0xb1, 0x84, 0xa6, 0x69, 0x07, 0xe6, 0x97, 0x8b, 0x96,
-	0xf2, 0xf5, 0xa2, 0xa5, 0x7c, 0xbf, 0x68, 0x29, 0xe7, 0x3f, 0x5a, 0x85, 0x7e, 0x49, 0xfc, 0xf7,
-	0xec, 0xfe, 0x0e, 0x00, 0x00, 0xff, 0xff, 0x9d, 0xdb, 0x67, 0x3a, 0x8a, 0x06, 0x00, 0x00,
+	// 1091 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x56, 0xcd, 0x6f, 0xe3, 0x44,
+	0x14, 0xb7, 0x93, 0x38, 0x4d, 0x9e, 0x93, 0xd4, 0x9a, 0x76, 0x77, 0xbd, 0x01, 0x95, 0x62, 0x01,
+	0x5a, 0x04, 0x84, 0x55, 0x2a, 0xc4, 0xb2, 0xbb, 0x5a, 0xe8, 0xc7, 0xb2, 0x11, 0x2a, 0x55, 0x99,
+	0xb6, 0xe2, 0xb8, 0x9a, 0xc6, 0x8f, 0x12, 0x35, 0xb6, 0x83, 0xed, 0x04, 0xe5, 0xcc, 0x8d, 0x23,
+	0xa7, 0xfd, 0x93, 0x38, 0x72, 0xe3, 0x8a, 0x8a, 0x84, 0xc4, 0x7f, 0x81, 0x66, 0x3c, 0xe3, 0x8f,
+	0x69, 0x0a, 0x74, 0x6f, 0x79, 0xef, 0xfd, 0xde, 0xd7, 0x2f, 0xef, 0x3d, 0x0f, 0xd8, 0xec, 0x02,
+	0xc3, 0x74, 0x30, 0x8b, 0xa3, 0x34, 0x22, 0x6b, 0x42, 0x98, 0x9d, 0xf7, 0x6d, 0x5c, 0xe4, 0x5a,
+	0x6f, 0x1d, 0xba, 0x27, 0x29, 0x4b, 0xe7, 0x09, 0xc5, 0x1f, 0xe6, 0x98, 0xa4, 0xde, 0xe7, 0xd0,
+	0x53, 0x8a, 0x64, 0x16, 0x85, 0x09, 0x92, 0x8f, 0xa0, 0x99, 0x08, 0x8d, 0x6b, 0x6e, 0x9b, 0x0f,
+	0xec, 0xe1, 0x9d, 0x81, 0x8c, 0x34, 0x38, 0x59, 0x26, 0x29, 0x06, 0x12, 0x2e, 0x41, 0xde, 0x26,
+	0x90, 0xc3, 0x68, 0xcc, 0xa6, 0xd5, 0xb0, 0x7b, 0xb0, 0x51, 0xd1, 0xca, 0xd8, 0x1f, 0x68, 0xb1,
+	0x37, 0xf2, 0xd8, 0x47, 0x91, 0x8f, 0x5a, 0xe4, 0x77, 0x61, 0xfd, 0x90, 0x25, 0xe9, 0x09, 0x62,
+	0x28, 0xc3, 0x12, 0x02, 0x8d, 0x90, 0x05, 0x28, 0xbc, 0xdb, 0x54, 0xfc, 0xf6, 0x0e, 0xc0, 0x29,
+	0x60, 0x32, 0xcf, 0x43, 0x68, 0xa7, 0x93, 0x00, 0x93, 0x94, 0x05, 0x33, 0x99, 0x8a, 0xe4, 0xa9,
+	0x4e, 0x95, 0x85, 0x16, 0x20, 0xef, 0x6f, 0x13, 0x3a, 0xe5, 0xfe, 0xc8, 0xb0, 0x52, 0x6a, 0x6f,
+	0xd8, 0x5f, 0x49, 0xc3, 0xe0, 0x74, 0x39, 0x43, 0x55, 0x31, 0x79, 0x1f, 0xac, 0x30, 0xf2, 0x31,
+	0x71, 0x6b, 0xdb, 0xf5, 0x9b, 0xba, 0xcb, 0x10, 0xd5, 0x0a, 0xeb, 0xff, 0xa3, 0x42, 0xe2, 0xc2,
+	0x5a, 0x32, 0x0f, 0x02, 0x16, 0x2f, 0xdd, 0x86, 0x68, 0x5f, 0x89, 0xde, 0x00, 0x1a, 0xbc, 0x0c,
+	0x62, 0xc3, 0xda, 0x59, 0x78, 0x19, 0x46, 0x3f, 0x86, 0x8e, 0xc1, 0x05, 0x3a, 0x0f, 0xc3, 0x49,
+	0x78, 0xe1, 0x98, 0xa4, 0x03, 0xad, 0x03, 0xbc, 0x88, 0x99, 0x8f, 0xbe, 0x53, 0xf3, 0x5e, 0xd5,
+	0xa0, 0xf3, 0x35, 0x06, 0xe7, 0x18, 0xcb, 0x5e, 0x57, 0xd0, 0xca, 0x75, 0xcc, 0xf7, 0x63, 0xb7,
+	0x96, 0xe9, 0xf8, 0xef, 0x12, 0x27, 0x75, 0x8d, 0x93, 0x72, 0xb8, 0x2a, 0x27, 0x3b, 0xd0, 0x48,
+	0xd9, 0x45, 0xe2, 0x36, 0x04, 0x25, 0x6f, 0xdd, 0xe0, 0xc1, 0x2e, 0x92, 0xe7, 0x61, 0x1a, 0x2f,
+	0xa9, 0x00, 0xf7, 0x3f, 0x85, 0x76, 0xae, 0x22, 0x0e, 0xd4, 0x2f, 0x71, 0x29, 0x8b, 0xe3, 0x3f,
+	0xc9, 0x26, 0x58, 0x0b, 0x36, 0x9d, 0xa3, 0x2c, 0x2e, 0x13, 0x1e, 0xd7, 0x1e, 0x99, 0xde, 0x33,
+	0x49, 0x45, 0x0b, 0x1a, 0x47, 0x51, 0x88, 0x8e, 0x41, 0xda, 0x60, 0xed, 0x4e, 0x27, 0x0b, 0x74,
+	0x4c, 0x4e, 0xc9, 0x21, 0xb2, 0x05, 0xa7, 0xa4, 0xc6, 0x11, 0x87, 0xf8, 0x5d, 0xea, 0xd4, 0x09,
+	0x40, 0xf3, 0x4b, 0x36, 0x99, 0xa2, 0xef, 0x34, 0xbc, 0xbf, 0x4c, 0x80, 0xe2, 0xcf, 0x5a, 0x49,
+	0xcc, 0x63, 0xe8, 0x06, 0xa2, 0xf6, 0x97, 0x92, 0x8b, 0x9a, 0xb6, 0x26, 0xe5, 0xce, 0x68, 0x27,
+	0x28, 0x13, 0xfd, 0x50, 0x23, 0xd0, 0x5d, 0x31, 0x21, 0x55, 0xfa, 0xde, 0x83, 0xe6, 0x2c, 0x8e,
+	0xce, 0x51, 0x11, 0xd8, 0xcb, 0x3d, 0x8e, 0xb9, 0x9a, 0x4a, 0xeb, 0xad, 0x67, 0xe0, 0xf7, 0x1a,
+	0x58, 0x22, 0x02, 0x9f, 0xab, 0xf1, 0xf7, 0x38, 0xbe, 0xc4, 0x58, 0xb6, 0xa9, 0x44, 0x72, 0x17,
+	0x9a, 0x3e, 0xa6, 0x6c, 0x32, 0x95, 0x3c, 0x4b, 0x89, 0xb3, 0x32, 0x8e, 0x7c, 0x14, 0x3d, 0xb4,
+	0xa9, 0xf8, 0x5d, 0xda, 0xec, 0x86, 0xe8, 0x6c, 0xa3, 0x5a, 0x67, 0xb5, 0xa9, 0x4d, 0xb0, 0x30,
+	0x8e, 0xa3, 0xd8, 0xb5, 0xb2, 0xff, 0x4f, 0x08, 0xe4, 0x6d, 0xe8, 0xc8, 0xcc, 0x2f, 0x7d, 0x96,
+	0x32, 0xb7, 0xb9, 0x6d, 0x3e, 0xe8, 0x50, 0x5b, 0xea, 0x0e, 0x58, 0xca, 0xc8, 0x0e, 0xb4, 0x12,
+	0x5c, 0x60, 0x3c, 0x49, 0x97, 0xee, 0x9a, 0xc8, 0x73, 0x4f, 0xcb, 0x73, 0x22, 0xcd, 0x34, 0x07,
+	0x7a, 0x4f, 0xff, 0x93, 0x9a, 0x62, 0x02, 0x6a, 0xa4, 0x07, 0x70, 0x8a, 0x71, 0x30, 0x09, 0x59,
+	0x8a, 0xbe, 0x53, 0xf7, 0x3e, 0x86, 0x96, 0x8a, 0x59, 0x9a, 0xaa, 0x0e, 0xb4, 0xf6, 0xe3, 0x49,
+	0x3a, 0x19, 0xb3, 0x69, 0x36, 0x58, 0xdf, 0xb2, 0x58, 0x04, 0xab, 0x79, 0x2f, 0xa0, 0x7d, 0x5a,
+	0x59, 0x5a, 0x1c, 0x47, 0xa1, 0x9f, 0x9d, 0x91, 0x3a, 0x55, 0x22, 0xd9, 0x06, 0x3b, 0x64, 0x61,
+	0xa4, 0xac, 0x9c, 0x61, 0x8b, 0x96, 0x55, 0x5e, 0x17, 0x6c, 0x1e, 0x48, 0x9d, 0xd4, 0x2f, 0xa0,
+	0x93, 0x89, 0xaf, 0x7d, 0xe3, 0xbe, 0x81, 0xee, 0xd9, 0xcc, 0x67, 0x29, 0xfe, 0xcb, 0x39, 0x25,
+	0x1f, 0x82, 0x25, 0x3e, 0x18, 0x72, 0xac, 0xef, 0x56, 0x42, 0x4e, 0x27, 0x21, 0x3e, 0xe7, 0x56,
+	0x9a, 0x81, 0x3c, 0x07, 0x7a, 0x2a, 0x64, 0x56, 0x96, 0xf7, 0xb3, 0x09, 0xeb, 0x0a, 0xaa, 0xf2,
+	0x3c, 0x85, 0xe6, 0x8c, 0xc5, 0x2c, 0xe0, 0x24, 0xf0, 0x21, 0x7e, 0xe7, 0x5a, 0x50, 0x89, 0x1c,
+	0x1c, 0x0b, 0x58, 0x76, 0x0a, 0xa4, 0x4f, 0xff, 0x33, 0xb0, 0x4b, 0xea, 0x5b, 0x9d, 0x83, 0x3d,
+	0x70, 0x8a, 0x0c, 0x92, 0xb7, 0x01, 0x34, 0x45, 0xed, 0xaa, 0x98, 0x9b, 0x3a, 0x94, 0x28, 0xef,
+	0x27, 0x0b, 0xba, 0x15, 0xcb, 0xed, 0x99, 0x27, 0x2f, 0xc0, 0x19, 0x4f, 0xe7, 0x49, 0x8a, 0x31,
+	0xc5, 0x71, 0xb4, 0xc0, 0x18, 0x7d, 0xc9, 0xef, 0xfd, 0xdc, 0x71, 0x5f, 0x03, 0x8c, 0x0c, 0x7a,
+	0xcd, 0x89, 0x1c, 0xc0, 0xba, 0xd4, 0xa9, 0x5d, 0x96, 0x1f, 0x0f, 0x57, 0x8f, 0xa3, 0xec, 0x23,
+	0x83, 0xea, 0x2e, 0x64, 0x17, 0x7a, 0x52, 0x75, 0x36, 0x13, 0x2a, 0xb1, 0xb4, 0x76, 0x69, 0x99,
+	0xf6, 0x2b, 0xe6, 0x91, 0x41, 0x35, 0x07, 0x32, 0x84, 0x36, 0xff, 0x90, 0xed, 0xfa, 0xbc, 0x04,
+	0x4b, 0xe3, 0xe0, 0x48, 0x59, 0x46, 0x06, 0x2d, 0x60, 0xe4, 0x11, 0xd8, 0x5c, 0xa0, 0x18, 0x44,
+	0x0b, 0xf4, 0xc5, 0x7e, 0xdb, 0xc3, 0xcd, 0x8a, 0x97, 0xb4, 0x8d, 0x0c, 0x5a, 0x86, 0x92, 0x67,
+	0xd0, 0xcd, 0x44, 0x45, 0xde, 0x9a, 0x36, 0x9c, 0x47, 0x65, 0xeb, 0xc8, 0xa0, 0x55, 0x38, 0x79,
+	0x02, 0x1d, 0xae, 0xc8, 0x39, 0x6b, 0x69, 0x27, 0xfb, 0xa8, 0x64, 0x1c, 0x19, 0xb4, 0x02, 0xe6,
+	0x6c, 0x89, 0x23, 0x7b, 0x32, 0x1f, 0x8f, 0x11, 0xb9, 0x7b, 0x5b, 0x63, 0xeb, 0xb8, 0x62, 0xe6,
+	0x6c, 0x55, 0x1d, 0x78, 0xe7, 0x42, 0x93, 0x5d, 0x19, 0x17, 0xb4, 0xce, 0x8f, 0x0b, 0x1b, 0xef,
+	0xbc, 0x04, 0xdd, 0x6b, 0x42, 0x83, 0x1f, 0xc3, 0xe1, 0x2f, 0x75, 0xb0, 0x76, 0x39, 0x9c, 0x3c,
+	0x81, 0xa6, 0xfc, 0x9a, 0x14, 0xed, 0x57, 0x1e, 0x5f, 0xfd, 0x7b, 0xd7, 0xf4, 0x72, 0x37, 0x0d,
+	0xf2, 0x15, 0xd8, 0xa5, 0x77, 0x19, 0x79, 0x23, 0x47, 0x5e, 0x7f, 0xc3, 0xf5, 0xdf, 0x5c, 0x6d,
+	0xcc, 0x63, 0xed, 0x42, 0x4b, 0x3d, 0xbc, 0x48, 0x31, 0x7e, 0xda, 0x93, 0xad, 0x7f, 0x7f, 0x85,
+	0x25, 0x0f, 0xf1, 0x09, 0x34, 0xf8, 0xbe, 0x90, 0xcd, 0xca, 0xfa, 0x28, 0xd7, 0x3b, 0x9a, 0xb6,
+	0x9c, 0x59, 0x6d, 0x64, 0x29, 0xb3, 0x76, 0x4b, 0x4a, 0x99, 0xf5, 0x1b, 0xe0, 0x19, 0x64, 0x5f,
+	0x1d, 0xae, 0x3c, 0x50, 0xc1, 0x66, 0xe5, 0x48, 0x96, 0xd8, 0xd4, 0x2e, 0x9d, 0xb1, 0xe7, 0xfc,
+	0x7a, 0xb5, 0x65, 0xfe, 0x76, 0xb5, 0x65, 0xfe, 0x71, 0xb5, 0x65, 0xbe, 0xfa, 0x73, 0xcb, 0x38,
+	0x6f, 0x8a, 0x67, 0xf6, 0xce, 0x3f, 0x01, 0x00, 0x00, 0xff, 0xff, 0x8a, 0x27, 0xec, 0xcb, 0x8b,
+	0x0b, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -903,8 +1608,15 @@ type AgentClient interface {
 	Status(ctx context.Context, in *StatusRequest, opts ...grpc.CallOption) (*StatusResponse, error)
 	// LocalStatus collects the local node status
 	LocalStatus(ctx context.Context, in *LocalStatusRequest, opts ...grpc.CallOption) (*LocalStatusResponse, error)
+	// LastSeen requests the last seen timestamp for a specified member
+	LastSeen(ctx context.Context, in *LastSeenRequest, opts ...grpc.CallOption) (*LastSeenResponse, error)
 	// Time requests the node's local time in UTC
 	Time(ctx context.Context, in *TimeRequest, opts ...grpc.CallOption) (*TimeResponse, error)
+	// Timeline collects the status timeline
+	Timeline(ctx context.Context, in *TimelineRequest, opts ...grpc.CallOption) (*TimelineResponse, error)
+	// UpdateTimeline requests a new event be added to the timeline.
+	// This RPC is idempotent. Repeated calls with the same event will have no effect.
+	UpdateTimeline(ctx context.Context, in *UpdateRequest, opts ...grpc.CallOption) (*UpdateResponse, error)
 }
 
 type agentClient struct {
@@ -933,9 +1645,36 @@ func (c *agentClient) LocalStatus(ctx context.Context, in *LocalStatusRequest, o
 	return out, nil
 }
 
+func (c *agentClient) LastSeen(ctx context.Context, in *LastSeenRequest, opts ...grpc.CallOption) (*LastSeenResponse, error) {
+	out := new(LastSeenResponse)
+	err := c.cc.Invoke(ctx, "/agentpb.Agent/LastSeen", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *agentClient) Time(ctx context.Context, in *TimeRequest, opts ...grpc.CallOption) (*TimeResponse, error) {
 	out := new(TimeResponse)
 	err := c.cc.Invoke(ctx, "/agentpb.Agent/Time", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentClient) Timeline(ctx context.Context, in *TimelineRequest, opts ...grpc.CallOption) (*TimelineResponse, error) {
+	out := new(TimelineResponse)
+	err := c.cc.Invoke(ctx, "/agentpb.Agent/Timeline", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentClient) UpdateTimeline(ctx context.Context, in *UpdateRequest, opts ...grpc.CallOption) (*UpdateResponse, error) {
+	out := new(UpdateResponse)
+	err := c.cc.Invoke(ctx, "/agentpb.Agent/UpdateTimeline", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -948,8 +1687,15 @@ type AgentServer interface {
 	Status(context.Context, *StatusRequest) (*StatusResponse, error)
 	// LocalStatus collects the local node status
 	LocalStatus(context.Context, *LocalStatusRequest) (*LocalStatusResponse, error)
+	// LastSeen requests the last seen timestamp for a specified member
+	LastSeen(context.Context, *LastSeenRequest) (*LastSeenResponse, error)
 	// Time requests the node's local time in UTC
 	Time(context.Context, *TimeRequest) (*TimeResponse, error)
+	// Timeline collects the status timeline
+	Timeline(context.Context, *TimelineRequest) (*TimelineResponse, error)
+	// UpdateTimeline requests a new event be added to the timeline.
+	// This RPC is idempotent. Repeated calls with the same event will have no effect.
+	UpdateTimeline(context.Context, *UpdateRequest) (*UpdateResponse, error)
 }
 
 func RegisterAgentServer(s *grpc.Server, srv AgentServer) {
@@ -992,6 +1738,24 @@ func _Agent_LocalStatus_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Agent_LastSeen_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(LastSeenRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentServer).LastSeen(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/agentpb.Agent/LastSeen",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentServer).LastSeen(ctx, req.(*LastSeenRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Agent_Time_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(TimeRequest)
 	if err := dec(in); err != nil {
@@ -1010,6 +1774,42 @@ func _Agent_Time_Handler(srv interface{}, ctx context.Context, dec func(interfac
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Agent_Timeline_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TimelineRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentServer).Timeline(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/agentpb.Agent/Timeline",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentServer).Timeline(ctx, req.(*TimelineRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Agent_UpdateTimeline_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentServer).UpdateTimeline(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/agentpb.Agent/UpdateTimeline",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentServer).UpdateTimeline(ctx, req.(*UpdateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _Agent_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "agentpb.Agent",
 	HandlerType: (*AgentServer)(nil),
@@ -1023,8 +1823,20 @@ var _Agent_serviceDesc = grpc.ServiceDesc{
 			Handler:    _Agent_LocalStatus_Handler,
 		},
 		{
+			MethodName: "LastSeen",
+			Handler:    _Agent_LastSeen_Handler,
+		},
+		{
 			MethodName: "Time",
 			Handler:    _Agent_Time_Handler,
+		},
+		{
+			MethodName: "Timeline",
+			Handler:    _Agent_Timeline_Handler,
+		},
+		{
+			MethodName: "UpdateTimeline",
+			Handler:    _Agent_UpdateTimeline_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -1135,6 +1947,64 @@ func (m *LocalStatusResponse) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
+func (m *LastSeenRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *LastSeenRequest) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Name) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintAgent(dAtA, i, uint64(len(m.Name)))
+		i += copy(dAtA[i:], m.Name)
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
+func (m *LastSeenResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *LastSeenResponse) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Timestamp != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintAgent(dAtA, i, uint64(m.Timestamp.Size()))
+		n3, err := m.Timestamp.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n3
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
 func (m *SystemStatus) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -1171,11 +2041,11 @@ func (m *SystemStatus) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintAgent(dAtA, i, uint64(m.Timestamp.Size()))
-		n3, err := m.Timestamp.MarshalTo(dAtA[i:])
+		n4, err := m.Timestamp.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n3
+		i += n4
 	}
 	if len(m.Summary) > 0 {
 		dAtA[i] = 0x22
@@ -1269,11 +2139,11 @@ func (m *NodeStatus) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintAgent(dAtA, i, uint64(m.MemberStatus.Size()))
-		n4, err := m.MemberStatus.MarshalTo(dAtA[i:])
+		n5, err := m.MemberStatus.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n4
+		i += n5
 	}
 	if m.Status != 0 {
 		dAtA[i] = 0x18
@@ -1430,11 +2300,11 @@ func (m *TimeResponse) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintAgent(dAtA, i, uint64(m.Timestamp.Size()))
-		n5, err := m.Timestamp.MarshalTo(dAtA[i:])
+		n6, err := m.Timestamp.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n5
+		i += n6
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -1442,6 +2312,299 @@ func (m *TimeResponse) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
+func (m *UpdateRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *UpdateRequest) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Name) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintAgent(dAtA, i, uint64(len(m.Name)))
+		i += copy(dAtA[i:], m.Name)
+	}
+	if m.Event != nil {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintAgent(dAtA, i, uint64(m.Event.Size()))
+		n7, err := m.Event.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n7
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
+func (m *UpdateResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *UpdateResponse) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
+func (m *TimelineRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *TimelineRequest) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Params) > 0 {
+		for k, _ := range m.Params {
+			dAtA[i] = 0xa
+			i++
+			v := m.Params[k]
+			mapSize := 1 + len(k) + sovAgent(uint64(len(k))) + 1 + len(v) + sovAgent(uint64(len(v)))
+			i = encodeVarintAgent(dAtA, i, uint64(mapSize))
+			dAtA[i] = 0xa
+			i++
+			i = encodeVarintAgent(dAtA, i, uint64(len(k)))
+			i += copy(dAtA[i:], k)
+			dAtA[i] = 0x12
+			i++
+			i = encodeVarintAgent(dAtA, i, uint64(len(v)))
+			i += copy(dAtA[i:], v)
+		}
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
+func (m *TimelineResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *TimelineResponse) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Events) > 0 {
+		for _, msg := range m.Events {
+			dAtA[i] = 0xa
+			i++
+			i = encodeVarintAgent(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
+func (m *TimelineEvent) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *TimelineEvent) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Timestamp != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintAgent(dAtA, i, uint64(m.Timestamp.Size()))
+		n8, err := m.Timestamp.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n8
+	}
+	if m.Data != nil {
+		nn9, err := m.Data.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += nn9
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
+func (m *TimelineEvent_ClusterRecovered) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.ClusterRecovered != nil {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintAgent(dAtA, i, uint64(m.ClusterRecovered.Size()))
+		n10, err := m.ClusterRecovered.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n10
+	}
+	return i, nil
+}
+func (m *TimelineEvent_ClusterDegraded) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.ClusterDegraded != nil {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintAgent(dAtA, i, uint64(m.ClusterDegraded.Size()))
+		n11, err := m.ClusterDegraded.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n11
+	}
+	return i, nil
+}
+func (m *TimelineEvent_ClusterUpgrade) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.ClusterUpgrade != nil {
+		dAtA[i] = 0x22
+		i++
+		i = encodeVarintAgent(dAtA, i, uint64(m.ClusterUpgrade.Size()))
+		n12, err := m.ClusterUpgrade.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n12
+	}
+	return i, nil
+}
+func (m *TimelineEvent_NodeAdded) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.NodeAdded != nil {
+		dAtA[i] = 0x2a
+		i++
+		i = encodeVarintAgent(dAtA, i, uint64(m.NodeAdded.Size()))
+		n13, err := m.NodeAdded.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n13
+	}
+	return i, nil
+}
+func (m *TimelineEvent_NodeRemoved) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.NodeRemoved != nil {
+		dAtA[i] = 0x32
+		i++
+		i = encodeVarintAgent(dAtA, i, uint64(m.NodeRemoved.Size()))
+		n14, err := m.NodeRemoved.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n14
+	}
+	return i, nil
+}
+func (m *TimelineEvent_NodeRecovered) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.NodeRecovered != nil {
+		dAtA[i] = 0x3a
+		i++
+		i = encodeVarintAgent(dAtA, i, uint64(m.NodeRecovered.Size()))
+		n15, err := m.NodeRecovered.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n15
+	}
+	return i, nil
+}
+func (m *TimelineEvent_NodeDegraded) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.NodeDegraded != nil {
+		dAtA[i] = 0x42
+		i++
+		i = encodeVarintAgent(dAtA, i, uint64(m.NodeDegraded.Size()))
+		n16, err := m.NodeDegraded.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n16
+	}
+	return i, nil
+}
+func (m *TimelineEvent_ProbeSucceeded) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.ProbeSucceeded != nil {
+		dAtA[i] = 0x4a
+		i++
+		i = encodeVarintAgent(dAtA, i, uint64(m.ProbeSucceeded.Size()))
+		n17, err := m.ProbeSucceeded.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n17
+	}
+	return i, nil
+}
+func (m *TimelineEvent_ProbeFailed) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.ProbeFailed != nil {
+		dAtA[i] = 0x52
+		i++
+		i = encodeVarintAgent(dAtA, i, uint64(m.ProbeFailed.Size()))
+		n18, err := m.ProbeFailed.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n18
+	}
+	return i, nil
+}
 func encodeVarintAgent(dAtA []byte, offset int, v uint64) int {
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
@@ -1499,6 +2662,38 @@ func (m *LocalStatusResponse) Size() (n int) {
 	_ = l
 	if m.Status != nil {
 		l = m.Status.Size()
+		n += 1 + l + sovAgent(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *LastSeenRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Name)
+	if l > 0 {
+		n += 1 + l + sovAgent(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *LastSeenResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Timestamp != nil {
+		l = m.Timestamp.Size()
 		n += 1 + l + sovAgent(uint64(l))
 	}
 	if m.XXX_unrecognized != nil {
@@ -1676,6 +2871,204 @@ func (m *TimeResponse) Size() (n int) {
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *UpdateRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Name)
+	if l > 0 {
+		n += 1 + l + sovAgent(uint64(l))
+	}
+	if m.Event != nil {
+		l = m.Event.Size()
+		n += 1 + l + sovAgent(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *UpdateResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *TimelineRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if len(m.Params) > 0 {
+		for k, v := range m.Params {
+			_ = k
+			_ = v
+			mapEntrySize := 1 + len(k) + sovAgent(uint64(len(k))) + 1 + len(v) + sovAgent(uint64(len(v)))
+			n += mapEntrySize + 1 + sovAgent(uint64(mapEntrySize))
+		}
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *TimelineResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if len(m.Events) > 0 {
+		for _, e := range m.Events {
+			l = e.Size()
+			n += 1 + l + sovAgent(uint64(l))
+		}
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *TimelineEvent) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Timestamp != nil {
+		l = m.Timestamp.Size()
+		n += 1 + l + sovAgent(uint64(l))
+	}
+	if m.Data != nil {
+		n += m.Data.Size()
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *TimelineEvent_ClusterRecovered) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.ClusterRecovered != nil {
+		l = m.ClusterRecovered.Size()
+		n += 1 + l + sovAgent(uint64(l))
+	}
+	return n
+}
+func (m *TimelineEvent_ClusterDegraded) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.ClusterDegraded != nil {
+		l = m.ClusterDegraded.Size()
+		n += 1 + l + sovAgent(uint64(l))
+	}
+	return n
+}
+func (m *TimelineEvent_ClusterUpgrade) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.ClusterUpgrade != nil {
+		l = m.ClusterUpgrade.Size()
+		n += 1 + l + sovAgent(uint64(l))
+	}
+	return n
+}
+func (m *TimelineEvent_NodeAdded) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.NodeAdded != nil {
+		l = m.NodeAdded.Size()
+		n += 1 + l + sovAgent(uint64(l))
+	}
+	return n
+}
+func (m *TimelineEvent_NodeRemoved) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.NodeRemoved != nil {
+		l = m.NodeRemoved.Size()
+		n += 1 + l + sovAgent(uint64(l))
+	}
+	return n
+}
+func (m *TimelineEvent_NodeRecovered) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.NodeRecovered != nil {
+		l = m.NodeRecovered.Size()
+		n += 1 + l + sovAgent(uint64(l))
+	}
+	return n
+}
+func (m *TimelineEvent_NodeDegraded) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.NodeDegraded != nil {
+		l = m.NodeDegraded.Size()
+		n += 1 + l + sovAgent(uint64(l))
+	}
+	return n
+}
+func (m *TimelineEvent_ProbeSucceeded) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.ProbeSucceeded != nil {
+		l = m.ProbeSucceeded.Size()
+		n += 1 + l + sovAgent(uint64(l))
+	}
+	return n
+}
+func (m *TimelineEvent_ProbeFailed) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.ProbeFailed != nil {
+		l = m.ProbeFailed.Size()
+		n += 1 + l + sovAgent(uint64(l))
 	}
 	return n
 }
@@ -1953,6 +3346,182 @@ func (m *LocalStatusResponse) Unmarshal(dAtA []byte) error {
 				m.Status = &NodeStatus{}
 			}
 			if err := m.Status.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipAgent(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthAgent
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthAgent
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *LastSeenRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowAgent
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: LastSeenRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: LastSeenRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Name", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowAgent
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthAgent
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthAgent
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Name = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipAgent(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthAgent
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthAgent
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *LastSeenResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowAgent
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: LastSeenResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: LastSeenResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Timestamp", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowAgent
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthAgent
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthAgent
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Timestamp == nil {
+				m.Timestamp = &Timestamp{}
+			}
+			if err := m.Timestamp.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -3059,6 +4628,856 @@ func (m *TimeResponse) Unmarshal(dAtA []byte) error {
 			if err := m.Timestamp.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipAgent(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthAgent
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthAgent
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *UpdateRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowAgent
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: UpdateRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: UpdateRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Name", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowAgent
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthAgent
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthAgent
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Name = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Event", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowAgent
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthAgent
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthAgent
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Event == nil {
+				m.Event = &TimelineEvent{}
+			}
+			if err := m.Event.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipAgent(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthAgent
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthAgent
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *UpdateResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowAgent
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: UpdateResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: UpdateResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipAgent(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthAgent
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthAgent
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *TimelineRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowAgent
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: TimelineRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: TimelineRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Params", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowAgent
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthAgent
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthAgent
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Params == nil {
+				m.Params = make(map[string]string)
+			}
+			var mapkey string
+			var mapvalue string
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowAgent
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					wire |= uint64(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowAgent
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= uint64(b&0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthAgent
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey < 0 {
+						return ErrInvalidLengthAgent
+					}
+					if postStringIndexmapkey > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					var stringLenmapvalue uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowAgent
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapvalue |= uint64(b&0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapvalue := int(stringLenmapvalue)
+					if intStringLenmapvalue < 0 {
+						return ErrInvalidLengthAgent
+					}
+					postStringIndexmapvalue := iNdEx + intStringLenmapvalue
+					if postStringIndexmapvalue < 0 {
+						return ErrInvalidLengthAgent
+					}
+					if postStringIndexmapvalue > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapvalue = string(dAtA[iNdEx:postStringIndexmapvalue])
+					iNdEx = postStringIndexmapvalue
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipAgent(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthAgent
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
+				}
+			}
+			m.Params[mapkey] = mapvalue
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipAgent(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthAgent
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthAgent
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *TimelineResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowAgent
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: TimelineResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: TimelineResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Events", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowAgent
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthAgent
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthAgent
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Events = append(m.Events, &TimelineEvent{})
+			if err := m.Events[len(m.Events)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipAgent(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthAgent
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthAgent
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *TimelineEvent) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowAgent
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: TimelineEvent: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: TimelineEvent: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Timestamp", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowAgent
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthAgent
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthAgent
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Timestamp == nil {
+				m.Timestamp = &Timestamp{}
+			}
+			if err := m.Timestamp.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ClusterRecovered", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowAgent
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthAgent
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthAgent
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &ClusterRecovered{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.Data = &TimelineEvent_ClusterRecovered{v}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ClusterDegraded", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowAgent
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthAgent
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthAgent
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &ClusterDegraded{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.Data = &TimelineEvent_ClusterDegraded{v}
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ClusterUpgrade", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowAgent
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthAgent
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthAgent
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &ClusterUpgrade{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.Data = &TimelineEvent_ClusterUpgrade{v}
+			iNdEx = postIndex
+		case 5:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field NodeAdded", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowAgent
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthAgent
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthAgent
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &NodeAdded{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.Data = &TimelineEvent_NodeAdded{v}
+			iNdEx = postIndex
+		case 6:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field NodeRemoved", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowAgent
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthAgent
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthAgent
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &NodeRemoved{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.Data = &TimelineEvent_NodeRemoved{v}
+			iNdEx = postIndex
+		case 7:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field NodeRecovered", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowAgent
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthAgent
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthAgent
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &NodeRecovered{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.Data = &TimelineEvent_NodeRecovered{v}
+			iNdEx = postIndex
+		case 8:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field NodeDegraded", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowAgent
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthAgent
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthAgent
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &NodeDegraded{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.Data = &TimelineEvent_NodeDegraded{v}
+			iNdEx = postIndex
+		case 9:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ProbeSucceeded", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowAgent
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthAgent
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthAgent
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &ProbeSucceeded{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.Data = &TimelineEvent_ProbeSucceeded{v}
+			iNdEx = postIndex
+		case 10:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ProbeFailed", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowAgent
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthAgent
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthAgent
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &ProbeFailed{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.Data = &TimelineEvent_ProbeFailed{v}
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex

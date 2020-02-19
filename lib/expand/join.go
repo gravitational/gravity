@@ -280,7 +280,7 @@ type PeerConfig struct {
 	// LocalPackages is local package service of the joining node
 	LocalPackages pack.PackageService
 	// LocalClusterClient is a factory for creating a client to the installed cluster
-	LocalClusterClient func() (*opsclient.Client, error)
+	LocalClusterClient func(...httplib.ClientOption) (*opsclient.Client, error)
 	// JoinBackend is the local backend where join-specific operation data is stored
 	JoinBackend storage.Backend
 	// OperationID is the ID of existing join operation created via UI

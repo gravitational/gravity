@@ -139,6 +139,14 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.ResumeCmd.Force = g.ResumeCmd.Flag("force", "Force execution of specified phase.").Bool()
 	g.ResumeCmd.PhaseTimeout = g.ResumeCmd.Flag("timeout", "Phase execution timeout.").Default(defaults.PhaseTimeout).Hidden().Duration()
 
+	g.StopCmd.CmdClause = g.Command("stop", "Stop Gravity services on the node.")
+	g.StopCmd.Confirmed = g.StopCmd.Flag("confirm", "Suppress confirmation prompt.").Bool()
+
+	g.StartCmd.CmdClause = g.Command("start", "Start Gravity services on the node.")
+	g.StartCmd.AdvertiseAddr = g.StartCmd.Flag("advertise-addr", "New advertise address the node will use. Must be present on the node.").String()
+	g.StartCmd.FromService = g.StartCmd.Flag("from-service", "Run in service mode.").Hidden().Bool()
+	g.StartCmd.Confirmed = g.StartCmd.Flag("confirm", "Suppress confirmation prompt.").Bool()
+
 	g.PlanCmd.CmdClause = g.Command("plan", "Manage operation plan.")
 	g.PlanCmd.OperationID = g.PlanCmd.Flag("operation-id", "ID of the active operation. It not specified, the last operation will be used.").Hidden().String()
 	g.PlanCmd.SkipVersionCheck = g.PlanCmd.Flag("skip-version-check", "Bypass version compatibility check.").Hidden().Bool()
@@ -205,12 +213,19 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.UpdateSystemCmd.WithStatus = g.UpdateSystemCmd.Flag("with-status", "Verify the system status at the end of the operation").Bool()
 	g.UpdateSystemCmd.RuntimePackage = Locator(g.UpdateSystemCmd.Flag("runtime-package", "The name of the runtime package to update to").Required())
 
+	// Display cluster status information
 	g.StatusCmd.CmdClause = g.Command("status", "Display overall cluster status.")
-	g.StatusCmd.Token = g.StatusCmd.Flag("token", "Display only the cluster join token.").Bool()
-	g.StatusCmd.Tail = g.StatusCmd.Flag("tail", "Tail logs of the currently running operation until it completes.").Bool()
-	g.StatusCmd.OperationID = g.StatusCmd.Flag("operation-id", "Check status of the operation with the given ID.").Short('o').String()
-	g.StatusCmd.Seconds = g.StatusCmd.Flag("seconds", "Continuously display status every N seconds.").Short('s').Int()
-	g.StatusCmd.Output = common.Format(g.StatusCmd.Flag("output", "Output format: json or text.").Default(string(constants.EncodingText)))
+
+	// Display current overall cluster status
+	g.StatusClusterCmd.CmdClause = g.StatusCmd.Command("cluster", "Display overall cluster status.").Default()
+	g.StatusClusterCmd.Token = g.StatusClusterCmd.Flag("token", "Display only the cluster join token.").Bool()
+	g.StatusClusterCmd.Tail = g.StatusClusterCmd.Flag("tail", "Tail logs of the currently running operation until it completes.").Bool()
+	g.StatusClusterCmd.OperationID = g.StatusClusterCmd.Flag("operation-id", "Check status of the operation with the given ID.").Short('o').String()
+	g.StatusClusterCmd.Seconds = g.StatusClusterCmd.Flag("seconds", "Continuously display status every N seconds.").Short('s').Int()
+	g.StatusClusterCmd.Output = common.Format(g.StatusClusterCmd.Flag("output", "Output format: json or text.").Default(string(constants.EncodingText)))
+
+	// Display cluster status history
+	g.StatusHistoryCmd.CmdClause = g.StatusCmd.Command("history", "Display cluster status history.")
 
 	// reset cluster state, for debugging/emergencies
 	g.StatusResetCmd.CmdClause = g.Command("status-reset", "Reset the cluster state to 'active'").Hidden()

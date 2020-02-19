@@ -607,6 +607,8 @@ const (
 	RegistrySyncInterval = 20 * time.Second
 	// AppSyncInterval is how often app images are synced with the local registry
 	AppSyncInterval = 30 * time.Second
+	// StateSyncInterval is how often cluster state is synced to the local backend
+	StateSyncInterval = 1 * time.Minute
 
 	// NodeLabelsReconcileInterval is how often node labels reconciler runs.
 	NodeLabelsReconcileInterval = 1 * time.Minute
@@ -1227,6 +1229,14 @@ var (
 	// A failed precondition usually means a configuration error when an operation cannot be retried.
 	// The exit code is used to prevent the agent service from restarting after shutdown
 	FailedPreconditionExitCode = 252
+
+	// NetworkIntefacePrefixes is a list of Kubernetes-specific network interface prefixes.
+	NetworkInterfacePrefixes = []string{
+		"docker",
+		"flannel",
+		"cni",
+		"wormhole",
+	}
 )
 
 // HookSecurityContext returns default securityContext for hook pods

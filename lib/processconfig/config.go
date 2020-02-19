@@ -231,7 +231,8 @@ func (cfg Config) CreateBackend() (backend storage.Backend, err error) {
 	case constants.BoltBackend:
 		log.Debug("using bolt backend")
 		backend, err = keyval.NewBolt(keyval.BoltConfig{
-			Path: filepath.Join(cfg.DataDir, defaults.GravityDBFile),
+			Path:  filepath.Join(cfg.DataDir, defaults.GravityDBFile),
+			Multi: true,
 		})
 	case constants.ETCDBackend:
 		log.Debug("using ETCD backend")

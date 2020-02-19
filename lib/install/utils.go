@@ -29,7 +29,6 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/install/dispatcher"
-	"github.com/gravitational/gravity/lib/install/engine"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
@@ -399,30 +398,30 @@ func tryInstallBinary(targetPath string, uid, gid int, logger log.FieldLogger) e
 
 // initOperationPlan initializes a new operation plan for the specified install operation
 // in the given operator
-func initOperationPlan(operator ops.Operator, planner engine.Planner) error {
-	clusters, err := operator.GetSites(defaults.SystemAccountID)
+func (i *Installer) initOperationPlan(key ops.SiteOperationKey) error {
+	clusters, err := i.config.Operator.GetSites(defaults.SystemAccountID)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	if len(clusters) != 1 {
 		return trace.BadParameter("expected 1 cluster, got: %v", clusters)
 	}
-	operation, _, err := ops.GetInstallOperation(clusters[0].Key(), operator)
+	operation, err := i.config.Operator.GetSiteOperation(key)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	plan, err := operator.GetOperationPlan(operation.Key())
+	plan, err := i.config.Operator.GetOperationPlan(operation.Key())
 	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
 	}
 	if plan != nil {
 		return trace.AlreadyExists("plan is already initialized")
 	}
-	plan, err = planner.GetOperationPlan(operator, clusters[0], *operation)
+	plan, err = i.config.Planner.GetOperationPlan(i.config.Operator, clusters[0], *operation)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = operator.CreateOperationPlan(operation.Key(), *plan)
+	err = i.config.Operator.CreateOperationPlan(operation.Key(), *plan)
 	if err != nil {
 		return trace.Wrap(err)
 	}
