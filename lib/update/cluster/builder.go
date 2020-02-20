@@ -71,7 +71,7 @@ func (r phaseBuilder) checks() *update.Phase {
 
 func (r phaseBuilder) bootstrapSELinux() *update.Phase {
 	root := update.RootPhase(update.Phase{
-		ID:          "bootstrap-selinux",
+		ID:          "selinux-bootstrap",
 		Description: "Configure SELinux on nodes",
 	})
 

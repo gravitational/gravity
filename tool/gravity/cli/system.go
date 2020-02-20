@@ -812,7 +812,7 @@ func uninstallPackage(
 		printer.Printf("%v is installed as a service, uninstalling\n", servicePackage)
 		err = services.UninstallPackageService(servicePackage)
 		if err != nil {
-			return nil, utils.NewUninstallServiceError(servicePackage)
+			return nil, utils.NewUninstallServiceError(err, servicePackage)
 		}
 	}
 	updates = append(updates, pack.LabelUpdate{

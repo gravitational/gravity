@@ -349,21 +349,23 @@ func (s *systemdManager) UninstallService(req UninstallServiceRequest) error {
 	}
 
 	out, err = invokeSystemctl("disable", serviceName)
-	if err != nil && !IsUnknownServiceError(err) {
+	if err != nil {
 		return trace.Wrap(err)
 	}
 
 	out, err = invokeSystemctl("is-failed", serviceName)
 	status := strings.TrimSpace(out)
 
-	unitPath := unitPath(req.Name)
-	if errDelete := os.Remove(unitPath); errDelete != nil && !os.IsNotExist(errDelete) {
-		logger.WithError(errDelete).Warn("Failed to delete service unit file.")
+	if err == nil {
+		unitPath := unitPath(req.Name)
+		if errDelete := os.Remove(unitPath); errDelete != nil && !os.IsNotExist(errDelete) {
+			logger.WithError(errDelete).Warn("Failed to delete service unit file.")
+		}
 	}
 
 	switch status {
-	case ServiceStatusInactive:
-		// Ignore the inactive state
+	case ServiceStatusInactive, ServiceStatusUnknown:
+		// Ignore the inactive and unknown states
 		return nil
 	case ServiceStatusFailed:
 		return trace.CompareFailed("error stopping service %q: %s", serviceName, out)

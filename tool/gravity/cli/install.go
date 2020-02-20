@@ -753,6 +753,9 @@ func NewInstallerConnectStrategy(env *localenv.LocalEnvironment, config InstallC
 	args, err := commandArgs.Update(os.Args[1:], cli.NewFlag("token", config.Token))
 	args = append([]string{utils.Exe.Path}, args...)
 	args = append(args, "--from-service", utils.Exe.WorkingDir)
+	if !config.SELinux {
+		args = append(args, "--no-selinux")
+	}
 	servicePath, err := state.GravityInstallDir(defaults.GravityRPCInstallerServiceName)
 	if err != nil {
 		return nil, trace.Wrap(err)

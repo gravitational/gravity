@@ -29,6 +29,12 @@ func ApplyFileContexts(ctx context.Context, out io.Writer, paths ...string) erro
 	return trace.Wrap(cmd.Run())
 }
 
+// ShouldLabelVolume determines if the volume with the specified label
+// should be labeled
+func ShouldLabelVolume(label string) bool {
+	return label != ""
+}
+
 func renderFcontext(w io.Writer, stateDir string, fcontextTemplate io.Reader, renderer commandRenderer) error {
 	b, err := ioutil.ReadAll(fcontextTemplate)
 	if err != nil {

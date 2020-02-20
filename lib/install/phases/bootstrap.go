@@ -76,6 +76,16 @@ func NewBootstrap(p fsm.ExecutorParams, operator ops.Operator, apps app.Applicat
 		return nil, trace.Wrap(err)
 	}
 
+	mounts, err := opsservice.GetMounts(application.Manifest, *p.Phase.Data.Server)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	stateDir, err := state.GetStateDir()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithFields(logrus.Fields{
 			constants.FieldPhase:       p.Phase.ID,
@@ -95,6 +105,8 @@ func NewBootstrap(p fsm.ExecutorParams, operator ops.Operator, apps app.Applicat
 		ServiceUser:      *serviceUser,
 		remote:           remote,
 		dnsConfig:        p.Plan.DNSConfig,
+		mounts:           mounts,
+		stateDir:         stateDir,
 	}, nil
 }
 
@@ -115,6 +127,10 @@ type bootstrapExecutor struct {
 	dnsConfig storage.DNSConfig
 	// remote specifies the server remote control interface
 	remote fsm.Remote
+	// mounts lists additional application-specific volume mounts
+	mounts []storage.Mount
+	// stateDir specifies the local state directory
+	stateDir string
 }
 
 // Execute executes the bootstrap phase
@@ -134,6 +150,10 @@ func (p *bootstrapExecutor) Execute(ctx context.Context) error {
 		return trace.Wrap(err)
 	}
 	err = p.configureApplicationVolumes()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = p.applySELinuxFileContexts(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -185,11 +205,7 @@ func (p *bootstrapExecutor) configureDeviceMapper() error {
 func (p *bootstrapExecutor) configureSystemDirectories(ctx context.Context) error {
 	p.Progress.NextStep("Configuring system directories")
 	p.Info("Configuring system directories.")
-	// make sure we account for possible custom gravity data dir
-	stateDir, err := state.GetStateDir()
-	if err != nil {
-		return trace.Wrap(err)
-	}
+	stateDir := p.stateDir
 	mkdirList := []string{
 		filepath.Join(stateDir, "local", "packages", "blobs"),
 		filepath.Join(stateDir, "local", "packages", "unpacked"),
@@ -221,7 +237,7 @@ func (p *bootstrapExecutor) configureSystemDirectories(ctx context.Context) erro
 	// adjust ownership of the state directory non-recursively
 	p.Infof("Setting ownership on system directory %v to %v:%v.",
 		stateDir, p.ServiceUser.UID, p.ServiceUser.GID)
-	err = os.Chown(stateDir, p.ServiceUser.UID, p.ServiceUser.GID)
+	err := os.Chown(stateDir, p.ServiceUser.UID, p.ServiceUser.GID)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -256,10 +272,6 @@ func (p *bootstrapExecutor) configureSystemDirectories(ctx context.Context) erro
 			return trace.Wrap(err)
 		}
 	}
-	if err := p.applySELinuxFileContexts(ctx, stateDir); err != nil {
-		return trace.Wrap(err)
-	}
-
 	return nil
 }
 
@@ -268,12 +280,7 @@ func (p *bootstrapExecutor) configureSystemDirectories(ctx context.Context) erro
 func (p *bootstrapExecutor) configureApplicationVolumes() error {
 	p.Progress.NextStep("Configuring application-specific volumes")
 	p.Info("Configuring application-specific volumes.")
-	mounts, err := opsservice.GetMounts(
-		p.Application.Manifest, *p.Phase.Data.Server)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	for _, mount := range mounts {
+	for _, mount := range p.mounts {
 		isDir, err := utils.IsDirectory(mount.Source)
 		if mount.SkipIfMissing && trace.IsNotFound(err) {
 			p.Debugf("Skipping non-existent volume %v.", mount.Source)
@@ -360,14 +367,18 @@ func (*bootstrapExecutor) PostCheck(ctx context.Context) error {
 	return nil
 }
 
-func (p *bootstrapExecutor) applySELinuxFileContexts(ctx context.Context, stateDir string) error {
+func (p *bootstrapExecutor) applySELinuxFileContexts(ctx context.Context) error {
 	if !(selinux.GetEnabled() && p.Plan.SELinux) {
 		p.Info("SELinux is disabled.")
 		return nil
 	}
+	paths := []string{p.stateDir}
+	for _, volume := range p.mounts {
+		paths = append(paths, volume.Source)
+	}
 	var out bytes.Buffer
 	// Set file/directory labels as defined by the policy on the state directory
-	if err := libselinux.ApplyFileContexts(ctx, &out, stateDir); err != nil {
+	if err := libselinux.ApplyFileContexts(ctx, &out, paths...); err != nil {
 		return trace.Wrap(err, "failed to restore file contexts: %s", out.String())
 	}
 	p.WithField("output", out.String()).Info("Restore file contexts.")

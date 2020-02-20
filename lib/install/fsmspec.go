@@ -34,14 +34,14 @@ import (
 func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 	return func(p fsm.ExecutorParams, remote fsm.Remote) (fsm.PhaseExecutor, error) {
 		switch {
+		case strings.HasPrefix(p.Phase.ID, phases.BootstrapSELinuxPhase):
+			return phases.NewSELinux(p, config.Operator, config.Apps)
+
 		case strings.HasPrefix(p.Phase.ID, phases.BootstrapPhase):
 			return phases.NewBootstrap(p,
 				config.Operator,
 				config.Apps,
 				config.LocalBackend, remote)
-
-		case strings.HasPrefix(p.Phase.ID, phases.BootstrapSELinuxPhase):
-			return phases.NewSELinux(p, config.Operator, config.Apps)
 
 		case strings.HasPrefix(p.Phase.ID, phases.PullPhase):
 			return phases.NewPull(p,

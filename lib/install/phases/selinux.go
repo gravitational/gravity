@@ -17,8 +17,8 @@ limitations under the License.
 package phases
 
 import (
+	"bytes"
 	"context"
-	"os/exec"
 
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
@@ -79,10 +79,7 @@ func NewSELinux(p fsm.ExecutorParams, operator ops.Operator, apps app.Applicatio
 func (r *seLinux) Execute(ctx context.Context) error {
 	r.Progress.NextStep("Configuring SELinux")
 	r.Info("Configuring SELinux.")
-	if err := r.config.Update(ctx); err != nil {
-		return trace.Wrap(err)
-	}
-	return r.applyFileContexts(ctx)
+	return r.config.Update(ctx)
 }
 
 // Rollback deletes created system Kubernetes resources.
@@ -111,16 +108,11 @@ type seLinux struct {
 
 func (r *seLinux) applyFileContexts(ctx context.Context, paths ...string) error {
 	// Set file/directory labels as defined by the local changes
-	args := append([]string{"-R", "-v"}, paths...)
-	out, err := exec.CommandContext(ctx, "restorecon", args...).CombinedOutput()
-	r.WithFields(logrus.Fields{
-		logrus.ErrorKey: err,
-		"output":        string(out),
-	}).Info("Restore file contexts.")
-	if err != nil {
-		return trace.Wrap(err, "failed to restorecon file contexts on %v",
-			paths)
+	var out bytes.Buffer
+	if err := selinux.ApplyFileContexts(ctx, &out, paths...); err != nil {
+		return trace.Wrap(err, "failed to restore file contexts: %s", out.String())
 	}
+	r.WithField("output", out.String()).Info("Restore file contexts.")
 	return nil
 }
 
@@ -152,7 +144,7 @@ func getPaths(profile schema.NodeProfile) (paths []selinux.Path, err error) {
 		if volume.Label == "" {
 			volume.Label = defaults.ContainerFileLabel
 		}
-		if !shouldLabel(volume.Label) {
+		if !selinux.ShouldLabelVolume(volume.Label) {
 			continue
 		}
 		paths = append(paths, selinux.Path{
