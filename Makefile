@@ -760,30 +760,4 @@ verify-codegen:
 clean-codegen:
 	rm -r $(GENERATED_DIR)
 
-#
-# this is a temporary target until we upgrade docker packages
-# to use sirupsen/logrus
-#
-.PHONY: validate-deps-in-container
-validate-deps-in-container:
-	$(MAKE) -C build.assets validate-deps
-
-.PHONY: validate-deps
-validate-deps:
-	ssh-keyscan github.com > /root/.ssh/known_hosts
-	dep version
-	dep ensure -v
-	dep status -v
-	$(MAKE) fix-logrus
-	$(eval VENDOR_UNTRACKED := $(shell git status --porcelain vendor))
-	@test -z "$(VENDOR_UNTRACKED)" || (echo "failed to recreate vendor from scratch and match it to git:\n $(VENDOR_UNTRACKED)" ; exit 1)
-
-.PHONY: fix-logrus
-fix-logrus:
-	find vendor -not \( -path vendor/github.com/fsouza -prune \) -name '*.go' -type f -print0 | xargs -0 sed -i 's/Sirupsen/sirupsen/g'
-	find lib -type f -print0 | xargs -0 sed -i 's/Sirupsen/sirupsen/g'
-	find tool -type f -print0 | xargs -0 sed -i 's/Sirupsen/sirupsen/g'
-	rm -rf vendor/github.com/Sirupsen/logrus
-
-
 include build.assets/etcd.mk
