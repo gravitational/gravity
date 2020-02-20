@@ -53,7 +53,10 @@ func status(env *localenv.LocalEnvironment, printOptions printOptions) error {
 		clusterOperator: clusterOperator,
 	}
 
-	status, err := statusOnce(context.TODO(), operator, printOptions.operationID)
+	ctx, cancel := context.WithTimeout(context.Background(), defaults.StatusCollectionTimeout)
+	defer cancel()
+
+	status, err := statusOnce(ctx, operator, printOptions.operationID)
 	if err == nil {
 		err = printStatus(operator, clusterStatus{*status, nil}, printOptions)
 		return trace.Wrap(err)
@@ -74,7 +77,7 @@ func status(env *localenv.LocalEnvironment, printOptions printOptions) error {
 		}
 	}
 	if status.Agent == nil {
-		status.Agent, err = statusapi.FromPlanetAgent(context.TODO(), nil)
+		status.Agent, err = statusapi.FromPlanetAgent(ctx, nil)
 		if err != nil {
 			log.Warnf("Failed to query status from planet agent: %v.", trace.DebugReport(err))
 		}
@@ -83,7 +86,7 @@ func status(env *localenv.LocalEnvironment, printOptions printOptions) error {
 	var failed []*pb.Probe
 	if status.Agent == nil {
 		// Run local checks when planet agent is inaccessible
-		ctx, cancel := context.WithTimeout(context.TODO(), defaults.HumanReasonableTimeout)
+		ctx, cancel := context.WithTimeout(ctx, defaults.HumanReasonableTimeout)
 		defer cancel()
 
 		if printOptions.format == constants.EncodingText {

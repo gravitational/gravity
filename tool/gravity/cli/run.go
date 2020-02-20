@@ -413,21 +413,23 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			force:     *g.RemoveCmd.Force,
 			confirmed: *g.RemoveCmd.Confirm,
 		})
-	case g.StatusCmd.FullCommand():
+	case g.StatusClusterCmd.FullCommand():
 		printOptions := printOptions{
-			token:       *g.StatusCmd.Token,
-			operationID: *g.StatusCmd.OperationID,
+			token:       *g.StatusClusterCmd.Token,
+			operationID: *g.StatusClusterCmd.OperationID,
 			quiet:       *g.Silent,
-			format:      *g.StatusCmd.Output,
+			format:      *g.StatusClusterCmd.Output,
 		}
-		if *g.StatusCmd.Tail {
-			return tailStatus(localEnv, *g.StatusCmd.OperationID)
+		if *g.StatusClusterCmd.Tail {
+			return tailStatus(localEnv, *g.StatusClusterCmd.OperationID)
 		}
-		if *g.StatusCmd.Seconds != 0 {
-			return statusPeriodic(localEnv, printOptions, *g.StatusCmd.Seconds)
+		if *g.StatusClusterCmd.Seconds != 0 {
+			return statusPeriodic(localEnv, printOptions, *g.StatusClusterCmd.Seconds)
 		} else {
 			return status(localEnv, printOptions)
 		}
+	case g.StatusHistoryCmd.FullCommand():
+		return statusHistory()
 	case g.UpdateUploadCmd.FullCommand():
 		return uploadUpdate(localEnv, *g.UpdateUploadCmd.OpsCenterURL, *g.UpdateUploadCmd.DataDir)
 	case g.AppPackageCmd.FullCommand():

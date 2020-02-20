@@ -17,6 +17,8 @@ syntax = "proto3";
 
 package agentpb;
 
+import "event.proto";
+
 message StatusRequest {
 }
 
@@ -29,6 +31,18 @@ message LocalStatusRequest {
 
 message LocalStatusResponse {
   NodeStatus status = 1;
+}
+
+// LastSeenRequest requests the last seen timestamp for the specified member.
+message LastSeenRequest {
+  // Name specifies the member's serf name.
+  string name = 1;
+}
+
+// LastSeenResponse returns the last seen timestamp for the requested member.
+message LastSeenResponse {
+  // Timestamp specifies the last seen timestamp.
+  Timestamp timestamp = 1;
 }
 
 // System describes the health status of the cluster.
@@ -126,12 +140,64 @@ message TimeResponse {
   Timestamp timestamp = 1;
 }
 
+// UpdateRequest requests a new event be added to the timeline.
+message UpdateRequest {
+  // Name specifies the serf name of the requesting node.
+  string name = 1;
+  // Event specifies the event to be added to the timeline.
+  TimelineEvent event = 2;
+}
+
+// UpdateResponse indicates a successful update.
+message UpdateResponse {}
+
+message TimelineRequest {
+  // Params will be used to filter the timeline response.
+  map<string, string> params = 1;
+}
+
+message TimelineResponse {
+  // Events contains a list of timeline events that occurred.
+  repeated TimelineEvent events = 1;
+}
+
+message TimelineEvent {
+  // Timestamp is the node's local timestamp in UTC.
+  Timestamp timestamp = 1;
+  
+  // Data contains event specific data.
+  oneof data {
+    ClusterRecovered clusterRecovered = 2;
+    ClusterDegraded clusterDegraded = 3;
+
+    ClusterUpgrade clusterUpgrade = 4;
+
+    NodeAdded nodeAdded = 5;
+    NodeRemoved nodeRemoved = 6;
+    
+    NodeRecovered nodeRecovered = 7;
+    NodeDegraded nodeDegraded = 8;
+    
+    ProbeSucceeded probeSucceeded = 9;
+    ProbeFailed probeFailed = 10;
+
+    // TODO: Additional events
+  }
+}
+
 // Agent describes the API provided by GRPC agents
 service Agent {
   // Status collects the global cluster status
   rpc Status(StatusRequest) returns (StatusResponse) {}
   // LocalStatus collects the local node status
   rpc LocalStatus(LocalStatusRequest) returns (LocalStatusResponse) {}
+  // LastSeen requests the last seen timestamp for a specified member
+  rpc LastSeen(LastSeenRequest) returns (LastSeenResponse) {}
   // Time requests the node's local time in UTC
   rpc Time(TimeRequest) returns (TimeResponse) {}
+  // Timeline collects the status timeline
+  rpc Timeline(TimelineRequest) returns (TimelineResponse) {}
+  // UpdateTimeline requests a new event be added to the timeline.
+  // This RPC is idempotent. Repeated calls with the same event will have no effect.
+  rpc UpdateTimeline(UpdateRequest) returns (UpdateResponse) {}
 }
