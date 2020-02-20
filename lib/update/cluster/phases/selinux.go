@@ -84,7 +84,11 @@ func (p *updatePhaseSELinux) Execute(ctx context.Context) error {
 	if err := p.config.Update(ctx); err != nil {
 		return trace.Wrap(err)
 	}
-	return selinux.ApplyFileContexts(ctx, ioutil.Discard, p.config.Paths.Paths()...)
+	paths := p.config.Paths.Paths()
+	if len(paths) == 0 {
+		return nil
+	}
+	return selinux.ApplyFileContexts(ctx, ioutil.Discard, paths...)
 }
 
 // Rollback undos the SELinux configuration changes
@@ -93,7 +97,11 @@ func (p *updatePhaseSELinux) Rollback(ctx context.Context) error {
 	if err := p.config.Undo(ctx); err != nil {
 		return trace.Wrap(err)
 	}
-	return selinux.ApplyFileContexts(ctx, ioutil.Discard, p.config.Paths.Paths()...)
+	paths := p.config.Paths.Paths()
+	if len(paths) == 0 {
+		return nil
+	}
+	return selinux.ApplyFileContexts(ctx, ioutil.Discard, paths...)
 }
 
 // PreCheck is no-op for this phase

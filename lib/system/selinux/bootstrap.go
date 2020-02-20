@@ -228,6 +228,9 @@ func (r *bootstrapper) importLocalChanges(ctx context.Context) error {
 		return trace.Wrap(err)
 	}
 	paths := r.config.paths()
+	if len(paths) == 0 {
+		return nil
+	}
 	r.logger.WithField("paths", paths).Info("Restore file contexts.")
 	return ApplyFileContexts(ctx, w, paths...)
 }

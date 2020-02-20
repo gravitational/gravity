@@ -107,6 +107,9 @@ type seLinux struct {
 }
 
 func (r *seLinux) applyFileContexts(ctx context.Context, paths ...string) error {
+	if len(paths) == 0 {
+		return nil
+	}
 	// Set file/directory labels as defined by the local changes
 	var out bytes.Buffer
 	if err := selinux.ApplyFileContexts(ctx, &out, paths...); err != nil {
