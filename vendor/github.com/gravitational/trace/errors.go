@@ -56,15 +56,16 @@ func (e *NotFoundError) OrigError() error {
 }
 
 // IsNotFound returns whether this error is of NotFoundError type
-func IsNotFound(err error) bool {
-	err = Unwrap(err)
-	_, ok := err.(interface {
+func IsNotFound(e error) bool {
+	type nf interface {
 		IsNotFoundError() bool
-	})
+	}
+	err := Unwrap(e)
+	_, ok := err.(nf)
 	if !ok {
 		return os.IsNotExist(err)
 	}
-	return true
+	return ok
 }
 
 // AlreadyExists returns a new instance of AlreadyExists error
@@ -251,10 +252,11 @@ func (e *AccessDeniedError) OrigError() error {
 }
 
 // IsAccessDenied detects if this error is of AccessDeniedError type
-func IsAccessDenied(err error) bool {
-	_, ok := Unwrap(err).(interface {
+func IsAccessDenied(e error) bool {
+	type ad interface {
 		IsAccessDeniedError() bool
-	})
+	}
+	_, ok := Unwrap(e).(ad)
 	return ok
 }
 
@@ -283,7 +285,7 @@ func ConvertSystemError(err error) error {
 			Message: message,
 		}, message)
 	case x509.SystemRootsError, x509.UnknownAuthorityError:
-		return newTrace(&TrustError{Err: innerError}, 2)
+		return wrapWithDepth(&TrustError{Err: innerError}, 2)
 	}
 	if _, ok := innerError.(net.Error); ok {
 		return WrapWithMessage(&ConnectionProblemError{

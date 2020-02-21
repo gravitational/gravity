@@ -980,12 +980,12 @@
   revision = "f4445fa6001335437357b4300010f97979af7789"
 
 [[projects]]
-  digest = "1:dc84545f9f2a442b14864f2f7e54ae556cae53bd437a05a456572fea9e73cc87"
+  digest = "1:418247f700939c99867b42639d985686ba229fd9f8ee9e119c7cc3ffde6e0fe3"
   name = "github.com/gravitational/trace"
   packages = ["."]
   pruneopts = "UT"
-  revision = "dd5b2e8eae86d31f6273ff3ac46d5b15edd6d6be"
-  version = "1.1.10"
+  revision = "a535a178675fb4a11ba74818491754a8c5575dd6"
+  version = "v1.1.8"
 
 [[projects]]
   digest = "1:841d5835e94129658adabece66a4cc54d2cec9a40fa8b51743ea35d0519dd6c2"
