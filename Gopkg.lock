@@ -919,7 +919,7 @@
 
 [[projects]]
   branch = "branch/3.2-g"
-  digest = "1:ccb96a0ee188599f5b2577dff7b292cb6cee0122b668e56c9f9ad51181d7bf77"
+  digest = "1:fa6825491e864b7d06f6997346ddfffd71ac73e861c81bbc55340c6bd850853c"
   name = "github.com/gravitational/teleport"
   packages = [
     ".",
@@ -943,6 +943,7 @@
     "lib/fixtures",
     "lib/httplib",
     "lib/httplib/csrf",
+    "lib/kube/client",
     "lib/kube/proxy",
     "lib/kube/utils",
     "lib/limiter",
@@ -979,12 +980,12 @@
   revision = "f4445fa6001335437357b4300010f97979af7789"
 
 [[projects]]
-  digest = "1:418247f700939c99867b42639d985686ba229fd9f8ee9e119c7cc3ffde6e0fe3"
+  digest = "1:dc84545f9f2a442b14864f2f7e54ae556cae53bd437a05a456572fea9e73cc87"
   name = "github.com/gravitational/trace"
   packages = ["."]
   pruneopts = "UT"
-  revision = "a535a178675fb4a11ba74818491754a8c5575dd6"
-  version = "1.1.8"
+  revision = "dd5b2e8eae86d31f6273ff3ac46d5b15edd6d6be"
+  version = "1.1.10"
 
 [[projects]]
   digest = "1:841d5835e94129658adabece66a4cc54d2cec9a40fa8b51743ea35d0519dd6c2"
@@ -2690,6 +2691,7 @@
     "github.com/gravitational/teleport/lib/fixtures",
     "github.com/gravitational/teleport/lib/httplib",
     "github.com/gravitational/teleport/lib/httplib/csrf",
+    "github.com/gravitational/teleport/lib/kube/client",
     "github.com/gravitational/teleport/lib/modules",
     "github.com/gravitational/teleport/lib/reversetunnel",
     "github.com/gravitational/teleport/lib/service",
@@ -2711,6 +2713,7 @@
     "github.com/julienschmidt/httprouter",
     "github.com/kardianos/osext",
     "github.com/kylelemons/godebug/diff",
+    "github.com/mailgun/lemma/secret",
     "github.com/mailgun/timetools",
     "github.com/miekg/dns",
     "github.com/mitchellh/go-ps",
@@ -2772,6 +2775,7 @@
     "k8s.io/apimachinery/pkg/runtime",
     "k8s.io/apimachinery/pkg/runtime/schema",
     "k8s.io/apimachinery/pkg/runtime/serializer/json",
+    "k8s.io/apimachinery/pkg/util/intstr",
     "k8s.io/apimachinery/pkg/util/net",
     "k8s.io/apimachinery/pkg/util/rand",
     "k8s.io/apimachinery/pkg/util/runtime",
@@ -2788,7 +2792,10 @@
     "k8s.io/client-go/tools/clientcmd",
     "k8s.io/client-go/tools/clientcmd/api",
     "k8s.io/helm/pkg/chartutil",
+    "k8s.io/helm/pkg/getter",
     "k8s.io/helm/pkg/helm",
+    "k8s.io/helm/pkg/helm/environment",
+    "k8s.io/helm/pkg/helm/helmpath",
     "k8s.io/helm/pkg/helm/portforwarder",
     "k8s.io/helm/pkg/kube",
     "k8s.io/helm/pkg/manifest",
