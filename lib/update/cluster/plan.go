@@ -54,6 +54,7 @@ func InitOperationPlan(
 	clusterEnv *localenv.ClusterEnvironment,
 	opKey ops.SiteOperationKey,
 	leader *storage.Server,
+	seLinuxEnabled bool,
 ) (*storage.OperationPlan, error) {
 	operation, err := storage.GetOperationByID(clusterEnv.Backend, opKey.OperationID)
 	if err != nil {
@@ -97,6 +98,7 @@ func InitOperationPlan(
 		Operator:  clusterEnv.Operator,
 		Operation: operation,
 		Leader:    leader,
+		SELinux:   seLinuxEnabled,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -202,6 +204,7 @@ func NewOperationPlan(config PlanConfig) (*storage.OperationPlan, error) {
 			Servers:        servers,
 			DNSConfig:      config.DNSConfig,
 			GravityPackage: *gravityPackage,
+			SELinux:        config.SELinux,
 		},
 		operator:          config.Operator,
 		operation:         *config.Operation,
@@ -261,6 +264,7 @@ type PlanConfig struct {
 	Operation *storage.SiteOperation
 	Client    *kubernetes.Clientset
 	Leader    *storage.Server
+	SELinux   bool
 }
 
 // planConfig collects parameters needed to generate an update operation plan
@@ -308,7 +312,13 @@ func newOperationPlan(p planConfig) (*storage.OperationPlan, error) {
 	otherMasters := filterServer(masters, p.leadMaster)
 	builder := phaseBuilder{planConfig: p}
 	initPhase := *builder.init(p.leadMaster.Server)
-	checksPhase := *builder.checks().Require(initPhase)
+	checkDeps := []update.PhaseIder{initPhase}
+	var seLinuxPhase *update.Phase
+	if p.plan.SELinux {
+		seLinuxPhase = builder.bootstrapSELinux().Require(initPhase)
+		checkDeps = append(checkDeps, *seLinuxPhase)
+	}
+	checksPhase := *builder.checks().Require(checkDeps...)
 	preUpdatePhase := *builder.preUpdate().Require(initPhase)
 	bootstrapPhase := *builder.bootstrap().Require(initPhase)
 
@@ -319,8 +329,7 @@ func newOperationPlan(p planConfig) (*storage.OperationPlan, error) {
 	}
 	supportsTaints, err := supportsTaints(*installedGravityPackage)
 	if err != nil {
-		log.Warnf("Failed to query support for taints/tolerations in installed runtime: %v.",
-			trace.DebugReport(err))
+		log.WithError(err).Warn("Failed to query support for taints/tolerations in installed runtime.")
 	}
 	if !supportsTaints {
 		log.Debugf("No support for taints/tolerations for %v.", installedGravityPackage)
@@ -341,7 +350,7 @@ func newOperationPlan(p planConfig) (*storage.OperationPlan, error) {
 		return nil, trace.Wrap(err)
 	}
 
-	// check if etcd upgrade is required or not
+	// check whether etcd upgrade is required
 	updateEtcd, currentVersion, desiredVersion, err := p.shouldUpdateEtcd(p)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -351,7 +360,11 @@ func newOperationPlan(p planConfig) (*storage.OperationPlan, error) {
 	enableOpenEBS := !p.installedApp.Manifest.OpenEBSEnabled() && p.updateApp.Manifest.OpenEBSEnabled()
 
 	var root update.Phase
-	root.Add(initPhase, checksPhase, preUpdatePhase)
+	root.Add(initPhase)
+	if seLinuxPhase != nil {
+		root.Add(*seLinuxPhase)
+	}
+	root.Add(checksPhase, preUpdatePhase)
 	if len(runtimeUpdates) > 0 {
 		if p.updateCoreDNS {
 			corednsPhase := *builder.corednsPhase(p.leadMaster.Server)

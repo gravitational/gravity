@@ -109,6 +109,30 @@ func (b *PlanBuilder) AddInitPhase(plan *storage.OperationPlan) {
 	})
 }
 
+// AddBootstrapSELinuxPhase appends the phase to configure SELinux on a node
+func (b *PlanBuilder) AddBootstrapSELinuxPhase(plan *storage.OperationPlan) {
+	var bootstrapPhases []storage.OperationPhase
+	allNodes := append(b.Masters, b.Nodes...)
+	for i, node := range allNodes {
+		bootstrapPhases = append(bootstrapPhases, storage.OperationPhase{
+			ID:          fmt.Sprintf("%v/%v", phases.BootstrapSELinuxPhase, node.Hostname),
+			Description: fmt.Sprintf("Configure SELinux on node %v", node.Hostname),
+			Data: &storage.OperationPhaseData{
+				Server:     &allNodes[i],
+				ExecServer: &allNodes[i],
+				Package:    &b.Application.Package,
+			},
+			Step: 0,
+		})
+	}
+	plan.Phases = append(plan.Phases, storage.OperationPhase{
+		ID:          phases.BootstrapSELinuxPhase,
+		Description: "Configure SELinux",
+		Phases:      bootstrapPhases,
+		Parallel:    true,
+	})
+}
+
 // AddChecksPhase appends preflight checks phase to the provided plan
 func (b *PlanBuilder) AddChecksPhase(plan *storage.OperationPlan) {
 	plan.Phases = append(plan.Phases, storage.OperationPhase{

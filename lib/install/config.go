@@ -158,6 +158,9 @@ type Config struct {
 	LocalAgent bool
 	// Values are helm values in marshaled yaml format
 	Values []byte
+	// SELinux specifies whether the installer runs with SELinux support.
+	// This makes the installer run in its own domain
+	SELinux bool
 }
 
 // checkAndSetDefaults checks the parameters and autodetects some defaults
@@ -240,6 +243,7 @@ func (r *clusterFactory) NewCluster() ops.NewSiteRequest {
 		DNSOverrides: r.DNSOverrides,
 		DNSConfig:    r.DNSConfig,
 		Docker:       r.Docker,
+		SELinux:      r.SELinux,
 	}
 }
 

@@ -330,7 +330,9 @@ func (r *agent) Close() (err error) {
 	}
 
 	r.rpc.Stop()
-	close(r.done)
+	if r.done != nil {
+		close(r.done)
+	}
 
 	err = r.ClusterMembership.Close()
 	if err != nil {

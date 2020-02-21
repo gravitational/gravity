@@ -869,6 +869,8 @@ type Volume struct {
 	Mode string `json:"mode,omitempty"`
 	// Recursive means that all mount points inside this mount should also be mounted
 	Recursive bool `json:"recursive,omitempty"`
+	// Label specifies the SELinux label
+	Label string `json:"label"`
 }
 
 // CheckAndSetDefaults checks and sets defaults

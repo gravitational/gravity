@@ -22,6 +22,7 @@ import (
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/fsm"
+	"github.com/gravitational/gravity/lib/install/phases"
 	installphases "github.com/gravitational/gravity/lib/install/phases"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
@@ -73,9 +74,22 @@ func (b *planBuilder) AddInitPhase(plan *storage.OperationPlan) {
 	})
 }
 
+// AddBootstrapSELinuxPhase appends the phase to configure SELinux on a node
+func (b *planBuilder) AddBootstrapSELinuxPhase(plan *storage.OperationPlan) {
+	plan.Phases = append(plan.Phases, storage.OperationPhase{
+		ID:          phases.BootstrapSELinuxPhase,
+		Description: "Configure SELinux",
+		Data: &storage.OperationPhaseData{
+			Server:     &b.JoiningNode,
+			ExecServer: &b.JoiningNode,
+			Package:    &b.Application.Package,
+		},
+	})
+}
+
 // AddChecksPhase appends preflight checks phase to the plan.
 func (b *planBuilder) AddChecksPhase(plan *storage.OperationPlan) {
-	plan.Phases = append(plan.Phases, storage.OperationPhase{
+	phase := storage.OperationPhase{
 		ID:          ChecksPhase,
 		Description: "Execute preflight checks on the joining node",
 		Data: &storage.OperationPhaseData{
@@ -83,7 +97,11 @@ func (b *planBuilder) AddChecksPhase(plan *storage.OperationPlan) {
 			Master: &b.Master,
 		},
 		Requires: []string{installphases.InitPhase, StartAgentPhase},
-	})
+	}
+	if plan.SELinux {
+		phase.Requires = append([]string{installphases.BootstrapSELinuxPhase}, phase.Requires...)
+	}
+	plan.Phases = append(plan.Phases, phase)
 }
 
 // AddConfigurePhase appends package configuration phase to the plan

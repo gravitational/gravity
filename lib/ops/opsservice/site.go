@@ -173,6 +173,10 @@ func (s *site) agentUser() (storage.User, error) {
 	return s.users().GetTelekubeUser(s.agentUserEmail())
 }
 
+func (s *site) seLinuxEnabled() (enabled bool) {
+	return s.backendSite.SELinux
+}
+
 func (s *site) appPackage() (*loc.Locator, error) {
 	site, err := s.backend().GetSite(s.key.SiteDomain)
 	if err != nil {
@@ -611,6 +615,7 @@ func convertSite(in storage.Site, apps appservice.Applications) (*ops.Site, erro
 		DNSOverrides:             in.DNSOverrides,
 		DNSConfig:                in.DNSConfig,
 		InstallToken:             in.InstallToken,
+		SELinux:                  in.SELinux,
 	}
 	if in.License != "" {
 		parsed, err := license.ParseLicense(in.License)

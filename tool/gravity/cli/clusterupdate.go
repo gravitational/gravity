@@ -18,6 +18,8 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
+	"os/exec"
 
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
@@ -29,7 +31,9 @@ import (
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/rpc"
 	"github.com/gravitational/gravity/lib/schema"
+	libstatus "github.com/gravitational/gravity/lib/status"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/system/selinux"
 	"github.com/gravitational/gravity/lib/update"
 	clusterupdate "github.com/gravitational/gravity/lib/update/cluster"
 	"github.com/gravitational/gravity/lib/utils/helm"
@@ -60,23 +64,25 @@ func newUpgradeConfig(g *Application) (*upgradeConfig, error) {
 		return nil, trace.Wrap(err)
 	}
 	return &upgradeConfig{
-		UpgradePackage:   *g.UpgradeCmd.App,
-		Manual:           *g.UpgradeCmd.Manual,
-		SkipVersionCheck: *g.UpgradeCmd.SkipVersionCheck,
-		Values:           values,
+		upgradePackage:   *g.UpgradeCmd.App,
+		manual:           *g.UpgradeCmd.Manual,
+		skipVersionCheck: *g.UpgradeCmd.SkipVersionCheck,
+		values:           values,
 	}, nil
 }
 
 // upgradeConfig is the configuration of a triggered upgrade operation.
 type upgradeConfig struct {
-	// UpgradePackage is the name of the new package.
-	UpgradePackage string
-	// Manual is whether the operation is started in manual mode.
-	Manual bool
-	// SkipVersionCheck allows to bypass gravity version compatibility check.
-	SkipVersionCheck bool
-	// Values are helm values in a marshaled yaml format.
-	Values []byte
+	// upgradePackage is the name of the new package.
+	upgradePackage string
+	// manual is whether the operation is started in manual mode.
+	manual bool
+	// skipVersionCheck allows to bypass gravity version compatibility check.
+	skipVersionCheck bool
+	// values are helm values in a marshaled yaml format.
+	values []byte
+	// seLinux specifies whether SELinux support is on
+	seLinux bool
 }
 
 func updateTrigger(
@@ -84,13 +90,23 @@ func updateTrigger(
 	updateEnv *localenv.LocalEnvironment,
 	config upgradeConfig,
 ) error {
+	seLinuxEnabled, err := querySELinuxEnabled(context.TODO())
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if seLinuxEnabled {
+		if err := BootstrapSELinuxAndRespawn(context.TODO(), selinux.BootstrapConfig{}, localEnv); err != nil {
+			return trace.Wrap(err)
+		}
+		config.seLinux = seLinuxEnabled
+	}
 	ctx := context.TODO()
 	updater, err := newClusterUpdater(ctx, localEnv, updateEnv, config)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	defer updater.Close()
-	if !config.Manual {
+	if !config.manual {
 		// The cluster is updating in background
 		return nil
 	}
@@ -104,15 +120,16 @@ func newClusterUpdater(
 	config upgradeConfig,
 ) (updater, error) {
 	init := &clusterInitializer{
-		updatePackage: config.UpgradePackage,
-		unattended:    !config.Manual,
-		values:        config.Values,
+		updatePackage: config.upgradePackage,
+		unattended:    !config.manual,
+		values:        config.values,
+		seLinux:       config.seLinux,
 	}
 	updater, err := newUpdater(ctx, localEnv, updateEnv, init)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	if config.SkipVersionCheck {
+	if config.skipVersionCheck {
 		return updater, nil
 	}
 	if err := validateBinaryVersion(updater); err != nil {
@@ -255,7 +272,7 @@ func (r clusterInitializer) newOperationPlan(
 	leader *storage.Server,
 ) (*storage.OperationPlan, error) {
 	plan, err := clusterupdate.InitOperationPlan(
-		ctx, localEnv, updateEnv, clusterEnv, operation.Key(), leader,
+		ctx, localEnv, updateEnv, clusterEnv, operation.Key(), leader, r.seLinux,
 	)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -302,6 +319,7 @@ type clusterInitializer struct {
 	updatePackage string
 	unattended    bool
 	values        []byte
+	seLinux       bool
 }
 
 const (
@@ -414,4 +432,27 @@ Please use the gravity binary from the upgrade installer tarball to execute the 
 	}
 
 	return nil
+}
+
+func querySELinuxEnabled(ctx context.Context) (enabled bool, err error) {
+	status, err := queryClusterStatus(ctx)
+	if err != nil {
+		return false, trace.Wrap(err)
+	}
+	return status.Cluster != nil && status.Cluster.SELinux, nil
+}
+
+func queryClusterStatus(ctx context.Context) (*libstatus.Status, error) {
+	out, err := exec.CommandContext(ctx, "gravity", "status", "--output=json").CombinedOutput()
+	log.WithField("output", string(out)).Info("Query cluster status.")
+	if err != nil {
+		return nil, trace.Wrap(err, "failed to fetch cluster status: %s", out)
+	}
+	var status struct {
+		libstatus.Status `json:"cluster"`
+	}
+	if err := json.Unmarshal(out, &status); err != nil {
+		return nil, trace.Wrap(err, "failed to interpret status as JSON")
+	}
+	return &status.Status, nil
 }

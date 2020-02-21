@@ -284,6 +284,9 @@ type PeerConfig struct {
 	// SkipWizard specifies to the peer agents that the peer is not a wizard
 	// and attempts to contact the wizard should be skipped
 	SkipWizard bool
+	// SELinux specifies whether the installer runs with SELinux support.
+	// This makes the agent run in its own domain
+	SELinux bool
 }
 
 // CheckAndSetDefaults checks the parameters and autodetects some defaults

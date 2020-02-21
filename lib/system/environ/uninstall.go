@@ -18,6 +18,7 @@ package environ
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"net"
 	"os"
@@ -28,15 +29,17 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/devicemapper"
 	"github.com/gravitational/gravity/lib/state"
+	libselinux "github.com/gravitational/gravity/lib/system/selinux"
 	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
+	"github.com/opencontainers/selinux/go-selinux"
 	log "github.com/sirupsen/logrus"
 )
 
 // UninstallSystem removes all state from the system on best-effort basis
-func UninstallSystem(printer utils.Printer, logger log.FieldLogger) (err error) {
+func UninstallSystem(ctx context.Context, printer utils.Printer, logger log.FieldLogger) (err error) {
 	var errors []error
 	if err := unmountDevicemapper(printer, logger); err != nil {
 		errors = append(errors, err)
@@ -55,13 +58,16 @@ func UninstallSystem(printer utils.Printer, logger log.FieldLogger) (err error) 
 	if err := removePaths(printer, logger, pathsToRemove...); err != nil {
 		errors = append(errors, err)
 	}
+	if err := unloadSELinuxPolicy(ctx); err != nil {
+		errors = append(errors, err)
+	}
 	return trace.NewAggregate(errors...)
 }
 
 // getPathsToRemove returns a list of paths to gravity artifacts that need
 // to be cleaned up on the system.
 func getPathsToRemove() []string {
-	return append(getStateDirectories(),
+	return append(getStatePaths(),
 		defaults.GravityBin,
 		defaults.GravityBinAlternate,
 		defaults.KubectlBin,
@@ -129,6 +135,19 @@ func DisableAgentServices(logger log.FieldLogger) error {
 		}
 	}
 	return trace.NewAggregate(errors...)
+}
+
+func unloadSELinuxPolicy(ctx context.Context) error {
+	if !selinux.GetEnabled() {
+		return nil
+	}
+	stateDir, err := state.GetStateDir()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return libselinux.Unload(ctx, libselinux.BootstrapConfig{
+		StateDir: stateDir,
+	})
 }
 
 func uninstallPackageServices(svm systemservice.ServiceManager, printer utils.Printer, logger log.FieldLogger) error {
@@ -232,20 +251,29 @@ func dockerInfo() (*utils.DockerInfo, error) {
 	return utils.ParseDockerInfo(&out)
 }
 
-func getStateDirectories() (dirs []string) {
+func getStatePaths() (paths []string) {
 	stateDir, err := state.GetStateDir()
 	if err == nil {
-		dirs = append(dirs, stateDir)
+		paths = append(paths, stateDir)
 	}
-	dirs = append(dirs, state.StateLocatorPaths...)
-	if stateDir, err := state.GravityInstallDir(); err == nil {
-		dirs = append(dirs, stateDir)
+	paths = append(paths, state.StateLocatorPaths...)
+	// do not attempt to remove state directory if started with root
+	// as a working directory
+	if !isRunningInRootDir() {
+		if stateDir, err := state.GravityInstallDir(); err == nil {
+			paths = append(paths, stateDir)
+		}
 	}
-	return append(dirs,
+	return append(paths,
 		defaults.ModulesPath,
+		defaults.PlanetStateDir,
 		defaults.SysctlPath,
 		defaults.GravityEphemeralDir,
 	)
+}
+
+func isRunningInRootDir() bool {
+	return utils.Exe.WorkingDir == "/"
 }
 
 func uninstallServices(svm systemservice.ServiceManager, services ...string) error {

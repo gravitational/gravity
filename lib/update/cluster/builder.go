@@ -69,6 +69,30 @@ func (r phaseBuilder) checks() *update.Phase {
 	return &phase
 }
 
+func (r phaseBuilder) bootstrapSELinux() *update.Phase {
+	root := update.RootPhase(update.Phase{
+		ID:          "selinux-bootstrap",
+		Description: "Configure SELinux on nodes",
+	})
+
+	for i, server := range r.servers {
+		root.AddParallel(update.Phase{
+			ID:          root.ChildLiteral(server.Hostname),
+			Executor:    updateBootstrapSELinux,
+			Description: fmt.Sprintf("Configure SELinux on node %q", server.Hostname),
+			Data: &storage.OperationPhaseData{
+				ExecServer:       &r.servers[i].Server,
+				Package:          &r.updateApp.Package,
+				InstalledPackage: &r.installedApp.Package,
+				Update: &storage.UpdateOperationData{
+					Servers: []storage.UpdateServer{server},
+				},
+			},
+		})
+	}
+	return &root
+}
+
 func (r phaseBuilder) bootstrap() *update.Phase {
 	root := update.RootPhase(update.Phase{
 		ID:          "bootstrap",

@@ -28,6 +28,7 @@ import (
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/system/selinux"
 	"github.com/gravitational/gravity/lib/utils"
 
 	teleclient "github.com/gravitational/teleport/lib/client"
@@ -72,6 +73,9 @@ type DeployAgentsRequest struct {
 
 	// Progress is the progress reporter.
 	Progress utils.Progress
+
+	// SELinux specifies whether SELinux support is on
+	SELinux bool
 }
 
 // CheckAndSetDefaults validates the request to deploy agents and sets defaults.
@@ -221,16 +225,22 @@ func deployAgentOnNode(ctx context.Context, req DeployAgentsRequest, node, nodeS
 			gravityHostPath, req.NodeParams)
 	}
 
+	exportFormat := "%s package export --file-mask=%o %s %s --ops-url=%s --insecure"
+	exportArgs := []interface{}{
+		constants.GravityBin, defaults.SharedExecutableMask,
+		req.GravityPackage, gravityHostPath, defaults.GravityServiceURL,
+	}
+	if req.SELinux {
+		exportFormat = "%s package export --file-mask=%o %s %s --ops-url=%s --insecure --file-label=%s"
+		exportArgs = append(exportArgs, selinux.GravityProcessLabel)
+	}
 	err = utils.NewSSHCommands(nodeClient.Client).
 		C("rm -rf %s", secretsHostDir).
 		C("mkdir -p %s", secretsHostDir).
 		WithRetries("%s package unpack %s %s --debug --ops-url=%s --insecure",
 			constants.GravityBin, secretsPackage, secretsHostDir, defaults.GravityServiceURL).
 		IgnoreError("/bin/systemctl stop %s", defaults.GravityRPCAgentServiceName).
-		WithRetries("%s package export --file-mask=%o %s %s --ops-url=%s --insecure", 
-			constants.GravityBin, defaults.SharedExecutableMask,
-			req.GravityPackage, gravityHostPath, defaults.GravityServiceURL,
-		).
+		WithRetries(exportFormat, exportArgs...).
 		C(runCmd).
 		WithLogger(req.WithField("node", node)).
 		Run(ctx)

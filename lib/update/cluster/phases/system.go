@@ -54,6 +54,8 @@ type updatePhaseSystem struct {
 	// FieldLogger is used for logging
 	log.FieldLogger
 	remote fsm.Remote
+	// seLinux controls SELinux support
+	seLinux bool
 }
 
 // NewUpdatePhaseNode returns a new node update phase executor
@@ -77,6 +79,7 @@ func NewUpdatePhaseSystem(
 		HostLocalPackages: localPackages,
 		FieldLogger:       logger,
 		remote:            remote,
+		seLinux:           p.Plan.SELinux,
 	}, nil
 }
 
@@ -115,6 +118,7 @@ func (p *updatePhaseSystem) Execute(ctx context.Context) error {
 				To: p.Server.Runtime.Installed,
 			},
 		},
+		SELinux: p.seLinux,
 	}
 	if p.Server.Runtime.Update != nil {
 		config.Runtime.To = p.Server.Runtime.Update.Package
@@ -181,6 +185,7 @@ func (p *updatePhaseSystem) Rollback(ctx context.Context) error {
 		ChangesetID: p.OperationID,
 		Backend:     p.Backend,
 		Packages:    p.HostLocalPackages,
+		SELinux:     p.seLinux,
 	})
 	if err != nil {
 		return trace.Wrap(err)

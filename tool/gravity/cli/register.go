@@ -96,6 +96,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.InstallCmd.DNSHosts = g.InstallCmd.Flag("dns-host", "Specify an IP address that will be returned for the given domain within the cluster. Accepts <domain>/<ip> format. Can be specified multiple times.").Hidden().Strings()
 	g.InstallCmd.DNSZones = g.InstallCmd.Flag("dns-zone", "Specify an upstream server for the given zone within the cluster. Accepts <zone>/<nameserver> format where <nameserver> can be either <ip> or <ip>:<port>. Can be specified multiple times.").Strings()
 	g.InstallCmd.Remote = g.InstallCmd.Flag("remote", "Do not use this node in the cluster.").Bool()
+	g.InstallCmd.SELinux = g.InstallCmd.Flag("selinux", "Run with SELinux support. Default 'true'.").Default("true").Bool()
 	g.InstallCmd.FromService = g.InstallCmd.Flag("from-service", "Run in service mode.").Hidden().Bool()
 	g.InstallCmd.Set = g.InstallCmd.Flag("set", "Set Helm chart values on the command line. Can be specified multiple times and/or as comma-separated values: key1=val1,key2=val2.").Strings()
 	g.InstallCmd.Values = g.InstallCmd.Flag("values", "Set Helm chart values from the provided YAML file. Can be specified multiple times.").Strings()
@@ -112,6 +113,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.JoinCmd.Mounts = configure.KeyValParam(g.JoinCmd.Flag("mount", "One or several mounts in form <mount-name>:<path>, e.g. data:/var/lib/data."))
 	g.JoinCmd.CloudProvider = g.JoinCmd.Flag("cloud-provider", "[DEPRECATED] This flag has no effect and will be removed in a future version.").String()
 	g.JoinCmd.OperationID = g.JoinCmd.Flag("operation-id", "ID of the operation that was created via UI.").Hidden().String()
+	g.JoinCmd.SELinux = g.JoinCmd.Flag("selinux", "Run with SELinux support. Default 'true'.").Default("true").Bool()
 	g.JoinCmd.FromService = g.JoinCmd.Flag("from-service", "Run in service mode.").Hidden().Bool()
 
 	g.AutoJoinCmd.CmdClause = g.Command("autojoin", "Use cloud provider data to join a node to existing cluster.")
@@ -404,6 +406,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.WizardCmd.ServiceGID = g.WizardCmd.Flag("service-gid", fmt.Sprintf("Service group ID for planet. %q group will created and used if none specified", defaults.ServiceUserGroup)).Default(defaults.ServiceGroupID).OverrideDefaultFromEnvar(constants.ServiceGroupEnvVar).String()
 	g.WizardCmd.AdvertiseAddr = g.WizardCmd.Flag("advertise-addr", "The IP address to advertise. Will be selected automatically if unspecified").String()
 	g.WizardCmd.Token = g.WizardCmd.Flag("token", "Unique install token to authorize other nodes to join the cluster. Generated automatically if unspecified").String()
+	g.WizardCmd.SELinux = g.WizardCmd.Flag("selinux", "Run with SELinux support. Default 'true'.").Default("true").Bool()
 	g.WizardCmd.FromService = g.WizardCmd.Flag("from-service", "Run in service mode").Hidden().Bool()
 	g.WizardCmd.Set = g.WizardCmd.Flag("set", "Set Helm chart values on the command line. Can be specified multiple times and/or as comma-separated values: key1=val1,key2=val2.").Strings()
 	g.WizardCmd.Values = g.WizardCmd.Flag("values", "Set Helm chart values from the provided YAML file. Can be specified multiple times.").Strings()
@@ -458,6 +461,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.PackExportCmd.File = g.PackExportCmd.Arg("file", "output file with a package").Required().String()
 	g.PackExportCmd.OpsCenterURL = g.PackExportCmd.Flag("ops-url", "optional remote Gravity Hub URL").String()
 	g.PackExportCmd.FileMask = g.PackExportCmd.Flag("file-mask", "optional output file access mode (octal, as specified with chmod)").Default(strconv.FormatUint(defaults.SharedReadWriteMask, 8)).String()
+	g.PackExportCmd.FileLabel = g.PackExportCmd.Flag("file-label", "optional SELinux label").String()
 
 	// list packages
 	g.PackListCmd.CmdClause = g.PackCmd.Command("list", "list local packages").Hidden()
@@ -701,6 +705,10 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.SystemExportRuntimeJournalCmd.OutputFile = g.SystemExportRuntimeJournalCmd.Flag("output", "Name of resulting tarball. Output to stdout if unspecified").String()
 
 	g.SystemStreamRuntimeJournalCmd.CmdClause = g.SystemCmd.Command("stream-runtime-journal", "Stream runtime journal to stdout").Hidden()
+
+	g.SystemSelinuxBootstrapCmd.CmdClause = g.SystemCmd.Command("selinux-bootstrap", "Configure SELinux file contexts and ports on the node")
+	g.SystemSelinuxBootstrapCmd.Path = g.SystemSelinuxBootstrapCmd.Flag("output", "Path to output file for bootstrap script").String()
+	g.SystemSelinuxBootstrapCmd.VxlanPort = g.SystemSelinuxBootstrapCmd.Flag("vxlan-port", "Custom vxlan port").Int()
 
 	// pruning cluster resources
 	g.GarbageCollectCmd.CmdClause = g.Command("gc", "Prune cluster resources")

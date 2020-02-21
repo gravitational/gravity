@@ -591,6 +591,8 @@ type Site struct {
 	DNSConfig DNSConfig `json:"dns_config"`
 	// InstallToken specifies the original token the cluster was installed with
 	InstallToken string `json:"install_token"`
+	// SELinux specifies whether the cluster is using SELinux support
+	SELinux bool `json:"selinux,omitempty"`
 }
 
 // Check validates the cluster object's fields.

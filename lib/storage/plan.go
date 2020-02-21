@@ -46,6 +46,8 @@ type OperationPlan struct {
 	CreatedAt time.Time `json:"created_at"`
 	// DNSConfig specifies cluster DNS configuration
 	DNSConfig DNSConfig `json:"dns_config"`
+	// SELinux specifies whether SELinux support is on
+	SELinux bool `json:"selinux,omitempty"`
 }
 
 // Check makes sure operation plan is valid

@@ -264,6 +264,7 @@ func printStatusText(out io.Writer, cluster clusterStatus) error {
 
 	if cluster.Cluster != nil {
 		fmt.Fprintf(w, "Cluster name:\t%v\n", unknownFallback(cluster.Cluster.Domain))
+		fmt.Fprintf(w, "Gravity version:\t%v\n", cluster.Version)
 		if cluster.Status.IsDegraded() {
 			fmt.Fprintf(w, "Cluster status:\t%v\n", color.RedString("degraded"))
 		} else {
@@ -295,6 +296,9 @@ func formatVersion(version *modules.Version) string {
 }
 
 func printClusterStatus(cluster statusapi.Cluster, w io.Writer) {
+	if cluster.SELinux {
+		fmt.Fprintf(w, "SELinux support:\t%v\n", formatSELinuxStatus(cluster.SELinux))
+	}
 	if cluster.App.Name != "" {
 		fmt.Fprintf(w, "Cluster image:\t%v, version %v\n", cluster.App.Name,
 			cluster.App.Version)
@@ -413,6 +417,13 @@ func printPrometheusAlerts(alerts []*models.GettableAlert, w io.Writer) {
 		fmt.Fprintf(w, "    * %v [%v]\n", alert.Labels["alertname"], duration)
 		fmt.Fprintf(w, "      - %v\n", alert.Annotations["message"])
 	}
+}
+
+func formatSELinuxStatus(on bool) string {
+	if on {
+		return "on"
+	}
+	return "off"
 }
 
 func unknownFallback(text string) string {

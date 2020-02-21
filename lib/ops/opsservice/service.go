@@ -616,6 +616,7 @@ func (o *Operator) CreateSite(r ops.NewSiteRequest) (*ops.Site, error) {
 			Docker: dockerConfig,
 		},
 		InstallToken: r.InstallToken,
+		SELinux:      r.SELinux,
 	}
 	if runtimeLoc := app.Manifest.Base(); runtimeLoc != nil {
 		runtimeApp, err := o.cfg.Apps.GetApp(*runtimeLoc)

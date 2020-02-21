@@ -58,6 +58,7 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 	"github.com/gravitational/gravity/lib/system/environ"
+	"github.com/gravitational/gravity/lib/system/selinux"
 	"github.com/gravitational/gravity/lib/system/signals"
 	"github.com/gravitational/gravity/lib/systeminfo"
 	"github.com/gravitational/gravity/lib/systemservice"
@@ -70,6 +71,7 @@ import (
 	"github.com/docker/docker/pkg/namesgenerator"
 	"github.com/fatih/color"
 	"github.com/gravitational/configure"
+	"github.com/gravitational/satellite/monitoring"
 	teledefaults "github.com/gravitational/teleport/lib/defaults"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
@@ -88,6 +90,10 @@ type InstallConfig struct {
 	CloudProvider string
 	// StateDir is directory with local installer state
 	StateDir string
+	// SystemStateDir specifies the custom state directory.
+	// If specified, will affect the local file contexts generated
+	// when SELinux configuration is bootstrapped
+	SystemStateDir string
 	// UserLogFile is the log file where user-facing operation logs go
 	UserLogFile string
 	// SystemLogFile is the log file for system logs
@@ -157,6 +163,9 @@ type InstallConfig struct {
 	ProcessConfig *processconfig.Config
 	// ServiceUser is the computed service user
 	ServiceUser *systeminfo.User
+	// SELinux specifies whether the installer runs with SELinux support.
+	// This makes the installer run in its own domain
+	SELinux bool
 	// FromService specifies whether the process runs in service mode
 	FromService bool
 	// writeStateDir is the directory where installer stores state for the duration
@@ -218,20 +227,21 @@ func NewInstallConfig(env *localenv.LocalEnvironment, g *Application) (*InstallC
 		return nil, trace.Wrap(err)
 	}
 	return &InstallConfig{
-		Insecure:      *g.Insecure,
-		StateDir:      *g.InstallCmd.Path,
-		UserLogFile:   *g.UserLogFile,
-		SystemLogFile: *g.SystemLogFile,
-		AdvertiseAddr: *g.InstallCmd.AdvertiseAddr,
-		Token:         *g.InstallCmd.Token,
-		CloudProvider: *g.InstallCmd.CloudProvider,
-		SiteDomain:    *g.InstallCmd.Cluster,
-		Role:          *g.InstallCmd.Role,
-		SystemDevice:  *g.InstallCmd.SystemDevice,
-		Mounts:        *g.InstallCmd.Mounts,
-		PodCIDR:       *g.InstallCmd.PodCIDR,
-		ServiceCIDR:   *g.InstallCmd.ServiceCIDR,
-		VxlanPort:     *g.InstallCmd.VxlanPort,
+		Insecure:       *g.Insecure,
+		SystemStateDir: *g.StateDir,
+		StateDir:       *g.InstallCmd.Path,
+		UserLogFile:    *g.UserLogFile,
+		SystemLogFile:  *g.SystemLogFile,
+		AdvertiseAddr:  *g.InstallCmd.AdvertiseAddr,
+		Token:          *g.InstallCmd.Token,
+		CloudProvider:  *g.InstallCmd.CloudProvider,
+		SiteDomain:     *g.InstallCmd.Cluster,
+		Role:           *g.InstallCmd.Role,
+		SystemDevice:   *g.InstallCmd.SystemDevice,
+		Mounts:         *g.InstallCmd.Mounts,
+		PodCIDR:        *g.InstallCmd.PodCIDR,
+		ServiceCIDR:    *g.InstallCmd.ServiceCIDR,
+		VxlanPort:      *g.InstallCmd.VxlanPort,
 		Docker: storage.DockerConfig{
 			StorageDriver: g.InstallCmd.DockerStorageDriver.value,
 			Args:          *g.InstallCmd.DockerArgs,
@@ -251,6 +261,7 @@ func NewInstallConfig(env *localenv.LocalEnvironment, g *Application) (*InstallC
 		DNSZones:           *g.InstallCmd.DNSZones,
 		Flavor:             *g.InstallCmd.Flavor,
 		Remote:             *g.InstallCmd.Remote,
+		SELinux:            *g.InstallCmd.SELinux,
 		FromService:        *g.InstallCmd.FromService,
 		Values:             values,
 		Printer:            env,
@@ -451,6 +462,7 @@ func (i *InstallConfig) NewInstallerConfig(
 		Operator:           wizard.Operator,
 		LocalAgent:         !i.Remote,
 		Values:             i.Values,
+		SELinux:            i.SELinux,
 	}, nil
 
 }
@@ -487,6 +499,26 @@ func (i *InstallConfig) RunLocalChecks() error {
 		},
 		AutoFix: true,
 	}))
+}
+
+// BootstrapSELinux installs the default SELinux policy on the node
+func (i *InstallConfig) BootstrapSELinux(printer utils.Printer) error {
+	if !i.SELinux || i.FromService {
+		return nil
+	}
+	metadata, err := monitoring.GetOSRelease()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if !selinux.IsSystemSupported(metadata.ID) {
+		log.WithField("os", metadata).Info("No SELinux policy for specified system, will skip.")
+		i.SELinux = false
+		return nil
+	}
+	return BootstrapSELinuxAndRespawn(context.TODO(), selinux.BootstrapConfig{
+		StateDir: i.SystemStateDir,
+		OS:       metadata,
+	}, printer)
 }
 
 func (i *InstallConfig) validateApplicationDir() error {
@@ -686,6 +718,7 @@ func NewWizardConfig(env *localenv.LocalEnvironment, g *Application) (*InstallCo
 		ServiceGID:         *g.WizardCmd.ServiceGID,
 		AdvertiseAddr:      *g.WizardCmd.AdvertiseAddr,
 		Token:              *g.WizardCmd.Token,
+		SELinux:            *g.WizardCmd.SELinux,
 		FromService:        *g.WizardCmd.FromService,
 		Remote:             true,
 		Printer:            env,
@@ -725,27 +758,36 @@ type JoinConfig struct {
 	Phase string
 	// OperationID is ID of existing expand operation
 	OperationID string
+	// SELinux specifies whether the installer runs with SELinux support.
+	// This makes the installer run in its own domain
+	SELinux bool
 	// FromService specifies whether the process runs in service mode
 	FromService bool
 	// SkipWizard specifies to the join agents that this join request is not too a wizard,
 	// and as such wizard connectivity should be skipped
 	SkipWizard bool
+	// SystemStateDir specifies the custom state directory.
+	// If specified, will affect the local file contexts generated
+	// when SELinux configuration is bootstrapped
+	SystemStateDir string
 }
 
 // NewJoinConfig populates join configuration from the provided CLI application
 func NewJoinConfig(g *Application) JoinConfig {
 	return JoinConfig{
-		SystemLogFile: *g.SystemLogFile,
-		UserLogFile:   *g.UserLogFile,
-		PeerAddrs:     *g.JoinCmd.PeerAddr,
-		AdvertiseAddr: *g.JoinCmd.AdvertiseAddr,
-		ServerAddr:    *g.JoinCmd.ServerAddr,
-		Token:         *g.JoinCmd.Token,
-		Role:          *g.JoinCmd.Role,
-		SystemDevice:  *g.JoinCmd.SystemDevice,
-		Mounts:        *g.JoinCmd.Mounts,
-		OperationID:   *g.JoinCmd.OperationID,
-		FromService:   *g.JoinCmd.FromService,
+		SystemLogFile:  *g.SystemLogFile,
+		UserLogFile:    *g.UserLogFile,
+		PeerAddrs:      *g.JoinCmd.PeerAddr,
+		AdvertiseAddr:  *g.JoinCmd.AdvertiseAddr,
+		ServerAddr:     *g.JoinCmd.ServerAddr,
+		Token:          *g.JoinCmd.Token,
+		Role:           *g.JoinCmd.Role,
+		SystemDevice:   *g.JoinCmd.SystemDevice,
+		Mounts:         *g.JoinCmd.Mounts,
+		OperationID:    *g.JoinCmd.OperationID,
+		SELinux:        *g.JoinCmd.SELinux,
+		FromService:    *g.JoinCmd.FromService,
+		SystemStateDir: *g.StateDir,
 	}
 }
 
@@ -784,6 +826,7 @@ func (j *JoinConfig) NewPeerConfig(env, joinEnv *localenv.LocalEnvironment) (con
 		StateDir:           joinEnv.StateDir,
 		OperationID:        j.OperationID,
 		SkipWizard:         j.SkipWizard,
+		SELinux:            j.SELinux,
 	}, nil
 }
 
@@ -807,6 +850,25 @@ func (j *JoinConfig) GetRuntimeConfig() proto.RuntimeConfig {
 		SystemDevice: j.SystemDevice,
 		Mounts:       convertMounts(j.Mounts),
 	}
+}
+
+func (j *JoinConfig) bootstrapSELinux(printer utils.Printer) error {
+	if !j.SELinux || j.FromService {
+		return nil
+	}
+	metadata, err := monitoring.GetOSRelease()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if !selinux.IsSystemSupported(metadata.ID) {
+		log.WithField("os", metadata).Info("No SELinux policy for specified system, will skip.")
+		j.SELinux = false
+		return nil
+	}
+	return BootstrapSELinuxAndRespawn(context.TODO(), selinux.BootstrapConfig{
+		StateDir: j.SystemStateDir,
+		OS:       metadata,
+	}, printer)
 }
 
 func (r *removeConfig) checkAndSetDefaults() error {
@@ -854,6 +916,24 @@ func (r *autojoinConfig) checkAndSetDefaults() error {
 	return nil
 }
 
+func (r *autojoinConfig) bootstrapSELinux(printer utils.Printer) error {
+	if !r.selinux || r.fromService {
+		return nil
+	}
+	metadata, err := monitoring.GetOSRelease()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if !selinux.IsSystemSupported(metadata.ID) {
+		log.WithField("os", metadata).Info("No SELinux policy for specified system, will skip.")
+		r.selinux = false
+		return nil
+	}
+	return BootstrapSELinuxAndRespawn(context.TODO(), selinux.BootstrapConfig{
+		OS: metadata,
+	}, printer)
+}
+
 type autojoinConfig struct {
 	systemLogFile string
 	userLogFile   string
@@ -865,6 +945,7 @@ type autojoinConfig struct {
 	serviceURL    string
 	advertiseAddr string
 	token         string
+	selinux       bool
 }
 
 func (r *agentConfig) newServiceArgs(gravityPath string) (args []string) {
@@ -1107,7 +1188,7 @@ func installerAbortOperation(env *localenv.LocalEnvironment) func(context.Contex
 			}
 		}
 		logger.Info("Uninstalling system.")
-		if err := environ.UninstallSystem(utils.DiscardPrinter, logger); err != nil {
+		if err := environ.UninstallSystem(ctx, utils.DiscardPrinter, logger); err != nil {
 			logger.WithError(err).Warn("Failed to uninstall system.")
 		}
 		logger.Info("System uninstalled.")

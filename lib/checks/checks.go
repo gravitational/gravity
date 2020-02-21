@@ -851,24 +851,16 @@ func defaultPortChecker(options *validationpb.ValidateOptions) health.Checker {
 	if options != nil && options.VxlanPort != 0 {
 		vxlanPort = uint64(options.VxlanPort)
 	}
-
-	var portRanges = []monitoring.PortRange{
-		{Protocol: "tcp", From: 7496, To: 7496, Description: "serf (health check agents) peer to peer"},
-		{Protocol: "tcp", From: 7373, To: 7373, Description: "serf (health check agents) peer to peer"},
-		{Protocol: "tcp", From: 2379, To: 2380, Description: "etcd"},
-		{Protocol: "tcp", From: 4001, To: 4001, Description: "etcd"},
-		{Protocol: "tcp", From: 7001, To: 7001, Description: "etcd"},
-		{Protocol: "tcp", From: 6443, To: 6443, Description: "kubernetes API server"},
-		{Protocol: "tcp", From: 10248, To: 10255, Description: "kubernetes internal services range"},
-		{Protocol: "tcp", From: 5000, To: 5000, Description: "docker registry"},
-		{Protocol: "tcp", From: 3022, To: 3025, Description: "teleport internal SSH control panel"},
-		{Protocol: "tcp", From: 3080, To: 3080, Description: "teleport Web UI"},
-		{Protocol: "tcp", From: 3008, To: 3011, Description: "internal Gravity services"},
-		{Protocol: "tcp", From: 32009, To: 32009, Description: "Gravity Hub control panel"},
-		{Protocol: "tcp", From: 7575, To: 7575, Description: "Gravity RPC agent"},
-		{Protocol: "udp", From: vxlanPort, To: vxlanPort, Description: "overlay network"},
-	}
-
+	var portRanges []monitoring.PortRange
+	portRanges = append(portRanges, portRange(schema.DefaultPortRanges.Kubernetes)...)
+	portRanges = append(portRanges, portRange(schema.DefaultPortRanges.Generic)...)
+	portRanges = append(portRanges, portRange(schema.DefaultPortRanges.Reserved)...)
+	portRanges = append(portRanges, monitoring.PortRange{
+		Protocol:    schema.DefaultPortRanges.Vxlan.Protocol,
+		Description: schema.DefaultPortRanges.Vxlan.Description,
+		From:        vxlanPort,
+		To:          vxlanPort,
+	})
 	dnsConfig := storage.DefaultDNSConfig
 	if options != nil && len(options.DnsAddrs) != 0 {
 		dnsConfig.Addrs = options.DnsAddrs
@@ -887,8 +879,20 @@ func defaultPortChecker(options *validationpb.ValidateOptions) health.Checker {
 			},
 		)
 	}
-
 	return monitoring.NewPortChecker(portRanges...)
+}
+
+func portRange(rs []schema.PortRange) (result []monitoring.PortRange) {
+	result = make([]monitoring.PortRange, 0, len(rs))
+	for _, r := range rs {
+		result = append(result, monitoring.PortRange{
+			Protocol:    r.Protocol,
+			From:        r.From,
+			To:          r.To,
+			Description: r.Description,
+		})
+	}
+	return result
 }
 
 // constructPingPongRequest constructs a regular ping-pong game request

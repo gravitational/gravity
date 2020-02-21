@@ -18,6 +18,7 @@ package cli
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -228,7 +229,7 @@ func systemReinstall(env *localenv.LocalEnvironment, newPackage loc.Locator, ser
 			To:     newPackage,
 			Labels: labels,
 		}
-		return trace.Wrap(updater.Reinstall(update))
+		return trace.Wrap(updater.Reinstall(context.TODO(), update))
 	}
 
 	args := []string{"system", "reinstall", newPackage.String()}
@@ -252,7 +253,7 @@ func systemBlockingReinstall(env *localenv.LocalEnvironment, update storage.Pack
 		Packages:    env.Packages,
 		ClusterRole: clusterRole,
 	}
-	return updater.Reinstall(update)
+	return updater.Reinstall(context.TODO(), update)
 }
 
 func reinstallOneshotService(env *localenv.LocalEnvironment, serviceName string, cmd []string) error {
@@ -637,7 +638,7 @@ func systemUninstall(env *localenv.LocalEnvironment, confirmed bool) error {
 	if err := environ.UninstallServices(env, logger); err != nil {
 		log.WithError(err).Warn("Failed to uninstall agent services.")
 	}
-	if err := environ.UninstallSystem(env, logger); err != nil {
+	if err := environ.UninstallSystem(context.TODO(), env, logger); err != nil {
 		log.WithError(err).Warn("Failed to uninstall system.")
 	}
 	env.PrintStep("Gravity has been successfully uninstalled")

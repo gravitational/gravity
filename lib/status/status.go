@@ -39,6 +39,7 @@ import (
 	"github.com/gravitational/satellite/monitoring"
 	"github.com/gravitational/trace"
 	"github.com/prometheus/alertmanager/api/v2/models"
+	"github.com/gravitational/version"
 	"github.com/sirupsen/logrus"
 )
 
@@ -53,8 +54,10 @@ func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, o
 			Reason:        cluster.Reason,
 			App:           cluster.App.Package,
 			ClientVersion: modules.Get().Version(),
+			SELinux:   cluster.SELinux,
 			Extension:     newExtension(),
 		},
+		Version: version.Get(),
 	}
 
 	token, err := operator.GetExpandToken(cluster.Key())
@@ -192,6 +195,8 @@ type Status struct {
 	*Agent `json:",inline,omitempty"`
 	// Alerts is a list of alerts collected by prometheus alertmanager
 	Alerts []*models.GettableAlert `json:"alerts,omitempty"`
+	// Version indicates the version of the gravity binary
+	Version version.Info `json:"version"`
 }
 
 // Cluster encapsulates collected cluster status information
@@ -214,11 +219,13 @@ type Cluster struct {
 	// Endpoints contains cluster and application endpoints.
 	Endpoints Endpoints `json:"endpoints"`
 	// Extension is a cluster status extension
-	Extension `json:",inline,omitempty"`
+	Extension `json:"-"`
 	// ServerVersion is version of the server the operator is talking to.
 	ServerVersion *modules.Version `json:"server_version,omitempty"`
 	// ClientVersion is version of the binary collecting the status.
 	ClientVersion modules.Version `json:"client_version"`
+	// SELinux indicates whether the SELinux support is on
+	SELinux bool `json:"selinux,omitempty"`
 }
 
 // Endpoints contains information about cluster and application endpoints.
@@ -373,6 +380,10 @@ type ClusterServer struct {
 	FailedProbes []string `json:"failed_probes,omitempty"`
 	// WarnProbes lists all warning probes
 	WarnProbes []string `json:"warn_probes,omitempty"`
+}
+
+func (r ClusterOperation) isFailed() bool {
+	return r.State == ops.OperationStateFailed
 }
 
 func fromOperationAndProgress(operation ops.SiteOperation, progress ops.ProgressEntry) *ClusterOperation {

@@ -354,9 +354,9 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 		}
 		defer updateEnv.Close()
 		return updateTrigger(localEnv, updateEnv, upgradeConfig{
-			UpgradePackage:   *g.UpdateTriggerCmd.App,
-			Manual:           *g.UpdateTriggerCmd.Manual,
-			SkipVersionCheck: *g.UpdateTriggerCmd.SkipVersionCheck,
+			upgradePackage:   *g.UpdateTriggerCmd.App,
+			manual:           *g.UpdateTriggerCmd.Manual,
+			skipVersionCheck: *g.UpdateTriggerCmd.SkipVersionCheck,
 		})
 	case g.UpdatePlanInitCmd.FullCommand():
 		updateEnv, err := g.NewUpdateEnv()
@@ -666,7 +666,8 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			*g.PackExportCmd.Locator,
 			*g.PackExportCmd.OpsCenterURL,
 			*g.PackExportCmd.File,
-			os.FileMode(mode))
+			os.FileMode(mode),
+			*g.PackExportCmd.FileLabel)
 	case g.PackListCmd.FullCommand():
 		return listPackages(localEnv,
 			*g.PackListCmd.Repository,
@@ -863,6 +864,11 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 		return exportRuntimeJournal(localEnv, *g.SystemExportRuntimeJournalCmd.OutputFile)
 	case g.SystemStreamRuntimeJournalCmd.FullCommand():
 		return streamRuntimeJournal(localEnv)
+	case g.SystemSelinuxBootstrapCmd.FullCommand():
+		return bootstrapSELinux(localEnv,
+			*g.SystemSelinuxBootstrapCmd.Path,
+			*g.StateDir,
+			*g.SystemSelinuxBootstrapCmd.VxlanPort)
 	case g.GarbageCollectCmd.FullCommand():
 		return garbageCollect(localEnv, *g.GarbageCollectCmd.Manual, *g.GarbageCollectCmd.Confirmed)
 	case g.SystemGCJournalCmd.FullCommand():

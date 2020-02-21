@@ -56,6 +56,10 @@ import (
 )
 
 func startInstall(env *localenv.LocalEnvironment, config InstallConfig) error {
+	if err := config.BootstrapSELinux(env); err != nil {
+		return trace.Wrap(err)
+	}
+
 	env.PrintStep("Starting installer")
 
 	if err := config.CheckAndSetDefaults(); err != nil {
@@ -407,6 +411,10 @@ func remove(env *localenv.LocalEnvironment, c removeConfig) error {
 }
 
 func autojoin(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, d autojoinConfig) (err error) {
+	if err := d.bootstrapSELinux(env); err != nil {
+		return trace.Wrap(err)
+	}
+
 	if d.fromService {
 		return autojoinFromService(env, environ, d)
 	}
@@ -676,6 +684,10 @@ func InstallerClient(env *localenv.LocalEnvironment, config installerclient.Conf
 
 // join executes the join command and runs either the client or the service depending on the configuration
 func join(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, config JoinConfig) error {
+	if err := config.bootstrapSELinux(env); err != nil {
+		return trace.Wrap(err)
+	}
+
 	env.PrintStep("Starting agent")
 
 	if err := config.CheckAndSetDefaults(); err != nil {
@@ -753,6 +765,9 @@ func NewInstallerConnectStrategy(env *localenv.LocalEnvironment, config InstallC
 	}
 	args = append([]string{utils.Exe.Path}, args...)
 	args = append(args, "--from-service", utils.Exe.WorkingDir)
+	if !config.SELinux {
+		args = append(args, "--no-selinux")
+	}
 	servicePath, err := state.GravityInstallDir(defaults.GravityRPCInstallerServiceName)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -822,6 +837,9 @@ func newAutoAgentConnectStrategy(env *localenv.LocalEnvironment, config JoinConf
 func newAgentConnectStrategy(env *localenv.LocalEnvironment, config JoinConfig) (strategy installerclient.ConnectStrategy, err error) {
 	args := append([]string{utils.Exe.Path}, os.Args[1:]...)
 	args = append(args, "--from-service")
+	if !config.SELinux {
+		args = append(args, "--no-selinux")
+	}
 	servicePath, err := state.GravityInstallDir(defaults.GravityRPCAgentServiceName)
 	if err != nil {
 		return nil, trace.Wrap(err)
