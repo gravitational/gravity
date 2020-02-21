@@ -985,7 +985,7 @@
   packages = ["."]
   pruneopts = "UT"
   revision = "a535a178675fb4a11ba74818491754a8c5575dd6"
-  version = "1.1.8"
+  version = "v1.1.8"
 
 [[projects]]
   digest = "1:841d5835e94129658adabece66a4cc54d2cec9a40fa8b51743ea35d0519dd6c2"
@@ -2674,6 +2674,7 @@
     "github.com/gravitational/roundtrip",
     "github.com/gravitational/satellite/agent/health",
     "github.com/gravitational/satellite/agent/proto/agentpb",
+    "github.com/gravitational/satellite/lib/rpc/client",
     "github.com/gravitational/satellite/monitoring",
     "github.com/gravitational/tail",
     "github.com/gravitational/teleport",
