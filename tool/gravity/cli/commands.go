@@ -98,8 +98,12 @@ type Application struct {
 	UpdateSystemCmd UpdateSystemCmd
 	// UpgradeCmd launches app upgrade
 	UpgradeCmd UpgradeCmd
-	// StatusCmd displays cluster status
+	// StatusCmd combines subcommands for displaying status information
 	StatusCmd StatusCmd
+	// StatusClusterCmd displays the current cluster status
+	StatusClusterCmd StatusClusterCmd
+	// StatusHistoryCmd displays the cluster status history
+	StatusHistoryCmd StatusHistoryCmd
 	// StatusResetCmd resets the cluster to active state
 	StatusResetCmd StatusResetCmd
 	// BackupCmd launches app backup hook
@@ -648,8 +652,13 @@ type UpgradeCmd struct {
 	SkipVersionCheck *bool
 }
 
-// StatusCmd displays cluster status
+// StatusCmd combines subcommands for displaying status information
 type StatusCmd struct {
+	*kingpin.CmdClause
+}
+
+// StatusClusterCmd displays current cluster status
+type StatusClusterCmd struct {
 	*kingpin.CmdClause
 	// Token displays only join token
 	Token *bool
@@ -661,6 +670,11 @@ type StatusCmd struct {
 	Seconds *int
 	// Output is output format
 	Output *constants.Format
+}
+
+// StatusHistoryCmd displays cluster status history
+type StatusHistoryCmd struct {
+	*kingpin.CmdClause
 }
 
 // StatusResetCmd resets cluster to active state

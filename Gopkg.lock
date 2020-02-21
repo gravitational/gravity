@@ -934,20 +934,25 @@
   version = "v1.0.0"
 
 [[projects]]
-  digest = "1:dcff7c6216969c020411168880eda172489242d8ec5ed02b4130d3bbc1b369c8"
+  digest = "1:32eb66c3751efdb4ecff3f134ade8e78b2b0170d3e483afd61f64ab915f4c5f9"
   name = "github.com/gravitational/satellite"
   packages = [
     "agent",
     "agent/cache",
     "agent/health",
     "agent/proto/agentpb",
+    "lib/history",
+    "lib/history/sqlite",
     "lib/kubernetes",
+    "lib/membership",
+    "lib/rpc",
+    "lib/rpc/client",
     "monitoring",
     "utils",
   ]
   pruneopts = "UT"
-  revision = "c76d666421f42d197db80ffdd6b821831868213b"
-  version = "6.1.2"
+  revision = "9a1e3888bbf7f5f655772794afc630a84893b519"
+  version = "6.1.3"
 
 [[projects]]
   digest = "1:49f6abbce9ade5f43508429e4af1adcce55d27adcd62719fea049decc766a7c9"
@@ -1026,12 +1031,12 @@
   revision = "f4445fa6001335437357b4300010f97979af7789"
 
 [[projects]]
-  branch = "dmitri/proxy-error"
   digest = "1:dc84545f9f2a442b14864f2f7e54ae556cae53bd437a05a456572fea9e73cc87"
   name = "github.com/gravitational/trace"
   packages = ["."]
   pruneopts = "UT"
-  revision = "77b3c434fd3c42252e252dded824da41ae07b71b"
+  revision = "dd5b2e8eae86d31f6273ff3ac46d5b15edd6d6be"
+  version = "1.1.10"
 
 [[projects]]
   digest = "1:841d5835e94129658adabece66a4cc54d2cec9a40fa8b51743ea35d0519dd6c2"
@@ -1324,12 +1329,12 @@
   version = "v1.2.0"
 
 [[projects]]
-  digest = "1:75ab90ae3f5d876167e60f493beadfe66f0ed861a710f283fb06c86437a09538"
+  branch = "master"
+  digest = "1:35f49695a600c368ad7811a672d583b3e004b44fe883a0a1eb2a6c0d75eaeb1b"
   name = "github.com/jonboulle/clockwork"
   packages = ["."]
   pruneopts = "UT"
-  revision = "2eee05ed794112d45db504eb05aa693efd2b8b09"
-  version = "v0.1.0"
+  revision = "62fb9bc030d14f92c58df3c1601e50a0e445edef"
 
 [[projects]]
   digest = "1:3e551bbb3a7c0ab2a2bf4660e7fcad16db089fdcfbb44b0199e62838038623ea"
@@ -1495,6 +1500,14 @@
   packages = ["."]
   pruneopts = "UT"
   revision = "737072b4e32b7a5018b4a7125da8d12de90e8045"
+
+[[projects]]
+  digest = "1:f4d329a16a6f1a7f694148ec7531f85d62cfa6a79bb8200ca612667e40d09923"
+  name = "github.com/mattn/go-sqlite3"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "590d44c02bca83987d23f6eab75e6d0ddf95f644"
+  version = "v1.13.0"
 
 [[projects]]
   digest = "1:fb04e8f83a0a1be6c248fb11e439edf7a1540da1eb903801d5e1c2047ce9f091"
@@ -1738,13 +1751,14 @@
   revision = "54653902c20e47f3417541d35435cb6d6162e28a"
 
 [[projects]]
-  digest = "1:b8fc32232f276bebfed92b136bce3c9efc600afbf8abb76aa6406a75ab24d9e5"
+  digest = "1:4594833620d039a1c1e889d445988edfc2cdcc95b7e5f40fd63a9d17e2f2ed3f"
   name = "github.com/prometheus/client_golang"
   packages = [
     "api",
     "api/prometheus/v1",
     "prometheus",
     "prometheus/internal",
+    "prometheus/promhttp",
   ]
   pruneopts = "UT"
   revision = "505eaef017263e299324067d40ca2c48f6a2cf50"
@@ -2934,6 +2948,7 @@
     "github.com/gravitational/roundtrip",
     "github.com/gravitational/satellite/agent/health",
     "github.com/gravitational/satellite/agent/proto/agentpb",
+    "github.com/gravitational/satellite/lib/rpc/client",
     "github.com/gravitational/satellite/monitoring",
     "github.com/gravitational/tail",
     "github.com/gravitational/teleport",
