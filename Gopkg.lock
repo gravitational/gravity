@@ -970,7 +970,7 @@
 
 [[projects]]
   branch = "branch/3.2-g"
-  digest = "1:ccb96a0ee188599f5b2577dff7b292cb6cee0122b668e56c9f9ad51181d7bf77"
+  digest = "1:fa6825491e864b7d06f6997346ddfffd71ac73e861c81bbc55340c6bd850853c"
   name = "github.com/gravitational/teleport"
   packages = [
     ".",
@@ -994,6 +994,7 @@
     "lib/fixtures",
     "lib/httplib",
     "lib/httplib/csrf",
+    "lib/kube/client",
     "lib/kube/proxy",
     "lib/kube/utils",
     "lib/limiter",
@@ -2964,6 +2965,7 @@
     "github.com/gravitational/teleport/lib/fixtures",
     "github.com/gravitational/teleport/lib/httplib",
     "github.com/gravitational/teleport/lib/httplib/csrf",
+    "github.com/gravitational/teleport/lib/kube/client",
     "github.com/gravitational/teleport/lib/modules",
     "github.com/gravitational/teleport/lib/reversetunnel",
     "github.com/gravitational/teleport/lib/service",
@@ -2985,6 +2987,7 @@
     "github.com/julienschmidt/httprouter",
     "github.com/kardianos/osext",
     "github.com/kylelemons/godebug/diff",
+    "github.com/mailgun/lemma/secret",
     "github.com/mailgun/timetools",
     "github.com/miekg/dns",
     "github.com/mitchellh/go-ps",
@@ -3046,6 +3049,7 @@
     "k8s.io/apimachinery/pkg/runtime",
     "k8s.io/apimachinery/pkg/runtime/schema",
     "k8s.io/apimachinery/pkg/runtime/serializer/json",
+    "k8s.io/apimachinery/pkg/util/intstr",
     "k8s.io/apimachinery/pkg/util/net",
     "k8s.io/apimachinery/pkg/util/rand",
     "k8s.io/apimachinery/pkg/util/runtime",
@@ -3062,7 +3066,10 @@
     "k8s.io/client-go/tools/clientcmd",
     "k8s.io/client-go/tools/clientcmd/api",
     "k8s.io/helm/pkg/chartutil",
+    "k8s.io/helm/pkg/getter",
     "k8s.io/helm/pkg/helm",
+    "k8s.io/helm/pkg/helm/environment",
+    "k8s.io/helm/pkg/helm/helmpath",
     "k8s.io/helm/pkg/helm/portforwarder",
     "k8s.io/helm/pkg/kube",
     "k8s.io/helm/pkg/manifest",
