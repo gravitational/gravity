@@ -77,7 +77,7 @@ nodeProfiles:
         - name: centos
           versions: ["7"]
         - name: rhel
-          versions: ["7"]
+          versions: ["7", "8"]
         - name: ubuntu
           versions: ["16.04", "18.04"]
         - name: ubuntu-core
@@ -113,7 +113,7 @@ nodeProfiles:
         - name: centos
           versions: ["7"]
         - name: rhel
-          versions: ["7"]
+          versions: ["7", "8"]
         - name: ubuntu
           versions: ["16.04", "18.04"]
         - name: ubuntu-core
@@ -154,7 +154,7 @@ nodeProfiles:
         - name: centos
           versions: ["7"]
         - name: rhel
-          versions: ["7"]
+          versions: ["7", "8"]
         - name: ubuntu
           versions: ["16.04", "18.04"]
         - name: ubuntu-core
