@@ -116,8 +116,8 @@ FIO_BUILDDIR := $(BUILDDIR)/fio-$(FIO_VER)
 HACK_DIR := $(TOP)/hack
 GENERATED_DIR := $(TOP)/lib/client
 
-LOCAL_BUILDDIR ?= /gopath/src/github.com/gravitational/gravity/build
-LOCAL_GRAVITY_BUILDDIR ?= /gopath/src/github.com/gravitational/gravity/build/$(GRAVITY_VERSION)
+LOCAL_BUILDDIR ?= /src/github.com/gravitational/gravity/build
+LOCAL_GRAVITY_BUILDDIR ?= /src/github.com/gravitational/gravity/build/$(GRAVITY_VERSION)
 
 # Directory used as a state dir with all packages when building an application
 # with tele build (e.g. opscenter or telekube)
