@@ -210,10 +210,10 @@ In this case the response HTTP status code will be `503 Service Unavailable`.
 
 ### Cluster Status History
 
-Running `gravity status history` will display a history of changes to the 
-cluster status. 
+Running `gravity status history` displays the history of changes to the 
+Cluster status. 
 
-Example output may looks something like the following:
+Example output may look something like the following:
 
 ```bsh
 $ gravity status history

@@ -26,11 +26,11 @@ import (
 	"syscall"
 	"text/scanner"
 
-	dockerarchive "github.com/docker/docker/pkg/archive"
+	"github.com/docker/docker/pkg/idtools"
 	"github.com/gravitational/trace"
 )
 
-// PathPatterns defines a type for a file path pattern
+// PathPattern defines a type for a file path pattern
 type PathPattern string
 
 // PathMatch matches path against the specified path pattern.
@@ -108,7 +108,7 @@ func PathMatch(pattern PathPattern, path string) (bool, error) {
 // GetChownOptionsForDir returns the ownership options for the specified directory dir.
 // It will use the same options if directory already exists, and will fall back to current
 // user otherwise
-func GetChownOptionsForDir(dir string) (*dockerarchive.TarChownOptions, error) {
+func GetChownOptionsForDir(dir string) (*idtools.Identity, error) {
 	var uid, gid int
 	// preserve owner/group when unpacking, otherwise use current process user
 	fi, err := os.Stat(dir)
@@ -117,7 +117,7 @@ func GetChownOptionsForDir(dir string) (*dockerarchive.TarChownOptions, error) {
 		case *syscall.Stat_t:
 			uid = int(stat.Uid)
 			gid = int(stat.Gid)
-			return &dockerarchive.TarChownOptions{
+			return &idtools.Identity{
 				UID: uid,
 				GID: gid,
 			}, nil
@@ -135,7 +135,7 @@ func GetChownOptionsForDir(dir string) (*dockerarchive.TarChownOptions, error) {
 	if err != nil {
 		return nil, trace.BadParameter("GID is not a number: %q", user.Gid)
 	}
-	return &dockerarchive.TarChownOptions{
+	return &idtools.Identity{
 		UID: uid,
 		GID: gid,
 	}, nil
