@@ -19,13 +19,13 @@ package v1
 import (
 	v1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/coreos/prometheus-operator/pkg/client/versioned/scheme"
+	serializer "k8s.io/apimachinery/pkg/runtime/serializer"
 	rest "k8s.io/client-go/rest"
 )
 
 type MonitoringV1Interface interface {
 	RESTClient() rest.Interface
 	AlertmanagersGetter
-	PodMonitorsGetter
 	PrometheusesGetter
 	PrometheusRulesGetter
 	ServiceMonitorsGetter
@@ -38,10 +38,6 @@ type MonitoringV1Client struct {
 
 func (c *MonitoringV1Client) Alertmanagers(namespace string) AlertmanagerInterface {
 	return newAlertmanagers(c, namespace)
-}
-
-func (c *MonitoringV1Client) PodMonitors(namespace string) PodMonitorInterface {
-	return newPodMonitors(c, namespace)
 }
 
 func (c *MonitoringV1Client) Prometheuses(namespace string) PrometheusInterface {
@@ -88,7 +84,7 @@ func setConfigDefaults(config *rest.Config) error {
 	gv := v1.SchemeGroupVersion
 	config.GroupVersion = &gv
 	config.APIPath = "/apis"
-	config.NegotiatedSerializer = scheme.Codecs.WithoutConversion()
+	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: scheme.Codecs}
 
 	if config.UserAgent == "" {
 		config.UserAgent = rest.DefaultKubernetesUserAgent()

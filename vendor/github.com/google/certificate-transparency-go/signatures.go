@@ -1,3 +1,17 @@
+// Copyright 2015 Google Inc. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package ct
 
 import (
@@ -6,18 +20,19 @@ import (
 	"crypto/elliptic"
 	"crypto/rsa"
 	"crypto/sha256"
-	"crypto/x509"
-	"encoding/asn1"
+	"encoding/base64"
 	"encoding/pem"
-	"errors"
-	"flag"
 	"fmt"
 	"log"
-	"math/big"
+
+	"github.com/google/certificate-transparency-go/tls"
+	"github.com/google/certificate-transparency-go/x509"
 )
 
-var allowVerificationWithNonCompliantKeys = flag.Bool("allow_verification_with_non_compliant_keys", false,
-	"Allow a SignatureVerifier to use keys which are technically non-compliant with RFC6962.")
+// AllowVerificationWithNonCompliantKeys may be set to true in order to allow
+// SignatureVerifier to use keys which are technically non-compliant with
+// RFC6962.
+var AllowVerificationWithNonCompliantKeys = false
 
 // PublicKeyFromPEM parses a PEM formatted block and returns the public key contained within and any remaining unread bytes, or an error.
 func PublicKeyFromPEM(b []byte) (crypto.PublicKey, SHA256Hash, []byte, error) {
@@ -27,6 +42,15 @@ func PublicKeyFromPEM(b []byte) (crypto.PublicKey, SHA256Hash, []byte, error) {
 	}
 	k, err := x509.ParsePKIXPublicKey(p.Bytes)
 	return k, sha256.Sum256(p.Bytes), rest, err
+}
+
+// PublicKeyFromB64 parses a base64-encoded public key.
+func PublicKeyFromB64(b64PubKey string) (crypto.PublicKey, error) {
+	der, err := base64.StdEncoding.DecodeString(b64PubKey)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding public key: %s", err)
+	}
+	return x509.ParsePKIXPublicKey(der)
 }
 
 // SignatureVerifier can verify signatures on SCTs and STHs
@@ -40,7 +64,7 @@ func NewSignatureVerifier(pk crypto.PublicKey) (*SignatureVerifier, error) {
 	case *rsa.PublicKey:
 		if pkType.N.BitLen() < 2048 {
 			e := fmt.Errorf("public key is RSA with < 2048 bits (size:%d)", pkType.N.BitLen())
-			if !(*allowVerificationWithNonCompliantKeys) {
+			if !AllowVerificationWithNonCompliantKeys {
 				return nil, e
 			}
 			log.Printf("WARNING: %v", e)
@@ -49,7 +73,7 @@ func NewSignatureVerifier(pk crypto.PublicKey) (*SignatureVerifier, error) {
 		params := *(pkType.Params())
 		if params != *elliptic.P256().Params() {
 			e := fmt.Errorf("public is ECDSA, but not on the P256 curve")
-			if !(*allowVerificationWithNonCompliantKeys) {
+			if !AllowVerificationWithNonCompliantKeys {
 				return nil, e
 			}
 			log.Printf("WARNING: %v", e)
@@ -64,61 +88,18 @@ func NewSignatureVerifier(pk crypto.PublicKey) (*SignatureVerifier, error) {
 	}, nil
 }
 
-// verifySignature verifies that the passed in signature over data was created by our PublicKey.
-// Currently, only SHA256 is supported as a HashAlgorithm, and only ECDSA and RSA signatures are supported.
-func (s SignatureVerifier) verifySignature(data []byte, sig DigitallySigned) error {
-	if sig.HashAlgorithm != SHA256 {
-		return fmt.Errorf("unsupported HashAlgorithm in signature: %v", sig.HashAlgorithm)
-	}
-
-	hasherType := crypto.SHA256
-	hasher := hasherType.New()
-	if _, err := hasher.Write(data); err != nil {
-		return fmt.Errorf("failed to write to hasher: %v", err)
-	}
-	hash := hasher.Sum([]byte{})
-
-	switch sig.SignatureAlgorithm {
-	case RSA:
-		rsaKey, ok := s.pubKey.(*rsa.PublicKey)
-		if !ok {
-			return fmt.Errorf("cannot verify RSA signature with %T key", s.pubKey)
-		}
-		if err := rsa.VerifyPKCS1v15(rsaKey, hasherType, hash, sig.Signature); err != nil {
-			return fmt.Errorf("failed to verify rsa signature: %v", err)
-		}
-	case ECDSA:
-		ecdsaKey, ok := s.pubKey.(*ecdsa.PublicKey)
-		if !ok {
-			return fmt.Errorf("cannot verify ECDSA signature with %T key", s.pubKey)
-		}
-		var ecdsaSig struct {
-			R, S *big.Int
-		}
-		rest, err := asn1.Unmarshal(sig.Signature, &ecdsaSig)
-		if err != nil {
-			return fmt.Errorf("failed to unmarshal ECDSA signature: %v", err)
-		}
-		if len(rest) != 0 {
-			log.Printf("Garbage following signature %v", rest)
-		}
-
-		if !ecdsa.Verify(ecdsaKey, hash, ecdsaSig.R, ecdsaSig.S) {
-			return errors.New("failed to verify ecdsa signature")
-		}
-	default:
-		return fmt.Errorf("unsupported signature type %v", sig.SignatureAlgorithm)
-	}
-	return nil
+// VerifySignature verifies the given signature sig matches the data.
+func (s SignatureVerifier) VerifySignature(data []byte, sig tls.DigitallySigned) error {
+	return tls.VerifySignature(s.pubKey, data, sig)
 }
 
-// VerifySCTSignature verifies that the SCT's signature is valid for the given LogEntry
+// VerifySCTSignature verifies that the SCT's signature is valid for the given LogEntry.
 func (s SignatureVerifier) VerifySCTSignature(sct SignedCertificateTimestamp, entry LogEntry) error {
 	sctData, err := SerializeSCTSignatureInput(sct, entry)
 	if err != nil {
 		return err
 	}
-	return s.verifySignature(sctData, sct.Signature)
+	return s.VerifySignature(sctData, tls.DigitallySigned(sct.Signature))
 }
 
 // VerifySTHSignature verifies that the STH's signature is valid.
@@ -127,5 +108,5 @@ func (s SignatureVerifier) VerifySTHSignature(sth SignedTreeHead) error {
 	if err != nil {
 		return err
 	}
-	return s.verifySignature(sthData, sth.TreeHeadSignature)
+	return s.VerifySignature(sthData, tls.DigitallySigned(sth.TreeHeadSignature))
 }

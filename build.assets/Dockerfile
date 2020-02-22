@@ -4,20 +4,12 @@ ARG PROTOC_VER
 ARG PROTOC_PLATFORM
 ARG GOGO_PROTO_TAG
 ARG GRPC_GATEWAY_TAG
-ARG GODEP_TAG
 ARG VERSION_TAG
 
 ENV TARBALL protoc-${PROTOC_VER}-${PROTOC_PLATFORM}.zip
 ENV GRPC_GATEWAY_ROOT /src/github.com/grpc-ecosystem/grpc-gateway
 ENV GOGOPROTO_ROOT /src/github.com/gogo/protobuf
 ENV PROTOC_URL https://github.com/google/protobuf/releases/download/v${PROTOC_VER}/protoc-${PROTOC_VER}-${PROTOC_PLATFORM}.zip
-
-RUN adduser jenkins --uid=995 --disabled-password --system
-RUN (mkdir -p /gopath/src/github.com/gravitational/gravity && \
-     chown -R jenkins /gopath && \
-     mkdir -p /.cache && \
-     chmod 777 /.cache && \
-     chmod 777 /tmp)
 
 ENV LANGUAGE="en_US.UTF-8" \
      LANG="en_US.UTF-8" \
@@ -42,11 +34,16 @@ RUN (mkdir -p /opt/protoc && \
 
 ENV PROTO_INCLUDE "/usr/local/include":"/src":"${GRPC_GATEWAY_ROOT}/third_party/googleapis":"${GOGOPROTO_ROOT}/gogoproto"
 
-# install DEP tool
-RUN wget --quiet -O /usr/bin/dep https://github.com/golang/dep/releases/download/${GODEP_TAG}/dep-linux-amd64 && chmod +x /usr/bin/dep
-RUN chmod -R a+rw /gopath
-
 # install some development libraries used when compiling fio
 RUN apt -q -y update --fix-missing && apt -q -y install libaio-dev zlib1g-dev
 
-VOLUME ["/gopath/src/github.com/gravitational/gravity"]
+ARG USER_ID=1000
+RUN adduser jenkins --uid=$USER_ID --disabled-password --system
+RUN (mkdir -p /src/github.com/gravitational/gravity && \
+     chown -R jenkins /gopath && \
+     chown -R jenkins /src && \ 
+     mkdir -p /.cache && \
+     chmod 777 /.cache && \
+     chmod 777 /tmp)
+
+VOLUME ["/src/github.com/gravitational/gravity"]

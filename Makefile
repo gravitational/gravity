@@ -192,8 +192,6 @@ USER := $(shell echo $${SUDO_USER:-$$USER})
 TEST_ETCD ?= false
 TEST_K8S ?= false
 
-GODEP_TAG ?= v0.5.4
-
 # grpc
 PROTOC_VER ?= 3.10.0
 PROTOC_PLATFORM := linux-x86_64

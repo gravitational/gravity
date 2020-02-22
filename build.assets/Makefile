@@ -8,9 +8,9 @@
 
 OPS_URL ?=
 LOCALDIR := $(dir $(CURDIR)/$(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST)))
-LOCAL_BUILDDIR ?= /gopath/src/github.com/gravitational/gravity/build
+LOCAL_BUILDDIR ?= /src/github.com/gravitational/gravity/build
 # Path to the local gravity build assets directory used inside the container
-LOCAL_GRAVITY_BUILDDIR ?= /gopath/src/github.com/gravitational/gravity/build/$(GRAVITY_VERSION)
+LOCAL_GRAVITY_BUILDDIR ?= /src/github.com/gravitational/gravity/build/$(GRAVITY_VERSION)
 
 DOCKER_ARGS ?= --pull
 BBOX = gravity-buildbox:latest
@@ -49,7 +49,7 @@ GRAVITY_BUCKET := $(BUILD_BUCKET_URL)/gravity/$(GRAVITY_VERSION)
 LATEST_GRAVITY_BUCKET := $(BUILD_BUCKET_URL)/gravity/latest
 
 # Directory with sources inside the container
-SRCDIR := /gopath/src/github.com/gravitational/gravity
+SRCDIR := /src/github.com/gravitational/gravity
 
 # Where teleport sources are inside build container
 TELEPORT_SRCDIR_CONTAINER := /gopath/src/github.com/gravitational/teleport
@@ -212,7 +212,7 @@ validate-deps: buildbox
 #
 .PHONY: build-in-container
 build-in-container: buildbox
-	docker run --rm=true -u $$(id -u) \
+	docker run --rm=true -u $$(id -u):$$(id -g) \
 		   -v $(TOP):$(SRCDIR) \
 		   -e "LOCAL_BUILDDIR=$(LOCAL_BUILDDIR)" \
 		   -e "LOCAL_GRAVITY_BUILDDIR=$(LOCAL_GRAVITY_BUILDDIR)" \
@@ -315,7 +315,7 @@ $(GRAVITY_BUILDDIR):
 .PHONY: $(BINARIES)
 $(BINARIES):
 	@echo -e "\n----> Building $(LOCAL_GRAVITY_BUILDDIR)/$@ binary...\n"
-	go build -o $(LOCAL_GRAVITY_BUILDDIR)/$@ -ldflags $(GRAVITY_LINKFLAGS) $(GRAVITY_PKG_PATH)/tool/$@
+	go build -mod=vendor -o $(LOCAL_GRAVITY_BUILDDIR)/$@ -ldflags $(GRAVITY_LINKFLAGS) $(GRAVITY_PKG_PATH)/tool/$@
 	@echo "\nDone --> $(LOCAL_GRAVITY_BUILDDIR)/$@\n"
 
 .PHONY: compile
@@ -646,6 +646,6 @@ buildbox:
 		--build-arg PROTOC_PLATFORM=$(PROTOC_PLATFORM) \
 		--build-arg GOGO_PROTO_TAG=$(GOGO_PROTO_TAG) \
 		--build-arg GRPC_GATEWAY_TAG=$(GRPC_GATEWAY_TAG) \
-		--build-arg GODEP_TAG=$(GODEP_TAG) \
 		--build-arg VERSION_TAG=$(VERSION_TAG) \
+		--build-arg USER_ID=$$(id -u) \
 		$(DOCKER_ARGS) --tag $(BBOX) .
