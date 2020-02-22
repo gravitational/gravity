@@ -133,8 +133,11 @@ func isSystemPackage(locator loc.Locator) bool {
 	return false
 }
 
-// systemPackages are packages that are not encrypted
+// systemPackages is a list of packages that are not encrypted because they
+// are required for bootstrapping the installer when license has not yet
+// been provided by the user.
 var systemPackages = []loc.Locator{
-	loc.MustParseLocator("gravitational.io/web-assets:0.0.0"),
-	loc.MustParseLocator("gravitational.io/gravity:0.0.0"),
+	loc.Gravity,
+	loc.Fio,
+	loc.WebAssetsPackageLocator,
 }
