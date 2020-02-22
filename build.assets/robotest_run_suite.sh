@@ -3,10 +3,18 @@ set -eu -o pipefail
 
 readonly UPGRADE_FROM_DIR=${1:-$(pwd)/../upgrade_from}
 
+# UPGRADE_MAP maps gravity version -> list of OS releases to upgrade from
 declare -A UPGRADE_MAP
-# gravity version -> list of OS releases to exercise on
+
+# latest patch release on compatible LTS, keep this up to date
 UPGRADE_MAP[6.1.18]="ubuntu:18"
+
+# latest patch release on supported non-LTS version, keep this up to date
 UPGRADE_MAP[6.3.6]="ubuntu:18"
+
+# important versions in the field, these are static
+UPGRADE_MAP[6.1.0]="ubuntu:16"
+UPGRADE_MAP[6.3.0]="ubuntu:16"
 
 readonly GET_GRAVITATIONAL_IO_APIKEY=${GET_GRAVITATIONAL_IO_APIKEY:?API key for distribution Ops Center required}
 readonly GRAVITY_BUILDDIR=${GRAVITY_BUILDDIR:?Set GRAVITY_BUILDDIR to the build directory}
