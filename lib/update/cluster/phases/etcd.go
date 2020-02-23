@@ -287,23 +287,21 @@ func (p *PhaseUpgradeEtcdRestart) Execute(ctx context.Context) error {
 	p.Info("Restart etcd after upgrade.")
 	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "disable", "--upgrade")
 	if err != nil {
-		return trace.Wrap(err)
+		return trace.Wrap(err).AddField("output", out)
 	}
-	p.Info("command output: ", string(out))
 
 	if p.Server.IsEqualTo(p.Master) {
 		out, err = utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "enable")
 		if err != nil {
-			return trace.Wrap(err)
+			return trace.Wrap(err).AddField("output", out)
 		}
 	} else {
 		out, err = utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "enable", "--join-master", fmt.Sprintf("https://%v:2379", p.Master.AdvertiseIP))
 		if err != nil {
-			return trace.Wrap(err)
+			return trace.Wrap(err).AddField("output", out)
 		}
 	}
 
-	p.Info("command output: ", string(out))
 	return nil
 }
 
@@ -311,15 +309,13 @@ func (p *PhaseUpgradeEtcdRestart) Rollback(ctx context.Context) error {
 	p.Info("Reenable etcd upgrade service.")
 	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "disable", "--stop-api")
 	if err != nil {
-		return trace.Wrap(err)
+		return trace.Wrap(err).AddField("output", out)
 	}
-	p.Info("command output: ", string(out))
 
 	out, err = utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "enable", "--upgrade")
 	if err != nil {
-		return trace.Wrap(err)
+		return trace.Wrap(err).AddField("output", out)
 	}
-	p.Info("command output: ", string(out))
 	return nil
 }
 

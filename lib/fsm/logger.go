@@ -18,6 +18,7 @@ package fsm
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/gravitational/gravity/lib/ops"
@@ -38,35 +39,65 @@ type Logger struct {
 	Operator ops.Operator
 	// Server is the optional server that will be attached to log entries
 	Server *storage.Server
+
+	// logEntryC is used to queue log entries and unblock execution while etcd is down during upgrades
+	// this has the potential to lose log messages if the process dies while etcd is down
+	logEntryC chan ops.LogEntry
+
+	// logEntryOnce bootstraps the LogEntry queue on the first log entry
+	logEntryOnce sync.Once
+}
+
+func (l *Logger) initQueue() {
+	l.logEntryOnce.Do(func() {
+		// initialize the queue to a decently large value, to queue all the messages during etcd upgrade
+		l.logEntryC = make(chan ops.LogEntry, 4096)
+		go l.runQueue()
+	})
+}
+
+func (l *Logger) runQueue() {
+	for {
+		msg := <-l.logEntryC
+		if err := l.Operator.CreateLogEntry(l.Key, msg); err != nil {
+			l.FieldLogger.Error(trace.DebugReport(err))
+		}
+	}
 }
 
 // Debug logs a debug message
 func (l *Logger) Debug(args ...interface{}) {
+	l.initQueue()
 	l.FieldLogger.Debug(args...)
-	err := l.Operator.CreateLogEntry(l.Key, l.makeLogEntry(
-		fmt.Sprint(args...), "debug"))
-	if err != nil {
-		l.FieldLogger.Error(trace.DebugReport(err))
+
+	select {
+	case l.logEntryC <- l.makeLogEntry(fmt.Sprint(args...), "debug"):
+	default:
+		l.FieldLogger.Debug("operation logger dropped message: ", fmt.Sprint(args...))
 	}
 }
 
 // Info logs an info message
 func (l *Logger) Info(args ...interface{}) {
+	l.initQueue()
 	l.FieldLogger.Info(args...)
-	err := l.Operator.CreateLogEntry(l.Key, l.makeLogEntry(
-		fmt.Sprint(args...), "info"))
-	if err != nil {
-		l.FieldLogger.Error(trace.DebugReport(err))
+
+	select {
+	case l.logEntryC <- l.makeLogEntry(fmt.Sprint(args...), "info"):
+	default:
+		l.FieldLogger.Info("operation logger dropped message: ", fmt.Sprint(args...))
 	}
 }
 
 // Warn logs a warning message
 func (l *Logger) Warn(args ...interface{}) {
+	l.initQueue()
 	l.FieldLogger.Warn(args...)
-	err := l.Operator.CreateLogEntry(l.Key, l.makeLogEntry(
-		fmt.Sprint(args...), "warn"))
-	if err != nil {
-		l.FieldLogger.Error(trace.DebugReport(err))
+
+	select {
+	case l.logEntryC <- l.makeLogEntry(fmt.Sprint(args...), "warn"):
+	default:
+		l.FieldLogger.Debug("operation logger dropped message: ", fmt.Sprint(args...))
 	}
 }
 
@@ -77,11 +108,13 @@ func (l *Logger) Warning(args ...interface{}) {
 
 // Error logs an error message
 func (l *Logger) Error(args ...interface{}) {
+	l.initQueue()
 	l.FieldLogger.Error(args...)
-	err := l.Operator.CreateLogEntry(l.Key, l.makeLogEntry(
-		fmt.Sprint(args...), "error"))
-	if err != nil {
-		l.FieldLogger.Error(trace.DebugReport(err))
+
+	select {
+	case l.logEntryC <- l.makeLogEntry(fmt.Sprint(args...), "error"):
+	default:
+		l.FieldLogger.Debug("operation logger dropped message: ", fmt.Sprint(args...))
 	}
 }
 
