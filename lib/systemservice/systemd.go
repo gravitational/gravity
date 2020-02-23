@@ -127,10 +127,6 @@ func (u *systemdUnit) serviceName() string {
 		systemdServiceDelimiter) + systemdUnitFileSuffix
 }
 
-func (u *systemdUnit) servicePath() string {
-	return unitPath(u.serviceName())
-}
-
 func (s *systemdManager) installService(service serviceTemplate, req NewServiceRequest) error {
 	if service.Environment == nil {
 		service.Environment = make(map[string]string)
@@ -251,7 +247,7 @@ func (s *systemdManager) IsPackageServiceInstalled(pkg loc.Locator) (bool, error
 func (s *systemdManager) ListPackageServices() ([]PackageServiceStatus, error) {
 	var services []PackageServiceStatus
 
-	out, err := invokeSystemctl("list-units", "--plain", "--no-legend")
+	out, err := invokeSystemctl("list-units", "--plain", "--no-legend", "--all")
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to list-units: %v", out)
 	}
@@ -336,12 +332,12 @@ func (s *systemdManager) UninstallService(req UninstallServiceRequest) error {
 	serviceName := serviceName(req.Name)
 	out, err := invokeSystemctl("stop", serviceName)
 	if err != nil && !IsUnknownServiceError(err) {
-		return trace.Wrap(err)
+		return trace.Wrap(err, out)
 	}
 
 	out, err = invokeSystemctl("disable", serviceName)
 	if err != nil && !IsUnknownServiceError(err) {
-		return trace.Wrap(err)
+		return trace.Wrap(err, out)
 	}
 
 	out, err = invokeSystemctl("is-failed", serviceName)

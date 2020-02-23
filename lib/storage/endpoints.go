@@ -150,6 +150,7 @@ func UnmarshalEndpoints(data []byte) (Endpoints, error) {
 		if err != nil {
 			return nil, trace.BadParameter(err.Error())
 		}
+		//nolint:errcheck
 		e.Metadata.CheckAndSetDefaults()
 		return &e, nil
 	}

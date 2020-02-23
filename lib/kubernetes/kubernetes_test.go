@@ -30,7 +30,7 @@ import (
 	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	extensionsv1 "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -130,6 +130,7 @@ func (s *S) TestDrainsNode(c *C) {
 			FieldSelector: fields.SelectorFromSet(fields.Set{"spec.nodeName": s.Name}).String(),
 			LabelSelector: labels.SelectorFromSet(labels.Set{"test-app": "foo"}).String(),
 		})
+	c.Assert(err, IsNil)
 	err = waitForPods(ctx, s.CoreV1(), podList.Items, v1.PodRunning)
 	c.Assert(err, IsNil)
 
@@ -142,6 +143,7 @@ func (s *S) TestDrainsNode(c *C) {
 			FieldSelector: fields.SelectorFromSet(fields.Set{"spec.nodeName": s.Name}).String(),
 			LabelSelector: labels.SelectorFromSet(labels.Set{"test-app": "foo"}).String(),
 		})
+	c.Assert(err, IsNil)
 	pendingPods, err := waitForDelete(ctx, s.CoreV1(), podList.Items, usingEviction(false))
 	c.Assert(err, IsNil)
 	c.Assert(pendingPods, HasLen, 0)
@@ -293,7 +295,6 @@ func waitForPods(ctx context.Context, client corev1.CoreV1Interface, pods []v1.P
 				log.WithFields(podFields(pod)).Debug("waiting")
 				return trace.NotFound("no pod found")
 			}
-			return nil
 		}
 		return nil
 	})

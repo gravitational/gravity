@@ -83,6 +83,8 @@ type Params struct {
 	// ServiceUser specifies the service user which overrides the default
 	// security context for the job's Pod
 	ServiceUser storage.OSUser
+	// Values are helm values in a marshaled yaml format
+	Values []byte
 }
 
 // JobRef is a reference to a hook job
@@ -274,7 +276,7 @@ func (r *Runner) StreamLogs(ctx context.Context, ref JobRef, out io.Writer) erro
 	err = utils.RetryWithInterval(ctx, interval, func() error {
 		watcher, err := newPodWatch(r.client.CoreV1(), ref)
 		if err != nil {
-			return &backoff.PermanentError{err}
+			return &backoff.PermanentError{Err: err}
 		}
 		err = r.monitorPods(localContext, watcher.ResultChan(), *job, *jobControl, out)
 		watcher.Stop()
@@ -339,7 +341,11 @@ func (r *Runner) checkJob(ctx context.Context, job *batchv1.Job, jobControl *rig
 		for _, containerDiff := range diff.containers {
 			// stream logs for running containers
 			if containerDiff.new.State.Running != nil {
-				go r.streamPodContainerLogs(ctx, &pod, containerDiff.name, out)
+				go func() {
+					if err := r.streamPodContainerLogs(ctx, &pod, containerDiff.name, out); err != nil {
+						r.WithError(err).Warn("Failed to stream container logs.")
+					}
+				}()
 			}
 		}
 	}

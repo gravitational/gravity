@@ -3,7 +3,12 @@
 </a>
 
 Gravity is an [upstream Kubernetes](https://kubernetes.io/) packaging solution
-that takes the drama out of on-premises deployments.
+that takes the drama out of deploying and running applications in someone
+else's cloud accounts, on-premise data centers, edge locations and other
+"uncharted territory" environments.
+
+With Gravity, your Kubernetes apps can run and be regularly updated anywhere in
+the world without a massive DevOps team.
 
 |Project Links| Description
 |---|----
@@ -62,17 +67,12 @@ on compliance and reducing the overhead of managing Kubernetes**:
 We have seen the following primary use cases for using a image-based Kubernetes approach
 (there may be others):
 
-* Deploying complex SaaS applications into on-premises enterprise environments.
-* Managing many idempotent Kubernetes clusters in environments where compliance
-  and security matters. An example would be if you want the same, compliant
-  Kubernetes environment across a variety of organizations or infrastructure
-  environments.
-* Environments where autonomous Kubernetes is required, such as large multi-node
-  hardware appliances, production floors, edge deployments, etc.
+* Deploying and running complex SaaS applications into on-premises enterprise environments.
+* Deploying and running complex SaaS applications in thousands of edge locations (retail, transportation, energy, etc).
 
 Anyone who needs Kubernetes best practices out of the box, without having to
-proactively manage it can benefit from Gravity. It allows you to focus on building 
-your product instead of managing Kubernetes.
+proactively manage it can benefit from Gravity. It allows you to focus on
+building your product instead of managing Kubernetes.
 
 ## Cluster Images
 
@@ -88,6 +88,28 @@ A Cluster Image produced by Gravity includes:
 An image is all one needs to re-create the complete replica of the original
 Kubernetes cluster, with all deployed applications inside, even in an
 air-gapped server room.
+
+## How do Initial Deployments work?
+
+A cluster image created with Gravity can be used for:
+
+1. Creating many Kubernetes clusters from scratch, on any infrastructure.
+2. Installing applications contained in the cluster image into an existing
+   Kubernetes cluster, like OpenShift.
+
+## How do Updates work?
+
+Developers can continuously update their applications using different methods:
+
+1. Vanilla CI/CD using Kubernetes APIs, which is available for every cluster.
+   This is probably what you're already doing.
+2. Via "polling model", when each Gravity cluster will automatically download
+   updates from a Gravity Hub, letting cluster users decide when/if they want
+   to upgrade. This method is recommended for traditional on-premise
+   environments when developers do not have access to each deployment site.
+3. Offline method, when a developer prepares a new cluster image which can be
+   distributed via offline media. This method is suitable for air-gapped
+   environments.
 
 ## Remote Access and Compliance
 
@@ -119,9 +141,7 @@ listed on the [Gravitational web site](https://gravitational.com)
 ## Why did We Build Gravity?
 
 Gravity was built by [Gravitational Inc](https://gravitational.com), a company
-based in Oakland, California. Gravitational's mission is to allow software
-creators to easily share their products with customers without having to
-convert themselves into software operators.
+based in Oakland, California. 
 
 The original use case for Gravity was to allow Kubernetes applications to be
 deployed into 3rd party environments, like on-premises datacenters. That's why
@@ -131,8 +151,8 @@ for providing remote support.
 
 These features also resonated with security-minded teams who need to run
 applications in environments where _compliance matters_. Gravity clusters are
-always identical and do not allow any configuration drift over time, which
-allows _cluster designers_ (aka, Devops or SREs) to "publish" clusters that are approved for
+always identical and do not allow any configuration drift over time. This
+allows _cluster architects_ (aka, Devops or SREs) to "publish" clusters that are approved for
 production and allow multiple teams within the organization to rapidly scale their
 Kubernetes adoption without having to become security and Kubernetes experts themselves.
 
@@ -173,7 +193,7 @@ To contribute, please read the [contribution guidelines](./CONTRIBUTING.md).
 
 ## Talk to us
 
-* Want to join our team to hack on Gravity? [We are always hiring!](https://gravitational.com/careers/systems-engineer/)
+* Want to join our team to hack on Gravity? [We are always hiring!](https://gravitational.breezy.hr/)
 * Want to stop managing Kubernetes and have autonomous appliance-like clusters?
 * Want to take your complex SaaS application and convert it into a downloadable
   appliance so your customers can run it on their own AWS account or in a colo?

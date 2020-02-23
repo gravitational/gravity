@@ -46,7 +46,8 @@ way:
 
 * `gravity` runs its own local Docker registry which is used as a Cluster-level
   cache for container images. This makes application upgrades and restarts
-  faster and more reliable.
+  faster and more reliable. See [Interacting with Cluster Registry](#interacting-with-cluster-registry)
+  for details.
 
 * `gravity` provides the ability to perform Cluster state snapshots as part of
   Cluster upgrades or to be used independently.
@@ -206,6 +207,51 @@ $ curl -sk https://localhost:7575 | python -m json.tool
 ```
 
 In this case the response HTTP status code will be `503 Service Unavailable`.
+
+### Cluster Status History
+
+Running `gravity status history` displays the history of changes to the 
+Cluster status. 
+
+Example output may look something like the following:
+
+```bsh
+$ gravity status history
+2020-02-18T01:36:07Z [Node Degraded]     node=node-1
+2020-02-18T21:36:11Z [Node Degraded]     node=node-2
+2020-02-18T21:36:25Z [Node Degraded]     node=node-3
+2020-02-18T21:36:56Z [Probe Succeeded]   node=node-1 checker=node-status
+2020-02-18T21:36:58Z [Probe Succeeded]   node=node-2 checker=node-status
+2020-02-18T21:36:58Z [Probe Succeeded]   node=node-2 checker=time-drift
+2020-02-18T21:36:59Z [Probe Succeeded]   node=node-3 checker=node-status
+2020-02-18T21:37:07Z [Probe Succeeded]   node=node-1 checker=kube-apiserver
+2020-02-18T21:37:07Z [Node Recovered]    node=node-1
+2020-02-18T21:37:08Z [Probe Succeeded]   node=node-2 checker=kube-apiserver
+2020-02-18T21:37:08Z [Node Recovered]    node=node-2
+2020-02-18T21:37:11Z [Probe Succeeded]   node=node-3 checker=kube-apiserver
+2020-02-18T21:37:11Z [Node Recovered]    node=node-3
+```
+
+Here's an example of how to view the history remotely via `tsh`:
+
+```bsh
+$ tsh --cluster=production ssh admin@node gravity status history
+```
+
+The `gravity status history` command is an additional tool to help debug issues
+with a Cluster. The `gravity status` command only displays the current status
+and provides limited visibility into the state of the Cluster. The
+`gravity status history` command is there to help fill in the gaps. The history
+lets you observe when and where problems have occurred within the Cluster.
+
+There are just a few event types that are currently being tracked.
+- `Node Degraded` / `Node Recovered` specifies a change in the node status. The node
+key specifies the name of the node (node-1, node-2, node-3).
+- `Probe Succeeded` / `Probe Failed` specifies a change in a probe result. The checker
+key specifies the name of the health check (time-drift, kube-apiserver).
+
+The `gravity status history` command is available on all `master` nodes of the
+cluster and provides an eventually consistent history between nodes. 
 
 ## Application Status
 
@@ -1436,6 +1482,80 @@ The CoreDNS configuration can be edited after installation, by updating the `kub
 [PodSecurityPolicies]: https://kubernetes.io/docs/concepts/policy/pod-security-policy/
 [RBAC]: https://kubernetes.io/docs/admin/authorization/rbac/
 [promiscuous-mode]: https://en.wikipedia.org/wiki/Promiscuous_mode
+
+## Interacting with Cluster Registry
+
+Gravity clusters run private Docker registries on the master nodes. These registries are maintained
+in-sync by Gravity and contain Docker images for Gravity cluster and application images.
+
+To view a list of Docker images currently published in the cluster registry, Gravity provides
+a convenience command:
+
+```bash
+$ gravity registry list
+```
+
+By default the command will contact the registry server running at `registry.local:5000` address
+which resolves to the registry running on the currently active master node. To list images in a
+specific registry, provide a `--registry` flag to the command:
+
+```bash
+$ gravity registry list --registry=192.168.1.1
+```
+
+The command can also output the images in the json or yaml format which can come handy in scripting:
+
+```bash
+$ gravity registry list --format=json
+```
+
+## Changing Node Advertise Address
+
+!!! note "Supported version":
+    Changing a node's advertise address is supported starting from Gravity 7.
+
+Gravity provides a way to migrate a single-node cluster to a different node, or reconfigure it to use a different
+network interface as its advertise address.
+
+This helps support a scenario where you might want to install and preconfigure a cluster and your applications and then
+package the entire environment as a single virtual appliance (such as AMI in case of Amazon EC2, OVF/OVA in case of VMWare
+or other virtualization platforms, etc.) and then ship it to customers so they can deploy it to their environment
+without having to perform a full installation.
+
+There are a few restrictions and assumptions about this procedure to keep in mind:
+
+* Only single-node clusters can be migrated this way. Clusters can be expanded after the deployment.
+* Only the node's advertise IP and hostname are allowed to change, e.g. cluster name and other changes are not supported.
+* Gravity and application data is assumed to be a part of the packaged VM image.
+
+With the above requirements satisfied, the operation of changing the node's advertise address can be performed using the
+following steps.
+
+On the node where a single-node cluster is running, stop and disable all Gravity and Kubernetes services:
+
+```bash
+$ sudo gravity stop
+```
+
+At this point the machine's snapshot (AMI/OVF/OVA/etc) can be taken. To start the cluster back on the original node if needed,
+use the command:
+
+```bash
+$ sudo gravity start
+```
+
+Once the image has been deployed on a new node, start the cluster providing a new advertise address configuration:
+
+```bash
+$ sudo gravity start --advertise-addr=<new-ip>
+```
+
+Gravity will regenerate all necessary configurations and cluster secrets and restart all the services.
+
+!!! note:
+    As a part of the advertise address change operation, all pods previously present in the cluster are recreated which
+    means that any pods not managed by controllers (deployments, daemon sets, etc.) will be deleted permanently, so
+    make sure to not use pods directly and use controllers instead.
 
 ## Troubleshooting
 

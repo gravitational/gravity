@@ -30,14 +30,12 @@ import (
 	"sort"
 	"strings"
 	"time"
-	"unicode"
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/utils"
-	"k8s.io/helm/pkg/repo"
 
 	teleservices "github.com/gravitational/teleport/lib/services"
 	teleutils "github.com/gravitational/teleport/lib/utils"
@@ -46,6 +44,8 @@ import (
 	"github.com/jonboulle/clockwork"
 	"github.com/tstranex/u2f"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/helm/pkg/repo"
+	kubeletapis "k8s.io/kubernetes/pkg/kubelet/apis"
 )
 
 // Accounts collection modifies and updates account entries,
@@ -268,13 +268,6 @@ type UserToken struct {
 	URL string `json:"url"`
 }
 
-func dropSpecialChars(r rune) rune {
-	if unicode.IsLetter(r) || unicode.IsDigit(r) {
-		return r
-	}
-	return -1
-}
-
 // CheckUserToken returns nil if the value is correct, error otherwise
 func CheckUserToken(s string) error {
 	switch s {
@@ -440,6 +433,8 @@ type SiteOperation struct {
 	UpdateEnviron *UpdateEnvarsOperationState `json:"update_environ,omitempty"`
 	// UpdateConfig defines the state of the cluster configuration update operation
 	UpdateConfig *UpdateConfigOperationState `json:"update_config,omitempty"`
+	// Reconfigure contains reconfiguration operation state
+	Reconfigure *ReconfigureOperationState `json:"reconfigure,omitempty"`
 }
 
 func (s *SiteOperation) Check() error {
@@ -463,7 +458,18 @@ func (s *SiteOperation) Vars() OperationVariables {
 	if s.Uninstall != nil {
 		return s.Uninstall.Vars
 	}
+	if s.Update != nil {
+		return s.Update.Vars
+	}
 	return OperationVariables{}
+}
+
+// IsEqualTo returns true if the operation is equal to the provided operation.
+func (s *SiteOperation) IsEqualTo(other SiteOperation) bool {
+	// Compare a few essential fields only.
+	return s.ID == other.ID && s.AccountID == other.AccountID &&
+		s.SiteDomain == other.SiteDomain && s.Type == other.Type &&
+		s.State == other.State
 }
 
 // SiteOperations colection represents a list of operations performed
@@ -586,6 +592,7 @@ type Site struct {
 	InstallToken string `json:"install_token"`
 }
 
+// Check validates the cluster object's fields.
 func (s *Site) Check() error {
 	if s.AccountID == "" {
 		return trace.BadParameter("missing parameter AccountID")
@@ -602,6 +609,11 @@ func (s *Site) Check() error {
 	return nil
 }
 
+// Servers returns the cluster's servers.
+func (s *Site) Servers() Servers {
+	return s.ClusterState.Servers
+}
+
 // ClusterState defines the state of the cluster
 type ClusterState struct {
 	// Servers is a list of servers in the cluster
@@ -609,6 +621,7 @@ type ClusterState struct {
 	// Docker specifies current cluster Docker configuration
 	Docker DockerConfig `json:"docker"`
 }
+
 type nodeKey struct {
 	profile      string
 	instanceType string
@@ -1603,6 +1616,11 @@ func (s *Server) KubeNodeID() string {
 	return s.AdvertiseIP
 }
 
+// EtcdPeerURL returns etcd peer advertise URL with the server's IP.
+func (s *Server) EtcdPeerURL() string {
+	return fmt.Sprintf("https://%v:%v", s.AdvertiseIP, defaults.EtcdPeerPort)
+}
+
 // IsMaster returns true if the server has a master role
 func (s *Server) IsMaster() bool {
 	return s.ClusterRole == string(schema.ServiceRoleMaster)
@@ -1628,6 +1646,22 @@ func (s *Server) GetNodeLabels(profileLabels map[string]string) map[string]strin
 		}
 	}
 	return labels
+}
+
+// GetKubeletLabels returns the node's labels that can be set by kubelet.
+func (s *Server) GetKubeletLabels(profileLabels map[string]string) map[string]string {
+	allLabels := s.GetNodeLabels(profileLabels)
+	result := make(map[string]string)
+	for key, val := range allLabels {
+		if utils.IsKubernetesLabel(key) {
+			if kubeletapis.IsKubeletLabel(key) {
+				result[key] = val
+			}
+		} else {
+			result[key] = val
+		}
+	}
+	return result
 }
 
 // Strings formats this server as readable text
@@ -1812,6 +1846,8 @@ type OperationVariables struct {
 	OnPrem OnPremVariables `json:"onprem"`
 	// AWS is a set of AWS-specific variables
 	AWS AWSVariables `json:"aws"`
+	// Values are helm values in a marshaled yaml format
+	Values []byte `json:"values,omitempty"`
 }
 
 // ToMap converts operation variables into a JSON object for easier use in templates
@@ -2063,6 +2099,8 @@ type UpdateOperationState struct {
 	ServerUpdates []ServerUpdate `json:"server_updates,omitempty"`
 	// Manual specifies whether this update operation was created in manual mode
 	Manual bool `json:"manual"`
+	// Vars are variables specific to this operation
+	Vars OperationVariables `json:"vars"`
 }
 
 // UpdateEnvarsOperationState describes the state of the operation to update cluster environment variables.
@@ -2088,6 +2126,12 @@ type UpdateConfigOperationState struct {
 	PrevConfig []byte `json:"prev_config,omitempty"`
 	// Config specifies the raw configuration resource
 	Config []byte `json:"config,omitempty"`
+}
+
+// ReconfigureOperationState defines the reconfiguration operation state.
+type ReconfigureOperationState struct {
+	// AdvertiseAddr is the advertise address the node's being changed to.
+	AdvertiseAddr string `json:"advertise_addr"`
 }
 
 // ServerUpdate represents server that is being updated

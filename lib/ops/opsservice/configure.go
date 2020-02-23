@@ -65,7 +65,6 @@ const (
 	etcdProxyOn         = "on"
 	etcdNewCluster      = "new"
 	etcdExistingCluster = "existing"
-	etcdPeerPort        = 2380
 	etcdEndpointPort    = 2379
 )
 
@@ -77,7 +76,7 @@ func (o *Operator) ConfigurePackages(req ops.ConfigurePackagesRequest) error {
 		return trace.Wrap(err)
 	}
 	switch operation.Type {
-	case ops.OperationInstall, ops.OperationExpand:
+	case ops.OperationInstall, ops.OperationExpand, ops.OperationReconfigure:
 	default:
 		return trace.BadParameter("expected install or expand operation, got: %v",
 			operation)
@@ -102,7 +101,7 @@ func (o *Operator) ConfigurePackages(req ops.ConfigurePackagesRequest) error {
 		return trace.Wrap(err)
 	}
 
-	if operation.Type == ops.OperationInstall {
+	if operation.Type == ops.OperationInstall || operation.Type == ops.OperationReconfigure {
 		err = site.configurePackages(ctx, req)
 	} else {
 		err = site.configureExpandPackages(context.TODO(), ctx)
@@ -117,15 +116,6 @@ func (o *Operator) ConfigurePackages(req ops.ConfigurePackagesRequest) error {
 		return trace.Wrap(err)
 	}
 
-	if operation.Type == ops.OperationExpand {
-		// TODO (knisbet) temporary timeout since configure packages overall isn't time limited
-		c, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
-		defer cancel()
-		err = o.registerKubernetesNode(c, *operation)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-	}
 	return nil
 }
 
@@ -188,17 +178,6 @@ func (s *site) getTeleportMasters(ctx context.Context) (servers []teleportServer
 	return servers, nil
 }
 
-func (s *site) getTeleportMaster(ctx context.Context) (*teleportServer, error) {
-	masters, err := s.getTeleportMasters(ctx)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	if len(masters) == 0 {
-		return nil, trace.NotFound("no master servers found")
-	}
-	return &masters[0], nil
-}
-
 func (s *site) configureExpandPackages(ctx context.Context, opCtx *operationContext) error {
 	teleportMasterIPs, err := s.getTeleportMasterIPs(ctx)
 	if err != nil {
@@ -215,11 +194,11 @@ func (s *site) configureExpandPackages(ctx context.Context, opCtx *operationCont
 	}
 	secretsPackage := s.planetSecretsPackage(provisionedServer, planetPackage.Version)
 	configPackage := s.planetConfigPackage(provisionedServer, planetPackage.Version)
-	env, err := s.service.GetClusterEnvironmentVariables(s.key)
+	env, err := s.getClusterEnvironmentVariables()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	config, err := s.service.GetClusterConfiguration(s.key)
+	config, err := s.getClusterConfiguration()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -304,9 +283,11 @@ func (s *site) configurePackages(ctx *operationContext, req ops.ConfigurePackage
 		return trace.Wrap(err)
 	}
 
-	_, err = s.configureSiteExportPackage(ctx)
-	if err != nil {
-		return trace.Wrap(err)
+	if ctx.operation.Type == ops.OperationInstall {
+		_, err = s.configureSiteExportPackage(ctx)
+		if err != nil {
+			return trace.Wrap(err)
+		}
 	}
 
 	_, err = s.configureLicensePackage(ctx)
@@ -524,6 +505,8 @@ func (s *site) configurePlanetCertAuthority(ctx *operationContext) error {
 	// we have to share the same private key for various apiservers
 	// due to this issue:
 	// https://github.com/kubernetes/kubernetes/issues/11000#issuecomment-232469678
+	// TODO(security) separate this out to a separate secret for serviceaccounttokens
+	// For reference: https://github.com/kelseyhightower/kubernetes-the-hard-way/issues/248
 	apiServer, err := authority.GenerateCertificate(csr.CertificateRequest{
 		CN:    constants.APIServerKeyPair,
 		Hosts: []string{"127.0.0.1"},
@@ -599,7 +582,9 @@ func (s *site) getPlanetMasterSecretsPackage(ctx *operationContext, p planetMast
 		return nil, trace.Wrap(err)
 	}
 
-	baseKeyPair, err := archive.GetKeyPair(constants.APIServerKeyPair)
+	// Don't rotate apiserver secrets, as this secret is currently used to authenticate service account tokens
+	// TODO(securty) support rotation of apiserver / serviceaccount secrets
+	apiserverKeyPair, err := archive.GetKeyPair(constants.APIServerKeyPair)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -648,6 +633,8 @@ func (s *site) getPlanetMasterSecretsPackage(ctx *operationContext, p planetMast
 		if config.group != "" {
 			req.Names = []csr.Name{{O: config.group}}
 		}
+
+		var privateKeyPEM []byte
 		switch name {
 		case constants.APIServerKeyPair:
 			req.Hosts = append(req.Hosts,
@@ -673,6 +660,10 @@ func (s *site) getPlanetMasterSecretsPackage(ctx *operationContext, p planetMast
 						s.domainName, host}, "."))
 				}
 			}
+
+			// Don't rotate the APIServer key, the secret is currently used for validating serviceaccounttokens
+			// TODO(security) enable rotation of secret for apiserver/serviceaccounttokens
+			privateKeyPEM = apiserverKeyPair.KeyPEM
 		case constants.ProxyKeyPair:
 			req.Hosts = append(req.Hosts,
 				constants.APIServerDomainNameGravity,
@@ -682,7 +673,8 @@ func (s *site) getPlanetMasterSecretsPackage(ctx *operationContext, p planetMast
 				defaults.LograngeAggregatorServiceName,
 				defaults.KubeSystemNamespace)...)
 		}
-		keyPair, err := authority.GenerateCertificate(req, caKeyPair, baseKeyPair.KeyPEM, defaults.CertificateExpiry)
+
+		keyPair, err := authority.GenerateCertificate(req, caKeyPair, privateKeyPEM, defaults.CertificateExpiry)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
@@ -749,7 +741,6 @@ func (s *site) getPlanetNodeSecretsPackage(ctx *operationContext, node *Provisio
 		constants.LograngeCollectorKeyPair: {},
 	}
 
-	var privateKeyPEM []byte
 	for keyName, config := range keyPairTypes {
 		req := csr.CertificateRequest{
 			Hosts: []string{constants.LoopbackIP, node.AdvertiseIP, node.Hostname},
@@ -770,14 +761,9 @@ func (s *site) getPlanetNodeSecretsPackage(ctx *operationContext, node *Provisio
 		if config.group != "" {
 			req.Names = []csr.Name{{O: config.group}}
 		}
-		keyPair, err := authority.GenerateCertificate(req, caKeyPair, privateKeyPEM, defaults.CertificateExpiry)
+		keyPair, err := authority.GenerateCertificate(req, caKeyPair, nil, defaults.CertificateExpiry)
 		if err != nil {
 			return nil, trace.Wrap(err)
-		}
-		// Store the private key from the first generated key pair and re-use
-		// it on subsequent requests to speed up certificate generation
-		if len(privateKeyPEM) == 0 {
-			privateKeyPEM = keyPair.KeyPEM
 		}
 		if err := newArchive.AddKeyPair(keyName, *keyPair); err != nil {
 			return nil, trace.Wrap(err)
@@ -1007,6 +993,14 @@ func (s *site) getPlanetConfig(config planetConfig) (args []string, err error) {
 		args = append(args, fmt.Sprintf("--device=%v", device.Format()))
 	}
 
+	for _, taint := range profile.Taints {
+		args = append(args, fmt.Sprintf("--taint=%v=%v:%v", taint.Key, taint.Value, taint.Effect))
+	}
+
+	for k, v := range node.GetKubeletLabels(profile.Labels) {
+		args = append(args, fmt.Sprintf("--node-label=%v=%v", k, v))
+	}
+
 	// If the manifest contains an install hook to install a separate overlay network, disable flannel inside planet
 	if manifest.Hooks != nil && manifest.Hooks.NetworkInstall != nil {
 		args = append(args, "--disable-flannel=true")
@@ -1022,23 +1016,6 @@ func (s *site) getPlanetConfig(config planetConfig) (args []string, err error) {
 
 	log.WithField("args", args).Info("Runtime configuration.")
 	return args, nil
-}
-
-// getNodeLabels returns labels a Kubernetes node should register with
-func getNodeLabels(node ProvisionedServer, profile *schema.NodeProfile) map[string]string {
-	labels := profile.Labels
-	if labels == nil {
-		labels = make(map[string]string)
-	}
-	if _, ok := labels[defaults.KubernetesRoleLabel]; ok {
-		role := schema.ServiceRoleNode
-		if node.IsMaster() {
-			role = schema.ServiceRoleMaster
-		}
-		labels[defaults.KubernetesRoleLabel] = string(role)
-	}
-	labels[defaults.KubernetesAdvertiseIPLabel] = node.AdvertiseIP
-	return labels
 }
 
 func (s *site) configurePlanetServer(config planetConfig) error {
@@ -1371,13 +1348,6 @@ func PlanetCertAuthorityPackage(clusterName string) (*loc.Locator, error) {
 
 func (s *site) planetCertAuthorityPackage() (*loc.Locator, error) {
 	return PlanetCertAuthorityPackage(s.siteRepoName())
-}
-
-// opsCertAuthorityPackage is a shorthand to return locator for OpsCenter's certificate
-// authority package
-func (s *site) opsCertAuthorityPackage() (*loc.Locator, error) {
-	return loc.ParseLocator(
-		fmt.Sprintf("%v/%v", defaults.SystemAccountOrg, constants.OpsCenterCAPackage))
 }
 
 // siteExport package exports site state as BoltDB database dump

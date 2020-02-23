@@ -71,6 +71,9 @@ func startInstall(env *localenv.LocalEnvironment, config InstallConfig) error {
 	strategy, err := NewInstallerConnectStrategy(env, config, cli.CommandArgs{
 		Parser: cli.ArgsParserFunc(parseArgs),
 	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	err = InstallerClient(env, installerclient.Config{
 		ConnectStrategy: strategy,
 		Lifecycle: &installerclient.AutomaticLifecycle{
@@ -82,7 +85,9 @@ func startInstall(env *localenv.LocalEnvironment, config InstallConfig) error {
 	})
 	if utils.IsContextCancelledError(err) {
 		// We only end up here if the initialization has not been successful - clean up the state
-		InstallerCleanup()
+		if err := InstallerCleanup(); err != nil {
+			log.Warnf("Failed to clean up installer: %v.", err)
+		}
 		return trace.Wrap(err, "installer interrupted")
 	}
 	return trace.Wrap(err)
@@ -241,7 +246,9 @@ func restartInstallOrJoin(env *localenv.LocalEnvironment) error {
 	})
 	if utils.IsContextCancelledError(err) {
 		// We only end up here if the initialization has not been successful - clean up the state
-		InstallerCleanup()
+		if err := InstallerCleanup(); err != nil {
+			log.Warnf("Failed to clean up installer: %v.", err)
+		}
 		return trace.Wrap(err, "installer interrupted")
 	}
 	return trace.Wrap(err)
@@ -425,7 +432,9 @@ func autojoin(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, d
 	})
 	if utils.IsContextCancelledError(err) {
 		// We only end up here if the initialization has not been successful - clean up the state
-		InstallerCleanup()
+		if err := InstallerCleanup(); err != nil {
+			log.Warnf("Failed to clean up installer: %v.", err)
+		}
 		return trace.Wrap(err, "agent interrupted")
 	}
 	return trace.Wrap(err)
@@ -692,7 +701,9 @@ func join(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, confi
 	})
 	if utils.IsContextCancelledError(err) {
 		// We only end up here if the initialization has not been successful - clean up the state
-		InstallerCleanup()
+		if err := InstallerCleanup(); err != nil {
+			log.Warnf("Failed to clean up installer: %v.", err)
+		}
 		return trace.Wrap(err, "agent interrupted")
 	}
 	return trace.Wrap(err)
@@ -743,6 +754,27 @@ func NewInstallerConnectStrategy(env *localenv.LocalEnvironment, config InstallC
 	return &installerclient.InstallerStrategy{
 		Args:           args,
 		Validate:       environ.ValidateInstall(env),
+		ApplicationDir: utils.Exe.WorkingDir,
+		ServicePath:    servicePath,
+	}, nil
+}
+
+// newReconfiguratorConnectStrategy returns a new service connect strategy
+// for the agent executing the cluster reconfiguration operation.
+func newReconfiguratorConnectStrategy(env *localenv.LocalEnvironment, config InstallConfig, commandArgs cli.CommandArgs) (strategy installerclient.ConnectStrategy, err error) {
+	args, err := commandArgs.Update(os.Args[1:])
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	args = append([]string{utils.Exe.Path}, args...)
+	args = append(args, "--from-service")
+	servicePath, err := state.GravityInstallDir(defaults.GravityRPCInstallerServiceName)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &installerclient.InstallerStrategy{
+		Args:           args,
+		Validate:       func() error { return nil },
 		ApplicationDir: utils.Exe.WorkingDir,
 		ServicePath:    servicePath,
 	}, nil

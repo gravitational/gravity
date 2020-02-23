@@ -63,6 +63,7 @@ import (
 	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/users"
 	"github.com/gravitational/gravity/lib/utils"
+	"github.com/gravitational/gravity/lib/utils/helm"
 
 	"github.com/cenkalti/backoff"
 	"github.com/docker/docker/pkg/namesgenerator"
@@ -134,7 +135,7 @@ type InstallConfig struct {
 	// GCENodeTags defines the VM instance tags on GCE
 	GCENodeTags []string
 	// LocalClusterClient is a factory for creating client to the installed cluster
-	LocalClusterClient func() (*opsclient.Client, error)
+	LocalClusterClient func(...httplib.ClientOption) (*opsclient.Client, error)
 	// Mode specifies the installer mode
 	Mode string
 	// DNSHosts is a list of DNS host overrides
@@ -161,17 +162,62 @@ type InstallConfig struct {
 	// writeStateDir is the directory where installer stores state for the duration
 	// of the operation
 	writeStateDir string
+	// Values are helm values in marshaled yaml format
+	Values []byte
+}
+
+// NewReconfigureConfig creates config for the reconfigure operation.
+//
+// Reconfiguration is very similar to initial installation so the install
+// config is reused.
+func NewReconfigureConfig(env *localenv.LocalEnvironment, g *Application) (*InstallConfig, error) {
+	// The installer is using the existing state directory in order to be able
+	// to use existing application packages.
+	stateDir, err := state.GetStateDir()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &InstallConfig{
+		Insecure:           *g.Insecure,
+		StateDir:           state.GravityLocalDir(stateDir),
+		UserLogFile:        *g.UserLogFile,
+		SystemLogFile:      *g.SystemLogFile,
+		AdvertiseAddr:      *g.StartCmd.AdvertiseAddr,
+		FromService:        *g.StartCmd.FromService,
+		LocalPackages:      env.Packages,
+		LocalApps:          env.Apps,
+		LocalBackend:       env.Backend,
+		LocalClusterClient: env.SiteOperator,
+		Mode:               constants.InstallModeCLI,
+		Printer:            env,
+	}, nil
+}
+
+// Apply updates the config with the data found from the cluster/operation.
+func (c *InstallConfig) Apply(cluster storage.Site, operation storage.SiteOperation) {
+	c.SiteDomain = cluster.Domain
+	c.AppPackage = cluster.App.Locator().String()
+	c.CloudProvider = cluster.Provider
+	c.PodCIDR = operation.Vars().OnPrem.PodCIDR
+	c.ServiceCIDR = operation.Vars().OnPrem.ServiceCIDR
+	c.VxlanPort = operation.Vars().OnPrem.VxlanPort
+	c.ServiceUID = cluster.ServiceUser.UID
+	c.ServiceGID = cluster.ServiceUser.GID
 }
 
 // NewInstallConfig creates install config from the passed CLI args and flags
-func NewInstallConfig(env *localenv.LocalEnvironment, g *Application) InstallConfig {
+func NewInstallConfig(env *localenv.LocalEnvironment, g *Application) (*InstallConfig, error) {
 	mode := *g.InstallCmd.Mode
 	if *g.InstallCmd.Wizard {
 		// this is obsolete parameter but take it into account in
 		// case somebody is still using it
 		mode = constants.InstallModeInteractive
 	}
-	return InstallConfig{
+	values, err := helm.Vals(*g.InstallCmd.Values, *g.InstallCmd.Set, nil, nil, "", "", "")
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &InstallConfig{
 		Insecure:      *g.Insecure,
 		StateDir:      *g.InstallCmd.Path,
 		UserLogFile:   *g.UserLogFile,
@@ -207,8 +253,9 @@ func NewInstallConfig(env *localenv.LocalEnvironment, g *Application) InstallCon
 		Flavor:             *g.InstallCmd.Flavor,
 		Remote:             *g.InstallCmd.Remote,
 		FromService:        *g.InstallCmd.FromService,
+		Values:             values,
 		Printer:            env,
-	}
+	}, nil
 }
 
 // CheckAndSetDefaults validates the configuration object and populates default values
@@ -404,6 +451,7 @@ func (i *InstallConfig) NewInstallerConfig(
 		Packages:           wizard.Packages,
 		Operator:           wizard.Operator,
 		LocalAgent:         !i.Remote,
+		Values:             i.Values,
 	}, nil
 
 }
@@ -411,23 +459,6 @@ func (i *InstallConfig) NewInstallerConfig(
 func (i *InstallConfig) validateApplicationDir() error {
 	_, err := i.getApp()
 	return trace.Wrap(err)
-}
-
-// getAdvertiseAddr returns the advertise address to use for the ???
-// asks the user to choose it among the host's interfaces
-func (i *InstallConfig) getAdvertiseAddr() (string, error) {
-	// if it was set explicitly with --advertise-addr flag, use it
-	if i.AdvertiseAddr != "" {
-		return i.AdvertiseAddr, nil
-	}
-	// otherwise, try to pick an address among machine's interfaces
-	addr, err := utils.PickAdvertiseIP()
-	if err != nil {
-		return "", trace.Wrap(err, "could not pick advertise address among "+
-			"the host's network interfaces, please set the advertise address "+
-			"via --advertise-addr flag")
-	}
-	return addr, nil
 }
 
 // getApp returns the application package for this installer
@@ -607,8 +638,12 @@ func (i *InstallConfig) validateCloudConfig(manifest schema.Manifest) (err error
 }
 
 // NewWizardConfig returns new configuration for the interactive installer
-func NewWizardConfig(env *localenv.LocalEnvironment, g *Application) InstallConfig {
-	return InstallConfig{
+func NewWizardConfig(env *localenv.LocalEnvironment, g *Application) (*InstallConfig, error) {
+	values, err := helm.Vals(*g.WizardCmd.Values, *g.WizardCmd.Set, nil, nil, "", "", "")
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &InstallConfig{
 		Mode:               constants.InstallModeInteractive,
 		Insecure:           *g.Insecure,
 		UserLogFile:        *g.UserLogFile,
@@ -625,7 +660,8 @@ func NewWizardConfig(env *localenv.LocalEnvironment, g *Application) InstallConf
 		LocalApps:          env.Apps,
 		LocalBackend:       env.Backend,
 		LocalClusterClient: env.SiteOperator,
-	}
+		Values:             values,
+	}, nil
 }
 
 // JoinConfig describes command line configuration of the join command
@@ -1178,7 +1214,12 @@ func (i *InstallConfig) validateOrDetectCloudProvider(cloudProvider string, mani
 	}
 	switch cloudProvider {
 	case schema.ProviderAWS, schema.ProvisionerAWSTerraform:
-		if !awscloud.IsRunningOnAWS() {
+		runningOnAWS, err := awscloud.IsRunningOnAWS()
+		if err != nil {
+			// TODO: fallthrough instead of failing to keep backwards compat
+			log.WithError(err).Warn("Failed to determine whether running on AWS.")
+		}
+		if !runningOnAWS {
 			return "", trace.BadParameter("cloud provider %q was specified "+
 				"but the process does not appear to be running on an AWS "+
 				"instance", cloudProvider)
@@ -1196,7 +1237,12 @@ func (i *InstallConfig) validateOrDetectCloudProvider(cloudProvider string, mani
 	case "":
 		log.Info("Will auto-detect provider.")
 		// Detect cloud provider
-		if awscloud.IsRunningOnAWS() {
+		runningOnAWS, err := awscloud.IsRunningOnAWS()
+		if err != nil {
+			// TODO: fallthrough instead of failing to keep backwards compat
+			log.WithError(err).Warn("Failed to determine whether running on AWS.")
+		}
+		if runningOnAWS {
 			log.Info("Detected AWS cloud provider.")
 			return schema.ProviderAWS, nil
 		}

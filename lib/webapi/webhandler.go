@@ -255,7 +255,9 @@ func (h *WebHandler) defaultHandler(w http.ResponseWriter, r *http.Request, p ht
 		Session: s.Session,
 	}
 
-	indexPage.Execute(w, tmplValues)
+	if err := indexPage.Execute(w, tmplValues); err != nil {
+		log.WithError(err).Warn("Failed to render index page template.")
+	}
 }
 
 // installHandler serves /web/installer/site/<sitename> and its subpaths

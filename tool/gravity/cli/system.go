@@ -786,8 +786,7 @@ type packageRequest struct {
 var (
 	gravityPackageFilter = loc.MustCreateLocator(
 		defaults.SystemAccountOrg, constants.GravityPackage, loc.ZeroVersion)
-	teleportPackageFilter = loc.MustCreateLocator(
-		defaults.SystemAccountOrg, constants.TeleportPackage, loc.ZeroVersion)
+	// teleportPackageFilter = loc.MustCreateLocator(defaults.SystemAccountOrg, constants.TeleportPackage, loc.ZeroVersion)
 )
 
 // printStateDir outputs directory where all gravity data is stored on the node

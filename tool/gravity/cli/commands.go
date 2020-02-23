@@ -66,6 +66,10 @@ type Application struct {
 	LeaveCmd LeaveCmd
 	// RemoveCmd removes the specified node from the cluster
 	RemoveCmd RemoveCmd
+	// StopCmd stops all gravity services on the node
+	StopCmd StopCmd
+	// StartCmd starts all gravity services on the node
+	StartCmd StartCmd
 	// PlanCmd manages an operation plan
 	PlanCmd PlanCmd
 	// UpdatePlanInitCmd creates a new update operation plan
@@ -98,10 +102,18 @@ type Application struct {
 	UpdateSystemCmd UpdateSystemCmd
 	// UpgradeCmd launches app upgrade
 	UpgradeCmd UpgradeCmd
-	// StatusCmd displays cluster status
+	// StatusCmd combines subcommands for displaying status information
 	StatusCmd StatusCmd
+	// StatusClusterCmd displays the current cluster status
+	StatusClusterCmd StatusClusterCmd
+	// StatusHistoryCmd displays the cluster status history
+	StatusHistoryCmd StatusHistoryCmd
 	// StatusResetCmd resets the cluster to active state
 	StatusResetCmd StatusResetCmd
+	// RegistryCmd allows to interact with the cluster private registry
+	RegistryCmd RegistryCmd
+	// RegistryListCmd displays images from the registry
+	RegistryListCmd RegistryListCmd
 	// BackupCmd launches app backup hook
 	BackupCmd BackupCmd
 	// RestoreCmd launches app restore hook
@@ -394,6 +406,10 @@ type InstallCmd struct {
 	// the client will simply connect to the service and stream its output and errors
 	// and control whether it should stop
 	FromService *bool
+	// Set is a list of Helm chart values set on the CLI.
+	Set *[]string
+	// Values is a list of YAML files with Helm chart values.
+	Values *[]string
 }
 
 // JoinCmd joins to the installer or existing cluster
@@ -646,10 +662,19 @@ type UpgradeCmd struct {
 	Resume *bool
 	// SkipVersionCheck suppresses version mismatch errors
 	SkipVersionCheck *bool
+	// Set is a list of Helm chart values set on the CLI.
+	Set *[]string
+	// Values is a list of YAML files with Helm chart values.
+	Values *[]string
 }
 
-// StatusCmd displays cluster status
+// StatusCmd combines subcommands for displaying status information
 type StatusCmd struct {
+	*kingpin.CmdClause
+}
+
+// StatusClusterCmd displays current cluster status
+type StatusClusterCmd struct {
 	*kingpin.CmdClause
 	// Token displays only join token
 	Token *bool
@@ -663,9 +688,34 @@ type StatusCmd struct {
 	Output *constants.Format
 }
 
+// StatusHistoryCmd displays cluster status history
+type StatusHistoryCmd struct {
+	*kingpin.CmdClause
+}
+
 // StatusResetCmd resets cluster to active state
 type StatusResetCmd struct {
 	*kingpin.CmdClause
+}
+
+// RegistryCmd allows to interact with the cluster private registry
+type RegistryCmd struct {
+	*kingpin.CmdClause
+}
+
+// RegistryListCmd lists images in the registry
+type RegistryListCmd struct {
+	*kingpin.CmdClause
+	// Registry is the address of registry to list contents in
+	Registry *string
+	// CAPath is path to registry CA certificate
+	CAPath *string
+	// CertPath is path to registry client certificate
+	CertPath *string
+	// KeyPath is path to registry client private key
+	KeyPath *string
+	// Format is the output format
+	Format *constants.Format
 }
 
 // BackupCmd launches app backup hook
@@ -708,6 +758,8 @@ type CheckCmd struct {
 // AppCmd combines subcommands for app service
 type AppCmd struct {
 	*kingpin.CmdClause
+	// TillerNamespace specifies namespace where Tiller server is running.
+	TillerNamespace *string
 }
 
 // AppInstallCmd installs an application from an application image.
@@ -731,6 +783,12 @@ type AppInstallCmd struct {
 	RegistryCert *string
 	// RegistryKey is a registry client private key path.
 	RegistryKey *string
+	// RegistryUsername is registry username for basic auth.
+	RegistryUsername *string
+	// RegistryPassword is registry password for basic auth.
+	RegistryPassword *string
+	// RegistryPrefix is registry prefix when pushing images.
+	RegistryPrefix *string
 }
 
 // AppListCmd shows all application releases.
@@ -759,6 +817,12 @@ type AppUpgradeCmd struct {
 	RegistryCert *string
 	// RegistryKey is a registry client private key path.
 	RegistryKey *string
+	// RegistryUsername is registry username for basic auth.
+	RegistryUsername *string
+	// RegistryPassword is registry password for basic auth.
+	RegistryPassword *string
+	// RegistryPrefix is registry prefix when pushing images.
+	RegistryPrefix *string
 }
 
 // AppRollbackCmd rolls back a release.
@@ -797,6 +861,12 @@ type AppSyncCmd struct {
 	RegistryCert *string
 	// RegistryKey is a registry client private key path.
 	RegistryKey *string
+	// RegistryUsername is registry username for basic auth.
+	RegistryUsername *string
+	// RegistryPassword is registry password for basic auth.
+	RegistryPassword *string
+	// RegistryPrefix is registry prefix when pushing images.
+	RegistryPrefix *string
 }
 
 // AppSearchCmd searches for applications.
@@ -975,6 +1045,10 @@ type WizardCmd struct {
 	// the client will simply connect to the service and stream its output and errors
 	// and control whether it should stop
 	FromService *bool
+	// Set is a list of Helm chart values set on the CLI.
+	Set *[]string
+	// Values is a list of YAML files with Helm chart values.
+	Values *[]string
 }
 
 // AppPackageCmd displays the name of app in installer tarball
@@ -1366,6 +1440,24 @@ type SystemExportCACmd struct {
 	ClusterName *string
 	// CAPath is path to export CA to
 	CAPath *string
+}
+
+// StopCmd stops all Gravity services on the node.
+type StopCmd struct {
+	*kingpin.CmdClause
+	// Confirmed suppresses confirmation prompt.
+	Confirmed *bool
+}
+
+// StartCmd starts all Gravity services on the node.
+type StartCmd struct {
+	*kingpin.CmdClause
+	// AdvertiseAddr is the new node advertise address.
+	AdvertiseAddr *string
+	// FromService indicates that the command is running as a systemd service.
+	FromService *bool
+	// Confirmed suppresses confirmation prompt.
+	Confirmed *bool
 }
 
 // SystemUninstallCmd uninstalls all gravity services from local node

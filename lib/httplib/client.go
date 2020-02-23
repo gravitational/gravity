@@ -38,6 +38,7 @@ import (
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/rigging"
+	"github.com/gravitational/satellite/lib/rpc/client"
 	rt "github.com/gravitational/teleport/lib/reversetunnel"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
@@ -379,9 +380,8 @@ func getKubeClient(dnsAddr string, tlsConfig rest.TLSClientConfig, options ...Ku
 			defaults.APIServerSecurePort),
 		TLSClientConfig: tlsConfig,
 		WrapTransport: func(t http.RoundTripper) http.RoundTripper {
-			switch t.(type) {
-			case *http.Transport:
-				t.(*http.Transport).DialContext = DialFromEnviron(dnsAddr)
+			if transport, ok := t.(*http.Transport); ok {
+				transport.DialContext = DialFromEnviron(dnsAddr)
 			}
 			return t
 		},
@@ -413,4 +413,26 @@ func getKubeconfigPath() (path string, err error) {
 	rootfsPath := filepath.Clean(filepath.Join(filepath.Dir(path), "../../.."))
 	path = filepath.Join(rootfsPath, constants.Kubeconfig)
 	return path, nil
+}
+
+// GetGRPCPlanetClient a grpc client connection to the local planet agent.
+func GetGRPCPlanetClient(ctx context.Context) (client.Client, error) {
+	addr := fmt.Sprintf("%v:%v", constants.Localhost, defaults.SatelliteRPCAgentPort)
+
+	stateDir, err := state.GetStateDir()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	caFile := state.Secret(stateDir, defaults.RootCertFilename)
+	clientCertFile := state.Secret(stateDir, fmt.Sprint(constants.PlanetRpcKeyPair, ".", utils.CertSuffix))
+	clientKeyFile := state.Secret(stateDir, fmt.Sprint(constants.PlanetRpcKeyPair, ".", utils.KeySuffix))
+
+	config := client.Config{
+		Address:  addr,
+		CAFile:   caFile,
+		CertFile: clientCertFile,
+		KeyFile:  clientKeyFile,
+	}
+	return client.NewClient(ctx, config)
 }

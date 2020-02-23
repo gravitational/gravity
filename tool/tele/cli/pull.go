@@ -30,6 +30,18 @@ import (
 	"github.com/gravitational/trace"
 )
 
+// NewProgress returns progress reporter used in tele cli.
+func NewProgress(ctx context.Context, title string, silent bool) utils.Progress {
+	level := utils.ProgressLevelInfo
+	if silent {
+		level = utils.ProgressLevelNone
+	}
+	return utils.NewProgressWithConfig(ctx, title, utils.ProgressConfig{
+		Level:       level,
+		StepPrinter: utils.TimestampedStepPrinter,
+	})
+}
+
 func pull(env localenv.LocalEnvironment, app, outFile string, force, quiet bool) error {
 	locator, err := loc.MakeLocator(app)
 	if err != nil {
@@ -74,7 +86,7 @@ func pull(env localenv.LocalEnvironment, app, outFile string, force, quiet bool)
 	}
 	defer f.Close()
 
-	progress := utils.NewProgress(context.TODO(), "Download", 1, quiet)
+	progress := NewProgress(context.TODO(), "Download", quiet)
 	defer progress.Stop()
 
 	progress.NextStep(fmt.Sprintf("Downloading %v:%v", name, locator.Version))

@@ -96,6 +96,8 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.InstallCmd.DNSZones = g.InstallCmd.Flag("dns-zone", "Specify an upstream server for the given zone within the cluster. Accepts <zone>/<nameserver> format where <nameserver> can be either <ip> or <ip>:<port>. Can be specified multiple times.").Strings()
 	g.InstallCmd.Remote = g.InstallCmd.Flag("remote", "Do not use this node in the cluster.").Bool()
 	g.InstallCmd.FromService = g.InstallCmd.Flag("from-service", "Run in service mode.").Hidden().Bool()
+	g.InstallCmd.Set = g.InstallCmd.Flag("set", "Set Helm chart values on the command line. Can be specified multiple times and/or as comma-separated values: key1=val1,key2=val2.").Strings()
+	g.InstallCmd.Values = g.InstallCmd.Flag("values", "Set Helm chart values from the provided YAML file. Can be specified multiple times.").Strings()
 
 	g.JoinCmd.CmdClause = g.Command("join", "Join the existing cluster or an on-going install operation.")
 	g.JoinCmd.PeerAddr = g.JoinCmd.Arg("peer-addrs", "One or several IP addresses of cluster nodes to join, as comma-separated values.").String()
@@ -136,6 +138,14 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.ResumeCmd.SkipVersionCheck = g.ResumeCmd.Flag("skip-version-check", "Bypass version compatibility check.").Hidden().Bool()
 	g.ResumeCmd.Force = g.ResumeCmd.Flag("force", "Force execution of specified phase.").Bool()
 	g.ResumeCmd.PhaseTimeout = g.ResumeCmd.Flag("timeout", "Phase execution timeout.").Default(defaults.PhaseTimeout).Hidden().Duration()
+
+	g.StopCmd.CmdClause = g.Command("stop", "Stop Gravity services on the node.")
+	g.StopCmd.Confirmed = g.StopCmd.Flag("confirm", "Suppress confirmation prompt.").Bool()
+
+	g.StartCmd.CmdClause = g.Command("start", "Start Gravity services on the node.")
+	g.StartCmd.AdvertiseAddr = g.StartCmd.Flag("advertise-addr", "New advertise address the node will use. Must be present on the node.").String()
+	g.StartCmd.FromService = g.StartCmd.Flag("from-service", "Run in service mode.").Hidden().Bool()
+	g.StartCmd.Confirmed = g.StartCmd.Flag("confirm", "Suppress confirmation prompt.").Bool()
 
 	g.PlanCmd.CmdClause = g.Command("plan", "Manage operation plan.")
 	g.PlanCmd.OperationID = g.PlanCmd.Flag("operation-id", "ID of the active operation. It not specified, the last operation will be used.").Hidden().String()
@@ -186,6 +196,8 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.UpgradeCmd.Force = g.UpgradeCmd.Flag("force", "Force phase execution even if pre-conditions are not satisfied.").Bool()
 	g.UpgradeCmd.Resume = g.UpgradeCmd.Flag("resume", "Resume upgrade from the last failed step.").Bool()
 	g.UpgradeCmd.SkipVersionCheck = g.UpgradeCmd.Flag("skip-version-check", "Bypass version compatibility check.").Hidden().Bool()
+	g.UpgradeCmd.Set = g.UpgradeCmd.Flag("set", "Set Helm chart values on the command line. Can be specified multiple times and/or as comma-separated values: key1=val1,key2=val2.").Strings()
+	g.UpgradeCmd.Values = g.UpgradeCmd.Flag("values", "Set Helm chart values from the provided YAML file. Can be specified multiple times.").Strings()
 
 	g.UpdateUploadCmd.CmdClause = g.UpdateCmd.Command("upload", "Upload update package to locally running site").Hidden()
 	g.UpdateUploadCmd.OpsCenterURL = g.UpdateUploadCmd.Flag("ops-url", "Optional Gravity Hub URL to upload new packages to (defaults to local gravity site)").Default(defaults.GravityServiceURL).String()
@@ -201,15 +213,31 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.UpdateSystemCmd.WithStatus = g.UpdateSystemCmd.Flag("with-status", "Verify the system status at the end of the operation").Bool()
 	g.UpdateSystemCmd.RuntimePackage = Locator(g.UpdateSystemCmd.Flag("runtime-package", "The name of the runtime package to update to").Required())
 
+	// Display cluster status information
 	g.StatusCmd.CmdClause = g.Command("status", "Display overall cluster status.")
-	g.StatusCmd.Token = g.StatusCmd.Flag("token", "Display only the cluster join token.").Bool()
-	g.StatusCmd.Tail = g.StatusCmd.Flag("tail", "Tail logs of the currently running operation until it completes.").Bool()
-	g.StatusCmd.OperationID = g.StatusCmd.Flag("operation-id", "Check status of the operation with the given ID.").Short('o').String()
-	g.StatusCmd.Seconds = g.StatusCmd.Flag("seconds", "Continuously display status every N seconds.").Short('s').Int()
-	g.StatusCmd.Output = common.Format(g.StatusCmd.Flag("output", "Output format: json or text.").Default(string(constants.EncodingText)))
+
+	// Display current overall cluster status
+	g.StatusClusterCmd.CmdClause = g.StatusCmd.Command("cluster", "Display overall cluster status.").Default()
+	g.StatusClusterCmd.Token = g.StatusClusterCmd.Flag("token", "Display only the cluster join token.").Bool()
+	g.StatusClusterCmd.Tail = g.StatusClusterCmd.Flag("tail", "Tail logs of the currently running operation until it completes.").Bool()
+	g.StatusClusterCmd.OperationID = g.StatusClusterCmd.Flag("operation-id", "Check status of the operation with the given ID.").Short('o').String()
+	g.StatusClusterCmd.Seconds = g.StatusClusterCmd.Flag("seconds", "Continuously display status every N seconds.").Short('s').Int()
+	g.StatusClusterCmd.Output = common.Format(g.StatusClusterCmd.Flag("output", "Output format: json or text.").Default(string(constants.EncodingText)))
+
+	// Display cluster status history
+	g.StatusHistoryCmd.CmdClause = g.StatusCmd.Command("history", "Display cluster status history.")
 
 	// reset cluster state, for debugging/emergencies
 	g.StatusResetCmd.CmdClause = g.Command("status-reset", "Reset the cluster state to 'active'").Hidden()
+
+	// interacting with in-cluster registry
+	g.RegistryCmd.CmdClause = g.Command("registry", "Interact with the cluster private Docker registry.")
+	g.RegistryListCmd.CmdClause = g.RegistryCmd.Command("list", "List images in the registry.")
+	g.RegistryListCmd.Registry = g.RegistryListCmd.Flag("registry", "Address of the registry to list the contents of. Defaults to the currently active private cluster registry.").String()
+	g.RegistryListCmd.CAPath = g.RegistryListCmd.Flag("ca-path", "Optional registry CA certificate path.").String()
+	g.RegistryListCmd.CertPath = g.RegistryListCmd.Flag("cert-path", "Optional registry client certificate path.").String()
+	g.RegistryListCmd.KeyPath = g.RegistryListCmd.Flag("key-path", "Optional registry client private key path.").String()
+	g.RegistryListCmd.Format = common.Format(g.RegistryListCmd.Flag("format", fmt.Sprintf("Output format: %v.", constants.OutputFormats)).Default(string(constants.EncodingText)))
 
 	// backup
 	g.BackupCmd.CmdClause = g.Command("backup", "Launch the cluster's backup hook.")
@@ -232,6 +260,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 
 	// operations on gravity applications
 	g.AppCmd.CmdClause = g.Command("app", "Operations with application images and releases.")
+	g.AppCmd.TillerNamespace = g.AppCmd.Flag("tiller-namespace", "Namespace where Tiller is running").String()
 
 	// helm-specific flags
 	g.AppInstallCmd.CmdClause = g.AppCmd.Command("install", "Install an application from the specified application image.")
@@ -244,6 +273,9 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.AppInstallCmd.RegistryCA = g.AppInstallCmd.Flag("registry-ca", "Docker registry CA certificate path.").String()
 	g.AppInstallCmd.RegistryCert = g.AppInstallCmd.Flag("registry-cert", "Docker registry client certificate path.").String()
 	g.AppInstallCmd.RegistryKey = g.AppInstallCmd.Flag("registry-key", "Docker registry client private key path.").String()
+	g.AppInstallCmd.RegistryUsername = g.AppInstallCmd.Flag("registry-username", "Docker registry username.").String()
+	g.AppInstallCmd.RegistryPassword = g.AppInstallCmd.Flag("registry-password", "Docker registry password.").String()
+	g.AppInstallCmd.RegistryPrefix = g.AppInstallCmd.Flag("registry-prefix", "Docker registry prefix.").String()
 
 	g.AppListCmd.CmdClause = g.AppCmd.Command("ls", "Show all application releases.").Alias("list")
 	g.AppListCmd.All = g.AppListCmd.Flag("all", "Do not filter releases by status.").Short('a').Bool()
@@ -257,6 +289,9 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.AppUpgradeCmd.RegistryCA = g.AppUpgradeCmd.Flag("registry-ca", "Docker registry CA certificate path.").String()
 	g.AppUpgradeCmd.RegistryCert = g.AppUpgradeCmd.Flag("registry-cert", "Docker registry client certificate path.").String()
 	g.AppUpgradeCmd.RegistryKey = g.AppUpgradeCmd.Flag("registry-key", "Docker registry client private key path.").String()
+	g.AppUpgradeCmd.RegistryUsername = g.AppUpgradeCmd.Flag("registry-username", "Docker registry username.").String()
+	g.AppUpgradeCmd.RegistryPassword = g.AppUpgradeCmd.Flag("registry-password", "Docker registry password.").String()
+	g.AppUpgradeCmd.RegistryPrefix = g.AppUpgradeCmd.Flag("registry-prefix", "Docker registry prefix.").String()
 
 	g.AppRollbackCmd.CmdClause = g.AppCmd.Command("rollback", "Rollback a release.")
 	g.AppRollbackCmd.Release = g.AppRollbackCmd.Arg("release", "Release name to rollback.").Required().String()
@@ -274,6 +309,9 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.AppSyncCmd.RegistryCA = g.AppSyncCmd.Flag("registry-ca", "Docker registry CA certificate path.").String()
 	g.AppSyncCmd.RegistryCert = g.AppSyncCmd.Flag("registry-cert", "Docker registry client certificate path.").String()
 	g.AppSyncCmd.RegistryKey = g.AppSyncCmd.Flag("registry-key", "Docker registry client private key path.").String()
+	g.AppSyncCmd.RegistryUsername = g.AppSyncCmd.Flag("registry-username", "Docker registry username.").String()
+	g.AppSyncCmd.RegistryPassword = g.AppSyncCmd.Flag("registry-password", "Docker registry password.").String()
+	g.AppSyncCmd.RegistryPrefix = g.AppSyncCmd.Flag("registry-prefix", "Docker registry prefix.").String()
 
 	g.AppSearchCmd.CmdClause = g.AppCmd.Command("search", "Search for applications.")
 	g.AppSearchCmd.Pattern = g.AppSearchCmd.Arg("pattern", "Application name pattern, treated as a substring.").String()
@@ -364,6 +402,8 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.WizardCmd.AdvertiseAddr = g.WizardCmd.Flag("advertise-addr", "The IP address to advertise. Will be selected automatically if unspecified").String()
 	g.WizardCmd.Token = g.WizardCmd.Flag("token", "Unique install token to authorize other nodes to join the cluster. Generated automatically if unspecified").String()
 	g.WizardCmd.FromService = g.WizardCmd.Flag("from-service", "Run in service mode").Hidden().Bool()
+	g.WizardCmd.Set = g.WizardCmd.Flag("set", "Set Helm chart values on the command line. Can be specified multiple times and/or as comma-separated values: key1=val1,key2=val2.").Strings()
+	g.WizardCmd.Values = g.WizardCmd.Flag("values", "Set Helm chart values from the provided YAML file. Can be specified multiple times.").Strings()
 
 	g.AppPackageCmd.CmdClause = g.Command("app-package", "Display the name of application package from installer tarball").Hidden()
 

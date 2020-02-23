@@ -139,6 +139,21 @@ var (
 		Name: OperationFailedEvent,
 		Code: OperationConfigFailureCode,
 	}
+	// OperationReconfigureStart is emitted when advertise IP is being reconfigured.
+	OperationReconfigureStart = events.Event{
+		Name: OperationStartedEvent,
+		Code: OperationReconfigureStartCode,
+	}
+	// OperationReconfigureComplete is emitted when advertise IP reconfiguration completes.
+	OperationReconfigureComplete = events.Event{
+		Name: OperationCompletedEvent,
+		Code: OperationReconfigureCompleteCode,
+	}
+	// OperationReconfigureFailure is emitted when advertise IP reconfiguration fails.
+	OperationReconfigureFailure = events.Event{
+		Name: OperationFailedEvent,
+		Code: OperationReconfigureFailureCode,
+	}
 	// UserCreated is emitted when a user is created/updated.
 	UserCreated = events.Event{
 		Name: UserCreatedEvent,
@@ -335,6 +350,12 @@ const (
 	OperationConfigCompleteCode = "G0016I"
 	// OperationConfigFailureCode is the cluster configuration update operation failure event code.
 	OperationConfigFailureCode = "G0016E"
+	// OperationReconfigureStartCode is the cluster reconfigure operation start event code.
+	OperationReconfigureStartCode = "G0017I"
+	// OperationReconfigureCompleteCode is the cluster reconfigure operation complete event code.
+	OperationReconfigureCompleteCode = "G0018I"
+	// OperationReconfigureFailureCode is the cluster reconfigure operation failure event code.
+	OperationReconfigureFailureCode = "G0018E"
 	// UserCreatedCode is the user created event code.
 	UserCreatedCode = "G1000I"
 	// UserDeletedCode is the user deleted event code.

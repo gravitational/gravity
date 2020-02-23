@@ -57,13 +57,11 @@ func OperatorWithACL(operator Operator, users users.Identity, user storage.User,
 // OperatorACL is a wrapper around any Operator service that
 // implements ACLs - access control lists for every operation
 type OperatorACL struct {
-	isOneTimeLink bool
-	backend       storage.Backend
-	operator      Operator
-	users         users.Identity
-	username      string
-	checker       teleservices.AccessChecker
-	user          storage.User
+	operator Operator
+	users    users.Identity
+	username string
+	checker  teleservices.AccessChecker
+	user     storage.User
 	log.FieldLogger
 }
 
@@ -502,6 +500,14 @@ func (o *OperatorACL) CreateClusterGarbageCollectOperation(ctx context.Context, 
 		return nil, trace.Wrap(err)
 	}
 	return o.operator.CreateClusterGarbageCollectOperation(ctx, req)
+}
+
+// CreateClusterReconfigureOperation creates a new cluster reconfiguration operation.
+func (o *OperatorACL) CreateClusterReconfigureOperation(ctx context.Context, req CreateClusterReconfigureOperationRequest) (*SiteOperationKey, error) {
+	if err := o.ClusterAction(req.SiteDomain, storage.KindCluster, teleservices.VerbUpdate); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return o.operator.CreateClusterReconfigureOperation(ctx, req)
 }
 
 // CreateUpdateEnvarsOperation creates a new operation to update cluster environment variables

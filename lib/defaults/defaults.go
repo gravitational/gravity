@@ -18,6 +18,7 @@ package defaults
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -26,6 +27,7 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 
 	"github.com/coreos/go-semver/semver"
+	"github.com/gravitational/teleport/lib/utils"
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -605,6 +607,11 @@ const (
 	RegistrySyncInterval = 20 * time.Second
 	// AppSyncInterval is how often app images are synced with the local registry
 	AppSyncInterval = 30 * time.Second
+	// StateSyncInterval is how often cluster state is synced to the local backend
+	StateSyncInterval = 1 * time.Minute
+
+	// NodeLabelsReconcileInterval is how often node labels reconciler runs.
+	NodeLabelsReconcileInterval = 1 * time.Minute
 
 	// KubeSystemNamespace is the name of k8s namespace where all our system stuff goes
 	KubeSystemNamespace = "kube-system"
@@ -986,6 +993,8 @@ const (
 
 	// HubBucket is the name of S3 bucket that stores binaries and artifacts
 	HubBucket = "hub.gravitational.io"
+	// HubAddress is the address of the open-source Hub
+	HubAddress = "s3://hub.gravitational.io"
 	// HubTelekubePrefix is key prefix under which Telekube artifacts are stored
 	HubTelekubePrefix = "gravity/oss"
 
@@ -1018,6 +1027,9 @@ const (
 	// on a master node
 	ElectionWaitTimeout = 1 * time.Minute
 
+	// APIWaitTimeout specifies the maximum amount of time to wait for API call to succeed
+	APIWaitTimeout = 1 * time.Minute
+
 	// ImageRegistryVar is a local cluster registry variable that gets
 	// substituted in Helm templates.
 	ImageRegistryVar = "image.registry"
@@ -1032,6 +1044,13 @@ const (
 
 	// PreflightChecksTimeout is the timeout for preflight checks.
 	PreflightChecksTimeout = 5 * time.Minute
+
+	// RegistryCAFilename is filename of cluster Docker registry CA certificate
+	RegistryCAFilename = RootCertFilename
+	// RegistryCertFilename is filename of cluster Docker registry certificate
+	RegistryCertFilename = KubeletCertFilename
+	// RegistryKeyFilename is filename of cluster Docker registry private key
+	RegistryKeyFilename = KubeletKeyFilename
 )
 
 var (
@@ -1210,6 +1229,14 @@ var (
 	// A failed precondition usually means a configuration error when an operation cannot be retried.
 	// The exit code is used to prevent the agent service from restarting after shutdown
 	FailedPreconditionExitCode = 252
+
+	// NetworkIntefacePrefixes is a list of Kubernetes-specific network interface prefixes.
+	NetworkInterfacePrefixes = []string{
+		"docker",
+		"flannel",
+		"cni",
+		"wormhole",
+	}
 )
 
 // HookSecurityContext returns default securityContext for hook pods
@@ -1289,4 +1316,13 @@ func InstallerAddr(installerIP string) (addr string) {
 // `kubectl get nodes`
 func FormatKubernetesNodeRoleLabel(role string) string {
 	return fmt.Sprintf("node-role.kubernetes.io/%v", role)
+}
+
+// TLSConfig returns default TLS configuration.
+func TLSConfig() *tls.Config {
+	return &tls.Config{
+		MinVersion:               tls.VersionTLS12,
+		CipherSuites:             utils.DefaultCipherSuites(),
+		PreferServerCipherSuites: true,
+	}
 }

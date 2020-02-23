@@ -415,7 +415,7 @@ func (b *blt) compareAndSwapBytes(k key, val, prevVal []byte, outVal *[]byte, tt
 			if val == nil {
 				return trace.NotFound("key %q not found", key)
 			}
-			if bytes.Compare(currentVal, prevVal) != 0 {
+			if !bytes.Equal(currentVal, prevVal) {
 				return trace.CompareFailed("expected %q got %q",
 					string(prevVal), string(currentVal))
 			}

@@ -757,6 +757,9 @@ type Operations interface {
 	// in the cluster
 	CreateClusterGarbageCollectOperation(context.Context, CreateClusterGarbageCollectOperationRequest) (*SiteOperationKey, error)
 
+	// CreateClusterReconfigureOperation create a new cluster reconfiguration operation.
+	CreateClusterReconfigureOperation(context.Context, CreateClusterReconfigureOperationRequest) (*SiteOperationKey, error)
+
 	// GetsiteOperation returns the operation information based on it's key
 	GetSiteOperation(SiteOperationKey) (*SiteOperation, error)
 
@@ -1164,6 +1167,8 @@ func (s *SiteOperation) TypeString() string {
 	switch s.Type {
 	case OperationInstall:
 		return "install"
+	case OperationReconfigure:
+		return "reconfigure"
 	case OperationExpand:
 		return "expand"
 	case OperationUpdate:
@@ -1352,6 +1357,8 @@ type CreateSiteAppUpdateOperationRequest struct {
 	App string `json:"package"`
 	// StartAgents specifies whether the operation will automatically start the update agents
 	StartAgents bool `json:"start_agents"`
+	// Vars are variables specific to this operation
+	Vars storage.OperationVariables `json:"vars"`
 }
 
 // Check validates this request
@@ -1372,6 +1379,36 @@ type CreateClusterGarbageCollectOperationRequest struct {
 	AccountID string `json:"account_id"`
 	// ClusterName is the name of the cluster
 	ClusterName string `json:"cluster_name"`
+}
+
+// CreateClusterReconfigureOperationRequest is a request to initialize
+// node advertise IP reconfiguration operation.
+type CreateClusterReconfigureOperationRequest struct {
+	// SiteKey is the cluster ID.
+	SiteKey
+	// AdvertiseAddr is the new node advertise address.
+	AdvertiseAddr string `json:"advertise_addr"`
+	// Servers contains the node whose IP is being reconfigured.
+	Servers []storage.Server `json:"servers"`
+	// InstallExpand is the original install operation state.
+	InstallExpand *storage.InstallExpandOperationState `json:"install_expand"`
+}
+
+// Check validates the request.
+func (r *CreateClusterReconfigureOperationRequest) Check() error {
+	if err := r.SiteKey.Check(); err != nil {
+		return trace.Wrap(err)
+	}
+	if r.AdvertiseAddr == "" {
+		return trace.BadParameter("missing AdvertiseAddr")
+	}
+	if len(r.Servers) == 0 {
+		return trace.BadParameter("missing Servers")
+	}
+	if r.InstallExpand == nil {
+		return trace.BadParameter("missing InstallExpand")
+	}
+	return nil
 }
 
 // CreateUpdateEnvarsOperationRequest is a request

@@ -222,6 +222,9 @@ func NewWebHandler(cfg WebHandlerConfig) (*WebHandler, error) {
 	// garbage collection
 	h.POST("/portal/v1/accounts/:account_id/sites/:site_domain/operations/gc", h.needsAuth(h.createClusterGarbageCollectOperation))
 
+	// cluster reconfiguration
+	h.POST("/portal/v1/accounts/:account_id/sites/:site_domain/operations/reconfigure", h.needsAuth(h.createClusterReconfigureOperation))
+
 	// update - update installed application to a new version
 	h.POST("/portal/v1/accounts/:account_id/sites/:site_domain/operations/update", h.needsAuth(h.createSiteUpdateOperation))
 
@@ -358,7 +361,9 @@ func (h *WebHandler) getSiteInstructions(w http.ResponseWriter, r *http.Request,
 	w.Header().Set("Content-Type", "text/plain")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(instructions))
+	if _, err := w.Write([]byte(instructions)); err != nil {
+		log.WithError(err).Warn("Failed to write response.")
+	}
 }
 
 /*
@@ -2030,6 +2035,23 @@ func (h *WebHandler) createClusterGarbageCollectOperation(w http.ResponseWriter,
 	return nil
 }
 
+/* createClusterReconfigureOperation creates a new cluster reconfiguration operation.
+
+   POST /portal/v1/accounts/:account_id/sites/:site_domain/operations/reconfigure
+*/
+func (h *WebHandler) createClusterReconfigureOperation(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
+	var req ops.CreateClusterReconfigureOperationRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		return trace.BadParameter(err.Error())
+	}
+	key, err := context.Operator.CreateClusterReconfigureOperation(r.Context(), req)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	roundtrip.ReplyJSON(w, http.StatusOK, key)
+	return nil
+}
+
 /* getLogForwarders returns a list of configured log forwarders
 
    GET /portal/v1/accounts/:account_id/sites/:site_domain/logs/forwarders
@@ -2324,14 +2346,6 @@ func (h *WebHandler) emitAuditEvent(w http.ResponseWriter, r *http.Request, p ht
 	events.Emit(r.Context(), context.Operator, req.Event, events.Fields(req.Fields))
 	roundtrip.ReplyJSON(w, http.StatusOK, message("audit log event saved"))
 	return nil
-}
-
-func (s *WebHandler) wrap(fn func(w http.ResponseWriter, r *http.Request, p httprouter.Params) error) httprouter.Handle {
-	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		if err := fn(w, r, p); err != nil {
-			trace.WriteError(w, err)
-		}
-	}
 }
 
 func (s *WebHandler) needsAuth(fn ServiceHandle) httprouter.Handle {

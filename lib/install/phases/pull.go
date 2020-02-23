@@ -35,6 +35,7 @@ import (
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/docker/docker/pkg/archive"
+	"github.com/docker/docker/pkg/idtools"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
 )
@@ -221,6 +222,7 @@ func (p *pullExecutor) pullConfiguredPackages() (err error) {
 			DstPack: p.LocalPackages,
 			Package: e.Locator,
 			Labels:  e.RuntimeLabels,
+			Upsert:  true,
 		})
 		// Ignore already exists as the steps need to be re-entrant
 		if err != nil && !trace.IsAlreadyExists(err) {
@@ -244,7 +246,7 @@ func (p *pullExecutor) unpackSecrets(e pack.PackageEnvelope) error {
 	dir := filepath.Join(stateDir, defaults.SecretsDir)
 	p.Infof("Unpacking secrets into %v.", dir)
 	return pack.Unpack(p.LocalPackages, e.Locator, dir, &archive.TarOptions{
-		ChownOpts: &archive.TarChownOptions{
+		ChownOpts: &idtools.Identity{
 			UID: p.ServiceUser.UID,
 			GID: p.ServiceUser.GID,
 		},

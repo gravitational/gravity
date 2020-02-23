@@ -26,7 +26,8 @@ func NewSyncBuffer() *SyncBuffer {
 	reader, writer := io.Pipe()
 	buf := &bytes.Buffer{}
 	go func() {
-		io.Copy(buf, reader)
+		// FIXME: this nolint needs fixing
+		io.Copy(buf, reader) //nolint:errcheck
 	}()
 	return &SyncBuffer{
 		reader: reader,

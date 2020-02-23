@@ -76,7 +76,9 @@ func resourceGravityTLSKeyPairRead(d *schema.ResourceData, m interface{}) error 
 		return trace.Wrap(err)
 	}
 
+	//nolint:errcheck
 	d.Set("private_key", string(cert.PrivateKey))
+	//nolint:errcheck
 	d.Set("certificate", string(cert.Certificate))
 	return nil
 }

@@ -44,6 +44,14 @@ type registryConfig struct {
 	CertPath string
 	// KeyPath is a client key path for a registry.
 	KeyPath string
+	// Username is optional username for basic auth.
+	Username string
+	// Password is optional password for basic auth.
+	Password string
+	// Prefix is optional registry prefix when pushing images.
+	Prefix string
+	// Insecure indicates insecure registry.
+	Insecure bool
 }
 
 // imageService returns a new registry client for this config.
@@ -53,6 +61,10 @@ func (c registryConfig) imageService() (docker.ImageService, error) {
 		CACertPath:      c.CAPath,
 		ClientCertPath:  c.CertPath,
 		ClientKeyPath:   c.KeyPath,
+		Username:        c.Username,
+		Password:        c.Password,
+		Prefix:          c.Prefix,
+		Insecure:        c.Insecure,
 	})
 }
 

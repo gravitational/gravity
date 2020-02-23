@@ -27,10 +27,13 @@ import (
 
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
+	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/hub"
+	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/schema"
 
 	"github.com/coreos/go-semver/semver"
+	"github.com/fatih/color"
 	"github.com/ghodss/yaml"
 	"github.com/gravitational/trace"
 )
@@ -39,6 +42,8 @@ import (
 type Lister interface {
 	// List retrieves application and cluster images.
 	List(all bool) (ListItems, error)
+	// Hub returns the name of the Hub this lister talks to.
+	Hub() string
 }
 
 // ListItem defines interface for a single list item.
@@ -198,9 +203,21 @@ func (l *hubLister) List(all bool) (result ListItems, err error) {
 	return result, nil
 }
 
+// Hub returns the name of the open-source Hub.
+func (l *hubLister) Hub() string {
+	return defaults.HubBucket
+}
+
 // List uses the provided lister to obtain a list of application and
 // cluster images and displays them in the specified format.
 func List(lister Lister, all bool, format constants.Format) error {
+	if !all {
+		fmt.Print(color.YellowString("Displaying latest stable versions of application and cluster images in %v. Use --all flag to show all.\n\n",
+			FormatHub(lister.Hub())))
+	} else {
+		fmt.Print(color.YellowString("Displaying all available application and cluster images in %v.\n\n",
+			FormatHub(lister.Hub())))
+	}
 	items, err := lister.List(all)
 	if err != nil {
 		return trace.Wrap(err)
@@ -216,9 +233,6 @@ func List(lister Lister, all bool, format constants.Format) error {
 	case constants.EncodingText:
 		w := new(tabwriter.Writer)
 		w.Init(os.Stdout, 0, 8, 1, '\t', 0)
-		if !all {
-			fmt.Printf("Displaying latest stable versions of images. Use --all flag to show all.\n\n")
-		}
 		fmt.Fprintf(w, "Name:Version\tImage Type\tCreated (UTC)\tDescription\n")
 		fmt.Fprintf(w, "------------\t----------\t-------------\t-----------\n")
 		for _, item := range items {
@@ -246,6 +260,14 @@ func List(lister Lister, all bool, format constants.Format) error {
 			format, constants.OutputFormats)
 	}
 	return nil
+}
+
+// FormatHub formats the message about selected Hub for the user.
+func FormatHub(hub string) string {
+	if hub == modules.Get().TeleRepository() {
+		return "the default Gravitational Hub"
+	}
+	return hub
 }
 
 func convertName(name string) string {

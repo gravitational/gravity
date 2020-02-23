@@ -50,7 +50,7 @@ func validateCreateInstanceProfile(client *clientContext) (err error) {
 		deleteRequest := &iam.DeleteInstanceProfileInput{
 			InstanceProfileName: instanceProfileName,
 		}
-		client.iam.DeleteInstanceProfile(deleteRequest)
+		_, err = client.iam.DeleteInstanceProfile(deleteRequest)
 	}
 	return trace.Wrap(err)
 }
@@ -139,7 +139,7 @@ func validateCreateRole(client *clientContext) error {
 		deleteRequest := &iam.DeleteRoleInput{
 			RoleName: request.RoleName,
 		}
-		client.iam.DeleteRole(deleteRequest)
+		_, err = client.iam.DeleteRole(deleteRequest)
 	}
 	return trace.Wrap(err)
 }

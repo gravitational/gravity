@@ -171,10 +171,7 @@ func shouldCheckVolume(volume Volume) bool {
 	return !trace.IsNotFound(err)
 }
 
-var (
-	reNumber   = regexp.MustCompile(`\d+`)
-	reNumRange = regexp.MustCompile(`(?P<from>\d+)\-(?P<to>\d+)`)
-)
+var reNumRange = regexp.MustCompile(`(?P<from>\d+)\-(?P<to>\d+)`)
 
 func parsePortRanges(proto string, ranges []string) (res []monitoring.PortRange, err error) {
 	for _, p := range ranges {

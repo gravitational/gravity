@@ -87,12 +87,12 @@ type Config struct {
 	CredentialsService credentials.Service
 	// Credentials is the credentials set on the CLI
 	Credentials *credentials.Credentials
+	// Level is the level at which the progress should be reported
+	Level utils.ProgressLevel
 	// FieldLogger is used for logging
 	logrus.FieldLogger
 	// Progress allows builder to report build progress
 	utils.Progress
-	// Silent suppresses all std output when set to true
-	Silent bool
 }
 
 // CheckAndSetDefaults validates builder config and fills in defaults
@@ -143,7 +143,10 @@ func (c *Config) CheckAndSetDefaults() error {
 		c.FieldLogger = logrus.WithField(trace.Component, "builder")
 	}
 	if c.Progress == nil {
-		c.Progress = utils.NewProgress(c.Context, "Build", 6, false)
+		c.Progress = utils.NewProgressWithConfig(c.Context, "Build", utils.ProgressConfig{
+			Level:       c.Level,
+			StepPrinter: utils.TimestampedStepPrinter,
+		})
 	}
 	return nil
 }

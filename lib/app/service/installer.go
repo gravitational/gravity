@@ -199,7 +199,8 @@ func (r *applications) GetAppInstaller(req appservice.InstallerRequest) (install
 				checkScriptFilename, checkScript, defaults.SharedExecutableMask),
 			archive.ItemFromStringMode(
 				readmeFilename, readme, defaults.SharedReadMask))...)
-		writer.CloseWithError(err)
+		// always returns nil
+		writer.CloseWithError(err) //nolint:errcheck
 	}()
 	return &fileutils.CleanupReadCloser{
 		ReadCloser: reader,
@@ -406,7 +407,7 @@ fi
 
 scriptdir=$(dirname $(realpath $0))
 app=$("$scriptdir/gravity" app-package --state-dir="$scriptdir")
-"$scriptdir/upload" && "$scriptdir/gravity" --insecure update trigger $app
+"$scriptdir/upload" && "$scriptdir/gravity" --insecure upgrade $app "$@"
 `
 
 	checkScript = `#!/bin/bash

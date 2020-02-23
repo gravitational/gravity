@@ -97,6 +97,8 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.PlanCmd.FullCommand(),
 		g.PlanDisplayCmd.FullCommand(),
 		g.UpgradeCmd.FullCommand(),
+		g.StartCmd.FullCommand(),
+		g.StopCmd.FullCommand(),
 		g.ResourceCreateCmd.FullCommand():
 		if *g.Debug {
 			teleutils.InitLogger(teleutils.LoggingForDaemon, level)
@@ -113,6 +115,7 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.WizardCmd.FullCommand(),
 		g.JoinCmd.FullCommand(),
 		g.AutoJoinCmd.FullCommand(),
+		g.StartCmd.FullCommand(),
 		g.UpdateTriggerCmd.FullCommand(),
 		g.UpdatePlanInitCmd.FullCommand(),
 		g.UpgradeCmd.FullCommand(),
@@ -127,11 +130,11 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.ResourceRemoveCmd.FullCommand(),
 		g.OpsAgentCmd.FullCommand():
 		utils.InitLogging(*g.SystemLogFile)
-		// install and join command also duplicate their logs to the file in
+		// several command also duplicate their logs to the file in
 		// the current directory for convenience, unless the user set their
 		// own location
 		switch cmd {
-		case g.InstallCmd.FullCommand(), g.JoinCmd.FullCommand():
+		case g.InstallCmd.FullCommand(), g.JoinCmd.FullCommand(), g.StartCmd.FullCommand():
 			if *g.SystemLogFile == defaults.GravitySystemLog {
 				utils.InitLogging(defaults.GravitySystemLogFile)
 			}
@@ -162,6 +165,8 @@ func InitAndCheck(g *Application, cmd string) error {
 	case g.SystemUpdateCmd.FullCommand(),
 		g.UpgradeCmd.FullCommand(),
 		g.SystemRollbackCmd.FullCommand(),
+		g.StopCmd.FullCommand(),
+		g.StartCmd.FullCommand(),
 		g.SystemUninstallCmd.FullCommand(),
 		g.UpdateSystemCmd.FullCommand(),
 		g.RPCAgentShutdownCmd.FullCommand(),
@@ -289,9 +294,33 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			cloudProvider: *g.OpsAgentCmd.CloudProvider,
 		})
 	case g.WizardCmd.FullCommand():
-		return startInstall(localEnv, NewWizardConfig(localEnv, g))
+		config, err := NewWizardConfig(localEnv, g)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		return startInstall(localEnv, *config)
 	case g.InstallCmd.FullCommand():
-		return startInstall(localEnv, NewInstallConfig(localEnv, g))
+		config, err := NewInstallConfig(localEnv, g)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		return startInstall(localEnv, *config)
+	case g.StopCmd.FullCommand():
+		return stopGravity(localEnv,
+			*g.StopCmd.Confirmed)
+	case g.StartCmd.FullCommand():
+		// If advertise address was explicitly provided to the start command,
+		// launch the reconfigure operation.
+		if *g.StartCmd.AdvertiseAddr != "" {
+			config, err := NewReconfigureConfig(localEnv, g)
+			if err != nil {
+				return trace.Wrap(err)
+			}
+			return reconfigureCluster(localEnv, *config,
+				*g.StartCmd.Confirmed)
+		}
+		return startGravity(localEnv,
+			*g.StartCmd.Confirmed)
 	case g.JoinCmd.FullCommand():
 		return join(localEnv, g, NewJoinConfig(g))
 	case g.AutoJoinCmd.FullCommand():
@@ -316,11 +345,11 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			return trace.Wrap(err)
 		}
 		defer updateEnv.Close()
-		return updateTrigger(localEnv, updateEnv,
-			*g.UpdateTriggerCmd.App,
-			*g.UpdateTriggerCmd.Manual,
-			*g.UpdateTriggerCmd.SkipVersionCheck,
-		)
+		return updateTrigger(localEnv, updateEnv, upgradeConfig{
+			UpgradePackage:   *g.UpdateTriggerCmd.App,
+			Manual:           *g.UpdateTriggerCmd.Manual,
+			SkipVersionCheck: *g.UpdateTriggerCmd.SkipVersionCheck,
+		})
 	case g.UpdatePlanInitCmd.FullCommand():
 		updateEnv, err := g.NewUpdateEnv()
 		if err != nil {
@@ -346,11 +375,11 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 					SkipVersionCheck: *g.UpgradeCmd.SkipVersionCheck,
 				})
 		}
-		return updateTrigger(localEnv, updateEnv,
-			*g.UpgradeCmd.App,
-			*g.UpgradeCmd.Manual,
-			*g.UpgradeCmd.SkipVersionCheck,
-		)
+		config, err := newUpgradeConfig(g)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		return updateTrigger(localEnv, updateEnv, *config)
 	case g.ResumeCmd.FullCommand():
 		return resumeOperation(localEnv, g,
 			PhaseParams{
@@ -411,21 +440,23 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			force:     *g.RemoveCmd.Force,
 			confirmed: *g.RemoveCmd.Confirm,
 		})
-	case g.StatusCmd.FullCommand():
+	case g.StatusClusterCmd.FullCommand():
 		printOptions := printOptions{
-			token:       *g.StatusCmd.Token,
-			operationID: *g.StatusCmd.OperationID,
+			token:       *g.StatusClusterCmd.Token,
+			operationID: *g.StatusClusterCmd.OperationID,
 			quiet:       *g.Silent,
-			format:      *g.StatusCmd.Output,
+			format:      *g.StatusClusterCmd.Output,
 		}
-		if *g.StatusCmd.Tail {
-			return tailStatus(localEnv, *g.StatusCmd.OperationID)
+		if *g.StatusClusterCmd.Tail {
+			return tailStatus(localEnv, *g.StatusClusterCmd.OperationID)
 		}
-		if *g.StatusCmd.Seconds != 0 {
-			return statusPeriodic(localEnv, printOptions, *g.StatusCmd.Seconds)
+		if *g.StatusClusterCmd.Seconds != 0 {
+			return statusPeriodic(localEnv, printOptions, *g.StatusClusterCmd.Seconds)
 		} else {
 			return status(localEnv, printOptions)
 		}
+	case g.StatusHistoryCmd.FullCommand():
+		return statusHistory()
 	case g.UpdateUploadCmd.FullCommand():
 		return uploadUpdate(localEnv, *g.UpdateUploadCmd.OpsCenterURL)
 	case g.AppPackageCmd.FullCommand():
@@ -436,6 +467,9 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			Image:     *g.AppInstallCmd.Image,
 			Name:      *g.AppInstallCmd.Name,
 			Namespace: *g.AppInstallCmd.Namespace,
+			helmConfig: helmConfig{
+				TillerNamespace: *g.AppCmd.TillerNamespace,
+			},
 			valuesConfig: valuesConfig{
 				Values: *g.AppInstallCmd.Set,
 				Files:  *g.AppInstallCmd.Values,
@@ -445,15 +479,23 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 				CAPath:   *g.AppInstallCmd.RegistryCA,
 				CertPath: *g.AppInstallCmd.RegistryCert,
 				KeyPath:  *g.AppInstallCmd.RegistryKey,
+				Username: *g.AppInstallCmd.RegistryUsername,
+				Password: *g.AppInstallCmd.RegistryPassword,
+				Prefix:   *g.AppInstallCmd.RegistryPrefix,
+				Insecure: *g.Insecure,
 			},
 		})
 	case g.AppListCmd.FullCommand():
 		return releaseList(localEnv,
-			*g.AppListCmd.All)
+			*g.AppListCmd.All,
+			*g.AppCmd.TillerNamespace)
 	case g.AppUpgradeCmd.FullCommand():
 		return releaseUpgrade(localEnv, releaseUpgradeConfig{
 			Release: *g.AppUpgradeCmd.Release,
 			Image:   *g.AppUpgradeCmd.Image,
+			helmConfig: helmConfig{
+				TillerNamespace: *g.AppCmd.TillerNamespace,
+			},
 			valuesConfig: valuesConfig{
 				Values: *g.AppUpgradeCmd.Set,
 				Files:  *g.AppUpgradeCmd.Values,
@@ -463,20 +505,33 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 				CAPath:   *g.AppUpgradeCmd.RegistryCA,
 				CertPath: *g.AppUpgradeCmd.RegistryCert,
 				KeyPath:  *g.AppUpgradeCmd.RegistryKey,
+				Username: *g.AppInstallCmd.RegistryUsername,
+				Password: *g.AppInstallCmd.RegistryPassword,
+				Prefix:   *g.AppInstallCmd.RegistryPrefix,
+				Insecure: *g.Insecure,
 			},
 		})
 	case g.AppRollbackCmd.FullCommand():
 		return releaseRollback(localEnv, releaseRollbackConfig{
 			Release:  *g.AppRollbackCmd.Release,
 			Revision: *g.AppRollbackCmd.Revision,
+			helmConfig: helmConfig{
+				TillerNamespace: *g.AppCmd.TillerNamespace,
+			},
 		})
 	case g.AppUninstallCmd.FullCommand():
 		return releaseUninstall(localEnv, releaseUninstallConfig{
 			Release: *g.AppUninstallCmd.Release,
+			helmConfig: helmConfig{
+				TillerNamespace: *g.AppCmd.TillerNamespace,
+			},
 		})
 	case g.AppHistoryCmd.FullCommand():
 		return releaseHistory(localEnv, releaseHistoryConfig{
 			Release: *g.AppHistoryCmd.Release,
+			helmConfig: helmConfig{
+				TillerNamespace: *g.AppCmd.TillerNamespace,
+			},
 		})
 	case g.AppSyncCmd.FullCommand():
 		return appSync(localEnv, appSyncConfig{
@@ -486,6 +541,10 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 				CAPath:   *g.AppSyncCmd.RegistryCA,
 				CertPath: *g.AppSyncCmd.RegistryCert,
 				KeyPath:  *g.AppSyncCmd.RegistryKey,
+				Username: *g.AppInstallCmd.RegistryUsername,
+				Password: *g.AppInstallCmd.RegistryPassword,
+				Prefix:   *g.AppInstallCmd.RegistryPrefix,
+				Insecure: *g.Insecure,
 			},
 		})
 	case g.AppSearchCmd.FullCommand():
@@ -685,6 +744,13 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 		return resetPassword(localEnv)
 	case g.StatusResetCmd.FullCommand():
 		return resetClusterState(localEnv)
+	case g.RegistryListCmd.FullCommand():
+		return listRegistryContents(context.Background(), localEnv, registryConnectionRequest{
+			address:  *g.RegistryListCmd.Registry,
+			caPath:   *g.RegistryListCmd.CAPath,
+			certPath: *g.RegistryListCmd.CertPath,
+			keyPath:  *g.RegistryListCmd.KeyPath,
+		}, *g.RegistryListCmd.Format)
 	case g.LocalSiteCmd.FullCommand():
 		return getLocalSite(localEnv)
 	// system service commands

@@ -147,3 +147,25 @@ systemOptions:
 ```
 
 See [Securing a Cluster](/cluster/#securing-a-cluster) for more details.
+
+## Customizing Helm Values
+
+When using Helm charts, it is possible to customize Helm values at
+build/install/upgrade time by providing `--values` and `--set` flags to
+the respective `tele build`, `gravity install` and `gravity upgrade`
+commands.
+
+See [Helm Integration](/pack/#helm-integration) for more details.
+
+## Changing Node Advertise Address
+
+Gravity provides a way to move a single-node cluster to a different node, for
+example to support a use-case of delivering a Gravity cluster as a part of the
+AMI/OVA/OVF appliance.
+
+See [Changing Node Advertise Address](/cluster/#changing-node-advertise-address) for more details.
+
+## Cluster Status
+
+Gravity provides the `gravity status` command to view [Cluster Status](/cluster/#cluster-status).
+This tool can help identify issues with the Cluster.

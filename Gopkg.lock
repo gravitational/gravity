@@ -341,6 +341,19 @@
   revision = "3a0bb77429bd3a61596f5e8a3172445844342120"
 
 [[projects]]
+  branch = "master"
+  digest = "1:86f2b1d78b00263766c98b438dab12423d2c3394800dcb51be3f286109f731d1"
+  name = "github.com/containerd/continuity"
+  packages = [
+    "fs",
+    "pathdriver",
+    "syscallx",
+    "sysx",
+  ]
+  pruneopts = "UT"
+  revision = "26c1120b8d4107d2471b93ad78ef7ce1fc84c4c4"
+
+[[projects]]
   digest = "1:4f618dd2213260a992922925a03349430af6994d8a481c53280703732e5bc4ab"
   name = "github.com/coreos/etcd"
   packages = [
@@ -486,7 +499,7 @@
   revision = "edc3ab29cdff8694dd6feb85cfeb4b5f1b38ed9c"
 
 [[projects]]
-  digest = "1:c945991632e3246dc4d9409a265c4be8ee12d0abcc7b3e72abd4e79be5a1048e"
+  digest = "1:c316443b3f2c5d769dd7fe6233b0f32fa8f741e87290047c8b809130b1674ae4"
   name = "github.com/docker/docker"
   packages = [
     "pkg/archive",
@@ -497,15 +510,12 @@
     "pkg/mount",
     "pkg/namesgenerator",
     "pkg/pools",
-    "pkg/promise",
-    "pkg/random",
     "pkg/system",
     "pkg/term",
     "pkg/term/windows",
   ]
   pruneopts = "UT"
-  revision = "092cba3727bb9b4a2f0e922cd6c0f93ea270e363"
-  version = "v1.13.1"
+  revision = "be7ac8be2ae072032a4005e8f232be3fc57e4127"
 
 [[projects]]
   digest = "1:ae192be79d657527fddb53dd6a967f1a51fc7deca458dd5938c5fe7e43a041bf"
@@ -924,14 +934,15 @@
   revision = "c3428bd84c23f0cfcc759f2ef12632be5ff5d95d"
 
 [[projects]]
-  digest = "1:61995f719d9c05abf4fe5bd74a1734a3dca4979e3b727be4645d1931632934bd"
+  branch = "master"
+  digest = "1:6f323c8ee44a44f7be69a733288612635ac279e07ea1e08815c553599a0543d0"
   name = "github.com/gravitational/coordinate"
   packages = [
     "config",
     "leader",
   ]
   pruneopts = "UT"
-  revision = "d3d3609ffa9eb7f9b30f90ed1463389feeeff971"
+  revision = "2bc9a83f6fe22919202fb09bfa01f2ff8b7784cb"
 
 [[projects]]
   branch = "master"
@@ -999,20 +1010,25 @@
   version = "v1.0.0"
 
 [[projects]]
-  digest = "1:5920d2c1bba4c8e52217dbdcc9f2d7e3e42fa46576e221c86b2950946e20ea12"
+  digest = "1:5743846e8a4b77bdb8c77143ad85142a125b305e01677f32ce3dacbceccc4b10"
   name = "github.com/gravitational/satellite"
   packages = [
     "agent",
     "agent/cache",
     "agent/health",
     "agent/proto/agentpb",
+    "lib/history",
+    "lib/history/sqlite",
     "lib/kubernetes",
+    "lib/membership",
+    "lib/rpc",
+    "lib/rpc/client",
     "monitoring",
     "utils",
   ]
   pruneopts = "UT"
-  revision = "565557d2342d36e16652473b0908cde416bf8b2b"
-  version = "7.0.3"
+  revision = "d2c1e14945c28cb5ed35f771da26cb62cf0106f2"
+  version = "7.0.5"
 
 [[projects]]
   digest = "1:49f6abbce9ade5f43508429e4af1adcce55d27adcd62719fea049decc766a7c9"
@@ -1030,7 +1046,7 @@
 
 [[projects]]
   branch = "branch/3.2-g"
-  digest = "1:3b2c7ae9fd7edd18cf2e9b634c40fc1a4309372190fad24161d463af82b29e88"
+  digest = "1:ccb96a0ee188599f5b2577dff7b292cb6cee0122b668e56c9f9ad51181d7bf77"
   name = "github.com/gravitational/teleport"
   packages = [
     ".",
@@ -1087,15 +1103,15 @@
     "lib/wrappers",
   ]
   pruneopts = "UT"
-  revision = "6280a8f001681cc2321397be09c5894e569e479a"
+  revision = "f4445fa6001335437357b4300010f97979af7789"
 
 [[projects]]
-  digest = "1:3afdc8c5bad39bda75ede9cd18bf590c385ff9a28c742f7330e3d3e19c685c47"
+  branch = "master"
+  digest = "1:dc84545f9f2a442b14864f2f7e54ae556cae53bd437a05a456572fea9e73cc87"
   name = "github.com/gravitational/trace"
   packages = ["."]
   pruneopts = "UT"
-  revision = "42a8fffe760db82cf94b0c3e0112f91c3526a604"
-  version = "1.1.9"
+  revision = "dd5b2e8eae86d31f6273ff3ac46d5b15edd6d6be"
 
 [[projects]]
   digest = "1:841d5835e94129658adabece66a4cc54d2cec9a40fa8b51743ea35d0519dd6c2"
@@ -1552,6 +1568,14 @@
   revision = "737072b4e32b7a5018b4a7125da8d12de90e8045"
 
 [[projects]]
+  digest = "1:f4d329a16a6f1a7f694148ec7531f85d62cfa6a79bb8200ca612667e40d09923"
+  name = "github.com/mattn/go-sqlite3"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "590d44c02bca83987d23f6eab75e6d0ddf95f644"
+  version = "v1.13.0"
+
+[[projects]]
   digest = "1:fb04e8f83a0a1be6c248fb11e439edf7a1540da1eb903801d5e1c2047ce9f091"
   name = "github.com/matttproud/golang_protobuf_extensions"
   packages = ["pbutil"]
@@ -1704,6 +1728,17 @@
   pruneopts = "UT"
   revision = "279bed98673dd5bef374d3b6e4b09e2af76183bf"
   version = "v1.0.0-rc1"
+
+[[projects]]
+  digest = "1:11db38d694c130c800d0aefb502fb02519e514dc53d9804ce51d1ad25ec27db6"
+  name = "github.com/opencontainers/image-spec"
+  packages = [
+    "specs-go",
+    "specs-go/v1",
+  ]
+  pruneopts = "UT"
+  revision = "d60099175f88c47cd379c4738d158884749ed235"
+  version = "v1.0.1"
 
 [[projects]]
   digest = "1:1869683e323ebff2bdf8adcb560f82bf6f8d94019d35099e3403f7df12e9c07e"
@@ -2150,6 +2185,14 @@
   ]
   pruneopts = "UT"
   revision = "c57b0facaced709681d9f90397429b9430a74754"
+
+[[projects]]
+  branch = "master"
+  digest = "1:b521f10a2d8fa85c04a8ef4e62f2d1e14d303599a55d64dabf9f5a02f84d35eb"
+  name = "golang.org/x/sync"
+  packages = ["errgroup"]
+  pruneopts = "UT"
+  revision = "cd5d95a43a6e21273425c7ae415d3df9ea832eeb"
 
 [[projects]]
   branch = "master"
@@ -2874,7 +2917,7 @@
   revision = "0317810137be915b9cf888946c6e115c1bfac693"
 
 [[projects]]
-  digest = "1:493057fd7afced95115108c63966342d3fe6a176cbb3ae9429eab521f6e3a2d3"
+  digest = "1:d37af175787bb6bdf35b24c0cd225c833727facc5c61e6deea77c71236f8beea"
   name = "k8s.io/kubernetes"
   packages = [
     "pkg/api/legacyscheme",
@@ -2965,6 +3008,7 @@
     "pkg/kubectl/util/term",
     "pkg/kubectl/validation",
     "pkg/kubectl/version",
+    "pkg/kubelet/apis",
     "pkg/kubelet/types",
     "pkg/master/ports",
     "pkg/printers",
@@ -3083,6 +3127,9 @@
     "github.com/docker/distribution/registry/api/errcode",
     "github.com/docker/distribution/registry/auth",
     "github.com/docker/distribution/registry/client",
+    "github.com/docker/distribution/registry/client/auth",
+    "github.com/docker/distribution/registry/client/auth/challenge",
+    "github.com/docker/distribution/registry/client/transport",
     "github.com/docker/distribution/registry/handlers",
     "github.com/docker/distribution/registry/listener",
     "github.com/docker/distribution/registry/storage",
@@ -3090,6 +3137,7 @@
     "github.com/docker/distribution/registry/storage/driver/filesystem",
     "github.com/docker/distribution/version",
     "github.com/docker/docker/pkg/archive",
+    "github.com/docker/docker/pkg/idtools",
     "github.com/docker/docker/pkg/mount",
     "github.com/docker/docker/pkg/namesgenerator",
     "github.com/docker/libtrust",
@@ -3117,6 +3165,7 @@
     "github.com/gravitational/roundtrip",
     "github.com/gravitational/satellite/agent/health",
     "github.com/gravitational/satellite/agent/proto/agentpb",
+    "github.com/gravitational/satellite/lib/rpc/client",
     "github.com/gravitational/satellite/monitoring",
     "github.com/gravitational/tail",
     "github.com/gravitational/teleport",
@@ -3154,7 +3203,6 @@
     "github.com/julienschmidt/httprouter",
     "github.com/kardianos/osext",
     "github.com/kylelemons/godebug/diff",
-    "github.com/mailgun/lemma/secret",
     "github.com/mailgun/timetools",
     "github.com/miekg/dns",
     "github.com/mitchellh/go-ps",
@@ -3222,7 +3270,6 @@
     "k8s.io/apimachinery/pkg/runtime/serializer",
     "k8s.io/apimachinery/pkg/runtime/serializer/json",
     "k8s.io/apimachinery/pkg/types",
-    "k8s.io/apimachinery/pkg/util/intstr",
     "k8s.io/apimachinery/pkg/util/net",
     "k8s.io/apimachinery/pkg/util/rand",
     "k8s.io/apimachinery/pkg/util/runtime",
@@ -3245,10 +3292,7 @@
     "k8s.io/client-go/util/flowcontrol",
     "k8s.io/code-generator",
     "k8s.io/helm/pkg/chartutil",
-    "k8s.io/helm/pkg/getter",
     "k8s.io/helm/pkg/helm",
-    "k8s.io/helm/pkg/helm/environment",
-    "k8s.io/helm/pkg/helm/helmpath",
     "k8s.io/helm/pkg/helm/portforwarder",
     "k8s.io/helm/pkg/kube",
     "k8s.io/helm/pkg/proto/hapi/chart",
@@ -3261,6 +3305,7 @@
     "k8s.io/helm/pkg/version",
     "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1",
     "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1",
+    "k8s.io/kubernetes/pkg/kubelet/apis",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1

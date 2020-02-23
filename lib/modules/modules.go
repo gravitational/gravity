@@ -147,7 +147,7 @@ func (m *defaultModules) Version() Version {
 
 // TeleRepository returns the default repository for tele package cache
 func (m *defaultModules) TeleRepository() string {
-	return fmt.Sprintf("s3://%v", defaults.HubBucket)
+	return defaults.HubAddress
 }
 
 // PostInstallMessage returns message that gets printed to console after

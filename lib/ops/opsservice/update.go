@@ -364,6 +364,7 @@ func (s *site) createUpdateOperation(context context.Context, req ops.CreateSite
 		Provisioner: installOperation.Provisioner,
 		Update: &storage.UpdateOperationState{
 			UpdatePackage: req.App,
+			Vars:          req.Vars,
 		},
 	}
 

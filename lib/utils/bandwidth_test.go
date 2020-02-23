@@ -37,7 +37,7 @@ func (s *BandwidthSuite) TestBandwidthWriter(c *check.C) {
 	n, err := w.Write([]byte("hello"))
 	c.Assert(err, check.IsNil)
 	c.Assert(n, check.Equals, 5)
-	w.tick()
+	c.Assert(w.tick(), check.IsNil)
 	c.Assert(w.Max(), check.Equals, uint64(5))
 
 	for i := 0; i < 2; i++ {
@@ -45,7 +45,7 @@ func (s *BandwidthSuite) TestBandwidthWriter(c *check.C) {
 		c.Assert(err, check.IsNil)
 		c.Assert(n, check.Equals, 5)
 	}
-	w.tick()
+	c.Assert(w.tick(), check.IsNil)
 	c.Assert(w.Max(), check.Equals, uint64(10))
 
 	for i := 0; i < 5; i++ {
@@ -53,6 +53,6 @@ func (s *BandwidthSuite) TestBandwidthWriter(c *check.C) {
 		c.Assert(err, check.IsNil)
 		c.Assert(n, check.Equals, 1)
 	}
-	w.tick()
+	c.Assert(w.tick(), check.IsNil)
 	c.Assert(w.Max(), check.Equals, uint64(10))
 }

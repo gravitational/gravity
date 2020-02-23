@@ -130,6 +130,7 @@ func (r phaseBuilder) app(updates []loc.Locator) *update.Phase {
 			Description: fmt.Sprintf("Update application %q to %v", loc.Name, loc.Version),
 			Data: &storage.OperationPhaseData{
 				Package: &updates[i],
+				Values:  r.operation.Vars().Values,
 			},
 		})
 	}

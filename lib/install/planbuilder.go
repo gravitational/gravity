@@ -43,6 +43,8 @@ import (
 type PlanBuilder struct {
 	// Cluster is the cluster being installed
 	Cluster storage.Site
+	// Operation is the operation the builder is for
+	Operation ops.SiteOperation
 	// Application is the app being installed
 	Application app.Application
 	// Runtime is the Runtime of the app being installed
@@ -192,7 +194,7 @@ func (b *PlanBuilder) AddPullPhase(plan *storage.OperationPlan) {
 				Package:     &b.Application.Package,
 				ServiceUser: &b.ServiceUser,
 			},
-			Requires: []string{phases.ConfigurePhase, phases.BootstrapPhase},
+			Requires: fsm.RequireIfPresent(plan, phases.ConfigurePhase, phases.BootstrapPhase),
 			Step:     3,
 		})
 	}
@@ -200,7 +202,7 @@ func (b *PlanBuilder) AddPullPhase(plan *storage.OperationPlan) {
 		ID:          phases.PullPhase,
 		Description: "Pull configured packages",
 		Phases:      pullPhases,
-		Requires:    []string{phases.ConfigurePhase, phases.BootstrapPhase},
+		Requires:    fsm.RequireIfPresent(plan, phases.ConfigurePhase, phases.BootstrapPhase),
 		Parallel:    true,
 		Step:        3,
 	})
@@ -325,48 +327,6 @@ func (b *PlanBuilder) AddWaitPhase(plan *storage.OperationPlan) {
 		},
 		Step: 4,
 	})
-}
-
-// AddRegisterNodesPhase appends phases to register each node with the cluster
-func (b *PlanBuilder) AddRegisterNodesPhase(plan *storage.OperationPlan) error {
-	var newPhases []storage.OperationPhase
-
-	for i, node := range b.Masters {
-		newPhases = append(newPhases, storage.OperationPhase{
-			ID:          fmt.Sprintf("%v/%v", phases.RegisterNodesPhase, node.Hostname),
-			Description: fmt.Sprintf("Register %v", node.Hostname),
-			Data: &storage.OperationPhaseData{
-				Server:     &b.Masters[i],
-				ExecServer: &b.Master,
-				Package:    &b.Application.Package,
-			},
-			Requires: []string{phases.WaitPhase},
-			Step:     4,
-		})
-	}
-	for i, node := range b.Nodes {
-		newPhases = append(newPhases, storage.OperationPhase{
-			ID:          fmt.Sprintf("%v/%v", phases.RegisterNodesPhase, node.Hostname),
-			Description: fmt.Sprintf("Register %v", node.Hostname),
-			Data: &storage.OperationPhaseData{
-				Server:     &b.Nodes[i],
-				ExecServer: &b.Master,
-				Package:    &b.Application.Package,
-			},
-			Requires: []string{phases.WaitPhase},
-			Step:     4,
-		})
-	}
-
-	plan.Phases = append(plan.Phases, storage.OperationPhase{
-		ID:          phases.RegisterNodesPhase,
-		Description: "Register nodes with kubernetes",
-		Phases:      newPhases,
-		Requires:    []string{phases.WaitPhase},
-		Parallel:    true,
-		Step:        4,
-	})
-	return nil
 }
 
 // AddHealthPhase appends phase that waits for the cluster to become healthy
@@ -577,6 +537,7 @@ func (b *PlanBuilder) AddApplicationPhase(plan *storage.OperationPlan) error {
 				Server:      &b.Master,
 				Package:     &applicationLocators[i],
 				ServiceUser: &b.ServiceUser,
+				Values:      b.Operation.GetVars().Values,
 			},
 			Requires: []string{phases.RuntimePhase},
 			Step:     6,
@@ -698,7 +659,8 @@ func (c *Config) GetPlanBuilder(operator ops.Operator, cluster ops.Site, op ops.
 		return nil, trace.Wrap(err)
 	}
 	builder := &PlanBuilder{
-		Cluster: ops.ConvertOpsSite(cluster),
+		Cluster:   ops.ConvertOpsSite(cluster),
+		Operation: op,
 		Application: app.Application{
 			Package:         cluster.App.Package,
 			PackageEnvelope: cluster.App.PackageEnvelope,

@@ -105,8 +105,10 @@ func (s *GravityResourcesSuite) TestUser(c *check.C) {
 	err = s.r.Remove(context.TODO(), resources.RemoveRequest{SiteKey: s.cluster.Key(), Kind: "user", Name: "test"})
 	c.Assert(err, check.IsNil)
 
-	collectionI, err = s.r.GetCollection(resources.ListRequest{SiteKey: s.cluster.Key(), Kind: "user", Name: "test"})
-	c.Assert(err, check.FitsTypeOf, trace.NotFound(""))
+	_, err = s.r.GetCollection(resources.ListRequest{SiteKey: s.cluster.Key(), Kind: "user", Name: "test"})
+	if !trace.IsNotFound(err) {
+		c.Errorf("Expected err of type NotFound but got %T", err)
+	}
 }
 
 func (s *GravityResourcesSuite) TestToken(c *check.C) {
@@ -122,8 +124,10 @@ func (s *GravityResourcesSuite) TestToken(c *check.C) {
 	err = s.r.Remove(context.TODO(), resources.RemoveRequest{SiteKey: s.cluster.Key(), Kind: "token", Name: "test", Owner: s.s.Creds.Email})
 	c.Assert(err, check.IsNil)
 
-	collection, err = s.r.GetCollection(resources.ListRequest{SiteKey: s.cluster.Key(), Kind: "token", Name: "test", User: s.s.Creds.Email})
-	c.Assert(err, check.FitsTypeOf, trace.NotFound(""))
+	_, err = s.r.GetCollection(resources.ListRequest{SiteKey: s.cluster.Key(), Kind: "token", Name: "test", User: s.s.Creds.Email})
+	if !trace.IsNotFound(err) {
+		c.Errorf("Expected err of type NotFound but got %T", err)
+	}
 }
 
 func toUnknown(c *check.C, resource teleservices.Resource) teleservices.UnknownResource {

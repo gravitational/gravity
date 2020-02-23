@@ -73,7 +73,7 @@ func Collect(ctx context.Context, config Config, w io.Writer) error {
 		if config.Compressed {
 			output.Close()
 		}
-		writer.CloseWithError(err)
+		writer.CloseWithError(err) //nolint:errcheck
 	}()
 
 	_, err = io.Copy(w, reader)

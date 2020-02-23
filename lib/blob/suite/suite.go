@@ -113,10 +113,10 @@ func (s *BLOBSuite) BLOBSeek(c *C) {
 // BLOBWriteTwice tests that writing twice same data produces same BLOB
 func (s *BLOBSuite) BLOBWriteTwice(c *C) {
 	blob1 := "hello, blob 1"
-	e, err := s.Objects.WriteBLOB(bytes.NewBuffer([]byte(blob1)))
+	_, err := s.Objects.WriteBLOB(bytes.NewBuffer([]byte(blob1)))
 	c.Assert(err, IsNil)
 
-	e, err = s.Objects.WriteBLOB(bytes.NewBuffer([]byte(blob1)))
+	e, err := s.Objects.WriteBLOB(bytes.NewBuffer([]byte(blob1)))
 	c.Assert(err, IsNil)
 
 	r, err := s.Objects.OpenBLOB(e.SHA512)

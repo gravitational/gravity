@@ -35,6 +35,9 @@ const (
 	// ResourcesDir is where the app's resources directory is mounted inside a hook container
 	ResourcesDir = "/var/lib/gravity/resources"
 
+	// HelmDir is the directory inside hooks where helm values files is mounted
+	HelmDir = "/var/lib/gravity/helm"
+
 	// GravityDir is the root directory with gravity state
 	GravityDir = "/var/lib/gravity"
 
@@ -51,13 +54,19 @@ const (
 	// Helm is where helm binary gets mounted inside hook containers
 	HelmPath = "/usr/local/bin/helm"
 
+	// HelmValuesFile is the name of the file with helm values
+	HelmValuesFile = "values.yaml"
+
 	// VolumeBin is the name of the volume with host's /usr/bin dir
 	VolumeBin = "bin"
 
 	// VolumeKubectl is the name of the volume with kubectl
-	VolumeKubectl = "kubectl"
+	VolumeKubectlBin = "kubectl-bin"
 
-	// VolumeHelm is the name of the volume with helm binary
+	// VolumeHelmBin is the name of the volume with helm binary
+	VolumeHelmBin = "helm-bin"
+
+	// VolumeHelmValues is the name of the volume with helm values file
 	VolumeHelm = "helm"
 
 	// VolumeBackup is the name of the volume that stores results of the backup hook
@@ -80,6 +89,9 @@ const (
 	// that defines the name of the application package the hook originated from.
 	// This environment variable is made available to the hook job's init container
 	ApplicationPackageEnv = "APP_PACKAGE"
+
+	// PodIPEnv specifies the name of variable associated with Pod IP address
+	PodIPEnv = "POD_IP"
 )
 
 // InitContainerImage is the image for the init container

@@ -116,6 +116,8 @@ type OperationPhaseData struct {
 	TrustedCluster []byte `json:"trusted_cluster_resource,omitempty" yaml:"trusted_cluster_resource,omitempty"`
 	// Storage is the persistent storage resource configuration.
 	Storage []byte `json:"storage_resource,omitempty" yaml:"storage_resource,omitempty"`
+	// Values are helm values in a marshaled yaml format
+	Values []byte `json:"values,omitempty" yaml:"values,omitempty"`
 	// ServiceUser specifies the optional service user to use as a context
 	// for file operations
 	ServiceUser *OSUser `json:"service_user,omitempty" yaml:"service_user,omitempty"`

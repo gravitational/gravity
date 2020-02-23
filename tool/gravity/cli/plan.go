@@ -80,7 +80,7 @@ To restart the installation, use 'gravity resume' after fixing the issues.
 		return displayClusterOperationPlan(localEnv, op.Key(), format)
 	}
 	switch op.Type {
-	case ops.OperationInstall:
+	case ops.OperationInstall, ops.OperationReconfigure:
 		err = displayInstallOperationPlan(op.Key(), format)
 	case ops.OperationExpand:
 		err = displayExpandOperationPlan(environ, op.Key(), format)
@@ -204,13 +204,13 @@ func explainPlan(phases []storage.OperationPhase) (err error) {
 }
 
 func outputPhaseError(phase storage.OperationPhase) error {
-	fmt.Printf(color.RedString("The %v phase (%q) has failed", phase.ID, phase.Description))
+	fmt.Print(color.RedString("The %v phase (%q) has failed", phase.ID, phase.Description))
 	if phase.Error != nil {
 		var phaseErr trace.TraceErr
 		if err := utils.UnmarshalError(phase.Error.Err, &phaseErr); err != nil {
 			return trace.Wrap(err, "failed to unmarshal phase error from JSON")
 		}
-		fmt.Printf(color.RedString("\n\t%v\n", phaseErr.Err))
+		fmt.Print(color.RedString("\n\t%v\n", phaseErr.Err))
 	}
 	return nil
 }
@@ -259,16 +259,3 @@ func getPlanFromWizard(opKey ops.SiteOperationKey) (*storage.OperationPlan, erro
 	}
 	return plan, nil
 }
-
-const (
-	recoveryModeWarning = "Failed to retrieve plan from etcd, showing cached plan. If etcd went down as a result of a system upgrade, you can perform a rollback phase. Run 'gravity plan --repair' when etcd connection is restored.\n"
-
-	noInstallPlanWarning = `Could not retrieve install operation plan.
-
-If you have not launched the installation, or it has been started moments ago,
-the plan may not be initialized yet.
-
-If the install operation is in progress, please make sure you're invoking
-"gravity plan" command from the same directory where "gravity install"
-was run.`
-)

@@ -122,6 +122,7 @@ func (s *CredsSuite) ClusterConfigStaticTokensCRUD(c *C) {
 			},
 		},
 	})
+	c.Assert(err, IsNil)
 
 	err = s.Users.SetStaticTokens(staticTokens)
 	c.Assert(err, IsNil)
@@ -239,6 +240,7 @@ func (s *CredsSuite) CreatesAPIKeyForAgents(c *C) {
 		Email: userEmail,
 		Token: "abc",
 	})
+	c.Assert(err, IsNil)
 
 	keys, err = s.Users.GetAPIKeys(userEmail)
 	c.Assert(err, IsNil)

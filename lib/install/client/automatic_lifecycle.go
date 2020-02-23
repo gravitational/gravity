@@ -127,7 +127,7 @@ func (r *AutomaticLifecycle) generateDebugReport(ctx context.Context, c *Client)
 	err := c.generateDebugReport(ctx, r.DebugReportPath)
 	if err != nil {
 		if r.LocalDebugReporter != nil {
-			r.LocalDebugReporter(ctx, r.DebugReportPath)
+			err = r.LocalDebugReporter(ctx, r.DebugReportPath)
 		}
 	}
 	return trace.Wrap(err)

@@ -83,7 +83,9 @@ func (b *backend) GetCertAuthority(id teleservices.CertAuthID, loadSigningKeys b
 		return nil, trace.Wrap(err)
 	}
 	if !loadSigningKeys {
-		ca.SetSigningKeys(nil)
+		if err := ca.SetSigningKeys(nil); err != nil {
+			return nil, trace.Wrap(err)
+		}
 	}
 	return ca, nil
 }

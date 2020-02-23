@@ -26,6 +26,7 @@ import (
 	"github.com/gravitational/satellite/agent"
 	"github.com/gravitational/satellite/agent/health"
 	pb "github.com/gravitational/satellite/agent/proto/agentpb"
+	"github.com/gravitational/satellite/lib/rpc/client"
 
 	"github.com/gravitational/trace"
 	"github.com/gravitational/ttlmap"
@@ -71,7 +72,7 @@ type TimeDriftCheckerConfig struct {
 	// SerfMember is the local serf member.
 	SerfMember *serf.Member
 	// DialRPC is used to create Satellite RPC client.
-	DialRPC agent.DialRPC
+	DialRPC client.DialRPC
 	// Clock is used in tests to mock time.
 	Clock clockwork.Clock
 }
@@ -94,7 +95,7 @@ func (c *TimeDriftCheckerConfig) CheckAndSetDefaults() error {
 		return trace.BadParameter("local serf member can't be empty")
 	}
 	if c.DialRPC == nil {
-		c.DialRPC = agent.DefaultDialRPC(c.CAFile, c.CertFile, c.KeyFile)
+		c.DialRPC = client.DefaultDialRPC(c.CAFile, c.CertFile, c.KeyFile)
 	}
 	if c.Clock == nil {
 		c.Clock = clockwork.NewRealClock()
@@ -188,7 +189,7 @@ func (c *timeDriftChecker) check(ctx context.Context, r health.Reporter) (probes
 
 // * Compare abs(Drift) with the threshold.
 func (c *timeDriftChecker) getTimeDrift(ctx context.Context, node serf.Member) (time.Duration, error) {
-	agentClient, err := c.getAgentClient(node)
+	agentClient, err := c.getAgentClient(ctx, node)
 	if err != nil {
 		return 0, trace.Wrap(err)
 	}
@@ -267,14 +268,14 @@ func (c *timeDriftChecker) shouldCheckNode(node serf.Member) bool {
 }
 
 // getAgentClient returns Satellite agent client for the provided node.
-func (c *timeDriftChecker) getAgentClient(node serf.Member) (agent.Client, error) {
+func (c *timeDriftChecker) getAgentClient(ctx context.Context, node serf.Member) (client.Client, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	clientI, exists := c.clients.Get(node.Addr.String())
 	if exists {
-		return clientI.(agent.Client), nil
+		return clientI.(client.Client), nil
 	}
-	client, err := c.DialRPC(&node)
+	client, err := c.DialRPC(ctx, &node)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

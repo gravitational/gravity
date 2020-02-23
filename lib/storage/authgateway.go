@@ -546,7 +546,7 @@ func (gw *AuthGatewayV1) SetTTL(clock clockwork.Clock, ttl time.Duration) {
 func (gw AuthGatewayV1) String() string {
 	var parts []string
 	if gw.Spec.ConnectionLimits != nil {
-		parts = append(parts, fmt.Sprintf("%s", *gw.Spec.ConnectionLimits))
+		parts = append(parts, gw.Spec.ConnectionLimits.String())
 	}
 	if gw.Spec.ClientIdleTimeout != nil {
 		parts = append(parts, fmt.Sprintf("ClientIdleTimeout=%s",

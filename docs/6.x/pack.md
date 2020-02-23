@@ -114,16 +114,14 @@ Now you should have `tele-buildbox` container on the build machine. Next, do the
 The command below assumes that `build.sh` is located in the same working directory as the application:
 
 ```bsh
-docker run -e OPS_URL=<opscenter url> \
-       -e OPS_TOKEN=<token> \
-       -e TELE_FLAGS="--state-dir=/mnt/tele-cache" \
+docker run \
        -v /tmp/tele-cache:/mnt/tele-cache \
        -v /var/run/docker.sock:/var/run/docker.sock \
        -v $(pwd):/mnt/app \
        -w /mnt/cluster \
         --net=host \
         tele-buildbox:latest \
-        bash -c "tele build -o cluster.tar"
+        bash -c "tele --state-dir=/mnt/tele-cache build -o cluster.tar"
 ```
 
 !!! note:
@@ -733,9 +731,11 @@ To see more examples of specific hooks, please refer to the following documentat
 
 ## Helm Integration
 
-It is possible to use [Helm](https://docs.helm.sh/) charts as a way to package
-and install applications as every Gravity Cluster comes with a preconfigured
-Tiller server and its client, Helm.
+Gravity has a first-class [Helm](https://docs.helm.sh/) support and lets you use Helm
+charts as a way to package and install applications.
+
+!!! note "Helm version":
+    Gravity 6 works with Helm 2. We are currently working on Helm 3 integration.
 
 Suppose you have the application resources directory with the following layout:
 
@@ -752,16 +752,25 @@ example/
 
 When building the Cluster Image, the `tele build` command will find
 directories with Helm charts (determined by the presence of `Chart.yaml` file)
-and vendor all Docker images they reference into the resulting installer
-tarball.
+and vendor all Docker images they reference into the resulting image tarball.
 
-!!! note:
-    The machine running `tele build` must have Helm binary [installed](https://docs.helm.sh/using_helm/#installing-helm)
-    and available in PATH as well as its [template plugin](https://docs.helm.sh/using_helm/#installing-a-plugin).
+The `tele build` command also allows to override Helm chart values at build time
+via `--values` and `--set` flags. These values will be taken into account when
+rendering Helm templates which is useful if you need to vendor a specific version
+of a certain Docker image or pull it from a specific registry.
+
+The flags have the same meaning and syntax as the Helm flags of the same names:
+`--values` specifies a YAML file with custom values and `--set` sets values directly
+on the command-line. Both can be provided multiple times:
+
+```bash
+$ tele build example/app.yaml --values=custom-values.yaml --set=nginx.image=1.9.1 --set=postgres.registry=internal.registry.io
+```
 
 During the installation, the vendored images will be pushed to the Cluster's local
-Docker registry which is available inside the Cluster at `leader.telekube.local:5000`.
+Docker registry which is available inside the Cluster at `registry.local:5000`.
 Helm templating engine can be used to tag images with an appropriate registry.
+
 For example, `example.yaml` may contain the following image reference:
 
 ```yaml
@@ -771,11 +780,9 @@ image: {{.Values.registry}}postgres:9.4.4
 And `values.yaml` may define the `registry` templating variable that can be set
 during application installation:
 
-
 ```
 registry: ""
 ```
-
 
 An install hook can then use the `helm` binary (which gets mounted into every hook
 container under `/usr/local/bin`) to install these resources:
@@ -804,6 +811,37 @@ correct image references.
 !!! tip:
     There is a sample application available on [GitHub](https://github.com/gravitational/quickstart/tree/master/mattermost)
     that demonstrates this workflow.
+
+### Customizing Helm values
+
+!!! note "Version support":
+    The ability to customize Helm values during install is available starting with
+    Gravity 7.0.
+
+It is possible to customize values of your Helm charts when installing or
+upgrading the application. To provide custom Helm values at install time,
+pass them via `--values` and `--set` flags to `gravity install` command:
+
+```bash
+unpacked-image$ ./gravity install --values=custom-values.yaml --set=nginx.image=1.9.1 --set=postgres.registry=internal.registry.io
+```
+
+The provided values are merged into a single values file that is mounted
+into install and post-install hooks under `/var/lib/gravity/helm/values.yaml`
+so the install hook can use it in the `helm install` command:
+
+```yaml
+...
+command: ["/usr/local/bin/helm", "install", "/var/lib/gravity/resources/charts/example", "--values", "/var/lib/gravity/helm/values.yaml"]
+```
+
+The same is true for upgrades: both the `./upgrade` script included with the cluster
+image and `gravity upgrade` commands support providing custom Helm values which
+will get mounted at the same location in the upgrade/post-upgrade hooks:
+
+```bash
+unpacked-image$ ./upgrade --values=custom-values.yaml --set=nginx.image=1.11.0
+```
 
 ## Custom Installation Screen
 
