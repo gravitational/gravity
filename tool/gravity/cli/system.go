@@ -19,8 +19,10 @@ package cli
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
+	"syscall"
 
 	appservice "github.com/gravitational/gravity/lib/app/service"
 	"github.com/gravitational/gravity/lib/constants"
@@ -495,7 +497,7 @@ func systemServiceUninstall(env *localenv.LocalEnvironment, pkg loc.Locator, ser
 		})
 	case !pkg.IsEmpty():
 		if pkg.Version == loc.ZeroVersion {
-			statuses, err := services.ListPackageServices()
+			statuses, err := services.ListPackageServices(systemservice.DefaultListServiceOptions)
 			if err != nil {
 				return trace.Wrap(err)
 			}
@@ -524,7 +526,7 @@ func systemServiceList(env *localenv.LocalEnvironment) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	statuses, err := services.ListPackageServices()
+	statuses, err := services.ListPackageServices(systemservice.DefaultListServiceOptions)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -535,27 +537,86 @@ func systemServiceList(env *localenv.LocalEnvironment) error {
 	return nil
 }
 
-// systemServiceStatus prints status of this service
-func systemServiceStatus(env *localenv.LocalEnvironment, pkg loc.Locator, serviceName string) error {
+// systemServiceStart starts or restarts the package service specified with packagePattern
+func systemServiceStart(env *localenv.LocalEnvironment, packagePattern string) error {
 	services, err := systemservice.New()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	var status string
-	if serviceName != "" {
-		status, err = services.StatusService(serviceName)
-	} else if !pkg.IsEmpty() {
-		status, err = services.StatusPackageService(pkg)
-	} else {
-		return trace.BadParameter("need either package name or service name")
+	if loc, err := loc.ParseLocator(packagePattern); err == nil {
+		return services.StartPackageService(*loc, noBlock)
 	}
-	if status != "" {
-		fmt.Printf("%v", status)
-	}
+	loc, err := queryPackageServiceByPattern(services, packagePattern)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return nil
+	return services.StartPackageService(*loc, noBlock)
+}
+
+// systemServiceStop stops the running package service specified with packagePattern
+func systemServiceStop(env *localenv.LocalEnvironment, packagePattern string) error {
+	services, err := systemservice.New()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if loc, err := loc.ParseLocator(packagePattern); err == nil {
+		return services.StopPackageService(*loc)
+	}
+	loc, err := queryPackageServiceByPattern(services, packagePattern)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return services.StopPackageService(*loc)
+}
+
+// systemServiceJournal queries the system journal of the package service specified with packagePattern
+func systemServiceJournal(env *localenv.LocalEnvironment, packagePattern string, args []string) error {
+	services, err := systemservice.New()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if loc, err := loc.ParseLocator(packagePattern); err == nil {
+		return execJournalctl(*loc, args...)
+	}
+	loc, err := queryPackageServiceByPattern(services, packagePattern)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return execJournalctl(*loc, args...)
+}
+
+// systemServiceStatus prints status of this service
+func systemServiceStatus(env *localenv.LocalEnvironment, packagePattern string) error {
+	services, err := systemservice.New()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if loc, err := loc.ParseLocator(packagePattern); err == nil {
+		return outputServiceStatus(services, *loc, env)
+	}
+	loc, err := queryPackageServiceByPattern(services, packagePattern)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return outputServiceStatus(services, *loc, env)
+}
+
+func queryPackageServiceByPattern(services systemservice.ServiceManager, packagePattern string) (*loc.Locator, error) {
+	statuses, err := services.ListPackageServices(systemservice.ListServiceOptions{
+		All:     true,
+		Type:    systemservice.UnitTypeService,
+		Pattern: packageServicePattern(packagePattern),
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	if len(statuses) == 0 {
+		return nil, trace.NotFound("service given with %q was not found", packagePattern)
+	}
+	if len(statuses) != 1 {
+		return nil, trace.BadParameter("invalid service pattern %q specified", packagePattern)
+	}
+	return &statuses[0].Package, nil
 }
 
 // systemUninstall uninstalls all gravity components
@@ -585,6 +646,32 @@ func systemUninstall(env *localenv.LocalEnvironment, confirmed bool) error {
 	}
 	env.PrintStep("Gravity has been successfully uninstalled")
 	return nil
+}
+
+func execJournalctl(loc loc.Locator, args ...string) error {
+	const cmd = defaults.JournalctlBin
+	args = append([]string{cmd, "--unit", systemservice.PackageServiceName(loc)}, args...)
+	if err := syscall.Exec(cmd, args, os.Environ()); err != nil {
+		return trace.Wrap(trace.ConvertSystemError(err),
+			"failed to execve(%v, %v)", cmd, args)
+	}
+	return nil
+}
+
+func outputServiceStatus(services systemservice.ServiceManager, loc loc.Locator, printer utils.Printer) error {
+	status, err := services.StatusPackageService(loc)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	printer.Print(status)
+	return nil
+}
+
+func packageServicePattern(pattern string) string {
+	if strings.Index(pattern, "*") != -1 {
+		return pattern
+	}
+	return fmt.Sprintf("*%v*", pattern)
 }
 
 // findPackageUpdate searches for remote update for the local package specified with req
@@ -663,10 +750,7 @@ func ensureServiceRunning(servicePackage loc.Locator) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
-	noBlock := true
-	err = services.StartPackageService(servicePackage, noBlock)
-	return trace.Wrap(err)
+	return services.StartPackageService(servicePackage, noBlock)
 }
 
 func getLocalNodeStatus(env *localenv.LocalEnvironment) error {
@@ -786,7 +870,6 @@ type packageRequest struct {
 var (
 	gravityPackageFilter = loc.MustCreateLocator(
 		defaults.SystemAccountOrg, constants.GravityPackage, loc.ZeroVersion)
-	// teleportPackageFilter = loc.MustCreateLocator(defaults.SystemAccountOrg, constants.TeleportPackage, loc.ZeroVersion)
 )
 
 // printStateDir outputs directory where all gravity data is stored on the node
@@ -798,3 +881,5 @@ func printStateDir() error {
 	fmt.Println(stateDir)
 	return nil
 }
+
+const noBlock = true

@@ -25,7 +25,6 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/utils"
@@ -74,9 +73,6 @@ ExecStartPre={{.}}{{end}}
 WantedBy={{.WantedBy}}
 {{end}}
 `
-
-	// Should we make the target configurable too?
-	systemdUnitFileDir = "/etc/systemd/system/"
 
 	systemdUnitFileSuffix = ".service"
 
@@ -127,6 +123,10 @@ func (u *systemdUnit) serviceName() string {
 		systemdServiceDelimiter) + systemdUnitFileSuffix
 }
 
+func (u *systemdUnit) servicePath() string {
+	return unitPath(u.serviceName())
+}
+
 func (s *systemdManager) installService(service serviceTemplate, req NewServiceRequest) error {
 	if service.Environment == nil {
 		service.Environment = make(map[string]string)
@@ -156,7 +156,7 @@ func (s *systemdManager) installService(service serviceTemplate, req NewServiceR
 }
 
 func (s *systemdManager) installMountService(service mountServiceTemplate, noBlock bool) error {
-	servicePath := filepath.Join(systemdUnitFileDir, SystemdNameEscape(service.Name))
+	servicePath := filepath.Join(defaults.SystemUnitDir, SystemdNameEscape(service.Name))
 	f, err := os.Create(servicePath)
 	if err != nil {
 		return trace.Wrap(trace.ConvertSystemError(err),
@@ -231,7 +231,7 @@ func (s *systemdManager) DisablePackageService(pkg loc.Locator) error {
 
 // IsPackageServiceInstalled checks if the package service is installed
 func (s *systemdManager) IsPackageServiceInstalled(pkg loc.Locator) (bool, error) {
-	units, err := s.ListPackageServices()
+	units, err := s.ListPackageServices(DefaultListServiceOptions)
 	if err != nil {
 		return false, trace.Wrap(err)
 	}
@@ -244,10 +244,23 @@ func (s *systemdManager) IsPackageServiceInstalled(pkg loc.Locator) (bool, error
 }
 
 // ListPackageServices lists installed package services
-func (s *systemdManager) ListPackageServices() ([]PackageServiceStatus, error) {
+func (s *systemdManager) ListPackageServices(opts ListServiceOptions) ([]PackageServiceStatus, error) {
 	var services []PackageServiceStatus
 
-	out, err := invokeSystemctl("list-units", "--plain", "--no-legend", "--all")
+	args := []string{"list-units", "--plain", "--no-legend"}
+	if opts.All {
+		args = append(args, "--all")
+	}
+	if opts.Type != "" {
+		args = append(args, "--type", opts.Type)
+	}
+	if opts.State != "" {
+		args = append(args, "--state", opts.State)
+	}
+	if opts.Pattern != "" {
+		args = append(args, opts.Pattern)
+	}
+	out, err := invokeSystemctl(args...)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to list-units: %v", out)
 	}
@@ -332,19 +345,19 @@ func (s *systemdManager) UninstallService(req UninstallServiceRequest) error {
 	serviceName := serviceName(req.Name)
 	out, err := invokeSystemctl("stop", serviceName)
 	if err != nil && !IsUnknownServiceError(err) {
-		return trace.Wrap(err, out)
+		return trace.Wrap(err)
 	}
 
 	out, err = invokeSystemctl("disable", serviceName)
 	if err != nil && !IsUnknownServiceError(err) {
-		return trace.Wrap(err, out)
+		return trace.Wrap(err)
 	}
 
 	out, err = invokeSystemctl("is-failed", serviceName)
 	status := strings.TrimSpace(out)
 
 	unitPath := unitPath(req.Name)
-	if errDelete := os.Remove(unitPath); errDelete != nil && !os.IsNotExist(err) {
+	if errDelete := os.Remove(unitPath); errDelete != nil && !os.IsNotExist(errDelete) {
 		logger.WithError(errDelete).Warn("Failed to delete service unit file.")
 	}
 
@@ -445,9 +458,9 @@ func (s *systemdManager) supportsTasksAccounting() bool {
 }
 
 func invokeSystemctl(args ...string) (string, error) {
+	var out bytes.Buffer
 	cmd := exec.Command("systemctl", append(args, "--no-pager")...)
-	out := &bytes.Buffer{}
-	err := utils.ExecL(cmd, out, log.WithField(trace.Component, constants.ComponentSystem))
+	err := utils.Exec(cmd, &out)
 	return out.String(), trace.Wrap(err)
 }
 
@@ -460,9 +473,21 @@ func unitPath(name string) (path string) {
 	return DefaultUnitPath(name)
 }
 
+// PackageServiceName returns the name of the package service
+// for the specified package locator
+func PackageServiceName(loc loc.Locator) string {
+	return newSystemdUnit(loc).serviceName()
+}
+
 // DefaultUnitPath returns the default path for the specified systemd unit
 func DefaultUnitPath(name string) (path string) {
-	return filepath.Join(systemdUnitFileDir, SystemdNameEscape(name))
+	return filepath.Join(defaults.SystemUnitDir, SystemdNameEscape(name))
+}
+
+// DefaultListServiceOptions specifies the default configuration to list package services
+var DefaultListServiceOptions = ListServiceOptions{
+	All:  true,
+	Type: UnitTypeService,
 }
 
 // serviceName returns just the name portion of the unit path.

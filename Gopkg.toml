@@ -35,8 +35,8 @@ ignored = [
 
 [[override]]
   name = "github.com/gravitational/trace"
-  #version = "=1.1.10"
-  branch = "master"
+  #version = "=1.1.11"
+  branch = "dmitri/proxy-error"
 
 [[override]]
   name = "github.com/mitchellh/go-ps"

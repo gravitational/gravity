@@ -39,7 +39,7 @@ func (srv *agentServer) Command(req *pb.CommandArgs, stream pb.Agent_CommandServ
 	log := srv.WithFields(log.Fields{
 		"request": "Command",
 		"args":    req.Args})
-	log.Debug("request received")
+	log.Debug("Request received.")
 
 	if req.SelfCommand {
 		gravityPath, err := os.Executable()
@@ -55,7 +55,7 @@ func (srv *agentServer) Command(req *pb.CommandArgs, stream pb.Agent_CommandServ
 
 // PeerJoin accepts a new peer
 func (srv *agentServer) PeerJoin(ctx context.Context, req *pb.PeerJoinRequest) (*types.Empty, error) {
-	srv.WithField("req", req).Debug("PeerJoin.")
+	srv.WithField("req", req.Describe()).Debug("PeerJoin.")
 	err := srv.PeerStore.NewPeer(ctx, *req, &remotePeer{
 		addr:             req.Addr,
 		creds:            srv.Config.Client,
@@ -69,14 +69,14 @@ func (srv *agentServer) PeerJoin(ctx context.Context, req *pb.PeerJoinRequest) (
 
 // PeerLeave receives a "leave" request from a peer and initiates its shutdown
 func (srv *agentServer) PeerLeave(ctx context.Context, req *pb.PeerLeaveRequest) (*types.Empty, error) {
-	srv.WithField("req", req).Debug("PeerLeave.")
+	srv.WithField("req", req.Describe()).Debug("PeerLeave.")
 	err := srv.PeerStore.RemovePeer(ctx, *req, &remotePeer{
 		addr:             req.Addr,
 		creds:            srv.Config.Client,
 		reconnectTimeout: srv.Config.ReconnectTimeout,
 	})
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return nil, err
 	}
 	return &types.Empty{}, nil
 }
@@ -91,14 +91,14 @@ func (srv *agentServer) GetRuntimeConfig(ctx context.Context, _ *types.Empty) (*
 			return nil, trace.Wrap(err)
 		}
 	}
+	tempDir := os.TempDir()
 	config := &pb.RuntimeConfig{
 		Role:          srv.Role,
 		AdvertiseAddr: srv.Config.Listener.Addr().String(),
-		DockerDevice:  srv.DockerDevice,
 		SystemDevice:  srv.SystemDevice,
 		Mounts:        srv.Mounts,
 		StateDir:      stateDir,
-		TempDir:       srv.TempDir,
+		TempDir:       tempDir,
 		KeyValues:     srv.KeyValues,
 		CloudMetadata: srv.CloudMetadata,
 	}

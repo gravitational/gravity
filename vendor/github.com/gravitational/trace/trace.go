@@ -293,7 +293,7 @@ func (r *TraceErr) MarshalJSON() ([]byte, error) {
 	}
 	type marshalableError TraceErr
 	err := marshalableError(*r)
-	err.Err = &externalError{Message: r.Err.Error()}
+	err.Err = &RawTrace{Message: r.Err.Error()}
 	return json.Marshal(err)
 }
 
@@ -303,7 +303,7 @@ type TraceErr struct {
 	// Err is the underlying error that TraceErr wraps
 	Err error `json:"error"`
 	// Traces is a slice of stack trace entries for the error
-	Traces `json:"traces"`
+	Traces `json:"traces,omitempty"`
 	// Message is an optional message that can be wrapped with the original error.
 	//
 	// This field is obsolete, replaced by messages list below.
@@ -317,6 +317,10 @@ type TraceErr struct {
 // Fields maps arbitrary keys to values inside an error
 type Fields map[string]interface{}
 
+func (r *RawTrace) Error() string {
+	return r.Message
+}
+
 // RawTrace describes the error trace on the wire
 type RawTrace struct {
 	// Err specifies the original error
@@ -324,9 +328,9 @@ type RawTrace struct {
 	// Traces lists the stack traces at the moment the error was recorded
 	Traces `json:"traces,omitempty"`
 	// Message specifies the optional user-facing message
-	Message string `json:"message"`
+	Message string `json:"message,omitempty"`
 	// Messages is a list of user messages added to this error.
-	Messages []string `json:"messages"`
+	Messages []string `json:"messages,omitempty"`
 	// Fields is a list of key-value-pairs that can be wrapped with the error to give additional context
 	Fields map[string]interface{} `json:"fields,omitempty"`
 }
@@ -571,6 +575,12 @@ func (r proxyError) OrigError() error {
 // Error returns the error message of the underlying error
 func (r proxyError) Error() string {
 	return r.TraceErr.Error()
+}
+
+// GoString formats this trace object for use with
+// with the "%#v" format string
+func (r proxyError) GoString() string {
+	return r.DebugReport()
 }
 
 // proxyError wraps another error
