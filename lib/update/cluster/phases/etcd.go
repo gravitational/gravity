@@ -185,23 +185,10 @@ func (p *PhaseUpgradeEtcd) Execute(ctx context.Context) error {
 	}
 	p.Info("command output: ", string(out))
 
-	/*out, err = utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "enable", "--upgrade")
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	p.Info("command output: ", string(out))
-	*/
 	return nil
 }
 
 func (p *PhaseUpgradeEtcd) Rollback(ctx context.Context) error {
-	/*p.Info("Rollback upgrade of etcd.")
-	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "disable", "--upgrade")
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	p.Info("command output: ", string(out))
-	*/
 	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "rollback")
 	if err != nil {
 		return trace.Wrap(err)
