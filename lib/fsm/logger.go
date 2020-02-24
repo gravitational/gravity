@@ -23,6 +23,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
@@ -41,7 +42,7 @@ type Logger struct {
 	Server *storage.Server
 
 	// logEntryC is used to queue log entries and unblock execution while etcd is down during upgrades
-	// this has the potential to lose log messages if the process dies while etcd is down
+	// this has the potential to lose queued log messages if the process dies while etcd is down
 	logEntryC chan ops.LogEntry
 
 	// logEntryOnce bootstraps the LogEntry queue on the first log entry
@@ -50,7 +51,7 @@ type Logger struct {
 
 func (l *Logger) initQueue() {
 	l.logEntryOnce.Do(func() {
-		// initialize the queue to a decently large value, to queue all the messages during etcd upgrade
+		// initialize the queue to a reasonably large value, to queue all the messages during etcd upgrade
 		l.logEntryC = make(chan ops.LogEntry, 4096)
 		go l.runQueue()
 	})
@@ -59,7 +60,10 @@ func (l *Logger) initQueue() {
 func (l *Logger) runQueue() {
 	for {
 		msg := <-l.logEntryC
-		if err := l.Operator.CreateLogEntry(l.Key, msg); err != nil {
+		err := utils.Retry(10*time.Second, 36, func() error {
+			return trace.Wrap(l.Operator.CreateLogEntry(l.Key, msg))
+		})
+		if err != nil {
 			l.FieldLogger.Error(trace.DebugReport(err))
 		}
 	}
