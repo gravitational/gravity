@@ -260,7 +260,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 
 	// operations on gravity applications
 	g.AppCmd.CmdClause = g.Command("app", "Operations with application images and releases.")
-	g.AppCmd.TillerNamespace = g.AppCmd.Flag("tiller-namespace", "Namespace where Tiller is running").String()
+	g.AppCmd.TillerNamespace = g.AppCmd.Flag("tiller-namespace", "Namespace where Tiller is running").Default(defaults.KubeSystemNamespace).String()
 
 	// helm-specific flags
 	g.AppInstallCmd.CmdClause = g.AppCmd.Command("install", "Install an application from the specified application image.")
