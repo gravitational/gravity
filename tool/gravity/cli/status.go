@@ -29,6 +29,7 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/localenv"
+	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/schema"
 	statusapi "github.com/gravitational/gravity/lib/status"
@@ -286,11 +287,20 @@ func printStatusText(out io.Writer, cluster clusterStatus) error {
 	return clusterStatusError(cluster)
 }
 
+func formatVersion(version *modules.Version) string {
+	if version != nil {
+		return version.Version
+	}
+	return "n/a"
+}
+
 func printClusterStatus(cluster statusapi.Cluster, w io.Writer) {
 	if cluster.App.Name != "" {
 		fmt.Fprintf(w, "Cluster image:\t%v, version %v\n", cluster.App.Name,
 			cluster.App.Version)
 	}
+	fmt.Fprintf(w, "Gravity version:\t%v (client) / %v (server)\n",
+		modules.Get().Version().Version, formatVersion(cluster.Version))
 	if cluster.Token.Token != "" {
 		fmt.Fprintf(w, "Join token:\t%v\n", cluster.Token.Token)
 	}

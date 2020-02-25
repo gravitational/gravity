@@ -28,6 +28,7 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/loc"
+	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
@@ -61,6 +62,11 @@ func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, o
 	}
 	if token != nil {
 		status.Token = *token
+	}
+
+	status.Cluster.Version, err = operator.GetVersion(ctx)
+	if err != nil {
+		logrus.WithError(err).Warn("Failed to query server version information.")
 	}
 
 	// Collect application endpoints.
@@ -208,6 +214,8 @@ type Cluster struct {
 	Endpoints Endpoints `json:"endpoints"`
 	// Extension is a cluster status extension
 	Extension `json:",inline,omitempty"`
+	// Version is the server version information.
+	Version *modules.Version `json:"version"`
 }
 
 // Endpoints contains information about cluster and application endpoints.

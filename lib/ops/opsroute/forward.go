@@ -24,6 +24,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/clients"
 	"github.com/gravitational/gravity/lib/constants"
+	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/opsservice"
 	"github.com/gravitational/gravity/lib/storage"
@@ -912,6 +913,11 @@ func (r *Router) ListReleases(req ops.ListReleasesRequest) ([]storage.Release, e
 // EmitAuditEvent saves the provided event in the audit log.
 func (r *Router) EmitAuditEvent(ctx context.Context, req ops.AuditEventRequest) error {
 	return r.Local.EmitAuditEvent(ctx, req)
+}
+
+// GetVersion returns the gravity binary version information.
+func (r *Router) GetVersion(ctx context.Context) (*modules.Version, error) {
+	return r.Local.GetVersion(ctx)
 }
 
 // CreateUserInvite creates a new invite token for a user.
