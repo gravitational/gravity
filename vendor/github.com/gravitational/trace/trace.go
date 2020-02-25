@@ -317,6 +317,8 @@ type TraceErr struct {
 // Fields maps arbitrary keys to values inside an error
 type Fields map[string]interface{}
 
+// Error returns the error message this trace describes.
+// Implements error
 func (r *RawTrace) Error() string {
 	return r.Message
 }
