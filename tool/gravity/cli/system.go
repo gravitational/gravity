@@ -537,7 +537,7 @@ func systemServiceList(env *localenv.LocalEnvironment) error {
 	return nil
 }
 
-// systemServiceStart starts or restarts the package service specified with packagePattern
+// systemServiceStart starts the package service specified with packagePattern
 func systemServiceStart(env *localenv.LocalEnvironment, packagePattern string) error {
 	services, err := systemservice.New()
 	if err != nil {

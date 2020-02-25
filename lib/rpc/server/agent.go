@@ -91,14 +91,13 @@ func (srv *agentServer) GetRuntimeConfig(ctx context.Context, _ *types.Empty) (*
 			return nil, trace.Wrap(err)
 		}
 	}
-	tempDir := os.TempDir()
 	config := &pb.RuntimeConfig{
 		Role:          srv.Role,
 		AdvertiseAddr: srv.Config.Listener.Addr().String(),
 		SystemDevice:  srv.SystemDevice,
 		Mounts:        srv.Mounts,
 		StateDir:      stateDir,
-		TempDir:       tempDir,
+		TempDir:       os.TempDir(),
 		KeyValues:     srv.KeyValues,
 		CloudMetadata: srv.CloudMetadata,
 	}

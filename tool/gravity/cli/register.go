@@ -651,7 +651,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.SystemServiceCmd.CmdClause = g.SystemCmd.Command("service", "operations on system services")
 
 	// install a new system service
-	g.SystemServiceInstallCmd.CmdClause = g.SystemServiceCmd.Command("install", "install a new service").Hidden()
+	g.SystemServiceInstallCmd.CmdClause = g.SystemServiceCmd.Command("install", "install a new service")
 	g.SystemServiceInstallCmd.Package = Locator(g.SystemServiceInstallCmd.Arg("pkg", "the package to generate unit file for").Required())
 	g.SystemServiceInstallCmd.ConfigPackage = Locator(g.SystemServiceInstallCmd.Arg("conf-pkg", "the configuration package used to launch the service with").Required())
 	g.SystemServiceInstallCmd.StartCommand = g.SystemServiceInstallCmd.Flag("start-command", "the command used to start the service").Required().String()
@@ -671,19 +671,19 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.SystemServiceUninstallCmd.Name = g.SystemServiceUninstallCmd.Flag("name", "the service name").String()
 
 	// list running services
-	g.SystemServiceListCmd.CmdClause = g.SystemServiceCmd.Command("list", "list running services").Hidden()
+	g.SystemServiceListCmd.CmdClause = g.SystemServiceCmd.Command("list", "list running services")
 
-	g.SystemServiceStopCmd.CmdClause = g.SystemServiceCmd.Command("stop", "stop a running service").Hidden()
+	g.SystemServiceStopCmd.CmdClause = g.SystemServiceCmd.Command("stop", "stop a running service")
 	g.SystemServiceStopCmd.Package = g.SystemServiceStopCmd.Arg("package", "package for the service. Can be specified either as a partial match - i.e. planet or complete package locator").Required().String()
 
-	g.SystemServiceStartCmd.CmdClause = g.SystemServiceCmd.Command("start", "start a service").Hidden()
+	g.SystemServiceStartCmd.CmdClause = g.SystemServiceCmd.Command("start", "start a service")
 	g.SystemServiceStartCmd.Package = g.SystemServiceStartCmd.Arg("package", "package for the service. Can be specified either as a partial match - i.e. planet or complete package locator").Required().String()
 
 	// query runtime status of a package service
-	g.SystemServiceStatusCmd.CmdClause = g.SystemServiceCmd.Command("status", "query runtime status information of the specified service").Interspersed(false).Hidden()
+	g.SystemServiceStatusCmd.CmdClause = g.SystemServiceCmd.Command("status", "query runtime status information of the specified service")
 	g.SystemServiceStatusCmd.Package = g.SystemServiceStatusCmd.Arg("package", "package for the service. Can be specified either as a partial match - i.e. planet or complete package locator").Required().String()
 
-	g.SystemServiceJournalCmd.CmdClause = g.SystemServiceCmd.Command("journal", "query system journal of the specified service").Interspersed(false).Hidden()
+	g.SystemServiceJournalCmd.CmdClause = g.SystemServiceCmd.Command("journal", "query system journal of the specified service").Interspersed(false)
 	g.SystemServiceJournalCmd.Package = g.SystemServiceJournalCmd.Arg("package", "package for the service. Can be specified either as a partial match - i.e. planet or complete package locator").Required().String()
 	g.SystemServiceJournalCmd.Args = g.SystemServiceJournalCmd.Arg("arg", "optional arguments to the journalctl").Strings()
 
