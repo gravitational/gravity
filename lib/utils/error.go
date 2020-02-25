@@ -36,6 +36,8 @@ import (
 	"github.com/cenkalti/backoff"
 	etcd "github.com/coreos/etcd/client"
 	"github.com/gravitational/trace"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	kubeerrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
@@ -364,7 +366,7 @@ func IsConnectionRefusedError(err error) bool {
 // It detects unrecoverable errors and aborts the reconnect attempts
 func ShouldReconnectPeer(err error) error {
 	switch {
-	case isPeerDeniedError(err.Error()),
+	case isPermissionDeniedError(err),
 		isLicenseError(err.Error()),
 		isHostAlreadyRegisteredError(err.Error()):
 		return &backoff.PermanentError{Err: err}
@@ -381,6 +383,7 @@ func NewFailedPreconditionError(err error) error {
 // ExitCodeError defines an interface for exit code errors
 type ExitCodeError interface {
 	error
+	// ExitCode returns the numeric error code to exit with
 	ExitCode() int
 	// OrigError returns the original error this error wraps.
 	OrigError() error
@@ -454,8 +457,14 @@ type exitCodeError struct {
 	err error
 }
 
-func isPeerDeniedError(message string) bool {
-	return strings.Contains(message, "peer not authorized")
+func isPermissionDeniedError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if statusErr, ok := status.FromError(trace.Unwrap(err)); ok {
+		return statusErr.Code() == codes.PermissionDenied
+	}
+	return trace.IsAccessDenied(err)
 }
 
 func isLicenseError(message string) bool {

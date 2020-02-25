@@ -274,10 +274,16 @@ type Application struct {
 	SystemServiceInstallCmd SystemServiceInstallCmd
 	// SystemServiceUninstallCmd uninstalls systemd service
 	SystemServiceUninstallCmd SystemServiceUninstallCmd
-	// SystemServiceStatusCmd displays status of systemd service
+	// SystemServiceStatusCmd queries the runtime status of a package service
 	SystemServiceStatusCmd SystemServiceStatusCmd
 	// SystemServiceListCmd lists systemd services
 	SystemServiceListCmd SystemServiceListCmd
+	// SystemServiceStopCmd stops a package service
+	SystemServiceStopCmd SystemServiceStopCmd
+	// SystemServiceStartCmd stops or restarts a package service
+	SystemServiceStartCmd SystemServiceStartCmd
+	// SystemServiceJournalCmd queries the system journal of a package service
+	SystemServiceJournalCmd SystemServiceJournalCmd
 	// SystemReportCmd generates tarball with system diagnostics information
 	SystemReportCmd SystemReportCmd
 	// SystemStateDirCmd shows local state directory
@@ -1566,18 +1572,43 @@ type SystemServiceUninstallCmd struct {
 	Name *string
 }
 
-// SystemServiceStatusCmd displays status of systemd service
+// SystemServiceStatusCmd queries the runtime status of a package service
 type SystemServiceStatusCmd struct {
 	*kingpin.CmdClause
-	// Package is system service package locator
-	Package *loc.Locator
-	// Name is service name
-	Name *string
+	// Package specifies the service either a package locator
+	// or a partial unique pattern (i.e. 'planet')
+	Package *string
 }
 
 // SystemServiceListCmd lists systemd services
 type SystemServiceListCmd struct {
 	*kingpin.CmdClause
+}
+
+// SystemServiceStartCmd starts or restart a package service
+type SystemServiceStartCmd struct {
+	*kingpin.CmdClause
+	// Package specifies the service either a package locator
+	// or a partial unique pattern (i.e. 'planet')
+	Package *string
+}
+
+// SystemServiceStopCmd stops a running package service
+type SystemServiceStopCmd struct {
+	*kingpin.CmdClause
+	// Package specifies the service either a package locator
+	// or a partial unique pattern (i.e. 'planet')
+	Package *string
+}
+
+// SystemServiceJournalCmd queries the system journal of a package service
+type SystemServiceJournalCmd struct {
+	*kingpin.CmdClause
+	// Package specifies the service either a package locator
+	// or a partial unique pattern (i.e. 'planet')
+	Package *string
+	// Args optionally lists additional arguments to journalctl
+	Args *[]string
 }
 
 // SystemReportCmd generates tarball with system diagnostics information

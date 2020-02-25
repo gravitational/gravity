@@ -55,7 +55,7 @@ import (
 
 // RegistryConnectionRequest represents connection information for a Docker registry
 type RegistryConnectionRequest struct {
-	// RegistryAddress is host:port of a Docker registry
+	// RegistryAddress is either a host:port or a complete URL of a Docker registry
 	RegistryAddress string
 	// CertName allows to override directory where to look for certs
 	// which normally equals to the registry address
@@ -403,7 +403,7 @@ func initTransport(req RegistryConnectionRequest) (http.RoundTripper, string, er
 
 	challengeManager, err := ping(transport, registryAddress)
 	if err != nil {
-		return nil, "", trace.Wrap(err, "failed to ping Docker registry").AddField("req", req)
+		return nil, "", trace.Wrap(err, "failed to ping Docker registry: %s", err).AddField("req", req)
 	}
 
 	if !req.HasBasicAuth() {
