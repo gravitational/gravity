@@ -31,6 +31,7 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/loc"
+	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/storage"
@@ -1556,6 +1557,19 @@ func (c *Client) EmitAuditEvent(ctx context.Context, req ops.AuditEventRequest) 
 		return trace.Wrap(err)
 	}
 	return nil
+}
+
+// GetVersion returns the server version information.
+func (c *Client) GetVersion(ctx context.Context) (*modules.Version, error) {
+	out, err := c.Get(ctx, c.Endpoint("version"), url.Values{})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	var version modules.Version
+	if err := json.Unmarshal(out.Bytes(), &version); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &version, nil
 }
 
 // PostJSON issues HTTP POST request to the server with the provided JSON data

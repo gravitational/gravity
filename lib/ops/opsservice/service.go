@@ -36,6 +36,7 @@ import (
 	"github.com/gravitational/gravity/lib/helm"
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/loc"
+	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/events"
 	"github.com/gravitational/gravity/lib/ops/monitoring"
@@ -1439,6 +1440,12 @@ func (o *Operator) EmitAuditEvent(ctx context.Context, req ops.AuditEventRequest
 		return trace.Wrap(err)
 	}
 	return nil
+}
+
+// GetVersion returns the gravity binary version information.
+func (o *Operator) GetVersion(ctx context.Context) (*modules.Version, error) {
+	version := modules.Get().Version()
+	return &version, nil
 }
 
 func (o *Operator) openSite(key ops.SiteKey) (*site, error) {
