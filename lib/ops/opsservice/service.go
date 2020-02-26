@@ -35,6 +35,7 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/loc"
+	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/monitoring"
 	"github.com/gravitational/gravity/lib/ops/opsclient"
@@ -1369,6 +1370,12 @@ func (o *Operator) GetClusterNodes(key ops.SiteKey) ([]ops.Node, error) {
 		})
 	}
 	return result, nil
+}
+
+// GetVersion returns the gravity binary version information.
+func (o *Operator) GetVersion(ctx context.Context) (*modules.Version, error) {
+	version := modules.Get().Version()
+	return &version, nil
 }
 
 func (o *Operator) openSite(key ops.SiteKey) (*site, error) {

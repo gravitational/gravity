@@ -100,6 +100,9 @@ func NewWebHandler(cfg WebHandlerConfig) (*WebHandler, error) {
 	// Report portal status
 	h.GET("/portal/v1/status", h.getStatus)
 
+	// Return server version
+	h.GET("/portal/v1/version", h.needsAuth(h.getVersion))
+
 	// Applications API
 	h.GET("/portal/v1/apps", h.needsAuth(h.getApps))
 
@@ -316,6 +319,19 @@ func (h *WebHandler) getSiteInstructions(w http.ResponseWriter, r *http.Request,
 */
 func (h *WebHandler) getStatus(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	roundtrip.ReplyJSON(w, http.StatusOK, map[string]interface{}{"status": "healthy"})
+}
+
+/*
+   getVersion returns the server version information.
+   GET /portal/v1/version
+*/
+func (h *WebHandler) getVersion(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
+	version, err := context.Operator.GetVersion(r.Context())
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	roundtrip.ReplyJSON(w, http.StatusOK, version)
+	return nil
 }
 
 /* getApps returns information about apps available for installation

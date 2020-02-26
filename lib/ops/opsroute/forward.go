@@ -17,12 +17,14 @@ limitations under the License.
 package opsroute
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/url"
 
 	"github.com/gravitational/gravity/lib/clients"
 	"github.com/gravitational/gravity/lib/constants"
+	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/monitoring"
 	"github.com/gravitational/gravity/lib/ops/opsservice"
@@ -879,4 +881,9 @@ func (r *Router) UpsertAuthGateway(key ops.SiteKey, gw storage.AuthGateway) erro
 // GetAuthGateway returns auth gateway configuration.
 func (r *Router) GetAuthGateway(key ops.SiteKey) (storage.AuthGateway, error) {
 	return r.Local.GetAuthGateway(key)
+}
+
+// GetVersion returns the gravity binary version information.
+func (r *Router) GetVersion(ctx context.Context) (*modules.Version, error) {
+	return r.Local.GetVersion(ctx)
 }

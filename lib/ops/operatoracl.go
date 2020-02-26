@@ -17,6 +17,7 @@ limitations under the License.
 package ops
 
 import (
+	"context"
 	"crypto/x509"
 	"encoding/pem"
 	"io"
@@ -1036,4 +1037,9 @@ func (o *OperatorACL) GetAuthGateway(key SiteKey) (storage.AuthGateway, error) {
 		return nil, trace.Wrap(err)
 	}
 	return o.operator.GetAuthGateway(key)
+}
+
+// GetVersion returns the server version information.
+func (o *OperatorACL) GetVersion(ctx context.Context) (*modules.Version, error) {
+	return o.operator.GetVersion(ctx)
 }
