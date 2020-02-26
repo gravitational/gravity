@@ -132,7 +132,7 @@ func DisableAgentServices(logger log.FieldLogger) error {
 }
 
 func uninstallPackageServices(svm systemservice.ServiceManager, printer utils.Printer, logger log.FieldLogger) error {
-	services, err := svm.ListPackageServices()
+	services, err := svm.ListPackageServices(systemservice.DefaultListServiceOptions)
 	if err != nil {
 		return trace.Wrap(err)
 	}

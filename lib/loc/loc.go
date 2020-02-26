@@ -247,6 +247,14 @@ var (
 	Teleport = MustParseLocator(
 		fmt.Sprintf("%v/%v:%v", defaults.SystemAccountOrg, constants.TeleportPackage, ZeroVersion))
 
+	// Gravity is the gravity binary package locator
+	Gravity = MustParseLocator(
+		fmt.Sprintf("%v/%v:%v", defaults.SystemAccountOrg, constants.GravityPackage, ZeroVersion))
+
+	// Fio is the fio binary package locator
+	Fio = MustParseLocator(
+		fmt.Sprintf("%v/%v:%v", defaults.SystemAccountOrg, constants.FioPackage, ZeroVersion))
+
 	// TrustedCluster is the trusted-cluster package locator
 	TrustedCluster = MustParseLocator(
 		fmt.Sprintf("%v/%v:0.0.1", defaults.SystemAccountOrg, constants.TrustedClusterPackage))

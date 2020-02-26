@@ -18,6 +18,7 @@ package server
 
 import (
 	"bytes"
+	"strings"
 	"sync"
 	"time"
 
@@ -30,7 +31,9 @@ import (
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
+	"google.golang.org/grpc/codes"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/status"
 	. "gopkg.in/check.v1"
 )
 
@@ -364,11 +367,11 @@ func (r *S) newPeer(c *C, config PeerConfig, serverAddr string, log log.FieldLog
 }
 
 func (r rejectingStore) NewPeer(ctx context.Context, req pb.PeerJoinRequest, peer Peer) error {
-	return trace.AccessDenied("peer not authorized")
+	return status.Error(codes.PermissionDenied, "peer not authorized")
 }
 
 func (r rejectingStore) RemovePeer(ctx context.Context, req pb.PeerLeaveRequest, peer Peer) error {
-	return trace.AccessDenied("peer not authorized")
+	return status.Error(codes.PermissionDenied, "peer not authorized")
 }
 
 type rejectingStore struct{}
@@ -454,4 +457,8 @@ func (r *peerStore) remove(peer Peer) {
 	r.Lock()
 	defer r.Unlock()
 	delete(r.peers, peer.Addr())
+}
+
+func isPeerDeniedError(err error) bool {
+	return strings.Contains(err.Error(), "peer not authorized")
 }

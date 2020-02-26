@@ -58,7 +58,7 @@ type VendorerConfig struct {
 	DockerClient docker.DockerInterface
 	// ImageService is the docker registry service
 	docker.ImageService
-	// RegistryURL is the URL of the active docker registry to use to
+	// RegistryURL is the URL of the active docker registry to use
 	RegistryURL string
 	// Packages is the pack service
 	Packages pack.PackageService
@@ -241,7 +241,6 @@ func (v *vendorer) VendorDir(ctx context.Context, unpackedDir string, req Vendor
 		}
 		image := image // create new variable for go routine below
 		group.Go(groupCtx, func() error {
-
 			// pull all missing images (this will correctly fail for images without a remote
 			// registry that do not exist i.e. due to failed image build)
 			if err := pullMissingRemoteImage(image, v.dockerPuller, log, req.ProgressReporter); err != nil {
