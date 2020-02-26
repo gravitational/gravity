@@ -300,7 +300,7 @@ func printClusterStatus(cluster statusapi.Cluster, w io.Writer) {
 			cluster.App.Version)
 	}
 	fmt.Fprintf(w, "Gravity version:\t%v (client) / %v (server)\n",
-		modules.Get().Version().Version, formatVersion(cluster.Version))
+		cluster.ClientVersion.Version, formatVersion(cluster.ServerVersion))
 	if cluster.Token.Token != "" {
 		fmt.Fprintf(w, "Join token:\t%v\n", cluster.Token.Token)
 	}
