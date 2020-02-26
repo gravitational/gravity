@@ -1561,7 +1561,7 @@ func (c *Client) EmitAuditEvent(ctx context.Context, req ops.AuditEventRequest) 
 
 // GetVersion returns the server version information.
 func (c *Client) GetVersion(ctx context.Context) (*modules.Version, error) {
-	out, err := c.Get(ctx, c.Endpoint("version"), url.Values{})
+	out, err := c.Get(c.Endpoint("version"), url.Values{})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
