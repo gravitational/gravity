@@ -403,6 +403,21 @@ type eventDispatcher interface {
 	Send(dispatcher.Event)
 }
 
+// func wait(ctx context.Context, cancel context.CancelFunc, p process.GravityProcess) error {
+// 	errC := make(chan error, 1)
+// 	go func() {
+// 		err := p.Wait()
+// 		cancel()
+// 		errC <- err
+// 	}()
+// 	select {
+// 	case err := <-errC:
+// 		return trace.Wrap(err)
+// 	case <-ctx.Done():
+// 		return trace.Wrap(ctx.Err())
+// 	}
+// }
+
 func tryInstallBinary(targetPath string, uid, gid int, logger log.FieldLogger) error {
 	path, err := osext.Executable()
 	if err != nil {

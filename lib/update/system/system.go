@@ -544,6 +544,7 @@ func (r *PackageUpdater) applySELinuxFileContexts(ctx context.Context, path stri
 	}
 	w := r.Logger.Writer()
 	defer w.Close()
+	r.WithField("path", path).Info("Restore file contexts.")
 	return libselinux.ApplyFileContexts(ctx, w, path)
 }
 

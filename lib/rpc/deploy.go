@@ -28,7 +28,6 @@ import (
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
-	"github.com/gravitational/gravity/lib/system/selinux"
 	"github.com/gravitational/gravity/lib/utils"
 
 	teleclient "github.com/gravitational/teleport/lib/client"
@@ -232,7 +231,7 @@ func deployAgentOnNode(ctx context.Context, req DeployAgentsRequest, node, nodeS
 	}
 	if req.SELinux {
 		exportFormat = "%s package export --file-mask=%o %s %s --ops-url=%s --insecure --file-label=%s"
-		exportArgs = append(exportArgs, selinux.GravityProcessLabel)
+		exportArgs = append(exportArgs, defaults.GravityFileLabel)
 	}
 	err = utils.NewSSHCommands(nodeClient.Client).
 		C("rm -rf %s", secretsHostDir).

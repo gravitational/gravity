@@ -87,10 +87,7 @@ func IsSystemSupported(systemID string) bool {
 // GravityInstallerProcessContext specifies the expected SELinux process domain.
 // During bootstrapping, after the policy has been loaded, the process is
 // configured to start under a new domain (if not already) and restarted.
-var GravityInstallerProcessContext = MustNewContext("system_u:system_r:gravity_installer_t:s0")
-
-// GravityProcessLabel specifies the file label for a gravity binary
-const GravityProcessLabel = "system_u:object_r:gravity_exec_t:s0"
+var GravityInstallerProcessContext = MustNewContext(defaults.GravityInstallerProcessLabel)
 
 // MustNewContext parses the specified label as SELinux context.
 // Panics if label is not a valid SELinux label
@@ -335,6 +332,7 @@ port -a -t gravity_port_t -r 's0' -p {{.Protocol}} {{.From}}-{{.To}}{{end}}
 fcontext -a -f f -t gravity_installer_exec_t -r 's0' '{{.Path}}/gravity'
 fcontext -a -f f -t gravity_log_t -r 's0' '{{.Path}}/gravity-(install|system)\.log'
 fcontext -a -f a -t gravity_home_t -r 's0' '{{.Path}}/.gravity(/.*)?'
+fcontext -a -f a -t gravity_home_t -r 's0' '{{.Path}}/crashreport.tgz'
 `))
 
 var unloadScript = template.Must(template.New("selinux-unload").Parse(`

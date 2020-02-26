@@ -29,8 +29,7 @@ func ApplyFileContexts(ctx context.Context, out io.Writer, paths ...string) erro
 	return trace.Wrap(cmd.Run())
 }
 
-// ShouldLabelVolume determines if the volume with the specified label
-// should be labeled
+// ShouldLabelVolume determines if the specified label is valid
 func ShouldLabelVolume(label string) bool {
 	return label != ""
 }

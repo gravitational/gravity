@@ -65,7 +65,7 @@ func NewUpdatePhaseSELinux(
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	paths := diffVolumes(profile.Requirements.Volumes, updateProfile.Requirements.Volumes)
+	paths := diffVolumes(profile.Requirements.Volumes, updateProfile.Requirements.Volumes, server.StateDir())
 	config := selinux.UpdateConfig{
 		Generic: ports,
 		Paths:   paths,
@@ -144,11 +144,11 @@ func diffPorts(old, new schema.Manifest, profileName string) (ports []schema.Por
 	return ports, nil
 }
 
-func diffVolumes(old, new []schema.Volume) (paths []selinux.Path) {
+func diffVolumes(old, new []schema.Volume, stateDir string) (paths []selinux.Path) {
 	volumes := schema.DiffVolumes(old, new)
 	paths = make([]selinux.Path, 0, len(volumes))
 	for _, volume := range volumes {
-		if !selinux.ShouldLabelVolume(volume.Label) {
+		if volume.Path != stateDir || !selinux.ShouldLabelVolume(volume.Label) {
 			continue
 		}
 		paths = append(paths, selinux.Path{

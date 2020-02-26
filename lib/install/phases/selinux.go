@@ -32,7 +32,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// NewSELinux returns executor that configures SELinux
+// NewSELinux returns executor that configures SELinux on a node
 func NewSELinux(p fsm.ExecutorParams, operator ops.Operator, apps app.Applications) (fsm.PhaseExecutor, error) {
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithFields(logrus.Fields{
@@ -54,7 +54,7 @@ func NewSELinux(p fsm.ExecutorParams, operator ops.Operator, apps app.Applicatio
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	paths, err := getPaths(*profile)
+	paths, err := getPaths(*profile, p.Phase.Data.Server.StateDir())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -75,14 +75,16 @@ func NewSELinux(p fsm.ExecutorParams, operator ops.Operator, apps app.Applicatio
 	}, nil
 }
 
-// Execute creates system Kubernetes resources.
+// Execute applies local SELinux configuration changes
 func (r *seLinux) Execute(ctx context.Context) error {
 	r.Progress.NextStep("Configuring SELinux")
 	r.Info("Configuring SELinux.")
+	// This does not restorecon the changes as this is done
+	// after the mount directories are created later
 	return r.config.Update(ctx)
 }
 
-// Rollback deletes created system Kubernetes resources.
+// Rollback undoes local SELinux configuration changes
 func (r *seLinux) Rollback(ctx context.Context) error {
 	r.Info("Rolling back SELinux configuration.")
 	if err := r.config.Undo(ctx); err != nil {
@@ -142,12 +144,12 @@ func getPorts(profile schema.NodeProfile) (ports []schema.PortRange, err error) 
 	return ports, nil
 }
 
-func getPaths(profile schema.NodeProfile) (paths []selinux.Path, err error) {
+func getPaths(profile schema.NodeProfile, stateDir string) (paths []selinux.Path, err error) {
 	for _, volume := range profile.Requirements.Volumes {
 		if volume.Label == "" {
 			volume.Label = defaults.ContainerFileLabel
 		}
-		if !selinux.ShouldLabelVolume(volume.Label) {
+		if volume.Path != stateDir || !selinux.ShouldLabelVolume(volume.Label) {
 			continue
 		}
 		paths = append(paths, selinux.Path{
@@ -156,9 +158,4 @@ func getPaths(profile schema.NodeProfile) (paths []selinux.Path, err error) {
 		})
 	}
 	return paths, nil
-}
-
-func shouldLabel(label string) bool {
-	// TODO: come up with a better way to avoid labeling
-	return label == "<<none>>"
 }

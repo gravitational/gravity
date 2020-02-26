@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/gravitational/gravity/lib/constants"
+	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/install"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
@@ -120,7 +121,7 @@ func (p *Peer) downloadFio(ctx operationContext) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = pack.ExportExecutable(ctx.Packages, *locator, path)
+	err = pack.ExportExecutable(ctx.Packages, *locator, path, defaults.GravityFileLabel)
 	if err != nil {
 		return trace.Wrap(err)
 	}

@@ -1151,8 +1151,17 @@ const (
 	// agents to form a cluster before commencing the operation
 	AgentWaitTimeout = 5 * time.Minute
 
+	// GravityInstallerProcessLabel specifies the SELinux label of the installer process
+	GravityInstallerProcessLabel = "system_u:system_r:gravity_installer_t:s0"
+
 	// ContainerFileLabel specifies the default SELinux container file label
 	ContainerFileLabel = "system_u:object_r:container_file_t:s0"
+
+	// GravityFileLabel specifies the file label for the gravity binary
+	GravityFileLabel = "system_u:object_r:gravity_exec_t:s0"
+
+	// GenericBinaryLabel specifies the file label for a generic binary
+	// GenericBinaryLabel = "system_u:object_r:bin_t:s0"
 )
 
 var (
