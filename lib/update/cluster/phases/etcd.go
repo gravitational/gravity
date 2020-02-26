@@ -299,10 +299,6 @@ func (p *PhaseUpgradeEtcdRestart) Rollback(ctx context.Context) error {
 		return trace.Wrap(err).AddField("output", out)
 	}
 
-	out, err = utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "enable", "--upgrade")
-	if err != nil {
-		return trace.Wrap(err).AddField("output", out)
-	}
 	return nil
 }
 
