@@ -131,13 +131,17 @@ func DeployAgents(ctx context.Context, req DeployAgentsRequest) error {
 		}
 		serverStateDir := stateServer.StateDir()
 
+		logger := req.WithFields(server.Fields())
 		go func(node, nodeStateDir string, leader bool) {
-			err := trace.Wrap(deployAgentOnNode(ctx, req, node, nodeStateDir,
-				leader, req.SecretsPackage.String()))
-			if err != nil {
-				logrus.WithError(err).WithField("node", node).Warnf("Failed to deploy agent.")
-			}
-			errors <- err
+			// Try a few times to account for possible network glitches.
+			errors <- utils.RetryOnNetworkError(defaults.RetryInterval, defaults.RetryLessAttempts, func() error {
+				if err := deployAgentOnNode(ctx, req, node, nodeStateDir, leader, req.SecretsPackage.String()); err != nil {
+					logger.WithError(err).Warn("Failed to deploy agent.")
+					return trace.Wrap(err)
+				}
+				logger.Info("Agent deployed.")
+				return nil
+			})
 		}(server.NodeAddr, serverStateDir, leaderProcess)
 	}
 
@@ -169,6 +173,11 @@ type DeployServer struct {
 	Hostname string
 	// NodeAddr is the server's address in teleport context
 	NodeAddr string
+}
+
+// Fields returns log fields for the server.
+func (s DeployServer) Fields() logrus.Fields {
+	return logrus.Fields{"hostname": s.Hostname, "ip": s.AdvertiseIP}
 }
 
 // NewDeployServer creates a new instance of DeployServer
@@ -223,6 +232,5 @@ func deployAgentOnNode(ctx context.Context, req DeployAgentsRequest, node, nodeS
 		return trace.Wrap(err)
 	}
 
-	req.Infof("Successfully deployed agent on node %v.", node)
 	return nil
 }

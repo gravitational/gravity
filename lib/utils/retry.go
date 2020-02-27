@@ -174,7 +174,7 @@ func RetryOnNetworkError(period time.Duration, maxAttempts int, fn func() error)
 		case *net.OpError:
 			return Continue("network error: %v", err)
 		}
-		if trace.IsConnectionProblem(err) {
+		if trace.IsConnectionProblem(err) || trace.IsEOF(err) {
 			return Continue("network error: %v", err)
 		}
 		if err != nil {

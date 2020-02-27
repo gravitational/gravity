@@ -75,10 +75,14 @@ func newUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironm
 				msg = err.Error()
 			}
 			if errReset := ops.FailOperationAndResetCluster(*key, operator, msg); errReset != nil {
-				logrus.WithFields(logrus.Fields{
-					logrus.ErrorKey: errReset,
-					"operation":     key,
-				}).Warn("Failed to mark operation as failed.")
+				logger.WithError(errReset).Warn("Failed to mark operation as failed.")
+			}
+			// Depending on where the operation initialization failed, some upgrade
+			// agents may have started so we need to shut them down. If they're
+			// not running, it will be no-op so there's no harm in running this
+			// even if we failed before deploying the agents.
+			if errShutdown := rpcAgentShutdown(localEnv); errShutdown != nil {
+				logger.WithError(errShutdown).Warn("Failed to shutdown upgrade agents.")
 			}
 		}
 		if r != nil {
