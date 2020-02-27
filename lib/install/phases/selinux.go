@@ -149,7 +149,7 @@ func getPaths(profile schema.NodeProfile, stateDir string) (paths []selinux.Path
 		if volume.Label == "" {
 			volume.Label = defaults.ContainerFileLabel
 		}
-		if volume.Path != stateDir || !selinux.ShouldLabelVolume(volume.Label) {
+		if volume.Path == stateDir || !selinux.ShouldLabelVolume(volume.Label) {
 			continue
 		}
 		paths = append(paths, selinux.Path{

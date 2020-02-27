@@ -148,7 +148,7 @@ func diffVolumes(old, new []schema.Volume, stateDir string) (paths []selinux.Pat
 	volumes := schema.DiffVolumes(old, new)
 	paths = make([]selinux.Path, 0, len(volumes))
 	for _, volume := range volumes {
-		if volume.Path != stateDir || !selinux.ShouldLabelVolume(volume.Label) {
+		if volume.Path == stateDir || !selinux.ShouldLabelVolume(volume.Label) {
 			continue
 		}
 		paths = append(paths, selinux.Path{
