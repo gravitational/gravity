@@ -9,14 +9,12 @@ import (
 	"time"
 
 	"github.com/gravitational/gravity/lib/constants"
-	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/install/dispatcher"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/events"
 	"github.com/gravitational/gravity/lib/status"
-	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/system/signals"
 
 	"github.com/fatih/color"
@@ -45,9 +43,6 @@ func (i *Installer) NotifyOperationAvailable(op ops.SiteOperation) error {
 		return trace.Wrap(err)
 	}
 	i.registerExitHandlersForAgents(op)
-	if err := i.upsertAdminAgent(op.SiteDomain); err != nil {
-		return trace.Wrap(err)
-	}
 	go func() {
 		err := ProgressPoller{
 			FieldLogger:  i.FieldLogger,
@@ -230,19 +225,6 @@ func (i *Installer) getClusterStatus() (*status.Status, error) {
 		return nil, trace.Wrap(err)
 	}
 	return status, nil
-}
-
-// upsertAdminAgent creates an admin agent for the cluster being installed
-func (i *Installer) upsertAdminAgent(clusterName string) error {
-	agent, err := i.config.Process.UsersService().CreateClusterAdminAgent(clusterName,
-		storage.NewUser(storage.ClusterAdminAgent(clusterName), storage.UserSpecV2{
-			AccountID: defaults.SystemAccountID,
-		}))
-	if err != nil && !trace.IsAlreadyExists(err) {
-		return trace.Wrap(err)
-	}
-	i.WithField("agent", agent).Info("Created cluster agent.")
-	return nil
 }
 
 // uploadInstallLog uploads user-facing operation log to the installed cluster

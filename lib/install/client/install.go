@@ -54,7 +54,7 @@ func (r *InstallerStrategy) connect(ctx context.Context) (installpb.AgentClient,
 	client, err := installpb.NewClient(ctx, installpb.ClientConfig{
 		FieldLogger:     r.FieldLogger,
 		SocketPath:      r.SocketPath,
-		IsServiceFailed: r.isServiceFailed,
+		IsServiceFailed: isServiceFailed(serviceName(r.ServicePath)),
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -70,11 +70,7 @@ func (r *InstallerStrategy) installSelfAsService() error {
 	}
 	req := systemservice.NewServiceRequest{
 		ServiceSpec: systemservice.ServiceSpec{
-			StartCommand: strings.Join(r.Args, " "),
-			StartPreCommands: []string{
-				removeSocketFileCommand(r.SocketPath),
-			},
-			// TODO(dmitri): run as euid?
+			StartCommand:             strings.Join(r.Args, " "),
 			User:                     constants.RootUIDString,
 			SuccessExitStatus:        successExitStatuses,
 			RestartPreventExitStatus: noRestartExitStatuses,
@@ -123,17 +119,6 @@ func (r *InstallerStrategy) checkAndSetDefaults() (err error) {
 	return nil
 }
 
-// isServiceFailed returns an error if the service has failed.
-func (r *InstallerStrategy) isServiceFailed() error {
-	serviceName := service.Name(r.ServicePath)
-	failed, err := service.IsFailed(serviceName)
-	if err == nil && failed {
-		return trace.Errorf("service %q has failed. Check journal log for details.",
-			serviceName)
-	}
-	return nil
-}
-
 // InstallerStrategy implements the strategy that creates a new installer service
 // before attempting to connect.
 // This strategy also validates the environment before attempting to set up the service
@@ -155,6 +140,22 @@ type InstallerStrategy struct {
 	// ConnectTimeout specifies the maximum amount of time to wait for
 	// installer service connection.
 	ConnectTimeout time.Duration
+}
+
+// isServiceFailed returns an error if the service has failed.
+func isServiceFailed(serviceName string) func() error {
+	return func() error {
+		failed, err := service.IsFailed(serviceName)
+		if err == nil && failed {
+			return trace.Errorf("service %q has failed. Check journal log for details.",
+				serviceName)
+		}
+		return nil
+	}
+}
+
+func serviceName(path string) (name string) {
+	return filepath.Base(path)
 }
 
 var (

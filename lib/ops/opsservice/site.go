@@ -342,15 +342,13 @@ func (s *site) systemVars(op ops.SiteOperation, variables storage.SystemVariable
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-
 	url := strings.Join([]string{s.packages().PortalURL(), "t"}, "/")
-	return &storage.SystemVariables{
-		ClusterName: op.SiteDomain,
-		OpsURL:      url,
-		Token:       token.Token,
-		Devmode:     s.service.cfg.Devmode || s.service.cfg.Local,
-		Docker:      variables.Docker,
-	}, nil
+	result := variables
+	result.ClusterName = op.SiteDomain
+	result.OpsURL = url
+	result.Token = token.Token
+	result.Devmode = s.service.cfg.Devmode || s.service.cfg.Local
+	return &result, nil
 }
 
 func (s *site) setSiteState(state string) error {

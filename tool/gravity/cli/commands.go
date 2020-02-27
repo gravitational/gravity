@@ -374,8 +374,6 @@ type InstallCmd struct {
 	Wizard *bool
 	// Mode is installation mode
 	Mode *string
-	// DockerDevice is device to use for Docker data
-	DockerDevice *string
 	// SystemDevice is device to use for system data
 	SystemDevice *string
 	// Mounts is a list of additional app mounts
@@ -429,8 +427,6 @@ type JoinCmd struct {
 	Token *string
 	// Role is local node profile
 	Role *string
-	// DockerDevice is device to use for Docker data
-	DockerDevice *string
 	// SystemDevice is device to use for system data
 	SystemDevice *string
 	// ServerAddr is RPC server address
@@ -456,8 +452,6 @@ type AutoJoinCmd struct {
 	ClusterName *string
 	// Role is new node profile
 	Role *string
-	// DockerDevice is device to use for Docker data
-	DockerDevice *string
 	// SystemDevice is device to use for system data
 	SystemDevice *string
 	// Mounts is additional app mounts

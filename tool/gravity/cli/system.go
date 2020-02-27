@@ -219,12 +219,16 @@ func systemHistory(env *localenv.LocalEnvironment) error {
 
 func systemReinstall(env *localenv.LocalEnvironment, newPackage loc.Locator, serviceName string, labels map[string]string, clusterRole string) error {
 	if serviceName == "" {
+		updater := system.PackageUpdater{
+			Packages:    env.Packages,
+			ClusterRole: clusterRole,
+		}
 		update := storage.PackageUpdate{
 			From:   newPackage,
 			To:     newPackage,
 			Labels: labels,
 		}
-		return trace.Wrap(systemBlockingReinstall(env, update, clusterRole))
+		return trace.Wrap(updater.Reinstall(update))
 	}
 
 	args := []string{"system", "reinstall", newPackage.String()}
@@ -244,19 +248,11 @@ func systemReinstall(env *localenv.LocalEnvironment, newPackage loc.Locator, ser
 }
 
 func systemBlockingReinstall(env *localenv.LocalEnvironment, update storage.PackageUpdate, clusterRole string) error {
-	updater, err := system.New(system.Config{
-		Backend:     env.Backend,
+	updater := system.PackageUpdater{
 		Packages:    env.Packages,
 		ClusterRole: clusterRole,
-	})
-	if err != nil {
-		return trace.Wrap(err)
 	}
-	err = updater.Reinstall(update)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	return nil
+	return updater.Reinstall(update)
 }
 
 func reinstallOneshotService(env *localenv.LocalEnvironment, serviceName string, cmd []string) error {

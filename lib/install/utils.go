@@ -295,6 +295,12 @@ func InstallBinary(uid, gid int, logger log.FieldLogger) (err error) {
 		if err == nil {
 			break
 		}
+		logger.WithFields(log.Fields{
+			log.ErrorKey:  err,
+			"uid":         uid,
+			"gid":         gid,
+			"target-path": targetPath,
+		}).Warn("Failed to install binary.")
 	}
 	if err != nil {
 		return trace.Wrap(err, "failed to install gravity binary in any of %v",
@@ -334,7 +340,7 @@ func (r ProgressPoller) Run(ctx context.Context) error {
 				r.WithError(err).Warn("Failed to query operation progress.")
 				continue
 			}
-			if lastProgress != nil && lastProgress.IsEqual(*progress) {
+			if shouldIgnoreProgress(progress, lastProgress) {
 				continue
 			}
 			r.Dispatcher.Send(dispatcher.Event{Progress: progress})
@@ -346,6 +352,11 @@ func (r ProgressPoller) Run(ctx context.Context) error {
 			return nil
 		}
 	}
+}
+
+func shouldIgnoreProgress(current, prev *ops.ProgressEntry) bool {
+	return prev != nil && prev.IsEqual(*current) ||
+		prev == nil && current.IsFailed()
 }
 
 // ProgressPoller is a progress message poller
@@ -366,6 +377,24 @@ type ExecResult struct {
 	Error error
 }
 
+// FormatAbortError formats the specified error for output by the installer client.
+// Output will contain error message for err as well as any error it wraps.
+func FormatAbortError(err error) string {
+	switch err := err.(type) {
+	case trace.Error:
+		userMessage := trace.UserMessage(err)
+		if err.OrigError() != nil {
+			detail := trace.UserMessage(err.OrigError())
+			if detail != userMessage {
+				userMessage = fmt.Sprintf("%v (%v)", userMessage, detail)
+			}
+		}
+		return userMessage
+	default:
+		return trace.UserMessage(err)
+	}
+}
+
 func isOperationSuccessful(progress ops.ProgressEntry) bool {
 	return progress.IsCompleted() && progress.State == ops.OperationStateCompleted
 }
@@ -379,9 +408,12 @@ func tryInstallBinary(targetPath string, uid, gid int, logger log.FieldLogger) e
 	if err != nil {
 		return trace.Wrap(err, "failed to determine path to binary")
 	}
-	err = os.MkdirAll(filepath.Dir(targetPath), defaults.SharedDirMask)
-	if err != nil {
-		return trace.Wrap(err)
+	dir := filepath.Dir(targetPath)
+	if dir != string(filepath.Separator) {
+		err = os.MkdirAll(dir, defaults.SharedDirMask)
+		if err != nil {
+			return trace.ConvertSystemError(err)
+		}
 	}
 	err = utils.CopyFileWithPerms(targetPath, path, defaults.SharedExecutableMask)
 	if err != nil {
@@ -476,17 +508,4 @@ func newInvalidCertError(err error) error {
 	return trace.BadParameter("%s. Please make sure that clocks are synchronized between the nodes "+
 		"by using ntp, chrony or other time-synchronization programs.",
 		trace.UserMessage(err))
-}
-
-func formatAbortError(err error) string {
-	switch err := err.(type) {
-	case trace.Error:
-		userMessage := trace.UserMessage(err)
-		if err.OrigError() != nil {
-			userMessage = fmt.Sprintf("%v (%v)", userMessage, trace.UserMessage(err.OrigError()))
-		}
-		return userMessage
-	default:
-		return trace.UserMessage(err)
-	}
 }

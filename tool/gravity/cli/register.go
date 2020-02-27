@@ -49,8 +49,8 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.GID = g.Flag("gid", "Effective group ID for this operation. Must be >= 0.").Default(strconv.Itoa(defaults.PlaceholderGroupID)).Hidden().Int()
 	g.ProfileEndpoint = g.Flag("httpprofile", "Enable profiling endpoint on specified host/port i.e. localhost:6060.").Hidden().String()
 	g.ProfileTo = g.Flag("profile-dir", "Store periodic state snapshots in the specified directory.").Hidden().String()
-	g.UserLogFile = g.Flag("log-file", "Path to the log file with diagnostic information.").Default(defaults.GravityUserLog).String()
-	g.SystemLogFile = g.Flag("system-log-file", "Path to the log file with system level logs.").Default(defaults.GravitySystemLog).Hidden().String()
+	g.UserLogFile = g.Flag("log-file", "Path to the log file with diagnostic information.").Default(defaults.GravityUserLogPath).String()
+	g.SystemLogFile = g.Flag("system-log-file", "Path to the log file with system level logs.").Hidden().String()
 
 	g.VersionCmd.CmdClause = g.Command("version", "Print version information and exit.")
 	g.VersionCmd.Output = common.Format(g.VersionCmd.Flag("output", "Output format: text or json.").Short('o').Default(string(constants.EncodingText)))
@@ -68,7 +68,8 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.InstallCmd.Wizard = g.InstallCmd.Flag("wizard", "Start installation using web wizard interface.").Bool()
 	g.InstallCmd.Mode = g.InstallCmd.Flag("mode", fmt.Sprintf("Install mode. One of: %v.",
 		modules.Get().InstallModes())).Default(constants.InstallModeCLI).Hidden().String()
-	g.InstallCmd.DockerDevice = g.InstallCmd.Flag("docker-device", "Device to use for docker storage.").Hidden().String()
+	// Deprecated
+	_ = g.InstallCmd.Flag("docker-device", "[DEPRECATED] This flag will be removed in future version.").Hidden().String()
 	g.InstallCmd.SystemDevice = g.InstallCmd.Flag("system-device", "Device to use for system data directory.").Hidden().String()
 	g.InstallCmd.Mounts = configure.KeyValParam(g.InstallCmd.Flag("mount", "One or several mount overrides in the following format: <mount-name>:<path>, e.g. data:/var/lib/data."))
 	g.InstallCmd.PodCIDR = g.InstallCmd.Flag("pod-network-cidr", "Subnet range for Kubernetes pods network. Must be a minimum of /16.").Default(defaults.PodSubnet).String()
@@ -104,7 +105,8 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.JoinCmd.AdvertiseAddr = g.JoinCmd.Flag("advertise-addr", "IP address this node will advertise to other cluster nodes.").String()
 	g.JoinCmd.Token = g.JoinCmd.Flag("token", "Unique token to authorize this node to join the cluster.").String()
 	g.JoinCmd.Role = g.JoinCmd.Flag("role", "Role of this node.").String()
-	g.JoinCmd.DockerDevice = g.JoinCmd.Flag("docker-device", "Docker device to use.").Hidden().String()
+	// Deprecated
+	_ = g.JoinCmd.Flag("docker-device", "[DEPRECATED] This flag will be removed in future version.").Hidden().String()
 	g.JoinCmd.SystemDevice = g.JoinCmd.Flag("system-device", "Device to use for system data directory.").Hidden().String()
 	g.JoinCmd.ServerAddr = g.JoinCmd.Flag("server-addr", "Address of the agent server.").Hidden().String()
 	g.JoinCmd.Mounts = configure.KeyValParam(g.JoinCmd.Flag("mount", "One or several mounts in form <mount-name>:<path>, e.g. data:/var/lib/data."))
@@ -115,7 +117,8 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.AutoJoinCmd.CmdClause = g.Command("autojoin", "Use cloud provider data to join a node to existing cluster.")
 	g.AutoJoinCmd.ClusterName = g.AutoJoinCmd.Arg("cluster-name", "Cluster name used for discovery.").Required().String()
 	g.AutoJoinCmd.Role = g.AutoJoinCmd.Flag("role", "Role of this node.").String()
-	g.AutoJoinCmd.DockerDevice = g.AutoJoinCmd.Flag("docker-device", "Docker device to use.").Hidden().String()
+	// Deprecated
+	_ = g.AutoJoinCmd.Flag("docker-device", "Docker device to use.").Hidden().String()
 	g.AutoJoinCmd.SystemDevice = g.AutoJoinCmd.Flag("system-device", "Device to use for system data directory.").Hidden().String()
 	g.AutoJoinCmd.Mounts = configure.KeyValParam(g.AutoJoinCmd.Flag("mount", "One or several mounts in form <mount-name>:<path>, e.g. data:/var/lib/data."))
 	g.AutoJoinCmd.ServiceAddr = g.AutoJoinCmd.Flag("service-addr", "Service URL of the cluster to join.").String()
@@ -692,13 +695,6 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.SystemReportCmd.Compressed = g.SystemReportCmd.Flag("compressed", "whether to compress the tarball").Default("true").Bool()
 
 	g.SystemStateDirCmd.CmdClause = g.SystemCmd.Command("state-dir", "show where all gravity data is stored on the node").Hidden()
-
-	// manage docker devicemapper environment
-	g.SystemDevicemapperCmd.CmdClause = g.SystemCmd.Command("devicemapper", "manage docker devicemapper environment").Hidden()
-	g.SystemDevicemapperMountCmd.CmdClause = g.SystemDevicemapperCmd.Command("mount", "configure devicemapper environment").Hidden()
-	g.SystemDevicemapperMountCmd.Disk = g.SystemDevicemapperMountCmd.Arg("disk", "disk/partition to use for physical volume").String()
-	g.SystemDevicemapperUnmountCmd.CmdClause = g.SystemDevicemapperCmd.Command("unmount", "remove devicemapper environment").Hidden()
-	g.SystemDevicemapperSystemDirCmd.CmdClause = g.SystemDevicemapperCmd.Command("system-dir", "query the location of the lvm system directory").Hidden()
 
 	// journal helpers
 	g.SystemExportRuntimeJournalCmd.CmdClause = g.SystemCmd.Command("export-runtime-journal", "Export runtime journal logs to a file").Hidden()

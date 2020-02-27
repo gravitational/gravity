@@ -19,6 +19,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -256,5 +257,7 @@ func loadRPCCredentials(ctx context.Context, addr, token string) (*rpcserver.Cre
 
 func parseArgs(args []string) (*kingpin.ParseContext, error) {
 	app := kingpin.New("gravity", "")
+	app.Terminate(func(int) {})
+	app.Writer(ioutil.Discard)
 	return RegisterCommands(app).ParseContext(args)
 }

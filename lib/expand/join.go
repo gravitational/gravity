@@ -44,6 +44,7 @@ import (
 	"github.com/gravitational/gravity/lib/ops/events"
 	"github.com/gravitational/gravity/lib/ops/opsclient"
 	"github.com/gravitational/gravity/lib/pack"
+	"github.com/gravitational/gravity/lib/pack/localpack"
 	"github.com/gravitational/gravity/lib/pack/webpack"
 	pb "github.com/gravitational/gravity/lib/rpc/proto"
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
@@ -171,15 +172,8 @@ func (p *Peer) Execute(req *installpb.ExecuteRequest, stream installpb.Agent_Exe
 		case result := <-p.execDoneC:
 			if result.Error != nil {
 				// Phase finished with an error.
-				if installpb.IsRPCError(result.Error) {
-					return trace.Unwrap(result.Error)
-				}
-				// Flag a failed intermediate step as codes.Aborted.
-				// From gRPC documentation:
-				// Use Aborted if the client should retry at a higher-level
-				// (e.g., restarting a read-modify-write sequence).
 				// See https://github.com/grpc/grpc-go/blob/v1.22.0/codes/codes.go#L78
-				return status.Error(codes.Aborted, trace.UserMessage(result.Error))
+				return status.Error(codes.Aborted, install.FormatAbortError(result.Error))
 			}
 			if result.CompletionEvent != nil {
 				err := stream.Send(result.CompletionEvent.AsProgressResponse())
@@ -278,7 +272,7 @@ type PeerConfig struct {
 	// LocalApps is local apps service of the joining node
 	LocalApps app.Applications
 	// LocalPackages is local package service of the joining node
-	LocalPackages pack.PackageService
+	LocalPackages *localpack.PackageServer
 	// LocalClusterClient is a factory for creating a client to the installed cluster
 	LocalClusterClient func(...httplib.ClientOption) (*opsclient.Client, error)
 	// JoinBackend is the local backend where join-specific operation data is stored
@@ -595,7 +589,7 @@ func (p *Peer) dialWizard(addr string) (*operationContext, error) {
 		Creds:     *creds,
 	}
 	if shouldRunLocalChecks(ctx) {
-		err = p.runLocalChecks(*cluster, *operation)
+		err = p.runLocalChecks(ctx)
 		if err != nil {
 			return nil, utils.Abort(err)
 		}
@@ -614,13 +608,13 @@ func (p *Peer) dialCluster(addr, operationID string) (*operationContext, error) 
 	if err != nil {
 		return nil, utils.Abort(err)
 	}
-	if shouldRunLocalChecks(*ctx) {
-		err = p.runLocalChecksExpand(ctx.Operator, ctx.Cluster)
-		if err != nil {
-			return nil, utils.Abort(err)
-		}
-	}
 	if ctx.hasOperation() {
+		if shouldRunLocalChecks(*ctx) {
+			err = p.runLocalChecks(*ctx)
+			if err != nil {
+				return nil, utils.Abort(err)
+			}
+		}
 		return ctx, nil
 	}
 	operation, err := p.getOrCreateExpandOperation(ctx.Operator, ctx.Cluster, operationID)
@@ -628,6 +622,12 @@ func (p *Peer) dialCluster(addr, operationID string) (*operationContext, error) 
 		return nil, trace.Wrap(err)
 	}
 	ctx.Operation = *operation
+	if shouldRunLocalChecks(*ctx) {
+		err = p.runLocalChecks(*ctx)
+		if err != nil {
+			return nil, utils.Abort(err)
+		}
+	}
 	return ctx, nil
 }
 
@@ -711,23 +711,19 @@ func (p *Peer) getOrCreateExpandOperation(operator ops.Operator, cluster ops.Sit
 	return operation, nil
 }
 
-func (p *Peer) runLocalChecksExpand(operator ops.Operator, cluster ops.Site) error {
-	installOperation, _, err := ops.GetInstallOperation(cluster.Key(), operator)
+func (p *Peer) runLocalChecks(ctx operationContext) error {
+	installOperation, _, err := ops.GetInstallOperation(ctx.Cluster.Key(), ctx.Operator)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return p.runLocalChecks(cluster, *installOperation)
-}
-
-func (p *Peer) runLocalChecks(cluster ops.Site, installOperation ops.SiteOperation) error {
 	return checks.RunLocalChecks(p.ctx, checks.LocalChecksRequest{
-		Manifest: cluster.App.Manifest,
+		Manifest: ctx.Cluster.App.Manifest,
 		Role:     p.Role,
-		Docker:   cluster.ClusterState.Docker,
+		Docker:   ctx.Cluster.ClusterState.Docker,
 		Options: &validationpb.ValidateOptions{
 			VxlanPort: int32(installOperation.GetVars().OnPrem.VxlanPort),
-			DnsAddrs:  cluster.DNSConfig.Addrs,
-			DnsPort:   int32(cluster.DNSConfig.Port),
+			DnsAddrs:  ctx.Cluster.DNSConfig.Addrs,
+			DnsPort:   int32(ctx.Cluster.DNSConfig.Port),
 		},
 		AutoFix: true,
 	})

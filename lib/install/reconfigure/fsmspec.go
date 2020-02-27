@@ -44,7 +44,7 @@ func FSMSpec(config install.FSMConfig) fsm.FSMSpecFunc {
 		// Reconfiguration is only currently supported for single-node clusters
 		// so only "/masters" phase can be present.
 		case strings.HasPrefix(p.Phase.ID, installphases.MastersPhase):
-			return installphases.NewSystem(p, config.Operator, remote)
+			return installphases.NewSystem(p, config.Operator, config.LocalPackages, remote)
 		}
 		switch p.Phase.ID {
 		case installphases.ChecksPhase:

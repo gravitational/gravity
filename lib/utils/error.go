@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"strings"
 	"syscall"
 
@@ -136,13 +137,16 @@ func IsNetworkError(err error) bool {
 }
 
 // NewUninstallServiceError returns a plan out of sync error
-func NewUninstallServiceError(servicePackage loc.Locator) error {
-	return &ErrorUninstallService{Package: servicePackage}
+func NewUninstallServiceError(err error, servicePackage loc.Locator) error {
+	return &ErrorUninstallService{
+		Package: servicePackage,
+		Err:     err,
+	}
 }
 
 // Error implements error interface
 func (r *ErrorUninstallService) Error() string {
-	return fmt.Sprintf("failed uninstalling %v service", r.Package)
+	return fmt.Sprintf("failed uninstalling %v service: %v", r.Package, r.Err)
 }
 
 // IsStreamClosedError determines if the given error is a response/stream closed
@@ -180,6 +184,9 @@ func IsClosedResponseBodyErrorMessage(err string) bool {
 type ErrorUninstallService struct {
 	// Package refers to the service that failed to uninstall
 	Package loc.Locator
+	// Err specifies the actual error encountered while uninstalling
+	// the service
+	Err error
 }
 
 // IsPathError determines if the specified err is of type os.PathError
@@ -421,6 +428,20 @@ func WrapExitCodeError(exitCode int, err error) error {
 		code: exitCode,
 		err:  err,
 	}
+}
+
+// ExitStatusFromError returns the exit status from the specified error.
+// If the error is not exit status error, return nil
+func ExitStatusFromError(err error) *int {
+	exitErr, ok := trace.Unwrap(err).(*exec.ExitError)
+	if !ok {
+		return nil
+	}
+	if waitStatus, ok := exitErr.ProcessState.Sys().(syscall.WaitStatus); ok {
+		status := waitStatus.ExitStatus()
+		return &status
+	}
+	return nil
 }
 
 // ExitCode interprets this value as exit code.

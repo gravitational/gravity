@@ -69,7 +69,12 @@ func KeyToProto(key ops.SiteOperationKey) *OperationKey {
 
 // HasSpecificPhase determines if this request is for a specific phase (other than root)
 func (r *ExecuteRequest) HasSpecificPhase() bool {
-	return r.Phase != nil && !r.Phase.IsResume()
+	return !r.HasResume()
+}
+
+// HasResume determines if this is a request to resume an operation
+func (r *ExecuteRequest) HasResume() bool {
+	return r.Phase == nil || r.Phase.IsResume()
 }
 
 // OperationKey returns operation key from request.
@@ -90,7 +95,7 @@ func (r *Phase) IsResume() bool {
 // WrapServiceError returns an error from service optionally
 // translating it to a more appropriate representation if required
 func WrapServiceError(err error) error {
-	if IsFailedPreconditionError(err) {
+	if isErrorCode(err, codes.FailedPrecondition, codes.PermissionDenied) {
 		return utils.NewExitCodeErrorWithMessage(
 			defaults.FailedPreconditionExitCode,
 			trace.UserMessage(err),
@@ -141,4 +146,17 @@ var AbortEvent = &ProgressResponse{
 // CompleteEvent is a progress response that indicates a successfully completed operation
 var CompleteEvent = &ProgressResponse{
 	Status: StatusCompleted,
+}
+
+func isErrorCode(err error, codes ...codes.Code) bool {
+	s, ok := status.FromError(trace.Unwrap(err))
+	if !ok {
+		return false
+	}
+	for _, c := range codes {
+		if s.Code() == c {
+			return true
+		}
+	}
+	return false
 }

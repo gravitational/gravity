@@ -65,61 +65,7 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 
 		case strings.HasPrefix(p.Phase.ID, phases.MastersPhase), strings.HasPrefix(p.Phase.ID, phases.NodesPhase):
 			return phases.NewSystem(p,
-				config.Operator, remote)
-
-		case p.Phase.ID == phases.WaitPhase:
-			client, err := getKubeClient(p)
-			if err != nil {
-				return nil, trace.Wrap(err)
-			}
-			return phases.NewWait(p,
-				config.Operator,
-				client)
-
-		case p.Phase.ID == phases.HealthPhase:
-			return phases.NewHealth(p,
-				config.Operator)
-
-		case p.Phase.ID == phases.RBACPhase:
-			client, err := getKubeClient(p)
-			if err != nil {
-				return nil, trace.Wrap(err)
-			}
-			return phases.NewRBAC(p,
-				config.Operator,
-				config.LocalApps,
-				client)
-
-		case p.Phase.ID == phases.CorednsPhase:
-			client, err := getKubeClient(p)
-			if err != nil {
-				return nil, trace.Wrap(err)
-			}
-			return phases.NewCorednsPhase(p,
-				config.Operator,
-				client)
-
-		case p.Phase.ID == phases.OpenEBSPhase:
-			client, err := getKubeClient(p)
-			if err != nil {
-				return nil, trace.Wrap(err)
-			}
-			return phases.NewOpenEBS(p,
-				config.Operator,
-				client)
-
-		case p.Phase.ID == phases.SystemResourcesPhase:
-			client, err := getKubeClient(p)
-			if err != nil {
-				return nil, trace.Wrap(err)
-			}
-			return phases.NewSystemResources(p,
-				config.Operator,
-				client)
-
-		case p.Phase.ID == phases.UserResourcesPhase:
-			return phases.NewUserResources(p,
-				config.Operator)
+				config.Operator, config.LocalPackages, remote)
 
 		case strings.HasPrefix(p.Phase.ID, phases.ExportPhase):
 			return phases.NewExport(p,
@@ -131,10 +77,6 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 			return phases.NewApp(p,
 				config.Operator,
 				config.LocalApps)
-
-		case p.Phase.ID == phases.ConnectInstallerPhase:
-			return phases.NewConnectInstaller(p,
-				config.Operator)
 
 		case strings.HasPrefix(p.Phase.ID, phases.EnableElectionPhase):
 			return phases.NewEnableElectionPhase(p, config.Operator)
@@ -157,6 +99,75 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 				return nil, trace.Wrap(err)
 			}
 			return phases.NewGravityResourcesPhase(p, operator, factory)
+		}
+
+		switch p.Phase.ID {
+		case phases.ChecksPhase:
+			return phases.NewChecks(p,
+				config.Operator,
+				config.OperationKey)
+
+		case phases.ConfigurePhase:
+			return phases.NewConfigure(p,
+				config.Operator)
+
+		case phases.WaitPhase:
+			client, err := getKubeClient(p)
+			if err != nil {
+				return nil, trace.Wrap(err)
+			}
+			return phases.NewWait(p,
+				config.Operator,
+				client)
+
+		case phases.HealthPhase:
+			return phases.NewHealth(p,
+				config.Operator)
+
+		case phases.RBACPhase:
+			client, err := getKubeClient(p)
+			if err != nil {
+				return nil, trace.Wrap(err)
+			}
+			return phases.NewRBAC(p,
+				config.Operator,
+				config.LocalApps,
+				client)
+
+		case phases.CorednsPhase:
+			client, err := getKubeClient(p)
+			if err != nil {
+				return nil, trace.Wrap(err)
+			}
+			return phases.NewCorednsPhase(p,
+				config.Operator,
+				client)
+
+		case phases.OpenEBSPhase:
+			client, err := getKubeClient(p)
+			if err != nil {
+				return nil, trace.Wrap(err)
+			}
+			return phases.NewOpenEBS(p,
+				config.Operator,
+				client)
+
+		case phases.SystemResourcesPhase:
+			client, err := getKubeClient(p)
+			if err != nil {
+				return nil, trace.Wrap(err)
+			}
+			return phases.NewSystemResources(p,
+				config.Operator,
+				client)
+
+		case phases.UserResourcesPhase:
+			return phases.NewUserResources(p,
+				config.Operator)
+
+		case phases.ConnectInstallerPhase:
+			return phases.NewConnectInstaller(p,
+				config.Operator)
 
 		default:
 			return nil, trace.BadParameter("unknown phase %q", p.Phase.ID)

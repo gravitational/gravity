@@ -30,6 +30,7 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
+	"github.com/gravitational/gravity/lib/log"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/state"
 	libstatus "github.com/gravitational/gravity/lib/status"
@@ -154,6 +155,12 @@ func (r *System) Rollback(ctx context.Context, withStatus bool) (err error) {
 	return nil
 }
 
+// UpdateTctlScript writes tctl script that invokes tctl binary from the
+// specified package with appropriate configuration.
+func (r *System) UpdateTctlScript(newPackage loc.Locator) error {
+	return updateTctlScript(r.Packages, newPackage, r.Logger)
+}
+
 // System is a service to update system package on a node
 type System struct {
 	// Config specifies service configuration
@@ -167,16 +174,18 @@ func (r *Config) checkAndSetDefaults() error {
 	if r.Packages == nil {
 		return trace.BadParameter("Packages is required")
 	}
-	if r.FieldLogger == nil {
-		r.FieldLogger = logrus.WithFields(logrus.Fields{
+	if r.Logger == nil {
+		r.Logger = log.New(logrus.WithFields(logrus.Fields{
 			trace.Component: "system-update",
-		})
+		}))
 	}
 	return nil
 }
 
 // Config defines the configuration of the system updater
 type Config struct {
+	// Logger specifies the logger
+	log.Logger
 	// PackageUpdates describes the packages to update
 	PackageUpdates
 	// ChangesetID specifies the unique ID of this update operation
@@ -187,8 +196,6 @@ type Config struct {
 	Packages update.LocalPackageService
 	// ClusterRole specifies cluster role of the node this system updater runs on
 	ClusterRole string
-	// FieldLogger specifies the logger
-	logrus.FieldLogger
 }
 
 func (r *PackageUpdates) checkAndSetDefaults() error {
@@ -237,45 +244,16 @@ type PackageUpdates struct {
 	Teleport *storage.PackageUpdate
 }
 
-// Reinstall reinstalls the specified package.
-func (r *System) Reinstall(update storage.PackageUpdate) error {
-	return r.blockingReinstall(update)
-}
-
-func (r *System) blockingReinstall(update storage.PackageUpdate) error {
-	labelUpdates, err := r.reinstallPackage(update)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	if len(labelUpdates) == 0 {
-		return nil
-	}
-	return applyLabelUpdates(r.Packages, labelUpdates)
-}
-
-func (r *System) reinstallPackage(update storage.PackageUpdate) ([]pack.LabelUpdate, error) {
-	r.WithField("update", update).Info("Reinstalling package.")
-	switch {
-	case update.To.Name == constants.GravityPackage:
-		return r.updateGravityPackage(update.To)
-	case pack.IsPlanetPackage(update.To, update.Labels):
-		updates, err := r.updatePlanetPackage(update)
-		return updates, trace.Wrap(err)
-	case update.To.Name == constants.TeleportPackage:
-		updates, err := r.updateTeleportPackage(update)
-		return updates, trace.Wrap(err)
-	case pack.IsSecretsPackage(update.To, update.Labels):
-		updates, err := r.reinstallSecretsPackage(update.To)
-		return updates, trace.Wrap(err)
-	}
-	return nil, trace.BadParameter("unsupported package: %v", update.To)
-}
-
 func (r *System) applyUpdates(updates []storage.PackageUpdate) error {
 	var errors []error
+	packageUpdater := &PackageUpdater{
+		Logger:      r.WithField(trace.Component, "update:package"),
+		Packages:    r.Packages,
+		ClusterRole: r.ClusterRole,
+	}
 	for _, u := range updates {
 		r.WithField("update", u).Info("Applying.")
-		err := r.blockingReinstall(u)
+		err := packageUpdater.Reinstall(u)
 		if err != nil {
 			r.WithFields(logrus.Fields{
 				logrus.ErrorKey: err,
@@ -308,10 +286,69 @@ func (r *System) getChangesetByID(changesetID string) (*storage.PackageChangeset
 	return changeset, nil
 }
 
-func (r *System) updatePlanetPackage(update storage.PackageUpdate) (labelUpdates []pack.LabelUpdate, err error) {
+// Reinstall reinstalls the package specified by update
+func (r *PackageUpdater) Reinstall(update storage.PackageUpdate) error {
+	if err := r.checkAndSetDefaults(); err != nil {
+		return trace.Wrap(err)
+	}
+	labelUpdates, err := r.reinstallPackage(update)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if len(labelUpdates) == 0 {
+		return nil
+	}
+	return applyLabelUpdates(r.Packages, labelUpdates)
+}
+
+func (r *PackageUpdater) reinstallPackage(update storage.PackageUpdate) ([]pack.LabelUpdate, error) {
+	r.WithField("update", update).Info("Reinstalling package.")
+	switch {
+	case update.To.Name == constants.GravityPackage:
+		return r.updateGravityPackage(update.To)
+	case pack.IsPlanetPackage(update.To, update.Labels):
+		updates, err := r.updatePlanetPackage(update)
+		return updates, trace.Wrap(err)
+	case update.To.Name == constants.TeleportPackage:
+		updates, err := r.updateTeleportPackage(update)
+		return updates, trace.Wrap(err)
+	case pack.IsSecretsPackage(update.To, update.Labels):
+		updates, err := r.reinstallSecretsPackage(update.To)
+		return updates, trace.Wrap(err)
+	}
+	return nil, trace.BadParameter("unsupported package: %v", update.To)
+}
+
+func (r *PackageUpdater) updateGravityPackage(newPackage loc.Locator) (labelUpdates []pack.LabelUpdate, err error) {
+	for _, targetPath := range state.GravityBinPaths {
+		labelUpdates, err = reinstallBinaryPackage(r.Packages, newPackage, targetPath)
+		if err == nil {
+			break
+		}
+		r.WithFields(logrus.Fields{
+			logrus.ErrorKey: err,
+			"path":          targetPath,
+		}).Warn("Failed to install gravity binary.")
+	}
+	if err != nil {
+		return nil, trace.Wrap(err, "failed to install gravity binary in any of %v",
+			state.GravityBinPaths)
+	}
+	planetPath, err := getRuntimePackagePath(r.Packages)
+	if err != nil {
+		return nil, trace.Wrap(err, "failed to find planet package")
+	}
+	err = copyGravityToPlanet(newPackage, r.Packages, planetPath)
+	if err != nil {
+		return nil, trace.Wrap(err, "failed to copy gravity inside planet")
+	}
+	return labelUpdates, nil
+}
+
+func (r *PackageUpdater) updatePlanetPackage(update storage.PackageUpdate) (labelUpdates []pack.LabelUpdate, err error) {
 	var gravityPackageFilter = loc.MustCreateLocator(
 		defaults.SystemAccountOrg, constants.GravityPackage, loc.ZeroVersion)
-	err = r.Packages.Unpack(update.To, "")
+	err = unpack(r.Packages, update.To)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to unpack package %v", update.To)
 	}
@@ -332,7 +369,7 @@ func (r *System) updatePlanetPackage(update storage.PackageUpdate) (labelUpdates
 		return nil, trace.Wrap(err, "failed to copy gravity inside planet")
 	}
 
-	err = updateKubectl(planetPath, r.FieldLogger)
+	err = updateSymlinks(planetPath, r.Logger)
 	if err != nil {
 		r.WithError(err).Warn("kubectl will not work on host.")
 	}
@@ -349,14 +386,18 @@ func (r *System) updatePlanetPackage(update storage.PackageUpdate) (labelUpdates
 	return labelUpdates, nil
 }
 
-func (r *System) updateTeleportPackage(update storage.PackageUpdate) (labelUpdates []pack.LabelUpdate, err error) {
+func (r *PackageUpdater) updateTeleportPackage(update storage.PackageUpdate) (labelUpdates []pack.LabelUpdate, err error) {
+	err = unpack(r.Packages, update.To)
+	if err != nil {
+		return nil, trace.Wrap(err, "failed to unpack package %v", update.To)
+	}
 	updates, err := r.reinstallService(update)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	// tctl has to be run on auth server nodes only.
 	if r.ClusterRole == defaults.RoleMaster {
-		err = r.UpdateTctlScript(update.To)
+		err = updateTctlScript(r.Packages, update.To, r.Logger)
 		if err != nil {
 			r.WithError(err).Error("Failed to update tctl script.")
 		}
@@ -382,62 +423,7 @@ func (r *System) updateTeleportPackage(update storage.PackageUpdate) (labelUpdat
 	), nil
 }
 
-// UpdateTctlScript writes tctl script that invokes tctl binary from the
-// specified package with appropriate configuration.
-func (r *System) UpdateTctlScript(newPackage loc.Locator) error {
-	scriptBytes, err := r.renderTctlScript(newPackage)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	var errors []error
-	for _, path := range []string{defaults.TctlBin, defaults.TctlBinAlternate} {
-		err = utils.CopyExecutable(path, bytes.NewReader(scriptBytes))
-		if err == nil {
-			r.WithField("path", path).Info("Updated tctl script.")
-			return nil
-		}
-		errors = append(errors, err)
-	}
-	return trace.NewAggregate(errors...)
-}
-
-// renderTctlScript renders the contents of the script that invokes tctl binary
-// with appropriate configuration.
-func (r *System) renderTctlScript(newPackage loc.Locator) ([]byte, error) {
-	// First, make up configuration for tctl. It only requires the data_dir
-	// to be set. The data directory points to the location where teleport
-	// masters embedded into gravity-sites store their data on disk.
-	stateDir, err := state.GetStateDir()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	configBytes, err := yaml.Marshal(teleconfig.FileConfig{
-		Global: teleconfig.Global{
-			DataDir: filepath.Join(stateDir, defaults.SiteDir, defaults.TeleportDir),
-		},
-	})
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	// Now, render the script which invokes the tctl binary from the specified
-	// unpacked teleport package and passes configuration to it via environment
-	// variable as a base64-encoded string.
-	teleportPath, err := r.Packages.UnpackedPath(newPackage)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	var buffer bytes.Buffer
-	err = tctlScript.Execute(&buffer, map[string]string{
-		"path": filepath.Join(teleportPath, defaults.RootfsDir, defaults.TctlBin),
-		"conf": base64.StdEncoding.EncodeToString(configBytes),
-	})
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return buffer.Bytes(), nil
-}
-
-func (r *System) reinstallSecretsPackage(newPackage loc.Locator) (labelUpdates []pack.LabelUpdate, err error) {
+func (r *PackageUpdater) reinstallSecretsPackage(newPackage loc.Locator) (labelUpdates []pack.LabelUpdate, err error) {
 	prevPackage, err := pack.FindInstalledPackage(r.Packages, newPackage)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -472,22 +458,17 @@ func (r *System) reinstallSecretsPackage(newPackage loc.Locator) (labelUpdates [
 	return labelUpdates, nil
 }
 
-func (r *System) reinstallService(update storage.PackageUpdate) (labelUpdates []pack.LabelUpdate, err error) {
+func (r *PackageUpdater) reinstallService(update storage.PackageUpdate) (labelUpdates []pack.LabelUpdate, err error) {
 	services, err := systemservice.New()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	packageUpdates, err := uninstallPackage(services, update.From, r.FieldLogger)
+	packageUpdates, err := uninstallPackage(services, update.From, r.Logger)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	labelUpdates = append(labelUpdates, packageUpdates...)
-
-	err = unpack(r.Packages, update.To)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
 
 	manifest, err := r.Packages.GetPackageManifest(update.To)
 	if err != nil {
@@ -539,30 +520,77 @@ func (r *System) reinstallService(update storage.PackageUpdate) (labelUpdates []
 	return labelUpdates, nil
 }
 
-func (r *System) updateGravityPackage(newPackage loc.Locator) (labelUpdates []pack.LabelUpdate, err error) {
-	for _, targetPath := range state.GravityBinPaths {
-		labelUpdates, err = reinstallBinaryPackage(r.Packages, newPackage, targetPath)
+func (r *PackageUpdater) checkAndSetDefaults() error {
+	if r.Logger == nil {
+		r.Logger = log.New(logrus.WithField(trace.Component, "packupdate"))
+	}
+	return nil
+}
+
+// PackageUpdaterOption is a functional configuration option for PackageUpdater
+type PackageUpdaterOption func(*PackageUpdater)
+
+// PackageUpdater manages the updates to a known subset of packages
+type PackageUpdater struct {
+	// Logger specifies the logger
+	log.Logger
+	// Packages specifies the package service to use
+	Packages update.LocalPackageService
+	// ClusterRole specifies cluster role of the node this system updater runs on
+	ClusterRole string
+}
+
+func updateTctlScript(packages update.LocalPackageService, newPackage loc.Locator, logger log.Logger) error {
+	scriptBytes, err := renderTctlScript(packages, newPackage)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	var errors []error
+	for _, path := range []string{defaults.TctlBin, defaults.TctlBinAlternate} {
+		err = utils.CopyExecutable(path, bytes.NewReader(scriptBytes))
 		if err == nil {
-			break
+			logger.WithField("path", path).Info("Updated tctl script.")
+			return nil
 		}
-		r.WithFields(logrus.Fields{
-			logrus.ErrorKey: err,
-			"path":          targetPath,
-		}).Warn("Failed to install gravity binary.")
+		errors = append(errors, err)
 	}
+	return trace.NewAggregate(errors...)
+}
+
+// renderTctlScript renders the contents of the script that invokes tctl binary
+// with appropriate configuration.
+func renderTctlScript(packages update.LocalPackageService, newPackage loc.Locator) ([]byte, error) {
+	// First, make up configuration for tctl. It only requires the data_dir
+	// to be set. The data directory points to the location where teleport
+	// masters embedded into gravity-sites store their data on disk.
+	stateDir, err := state.GetStateDir()
 	if err != nil {
-		return nil, trace.Wrap(err, "failed to install gravity binary in any of %v",
-			state.GravityBinPaths)
+		return nil, trace.Wrap(err)
 	}
-	planetPath, err := getRuntimePackagePath(r.Packages)
+	configBytes, err := yaml.Marshal(teleconfig.FileConfig{
+		Global: teleconfig.Global{
+			DataDir: filepath.Join(stateDir, defaults.SiteDir, defaults.TeleportDir),
+		},
+	})
 	if err != nil {
-		return nil, trace.Wrap(err, "failed to find planet package")
+		return nil, trace.Wrap(err)
 	}
-	err = copyGravityToPlanet(newPackage, r.Packages, planetPath)
+	// Now, render the script which invokes the tctl binary from the specified
+	// unpacked teleport package and passes configuration to it via environment
+	// variable as a base64-encoded string.
+	teleportPath, err := packages.UnpackedPath(newPackage)
 	if err != nil {
-		return nil, trace.Wrap(err, "failed to copy gravity inside planet")
+		return nil, trace.Wrap(err)
 	}
-	return labelUpdates, nil
+	var buffer bytes.Buffer
+	err = tctlScript.Execute(&buffer, map[string]string{
+		"path": filepath.Join(teleportPath, defaults.RootfsDir, defaults.TctlBin),
+		"conf": base64.StdEncoding.EncodeToString(configBytes),
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return buffer.Bytes(), nil
 }
 
 func getRuntimePackagePath(packages update.LocalPackageService) (packagePath string, err error) {
@@ -577,7 +605,7 @@ func getRuntimePackagePath(packages update.LocalPackageService) (packagePath str
 	return packagePath, nil
 }
 
-func updateKubectl(planetPath string, logger logrus.FieldLogger) (err error) {
+func updateSymlinks(planetPath string, logger log.Logger) (err error) {
 	// update kubectl symlink
 	kubectlPath := filepath.Join(planetPath, constants.PlanetRootfs, defaults.KubectlScript)
 	var out []byte
@@ -699,7 +727,7 @@ func applyLabelUpdates(packages pack.PackageService, labelUpdates []pack.LabelUp
 func uninstallPackage(
 	services systemservice.ServiceManager,
 	servicePackage loc.Locator,
-	logger logrus.FieldLogger,
+	logger log.Logger,
 ) (updates []pack.LabelUpdate, err error) {
 	installed, err := services.IsPackageServiceInstalled(servicePackage)
 	if err != nil {
@@ -709,7 +737,7 @@ func uninstallPackage(
 		logger.WithField("service", servicePackage).Info("Package installed as a service, will uninstall.")
 		err = services.UninstallPackageService(servicePackage)
 		if err != nil {
-			return nil, utils.NewUninstallServiceError(servicePackage)
+			return nil, utils.NewUninstallServiceError(err, servicePackage)
 		}
 	}
 	updates = append(updates, pack.LabelUpdate{

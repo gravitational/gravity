@@ -212,9 +212,11 @@ const (
 	PreflightChecksOffEnvVar = "GRAVITY_CHECKS_OFF"
 
 	// DockerRegistry is a default name for private docker registry
+	// Note: this has been moved to lib/defaults
 	DockerRegistry = "leader.telekube.local:5000"
 
 	// LocalRegistryAddr is the address of the local docker registry
+	// Note: this has been moved to lib/defaults
 	LocalRegistryAddr = "127.0.0.1:5000"
 
 	// Localhost is local host
@@ -224,6 +226,7 @@ const (
 	DockerEngineURL = "unix://var/run/docker.sock"
 
 	// DockerRegistryPort is the default port for connecting to private docker registries
+	// Note: this has been moved to lib/defaults
 	DockerRegistryPort = "5000"
 
 	// SiteInitLock is a name of a distributed site lock that is used for one time
@@ -592,12 +595,6 @@ const (
 	// AuthGatewayConfigMap is the name of config map with auth gateway configuration.
 	AuthGatewayConfigMap = "auth-gateway"
 
-	// LVMSystemDir specifies the default location where lvm2 keeps state and configuration data
-	LVMSystemDir = "/etc/lvm"
-	// LVMSystemDirEnvvar defines the name of the environment variable that overrides the
-	// default system location
-	LVMSystemDirEnvvar = "LVM_SYSTEM_DIR"
-
 	// RPCAgentUpgradeFunction requests deployed agents to run automatic upgrade operation on leader node
 	RPCAgentUpgradeFunction = "upgrade"
 
@@ -795,6 +792,12 @@ var (
 // with external DNS provisioners.
 func ExternalDNS(hostname string) string {
 	return fmt.Sprintf("%[1]v,*.%[1]v", hostname)
+}
+
+// InstallerClusterName returns the name for the installer trusted cluster
+// for the specified cluster
+func InstallerClusterName(clusterName string) string {
+	return fmt.Sprintf("%v%v", InstallerTunnelPrefix, clusterName)
 }
 
 // Format is the type for supported output formats
