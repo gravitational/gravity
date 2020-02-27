@@ -28,6 +28,7 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/loc"
+	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
@@ -47,10 +48,11 @@ func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, o
 		Cluster: &Cluster{
 			Domain: cluster.Domain,
 			// Default to degraded - reset on successful query
-			State:     ops.SiteStateDegraded,
-			Reason:    cluster.Reason,
-			App:       cluster.App.Package,
-			Extension: newExtension(),
+			State:         ops.SiteStateDegraded,
+			Reason:        cluster.Reason,
+			App:           cluster.App.Package,
+			ClientVersion: modules.Get().Version(),
+			Extension:     newExtension(),
 		},
 	}
 
@@ -60,6 +62,11 @@ func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, o
 	}
 	if token != nil {
 		status.Token = *token
+	}
+
+	status.Cluster.ServerVersion, err = operator.GetVersion(ctx)
+	if err != nil {
+		logrus.WithError(err).Warn("Failed to query server version information.")
 	}
 
 	// Collect application endpoints.
@@ -198,6 +205,10 @@ type Cluster struct {
 	Endpoints Endpoints `json:"endpoints"`
 	// Extension is a cluster status extension
 	Extension `json:",inline,omitempty"`
+	// ServerVersion is version of the server the operator is talking to.
+	ServerVersion *modules.Version `json:"server_version,omitempty"`
+	// ClientVersion is version of the binary collecting the status.
+	ClientVersion modules.Version `json:"client_version"`
 }
 
 // Endpoints contains information about cluster and application endpoints.
