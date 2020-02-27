@@ -87,27 +87,9 @@ func (r *corednsExecutor) Execute(ctx context.Context) error {
 	r.Progress.NextStep("Configuring CoreDNS")
 	r.Info("Configuring CoreDNS.")
 
-	// Read the resolv.conf from the host doing installation
-	// it will be used for configuring coredns upstream servers
-	resolvConf, err := systeminfo.ResolvFromFile("/etc/resolv.conf")
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	// Optionally try and load upstream nameservers from systemd-resolved by reading the compatibility resolv.conf
-	// More Info: https://github.com/gravitational/gravity/issues/606#issuecomment-529171440
-	// TODO(knisbet) is there a better way to pull upstream resolvers directly from systemd?
-	systemdResolvConf, err := systeminfo.ResolvFromFile("/run/systemd/resolve/resolv.conf")
-	if err != nil && !trace.IsNotFound(err) {
-		return trace.Wrap(err)
-	}
-
-	upstreams := mergeUpstreamResolvers(resolvConf, systemdResolvConf)
 	conf, err := GenerateCorefile(CorednsConfig{
-		UpstreamNameservers: upstreams,
-		Rotate:              resolvConf.Rotate,
-		Hosts:               r.DNSOverrides.Hosts,
-		Zones:               r.DNSOverrides.Zones,
+		Hosts: r.DNSOverrides.Hosts,
+		Zones: r.DNSOverrides.Zones,
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -163,6 +145,34 @@ func (r *corednsExecutor) Rollback(context.Context) error {
 
 // GenerateCorefile will generate a coredns configuration file to be used from within the cluster
 func GenerateCorefile(config CorednsConfig) (string, error) {
+	// Read the resolv.conf from the host doing installation // upgrade
+	// it will be used for configuring coredns upstream servers
+	resolvConf, err := systeminfo.ResolvFromFile("/etc/resolv.conf")
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+
+	// Optionally try and load upstream nameservers from systemd-resolved by reading the compatibility resolv.conf
+	// More Info: https://github.com/gravitational/gravity/issues/606#issuecomment-529171440
+	// TODO(knisbet) is there a better way to pull upstream resolvers directly from systemd?
+	systemdResolvConf, err := systeminfo.ResolvFromFile("/run/systemd/resolve/resolv.conf")
+	if err != nil && !trace.IsNotFound(err) {
+		return "", trace.Wrap(err)
+	}
+
+	config.UpstreamNameservers = mergeUpstreamResolvers(resolvConf, systemdResolvConf)
+	if resolvConf != nil && resolvConf.Rotate {
+		config.Rotate = true
+	}
+	if systemdResolvConf != nil && systemdResolvConf.Rotate {
+		config.Rotate = true
+	}
+
+	result, err := generateCorefile(config)
+	return result, trace.Wrap(err)
+}
+
+func generateCorefile(config CorednsConfig) (string, error) {
 	var coredns bytes.Buffer
 	err := coreDNSTemplate.Execute(&coredns, config)
 	if err != nil {
