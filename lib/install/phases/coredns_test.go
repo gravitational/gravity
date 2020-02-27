@@ -136,7 +136,7 @@ func (*StartSuite) TestCoreDNSConf(c *check.C) {
 	}
 
 	for _, tt := range configTable {
-		config, err := GenerateCorefile(tt.config)
+		config, err := generateCorefile(tt.config)
 
 		c.Assert(err, check.IsNil)
 		c.Assert(config, check.Equals, tt.expected)
