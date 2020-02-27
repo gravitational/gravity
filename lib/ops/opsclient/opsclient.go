@@ -31,6 +31,7 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/loc"
+	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/monitoring"
 	"github.com/gravitational/gravity/lib/pack"
@@ -1503,6 +1504,19 @@ func (c *Client) GetAuthGateway(key ops.SiteKey) (storage.AuthGateway, error) {
 		return nil, trace.Wrap(err)
 	}
 	return storage.UnmarshalAuthGateway(response.Bytes())
+}
+
+// GetVersion returns the server version information.
+func (c *Client) GetVersion(ctx context.Context) (*modules.Version, error) {
+	out, err := c.Get(c.Endpoint("version"), url.Values{})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	var version modules.Version
+	if err := json.Unmarshal(out.Bytes(), &version); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &version, nil
 }
 
 // PostJSON issues HTTP POST request to the server with the provided JSON data
