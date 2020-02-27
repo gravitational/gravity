@@ -17,6 +17,7 @@ limitations under the License.
 package fsm
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -40,42 +41,15 @@ type Logger struct {
 	Operator ops.Operator
 	// Server is the optional server that will be attached to log entries
 	Server *storage.Server
-
-	// logEntryC is used to queue log entries and unblock execution while etcd is down during upgrades
-	// this has the potential to lose queued log messages if the process dies while etcd is down
-	logEntryC chan ops.LogEntry
-
-	// logEntryOnce bootstraps the LogEntry queue on the first log entry
-	logEntryOnce sync.Once
-}
-
-func (l *Logger) initQueue() {
-	l.logEntryOnce.Do(func() {
-		// initialize the queue to a reasonably large value, to queue all the messages during etcd upgrade
-		l.logEntryC = make(chan ops.LogEntry, 4096)
-		go l.runQueue()
-	})
-}
-
-func (l *Logger) runQueue() {
-	for {
-		msg := <-l.logEntryC
-		err := utils.Retry(10*time.Second, 36, func() error {
-			return trace.Wrap(l.Operator.CreateLogEntry(l.Key, msg))
-		})
-		if err != nil {
-			l.FieldLogger.Error(trace.DebugReport(err))
-		}
-	}
 }
 
 // Debug logs a debug message
 func (l *Logger) Debug(args ...interface{}) {
-	l.initQueue()
+	initQueue()
 	l.FieldLogger.Debug(args...)
 
 	select {
-	case l.logEntryC <- l.makeLogEntry(fmt.Sprint(args...), "debug"):
+	case logEntryC <- l.makeLogEntry(fmt.Sprint(args...), "debug"):
 	default:
 		l.FieldLogger.Debug("operation logger dropped message: ", fmt.Sprint(args...))
 	}
@@ -83,11 +57,11 @@ func (l *Logger) Debug(args ...interface{}) {
 
 // Info logs an info message
 func (l *Logger) Info(args ...interface{}) {
-	l.initQueue()
+	initQueue()
 	l.FieldLogger.Info(args...)
 
 	select {
-	case l.logEntryC <- l.makeLogEntry(fmt.Sprint(args...), "info"):
+	case logEntryC <- l.makeLogEntry(fmt.Sprint(args...), "info"):
 	default:
 		l.FieldLogger.Info("operation logger dropped message: ", fmt.Sprint(args...))
 	}
@@ -95,11 +69,11 @@ func (l *Logger) Info(args ...interface{}) {
 
 // Warn logs a warning message
 func (l *Logger) Warn(args ...interface{}) {
-	l.initQueue()
+	initQueue()
 	l.FieldLogger.Warn(args...)
 
 	select {
-	case l.logEntryC <- l.makeLogEntry(fmt.Sprint(args...), "warn"):
+	case logEntryC <- l.makeLogEntry(fmt.Sprint(args...), "warn"):
 	default:
 		l.FieldLogger.Debug("operation logger dropped message: ", fmt.Sprint(args...))
 	}
@@ -112,11 +86,11 @@ func (l *Logger) Warning(args ...interface{}) {
 
 // Error logs an error message
 func (l *Logger) Error(args ...interface{}) {
-	l.initQueue()
+	initQueue()
 	l.FieldLogger.Error(args...)
 
 	select {
-	case l.logEntryC <- l.makeLogEntry(fmt.Sprint(args...), "error"):
+	case logEntryC <- l.makeLogEntry(fmt.Sprint(args...), "error"):
 	default:
 		l.FieldLogger.Debug("operation logger dropped message: ", fmt.Sprint(args...))
 	}
@@ -148,14 +122,57 @@ func (l *Logger) Errorf(format string, args ...interface{}) {
 }
 
 // makeLogEntry creates a log entry object to submit via Operator
-func (l *Logger) makeLogEntry(message, severity string) ops.LogEntry {
-	return ops.LogEntry{
-		AccountID:   l.Key.AccountID,
-		ClusterName: l.Key.SiteDomain,
-		OperationID: l.Key.OperationID,
-		Severity:    severity,
-		Message:     message,
-		Server:      l.Server,
-		Created:     time.Now().UTC(),
+func (l *Logger) makeLogEntry(message, severity string) logEntryWrapper {
+	return logEntryWrapper{
+		operator: l.Operator,
+		key:      l.Key,
+		entry: ops.LogEntry{
+			AccountID:   l.Key.AccountID,
+			ClusterName: l.Key.SiteDomain,
+			OperationID: l.Key.OperationID,
+			Severity:    severity,
+			Message:     message,
+			Server:      l.Server,
+			Created:     time.Now().UTC(),
+		},
+	}
+}
+
+type logEntryWrapper struct {
+	entry    ops.LogEntry
+	operator ops.Operator
+	key      ops.SiteOperationKey
+}
+
+var (
+	// logEntryC is used to queue log entries and unblock execution while etcd is down during upgrades
+	// this has the potential to lose queued log messages if the process dies while etcd is down
+	logEntryC chan logEntryWrapper
+
+	// logEntryOnce bootstraps the LogEntry queue on the first log entry
+	logEntryOnce sync.Once
+)
+
+func initQueue() {
+	logEntryOnce.Do(func() {
+		// initialize the queue to a reasonably large value, to queue all the messages during etcd upgrade
+		logEntryC = make(chan logEntryWrapper, 4096)
+		go runQueue()
+	})
+}
+
+func runQueue() {
+	for {
+		msg := <-logEntryC
+		b := utils.NewExponentialBackOff(10 * time.Minute)
+		err := utils.RetryWithInterval(context.TODO(), b, func() error {
+			return trace.Wrap(msg.operator.CreateLogEntry(msg.key, msg.entry))
+		})
+		if err != nil {
+			logrus.WithFields(logrus.Fields{
+				logrus.ErrorKey: err,
+				"msg":           msg.entry.String(),
+			}).Error("Failed to write log entry to operator.")
+		}
 	}
 }
