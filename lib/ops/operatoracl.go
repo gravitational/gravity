@@ -1070,6 +1070,11 @@ func (o *OperatorACL) EmitAuditEvent(ctx context.Context, req AuditEventRequest)
 	return o.operator.EmitAuditEvent(ctx, req)
 }
 
+// GetVersion returns the server version information.
+func (o *OperatorACL) GetVersion(ctx context.Context) (*modules.Version, error) {
+	return o.operator.GetVersion(ctx)
+}
+
 // CreateUserInvite creates a new invite token for a user.
 func (o *OperatorACL) CreateUserInvite(ctx context.Context, req CreateUserInviteRequest) (*storage.UserToken, error) {
 	if err := o.ClusterAction(req.SiteDomain, storage.KindCluster, teleservices.VerbUpdate); err != nil {
