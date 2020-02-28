@@ -157,11 +157,11 @@ func initQueue() {
 	logEntryOnce.Do(func() {
 		// initialize the queue to a reasonably large value, to queue all the messages during etcd upgrade
 		logEntryC = make(chan logEntryWrapper, 4096)
-		go runQueue()
+		go loop()
 	})
 }
 
-func runQueue() {
+func loop() {
 	for {
 		msg := <-logEntryC
 		b := utils.NewExponentialBackOff(10 * time.Minute)
