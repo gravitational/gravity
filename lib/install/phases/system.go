@@ -42,9 +42,14 @@ func NewSystem(p fsm.ExecutorParams, operator ops.Operator, localPackages *local
 		Operator: operator,
 		Server:   p.Phase.Data.Server,
 	}
+	serviceUser, err := userFromOSUser(*p.Phase.Data.ServiceUser)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	updater := system.PackageUpdater{
 		Packages:    localPackages,
 		ClusterRole: p.Phase.Data.Server.ClusterRole,
+		ServiceUser: *serviceUser,
 		SELinux:     p.Plan.SELinux,
 	}
 	return &systemExecutor{

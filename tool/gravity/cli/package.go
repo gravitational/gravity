@@ -133,12 +133,6 @@ func exportPackage(env *localenv.LocalEnvironment, loc loc.Locator, opsCenterURL
 	}
 	loc = *locPtr
 
-	if selinux.GetEnabled() && label != "" {
-		if err := selinux.SetFSCreateLabel(label); err != nil {
-			return trace.Wrap(err)
-		}
-	}
-
 	ctx, cancel := context.WithTimeout(context.Background(), defaults.TransientErrorTimeout)
 	defer cancel()
 	err = utils.CopyWithRetries(ctx, targetPath, func() (io.ReadCloser, error) {
@@ -147,6 +141,12 @@ func exportPackage(env *localenv.LocalEnvironment, loc loc.Locator, opsCenterURL
 	}, mode)
 	if err != nil {
 		return trace.Wrap(err)
+	}
+
+	if selinux.GetEnabled() && label != "" {
+		if err := selinux.SetFileLabel(targetPath, label); err != nil {
+			return trace.Wrap(err)
+		}
 	}
 
 	env.Printf("%v exported to file %v\n", loc, targetPath)

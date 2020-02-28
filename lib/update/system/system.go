@@ -36,11 +36,13 @@ import (
 	libstatus "github.com/gravitational/gravity/lib/status"
 	"github.com/gravitational/gravity/lib/storage"
 	libselinux "github.com/gravitational/gravity/lib/system/selinux"
+	"github.com/gravitational/gravity/lib/systeminfo"
 	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/update"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/docker/docker/pkg/archive"
+	"github.com/docker/docker/pkg/idtools"
 	"github.com/gravitational/satellite/agent/proto/agentpb"
 	teleconfig "github.com/gravitational/teleport/lib/config"
 	"github.com/gravitational/trace"
@@ -353,7 +355,7 @@ func (r *PackageUpdater) updateGravityPackage(newPackage loc.Locator) (labelUpda
 func (r *PackageUpdater) updatePlanetPackage(ctx context.Context, update storage.PackageUpdate) (labelUpdates []pack.LabelUpdate, err error) {
 	var gravityPackageFilter = loc.MustCreateLocator(
 		defaults.SystemAccountOrg, constants.GravityPackage, loc.ZeroVersion)
-	err = unpack(r.Packages, update.To)
+	err = unpack(r.Packages, update.To, r.planetUnpackOptions())
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to unpack package %v", update.To)
 	}
@@ -396,8 +398,37 @@ func (r *PackageUpdater) updatePlanetPackage(ctx context.Context, update storage
 	return labelUpdates, nil
 }
 
+func (r *PackageUpdater) planetUnpackOptions() *archive.TarOptions {
+	return &archive.TarOptions{
+		UIDMaps: []idtools.IDMap{
+			{
+				ContainerID: defaults.ServiceUID,
+				HostID:      r.ServiceUser.UID,
+				Size:        1,
+			},
+			{
+				ContainerID: constants.RootUID,
+				HostID:      constants.RootUID,
+				Size:        1,
+			},
+		},
+		GIDMaps: []idtools.IDMap{
+			{
+				ContainerID: defaults.ServiceGID,
+				HostID:      r.ServiceUser.GID,
+				Size:        1,
+			},
+			{
+				ContainerID: constants.RootGID,
+				HostID:      constants.RootGID,
+				Size:        1,
+			},
+		},
+	}
+}
+
 func (r *PackageUpdater) updateTeleportPackage(update storage.PackageUpdate) (labelUpdates []pack.LabelUpdate, err error) {
-	err = unpack(r.Packages, update.To)
+	err = unpack(r.Packages, update.To, nil)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to unpack package %v", update.To)
 	}
@@ -500,7 +531,7 @@ func (r *PackageUpdater) reinstallService(update storage.PackageUpdate) (labelUp
 		configPackage = update.ConfigPackage.To
 	}
 
-	err = unpack(r.Packages, configPackage)
+	err = unpack(r.Packages, configPackage, nil)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -566,6 +597,8 @@ type PackageUpdater struct {
 	Packages update.LocalPackageService
 	// ClusterRole specifies cluster role of the node this system updater runs on
 	ClusterRole string
+	// ServiceUser specifies the container service user
+	ServiceUser systeminfo.User
 	// SELinux specifies whether SELinux support is on
 	SELinux bool
 }
@@ -860,12 +893,12 @@ func getLocalNodeStatus(ctx context.Context) (err error) {
 
 // unpack reads the package from the package service and unpacks its contents
 // to the default package unpack directory
-func unpack(packages update.LocalPackageService, loc loc.Locator) error {
+func unpack(packages update.LocalPackageService, loc loc.Locator, opts *archive.TarOptions) error {
 	path, err := packages.UnpackedPath(loc)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return trace.Wrap(pack.Unpack(packages, loc, path, nil))
+	return trace.Wrap(pack.Unpack(packages, loc, path, opts))
 }
 
 // tctlScript is the template of the script that invokes tctl binary with

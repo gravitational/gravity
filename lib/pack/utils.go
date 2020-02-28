@@ -24,7 +24,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 
 	"github.com/gravitational/gravity/lib/archive"
@@ -706,24 +705,14 @@ func ExportExecutable(packages PackageService, locator loc.Locator, path, label 
 		return trace.Wrap(err)
 	}
 	defer reader.Close()
-	if selinux.GetEnabled() && label != "" {
-		// Label is set for the calling thread, by locking we make sure
-		// that we undo the label for the same thread
-		runtime.LockOSThread()
-		if err := selinux.SetFSCreateLabel(label); err != nil {
-			return trace.Wrap(err)
-		}
-		defer func() {
-			// Reset the label
-			if err := selinux.SetFSCreateLabel(""); err != nil {
-				log.WithError(err).Warn("Failed to reset the file system create label.")
-			}
-			runtime.UnlockOSThread()
-		}()
-	}
 	err = utils.CopyReaderWithPerms(path, reader, defaults.SharedExecutableMask)
 	if err != nil {
 		return trace.Wrap(err)
+	}
+	if selinux.GetEnabled() && label != "" {
+		if err := selinux.SetFileLabel(path, label); err != nil {
+			return trace.Wrap(err)
+		}
 	}
 	return nil
 }

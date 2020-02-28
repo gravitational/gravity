@@ -31,7 +31,7 @@ func ApplyFileContexts(ctx context.Context, out io.Writer, paths ...string) erro
 
 // ShouldLabelVolume determines if the specified label is valid
 func ShouldLabelVolume(label string) bool {
-	return label != ""
+	return label != "none"
 }
 
 func renderFcontext(w io.Writer, stateDir string, fcontextTemplate io.Reader, renderer commandRenderer) error {
