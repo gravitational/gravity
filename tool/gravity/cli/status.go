@@ -264,7 +264,6 @@ func printStatusText(out io.Writer, cluster clusterStatus) error {
 
 	if cluster.Cluster != nil {
 		fmt.Fprintf(w, "Cluster name:\t%v\n", unknownFallback(cluster.Cluster.Domain))
-		fmt.Fprintf(w, "Gravity version:\t%v\n", cluster.Version)
 		if cluster.Status.IsDegraded() {
 			fmt.Fprintf(w, "Cluster status:\t%v\n", color.RedString("degraded"))
 		} else {

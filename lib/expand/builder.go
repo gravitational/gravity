@@ -89,19 +89,18 @@ func (b *planBuilder) AddBootstrapSELinuxPhase(plan *storage.OperationPlan) {
 
 // AddChecksPhase appends preflight checks phase to the plan.
 func (b *planBuilder) AddChecksPhase(plan *storage.OperationPlan) {
-	phase := storage.OperationPhase{
+	plan.Phases = append(plan.Phases, storage.OperationPhase{
 		ID:          ChecksPhase,
 		Description: "Execute preflight checks on the joining node",
 		Data: &storage.OperationPhaseData{
 			Server: &b.JoiningNode,
 			Master: &b.Master,
 		},
-		Requires: []string{installphases.InitPhase, StartAgentPhase},
-	}
-	if plan.SELinux {
-		phase.Requires = append([]string{installphases.BootstrapSELinuxPhase}, phase.Requires...)
-	}
-	plan.Phases = append(plan.Phases, phase)
+		Requires: fsm.RequireIfPresent(plan,
+			installphases.BootstrapSELinuxPhase,
+			installphases.InitPhase,
+			StartAgentPhase),
+	})
 }
 
 // AddConfigurePhase appends package configuration phase to the plan

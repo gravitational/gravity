@@ -39,7 +39,6 @@ import (
 	"github.com/gravitational/satellite/monitoring"
 	"github.com/gravitational/trace"
 	"github.com/prometheus/alertmanager/api/v2/models"
-	"github.com/gravitational/version"
 	"github.com/sirupsen/logrus"
 )
 
@@ -54,10 +53,9 @@ func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, o
 			Reason:        cluster.Reason,
 			App:           cluster.App.Package,
 			ClientVersion: modules.Get().Version(),
-			SELinux:   cluster.SELinux,
+			SELinux:       cluster.SELinux,
 			Extension:     newExtension(),
 		},
-		Version: version.Get(),
 	}
 
 	token, err := operator.GetExpandToken(cluster.Key())
@@ -195,8 +193,6 @@ type Status struct {
 	*Agent `json:",inline,omitempty"`
 	// Alerts is a list of alerts collected by prometheus alertmanager
 	Alerts []*models.GettableAlert `json:"alerts,omitempty"`
-	// Version indicates the version of the gravity binary
-	Version version.Info `json:"version"`
 }
 
 // Cluster encapsulates collected cluster status information
@@ -380,10 +376,6 @@ type ClusterServer struct {
 	FailedProbes []string `json:"failed_probes,omitempty"`
 	// WarnProbes lists all warning probes
 	WarnProbes []string `json:"warn_probes,omitempty"`
-}
-
-func (r ClusterOperation) isFailed() bool {
-	return r.State == ops.OperationStateFailed
 }
 
 func fromOperationAndProgress(operation ops.SiteOperation, progress ops.ProgressEntry) *ClusterOperation {

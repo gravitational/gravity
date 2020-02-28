@@ -312,7 +312,7 @@ func (r *PackageUpdater) reinstallPackage(ctx context.Context, update storage.Pa
 	r.WithField("update", update).Info("Reinstalling package.")
 	switch {
 	case update.To.Name == constants.GravityPackage:
-		return r.updateGravityPackage(update.To)
+		return r.updateGravityPackage(ctx, update.To)
 	case pack.IsPlanetPackage(update.To, update.Labels):
 		updates, err := r.updatePlanetPackage(ctx, update)
 		return updates, trace.Wrap(err)
@@ -326,7 +326,7 @@ func (r *PackageUpdater) reinstallPackage(ctx context.Context, update storage.Pa
 	return nil, trace.BadParameter("unsupported package: %v", update.To)
 }
 
-func (r *PackageUpdater) updateGravityPackage(newPackage loc.Locator) (labelUpdates []pack.LabelUpdate, err error) {
+func (r *PackageUpdater) updateGravityPackage(ctx context.Context, newPackage loc.Locator) (labelUpdates []pack.LabelUpdate, err error) {
 	for _, targetPath := range state.GravityBinPaths {
 		labelUpdates, err = reinstallBinaryPackage(r.Packages, newPackage, targetPath)
 		if err == nil {
@@ -345,9 +345,14 @@ func (r *PackageUpdater) updateGravityPackage(newPackage loc.Locator) (labelUpda
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to find planet package")
 	}
-	err = copyGravityToPlanet(newPackage, r.Packages, planetPath)
+	targetPath := filepath.Join(planetPath, constants.PlanetRootfs, defaults.GravityBin)
+	err = copyGravityToPlanet(newPackage, r.Packages, targetPath)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to copy gravity inside planet")
+	}
+	err = r.applySELinuxFileContexts(ctx, targetPath)
+	if err != nil {
+		return nil, trace.Wrap(err)
 	}
 	return labelUpdates, nil
 }
@@ -371,7 +376,8 @@ func (r *PackageUpdater) updatePlanetPackage(ctx context.Context, update storage
 		return nil, trace.Wrap(err, "failed to find installed package for gravity")
 	}
 
-	err = copyGravityToPlanet(*gravityPackage, r.Packages, planetPath)
+	targetPath := filepath.Join(planetPath, constants.PlanetRootfs, defaults.GravityBin)
+	err = copyGravityToPlanet(*gravityPackage, r.Packages, targetPath)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to copy gravity inside planet")
 	}
@@ -400,6 +406,7 @@ func (r *PackageUpdater) updatePlanetPackage(ctx context.Context, update storage
 
 func (r *PackageUpdater) planetUnpackOptions() *archive.TarOptions {
 	return &archive.TarOptions{
+		NoLchown: true,
 		UIDMaps: []idtools.IDMap{
 			{
 				ContainerID: defaults.ServiceUID,
@@ -724,8 +731,7 @@ func updateSymlinks(planetPath string, logger log.Logger) (err error) {
 	return nil
 }
 
-func copyGravityToPlanet(newPackage loc.Locator, packages pack.PackageService, planetPath string) error {
-	targetPath := filepath.Join(planetPath, constants.PlanetRootfs, defaults.GravityBin)
+func copyGravityToPlanet(newPackage loc.Locator, packages pack.PackageService, targetPath string) error {
 	_, rc, err := packages.ReadPackage(newPackage)
 	if err != nil {
 		return trace.Wrap(err)

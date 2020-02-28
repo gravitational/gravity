@@ -1159,9 +1159,6 @@ const (
 
 	// GravityFileLabel specifies the file label for the gravity binary
 	GravityFileLabel = "system_u:object_r:gravity_exec_t:s0"
-
-	// GenericBinaryLabel specifies the file label for a generic binary
-	// GenericBinaryLabel = "system_u:object_r:bin_t:s0"
 )
 
 var (
