@@ -68,6 +68,9 @@ func startInstall(env *localenv.LocalEnvironment, config InstallConfig) error {
 		}
 		return trace.Wrap(err)
 	}
+	if err := config.RunLocalChecks(); err != nil {
+		return trace.Wrap(err)
+	}
 	strategy, err := NewInstallerConnectStrategy(env, config, cli.CommandArgs{
 		Parser: cli.ArgsParserFunc(parseArgs),
 	})

@@ -206,14 +206,14 @@ TF_PROVIDERS ?= terraform-provider-gravity
 export
 
 # the default target is a containerized CI/CD build
-.PHONY:build
+.PHONY: build
 build:
 	$(MAKE) -C build.assets build
 
 # 'install' uses the host's Golang to place output into $GOPATH/bin
-.PHONY:install
+.PHONY: install
 install:
-	go install -ldflags "$(VERSION_FLAGS)" ./tool/tele ./tool/gravity
+	go install -ldflags $(GRAVITY_LINKFLAGS) -tags "$(GRAVITY_BUILDTAGS)" ./tool/tele ./tool/gravity
 
 # 'clean' removes the build artifacts
 .PHONY: clean
@@ -223,12 +223,11 @@ clean:
 	@rm -f $(GOPATH)/bin/tele $(GOPATH)/bin/gravity
 
 
-.PHONY:
+.PHONY: production
 production: TMP := $(shell mktemp -d)
 production:
 	GRAVITY="$(GRAVITY_OUT) --state-dir=$(TMP)" $(MAKE) -C build.assets production
 	rm -rf $(TMP)
-
 
 #
 # generate GRPC files
@@ -359,93 +358,100 @@ ci:
 # '$(MAKE) packages' builds and imports all dependency packages
 #
 .PHONY: packages
-packages:
-	if [ -z "$(DEV_PLANET)" ]; then \
-	  $(MAKE) planet-packages; \
-	else \
-	  $(MAKE) dev-planet-packages; \
-	fi;
+packages: planet-packages binary-packages teleport-package gravity-packages dns-packages\
+	rbac-app-package bandwagon-package tiller-package monitoring-package \
+	storage-package log-package k8s-packages telekube-packages
 
-# binary packages for quick download
-	$(MAKE) binary-packages
-
+.PHONY: teleport-package
+teleport-package:
 # teleport - access and identity layer
-	$(GRAVITY) package delete $(TELEPORT_PKG) $(DELETE_OPTS) && \
+	-$(GRAVITY) package delete $(TELEPORT_PKG) $(DELETE_OPTS)
 	$(GRAVITY) package import $(TELEPORT_OUT) $(TELEPORT_PKG) --ops-url=$(OPS_URL)
 
-	$(GRAVITY) package delete $(FIO_PKG) $(DELETE_OPTS) && \
-	$(GRAVITY) package import $(FIO_OUT) $(FIO_PKG) --ops-url=$(OPS_URL)
-
-	$(MAKE) gravity-packages
-
-	-$(MAKE) dns-packages
-	-$(MAKE) rbac-app-package
-
+.PHONY: bandwagon-package
+bandwagon-package:
 # Bandwagon - installer extension
-	- $(GRAVITY) app delete $(BANDWAGON_PKG) $(DELETE_OPTS) && \
-	  $(GRAVITY) app import $(BANDWAGON_OUT) $(VENDOR_OPTS)
+	-$(GRAVITY) app delete $(BANDWAGON_PKG) $(DELETE_OPTS)
+	$(GRAVITY) app import $(BANDWAGON_OUT) $(VENDOR_OPTS)
 
+.PHONY: tiller-package
+tiller-package:
 # Tiller server
-	- $(GRAVITY) app delete $(TILLER_APP_PKG) $(DELETE_OPTS) && \
-	  $(GRAVITY) app import $(TILLER_APP_OUT) $(VENDOR_OPTS)
+	-$(GRAVITY) app delete $(TILLER_APP_PKG) $(DELETE_OPTS)
+	$(GRAVITY) app import $(TILLER_APP_OUT) $(VENDOR_OPTS)
 
-# Storage application
-	- $(GRAVITY) app delete $(STORAGE_APP_PKG) $(DELETE_OPTS) && \
-	  $(GRAVITY) app import $(STORAGE_APP_OUT) $(VENDOR_OPTS)
+.PHONY: storage-package
+storage-package:
+	-$(GRAVITY) app delete $(STORAGE_APP_PKG) $(DELETE_OPTS)
+	$(GRAVITY) app import $(STORAGE_APP_OUT) $(VENDOR_OPTS)
 
-# Monitoring - influxdb/grafana
-	- $(GRAVITY) app delete $(MONITORING_APP_PKG) $(DELETE_OPTS) && \
-	  $(GRAVITY) app import $(MONITORING_APP_OUT) $(VENDOR_OPTS)
+.PHONY: monitoring-package
+monitoring-package:
+	-$(GRAVITY) app delete $(MONITORING_APP_PKG) $(DELETE_OPTS)
+	$(GRAVITY) app import $(MONITORING_APP_OUT) $(VENDOR_OPTS)
 
+.PHONY: log-package
+log-package:
 # Logging - log forwarding and storage
-	- $(GRAVITY) app delete $(LOGGING_APP_PKG) $(DELETE_OPTS) && \
-	  $(GRAVITY) app import $(LOGGING_APP_OUT) $(VENDOR_OPTS)
-
-	-$(MAKE) k8s-packages
-	-$(MAKE) telekube-packages
-
-
+	-$(GRAVITY) app delete $(LOGGING_APP_PKG) $(DELETE_OPTS)
+	$(GRAVITY) app import $(LOGGING_APP_OUT) $(VENDOR_OPTS)
 
 .PHONY: binary-packages
 binary-packages:
-	$(GRAVITY_OUT) package delete --state-dir=$(LOCAL_STATE_DIR) --force $(TELEKUBE_GRAVITY_PKG) && \
+	-$(GRAVITY_OUT) package delete --state-dir=$(LOCAL_STATE_DIR) --force $(TELEKUBE_GRAVITY_PKG)
 	$(GRAVITY_OUT) package import --state-dir=$(LOCAL_STATE_DIR) $(GRAVITY_OUT) $(TELEKUBE_GRAVITY_PKG)
 
-	$(GRAVITY_OUT) package delete --state-dir=$(LOCAL_STATE_DIR) --force $(TELEKUBE_TELE_PKG) && \
+	-$(GRAVITY_OUT) package delete --state-dir=$(LOCAL_STATE_DIR) --force $(TELEKUBE_TELE_PKG)
 	$(GRAVITY_OUT) package import --state-dir=$(LOCAL_STATE_DIR) $(TELE_OUT) $(TELEKUBE_TELE_PKG)
 
 .PHONY: rbac-app-package
 rbac-app-package:
-	$(GRAVITY) app delete $(RBAC_APP_PKG) $(DELETE_OPTS) && \
-	 $(GRAVITY) app import $(RBAC_APP_OUT) $(VENDOR_OPTS)
+	-$(GRAVITY) app delete $(RBAC_APP_PKG) $(DELETE_OPTS) 
+	$(GRAVITY) app import $(RBAC_APP_OUT) $(VENDOR_OPTS)
 
 .PHONY: gravity-packages
 gravity-packages:
 # gravity - k8s automation
-	$(GRAVITY) package delete $(GRAVITY_PKG) $(DELETE_OPTS) && \
+	-$(GRAVITY) package delete $(GRAVITY_PKG) $(DELETE_OPTS)
 	$(GRAVITY) package import $(GRAVITY_OUT) $(GRAVITY_PKG) --ops-url=$(OPS_URL)
 
 # site app - local site controller running inside k8s
-	- $(GRAVITY) app delete $(SITE_APP_PKG) $(DELETE_OPTS) && \
-	  $(GRAVITY) app import $(SITE_APP_OUT) --version=$(GRAVITY_TAG) $(VENDOR_OPTS)
+	-$(GRAVITY) app delete $(SITE_APP_PKG) $(DELETE_OPTS)
+	$(GRAVITY) app import $(SITE_APP_OUT) --version=$(GRAVITY_TAG) $(VENDOR_OPTS)
 
 .PHONY: k8s-packages
-k8s-packages: web-assets
-	- $(GRAVITY) app delete $(K8S_APP_PKG) $(DELETE_OPTS) && \
-	  $(GRAVITY) app import $(K8S_APP_OUT) --version=$(K8S_APP_TAG) $(VENDOR_OPTS)
+k8s-packages: fio-package web-assets
+	-$(GRAVITY) app delete $(K8S_APP_PKG) $(DELETE_OPTS)
+	$(GRAVITY) app import $(K8S_APP_OUT) --version=$(K8S_APP_TAG) $(VENDOR_OPTS)
 
 .PHONY: telekube-packages
 telekube-packages:
-	- $(GRAVITY) app delete $(TELEKUBE_APP_PKG) $(DELETE_OPTS) && \
-	  $(GRAVITY) app import $(TELEKUBE_APP_OUT) --version=$(TELEKUBE_APP_TAG) $(VENDOR_OPTS)
+	-$(GRAVITY) app delete $(TELEKUBE_APP_PKG) $(DELETE_OPTS)
+	$(GRAVITY) app import $(TELEKUBE_APP_OUT) --version=$(TELEKUBE_APP_TAG) $(VENDOR_OPTS)
+
+.PHONY: fio-package
+fio-package:
+	-$(GRAVITY) package delete $(FIO_PKG) $(DELETE_OPTS)
+	$(GRAVITY) package import $(FIO_OUT) $(FIO_PKG) --ops-url=$(OPS_URL)
 
 .PHONY: planet-packages
-planet-packages:
+ifndef DEV_PLANET
+planet-packages: planet-package
+else
+planet-packages: dev-planet-package
+endif
+
+.PHONY: planet-package
+planet-package:
 # planet master - RUNC container with k8s master
 	$(GRAVITY) package delete $(PLANET_PKG) $(DELETE_OPTS) && \
 	$(GRAVITY) package import $(PLANET_OUT) $(PLANET_PKG) \
 		--labels=purpose:runtime \
 		--ops-url=$(OPS_URL)
+
+.PHONY: dev-planet-package
+dev-planet-package: PLANET_OUT := $(GOPATH)/src/github.com/gravitational/planet/build/planet.tar.gz
+dev-planet-package: planet-package
 
 .PHONY: dns-packages
 dns-packages:
@@ -457,11 +463,6 @@ dns-packages:
 web-assets:
 	$(GRAVITY) package delete $(WEB_ASSETS_PKG) $(DELETE_OPTS) && \
 	$(GRAVITY) package import $(WEB_ASSETS_OUT) $(WEB_ASSETS_PKG) --ops-url=$(OPS_URL)
-
-
-.PHONY: dev-planet-packages
-dev-planet-packages: PLANET_OUT := $(GOPATH)/src/github.com/gravitational/planet/build/planet.tar.gz
-dev-planet-packages: planet-packages
 
 #
 # publish-artifacts uploads build artifacts to the distribution Ops Center
@@ -490,7 +491,6 @@ $(GRAVITY_BUILDDIR)/telekube.tar: packages
 		--state-dir=$(PACKAGES_DIR) \
 		--skip-version-check \
 		-o $(GRAVITY_BUILDDIR)/telekube.tar
-
 
 #
 # builds wormhole installer
@@ -585,12 +585,15 @@ tele-mac: flags
 goinstall: remove-temp-files compile
 	mkdir -p $(GRAVITY_BUILDDIR)
 	mkdir -p $(TF_PROVIDER_DIR)
-	cp $(GOPATH)/bin/gravity $(GRAVITY_OUT)
-	cp $(GOPATH)/bin/tele $(TELE_OUT)
+	for bin in ${BINARIES} ; do \
+		cp $(GOPATH)/bin/$${bin} $(GRAVITY_BUILDDIR)/$${bin} ; \
+	done
 	for provider in ${TF_PROVIDERS} ; do \
 		echo $${provider} ; \
-		cp $(GOPATH)/bin/$${provider} $(GRAVITY_BUILDDIR)/$${provider} ; \
-		cp $(GOPATH)/bin/$${provider} $(TF_PROVIDER_DIR)/$${provider} ; \
+		if [ -f $(GOPATH)/bin/$${provider} ]; then \
+			cp $(GOPATH)/bin/$${provider} $(GRAVITY_BUILDDIR)/$${provider} ; \
+			cp $(GOPATH)/bin/$${provider} $(TF_PROVIDER_DIR)/$${provider} ; \
+		fi; \
 	done
 	$(GRAVITY) package delete $(GRAVITY_PKG) $(DELETE_OPTS) && \
 		$(GRAVITY) package import $(GRAVITY_OUT) $(GRAVITY_PKG)
@@ -598,7 +601,7 @@ goinstall: remove-temp-files compile
 
 .PHONY: $(BINARIES)
 $(BINARIES):
-	go install -ldflags $(GRAVITY_LINKFLAGS) $(GRAVITY_PKG_PATH)/tool/$@
+	go install -ldflags $(GRAVITY_LINKFLAGS) -tags "$(GRAVITY_BUILDTAGS)" $(GRAVITY_PKG_PATH)/tool/$@
 
 .PHONY: wizard-publish
 wizard-publish: BUILD_BUCKET_URL = s3://get.gravitational.io
