@@ -254,7 +254,7 @@ func deployAgents(ctx context.Context, req deployAgentsRequest) (credentials.Tra
 
 	err = rpc.DeployAgents(ctx, *deployReq)
 	if err != nil {
-		return nil, trace.Wrap(err, "failed to deploy agents")
+		return nil, trace.Wrap(err)
 	}
 
 	clientCreds, err := getClientCredentials(ctx, req.clusterEnv.ClusterPackages, deployReq.SecretsPackage)

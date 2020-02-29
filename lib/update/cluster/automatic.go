@@ -100,21 +100,24 @@ func waitForAgents(ctx context.Context, clusterEnv *localenv.ClusterEnvironment,
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	logger := log.WithField(trace.Component, "automatic")
 	// TODO(r0mant): Parallelize this?
 	return utils.RetryFor(ctx, defaults.AgentDeployTimeout, func() error {
-		var unreachable []storage.Server
+		var unreachable storage.Servers
 		for _, node := range cluster.ClusterState.Servers {
-			if err := runner.CanExecute(ctx, node); err != nil {
-				log.WithError(err).WithFields(node.Fields()).Warn("Agent is not running.")
+			localCtx, cancel := context.WithTimeout(ctx, defaults.AgentHealthCheckTimeout)
+			defer cancel()
+			if err := runner.CanExecute(localCtx, node); err != nil {
+				logger.WithError(err).WithFields(node.Fields()).Warn("Agent is not running.")
 				unreachable = append(unreachable, node)
 			} else {
-				log.WithFields(node.Fields()).Info("Agent is running.")
+				logger.WithFields(node.Fields()).Info("Agent is running.")
 			}
 		}
 		if len(unreachable) > 0 {
-			return utils.Continue("not all agents are running yet")
+			return utils.Continue("Some agents aren't running yet: %s.", unreachable)
 		}
-		log.Info("All agents are running.")
+		logger.Info("All agents are running.")
 		return nil
 	})
 }

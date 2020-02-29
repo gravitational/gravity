@@ -962,12 +962,12 @@
   revision = "cdbeea01bfdb0053a9defb1a1f0bfe5c89bc4c2f"
 
 [[projects]]
-  digest = "1:418247f700939c99867b42639d985686ba229fd9f8ee9e119c7cc3ffde6e0fe3"
+  digest = "1:3afdc8c5bad39bda75ede9cd18bf590c385ff9a28c742f7330e3d3e19c685c47"
   name = "github.com/gravitational/trace"
   packages = ["."]
   pruneopts = "UT"
-  revision = "a535a178675fb4a11ba74818491754a8c5575dd6"
-  version = "1.1.8"
+  revision = "42a8fffe760db82cf94b0c3e0112f91c3526a604"
+  version = "v1.1.9"
 
 [[projects]]
   digest = "1:841d5835e94129658adabece66a4cc54d2cec9a40fa8b51743ea35d0519dd6c2"
@@ -2654,6 +2654,7 @@
     "github.com/julienschmidt/httprouter",
     "github.com/kardianos/osext",
     "github.com/kylelemons/godebug/diff",
+    "github.com/mailgun/lemma/secret",
     "github.com/mailgun/timetools",
     "github.com/miekg/dns",
     "github.com/mitchellh/go-ps",
@@ -2713,6 +2714,7 @@
     "k8s.io/apimachinery/pkg/runtime",
     "k8s.io/apimachinery/pkg/runtime/schema",
     "k8s.io/apimachinery/pkg/runtime/serializer/json",
+    "k8s.io/apimachinery/pkg/util/intstr",
     "k8s.io/apimachinery/pkg/util/net",
     "k8s.io/apimachinery/pkg/util/rand",
     "k8s.io/apimachinery/pkg/util/runtime",
@@ -2729,7 +2731,10 @@
     "k8s.io/client-go/tools/clientcmd",
     "k8s.io/client-go/tools/clientcmd/api",
     "k8s.io/helm/pkg/chartutil",
+    "k8s.io/helm/pkg/getter",
     "k8s.io/helm/pkg/helm",
+    "k8s.io/helm/pkg/helm/environment",
+    "k8s.io/helm/pkg/helm/helmpath",
     "k8s.io/helm/pkg/helm/portforwarder",
     "k8s.io/helm/pkg/kube",
     "k8s.io/helm/pkg/manifest",
