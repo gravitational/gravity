@@ -8,6 +8,17 @@ import (
 
 // Data model for Kingpin command-line structure.
 
+var (
+	ignoreInCount = map[string]bool{
+		"help":                   true,
+		"help-long":              true,
+		"help-man":               true,
+		"completion-bash":        true,
+		"completion-script-bash": true,
+		"completion-script-zsh":  true,
+	}
+)
+
 type FlagGroupModel struct {
 	Flags []*FlagModel
 }
@@ -15,10 +26,13 @@ type FlagGroupModel struct {
 func (f *FlagGroupModel) FlagSummary() string {
 	out := []string{}
 	count := 0
+
 	for _, flag := range f.Flags {
-		if flag.Name != "help" {
+
+		if !ignoreInCount[flag.Name] {
 			count++
 		}
+
 		if flag.Required {
 			if flag.IsBoolFlag() {
 				out = append(out, fmt.Sprintf("--[no-]%s", flag.Name))
@@ -96,6 +110,7 @@ type ArgModel struct {
 	Name     string
 	Help     string
 	Default  []string
+	Envar    string
 	Required bool
 	Value    Value
 }
@@ -170,6 +185,7 @@ func (a *ArgClause) Model() *ArgModel {
 		Name:     a.name,
 		Help:     a.help,
 		Default:  a.defaultValues,
+		Envar:    a.envar,
 		Required: a.required,
 		Value:    a.value,
 	}
