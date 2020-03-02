@@ -1160,7 +1160,7 @@ func (s *site) configureTeleportMaster(ctx *operationContext, master *Provisione
 		return trace.Wrap(err)
 	}
 	_, err = s.packages().CreatePackage(resp.Locator, resp.Reader, pack.WithLabels(resp.Labels))
-	if err != nil && !trace.IsAlreadyExists(err) {
+	if err != nil {
 		return trace.Wrap(err)
 	}
 	return nil
@@ -1273,7 +1273,7 @@ func (s *site) configureTeleportNode(ctx *operationContext, masterIPs []string, 
 		return trace.Wrap(err)
 	}
 	_, err = s.packages().CreatePackage(resp.Locator, resp.Reader, pack.WithLabels(resp.Labels))
-	if err != nil && !trace.IsAlreadyExists(err) {
+	if err != nil {
 		return trace.Wrap(err)
 	}
 	return nil
