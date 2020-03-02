@@ -92,7 +92,7 @@ func (r *DeployAgentsRequest) CheckAndSetDefaults() error {
 		}
 	}
 	if r.Progress == nil {
-		r.Progress = utils.NewConsoleProgress(context.TODO(), "", 0)
+		r.Progress = utils.NewNopProgress()
 	}
 	return nil
 }

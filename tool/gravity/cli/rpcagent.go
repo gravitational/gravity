@@ -293,6 +293,7 @@ func newDeployAgentsRequest(ctx context.Context, req deployAgentsRequest) (*rpc.
 		LeaderParams:   req.leaderParams,
 		Leader:         req.leader,
 		NodeParams:     req.nodeParams,
+		Progress:       utils.NewConsoleProgress(ctx, "", 0),
 	}, nil
 }
 
