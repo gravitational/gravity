@@ -95,14 +95,14 @@ func (r *peers) tryPeer(ctx context.Context, peer *peer) error {
 	if err != nil {
 		r.WithFields(log.Fields{
 			log.ErrorKey: err,
-			"peer":       peer,
+			"peer":       peer.String(),
 		}).Warn("Failed to connect.")
 		return trace.Wrap(err, "RPC agent could not connect to %v", peer.Addr())
 	}
 	if err := client.Close(); err != nil {
 		r.WithFields(log.Fields{
 			log.ErrorKey: err,
-			"peer":       peer,
+			"peer":       peer.String(),
 		}).Warn("Failed to close client.")
 	}
 	return nil
@@ -180,7 +180,7 @@ func (r *peers) monitorPeer(p Peer, clt Client, reconnectCh chan<- chan clientUp
 // a disconnect.
 // Returns the client to the peer or error if reconnecting failed.
 func (r *peers) checkPeer(p Peer, clt Client, reconnectCh chan<- chan clientUpdate, respCh chan clientUpdate, doneCh chan struct{}) (Client, error) {
-	log := r.WithField("checked", p)
+	log := r.WithField("checked", p.String())
 	if clt != nil {
 		resp, err := clt.Check(r.ctx, &healthpb.HealthCheckRequest{})
 		if err == nil && isPeerHealthy(*resp) {
@@ -217,7 +217,7 @@ func (r *peers) checkPeer(p Peer, clt Client, reconnectCh chan<- chan clientUpda
 }
 
 func (r *peers) reconnectPeer(p Peer, reqCh <-chan chan clientUpdate, doneCh chan struct{}) {
-	log := r.WithField("reconnected", p)
+	log := r.WithField("reconnected", p.String())
 	log.Info("Reconnecting")
 	defer log.Info("Reconnect loop closing.")
 	for {
