@@ -187,7 +187,7 @@ func rpcAgentDeployHelper(ctx context.Context, localEnv *localenv.LocalEnvironme
 
 	localCtx, cancel := context.WithTimeout(ctx, defaults.AgentDeployTimeout)
 	defer cancel()
-	return deployAgents(localCtx, req)
+	return deployAgents(localCtx, localEnv, req)
 }
 
 func verifyCluster(ctx context.Context,
@@ -246,8 +246,8 @@ func upsertRPCCredentialsPackage(
 	return secretsPackage, nil
 }
 
-func deployAgents(ctx context.Context, req deployAgentsRequest) (credentials.TransportCredentials, error) {
-	deployReq, err := newDeployAgentsRequest(ctx, req)
+func deployAgents(ctx context.Context, env *localenv.LocalEnvironment, req deployAgentsRequest) (credentials.TransportCredentials, error) {
+	deployReq, err := newDeployAgentsRequest(ctx, env, req)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -266,7 +266,7 @@ func deployAgents(ctx context.Context, req deployAgentsRequest) (credentials.Tra
 }
 
 // newDeployAgentsRequest creates a new request to deploy agents on the local cluster
-func newDeployAgentsRequest(ctx context.Context, req deployAgentsRequest) (*rpc.DeployAgentsRequest, error) {
+func newDeployAgentsRequest(ctx context.Context, env *localenv.LocalEnvironment, req deployAgentsRequest) (*rpc.DeployAgentsRequest, error) {
 	servers, err := verifyCluster(ctx, req.clusterState, req.proxy)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -293,7 +293,7 @@ func newDeployAgentsRequest(ctx context.Context, req deployAgentsRequest) (*rpc.
 		LeaderParams:   req.leaderParams,
 		Leader:         req.leader,
 		NodeParams:     req.nodeParams,
-		Progress:       utils.NewConsoleProgress(ctx, "", 0),
+		Progress:       utils.NewProgress(ctx, "", 0, bool(env.Silent)),
 	}, nil
 }
 
