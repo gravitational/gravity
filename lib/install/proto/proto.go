@@ -69,12 +69,12 @@ func KeyToProto(key ops.SiteOperationKey) *OperationKey {
 
 // HasSpecificPhase determines if this request is for a specific phase (other than root)
 func (r *ExecuteRequest) HasSpecificPhase() bool {
-	return !r.HasResume()
+	return r.Phase != nil && !r.HasResume()
 }
 
 // HasResume determines if this is a request to resume an operation
 func (r *ExecuteRequest) HasResume() bool {
-	return r.Phase == nil || r.Phase.IsResume()
+	return r.Phase != nil && r.Phase.IsResume()
 }
 
 // OperationKey returns operation key from request.

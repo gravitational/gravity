@@ -211,23 +211,11 @@ const (
 	// If not empty, turns the preflight checks off
 	PreflightChecksOffEnvVar = "GRAVITY_CHECKS_OFF"
 
-	// DockerRegistry is a default name for private docker registry
-	// Note: this has been moved to lib/defaults
-	DockerRegistry = "leader.telekube.local:5000"
-
-	// LocalRegistryAddr is the address of the local docker registry
-	// Note: this has been moved to lib/defaults
-	LocalRegistryAddr = "127.0.0.1:5000"
-
 	// Localhost is local host
 	Localhost = "127.0.0.1"
 
 	// DockerEngineURL is the address of the local docker engine API
 	DockerEngineURL = "unix://var/run/docker.sock"
-
-	// DockerRegistryPort is the default port for connecting to private docker registries
-	// Note: this has been moved to lib/defaults
-	DockerRegistryPort = "5000"
 
 	// SiteInitLock is a name of a distributed site lock that is used for one time
 	// import procedure

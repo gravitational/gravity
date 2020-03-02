@@ -114,7 +114,8 @@ func (s *site) createInstallExpandOperation(context context.Context, req createI
 	}
 
 	token, err := s.newProvisioningToken(*op)
-	if err != nil {
+	if err != nil && !trace.IsAlreadyExists(err) {
+		log.WithError(err).Warn("Failed to create provisioning token.")
 		return nil, trace.Wrap(err)
 	}
 	log.WithField("token", token).Info("Create install operation.")
@@ -890,9 +891,8 @@ func (s *site) newProvisioningToken(operation ops.SiteOperation) (token string, 
 		tokenRequest.Expires = s.clock().UtcNow().Add(defaults.InstallTokenTTL)
 	}
 	_, err = s.users().CreateProvisioningToken(tokenRequest)
-	if err != nil && !trace.IsAlreadyExists(err) {
-		log.WithError(err).Warn("Failed to create provisioning token.")
-		return "", trace.Wrap(err)
+	if err != nil {
+		return token, trace.Wrap(err)
 	}
 	return token, nil
 }

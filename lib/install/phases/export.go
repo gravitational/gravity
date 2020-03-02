@@ -46,7 +46,7 @@ func NewExport(p fsm.ExecutorParams, operator ops.Operator, packages pack.Packag
 		return nil, trace.Wrap(err)
 	}
 	imageService, err := docker.NewImageService(docker.RegistryConnectionRequest{
-		RegistryAddress: constants.LocalRegistryAddr,
+		RegistryAddress: defaults.LocalRegistryAddr,
 		CACertPath:      state.Secret(stateDir, defaults.RootCertFilename),
 		ClientCertPath:  state.Secret(stateDir, "kubelet.cert"),
 		ClientKeyPath:   state.Secret(stateDir, "kubelet.key"),

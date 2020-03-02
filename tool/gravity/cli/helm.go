@@ -136,7 +136,7 @@ func (c *valuesConfig) setDefaults(env *localenv.LocalEnvironment) error {
 	}
 	// Otherwise, set it to the local cluster registry address.
 	c.Values = append(c.Values, fmt.Sprintf("%v=%v/", defaults.ImageRegistryVar,
-		constants.DockerRegistry))
+		defaults.DockerRegistry))
 	return nil
 }
 

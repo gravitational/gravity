@@ -409,7 +409,7 @@ func tryInstallBinary(targetPath string, uid, gid int, logger log.FieldLogger) e
 		return trace.Wrap(err, "failed to determine path to binary")
 	}
 	dir := filepath.Dir(targetPath)
-	if dir != string(filepath.Separator) {
+	if !isRootDir(dir) {
 		err = os.MkdirAll(dir, defaults.SharedDirMask)
 		if err != nil {
 			return trace.ConvertSystemError(err)
@@ -485,6 +485,10 @@ func newRPCCredentials(tls utils.TLSArchive) (*rpcserver.Credentials, error) {
 		Server: serverCreds,
 		Client: clientCreds,
 	}, nil
+}
+
+func isRootDir(path string) bool {
+	return len(path) == 1 && os.IsPathSeparator(path[0])
 }
 
 func loadCredentialsFromPackage(ctx context.Context, packages pack.PackageService, loc loc.Locator) (tls utils.TLSArchive, err error) {

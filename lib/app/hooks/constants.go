@@ -19,7 +19,7 @@ package hooks
 import (
 	"fmt"
 
-	"github.com/gravitational/gravity/lib/constants"
+	"github.com/gravitational/gravity/lib/defaults"
 )
 
 const (
@@ -95,4 +95,4 @@ const (
 )
 
 // InitContainerImage is the image for the init container
-var InitContainerImage = fmt.Sprintf("%v/gravitational/debian-tall:buster", constants.DockerRegistry)
+var InitContainerImage = fmt.Sprintf("%v/gravitational/debian-tall:buster", defaults.DockerRegistry)

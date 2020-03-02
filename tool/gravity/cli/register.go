@@ -164,7 +164,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.PlanExecuteCmd.PhaseTimeout = g.PlanExecuteCmd.Flag("timeout", "Phase execution timeout.").Default(defaults.PhaseTimeout).Hidden().Duration()
 
 	g.PlanRollbackCmd.CmdClause = g.PlanCmd.Command("rollback", "Rollback the specified operation phase.")
-	g.PlanRollbackCmd.Phase = g.PlanRollbackCmd.Flag("phase", "Phase ID to rollback.").String()
+	g.PlanRollbackCmd.Phase = g.PlanRollbackCmd.Flag("phase", "Phase ID to rollback.").Required().String()
 	g.PlanRollbackCmd.Force = g.PlanRollbackCmd.Flag("force", "Force rollback of the specified phase.").Bool()
 	g.PlanRollbackCmd.PhaseTimeout = g.PlanRollbackCmd.Flag("timeout", "Phase rollback timeout.").Default(defaults.PhaseTimeout).Hidden().Duration()
 
@@ -332,7 +332,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.AppImportCmd.Repository = g.AppImportCmd.Flag("repository", "optional repository name, overrides the one specified in the app manifest").String()
 	g.AppImportCmd.Name = g.AppImportCmd.Flag("name", "optional app name, overrides the one specified in the app manifest").String()
 	g.AppImportCmd.Version = g.AppImportCmd.Flag("version", "optional app version, overrides the one specified in the app manifest").String()
-	g.AppImportCmd.RegistryURL = g.AppImportCmd.Flag("registry-url", "optional remote docker registry URL").Default(constants.DockerRegistry).String()
+	g.AppImportCmd.RegistryURL = g.AppImportCmd.Flag("registry-url", "optional remote docker registry URL").Default(defaults.DockerRegistry).String()
 	g.AppImportCmd.DockerURL = g.AppImportCmd.Flag("docker-url", "optional docker URL").Default(constants.DockerEngineURL).String()
 	g.AppImportCmd.OpsCenterURL = g.AppImportCmd.Flag("ops-url", "optional Gravity Hub URL").String()
 	g.AppImportCmd.Vendor = g.AppImportCmd.Flag("vendor", "rewrite all container images to use private docker registry (requires --registry-url)").Bool()
@@ -348,7 +348,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	// export gravity application
 	g.AppExportCmd.CmdClause = g.AppCmd.Command("export", "export gravity application").Hidden()
 	g.AppExportCmd.Locator = g.AppExportCmd.Arg("pkg", "package name with application to export").Required().String()
-	g.AppExportCmd.RegistryURL = g.AppExportCmd.Flag("registry-url", "docker registry URL to use for export").Default(constants.DockerRegistry).String()
+	g.AppExportCmd.RegistryURL = g.AppExportCmd.Flag("registry-url", "docker registry URL to use for export").Default(defaults.DockerRegistry).String()
 	g.AppExportCmd.OpsCenterURL = g.AppExportCmd.Flag("ops-url", "optional remote Gravity Hub URL").String()
 
 	// delete gravity application

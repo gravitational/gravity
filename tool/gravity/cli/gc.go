@@ -307,8 +307,8 @@ func removeUnusedImages(env *localenv.LocalEnvironment, dryRun, confirmed bool) 
 	}
 
 	imageService, err := docker.NewImageService(docker.RegistryConnectionRequest{
-		RegistryAddress: constants.LocalRegistryAddr,
-		CertName:        constants.DockerRegistry,
+		RegistryAddress: defaults.LocalRegistryAddr,
+		CertName:        defaults.DockerRegistry,
 		CACertPath:      state.Secret(stateDir, defaults.RootCertFilename),
 		ClientCertPath:  state.Secret(stateDir, "kubelet.cert"),
 		ClientKeyPath:   state.Secret(stateDir, "kubelet.key"),

@@ -586,8 +586,8 @@ func (p *Process) runApplicationsSynchronizer(ctx context.Context) {
 					p.Infof("Exporting app image %v to registry.", a.Package)
 					err = p.applications.ExportApp(app.ExportAppRequest{
 						Package:         a.Package,
-						RegistryAddress: constants.LocalRegistryAddr,
-						CertName:        constants.DockerRegistry,
+						RegistryAddress: defaults.LocalRegistryAddr,
+						CertName:        defaults.DockerRegistry,
 					})
 					if err != nil {
 						p.Errorf("Failed to synchronize registry: %v.",
@@ -691,8 +691,8 @@ func (p *Process) runRegistrySynchronizer(ctx context.Context) {
 			}
 			err = p.applications.ExportApp(app.ExportAppRequest{
 				Package:         cluster.App.Package,
-				RegistryAddress: constants.LocalRegistryAddr,
-				CertName:        constants.DockerRegistry,
+				RegistryAddress: defaults.LocalRegistryAddr,
+				CertName:        defaults.DockerRegistry,
 			})
 			if err != nil {
 				p.Errorf("Failed to synchronize registry: %v.",

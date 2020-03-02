@@ -156,7 +156,7 @@ func uploadUpdate(env *localenv.LocalEnvironment, opsURL string) error {
 
 		imageService, err := docker.NewImageService(docker.RegistryConnectionRequest{
 			RegistryAddress: registry,
-			CertName:        constants.DockerRegistry,
+			CertName:        defaults.DockerRegistry,
 			CACertPath:      state.Secret(stateDir, defaults.RootCertFilename),
 			ClientCertPath:  state.Secret(stateDir, "kubelet.cert"),
 			ClientKeyPath:   state.Secret(stateDir, "kubelet.key"),
@@ -187,7 +187,7 @@ func getRegistries(ctx context.Context, env *localenv.LocalEnvironment, servers 
 		return nil, trace.Wrap(err)
 	}
 	if version.LessThan(*constants.PlanetMultiRegistryVersion) {
-		return []string{constants.DockerRegistry}, nil
+		return []string{defaults.DockerRegistry}, nil
 	}
 	// otherwise return registry addresses on all masters
 	ips, err := getMasterNodes(ctx, servers)

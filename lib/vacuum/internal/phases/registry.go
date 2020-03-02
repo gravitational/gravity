@@ -20,7 +20,6 @@ import (
 	"context"
 
 	"github.com/gravitational/gravity/lib/app"
-	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/docker"
 	libfsm "github.com/gravitational/gravity/lib/fsm"
@@ -50,8 +49,8 @@ func NewRegistry(
 	}
 
 	imageService, err := docker.NewImageService(docker.RegistryConnectionRequest{
-		RegistryAddress: constants.LocalRegistryAddr,
-		CertName:        constants.DockerRegistry,
+		RegistryAddress: defaults.LocalRegistryAddr,
+		CertName:        defaults.DockerRegistry,
 		CACertPath:      state.Secret(stateDir, defaults.RootCertFilename),
 		ClientCertPath:  state.Secret(stateDir, "kubelet.cert"),
 		ClientKeyPath:   state.Secret(stateDir, "kubelet.key"),

@@ -206,7 +206,7 @@ spec:
 	c.Assert(err, IsNil)
 
 	imageService, err := docker.NewImageService(docker.RegistryConnectionRequest{
-		RegistryAddress: constants.DockerRegistry,
+		RegistryAddress: defaults.DockerRegistry,
 	})
 	c.Assert(err, IsNil)
 
@@ -266,7 +266,7 @@ func (r *AppsSuite) ExportsApplication(c *C) {
 	defer registry.Close()
 
 	imageService, err := docker.NewImageService(docker.RegistryConnectionRequest{
-		RegistryAddress: constants.DockerRegistry,
+		RegistryAddress: defaults.DockerRegistry,
 	})
 	c.Assert(err, IsNil)
 	apps := r.NewService(c, dockerClient, imageService)
@@ -625,7 +625,7 @@ func (r *AppsSuite) Charts(c *C) {
 	defer registry.Close()
 
 	imageService, err := docker.NewImageService(docker.RegistryConnectionRequest{
-		RegistryAddress: constants.DockerRegistry,
+		RegistryAddress: defaults.DockerRegistry,
 	})
 	c.Assert(err, IsNil)
 
