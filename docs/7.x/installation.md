@@ -121,6 +121,7 @@ Flag               | Description
 `--dns-zone`         | _(Optional)_ Specify an upstream server for the given DNS zone within the Cluster. Accepts `<zone>/<nameserver>` format where `<nameserver>` can be either `<ip>` or `<ip>:<port>`. Can be specified multiple times.
 `--vxlan-port`       | _(Optional)_ Specify custom overlay network port. Default is `8472`.
 `--remote` | _(Optional)_ Excludes this node from the Cluster, i.e. allows to bootstrap the Cluster from a developer's laptop, for example. In this case the Kubernetes master will be chosen randomly.
+`--selinux` | _(Optional)_ Turns on SELinux support. Defaults to `true` on supported OS distributions. Can be explicitly turned off with `--no-selinux`.
 
 The `gravity join` command accepts the following arguments:
 
@@ -134,6 +135,7 @@ Flag               | Description
 `--state-dir`      | _(Optional)_ Directory where all Gravity system data will be kept on this node. Defaults to `/var/lib/gravity`.
 `--service-uid`    | _(Optional)_ Service user ID (numeric). See [Service User](pack.md#service-user) for details. A user named `planet` is created automatically if unspecified.
 `--service-gid`    | _(Optional)_ Service group ID (numeric). See [Service User](pack.md#service-user) for details. A group named `planet` is created automatically if unspecified.
+`--selinux` | _(Optional)_ Turns on SELinux support. Defaults to `true` on supported OS distributions. Can be explicitly turned off with `--no-selinux`.
 
 ### Environment Variables
 

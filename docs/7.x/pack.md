@@ -462,6 +462,13 @@ nodeProfiles:
           # Recursive defines a recursive mount, i.e. all submounts under specified path
           # are also mounted at the corresponding location in the targetPath subtree
           recursive: false
+          # SELinux label to use for the mount.
+          # If a label is given, the installer will label the directory
+          # using the specified label.
+          # If left empty or unspecified, the installer will label the directory
+          # using the default file label.
+          # Special label value of "none" explicitly turns off labeling for the directory
+          label: "SELinux label"
 
       # This setting makes sure specified devices from host are made available
       # inside Gravity container
