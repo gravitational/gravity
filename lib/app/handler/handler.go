@@ -1109,7 +1109,7 @@ fi
 
 URL=https://get.gravitational.io/telekube/bin/{{.version}}/$OS/$ARCH
 
-for BINARY in tele tsh; do
+for BINARY in tele gravity tsh; do
     echo "Downloading $BINARY..."
     rm -f $BINARY
     curl -sOfL $URL/$BINARY
