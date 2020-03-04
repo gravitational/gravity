@@ -40,6 +40,8 @@ What are these binaries?
   Gravity clusters and installed applications.
 * `tsh` is a tool to remotely connect to clusters created from the images.
   tsh supports both SSH and Kubernetes API.
+* `terraform-provider-gravity` is a Terraform plugin used to support management
+  of open-source Gravity clusters.
 
 See the quick start to learn how to use these tools:
 https://gravitational.com/gravity/docs/quickstart/
