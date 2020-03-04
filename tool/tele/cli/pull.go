@@ -25,6 +25,7 @@ import (
 	"github.com/gravitational/gravity/lib/hub"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
+	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
@@ -43,7 +44,7 @@ func NewProgress(ctx context.Context, title string, silent bool) utils.Progress 
 }
 
 func pull(env localenv.LocalEnvironment, app, outFile string, force, quiet bool) error {
-	locator, err := loc.MakeLocator(app)
+	locator, err := loc.MakeLocatorWithDefault(app, modules.Get().Version().Version)
 	if err != nil {
 		return trace.Wrap(err)
 	}

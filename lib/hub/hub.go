@@ -199,7 +199,7 @@ func (h *s3Hub) Download(f *os.File, locator loc.Locator) (err error) {
 	if err != nil {
 		err := utils.ConvertS3Error(err)
 		if trace.IsNotFound(err) {
-			return trace.NotFound("application %v:%v not found in %v, use 'tele ls' to see available applications",
+			return trace.NotFound("image %v:%v not found in %v, use 'tele ls' to see available images",
 				locator.Name, locator.Version, h.Bucket)
 		}
 		return trace.Wrap(err)
