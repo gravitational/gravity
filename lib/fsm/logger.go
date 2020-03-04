@@ -51,7 +51,7 @@ func (l *Logger) Debug(args ...interface{}) {
 	select {
 	case logEntryC <- l.makeLogEntry(fmt.Sprint(args...), "debug"):
 	default:
-		l.FieldLogger.Debug("operation logger dropped message: ", fmt.Sprint(args...))
+		l.FieldLogger.Debug("Operation logger dropped message: ", fmt.Sprint(args...))
 	}
 }
 
@@ -63,7 +63,7 @@ func (l *Logger) Info(args ...interface{}) {
 	select {
 	case logEntryC <- l.makeLogEntry(fmt.Sprint(args...), "info"):
 	default:
-		l.FieldLogger.Info("operation logger dropped message: ", fmt.Sprint(args...))
+		l.FieldLogger.Info("Operation logger dropped message: ", fmt.Sprint(args...))
 	}
 }
 
@@ -75,7 +75,7 @@ func (l *Logger) Warn(args ...interface{}) {
 	select {
 	case logEntryC <- l.makeLogEntry(fmt.Sprint(args...), "warn"):
 	default:
-		l.FieldLogger.Debug("operation logger dropped message: ", fmt.Sprint(args...))
+		l.FieldLogger.Warn("Operation logger dropped message: ", fmt.Sprint(args...))
 	}
 }
 
@@ -92,7 +92,7 @@ func (l *Logger) Error(args ...interface{}) {
 	select {
 	case logEntryC <- l.makeLogEntry(fmt.Sprint(args...), "error"):
 	default:
-		l.FieldLogger.Debug("operation logger dropped message: ", fmt.Sprint(args...))
+		l.FieldLogger.Error("Operation logger dropped message: ", fmt.Sprint(args...))
 	}
 }
 
@@ -172,6 +172,7 @@ func loop() {
 			logrus.WithFields(logrus.Fields{
 				logrus.ErrorKey: err,
 				"msg":           msg.entry.String(),
+				"key":           msg.key,
 			}).Error("Failed to write log entry to operator.")
 		}
 	}
