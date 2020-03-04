@@ -30,23 +30,22 @@ import (
 //  - if it's in the 'name:ver' format, returns locator with system repo (systemrepo/name:ver)
 //  - if it's in the 'name' format, returns locator with system repo and latest meta-version (systemrepo/name:0.0.0+latest)
 func MakeLocator(app string) (*Locator, error) {
-	return MakeLocatorWithDefault(app, "")
+	return MakeLocatorWithDefault(app, func(name string) string {
+		return LatestVersion
+	})
 }
 
 // MakeLocatorWithDefault is like MakeLocator but uses the provided default
 // version if the one isn't specified explicitly, instead of defaulting to
 // the latest.
-func MakeLocatorWithDefault(app, defaultVersion string) (*Locator, error) {
+func MakeLocatorWithDefault(app string, defaultVersion defaultVersionFunc) (*Locator, error) {
 	locator, err := ParseLocator(app)
 	if err == nil {
 		return locator, nil
 	}
-	if defaultVersion == "" {
-		defaultVersion = LatestVersion
-	}
 	parts := strings.Split(app, ":")
 	if len(parts) == 1 {
-		return NewLocator(defaults.SystemAccountOrg, app, defaultVersion)
+		return NewLocator(defaults.SystemAccountOrg, app, defaultVersion(app))
 	}
 	if len(parts) == 2 {
 		version := parts[1]
@@ -60,3 +59,7 @@ func MakeLocatorWithDefault(app, defaultVersion string) (*Locator, error) {
 	}
 	return nil, trace.BadParameter("invalid package name format %q, expected 'repository/name:version' or 'name:version' or 'name'", app)
 }
+
+// defaultVersionFunc defines function that returns default version for
+// specified application name.
+type defaultVersionFunc func(name string) string

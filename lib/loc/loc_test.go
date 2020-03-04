@@ -198,7 +198,9 @@ func (s *LocatorSuite) TestMakeLocator(c *C) {
 		var loc *Locator
 		var err error
 		if test.version != "" {
-			loc, err = MakeLocatorWithDefault(test.input, test.version)
+			loc, err = MakeLocatorWithDefault(test.input, func(name string) string {
+				return test.version
+			})
 		} else {
 			loc, err = MakeLocator(test.input)
 		}

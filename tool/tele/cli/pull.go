@@ -43,8 +43,22 @@ func NewProgress(ctx context.Context, title string, silent bool) utils.Progress 
 	})
 }
 
+// MakeLocator creates locator from the provided application package name.
+func MakeLocator(app string) (*loc.Locator, error) {
+	return loc.MakeLocatorWithDefault(app, func(name string) string {
+		switch name {
+		case constants.BaseImageName, constants.LegacyBaseImageName, constants.HubImageName, constants.LegacyHubImageName:
+			// For system images (base and hub) default to tele version for compatibility.
+			return modules.Get().Version().Version
+		default:
+			// For everything else (user images) default to the latest.
+			return loc.LatestVersion
+		}
+	})
+}
+
 func pull(env localenv.LocalEnvironment, app, outFile string, force, quiet bool) error {
-	locator, err := loc.MakeLocatorWithDefault(app, modules.Get().Version().Version)
+	locator, err := MakeLocator(app)
 	if err != nil {
 		return trace.Wrap(err)
 	}
