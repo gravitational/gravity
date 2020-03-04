@@ -58,5 +58,5 @@ func MakeLocatorWithDefault(app, defaultVersion string) (*Locator, error) {
 		}
 		return NewLocator(defaults.SystemAccountOrg, parts[0], version)
 	}
-	return nil, trace.BadParameter("invalid app name format: %v, should be: 'repo/name:ver' or 'name:ver' or 'name'", app)
+	return nil, trace.BadParameter("invalid package name format %q, expected 'repository/name:version' or 'name:version' or 'name'", app)
 }
