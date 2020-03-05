@@ -74,7 +74,7 @@ type DeployAgentsRequest struct {
 	Progress utils.Progress
 }
 
-// Check validates the request to deploy agents
+// CheckAndSetDefaults validates the request to deploy agents and sets defaults.
 func (r *DeployAgentsRequest) CheckAndSetDefaults() error {
 	// if the leader node was explicitly passed, make sure
 	// it is present among the deploy nodes
