@@ -5,14 +5,18 @@ readonly UPGRADE_FROM_DIR=${1:-$(pwd)/../upgrade_from}
 
 # UPGRADE_MAP maps gravity version -> list of OS releases to upgrade from
 declare -A UPGRADE_MAP
-# latest patch release on compatible LTS, keep these up to date
+
+# latest patch release on this release, keep this up to date
 UPGRADE_MAP[5.5.37]="ubuntu:16"
+
+# latest patch release on previous compatible LTS, keep this up to date
 UPGRADE_MAP[5.2.16]="ubuntu:16"
 
 # via intermediate upgrade
 UPGRADE_MAP[5.0.35]="ubuntu:16"
 
-# important versions in the field
+# important versions in the field, per:
+# https://github.com/gravitational/robotest/issues/155#issuecomment-589743687
 UPGRADE_MAP[5.2.12]="ubuntu:16"
 UPGRADE_MAP[5.5.19]="ubuntu:16"
 UPGRADE_MAP[5.5.20]="ubuntu:16"
