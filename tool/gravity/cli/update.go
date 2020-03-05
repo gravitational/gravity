@@ -22,6 +22,7 @@ import (
 	"io"
 	"time"
 
+	"github.com/fatih/color"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	libfsm "github.com/gravitational/gravity/lib/fsm"
@@ -75,10 +76,15 @@ func newUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironm
 				msg = err.Error()
 			}
 			if errReset := ops.FailOperationAndResetCluster(*key, operator, msg); errReset != nil {
-				logrus.WithFields(logrus.Fields{
-					logrus.ErrorKey: errReset,
-					"operation":     key,
-				}).Warn("Failed to mark operation as failed.")
+				logger.WithError(errReset).Warn("Failed to mark operation as failed.")
+			}
+			// Depending on where the operation initialization failed, some upgrade
+			// agents may have started so we need to shut them down. If they're
+			// not running, it will be no-op so there's no harm in running this
+			// even if we failed before deploying the agents.
+			localEnv.PrintStep(color.YellowString("Encountered error, will shutdown agents"))
+			if errShutdown := rpcAgentShutdown(localEnv); errShutdown != nil {
+				logger.WithError(errShutdown).Warn("Failed to shutdown upgrade agents.")
 			}
 		}
 		if r != nil {
@@ -117,9 +123,9 @@ func newUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironm
 	})
 	deployCtx, cancel := context.WithTimeout(ctx, defaults.AgentDeployTimeout)
 	defer cancel()
-	logger.WithField("request", req).Debug("Deploying agents on nodes.")
-	localEnv.PrintStep("Deploying upgrade agents on the nodes")
-	creds, err := deployAgents(deployCtx, req)
+	logger.WithField("request", req).Debug("Deploying agents on cluster nodes.")
+	localEnv.PrintStep("Deploying agents on cluster nodes")
+	creds, err := deployAgents(deployCtx, localEnv, req)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
