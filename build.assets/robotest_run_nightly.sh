@@ -14,6 +14,10 @@ UPGRADE_MAP[5.5.37]="centos:7 ubuntu:16"
 # latest patch release on previous compatible LTS, keep this up to date
 UPGRADE_MAP[5.2.16]="centos:7 ubuntu:16"
 
+# first release from this release & last LTS, these don't need to change until a new major/minor release
+UPGRADE_MAP[5.5.0]="ubuntu:16"
+UPGRADE_MAP[5.2.0]="ubuntu:16"
+
 # via intermediate upgrade
 UPGRADE_MAP[5.0.35]="debian:9 ubuntu:16"
 
