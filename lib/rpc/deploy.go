@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/fatih/color"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
@@ -68,10 +69,13 @@ type DeployAgentsRequest struct {
 
 	// NodeParams defines which parameters to pass to the regular agent process.
 	NodeParams string
+
+	// Progress is the progress reporter.
+	Progress utils.Progress
 }
 
 // Check validates the request to deploy agents
-func (r DeployAgentsRequest) Check() error {
+func (r *DeployAgentsRequest) CheckAndSetDefaults() error {
 	// if the leader node was explicitly passed, make sure
 	// it is present among the deploy nodes
 	if r.Leader != nil && len(r.LeaderParams) != 0 {
@@ -86,6 +90,9 @@ func (r DeployAgentsRequest) Check() error {
 			return trace.NotFound("requested leader node %v was not found among deploy servers: %v",
 				r.Leader.AdvertiseIP, r.Servers)
 		}
+	}
+	if r.Progress == nil {
+		r.Progress = utils.DiscardProgress
 	}
 	return nil
 }
@@ -109,7 +116,7 @@ func (r DeployAgentsRequest) canBeLeader(node DeployServer) bool {
 // One of the master nodes is selected to control the automatic update operation specified
 // with req.LeaderParams.
 func DeployAgents(ctx context.Context, req DeployAgentsRequest) error {
-	if err := req.Check(); err != nil {
+	if err := req.CheckAndSetDefaults(); err != nil {
 		return trace.Wrap(err)
 	}
 	errors := make(chan error, len(req.Servers))
@@ -131,19 +138,25 @@ func DeployAgents(ctx context.Context, req DeployAgentsRequest) error {
 		}
 		serverStateDir := stateServer.StateDir()
 
+		logger := req.WithFields(server.Fields())
 		go func(node, nodeStateDir string, leader bool) {
-			err := trace.Wrap(deployAgentOnNode(ctx, req, node, nodeStateDir,
-				leader, req.SecretsPackage.String()))
-			if err != nil {
-				logrus.WithError(err).WithField("node", node).Warnf("Failed to deploy agent.")
-			}
-			errors <- err
+			// Try a few times to account for possible network glitches.
+			err := utils.RetryOnNetworkError(defaults.RetryInterval, defaults.RetryLessAttempts, func() error {
+				if err := deployAgentOnNode(ctx, req, node, nodeStateDir, leader, req.SecretsPackage.String()); err != nil {
+					logger.WithError(err).Warn("Failed to deploy agent.")
+					return trace.Wrap(err)
+				}
+				req.Progress.Print(color.GreenString("Deployed agent on %v (%v)", server.Hostname, server.AdvertiseIP))
+				logger.Info("Agent deployed.")
+				return nil
+			})
+			errors <- trace.Wrap(err, "failed to deploy agent on %v", node)
 		}(server.NodeAddr, serverStateDir, leaderProcess)
 	}
 
 	err := utils.CollectErrors(ctx, errors)
 	if err != nil {
-		return trace.Wrap(err, "failed to deploy agents")
+		return trace.Wrap(err)
 	}
 
 	if !leaderProcessScheduled && len(req.LeaderParams) > 0 {
@@ -169,6 +182,11 @@ type DeployServer struct {
 	Hostname string
 	// NodeAddr is the server's address in teleport context
 	NodeAddr string
+}
+
+// Fields returns log fields for the server.
+func (s DeployServer) Fields() logrus.Fields {
+	return logrus.Fields{"hostname": s.Hostname, "ip": s.AdvertiseIP}
 }
 
 // NewDeployServer creates a new instance of DeployServer
@@ -223,6 +241,5 @@ func deployAgentOnNode(ctx context.Context, req DeployAgentsRequest, node, nodeS
 		return trace.Wrap(err)
 	}
 
-	req.Infof("Successfully deployed agent on node %v.", node)
 	return nil
 }
