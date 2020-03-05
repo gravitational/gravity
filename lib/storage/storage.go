@@ -42,6 +42,7 @@ import (
 
 	"github.com/gravitational/trace"
 	"github.com/jonboulle/clockwork"
+	"github.com/sirupsen/logrus"
 	"github.com/tstranex/u2f"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/helm/pkg/repo"
@@ -1662,6 +1663,11 @@ func (s *Server) GetKubeletLabels(profileLabels map[string]string) map[string]st
 		}
 	}
 	return result
+}
+
+// Fields returns log fields describing the server.
+func (s *Server) Fields() logrus.Fields {
+	return logrus.Fields{"hostname": s.Hostname, "ip": s.AdvertiseIP}
 }
 
 // Strings formats this server as readable text
