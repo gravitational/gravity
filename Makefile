@@ -46,7 +46,7 @@ RELEASE_OUT ?=
 TELEPORT_TAG = 3.2.14
 # TELEPORT_REPOTAG adapts TELEPORT_TAG to the teleport tagging scheme
 TELEPORT_REPOTAG := v$(TELEPORT_TAG)
-PLANET_TAG := 7.0.17-$(K8S_VER_SUFFIX)
+PLANET_TAG := 7.0.17-$(K8S_VER_SUFFIX)-robotest
 #PLANET_BRANCH := $(PLANET_TAG)
 PLANET_BRANCH := kevin/experimental/etcd-index-testing
 K8S_APP_TAG := $(GRAVITY_TAG)
