@@ -1,6 +1,6 @@
 # Application Catalog
 
-!!! note:
+!!! note 
     The Application Catalog feature is currently under active development and
     is available starting from 5.4.0 alpha releases.
 
@@ -66,7 +66,7 @@ chart and the Alpine image layers.
 
 ### Publish an Application Image
 
-!!! note:
+!!! note 
     Publishing applications requires a [Gravity Hub](/hub/) and is
     available only in the Enterprise edition of Gravity.
 
@@ -112,7 +112,7 @@ Digest: sha256:014c089bd8b453b6870d2994eb4240ee69555fc5d760ffe515ef3079f5bcdad8
 Status: Downloaded newer image for hub.example.com/alpine:3.3
 ```
 
-!!! note:
+!!! note 
     Pushing Docker images directly to the Gravity Hub registry with `docker push`
     is not supported. Use `tele push` to publish application image along with
     its charts and layers to the Gravity Hub.

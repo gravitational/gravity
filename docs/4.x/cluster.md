@@ -1018,7 +1018,7 @@ The `hd` scope contains the hosted Google suite domain of the user so in the
 above example, any user who belongs to the "example.com" domain will be
 allowed to log in and granted the admin role.
 
-!!! note:
+!!! note 
     The user must belong to a hosted domain, otherwise the `hd` claim will
     not be populated.
 
@@ -1429,7 +1429,7 @@ Create the resource to update the Ops Center endpoints:
 $ gravity resource create endpoints.yaml
 ```
 
-!!! note:
+!!! note 
     Updating the endpoints resource will result in restart of `gravity-site`
     pods so the changes can take effect.
 
@@ -1557,7 +1557,7 @@ Create it:
 $ gravity resource create auth.yaml
 ```
 
-!!! note:
+!!! note 
     Make sure to configure a proper [OIDC connector](/cluster/#configuring-openid-connect)
     when using "oidc" authentication type.
 
@@ -1570,7 +1570,7 @@ Type      ConnectorName     SecondFactor
 local                       off
 ```
 
-!!! note:
+!!! note 
     Currently authentication preference only affects login via web UI,
     `tele login` will add support for it in the future.
 
@@ -1597,7 +1597,7 @@ Signup token has been created and is valid for 1h0m0s hours. Share this URL with
 https://<host>/web/newuser/<token>
 ```
 
-!!! note:
+!!! note 
     Make sure that `<host>` is accessible to the invited user.
 
 ### Reset User Password
@@ -1618,7 +1618,7 @@ Password reset token has been created and is valid for 1h0m0s. Share this URL wi
 https://<host>/web/reset/<token>
 ```
 
-!!! note:
+!!! note 
     Make sure that `<host>` is accessible to the user.
 
 ## Securing a Cluster

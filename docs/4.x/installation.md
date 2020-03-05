@@ -390,7 +390,7 @@ $ sudo ./gravity install --cluster-spec=cluster.yaml --ops-advertise-addr=172.31
 
 ## Installing on Google Compute Engine
 
-!!! note:
+!!! note 
     GCE cloud provider integration is supported starting from Telekube
     version `5.1.0-alpha.1`.
 

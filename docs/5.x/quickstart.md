@@ -8,7 +8,7 @@ fairly typical web application and consists of an HTTP request handling process
 which connects to a PostgreSQL instance.
 
 Before we start, you may want to review the
-[Gravity Overview](overview.md) to get familiar with basic concepts of the
+[Gravity Overview](index.md) to get familiar with basic concepts of the
 Gravity system.
 
 ## System Requirements

@@ -13,7 +13,7 @@ instance.
 
 This Quick Start Guide will walk you through the process of packaging
 Mattermost for private deployments. Before we start, please take a look at the
-[Telekube Overview](overview.md) to get familiar with basic concepts of the
+[Telekube Overview](index.md) to get familiar with basic concepts of the
 Telekube system.
 
 ### System Requirements
@@ -177,7 +177,7 @@ Now the application is ready to be distributed and installed.
 
 ## Installing the Application
 
-As shown in the [Overview](overview.md), there are two ways to install an
+As shown in the [Overview](index.md), there are two ways to install an
 Application Bundle packaged with Telekube:
 
 * Online, via the Ops Center.

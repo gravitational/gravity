@@ -5,26 +5,37 @@ site_description: Gravity Documentation
 site_author: Gravitational Inc
 copyright: Gravitational Inc, 2017-19
 
-theme: readthedocs
-theme_dir: theme
-
 # UPDATE HERE FOR EACH VERSION
 site_dir: ../build/docs/6.x
 docs_dir: "6.x"
 
+theme:
+    name: null
+    custom_dir: 'theme/'
+    include_search_page: true
 markdown_extensions:
-  - markdown_include.include
+  - markdown_include.include:
+      base_path: '../'
   - admonition
   - def_list
   - footnotes
-
+  - toc:
+      marker: '[TOC]'
 extra_css: []
+plugins:
+    - search:
+        separator: '[\s\-\.]'
+    - markdownextradata: {
+    }
 extra_javascript: []
 extra:
     version: 6.x
+    product: gravity
+    gravity:
+        version: 6.0
 
 pages:
-    - Gravity Overview: overview.md
+    - Gravity Overview: index.md
     - Quick Start: quickstart.md
     - Building Cluster Images: pack.md
     - Installation: installation.md

@@ -247,7 +247,7 @@ root$ rm -r .gravity
 
 ## Installing on Google Compute Engine
 
-!!! note:
+!!! note 
     GCE cloud provider integration is supported starting from Gravity
     version `5.1.0-alpha.1`.
 

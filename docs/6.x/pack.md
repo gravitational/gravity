@@ -124,7 +124,7 @@ docker run \
         bash -c "tele --state-dir=/mnt/tele-cache build -o cluster.tar"
 ```
 
-!!! note:
+!!! note 
     Notice that we are reusing tele loaded cache directory in between builds
     by setting `--state-dir`. You can use unique temporary directory
     to avoid sharing state between builds, or use parallel builds instead.
@@ -165,7 +165,7 @@ A special `ImageSet` custom resource allows to list additional images to vendor,
 which `tele` would otherwise not be able to extract (for example, from custom
 resource types).
 
-!!! note:
+!!! note 
     The `ImageSet` resource support will be available starting from Gravity 7.0.
 
 ```yaml
@@ -879,7 +879,7 @@ installer:
     - "Bandwagon"
 ```
 
-!!! Note:
+!!! note 
 	Currently, only one setup endpoint per application is supported.
 
 ## System Extensions
@@ -910,7 +910,7 @@ extensions:
     disabled: true
 ```
 
-!!! note:
+!!! note 
     Disabling the system logging component will result in inability
     to view operation logs via the Cluster UI.
 
