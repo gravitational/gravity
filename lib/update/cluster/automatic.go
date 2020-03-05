@@ -19,12 +19,14 @@ package cluster
 import (
 	"context"
 
+	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/rpc"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/update"
+	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/gravity/lib/utils/kubectl"
 
 	"github.com/gravitational/trace"
@@ -46,7 +48,10 @@ func AutomaticUpgrade(ctx context.Context, localEnv, updateEnv *localenv.LocalEn
 		return trace.Wrap(err)
 	}
 	runner := fsm.NewAgentRunner(creds)
-
+	err = waitForAgents(ctx, clusterEnv, runner)
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	config := Config{
 		Config: update.Config{
 			Operation:    (*ops.SiteOperation)(operation),
@@ -88,6 +93,33 @@ func AutomaticUpgrade(ctx context.Context, localEnv, updateEnv *localenv.LocalEn
 		}
 	}
 	return trace.Wrap(fsmErr)
+}
+
+func waitForAgents(ctx context.Context, clusterEnv *localenv.ClusterEnvironment, runner rpc.RemoteRunner) error {
+	cluster, err := clusterEnv.Operator.GetLocalSite()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	logger := log.WithField(trace.Component, "automatic")
+	// TODO(r0mant): Parallelize this?
+	return utils.RetryFor(ctx, defaults.AgentDeployTimeout, func() error {
+		var unreachable storage.Servers
+		for _, node := range cluster.ClusterState.Servers {
+			localCtx, cancel := context.WithTimeout(ctx, defaults.AgentHealthCheckTimeout)
+			defer cancel()
+			if err := runner.CanExecute(localCtx, node); err != nil {
+				logger.WithError(err).WithFields(node.Fields()).Warn("Agent is not running.")
+				unreachable = append(unreachable, node)
+			} else {
+				logger.WithFields(node.Fields()).Info("Agent is running.")
+			}
+		}
+		if len(unreachable) > 0 {
+			return utils.Continue("Some agents aren't running yet: %s.", unreachable)
+		}
+		logger.Info("All agents are running.")
+		return nil
+	})
 }
 
 // ShutdownClusterAgents submits a shutdown request to all agents
