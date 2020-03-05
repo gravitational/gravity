@@ -31,7 +31,6 @@ import (
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/rpc"
 	"github.com/gravitational/gravity/lib/schema"
-	libstatus "github.com/gravitational/gravity/lib/status"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/system/selinux"
 	"github.com/gravitational/gravity/lib/update"
@@ -435,24 +434,28 @@ Please use the gravity binary from the upgrade installer tarball to execute the 
 }
 
 func querySELinuxEnabled(ctx context.Context) (enabled bool, err error) {
-	status, err := queryClusterStatus(ctx)
+	status, err := queryClusterSELinuxStatus(ctx)
 	if err != nil {
 		return false, trace.Wrap(err)
 	}
 	return status.Cluster != nil && status.Cluster.SELinux, nil
 }
 
-func queryClusterStatus(ctx context.Context) (*libstatus.Status, error) {
+func queryClusterSELinuxStatus(ctx context.Context) (*clusterSELinuxStatus, error) {
 	out, err := exec.CommandContext(ctx, "gravity", "status", "--output=json").CombinedOutput()
 	log.WithField("output", string(out)).Info("Query cluster status.")
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to fetch cluster status: %s", out)
 	}
-	var status struct {
-		libstatus.Status `json:"cluster"`
-	}
+	var status clusterSELinuxStatus
 	if err := json.Unmarshal(out, &status); err != nil {
 		return nil, trace.Wrap(err, "failed to interpret status as JSON")
 	}
-	return &status.Status, nil
+	return &status, nil
+}
+
+type clusterSELinuxStatus struct {
+	Cluster *struct {
+		SELinux bool `json:"selinux"`
+	} `json:"cluster"`
 }

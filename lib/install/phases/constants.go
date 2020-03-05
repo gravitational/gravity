@@ -30,7 +30,7 @@ const (
 	// BootstrapPhase is a phase that prepares the nodes for installation
 	BootstrapPhase = "/bootstrap"
 	// BootstrapSELinuxPhase is a phase that performs additional SELinux configuration
-	BootstrapSELinuxPhase = "/selinux-bootstrap"
+	BootstrapSELinuxPhase = "/selinux"
 	// PullPhase is a phase that pulls configured packages
 	PullPhase = "/pull"
 	// MastersPhase is a phase that installs system software on master nodes
