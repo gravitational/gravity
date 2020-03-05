@@ -44,6 +44,7 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/gravitational/trace"
 	"github.com/jonboulle/clockwork"
+	"github.com/sirupsen/logrus"
 	"github.com/tstranex/u2f"
 	"k8s.io/helm/pkg/repo"
 )
@@ -1598,6 +1599,11 @@ func (s *Server) KubeNodeID() string {
 // IsMaster returns true if the server has a master role
 func (s *Server) IsMaster() bool {
 	return s.ClusterRole == string(schema.ServiceRoleMaster)
+}
+
+// Fields returns log fields describing the server.
+func (s *Server) Fields() logrus.Fields {
+	return logrus.Fields{"hostname": s.Hostname, "ip": s.AdvertiseIP}
 }
 
 // Strings formats this server as readable text
