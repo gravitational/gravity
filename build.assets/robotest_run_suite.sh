@@ -14,7 +14,7 @@ UPGRADE_MAP[6.3.6]="ubuntu:18"
 
 # important versions in the field, these are static
 UPGRADE_MAP[6.1.0]="ubuntu:16"
-UPGRADE_MAP[6.3.0]="ubuntu:16"
+# UPGRADE_MAP[6.3.0]="ubuntu:16"  # disabled due to https://github.com/gravitational/gravity/issues/1009
 
 readonly GET_GRAVITATIONAL_IO_APIKEY=${GET_GRAVITATIONAL_IO_APIKEY:?API key for distribution Ops Center required}
 readonly GRAVITY_BUILDDIR=${GRAVITY_BUILDDIR:?Set GRAVITY_BUILDDIR to the build directory}
