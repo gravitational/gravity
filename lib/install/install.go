@@ -28,6 +28,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cenkalti/backoff"
 	"github.com/fatih/color"
 	appservice "github.com/gravitational/gravity/lib/app"
 	cloudaws "github.com/gravitational/gravity/lib/cloudprovider/aws"
@@ -814,19 +815,20 @@ func StartAgent(agentURL string, config rpcserver.PeerConfig, log log.FieldLogge
 	return agent, nil
 }
 
-func LoadRPCCredentials(ctx context.Context, packages pack.PackageService, log log.FieldLogger) (*rpcserver.Credentials, error) {
-	err := exportRPCCredentials(ctx, packages, log)
+func LoadRPCCredentials(ctx context.Context, packages pack.PackageService) (*rpcserver.Credentials, error) {
+	tls, err := loadCredentialsFromPackage(ctx, packages)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	serverCreds, clientCreds, err := rpc.Credentials(defaults.RPCAgentSecretsDir)
+	err = rpc.ValidateCredentials(tls, time.Now())
+	if err != nil {
+		return nil, newInvalidCertError(err)
+	}
+	creds, err := newRPCCredentials(tls)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return &rpcserver.Credentials{
-		Server: serverCreds,
-		Client: clientCreds,
-	}, nil
+	return creds, nil
 }
 
 func exportRPCCredentials(ctx context.Context, packages pack.PackageService, log log.FieldLogger) error {
@@ -864,4 +866,54 @@ func wait(ctx context.Context, cancel context.CancelFunc, p process.GravityProce
 	case <-ctx.Done():
 		return trace.Wrap(ctx.Err())
 	}
+}
+
+func newRPCCredentials(tls utils.TLSArchive) (*rpcserver.Credentials, error) {
+	caKeyPair, err := tls.GetKeyPair(pb.CA)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	serverKeyPair, err := tls.GetKeyPair(pb.Server)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	serverCreds, err := rpc.ServerCredentialsFromKeyPairs(*serverKeyPair, *caKeyPair)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	clientKeyPair, err := tls.GetKeyPair(pb.Client)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	clientCreds, err := rpc.ClientCredentialsFromKeyPairs(*clientKeyPair, *caKeyPair)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &rpcserver.Credentials{
+		Server: serverCreds,
+		Client: clientCreds,
+	}, nil
+}
+
+func loadCredentialsFromPackage(ctx context.Context, packages pack.PackageService) (tls utils.TLSArchive, err error) {
+	b := utils.NewUnlimitedExponentialBackOff()
+	ctx, cancel := defaults.WithTimeout(ctx)
+	defer cancel()
+	err = utils.RetryWithInterval(ctx, b, func() (err error) {
+		tls, err = rpc.LoadCredentials(packages)
+		if err != nil && !trace.IsNotFound(err) {
+			return &backoff.PermanentError{Err: err}
+		}
+		return trace.Wrap(err)
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return tls, nil
+}
+
+func newInvalidCertError(err error) error {
+	return trace.BadParameter("%s. Please make sure that clocks are synchronized between the nodes "+
+		"by using ntp, chrony or other time-synchronization programs.",
+		trace.UserMessage(err))
 }

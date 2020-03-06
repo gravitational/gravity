@@ -29,6 +29,7 @@ import (
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/pack"
+	"github.com/gravitational/gravity/lib/rpc"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/users"
 	"github.com/gravitational/gravity/lib/utils"
@@ -38,16 +39,47 @@ import (
 	"github.com/gravitational/trace"
 )
 
-type rotateOptions struct {
-	// clusterName is the local cluster name
-	clusterName string
-	// validFor specifies validity duration for renewed certs
-	validFor time.Duration
-	// caPath is optional CA to use
-	caPath string
+func rotateRPCCredentials(env *localenv.LocalEnvironment, o rotateRPCCredsOptions) (err error) {
+	packages, err := env.ClusterPackages()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	archive, err := rpc.LoadCredentials(packages)
+	if err != nil && !trace.IsNotFound(err) {
+		return trace.Wrap(err)
+	}
+	now := time.Now()
+	if o.dryRun {
+		if archive == nil {
+			trace.NotFound("no RPC credentials found. Run the command again without --dry-run to generate.")
+		}
+		if err := rpc.ValidateCredentials(archive, now); err != nil {
+			return trace.Wrap(err)
+		}
+		env.Println("Nothing to do.")
+		return nil
+	}
+	if !o.force {
+		err = rpc.ValidateCredentials(archive, now)
+	}
+	if o.force || err != nil {
+		err = rpc.DeleteCredentials(packages)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	_, err = rpc.InitCredentials(packages)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	env.Println("Please restart gravity-site Pods for changes to take effect.")
+	return nil
 }
 
 func rotateCertificates(env *localenv.LocalEnvironment, o rotateOptions) (err error) {
+	if err := o.checkAndSetDefaults(); err != nil {
+		return trace.Wrap(err)
+	}
 	var archive utils.TLSArchive
 	if o.caPath != "" {
 		archive, err = readCertAuthorityFromFile(o.caPath)
@@ -194,6 +226,27 @@ func readCertAuthorityFromFile(path string) (utils.TLSArchive, error) {
 		return nil, trace.Wrap(err)
 	}
 	return utils.ReadTLSArchive(bytes.NewBuffer(data))
+}
+
+type rotateRPCCredsOptions struct {
+	force  bool
+	dryRun bool
+}
+
+func (r *rotateOptions) checkAndSetDefaults() error {
+	if r.clusterName == "" && r.caPath == "" {
+		return trace.BadParameter("either cluster-name or ca-path needs to be specified")
+	}
+	return nil
+}
+
+type rotateOptions struct {
+	// clusterName is the local cluster name
+	clusterName string
+	// validFor specifies validity duration for renewed certs
+	validFor time.Duration
+	// caPath is optional CA to use
+	caPath string
 }
 
 const renewDuration = "26280h" // 3 years

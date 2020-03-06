@@ -564,9 +564,13 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.SystemCmd.CmdClause = g.Command("system", "operations on system components")
 
 	g.SystemRotateCertsCmd.CmdClause = g.SystemCmd.Command("rotate-certs", "Renew cluster certificates on a node").Hidden()
-	g.SystemRotateCertsCmd.ClusterName = g.SystemRotateCertsCmd.Arg("cluster-name", "Name of the local cluster").Required().String()
+	g.SystemRotateCertsCmd.ClusterName = g.SystemRotateCertsCmd.Arg("cluster-name", "Name of the local cluster").String()
 	g.SystemRotateCertsCmd.ValidFor = g.SystemRotateCertsCmd.Flag("valid-for", "Validity duration in Go format").Default("26280h").Duration()
 	g.SystemRotateCertsCmd.CAPath = g.SystemRotateCertsCmd.Flag("ca-path", "Use previously exported CA file instead of package").String()
+
+	g.SystemRotateRPCCredsCmd.CmdClause = g.SystemCmd.Command("rotate-rpc-creds", "Renew cluster RPC credentials")
+	g.SystemRotateRPCCredsCmd.DryRun = g.SystemRotateRPCCredsCmd.Flag("dry-run", "Check validity but do not actually rotate credentials").Bool()
+	g.SystemRotateRPCCredsCmd.Force = g.SystemRotateRPCCredsCmd.Flag("force", "Force renewal of the RPC credentials").Bool()
 
 	g.SystemExportCACmd.CmdClause = g.SystemCmd.Command("export-ca", "Export cluster CA, must be run on a master node").Hidden()
 	g.SystemExportCACmd.ClusterName = g.SystemExportCACmd.Arg("cluster-name", "Name of the local cluster").Required().String()

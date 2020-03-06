@@ -717,6 +717,11 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			validFor:    *g.SystemRotateCertsCmd.ValidFor,
 			caPath:      *g.SystemRotateCertsCmd.CAPath,
 		})
+	case g.SystemRotateRPCCredsCmd.FullCommand():
+		return rotateRPCCredentials(localEnv, rotateRPCCredsOptions{
+			force:  *g.SystemRotateRPCCredsCmd.Force,
+			dryRun: *g.SystemRotateRPCCredsCmd.DryRun,
+		})
 	case g.SystemExportCACmd.FullCommand():
 		return exportCertificateAuthority(localEnv,
 			*g.SystemExportCACmd.ClusterName,

@@ -30,6 +30,7 @@ import (
 	"github.com/gravitational/gravity/lib/pack"
 	pb "github.com/gravitational/gravity/lib/rpc/proto"
 	"github.com/gravitational/gravity/lib/utils"
+	"github.com/gravitational/teleport/lib/tlsca"
 
 	"github.com/cloudflare/cfssl/csr"
 	"github.com/gravitational/license/authority"
@@ -54,6 +55,20 @@ func GenerateAgentCredentialsPackage(packages pack.PackageService, pkgTemplate l
 	}
 
 	return secretsLocator, nil
+}
+
+// LoadCredentials returns the RPC credentials package as a TLS archive
+func LoadCredentials(packages pack.PackageService) (tls utils.TLSArchive, err error) {
+	_, reader, err := packages.ReadPackage(loc.RPCSecrets)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	defer reader.Close()
+	tlsArchive, err := utils.ReadTLSArchive(reader)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return tlsArchive, nil
 }
 
 // GenerateAgentCredentials creates client/server credentials archive.
@@ -161,6 +176,23 @@ func ClientCredentialsFromKeyPairs(keys, caKeys authority.TLSKeyPair) (credentia
 	return creds, nil
 }
 
+// ValidateCredentials checks the credentials from the specified archive for validity
+func ValidateCredentials(archive utils.TLSArchive, now time.Time) error {
+	clientKeyPair := archive[pb.Client]
+	if err := validateCertificateExpiration(clientKeyPair.CertPEM, now); err != nil {
+		return trace.Wrap(err, "invalid client certificate")
+	}
+	serverKeyPair := archive[pb.Server]
+	if err := validateCertificateExpiration(serverKeyPair.CertPEM, now); err != nil {
+		return trace.Wrap(err, "invalid server certificate")
+	}
+	caKeyPair := archive[pb.CA]
+	if err := validateCertificateExpiration(caKeyPair.CertPEM, now); err != nil {
+		return trace.Wrap(err, "invalid CA certificate")
+	}
+	return nil
+}
+
 // ClientCredentialsFromPackage reads client credentials from specified packages
 func ClientCredentialsFromPackage(packages pack.PackageService, secretsPackage loc.Locator) (credentials.TransportCredentials, error) {
 	_, reader, err := packages.ReadPackage(secretsPackage)
@@ -207,8 +239,13 @@ func ServerCredentials(secretsDir string) (credentials.TransportCredentials, err
 	return creds, nil
 }
 
-// InitRPCCredentials creates a package with RPC secrets in the specified package service
-func InitRPCCredentials(packages pack.PackageService) (*loc.Locator, error) {
+// DeleteCredentials deletes the package with RPC credentials from the specified package store
+func DeleteCredentials(packages pack.PackageService) error {
+	return packages.DeletePackage(loc.RPCSecrets)
+}
+
+// InitCredentials creates a package with RPC secrets in the specified package service
+func InitCredentials(packages pack.PackageService) (*loc.Locator, error) {
 	longLivedClient := true
 	keys, err := GenerateAgentCredentials(nil, defaults.SystemAccountOrg, longLivedClient)
 	if err != nil {
@@ -294,4 +331,27 @@ func upsertPackage(packages pack.PackageService, pkg loc.Locator, archive utils.
 	}
 	_, err = packages.UpsertPackage(pkg, reader, pack.WithLabels(labels))
 	return trace.Wrap(err)
+}
+
+func validateCertificateExpiration(pemBytes []byte, now time.Time) error {
+	const tolerance = 30 * time.Second
+	cert, err := tlsca.ParseCertificatePEM(pemBytes)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if now.Add(-tolerance).Before(cert.NotBefore) {
+		return trace.BadParameter("certificate is valid in the future").
+			AddFields(trace.Fields{
+				"now":        now,
+				"not-before": cert.NotBefore,
+			})
+	}
+	if now.Add(tolerance).After(cert.NotAfter) {
+		return trace.BadParameter("certificate is valid in the past").
+			AddFields(trace.Fields{
+				"now":       now,
+				"not-after": cert.NotAfter,
+			})
+	}
+	return nil
 }
