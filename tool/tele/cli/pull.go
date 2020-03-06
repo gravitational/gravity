@@ -25,6 +25,7 @@ import (
 	"github.com/gravitational/gravity/lib/hub"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
+	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
@@ -42,8 +43,22 @@ func NewProgress(ctx context.Context, title string, silent bool) utils.Progress 
 	})
 }
 
+// MakeLocator creates locator from the provided application package name.
+func MakeLocator(app string) (*loc.Locator, error) {
+	return loc.MakeLocatorWithDefault(app, func(name string) string {
+		switch name {
+		case constants.BaseImageName, constants.LegacyBaseImageName, constants.HubImageName, constants.LegacyHubImageName:
+			// For system images (base and hub) default to tele version for compatibility.
+			return modules.Get().Version().Version
+		default:
+			// For everything else (user images) default to the latest.
+			return loc.LatestVersion
+		}
+	})
+}
+
 func pull(env localenv.LocalEnvironment, app, outFile string, force, quiet bool) error {
-	locator, err := loc.MakeLocator(app)
+	locator, err := MakeLocator(app)
 	if err != nil {
 		return trace.Wrap(err)
 	}
