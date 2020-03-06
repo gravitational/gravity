@@ -21,7 +21,6 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
-	"path/filepath"
 	"sync"
 
 	"github.com/gravitational/gravity/lib/constants"
@@ -29,7 +28,6 @@ import (
 	"github.com/gravitational/gravity/lib/rpc"
 	rpcclient "github.com/gravitational/gravity/lib/rpc/client"
 	"github.com/gravitational/gravity/lib/schema"
-	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/systeminfo"
 	"github.com/gravitational/gravity/lib/utils"
@@ -38,18 +36,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/credentials"
 )
-
-// AgentSecretsDir returns the location of agent credentials
-func AgentSecretsDir() (string, error) {
-	stateDir, err := state.GetStateDir()
-	if err != nil {
-		return "", trace.Wrap(err)
-	}
-
-	secretsDir := filepath.Join(
-		state.GravityRPCAgentDir(stateDir), defaults.SecretsDir)
-	return secretsDir, nil
-}
 
 // CheckServer determines if the specified server is a local machine
 // or has an agent running. Returns an error if the server cannot be
@@ -245,17 +231,4 @@ func CheckMasterServer(servers []storage.Server) error {
 // IsMasterServer returns true if the provided service has a master cluster role
 func IsMasterServer(server storage.Server) bool {
 	return server.ClusterRole == string(schema.ServiceRoleMaster)
-}
-
-// GetClientCredentials returns the RPC credentials for an update operation
-func GetClientCredentials() (credentials.TransportCredentials, error) {
-	secretsDir, err := AgentSecretsDir()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	creds, err := rpc.ClientCredentials(secretsDir)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return creds, nil
 }

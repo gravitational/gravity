@@ -30,6 +30,7 @@ import (
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
+	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/rpc"
 	pb "github.com/gravitational/gravity/lib/rpc/proto"
@@ -62,7 +63,12 @@ func rpcAgentInstall(env *localenv.LocalEnvironment, args []string) error {
 
 // rpcAgentRun runs a local agent executing the function specified with optional args
 func rpcAgentRun(localEnv, upgradeEnv *localenv.LocalEnvironment, args []string) error {
-	server, err := startAgent()
+	clusterPackages, err := localEnv.ClusterPackages()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	server, err := startAgent(clusterPackages)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -90,13 +96,8 @@ func rpcAgentRun(localEnv, upgradeEnv *localenv.LocalEnvironment, args []string)
 	return trace.Wrap(server.Serve())
 }
 
-func startAgent() (rpcserver.Server, error) {
-	secretsDir, err := fsm.AgentSecretsDir()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	serverCreds, clientCreds, err := rpc.Credentials(secretsDir)
+func startAgent(packages pack.PackageService) (rpcserver.Server, error) {
+	serverCreds, clientCreds, err := rpc.Credentials(packages)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -178,7 +179,7 @@ func rpcAgentDeployHelper(ctx context.Context, localEnv *localenv.LocalEnvironme
 	}
 
 	// Force this node to be the operation leader
-	req.leader, err = findLocalServer(*cluster)
+	req.leader, err = ops.FindLocalServer(cluster.ClusterState)
 	if err != nil {
 		log.WithError(err).Warn("Failed to determine local node.")
 		return nil, trace.Wrap(err, "failed to find local node in cluster state.\n"+
@@ -331,7 +332,11 @@ func getClientCredentials(ctx context.Context, packages pack.PackageService, sec
 
 func rpcAgentShutdown(env *localenv.LocalEnvironment) error {
 	env.PrintStep("Shutting down the agents")
-	creds, err := fsm.GetClientCredentials()
+	clusterPackages, err := env.ClusterPackages()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	creds, err := rpc.ClientCredentials(clusterPackages)
 	if err != nil {
 		return trace.Wrap(err)
 	}

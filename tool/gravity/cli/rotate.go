@@ -40,11 +40,11 @@ import (
 )
 
 func rotateRPCCredentials(env *localenv.LocalEnvironment, o rotateRPCCredsOptions) (err error) {
-	packages, err := env.ClusterPackages()
+	clusterEnv, err := env.NewClusterEnvironment()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	archive, err := rpc.LoadCredentials(packages)
+	archive, err := rpc.LoadCredentials(clusterEnv.Packages)
 	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
 	}
@@ -63,12 +63,12 @@ func rotateRPCCredentials(env *localenv.LocalEnvironment, o rotateRPCCredsOption
 		err = rpc.ValidateCredentials(archive, now)
 	}
 	if o.force || err != nil {
-		err = rpc.DeleteCredentials(packages)
-		if err != nil {
+		err = rpc.DeleteCredentials(clusterEnv.Packages)
+		if err != nil && !trace.IsNotFound(err) {
 			return trace.Wrap(err)
 		}
 	}
-	_, err = rpc.InitCredentials(packages)
+	_, err = rpc.InitCredentials(clusterEnv.Packages)
 	if err != nil {
 		return trace.Wrap(err)
 	}

@@ -209,7 +209,10 @@ func New(ctx context.Context, cfg processconfig.Config, tcfg telecfg.FileConfig)
 		return nil, trace.Wrap(err)
 	}
 
-	objects, err := blobfs.New(filepath.Join(cfg.DataDir, defaults.PackagesDir))
+	objects, err := blobfs.New(blobfs.Config{
+		Path: filepath.Join(cfg.DataDir, defaults.PackagesDir),
+		User: cfg.ServiceUser,
+	})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -243,6 +246,7 @@ func New(ctx context.Context, cfg processconfig.Config, tcfg telecfg.FileConfig)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	clusterObjects.Start()
 
 	packages, err := localpack.New(localpack.Config{
 		Backend:     backend,
@@ -1068,7 +1072,10 @@ func (p *Process) initService(ctx context.Context) (err error) {
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		objects, err := blobfs.New(filepath.Join(p.cfg.Pack.ReadDir, defaults.PackagesDir))
+		objects, err := blobfs.New(blobfs.Config{
+			Path: filepath.Join(p.cfg.Pack.ReadDir, defaults.PackagesDir),
+			User: p.cfg.ServiceUser,
+		})
 		if err != nil {
 			return trace.Wrap(err)
 		}

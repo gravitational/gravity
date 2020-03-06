@@ -43,7 +43,7 @@ func AutomaticUpgrade(ctx context.Context, localEnv, updateEnv *localenv.LocalEn
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	creds, err := fsm.GetClientCredentials()
+	creds, err := rpc.ClientCredentials(clusterEnv.ClusterPackages)
 	if err != nil {
 		return trace.Wrap(err)
 	}

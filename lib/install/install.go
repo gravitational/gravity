@@ -831,28 +831,6 @@ func LoadRPCCredentials(ctx context.Context, packages pack.PackageService) (*rpc
 	return creds, nil
 }
 
-func exportRPCCredentials(ctx context.Context, packages pack.PackageService, log log.FieldLogger) error {
-	// retry several times to account for possible transient errors, for
-	// example if the target package service is still starting up.
-	// Another case would be if joins are started before an installer process
-	// in Ops Center-based workflow, in which case the initial package requests
-	// will fail with "bad user name or password" and need to be retried.
-	//
-	// FIXME: this will also mask all other possibly terminal failures (file permission
-	// issues, etc.) and will keep the command blocked for the whole interval.
-	// Get rid of retry or use a better error classification.
-	err := utils.Retry(defaults.RetryInterval, defaults.RetryAttempts, func() error {
-		err := pack.Unpack(packages, loc.RPCSecrets,
-			defaults.RPCAgentSecretsDir, nil)
-		return trace.Wrap(err)
-	})
-	if err != nil {
-		return trace.Wrap(err, "failed to unpack RPC credentials")
-	}
-	log.Debug("RPC credentials unpacked.")
-	return nil
-}
-
 func wait(ctx context.Context, cancel context.CancelFunc, p process.GravityProcess) error {
 	errC := make(chan error, 1)
 	go func() {

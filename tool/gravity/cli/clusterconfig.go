@@ -119,7 +119,7 @@ func getConfigUpdater(localEnv, updateEnv *localenv.LocalEnvironment, operation 
 	}
 	operator := clusterEnv.Operator
 
-	creds, err := libfsm.GetClientCredentials()
+	creds, err := rpc.ClientCredentials(clusterEnv.ClusterPackages)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

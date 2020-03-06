@@ -1034,9 +1034,6 @@ var (
 	// GravityJoinDir is where join FSM stores its information on the joining node
 	GravityJoinDir = filepath.Join(GravityEphemeralDir, "join")
 
-	// RPCAgentSecretsDir specifies the location of the unpacked credentials
-	RPCAgentSecretsDir = filepath.Join(GravityEphemeralDir, "rpcsecrets")
-
 	// WizardDir is where wizard login information is stored during install
 	WizardDir = filepath.Join(GravityEphemeralDir, "wizard")
 

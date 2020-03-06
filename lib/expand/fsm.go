@@ -23,7 +23,6 @@ import (
 
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
-	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
@@ -92,7 +91,7 @@ func (c *FSMConfig) CheckAndSetDefaults() error {
 		return trace.BadParameter("missing LocalPackages")
 	}
 	if c.Credentials == nil {
-		c.Credentials, err = rpc.ClientCredentials(defaults.RPCAgentSecretsDir)
+		c.Credentials, err = rpc.ClientCredentials(c.Packages)
 		if err != nil {
 			return trace.Wrap(err)
 		}

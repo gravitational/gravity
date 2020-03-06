@@ -17,17 +17,22 @@ limitations under the License.
 package localenv
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/app/service"
+	libcluster "github.com/gravitational/gravity/lib/blob/cluster"
 	"github.com/gravitational/gravity/lib/blob/fs"
+	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/httplib"
+	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/opsservice"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/pack/localpack"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/keyval"
+	"github.com/gravitational/gravity/lib/systeminfo"
 	"github.com/gravitational/gravity/lib/users"
 	"github.com/gravitational/gravity/lib/users/usersservice"
 
@@ -107,12 +112,43 @@ func newClusterEnvironment(config clusterEnvironmentConfig) (*ClusterEnvironment
 		return nil, trace.Wrap(err, "failed to connect to etcd")
 	}
 
+	cluster, err := backend.GetLocalSite(defaults.SystemAccountID)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
 	packagesDir, err := SitePackagesDir()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	objects, err := fs.New(packagesDir)
+	user, err := systeminfo.FromOSUser(cluster.ServiceUser)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	localObjects, err := fs.New(fs.Config{
+		Path: packagesDir,
+		User: user,
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	server, err := ops.FindLocalServer(cluster.ClusterState)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	objects, err := libcluster.New(libcluster.Config{
+		Local:       localObjects,
+		WriteFactor: 1,
+		Backend:     backend,
+		ID:          server.AdvertiseIP,
+		// This is not mandatory if LocalEnviron == true as the blob
+		// service will not be creating a peer client
+		AdvertiseAddr: fmt.Sprintf("https://%v", server.AdvertiseIP),
+	})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
