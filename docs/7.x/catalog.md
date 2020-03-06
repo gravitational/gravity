@@ -13,9 +13,7 @@ An application image is a tarball that contains:
 * A Helm chart (possibly with chart dependencies).
 * Vendored Docker images for the chart's Kubernetes resources.
 
-!!! tip
-
-
+!!! tip:
     The `tele` and `gravity` binaries have all required Helm functionality
     built-in so the `helm` binary isn't required to be installed on the
     server when building applications, or inside a deployed cluster. The
@@ -54,7 +52,7 @@ image reference includes a registry template variable which can be set to
 an appropriate registry during installation:
 
 ```bsh
-image: "{% raw %}{{ .Values.image.registry }}{{ .Values.image.repository }}:{{ .Values.image.tag }}{% endraw %}"
+image: "{{ .Values.image.registry }}{{ .Values.image.repository }}:{{ .Values.image.tag }}"
 ```
 
 We can now use `tele` to build an application image from this chart:
@@ -114,9 +112,7 @@ Digest: sha256:014c089bd8b453b6870d2994eb4240ee69555fc5d760ffe515ef3079f5bcdad8
 Status: Downloaded newer image for hub.example.com/alpine:3.3
 ```
 
-!!! note
-
-
+!!! note 
     Pushing Docker images directly to the Gravity Hub registry with `docker push`
     is not supported. Use `tele push` to publish application image along with
     its charts and layers to the Gravity Hub.
@@ -235,9 +231,7 @@ Release         Status      Chart          Revision  Namespace  Updated
 test-release    DEPLOYED    alpine-0.1.0   1         default    Thu Dec  6 21:13:14 UTC
 ```
 
-!!! tip
-
-
+!!! tip:
     The `gravity app` set of sub-commands support many of the same flags of
     the respective `helm` commands such as `--set`, `--values`, `--namespace`
     and so on. Check `--help` for each command to see which are supported.
