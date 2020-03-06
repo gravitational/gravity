@@ -211,7 +211,6 @@ func New(ctx context.Context, cfg processconfig.Config, tcfg telecfg.FileConfig)
 
 	objects, err := blobfs.New(blobfs.Config{
 		Path: filepath.Join(cfg.DataDir, defaults.PackagesDir),
-		User: cfg.ServiceUser,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -1074,7 +1073,6 @@ func (p *Process) initService(ctx context.Context) (err error) {
 		}
 		objects, err := blobfs.New(blobfs.Config{
 			Path: filepath.Join(p.cfg.Pack.ReadDir, defaults.PackagesDir),
-			User: p.cfg.ServiceUser,
 		})
 		if err != nil {
 			return trace.Wrap(err)

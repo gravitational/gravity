@@ -145,7 +145,10 @@ func (o *objects) WriteBLOB(data io.Reader) (*blob.Envelope, error) {
 		os.Remove(f.Name())
 		return nil, trace.Wrap(err)
 	}
-	if o.config.User != nil {
+	if o.config.User != nil && os.Geteuid() != o.config.User.UID {
+		// Set proper file ownership if configured.
+		// This will fail as expected if the command is not run as root or
+		// under a different user context
 		if err := os.Chown(targetPath, o.config.User.UID, o.config.User.GID); err != nil {
 			return nil, trace.Wrap(err)
 		}
