@@ -92,7 +92,7 @@ $ sudo ./gravity join 10.1.10.1 --advertise-addr=10.1.10.2 --token=XXX --role="d
 $ sudo ./gravity join 10.1.10.1 --advertise-addr=10.1.10.3 --token=XXX --role="worker"
 ```
 
-!!! tip:
+!!! tip
     The node roles in the example above are borrowed from the Image Manifest documented
     in [Building Cluster Images](/pack/#image-manifest) section. The use of `--role`
     argument is optional if the Image Manifest did not contain node roles.

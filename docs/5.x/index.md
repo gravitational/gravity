@@ -91,7 +91,7 @@ The Application Manifest is required to describe hardware/system requirements
 of your Cluster and to customize the process of creating a new
 Cluster (i.e. the installation of the Cluster).
 
-!!! tip "Gravity Roadmap Tip":
+!!! tip "Gravity Roadmap Tip"
     Kubernetes community is working on finalizing the cluster API spec. Once it
     becomes production ready, Gravity developers will be looking into adopting the
     future standard to replace the application manifest in the future. Meanwhile, 
@@ -169,7 +169,7 @@ The Ops Center allows Application Bundle publishers to oversee how many Clusters
 running and perform administration and maintenance across all of them in a
 repeatable, scalable way, even if they are deployed on 3rd party infrastructure.
 
-!!! warning "Version Warning":
+!!! warning "Version Warning"
     The Ops Center is only available to users of Gravity Enterprise.
 
 ## Deploying and Installing

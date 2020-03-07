@@ -13,7 +13,7 @@ channel for maintenance:
 
 ![Ops Center Install](images/opscenter-install.svg?style=grv-image-center-md)
 
-!!! tip "NOTE":
+!!! tip "NOTE"
     The end users can close the remote channel and disconnect their Application
 	from the Ops Center.
 
@@ -130,10 +130,10 @@ Flag      | Description
 `--service-gid` | _(Optional)_ Service group ID (numeric). See [Service User](pack/#service-user) for details. A group named `planet` is created automatically if unspecified.
 
 
-!!! tip "NOTE":
+!!! tip "NOTE"
     `--advertise-addr` must also be set for every node, and the same value for `--token` must be used.
 
-!!! tip "NOTE":
+!!! tip "NOTE"
     With no `role` specified, the installer uses the first role defined in the Application Manifest.
 
 The result of running these commands will be a functional and self-contained

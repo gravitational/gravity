@@ -32,7 +32,7 @@ extra:
     version: 6.x
     product: gravity
     gravity:
-        version: 6.0
+        version: 6.3.6
 
 pages:
     - Gravity Overview: index.md

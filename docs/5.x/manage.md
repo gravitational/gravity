@@ -113,7 +113,7 @@ execute:
 $ tele create cluster.yaml
 ```
 
-!!! tip "Important":
+!!! tip "Important"
     `tele create` only supports AWS clusters and does not allow updating clusters
     after they have been created. This capability is still evolvling and user feedback is welcome.
     `tele create` requires `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables
@@ -177,7 +177,7 @@ A job must be declared using standard [Kubernetes job syntax](https://kubernetes
 either in a separate YAML file as shown above, or inline.
 
 
-!!! tip "Important":
+!!! tip "Important"
     * Gravity requires all 4 hooks when using custom provisioning.
     * Docker images in custom provisioning jobs are not embedded into the application
       and are pulled from the registries directly. When using private registries, use
@@ -368,7 +368,7 @@ You can also copy files using secure file copy (scp):
 $ tsh --cluster=example.east scp <src> admin@node2:<dest>
 ```
 
-!!! tip "Tip":
+!!! tip "Tip"
     `tsh` remembers the flags of every successfully executed command. This means
     you do not need to specify `--cluster=name` every time and do something as simple
     as `tsh ssh login@node`

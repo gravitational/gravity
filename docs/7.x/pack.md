@@ -20,7 +20,7 @@ application must run on Kubernetes. This means:
 
 You can optionally use Helm charts for your application(s).
 
-!!! tip:
+!!! tip
         For easy Kubernetes development while porting applications to
         Kubernetes, we recommend [minikube](https://github.com/kubernetes/minikube),
         a Kubernetes distribution optimized to run on a developer's machine.
@@ -30,7 +30,7 @@ You can optionally use Helm charts for your application(s).
 Any Linux machine can be used to package a Kubernetes applications into a Cluster
 Image. To get started, you need to [download Gravity](https://gravitational.com/gravity/download/releases/).
 
-!!! tip "Gravity Versions":
+!!! tip "Gravity Versions"
     For new users who are just exploring Gravity, we recommend the latest "pre-release" build. Make sure to select "Show pre-releases" selector. Production users must use the latest stable release.
 
 To create a Cluster Image, you will be using `tele`, the Gravity build tool.
@@ -724,7 +724,7 @@ To see more examples of specific hooks, please refer to the following documentat
 * [Cluster Status](/cluster/#cluster-status) for `status` hook
 * [Backup & Restore](/cluster/#backup-and-restore) for `backup` and `restore` hooks
 
-!!! tip:
+!!! tip
     The `quay.io/gravitational/debian-tall:buster` image is a lightweight (~11MB)
     distribution of Debian Linux that is a good fit for running Go or statically
     linked binaries.
@@ -734,7 +734,7 @@ To see more examples of specific hooks, please refer to the following documentat
 Gravity has a first-class [Helm](https://docs.helm.sh/) support and lets you use Helm
 charts as a way to package and install applications.
 
-!!! note "Helm version":
+!!! note "Helm version"
     Gravity 6 works with Helm 2. We are currently working on Helm 3 integration.
 
 Suppose you have the application resources directory with the following layout:
@@ -808,13 +808,13 @@ The hook command sets the registry variable to point to the Cluster's
 local Docker registry so that when Helm renders resource templates, they contain
 correct image references.
 
-!!! tip:
+!!! tip
     There is a sample application available on [GitHub](https://github.com/gravitational/quickstart/tree/master/mattermost)
     that demonstrates this workflow.
 
 ### Customizing Helm values
 
-!!! note "Version support":
+!!! note "Version support"
     The ability to customize Helm values during install is available starting with
     Gravity 7.0.
 
@@ -1008,7 +1008,7 @@ Now let's build the Docker image:
 $ docker build . -t custom-planet:1.0.0
 ```
 
-!!! tip "Versioning":
+!!! tip "Versioning"
     The image version must be a valid [semver](https://semver.org/).
 
 Once the custom `planet` image has been built, it can be referenced in the

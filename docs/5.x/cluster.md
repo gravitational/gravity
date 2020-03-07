@@ -29,7 +29,7 @@ greatly reducing the need for ongoing active management. To make this possible
 on a node level, Gravity runs all Kubernetes services from a single executable
 called `gravity`.
 
-!!! tip "Gravity Master Container":
+!!! tip "Gravity Master Container"
     When `gravity` process starts, it creates it's own container which we'll
     refer to as "master container". The master container itself is a
     containerized `systemd` instance. It launches the required Kubernetes
@@ -70,7 +70,7 @@ include:
 * Identity management for integrating cluster access into existing OAuth
   providers.
 
-!!! tip "Note":
+!!! tip "Note"
 	The list above is not complete. Gravitational Solutions Engineering offers a
 	wide variety of Kubernetes integration and migration services. Reach out to
 	`info@gravitational.com` if you have questions.
@@ -127,7 +127,7 @@ status of the cluster named "production":
 $ tsh --cluster=production ssh admin@node gravity status
 ```
 
-!!! tip "Reminder":
+!!! tip "Reminder"
     Keep in mind that `tsh` always uses the Gravity Ops Center as an SSH proxy. This
     means the command above will work with clusters located behind
     corporate firewalls. You can read more in the [remote management](/manage/) section.
@@ -399,7 +399,7 @@ See https://gravitational.com/gravity/docs/cluster/#managing-an-ongoing-operatio
 Please refer to the [Managing an Ongoing Operation](/cluster/#managing-an-ongoing-operation) section about
 working with the operation plan.
 
-!!! tip:
+!!! tip
     Manual upgrade steps must be executed with the gravity binary included in the upgrade
     tarball to ensure version compatibility. If you don't have an installer tarball (for
     example, when downloading upgrades directly from connected Ops Center), you can obtain
@@ -408,7 +408,7 @@ working with the operation plan.
 
 ### Troubleshooting Automatic Upgrades
 
-!!! tip "Advanced Usage":
+!!! tip "Advanced Usage"
     This section covers the "under the hood" details of the automatic updates.
 
 When a user initiates an automatic update by executing `gravity upgrade`
@@ -994,7 +994,7 @@ During garbage collection, the following resources are pruned:
   * Unused docker images from previous versions of the application
   * Obsolete systemd journal directories
 
-!!! node "Docker image pruning":
+!!! node "Docker image pruning"
     The tool currently employs a simple approach to pruning docker images.
     It will remove all images and repopulate the registry from the application state
     so only the images that are necessary for the current version of the application
@@ -1025,7 +1025,7 @@ To execute a specific phase:
 $ sudo gravity gc --phase=<PHASE>
 ```
 
-!!! top "Completing manual operation":
+!!! top "Completing manual operation"
     At the end of the manual or aborted operation, explicitly resume the operation to complete it.
 
 
@@ -1079,7 +1079,7 @@ the following order:
 * Security Groups
 * VPC (will delete all associated resources like Internet Gateway, Subnet & Route Table as well)
 
-!!! tip "Resource Groups":
+!!! tip "Resource Groups"
     On AWS you can use `Resource Groups` to get a unified view of all resources matching
     a particular criteria. Create a resource group filtering by an appropriate
     `KubernetesCluster` tag so see all AWS resources for a cluster.
@@ -1543,7 +1543,7 @@ $ gravity resource create admin.yaml
 The new user can now log into the cluster via the Web UI with the user
 credentials created above.
 
-!!! tip "Password Restrictions":
+!!! tip "Password Restrictions"
     Passwords must be between 6 and 128 characters long.
 
 ### Configuring Log Forwarders
@@ -1599,7 +1599,7 @@ spec:
     -----BEGIN CERTIFICATE-----
 ```
 
-!!! tip "Certificate chain":
+!!! tip "Certificate chain"
     `cert` section should include all intermediate certificate PEM blocks concatenated to function properly!
 
 To update the key pair:
@@ -1900,7 +1900,7 @@ $ gravity resource get authgateway
 
 ### Configuring Cluster Authentication Preference
 
-!!! warning "Deprecation warning":
+!!! warning "Deprecation warning"
     Cluster authentication preference resource is obsolete starting Gravity
     version `5.5.0` and will be removed in a future version. Please use
     [Authentication Gateway](/cluster/#configuring-cluster-authentication-gateway)
@@ -2093,7 +2093,7 @@ root$ ./gravity install --cluster=<cluster-name> ... --config=cluster-config.yam
     You can combine multiple kubernetes and Gravity-specific resources in the config file prior to
     running the install command to have the installer automatically create all resources upon installation.
 
-!!! warning:
+!!! warning
     Setting feature gates overrides value set by the runtime container by default.
 
 
@@ -2410,12 +2410,12 @@ With `promiscuous-bridge`, the behavior is similar to that of the kubenet networ
     accept traffic otherwise destined for other interfaces
 
 
-!!! tip "Default hairpin mode":
+!!! tip "Default hairpin mode"
     For 4.x, the default value for `systemOptions.kubelet.hairpinMode` is `hairpin-veth`.
     For 5.x, the default value for `systemOptions.kubelet.hairpinMode` is `promiscuous-bridge`.
 
 
-!!! tip "Kernel module":
+!!! tip "Kernel module"
     In "promiscuous-bridge" mode, the nodes require a kernel module called `ebtable_filter` to manage ebtable rules,
     see [Kernel Modules](/requirements/#kernel-modules) for details.
 
@@ -2435,7 +2435,7 @@ providers:
 !!! tip "Version"
     The WireGuard feature is only available from 5.5.0-alpha.3 and later
 
-!!! tip "Kernel module":
+!!! tip "Kernel module"
     The WireGuard feature currently requires the WireGuard kernel module to be installed and available on the host. Please see
     the [WiregGuard installation instructions](https://www.wireguard.com/install/) for more information.
 

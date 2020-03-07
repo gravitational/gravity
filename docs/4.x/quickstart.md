@@ -150,7 +150,7 @@ To log in to to the Ops Center using the CLI:
 $ tele login -o [yourdomain].gravitational.io
 ```
 
-!!! tip "Note":
+!!! tip "Note"
     If you are using a guest environment, like Vagrant on macOS, you may see an error
     when attempting due to network restrictions. If so, first get a temporary key from
     your host environment with the following command:

@@ -6,7 +6,7 @@ The Gravity Ops Center is a multi-cluster control plane available in the Enterpr
 * Download and install Application Bundles, i.e. quickly creating Kubernetes clusters.
 * Remotely manage thousands of Kubernetes clusters either via command line (CLI) or via a Web interface.
 
-!!! warning "Version Warning":
+!!! warning "Version Warning"
     The Ops Center is only available to users of Gravity Enterprise.
 
 This chapter will guide you through the process of downloading and installing your own instance of the _Ops Center_.
@@ -88,7 +88,7 @@ $ ./gravity install --advertise-addr=10.1.1.5 \
 
 After provisioning, DNS records should be created with hostname at either the provisioned ELB load balancer (for AWS) or the IP of the virtual machine (for Vagrant).
 
-!!! tip "Wildcard DNS name":
+!!! tip "Wildcard DNS name"
 	  The Ops Center DNS records should be wildcard, both `*.opscenter.example.com` and `opscenter.example.com` should point to the IP address
 	  of the Ops Center service or load balancer.
 
@@ -141,5 +141,5 @@ $ ./upgrade
 
 Read more about upgrade procedure [here](/cluster/#performing-upgrade).
 
-!!! tip "Ports":
+!!! tip "Ports"
     Users who use an external load balancer may need to update their configuration after the upgrade to reference new port assignments.

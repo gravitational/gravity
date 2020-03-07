@@ -66,7 +66,7 @@ include:
 * Identity management for integrating Cluster access into existing identity
   providers.
 
-!!! tip "Note":
+!!! tip "Note"
 	The list above is not complete. Gravitational Solutions Engineering offers a
 	wide variety of Kubernetes integration and migration services. Reach out to
 	`info@gravitational.com` if you have questions.
@@ -394,7 +394,7 @@ See https://gravitational.com/gravity/docs/cluster/#managing-operations for deta
 Please refer to the [Managing Operations](/cluster/#managing-operations) section about
 working with the operation plan.
 
-!!! warning "IMPORTANT":
+!!! warning "IMPORTANT"
     The manual upgrade must be executed using `gravity` binary included in the upgrade
     tarball to ensure version compatibility. If you don't have a Cluster Image tarball (for
     example, when downloading upgrades directly from a connected Gravity Hub), you can obtain
@@ -451,7 +451,7 @@ $ tele build ... --upgrade-via=5.2.15
 
 The flag can be specified multiple times to add as many LTS versions as required.
 
-!!! note "Embedding intermediate LTS releases":
+!!! note "Embedding intermediate LTS releases"
     The version specified with the `--upgrade-via` flag must be an LTS version.
     Check [Releases](/changelog) page to see which LTS versions are available for embedding.
     The upgrade path from the existing version must contain all intermediate LTS releases to reach the target version but
@@ -459,7 +459,7 @@ The flag can be specified multiple times to add as many LTS versions as required
     For example, to upgrade a cluster based on Gravity `5.0.35` to the image based on Gravity `5.5.21`, the cluster
     image must embed the LTS version `5.2.15`.
 
-!!! note "Direct Upgrades Support":
+!!! note "Direct Upgrades Support"
     Direct upgrades support is available since Gravity version `5.5.21`.
     Newer Gravity versions will receive support for direct upgrades in the near future.
 
@@ -1021,7 +1021,7 @@ During garbage collection, the following resources are pruned:
   * Unused docker images from previous versions of the application
   * Obsolete systemd journal directories
 
-!!! note "Note: Docker image pruning":
+!!! note "Note: Docker image pruning"
     The tool currently employs a simple approach to pruning docker images.
     It will remove all images and repopulate the registry from the application state
     so only the images that are necessary for the current version of the application
@@ -1052,13 +1052,13 @@ To execute a specific phase:
 $ sudo gravity gc --phase=<PHASE>
 ```
 
-!!! tip "Tip: Completing manual operation":
+!!! tip "Tip: Completing manual operation"
     At the end of the manual or aborted operation, explicitly resume the operation to complete it.
 
 
 ## Remote Assistance
 
-!!! warning "Enterprise Only Version Warning":
+!!! warning "Enterprise Only Version Warning"
     Gravity Hub and the ability to connect to it for Remote Assistance is only
     available in Gravity Enterprise.
 
@@ -1182,7 +1182,7 @@ By default Gravity provides two security policies: `privileged` and `restricted`
 
   * A `privileged` policy is a permissive policy allowing unrestricted access within Cluster.
 
-!!! note "Privileged containers":
+!!! note "Privileged containers"
     Note that by default privileged containers are not permitted in Gravity
     clusters. To allow privileged containers, enable them in your cluster
     manifest by setting `systemOptions.allowPrivileged` field to `true`.
@@ -1396,12 +1396,12 @@ With `promiscuous-bridge`, the behavior is similar to that of the kubenet networ
     accept traffic otherwise destined for other interfaces.
 
 
-!!! tip "Default hairpin mode":
+!!! tip "Default hairpin mode"
     For 4.x, the default value for `systemOptions.kubelet.hairpinMode` is `hairpin-veth`.
     For 5.x, the default value for `systemOptions.kubelet.hairpinMode` is `promiscuous-bridge`.
 
 
-!!! tip "Kernel module":
+!!! tip "Kernel module"
     In "promiscuous-bridge" mode, the nodes require a kernel module called `ebtable_filter` to manage ebtable rules,
     see [Kernel Modules](/requirements/#kernel-modules) for details.
 
@@ -1421,7 +1421,7 @@ providers:
 !!! tip "Version"
     The WireGuard feature is only available from 5.5.0-alpha.3 and later
 
-!!! tip "Kernel module":
+!!! tip "Kernel module"
     The WireGuard feature currently requires the WireGuard kernel module to be installed and available on the host. Please see
     the [WiregGuard installation instructions](https://www.wireguard.com/install/) for more information.
 

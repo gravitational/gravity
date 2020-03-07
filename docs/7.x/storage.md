@@ -16,7 +16,7 @@ OpenEBS is a [CNCF](https://www.cncf.io/) native project. See OpenEBS
 [documentation](https://docs.openebs.io/docs/next/overview.html) for more
 information.
 
-!!! note "Supported version":
+!!! note "Supported version"
     OpenEBS integration is supported starting from Gravity 7.0.
 
 ## Enable OpenEBS
@@ -202,7 +202,7 @@ Gravity clusters come with a pre-installed storage class called `openebs-hostpat
 that uses `/var/lib/gravity/openebs/local` directory to store the persistent
 volumes data.
 
-!!! note "Custom state directory":
+!!! note "Custom state directory"
     If cluster is using custom state directory location, say `/opt/gravity`,
     the local volumes data will be stored under `/opt/gravity/openebs/local`
     on host, but will still map to the `/var/lib/gravity/openebs/local` inside
@@ -285,7 +285,7 @@ cStor is the most sophisticated storage engine supported by OpenEBS that provide
 features such as data replication, thin provisioning, snapshotting and so on.
 cStor serves block storage to containers over iSCSI interface.
 
-!!! note "iSCSI tools":
+!!! note "iSCSI tools"
     iSCSI tools must be installed on the cluster nodes in order for cStor volumes
     to work. See [iSCSI install instructions](https://docs.openebs.io/docs/next/prerequisites.html)
     on OpenEBS website. In future Gravity versions, iSCSI tools may come
@@ -320,7 +320,7 @@ spec:
     - blockdevice-8064e98edba7e57141daab4800ecd792
 ```
 
-!!! note "Storage pool devices":
+!!! note "Storage pool devices"
     Devices selected for the cStor storage pool must be unclaimed, unformatted
     and unmounted on the node.
 

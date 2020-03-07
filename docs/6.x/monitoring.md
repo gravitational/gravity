@@ -36,7 +36,7 @@ In Gravity Clusters Grafana uses Prometheus as a data-source. It is preconfigure
 dashboards that provide general information about individual nodes, containers and the overall
 Cluster health.
 
-!!! tip:
+!!! tip
     When building a Cluster Image, it is possible to add your own dashboards in addition to
     the ones that ship by default. See [Grafana Integration](#grafana-integration) below for
     details.
@@ -96,7 +96,7 @@ Dashboard ConfigMap may contain multiple keys with dashboards and key names are 
 application source on GitHub has an [example](https://github.com/gravitational/monitoring-app/blob/5.2.1/resources/grafana.yaml#L395)
 of a dashboard ConfigMap.
 
-!!! tip:
+!!! tip
     Since the embedded Grafana runs in read-only mode, you can use a separate Grafana instance
     to create a custom dashboard and then export it as JSON.
 
@@ -173,7 +173,7 @@ spec:
       Cluster CPU usage exceeds 80%.
 ```
 
-!!! tip:
+!!! tip
     See [Alerting Rules](https://prometheus.io/docs/prometheus/latest/configuration/alerting_rules/)
     documentation for more details about Prometheus alerts.
 

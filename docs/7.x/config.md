@@ -76,7 +76,7 @@ root$ ./gravity install --cluster=<cluster-name> ... --config=Cluster-config.yam
     You can combine multiple kubernetes and Gravity-specific resources in the config file prior to
     running the install command to have the installer automatically create all resources upon installation.
 
-!!! warning:
+!!! warning
     Setting feature gates overrides the value set by the runtime container by default.
 
 
@@ -123,7 +123,7 @@ assigned  to users which can be mapped to Kubernetes role based access control
 authorization (RBAC API). Gravity can also integrate with third party identity
 providers through standard protocols like OIDC and SAML.
 
-!!! warning "Enterprise Only Version Warning":
+!!! warning "Enterprise Only Version Warning"
     The Community version of Gravity only supports local users and integration
     with Github identity. Gravity Enterprise supports additional identity
     provider integrations.
@@ -289,7 +289,7 @@ $ gravity resource create admin.yaml
 The new user can now log into the Cluster via the Web UI with the user
 credentials created above.
 
-!!! tip "Username and Password Restrictions":
+!!! tip "Username and Password Restrictions"
     Usernames should be composed of characters, hyphens, the at symbol and dots. 
     Passwords must be between 6 and 128 characters long.
 
@@ -352,7 +352,7 @@ $ gravity resource rm github example
 
 ### Configuring OpenID Connect
 
-!!! warning "Enterprise Only Version Warning":
+!!! warning "Enterprise Only Version Warning"
     The ability to configure an OIDC Connector is only available in Gravity
     Enterprise.
 
@@ -398,7 +398,7 @@ $ gravity resource rm oidc auth0
 
 ### Example: Google OIDC Connector
 
-!!! warning "Enterprise Only Version Warning":
+!!! warning "Enterprise Only Version Warning"
     The ability to configure a Google OIDC connector is only available in
     Gravity Enterprise.
 
@@ -429,7 +429,7 @@ allowed to log in and granted the admin role.
 
 ### Configuring SAML Connector
 
-!!! warning "Enterprise Only Version Warning":
+!!! warning "Enterprise Only Version Warning"
     The ability to configure a SAML Connector is only available in Gravity
     Enterprise.
 
@@ -559,7 +559,7 @@ $ gravity resource get authgateway
 
 #### Cluster Authentication Preference
 
-!!! warning "Deprecation warning":
+!!! warning "Deprecation warning"
     Cluster authentication preference resource is obsolete starting Gravity
     version `5.5.0` and will be removed in a future version. Please use
     [Authentication Gateway](/config/#cluster-authentication-gateway)
@@ -673,7 +673,7 @@ spec:
     -----BEGIN CERTIFICATE-----
 ```
 
-!!! tip "Certificate chain":
+!!! tip "Certificate chain"
     `cert` section should include all intermediate certificate PEM blocks concatenated to function properly!
 
 To update the key pair:
@@ -775,7 +775,7 @@ $ gravity resource rm runtimeenvironment
 
 ### Trusted Clusters (Enterprise)
 
-!!! warning "Enterprise Only Version Working":
+!!! warning "Enterprise Only Version Working"
     Gravity Hub and Trusted Clusters are only supported in Gravity Enterprise.
     Support for Trusted Clusters is available since Gravity version `5.0.0-alpha.5`.
 

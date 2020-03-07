@@ -122,13 +122,13 @@ These ports are used for Cluster operation and should be open between cluster no
 | 32009                   | TCP                | HTTPS                | controllers | all         | Gravity internal API                     |
 | 3012                    | TCP                | HTTPS                | all         | all         | Gravity RPC agent                        |
 
-!!! note "Source/Destination Legend":
+!!! note "Source/Destination Legend"
   * all - Any node which is a member of the cluster
   * ext - Any source outside the cluster
   * localhost - The port is only used within the host where the request started
   * controllers - Nodes which are designated "controller" (aka "master") role
 
-!!! note "Custom vxlan port":
+!!! note "Custom vxlan port"
     If the default overlay network port (`8472`) was changed by supplying
     `--vxlan-port` flag to `gravity install` command, it will be checked
     instead of the default one.

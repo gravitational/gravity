@@ -122,13 +122,13 @@ Flag      | Description
 `--service-gid` | _(Optional)_ Service group ID (numeric). See [Service User](pack/#service-user) for details. A group named `planet` is created automatically if unspecified.
 
 
-!!! tip "NOTE":
+!!! tip "NOTE"
     `--advertise-addr` must also be set for every node.
 
-!!! tip "NOTE":
+!!! tip "NOTE"
     `--token` must specify the same token as given for the `install` command.
 
-!!! tip "NOTE":
+!!! tip "NOTE"
     With no `role` specified, the installer uses the first role defined in the Application Manifest.
 
 The result of running these commands will be a functional and self-contained
@@ -212,7 +212,7 @@ If the operation is aborted, the partial install state will be automatically rem
 
 Aborting a join (and not the installer process), will only prevent this node from joining.
 
-!!! warning "Aborting a join":
+!!! warning "Aborting a join"
     Aborting a join might result in installation failure.
     If the operation was aborted to correct a configuration error, it can be restarted once the error
     has been fixed.
@@ -223,7 +223,7 @@ execute inside a systemd service so the operation will continue in background ev
 
 In order to reconnect to the installer, issue `./gravity resume`.
 
-!!! warning "Installer state directory":
+!!! warning "Installer state directory"
     It is important to run install commands from the directory with the original gravity binary.
     This directory contains the temporary operation state required for all commands to work properly.
 

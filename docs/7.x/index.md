@@ -123,7 +123,7 @@ To create a Cluster Image:
 A Cluster Image manifest is required to describe hardware/system requirements of your
 Cluster and to customize the process of creating a new Cluster instance.
 
-!!! tip "Gravity Roadmap Tip":
+!!! tip "Gravity Roadmap Tip"
     The Kubernetes community is working on finalizing their cluster API spec. Once it
     becomes production ready, we will likely adopt the
     future standard to replace the Cluster Image manifest. 
@@ -188,7 +188,7 @@ are running and perform administration and maintenance across all of them in a
 repeatable, scalable way, even if they are deployed on 3rd party
 infrastructure.
 
-!!! warning "Enterprise Only Version Warning":
+!!! warning "Enterprise Only Version Warning"
     The Gravity Hub is only available to the users of Gravity Enterprise.
 
 ## Deploying and Installing

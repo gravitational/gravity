@@ -54,7 +54,7 @@ for a single-node install which is great for evaluation/development purposes or
 
 After provisioning, DNS records should be created with hostname at either the provisioned ELB load balancer (for AWS) or the IP of the virtual machine (for Vagrant)
 
-!!! tip "Wildcard DNS name":
+!!! tip "Wildcard DNS name"
 	  The Ops Center DNS records should be wildcard, both `*.opscenter.example.com` and `opscenter.example.com` should point to the IP address
 	  of the Ops Center service or load balancer.
 
@@ -66,7 +66,7 @@ After installation [OIDC provider](/cluster/#configuring-a-cluster) should be se
 
 After installation, a valid [TLS key pair](/cluster/#configuring-tls-key-pair) should be set up in order to login to the Ops Center.
 
-!!! tip "TLS Certificate":
+!!! tip "TLS Certificate"
     The Ops Center has to use a valid, not self-signed TLS certificate to function properly.
 
 #### Configuring endpoints
@@ -110,5 +110,5 @@ $ ./upgrade
 
 Read more about upgrade procedure [here](/cluster/#performing-upgrade).
 
-!!! tip "Ports":
+!!! tip "Ports"
     Users who use an external load balancer may need to update their configuration after the upgrade to reference new port assignments.

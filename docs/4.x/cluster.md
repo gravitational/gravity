@@ -56,7 +56,7 @@ include:
 * Identity management for integrating cluster access into existing OAuth
   providers.
 
-!!! tip "Note":
+!!! tip "Note"
 	  The list above is not complete. Gravitational Solutions Engineering offers a
 	  wide variety of Kubernetes integration and migration services. Reach out to
 	  `info@gravitational.com` if you have questions.
@@ -109,7 +109,7 @@ status of the cluster named "production":
 $ tsh --cluster=production ssh admin@node gravity status
 ```
 
-!!! tip "Reminder":
+!!! tip "Reminder"
     Keep in mind that `tsh` always uses the Telekube Ops Center as an SSH proxy. This
     means the command above will work with clusters located behind
     corporate firewalls. You can read more in the [remote management](/manage/) section.
@@ -351,7 +351,7 @@ mode is started by running the following command using the gravity binary:
 $ ./gravity upgrade --manual
 ```
 
-!!! tip:
+!!! tip
     Manual upgrade steps must be executed with the gravity binary included in the upgrade
     tarball to ensure version compatibility. If you don't have an installer tarball (for
     example, when downloading upgrades directly from connected Ops Center), you can obtain
@@ -432,7 +432,7 @@ mark the operation as failed and move the cluster into active state.
 
 ### Troubleshooting Automatic Upgrades
 
-!!! tip "Advanced Usage":
+!!! tip "Advanced Usage"
     This section covers the "under the hood" details of the automatic updates.
 
 When a user initiates an automatic update by executing `gravity update`
@@ -900,7 +900,7 @@ the following order:
 * Security Groups
 * VPC (will delete all associated resources like Internet Gateway, Subnet & Route Table as well)
 
-!!! tip "Resource Groups":
+!!! tip "Resource Groups"
     On AWS you can use `Resource Groups` to get a unified view of all resources matching
     a particular criteria. Create a resource group filtering by an appropriate
     `KubernetesCluster` tag so see all AWS resources for a cluster.
@@ -1236,7 +1236,7 @@ $ gravity resource create admin.yaml
 The new user can now log into the cluster via the Web UI with the user
 credentials created above.
 
-!!! tip "Password Restrictions":
+!!! tip "Password Restrictions"
     Passwords must be between 6 and 128 characters long.
 
 ### Configuring Log Forwarders
@@ -1292,7 +1292,7 @@ spec:
     -----BEGIN CERTIFICATE-----
 ```
 
-!!! tip "Certificate chain":
+!!! tip "Certificate chain"
     `cert` section should include all intermediate certificate PEM blocks concatenated to function properly!
 
 To update the key pair:
@@ -1851,12 +1851,12 @@ With `promiscuous-bridge`, the behavior is similar to that of the kubenet networ
     accept traffic otherwise destined for other interfaces
 
 
-!!! tip "Default hairpin mode":
+!!! tip "Default hairpin mode"
     For 4.x, the default value for `systemOptions.kubelet.hairpinMode` is `hairpin-veth`.
     For 5.x, the default value for `systemOptions.kubelet.hairpinMode` is `promiscuous-bridge`.
 
 
-!!! tip "Kernel module":
+!!! tip "Kernel module"
     In "promiscuous-bridge" mode, the nodes require a kernel module called `ebtable_filter` to manage ebtable rules,
     see [Kernel Modules](/requirements/#kernel-modules) for details.
 

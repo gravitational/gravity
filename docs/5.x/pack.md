@@ -7,7 +7,7 @@ Gravity works with Kubernetes applications. This means the following prerequisit
 * The application is packaged into Docker containers.
 * You have Kubernetes resource definitions for application services, pods, etc. Kubernetes resources should be stored in the resources directory.
 
-!!! tip:
+!!! tip
 		For easy development while porting applications to Kubernetes, we recommend
 		[minikube](https://github.com/kubernetes/minikube), a Kubernetes distribution
 		optimized to run on a developer's machine. Once your application runs on
@@ -715,7 +715,7 @@ To see more examples of specific hooks, please refer to the following documentat
 * [Application Status](/cluster/#application-status) for `status` hook
 * [Backup & Restore](/cluster/#backup-restore) for `backup` and `restore` hooks
 
-!!! tip:
+!!! tip
     The `quay.io/gravitational/debian-tall:stretch` image is a lightweight (~11MB)
     distribution of Debian Linux that is a good fit for running Go or statically
     linked binaries.
@@ -793,7 +793,7 @@ Note how the hook command sets the registry variable to point to the cluster's
 local Docker registry so that when Helm renders resource templates, they contain
 correct image references.
 
-!!! tip:
+!!! tip
     There is a sample application available on [GitHub](https://github.com/gravitational/quickstart/tree/master/mattermost)
     that demonstrates this workflow.
 
@@ -948,7 +948,7 @@ Now let's build the Docker image:
 $ docker build . -t custom-planet:1.0.0
 ```
 
-!!! tip "Versioning":
+!!! tip "Versioning"
     The image version must be a valid [semver](https://semver.org/).
 
 Once the custom `planet` image has been built, it can be referenced in the

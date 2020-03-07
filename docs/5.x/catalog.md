@@ -13,7 +13,7 @@ An application image is a tarball that contains:
 * A Helm chart (possibly with chart dependencies).
 * Vendored Docker images for the chart's Kubernetes resources.
 
-!!! tip:
+!!! tip
     The `tele` and `gravity` binaries have all required Helm functionality
     built-in so the `helm` binary isn't required to be installed on the
     server when building applications, or inside a deployed cluster. The
@@ -231,7 +231,7 @@ Release         Status      Chart          Revision  Namespace  Updated
 test-release    DEPLOYED    alpine-0.1.0   1         default    Thu Dec  6 21:13:14 UTC
 ```
 
-!!! tip:
+!!! tip
     The `gravity app` set of sub-commands support many of the same flags of
     the respective `helm` commands such as `--set`, `--values`, `--namespace`
     and so on. Check `--help` for each command to see which are supported.

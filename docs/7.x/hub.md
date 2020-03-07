@@ -98,7 +98,7 @@ After provisioning of Gravity Hub cluster, create the DNS A-records pointing at
 either the provisioned cloud load balancer (if the cluster was created on a
 cloud account) or at the IP of the host.
 
-!!! tip "Wildcard DNS name":
+!!! tip "Wildcard DNS name"
       The Gravity Hub DNS records must contain the wildcard, both `*.hub.example.com`
       and `hub.example.com` should point to the public IP address of the
       Gravity Hub cluster.
