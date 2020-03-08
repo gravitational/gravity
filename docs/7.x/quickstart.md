@@ -23,7 +23,7 @@ You can also watch the video below which walks through this Quickstart Guide.
 Gravity is a Kubernetes packaging solution so it only runs on computers capable
 of running Kubernetes. For this tutorial, you will need:
 
-* A x86_64 Linux machine or a VM for building a Cluster Image that is running one of the [supported Linux distributions](requirements/#distributions).
+* A x86_64 Linux machine or a VM for building a Cluster Image that is running one of the [supported Linux distributions](requirements.md#linux-distributions).
 * Docker version 17 or newer. Run `docker info` before continuing to make sure
   you have Docker up and running. We recommend following instructions on [installing Docker CE from Docker.com](https://docs.docker.com/install/)
 * You must be a member of the `docker` group. Run `groups` command to make sure
@@ -365,13 +365,13 @@ Signup token has been created and is valid for 8h0m0s hours. Share this URL with
 https://10.5.5.28:3009/web/newuser/e5b5422da69ff44d41f92e3ce6167659a7fee10e1023acea22062141dfe0238e
 ```
 
-![Sign into Gravity](/images/gravity-quickstart/logging-into-gravity.png)
+![Sign into Gravity](images/gravity-quickstart/logging-into-gravity.png)
 
 
 Now click on the printed URL and select a password. You are now inside the Cluster
 Control Panel. You can bookmark the following URL to access it in the future: `https://10.5.5.28:32009/web/`
 
-![Gravity Dashboard](/images/gravity-quickstart/gravity-mattermost-dashboard.png)
+![Gravity Dashboard](images/gravity-quickstart/gravity-mattermost-dashboard.png)
 
 You will also see that this Cluster is running Mattermost inside, accessible as a Kubernetes service
 on port `32010`, i.e. it's accessible using IP addresses of both machines in the Cluster:
@@ -399,19 +399,19 @@ OPEN THIS IN BROWSER: https://host:61009/web/installer/new/gravitational.io/matt
 ```
 
 **If you don't have TLS setup you might see this error message. Click Advanced -> Proceed **
-![SSL Error Message](/images/gravity-quickstart/click-proceed.png)
+![SSL Error Message](images/gravity-quickstart/click-proceed.png)
 
 The browser-based installer will ask for the following:
 
 * Name of your Cluster. We recommend FQDN-like names like
   `mattermost.example.com`.
 
-![Name of Cluster](/images/gravity-quickstart/cluster-name.png)
+![Name of Cluster](images/gravity-quickstart/cluster-name.png)
 
 * The network interface to use. This must be the interface which Kubernetes
   nodes will use to talk to each other.
 
-![Set Capacity](/images/gravity-quickstart/setting-capacity.png)
+![Set Capacity](images/gravity-quickstart/setting-capacity.png)
 
 
 * The "flavor" of the Cluster, i.e. 1, 2 or 3 nodes. The installer will provide a CLI
@@ -419,15 +419,15 @@ The browser-based installer will ask for the following:
 * Once all nodes report into the Cluster, the installer will proceed setting up
   Kubernetes.
 
-![All Nodes](/images/gravity-quickstart/all-nodes.png)
+![All Nodes](images/gravity-quickstart/all-nodes.png)
 
 
 The final step is to select the user name and password for the administrator. You will be able to change it later (or configure the SSO). Once you are logged in, you will be placed in Gravity's Control Panel UI where you will find the HTTP end point of Mattermost.
 
 
 **Mattermost Install Complete**
-![Create Mattermost](/images/gravity-quickstart/mattermost/create-mattermost.png)
-![Mattermost Fin](/images/gravity-quickstart/mattermost/mattermost.png)
+![Create Mattermost](images/gravity-quickstart/mattermost/create-mattermost.png)
+![Mattermost Fin](images/gravity-quickstart/mattermost/mattermost.png)
 
 You can press `Ctrl+C` to stop the `install` script.
 

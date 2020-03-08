@@ -47,7 +47,7 @@ Below is the list of `tele` commands:
 
 Before creating a Cluster Image, you must create an _Image Manifest_ file. An
 Image Manifest uses the YAML file format to describe the image build and installation
-process and the system requirements for the Cluster. See the [Image Manifest](/pack/#image-manifest) section below for more details.
+process and the system requirements for the Cluster. See the [Image Manifest](pack.md#image-manifest) section below for more details.
 
 After an Image Manifest is created, execute the `tele build` command to build
 a Cluster Image.
@@ -75,7 +75,7 @@ There are two kinds of external sources for Cluster dependencies:
    applications, their container images will be downloaded from the external
    container registry.
 
-You can follow the [Quick Start](quickstart) to build a Cluster Image from a
+You can follow the [Quick Start](quickstart.md) to build a Cluster Image from a
 sample Image Manifest.
 
 #### Building with Docker
@@ -650,7 +650,7 @@ hooks:
   networkRollback:
 ```
 
-See [here](/requirements/#identifying-os-distributions-in-manifest) for a version
+See [here](requirements.md#identifying-os-distributions-in-manifest) for a version
 matrix to help with specifying OS distribution requirements for a node profile.
 
 ## Cluster Hooks
@@ -721,8 +721,8 @@ hooks:
 
 To see more examples of specific hooks, please refer to the following documentation sections:
 
-* [Cluster Status](/cluster/#cluster-status) for `status` hook
-* [Backup & Restore](/cluster/#backup-and-restore) for `backup` and `restore` hooks
+* [Cluster Status](cluster.md#cluster-status) for `status` hook
+* [Backup & Restore](cluster.md#backup-and-restore) for `backup` and `restore` hooks
 
 !!! tip
     The `quay.io/gravitational/debian-tall:buster` image is a lightweight (~11MB)

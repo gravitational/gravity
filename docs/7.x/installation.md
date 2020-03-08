@@ -25,10 +25,10 @@ create a production-ready Cluster but there are still some pre-requisites
 to be met:
 
 * You need a valid Cluster Image, i.e. a `.tar` file. See the 
-  [Building Cluster Images](/pack/) section for information on how to build one.
+  [Building Cluster Images](pack.md) section for information on how to build one.
 * One or more Linux hosts with a compatible kernel. They can be bare metal hosts,
   compute instances on any cloud provider, virtual machines on a private cloud, 
-  etc. Consult with the [System Requirements](/requirements/) to determine if your 
+  etc. Consult with the [System Requirements](requirements.md) to determine if your 
   Linux hosts are compatible with Gravity.
 * The hosts should be clean without Docker or any container
   orchestrator running on them.
@@ -73,12 +73,12 @@ $ sudo ./gravity install --advertise-addr=10.1.10.1 --token=XXX --flavor="triple
 ```
 
 * Note the use of `--flavor` argument which selects a Cluster configuration for 3
-  nodes, borrowing from the example shown in the [Image Manifest](/pack/#image-manifest) section.
+  nodes, borrowing from the example shown in the [Image Manifest](pack.md#image-manifest) section.
 * You have to select an arbitrary, hard to guess secret for `--token` and remember this
   value. It will be used to securely add additional nodes to the Cluster.
 * Other nodes must be able to connect to the master node via `10.1.10.1`. Make sure
   the installer ports are not blocked, see "Installer Ports" section in the 
-  [System Requirements](/requirements/#network) chapter.
+  [System Requirements](requirements.md#network) chapter.
 
 Next, start adding remaining nodes to the Cluster:
 
@@ -94,7 +94,7 @@ $ sudo ./gravity join 10.1.10.1 --advertise-addr=10.1.10.3 --token=XXX --role="w
 
 !!! tip
     The node roles in the example above are borrowed from the Image Manifest documented
-    in [Building Cluster Images](/pack/#image-manifest) section. The use of `--role`
+    in [Building Cluster Images](pack.md#image-manifest) section. The use of `--role`
     argument is optional if the Image Manifest did not contain node roles.
 
 The `gravity join` command will connect the worker and the database nodes to the master and you
@@ -110,14 +110,14 @@ Flag               | Description
 `--role`           | _(Optional)_ Application role of the node.
 `--cluster`        | _(Optional)_ Name of the Cluster. Auto-generated if not set.
 `--cloud-provider` | _(Optional)_ Enable cloud provider integration: `generic` (no cloud provider integration), `aws` or `gce`. Autodetected if not set.
-`--flavor`         | _(Optional)_ Application flavor. See [Image Manifest](pack/#image-manifest) for details.
+`--flavor`         | _(Optional)_ Application flavor. See [Image Manifest](pack.md#image-manifest) for details.
 `--config`         | _(Optional)_ File with Kubernetes/Gravity resources to create in the Cluster during installation.
 `--pod-network-cidr` | _(Optional)_ CIDR range Kubernetes will be allocating node subnets and pod IPs from. Must be a minimum of /16 so Kubernetes is able to allocate /24 to each node. Defaults to `10.244.0.0/16`.
 `--service-cidr`     | _(Optional)_ CIDR range Kubernetes will be allocating service IPs from. Defaults to `10.100.0.0/16`.
 `--wizard`           | _(Optional)_ Start the installation wizard.
 `--state-dir`        | _(Optional)_ Directory where all Gravity system data will be kept on this node. Defaults to `/var/lib/gravity`.
-`--service-uid`      | _(Optional)_ Service user ID (numeric). See [Service User](pack/#service-user) for details. A user named `planet` is created automatically if unspecified.
-`--service-gid`      | _(Optional)_ Service group ID (numeric). See [Service User](pack/#service-user) for details. A group named `planet` is created automatically if unspecified.
+`--service-uid`      | _(Optional)_ Service user ID (numeric). See [Service User](pack.md#service-user) for details. A user named `planet` is created automatically if unspecified.
+`--service-gid`      | _(Optional)_ Service group ID (numeric). See [Service User](pack.md#service-user) for details. A group named `planet` is created automatically if unspecified.
 `--dns-zone`         | _(Optional)_ Specify an upstream server for the given DNS zone within the Cluster. Accepts `<zone>/<nameserver>` format where `<nameserver>` can be either `<ip>` or `<ip>:<port>`. Can be specified multiple times.
 `--vxlan-port`       | _(Optional)_ Specify custom overlay network port. Default is `8472`.
 `--remote` | _(Optional)_ Excludes this node from the Cluster, i.e. allows to bootstrap the Cluster from a developer's laptop, for example. In this case the Kubernetes master will be chosen randomly.
@@ -132,8 +132,8 @@ Flag               | Description
 `--cloud-provider` | _(Optional)_ Cloud provider integration, `generic` or `aws`. Autodetected if not set.
 `--mounts`         | _(Optional)_ Comma-separated list of mount points as <name>:<path>.
 `--state-dir`      | _(Optional)_ Directory where all Gravity system data will be kept on this node. Defaults to `/var/lib/gravity`.
-`--service-uid`    | _(Optional)_ Service user ID (numeric). See [Service User](pack/#service-user) for details. A user named `planet` is created automatically if unspecified.
-`--service-gid`    | _(Optional)_ Service group ID (numeric). See [Service User](pack/#service-user) for details. A group named `planet` is created automatically if unspecified.
+`--service-uid`    | _(Optional)_ Service user ID (numeric). See [Service User](pack.md#service-user) for details. A user named `planet` is created automatically if unspecified.
+`--service-gid`    | _(Optional)_ Service group ID (numeric). See [Service User](pack.md#service-user) for details. A group named `planet` is created automatically if unspecified.
 
 ### Environment Variables
 
@@ -179,8 +179,8 @@ running the wizard must have its port `61009` accessible by other servers.
 The installation wizard is launched by typing `./install` script and will guide
 the end user through the installation process.
 
-![Name of Cluster](/images/gravity-quickstart/cluster-name.png)
-![Set Capacity](/images/gravity-quickstart/setting-capacity.png)
+![Name of Cluster](images/gravity-quickstart/cluster-name.png)
+![Set Capacity](images/gravity-quickstart/setting-capacity.png)
 
 ### Troubleshooting Installs
 
@@ -288,7 +288,7 @@ generic approach as with any Generic Linux Hosts.
 ## Google Compute Engine
 
 Before installation make sure that GCE instances used for installation
-satisfy all of Gravity [system requirements](/requirements). In addition to these
+satisfy all of Gravity [system requirements](requirements.md). In addition to these
 generic requirements, GCE nodes also must be configured in the following way to
 ensure proper cloud provider integration:
 
