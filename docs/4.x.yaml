@@ -34,17 +34,18 @@ extra:
     gravity:
         version: 4.0
 
-pages:
-    - Telekube Overview: index.md
-    - Quick Start: quickstart.md
-    - Packaging And Deployment: pack.md
-    - Installation: installation.md
-    - Cluster Management: cluster.md
-    - Cluster Monitoring: monitoring.md
-    - Remote Management: manage.md
-    - Ops Center: opscenter.md
-    - System Requirements: requirements.md
-    - CLI Reference: cli.md
-    - Releases: changelog.md
-    - FAQ: faq.md
-    - Guides: guides.md
+nav:
+    - Documentation:
+        - Telekube Overview: index.md
+        - Quick Start: quickstart.md
+        - Packaging And Deployment: pack.md
+        - Installation: installation.md
+        - Cluster Management: cluster.md
+        - Cluster Monitoring: monitoring.md
+        - Remote Management: manage.md
+        - Ops Center: opscenter.md
+        - System Requirements: requirements.md
+        - CLI Reference: cli.md
+        - Releases: changelog.md
+        - FAQ: faq.md
+        - Guides: guides.md

@@ -20,7 +20,7 @@ applications using Gravity. To get started, you need to download and
 install the Gravity SDK tools:
 
 ```bsh
-$ curl https://get.gravitational.io/telekube/install | bash
+$ curl https://get.gravitational.io/gravity/install | bash
 ```
 
 You will be using `tele`, the Gravity CLI client. By using `tele` on your laptop you can:
@@ -757,7 +757,7 @@ Helm templating engine can be used to tag images with an appropriate registry.
 For example, `example.yaml` may contain the following image reference:
 
 ```yaml
-image: {{.Values.registry}}postgres:9.4.4
+image: {% raw %}{{.Values.registry}}{% endraw %}postgres:9.4.4
 ```
 
 And `values.yaml` may define the `registry` templating variable that can be set

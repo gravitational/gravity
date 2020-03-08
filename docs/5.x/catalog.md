@@ -52,7 +52,7 @@ image reference includes a registry template variable which can be set to
 an appropriate registry during installation:
 
 ```bsh
-image: "{{ .Values.image.registry }}{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+image: "{% raw %}{{ .Values.image.registry }}{{ .Values.image.repository }}:{{ .Values.image.tag }}{% endraw %}"
 ```
 
 We can now use `tele` to build an application image from this chart:

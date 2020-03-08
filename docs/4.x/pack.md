@@ -735,7 +735,7 @@ Helm templating engine can be used to tag images with an appropriate registry.
 For example, `example.yaml` may contain the following image reference:
 
 ```yaml
-image: {{.Values.registry}}postgres:9.4.4
+image: {% raw %}{{.Values.registry}}{% endraw %}postgres:9.4.4
 ```
 
 And `values.yaml` may define the `registry` templating variable that can be set
