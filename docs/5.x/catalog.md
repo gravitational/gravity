@@ -67,7 +67,7 @@ chart and the Alpine image layers.
 ### Publish an Application Image
 
 !!! note 
-    Publishing applications requires an [Ops Center](/opscenter) and is
+    Publishing applications requires an [Ops Center](opscenter.md) and is
     available only in the Enterprise edition of Gravity.
 
 A built application image can be published to an Ops Center. This allows the
@@ -162,7 +162,7 @@ between the Open-Source and Enterprise versions of Gravity:
 * For the Open-Source clusters, it is the Gravitational default
 distribution portal (`get.gravitational.io`).
 * For the Enterprise clusters, it is the Ops Center a cluster
-is connected to. See [Configuring Trusted Clusters](/cluster/#configuring-trusted-clusters)
+is connected to. See [Configuring Trusted Clusters](cluster.md#configuring-trusted-clusters)
 for details on how to connect a cluster to an Ops Center.
 
 The `-a` flag makes the command to display both local and remote applications.

@@ -50,7 +50,7 @@ cluster will be remotely accessible and managed via the Ops Center.
 
 An Gravity Cluster is defined by two things:
 
-1. The Application Manifest [manifest](pack/#application-manifest).
+1. The Application Manifest [manifest](pack.md#application-manifest).
 2. The Cluster Spec.
 
 The _Application Manifest_ declares **what** should be inside a cluster:
@@ -132,7 +132,7 @@ If the node does not satisfy any of the requirements, the command will output
 a list of failed checks and exit with a non-0 return code.
 
 If the list of failed checks includes unloaded kernel modules and unset kernel
-parameters required for installation (see [System Requirements](/requirements/#kernel-modules)),
+parameters required for installation (see [System Requirements](requirements.md#kernel-modules)),
 this command can be re-run with `--autofix` flag to attempt to fix those issues:
 
 ```bsh
@@ -144,7 +144,7 @@ will be loaded by all install agents automatically.
 
 ### Customized Cluster Provisioning
 
-Cluster provisioning can be customized by the [Application Manifest](pack/#application-manifest)
+Cluster provisioning can be customized by the [Application Manifest](pack.md#application-manifest)
 author. This is achieved by implementing four _provisioning hooks_ and listing them in the
 Application Manifest. A provisioning hook is a Kubernetes job and can be
 implemented using any language.
@@ -172,7 +172,7 @@ hooks:
       job: file://path/to/job.yaml
 ```
 
-As shown in the [Application Manifest](pack/#application-manifest) documentation, a hook must be implemented as a Kubernetes job.
+As shown in the [Application Manifest](pack.md#application-manifest) documentation, a hook must be implemented as a Kubernetes job.
 A job must be declared using standard [Kubernetes job syntax](https://kubernetes.io/docs/concepts/workloads/controllers/jobs-run-to-completion/#writing-a-job-spec),
 either in a separate YAML file as shown above, or inline.
 

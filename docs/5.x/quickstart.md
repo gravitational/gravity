@@ -18,7 +18,7 @@ of running Kubernetes. For this QuickStart, you will need:
 
 * A x86_64 Linux machine or VM for packaging/building an application bundle.
   Usually it's commonly called "a developer's box".
-* We recommend taking a look at the [list of supported Linux distributions](requirements/#distributions).
+* We recommend taking a look at the [list of supported Linux distributions](requirements.md#distributions).
 * [Docker](https://get.docker.io) version 1.8 or newer. Run `docker info` before continuing to make sure
   you have Docker up and running.
 * You must be a member of the `docker` group. Run `groups` command to make sure

@@ -94,15 +94,15 @@ After provisioning, DNS records should be created with hostname at either the pr
 
 #### Setting up OIDC
 
-After installation [OIDC provider](/cluster/#configuring-a-cluster) should be set up in order to log into the Ops Center.
+After installation [OIDC provider](cluster.md#configuring-a-cluster) should be set up in order to log into the Ops Center.
 
 #### Setting up TLS Key Pair
 
-After installation, a valid [TLS key pair](/cluster/#configuring-tls-key-pair) should be set up in order to log into the Ops Center. The Ops Center has to use a valid, not self-signed TLS certificate to function properly.
+After installation, a valid [TLS key pair](cluster.md#configuring-tls-key-pair) should be set up in order to log into the Ops Center. The Ops Center has to use a valid, not self-signed TLS certificate to function properly.
 
 #### Configuring endpoints
 
-See [Configuring Ops Center Endpoints](/cluster/#configuring-ops-center-endpoints)
+See [Configuring Ops Center Endpoints](cluster.md#configuring-ops-center-endpoints)
 for information on how to configure Ops Center management endpoints.
 
 ## Upgrading Ops Center
@@ -139,7 +139,7 @@ Start the upgrade procedure using `upgrade` script:
 $ ./upgrade
 ```
 
-Read more about upgrade procedure [here](/cluster/#performing-upgrade).
+Read more about upgrade procedure [here](cluster.md#performing-upgrade).
 
 !!! tip "Ports"
     Users who use an external load balancer may need to update their configuration after the upgrade to reference new port assignments.
