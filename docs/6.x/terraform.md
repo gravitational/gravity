@@ -8,10 +8,10 @@ The Gravity terraform provider is used to support terraform management of open-s
 The terraform provider will be automatically installed when getting the Gravity tools.
 
 ```bsh
-curl https://get.gravitational.io/telekube/install/5.2.5 | bash
+curl https://get.gravitational.io/gravity/install/5.2.5 | bash
 ```
 
-Please see the [getting started guide](https://gravitational.com/telekube/docs/quickstart/#getting-the-tools) for more information.
+Please see the [getting started guide](quickstart.md#getting-the-tools) for more information.
 
 ### Example Usage
 
@@ -31,7 +31,7 @@ resource "gravity_log_forwarder" "logs" {
 ### Authentication
 The terraform provider uses token based authentication which must be provisioned to the cluster before being used.
 
-See [Configuring Users & Tokens](https://gravitational.com/telekube/docs/config/#configuring-users-tokens) for more information
+See [Configuring Users & Tokens](config.md#configuring-users-tokens) for more information
 
 ## gravity_cluster_auth_preference
 Configures authentication preferences for authenticating users on the cluster.
@@ -201,10 +201,10 @@ The Gravity enterprise terraform provider is used to support terraform managemen
 The terraform provider will be automatically installed when getting the Gravity tools.
 
 ```bsh
-curl https://get.gravitational.io/telekube/install/5.2.5 | bash
+curl https://get.gravitational.io/gravity/install/5.2.5 | bash
 ```
 
-Please see the [getting started guide](https://gravitational.com/telekube/docs/quickstart/#getting-the-tools) for more information.
+Please see the [getting started guide](quickstart.md#getting-the-tools) for more information.
 
 ### Example Usage
 
@@ -235,7 +235,7 @@ resource "gravityenterprise_oidc" "test" {
 ### Authentication
 The terraform provider uses token based authentication which must be provisioned to the cluster before being used.
 
-See [Configuring Users & Tokens](https://gravitational.com/telekube/docs/config/#configuring-users-tokens) for more information.
+See [Configuring Users & Tokens](config.md#configuring-users-tokens) for more information.
 
 
 ## gravityenterprise_endpoints

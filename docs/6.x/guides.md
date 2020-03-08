@@ -21,7 +21,7 @@ We have created a number of workshops for Docker, Kubernetes and Gravity which c
 * [Three part Series on rolling your own servers with Kubernetes](https://gravitational.com/blog/aws_vs_colocation/)
 * [Using Wireguard with Kubernetes](https://gravitational.com/blog/wormhole_security/)
 * [The Horrors of Upgrading Etcd Beneath Kubernetes](https://gravitational.com/blog/kubernetes-and-offline-etcd-upgrades/)
-* [Experiences with running PostgreSQL on Kubernetes](Experiences with running PostgreSQL on Kubernetes)
+* [Experiences with running PostgreSQL on Kubernetes](https://gravitational.com/blog/running-postgresql-on-kubernetes/)
 * [Troubleshooting Kubernetes Networking](https://gravitational.com/blog/troubleshooting-kubernetes-networking/)
 
 ## Videos and Guides

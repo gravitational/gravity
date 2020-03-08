@@ -33,7 +33,7 @@ Helm Version: v2.12
 
 ### Build an Application Image
 
-For this example we will be using a [sample Helm chart](https://github.com/helm/helm/tree/master/docs/examples/alpine).
+For this example we will be using a [sample Helm chart](https://github.com/helm/helm/tree/master/cmd/helm/testdata/testcharts/alpine).
 This chart spins up a single pod of Alpine Linux:
 
 ```bsh
@@ -52,7 +52,7 @@ image reference includes a registry template variable which can be set to
 an appropriate registry during installation:
 
 ```bsh
-image: "{{ .Values.image.registry }}{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+image: "{% raw %}{{ .Values.image.registry }}{{ .Values.image.repository }}:{{ .Values.image.tag }}{% endraw %}"
 ```
 
 We can now use `tele` to build an application image from this chart:
@@ -67,7 +67,7 @@ chart and the Alpine image layers.
 ### Publish an Application Image
 
 !!! note 
-    Publishing applications requires a [Gravity Hub](/hub/) and is
+    Publishing applications requires a [Gravity Hub](hub.md) and is
     available only in the Enterprise edition of Gravity.
 
 A built application image can be published to an Gravity Hub. This allows the
@@ -162,7 +162,7 @@ between the Open-Source and Enterprise versions of Gravity:
 * For the Open-Source clusters, it is the Gravitational default
 distribution portal (`get.gravitational.io`).
 * For the Enterprise clusters, it is the Gravity Hub a cluster
-is connected to. See [Configuring Trusted Clusters](/config/#trusted-clusters-enterprise)
+is connected to. See [Configuring Trusted Clusters](config.md#trusted-clusters-enterprise)
 for details on how to connect a cluster to an Gravity Hub.
 
 The `-a` flag makes the command to display both local and remote applications.

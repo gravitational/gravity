@@ -16,7 +16,7 @@ OpenEBS is a [CNCF](https://www.cncf.io/) native project. See OpenEBS
 [documentation](https://docs.openebs.io/docs/next/overview.html) for more
 information.
 
-!!! note "Supported version":
+!!! note "Supported version"
     OpenEBS integration is supported starting from Gravity 7.0.
 
 ## Enable OpenEBS
@@ -49,8 +49,8 @@ to a new version that has OpenEBS integration turned on.
 To enable it in the existing cluster:
 
 * Update your cluster image manifest to enable OpenEBS integration like shown above.
-* Build a new version of the cluster image using `tele build`. See [Building a Cluster Image](/pack/#building-a-cluster-image) for details.
-* Upgrade the existing cluster to this new version. See [Upgrading a Cluster](/cluster/#updating-a-cluster) for details.
+* Build a new version of the cluster image using `tele build`. See [Building a Cluster Image](pack.md#building-a-cluster-image) for details.
+* Upgrade the existing cluster to this new version. See [Upgrading a Cluster](cluster.md#updating-a-cluster) for details.
 
 OpenEBS will be installed and configured during the upgrade operation.
 
@@ -176,7 +176,7 @@ $ sudo ./gravity install --config=storage.yaml
 
 !!! note "Multiple resources"
     Configuration file passed on the command-line may contain multiple Kubernetes
-    and Gravity resources, like described in a general [Cluster Configuration](/config)
+    and Gravity resources, like described in a general [Cluster Configuration](config.md)
     section.
 
 Once installed & configured, OpenEBS provides a few ways to consume persistent

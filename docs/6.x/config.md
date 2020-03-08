@@ -56,8 +56,8 @@ spec:
       APIResponseCompression: false
       BoundServiceAccountTokenVolume: false
       ExperimentalHostUserNamespaceDefaulting: true
-  # kubelet configuration as described here: https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/
-  # and here: https://github.com/kubernetes/kubelet/blob/release-1.13/config/v1beta1/types.go#L62
+  # kubelet configuration as described here: https://kubernetes.io/docs/tasks/administer-cluster.mdkubelet-config-file/
+  # and here: https://github.com/kubernetes/kubelet/blob/release-1.13/config.mdv1beta1/types.go#L62
   kubelet:
     config:
       kind: KubeletConfiguration
@@ -94,7 +94,7 @@ root$ ./gravity resource create Cluster-config.yaml --manual
 ```
 
 The configuration update is implemented as a Cluster operation. Once created, it is managed using
-the same `gravity plan` command described in the [Managing Operations](/cluster/#managing-operations)
+the same `gravity plan` command described in the [Managing Operations](cluster.md#managing-operations)
 section.
 
 
@@ -375,7 +375,7 @@ spec:
   issuer_url: "https://example.com/"
   scope: [roles]
   claims_to_roles:
-    - {claim: "roles", value: "gravitational/admins", roles: ["@teleadmin"]}
+    - {% raw %}{claim: "roles", value: "gravitational/admins", roles: ["@teleadmin"]}{% endraw %}
 ```
 
 Add this connector to the Cluster:
@@ -559,10 +559,10 @@ $ gravity resource get authgateway
 
 #### Cluster Authentication Preference
 
-!!! warning "Deprecation warning":
+!!! warning "Deprecation warning"
     Cluster authentication preference resource is obsolete starting Gravity
     version `5.5.0` and will be removed in a future version. Please use
-    [Authentication Gateway](/config/#cluster-authentication-gateway)
+    [Authentication Gateway](config.md#cluster-authentication-gateway)
     resource instead.
 
 Cluster authentication preference resource allows to configure method of
@@ -610,7 +610,7 @@ $ gravity resource create auth.yaml
 ```
 
 !!! note 
-    Make sure to configure a proper [OIDC connector](/config/#configuring-openid-connect)
+    Make sure to configure a proper [OIDC connector](config.md#configuring-openid-connect)
     when using "oidc" authentication type.
 
 To view the currently configured authentication preference:
@@ -696,7 +696,7 @@ $ gravity resource rm tls keypair
 
 ### Monitoring and Alerts
 
-See [the Cluster Monitoring section](/monitoring/) about details
+See [the Cluster Monitoring section](monitoring.md) about details
 on how to configure monitoring and alerts.
 
 ### Runtime Environment Variables
@@ -750,7 +750,7 @@ $ sudo gravity resource create -f envars.yaml --manual
 ```
 
 This will allow you to control every aspect of the operation as it executes.
-See [Managing Operations](/cluster/#managing-operations) for more details.
+See [Managing Operations](cluster.md#managing-operations) for more details.
 
 
 To view the currently configured runtime environment variables:

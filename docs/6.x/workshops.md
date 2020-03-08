@@ -6,7 +6,7 @@ We have published three different workshops that you can work through separately
 
 * [Docker 101 workshop](#docker-101-workshop): An introduction to [Docker](https://www.docker.com/) and its basic concepts.
 * [Kubernetes 101 workshop using Minikube](#kubernetes-101-workshop): An introduction to [Kubernetes](https://kubernetes.io/) and its basic concepts.
-* [Kubernetes production patterns](Kubernetes-production-patterns): A review of techniques to improve the resiliency and high availability of Kubernetes deployments and some common mistakes to avoid when working with Docker and Kubernetes.
+* [Kubernetes production patterns](#kubernetes-production-patterns): A review of techniques to improve the resiliency and high availability of Kubernetes deployments and some common mistakes to avoid when working with Docker and Kubernetes.
 
 ## Docker 101 workshop
 
@@ -582,7 +582,7 @@ and instead of re-executing the command, uses cached value instead. This helps t
 
 Docker images are composed of layers:
 
-![images](https://docs.docker.com/engine/userguide/storagedriver/images/image-layers.jpg)
+![docker layers](https://docs.docker.com/storage/storagedriver/images/sharing-layers.jpg)
 
 Every layer is the result of execution of a command in the Dockerfile.
 
@@ -810,7 +810,7 @@ $ curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.12.2/min
 ```
 
 Also, you can install drivers for various VM providers to optimize your minikube VM performance.
-Instructions can be found here: https://github.com/kubernetes/minikube/blob/master/DRIVERS.md.
+Instructions can be found here: https://minikube.sigs.k8s.io/docs/reference/drivers/.
 
 To run a cluster:
 
@@ -1018,7 +1018,7 @@ Let's dig a little deeper into this deployment:
 Here we see that it manages 2 replicas of our Pod and using RollingUpdate strategy:
 
 ```
-$ kubectl describe deployments/my-nginx
+$ kubectl describe deployments.mdmy-nginx
 Name:			my-nginx
 Namespace:		default
 CreationTimestamp:	Sun, 15 May 2016 12:37:01 -0700
@@ -1198,7 +1198,7 @@ scaling up new ReplicaSet and scaling down old ReplicaSet:
 
 
 ```
-$ kubectl describe deployments/my-nginx
+$ kubectl describe deployments.mdmy-nginx
 Name:			my-nginx
 Namespace:		default
 CreationTimestamp:	Sun, 15 May 2016 19:37:01 +0000
@@ -1290,7 +1290,7 @@ my-nginx-2896527177-cv3fd   0/1       ImagePullBackOff   0          55s
 Our deployment shows 2 unavailable replicas:
 
 ```
-$ kubectl describe deployments/my-nginx
+$ kubectl describe deployments.mdmy-nginx
 Name:			my-nginx
 Namespace:		default
 CreationTimestamp:	Sun, 15 May 2016 19:37:01 +0000
@@ -1318,7 +1318,7 @@ Events:
 Our rollout has stopped. Let's view the history:
 
 ```
-$ kubectl rollout history deployments/my-nginx
+$ kubectl rollout history deployments.mdmy-nginx
 deployments "my-nginx":
 REVISION	CHANGE-CAUSE
 1		kubectl run my-nginx --image=nginx --replicas=2 --port=80 --expose --record
@@ -1345,7 +1345,7 @@ REVISION	CHANGE-CAUSE
 4		kubectl apply -f my-nginx-new.yaml
 ```
 
-[Deployments](http://kubernetes.io/docs/user-guide/deployments/) are a very powerful tool, and we've barely scratched the surface of what they can do. Check out [docs](http://kubernetes.io/docs/user-guide/deployments/) for more detail.
+[Deployments](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/) are a very powerful tool, and we've barely scratched the surface of what they can do. Check out [docs](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/) for more detail.
 
 
 ### Configuration management basics
@@ -1495,10 +1495,10 @@ sudo docker push $(minikube ip):5000/mattermost-worker:2.1.0
 
 Mattermost's worker expects configuration to be mounted at:
 
-`/var/mattermost/config/config.json`
+`/var/mattermost/config.mdconfig.json`
 
 ```
-$ cat mattermost/worker-config/config.json
+$ cat mattermost/worker-config.mdconfig.json
 ```
 
 If we examine config closely, we will notice that Mattermost expects a connector
@@ -1648,7 +1648,7 @@ $ kubectl create -f mattermost/worker.yaml --record
 Let's check out the status of the deployment to see if everything is alright:
 
 ```
-$ kubectl describe deployments/mattermost-worker
+$ kubectl describe deployments.mdmattermost-worker
 Name:			mattermost-worker
 Namespace:		default
 CreationTimestamp:	Sun, 15 May 2016 23:56:57 +0000
@@ -1930,7 +1930,7 @@ For Linux:
         && chmod +x minikube && sudo mv minikube /usr/local/bin/
 
 Also, you can install drivers for various VM providers to optimize your minikube VM performance.
-Instructions can be found here: https://github.com/kubernetes/minikube/blob/master/DRIVERS.md.
+Instructions can be found here: https://minikube.sigs.k8s.io/docs/reference/drivers/.
 
 To run a cluster:
 

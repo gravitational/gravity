@@ -85,7 +85,7 @@ Gravity supports two networking backends in production:
 * VPC and routing tables based network for `AWS` cloud provider.
 * VXLAN based network for `generic` provider to be used on generic linux installations.
 
-See [Cluster Image Manifest](/pack/#image-manifest) section for details on how to select
+See [Cluster Image Manifest](pack.md#image-manifest) section for details on how to select
 the network type.
 
 #### Air-gapped installs
@@ -133,7 +133,7 @@ These ports are used for Cluster operation and should be open between cluster no
 | 3022-3025               | TCP                | SSH                  | all         | all         | Teleport internal SSH control panel      |
 | 3080                    | TCP                | HTTPS                | ext         | controllers | Teleport Web  UI                         |
 | 3008-3012, 6060         | TCP                | HTTPS / gRPC         | all         | all         | Internal Gravity services                |
-| 32009                   | TCP                | HTTPS                | ext         | controllers | Gravity Cluster/OpsCenter Admin UI (ext) |
+| 32009                   | TCP                | HTTPS                | ext         | controllers | Gravity cluster.mdOpsCenter Admin UI (ext) |
 | 32009                   | TCP                | HTTPS                | controllers | all         | Gravity internal API                     |
 | 3012                    | TCP                | HTTPS                | all         | all         | Gravity RPC agent                        |
 
@@ -201,7 +201,7 @@ for more information about possible network-related issues.
 ### overlay module
 
 The overlay kernel module is required if the application is using overlay or
-overlay2 Docker storage driver (see [Cluster Image Manifest](/pack/#image-manifest))
+overlay2 Docker storage driver (see [Cluster Image Manifest](pack.md#image-manifest))
 for information on how to configure the storage driver). To check that it's
 loaded:
 
@@ -220,7 +220,7 @@ root$ echo 'overlay' > /etc/modules-load.d/overlay.conf
 ### ebtable_filter module
 
 This kernel module is required if the application is configuring Hairpin NAT
-(see [Hairpin NAT](/cluster/#hairpin-nat)) to enable services to load-balance to themselves
+(see [Hairpin NAT](cluster.md#hairpin-nat) to enable services to load-balance to themselves
 and setting up docker bridge in "promiscuous-bridge" mode.
 
 To see if the module is loaded:

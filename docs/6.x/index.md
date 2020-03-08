@@ -58,27 +58,27 @@ In other words, a Gravity Cluster Image is a _self-contained, downloadable
 Kubernetes appliance_ which enables true portability for cloud applications across 
 any public or private infrastructure.
 
-![gravity overview](/images/gravity-overview.png)
+![gravity overview](images/gravity-overview.png)
 
 ## Documentation Overview
 
 A brief explanation of each section of this documentation is below:
 
-- [Quickstart Guide](/quickstart/) - A quick tutorial to show off the basic capabilities of Gravity. A good place to start if you want to jump right in.
-- [Building Cluster Images](/pack/) - How to build a Gravity Cluster Image from scratch.
-- [Installation](/installation/) - How to install a Gravity Cluster Image in a target environment.
-- [Cluster Configuration](/config/) - How to configure your Gravity Cluster.
-- [Cluster Management](/cluster/) - Everything you need to know for operating Gravity Clusters.
-- [Cluster Monitoring](/monitoring/) - Overview of the monitoring and alerting tools that Gravity uses.
-- [Cluster Access](/access/) - How Gravity users Teleport to manage access to
+- [Quickstart Guide](quickstart.md) - A quick tutorial to show off the basic capabilities of Gravity. A good place to start if you want to jump right in.
+- [Building Cluster Images](pack.md) - How to build a Gravity Cluster Image from scratch.
+- [Installation](installation.md) - How to install a Gravity Cluster Image in a target environment.
+- [Cluster Configuration](config.md) - How to configure your Gravity Cluster.
+- [Cluster Management](cluster.md) - Everything you need to know for operating Gravity Clusters.
+- [Cluster Monitoring](monitoring.md) - Overview of the monitoring and alerting tools that Gravity uses.
+- [Cluster Access](access.md) - How Gravity users Teleport to manage access to
 Clusters.
-- [Gravity Hub](/hub/) - Setting up and using Gravity Hub (Enterprise edition only).
-- [CLI Reference](/cli/) - Overview of the Gravity CLI tools.
-- [System Requirements](/requirements/) - System requirements to successfully run Gravity components.
-- [Releases](/changelog/) - List of Gravity versions and release notes.
-- [FAQ](/faq/) - Common issues encountered in Cluster environments.
-- [Guides](/guides/) - A list of other Gravity related workshops and guides we have published.
-- [Terraform](/terraform/) - Guide for using Terraform with Gravity.
+- [Gravity Hub](hub.md) - Setting up and using Gravity Hub (Enterprise edition only).
+- [CLI Reference](cli.md) - Overview of the Gravity CLI tools.
+- [System Requirements](requirements.md) - System requirements to successfully run Gravity components.
+- [Releases](changelog.md) - List of Gravity versions and release notes.
+- [FAQ](faq.md) - Common issues encountered in Cluster environments.
+- [Guides](guides.md) - A list of other Gravity related workshops and guides we have published.
+- [Terraform](terraform.md) - Guide for using Terraform with Gravity.
 
 
 ## Components

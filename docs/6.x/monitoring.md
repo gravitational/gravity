@@ -9,7 +9,7 @@ system dependency (see the [source](https://github.com/gravitational/monitoring-
 
 
 **Example Monitoring Dashboard**
-![Set Capacity](/images/gravity-quickstart/gravity-monitoring.png)
+![Set Capacity](images/gravity-quickstart/gravity-monitoring.png)
 
 ### Prometheus
 
@@ -60,7 +60,7 @@ Satellite runs on each Gravity Cluster node and executes a multitude of checks c
 assessing the health of the Cluster and the individual nodes. Any issues detected by Satellite
 will be displayed in the output of the `gravity status` command.
 
-See [Cluster Status](/cluster/#cluster-status) for more information.
+See [Cluster Status](cluster.md#cluster-status) for more information.
 
 ## Grafana Integration
 
@@ -208,7 +208,7 @@ The following table shows the alerts Gravity ships with by default:
 | Filesystem | High disk space usage | Triggers a warning, when > 80% used, with > 90% used, triggers a critical error |
 | Filesystem | High inode usage | Triggers a warning, when > 90% used, with > 95% used, triggers a critical error |
 | System | Uptime | Triggers a warning when a node's uptime is less than 5min |
-| System | Kernel parameters | Triggers an error if a parameter is not set. See [value matrix](/requirements/#kernel-module-matrix) for details. |
+| System | Kernel parameters | Triggers an error if a parameter is not set. See [value matrix](requirements.md#kernel-module-matrix) for details. |
 | Etcd | Etcd instance health | Triggers an error when an Etcd master is down longer than 5min |
 | Etcd | Etcd latency check | Triggers a warning, when follower <-> leader latency exceeds 500ms, then an error when it exceeds 1s over a period of 1min |
 | Docker | Docker daemon health | Triggers an error when docker daemon is down |

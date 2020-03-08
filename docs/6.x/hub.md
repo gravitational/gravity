@@ -18,7 +18,7 @@ This chapter will guide you through the process of downloading and installing
 your own instance of Gravity Hub.
 
 **Gravity Hub Catalog Example**
-![Gravity Hub](/images/gravity-hub/gravity-hub-catalog.png)
+![Gravity Hub](images/gravity-hub/gravity-hub-catalog.png)
 
 ## Installing Gravity Hub
 
@@ -57,7 +57,7 @@ version of Gravity you're using, so we'll refer to it simply as
 `gravity-hub.tar` below.
 
 Installing Gravity Hub is no different from installing any other Cluster Image,
-as explained in the [Installation](/installation/) chapter.
+as explained in the [Installation](installation.md) chapter.
 
 To establish trust between Gravity Hub and future Kubernetes clusters, a common
 shared hard-to-guess secret (token) must be generated first. Therefore, before
@@ -98,26 +98,26 @@ After provisioning of Gravity Hub cluster, create the DNS A-records pointing at
 either the provisioned cloud load balancer (if the cluster was created on a
 cloud account) or at the IP of the host.
 
-!!! tip "Wildcard DNS name":
+!!! tip "Wildcard DNS name"
       The Gravity Hub DNS records must contain the wildcard, both `*.hub.example.com`
       and `hub.example.com` should point to the public IP address of the
       Gravity Hub cluster.
 
 #### Setting up OIDC
 
-After installation [OIDC provider](/config/#configuring-openid-connect) should be
+After installation [OIDC provider](config.md#configuring-openid-connect) should be
 set up in order to log into Gravity Hub.
 
-![Gravity OIDC Connector](/images/gravity-hub/gravity-hub-auth-connector.png)
+![Gravity OIDC Connector](images/gravity-hub/gravity-hub-auth-connector.png)
 
 
 #### Setting up TLS Key Pair
 
-After installation, a valid [TLS key pair](/config/#tls-key-pair)
+After installation, a valid [TLS key pair](config.md#tls-key-pair)
 should be set up in order to log into Gravity Hub. Self-signed certificates are
 currently not supported.
 
-![Gravity Hub Certificates](/images/gravity-hub/gravity-hub-certificates.png)
+![Gravity Hub Certificates](images/gravity-hub/gravity-hub-certificates.png)
 
 #### Configuring endpoints
 
@@ -251,7 +251,7 @@ Start the upgrade procedure using `upgrade` script:
 $ ./upgrade
 ```
 
-Read more about upgrade procedure [here](/cluster/#performing-an-upgrade).
+Read more about upgrade procedure [here](cluster.md#performing-an-upgrade).
 
 !!! tip "Ports":
     Users who use an external load balancer may need to update their
@@ -267,8 +267,8 @@ $ tsh --proxy=hub.example.com login
 
 Based on the Gravity Hub configuration, the login command will open the web browser and users will have to go through a single sign-on (SSO) process with the identity provider of their choice.
 
-![Gravity Hub Certificates](/images/gravity-quickstart/logging-into-gravity.png)
-![Gravity Hub - User List](/images/gravity-hub/gravity-hub-users.png)
+![Gravity Hub Certificates](images/gravity-quickstart/logging-into-gravity.png)
+![Gravity Hub - User List](images/gravity-hub/gravity-hub-users.png)
 
 
 ## Publishing Cluster Images
@@ -320,7 +320,7 @@ Gravity uses [Teleport](https://gravitational.com/teleport) to
 connect to remote Clusters. Teleport is an open source privileged management
 solution for both SSH and Kubernetes and it comes bundled with Gravity.
 
-![Gravity Hub Certificates](/images/gravity-hub/gravity-hub-cluster.png)
+![Gravity Hub Certificates](images/gravity-hub/gravity-hub-cluster.png)
 
 To see the list of Gravity Clusters available:
 
