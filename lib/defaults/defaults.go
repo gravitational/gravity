@@ -858,6 +858,9 @@ const (
 	// GravityServicePortEnv defines the gravity service port in environment
 	GravityServicePortEnv = "GRAVITY_SITE_SERVICE_PORT_WEB"
 
+	// PlanetSELinuxEnv defines the planet selinux state marker in environment
+	PlanetSELinuxEnv = "PLANET_SELINUX"
+
 	// GravityClusterLabel defines the label to select cluster controller Pods
 	GravityClusterLabel = "gravity-site"
 

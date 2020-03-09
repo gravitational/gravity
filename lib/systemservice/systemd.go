@@ -131,7 +131,9 @@ func (s *systemdManager) installService(service serviceTemplate, req NewServiceR
 	if service.Environment == nil {
 		service.Environment = make(map[string]string)
 	}
-	service.Environment[defaults.PathEnv] = defaults.PathEnvVal
+	if _, ok := service.Environment[defaults.PathEnv]; !ok {
+		service.Environment[defaults.PathEnv] = defaults.PathEnvVal
+	}
 	f, err := os.Create(unitPath(req.Name))
 	if err != nil {
 		return trace.Wrap(err,

@@ -739,7 +739,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	// operations on planet (planet plugin)
 	g.PlanetCmd.CmdClause = g.Command("planet", "operations with planet").Hidden()
 
-	g.PlanetEnterCmd.CmdClause = g.PlanetCmd.Command("enter", "enters currently installed planet").Hidden()
+	g.PlanetEnterCmd.CmdClause = g.PlanetCmd.Command("enter", "[DEPRECATED] enters currently installed planet").Hidden()
 
 	g.PlanetStatusCmd.CmdClause = g.PlanetCmd.Command("status", "calls status for currently installed planet").Hidden()
 

@@ -24,6 +24,7 @@ import (
 	"html/template"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 
 	archiveutils "github.com/gravitational/gravity/lib/archive"
 	"github.com/gravitational/gravity/lib/constants"
@@ -387,7 +388,7 @@ func (r *PackageUpdater) updatePlanetPackage(ctx context.Context, update storage
 		r.WithError(err).Warn("kubectl will not work on host.")
 	}
 
-	labelUpdates, err = r.reinstallService(update)
+	labelUpdates, err = r.reinstallService(update, r.environForPlanetService())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -439,7 +440,7 @@ func (r *PackageUpdater) updateTeleportPackage(update storage.PackageUpdate) (la
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to unpack package %v", update.To)
 	}
-	updates, err := r.reinstallService(update)
+	updates, err := r.reinstallService(update, nil)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -506,7 +507,7 @@ func (r *PackageUpdater) reinstallSecretsPackage(newPackage loc.Locator) (labelU
 	return labelUpdates, nil
 }
 
-func (r *PackageUpdater) reinstallService(update storage.PackageUpdate) (labelUpdates []pack.LabelUpdate, err error) {
+func (r *PackageUpdater) reinstallService(update storage.PackageUpdate, environ map[string]string) (labelUpdates []pack.LabelUpdate, err error) {
 	services, err := systemservice.New()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -552,6 +553,12 @@ func (r *PackageUpdater) reinstallService(update storage.PackageUpdate) (labelUp
 	manifest.Service.Package = update.To
 	manifest.Service.ConfigPackage = configPackage
 	manifest.Service.GravityPath = gravityPath
+	if manifest.Service.Environment == nil {
+		manifest.Service.Environment = make(map[string]string)
+	}
+	for key, value := range environ {
+		manifest.Service.Environment[key] = value
+	}
 
 	r.WithField("package", update.To).Info("Installing new package.")
 	if err = services.InstallPackageService(*manifest.Service); err != nil {
@@ -573,6 +580,12 @@ func (r *PackageUpdater) checkAndSetDefaults() error {
 		r.Logger = log.New(logrus.WithField(trace.Component, "packupdate"))
 	}
 	return nil
+}
+
+func (r *PackageUpdater) environForPlanetService() map[string]string {
+	return map[string]string{
+		defaults.PlanetSELinuxEnv: strconv.FormatBool(r.SELinux),
+	}
 }
 
 func (r *PackageUpdater) applySELinuxFileContexts(ctx context.Context, path string) error {

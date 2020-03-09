@@ -1081,6 +1081,10 @@ type SystemMetadata interface {
 	GetDNSConfig() (*DNSConfig, error)
 	// SetDNSConfig sets current DNS configuration
 	SetDNSConfig(DNSConfig) error
+	// GetSELinux returns whether SELinux support is on
+	GetSELinux() (enabled bool, err error)
+	// SetSELinux sets SELinux support
+	SetSELinux(enabled bool) error
 }
 
 // DefaultDNSConfig defines the default cluster local DNS configuration
