@@ -1,5 +1,8 @@
 DOCBOX=docs-buildbox:latest
-BUILDROOT:=$(if $(GRAVITY_BUILDDIR),$(GRAVITY_BUILDDIR),../build)
+# BUILDROOT needs to be relative so that it works inside & outside the docbox container
+# - build to the gravity version specific version directory if running under the uber-make
+# - build to ../build/docs if running in this directory
+BUILDROOT ?= $(if $(GRAVITY_VERSION),../build/$(GRAVITY_VERSION),../build)
 BUILDDIR:=$(BUILDROOT)/docs
 DOCBOX_ID_FILE=$(BUILDROOT)/.docs-buildbox.id
 HOME=/home
@@ -7,7 +10,7 @@ PORT=6601
 DOCKERPORTS = -p $(PORT):$(PORT)
 NOROOT=-u $$(id -u):$$(id -g)
 DOCKERFLAGS = --rm=true $(NOROOT) -v "$$(pwd)/../":$(HOME) -w $(HOME)/docs -h docs $(DOCKERPORTS)
-DOCKERMAKE=docker run $(DOCKERFLAGS) $(DOCBOX) make
+DOCKERMAKE=docker run $(DOCKERFLAGS) $(DOCBOX) make BUILDROOT=$(BUILDROOT)
 VERSIONS=4.x 5.x 6.x 7.x
 LATEST=$(lastword $(VERSIONS))
 CFGS=$(addsuffix .yaml, $(VERSIONS))
@@ -69,7 +72,7 @@ container-compile-docs: $(VERSIONS) $(LATEST_SYMLINK)
 
 .PHONY:$(VERSIONS)
 $(VERSIONS): %.x:
-	mkdocs build $(MKDOCS_FLAGS) --config-file $(*F).x.yaml
+	mkdocs build $(MKDOCS_FLAGS) --config-file $(*F).x.yaml --site-dir $(BUILDDIR)/$(*F).x
 
 LINTS=$(addprefix lint-, $(VERSIONS))
 
