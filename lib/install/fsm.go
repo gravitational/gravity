@@ -27,6 +27,7 @@ import (
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/opsclient"
 	"github.com/gravitational/gravity/lib/pack"
+	"github.com/gravitational/gravity/lib/pack/localpack"
 	"github.com/gravitational/gravity/lib/rpc"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
@@ -60,7 +61,7 @@ type FSMConfig struct {
 	// LocalClusterClient is a factory for creating a client to the installed cluster.
 	LocalClusterClient func(...httplib.ClientOption) (*opsclient.Client, error)
 	// LocalPackages is the machine-local pack service
-	LocalPackages pack.PackageService
+	LocalPackages *localpack.PackageServer
 	// LocalApps is the machine-local apps service
 	LocalApps app.Applications
 	// LocalBackend is the machine-local backend

@@ -368,7 +368,7 @@ type Mount struct {
 	Name string `json:"name"`
 	// Source is the directory to mount
 	Source string `json:"source"`
-	// Destination is the mount destination dir
+	// Destination is the mount destination directory
 	Destination string `json:"destination"`
 	// CreateIfMissing is whether to create the source directory if it doesn't exist
 	CreateIfMissing bool `json:"create_if_missing"`

@@ -64,7 +64,6 @@ func basicSystemInfo() Collectors {
 		// disk
 		Cmd("lsblk", "lsblk"),
 		Cmd("fdisk", "fdisk", "-l"),
-		Cmd("dmsetup", "dmsetup", "info"),
 		Cmd("df", "df", "-hT"),
 		Cmd("df-inodes", "df", "-i"),
 		// system
@@ -89,6 +88,7 @@ func planetServices() Collectors {
 	return Collectors{
 		// etcd cluster health
 		Cmd("etcd-status", utils.PlanetCommandArgs("/usr/bin/etcdctl", "cluster-health")...),
+		Cmd("etcd3-status", utils.PlanetCommandArgs("/usr/bin/etcdctl3", "endpoint", "health", "--cluster")...),
 		Cmd("planet-status", utils.PlanetCommandArgs("/usr/bin/planet", "status")...),
 		// system status in the container
 		Cmd("planet-system-status", utils.PlanetCommandArgs("/bin/systemctl", "status", "--full")...),
@@ -112,9 +112,9 @@ func systemFileLogs() Collectors {
 cat %v 2> /dev/null || true`
 	workingDir := filepath.Dir(utils.Exe.Path)
 	return Collectors{
-		Script("gravity-system.log", fmt.Sprintf(template, defaults.GravitySystemLog)),
+		Script("gravity-system.log", fmt.Sprintf(template, defaults.GravitySystemLogPath)),
 		Script("gravity-system-local.log", fmt.Sprintf(template, filepath.Join(workingDir, defaults.GravitySystemLogFile))),
-		Script("gravity-install.log", fmt.Sprintf(template, defaults.GravityUserLog)),
+		Script("gravity-install.log", fmt.Sprintf(template, defaults.GravityUserLogPath)),
 		Script("gravity-install-local.log", fmt.Sprintf(template, filepath.Join(workingDir, defaults.GravityUserLogFile))),
 	}
 }

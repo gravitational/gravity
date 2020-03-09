@@ -479,7 +479,9 @@ func (s *site) removeFromEtcd(ctx *operationContext, runner *serverRunner, serve
 
 func (s *site) uninstallSystem(ctx *operationContext, runner *serverRunner) error {
 	commands := [][]string{
-		s.gravityCommand("system", "uninstall", "--confirm"),
+		s.gravityCommand("system", "uninstall",
+			"--confirm",
+			"--system-log-file", defaults.GravitySystemLogPath),
 	}
 
 	for _, command := range commands {

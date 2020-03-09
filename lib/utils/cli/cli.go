@@ -56,7 +56,12 @@ func (a *CommandArgs) Update(command []string, flagsToAdd ...Flag) (args []strin
 				continue
 			}
 			if _, ok := c.Model().Value.(boolFlag); ok {
-				args = append(args, fmt.Sprint("--", c.Model().Name))
+				switch *el.Value {
+				case "true":
+					args = append(args, fmt.Sprint("--", c.Model().Name))
+				case "false":
+					args = append(args, fmt.Sprint("--no-", c.Model().Name))
+				}
 			} else {
 				args = append(args, fmt.Sprint("--", c.Model().Name), strconv.Quote(*el.Value))
 			}

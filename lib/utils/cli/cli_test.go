@@ -61,6 +61,13 @@ func (*S) TestUpdatesCommandLine(c *check.C) {
 				"install", "--token", `"some token"`, `"/path/to/data"`, "--advertise-addr", `"localhost:8080"`,
 			},
 		},
+		{
+			comment:   "Handles negated flags",
+			inputArgs: []string{"install", "--no-selinux", "/path/to/data"},
+			outputArgs: []string{
+				"install", "--no-selinux", `"/path/to/data"`,
+			},
+		},
 	}
 
 	for _, testCase := range testCases {
@@ -82,6 +89,7 @@ func parseArgs(args []string) (*kingpin.ParseContext, error) {
 	cmd := app.Command("install", "")
 	cmd.Arg("path", "").String()
 	cmd.Flag("token", "").String()
+	cmd.Flag("selinux", "").Default("true").Bool()
 	cmd.Flag("advertise-addr", "").String()
 	cmd.Flag("cloud-provider", "").String()
 	return app.ParseContext(args)

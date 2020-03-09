@@ -31,7 +31,6 @@ import (
 	"github.com/gravitational/gravity/lib/clients"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
-	"github.com/gravitational/gravity/lib/devicemapper"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
@@ -214,8 +213,10 @@ func (s *site) configureExpandPackages(ctx context.Context, opCtx *operationCont
 		config:        config,
 	}
 	if provisionedServer.IsMaster() {
-		err := s.configureTeleportMaster(opCtx, provisionedServer)
-		if err != nil {
+		teleportMasterConfigPackage := s.teleportMasterConfigPackage(provisionedServer)
+		err := s.configureTeleportMaster(opCtx, provisionedServer, teleportMasterConfigPackage)
+		if err != nil && !trace.IsAlreadyExists(err) {
+			s.WithField("package", teleportMasterConfigPackage.String()).Info("Teleport master configuration package already exists.")
 			return trace.Wrap(err)
 		}
 		masterParams := planetMasterParams{
@@ -230,36 +231,44 @@ func (s *site) configureExpandPackages(ctx context.Context, opCtx *operationCont
 			masterParams.sniHost = trustedCluster.GetSNIHost()
 		}
 		err = s.configurePlanetMasterSecrets(opCtx, masterParams)
-		if err != nil {
+		if err != nil && !trace.IsAlreadyExists(err) {
+			s.WithField("package", secretsPackage).Info("Planet secrets package already exists.")
 			return trace.Wrap(err)
 		}
 		planetConfig.master = masterConfig{
 			electionEnabled: false,
 			addr:            s.teleport().GetPlanetLeaderIP(),
 		}
-		err = s.configurePlanetMaster(planetConfig, secretsPackage, configPackage)
-		if err != nil {
+		err = s.configurePlanetMaster(planetConfig)
+		if err != nil && !trace.IsAlreadyExists(err) {
+			s.WithField("package", configPackage).Info("Planet configuration package already exists.")
 			return trace.Wrap(err)
 		}
 		// Teleport nodes on masters prefer their local auth server
 		// but will try all other masters if the local gravity-site
 		// isn't running.
+		teleportNodeConfigPackage := s.teleportNodeConfigPackage(provisionedServer)
 		err = s.configureTeleportNode(opCtx, append([]string{constants.Localhost}, teleportMasterIPs...),
-			provisionedServer)
-		if err != nil {
+			provisionedServer, teleportNodeConfigPackage)
+		if err != nil && !trace.IsAlreadyExists(err) {
+			s.WithField("package", teleportNodeConfigPackage.String()).Info("Teleport node configuration package already exists.")
 			return trace.Wrap(err)
 		}
 	} else {
 		err = s.configurePlanetNodeSecrets(opCtx, provisionedServer, secretsPackage)
-		if err != nil {
+		if err != nil && !trace.IsAlreadyExists(err) {
+			s.WithField("package", secretsPackage.String()).Info("Planet secrets package already exists.")
 			return trace.Wrap(err)
 		}
-		err = s.configurePlanetNode(planetConfig, secretsPackage, configPackage)
-		if err != nil {
+		err = s.configurePlanetNode(planetConfig)
+		if err != nil && !trace.IsAlreadyExists(err) {
+			s.WithField("package", configPackage.String()).Info("Planet configuration package already exists.")
 			return trace.Wrap(err)
 		}
-		err = s.configureTeleportNode(opCtx, teleportMasterIPs, provisionedServer)
-		if err != nil {
+		teleportConfigPackage := s.teleportNodeConfigPackage(provisionedServer)
+		err = s.configureTeleportNode(opCtx, teleportMasterIPs, provisionedServer, teleportConfigPackage)
+		if err != nil && !trace.IsAlreadyExists(err) {
+			s.WithField("package", teleportConfigPackage.String()).Info("Teleport node configuration package already exists.")
 			return trace.Wrap(err)
 		}
 	}
@@ -279,7 +288,8 @@ func (s *site) configurePackages(ctx *operationContext, req ops.ConfigurePackage
 	}
 
 	err = s.configureRemoteCluster()
-	if err != nil {
+	if err != nil && !trace.IsAlreadyExists(err) {
+		s.WithField("name", s.domainName).Info("Remote cluster already exists.")
 		return trace.Wrap(err)
 	}
 
@@ -332,7 +342,8 @@ func (s *site) configurePackages(ctx *operationContext, req ops.ConfigurePackage
 			serviceSubnetCIDR: ctx.operation.InstallExpand.Subnets.Service,
 			sniHost:           s.service.cfg.SNIHost,
 		})
-		if err != nil {
+		if err != nil && !trace.IsAlreadyExists(err) {
+			s.WithField("package", secretsPackage.String()).Info("Planet secrets  package already exists.")
 			return trace.Wrap(err)
 		}
 
@@ -363,27 +374,36 @@ func (s *site) configurePackages(ctx *operationContext, req ops.ConfigurePackage
 			env:           req.Env,
 			config:        clusterConfig,
 		}
-		err = s.configurePlanetMaster(config, secretsPackage, configPackage)
-		if err != nil {
+		err = s.configurePlanetMaster(config)
+		if err != nil && !trace.IsAlreadyExists(err) {
+			s.WithField("package", configPackage.String()).Info("Planet configuration package already exists.")
 			return trace.Wrap(err)
 		}
 
-		if err := s.configureTeleportMaster(ctx, master); err != nil {
+		teleportMasterConfigPackage := s.teleportMasterConfigPackage(master)
+		err = s.configureTeleportMaster(ctx, master, teleportMasterConfigPackage)
+		if err != nil && !trace.IsAlreadyExists(err) {
+			s.WithField("package", teleportMasterConfigPackage.String()).Info("Teleport master configuration package already exists.")
 			return trace.Wrap(err)
 		}
 
 		// Teleport nodes on masters prefer their local auth server
 		// but will try all other masters if the local gravity-site
 		// isn't running.
+		teleportNodeConfigPackage := s.teleportNodeConfigPackage(master)
 		err = s.configureTeleportNode(ctx, append([]string{constants.Localhost}, p.MasterIPs()...),
-			master)
-		if err != nil {
+			master, teleportNodeConfigPackage)
+		if err != nil && !trace.IsAlreadyExists(err) {
+			s.WithField("package", teleportNodeConfigPackage.String()).Info("Teleport node configuration package already exists.")
 			return trace.Wrap(err)
 		}
 	}
 
 	for _, node := range p.Nodes() {
-		if err := s.configureTeleportNode(ctx, p.MasterIPs(), node); err != nil {
+		teleportConfigPackage := s.teleportNodeConfigPackage(node)
+		err := s.configureTeleportNode(ctx, p.MasterIPs(), node, teleportConfigPackage)
+		if err != nil && !trace.IsAlreadyExists(err) {
+			s.WithField("package", teleportConfigPackage.String()).Info("Teleport node configuration package already exists.")
 			return trace.Wrap(err)
 		}
 
@@ -394,7 +414,9 @@ func (s *site) configurePackages(ctx *operationContext, req ops.ConfigurePackage
 
 		secretsPackage := s.planetSecretsPackage(node, planetPackage.Version)
 
-		if err := s.configurePlanetNodeSecrets(ctx, node, secretsPackage); err != nil {
+		err = s.configurePlanetNodeSecrets(ctx, node, secretsPackage)
+		if err != nil && !trace.IsAlreadyExists(err) {
+			s.WithField("package", secretsPackage.String()).Info("Planet secrets package already exists.")
 			return trace.Wrap(err)
 		}
 
@@ -419,8 +441,9 @@ func (s *site) configurePackages(ctx *operationContext, req ops.ConfigurePackage
 			config:        clusterConfig,
 		}
 
-		err = s.configurePlanetNode(config, secretsPackage, configPackage)
-		if err != nil {
+		err = s.configurePlanetNode(config)
+		if err != nil && !trace.IsAlreadyExists(err) {
+			s.WithField("package", configPackage.String()).Info("Planet configuration package already exists.")
 			return trace.Wrap(err)
 		}
 	}
@@ -827,14 +850,10 @@ type masterConfig struct {
 	addr string
 }
 
-func (s *site) configurePlanetMaster(
-	config planetConfig,
-	secretsPackage, configPackage loc.Locator,
-) error {
+func (s *site) configurePlanetMaster(config planetConfig) error {
 	if server := config.installExpand.InstallExpand.Servers.FindByIP(config.server.AdvertiseIP); server != nil {
 		config.dockerRuntime = server.Docker
 	}
-
 	err := s.configurePlanetServer(config)
 	if err != nil {
 		return trace.Wrap(err)
@@ -842,14 +861,10 @@ func (s *site) configurePlanetMaster(
 	return nil
 }
 
-func (s *site) configurePlanetNode(
-	config planetConfig,
-	secretsPackage, configPackage loc.Locator,
-) error {
+func (s *site) configurePlanetNode(config planetConfig) error {
 	if server := config.installExpand.InstallExpand.Servers.FindByIP(config.server.AdvertiseIP); server != nil {
 		config.dockerRuntime = server.Docker
 	}
-
 	err := s.configurePlanetServer(config)
 	if err != nil {
 		return trace.Wrap(err)
@@ -897,7 +912,6 @@ func (s *site) getPlanetConfig(config planetConfig) (args []string, err error) {
 		fmt.Sprintf("--initial-cluster=%v", config.etcd.initialCluster),
 		fmt.Sprintf("--secrets-dir=%v", node.InGravity(defaults.SecretsDir)),
 		fmt.Sprintf("--etcd-initial-cluster-state=%v", config.etcd.initialClusterState),
-		fmt.Sprintf("--election-enabled=%v", config.master.electionEnabled),
 		fmt.Sprintf("--volume=%v:/ext/etcd", node.InGravity("planet", "etcd")),
 		fmt.Sprintf("--volume=%v:/ext/registry", node.InGravity("planet", "registry")),
 		fmt.Sprintf("--volume=%v:/ext/docker", node.InGravity("planet", "docker")),
@@ -911,6 +925,12 @@ func (s *site) getPlanetConfig(config planetConfig) (args []string, err error) {
 	overrideArgs := map[string]string{
 		"service-subnet": config.installExpand.InstallExpand.Subnets.Service,
 		"pod-subnet":     config.installExpand.InstallExpand.Subnets.Overlay,
+	}
+
+	if config.master.electionEnabled {
+		args = append(args, "--election-enabled")
+	} else {
+		args = append(args, "--no-election-enabled")
 	}
 
 	for k, v := range config.env {
@@ -1003,11 +1023,11 @@ func (s *site) getPlanetConfig(config planetConfig) (args []string, err error) {
 
 	// If the manifest contains an install hook to install a separate overlay network, disable flannel inside planet
 	if manifest.Hooks != nil && manifest.Hooks.NetworkInstall != nil {
-		args = append(args, "--disable-flannel=true")
+		args = append(args, "--disable-flannel")
 	}
 
 	if manifest.PrivilegedEnabled() {
-		args = append(args, "--allow-privileged=true")
+		args = append(args, "--allow-privileged")
 	}
 
 	for k, v := range overrideArgs {
@@ -1134,8 +1154,7 @@ func (s *site) getTeleportMasterConfig(ctx *operationContext, configPackage loc.
 	}, nil
 }
 
-func (s *site) configureTeleportMaster(ctx *operationContext, master *ProvisionedServer) error {
-	configPackage := s.teleportMasterConfigPackage(master)
+func (s *site) configureTeleportMaster(ctx *operationContext, master *ProvisionedServer, configPackage loc.Locator) error {
 	resp, err := s.getTeleportMasterConfig(ctx, configPackage, master)
 	if err != nil {
 		return trace.Wrap(err)
@@ -1248,8 +1267,7 @@ func (s *site) getTeleportNodeConfig(ctx *operationContext, masterIPs []string, 
 	}, nil
 }
 
-func (s *site) configureTeleportNode(ctx *operationContext, masterIPs []string, node *ProvisionedServer) error {
-	configPackage := s.teleportNodeConfigPackage(node)
+func (s *site) configureTeleportNode(ctx *operationContext, masterIPs []string, node *ProvisionedServer, configPackage loc.Locator) error {
 	resp, err := s.getTeleportNodeConfig(ctx, masterIPs, configPackage, node)
 	if err != nil {
 		return trace.Wrap(err)
@@ -1294,7 +1312,8 @@ func (s *site) configureSiteExportPackage(ctx *operationContext) (*loc.Locator, 
 			pack.OperationIDLabel: ctx.operation.ID,
 		},
 	))
-	if err != nil {
+	if err != nil && !trace.IsAlreadyExists(err) {
+		s.WithField("package", exportPackage.String()).Info("Cluster export package already exists.")
 		return nil, trace.Wrap(err)
 	}
 
@@ -1437,30 +1456,6 @@ func configureDockerOptions(
 	args = []string{fmt.Sprintf("--docker-backend=%v", docker.StorageDriver)}
 
 	switch docker.StorageDriver {
-	case constants.DockerStorageDriverDevicemapper:
-		// Override udev sync check to support devicemapper on a system with a kernel that does not support it
-		// See: https://github.com/docker/docker/pull/11412
-		const dmUdevSyncOverride = "--storage-opt=dm.override_udev_sync_check=1"
-		const dmFilesystem = "--storage-opt=dm.fs=xfs"
-		dmThinpool := fmt.Sprintf("--storage-opt=dm.thinpooldev=/dev/mapper/%v", devicemapper.PoolName)
-
-		options := append(docker.Args, dmUdevSyncOverride)
-		if dockerRuntime.Device.Path() == "" {
-			// if no device has been been configured for devicemapper direct-lvm
-			// use the loop-lvm mode by configuring just the storage driver
-			// with no other configuration
-			return append(args, formatOptions(options)), nil
-		}
-		systemDir := dockerRuntime.LVMSystemDirectory
-
-		options = append(options, []string{dmFilesystem, dmThinpool}...)
-		args = append(args, formatOptions(options))
-		// expose directories used by LVM
-		args = append(args, "--volume=/dev/mapper:/dev/mapper")
-		args = append(args, "--volume=/dev/docker:/dev/docker")
-		if systemDir != "" {
-			args = append(args, fmt.Sprintf("--volume=%v:%v", systemDir, constants.LVMSystemDir))
-		}
 	case constants.DockerStorageDriverOverlay2:
 		// Override kernel check to support overlay2
 		// See: https://github.com/docker/docker/issues/26559

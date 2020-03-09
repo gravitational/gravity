@@ -88,6 +88,11 @@ func InitAndCheck(g *Application, cmd string) error {
 	if *g.Debug {
 		level = logrus.DebugLevel
 	}
+	systemLogSet := true
+	if *g.SystemLogFile == "" {
+		systemLogSet = false
+		*g.SystemLogFile = defaults.GravitySystemLogPath
+	}
 	switch cmd {
 	case g.SiteStartCmd.FullCommand():
 		teleutils.InitLogger(teleutils.LoggingForDaemon, level)
@@ -129,17 +134,23 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.ResourceCreateCmd.FullCommand(),
 		g.ResourceRemoveCmd.FullCommand(),
 		g.OpsAgentCmd.FullCommand():
-		utils.InitLogging(*g.SystemLogFile)
+		utils.InitLogging(level, *g.SystemLogFile)
 		// several command also duplicate their logs to the file in
 		// the current directory for convenience, unless the user set their
 		// own location
 		switch cmd {
 		case g.InstallCmd.FullCommand(), g.JoinCmd.FullCommand(), g.StartCmd.FullCommand():
-			if *g.SystemLogFile == defaults.GravitySystemLog {
-				utils.InitLogging(defaults.GravitySystemLogFile)
+			if *g.SystemLogFile == defaults.GravitySystemLogPath {
+				utils.InitLogging(level, defaults.GravitySystemLogFile)
 			}
 		}
+	default:
+		if systemLogSet {
+			// For all commands, use the system log file explicitly set on command line
+			utils.InitLogging(level, *g.SystemLogFile)
+		}
 	}
+	log.WithField("args", os.Args).Info("Start.")
 
 	if *g.ProfileEndpoint != "" {
 		err := process.StartProfiling(context.TODO(), *g.ProfileEndpoint, *g.ProfileTo)
@@ -189,8 +200,6 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.AutoJoinCmd.FullCommand(),
 		g.LeaveCmd.FullCommand(),
 		g.RemoveCmd.FullCommand(),
-		g.SystemDevicemapperMountCmd.FullCommand(),
-		g.SystemDevicemapperUnmountCmd.FullCommand(),
 		g.BackupCmd.FullCommand(),
 		g.RestoreCmd.FullCommand(),
 		g.GarbageCollectCmd.FullCommand(),
@@ -330,7 +339,6 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			clusterName:   *g.AutoJoinCmd.ClusterName,
 			role:          *g.AutoJoinCmd.Role,
 			systemDevice:  *g.AutoJoinCmd.SystemDevice,
-			dockerDevice:  *g.AutoJoinCmd.DockerDevice,
 			mounts:        *g.AutoJoinCmd.Mounts,
 			fromService:   *g.AutoJoinCmd.FromService,
 			serviceURL:    *g.AutoJoinCmd.ServiceAddr,
@@ -881,12 +889,6 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 		return planetShell(localEnv)
 	case g.PlanetStatusCmd.FullCommand():
 		return getPlanetStatus(localEnv, extraArgs)
-	case g.SystemDevicemapperMountCmd.FullCommand():
-		return devicemapperMount(*g.SystemDevicemapperMountCmd.Disk)
-	case g.SystemDevicemapperUnmountCmd.FullCommand():
-		return devicemapperUnmount()
-	case g.SystemDevicemapperSystemDirCmd.FullCommand():
-		return devicemapperQuerySystemDirectory()
 	case g.UsersInviteCmd.FullCommand():
 		return inviteUser(localEnv,
 			*g.UsersInviteCmd.Name,

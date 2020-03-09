@@ -95,23 +95,21 @@ func remoteDirectories(operation ops.SiteOperation, server *ProvisionedServer, m
 		server.InGravity("planet", "kubelet"),
 		server.InGravity("planet", "share", "hooks"),
 		server.InGravity("planet", "log", "journal"),
+		server.InGravity("site", "teleport"),
 		server.InGravity("site", "packages", "blobs"),
 		server.InGravity("site", "packages", "unpacked"),
 		server.InGravity("site", "packages", "tmp"),
-		server.InGravity("site", "teleport"),
+		server.InGravity("secrets"),
 		server.InGravity("backup"),
+		server.InGravity("logrange"),
 	}
 
 	chownList := []string{
 		server.InGravity("local"),
 		server.InGravity("teleport"),
-		server.InGravity("planet", "etcd"),
-		server.InGravity("planet", "log"),
-		server.InGravity("planet", "registry"),
-		server.InGravity("planet", "kubelet"),
-		server.InGravity("planet", "share"),
-		server.InGravity("planet", "state"),
+		server.InGravity("planet"),
 		server.InGravity("site"),
+		server.InGravity("secrets"),
 		server.InGravity("backup"),
 	}
 
