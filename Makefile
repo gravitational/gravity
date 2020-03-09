@@ -746,6 +746,10 @@ docs:
 run-docs:
 	$(MAKE) -C docs run
 
+.PHONY: docs-lint
+docs-lint:
+	$(MAKE) -C docs lint
+
 # Dump current full k8s app tag
 .PHONY: get-k8s-tag
 get-k8s-tag:

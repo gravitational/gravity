@@ -18,6 +18,11 @@ RUN_CFG?=$(LATEST_CFG)
 docs: $(DOCBOX_ID_FILE)
 	docker run $(NOROOT) $(DOCKERFLAGS) $(DOCBOX) make container-compile-docs
 
+# run static analysis against the docs
+.PHONY: lint
+lint: $(DOCBOX_ID_FILE)
+	docker run $(NOROOT) $(DOCKERFLAGS) $(DOCBOX) make container-lint
+
 # run the docs in development mode
 .PHONY:run
 run: $(DOCBOX_ID_FILE) $(RUN_CFG)
@@ -64,7 +69,16 @@ container-compile-docs: $(VERSIONS) $(LATEST_SYMLINK)
 
 .PHONY:$(VERSIONS)
 $(VERSIONS): %.x:
-	mkdocs build --config-file $(*F).x.yaml
+	mkdocs build $(MKDOCS_FLAGS) --config-file $(*F).x.yaml
+
+LINTS=$(addprefix lint-, $(VERSIONS))
+
+.PHONY:container-lint
+container-lint: MKDOCS_FLAGS=--strict
+container-lint: $(VERSIONS) $(LINTS)
+
+$(LINTS): lint-%:
+	cd $(*F) && milv -ignore-external
 
 .PHONY:$(LATEST_SYMLINK)
 $(LATEST_SYMLINK): $(LATEST)
