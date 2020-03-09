@@ -1750,7 +1750,7 @@ for details.
 
 * Add `--dns-zone` flag to `gravity install` command to allow overriding upstreams
 for specific DNS zones within the cluster. See flag description in the
-[Installation](installation/#standalone-offline-cli-installation) section for details.
+[Installation](installation.md#standalone-offline-cli-installation) section for details.
 
 ### 5.0.4 LTS
 
@@ -2727,7 +2727,7 @@ It contains a number of improvements and bugfixes.
 #### Features
 
 * Add ability to specify pod/service network CIDR range via UI and CLI
-* Add AWS IAM policy to the [docs](https://gravitational.com/gravity/docs/ver/5.xconfig.md#aws-iam-policy)
+* Add AWS IAM policy to the [docs](https://gravitational.com/gravity/docs/ver/5.x/config#aws-iam-policy)
 * Add runbook to recover the cluster after node failure [docs](https://gravitational.com/gravity/docs/ver/5.xcluster.md#recovering-a-node)
 
 ### 3.36.0

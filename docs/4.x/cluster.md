@@ -1858,7 +1858,7 @@ With `promiscuous-bridge`, the behavior is similar to that of the kubenet networ
 
 !!! tip "Kernel module"
     In "promiscuous-bridge" mode, the nodes require a kernel module called `ebtable_filter` to manage ebtable rules,
-    see [Kernel Modules](/requirements/#kernel-modules) for details.
+    see [Kernel Modules](requirements.md/#kernel-modules) for details.
 
 
 

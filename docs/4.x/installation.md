@@ -244,7 +244,7 @@ be otherwise reachable by the nodes of the cluster that is being installed.
 open to the nodes of the cluster that is being installed.
 * The EC2 instance that runs the installer must be able to accommodate a
 single-node Telekube cluster of its own so all requirements and recommendations
-from [System Requirements](/requirements/) apply to it.
+from [System Requirements](requirements.md/) apply to it.
 
 ### AWS Credentials & IAM Policy
 
@@ -395,7 +395,7 @@ $ sudo ./gravity install --cluster-spec=cluster.yaml --ops-advertise-addr=172.31
     version `5.1.0-alpha.1`.
 
 Before installation make sure that GCE instances used for installation
-satisfy all of Telekube [system requirements](/requirements). In addition to these
+satisfy all of Telekube [system requirements](requirements.md). In addition to these
 generic requirements GCE nodes also must be configured in the following way to
 ensure proper cloud provider integration:
 

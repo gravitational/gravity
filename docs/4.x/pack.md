@@ -621,7 +621,7 @@ hooks:
   restore:
 ```
 
-See [here](/requirements/#identifying-os-distributions-in-manifest) for version matrix to help with
+See [here](requirements.md/#identifying-os-distributions-in-manifest) for version matrix to help with
 specifying OS distribution requirements for a node profile.
 
 ## Application Hooks

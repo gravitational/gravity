@@ -57,7 +57,7 @@ spec:
       BoundServiceAccountTokenVolume: false
       ExperimentalHostUserNamespaceDefaulting: true
   # kubelet configuration as described here: https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/
-  # and here: https://github.com/kubernetes/kubelet/blob/release-1.13/config.mdv1beta1/types.go#L62
+  # and here: https://github.com/kubernetes/kubelet/blob/release-1.13/config/v1beta1/types.go#L62
   kubelet:
     config:
       kind: KubeletConfiguration

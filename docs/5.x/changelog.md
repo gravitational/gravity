@@ -1057,7 +1057,7 @@ for details.
 
 * Add `--dns-zone` flag to `gravity install` command to allow overriding upstreams
 for specific DNS zones within the cluster. See flag description in the
-[Installation](installation/#standalone-offline-cli-installation) section for details.
+[Installation](installation.md#standalone-offline-cli-installation) section for details.
 
 ### 5.0.4 LTS
 
@@ -1108,7 +1108,7 @@ for details.
 
 #### Improvements
 
-* Add support for GCE cloud provider. See [Installing on Google Compute Engine](/installation.md#installing-on-google-compute-engine)
+* Add support for GCE cloud provider. See [Installing on Google Compute Engine](installation.md.md#installing-on-google-compute-engine)
 for details.
 
 #### Bugfixes
