@@ -131,7 +131,7 @@ install/upgrade.
 #### Improvements
 
 * Add multi-zone support for GCE clusters.
-* Update preflight checks to check iptables modules. See [requirements](requirements.md.md#iptables-modules)
+* Update preflight checks to check iptables modules. See [requirements](requirements.md#iptables-modules)
 for details.
 * Add timeout to preflight checks on remote nodes.
 
@@ -155,7 +155,7 @@ for details.
 
 #### Improvements
 
-* Add support for GCE cloud provider. See [Installing on Google Compute Engine](installation.md.md#installing-on-google-compute-engine)
+* Add support for GCE cloud provider. See [Installing on Google Compute Engine](installation.md#installing-on-google-compute-engine)
 for details.
 
 #### Bugfixes
@@ -241,7 +241,7 @@ install/upgrade.
 #### Improvements
 
 * Upgrade Kubernetes to `v1.9.6`.
-* Add support for more InfluxDB aggregate functions for use in [rollups](monitoring.md.md#rollups).
+* Add support for more InfluxDB aggregate functions for use in [rollups](monitoring.md#rollups).
 
 ### 5.0.0-alpha.14
 
