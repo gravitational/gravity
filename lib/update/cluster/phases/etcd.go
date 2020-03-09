@@ -18,6 +18,7 @@ package phases
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 
 	"github.com/gravitational/gravity/lib/constants"
@@ -49,11 +50,12 @@ import (
 // 4. Shutdown etcd (all servers) // API outage starts
 // 6. Start the cluster masters, but with clients bound to an alternative address (127.0.0.2) and using new data dir
 //      The data directory is chosen as /ext/etcd/<version>, so when upgrading, etcd will start with a blank database
-//      To rollback, we start the old version of etcd, pointed to the data directory that it used
+//      To rollback, we start the old version of etcd, pointed to the data directory from the previous version
 //      We also delete the data from a previous upgrade, so we can only roll back once
-// 7. Restore the etcd data using the API to the new version, and migrate /registry (kubernetes) data to v3 datastore
-// 8. Restart etcd on the correct ports// API outage ends
-// 9. Restart gravity-site to fix elections
+// 7. Shutdown the temporary etcd node, and do an offline database restore to the newly created database
+// 8. Restore the etcd data using the API to the new version, and migrate /registry (kubernetes) data to v3 datastore
+// 9. Restart etcd on the correct ports// API outage ends
+// 10. Restart gravity-site to fix elections
 //
 //
 // Rollback
@@ -183,24 +185,11 @@ func (p *PhaseUpgradeEtcd) Execute(ctx context.Context) error {
 	}
 	p.Info("command output: ", string(out))
 
-	out, err = utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "enable", "--upgrade")
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	p.Info("command output: ", string(out))
-
 	return nil
 }
 
 func (p *PhaseUpgradeEtcd) Rollback(ctx context.Context) error {
-	p.Info("Rollback upgrade of etcd.")
-	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "disable", "--upgrade")
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	p.Info("command output: ", string(out))
-
-	out, err = utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "rollback")
+	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "rollback")
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -270,12 +259,14 @@ func (*PhaseUpgradeEtcdRestore) PostCheck(context.Context) error {
 type PhaseUpgradeEtcdRestart struct {
 	log.FieldLogger
 	Server storage.Server
+	Master storage.Server
 }
 
 func NewPhaseUpgradeEtcdRestart(phase storage.OperationPhase, logger log.FieldLogger) (fsm.PhaseExecutor, error) {
 	return &PhaseUpgradeEtcdRestart{
 		FieldLogger: logger,
 		Server:      *phase.Data.Server,
+		Master:      *phase.Data.Master,
 	}, nil
 }
 
@@ -283,15 +274,21 @@ func (p *PhaseUpgradeEtcdRestart) Execute(ctx context.Context) error {
 	p.Info("Restart etcd after upgrade.")
 	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "disable", "--upgrade")
 	if err != nil {
-		return trace.Wrap(err)
+		return trace.Wrap(err).AddField("output", out)
 	}
-	p.Info("command output: ", string(out))
 
-	out, err = utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "enable")
-	if err != nil {
-		return trace.Wrap(err)
+	if p.Server.IsEqualTo(p.Master) {
+		out, err = utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "enable")
+		if err != nil {
+			return trace.Wrap(err).AddField("output", out)
+		}
+	} else {
+		out, err = utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "enable", "--join-master", fmt.Sprintf("https://%v:2379", p.Master.AdvertiseIP))
+		if err != nil {
+			return trace.Wrap(err).AddField("output", out)
+		}
 	}
-	p.Info("command output: ", string(out))
+
 	return nil
 }
 
@@ -299,15 +296,9 @@ func (p *PhaseUpgradeEtcdRestart) Rollback(ctx context.Context) error {
 	p.Info("Reenable etcd upgrade service.")
 	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "disable", "--stop-api")
 	if err != nil {
-		return trace.Wrap(err)
+		return trace.Wrap(err).AddField("output", out)
 	}
-	p.Info("command output: ", string(out))
 
-	out, err = utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "enable", "--upgrade")
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	p.Info("command output: ", string(out))
 	return nil
 }
 

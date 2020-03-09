@@ -24,6 +24,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/clients"
 	"github.com/gravitational/gravity/lib/constants"
+	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/opsservice"
 	"github.com/gravitational/gravity/lib/storage"
@@ -346,6 +347,11 @@ func (r *Router) CreateSiteUninstallOperation(ctx context.Context, req ops.Creat
 // CreateClusterGarbageCollectOperation creates a new garbage collection operation in the cluster
 func (r *Router) CreateClusterGarbageCollectOperation(ctx context.Context, req ops.CreateClusterGarbageCollectOperationRequest) (*ops.SiteOperationKey, error) {
 	return r.Local.CreateClusterGarbageCollectOperation(ctx, req)
+}
+
+// CreateClusterReconfigureOperation creates a new cluster reconfiguration operation.
+func (r *Router) CreateClusterReconfigureOperation(ctx context.Context, req ops.CreateClusterReconfigureOperationRequest) (*ops.SiteOperationKey, error) {
+	return r.Local.CreateClusterReconfigureOperation(ctx, req)
 }
 
 // CreateUpdateEnvarsOperation creates a new operation to update cluster runtime environment variables
@@ -907,6 +913,11 @@ func (r *Router) ListReleases(req ops.ListReleasesRequest) ([]storage.Release, e
 // EmitAuditEvent saves the provided event in the audit log.
 func (r *Router) EmitAuditEvent(ctx context.Context, req ops.AuditEventRequest) error {
 	return r.Local.EmitAuditEvent(ctx, req)
+}
+
+// GetVersion returns the gravity binary version information.
+func (r *Router) GetVersion(ctx context.Context) (*modules.Version, error) {
+	return r.Local.GetVersion(ctx)
 }
 
 // CreateUserInvite creates a new invite token for a user.

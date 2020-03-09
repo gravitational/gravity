@@ -17,68 +17,128 @@ limitations under the License.
 package agent
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strings"
 	"time"
 
+	"github.com/gravitational/satellite/agent/health"
 	pb "github.com/gravitational/satellite/agent/proto/agentpb"
 
 	"github.com/gravitational/roundtrip"
 	"github.com/gravitational/trace"
-	serf "github.com/hashicorp/serf/client"
-	"golang.org/x/net/context"
+	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
-
-// Default RPC port.
-const RPCPort = 7575 // FIXME: use serf to discover agents
 
 // RPCServer is the interface that defines the interaction with an agent via RPC.
 type RPCServer interface {
 	Status(context.Context, *pb.StatusRequest) (*pb.StatusResponse, error)
 	LocalStatus(context.Context, *pb.LocalStatusRequest) (*pb.LocalStatusResponse, error)
+	// LastSeen returns the last seen timestamp for a specified member.
+	LastSeen(context.Context, *pb.LastSeenRequest) (*pb.LastSeenResponse, error)
 	Time(context.Context, *pb.TimeRequest) (*pb.TimeResponse, error)
+	Timeline(context.Context, *pb.TimelineRequest) (*pb.TimelineResponse, error)
+	UpdateTimeline(context.Context, *pb.UpdateRequest) (*pb.UpdateResponse, error)
 	Stop()
 }
 
 // server implements RPCServer for an agent.
 type server struct {
 	*grpc.Server
-	agent *agent
+	agent       Agent
+	httpServers []*http.Server
 }
 
 // Status reports the health status of a serf cluster by iterating over the list
 // of currently active cluster members and collecting their respective health statuses.
 func (r *server) Status(ctx context.Context, req *pb.StatusRequest) (resp *pb.StatusResponse, err error) {
-	resp = &pb.StatusResponse{}
-
-	resp.Status, err = r.agent.recentStatus()
+	status, err := r.agent.Status()
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return nil, GRPCError(err)
 	}
-
-	return resp, nil
+	return &pb.StatusResponse{Status: status}, nil
 }
 
 // LocalStatus reports the health status of the local serf node.
 func (r *server) LocalStatus(ctx context.Context, req *pb.LocalStatusRequest) (resp *pb.LocalStatusResponse, err error) {
-	resp = &pb.LocalStatusResponse{}
+	return &pb.LocalStatusResponse{
+		Status: r.agent.LocalStatus(),
+	}, nil
+}
 
-	resp.Status = r.agent.recentLocalStatus()
-
-	return resp, nil
+// LastSeen returns the last seen timestamp for a specified member.
+func (r *server) LastSeen(ctx context.Context, req *pb.LastSeenRequest) (resp *pb.LastSeenResponse, err error) {
+	timestamp, err := r.agent.LastSeen(req.GetName())
+	if err != nil {
+		return nil, GRPCError(err)
+	}
+	return &pb.LastSeenResponse{
+		Timestamp: pb.NewTimeToProto(timestamp),
+	}, nil
 }
 
 // Time sends back the target node server time
 func (r *server) Time(ctx context.Context, req *pb.TimeRequest) (*pb.TimeResponse, error) {
 	return &pb.TimeResponse{
-		Timestamp: pb.NewTimeToProto(time.Now().UTC()),
+		Timestamp: pb.NewTimeToProto(r.agent.Time().UTC()),
 	}, nil
+}
+
+// Timeline sends the current status timeline
+func (r *server) Timeline(ctx context.Context, req *pb.TimelineRequest) (*pb.TimelineResponse, error) {
+	events, err := r.agent.GetTimeline(ctx, req.GetParams())
+	if err != nil {
+		return nil, GRPCError(err)
+	}
+	return &pb.TimelineResponse{Events: events}, nil
+}
+
+// UpdateTimeline updates the timeline with a new event.
+// Duplicate requests will have no effect.
+func (r *server) UpdateTimeline(ctx context.Context, req *pb.UpdateRequest) (*pb.UpdateResponse, error) {
+	if err := r.agent.RecordTimeline(ctx, []*pb.TimelineEvent{req.GetEvent()}); err != nil {
+		return nil, GRPCError(err)
+	}
+	if err := r.agent.RecordLastSeen(req.GetName(), req.GetEvent().GetTimestamp().ToTime()); err != nil {
+		return nil, GRPCError(err)
+	}
+	return &pb.UpdateResponse{}, nil
+}
+
+// Stop stops the grpc server and any additional http servers.
+// TODO: modify Stop to return error
+func (r *server) Stop() {
+	// TODO: pass context in as a parameter.
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := r.stopHTTPServers(ctx); err != nil {
+		log.WithError(err).Error("Some HTTP servers failed to shutdown.")
+	}
+
+	r.Server.Stop()
+}
+
+// stopHTTPServers shuts down all listening http servers.
+func (r *server) stopHTTPServers(ctx context.Context) error {
+	var errors []error
+	for _, srv := range r.httpServers {
+		err := srv.Shutdown(ctx)
+		if err == http.ErrServerClosed {
+			log.WithError(err).Debug("Server has already been shutdown.")
+			continue
+		}
+		if err != nil {
+			errors = append(errors, trace.Wrap(err, "failed to shutdown server running on: %s", srv.Addr))
+			continue
+		}
+	}
+	return trace.NewAggregate(errors...)
 }
 
 // newRPCServer creates an agent RPC endpoint for each provided listener.
@@ -123,23 +183,37 @@ func newRPCServer(agent *agent, caFile, certFile, keyFile string, rpcAddrs []str
 
 	// handler is a multiplexer for both gRPC and HTTPS queries.
 	// The HTTPS endpoint returns the cluster status as JSON
+	// TODO: why does server need to handle both gRPC and HTTPS queries?
 	handler := grpcHandlerFunc(server, healthzHandler)
 
 	for _, addr := range rpcAddrs {
-		go serve(addr, certFile, keyFile, tlsConfig, handler)
-	}
+		srv := newHTTPServer(addr, tlsConfig, handler)
+		server.httpServers = append(server.httpServers, srv)
 
+		// TODO: separate Start function to start listening.
+		go func(srv *http.Server) {
+			err := srv.ListenAndServeTLS(certFile, keyFile)
+			if err == http.ErrServerClosed {
+				log.WithError(err).Debug("Server has been shutdown/closed.")
+				return
+			}
+			if err != nil {
+				log.WithError(err).Errorf("Failed to serve on %v.", srv.Addr)
+				return
+			}
+		}(srv)
+	}
 	return server, nil
 }
 
-func serve(addr, certFile, keyFile string, tlsConfig *tls.Config, handler http.Handler) error {
+// newHTTPServer constructs a new server using the provided config values.
+func newHTTPServer(address string, tlsConfig *tls.Config, handler http.Handler) *http.Server {
 	server := &http.Server{
-		Addr:      addr,
+		Addr:      address,
 		TLSConfig: tlsConfig,
 		Handler:   handler,
 	}
-
-	return server.ListenAndServeTLS(certFile, keyFile)
+	return server
 }
 
 // newHealthHandler creates a http.Handler that returns cluster status
@@ -154,6 +228,11 @@ func newHealthHandler(s *server) http.HandlerFunc {
 		ctx := context.TODO()
 		if r.URL.Path == "/local" || r.URL.Path == "/local/" {
 			handleLocalStatus(ctx, s, w, r)
+			return
+		}
+
+		if r.URL.Path == "/history" || r.URL.Path == "/history/" {
+			handleHistory(ctx, s, w, r)
 			return
 		}
 
@@ -187,6 +266,18 @@ func handleLocalStatus(ctx context.Context, s *server, w http.ResponseWriter, r 
 	roundtrip.ReplyJSON(w, httpStatus, status.GetStatus())
 }
 
+// handleHistory handles status history API call.
+func handleHistory(ctx context.Context, s *server, w http.ResponseWriter, r *http.Request) {
+	timeline, err := s.Timeline(ctx, nil)
+	if err != nil {
+		roundtrip.ReplyJSON(w, http.StatusServiceUnavailable, map[string]string{"error": err.Error()})
+		return
+	}
+
+	httpStatus := http.StatusOK
+	roundtrip.ReplyJSON(w, httpStatus, timeline)
+}
+
 // grpcHandlerFunc returns an http.Handler that delegates to
 // rpcServer on incoming gRPC connections or other otherwise
 func grpcHandlerFunc(rpcServer *server, other http.Handler) http.Handler {
@@ -200,10 +291,32 @@ func grpcHandlerFunc(rpcServer *server, other http.Handler) http.Handler {
 	})
 }
 
-// DefaultDialRPC is a default RPC client factory function.
-// It creates a new client based on address details from the specific serf member.
-func DefaultDialRPC(caFile, certFile, keyFile string) DialRPC {
-	return func(member *serf.Member) (*client, error) {
-		return NewClient(fmt.Sprintf("%s:%d", member.Addr.String(), RPCPort), caFile, certFile, keyFile)
-	}
+// Agent is the interface to interact with the monitoring agent.
+type Agent interface {
+	// Start starts agent's background jobs.
+	Start() error
+	// Close stops background activity and releases resources.
+	Close() error
+	// Join makes an attempt to join a cluster specified by the list of peers.
+	Join(peers []string) error
+	// Time reports the current server time.
+	Time() time.Time
+	// LocalStatus reports the health status of the local agent node.
+	LocalStatus() *pb.NodeStatus
+	// Status reports the health status of the cluster.
+	Status() (*pb.SystemStatus, error)
+	// LastSeen returns the last seen timestamp from the specified member.
+	LastSeen(name string) (time.Time, error)
+	// RecordLastSeen records the last seen timestamp for the specified member.
+	RecordLastSeen(name string, timestamp time.Time) error
+	// GetTimeline returns the current cluster timeline.
+	GetTimeline(ctx context.Context, params map[string]string) ([]*pb.TimelineEvent, error)
+	// RecordTimeline records the events into the cluster timeline.
+	RecordTimeline(ctx context.Context, events []*pb.TimelineEvent) error
+	// IsMember returns whether this agent is already a member of serf cluster
+	IsMember() bool
+	// GetConfig returns the agent configuration.
+	GetConfig() Config
+	// CheckerRepository allows to add checks to the agent.
+	health.CheckerRepository
 }

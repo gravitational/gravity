@@ -80,7 +80,7 @@ To restart the installation, use 'gravity resume' after fixing the issues.
 		return displayClusterOperationPlan(localEnv, op.Key(), format)
 	}
 	switch op.Type {
-	case ops.OperationInstall:
+	case ops.OperationInstall, ops.OperationReconfigure:
 		err = displayInstallOperationPlan(op.Key(), format)
 	case ops.OperationExpand:
 		err = displayExpandOperationPlan(environ, op.Key(), format)

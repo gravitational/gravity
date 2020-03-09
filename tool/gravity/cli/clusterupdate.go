@@ -365,8 +365,8 @@ func checkForUpdate(
 		return nil, trace.Wrap(err)
 	}
 
-	env.PrintStep("Upgrading application %v from %v to %v",
-		updateApp.Package.Name, installedPackage.Version, updateApp.Package.Version)
+	env.PrintStep("Upgrading cluster from %v to %v", installedPackage.Version,
+		updateApp.Package.Version)
 
 	return updateApp, nil
 }

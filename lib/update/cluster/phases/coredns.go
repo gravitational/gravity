@@ -25,7 +25,6 @@ import (
 	libinstall "github.com/gravitational/gravity/lib/install/phases"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
-	"github.com/gravitational/gravity/lib/systeminfo"
 
 	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
@@ -131,18 +130,10 @@ func (p *updatePhaseCoreDNS) Rollback(context.Context) error {
 // Corefile, as that may have been modified by a user.
 func (p *updatePhaseCoreDNS) generateCorefile(context.Context) error {
 	p.Info("Generating CoreDNS Corefile.")
-	// Read the resolv.conf from the host doing upgrade
-	// it will be used for configuring coredns upstream servers
-	resolvConf, err := systeminfo.ResolvFromFile("/etc/resolv.conf")
-	if err != nil {
-		return trace.Wrap(err)
-	}
 
 	conf, err := libinstall.GenerateCorefile(libinstall.CorednsConfig{
-		UpstreamNameservers: resolvConf.Servers,
-		Rotate:              resolvConf.Rotate,
-		Hosts:               p.DNSOverrides.Hosts,
-		Zones:               p.DNSOverrides.Zones,
+		Hosts: p.DNSOverrides.Hosts,
+		Zones: p.DNSOverrides.Zones,
 	})
 	if err != nil {
 		return trace.Wrap(err)

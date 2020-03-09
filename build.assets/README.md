@@ -16,10 +16,10 @@ Introduction
 ============
 Gravity is an open source toolkit for creating "images" of Kubernetes
 clusters and the applications running inside the clusters. The resulting
-images are called *application bundles* and they are just `.tar` files.
+images are called *cluster or application images* and they are just `.tar` files.
 
-An application bundle can be used to re-create full replicas of the original
-cluster in any environment where compliance and consistency matters, i.e. in 
+A cluster image can be used to re-create full replicas of the original
+cluster in any environment where compliance and consistency matters, i.e. in
 locked-down AWS/GCE/Azure environments or even in air-gapped server rooms. A
 bundle can run without human supervision, as a "kubernetes appliance".
 
@@ -30,15 +30,18 @@ fall of 2018.
 Installing
 ==========
 
-Execute `./install.sh` script as root. It will copy `tele` and `tsh` binaries
-into `/usr/local/bin`.
+Execute `./install.sh` script as root. It will copy `tele`, `gravity` and `tsh`
+binaries into `/usr/local/bin`.
 
 What are these binaries?
 
-* `tele` is a tool to build cluster images. These images will contain
-  a Kubernetes installer.
+* `tele` is a tool to build cluster and application images.
+* `gravity` is a tool to install cluster and application images and manage
+  Gravity clusters and installed applications.
 * `tsh` is a tool to remotely connect to clusters created from the images.
   tsh supports both SSH and Kubernetes API.
+* `terraform-provider-gravity` is a Terraform plugin used to support management
+  of open-source Gravity clusters.
 
 See the quick start to learn how to use these tools:
 https://gravitational.com/gravity/docs/quickstart/

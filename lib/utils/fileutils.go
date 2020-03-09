@@ -227,16 +227,13 @@ func CopyDirContents(fromDir, toDir string) error {
 // EnsureLocalPath("", ".gravity", "config") -> ${HOME}/.gravity/config
 //
 // It also makes sure that base dir exists
-func EnsureLocalPath(customPath string, defaultLocalDir, defaultLocalPath string) (string, error) {
-	if customPath == "" {
-		homeDir := os.Getenv(constants.EnvHome)
-		if homeDir == "" {
-			return "", trace.BadParameter("no path provided and environment variable %v is not not set", constants.EnvHome)
-		}
-		customPath = filepath.Join(homeDir, defaultLocalDir, defaultLocalPath)
+func EnsureLocalPath(customPath, defaultLocalDir, defaultLocalPath string) (string, error) {
+	path, err := GetLocalPath(customPath, defaultLocalDir, defaultLocalPath)
+	if err != nil {
+		return "", trace.Wrap(err)
 	}
-	baseDir := filepath.Dir(customPath)
-	_, err := StatDir(baseDir)
+	baseDir := filepath.Dir(path)
+	_, err = StatDir(baseDir)
 	if err != nil {
 		if trace.IsNotFound(err) {
 			if err := MkdirAll(baseDir, defaults.PrivateDirMask); err != nil {
@@ -246,7 +243,20 @@ func EnsureLocalPath(customPath string, defaultLocalDir, defaultLocalPath string
 			return "", trace.Wrap(err)
 		}
 	}
-	return customPath, nil
+	return path, nil
+}
+
+// GetLocalPath constructs path to the local gravity config file like described
+// in the EnsureLocalPath above.
+func GetLocalPath(customPath, defaultLocalDir, defaultLocalPath string) (string, error) {
+	if customPath != "" {
+		return customPath, nil
+	}
+	homeDir := os.Getenv(constants.EnvHome)
+	if homeDir == "" {
+		return "", trace.BadParameter("no path provided and environment variable %v is not set", constants.EnvHome)
+	}
+	return filepath.Join(homeDir, defaultLocalDir, defaultLocalPath), nil
 }
 
 // CopyFile copies contents of src to dst atomically

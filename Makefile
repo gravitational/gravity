@@ -19,7 +19,7 @@ ASSETSDIR=$(TOP)/assets
 BINDIR ?= /usr/bin
 
 # Current Kubernetes version
-K8S_VER := 1.16.2
+K8S_VER := 1.17.3
 # Kubernetes version suffix for the planet package, constructed by concatenating
 # major + minor padded to 2 chars with 0 + patch also padded to 2 chars, e.g.
 # 1.13.5 -> 11305, 1.13.12 -> 11312, 2.0.0 -> 20000 and so on
@@ -46,12 +46,12 @@ RELEASE_OUT ?=
 TELEPORT_TAG = 3.2.14
 # TELEPORT_REPOTAG adapts TELEPORT_TAG to the teleport tagging scheme
 TELEPORT_REPOTAG := v$(TELEPORT_TAG)
-PLANET_TAG := 7.0.15-$(K8S_VER_SUFFIX)
+PLANET_TAG := 7.0.18-$(K8S_VER_SUFFIX)
 PLANET_BRANCH := $(PLANET_TAG)
 K8S_APP_TAG := $(GRAVITY_TAG)
 TELEKUBE_APP_TAG := $(GRAVITY_TAG)
 WORMHOLE_APP_TAG := $(GRAVITY_TAG)
-STORAGE_APP_TAG ?= 0.0.2
+STORAGE_APP_TAG ?= 0.0.3
 LOGGING_APP_TAG ?= 6.0.2
 MONITORING_APP_TAG ?= 6.0.5
 DNS_APP_TAG = 0.4.1
@@ -759,31 +759,5 @@ verify-codegen:
 .PHONY: clean-codegen
 clean-codegen:
 	rm -r $(GENERATED_DIR)
-
-#
-# this is a temporary target until we upgrade docker packages
-# to use sirupsen/logrus
-#
-.PHONY: validate-deps-in-container
-validate-deps-in-container:
-	$(MAKE) -C build.assets validate-deps
-
-.PHONY: validate-deps
-validate-deps:
-	ssh-keyscan github.com > /root/.ssh/known_hosts
-	dep version
-	dep ensure -v
-	dep status -v
-	$(MAKE) fix-logrus
-	$(eval VENDOR_UNTRACKED := $(shell git status --porcelain vendor))
-	@test -z "$(VENDOR_UNTRACKED)" || (echo "failed to recreate vendor from scratch and match it to git:\n $(VENDOR_UNTRACKED)" ; exit 1)
-
-.PHONY: fix-logrus
-fix-logrus:
-	find vendor -not \( -path vendor/github.com/fsouza -prune \) -name '*.go' -type f -print0 | xargs -0 sed -i 's/Sirupsen/sirupsen/g'
-	find lib -type f -print0 | xargs -0 sed -i 's/Sirupsen/sirupsen/g'
-	find tool -type f -print0 | xargs -0 sed -i 's/Sirupsen/sirupsen/g'
-	rm -rf vendor/github.com/Sirupsen/logrus
-
 
 include build.assets/etcd.mk

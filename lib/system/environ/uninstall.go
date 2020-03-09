@@ -132,7 +132,7 @@ func DisableAgentServices(logger log.FieldLogger) error {
 }
 
 func uninstallPackageServices(svm systemservice.ServiceManager, printer utils.Printer, logger log.FieldLogger) error {
-	services, err := svm.ListPackageServices()
+	services, err := svm.ListPackageServices(systemservice.DefaultListServiceOptions)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -206,7 +206,7 @@ func removeInterfaces(printer utils.Printer) error {
 	}
 	var errors []error
 	for _, iface := range ifaces {
-		if utils.HasOneOfPrefixes(iface.Name, "docker", "flannel", "cni", "wormhole") {
+		if utils.HasOneOfPrefixes(iface.Name, defaults.NetworkInterfacePrefixes...) {
 			printer.PrintStep("Removing network interface %q", iface.Name)
 			var out bytes.Buffer
 			if err := utils.Exec(exec.Command("ip", "link", "del", iface.Name), &out); err != nil {

@@ -97,6 +97,8 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.PlanCmd.FullCommand(),
 		g.PlanDisplayCmd.FullCommand(),
 		g.UpgradeCmd.FullCommand(),
+		g.StartCmd.FullCommand(),
+		g.StopCmd.FullCommand(),
 		g.ResourceCreateCmd.FullCommand():
 		if *g.Debug {
 			teleutils.InitLogger(teleutils.LoggingForDaemon, level)
@@ -113,6 +115,7 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.WizardCmd.FullCommand(),
 		g.JoinCmd.FullCommand(),
 		g.AutoJoinCmd.FullCommand(),
+		g.StartCmd.FullCommand(),
 		g.UpdateTriggerCmd.FullCommand(),
 		g.UpdatePlanInitCmd.FullCommand(),
 		g.UpgradeCmd.FullCommand(),
@@ -127,11 +130,11 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.ResourceRemoveCmd.FullCommand(),
 		g.OpsAgentCmd.FullCommand():
 		utils.InitLogging(*g.SystemLogFile)
-		// install and join command also duplicate their logs to the file in
+		// several command also duplicate their logs to the file in
 		// the current directory for convenience, unless the user set their
 		// own location
 		switch cmd {
-		case g.InstallCmd.FullCommand(), g.JoinCmd.FullCommand():
+		case g.InstallCmd.FullCommand(), g.JoinCmd.FullCommand(), g.StartCmd.FullCommand():
 			if *g.SystemLogFile == defaults.GravitySystemLog {
 				utils.InitLogging(defaults.GravitySystemLogFile)
 			}
@@ -162,6 +165,8 @@ func InitAndCheck(g *Application, cmd string) error {
 	case g.SystemUpdateCmd.FullCommand(),
 		g.UpgradeCmd.FullCommand(),
 		g.SystemRollbackCmd.FullCommand(),
+		g.StopCmd.FullCommand(),
+		g.StartCmd.FullCommand(),
 		g.SystemUninstallCmd.FullCommand(),
 		g.UpdateSystemCmd.FullCommand(),
 		g.RPCAgentShutdownCmd.FullCommand(),
@@ -300,6 +305,22 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			return trace.Wrap(err)
 		}
 		return startInstall(localEnv, *config)
+	case g.StopCmd.FullCommand():
+		return stopGravity(localEnv,
+			*g.StopCmd.Confirmed)
+	case g.StartCmd.FullCommand():
+		// If advertise address was explicitly provided to the start command,
+		// launch the reconfigure operation.
+		if *g.StartCmd.AdvertiseAddr != "" {
+			config, err := NewReconfigureConfig(localEnv, g)
+			if err != nil {
+				return trace.Wrap(err)
+			}
+			return reconfigureCluster(localEnv, *config,
+				*g.StartCmd.Confirmed)
+		}
+		return startGravity(localEnv,
+			*g.StartCmd.Confirmed)
 	case g.JoinCmd.FullCommand():
 		return join(localEnv, g, NewJoinConfig(g))
 	case g.AutoJoinCmd.FullCommand():
@@ -419,21 +440,23 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			force:     *g.RemoveCmd.Force,
 			confirmed: *g.RemoveCmd.Confirm,
 		})
-	case g.StatusCmd.FullCommand():
+	case g.StatusClusterCmd.FullCommand():
 		printOptions := printOptions{
-			token:       *g.StatusCmd.Token,
-			operationID: *g.StatusCmd.OperationID,
+			token:       *g.StatusClusterCmd.Token,
+			operationID: *g.StatusClusterCmd.OperationID,
 			quiet:       *g.Silent,
-			format:      *g.StatusCmd.Output,
+			format:      *g.StatusClusterCmd.Output,
 		}
-		if *g.StatusCmd.Tail {
-			return tailStatus(localEnv, *g.StatusCmd.OperationID)
+		if *g.StatusClusterCmd.Tail {
+			return tailStatus(localEnv, *g.StatusClusterCmd.OperationID)
 		}
-		if *g.StatusCmd.Seconds != 0 {
-			return statusPeriodic(localEnv, printOptions, *g.StatusCmd.Seconds)
+		if *g.StatusClusterCmd.Seconds != 0 {
+			return statusPeriodic(localEnv, printOptions, *g.StatusClusterCmd.Seconds)
 		} else {
 			return status(localEnv, printOptions)
 		}
+	case g.StatusHistoryCmd.FullCommand():
+		return statusHistory()
 	case g.UpdateUploadCmd.FullCommand():
 		return uploadUpdate(localEnv, *g.UpdateUploadCmd.OpsCenterURL)
 	case g.AppPackageCmd.FullCommand():
@@ -808,10 +831,17 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			*g.SystemServiceUninstallCmd.Name)
 	case g.SystemServiceListCmd.FullCommand():
 		return systemServiceList(localEnv)
+	case g.SystemServiceStartCmd.FullCommand():
+		return systemServiceStart(localEnv, *g.SystemServiceStartCmd.Package)
+	case g.SystemServiceStopCmd.FullCommand():
+		return systemServiceStop(localEnv, *g.SystemServiceStopCmd.Package)
+	case g.SystemServiceJournalCmd.FullCommand():
+		return systemServiceJournal(localEnv,
+			*g.SystemServiceJournalCmd.Package,
+			*g.SystemServiceJournalCmd.Args)
 	case g.SystemServiceStatusCmd.FullCommand():
 		return systemServiceStatus(localEnv,
-			*g.SystemServiceStatusCmd.Package,
-			*g.SystemServiceStatusCmd.Name)
+			*g.SystemServiceStatusCmd.Package)
 	case g.SystemUninstallCmd.FullCommand():
 		return systemUninstall(localEnv, *g.SystemUninstallCmd.Confirmed)
 	case g.SystemReportCmd.FullCommand():

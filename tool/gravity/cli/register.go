@@ -139,6 +139,14 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.ResumeCmd.Force = g.ResumeCmd.Flag("force", "Force execution of specified phase.").Bool()
 	g.ResumeCmd.PhaseTimeout = g.ResumeCmd.Flag("timeout", "Phase execution timeout.").Default(defaults.PhaseTimeout).Hidden().Duration()
 
+	g.StopCmd.CmdClause = g.Command("stop", "Stop Gravity services on the node.")
+	g.StopCmd.Confirmed = g.StopCmd.Flag("confirm", "Suppress confirmation prompt.").Bool()
+
+	g.StartCmd.CmdClause = g.Command("start", "Start Gravity services on the node.")
+	g.StartCmd.AdvertiseAddr = g.StartCmd.Flag("advertise-addr", "New advertise address the node will use. Must be present on the node.").String()
+	g.StartCmd.FromService = g.StartCmd.Flag("from-service", "Run in service mode.").Hidden().Bool()
+	g.StartCmd.Confirmed = g.StartCmd.Flag("confirm", "Suppress confirmation prompt.").Bool()
+
 	g.PlanCmd.CmdClause = g.Command("plan", "Manage operation plan.")
 	g.PlanCmd.OperationID = g.PlanCmd.Flag("operation-id", "ID of the active operation. It not specified, the last operation will be used.").Hidden().String()
 	g.PlanCmd.SkipVersionCheck = g.PlanCmd.Flag("skip-version-check", "Bypass version compatibility check.").Hidden().Bool()
@@ -205,12 +213,19 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.UpdateSystemCmd.WithStatus = g.UpdateSystemCmd.Flag("with-status", "Verify the system status at the end of the operation").Bool()
 	g.UpdateSystemCmd.RuntimePackage = Locator(g.UpdateSystemCmd.Flag("runtime-package", "The name of the runtime package to update to").Required())
 
+	// Display cluster status information
 	g.StatusCmd.CmdClause = g.Command("status", "Display overall cluster status.")
-	g.StatusCmd.Token = g.StatusCmd.Flag("token", "Display only the cluster join token.").Bool()
-	g.StatusCmd.Tail = g.StatusCmd.Flag("tail", "Tail logs of the currently running operation until it completes.").Bool()
-	g.StatusCmd.OperationID = g.StatusCmd.Flag("operation-id", "Check status of the operation with the given ID.").Short('o').String()
-	g.StatusCmd.Seconds = g.StatusCmd.Flag("seconds", "Continuously display status every N seconds.").Short('s').Int()
-	g.StatusCmd.Output = common.Format(g.StatusCmd.Flag("output", "Output format: json or text.").Default(string(constants.EncodingText)))
+
+	// Display current overall cluster status
+	g.StatusClusterCmd.CmdClause = g.StatusCmd.Command("cluster", "Display overall cluster status.").Default()
+	g.StatusClusterCmd.Token = g.StatusClusterCmd.Flag("token", "Display only the cluster join token.").Bool()
+	g.StatusClusterCmd.Tail = g.StatusClusterCmd.Flag("tail", "Tail logs of the currently running operation until it completes.").Bool()
+	g.StatusClusterCmd.OperationID = g.StatusClusterCmd.Flag("operation-id", "Check status of the operation with the given ID.").Short('o').String()
+	g.StatusClusterCmd.Seconds = g.StatusClusterCmd.Flag("seconds", "Continuously display status every N seconds.").Short('s').Int()
+	g.StatusClusterCmd.Output = common.Format(g.StatusClusterCmd.Flag("output", "Output format: json or text.").Default(string(constants.EncodingText)))
+
+	// Display cluster status history
+	g.StatusHistoryCmd.CmdClause = g.StatusCmd.Command("history", "Display cluster status history.")
 
 	// reset cluster state, for debugging/emergencies
 	g.StatusResetCmd.CmdClause = g.Command("status-reset", "Reset the cluster state to 'active'").Hidden()
@@ -245,7 +260,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 
 	// operations on gravity applications
 	g.AppCmd.CmdClause = g.Command("app", "Operations with application images and releases.")
-	g.AppCmd.TillerNamespace = g.AppCmd.Flag("tiller-namespace", "Namespace where Tiller is running").String()
+	g.AppCmd.TillerNamespace = g.AppCmd.Flag("tiller-namespace", "Namespace where Tiller is running").Default(defaults.KubeSystemNamespace).String()
 
 	// helm-specific flags
 	g.AppInstallCmd.CmdClause = g.AppCmd.Command("install", "Install an application from the specified application image.")
@@ -636,7 +651,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.SystemServiceCmd.CmdClause = g.SystemCmd.Command("service", "operations on system services")
 
 	// install a new system service
-	g.SystemServiceInstallCmd.CmdClause = g.SystemServiceCmd.Command("install", "install a new service").Hidden()
+	g.SystemServiceInstallCmd.CmdClause = g.SystemServiceCmd.Command("install", "install a new service")
 	g.SystemServiceInstallCmd.Package = Locator(g.SystemServiceInstallCmd.Arg("pkg", "the package to generate unit file for").Required())
 	g.SystemServiceInstallCmd.ConfigPackage = Locator(g.SystemServiceInstallCmd.Arg("conf-pkg", "the configuration package used to launch the service with").Required())
 	g.SystemServiceInstallCmd.StartCommand = g.SystemServiceInstallCmd.Flag("start-command", "the command used to start the service").Required().String()
@@ -655,13 +670,22 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.SystemServiceUninstallCmd.Package = Locator(g.SystemServiceUninstallCmd.Flag("package", "the package related to this service"))
 	g.SystemServiceUninstallCmd.Name = g.SystemServiceUninstallCmd.Flag("name", "the service name").String()
 
-	// check status of a service
-	g.SystemServiceStatusCmd.CmdClause = g.SystemServiceCmd.Command("status", "status of a package service, supply either package or service name ").Hidden()
-	g.SystemServiceStatusCmd.Package = Locator(g.SystemServiceStatusCmd.Flag("package", "the package related to this service"))
-	g.SystemServiceStatusCmd.Name = g.SystemServiceStatusCmd.Flag("name", "service name to check").String()
-
 	// list running services
-	g.SystemServiceListCmd.CmdClause = g.SystemServiceCmd.Command("list", "list running services").Hidden()
+	g.SystemServiceListCmd.CmdClause = g.SystemServiceCmd.Command("list", "list running services")
+
+	g.SystemServiceStopCmd.CmdClause = g.SystemServiceCmd.Command("stop", "stop a running service")
+	g.SystemServiceStopCmd.Package = g.SystemServiceStopCmd.Arg("package", "package for the service. Can be specified either as a partial match - i.e. planet or complete package locator").Required().String()
+
+	g.SystemServiceStartCmd.CmdClause = g.SystemServiceCmd.Command("start", "start a service")
+	g.SystemServiceStartCmd.Package = g.SystemServiceStartCmd.Arg("package", "package for the service. Can be specified either as a partial match - i.e. planet or complete package locator").Required().String()
+
+	// query runtime status of a package service
+	g.SystemServiceStatusCmd.CmdClause = g.SystemServiceCmd.Command("status", "query runtime status information of the specified service")
+	g.SystemServiceStatusCmd.Package = g.SystemServiceStatusCmd.Arg("package", "package for the service. Can be specified either as a partial match - i.e. planet or complete package locator").Required().String()
+
+	g.SystemServiceJournalCmd.CmdClause = g.SystemServiceCmd.Command("journal", "query system journal of the specified service").Interspersed(false)
+	g.SystemServiceJournalCmd.Package = g.SystemServiceJournalCmd.Arg("package", "package for the service. Can be specified either as a partial match - i.e. planet or complete package locator").Required().String()
+	g.SystemServiceJournalCmd.Args = g.SystemServiceJournalCmd.Arg("arg", "optional arguments to the journalctl").Strings()
 
 	g.SystemReportCmd.CmdClause = g.SystemCmd.Command("report", "collect system diagnostics and output as gzipped tarball to terminal").Hidden()
 	g.SystemReportCmd.Filter = g.SystemReportCmd.Flag("filter", "collect only specific diagnostics ('system', 'kubernetes'). Collect everything if unspecified").Strings()
