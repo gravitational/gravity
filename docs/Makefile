@@ -65,20 +65,20 @@ LATEST_SYMLINK=$(BUILDDIR)/latest
 .PHONY:container-run
 container-run: $(RUN_VERSION)
 	@echo "Starting mkdocs server..."
-	mkdocs serve --livereload --config-file $(RUN_CFG) --dev-addr=0.0.0.0:$(PORT)
+	mkdocs serve --strict --livereload --config-file $(RUN_CFG) --dev-addr=0.0.0.0:$(PORT)
+
 
 .PHONY:container-compile-docs
 container-compile-docs: $(VERSIONS) $(LATEST_SYMLINK)
 
 .PHONY:$(VERSIONS)
 $(VERSIONS): %.x:
-	mkdocs build $(MKDOCS_FLAGS) --config-file $(*F).x.yaml --site-dir $(BUILDDIR)/$(*F).x
+	mkdocs build --strict --config-file $(*F).x.yaml --site-dir $(BUILDDIR)/$(*F).x
 
 LINTS=$(addprefix lint-, $(VERSIONS))
 
 .PHONY:container-lint
-container-lint: MKDOCS_FLAGS=--strict
-container-lint: $(VERSIONS) $(LINTS)
+container-lint: $(LINTS)
 
 $(LINTS): lint-%:
 	cd $(*F) && milv -ignore-external
