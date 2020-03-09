@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# IMPORTANT! To add a new version, say 8.1
-#     * copy 2.3.yaml to 8.1.yaml
-#     * edit 8.1.yaml
+# IMPORTANT! To add a new version, say 8.x
+#     * copy 7.x.yaml to 8.x.yaml
+#     * edit 8.x.yaml
 #     * edit theme/scripts.html and update docVersions variable
 
 cd $(dirname $0)
@@ -14,8 +14,8 @@ doc_ver=""
 # find all *.yaml files and convert them to array, pick the latest
 cfiles=$(ls *.yaml | sort)
 cfiles_array=($cfiles)
-latest_cfile=$(echo ${cfiles_array[-1]}) # becomes "3.1.yaml"
-latest_ver=${latest_cfile%.yaml}         # becomes "3.1"
+latest_cfile=$(echo ${cfiles_array[-1]}) # becomes "7.x.yaml"
+latest_ver=${latest_cfile%.yaml}         # becomes "7.x"
 
 # build all documentation versions at the same time (4-8x speedup)
 parallel --will-cite mkdocs build --config-file ::: $cfiles
@@ -29,7 +29,7 @@ ln -fs $latest_cfile latest.yaml
 # visitors to the latest verion of QuickStart
 # cp index.html ../build/docs/index.html
 
-# create a symlink called 'latest' to the latest directory, like "3.1"
+# create a symlink called 'latest' to the latest directory, like "7.x"
 cd ../build/docs
 rm -f latest
 ln -s $latest_ver latest

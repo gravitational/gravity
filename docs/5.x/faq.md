@@ -117,5 +117,5 @@ echo "fs.may_detach_mounts = 1" >> /etc/sysctl.d/10-may_detach_mounts.conf
 
 ## Cluster Status
 
-Gravity provides the `gravity status` command to view [Cluster Status](/cluster/#cluster-status).
+Gravity provides the `gravity status` command to view [Cluster Status](cluster.md#cluster-status).
 This tool can help identify issues with the Cluster.

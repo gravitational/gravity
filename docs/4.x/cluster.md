@@ -1558,7 +1558,7 @@ $ gravity resource create auth.yaml
 ```
 
 !!! note 
-    Make sure to configure a proper [OIDC connector](/cluster/#configuring-openid-connect)
+    Make sure to configure a proper [OIDC connector](cluster.md#configuring-openid-connect)
     when using "oidc" authentication type.
 
 To view the currently configured authentication preference:

@@ -690,8 +690,8 @@ hooks:
 
 To see more examples of specific hooks, please refer to the following documentation sections:
 
-* [Application Status](/cluster/#application-status) for `status` hook
-* [Backup & Restore](/cluster/#backup-restore) for `backup` and `restore` hooks
+* [Application Status](cluster.md#application-status) for `status` hook
+* [Backup & Restore](cluster.md#backup-restore) for `backup` and `restore` hooks
 
 !!! tip
     The `quay.io/gravitational/debian-tall:0.0.1` image is a lightweight (~11MB)

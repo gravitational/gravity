@@ -179,7 +179,7 @@ root$ echo 'overlay' > /etc/modules-load.d/overlay.conf
 ### ebtable_filter module
 
 This kernel module is required if the application is configuring Hairpin NAT
-(see [Hairpin NAT](/cluster/#networking)) to enable services to load-balance to themselves
+(see [Hairpin NAT](cluster.md#networking)) to enable services to load-balance to themselves
 and setting up docker bridge in "promiscuous-bridge" mode.
 
 To see if the module is loaded:

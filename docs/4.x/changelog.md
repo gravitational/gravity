@@ -174,7 +174,7 @@ install/upgrade.
 
 #### Improvements
 
-* Add ability to resume install/update after failure. Check [Resuming](/cluster/#resuming) for details.
+* Add ability to resume install/update after failure. Check [Resuming](cluster.md#resuming) for details.
 * Improve error reporting during install and when viewing operation plan.
 
 #### Bugfixes
@@ -248,7 +248,7 @@ install/upgrade.
 #### Improvements
 
 * Standalone installer now supports installing AWS clusters in CLI mode. See
-[AWS Installer](/cluster/#aws-installer) for more info.
+[AWS Installer](cluster.md#aws-installer) for more info.
 
 ### 5.0.0-alpha.13
 
@@ -266,7 +266,7 @@ install/upgrade.
 #### Improvements
 
 * Increase lifetime of CA certificates used internally within the cluster.
-* Add support for separating the endpoint for cluster and user traffic, see [Configuring Ops Center Endpoints](/cluster/#configuring-ops-center-endpoints) for details.
+* Add support for separating the endpoint for cluster and user traffic, see [Configuring Ops Center Endpoints](cluster.md#configuring-ops-center-endpoints) for details.
 * Add support for using flags with ./install script.
 
 #### Bugfixes
@@ -343,7 +343,7 @@ to invite users and reset user passwords from CLI.
 
 #### Improvements
 
-* Add support for trusted clusters, see [Configuring Trusted Clusters](/cluster/#configuring-trusted-clusters) for details.
+* Add support for trusted clusters, see [Configuring Trusted Clusters](cluster.md#configuring-trusted-clusters) for details.
 * Improve application install resiliency by retrying on transient errors.
 * Improve resiliency when checking for hooks status.
 
@@ -364,8 +364,8 @@ to invite users and reset user passwords from CLI.
 #### Improvements
 
 * Add support for AWS autoscaling groups via [provisioner](https://github.com/gravitational/provisioner#aws-auto-scale-groups-support).
-* Add support for explicit [node roles](/cluster/#node-roles).
-* Add support for [custom taints](/cluster/#custom-taints).
+* Add support for explicit [node roles](cluster.md#node-roles).
+* Add support for [custom taints](cluster.md#custom-taints).
 
 ### 5.0.0-alpha.1
 
@@ -631,7 +631,7 @@ transient error
 
 #### Improvements
 
-* Add support for TLS keypair configuration via resources. Read more [here](/cluster/#configuring-tls-key-pair).
+* Add support for TLS keypair configuration via resources. Read more [here](cluster.md#configuring-tls-key-pair).
 * Simplify Ops Center [post install configuration](/opscenter/#post-provisioning).
 
 #### Bugfixes
@@ -645,7 +645,7 @@ transient error
 #### Improvements
 
 * Add ability to provide a custom directory for system data during install/join. See command references in
-  [Automatic Installer](/overview/#automatic-installer) and [Adding a Node](/cluster/#adding-a-node) chapters
+  [Automatic Installer](/overview/#automatic-installer) and [Adding a Node](cluster.md#adding-a-node) chapters
   for more details.
 * Add option to Kubernetes tab in UI to SSH directly into a running container.
 
@@ -724,7 +724,7 @@ transient error
 
 #### Improvements
 
-* Introduce a redesigned manual upgrade procedure, see [Manual Upgrade Mode](/cluster/#manual-upgrade-mode).
+* Introduce a redesigned manual upgrade procedure, see [Manual Upgrade Mode](cluster.md#manual-upgrade-mode).
 
 ### 4.21.0
 
@@ -827,7 +827,7 @@ transient error
 
 #### Improvements
 
-* Introduce a set of `gravity resource` commands for cluster resources management (currently, [only OIDC connectors](/cluster/#configuring-cluster)).
+* Introduce a set of `gravity resource` commands for cluster resources management (currently, [only OIDC connectors](cluster.md#configuring-cluster)).
 
 ### 4.7.0
 

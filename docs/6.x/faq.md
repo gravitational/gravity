@@ -163,10 +163,10 @@ Gravity provides a way to move a single-node cluster to a different node, for
 example to support a use-case of delivering a Gravity cluster as a part of the
 AMI/OVA/OVF appliance.
 
-See [Changing Node Advertise Address](/cluster/#changing-node-advertise-address) for more details.
+See [Changing Node Advertise Address](cluster.md#changing-node-advertise-address) for more details.
 
 ## Cluster Status
 
-Gravity provides the `gravity status` command to view [Cluster Status](/cluster/#cluster-status).
+Gravity provides the `gravity status` command to view [Cluster Status](cluster.md#cluster-status).
 This tool can help identify issues with the Cluster.
 

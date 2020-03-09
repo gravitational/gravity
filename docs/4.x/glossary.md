@@ -49,7 +49,7 @@ response to certain events happening in the cluster.
 
 A sample Custom Installation Screen packaged with Telekube that allows a user to create credentials and enable or disable remote access to an Application Cluster.
 
-## [Operation Plan](/cluster/#updating-a-cluster)
+## [Operation Plan](cluster.md#updating-a-cluster)
 
 ## [Cluster Spec](/)
 
