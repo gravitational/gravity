@@ -13,6 +13,7 @@ LOCAL_BUILDDIR ?= /gopath/src/github.com/gravitational/gravity/build
 LOCAL_GRAVITY_BUILDDIR ?= /gopath/src/github.com/gravitational/gravity/build/$(GRAVITY_VERSION)
 
 DOCKER_ARGS ?= --pull
+NOROOT=-u $$(id -u):$$(id -g)
 BBOX = gravity-buildbox:latest
 
 GRAVITY_WEB_APP_DIR ?= $(abspath $(LOCALDIR)/../web)/
@@ -173,21 +174,21 @@ grpc: buildbox grpc-agents grpc-validation grpc-installer
 
 .PHONY: grpc-installer
 grpc-installer:
-	docker run --rm=true -u $$(id -u) \
+	docker run --rm=true $(NOROOT) \
 		   -v $(TOP):$(SRCDIR) \
 		   $(BBOX) \
 		   dumb-init make -C $(SRCDIR)/lib/install/proto
 
 .PHONY: grpc-agents
 grpc-agents:
-	docker run --rm=true -u $$(id -u) \
+	docker run --rm=true $(NOROOT) \
 		   -v $(TOP):$(SRCDIR) \
 		   $(BBOX) \
 		   dumb-init make -C $(SRCDIR)/lib/rpc/proto
 
 .PHONY: grpc-validation
 grpc-validation:
-	docker run --rm=true -u $$(id -u) \
+	docker run --rm=true $(NOROOT) \
 		   -v $(TOP):$(SRCDIR) \
 		   $(BBOX) \
 		   dumb-init make -C $(SRCDIR)/lib/network/validation/proto
@@ -201,7 +202,7 @@ validate-deps: buildbox
 	$(eval TMP := $(shell mktemp -d))
 	$(eval REPOFILES := $(addprefix $(TOP),lib tool Makefile version.sh build.assets vendor .git .gitignore Gopkg.lock Gopkg.toml))
 	cp -r $(REPOFILES) $(TMP)
-	docker run --rm=true \
+	docker run --rm=true $(NOROOT) \
 		   -v $(GITHUB_SSH_KEY):/root/.ssh/id_rsa \
 		   -v $(TMP):$(SRCDIR) \
 		   $(BBOX) \
@@ -212,7 +213,7 @@ validate-deps: buildbox
 #
 .PHONY: build-in-container
 build-in-container: buildbox
-	docker run --rm=true -u $$(id -u) \
+	docker run --rm=true $(NOROOT) \
 		   -v $(TOP):$(SRCDIR) \
 		   -e "LOCAL_BUILDDIR=$(LOCAL_BUILDDIR)" \
 		   -e "LOCAL_GRAVITY_BUILDDIR=$(LOCAL_GRAVITY_BUILDDIR)" \
@@ -315,7 +316,7 @@ $(GRAVITY_BUILDDIR):
 .PHONY: $(BINARIES)
 $(BINARIES):
 	@echo -e "\n----> Building $(LOCAL_GRAVITY_BUILDDIR)/$@ binary...\n"
-	go build -o $(LOCAL_GRAVITY_BUILDDIR)/$@ -ldflags $(GRAVITY_LINKFLAGS) $(GRAVITY_PKG_PATH)/tool/$@
+	GO111MODULE=on GOMOD=$(SRCDIR)/go.mod go build -mod=vendor -o $(LOCAL_GRAVITY_BUILDDIR)/$@ -ldflags $(GRAVITY_LINKFLAGS) $(GRAVITY_PKG_PATH)/tool/$@
 	@echo "\nDone --> $(LOCAL_GRAVITY_BUILDDIR)/$@\n"
 
 .PHONY: compile
@@ -442,7 +443,7 @@ build-tsh:
 #
 .PHONY: build-tsh-in-container
 build-tsh-in-container: clone-teleport
-	docker run --rm=true -u $$(id -u) \
+	docker run --rm=true $(NOROOT) \
            -v $(TOP):$(SRCDIR) \
 		   -v $(TELEPORT_SRCDIR)/teleport:$(TELEPORT_SRCDIR_CONTAINER) \
 		   -e "GRAVITY_PKG_PATH=$(GRAVITY_PKG_PATH)" \
@@ -556,7 +557,7 @@ build-fio:
 
 .PHONY: build-fio-sub
 build-fio-sub: clone-fio
-	docker run --rm=true -u $$(id -u) \
+	docker run --rm=true $(NOROOT) \
 	    -v $(TOP):$(SRCDIR) \
 	    -v $(FIO_BUILDDIR):/fio \
 	    $(BBOX) \
@@ -646,6 +647,7 @@ buildbox:
 		--build-arg PROTOC_PLATFORM=$(PROTOC_PLATFORM) \
 		--build-arg GOGO_PROTO_TAG=$(GOGO_PROTO_TAG) \
 		--build-arg GRPC_GATEWAY_TAG=$(GRPC_GATEWAY_TAG) \
-		--build-arg GODEP_TAG=$(GODEP_TAG) \
 		--build-arg VERSION_TAG=$(VERSION_TAG) \
+		--build-arg UID=$(shell id -u) \
+		--build-arg GID=$(shell id -g) \
 		$(DOCKER_ARGS) --tag $(BBOX) .
