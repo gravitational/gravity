@@ -8,6 +8,9 @@ require (
 	github.com/MakeNowJust/heredoc v0.0.0-20171113091838-e9091a26100e // indirect
 	github.com/Masterminds/semver v1.4.2 // indirect
 	github.com/Masterminds/sprig v2.16.0+incompatible // indirect
+	github.com/alecthomas/assert v0.0.0-20170929043011-405dbfeb8e38 // indirect
+	github.com/alecthomas/colour v0.1.0 // indirect
+	github.com/alecthomas/repr v0.0.0-20181024024818-d37bc2a10ba1 // indirect
 	github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751
 	github.com/aokoli/goutils v1.0.1 // indirect
 	github.com/apparentlymart/go-cidr v1.0.0 // indirect
@@ -54,18 +57,13 @@ require (
 	github.com/google/btree v1.0.0 // indirect
 	github.com/google/go-cmp v0.3.1 // indirect
 	github.com/gorilla/handlers v0.0.0-20151124211609-e96366d97736 // indirect
-	github.com/gravitational/bolt v1.3.2-gravitational // indirect
-	github.com/gravitational/certificate-transparency-go v0.0.0-20180803094710-99d8352410cb // indirect
-	github.com/gravitational/cfssl v0.0.0-20180619163912-4b8305b36ad0 // indirect
 	github.com/gravitational/configure v0.0.0-20180808141939-c3428bd84c23
 	github.com/gravitational/coordinate v0.0.0-20180225144834-2bc9a83f6fe2
 	github.com/gravitational/form v0.0.0-20151109031454-c4048f792f70
-	github.com/gravitational/go-oidc v0.0.1 // indirect
 	github.com/gravitational/go-vhost v0.0.0-20171024163855-94d0c42e3263
 	github.com/gravitational/kingpin v2.1.10+incompatible // indirect
 	github.com/gravitational/license v0.0.0-20171013193735-f3111b1818ce
 	github.com/gravitational/log v0.0.0-20200127200505-fdffa14162b0 // indirect
-	github.com/gravitational/logrus v0.10.1-0.20180402202453-dcdb95d728db // indirect
 	github.com/gravitational/oxy v0.0.0-20180629203109-e4a7e35311e6 // indirect
 	github.com/gravitational/rigging v0.0.0-20191021212636-83b2e9505286
 	github.com/gravitational/roundtrip v1.0.0
@@ -193,7 +191,6 @@ replace (
 	github.com/google/gofuzz => github.com/google/gofuzz v0.0.0-20150304233714-bbcb9da2d746
 	github.com/google/uuid => github.com/google/uuid v1.1.0
 	github.com/gophercloud/gophercloud => github.com/gophercloud/gophercloud v0.0.0-20181207171349-d3bcea3cf97e
-	github.com/gravitational/kingpin => github.com/gravitational/kingpin v2.1.11-0.20180808090833-85085db9f49b+incompatible
 	github.com/hashicorp/go-cleanhttp => github.com/hashicorp/go-cleanhttp v0.5.0
 	github.com/hashicorp/go-uuid => github.com/hashicorp/go-uuid v1.0.0
 	github.com/hashicorp/go-version => github.com/hashicorp/go-version v1.0.0

@@ -5,92 +5,6 @@ import (
 	"strings"
 )
 
-type cmdMixin struct {
-	*flagGroup
-	*argGroup
-	*cmdGroup
-	actionMixin
-}
-
-// CmdCompletion returns completion options for arguments, if that's where
-// parsing left off, or commands if there aren't any unsatisfied args.
-func (c *cmdMixin) CmdCompletion(context *ParseContext) []string {
-	var options []string
-
-	// Count args already satisfied - we won't complete those, and add any
-	// default commands' alternatives, since they weren't listed explicitly
-	// and the user may want to explicitly list something else.
-	argsSatisfied := 0
-	for _, el := range context.Elements {
-		switch clause := el.Clause.(type) {
-		case *ArgClause:
-			if el.Value != nil && *el.Value != "" {
-				argsSatisfied++
-			}
-		case *CmdClause:
-			options = append(options, clause.completionAlts...)
-		default:
-		}
-	}
-
-	if argsSatisfied < len(c.argGroup.args) {
-		// Since not all args have been satisfied, show options for the current one
-		options = append(options, c.argGroup.args[argsSatisfied].resolveCompletions()...)
-	} else {
-		// If all args are satisfied, then go back to completing commands
-		for _, cmd := range c.cmdGroup.commandOrder {
-			if !cmd.hidden {
-				options = append(options, cmd.name)
-			}
-		}
-	}
-
-	return options
-}
-
-func (c *cmdMixin) FlagCompletion(flagName string, flagValue string) (choices []string, flagMatch bool, optionMatch bool) {
-	// Check if flagName matches a known flag.
-	// If it does, show the options for the flag
-	// Otherwise, show all flags
-
-	options := []string{}
-
-	for _, flag := range c.flagGroup.flagOrder {
-		// Loop through each flag and determine if a match exists
-		if flag.name == flagName {
-			// User typed entire flag. Need to look for flag options.
-			options = flag.resolveCompletions()
-			if len(options) == 0 {
-				// No Options to Choose From, Assume Match.
-				return options, true, true
-			}
-
-			// Loop options to find if the user specified value matches
-			isPrefix := false
-			matched := false
-
-			for _, opt := range options {
-				if flagValue == opt {
-					matched = true
-				} else if strings.HasPrefix(opt, flagValue) {
-					isPrefix = true
-				}
-			}
-
-			// Matched Flag Directly
-			// Flag Value Not Prefixed, and Matched Directly
-			return options, true, !isPrefix && matched
-		}
-
-		if !flag.hidden {
-			options = append(options, "--"+flag.name)
-		}
-	}
-	// No Flag directly matched.
-	return options, false, false
-
-}
-
 type cmdGroup struct {
 	app          *Application
 	parent       *CmdClause
@@ -105,14 +19,6 @@ func (c *cmdGroup) defaultSubcommand() *CmdClause {
 		}
 	}
 	return nil
-}
-
-func (c *cmdGroup) cmdNames() []string {
-	names := make([]string, 0, len(c.commandOrder))
-	for _, cmd := range c.commandOrder {
-		names = append(names, cmd.name)
-	}
-	return names
 }
 
 // GetArg gets a command definition.
@@ -143,13 +49,6 @@ func (c *cmdGroup) flattenedCommands() (out []*CmdClause) {
 func (c *cmdGroup) addCommand(name, help string) *CmdClause {
 	cmd := newCommand(c.app, name, help)
 	c.commands[name] = cmd
-	// replace the existing command (if exists)
-	for i := range c.commandOrder {
-		if c.commandOrder[i].Name() == name {
-			c.commandOrder[i] = cmd
-			return cmd
-		}
-	}
 	c.commandOrder = append(c.commandOrder, cmd)
 	return cmd
 }
@@ -193,35 +92,29 @@ type CmdClauseValidator func(*CmdClause) error
 // A CmdClause is a single top-level command. It encapsulates a set of flags
 // and either subcommands or positional arguments.
 type CmdClause struct {
-	cmdMixin
-	app            *Application
-	name           string
-	aliases        []string
-	help           string
-	isDefault      bool
-	validator      CmdClauseValidator
-	hidden         bool
-	completionAlts []string
-	// noInterspersed specifies whether this command allows flags to be interspersed with positional argumentss.
-	// Overrides the application setting.
-	noInterspersed bool
+	actionMixin
+	*flagGroup
+	*argGroup
+	*cmdGroup
+	app       *Application
+	name      string
+	aliases   []string
+	help      string
+	isDefault bool
+	validator CmdClauseValidator
+	hidden    bool
 }
 
 func newCommand(app *Application, name, help string) *CmdClause {
 	c := &CmdClause{
-		app:  app,
-		name: name,
-		help: help,
+		flagGroup: newFlagGroup(),
+		argGroup:  newArgGroup(),
+		cmdGroup:  newCmdGroup(app),
+		app:       app,
+		name:      name,
+		help:      help,
 	}
-	c.flagGroup = newFlagGroup()
-	c.argGroup = newArgGroup()
-	c.cmdGroup = newCmdGroup(app)
 	return c
-}
-
-// Name returns the name of the clause
-func (c *CmdClause) Name() string {
-	return c.name
 }
 
 // Add an Alias for this command.
@@ -285,14 +178,5 @@ func (c *CmdClause) init() error {
 
 func (c *CmdClause) Hidden() *CmdClause {
 	c.hidden = true
-	return c
-}
-
-// Interspersed controls if flags can be interspersed with positional arguments.
-//
-// true (the default) means that they can, false means that all the flags must appear
-// before the first positional arguments.
-func (c *CmdClause) Interspersed(interspersed bool) *CmdClause {
-	c.noInterspersed = !interspersed
 	return c
 }

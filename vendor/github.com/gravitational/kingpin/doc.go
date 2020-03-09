@@ -35,7 +35,7 @@
 //
 //     package main
 //
-//     import "gopkg.in/alecthomas/kingpin.v2"
+//     import "gopkg.in/alecthomas/kingpin.v1"
 //
 //     var (
 //       debug    = kingpin.Flag("debug", "enable debug mode").Default("false").Bool()

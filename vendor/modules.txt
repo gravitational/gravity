@@ -377,7 +377,7 @@ github.com/gravitational/coordinate/leader
 github.com/gravitational/form
 # github.com/gravitational/go-vhost v0.0.0-20171024163855-94d0c42e3263
 github.com/gravitational/go-vhost
-# github.com/gravitational/kingpin v2.1.10+incompatible => github.com/gravitational/kingpin v2.1.11-0.20180808090833-85085db9f49b+incompatible
+# github.com/gravitational/kingpin v2.1.10+incompatible
 github.com/gravitational/kingpin
 # github.com/gravitational/license v0.0.0-20171013193735-f3111b1818ce
 github.com/gravitational/license
