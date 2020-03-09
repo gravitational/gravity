@@ -1706,7 +1706,7 @@ transient error
 #### Improvements
 
 * New `tele create` command creates clusters via the OpsCenter.
-  See [Creating Remote Clusters](manage.md#creating-remote-clusters) for details.
+  See [Creating Remote Clusters](manage.md#creating-gravity-clusters) for details.
 
 ### 4.20.0
 
