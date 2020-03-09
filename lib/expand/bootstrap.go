@@ -20,8 +20,10 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/install"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/pack"
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
@@ -51,6 +53,9 @@ func (p *Peer) initEnviron(ctx operationContext) error {
 		return trace.Wrap(err)
 	}
 	if err := p.ensureServiceUserAndBinary(ctx); err != nil {
+		return trace.Wrap(err)
+	}
+	if err := p.downloadFio(ctx); err != nil {
 		return trace.Wrap(err)
 	}
 	return nil
@@ -102,6 +107,24 @@ func (p *Peer) ensureServiceUserAndBinary(ctx operationContext) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	return nil
+}
+
+// downloadFio downloads fio binary from the installer's package service.
+func (p *Peer) downloadFio(ctx operationContext) error {
+	locator, err := ctx.Cluster.App.Manifest.Dependencies.ByName(constants.FioPackage)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	path, err := state.InStateDir(constants.FioBin)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = pack.ExportExecutable(ctx.Packages, *locator, path)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	p.Infof("Exported fio v%v to %v.", locator.Version, path)
 	return nil
 }
 

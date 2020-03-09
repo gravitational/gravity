@@ -9,9 +9,11 @@ trap "rm -rf ${TEMP_DIR}" exit
 # LICENSE
 # README.md
 # tele
+# gravity
+# terraform-provider-gravity
 # tsh
 # VERSION
-cp ${TSH_OUT} ${TELE_OUT} install.sh README.md ../LICENSE ${TEMP_DIR}
+cp ${GRAVITY_OUT} ${TSH_OUT} ${TELE_OUT} ${TF_PROVIDER_GRAVITY_OUT} install.sh README.md ../LICENSE ${TEMP_DIR}
 ../version.sh > ${TEMP_DIR}/VERSION
 
 tar -C ${TEMP_DIR} -zcvf ${RELEASE_OUT} .

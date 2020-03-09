@@ -17,7 +17,10 @@ limitations under the License.
 package localenv
 
 import (
+	"time"
+
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/ops"
 
 	"github.com/gravitational/trace"
@@ -64,7 +67,7 @@ Otherwise, run "gravity status" and troubleshoot the degraded cluster.`)
 // Returns nil if the cluster is deployed and a specific error otherwise.
 func checkCluster(env *LocalEnvironment) error {
 	// 1. Try to get operator client for the local cluster.
-	clusterOperator, err := env.SiteOperator()
+	clusterOperator, err := env.SiteOperator(httplib.WithTimeout(time.Second))
 	if err != nil {
 		return trace.Wrap(err, "failed to get local cluster operator")
 	}

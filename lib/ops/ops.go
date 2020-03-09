@@ -30,6 +30,7 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
+	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/network/validation/proto"
 	"github.com/gravitational/gravity/lib/ops/monitoring"
 	"github.com/gravitational/gravity/lib/pack"
@@ -700,6 +701,8 @@ type Status interface {
 	CheckSiteStatus(ctx context.Context, key SiteKey) error
 	// GetClusterNodes returns a real-time information about cluster nodes
 	GetClusterNodes(SiteKey) ([]Node, error)
+	// GetVersion returns the gravity binary version information.
+	GetVersion(context.Context) (*modules.Version, error)
 }
 
 // Node represents a cluster node information based on Teleport node
@@ -756,6 +759,9 @@ type Operations interface {
 	// CreateClusterGarbageCollectOperation creates a new garbage collection operation
 	// in the cluster
 	CreateClusterGarbageCollectOperation(context.Context, CreateClusterGarbageCollectOperationRequest) (*SiteOperationKey, error)
+
+	// CreateClusterReconfigureOperation create a new cluster reconfiguration operation.
+	CreateClusterReconfigureOperation(context.Context, CreateClusterReconfigureOperationRequest) (*SiteOperationKey, error)
 
 	// GetsiteOperation returns the operation information based on it's key
 	GetSiteOperation(SiteOperationKey) (*SiteOperation, error)
@@ -1164,6 +1170,8 @@ func (s *SiteOperation) TypeString() string {
 	switch s.Type {
 	case OperationInstall:
 		return "install"
+	case OperationReconfigure:
+		return "reconfigure"
 	case OperationExpand:
 		return "expand"
 	case OperationUpdate:
@@ -1374,6 +1382,36 @@ type CreateClusterGarbageCollectOperationRequest struct {
 	AccountID string `json:"account_id"`
 	// ClusterName is the name of the cluster
 	ClusterName string `json:"cluster_name"`
+}
+
+// CreateClusterReconfigureOperationRequest is a request to initialize
+// node advertise IP reconfiguration operation.
+type CreateClusterReconfigureOperationRequest struct {
+	// SiteKey is the cluster ID.
+	SiteKey
+	// AdvertiseAddr is the new node advertise address.
+	AdvertiseAddr string `json:"advertise_addr"`
+	// Servers contains the node whose IP is being reconfigured.
+	Servers []storage.Server `json:"servers"`
+	// InstallExpand is the original install operation state.
+	InstallExpand *storage.InstallExpandOperationState `json:"install_expand"`
+}
+
+// Check validates the request.
+func (r *CreateClusterReconfigureOperationRequest) Check() error {
+	if err := r.SiteKey.Check(); err != nil {
+		return trace.Wrap(err)
+	}
+	if r.AdvertiseAddr == "" {
+		return trace.BadParameter("missing AdvertiseAddr")
+	}
+	if len(r.Servers) == 0 {
+		return trace.BadParameter("missing Servers")
+	}
+	if r.InstallExpand == nil {
+		return trace.BadParameter("missing InstallExpand")
+	}
+	return nil
 }
 
 // CreateUpdateEnvarsOperationRequest is a request

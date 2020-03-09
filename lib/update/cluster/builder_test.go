@@ -764,6 +764,7 @@ func (r params) etcdRestartLeaderNode() storage.OperationPhase {
 		Requires:    []string{"/etcd/restore"},
 		Data: &storage.OperationPhaseData{
 			Server: &r.leadMaster.Server,
+			Master: &r.leadMaster.Server,
 		},
 	}
 }
@@ -772,6 +773,7 @@ func (r params) etcdRestartNode(server storage.UpdateServer) storage.OperationPh
 	t := func(format string) string {
 		return fmt.Sprintf(format, server.Hostname)
 	}
+
 	return storage.OperationPhase{
 		ID:          t("/etcd/restart/%v"),
 		Description: t("Restart etcd on node %q"),
@@ -779,6 +781,7 @@ func (r params) etcdRestartNode(server storage.UpdateServer) storage.OperationPh
 		Requires:    []string{t("/etcd/upgrade/%v")},
 		Data: &storage.OperationPhaseData{
 			Server: &server.Server,
+			Master: &r.leadMaster.Server,
 		},
 	}
 }

@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/fatih/color"
 	appbase "github.com/gravitational/gravity/lib/app"
 	appclient "github.com/gravitational/gravity/lib/app/client"
 	appservice "github.com/gravitational/gravity/lib/app/service"
@@ -320,10 +321,10 @@ func (env *LocalEnvironment) OperatorService(opsCenterURL string, options ...htt
 }
 
 // SiteOperator returns Operator for the local gravity site
-func (env *LocalEnvironment) SiteOperator() (*opsclient.Client, error) {
-	return env.OperatorService(defaults.GravityServiceURL,
+func (env *LocalEnvironment) SiteOperator(options ...httplib.ClientOption) (*opsclient.Client, error) {
+	return env.OperatorService(defaults.GravityServiceURL, append(options,
 		httplib.WithLocalResolver(env.DNS.Addr()),
-		httplib.WithInsecure())
+		httplib.WithInsecure())...)
 }
 
 // LocalCluster queries a local Gravity cluster.
@@ -685,9 +686,9 @@ func (r Silent) PrintStep(format string, args ...interface{}) {
 	if r {
 		return
 	}
+	timestamp := color.New(color.Bold).Sprint(time.Now().UTC().Format(constants.HumanDateFormatSeconds))
 	// nolint:errcheck
-	fmt.Printf("%v\t%v\n", time.Now().UTC().Format(
-		constants.HumanDateFormatSeconds), fmt.Sprintf(format, args...))
+	fmt.Printf("%v\t%v\n", timestamp, fmt.Sprintf(format, args...))
 }
 
 // Write outputs specified arguments to stdout if the silent mode is not on.

@@ -72,7 +72,7 @@ func (i *Installer) NewCluster() ops.NewSiteRequest {
 // ExecuteOperation executes the specified operation to completion.
 // Implements Interface
 func (i *Installer) ExecuteOperation(operationKey ops.SiteOperationKey) error {
-	err := initOperationPlan(i.config.Operator, i.config.Planner)
+	err := i.initOperationPlan(operationKey)
 	if err != nil && !trace.IsAlreadyExists(err) {
 		return trace.Wrap(err)
 	}
@@ -168,7 +168,8 @@ func (i *Installer) registerExitHandlersForAgents(op ops.SiteOperation) {
 func (i *Installer) sendElapsedTime(timeStarted time.Time) {
 	event := dispatcher.Event{
 		Progress: &ops.ProgressEntry{
-			Message: color.GreenString("Installation succeeded in %v", time.Since(timeStarted)),
+			Message: color.GreenString("The operation has finished successfully in %v",
+				time.Since(timeStarted).Truncate(time.Second)),
 		},
 	}
 	i.dispatcher.Send(event)

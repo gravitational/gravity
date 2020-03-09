@@ -34,6 +34,7 @@ Helm Version: v2.12
 ### Build an Application Image
 
 For this example we will be using a [sample Helm chart](https://github.com/helm/helm/tree/master/cmd/helm/testdata/testcharts/alpine).
+
 This chart spins up a single pod of Alpine Linux:
 
 ```bsh

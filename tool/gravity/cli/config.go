@@ -135,7 +135,7 @@ type InstallConfig struct {
 	// GCENodeTags defines the VM instance tags on GCE
 	GCENodeTags []string
 	// LocalClusterClient is a factory for creating client to the installed cluster
-	LocalClusterClient func() (*opsclient.Client, error)
+	LocalClusterClient func(...httplib.ClientOption) (*opsclient.Client, error)
 	// Mode specifies the installer mode
 	Mode string
 	// DNSHosts is a list of DNS host overrides
@@ -164,6 +164,45 @@ type InstallConfig struct {
 	writeStateDir string
 	// Values are helm values in marshaled yaml format
 	Values []byte
+}
+
+// NewReconfigureConfig creates config for the reconfigure operation.
+//
+// Reconfiguration is very similar to initial installation so the install
+// config is reused.
+func NewReconfigureConfig(env *localenv.LocalEnvironment, g *Application) (*InstallConfig, error) {
+	// The installer is using the existing state directory in order to be able
+	// to use existing application packages.
+	stateDir, err := state.GetStateDir()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &InstallConfig{
+		Insecure:           *g.Insecure,
+		StateDir:           state.GravityLocalDir(stateDir),
+		UserLogFile:        *g.UserLogFile,
+		SystemLogFile:      *g.SystemLogFile,
+		AdvertiseAddr:      *g.StartCmd.AdvertiseAddr,
+		FromService:        *g.StartCmd.FromService,
+		LocalPackages:      env.Packages,
+		LocalApps:          env.Apps,
+		LocalBackend:       env.Backend,
+		LocalClusterClient: env.SiteOperator,
+		Mode:               constants.InstallModeCLI,
+		Printer:            env,
+	}, nil
+}
+
+// Apply updates the config with the data found from the cluster/operation.
+func (c *InstallConfig) Apply(cluster storage.Site, operation storage.SiteOperation) {
+	c.SiteDomain = cluster.Domain
+	c.AppPackage = cluster.App.Locator().String()
+	c.CloudProvider = cluster.Provider
+	c.PodCIDR = operation.Vars().OnPrem.PodCIDR
+	c.ServiceCIDR = operation.Vars().OnPrem.ServiceCIDR
+	c.VxlanPort = operation.Vars().OnPrem.VxlanPort
+	c.ServiceUID = cluster.ServiceUser.UID
+	c.ServiceGID = cluster.ServiceUser.GID
 }
 
 // NewInstallConfig creates install config from the passed CLI args and flags

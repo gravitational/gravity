@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -530,15 +529,6 @@ func (h *WebHandler) exportApp(w http.ResponseWriter, req *http.Request,
 	if err := json.NewDecoder(req.Body).Decode(&config); err != nil {
 		return trace.Wrap(err)
 	}
-	_, _, err = net.SplitHostPort(config.RegistryHostPort)
-	if config.RegistryHostPort == "" || err != nil {
-		message := "invalid host:port value"
-		if err != nil {
-			message = err.Error()
-		}
-		return trace.BadParameter("registryHostPort: %v", message)
-	}
-
 	if err = context.applications.ExportApp(app.ExportAppRequest{
 		Package:         *locator,
 		RegistryAddress: config.RegistryHostPort,
@@ -1119,7 +1109,7 @@ fi
 
 URL=https://get.gravitational.io/telekube/bin/{{.version}}/$OS/$ARCH
 
-for BINARY in tele tsh; do
+for BINARY in tele gravity tsh; do
     echo "Downloading $BINARY..."
     rm -f $BINARY
     curl -sOfL $URL/$BINARY

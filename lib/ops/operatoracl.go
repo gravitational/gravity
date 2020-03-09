@@ -502,6 +502,14 @@ func (o *OperatorACL) CreateClusterGarbageCollectOperation(ctx context.Context, 
 	return o.operator.CreateClusterGarbageCollectOperation(ctx, req)
 }
 
+// CreateClusterReconfigureOperation creates a new cluster reconfiguration operation.
+func (o *OperatorACL) CreateClusterReconfigureOperation(ctx context.Context, req CreateClusterReconfigureOperationRequest) (*SiteOperationKey, error) {
+	if err := o.ClusterAction(req.SiteDomain, storage.KindCluster, teleservices.VerbUpdate); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return o.operator.CreateClusterReconfigureOperation(ctx, req)
+}
+
 // CreateUpdateEnvarsOperation creates a new operation to update cluster environment variables
 func (o *OperatorACL) CreateUpdateEnvarsOperation(ctx context.Context, req CreateUpdateEnvarsOperationRequest) (*SiteOperationKey, error) {
 	if err := o.ClusterAction(req.ClusterKey.SiteDomain, storage.KindCluster, teleservices.VerbUpdate); err != nil {
@@ -1082,6 +1090,11 @@ func (o *OperatorACL) EmitAuditEvent(ctx context.Context, req AuditEventRequest)
 		return trace.Wrap(err)
 	}
 	return o.operator.EmitAuditEvent(ctx, req)
+}
+
+// GetVersion returns the server version information.
+func (o *OperatorACL) GetVersion(ctx context.Context) (*modules.Version, error) {
+	return o.operator.GetVersion(ctx)
 }
 
 // CreateUserInvite creates a new invite token for a user.

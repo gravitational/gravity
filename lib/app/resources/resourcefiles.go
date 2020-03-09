@@ -235,6 +235,12 @@ func (r *ResourceFiles) RewriteImages(rewriteFunc func(string) string) error {
 						}
 					}
 				}
+			case *clusterv1beta1.ImageSet:
+				log.Infof("Rewriting images in ImageSet %q.", resource.Name)
+				for i := range resource.Spec.Images {
+					resource.Spec.Images[i].Image = rewriteFunc(
+						resource.Spec.Images[i].Image)
+				}
 			case *corev1.Pod:
 				log.Infof("Rewriting images in Pod %q.", resource.Name)
 				rewrite(&resource.Spec)
