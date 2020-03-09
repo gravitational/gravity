@@ -5,8 +5,9 @@ DOCBOX_ID_FILE=$(BUILDROOT)/.docs-buildbox.id
 HOME=/home
 PORT=6601
 DOCKERPORTS = -p $(PORT):$(PORT)
-DOCKERFLAGS = --rm=true -v "$$(pwd)/../":$(HOME) -w $(HOME)/docs -h docs
 NOROOT=-u $$(id -u):$$(id -g)
+DOCKERFLAGS = --rm=true $(NOROOT) -v "$$(pwd)/../":$(HOME) -w $(HOME)/docs -h docs $(DOCKERPORTS)
+DOCKERMAKE=docker run $(DOCKERFLAGS) $(DOCBOX) make
 VERSIONS=4.x 5.x 6.x 7.x
 LATEST=$(lastword $(VERSIONS))
 CFGS=$(addsuffix .yaml, $(VERSIONS))
@@ -16,24 +17,23 @@ RUN_CFG?=$(LATEST_CFG)
 # generate user-facing documentation
 .PHONY:docs
 docs: $(DOCBOX_ID_FILE)
-	docker run $(NOROOT) $(DOCKERFLAGS) $(DOCBOX) make container-compile-docs
+	$(DOCKERMAKE) container-compile-docs
 
 # run static analysis against the docs
 .PHONY: lint
 lint: $(DOCBOX_ID_FILE)
-	docker run $(NOROOT) $(DOCKERFLAGS) $(DOCBOX) make container-lint
+	$(DOCKERMAKE) container-lint
 
 # run the docs in development mode
 .PHONY:run
 run: $(DOCBOX_ID_FILE) $(RUN_CFG)
-	@echo "\n\nOpen http://localhost:$(PORT)/overview/ in your local browser\n\n"
-	docker run  $(NOROOT) $(DOCKERFLAGS) $(DOCKERPORTS) $(DOCBOX) make container-run RUN_CFG=$(RUN_CFG)
+	@echo "\n\nOpen http://localhost:$(PORT)/ in your local browser\n\n"
+	$(DOCKERMAKE) container-run RUN_CFG=$(RUN_CFG)
 
 # drops you into bash shell of mkdocs container
 .PHONY:shell
 shell: $(DOCBOX_ID_FILE)
-	docker run -ti $(NOROOT) $(DOCKERFLAGS) $(DOCKERPORTS) $(DOCBOX) \
-		/bin/bash
+	docker run -ti $(DOCKERFLAGS) $(DOCBOX) /bin/bash
 
 $(DOCBOX_ID_FILE): Dockerfile
 	mkdir -p $(BUILDDIR)
