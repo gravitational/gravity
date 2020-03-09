@@ -131,7 +131,7 @@ install/upgrade.
 #### Improvements
 
 * Add multi-zone support for GCE clusters.
-* Update preflight checks to check iptables modules. See [requirements](/requirements#iptables-modules)
+* Update preflight checks to check iptables modules. See [requirements](/requirements.md#iptables-modules)
 for details.
 * Add timeout to preflight checks on remote nodes.
 
@@ -155,7 +155,7 @@ for details.
 
 #### Improvements
 
-* Add support for GCE cloud provider. See [Installing on Google Compute Engine](/installation/#installing-on-google-compute-engine)
+* Add support for GCE cloud provider. See [Installing on Google Compute Engine](/installation.md#installing-on-google-compute-engine)
 for details.
 
 #### Bugfixes
@@ -241,7 +241,7 @@ install/upgrade.
 #### Improvements
 
 * Upgrade Kubernetes to `v1.9.6`.
-* Add support for more InfluxDB aggregate functions for use in [rollups](/monitoring/#rollups).
+* Add support for more InfluxDB aggregate functions for use in [rollups](/monitoring.md#rollups).
 
 ### 5.0.0-alpha.14
 
@@ -666,7 +666,7 @@ transient error
 #### Improvements
 
 * Upgrade to Teleport Enterprise 2.3.
-* Add support for advanced RBAC for cluster access via Ops Centers, see [Cluster RBAC section](/manage/#controlling-access-to-clusters)
+* Add support for advanced RBAC for cluster access via Ops Centers, see [Cluster RBAC section](manage.md#controlling-access-to-clusters)
   for more information.
 
 ### 4.32.0
@@ -731,7 +731,7 @@ transient error
 #### Improvements
 
 * New `tele create` command creates clusters via the OpsCenter.
-  See [Creating Remote Clusters](/manage/#creating-remote-clusters) for details.
+  See [Creating Remote Clusters](manage.md#creating-remote-clusters) for details.
 
 ### 4.20.0
 

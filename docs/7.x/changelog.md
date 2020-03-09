@@ -1777,7 +1777,7 @@ install/upgrade.
 #### Improvements
 
 * Add multizone support for GCE clusters.
-* Update preflight checks to check iptables modules. See [requirements](requirements#iptables-modules)
+* Update preflight checks to check iptables modules. See [requirements](requirements.md#iptables-modules)
 for details.
 * Add timeout to preflight checks on remote nodes.
 
@@ -1801,7 +1801,7 @@ for details.
 
 #### Improvements
 
-* Add support for GCE cloud provider. See [Installing on Google Compute Engine](installation/#installing-on-google-compute-engine)
+* Add support for GCE cloud provider. See [Installing on Google Compute Engine](installation.md#installing-on-google-compute-engine)
 for details.
 
 #### Bugfixes
@@ -1828,7 +1828,7 @@ install/upgrade.
 * Fix an issue with duplicates in pre-checks failure list.
 * Fix an issue with user invite/reset CLI commands displaying incorrect URLs.
 * Fix an issue with duplicate progress entries during install.
-* Fix a few issues with communication between gravity agents and installercluster.md.
+* Fix a few issues with communication between gravity agents and installer/cluster.
 
 ### 5.0.0-rc.1
 
@@ -1887,7 +1887,7 @@ install/upgrade.
 #### Improvements
 
 * Upgrade Kubernetes to `v1.9.6`.
-* Add support for more InfluxDB aggregate functions for use in [rollups](monitoring/#rollups).
+* Add support for more InfluxDB aggregate functions for use in [rollups](monitoring.md#rollups).
 
 ### 5.0.0-alpha.14
 
@@ -2399,7 +2399,7 @@ transient error
 #### Improvements
 
 * New `tele create` command creates clusters via the OpsCenter.
-  See [Creating Remote Clusters](manage/#creating-remote-clusters) for details.
+  See [Creating Remote Clusters](manage.md#creating-remote-clusters) for details.
 
 ### 4.20.0
 
@@ -2566,7 +2566,7 @@ transient error
 
 #### Bugfixes
 
-* Downloaded appspack.mdages are upserted during installation to make retries on connection failures idempotent.
+* Downloaded apps/packages are upserted during installation to make retries on connection failures idempotent.
 
 ## 3.x Releases
 

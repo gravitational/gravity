@@ -1018,7 +1018,7 @@ Let's dig a little deeper into this deployment:
 Here we see that it manages 2 replicas of our Pod and using RollingUpdate strategy:
 
 ```
-$ kubectl describe deployments.mdmy-nginx
+$ kubectl describe deployments/my-nginx
 Name:			my-nginx
 Namespace:		default
 CreationTimestamp:	Sun, 15 May 2016 12:37:01 -0700
@@ -1198,7 +1198,7 @@ scaling up new ReplicaSet and scaling down old ReplicaSet:
 
 
 ```
-$ kubectl describe deployments.mdmy-nginx
+$ kubectl describe deployments/my-nginx
 Name:			my-nginx
 Namespace:		default
 CreationTimestamp:	Sun, 15 May 2016 19:37:01 +0000
@@ -1290,7 +1290,7 @@ my-nginx-2896527177-cv3fd   0/1       ImagePullBackOff   0          55s
 Our deployment shows 2 unavailable replicas:
 
 ```
-$ kubectl describe deployments.mdmy-nginx
+$ kubectl describe deployments/my-nginx
 Name:			my-nginx
 Namespace:		default
 CreationTimestamp:	Sun, 15 May 2016 19:37:01 +0000
@@ -1318,7 +1318,7 @@ Events:
 Our rollout has stopped. Let's view the history:
 
 ```
-$ kubectl rollout history deployments.mdmy-nginx
+$ kubectl rollout history deployments/my-nginx
 deployments "my-nginx":
 REVISION	CHANGE-CAUSE
 1		kubectl run my-nginx --image=nginx --replicas=2 --port=80 --expose --record
@@ -1495,10 +1495,10 @@ sudo docker push $(minikube ip):5000/mattermost-worker:2.1.0
 
 Mattermost's worker expects configuration to be mounted at:
 
-`/var/mattermost/config.mdconfig.json`
+`/var/mattermost/config/config.json`
 
 ```
-$ cat mattermost/worker-config.mdconfig.json
+$ cat mattermost/worker-config/config.json
 ```
 
 If we examine config closely, we will notice that Mattermost expects a connector
@@ -1648,7 +1648,7 @@ $ kubectl create -f mattermost/worker.yaml --record
 Let's check out the status of the deployment to see if everything is alright:
 
 ```
-$ kubectl describe deployments.mdmattermost-worker
+$ kubectl describe deployments/mattermost-worker
 Name:			mattermost-worker
 Namespace:		default
 CreationTimestamp:	Sun, 15 May 2016 23:56:57 +0000

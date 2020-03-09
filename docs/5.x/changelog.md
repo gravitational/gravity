@@ -1108,7 +1108,7 @@ for details.
 
 #### Improvements
 
-* Add support for GCE cloud provider. See [Installing on Google Compute Engine](/installation/#installing-on-google-compute-engine)
+* Add support for GCE cloud provider. See [Installing on Google Compute Engine](/installation.md#installing-on-google-compute-engine)
 for details.
 
 #### Bugfixes

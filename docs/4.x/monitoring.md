@@ -222,7 +222,7 @@ Following table shows the alerts Telekube ships with by default:
 | Kubernetes | Kubernetes node readiness | Triggers an error when the node is not ready |
 
 Kapacitor will also trigger an email for each of the events listed above if stmp resource has been
-configured (see [configuration](/monitoring/#configuration) for details).
+configured (see [configuration](/monitoring.md#configuration) for details).
 
 
 ### Custom and default alerts

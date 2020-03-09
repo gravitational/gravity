@@ -2,7 +2,7 @@
 
 This Gravity documentation is public and is hosted on https://gravitational.com/gravity/docs
 It's based on [MkDocs](http://www.mkdocs.org/) with our own theme, similar to
-[Teleport docs](https://gravitational.com/teleport/docs/quickstart.md).
+[Teleport docs](https://gravitational.com/teleport/docs/quickstart).
 
 ### Updating
 

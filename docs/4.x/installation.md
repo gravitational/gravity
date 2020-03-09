@@ -332,7 +332,7 @@ used to install clusters on AWS using the flow described below.
 
 !!! note
     Note that the application must include provisioning hooks as described
-    in [Customized Cluster Provisioning](/manage/#customized-cluster-provisioning).
+    in [Customized Cluster Provisioning](manage.md#customized-cluster-provisioning).
     See [gravitational/provisioner](https://github.com/gravitational/provisioner)
     repository on Github for an example of a Terraform-based provisioner.
 

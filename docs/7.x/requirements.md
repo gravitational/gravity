@@ -133,7 +133,7 @@ These ports are used for Cluster operation and should be open between cluster no
 | 3022-3025               | TCP                | SSH                  | all         | all         | Teleport internal SSH control panel      |
 | 3080                    | TCP                | HTTPS                | ext         | controllers | Teleport Web  UI                         |
 | 3008-3012, 6060         | TCP                | HTTPS / gRPC         | all         | all         | Internal Gravity services                |
-| 32009                   | TCP                | HTTPS                | ext         | controllers | Gravity cluster.mdOpsCenter Admin UI (ext) |
+| 32009                   | TCP                | HTTPS                | ext         | controllers | Gravity Cluster/OpsCenter Admin UI (ext) |
 | 32009                   | TCP                | HTTPS                | controllers | all         | Gravity internal API                     |
 | 3012                    | TCP                | HTTPS                | all         | all         | Gravity RPC agent                        |
 
