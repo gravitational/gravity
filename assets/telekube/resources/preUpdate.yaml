@@ -10,5 +10,5 @@ spec:
       restartPolicy: OnFailure
       containers:
       - name: hook
-        image: quay.io/gravitational/debian-tall:buster
+        image: quay.io/gravitational/debian-tall:stretch
         command: ["/bin/echo", "test"]

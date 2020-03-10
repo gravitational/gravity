@@ -133,7 +133,7 @@ The example below builds a Docker image called `tele-buildbox`. This image will 
 First, build docker image `tele-buildbox` with `tele` inside:
 
 ```bsh
-FROM quay.io/gravitational/debian-grande:buster
+FROM quay.io/gravitational/debian-grande:stretch
 
 ARG TELE_VERSION
 RUN apt-get update
@@ -694,7 +694,7 @@ spec:
       restartPolicy: OnFailure
       containers:
         - name: debian-tall
-          image: quay.io/gravitational/debian-tall:buster
+          image: quay.io/gravitational/debian-tall:stretch
           command:
             - /usr/local/bin/kubectl
             - create
@@ -716,7 +716,7 @@ To see more examples of specific hooks, please refer to the following documentat
 * [Backup & Restore](/cluster/#backup-restore) for `backup` and `restore` hooks
 
 !!! tip:
-    The `quay.io/gravitational/debian-tall:buster` image is a lightweight (~11MB)
+    The `quay.io/gravitational/debian-tall:stretch` image is a lightweight (~11MB)
     distribution of Debian Linux that is a good fit for running Go or statically
     linked binaries.
 
@@ -785,7 +785,7 @@ spec:
       restartPolicy: OnFailure
       containers:
         - name: install
-          image: quay.io/gravitational/debian-tall:buster
+          image: quay.io/gravitational/debian-tall:stretch
           command: ["/usr/local/bin/helm", "install", "/var/lib/gravity/resources/charts/example", "--set", "registry=leader.telekube.local:5000/"]
 ```
 

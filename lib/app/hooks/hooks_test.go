@@ -94,13 +94,13 @@ func (s *HooksSuite) TestHookSuccess(c *check.C) {
 					Containers: []v1.Container{
 						{
 							Name:            "hello-1",
-							Image:           "quay.io/gravitational/debian-grande:buster",
+							Image:           "quay.io/gravitational/debian-grande:stretch",
 							Command:         []string{"/bin/bash", "-c", "echo 'hello, world 1'; sleep 1;"},
 							ImagePullPolicy: v1.PullIfNotPresent,
 						},
 						{
 							Name:            "hello-2",
-							Image:           "quay.io/gravitational/debian-grande:buster",
+							Image:           "quay.io/gravitational/debian-grande:stretch",
 							Command:         []string{"/bin/bash", "-c", "echo 'hello, world 2'; sleep 1;"},
 							ImagePullPolicy: v1.PullIfNotPresent,
 						},
@@ -172,7 +172,7 @@ func (s *HooksSuite) TestHookFailNewPods(c *check.C) {
 					Containers: []v1.Container{
 						{
 							Name:    "hello",
-							Image:   "quay.io/gravitational/debian-grande:buster",
+							Image:   "quay.io/gravitational/debian-grande:stretch",
 							Command: []string{"/bin/bash", "-c", "echo 'hello, world'; date; sleep 1; exit 255;"},
 						},
 					},
@@ -245,7 +245,7 @@ func (s *HooksSuite) TestHookFailPodRestart(c *check.C) {
 					Containers: []v1.Container{
 						{
 							Name:    "hello",
-							Image:   "quay.io/gravitational/debian-grande:buster",
+							Image:   "quay.io/gravitational/debian-grande:stretch",
 							Command: []string{"/bin/bash", "-c", "echo 'hello, world'; date; sleep 1; exit 255;"},
 						},
 					},
