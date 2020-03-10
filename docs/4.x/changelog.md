@@ -82,20 +82,20 @@ is using domain/path components.
 * Add `skipIfMissing` for describing optional mounts.
 * Add ability to define custom preflight checks.
 
-See [Application Manifest Changes](/pack/#application-manifest-changes) for more details.
+See [Application Manifest Changes](pack.md#application-manifest-changes) for more details.
 
 ### 5.1.0-alpha.5
 
 #### Improvements
 
 * Add ability to mount host devices into the Telekube container. See
-[Application Manifest](/pack/#application-manifest) for more details.
+[Application Manifest](pack.md#application-manifest) for more details.
 
 ### 5.1.0-alpha.4
 
 #### Improvements
 
-* Introduce ability to use user-defined base images. See [User-Defined Base Image](/pack/#user-defined-base-image)
+* Introduce ability to use user-defined base images. See [User-Defined Base Image](pack.md#user-defined-base-image)
 for details.
 
 ### 5.2.0-alpha.1
@@ -248,14 +248,14 @@ install/upgrade.
 #### Improvements
 
 * Standalone installer now supports installing AWS clusters in CLI mode. See
-[AWS Installer](cluster.md#aws-installer) for more info.
+[AWS Installer](installation.md#aws-installer) for more info.
 
 ### 5.0.0-alpha.13
 
 #### Bugfixes
 
 * Update Kubernetes to version 1.8.10.
-* Ability to override the service user when installing. Read more [here](/pack/#service-user).
+* Ability to override the service user when installing. Read more [here](pack.md#service-user).
 
 #### Bugfixes
 
@@ -290,7 +290,7 @@ install/upgrade.
 
 #### Improvements
 
-* Add support for Helm charts. See [Helm Integration](/pack/#helm-integration)
+* Add support for Helm charts. See [Helm Integration](pack.md#helm-integration)
 for details.
 * Introduce `gravity users add` and `gravity users reset` commands that allow
 to invite users and reset user passwords from CLI.
@@ -485,7 +485,7 @@ does not specify OS requirements.
 
 #### Improvements
 
-* Ability to override the service user when installing. Read more [here](/pack/#service-user).
+* Ability to override the service user when installing. Read more [here](pack.md#service-user).
 * Additional preflight checks during installation and update.
 * Remove the 32 characters restriction on the syslog tag in the logging application.
 
@@ -632,7 +632,7 @@ transient error
 #### Improvements
 
 * Add support for TLS keypair configuration via resources. Read more [here](cluster.md#configuring-tls-key-pair).
-* Simplify Ops Center [post install configuration](/opscenter/#post-provisioning).
+* Simplify Ops Center [post install configuration](opscenter.md#post-provisioning).
 
 #### Bugfixes
 
@@ -645,7 +645,7 @@ transient error
 #### Improvements
 
 * Add ability to provide a custom directory for system data during install/join. See command references in
-  [Automatic Installer](/overview/#automatic-installer) and [Adding a Node](cluster.md#adding-a-node) chapters
+  [Automatic Installer](installation.md#standalone-offline-cli-installation) and [Adding a Node](cluster.md#adding-a-node) chapters
   for more details.
 * Add option to Kubernetes tab in UI to SSH directly into a running container.
 
@@ -653,13 +653,13 @@ transient error
 
 #### Improvements
 
-* Refine update process with new Kubernetes phases, see [Separation of workloads](/cluster#separation-of-workloads) for more details.
+* Refine update process with new Kubernetes phases, see [Separation of workloads](cluster.md#separation-of-workloads) for more details.
 
 ### 4.35.0
 
 #### Improvements
 
-* Add ability to provide additional command line arguments to etcd and kubelet via application manifest, see [Application Manifest](/pack/#application-manifest) for more details.
+* Add ability to provide additional command line arguments to etcd and kubelet via application manifest, see [Application Manifest](pack.md#application-manifest) for more details.
 
 ### 4.34.0
 
@@ -680,7 +680,7 @@ transient error
 #### Improvements
 
 * Upgrade to Kubernetes 1.7.5.
-* Add support for a `logforwarder` resource, see [Configuring Log Forwarders](/cluster#configuring-log-forwarders)
+* Add support for a `logforwarder` resource, see [Configuring Log Forwarders](cluster.md#configuring-log-forwarders)
   for more information.
 
 #### Bugfixes
@@ -781,7 +781,7 @@ transient error
 
 #### Improvements
 
-* Add support for new resources `user` and `token`. See [Configuring a Cluster](/cluster#configuring-a-cluster) for details.
+* Add support for new resources `user` and `token`. See [Configuring a Cluster](cluster.md#configuring-a-cluster) for details.
 
 ### 4.13.0
 
@@ -798,7 +798,7 @@ transient error
 
 #### Improvements
 
-* Add support for a new resource type `role`. See [Configuring a Cluster](/cluster#configuring-a-cluster) for details.
+* Add support for a new resource type `role`. See [Configuring a Cluster](cluster.md#configuring-a-cluster) for details.
 
 ### 4.11.0
 
@@ -827,7 +827,7 @@ transient error
 
 #### Improvements
 
-* Introduce a set of `gravity resource` commands for cluster resources management (currently, [only OIDC connectors](cluster.md#configuring-cluster)).
+* Introduce a set of `gravity resource` commands for cluster resources management (currently, [only OIDC connectors](cluster.md#configuring-a-cluster)).
 
 ### 4.7.0
 

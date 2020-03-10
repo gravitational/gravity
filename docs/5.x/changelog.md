@@ -609,7 +609,7 @@ for details.
 
 #### Improvements
 
-* New resource type `runtimeenvironment`. See [Configuring Runtime Environment Variables](/cluster#configuring-runtime-environment-variables) for details.
+* New resource type `runtimeenvironment`. See [Configuring Runtime Environment Variables](cluster.md#configuring-runtime-environment-variables) for details.
 
 ### 5.3.6
 
@@ -679,10 +679,10 @@ for details.
 
 #### Improvements
 
-* Add support for Wireguard encrypted overlay network. See [Wireguard Encrypted Networking](/cluster#wireguard-encrypted-networking) for details.
+* Add support for Wireguard encrypted overlay network. See [Wireguard Encrypted Networking](cluster.md#wireguard-encrypted-networking) for details.
 * Reduce writes to AWS SSM store when using AWS integrations.
 * Update tiller to 2.11.0
-* Add initial support for application catalog. See [Application Catalog](/catalog) for details.
+* Add initial support for application catalog. See [Application Catalog](catalog.md) for details.
 * Update embedded teleport to 3.0.1
 
 ### 5.0.26 LTS
@@ -746,7 +746,7 @@ for details.
 
 #### Improvements
 
-* Add support for recursive volume mounts. See [Sample Manifest](/pack#sample-application-manifest) for details.
+* Add support for recursive volume mounts. See [Sample Manifest](pack.md#sample-application-manifest) for details.
 * Adjust CoreDNS permissions for cluster conformance.
 
 #### Bugfixes
@@ -758,7 +758,7 @@ for details.
 
 #### Improvements
 
-* Add support for recursive volume mounts. See [Application Manifest](/pack#sample-application-manifest) for details.
+* Add support for recursive volume mounts. See [Application Manifest](pack.md#sample-application-manifest) for details.
 * Disable `DenyEscalatingExec` admission controller to meet conformance.
 
 ### 5.3.2
@@ -840,7 +840,7 @@ for details.
 
 #### Improvements
 
-* Introduce gravity terraform provider. See [Terraform Provider](/terraform) for details.
+* Introduce gravity terraform provider. See [Terraform Provider](terraform.md) for details.
 * Refactor join operation to use FSM approach.
 * Suppress selection prompt in UI install flow if the installer machine has a single network interface.
 * Improve upgrade operation logging and move default log location to `/var/log`.
@@ -1127,7 +1127,7 @@ install/upgrade.
 
 #### Improvements
 
-* Add ability to resume install/update after failure. Check [Resuming](cluster.md#resuming) for details.
+* Add ability to resume install/update after failure. Check [Troubleshooting Automatic Upgrades](cluster.md#troubleshooting-automatic-upgrades) for details.
 * Improve error reporting during install and when viewing operation plan.
 
 #### Bugfixes
@@ -1200,8 +1200,7 @@ install/upgrade.
 
 #### Improvements
 
-* Standalone installer now supports installing AWS clusters in CLI mode. See
-[AWS Installer](cluster.md#aws-installer) for more info.
+* Standalone installer now supports installing AWS clusters in CLI mode.
 
 ### 5.0.0-alpha.13
 
@@ -1620,7 +1619,7 @@ transient error
 #### Improvements
 
 * Add ability to provide a custom directory for system data during install/join. See command references in
-  [Automatic Installer](index.md#automatic-installer) and [Adding a Node](cluster.md#adding-a-node) chapters
+  [Automatic Installer](installation.md#standalone-offline-cli-installation) and [Adding a Node](cluster.md#adding-a-node) chapters
   for more details.
 * Add option to Kubernetes tab in UI to SSH directly into a running container.
 
@@ -1628,7 +1627,7 @@ transient error
 
 #### Improvements
 
-* Refine update process with new Kubernetes phases, see [Separation of workloads](/cluster#separation-of-workloads) for more details.
+* Refine update process with new Kubernetes phases, see [Separation of workloads](cluster.md#separation-of-workloads) for more details.
 
 ### 4.35.0
 
@@ -1655,7 +1654,7 @@ transient error
 #### Improvements
 
 * Upgrade to Kubernetes 1.7.5.
-* Add support for a `logforwarder` resource, see [Configuring Log Forwarders](/cluster#configuring-log-forwarders)
+* Add support for a `logforwarder` resource, see [Configuring Log Forwarders](cluster.md#configuring-log-forwarders)
   for more information.
 
 #### Bugfixes
@@ -1699,7 +1698,7 @@ transient error
 
 #### Improvements
 
-* Introduce a redesigned manual upgrade procedure, see [Manual Upgrade Mode](cluster.md#manual-upgrade-mode).
+* Introduce a redesigned manual upgrade procedure, see [Updating a Cluster](cluster.md#updating-a-cluster).
 
 ### 4.21.0
 
@@ -1756,7 +1755,7 @@ transient error
 
 #### Improvements
 
-* Add support for new resources `user` and `token`. See [Configuring a Cluster](/cluster#configuring-a-cluster) for details.
+* Add support for new resources `user` and `token`. See [Configuring a Cluster](cluster.md#configuring-a-cluster) for details.
 
 ### 4.13.0
 
@@ -1773,7 +1772,7 @@ transient error
 
 #### Improvements
 
-* Add support for a new resource type `role`. See [Configuring a Cluster](/cluster#configuring-a-cluster) for details.
+* Add support for a new resource type `role`. See [Configuring a Cluster](cluster.md#configuring-a-cluster) for details.
 
 ### 4.11.0
 
@@ -1802,7 +1801,7 @@ transient error
 
 #### Improvements
 
-* Introduce a set of `gravity resource` commands for cluster resources management (currently, [only OIDC connectors](cluster.md#configuring-cluster)).
+* Introduce a set of `gravity resource` commands for cluster resources management (currently, [only OIDC connectors](cluster.md#configuring-a-cluster)).
 
 ### 4.7.0
 
