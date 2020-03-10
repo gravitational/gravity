@@ -86,4 +86,4 @@ const (
 )
 
 // InitContainerImage is the image for the init container
-var InitContainerImage = fmt.Sprintf("%v/gravitational/debian-tall:buster", constants.DockerRegistry)
+var InitContainerImage = fmt.Sprintf("%v/gravitational/debian-tall:stretch", constants.DockerRegistry)
