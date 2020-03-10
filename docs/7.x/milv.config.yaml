@@ -38,15 +38,11 @@ black-list:
   - "./changelog.md"
   - "./README.md"
 files:
-  - path: "./config.md"
-    config:
-      white-list-internal:
-        - "#configuring-users-tokens"
   - path: "./faq.md"
     config:
       white-list-internal:
-        - "#br_netfilter-module"
+        - "requirements.md#br_netfilter-module"
   - path: "./terraform.md"
     config:
       white-list-internal:
-        - "#configuring-users-tokens"
+        - "config.md#configuring-users-tokens"
