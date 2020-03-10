@@ -327,7 +327,7 @@ do, or simply use `kubectl --help`.
 
 Each Gravity Cluster also has a graphical UI to explore and manage the Cluster. To log into
 the Cluster Admin UI you need to create an admin user. Please see the
-[Custom Installer Screens](pack.md#custom-installer-screens) chapter for details on how
+[Custom Installer Screens](pack.md#custom-installation-screen) chapter for details on how
 to enable a post-install screen that will let you create a local user.
 
 ## Updating a Cluster
@@ -448,7 +448,7 @@ working with the operation plan.
     Manual upgrade steps must be executed with the gravity binary included in the upgrade
     tarball to ensure version compatibility. If you don't have an installer tarball (for
     example, when downloading upgrades directly from connected Ops Center), you can obtain
-    the appropriate gravity binary from the distribution Ops Center (see [Getting the Tools](/quickstart.md#getting-the-tools)).
+    the appropriate gravity binary from the distribution Ops Center (see [Getting the Tools](quickstart.md#getting-the-tools)).
 
 
 ### Troubleshooting Automatic Upgrades
@@ -1707,7 +1707,7 @@ cluster.
 host:port. Typically it is exposed on port `3024`.
 * `spec.web_proxy_addr`: The address which the Ops Center cluster serves its web
 API on. It is the address specified via the `--ops-advertise-addr` parameter
-in the [Manual Provisioning](opscenter.md#manual-provisioning) flow (the first
+in the [Installing Ops Center](opscenter.md#installing-ops-center) flow (the first
 port).
 
 Create the trusted cluster:

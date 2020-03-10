@@ -20,7 +20,7 @@ Telekube system.
 
 
 Telekube is a Linux-based toolkit. By default it supports 64-bit versions of the
-following Linux distributions as [specified here](/pack/#distributions)
+following Linux distributions as [specified here](requirements.md#distributions)
 
 If you have a need to support a Linux distribution not listed above,
 Gravitational offers Implementation Services that may be able to assist you.
@@ -193,7 +193,7 @@ The simplest way to launch an online installer is to log in to the Ops Center
 and click on "Install" in the dropdown menu for the published Application.
 This will take you to a URL where the installation wizard will run.
 
-![Telekube Online Installer](/images/installer.png)
+![Telekube Online Installer](images/installer.png)
 
 ### Offline Mode
 
@@ -238,7 +238,7 @@ $ tele login mattermost
 ```
 
 Now you can run `tsh ls` to see the nodes and `tsh ssh` for connecting to them
-via SSH. See more in [Remote Management](manage) section.
+via SSH. See more in [Remote Management](manage.md) section.
 
 ## Conclusion
 

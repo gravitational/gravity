@@ -105,7 +105,7 @@ tarball ("Application Bundle").
 
 An Application Manifest is required to create an Application Bundle. An Application Manifest is
 a YAML file which describes the build and installation process and requirements. The
-[Application Manifest](/pack/#application-manifest) section has further details about it.
+[Application Manifest](#application-manifest) section has further details about it.
 
 `tele build` command will read an Application Manifest and will make sure that
 all of the dependencies are available locally on the build machine. If the
@@ -621,7 +621,7 @@ hooks:
   restore:
 ```
 
-See [here](requirements.md/#identifying-os-distributions-in-manifest) for version matrix to help with
+See [here](requirements.md#identifying-os-distributions-in-manifest) for version matrix to help with
 specifying OS distribution requirements for a node profile.
 
 ## Application Hooks
@@ -691,7 +691,7 @@ hooks:
 To see more examples of specific hooks, please refer to the following documentation sections:
 
 * [Application Status](cluster.md#application-status) for `status` hook
-* [Backup & Restore](cluster.md#backup-restore) for `backup` and `restore` hooks
+* [Backup & Restore](cluster.md#backup-and-restore) for `backup` and `restore` hooks
 
 !!! tip
     The `quay.io/gravitational/debian-tall:0.0.1` image is a lightweight (~11MB)

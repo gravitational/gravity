@@ -65,7 +65,7 @@ include:
 
 Gravity is the tool used to manage the cluster. Gravity is only
 available inside the cluster so you have to `tsh ssh` into the cluster
-to execute `gravity` commands. You can read more about `tsh` in the [remote management](/manage/) section.
+to execute `gravity` commands. You can read more about `tsh` in the [remote management](manage.md) section.
 
 The `gravity` commands allows you to:
 
@@ -112,7 +112,7 @@ $ tsh --cluster=production ssh admin@node gravity status
 !!! tip "Reminder"
     Keep in mind that `tsh` always uses the Telekube Ops Center as an SSH proxy. This
     means the command above will work with clusters located behind
-    corporate firewalls. You can read more in the [remote management](/manage/) section.
+    corporate firewalls. You can read more in the [remote management](manage.md) section.
 
 ### Cluster Health Endpoint
 
@@ -208,7 +208,7 @@ In this case the response HTTP status code will be `503 Service Unavailable`.
 Telekube provides a way to automatically monitor the application health.
 
 To enable this, define a "status" hook in your Application Manifest (see
-[Application Hooks](/pack/#application-hooks) section for more details on them). The Kubernetes
+[Application Hooks](pack.md#application-hooks) section for more details on them). The Kubernetes
 job defined by the status hook can perform application-specific checks. An example of an
 application-specific status check could be querying a database, or checking that a
 certain pod is running.
@@ -264,7 +264,7 @@ do, or simply use `kubectl --help`.
 
 Each Telekube Cluster also has a graphical UI to explore and manage the Cluster. To log into
 the Cluster Admin UI you need to create an admin user. Please see the
-[Custom Installer Screens](/pack/#custom-installer-screens) chapter for details on how
+[Custom Installer Screens](pack.md#custom-installation-screen) chapter for details on how
 to enable a post-install screen that will let you create a local user.
 
 ## Updating a Cluster
@@ -299,7 +299,7 @@ large numbers of remotely running application instances.
 
 !!! warning "Upgrading to 4.23.0+"
     When upgrading a cluster via the Ops Center from pre-4.23.0 to 4.23.0 or
-    higher, refer to [Upgrading to 4.23.0+](/changelog/#instructions-on-upgrading-to-4230)
+    higher, refer to [Upgrading to 4.23.0+](changelog.md#instructions-on-upgrading-to-4230)
 	in the Release Notes for instructions.
 
 ### Uploading an Update
@@ -355,7 +355,7 @@ $ ./gravity upgrade --manual
     Manual upgrade steps must be executed with the gravity binary included in the upgrade
     tarball to ensure version compatibility. If you don't have an installer tarball (for
     example, when downloading upgrades directly from connected Ops Center), you can obtain
-    the appropriate gravity binary from the distribution Ops Center (see [Getting the Tools](/quickstart/#getting-the-tools)).
+    the appropriate gravity binary from the distribution Ops Center (see [Getting the Tools](quickstart.md#getting-the-tools)).
 
 Once the upgrade operation has been initiated, the generated operation plan can be viewed
 by running:
@@ -537,7 +537,7 @@ In order to scale down resources prior to the upgrade operation, the Application
 With the new `preUpdate` hook, the Telekube Cluster scales down the application resources in preparation for the update. The scaling logic needs to be aware of the cluster size to make appropriate scaling decisions.
 The hook execution is implemented as a separate phase and is executed automatically in automatic upgrade mode.
 
-You can find out more about other hook types on the [Telekube documentation on Packaging and Deployment](/pack/#application-hooks).
+You can find out more about other hook types on the [Telekube documentation on Packaging and Deployment](pack.md#application-hooks).
 
 #### Apply a system taint to the node
 
@@ -856,7 +856,7 @@ Every Telekube cluster can be connected to an Ops Center,
 assuming the cluster is connected to the Internet. This creates an outbound SSH tunnel from the cluster
 to the Ops Center and the operator can use that tunnel to perform remote troubleshooting
 by using the `tsh` tool. You can read more about remote assistance in the
-[remote management](/manage/) section.
+[remote management](manage.md) section.
 
 However, some Telekube Cluster owners may want to disable the SSH tunnel and keep their
 clusters disconnected from the vendor, only enabling this capability when they
@@ -1151,7 +1151,7 @@ $ gravity resource get token --user=alice@example.com
 
 In this example we are going to use `role`, `user` and `token` resources described above to
 provision a user who can publish applications into an Ops Center. For instructions on how
-to setup your own Ops Center see [Setting up an Ops Center](/opscenter).
+to setup your own Ops Center see [Setting up an Ops Center](opscenter.md).
 
 In the following spec we define 3 resources:
 
@@ -1355,7 +1355,7 @@ cluster.
 host:port. Typically it is exposed on port `3024`.
 * `spec.web_proxy_addr`: The address which the Ops Center cluster serves its web
 API on. It is the address specified via the `--ops-advertise-addr` parameter
-in the [Manual Provisioning](/opscenter/#manual-provisioning) flow (the first
+in the [Manual Provisioning](opscenter.md#manual-provisioning) flow (the first
 port).
 
 Create the trusted cluster:
@@ -1858,7 +1858,7 @@ With `promiscuous-bridge`, the behavior is similar to that of the kubenet networ
 
 !!! tip "Kernel module"
     In "promiscuous-bridge" mode, the nodes require a kernel module called `ebtable_filter` to manage ebtable rules,
-    see [Kernel Modules](requirements.md/#kernel-modules) for details.
+    see [Kernel Modules](requirements.md#kernel-modules) for details.
 
 
 

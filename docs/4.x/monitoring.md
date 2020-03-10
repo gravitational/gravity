@@ -214,7 +214,7 @@ Following table shows the alerts Telekube ships with by default:
 | Filesystem | High disk space usage | Triggers a warning, when > 80% used, with > 90% used, triggers a critical error |
 | Filesystem | High inode usage | Triggers a warning, when > 90% used, with > 95% used, triggers a critical error |
 | System | Uptime | Triggers a warning when a node's uptime is less than 5min |
-| System | Kernel parameters | Triggers an error if a parameter is not set. See [value matrix](requirements.md/#kernel-module-matrix) for details. |
+| System | Kernel parameters | Triggers an error if a parameter is not set. See [value matrix](requirements.md#kernel-module-matrix) for details. |
 | Etcd | Etcd instance health | Triggers an error when an etcd master is down longer than 5min |
 | Etcd | Etcd latency check | Triggers a warning, when follower <-> leader latency exceeds 500ms, then an error when it exceeds 1s over a period of 1min |
 | Docker | Docker daemon health | Triggers an error when docker daemon is down |

@@ -50,7 +50,7 @@ cluster will be remotely accessible and managed via the Ops Center.
 
 An Telekube Cluster is defined by two things:
 
-1. The Application Manifest [manifest](pack/#application-manifest).
+1. The Application Manifest [manifest](pack.md#application-manifest).
 2. The Cluster Spec.
 
 The _Application Manifest_ declares **what** should be inside a cluster:
@@ -62,7 +62,7 @@ The _Application Manifest_ declares **what** should be inside a cluster:
   are CI/CD tools, databases, etc.
 
 The _Cluster Spec_ provides the infrastructure resources that satisfy the requirements
-defined by the Application Manifest. Remember that in case of a [manual installation](quickstart/#installing-the-application)
+defined by the Application Manifest. Remember that in case of a [manual installation](quickstart.md#installing-the-application)
 of an application bundle the user is responsible to provide the same information manually
 to create a cluster.
 
@@ -130,7 +130,7 @@ $ gravity check --profile=node manifest.yaml
 
 ### Customized Cluster Provisioning
 
-Cluster provisioning can be customized by the [Application Manifest](pack/#application-manifest)
+Cluster provisioning can be customized by the [Application Manifest](pack.md#application-manifest)
 author. This is achieved by implementing four _provisioning hooks_ and listing them in the
 Application Manifest. A provisioning hook is a Kubernetes job and can be
 implemented using any language.
@@ -158,7 +158,7 @@ hooks:
       job: file://path/to/job.yaml
 ```
 
-As shown in the [Application Manifest](pack/#application-manifest) documentation, a hook must be implemented as a Kubernetes job.
+As shown in the [Application Manifest](pack.md#application-manifest) documentation, a hook must be implemented as a Kubernetes job.
 A job must be declared using standard [Kubernetes job syntax](https://kubernetes.io/docs/concepts/workloads/controllers/jobs-run-to-completion/#writing-a-job-spec),
 either in a separate YAML file as shown above, or inline.
 

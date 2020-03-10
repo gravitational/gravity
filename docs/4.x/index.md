@@ -16,7 +16,7 @@ a firewall.
 This overview will walk you through the basic concepts of Telekube and explain how
 it is used to solve the operational challenges that arise in the use cases below.
 
-If you already have a good understanding of Telekube you can choose to jump right in with our [Quick Start](/quickstart) guide or dive deeper into Telekube documentation through the table of contents.
+If you already have a good understanding of Telekube you can choose to jump right in with our [Quick Start](quickstart.md) guide or dive deeper into Telekube documentation through the table of contents.
 
 ## Use Cases
 

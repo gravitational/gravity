@@ -4,7 +4,7 @@
 
 An Ops Center can be used for application deployments.
 In order to deploy applications from an Ops Center, Application Bundles
-are [published](pack/#publishing-applications) to an Ops Center.
+are [published](pack.md#publishing-applications) to an Ops Center.
 Once published, they become available for deployment.
 An Application can be deployed either directly from an Ops Center or
 via a one-time installation link.
@@ -25,9 +25,9 @@ clusters using a self-contained installer tarball.
 
  * The tarball can be generated on the Ops Center, by using the `Download` link.
  * Alternatively, the installer can be fetched from an Ops Center using `tele pull`,
-see [Publishing Applications](pack/#publishing-applications) section for details.
+see [Publishing Applications](pack.md#publishing-applications) section for details.
  * Installer tarball can be built with the `tele build` command, see
-  [Packaging Applications](pack#packaging-applications) for details.
+  [Packaging Applications](pack.md#packaging-applications) for details.
 
 For example, Application Bundle, `my-app-installer.tar` will contain everything
 required to install the Application `my-app`.
@@ -79,7 +79,7 @@ node-1$ sudo ./gravity install --advertise-addr=172.28.128.3 --token=XXX --flavo
 ```
 
 Note the use of `flavor` which, in this case, describes a configuration for 3 nodes
-("three" being the name of the flavor from the [Application Manifest](pack#application-manifest)).
+("three" being the name of the flavor from the [Application Manifest](pack.md#application-manifest)).
 
 This will initiate the process of setting up a new cluster for the Application.
 
@@ -106,14 +106,14 @@ Flag      | Description
 `--role` | _(Optional)_ Application role of the node.
 `--cluster` | _(Optional)_ Name of the cluster. Auto-generated if not set.
 `--cloud-provider` | _(Optional)_ Enable cloud provider integration: `generic` (no cloud provider integration), `aws` or `gce`. Autodetected if not set.
-`--flavor` | _(Optional)_ Application flavor. See [Application Manifest](pack/#application-manifest) for details.
+`--flavor` | _(Optional)_ Application flavor. See [Application Manifest](pack.md#application-manifest) for details.
 `--config` | _(Optional)_ File with Kubernetes resources to create in the cluster during installation.
 `--pod-network-cidr` | _(Optional)_ CIDR range Kubernetes will be allocating node subnets and pod IPs from. Must be a minimum of /16 so Kubernetes is able to allocate /24 to each node. Defaults to `10.244.0.0/16`.
 `--service-cidr` | _(Optional)_ CIDR range Kubernetes will be allocating service IPs from. Defaults to `10.100.0.0/16`.
 `--wizard` | _(Optional)_ Start the installation wizard.
 `--state-dir` | _(Optional)_ Directory where all Telekube system data will be kept on this node. Defaults to `/var/lib/gravity`.
-`--service-uid` | _(Optional)_ Service user ID (numeric). See [Service User](pack/#service-user) for details. A user named `planet` is created automatically if unspecified.
-`--service-gid` | _(Optional)_ Service group ID (numeric). See [Service User](pack/#service-user) for details. A group named `planet` is created automatically if unspecified.
+`--service-uid` | _(Optional)_ Service user ID (numeric). See [Service User](pack.md#service-user) for details. A user named `planet` is created automatically if unspecified.
+`--service-gid` | _(Optional)_ Service group ID (numeric). See [Service User](pack.md#service-user) for details. A group named `planet` is created automatically if unspecified.
 `--dns-zone` | _(Optional)_ Specify an upstream server for the given DNS zone within the cluster. Accepts `<zone>/<nameserver>` format where `<nameserver>` can be either `<ip>` or `<ip>:<port>`. Can be specified multiple times.
 
 The `join` command accepts the following arguments:
@@ -126,8 +126,8 @@ Flag      | Description
 `--cloud-provider` | _(Optional)_ Cloud provider integration, `generic` or `aws`. Autodetected if not set.
 `--mounts` | _(Optional)_ Comma-separated list of mount points as <name>:<path>.
 `--state-dir` | _(Optional)_ Directory where all Telekube system data will be kept on this node. Defaults to `/var/lib/gravity`.
-`--service-uid` | _(Optional)_ Service user ID (numeric). See [Service User](pack/#service-user) for details. A user named `planet` is created automatically if unspecified.
-`--service-gid` | _(Optional)_ Service group ID (numeric). See [Service User](pack/#service-user) for details. A group named `planet` is created automatically if unspecified.
+`--service-uid` | _(Optional)_ Service user ID (numeric). See [Service User](pack.md#service-user) for details. A user named `planet` is created automatically if unspecified.
+`--service-gid` | _(Optional)_ Service group ID (numeric). See [Service User](pack.md#service-user) for details. A group named `planet` is created automatically if unspecified.
 
 
 !!! tip "NOTE"
@@ -328,7 +328,7 @@ should have a proper IAM policy assigned to it.
 Once you have an instance that satisfies the above requirements, it can be
 used to install clusters on AWS using the flow described below.
 
-* Build the application installer, e.g. using [tele build](/pack/#packaging-applications).
+* Build the application installer, e.g. using [tele build](pack.md#packaging-applications).
 
 !!! note
     Note that the application must include provisioning hooks as described

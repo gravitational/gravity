@@ -68,7 +68,7 @@ Telekube supports two networking backends in production:
 * VPC and routing tables based network for `AWS` cloud provider.
 * VXLAN based network for `generic` provider to be used on generic linux installations.
 
-See [Application Manifest](/pack/#application-manifest) section for details on how to select network type.
+See [Application Manifest](pack.md#application-manifest) section for details on how to select network type.
 
 #### Air-gapped installs
 
@@ -160,7 +160,7 @@ for more information about possible network-related issues.
 ### overlay module
 
 The overlay kernel module is required if the application is using overlay or
-overlay2 Docker storage driver (see [Application Manifest](/pack/#application-manifest))
+overlay2 Docker storage driver (see [Application Manifest](pack.md#application-manifest))
 for information on how to configure the storage driver). To check that it's
 loaded:
 

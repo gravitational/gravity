@@ -62,7 +62,7 @@ The _Application Manifest_ declares **what** should be inside a cluster:
   are CI/CD tools, databases, etc.
 
 The _Cluster Spec_ provides the infrastructure resources that satisfy the requirements
-defined by the Application Manifest. Remember that in case of a [manual installation](quickstart/#installing-the-application)
+defined by the Application Manifest. Remember that in case of a [manual installation](quickstart.md#installing)
 of an application bundle the user is responsible to provide the same information manually
 to create a cluster.
 
