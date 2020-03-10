@@ -30,9 +30,6 @@ white-list-external:
   - "https://gravitational.com/gravity/docs/ver/6.x/config.md#trusted-clusters-enterprise"
   - "https://gravitational.com/gravity/docs/config.md#trusted-clusters-enterprise"
   - "http://localhost:6600/hub/#installing-gravity-hub"
-# do not check the README.md, it is for maintainers, and not customers
-black-list-internal:
-  - "README.md"
 files:
   - path: "./faq.md"
     config:
