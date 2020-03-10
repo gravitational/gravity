@@ -86,37 +86,37 @@ func (_ *DiffSuite) TestDiffsVolumes(c *C) {
 	}{
 		{
 			old: []Volume{
-				Volume{Name: "foo", Path: "/foo"},
+				{Name: "foo", Path: "/foo"},
 			},
 			new: []Volume{
-				Volume{Name: "foo", Path: "/foo"},
+				{Name: "foo", Path: "/foo"},
 			},
 			diff:    []Volume{},
 			comment: "no difference",
 		},
 		{
 			old: []Volume{
-				Volume{Path: "/foo"},
-				Volume{Path: "/bar"},
+				{Path: "/foo"},
+				{Path: "/bar"},
 			},
 			new: []Volume{
-				Volume{Path: "/foo"},
-				Volume{Path: "/bar"},
+				{Path: "/foo"},
+				{Path: "/bar"},
 			},
 			diff:    []Volume{},
 			comment: "no difference based on path",
 		},
 		{
 			old: []Volume{
-				Volume{Name: "foo", Path: "/foo"},
-				Volume{Name: "qux", Path: "/qux"},
+				{Name: "foo", Path: "/foo"},
+				{Name: "qux", Path: "/qux"},
 			},
 			new: []Volume{
-				Volume{Name: "foo", Path: "/foo"},
-				Volume{Name: "bar", Path: "/bar"},
+				{Name: "foo", Path: "/foo"},
+				{Name: "bar", Path: "/bar"},
 			},
 			diff: []Volume{
-				Volume{Name: "bar", Path: "/bar"},
+				{Name: "bar", Path: "/bar"},
 			},
 			comment: "do not account for volumes found only in old",
 		},

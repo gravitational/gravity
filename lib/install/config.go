@@ -30,6 +30,7 @@ import (
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/opsclient"
 	"github.com/gravitational/gravity/lib/pack"
+	"github.com/gravitational/gravity/lib/pack/localpack"
 	"github.com/gravitational/gravity/lib/process"
 	pb "github.com/gravitational/gravity/lib/rpc/proto"
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
@@ -100,8 +101,6 @@ type Config struct {
 	WriteStateDir string
 	// UserLogFile is the log file where user-facing operation logs go
 	UserLogFile string
-	// SystemLogFile is the log file for system logs
-	SystemLogFile string
 	// SiteDomain is the name of the cluster
 	SiteDomain string
 	// Flavor is installation flavor
@@ -118,8 +117,6 @@ type Config struct {
 	ClusterResources []storage.UnknownResource
 	// SystemDevice is a device for gravity data
 	SystemDevice string
-	// DockerDevice is a device for docker
-	DockerDevice string
 	// Mounts is a list of mount points (name -> source pairs)
 	Mounts map[string]string
 	// DNSOverrides contains installer node DNS overrides
@@ -139,7 +136,7 @@ type Config struct {
 	// Process is the gravity process running inside the installer
 	Process process.GravityProcess
 	// LocalPackages is the machine-local package service
-	LocalPackages pack.PackageService
+	LocalPackages *localpack.PackageServer
 	// LocalApps is the machine-local application service
 	LocalApps app.Applications
 	// LocalBackend is the machine-local backend
@@ -313,7 +310,6 @@ func newAgent(ctx context.Context, config Config) (*rpcserver.PeerServer, error)
 	}
 	runtimeConfig := pb.RuntimeConfig{
 		SystemDevice: config.SystemDevice,
-		DockerDevice: config.DockerDevice,
 		Role:         config.Role,
 		Mounts:       mounts,
 	}

@@ -73,6 +73,16 @@ func NewBootstrap(p fsm.ExecutorParams, operator ops.Operator, apps app.Applicat
 		return nil, trace.Wrap(err)
 	}
 
+	mounts, err := opsservice.GetMounts(application.Manifest, *p.Phase.Data.Server)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	stateDir, err := state.GetStateDir()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithFields(logrus.Fields{
 			constants.FieldPhase:       p.Phase.ID,
@@ -92,6 +102,8 @@ func NewBootstrap(p fsm.ExecutorParams, operator ops.Operator, apps app.Applicat
 		ServiceUser:      *serviceUser,
 		remote:           remote,
 		dnsConfig:        p.Plan.DNSConfig,
+		mounts:           mounts,
+		stateDir:         stateDir,
 	}, nil
 }
 
@@ -112,6 +124,10 @@ type bootstrapExecutor struct {
 	dnsConfig storage.DNSConfig
 	// remote specifies the server remote control interface
 	remote fsm.Remote
+	// mounts lists additional application-specific volume mounts
+	mounts []storage.Mount
+	// stateDir specifies the local state directory
+	stateDir string
 }
 
 // Execute executes the bootstrap phase
@@ -126,7 +142,7 @@ func (p *bootstrapExecutor) Execute(ctx context.Context) error {
 			return trace.Wrap(err)
 		}
 	}
-	err = p.configureSystemDirectories()
+	err = p.configureSystemDirectories(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -177,16 +193,12 @@ func (p *bootstrapExecutor) configureDeviceMapper() error {
 	return nil
 }
 
-// configureSystemDirectories creates necessary system directories with
-// proper permissions
-func (p *bootstrapExecutor) configureSystemDirectories() error {
+// configureSystemDirectories creates the necessary directories under the
+// configured system directory with proper permissions
+func (p *bootstrapExecutor) configureSystemDirectories(ctx context.Context) error {
 	p.Progress.NextStep("Configuring system directories")
 	p.Info("Configuring system directories.")
-	// make sure we account for possible custom gravity data dir
-	stateDir, err := state.GetStateDir()
-	if err != nil {
-		return trace.Wrap(err)
-	}
+	stateDir := p.stateDir
 	mkdirList := []string{
 		filepath.Join(stateDir, "local", "packages", "blobs"),
 		filepath.Join(stateDir, "local", "packages", "unpacked"),
@@ -206,6 +218,7 @@ func (p *bootstrapExecutor) configureSystemDirectories() error {
 		filepath.Join(stateDir, "site", "packages", "tmp"),
 		filepath.Join(stateDir, "secrets"),
 		filepath.Join(stateDir, "backup"),
+		filepath.Join(stateDir, "logrange"),
 	}
 	for _, dir := range mkdirList {
 		p.Infof("Creating system directory %v.", dir)
@@ -217,7 +230,7 @@ func (p *bootstrapExecutor) configureSystemDirectories() error {
 	// adjust ownership of the state directory non-recursively
 	p.Infof("Setting ownership on system directory %v to %v:%v.",
 		stateDir, p.ServiceUser.UID, p.ServiceUser.GID)
-	err = os.Chown(stateDir, p.ServiceUser.UID, p.ServiceUser.GID)
+	err := os.Chown(stateDir, p.ServiceUser.UID, p.ServiceUser.GID)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -260,12 +273,7 @@ func (p *bootstrapExecutor) configureSystemDirectories() error {
 func (p *bootstrapExecutor) configureApplicationVolumes() error {
 	p.Progress.NextStep("Configuring application-specific volumes")
 	p.Info("Configuring application-specific volumes.")
-	mounts, err := opsservice.GetMounts(
-		p.Application.Manifest, *p.Phase.Data.Server)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	for _, mount := range mounts {
+	for _, mount := range p.mounts {
 		isDir, err := utils.IsDirectory(mount.Source)
 		if mount.SkipIfMissing && trace.IsNotFound(err) {
 			p.Debugf("Skipping non-existent volume %v.", mount.Source)

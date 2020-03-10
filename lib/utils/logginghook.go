@@ -28,15 +28,15 @@ import (
 )
 
 // InitLogging initalizes logging to log both to syslog and to a file
-func InitLogging(logFile string) {
+func InitLogging(level log.Level, logFile string) {
 	log.StandardLogger().Hooks.Add(&Hook{
 		path: logFile,
 	})
-	setLoggingOptions()
+	setLoggingOptions(level)
 }
 
-func setLoggingOptions() {
-	log.SetLevel(log.DebugLevel)
+func setLoggingOptions(level log.Level) {
+	log.SetLevel(level)
 	log.SetOutput(ioutil.Discard)
 }
 

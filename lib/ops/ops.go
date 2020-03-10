@@ -1828,6 +1828,12 @@ func (s *Site) String() string {
 //   completed
 type ProgressEntry storage.ProgressEntry
 
+// IsFailed returns whether this progress entry identifies a failed
+// operation
+func (r ProgressEntry) IsFailed() bool {
+	return r.State == OperationStateFailed
+}
+
 // IsCompleted returns whether this progress entry identifies a completed
 // (successful or failed) operation
 func (r ProgressEntry) IsCompleted() bool {

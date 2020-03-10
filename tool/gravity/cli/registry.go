@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/gravitational/gravity/lib/constants"
@@ -44,12 +45,12 @@ type registryConnectionRequest struct {
 
 func (r *registryConnectionRequest) checkAndSetDefaults(env *localenv.LocalEnvironment) (err error) {
 	if r.address == "" {
-		r.address, err = utils.ResolveAddr(env.DNS.Addr(), constants.DockerRegistry)
+		r.address, err = utils.ResolveAddr(env.DNS.Addr(), defaults.DockerRegistry)
 		if err != nil {
 			return trace.Wrap(err)
 		}
 	} else {
-		r.address = utils.EnsurePort(r.address, constants.DockerRegistryPort)
+		r.address = utils.EnsurePort(r.address, strconv.Itoa(defaults.DockerRegistryPort))
 	}
 	stateDir, err := state.GetStateDir()
 	if err != nil {

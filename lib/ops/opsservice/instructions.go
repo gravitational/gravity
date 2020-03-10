@@ -47,7 +47,6 @@ chmod 755 {{.gravity_bin_path}}
 echo "$(date) [INFO] Install agent will be using ${TMPDIR:-/tmp} for temporary files"
 `
 
-	// FIXME: remove profiling endpoints when completed
 	// joinTemplate is a template for instructions to run on nodes during
 	// wizard installation or expand
 	joinTemplate = template.Must(

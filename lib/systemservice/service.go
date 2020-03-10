@@ -20,10 +20,10 @@ import (
 	"fmt"
 	"os/exec"
 	"path/filepath"
-	"syscall"
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
+	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
 )
@@ -364,18 +364,9 @@ func (r *NewServiceRequest) CheckAndSetDefaults() error {
 // IsUnknownServiceError determines whether the err specifies the
 // 'unknown service' error
 func IsUnknownServiceError(err error) bool {
-	const (
-		errCodeGenericFailure = 1
-		errCodeNotInstalled   = 5
-	)
-	switch err := trace.Unwrap(err).(type) {
-	case *exec.ExitError:
-		if status, ok := err.Sys().(syscall.WaitStatus); ok {
-			switch status.ExitStatus() {
-			case errCodeGenericFailure, errCodeNotInstalled:
-				return true
-			}
-		}
+	const errCodeNotInstalled = 5
+	if exitCode := utils.ExitStatusFromError(err); exitCode != nil {
+		return *exitCode == errCodeNotInstalled
 	}
 	return false
 }

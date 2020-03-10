@@ -17,21 +17,21 @@ limitations under the License.
 package phases
 
 import (
-	"bytes"
 	"context"
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/ops"
-	"github.com/gravitational/gravity/lib/utils"
+	"github.com/gravitational/gravity/lib/pack/localpack"
+	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/update/system"
 
-	"github.com/gravitational/configure"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
 )
 
 // NewSystem returns a new "system" phase executor
-func NewSystem(p fsm.ExecutorParams, operator ops.Operator, remote fsm.Remote) (*systemExecutor, error) {
+func NewSystem(p fsm.ExecutorParams, operator ops.Operator, localPackages *localpack.PackageServer, remote fsm.Remote) (*systemExecutor, error) {
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithFields(logrus.Fields{
 			constants.FieldPhase:       p.Phase.ID,
@@ -42,10 +42,15 @@ func NewSystem(p fsm.ExecutorParams, operator ops.Operator, remote fsm.Remote) (
 		Operator: operator,
 		Server:   p.Phase.Data.Server,
 	}
+	updater := system.PackageUpdater{
+		Packages:    localPackages,
+		ClusterRole: p.Phase.Data.Server.ClusterRole,
+	}
 	return &systemExecutor{
 		FieldLogger:    logger,
 		ExecutorParams: p,
 		remote:         remote,
+		updater:        updater,
 	}, nil
 }
 
@@ -55,7 +60,8 @@ type systemExecutor struct {
 	// ExecutorParams is common executor params
 	fsm.ExecutorParams
 	// remote specifies the server remote control interface
-	remote fsm.Remote
+	remote  fsm.Remote
+	updater system.PackageUpdater
 }
 
 // Execute executes the system phase
@@ -64,22 +70,11 @@ func (p *systemExecutor) Execute(ctx context.Context) error {
 	p.Progress.NextStep("Installing system service %v:%v",
 		locator.Name, locator.Version)
 	p.Infof("Installing system service %v:%v", locator.Name, locator.Version)
-	// TODO(r0mant): Instead of executing CLI command here, use system updater
-	//               service which now lives in lib/update/system/system.go but
-	//               should be moved to some common location where both install
-	//               and upgrade can use it from.
-	args := []string{"--debug", "system", "reinstall", locator.String(),
-		"--cluster-role", p.Phase.Data.Server.ClusterRole}
-	if len(p.Phase.Data.Labels) != 0 {
-		labels := configure.KeyVal(p.Phase.Data.Labels)
-		args = append(args, "--labels", labels.String())
-	}
-	out, err := utils.RunGravityCommand(ctx, p.FieldLogger, args...)
-	output := string(bytes.TrimSpace(out))
-	if len(output) == 0 {
-		return trace.Wrap(err, "failed to install system service")
-	}
-	return trace.Wrap(err, "failed to install system service: %v", output)
+	return p.updater.Reinstall(storage.PackageUpdate{
+		From:   *p.Phase.Data.Package,
+		To:     *p.Phase.Data.Package,
+		Labels: p.Phase.Data.Labels,
+	})
 }
 
 // Rollback is no-op for this phase

@@ -32,7 +32,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/state"
@@ -131,9 +130,9 @@ func (r RegistryConnectionRequest) String() string {
 func NewDefaultImageService() ImageService {
 	return &imageService{
 		RegistryConnectionRequest: RegistryConnectionRequest{
-			RegistryAddress: constants.DockerRegistry,
+			RegistryAddress: defaults.DockerRegistry,
 		},
-		FieldLogger: log.WithField("registry", constants.DockerRegistry),
+		FieldLogger: log.WithField("registry", defaults.DockerRegistry),
 	}
 }
 
@@ -159,7 +158,7 @@ func NewClusterImageService(registry string) (ImageService, error) {
 	}
 	return NewImageService(RegistryConnectionRequest{
 		RegistryAddress: registry,
-		CertName:        constants.DockerRegistry,
+		CertName:        defaults.DockerRegistry,
 		CACertPath:      state.Secret(stateDir, defaults.RegistryCAFilename),
 		ClientCertPath:  state.Secret(stateDir, defaults.RegistryCertFilename),
 		ClientKeyPath:   state.Secret(stateDir, defaults.RegistryKeyFilename),

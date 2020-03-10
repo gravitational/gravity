@@ -329,7 +329,7 @@ func (b *Builder) Vendor(ctx context.Context, dir string) (io.ReadCloser, error)
 	vendorer, err := service.NewVendorer(service.VendorerConfig{
 		DockerClient: dockerClient,
 		ImageService: docker.NewDefaultImageService(),
-		RegistryURL:  constants.DockerRegistry,
+		RegistryURL:  defaults.DockerRegistry,
 		Packages:     b.Packages,
 	})
 	if err != nil {

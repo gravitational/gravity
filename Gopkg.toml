@@ -64,7 +64,8 @@ ignored = [
 
 [[constraint]]
   name = "github.com/gravitational/configure"
-  branch = "master"
+  #version = "=v1.0.0"
+  branch = "dmitri/kingpin-bool-flag"
 
 [[constraint]]
   name = "github.com/prometheus/alertmanager"

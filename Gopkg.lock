@@ -921,8 +921,8 @@
   version = "v1.7.0"
 
 [[projects]]
-  branch = "master"
-  digest = "1:9b64357c6cd473275e65a3f8fc2ed1d27a8f65efd35053df6d8d660d9e022cd7"
+  branch = "dmitri/kingpin-bool-flag"
+  digest = "1:3f0e2b612474389329577aa2efef8bb3fe17d8f6102c3afad137cc0c77058236"
   name = "github.com/gravitational/configure"
   packages = [
     ".",
@@ -931,7 +931,7 @@
     "schema",
   ]
   pruneopts = "UT"
-  revision = "c3428bd84c23f0cfcc759f2ef12632be5ff5d95d"
+  revision = "fce91dea0d0df90e464aaa1b2ffd9acb8dd7b5c7"
 
 [[projects]]
   branch = "master"

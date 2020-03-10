@@ -185,8 +185,7 @@ func (p *updatePhaseSystem) Rollback(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = updater.Rollback(ctx, true)
-	return trace.Wrap(err)
+	return updater.Rollback(ctx, true)
 }
 
 type updatePhaseConfig struct {

@@ -626,10 +626,25 @@ func (o *Operator) CreateSite(r ops.NewSiteRequest) (*ops.Site, error) {
 		clusterData.App.Base = runtimeApp.PackageEnvelope.ToPackagePtr()
 	}
 
+	clusterKey := ops.SiteKey{
+		AccountID:  clusterData.AccountID,
+		SiteDomain: clusterData.Domain,
+	}
 	clusterData, err = b.CreateSite(*clusterData)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	defer func() {
+		if err == nil {
+			return
+		}
+		if err := o.DeleteSite(clusterKey); err != nil {
+			log.WithFields(log.Fields{
+				log.ErrorKey: err,
+				"cluster":    clusterKey,
+			}).Warn("Failed to delete cluster.")
+		}
+	}()
 	st, err := newSite(&site{
 		domainName: clusterData.Domain,
 		key:        ops.SiteKey{AccountID: account.ID, SiteDomain: clusterData.Domain},
@@ -646,22 +661,8 @@ func (o *Operator) CreateSite(r ops.NewSiteRequest) (*ops.Site, error) {
 		return nil, trace.Wrap(err)
 	}
 
-	siteKey := ops.SiteKey{
-		AccountID:  clusterData.AccountID,
-		SiteDomain: clusterData.Domain,
-	}
-
-	agent, err := o.cfg.Users.CreateClusterAgent(clusterData.Domain, storage.NewUser(
-		storage.ClusterAgent(clusterData.Domain), storage.UserSpecV2{
-			AccountID: clusterData.AccountID,
-			OpsCenter: opsCenter,
-		}))
+	agent, err := o.upsertAgentUsers(clusterKey, opsCenter)
 	if err != nil {
-		defer func() {
-			if err := o.DeleteSite(siteKey); err != nil {
-				log.WithError(err).Warn("Failed to delete cluster.")
-			}
-		}()
 		return nil, trace.Wrap(err)
 	}
 
@@ -671,14 +672,46 @@ func (o *Operator) CreateSite(r ops.NewSiteRequest) (*ops.Site, error) {
 			UserEmail: agent.GetName(),
 		}, false)
 		if err != nil {
-			if errDelete := o.DeleteSite(siteKey); errDelete != nil {
-				log.Errorf("Failed to remove cluster %v: %v.", siteKey, trace.DebugReport(errDelete))
-			}
 			return nil, trace.Wrap(err)
 		}
 	}
-
 	return convertSite(*clusterData, o.cfg.Apps)
+}
+
+func (o *Operator) upsertAgentUsers(clusterKey ops.SiteKey, opsCenter string) (agent storage.User, err error) {
+	if err := o.upsertAdminAgent(clusterKey); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	agent, err = o.upsertAgent(clusterKey, opsCenter)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return agent, nil
+}
+
+// upsertAgent creates an agent user for the cluster being installed
+func (o *Operator) upsertAgent(clusterKey ops.SiteKey, opsCenter string) (agent storage.User, err error) {
+	agent, err = o.cfg.Users.CreateClusterAgent(clusterKey.SiteDomain,
+		storage.NewUser(storage.ClusterAgent(clusterKey.SiteDomain), storage.UserSpecV2{
+			AccountID: clusterKey.AccountID,
+			OpsCenter: opsCenter,
+		}))
+	if err != nil && !trace.IsAlreadyExists(err) {
+		return nil, trace.Wrap(err)
+	}
+	return agent, nil
+}
+
+// upsertAdminAgent creates an admin agent user for the cluster being installed
+func (o *Operator) upsertAdminAgent(clusterKey ops.SiteKey) error {
+	_, err := o.cfg.Users.CreateClusterAdminAgent(clusterKey.SiteDomain,
+		storage.NewUser(storage.ClusterAdminAgent(clusterKey.SiteDomain), storage.UserSpecV2{
+			AccountID: clusterKey.AccountID,
+		}))
+	if err != nil && !trace.IsAlreadyExists(err) {
+		return trace.Wrap(err)
+	}
+	return nil
 }
 
 // GetLocalUser returns local gravity site admin
