@@ -132,8 +132,6 @@ Flag               | Description
 `--cloud-provider` | _(Optional)_ Cloud provider integration, `generic` or `aws`. Autodetected if not set.
 `--mounts`         | _(Optional)_ Comma-separated list of mount points as <name>:<path>.
 `--state-dir`      | _(Optional)_ Directory where all Gravity system data will be kept on this node. Defaults to `/var/lib/gravity`.
-`--service-uid`    | _(Optional)_ Service user ID (numeric). See [Service User](pack/#service-user) for details. A user named `planet` is created automatically if unspecified.
-`--service-gid`    | _(Optional)_ Service group ID (numeric). See [Service User](pack/#service-user) for details. A group named `planet` is created automatically if unspecified.
 
 ### Environment Variables
 
