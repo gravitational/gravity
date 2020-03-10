@@ -27,6 +27,7 @@ import (
 	libselinux "github.com/gravitational/gravity/lib/system/selinux"
 	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/gravitational/satellite/monitoring"
 	"github.com/gravitational/trace"
 	"github.com/opencontainers/selinux/go-selinux"
 )
@@ -68,6 +69,15 @@ func BootstrapSELinuxAndRespawn(ctx context.Context, config libselinux.Bootstrap
 	return syscall.Exec(cmd, os.Args, newRespawnEnviron())
 }
 
+// ErrorBootstrapSELinuxPolicy is the error message resulting when bootstrapping
+// step fails.
+const ErrorBootstrapSELinuxPolicy = `failed to bootstrap SELinux policy.
+
+Make sure you're running with a role that has permissions to
+to write to temporary directory and load SELinux policies - for example, "sysadm_r".
+See https://gravitational.com/gravity/docs/selinux/ for details.
+`
+
 func bootstrapSELinux(env *localenv.LocalEnvironment, path, stateDir string, vxlanPort int) error {
 	config := libselinux.BootstrapConfig{
 		StateDir: stateDir,
@@ -81,6 +91,70 @@ func bootstrapSELinux(env *localenv.LocalEnvironment, path, stateDir string, vxl
 	}
 	defer f.Close()
 	return libselinux.WriteBootstrapScript(f, config)
+}
+
+func (g *Application) shouldBootstrapSELinuxForCommand(cmd string) (ok bool) {
+	switch cmd {
+	case g.InstallCmd.FullCommand():
+		if !*g.InstallCmd.SELinux || *g.InstallCmd.FromService || *g.InstallCmd.Wizard || *g.InstallCmd.Remote {
+			return false
+		}
+	case g.JoinCmd.FullCommand():
+		if !*g.JoinCmd.SELinux || *g.JoinCmd.FromService {
+			return false
+		}
+	case g.AutoJoinCmd.FullCommand():
+		if !*g.AutoJoinCmd.SELinux || *g.AutoJoinCmd.FromService {
+			return false
+		}
+	case g.UpgradeCmd.FullCommand():
+		if *g.UpgradeCmd.Resume || *g.UpgradeCmd.Phase != "" {
+			return false
+		}
+	case g.UpdateTriggerCmd.FullCommand(), g.UpdateUploadCmd.FullCommand():
+	default:
+		// Avoid bootstrapping step for any other command
+		return false
+	}
+	return true
+}
+
+// bootstrapSELinuxForCommand bootstraps SELinux on this node for the specified command.
+// Assumes shouldBootstrapSELinuxForCommand has returned true for the given command
+func (g *Application) bootstrapSELinuxForCommand(ctx context.Context, cmd string) error {
+	logger := log.WithField(trace.Component, "selinux")
+	metadata, err := monitoring.GetOSRelease()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	seLinuxEnabled := true
+	if !selinux.GetEnabled() {
+		log.WithField(trace.Component, "selinux").Info("SELinux not enabled on host.")
+		seLinuxEnabled = false
+	} else if !libselinux.IsSystemSupported(metadata.ID) {
+		logger.WithField("id", metadata.ID).Info("Distribution not supported.")
+		seLinuxEnabled = false
+	}
+	switch cmd {
+	case g.InstallCmd.FullCommand():
+		*g.InstallCmd.SELinux = seLinuxEnabled
+	case g.JoinCmd.FullCommand():
+		*g.JoinCmd.SELinux = seLinuxEnabled
+	case g.AutoJoinCmd.FullCommand():
+		*g.AutoJoinCmd.SELinux = seLinuxEnabled
+	case g.UpgradeCmd.FullCommand():
+		*g.UpgradeCmd.SELinux = seLinuxEnabled
+	case g.UpdateTriggerCmd.FullCommand():
+		*g.UpdateTriggerCmd.SELinux = seLinuxEnabled
+	}
+	if !seLinuxEnabled {
+		// Nothing to do
+		return nil
+	}
+	return BootstrapSELinuxAndRespawn(ctx, libselinux.BootstrapConfig{
+		StateDir: *g.StateDir,
+		OS:       metadata,
+	}, localenv.Silent(*g.Debug))
 }
 
 func isSELinuxAlreadyBootstrapped() bool {

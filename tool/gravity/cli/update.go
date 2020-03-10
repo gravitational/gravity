@@ -120,7 +120,6 @@ func newUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironm
 		proxy:        proxy,
 		leader:       leader,
 		nodeParams:   constants.RPCAgentSyncPlanFunction,
-		seLinux:      plan.SELinux,
 	})
 	deployCtx, cancel := context.WithTimeout(ctx, defaults.AgentDeployTimeout)
 	defer cancel()

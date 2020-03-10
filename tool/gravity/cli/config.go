@@ -58,7 +58,6 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 	"github.com/gravitational/gravity/lib/system/environ"
-	"github.com/gravitational/gravity/lib/system/selinux"
 	"github.com/gravitational/gravity/lib/system/signals"
 	"github.com/gravitational/gravity/lib/systeminfo"
 	"github.com/gravitational/gravity/lib/systemservice"
@@ -71,7 +70,6 @@ import (
 	"github.com/docker/docker/pkg/namesgenerator"
 	"github.com/fatih/color"
 	"github.com/gravitational/configure"
-	"github.com/gravitational/satellite/monitoring"
 	teledefaults "github.com/gravitational/teleport/lib/defaults"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
@@ -501,26 +499,6 @@ func (i *InstallConfig) RunLocalChecks() error {
 	}))
 }
 
-// BootstrapSELinux installs the default SELinux policy on the node
-func (i *InstallConfig) BootstrapSELinux(printer utils.Printer) error {
-	if !i.SELinux || i.FromService {
-		return nil
-	}
-	metadata, err := monitoring.GetOSRelease()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	if !selinux.IsSystemSupported(metadata.ID) {
-		log.WithField("os", metadata).Info("No SELinux policy for specified system, will skip.")
-		i.SELinux = false
-		return nil
-	}
-	return BootstrapSELinuxAndRespawn(context.TODO(), selinux.BootstrapConfig{
-		StateDir: i.SystemStateDir,
-		OS:       metadata,
-	}, printer)
-}
-
 func (i *InstallConfig) validateApplicationDir() error {
 	_, err := i.getApp()
 	return trace.Wrap(err)
@@ -718,7 +696,6 @@ func NewWizardConfig(env *localenv.LocalEnvironment, g *Application) (*InstallCo
 		ServiceGID:         *g.WizardCmd.ServiceGID,
 		AdvertiseAddr:      *g.WizardCmd.AdvertiseAddr,
 		Token:              *g.WizardCmd.Token,
-		SELinux:            *g.WizardCmd.SELinux,
 		FromService:        *g.WizardCmd.FromService,
 		Remote:             true,
 		Printer:            env,
@@ -826,7 +803,6 @@ func (j *JoinConfig) NewPeerConfig(env, joinEnv *localenv.LocalEnvironment) (con
 		StateDir:           joinEnv.StateDir,
 		OperationID:        j.OperationID,
 		SkipWizard:         j.SkipWizard,
-		SELinux:            j.SELinux,
 	}, nil
 }
 
@@ -849,26 +825,8 @@ func (j *JoinConfig) GetRuntimeConfig() proto.RuntimeConfig {
 		Role:         j.Role,
 		SystemDevice: j.SystemDevice,
 		Mounts:       convertMounts(j.Mounts),
+		SELinux:      j.SELinux,
 	}
-}
-
-func (j *JoinConfig) bootstrapSELinux(printer utils.Printer) error {
-	if !j.SELinux || j.FromService {
-		return nil
-	}
-	metadata, err := monitoring.GetOSRelease()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	if !selinux.IsSystemSupported(metadata.ID) {
-		log.WithField("os", metadata).Info("No SELinux policy for specified system, will skip.")
-		j.SELinux = false
-		return nil
-	}
-	return BootstrapSELinuxAndRespawn(context.TODO(), selinux.BootstrapConfig{
-		StateDir: j.SystemStateDir,
-		OS:       metadata,
-	}, printer)
 }
 
 func (r *removeConfig) checkAndSetDefaults() error {
@@ -914,24 +872,6 @@ func (r *autojoinConfig) checkAndSetDefaults() error {
 		return trace.BadParameter("token is required")
 	}
 	return nil
-}
-
-func (r *autojoinConfig) bootstrapSELinux(printer utils.Printer) error {
-	if !r.selinux || r.fromService {
-		return nil
-	}
-	metadata, err := monitoring.GetOSRelease()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	if !selinux.IsSystemSupported(metadata.ID) {
-		log.WithField("os", metadata).Info("No SELinux policy for specified system, will skip.")
-		r.selinux = false
-		return nil
-	}
-	return BootstrapSELinuxAndRespawn(context.TODO(), selinux.BootstrapConfig{
-		OS: metadata,
-	}, printer)
 }
 
 type autojoinConfig struct {

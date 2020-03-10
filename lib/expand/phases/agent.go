@@ -49,7 +49,6 @@ func NewAgentStart(p fsm.ExecutorParams, operator ops.Operator) (*agentStartExec
 		Master:         *p.Phase.Data.Server,
 		Operator:       operator,
 		ExecutorParams: p,
-		seLinux:        p.Plan.SELinux,
 	}, nil
 }
 
@@ -62,8 +61,6 @@ type agentStartExecutor struct {
 	Operator ops.Operator
 	// ExecutorParams is common executor params
 	fsm.ExecutorParams
-	// seLinux specifies whether the cluster SELinux support is on
-	seLinux bool
 }
 
 // Execute starts an RPC agent on a node
@@ -87,7 +84,6 @@ func (p *agentStartExecutor) Execute(ctx context.Context) error {
 		SecretsPackage: loc.RPCSecrets,
 		Proxy:          proxyClient,
 		FieldLogger:    p.FieldLogger,
-		SELinux:        p.seLinux,
 	})
 	if err != nil {
 		return trace.Wrap(err)

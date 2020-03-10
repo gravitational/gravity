@@ -1620,8 +1620,6 @@ type NewSiteRequest struct {
 	DNSConfig storage.DNSConfig `json:"dns_config"`
 	// Docker specifies the cluster Docker configuration
 	Docker storage.DockerConfig `json:"docker"`
-	// SELinux indicates whether the cluster will have SELinux support on
-	SELinux bool `json:"selinux,omitempty"`
 }
 
 // SiteKey is a key used to identify site

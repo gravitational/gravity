@@ -53,7 +53,6 @@ func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, o
 			Reason:        cluster.Reason,
 			App:           cluster.App.Package,
 			ClientVersion: modules.Get().Version(),
-			SELinux:       cluster.SELinux,
 			Extension:     newExtension(),
 		},
 	}
@@ -220,8 +219,6 @@ type Cluster struct {
 	ServerVersion *modules.Version `json:"server_version,omitempty"`
 	// ClientVersion is version of the binary collecting the status.
 	ClientVersion modules.Version `json:"client_version"`
-	// SELinux indicates whether the SELinux support is on
-	SELinux bool `json:"selinux,omitempty"`
 }
 
 // Endpoints contains information about cluster and application endpoints.
@@ -372,6 +369,8 @@ type ClusterServer struct {
 	Profile string `json:"profile"`
 	// Status describes the node's status
 	Status string `json:"status"`
+	// SELinux indicates whether the SELinux support is on on the node
+	SELinux *bool `json:"selinux,omitempty"`
 	// FailedProbes lists all failed probes if the node is not healthy
 	FailedProbes []string `json:"failed_probes,omitempty"`
 	// WarnProbes lists all warning probes
@@ -424,6 +423,7 @@ func fromClusterState(systemStatus pb.SystemStatus, cluster []storage.Server) (o
 		status := fromNodeStatus(*node)
 		status.Hostname = server.Hostname
 		status.Profile = server.Role
+		status.SELinux = utils.BoolPtr(server.SELinux)
 		out = append(out, status)
 	}
 	return out

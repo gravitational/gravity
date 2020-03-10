@@ -18,8 +18,6 @@ package cli
 
 import (
 	"context"
-	"encoding/json"
-	"os/exec"
 
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
@@ -32,7 +30,6 @@ import (
 	"github.com/gravitational/gravity/lib/rpc"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
-	"github.com/gravitational/gravity/lib/system/selinux"
 	"github.com/gravitational/gravity/lib/update"
 	clusterupdate "github.com/gravitational/gravity/lib/update/cluster"
 	"github.com/gravitational/gravity/lib/utils/helm"
@@ -66,6 +63,7 @@ func newUpgradeConfig(g *Application) (*upgradeConfig, error) {
 		upgradePackage:   *g.UpgradeCmd.App,
 		manual:           *g.UpgradeCmd.Manual,
 		skipVersionCheck: *g.UpgradeCmd.SkipVersionCheck,
+		seLinux:          *g.UpgradeCmd.SELinux,
 		values:           values,
 	}, nil
 }
@@ -89,16 +87,6 @@ func updateTrigger(
 	updateEnv *localenv.LocalEnvironment,
 	config upgradeConfig,
 ) error {
-	seLinuxEnabled, err := querySELinuxEnabled(context.TODO())
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	if seLinuxEnabled {
-		if err := BootstrapSELinuxAndRespawn(context.TODO(), selinux.BootstrapConfig{}, localEnv); err != nil {
-			return trace.Wrap(err)
-		}
-		config.seLinux = seLinuxEnabled
-	}
 	ctx := context.TODO()
 	updater, err := newClusterUpdater(ctx, localEnv, updateEnv, config)
 	if err != nil {
@@ -431,31 +419,4 @@ Please use the gravity binary from the upgrade installer tarball to execute the 
 	}
 
 	return nil
-}
-
-func querySELinuxEnabled(ctx context.Context) (enabled bool, err error) {
-	status, err := queryClusterSELinuxStatus(ctx)
-	if err != nil {
-		return false, trace.Wrap(err)
-	}
-	return status.Cluster != nil && status.Cluster.SELinux, nil
-}
-
-func queryClusterSELinuxStatus(ctx context.Context) (*clusterSELinuxStatus, error) {
-	out, err := exec.CommandContext(ctx, "gravity", "status", "--output=json").CombinedOutput()
-	log.WithField("output", string(out)).Info("Query cluster status.")
-	if err != nil {
-		return nil, trace.Wrap(err, "failed to fetch cluster status: %s", out)
-	}
-	var status clusterSELinuxStatus
-	if err := json.Unmarshal(out, &status); err != nil {
-		return nil, trace.Wrap(err, "failed to interpret status as JSON")
-	}
-	return &status, nil
-}
-
-type clusterSELinuxStatus struct {
-	Cluster *struct {
-		SELinux bool `json:"selinux"`
-	} `json:"cluster"`
 }

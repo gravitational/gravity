@@ -50,7 +50,7 @@ func NewSystem(p fsm.ExecutorParams, operator ops.Operator, localPackages *local
 		Packages:    localPackages,
 		ClusterRole: p.Phase.Data.Server.ClusterRole,
 		ServiceUser: *serviceUser,
-		SELinux:     p.Plan.SELinux,
+		SELinux:     p.Phase.Data.Server.SELinux,
 	}
 	return &systemExecutor{
 		FieldLogger:    logger,

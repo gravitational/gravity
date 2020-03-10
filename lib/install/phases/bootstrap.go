@@ -33,7 +33,6 @@ import (
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/opsservice"
 	"github.com/gravitational/gravity/lib/schema"
-	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
 	libselinux "github.com/gravitational/gravity/lib/system/selinux"
 	"github.com/gravitational/gravity/lib/systeminfo"
@@ -81,11 +80,6 @@ func NewBootstrap(p fsm.ExecutorParams, operator ops.Operator, apps app.Applicat
 		return nil, trace.Wrap(err)
 	}
 
-	stateDir, err := state.GetStateDir()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithFields(logrus.Fields{
 			constants.FieldPhase:       p.Phase.ID,
@@ -106,7 +100,8 @@ func NewBootstrap(p fsm.ExecutorParams, operator ops.Operator, apps app.Applicat
 		remote:           remote,
 		dnsConfig:        p.Plan.DNSConfig,
 		mounts:           mounts,
-		stateDir:         stateDir,
+		stateDir:         p.Phase.Data.Server.StateDir(),
+		seLinux:          p.Phase.Data.Server.SELinux,
 	}, nil
 }
 
@@ -131,6 +126,8 @@ type bootstrapExecutor struct {
 	mounts []storage.Mount
 	// stateDir specifies the local state directory
 	stateDir string
+	// seLinux indicates whether the node has SELinux support on
+	seLinux bool
 }
 
 // Execute executes the bootstrap phase
@@ -339,7 +336,7 @@ func (p *bootstrapExecutor) logIntoCluster() error {
 }
 
 func (p *bootstrapExecutor) configureSystemMetadata() error {
-	err := p.LocalBackend.SetSELinux(p.Plan.SELinux)
+	err := p.LocalBackend.SetSELinux(p.seLinux)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -371,7 +368,7 @@ func (*bootstrapExecutor) PostCheck(ctx context.Context) error {
 }
 
 func (p *bootstrapExecutor) applySELinuxFileContexts(ctx context.Context) error {
-	if !(selinux.GetEnabled() && p.Plan.SELinux) {
+	if !(selinux.GetEnabled() && p.seLinux) {
 		p.Info("SELinux is disabled.")
 		return nil
 	}

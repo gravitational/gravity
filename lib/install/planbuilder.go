@@ -114,6 +114,9 @@ func (b *PlanBuilder) AddBootstrapSELinuxPhase(plan *storage.OperationPlan) {
 	var bootstrapPhases []storage.OperationPhase
 	allNodes := append(b.Masters, b.Nodes...)
 	for i, node := range allNodes {
+		if !node.SELinux {
+			continue
+		}
 		bootstrapPhases = append(bootstrapPhases, storage.OperationPhase{
 			ID:          fmt.Sprintf("%v/%v", phases.BootstrapSELinuxPhase, node.Hostname),
 			Description: fmt.Sprintf("Configure SELinux on node %v", node.Hostname),
@@ -124,6 +127,9 @@ func (b *PlanBuilder) AddBootstrapSELinuxPhase(plan *storage.OperationPlan) {
 			},
 			Step: 0,
 		})
+	}
+	if len(bootstrapPhases) == 0 {
+		return
 	}
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
 		ID:          phases.BootstrapSELinuxPhase,

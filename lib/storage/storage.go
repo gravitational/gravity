@@ -591,8 +591,6 @@ type Site struct {
 	DNSConfig DNSConfig `json:"dns_config"`
 	// InstallToken specifies the original token the cluster was installed with
 	InstallToken string `json:"install_token"`
-	// SELinux specifies whether the cluster is using SELinux support
-	SELinux bool `json:"selinux,omitempty"`
 }
 
 // Check validates the cluster object's fields.
@@ -1075,7 +1073,7 @@ type LoginEntries interface {
 	SetCurrentOpsCenter(string) error
 }
 
-// SystemMetadata stores system-relevant data
+// SystemMetadata stores system-relevant data on the host
 type SystemMetadata interface {
 	// GetDNSConfig returns current DNS configuration
 	GetDNSConfig() (*DNSConfig, error)
@@ -1589,6 +1587,8 @@ type Server struct {
 	User OSUser `json:"user"`
 	// Created is the timestamp when the server was created
 	Created time.Time `json:"created"`
+	// SELinux specifies whether the node has SELinux support on
+	SELinux bool `json:"selinux,omitempty"`
 }
 
 // IsEqualTo returns true if this and the provided server are the same server.

@@ -470,6 +470,9 @@ type AutoJoinCmd struct {
 	AdvertiseAddr *string
 	// Token is join token
 	Token *string
+	// SELinux specifies whether to run with SELinux support.
+	// This flag makes the installer run in its own SELinux domain
+	SELinux *bool
 	// FromService specifies whether this process runs in service mode.
 	//
 	// The agent runs the install/join code in service mode, while
@@ -619,6 +622,9 @@ type UpdateTriggerCmd struct {
 	Manual *bool
 	// SkipVersionCheck suppresses version mismatch errors
 	SkipVersionCheck *bool
+	// SELinux specifies whether to run with SELinux support.
+	// This flag makes the installer run in its own SELinux domain
+	SELinux *bool
 }
 
 // UpdateUploadCmd uploads new app version to local cluster
@@ -674,6 +680,9 @@ type UpgradeCmd struct {
 	Set *[]string
 	// Values is a list of YAML files with Helm chart values.
 	Values *[]string
+	// SELinux specifies whether to run with SELinux support.
+	// This flag makes the installer run in its own SELinux domain
+	SELinux *bool
 }
 
 // StatusCmd combines subcommands for displaying status information
@@ -1047,9 +1056,6 @@ type WizardCmd struct {
 	AdvertiseAddr *string
 	// Token is unique install token
 	Token *string
-	// SELinux specifies whether to run with SELinux support.
-	// This flag makes the installer run in its own SELinux domain
-	SELinux *bool
 	// FromService specifies whether this process runs in service mode.
 	//
 	// The installer runs the main installer code in service mode, while

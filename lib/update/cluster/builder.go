@@ -69,6 +69,15 @@ func (r phaseBuilder) checks() *update.Phase {
 	return &phase
 }
 
+func (r phaseBuilder) hasSELinuxPhase() bool {
+	for _, server := range r.servers {
+		if server.SELinux {
+			return true
+		}
+	}
+	return false
+}
+
 func (r phaseBuilder) bootstrapSELinux() *update.Phase {
 	root := update.RootPhase(update.Phase{
 		ID:          "selinux-bootstrap",
@@ -76,6 +85,9 @@ func (r phaseBuilder) bootstrapSELinux() *update.Phase {
 	})
 
 	for i, server := range r.servers {
+		if !server.SELinux {
+			continue
+		}
 		root.AddParallel(update.Phase{
 			ID:          root.ChildLiteral(server.Hostname),
 			Executor:    updateBootstrapSELinux,

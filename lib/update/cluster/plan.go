@@ -204,7 +204,6 @@ func NewOperationPlan(config PlanConfig) (*storage.OperationPlan, error) {
 			Servers:        servers,
 			DNSConfig:      config.DNSConfig,
 			GravityPackage: *gravityPackage,
-			SELinux:        config.SELinux,
 		},
 		operator:          config.Operator,
 		operation:         *config.Operation,
@@ -314,7 +313,7 @@ func newOperationPlan(p planConfig) (*storage.OperationPlan, error) {
 	initPhase := *builder.init(p.leadMaster.Server)
 	checkDeps := []update.PhaseIder{initPhase}
 	var seLinuxPhase *update.Phase
-	if p.plan.SELinux {
+	if builder.hasSELinuxPhase() {
 		seLinuxPhase = builder.bootstrapSELinux().Require(initPhase)
 		checkDeps = append(checkDeps, *seLinuxPhase)
 	}

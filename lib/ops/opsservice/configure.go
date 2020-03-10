@@ -343,7 +343,7 @@ func (s *site) configurePackages(ctx *operationContext, req ops.ConfigurePackage
 			sniHost:           s.service.cfg.SNIHost,
 		})
 		if err != nil && !trace.IsAlreadyExists(err) {
-			s.WithField("package", secretsPackage.String()).Info("Planet secrets  package already exists.")
+			s.WithField("package", secretsPackage.String()).Info("Planet secrets package already exists.")
 			return trace.Wrap(err)
 		}
 
@@ -1034,7 +1034,7 @@ func (s *site) getPlanetConfig(config planetConfig) (args []string, err error) {
 		args = append(args, fmt.Sprintf("--%v=%v", k, v))
 	}
 
-	if s.seLinuxEnabled() {
+	if node.SELinux {
 		args = append(args, "--selinux")
 	}
 

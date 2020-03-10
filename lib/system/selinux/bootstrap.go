@@ -56,7 +56,7 @@ func Bootstrap(ctx context.Context, config BootstrapConfig) error {
 		return b.installDefaultPolicy(ctx, dir)
 	}, "policy")
 	if err != nil {
-		return trace.Wrap(err)
+		return trace.Wrap(err, "failed to install policy module")
 	}
 	return b.importLocalChanges(ctx)
 }

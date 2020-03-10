@@ -295,9 +295,6 @@ func formatVersion(version *modules.Version) string {
 }
 
 func printClusterStatus(cluster statusapi.Cluster, w io.Writer) {
-	if cluster.SELinux {
-		fmt.Fprintf(w, "SELinux support:\t%v\n", formatSELinuxStatus(cluster.SELinux))
-	}
 	if cluster.App.Name != "" {
 		fmt.Fprintf(w, "Cluster image:\t%v, version %v\n", cluster.App.Name,
 			cluster.App.Version)
@@ -380,6 +377,9 @@ func printNodeStatus(node statusapi.ClusterServer, w io.Writer) {
 		description = fmt.Sprintf("%v / %v", description, node.Profile)
 	}
 	fmt.Fprintf(w, "        * %v / %v\n", unknownFallback(node.Hostname), description)
+	if node.SELinux != nil {
+		fmt.Fprintf(w, "            SELinux:\t%v\n", formatSELinuxStatus(*node.SELinux))
+	}
 	switch node.Status {
 	case statusapi.NodeOffline:
 		fmt.Fprintf(w, "            Status:\t%v\n", color.YellowString("offline"))

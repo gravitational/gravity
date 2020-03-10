@@ -56,7 +56,6 @@ func (p *Peer) getOperationPlan(ctx operationContext) (*storage.OperationPlan, e
 		ClusterName:   ctx.Operation.SiteDomain,
 		Servers:       builder.ClusterNodes,
 		DNSConfig:     ctx.Cluster.DNSConfig,
-		SELinux:       p.SELinux,
 	}
 
 	// perform some initialization on the node
@@ -65,7 +64,7 @@ func (p *Peer) getOperationPlan(ctx operationContext) (*storage.OperationPlan, e
 	// start RPC agent on one of the cluster's master nodes
 	builder.AddStartAgentPhase(plan)
 
-	if p.SELinux {
+	if builder.JoiningNode.SELinux {
 		builder.AddBootstrapSELinuxPhase(plan)
 	}
 

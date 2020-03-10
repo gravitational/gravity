@@ -249,6 +249,12 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 		return statusSite()
 	}
 
+	if g.shouldBootstrapSELinuxForCommand(cmd) {
+		if err := g.bootstrapSELinuxForCommand(context.TODO(), cmd); err != nil {
+			return trace.Wrap(err, ErrorBootstrapSELinuxPolicy)
+		}
+	}
+
 	var localEnv *localenv.LocalEnvironment
 	switch cmd {
 	case g.InstallCmd.FullCommand(), g.JoinCmd.FullCommand():
@@ -357,6 +363,7 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			upgradePackage:   *g.UpdateTriggerCmd.App,
 			manual:           *g.UpdateTriggerCmd.Manual,
 			skipVersionCheck: *g.UpdateTriggerCmd.SkipVersionCheck,
+			seLinux:          *g.UpdateTriggerCmd.SELinux,
 		})
 	case g.UpdatePlanInitCmd.FullCommand():
 		updateEnv, err := g.NewUpdateEnv()
