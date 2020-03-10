@@ -11,7 +11,7 @@ via a one-time installation link.
 Once the cluster is up and running, the installer will establish a remote access
 channel for maintenance:
 
-![Ops Center Install](images/opscenter-install.svg?style=grv-image-center-md)
+![Ops Center Install](images/opscenter-install.svg)
 
 !!! tip "NOTE"
     The end users can close the remote channel and disconnect their Application
@@ -54,7 +54,7 @@ $ ls -lh
 The installation wizard is launched by typing `./install` and will guide the end user
 through the installation process.
 
-![Telekube Offline Installer](images/offline-install.svg?style=grv-image-center-md)
+![Telekube Offline Installer](images/offline-install.svg)
 
 ### Standalone Offline CLI Installation
 

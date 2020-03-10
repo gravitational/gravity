@@ -36,7 +36,7 @@ $ ls -lh
 The installation wizard is launched by typing `./install` (which executes `gravity wizard` behind the scenes) and will guide the end user
 through the installation process.
 
-![Gravity Offline Installer](images/offline-install.svg?style=grv-image-center-md)
+![Gravity Offline Installer](images/offline-install.svg)
 
 The `gravity wizard` command accepts the following arguments:
 

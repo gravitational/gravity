@@ -120,7 +120,7 @@ As shown in the diagram below, the build machine (often times a
 developer's laptop or a CI/CD server) should contain everything needed to
 build a self-sufficient portable package to distribute the Application Bundle:
 
-![Telekube Build Diagram](images/build.svg?style=grv-image-center-md)
+![Telekube Build Diagram](images/build.svg)
 
 Telekube's `build` command creates the Application Bundle tarball:
 
