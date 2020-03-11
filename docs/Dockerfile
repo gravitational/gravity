@@ -14,7 +14,7 @@ ARG GID
 ARG WORKDIR
 ARG PORT
 
-RUN groupadd jenkins --gid=$GID -o && useradd jenkins --uid=$UID --gid=$GID --create-home --shell=/bin/sh
+RUN groupadd builder --gid=$GID -o && useradd builder --uid=$UID --gid=$GID --create-home --shell=/bin/bash
 COPY --from=milv-builder /gopath/bin/milv /usr/bin/milv
 
 VOLUME [$WORKDIR]
