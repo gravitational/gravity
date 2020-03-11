@@ -13,14 +13,14 @@ instance.
 
 This Quick Start Guide will walk you through the process of packaging
 Mattermost for private deployments. Before we start, please take a look at the
-[Telekube Overview](overview.md) to get familiar with basic concepts of the
+[Telekube Overview](index.md) to get familiar with basic concepts of the
 Telekube system.
 
 ### System Requirements
 
 
 Telekube is a Linux-based toolkit. By default it supports 64-bit versions of the
-following Linux distributions as [specified here](/pack/#distributions)
+following Linux distributions as [specified here](requirements.md#distributions)
 
 If you have a need to support a Linux distribution not listed above,
 Gravitational offers Implementation Services that may be able to assist you.
@@ -150,7 +150,7 @@ To log in to to the Ops Center using the CLI:
 $ tele login -o [yourdomain].gravitational.io
 ```
 
-!!! tip "Note":
+!!! tip "Note"
     If you are using a guest environment, like Vagrant on macOS, you may see an error
     when attempting due to network restrictions. If so, first get a temporary key from
     your host environment with the following command:
@@ -177,7 +177,7 @@ Now the application is ready to be distributed and installed.
 
 ## Installing the Application
 
-As shown in the [Overview](overview.md), there are two ways to install an
+As shown in the [Overview](index.md), there are two ways to install an
 Application Bundle packaged with Telekube:
 
 * Online, via the Ops Center.
@@ -193,7 +193,7 @@ The simplest way to launch an online installer is to log in to the Ops Center
 and click on "Install" in the dropdown menu for the published Application.
 This will take you to a URL where the installation wizard will run.
 
-![Telekube Online Installer](/images/installer.png)
+![Telekube Online Installer](images/installer.png)
 
 ### Offline Mode
 
@@ -238,7 +238,7 @@ $ tele login mattermost
 ```
 
 Now you can run `tsh ls` to see the nodes and `tsh ssh` for connecting to them
-via SSH. See more in [Remote Management](manage) section.
+via SSH. See more in [Remote Management](manage.md) section.
 
 ## Conclusion
 

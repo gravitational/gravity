@@ -7,9 +7,9 @@ clusters using a self-contained installer tarball.
 
  * The tarball can be generated on the Ops Center, by using the `Download` link.
  * Alternatively, the installer can be fetched from an Ops Center using `tele pull`,
-see [Publishing Applications](pack/#publishing-applications) section for details.
+see [Publishing Applications](pack.md#publishing-applications) section for details.
  * Installer tarball can be built with the `tele build` command, see
-  [Packaging Applications](pack#packaging-applications) for details.
+  [Packaging Applications](pack.md#packaging-applications) for details.
 
 For example, Application Bundle, `my-app-installer.tar` will contain everything
 required to install the Application `my-app`.
@@ -36,7 +36,7 @@ $ ls -lh
 The installation wizard is launched by typing `./install` (which executes `gravity wizard` behind the scenes) and will guide the end user
 through the installation process.
 
-![Gravity Offline Installer](images/offline-install.svg?style=grv-image-center-md)
+![Gravity Offline Installer](images/offline-install.svg)
 
 The `gravity wizard` command accepts the following arguments:
 
@@ -44,8 +44,8 @@ Flag      | Description
 ----------|-------------
 `--token` | Secure token which prevents rogue nodes from joining the cluster during installation. A token is generated automatically if unspecified. Carefully pick a hard-to-guess value.
 `--advertise-addr` | IP address the installer node should be visible at.
-`--service-uid` | _(Optional)_ Service user ID (numeric). See [Service User](pack/#service-user) for details. A user named `planet` is created automatically if unspecified.
-`--service-gid` | _(Optional)_ Service group ID (numeric). See [Service User](pack/#service-user) for details. A group named `planet` is created automatically if unspecified.
+`--service-uid` | _(Optional)_ Service user ID (numeric). See [Service User](pack.md#service-user) for details. A user named `planet` is created automatically if unspecified.
+`--service-gid` | _(Optional)_ Service group ID (numeric). See [Service User](pack.md#service-user) for details. A group named `planet` is created automatically if unspecified.
 
 ### Standalone Offline CLI Installation
 
@@ -70,7 +70,7 @@ node-1$ sudo ./gravity install --advertise-addr=172.28.128.3 --token=XXX --flavo
 ```
 
 Note the use of `flavor` which, in this case, describes a configuration for 3 nodes
-("three" being the name of the flavor from the [Application Manifest](pack#application-manifest)).
+("three" being the name of the flavor from the [Application Manifest](pack.md#application-manifest)).
 
 This will initiate the process of setting up a new cluster for the Application.
 
@@ -97,14 +97,14 @@ Flag      | Description
 `--role` | _(Optional)_ Application role of the node.
 `--cluster` | _(Optional)_ Name of the cluster. Auto-generated if not set.
 `--cloud-provider` | _(Optional)_ Enable cloud provider integration: `generic` (no cloud provider integration), `aws` or `gce`. Autodetected if not set.
-`--flavor` | _(Optional)_ Application flavor. See [Application Manifest](pack/#application-manifest) for details.
+`--flavor` | _(Optional)_ Application flavor. See [Application Manifest](pack.md#application-manifest) for details.
 `--config` | _(Optional)_ File with Kubernetes/Gravity resources to create in the cluster during installation.
 `--pod-network-cidr` | _(Optional)_ CIDR range Kubernetes will be allocating node subnets and pod IPs from. Must be a minimum of /16 so Kubernetes is able to allocate /24 to each node. Defaults to `10.244.0.0/16`.
 `--service-cidr` | _(Optional)_ CIDR range Kubernetes will be allocating service IPs from. Defaults to `10.100.0.0/16`.
 `--state-dir` | _(Optional)_ Directory where all Gravity system data will be kept on this node. Defaults to `/var/lib/gravity`.
 `--remote`  | _(Optional)_ Specifies whether the installer node should not be part of the cluster. Defaults to _false_ (i.e. installer node will be part of cluster).
-`--service-uid` | _(Optional)_ Service user ID (numeric). See [Service User](pack/#service-user) for details. A user named `planet` is created automatically if unspecified.
-`--service-gid` | _(Optional)_ Service group ID (numeric). See [Service User](pack/#service-user) for details. A group named `planet` is created automatically if unspecified.
+`--service-uid` | _(Optional)_ Service user ID (numeric). See [Service User](pack.md#service-user) for details. A user named `planet` is created automatically if unspecified.
+`--service-gid` | _(Optional)_ Service group ID (numeric). See [Service User](pack.md#service-user) for details. A group named `planet` is created automatically if unspecified.
 `--dns-zone` | _(Optional)_ Specify an upstream server for the given DNS zone within the cluster. Accepts `<zone>/<nameserver>` format where `<nameserver>` can be either `<ip>` or `<ip>:<port>`. Can be specified multiple times.
 `--vxlan-port` | _(Optional)_ Specify custom overlay network port. Default is `8472`.
 
@@ -118,17 +118,17 @@ Flag      | Description
 `--cloud-provider` | _(Optional)_ Cloud provider integration, `generic`, `aws` or `gce`. Autodetected if not set.
 `--mount` | _(Optional)_ Comma-separated list of mount points as <name>:<path>.
 `--state-dir` | _(Optional)_ Directory where all Gravity system data will be kept on this node. Defaults to `/var/lib/gravity`.
-`--service-uid` | _(Optional)_ Service user ID (numeric). See [Service User](pack/#service-user) for details. A user named `planet` is created automatically if unspecified.
-`--service-gid` | _(Optional)_ Service group ID (numeric). See [Service User](pack/#service-user) for details. A group named `planet` is created automatically if unspecified.
+`--service-uid` | _(Optional)_ Service user ID (numeric). See [Service User](pack.md#service-user) for details. A user named `planet` is created automatically if unspecified.
+`--service-gid` | _(Optional)_ Service group ID (numeric). See [Service User](pack.md#service-user) for details. A group named `planet` is created automatically if unspecified.
 
 
-!!! tip "NOTE":
+!!! tip "NOTE"
     `--advertise-addr` must also be set for every node.
 
-!!! tip "NOTE":
+!!! tip "NOTE"
     `--token` must specify the same token as given for the `install` command.
 
-!!! tip "NOTE":
+!!! tip "NOTE"
     With no `role` specified, the installer uses the first role defined in the Application Manifest.
 
 The result of running these commands will be a functional and self-contained
@@ -212,7 +212,7 @@ If the operation is aborted, the partial install state will be automatically rem
 
 Aborting a join (and not the installer process), will only prevent this node from joining.
 
-!!! warning "Aborting a join":
+!!! warning "Aborting a join"
     Aborting a join might result in installation failure.
     If the operation was aborted to correct a configuration error, it can be restarted once the error
     has been fixed.
@@ -223,7 +223,7 @@ execute inside a systemd service so the operation will continue in background ev
 
 In order to reconnect to the installer, issue `./gravity resume`.
 
-!!! warning "Installer state directory":
+!!! warning "Installer state directory"
     It is important to run install commands from the directory with the original gravity binary.
     This directory contains the temporary operation state required for all commands to work properly.
 
@@ -247,12 +247,12 @@ root$ rm -r .gravity
 
 ## Installing on Google Compute Engine
 
-!!! note:
+!!! note 
     GCE cloud provider integration is supported starting from Gravity
     version `5.1.0-alpha.1`.
 
 Before installation make sure that GCE instances used for installation
-satisfy all of Gravity [system requirements](/requirements). In addition to these
+satisfy all of Gravity [system requirements](requirements.md). In addition to these
 generic requirements GCE nodes also must be configured in the following way to
 ensure proper cloud provider integration:
 

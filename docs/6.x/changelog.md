@@ -34,7 +34,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 !!! note "Direct upgrades"
     You can now upgrade existing 5.0.x clusters directly to 5.5.x.
-    See [Direct Upgrades From Older LTS Versions](/pack/#direct-upgrades-from-older-lts-versions) for details.
+    See [Direct Upgrades From Older LTS Versions](cluster.md#direct-upgrades-from-older-lts-versions) for details.
 
 ## 6.x Releases
 
@@ -363,13 +363,13 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 #### Improvements
 
-* Add ability to run privileged containers. See [Running Privileged Containers](/faq/#running-privileged-containers) for details.
+* Add ability to run privileged containers. See [Running Privileged Containers](faq.md#running-privileged-containers) for details.
 
 ### 6.0.6 (September 9th, 2019)
 
 #### Improvements
 
-* Add ability to run privileged containers. See [Running Privileged Containers](/faq/#running-privileged-containers) for details.
+* Add ability to run privileged containers. See [Running Privileged Containers](faq.md#running-privileged-containers) for details.
 
 ### 6.1.2 (August 26th, 2019)
 
@@ -1113,8 +1113,8 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 #### Improvements
 
-* Introduce `ClusterConfiguration` resource, see [Configuring Cluster](/config/#general-cluster-configuration) for details.
-* Introduce `RuntimeEnvironment` resource, see [Configuring Runtime Environment Variables](/config/#runtime-environment-variables) for details.
+* Introduce `ClusterConfiguration` resource, see [Configuring Cluster](config.md#general-cluster-configuration) for details.
+* Introduce `RuntimeEnvironment` resource, see [Configuring Runtime Environment Variables](config.md#runtime-environment-variables) for details.
 * Update 'gravity plan' to support all cluster operations.
 
 ### 5.5.0-beta.2
@@ -1174,7 +1174,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 #### Improvements
 
-* Introduce `AuthGateway` resource. See [Configuring Authentication Gateway](/config/#cluster-authentication-gateway)
+* Introduce `AuthGateway` resource. See [Configuring Authentication Gateway](config.md#cluster-authentication-gateway)
 for details.
 * UX improvements to `tele` CLI.
 
@@ -1245,7 +1245,7 @@ for details.
 * Update Teleport to `v3.0.4`.
 * Enable Teleport's Kubernetes proxy integration.
 * Multiple installer UX enhancements.
-* Add ability to exclude certain applications from installation. See [Excluding System Applications](/pack/#excluding-system-applications) for details.
+* Add ability to exclude certain applications from installation. See [Excluding System Applications](pack.md#system-extensions) for details.
 
 #### Bugfixes
 
@@ -1323,7 +1323,7 @@ for details.
 
 #### Improvements
 
-* New resource type `runtimeenvironment`. See [Configuring Runtime Environment Variables](/cluster#configuring-runtime-environment-variables) for details.
+* New resource type `runtimeenvironment`. See [Configuring Runtime Environment Variables](config.md#runtime-environment-variables) for details.
 
 ### 5.3.6
 
@@ -1393,10 +1393,10 @@ for details.
 
 #### Improvements
 
-* Add support for Wireguard encrypted overlay network. See [Wireguard Encrypted Networking](/cluster#wireguard-encrypted-networking) for details.
+* Add support for Wireguard encrypted overlay network. See [Wireguard Encrypted Networking](cluster.md#wireguard-encrypted-networking) for details.
 * Reduce writes to AWS SSM store when using AWS integrations.
 * Update tiller to 2.11.0
-* Add initial support for application catalog. See [Application Catalog](/catalog) for details.
+* Add initial support for application catalog. See [Application Catalog](catalog.md) for details.
 * Update embedded teleport to 3.0.1
 
 ### 5.0.26 LTS
@@ -1460,7 +1460,7 @@ for details.
 
 #### Improvements
 
-* Add support for recursive volume mounts. See [Sample Manifest](/pack#sample-application-manifest) for details.
+* Add support for recursive volume mounts. See [Sample Manifest](pack.md#image-manifest) for details.
 * Adjust CoreDNS permissions for cluster conformance.
 
 #### Bugfixes
@@ -1472,7 +1472,7 @@ for details.
 
 #### Improvements
 
-* Add support for recursive volume mounts. See [Image Manifest](/pack#sample-application-manifest) for details.
+* Add support for recursive volume mounts. See [Image Manifest](pack.md#image-manifest) for details.
 * Disable `DenyEscalatingExec` admission controller to meet conformance.
 
 ### 5.3.2
@@ -1554,7 +1554,7 @@ for details.
 
 #### Improvements
 
-* Introduce gravity terraform provider. See [Terraform Provider](/terraform) for details.
+* Introduce gravity terraform provider. See [Terraform Provider](terraform.md) for details.
 * Refactor join operation to use FSM approach.
 * Suppress selection prompt in UI install flow if the installer machine has a single network interface.
 * Improve upgrade operation logging and move default log location to `/var/log`.
@@ -1595,7 +1595,7 @@ for details.
 #### Improvements
 
 * Automatically load kernel modules and set kernel parameters required for
-installation. See [Verifying Node Requirements](/requirements/#kernel-modules)
+installation. See [Verifying Node Requirements](requirements.md#kernel-modules)
 for more info.
 
 #### Bugfixes
@@ -1660,7 +1660,7 @@ for more info.
 
 #### Improvements
 
-* Add support for SAML authentication connector. See [Configuring SAML Connector](/config/#configuring-saml-connector)
+* Add support for SAML authentication connector. See [Configuring SAML Connector](config.md#configuring-saml-connector)
 for information on how to configure authentication and authorization via a SAML
 provider.
 
@@ -1754,13 +1754,13 @@ is using domain/path components.
 #### Improvements
 
 * Add ability to mount host devices into the Gravity container. See
-[Image Manifest](/pack/#image-manifest) for more details.
+[Image Manifest](pack.md#image-manifest) for more details.
 
 ### 5.1.0-alpha.4
 
 #### Improvements
 
-* Introduce ability to use user-defined base images. See [User-Defined Base Image](/pack/#user-defined-base-image)
+* Introduce ability to use user-defined base images. See [User-Defined Base Image](pack.md#image-manifest)
 for details.
 
 ### 5.2.0-alpha.1
@@ -1769,7 +1769,7 @@ for details.
 
 * Add `--dns-zone` flag to `gravity install` command to allow overriding upstreams
 for specific DNS zones within the cluster. See flag description in the
-[Installation](installation/#standalone-offline-cli-installation) section for details.
+[Installation](installation.md#cli-installation) section for details.
 
 ### 5.0.4 LTS
 
@@ -1796,7 +1796,7 @@ install/upgrade.
 #### Improvements
 
 * Add multizone support for GCE clusters.
-* Update preflight checks to check iptables modules. See [requirements](/requirements#iptables-modules)
+* Update preflight checks to check iptables modules. See [requirements](requirements.md#iptables-modules)
 for details.
 * Add timeout to preflight checks on remote nodes.
 
@@ -1820,7 +1820,7 @@ for details.
 
 #### Improvements
 
-* Add support for GCE cloud provider. See [Installing on Google Compute Engine](/installation/#installing-on-google-compute-engine)
+* Add support for GCE cloud provider. See [Installing on Google Compute Engine](installation.md#google-compute-engine)
 for details.
 
 #### Bugfixes
@@ -1839,7 +1839,7 @@ install/upgrade.
 
 #### Improvements
 
-* Add ability to resume install/update after failure. Check [Troubleshooting Automatic Upgrades](/cluster/#troubleshooting-automatic-upgrades) for details.
+* Add ability to resume install/update after failure. Check [Troubleshooting Automatic Upgrades](cluster.md#troubleshooting-automatic-upgrades) for details.
 * Improve error reporting during install and when viewing operation plan.
 
 #### Bugfixes
@@ -1906,21 +1906,21 @@ install/upgrade.
 #### Improvements
 
 * Upgrade Kubernetes to `v1.9.6`.
-* Add support for more InfluxDB aggregate functions for use in [rollups](/monitoring/#rollups).
+* Add support for more InfluxDB aggregate functions for use in [rollups](https://gravitational.co/gravity/docs/ver/5.x/monitoring/#rollups).
 
 ### 5.0.0-alpha.14
 
 #### Improvements
 
 * Standalone installer now supports installing AWS clusters in CLI mode. See
-[AWS Installer](/cluster/#aws-installer) for more info.
+[AWS Installer](installation.md#aws) for more info.
 
 ### 5.0.0-alpha.13
 
 #### Bugfixes
 
 * Update Kubernetes to version 1.8.10.
-* Ability to override the service user when installing. Read more [here](/pack/#service-user).
+* Ability to override the service user when installing. Read more [here](pack.md#service-user).
 
 #### Bugfixes
 
@@ -1931,7 +1931,7 @@ install/upgrade.
 #### Improvements
 
 * Increase lifetime of CA certificates used internally within the cluster.
-* Add support for separating the endpoint for cluster and user traffic, see [Configuring Ops Center Endpoints](/cluster/#configuring-ops-center-endpoints) for details.
+* Add support for separating the endpoint for cluster and user traffic, see [Configuring Ops Center Endpoints](hub.md#post-provisioning) for details.
 * Add support for using flags with ./install script.
 
 #### Bugfixes
@@ -1955,7 +1955,7 @@ install/upgrade.
 
 #### Improvements
 
-* Add support for Helm charts. See [Helm Integration](/pack/#helm-integration)
+* Add support for Helm charts. See [Helm Integration](pack.md#helm-integration)
 for details.
 * Introduce `gravity users add` and `gravity users reset` commands that allow
 to invite users and reset user passwords from CLI.
@@ -2008,7 +2008,7 @@ to invite users and reset user passwords from CLI.
 
 #### Improvements
 
-* Add support for trusted clusters, see [Configuring Trusted Clusters](/config/#trusted-clusters-enterprise) for details.
+* Add support for trusted clusters, see [Configuring Trusted Clusters](config.md#trusted-clusters-enterprise) for details.
 * Improve application install resiliency by retrying on transient errors.
 * Improve resiliency when checking for hooks status.
 
@@ -2029,8 +2029,8 @@ to invite users and reset user passwords from CLI.
 #### Improvements
 
 * Add support for AWS autoscaling groups via [provisioner](https://github.com/gravitational/provisioner#aws-auto-scale-groups-support).
-* Add support for explicit [node roles](/cluster/#node-roles).
-* Add support for [custom taints](/cluster/#custom-taints).
+* Add support for explicit [node roles](cluster.md#node-roles).
+* Add support for [custom taints](cluster.md#custom-taints).
 
 ### 5.0.0-alpha.1
 
@@ -2172,7 +2172,7 @@ does not specify OS requirements.
 
 #### Improvements
 
-* Ability to override the service user when installing. Read more [here](/pack/#service-user).
+* Ability to override the service user when installing. Read more [here](pack.md#service-user).
 * Additional preflight checks during installation and update.
 * Remove the 32 characters restriction on the syslog tag in the logging application.
 
@@ -2318,8 +2318,8 @@ transient error
 
 #### Improvements
 
-* Add support for TLS keypair configuration via resources. Read more [here](/config/#tls-key-pair).
-* Simplify Ops Center [post install configuration](/hub/#post-provisioning).
+* Add support for TLS keypair configuration via resources. Read more [here](config.md#tls-key-pair).
+* Simplify Ops Center [post install configuration](hub.md#post-provisioning).
 
 #### Bugfixes
 
@@ -2332,7 +2332,7 @@ transient error
 #### Improvements
 
 * Add ability to provide a custom directory for system data during install/join. See command references in
-  [Automatic Installer](/overview/#automatic-installer) and [Adding a Node](/cluster/#adding-a-node) chapters
+  [Automatic Installer](installation.md#cli-installation) and [Adding a Node](cluster.md#adding-a-node) chapters
   for more details.
 * Add option to Kubernetes tab in UI to SSH directly into a running container.
 
@@ -2340,20 +2340,20 @@ transient error
 
 #### Improvements
 
-* Refine update process with new Kubernetes phases, see [Separation of workloads](/cluster#separation-of-workloads) for more details.
+* Refine update process with new Kubernetes phases, see [Separation of workloads](cluster.md#separation-of-workloads) for more details.
 
 ### 4.35.0
 
 #### Improvements
 
-* Add ability to provide additional command line arguments to etcd and kubelet via application manifest, see [Image Manifest](/pack/#image-manifest) for more details.
+* Add ability to provide additional command line arguments to etcd and kubelet via application manifest, see [Image Manifest](pack.md#image-manifest) for more details.
 
 ### 4.34.0
 
 #### Improvements
 
 * Upgrade to Teleport Enterprise 2.3.
-* Add support for advanced RBAC for cluster access via Gravity Hub, see [Cluster RBAC section](/hub/#accessing-gravity-hub)
+* Add support for advanced RBAC for cluster access via Gravity Hub, see [Cluster RBAC section](hub.md#accessing-gravity-hub)
   for more information.
 
 ### 4.32.0
@@ -2367,7 +2367,7 @@ transient error
 #### Improvements
 
 * Upgrade to Kubernetes 1.7.5.
-* Add support for a `logforwarder` resource, see [Configuring Log Forwarders](/cluster#configuring-log-forwarders)
+* Add support for a `logforwarder` resource, see [Configuring Log Forwarders](config.md#log-forwarders)
   for more information.
 
 #### Bugfixes
@@ -2379,7 +2379,7 @@ transient error
 #### Improvements
 
 * Add support for `uid`, `gid` and `mode` properties in application manifest `Volume`
-  [section](http://gravitational.com/docs/pack/#application-manifest)
+  [section](http://gravitational.com/docsconfig.md#application-manifest)
 
 ### 4.29.0
 
@@ -2411,14 +2411,14 @@ transient error
 
 #### Improvements
 
-* Introduce a redesigned manual upgrade procedure, see [Manual Upgrade Mode](/cluster/#manual-upgrade).
+* Introduce a redesigned manual upgrade procedure, see [Manual Upgrade Mode](cluster.md#manual-upgrade).
 
 ### 4.21.0
 
 #### Improvements
 
 * New `tele create` command creates clusters via the OpsCenter.
-  See [Creating Remote Clusters](/manage/#creating-remote-clusters) for details.
+  See [Creating Remote Clusters](https://gravitational.com/gravity/docs/ver/4.x/manage/#creating-telekube-clusters) for details.
 
 ### 4.20.0
 
@@ -2468,7 +2468,7 @@ transient error
 
 #### Improvements
 
-* Add support for new resources `user` and `token`. See [Configuring a Cluster](/cluster#configuring-a-cluster) for details.
+* Add support for new resources `user` and `token`. See [Configuring a Cluster](config.md) for details.
 
 ### 4.13.0
 
@@ -2485,7 +2485,7 @@ transient error
 
 #### Improvements
 
-* Add support for a new resource type `role`. See [Configuring a Cluster](/cluster#configuring-a-cluster) for details.
+* Add support for a new resource type `role`. See [Configuring a Cluster](config.md) for details.
 
 ### 4.11.0
 
@@ -2514,7 +2514,7 @@ transient error
 
 #### Improvements
 
-* Introduce a set of `gravity resource` commands for cluster resources management (currently, [only OIDC connectors](/cluster/#configuring-cluster)).
+* Introduce a set of `gravity resource` commands for cluster resources management (currently, [only OIDC connectors](config.md)).
 
 ### 4.7.0
 
@@ -2746,8 +2746,8 @@ It contains a number of improvements and bugfixes.
 #### Features
 
 * Add ability to specify pod/service network CIDR range via UI and CLI
-* Add AWS IAM policy to the [docs](https://gravitational.com/gravity/docs/ver/5.x/pack/#aws-iam-policy)
-* Add runbook to recover the cluster after node failure [docs](https://gravitational.com/gravity/docs/ver/5.x/cluster/#recovering-a-node)
+* Add AWS IAM policy to the [docs](https://gravitational.com/gravity/docs/ver/5.x/config#aws-iam-policy)
+* Add runbook to recover the cluster after node failure [docs](https://gravitational.com/gravity/docs/ver/5.xcluster.md#recovering-a-node)
 
 ### 3.36.0
 

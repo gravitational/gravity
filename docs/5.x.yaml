@@ -1,41 +1,53 @@
 site_name: Gravitational Gravity
-site_url: https://gravitational.com/gravity/docs/ver/5.x/
+site_url: https://gravitational.com/gravity/docs
 repo_url: https://github.com/gravitational/gravity
 site_description: Gravity Documentation
 site_author: Gravitational Inc
 copyright: Gravitational Inc, 2017-18
 
-theme: readthedocs
-theme_dir: theme
-
 # UPDATE HERE FOR EACH VERSION
 site_dir: ../build/docs/5.x
 docs_dir: "5.x"
 
+theme:
+    name: null
+    custom_dir: 'theme/'
+    include_search_page: true
 markdown_extensions:
-  - markdown_include.include
+  - markdown_include.include:
+      base_path: '../'
   - admonition
   - def_list
   - footnotes
-
+  - toc:
+      marker: '[TOC]'
 extra_css: []
+plugins:
+    - search:
+        separator: '[\s\-\.]'
+    - markdownextradata: {
+    }
 extra_javascript: []
 extra:
     version: 5.x
+    product: gravity
+    gravity:
+        version: 5.0
 
-pages:
-    - Gravity Overview: overview.md
-    - Quick Start: quickstart.md
-    - Packaging And Deployment: pack.md
-    - Installation: installation.md
-    - Cluster Management: cluster.md
-    - Cluster Monitoring: monitoring.md
-    - Remote Management: manage.md
-    - Ops Center: opscenter.md
-    - hidden: catalog.md
-    - System Requirements: requirements.md
-    - CLI Reference: cli.md
-    - Releases: changelog.md
-    - FAQ: faq.md
-    - Guides: guides.md
-    - Terraform: terraform.md
+nav:
+    - Documentation:
+        - Gravity Overview: index.md
+        - Quick Start: quickstart.md
+        - Packaging And Deployment: pack.md
+        - Installation: installation.md
+        - Cluster Management: cluster.md
+        - Cluster Monitoring: monitoring.md
+        - Remote Management: manage.md
+        - Ops Center: opscenter.md
+        - hidden: catalog.md
+        - System Requirements: requirements.md
+        - CLI Reference: cli.md
+        - Releases: changelog.md
+        - FAQ: faq.md
+        - Guides: guides.md
+        - Terraform: terraform.md

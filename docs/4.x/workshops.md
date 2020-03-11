@@ -6,7 +6,7 @@ We have published three different workshops that you can work through separately
 
 * [Docker 101 workshop](#docker-101-workshop): An introduction to [Docker](https://www.docker.com/) and its basic concepts.
 * [Kubernetes 101 workshop using Minikube](#kubernetes-101-workshop): An introduction to [Kubernetes](https://kubernetes.io/) and its basic concepts.
-* [Kubernetes production patterns](Kubernetes-production-patterns): A review of techniques to improve the resiliency and high availability of Kubernetes deployments and some common mistakes to avoid when working with Docker and Kubernetes.
+* [Kubernetes production patterns](#kubernetes-production-patterns): A review of techniques to improve the resiliency and high availability of Kubernetes deployments and some common mistakes to avoid when working with Docker and Kubernetes.
 
 ## Docker 101 workshop
 

@@ -1,10 +1,10 @@
 # This Dockerfile makes the "build box": the container used to build
 # Gravity documentation
-FROM quay.io/gravitational/mkdocs-base:0.16.1
+FROM quay.io/gravitational/mkdocs-base:1.0.3-1
 
 ARG UID
 ARG GID
-ARG HOME
+ARG WORKDIR
 ARG PORT
 
 ENV DEBIAN_FRONTEND noninteractive
@@ -13,11 +13,8 @@ RUN groupadd jenkins --gid=$GID -o && useradd jenkins --uid=$UID --gid=$GID --cr
 RUN (mkdir -p /var/lib/teleport && chown -R jenkins /var/lib/teleport)
 
 # Install SASS
-RUN (apt-key update && \
-             apt-get -q -y update --fix-missing && \
-             apt-get -q -y update && \
-             apt-get install -q -y ruby-sass)
-             
+RUN apt-get update -y && apt-get install -q -y ruby-sass parallel
+
 ENV LANGUAGE="en_US.UTF-8" \
     LANG="en_US.UTF-8" \
     LC_ALL="en_US.UTF-8" \
@@ -26,5 +23,5 @@ ENV LANGUAGE="en_US.UTF-8" \
     GOROOT="/opt/go" \
     PATH="$PATH:/opt/go/bin:/gopath/bin"
 
-VOLUME [$HOME]
+VOLUME [$WORKDIR]
 EXPOSE $PORT

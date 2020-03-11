@@ -17,7 +17,7 @@ Cluster tasks such as watching logs, seeing stats for pods or volumes or
 managing configurations.
 
 **Example Control Panel**
-![Control Panel](/images/gravity-quickstart/gravity-mattermost-dashboard.png)
+![Control Panel](images/gravity-quickstart/gravity-mattermost-dashboard.png)
 
 ## Kubernetes Environment
 
@@ -66,7 +66,7 @@ include:
 * Identity management for integrating Cluster access into existing identity
   providers.
 
-!!! tip "Note":
+!!! tip "Note"
 	The list above is not complete. Gravitational Solutions Engineering offers a
 	wide variety of Kubernetes integration and migration services. Reach out to
 	`info@gravitational.com` if you have questions.
@@ -258,7 +258,7 @@ cluster and provides an eventually consistent history between nodes.
 Gravity provides a way to automatically monitor the application health.
 
 To enable this, define a "status" hook in your Image Manifest (see
-[Cluster Hooks](/pack/#cluster-hooks) section for more details on them). The Kubernetes
+[Cluster Hooks](pack.md#cluster-hooks) section for more details on them). The Kubernetes
 job defined by the status hook can perform application-specific checks. An example of an
 application-specific status check could be querying a database, or checking that a
 certain pod is running.
@@ -306,18 +306,18 @@ Once the application recovers and the status hook completes successfully, the Cl
 ## Exploring a Cluster
 
 Any Gravity Cluster can be explored using the standard Kubernetes tool, `kubectl`,
-which is installed and configured on every Cluster node. See the command's [overview](http://kubernetes.io/docs/user-guide/kubectl-overview/) and a
+which is installed and configured on every Cluster node. See the command's [overview](https://kubernetes.io/docs/reference/kubectl/overview/) and a
 [full reference](https://kubernetes.io/docs/user-guide/kubectl/) to see what it can
 do, or simply use `kubectl --help`.
 
 Each Gravity Cluster also has a Cluster Control Panel web application to explore and
 manage the Cluster. To log into the Cluster Control Panel you need to create an admin user.
-Please see the [Custom Installer Screens](/pack/#custom-installation-screen)
+Please see the [Custom Installer Screens](pack.md#custom-installation-screen)
 chapter for details on how to enable a post-install screen that will let you create a local user.
 
 If you are doing a CLI installation you will need to create a user resource in
 order to log into the Cluster Control Panel. See the
-[Configuring Cluster Access section](/config/#cluster-access) for more information.
+[Configuring Cluster Access section](config.md#cluster-access) for more information.
 
 ## Updating a Cluster
 
@@ -433,13 +433,13 @@ updating app from 0.0.1-alpha.1 to 0.0.1-alpha.2
 Deploying agents on nodes
 The operation has been created in manual mode.
 
-See https://gravitational.com/gravity/docs/cluster/#managing-operations for details on working with operation plan.
+See https://gravitational.com/gravity/docs/cluster.md#managing-operations for details on working with operation plan.
 ```
 
-Please refer to the [Managing Operations](/cluster/#managing-operations) section about
+Please refer to the [Managing Operations](cluster.md#managing-operations) section about
 working with the operation plan.
 
-!!! warning "IMPORTANT":
+!!! warning "IMPORTANT"
     The manual upgrade must be executed using `gravity` binary included in the upgrade
     tarball to ensure version compatibility. If you don't have a Cluster Image tarball (for
     example, when downloading upgrades directly from a connected Gravity Hub), you can obtain
@@ -496,15 +496,15 @@ $ tele build ... --upgrade-via=5.2.15
 
 The flag can be specified multiple times to add as many LTS versions as required.
 
-!!! note "Embedding intermediate LTS releases":
+!!! note "Embedding intermediate LTS releases"
     The version specified with the `--upgrade-via` flag must be an LTS version.
-    Check [Releases](/changelog) page to see which LTS versions are available for embedding.
+    Check [Releases](changelog.md) page to see which LTS versions are available for embedding.
     The upgrade path from the existing version must contain all intermediate LTS releases to reach the target version but
     the target version does not have to be LTS.
     For example, to upgrade a cluster based on Gravity `5.0.35` to the image based on Gravity `5.5.21`, the cluster
     image must embed the LTS version `5.2.15`.
 
-!!! note "Direct Upgrades Support":
+!!! note "Direct Upgrades Support"
     Direct upgrades support is available since Gravity version `5.5.21`.
     Newer Gravity versions will receive support for direct upgrades in the near future.
 
@@ -732,7 +732,7 @@ In order to scale down resources prior to the upgrade operation, the Image Manif
 With the new `preUpdate` hook, the Gravity Cluster scales down the application resources in preparation for the update. The scaling logic needs to be aware of the Cluster size to make appropriate scaling decisions.
 The hook execution is implemented as a separate phase and is executed automatically in automatic upgrade mode.
 
-You can find out more about other hook types on the [Gravity documentation on Packaging and Deployment](/pack/#cluster-hooks).
+You can find out more about other hook types on the [Gravity documentation on Packaging and Deployment](pack.md#cluster-hooks).
 
 #### Apply a system taint to the node
 
@@ -855,7 +855,7 @@ As an example, Gravity can check to make sure nodes with a "database" role have
 storage attached to them.
 
 **Adding a node via the Control Panel**
-![Control Panel](/images/gravity-quickstart/gravity-adding-a-node.png)
+![Control Panel](images/gravity-quickstart/gravity-adding-a-node.png)
 
 
 ## Removing a Node
@@ -1066,7 +1066,7 @@ During garbage collection, the following resources are pruned:
   * Unused docker images from previous versions of the application
   * Obsolete systemd journal directories
 
-!!! note "Note: Docker image pruning":
+!!! note "Note: Docker image pruning"
     The tool currently employs a simple approach to pruning docker images.
     It will remove all images and repopulate the registry from the application state
     so only the images that are necessary for the current version of the application
@@ -1097,13 +1097,13 @@ To execute a specific phase:
 $ sudo gravity gc --phase=<PHASE>
 ```
 
-!!! tip "Tip: Completing manual operation":
+!!! tip "Tip: Completing manual operation"
     At the end of the manual or aborted operation, explicitly resume the operation to complete it.
 
 
 ## Remote Assistance
 
-!!! warning "Enterprise Only Version Warning":
+!!! warning "Enterprise Only Version Warning"
     Gravity Hub and the ability to connect to it for Remote Assistance is only
     available in Gravity Enterprise.
 
@@ -1111,7 +1111,7 @@ A Gravity Cluster can be connected to Gravity Hub, assuming the Cluster is
 connected to the Internet. This creates a secure outbound management tunnel
 from the Cluster to Gravity Hub and the Hub operator can use that tunnel to
 perform remote troubleshooting by using the `tsh` tool. You can read more about
-remote assistance in the [remote management](/hub/#remote-cluster-management) section.
+remote assistance in the [remote management](hub.md#remote-cluster-management) section.
 
 However, some Gravity Cluster owners may want to disable the SSH tunnel and keep their
 Clusters disconnected from Gravity Hub and only enable this capability when they
@@ -1183,7 +1183,7 @@ Signup token has been created and is valid for 1h0m0s hours. Share this URL with
 https://<host>/web/newuser/<token>
 ```
 
-!!! note:
+!!! note 
     Make sure that `<host>` is accessible to the invited user.
 
 ### Reset User Password
@@ -1204,7 +1204,7 @@ Password reset token has been created and is valid for 1h0m0s. Share this URL wi
 https://<host>/web/reset/<token>
 ```
 
-!!! note:
+!!! note 
     Make sure that `<host>` is accessible to the user.
 
 ## Securing a Cluster
@@ -1227,7 +1227,7 @@ By default Gravity provides two security policies: `privileged` and `restricted`
 
   * A `privileged` policy is a permissive policy allowing unrestricted access within Cluster.
 
-!!! note "Privileged containers":
+!!! note "Privileged containers"
     Note that by default privileged containers are not permitted in Gravity
     clusters. To allow privileged containers, enable them in your cluster
     manifest by setting `systemOptions.allowPrivileged` field to `true`.
@@ -1441,14 +1441,14 @@ With `promiscuous-bridge`, the behavior is similar to that of the kubenet networ
     accept traffic otherwise destined for other interfaces.
 
 
-!!! tip "Default hairpin mode":
+!!! tip "Default hairpin mode"
     For 4.x, the default value for `systemOptions.kubelet.hairpinMode` is `hairpin-veth`.
     For 5.x, the default value for `systemOptions.kubelet.hairpinMode` is `promiscuous-bridge`.
 
 
-!!! tip "Kernel module":
+!!! tip "Kernel module"
     In "promiscuous-bridge" mode, the nodes require a kernel module called `ebtable_filter` to manage ebtable rules,
-    see [Kernel Modules](/requirements/#kernel-modules) for details.
+    see [Kernel Modules](requirements.md#kernel-modules) for details.
 
 
 ### WireGuard Encrypted Networking
@@ -1466,7 +1466,7 @@ providers:
 !!! tip "Version"
     The WireGuard feature is only available from 5.5.0-alpha.3 and later
 
-!!! tip "Kernel module":
+!!! tip "Kernel module"
     The WireGuard feature currently requires the WireGuard kernel module to be installed and available on the host. Please see
     the [WiregGuard installation instructions](https://www.wireguard.com/install/) for more information.
 

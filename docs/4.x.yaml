@@ -5,35 +5,47 @@ site_description: Telekube Documentation
 site_author: Gravitational Inc
 copyright: Gravitational Inc, 2017-18
 
-theme: readthedocs
-theme_dir: theme
-
 # UPDATE HERE FOR EACH VERSION
 site_dir: ../build/docs/4.x
 docs_dir: "4.x"
 
+theme:
+    name: null
+    custom_dir: 'theme/'
+    include_search_page: true
 markdown_extensions:
-  - markdown_include.include
+  - markdown_include.include:
+      base_path: '../'
   - admonition
   - def_list
   - footnotes
-
+  - toc:
+      marker: '[TOC]'
 extra_css: []
+plugins:
+    - search:
+        separator: '[\s\-\.]'
+    - markdownextradata: {
+    }
 extra_javascript: []
 extra:
     version: 4.x
+    product: gravity
+    gravity:
+        version: 4.0
 
-pages:
-    - Telekube Overview: overview.md
-    - Quick Start: quickstart.md
-    - Packaging And Deployment: pack.md
-    - Installation: installation.md
-    - Cluster Management: cluster.md
-    - Cluster Monitoring: monitoring.md
-    - Remote Management: manage.md
-    - Ops Center: opscenter.md
-    - System Requirements: requirements.md
-    - CLI Reference: cli.md
-    - Releases: changelog.md
-    - FAQ: faq.md
-    - Guides: guides.md
+nav:
+    - Documentation:
+        - Telekube Overview: index.md
+        - Quick Start: quickstart.md
+        - Packaging And Deployment: pack.md
+        - Installation: installation.md
+        - Cluster Management: cluster.md
+        - Cluster Monitoring: monitoring.md
+        - Remote Management: manage.md
+        - Ops Center: opscenter.md
+        - System Requirements: requirements.md
+        - CLI Reference: cli.md
+        - Releases: changelog.md
+        - FAQ: faq.md
+        - Guides: guides.md

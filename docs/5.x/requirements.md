@@ -71,7 +71,7 @@ Gravity supports two networking backends in production:
 * VPC and routing tables based network for `AWS` cloud provider.
 * VXLAN based network for `generic` provider to be used on generic linux installations.
 
-See [Application Manifest](/pack/#application-manifest) section for details on how to select network type.
+See [Application Manifest](pack.md#application-manifest) section for details on how to select network type.
 
 ### Air-gapped installs
 
@@ -122,13 +122,13 @@ These ports are used for Cluster operation and should be open between cluster no
 | 32009                   | TCP                | HTTPS                | controllers | all         | Gravity internal API                     |
 | 3012                    | TCP                | HTTPS                | all         | all         | Gravity RPC agent                        |
 
-!!! note "Source/Destination Legend":
+!!! note "Source/Destination Legend"
   * all - Any node which is a member of the cluster
   * ext - Any source outside the cluster
   * localhost - The port is only used within the host where the request started
   * controllers - Nodes which are designated "controller" (aka "master") role
 
-!!! note "Custom vxlan port":
+!!! note "Custom vxlan port"
     If the default overlay network port (`8472`) was changed by supplying
     `--vxlan-port` flag to `gravity install` command, it will be checked
     instead of the default one.
@@ -186,7 +186,7 @@ for more information about possible network-related issues.
 ### overlay module
 
 The overlay kernel module is required if the application is using overlay or
-overlay2 Docker storage driver (see [Application Manifest](/pack/#application-manifest))
+overlay2 Docker storage driver (see [Application Manifest](pack.md#application-manifest))
 for information on how to configure the storage driver). To check that it's
 loaded:
 
@@ -205,7 +205,7 @@ root$ echo 'overlay' > /etc/modules-load.d/overlay.conf
 ### ebtable_filter module
 
 This kernel module is required if the application is configuring Hairpin NAT
-(see [Hairpin NAT](/cluster/#networking)) to enable services to load-balance to themselves
+(see [Hairpin NAT](cluster.md#networking)) to enable services to load-balance to themselves
 and setting up docker bridge in "promiscuous-bridge" mode.
 
 To see if the module is loaded:
