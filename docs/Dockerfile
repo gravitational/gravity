@@ -16,7 +16,6 @@ ARG PORT
 
 RUN groupadd jenkins --gid=$GID -o && useradd jenkins --uid=$UID --gid=$GID --create-home --shell=/bin/sh
 COPY --from=milv-builder /gopath/bin/milv /usr/bin/milv
-RUN apt-get update -y && apt-get install -q -y ruby-sass
 
 VOLUME [$WORKDIR]
 EXPOSE $PORT
