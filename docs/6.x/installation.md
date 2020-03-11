@@ -135,6 +135,7 @@ Flag               | Description
 `--service-uid`    | _(Optional)_ Service user ID (numeric). See [Service User](pack.md#service-user) for details. A user named `planet` is created automatically if unspecified.
 `--service-gid`    | _(Optional)_ Service group ID (numeric). See [Service User](pack.md#service-user) for details. A group named `planet` is created automatically if unspecified.
 
+
 ### Environment Variables
 
 Some aspects of the installation can be configured with the use of environment variables.
