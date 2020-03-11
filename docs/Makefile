@@ -5,11 +5,11 @@ DOCBOX=docs-buildbox:latest
 BUILDROOT ?= $(if $(GRAVITY_VERSION),../build/$(GRAVITY_VERSION),../build)
 BUILDDIR:=$(BUILDROOT)/docs
 DOCBOX_ID_FILE=$(BUILDROOT)/.docs-buildbox.id
-HOME=/home
+WORKDIR=/home
 PORT=6601
 DOCKERPORTS = -p $(PORT):$(PORT)
 NOROOT=-u $$(id -u):$$(id -g)
-DOCKERFLAGS = --rm=true $(NOROOT) -v "$$(pwd)/../":$(HOME) -w $(HOME)/docs -h docs $(DOCKERPORTS)
+DOCKERFLAGS = --rm=true $(NOROOT) -v "$$(pwd)/../":$(WORKDIR) -w $(WORKDIR)/docs -h docs $(DOCKERPORTS)
 DOCKERMAKE=docker run $(DOCKERFLAGS) $(DOCBOX) make BUILDROOT=$(BUILDROOT)
 VERSIONS=4.x 5.x 6.x 7.x
 LATEST=$(lastword $(VERSIONS))
@@ -43,7 +43,7 @@ $(DOCBOX_ID_FILE): Dockerfile
 	docker build \
 		--build-arg UID=$$(id -u) \
 		--build-arg GID=$$(id -g) \
-		--build-arg HOME=$(HOME) \
+		--build-arg WORKDIR=$(WORKDIR) \
 		--build-arg PORT=$(PORT) \
 		--tag $(DOCBOX) .
 	# prefer --iidfile to touch, but jenkin's docker is too old. See ops issue #141
