@@ -69,11 +69,11 @@ func (s *VersionsSuite) TestVersions(c *check.C) {
 	}
 	for _, test := range tests {
 		err := checkRuntimeUpgradePath(checkRuntimeUpgradePathRequest{
-			FromRuntime:           test.fromRuntime,
-			ToRuntime:             currentRuntime,
-			DirectUpgradeVersions: directUpgradeVersions,
-			UpgradeViaVersions:    upgradeViaVersions,
-			Packages:              s.packages,
+			fromRuntime:           test.fromRuntime,
+			toRuntime:             currentRuntime,
+			directUpgradeVersions: directUpgradeVersions,
+			upgradeViaVersions:    upgradeViaVersions,
+			packages:              s.packages,
 		})
 		if test.unsupported {
 			c.Assert(err, check.NotNil)

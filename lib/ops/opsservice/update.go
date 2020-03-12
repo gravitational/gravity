@@ -455,9 +455,9 @@ func (s *site) validateUpdateOperationRequest(req ops.CreateSiteAppUpdateOperati
 		return trace.Wrap(err)
 	}
 	err = checkRuntimeUpgradePath(checkRuntimeUpgradePathRequest{
-		FromRuntime: currentRuntime.Package,
-		ToRuntime:   updateRuntime.Package,
-		Packages:    s.packages(),
+		fromRuntime: currentRuntime.Package,
+		toRuntime:   updateRuntime.Package,
+		packages:    s.packages(),
 	})
 	if err != nil {
 		return trace.Wrap(err)
