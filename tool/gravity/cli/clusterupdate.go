@@ -63,7 +63,6 @@ func newUpgradeConfig(g *Application) (*upgradeConfig, error) {
 		upgradePackage:   *g.UpgradeCmd.App,
 		manual:           *g.UpgradeCmd.Manual,
 		skipVersionCheck: *g.UpgradeCmd.SkipVersionCheck,
-		seLinux:          *g.UpgradeCmd.SELinux,
 		values:           values,
 	}, nil
 }
@@ -78,8 +77,6 @@ type upgradeConfig struct {
 	skipVersionCheck bool
 	// values are helm values in a marshaled yaml format.
 	values []byte
-	// seLinux specifies whether SELinux support is on
-	seLinux bool
 }
 
 func updateTrigger(
@@ -110,7 +107,6 @@ func newClusterUpdater(
 		updatePackage: config.upgradePackage,
 		unattended:    !config.manual,
 		values:        config.values,
-		seLinux:       config.seLinux,
 	}
 	updater, err := newUpdater(ctx, localEnv, updateEnv, init)
 	if err != nil {
@@ -259,7 +255,7 @@ func (r clusterInitializer) newOperationPlan(
 	leader *storage.Server,
 ) (*storage.OperationPlan, error) {
 	plan, err := clusterupdate.InitOperationPlan(
-		ctx, localEnv, updateEnv, clusterEnv, operation.Key(), leader, r.seLinux,
+		ctx, localEnv, updateEnv, clusterEnv, operation.Key(), leader,
 	)
 	if err != nil {
 		return nil, trace.Wrap(err)

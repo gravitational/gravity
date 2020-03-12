@@ -54,7 +54,6 @@ func InitOperationPlan(
 	clusterEnv *localenv.ClusterEnvironment,
 	opKey ops.SiteOperationKey,
 	leader *storage.Server,
-	seLinuxEnabled bool,
 ) (*storage.OperationPlan, error) {
 	operation, err := storage.GetOperationByID(clusterEnv.Backend, opKey.OperationID)
 	if err != nil {
@@ -98,7 +97,6 @@ func InitOperationPlan(
 		Operator:  clusterEnv.Operator,
 		Operation: operation,
 		Leader:    leader,
-		SELinux:   seLinuxEnabled,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -263,7 +261,6 @@ type PlanConfig struct {
 	Operation *storage.SiteOperation
 	Client    *kubernetes.Clientset
 	Leader    *storage.Server
-	SELinux   bool
 }
 
 // planConfig collects parameters needed to generate an update operation plan

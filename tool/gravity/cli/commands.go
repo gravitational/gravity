@@ -622,9 +622,6 @@ type UpdateTriggerCmd struct {
 	Manual *bool
 	// SkipVersionCheck suppresses version mismatch errors
 	SkipVersionCheck *bool
-	// SELinux specifies whether to run with SELinux support.
-	// This flag makes the installer run in its own SELinux domain
-	SELinux *bool
 }
 
 // UpdateUploadCmd uploads new app version to local cluster
@@ -680,9 +677,6 @@ type UpgradeCmd struct {
 	Set *[]string
 	// Values is a list of YAML files with Helm chart values.
 	Values *[]string
-	// SELinux specifies whether to run with SELinux support.
-	// This flag makes the installer run in its own SELinux domain
-	SELinux *bool
 }
 
 // StatusCmd combines subcommands for displaying status information

@@ -112,6 +112,10 @@ func (g *Application) shouldBootstrapSELinuxForCommand(cmd string) (ok bool) {
 			return false
 		}
 	case g.UpdateTriggerCmd.FullCommand(), g.UpdateUploadCmd.FullCommand():
+		// Always bootstrap for upgrades even if the cluster was installed
+		// without SELinux support. SELinux status on each node will determine
+		// whether we continue running in SELinux mode and whether the plan will
+		// contain the SELinux-specific steps
 	default:
 		// Avoid bootstrapping step for any other command
 		return false
@@ -142,10 +146,6 @@ func (g *Application) bootstrapSELinuxForCommand(ctx context.Context, cmd string
 		*g.JoinCmd.SELinux = seLinuxEnabled
 	case g.AutoJoinCmd.FullCommand():
 		*g.AutoJoinCmd.SELinux = seLinuxEnabled
-	case g.UpgradeCmd.FullCommand():
-		*g.UpgradeCmd.SELinux = seLinuxEnabled
-	case g.UpdateTriggerCmd.FullCommand():
-		*g.UpdateTriggerCmd.SELinux = seLinuxEnabled
 	}
 	if !seLinuxEnabled {
 		// Nothing to do

@@ -363,7 +363,6 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			upgradePackage:   *g.UpdateTriggerCmd.App,
 			manual:           *g.UpdateTriggerCmd.Manual,
 			skipVersionCheck: *g.UpdateTriggerCmd.SkipVersionCheck,
-			seLinux:          *g.UpdateTriggerCmd.SELinux,
 		})
 	case g.UpdatePlanInitCmd.FullCommand():
 		updateEnv, err := g.NewUpdateEnv()
