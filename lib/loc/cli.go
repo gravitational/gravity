@@ -116,5 +116,5 @@ func IsSameApp(app1, app2 Locator) bool {
 // GreaterPatch returns true if the left version has the same major/minor
 // components as the right version but a greater patch component.
 func GreaterPatch(left, right semver.Version) bool {
-	return left.Major == right.Major && left.Minor == right.Minor && left.Patch >= right.Patch
+	return left.Major == right.Major && left.Minor == right.Minor && left.Patch > right.Patch
 }
