@@ -62,7 +62,8 @@ func BootstrapSELinuxAndRespawn(ctx context.Context, config libselinux.Bootstrap
 	newProcContext["type"] = libselinux.GravityInstallerProcessContext["type"]
 	logger.WithField("context", newProcContext).Info("Set process context.")
 	if err := selinux.SetExecLabel(newProcContext.Get()); err != nil {
-		return trace.Wrap(err)
+		logger.WithError(err).WithField("new-label", newProcContext.Get()).Warn("Failed to change binary label.")
+		return trace.Wrap(err, "failed to change label to %v", newProcContext.Get())
 	}
 	logger.WithField("args", os.Args).Info("Respawn.")
 	cmd := os.Args[0]
