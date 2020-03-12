@@ -24,7 +24,7 @@ import (
 
 	"github.com/coreos/go-semver/semver"
 	"github.com/gravitational/trace"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -65,6 +65,8 @@ type checkRuntimeUpgradePathRequest struct {
 	upgradeViaVersions map[*semver.Version]Versions
 	// packages is the cluster package service.
 	packages pack.PackageService
+	// FieldLogger is used for logging.
+	logrus.FieldLogger
 }
 
 // checkAndSetDefaults validates the request and sets default values.
@@ -80,6 +82,13 @@ func (r *checkRuntimeUpgradePathRequest) checkAndSetDefaults() error {
 	}
 	if len(r.upgradeViaVersions) == 0 {
 		r.upgradeViaVersions = UpgradeViaVersions
+	}
+	if r.FieldLogger == nil {
+		r.FieldLogger = logrus.WithFields(logrus.Fields{
+			trace.Component: "vercheck",
+			"from":          r.fromRuntime,
+			"to":            r.toRuntime,
+		})
 	}
 	return nil
 }
@@ -121,19 +130,33 @@ func checkRuntimeUpgradePath(req checkRuntimeUpgradePathRequest) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	versionTo, err := req.toRuntime.SemVer()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	// Shortcut to see if runtime version hasn't changed.
+	if versionTo.Equal(*versionFrom) {
+		req.Info("Runtime version unchanged.")
+		return nil
+	}
+	// Downgrades between runtimes are not allowed.
+	if versionTo.LessThan(*versionFrom) {
+		req.Warn("Runtime downgrades are not allowed.")
+		return trace.BadParameter(downgradeErrorTpl, req.fromRuntime.Version,
+			req.toRuntime.Version)
+	}
 	// See if there's direct upgrade path from the currently installed version.
 	if req.supportsDirectUpgrade(*versionFrom) {
-		log.WithFields(log.Fields{
-			"from": req.fromRuntime,
-			"to":   req.toRuntime,
-		}).Info("Validated runtime upgrade path: direct.")
+		req.Info("Validated runtime upgrade path: direct.")
 		return nil
 	}
 	// There's no direct upgrade path between the versions, see if there's
 	// an upgrade path with intermediate hops.
 	intermediateVersions := req.supportsUpgradeVia(*versionFrom)
 	if len(intermediateVersions) == 0 {
-		return trace.BadParameter(unsupportedErrorTpl, req.fromRuntime, req.toRuntime)
+		req.Warn("Unsupported upgrade path.")
+		return trace.BadParameter(unsupportedErrorTpl, req.fromRuntime.Version,
+			req.toRuntime.Version)
 	}
 	// Make sure that for each required intermediate runtime version, there's
 	// a corresponding package in the cluster's package service.
@@ -141,11 +164,7 @@ func checkRuntimeUpgradePath(req checkRuntimeUpgradePathRequest) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	log.WithFields(log.Fields{
-		"from": req.fromRuntime,
-		"to":   req.toRuntime,
-		"via":  runtimes,
-	}).Info("Validated runtime upgrade path: with intermediate.")
+	req.WithField("via", runtimes).Info("Validated runtime upgrade path: with intermediate.")
 	return nil
 }
 
@@ -158,6 +177,7 @@ func checkIntermediateRuntimes(req checkRuntimeUpgradePathRequest, intermediateV
 			return nil, trace.Wrap(err)
 		}
 		if trace.IsNotFound(err) {
+			req.Warnf("Required intermediate runtime for %v not found.", intermediateVersion)
 			return nil, trace.BadParameter(needsIntermediateErrorTpl, req.fromRuntime.Version,
 				req.toRuntime.Version, intermediateVersions)
 		}
@@ -202,6 +222,9 @@ const (
 	// unsupportedErrorTpl is template of an error message that gets returned
 	// to a user when the upgrade path is unsupported.
 	unsupportedErrorTpl = `Upgrade between Gravity versions %v and %v is unsupported.`
+	// downgradeErrorTpl is template of an error message that gets returned
+	// to a user when new runtime version is less than the installed one.
+	downgradeErrorTpl = `Downgrade between Gravity versions %v and %v is not allowed.`
 	// needsIntermediateErrorTpl is template of an error message that gets
 	// returned to a user when upgrade path requires intermediate runtimes.
 	needsIntermediateErrorTpl = `Upgrade between Gravity versions %v and %v is only supported if cluster image includes the following intermediate runtimes:

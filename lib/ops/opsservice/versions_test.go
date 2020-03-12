@@ -17,6 +17,7 @@ limitations under the License.
 package opsservice
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -48,37 +49,56 @@ func (s *VersionsSuite) SetUpTest(c *check.C) {
 }
 
 func (s *VersionsSuite) TestVersions(c *check.C) {
-	currentRuntime := loc.Runtime.WithLiteralVersion("3.0.5")
+	upgradeRuntime := loc.Runtime.WithLiteralVersion("3.0.5")
 	tests := []struct {
 		fromRuntime loc.Locator
-		unsupported bool
+		error       string
+		comment     string
 	}{
 		{
 			fromRuntime: loc.Runtime.WithLiteralVersion("2.0.5"),
+			comment:     "Direct upgrade from previous major version",
 		},
 		{
 			fromRuntime: loc.Runtime.WithLiteralVersion("3.0.1"),
+			comment:     "Direct upgrade from same major version",
 		},
 		{
 			fromRuntime: loc.Runtime.WithLiteralVersion("1.0.0"),
+			comment:     "Upgrade via intermediate runtime",
+		},
+		{
+			fromRuntime: loc.Runtime.WithLiteralVersion("1.1.0"),
+			error:       fmt.Sprintf(needsIntermediateErrorTpl, "1.1.0", upgradeRuntime.Version, Versions{semver.New("2.1.0")}),
+			comment:     "No required intermediate runtime",
+		},
+		{
+			fromRuntime: loc.Runtime.WithLiteralVersion("3.0.7"),
+			error:       fmt.Sprintf(downgradeErrorTpl, "3.0.7", upgradeRuntime.Version),
+			comment:     "Downgrade from greater runtime version",
+		},
+		{
+			fromRuntime: loc.Runtime.WithLiteralVersion("3.0.5"),
+			comment:     "Unchanged runtime version",
 		},
 		{
 			fromRuntime: loc.Runtime.WithLiteralVersion("0.0.1"),
-			unsupported: true,
+			error:       fmt.Sprintf(unsupportedErrorTpl, "0.0.1", upgradeRuntime.Version),
+			comment:     "Unsupported upgrade path",
 		},
 	}
 	for _, test := range tests {
 		err := checkRuntimeUpgradePath(checkRuntimeUpgradePathRequest{
 			fromRuntime:           test.fromRuntime,
-			toRuntime:             currentRuntime,
+			toRuntime:             upgradeRuntime,
 			directUpgradeVersions: directUpgradeVersions,
 			upgradeViaVersions:    upgradeViaVersions,
 			packages:              s.packages,
 		})
-		if test.unsupported {
-			c.Assert(err, check.NotNil)
+		if test.error != "" {
+			c.Assert(err, check.ErrorMatches, test.error, check.Commentf(test.comment))
 		} else {
-			c.Assert(err, check.IsNil)
+			c.Assert(err, check.IsNil, check.Commentf(test.comment))
 		}
 	}
 }
@@ -90,5 +110,6 @@ var (
 	}
 	upgradeViaVersions = map[*semver.Version]Versions{
 		semver.New("1.0.0"): Versions{semver.New("2.0.10")},
+		semver.New("1.1.0"): Versions{semver.New("2.1.0")},
 	}
 )
