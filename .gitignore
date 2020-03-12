@@ -12,7 +12,6 @@ flymake*
 *.swp
 gravity.log
 /version
-docs/latest.yaml
 /assets/vagrant/**/wizard/
 # Terraform state
 .terraform
