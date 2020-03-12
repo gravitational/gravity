@@ -74,7 +74,8 @@ func BootstrapSELinuxAndRespawn(ctx context.Context, config libselinux.Bootstrap
 const ErrorBootstrapSELinuxPolicy = `failed to bootstrap SELinux policy.
 
 Make sure you're running with a role that has permissions to
-to write to temporary directory and load SELinux policies - for example, "sysadm_r".
+write to temporary directory and load SELinux policies - for example, "sysadm_r".
+
 See https://gravitational.com/gravity/docs/selinux/ for details.
 `
 
