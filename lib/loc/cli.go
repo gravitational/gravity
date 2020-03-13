@@ -19,6 +19,7 @@ package loc
 import (
 	"fmt"
 
+	"github.com/coreos/go-semver/semver"
 	"github.com/gravitational/trace"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
@@ -110,4 +111,10 @@ func IsUpdate(update Locator, installed []Locator) (bool, error) {
 // IsSameApp returns true if the provided locators have the same repository and name
 func IsSameApp(app1, app2 Locator) bool {
 	return app1.Repository == app2.Repository && app1.Name == app2.Name
+}
+
+// GreaterOrEqualPatch returns true if the left version has the same major/minor
+// components as the right version but a greater or equal patch component.
+func GreaterOrEqualPatch(left, right semver.Version) bool {
+	return left.Major == right.Major && left.Minor == right.Minor && left.Patch >= right.Patch
 }
