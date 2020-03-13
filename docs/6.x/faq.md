@@ -170,3 +170,11 @@ See [Changing Node Advertise Address](cluster.md#changing-node-advertise-address
 Gravity provides the `gravity status` command to view [Cluster Status](cluster.md#cluster-status).
 This tool can help identify issues with the Cluster.
 
+## Unable to Create Trusted Cluster (Enterprise) due to HTTP/TLS certificate issue
+
+Gravity Hub (Enterprise) requires a valid TLS key pair (not self signed) installed.  When attempting to create a trusted cluster from a Gravity Cluster to a Gravity Hub with a signed certificate installed it is possible to get this error:
+
+`[ERROR]: the trusted cluster uses misconfigured HTTP/TLS certificate`
+
+That error message can occur when the certificate installed on Gravity Hub does not include the Intermediate/Chained certificate.  The browser interaction on Gravity Hub will appear secure  for example with a Let's Encrypt certificate private/public PEM installed. The trusted cluster create attempt will fail in the certificate validation.  To clear this issue replace the certificate including the Intermediate/Chained certificate through the Gravity Hub HTTPS Certificate web page or the tlskeypair resource. See [TLS Key Pair](config.md#tls-key-pair)
+
