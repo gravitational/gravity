@@ -77,11 +77,11 @@
         --advertise-addr={{hostvars[inventory_hostname]['ansible_default_ipv4']['address']}} \
         --token=longtoken
       {% endif %}
-  - name: Clean tmp
+  - name: Clean installer directory
     file:
       state: absent
       path: "{{ ansible_env.HOME }}/installer"
-  - name: Clean tmp gravity
+  - name: Delete gravity binary
     file:
       state: absent
       path: "{{ ansible_env.HOME }}/gravity"
