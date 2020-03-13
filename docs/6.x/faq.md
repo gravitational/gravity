@@ -176,5 +176,5 @@ Gravity Hub (Enterprise) requires a valid TLS key pair (not self signed) install
 
 `[ERROR]: the trusted cluster uses misconfigured HTTP/TLS certificate`
 
-That error message can occur when the certificate installed on Gravity Hub does not include the Intermediate/Chained certificate.  The browser interaction on Gravity Hub will appear secure  for example with a Let's Encrypt certificate private/public PEM installed. The trusted cluster create attempt will fail in the certificate validation.  To clear this issue replace the certificate including the Intermediate/Chained certificate through the Gravity Hub HTTPS Certificate web page or the tlskeypair resource. See [TLS Key Pair](config.md#tls-key-pair)
+That error message can occur when the certificate installed on Gravity Hub does not include the Intermediate/Chained certificate.  The browser interaction on Gravity Hub will appear secure, for example, with a Let's Encrypt certificate private/public PEM installed. The trusted cluster create attempt will fail in the certificate validation.  To clear this issue replace the certificate including the Intermediate/Chained certificate through the Gravity Hub HTTPS Certificate web page or the tlskeypair resource. See [TLS Key Pair](config.md#tls-key-pair)
 
