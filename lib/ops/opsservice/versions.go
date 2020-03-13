@@ -27,6 +27,28 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// The purpose of the code in this module is to prevent users from triggering
+// unsupported upgrade paths between Gravity versions during cluster upgrades.
+//
+// An upgrade path is generally considered unsupported if the "upgrade from"
+// and "upgrade to" versions are too many major/minor versions apart such as
+// the direct upgrade between their respective embedded Kubernetes versions
+// is not supported according to Kubernetes version skew policy (normally 2
+// releases):
+//
+// https://kubernetes.io/docs/setup/release/version-skew-policy/
+//
+// Kubernetes versions embedded into all Gravity releases are available on
+// our releases page:
+//
+// https://gravitational.com/gravity/docs/changelog/
+//
+// Some Gravity versions support automatic upgrades between far-apart versions
+// if the "upgrade to" cluster image includes one or more runtimes that can
+// be used as intermediate hops:
+//
+// https://gravitational.com/gravity/docs/cluster/#direct-upgrades-from-older-lts-versions
+
 var (
 	// DirectUpgradeVersions contains gravity versions where there's a direct
 	// upgrade path to the current gravity version.
