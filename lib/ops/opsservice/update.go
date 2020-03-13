@@ -422,6 +422,18 @@ func (s *site) createUpdateOperation(context context.Context, req ops.CreateSite
 	return key, nil
 }
 
+func (s *site) getRuntimeApplication(locator loc.Locator) (*app.Application, error) {
+	application, err := s.apps().GetApp(locator)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	runtimeApplication, err := s.apps().GetApp(*(application.Manifest.Base()))
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return runtimeApplication, nil
+}
+
 func (s *site) validateUpdateOperationRequest(req ops.CreateSiteAppUpdateOperationRequest, provisioner string) error {
 	currentPackage, err := s.appPackage()
 	if err != nil {
@@ -432,6 +444,22 @@ func (s *site) validateUpdateOperationRequest(req ops.CreateSiteAppUpdateOperati
 		return trace.Wrap(err)
 	}
 	err = pack.CheckUpdatePackage(*currentPackage, *updatePackage)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	currentRuntime, err := s.getRuntimeApplication(*currentPackage)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	updateRuntime, err := s.getRuntimeApplication(*updatePackage)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = checkRuntimeUpgradePath(checkRuntimeUpgradePathRequest{
+		fromRuntime: currentRuntime.Package,
+		toRuntime:   updateRuntime.Package,
+		packages:    s.packages(),
+	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
