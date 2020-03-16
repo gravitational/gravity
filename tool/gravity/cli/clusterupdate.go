@@ -60,23 +60,23 @@ func newUpgradeConfig(g *Application) (*upgradeConfig, error) {
 		return nil, trace.Wrap(err)
 	}
 	return &upgradeConfig{
-		UpgradePackage:   *g.UpgradeCmd.App,
-		Manual:           *g.UpgradeCmd.Manual,
-		SkipVersionCheck: *g.UpgradeCmd.SkipVersionCheck,
-		Values:           values,
+		upgradePackage:   *g.UpgradeCmd.App,
+		manual:           *g.UpgradeCmd.Manual,
+		skipVersionCheck: *g.UpgradeCmd.SkipVersionCheck,
+		values:           values,
 	}, nil
 }
 
 // upgradeConfig is the configuration of a triggered upgrade operation.
 type upgradeConfig struct {
-	// UpgradePackage is the name of the new package.
-	UpgradePackage string
-	// Manual is whether the operation is started in manual mode.
-	Manual bool
-	// SkipVersionCheck allows to bypass gravity version compatibility check.
-	SkipVersionCheck bool
-	// Values are helm values in a marshaled yaml format.
-	Values []byte
+	// upgradePackage is the name of the new package.
+	upgradePackage string
+	// manual is whether the operation is started in manual mode.
+	manual bool
+	// skipVersionCheck allows to bypass gravity version compatibility check.
+	skipVersionCheck bool
+	// values are helm values in a marshaled yaml format.
+	values []byte
 }
 
 func updateTrigger(
@@ -90,7 +90,7 @@ func updateTrigger(
 		return trace.Wrap(err)
 	}
 	defer updater.Close()
-	if !config.Manual {
+	if !config.manual {
 		// The cluster is updating in background
 		return nil
 	}
@@ -104,15 +104,15 @@ func newClusterUpdater(
 	config upgradeConfig,
 ) (updater, error) {
 	init := &clusterInitializer{
-		updatePackage: config.UpgradePackage,
-		unattended:    !config.Manual,
-		values:        config.Values,
+		updatePackage: config.upgradePackage,
+		unattended:    !config.manual,
+		values:        config.values,
 	}
 	updater, err := newUpdater(ctx, localEnv, updateEnv, init)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	if config.SkipVersionCheck {
+	if config.skipVersionCheck {
 		return updater, nil
 	}
 	if err := validateBinaryVersion(updater); err != nil {
@@ -302,6 +302,7 @@ type clusterInitializer struct {
 	updatePackage string
 	unattended    bool
 	values        []byte
+	seLinux       bool
 }
 
 const (

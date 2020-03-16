@@ -48,6 +48,8 @@ func (r *Planner) GetOperationPlan(operator ops.Operator, cluster ops.Site, oper
 		DNSConfig:     cluster.DNSConfig,
 	}
 
+	builder.AddBootstrapSELinuxPhase(plan)
+
 	// perform some initialization on all nodes
 	builder.AddInitPhase(plan)
 

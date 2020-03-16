@@ -24,6 +24,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/devicemapper"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/utils"
 
 	sigar "github.com/cloudfoundry/gosigar"
 	"github.com/gravitational/trace"
@@ -229,9 +230,31 @@ func queryProcesses() (result []storage.Process, err error) {
 }
 
 func collectFilesystemUsage(fs []storage.Filesystem) (result storage.FilesystemStats, err error) {
+	exceptFstypes := []string{
+		"sysfs",
+		"devtmpfs",
+		"proc",
+		"devpts",
+		"cgroup",
+		"configfs",
+		"selinuxfs",
+		"debugfs",
+	}
+	exceptDirs := []string{
+		"/sys",
+		"/run",
+		"/proc",
+		"/dev",
+	}
 	result = make(map[string]storage.FilesystemUsage, len(fs))
 	for _, mount := range fs {
 		usage := sigar.FileSystemUsage{}
+		if utils.HasOneOfPrefixes(mount.DirName, exceptDirs...) {
+			continue
+		}
+		if utils.StringInSlice(exceptFstypes, mount.Type) {
+			continue
+		}
 		if err := usage.Get(mount.DirName); err != nil {
 			return nil, trace.Wrap(err, "failed to get mount info on %v", mount.DirName)
 		}

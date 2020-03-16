@@ -350,6 +350,9 @@ const (
 	// JournalctlBin is the default location of the journalctl inside planet
 	JournalctlBin = "/usr/bin/journalctl"
 
+	// JournalctlBinHost is the default location of the journalctl on host
+	JournalctlBinHost = "/bin/journalctl"
+
 	// SystemctlBin is systemctl executable inside planet
 	SystemctlBin = "/bin/systemctl"
 
@@ -858,6 +861,9 @@ const (
 	// GravityServicePortEnv defines the gravity service port in environment
 	GravityServicePortEnv = "GRAVITY_SITE_SERVICE_PORT_WEB"
 
+	// PlanetSELinuxEnv defines the planet selinux state marker in environment
+	PlanetSELinuxEnv = "PLANET_SELINUX"
+
 	// GravityClusterLabel defines the label to select cluster controller Pods
 	GravityClusterLabel = "gravity-site"
 
@@ -891,10 +897,14 @@ const (
 	// EtcdUpgradeBackupFile is the filename to store a temporary backup of the etcd database when recreating the etcd datastore
 	EtcdUpgradeBackupFile = "etcd.bak"
 
-	// EtcdPeerPort is etcd inter-cluster communication port
+	// EtcdPeerPort is the etcd inter-cluster communication port
 	EtcdPeerPort = 2380
-	// EtcdAPIPort is etcd client API port
+	// EtcdPeerLegacyPort is the legacy etcd inter-cluster communication port
+	EtcdPeerLegacyPort = 7001
+	// EtcdAPIPort is the etcd client API port
 	EtcdAPIPort = 2379
+	// EtcdAPILegacyPort is the legacy etcd client API port
+	EtcdAPILegacyPort = 4001
 
 	// EtcdGravityPrefix is etcd prefix under which gravity keeps its data
 	EtcdGravityPrefix = "/gravity"
@@ -1024,6 +1034,9 @@ const (
 	// SysctlPath is the path to gravity-specific kernel parameters configuration
 	SysctlPath = "/etc/sysctl.d/50-gravity.conf"
 
+	// PlanetStateDir specifies the location of planet runc-specific state
+	PlanetStateDir = "/var/run/planet"
+
 	// RemoteClusterDialAddr is the "from" address used when dialing remote cluster
 	RemoteClusterDialAddr = "127.0.0.1:3024"
 
@@ -1143,6 +1156,15 @@ const (
 	// AgentWaitTimeout specifies the maximum amount of time to wait for
 	// agents to form a cluster before commencing the operation
 	AgentWaitTimeout = 5 * time.Minute
+
+	// GravityInstallerProcessLabel specifies the SELinux label of the installer process
+	GravityInstallerProcessLabel = "system_u:system_r:gravity_installer_t:s0"
+
+	// ContainerFileLabel specifies the default SELinux container file label
+	ContainerFileLabel = "system_u:object_r:container_file_t:s0"
+
+	// GravityFileLabel specifies the file label for the gravity binary
+	GravityFileLabel = "system_u:object_r:gravity_exec_t:s0"
 )
 
 var (

@@ -24,6 +24,7 @@ import (
 	"html/template"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 
 	archiveutils "github.com/gravitational/gravity/lib/archive"
 	"github.com/gravitational/gravity/lib/constants"
@@ -35,14 +36,18 @@ import (
 	"github.com/gravitational/gravity/lib/state"
 	libstatus "github.com/gravitational/gravity/lib/status"
 	"github.com/gravitational/gravity/lib/storage"
+	libselinux "github.com/gravitational/gravity/lib/system/selinux"
+	"github.com/gravitational/gravity/lib/systeminfo"
 	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/update"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/docker/docker/pkg/archive"
+	"github.com/docker/docker/pkg/idtools"
 	"github.com/gravitational/satellite/agent/proto/agentpb"
 	teleconfig "github.com/gravitational/teleport/lib/config"
 	"github.com/gravitational/trace"
+	"github.com/opencontainers/selinux/go-selinux"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
 )
@@ -92,7 +97,7 @@ func (r *System) Update(ctx context.Context, withStatus bool) error {
 		return trace.Wrap(err)
 	}
 
-	err = r.applyUpdates(changes)
+	err = r.applyUpdates(ctx, changes)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -136,7 +141,7 @@ func (r *System) Rollback(ctx context.Context, withStatus bool) (err error) {
 		return trace.Wrap(err)
 	}
 
-	err = r.applyUpdates(changes)
+	err = r.applyUpdates(ctx, changes)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -196,6 +201,8 @@ type Config struct {
 	Packages update.LocalPackageService
 	// ClusterRole specifies cluster role of the node this system updater runs on
 	ClusterRole string
+	// SELinux controls SELinux support
+	SELinux bool
 }
 
 func (r *PackageUpdates) checkAndSetDefaults() error {
@@ -244,16 +251,17 @@ type PackageUpdates struct {
 	Teleport *storage.PackageUpdate
 }
 
-func (r *System) applyUpdates(updates []storage.PackageUpdate) error {
+func (r *System) applyUpdates(ctx context.Context, updates []storage.PackageUpdate) error {
 	var errors []error
 	packageUpdater := &PackageUpdater{
 		Logger:      r.WithField(trace.Component, "update:package"),
 		Packages:    r.Packages,
 		ClusterRole: r.ClusterRole,
+		SELinux:     r.SELinux,
 	}
 	for _, u := range updates {
 		r.WithField("update", u).Info("Applying.")
-		err := packageUpdater.Reinstall(u)
+		err := packageUpdater.Reinstall(ctx, u)
 		if err != nil {
 			r.WithFields(logrus.Fields{
 				logrus.ErrorKey: err,
@@ -287,11 +295,11 @@ func (r *System) getChangesetByID(changesetID string) (*storage.PackageChangeset
 }
 
 // Reinstall reinstalls the package specified by update
-func (r *PackageUpdater) Reinstall(update storage.PackageUpdate) error {
+func (r *PackageUpdater) Reinstall(ctx context.Context, update storage.PackageUpdate) error {
 	if err := r.checkAndSetDefaults(); err != nil {
 		return trace.Wrap(err)
 	}
-	labelUpdates, err := r.reinstallPackage(update)
+	labelUpdates, err := r.reinstallPackage(ctx, update)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -301,13 +309,13 @@ func (r *PackageUpdater) Reinstall(update storage.PackageUpdate) error {
 	return applyLabelUpdates(r.Packages, labelUpdates)
 }
 
-func (r *PackageUpdater) reinstallPackage(update storage.PackageUpdate) ([]pack.LabelUpdate, error) {
+func (r *PackageUpdater) reinstallPackage(ctx context.Context, update storage.PackageUpdate) ([]pack.LabelUpdate, error) {
 	r.WithField("update", update).Info("Reinstalling package.")
 	switch {
 	case update.To.Name == constants.GravityPackage:
-		return r.updateGravityPackage(update.To)
+		return r.updateGravityPackage(ctx, update.To)
 	case pack.IsPlanetPackage(update.To, update.Labels):
-		updates, err := r.updatePlanetPackage(update)
+		updates, err := r.updatePlanetPackage(ctx, update)
 		return updates, trace.Wrap(err)
 	case update.To.Name == constants.TeleportPackage:
 		updates, err := r.updateTeleportPackage(update)
@@ -319,7 +327,7 @@ func (r *PackageUpdater) reinstallPackage(update storage.PackageUpdate) ([]pack.
 	return nil, trace.BadParameter("unsupported package: %v", update.To)
 }
 
-func (r *PackageUpdater) updateGravityPackage(newPackage loc.Locator) (labelUpdates []pack.LabelUpdate, err error) {
+func (r *PackageUpdater) updateGravityPackage(ctx context.Context, newPackage loc.Locator) (labelUpdates []pack.LabelUpdate, err error) {
 	for _, targetPath := range state.GravityBinPaths {
 		labelUpdates, err = reinstallBinaryPackage(r.Packages, newPackage, targetPath)
 		if err == nil {
@@ -338,17 +346,22 @@ func (r *PackageUpdater) updateGravityPackage(newPackage loc.Locator) (labelUpda
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to find planet package")
 	}
-	err = copyGravityToPlanet(newPackage, r.Packages, planetPath)
+	targetPath := filepath.Join(planetPath, constants.PlanetRootfs, defaults.GravityBin)
+	err = copyGravityToPlanet(newPackage, r.Packages, targetPath)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to copy gravity inside planet")
+	}
+	err = r.applySELinuxFileContexts(ctx, targetPath)
+	if err != nil {
+		return nil, trace.Wrap(err)
 	}
 	return labelUpdates, nil
 }
 
-func (r *PackageUpdater) updatePlanetPackage(update storage.PackageUpdate) (labelUpdates []pack.LabelUpdate, err error) {
+func (r *PackageUpdater) updatePlanetPackage(ctx context.Context, update storage.PackageUpdate) (labelUpdates []pack.LabelUpdate, err error) {
 	var gravityPackageFilter = loc.MustCreateLocator(
 		defaults.SystemAccountOrg, constants.GravityPackage, loc.ZeroVersion)
-	err = unpack(r.Packages, update.To)
+	err = unpack(r.Packages, update.To, r.planetUnpackOptions())
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to unpack package %v", update.To)
 	}
@@ -364,7 +377,8 @@ func (r *PackageUpdater) updatePlanetPackage(update storage.PackageUpdate) (labe
 		return nil, trace.Wrap(err, "failed to find installed package for gravity")
 	}
 
-	err = copyGravityToPlanet(*gravityPackage, r.Packages, planetPath)
+	targetPath := filepath.Join(planetPath, constants.PlanetRootfs, defaults.GravityBin)
+	err = copyGravityToPlanet(*gravityPackage, r.Packages, targetPath)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to copy gravity inside planet")
 	}
@@ -374,7 +388,12 @@ func (r *PackageUpdater) updatePlanetPackage(update storage.PackageUpdate) (labe
 		r.WithError(err).Warn("kubectl will not work on host.")
 	}
 
-	labelUpdates, err = r.reinstallService(update)
+	labelUpdates, err = r.reinstallService(update, r.environForPlanetService())
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	err = r.applySELinuxFileContexts(ctx, planetPath)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -386,12 +405,42 @@ func (r *PackageUpdater) updatePlanetPackage(update storage.PackageUpdate) (labe
 	return labelUpdates, nil
 }
 
+func (r *PackageUpdater) planetUnpackOptions() *archive.TarOptions {
+	return &archive.TarOptions{
+		NoLchown: true,
+		UIDMaps: []idtools.IDMap{
+			{
+				ContainerID: defaults.ServiceUID,
+				HostID:      r.ServiceUser.UID,
+				Size:        1,
+			},
+			{
+				ContainerID: constants.RootUID,
+				HostID:      constants.RootUID,
+				Size:        1,
+			},
+		},
+		GIDMaps: []idtools.IDMap{
+			{
+				ContainerID: defaults.ServiceGID,
+				HostID:      r.ServiceUser.GID,
+				Size:        1,
+			},
+			{
+				ContainerID: constants.RootGID,
+				HostID:      constants.RootGID,
+				Size:        1,
+			},
+		},
+	}
+}
+
 func (r *PackageUpdater) updateTeleportPackage(update storage.PackageUpdate) (labelUpdates []pack.LabelUpdate, err error) {
-	err = unpack(r.Packages, update.To)
+	err = unpack(r.Packages, update.To, nil)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to unpack package %v", update.To)
 	}
-	updates, err := r.reinstallService(update)
+	updates, err := r.reinstallService(update, nil)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -458,7 +507,7 @@ func (r *PackageUpdater) reinstallSecretsPackage(newPackage loc.Locator) (labelU
 	return labelUpdates, nil
 }
 
-func (r *PackageUpdater) reinstallService(update storage.PackageUpdate) (labelUpdates []pack.LabelUpdate, err error) {
+func (r *PackageUpdater) reinstallService(update storage.PackageUpdate, environ map[string]string) (labelUpdates []pack.LabelUpdate, err error) {
 	services, err := systemservice.New()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -490,7 +539,7 @@ func (r *PackageUpdater) reinstallService(update storage.PackageUpdate) (labelUp
 		configPackage = update.ConfigPackage.To
 	}
 
-	err = unpack(r.Packages, configPackage)
+	err = unpack(r.Packages, configPackage, nil)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -504,6 +553,12 @@ func (r *PackageUpdater) reinstallService(update storage.PackageUpdate) (labelUp
 	manifest.Service.Package = update.To
 	manifest.Service.ConfigPackage = configPackage
 	manifest.Service.GravityPath = gravityPath
+	if manifest.Service.Environment == nil {
+		manifest.Service.Environment = make(map[string]string)
+	}
+	for key, value := range environ {
+		manifest.Service.Environment[key] = value
+	}
 
 	r.WithField("package", update.To).Info("Installing new package.")
 	if err = services.InstallPackageService(*manifest.Service); err != nil {
@@ -527,6 +582,30 @@ func (r *PackageUpdater) checkAndSetDefaults() error {
 	return nil
 }
 
+func (r *PackageUpdater) environForPlanetService() map[string]string {
+	return map[string]string{
+		defaults.PlanetSELinuxEnv: strconv.FormatBool(r.SELinux),
+	}
+}
+
+func (r *PackageUpdater) applySELinuxFileContexts(ctx context.Context, path string) error {
+	if !(selinux.GetEnabled() && r.SELinux) {
+		r.Info("SELinux is disabled.")
+		return nil
+	}
+	w := r.Logger.Writer()
+	defer w.Close()
+	r.WithField("path", path).Info("Restore file contexts.")
+	return libselinux.ApplyFileContexts(ctx, w, path)
+}
+
+// WithSELinux sets SELinux support
+func WithSELinux(on bool) PackageUpdaterOption {
+	return func(p *PackageUpdater) {
+		p.SELinux = on
+	}
+}
+
 // PackageUpdaterOption is a functional configuration option for PackageUpdater
 type PackageUpdaterOption func(*PackageUpdater)
 
@@ -538,6 +617,10 @@ type PackageUpdater struct {
 	Packages update.LocalPackageService
 	// ClusterRole specifies cluster role of the node this system updater runs on
 	ClusterRole string
+	// ServiceUser specifies the container service user
+	ServiceUser systeminfo.User
+	// SELinux specifies whether SELinux support is on
+	SELinux bool
 }
 
 func updateTctlScript(packages update.LocalPackageService, newPackage loc.Locator, logger log.Logger) error {
@@ -661,8 +744,7 @@ func updateSymlinks(planetPath string, logger log.Logger) (err error) {
 	return nil
 }
 
-func copyGravityToPlanet(newPackage loc.Locator, packages pack.PackageService, planetPath string) error {
-	targetPath := filepath.Join(planetPath, constants.PlanetRootfs, defaults.GravityBin)
+func copyGravityToPlanet(newPackage loc.Locator, packages pack.PackageService, targetPath string) error {
 	_, rc, err := packages.ReadPackage(newPackage)
 	if err != nil {
 		return trace.Wrap(err)
@@ -830,12 +912,12 @@ func getLocalNodeStatus(ctx context.Context) (err error) {
 
 // unpack reads the package from the package service and unpacks its contents
 // to the default package unpack directory
-func unpack(packages update.LocalPackageService, loc loc.Locator) error {
+func unpack(packages update.LocalPackageService, loc loc.Locator, opts *archive.TarOptions) error {
 	path, err := packages.UnpackedPath(loc)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return trace.Wrap(pack.Unpack(packages, loc, path, nil))
+	return trace.Wrap(pack.Unpack(packages, loc, path, opts))
 }
 
 // tctlScript is the template of the script that invokes tctl binary with

@@ -41,8 +41,16 @@ func planetEnter(env *localenv.LocalEnvironment, args []string) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	var cmd []string
+	if env.SELinux {
+		cmd = append(cmd, "--selinux")
+	}
+	if env.Debug {
+		cmd = append(cmd, "--debug")
+	}
+	cmd = append(cmd, args...)
 	return executePackageCommand(
-		env, "enter", *planetPackage, planetConfigPackage, args)
+		env, "enter", *planetPackage, planetConfigPackage, cmd)
 }
 
 // planetShell is a shortcut that finds installed planet in this cluster
@@ -63,6 +71,12 @@ func planetExec(env *localenv.LocalEnvironment, tty bool, stdin bool, cmd string
 	}
 	if stdin {
 		args = append(args, "-i")
+	}
+	if env.SELinux {
+		args = append(args, "--selinux")
+	}
+	if env.Debug {
+		args = append(args, "--debug")
 	}
 	args = append(args, cmd)
 	args = append(args, extraArgs...)

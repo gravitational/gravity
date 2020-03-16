@@ -73,7 +73,7 @@ func (_ *S) TestCanStopProxyOnDemand(c *C) {
 	link := newLocalLink()
 	logger := log.WithField("test", "TestCanStopProxyOnDemand")
 	proxy := New(link, logger)
-	notifyCh := make(chan struct{}, 1)
+	notifyCh := make(chan struct{}, 2)
 	proxy.notifyCh = notifyCh
 	c.Assert(proxy.Start(), IsNil)
 	defer proxy.Stop()
@@ -99,11 +99,17 @@ func (_ *S) TestCanStopProxyOnDemand(c *C) {
 	// Restart proxy to be able to write
 	link.resetLocal()
 	proxy = New(link, logger)
+	proxy.notifyCh = notifyCh
 	c.Assert(proxy.Start(), IsNil)
 	defer proxy.Stop()
 
 	conn, err = link.local.Dial()
 	c.Assert(err, IsNil)
+
+	// wait for new connection: this blocks until the proxy has accepted
+	// the connection and created handler loop
+	<-notifyCh
+
 	_, err = conn.Write(payload)
 	c.Assert(err, IsNil)
 	conn.Close()

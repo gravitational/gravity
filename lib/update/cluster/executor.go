@@ -34,6 +34,8 @@ const (
 	updateChecks = "update_checks"
 	// updateBootstrap is the phase to bootstrap cluster update operation
 	updateBootstrap = "update_bootstrap"
+	// updateBootstrapSELinux is the phase to configure SELinux on nodes
+	updateBootstrapSELinux = "bootstrap_selinux"
 	// updateSystem is the phase to update system software on nodes
 	updateSystem = "update_system"
 	// preUpdate is the phase to run pre-update application hook
@@ -115,6 +117,8 @@ func fsmSpec(c Config) fsm.FSMSpecFunc {
 				c.Backend, c.LocalBackend, c.HostLocalBackend,
 				c.HostLocalPackages, c.ClusterPackages,
 				remote, logger)
+		case updateBootstrapSELinux:
+			return libphase.NewUpdatePhaseSELinux(p, c.Operator, c.Apps, logger)
 		case coredns:
 			return libphase.NewPhaseCoreDNS(p, c.Operator, c.Client, logger)
 		case updateSystem:

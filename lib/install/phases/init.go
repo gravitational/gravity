@@ -21,6 +21,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
+	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
@@ -85,7 +86,7 @@ func (p *initExecutor) downloadFio() error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = pack.ExportExecutable(p.Packages, *locator, path)
+	err = pack.ExportExecutable(p.Packages, *locator, path, defaults.GravityFileLabel)
 	if err != nil {
 		return trace.Wrap(err)
 	}

@@ -26,7 +26,8 @@ required = [
 
 ignored = [
   "github.com/gravitational/gravity/build/*",
-  "github.com/gravitational/gravity/e/build/*"
+  "github.com/gravitational/gravity/e/build/*",
+  "github.com/gravitational/gravity/lib/system/selinux/generate"
 ]
 
 [prune]
@@ -40,7 +41,7 @@ ignored = [
 
 [[override]]
   name = "github.com/mitchellh/go-ps"
-  branch = "master"
+  version = "=v1.0.0"
 
 [[override]]
   name = "github.com/spf13/pflag"
@@ -77,7 +78,8 @@ ignored = [
 
 [[constraint]]
   name = "github.com/gravitational/satellite"
-  version = "=7.0.5"
+  #version = "=7.0.7"
+  revision = "bec2fc16d52d3f4f7bd55dc4d380ca26f9d477c6"
 
 [[constraint]]
   name = "github.com/gravitational/coordinate"
@@ -149,12 +151,19 @@ ignored = [
   revision = "edc3ab29cdff8694dd6feb85cfeb4b5f1b38ed9c"
 
 [[constraint]]
+  name = "github.com/opencontainers/selinux"
+  version = "=v1.3.0"
+
+[[constraint]]
   name = "github.com/opencontainers/go-digest"
   version = "v1.0.0-rc1"
 
 [[override]]
   name = "github.com/docker/docker"
-  revision = "be7ac8be2ae072032a4005e8f232be3fc57e4127"
+  source = "github.com/gravitational/moby"
+  # TODO(dmitri): update to release once the bugfix is tagged.
+  # See: https://github.com/moby/moby/issues/39859
+  revision = "2adf434ca69614dfc897dd0acf29018e5590a732"
 
 [[override]]
   name = "golang.org/x/sys"
@@ -165,10 +174,10 @@ ignored = [
   source = "github.com/gravitational/certificate-transparency-go"
   branch = "version/5.0.x"
 
-[[constraint]]
+[[override]]
   name = "github.com/sirupsen/logrus"
   source = "github.com/gravitational/logrus"
-  version = "1.0.6"
+  version = "=1.4.3-alpha.1"
 
 [[constraint]]
   name = "github.com/aws/aws-sdk-go"
@@ -292,6 +301,10 @@ ignored = [
 [[constraint]]
   name = "github.com/gizak/termui"
   version = "=v2.3.0"
+
+[[constraint]]
+  name = "github.com/google/shlex"
+  branch = "master"
 
 [[constraint]]
   name = "gopkg.in/check.v1"

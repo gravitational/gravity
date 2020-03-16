@@ -312,14 +312,13 @@ func (p *pullExecutor) unpackPackages() error {
 		constants.TeleportPackage,
 		constants.WebAssetsPackage,
 	}
-	locators := []loc.Locator{p.runtimePackage}
+	var locators []loc.Locator
 	err := pack.ForeachPackage(p.LocalPackages, func(e pack.PackageEnvelope) error {
 		unpack := e.HasAnyLabel(map[string][]string{
 			pack.PurposeLabel: {
 				pack.PurposeCA,
 				pack.PurposePlanetSecrets,
 				pack.PurposePlanetConfig,
-				pack.PurposeRuntime,
 				pack.PurposeTeleportMasterConfig,
 				pack.PurposeTeleportNodeConfig,
 			},

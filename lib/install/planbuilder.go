@@ -109,6 +109,36 @@ func (b *PlanBuilder) AddInitPhase(plan *storage.OperationPlan) {
 	})
 }
 
+// AddBootstrapSELinuxPhase appends the phase to configure SELinux on a node
+func (b *PlanBuilder) AddBootstrapSELinuxPhase(plan *storage.OperationPlan) {
+	var bootstrapPhases []storage.OperationPhase
+	allNodes := append(b.Masters, b.Nodes...)
+	for i, node := range allNodes {
+		if !node.SELinux {
+			continue
+		}
+		bootstrapPhases = append(bootstrapPhases, storage.OperationPhase{
+			ID:          fmt.Sprintf("%v/%v", phases.BootstrapSELinuxPhase, node.Hostname),
+			Description: fmt.Sprintf("Configure SELinux on node %v", node.Hostname),
+			Data: &storage.OperationPhaseData{
+				Server:     &allNodes[i],
+				ExecServer: &allNodes[i],
+				Package:    &b.Application.Package,
+			},
+			Step: 0,
+		})
+	}
+	if len(bootstrapPhases) == 0 {
+		return
+	}
+	plan.Phases = append(plan.Phases, storage.OperationPhase{
+		ID:          phases.BootstrapSELinuxPhase,
+		Description: "Configure SELinux",
+		Phases:      bootstrapPhases,
+		Parallel:    true,
+	})
+}
+
 // AddChecksPhase appends preflight checks phase to the provided plan
 func (b *PlanBuilder) AddChecksPhase(plan *storage.OperationPlan) {
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
@@ -226,9 +256,10 @@ func (b *PlanBuilder) AddMastersPhase(plan *storage.OperationPlan) error {
 					Description: fmt.Sprintf("Install system package %v:%v on master node %v",
 						b.TeleportPackage.Name, b.TeleportPackage.Version, node.Hostname),
 					Data: &storage.OperationPhaseData{
-						Server:     &b.Masters[i],
-						ExecServer: &b.Masters[i],
-						Package:    &b.TeleportPackage,
+						Server:      &b.Masters[i],
+						ExecServer:  &b.Masters[i],
+						Package:     &b.TeleportPackage,
+						ServiceUser: &b.ServiceUser,
 					},
 					Requires: []string{fmt.Sprintf("%v/%v", phases.PullPhase, node.Hostname)},
 					Step:     4,
@@ -238,10 +269,11 @@ func (b *PlanBuilder) AddMastersPhase(plan *storage.OperationPlan) error {
 					Description: fmt.Sprintf("Install system package %v:%v on master node %v",
 						planetPackage.Name, planetPackage.Version, node.Hostname),
 					Data: &storage.OperationPhaseData{
-						Server:     &b.Masters[i],
-						ExecServer: &b.Masters[i],
-						Package:    planetPackage,
-						Labels:     pack.RuntimePackageLabels,
+						Server:      &b.Masters[i],
+						ExecServer:  &b.Masters[i],
+						Package:     planetPackage,
+						Labels:      pack.RuntimePackageLabels,
+						ServiceUser: &b.ServiceUser,
 					},
 					Requires: []string{fmt.Sprintf("%v/%v", phases.PullPhase, node.Hostname)},
 					Step:     4,
@@ -280,9 +312,10 @@ func (b *PlanBuilder) AddNodesPhase(plan *storage.OperationPlan) error {
 					Description: fmt.Sprintf("Install system package %v:%v on node %v",
 						b.TeleportPackage.Name, b.TeleportPackage.Version, node.Hostname),
 					Data: &storage.OperationPhaseData{
-						Server:     &b.Nodes[i],
-						ExecServer: &b.Nodes[i],
-						Package:    &b.TeleportPackage,
+						Server:      &b.Nodes[i],
+						ExecServer:  &b.Nodes[i],
+						Package:     &b.TeleportPackage,
+						ServiceUser: &b.ServiceUser,
 					},
 					Requires: []string{fmt.Sprintf("%v/%v", phases.PullPhase, node.Hostname)},
 					Step:     4,
@@ -292,10 +325,11 @@ func (b *PlanBuilder) AddNodesPhase(plan *storage.OperationPlan) error {
 					Description: fmt.Sprintf("Install system package %v:%v on node %v",
 						planetPackage.Name, planetPackage.Version, node.Hostname),
 					Data: &storage.OperationPhaseData{
-						Server:     &b.Nodes[i],
-						ExecServer: &b.Nodes[i],
-						Package:    planetPackage,
-						Labels:     pack.RuntimePackageLabels,
+						Server:      &b.Nodes[i],
+						ExecServer:  &b.Nodes[i],
+						Package:     planetPackage,
+						Labels:      pack.RuntimePackageLabels,
+						ServiceUser: &b.ServiceUser,
 					},
 					Requires: []string{fmt.Sprintf("%v/%v", phases.PullPhase, node.Hostname)},
 					Step:     4,

@@ -1717,6 +1717,8 @@ type Site struct {
 	DNSConfig storage.DNSConfig `json:"dns_config"`
 	// InstallToken specifies the original token the cluster was installed with
 	InstallToken string `json:"install_token"`
+	// SELinux specifies whether the cluster is using SELinux support
+	SELinux bool `json:"selinux,omitempty"`
 }
 
 // IsOnline returns whether this site is online
