@@ -177,6 +177,15 @@ func (l Locator) WithVersion(version *semver.Version) Locator {
 	}
 }
 
+// WithLiteralVersion returns a copy of this locator with version set to the specified one
+func (l Locator) WithLiteralVersion(version string) Locator {
+	return Locator{
+		Repository: l.Repository,
+		Name:       l.Name,
+		Version:    version,
+	}
+}
+
 func ParseLocator(v string) (*Locator, error) {
 	parts := strings.Split(v, "/")
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
