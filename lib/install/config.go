@@ -158,6 +158,9 @@ type Config struct {
 	LocalAgent bool
 	// Values are helm values in marshaled yaml format
 	Values []byte
+	// SELinux specifies whether the installer runs with SELinux support.
+	// This makes the installer run in its own domain
+	SELinux bool
 }
 
 // checkAndSetDefaults checks the parameters and autodetects some defaults
@@ -312,6 +315,7 @@ func newAgent(ctx context.Context, config Config) (*rpcserver.PeerServer, error)
 		SystemDevice: config.SystemDevice,
 		Role:         config.Role,
 		Mounts:       mounts,
+		SELinux:      config.SELinux,
 	}
 	return NewAgent(AgentConfig{
 		FieldLogger:   config.FieldLogger.WithField(trace.Component, "agent:rpc"),

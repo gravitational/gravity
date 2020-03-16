@@ -377,6 +377,9 @@ func printNodeStatus(node statusapi.ClusterServer, w io.Writer) {
 		description = fmt.Sprintf("%v / %v", description, node.Profile)
 	}
 	fmt.Fprintf(w, "        * %v / %v\n", unknownFallback(node.Hostname), description)
+	if node.SELinux != nil {
+		fmt.Fprintf(w, "            SELinux:\t%v\n", formatSELinuxStatus(*node.SELinux))
+	}
 	switch node.Status {
 	case statusapi.NodeOffline:
 		fmt.Fprintf(w, "            Status:\t%v\n", color.YellowString("offline"))
@@ -413,6 +416,13 @@ func printPrometheusAlerts(alerts []*models.GettableAlert, w io.Writer) {
 		fmt.Fprintf(w, "    * %v [%v]\n", alert.Labels["alertname"], duration)
 		fmt.Fprintf(w, "      - %v\n", alert.Annotations["message"])
 	}
+}
+
+func formatSELinuxStatus(on bool) string {
+	if on {
+		return "on"
+	}
+	return "off"
 }
 
 func unknownFallback(text string) string {

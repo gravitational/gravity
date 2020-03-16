@@ -145,13 +145,20 @@ func (s *PlanSuite) SetUpSuite(c *check.C) {
 		Addrs: []string{"127.0.0.3"},
 		Port:  10053,
 	}
+	s.serviceUser = systeminfo.User{
+		Name: "user",
+		UID:  999,
+		GID:  999,
+	}
+	serviceUser := s.user()
 	s.cluster, err = s.services.Operator.CreateSite(
 		ops.NewSiteRequest{
-			AccountID:  account.ID,
-			DomainName: "example.com",
-			AppPackage: appPackage.String(),
-			Provider:   schema.ProviderAWS,
-			DNSConfig:  s.dnsConfig,
+			AccountID:   account.ID,
+			DomainName:  "example.com",
+			AppPackage:  appPackage.String(),
+			Provider:    schema.ProviderAWS,
+			DNSConfig:   s.dnsConfig,
+			ServiceUser: *serviceUser,
 		})
 	c.Assert(err, check.IsNil)
 	_, err = s.services.Users.CreateClusterAdminAgent(s.cluster.Domain,
@@ -200,11 +207,6 @@ func (s *PlanSuite) SetUpSuite(c *check.C) {
 			},
 		})
 	c.Assert(err, check.IsNil)
-	s.serviceUser = systeminfo.User{
-		Name: "user",
-		UID:  999,
-		GID:  999,
-	}
 	runtimeResources, clusterResources, err := resources.Split(bytes.NewReader(resourceBytes))
 	c.Assert(err, check.IsNil)
 	s.installer = &Installer{
@@ -380,6 +382,7 @@ func (s *PlanSuite) VerifyPullPhase(c *check.C, phase storage.OperationPhase) {
 }
 
 func (s *PlanSuite) VerifyMastersPhase(c *check.C, phase storage.OperationPhase) {
+	serviceUser := s.user()
 	storage.DeepComparePhases(c, storage.OperationPhase{
 		ID: phases.MastersPhase,
 		Phases: []storage.OperationPhase{
@@ -389,19 +392,21 @@ func (s *PlanSuite) VerifyMastersPhase(c *check.C, phase storage.OperationPhase)
 					{
 						ID: fmt.Sprintf("%v/%v/teleport", phases.MastersPhase, s.masterNode.Hostname),
 						Data: &storage.OperationPhaseData{
-							Server:     &s.masterNode,
-							ExecServer: &s.masterNode,
-							Package:    s.teleportPackage,
+							Server:      &s.masterNode,
+							ExecServer:  &s.masterNode,
+							Package:     s.teleportPackage,
+							ServiceUser: serviceUser,
 						},
 						Requires: []string{fmt.Sprintf("%v/%v", phases.PullPhase, s.masterNode.Hostname)},
 					},
 					{
 						ID: fmt.Sprintf("%v/%v/planet", phases.MastersPhase, s.masterNode.Hostname),
 						Data: &storage.OperationPhaseData{
-							Server:     &s.masterNode,
-							ExecServer: &s.masterNode,
-							Package:    &s.runtimePackage,
-							Labels:     pack.RuntimePackageLabels,
+							Server:      &s.masterNode,
+							ExecServer:  &s.masterNode,
+							Package:     &s.runtimePackage,
+							ServiceUser: serviceUser,
+							Labels:      pack.RuntimePackageLabels,
 						},
 						Requires: []string{fmt.Sprintf("%v/%v", phases.PullPhase, s.masterNode.Hostname)},
 						Step:     4,
@@ -416,6 +421,7 @@ func (s *PlanSuite) VerifyMastersPhase(c *check.C, phase storage.OperationPhase)
 }
 
 func (s *PlanSuite) VerifyNodesPhase(c *check.C, phase storage.OperationPhase) {
+	serviceUser := s.user()
 	storage.DeepComparePhases(c, storage.OperationPhase{
 		ID: phases.NodesPhase,
 		Phases: []storage.OperationPhase{
@@ -425,19 +431,21 @@ func (s *PlanSuite) VerifyNodesPhase(c *check.C, phase storage.OperationPhase) {
 					{
 						ID: fmt.Sprintf("%v/%v/teleport", phases.NodesPhase, s.regularNode.Hostname),
 						Data: &storage.OperationPhaseData{
-							Server:     &s.regularNode,
-							ExecServer: &s.regularNode,
-							Package:    s.teleportPackage,
+							Server:      &s.regularNode,
+							ExecServer:  &s.regularNode,
+							Package:     s.teleportPackage,
+							ServiceUser: serviceUser,
 						},
 						Requires: []string{fmt.Sprintf("%v/%v", phases.PullPhase, s.regularNode.Hostname)},
 					},
 					{
 						ID: fmt.Sprintf("%v/%v/planet", phases.NodesPhase, s.regularNode.Hostname),
 						Data: &storage.OperationPhaseData{
-							Server:     &s.regularNode,
-							ExecServer: &s.regularNode,
-							Package:    &s.runtimePackage,
-							Labels:     pack.RuntimePackageLabels,
+							Server:      &s.regularNode,
+							ExecServer:  &s.regularNode,
+							Package:     &s.runtimePackage,
+							ServiceUser: serviceUser,
+							Labels:      pack.RuntimePackageLabels,
 						},
 						Requires: []string{fmt.Sprintf("%v/%v", phases.PullPhase, s.regularNode.Hostname)},
 						Step:     4,

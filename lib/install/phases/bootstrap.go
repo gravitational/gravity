@@ -17,6 +17,7 @@ limitations under the License.
 package phases
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -32,12 +33,13 @@ import (
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/opsservice"
 	"github.com/gravitational/gravity/lib/schema"
-	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
+	libselinux "github.com/gravitational/gravity/lib/system/selinux"
 	"github.com/gravitational/gravity/lib/systeminfo"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
+	"github.com/opencontainers/selinux/go-selinux"
 	"github.com/sirupsen/logrus"
 )
 
@@ -78,11 +80,6 @@ func NewBootstrap(p fsm.ExecutorParams, operator ops.Operator, apps app.Applicat
 		return nil, trace.Wrap(err)
 	}
 
-	stateDir, err := state.GetStateDir()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithFields(logrus.Fields{
 			constants.FieldPhase:       p.Phase.ID,
@@ -103,7 +100,8 @@ func NewBootstrap(p fsm.ExecutorParams, operator ops.Operator, apps app.Applicat
 		remote:           remote,
 		dnsConfig:        p.Plan.DNSConfig,
 		mounts:           mounts,
-		stateDir:         stateDir,
+		stateDir:         p.Phase.Data.Server.StateDir(),
+		seLinux:          p.Phase.Data.Server.SELinux,
 	}, nil
 }
 
@@ -128,6 +126,8 @@ type bootstrapExecutor struct {
 	mounts []storage.Mount
 	// stateDir specifies the local state directory
 	stateDir string
+	// seLinux indicates whether the node has SELinux support on
+	seLinux bool
 }
 
 // Execute executes the bootstrap phase
@@ -150,11 +150,15 @@ func (p *bootstrapExecutor) Execute(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	err = p.applySELinuxFileContexts(ctx)
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	err = p.logIntoCluster()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = p.configureDNS()
+	err = p.configureSystemMetadata()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -331,9 +335,12 @@ func (p *bootstrapExecutor) logIntoCluster() error {
 	return nil
 }
 
-// configureDNS creates local cluster DNS configuration
-func (p *bootstrapExecutor) configureDNS() error {
-	err := p.LocalBackend.SetDNSConfig(p.dnsConfig)
+func (p *bootstrapExecutor) configureSystemMetadata() error {
+	err := p.LocalBackend.SetSELinux(p.seLinux)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = p.LocalBackend.SetDNSConfig(p.dnsConfig)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -357,6 +364,24 @@ func (p *bootstrapExecutor) PreCheck(ctx context.Context) error {
 
 // PostCheck is no-op for this phase
 func (*bootstrapExecutor) PostCheck(ctx context.Context) error {
+	return nil
+}
+
+func (p *bootstrapExecutor) applySELinuxFileContexts(ctx context.Context) error {
+	if !(selinux.GetEnabled() && p.seLinux) {
+		p.Info("SELinux is disabled.")
+		return nil
+	}
+	paths := []string{p.stateDir}
+	for _, volume := range p.mounts {
+		paths = append(paths, volume.Source)
+	}
+	var out bytes.Buffer
+	// Set file/directory labels as defined by the policy on the state directory
+	if err := libselinux.ApplyFileContexts(ctx, &out, paths...); err != nil {
+		return trace.Wrap(err, "failed to restore file contexts: %s", out.String())
+	}
+	p.WithField("output", out.String()).Info("Restore file contexts.")
 	return nil
 }
 

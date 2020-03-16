@@ -869,6 +869,10 @@ type Volume struct {
 	Mode string `json:"mode,omitempty"`
 	// Recursive means that all mount points inside this mount should also be mounted
 	Recursive bool `json:"recursive,omitempty"`
+	// Label specifies the SELinux label.
+	// If left unspecified, the default.ContainerFileLabel will be used to label the directory.
+	// If a special value NoLabel is specified - no labeling is performed
+	Label string `json:"label,omitempty"`
 }
 
 // CheckAndSetDefaults checks and sets defaults

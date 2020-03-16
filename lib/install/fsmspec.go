@@ -40,6 +40,9 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 				config.Apps,
 				config.Packages)
 
+		case strings.HasPrefix(p.Phase.ID, phases.BootstrapSELinuxPhase):
+			return phases.NewSELinux(p, config.Operator, config.Apps)
+
 		case p.Phase.ID == phases.ChecksPhase:
 			return phases.NewChecks(p,
 				config.Operator,

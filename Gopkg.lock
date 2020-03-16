@@ -499,7 +499,7 @@
   revision = "edc3ab29cdff8694dd6feb85cfeb4b5f1b38ed9c"
 
 [[projects]]
-  digest = "1:c316443b3f2c5d769dd7fe6233b0f32fa8f741e87290047c8b809130b1674ae4"
+  digest = "1:48ce17256f3a5287a906117191da0a91c7c1b237f0b7876068c2b54383ec6bfe"
   name = "github.com/docker/docker"
   packages = [
     "pkg/archive",
@@ -515,7 +515,8 @@
     "pkg/term/windows",
   ]
   pruneopts = "UT"
-  revision = "be7ac8be2ae072032a4005e8f232be3fc57e4127"
+  revision = "2adf434ca69614dfc897dd0acf29018e5590a732"
+  source = "github.com/gravitational/moby"
 
 [[projects]]
   digest = "1:ae192be79d657527fddb53dd6a967f1a51fc7deca458dd5938c5fe7e43a041bf"
@@ -870,6 +871,14 @@
   revision = "bbcb9da2d746f8bdbd6a936686a0a6067ada0ec5"
 
 [[projects]]
+  branch = "master"
+  digest = "1:ae4407ca7731ceb7b54b059fced30f335d32486a2148e262b19067261f959b42"
+  name = "github.com/google/shlex"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "e7afc7fbc51079733e9468cdfd1efcd7d196cd1d"
+
+[[projects]]
   digest = "1:236d7e1bdb50d8f68559af37dbcf9d142d56b431c9b2176d41e2a009b664cda8"
   name = "github.com/google/uuid"
   packages = ["."]
@@ -1010,7 +1019,7 @@
   version = "v1.0.0"
 
 [[projects]]
-  digest = "1:5743846e8a4b77bdb8c77143ad85142a125b305e01677f32ce3dacbceccc4b10"
+  digest = "1:708b8826eddcfa457229688d389aa6ac2e3b0bb3ddaaa7dd145a62ebd95464e6"
   name = "github.com/gravitational/satellite"
   packages = [
     "agent",
@@ -1027,8 +1036,7 @@
     "utils",
   ]
   pruneopts = "UT"
-  revision = "d2c1e14945c28cb5ed35f771da26cb62cf0106f2"
-  version = "7.0.5"
+  revision = "bec2fc16d52d3f4f7bd55dc4d380ca26f9d477c6"
 
 [[projects]]
   digest = "1:49f6abbce9ade5f43508429e4af1adcce55d27adcd62719fea049decc766a7c9"
@@ -1126,6 +1134,14 @@
   packages = ["."]
   pruneopts = "UT"
   revision = "ffae935cafba0fac6023a96832e48d0fec6417ba"
+
+[[projects]]
+  branch = "master"
+  digest = "1:98450c86949b8cdc4637b80c1c686ca955e503d3fbae9296d1f49c532895d281"
+  name = "github.com/gravitational/vfsgen"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "6a9ea43bcacdf716a5c1b38efff722c07adf0069"
 
 [[projects]]
   branch = "master"
@@ -1434,6 +1450,14 @@
   revision = "ae77be60afb1dcacde03767a8c37337fad28ac14"
 
 [[projects]]
+  digest = "1:31e761d97c76151dde79e9d28964a812c46efc5baee4085b86f68f0c654450de"
+  name = "github.com/konsorten/go-windows-terminal-sequences"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "f55edac94c9bbba5d6182a4be46d86a2c9b5b50e"
+  version = "v1.0.2"
+
+[[projects]]
   digest = "1:ca955a9cd5b50b0f43d2cc3aeb35c951473eeca41b34eb67507f1dbcc0542394"
   name = "github.com/kr/pretty"
   packages = ["."]
@@ -1626,12 +1650,12 @@
   version = "v1.0.0"
 
 [[projects]]
-  branch = "master"
-  digest = "1:d0c95a34e79df79eb96ca870d6b6fc43361d34c9c05495f93a5ad0077f7bbb24"
+  digest = "1:69530a15507094162be4eb3180c1d68b787177e8c9bbe76d4da40d44d6586f6f"
   name = "github.com/mitchellh/go-ps"
   packages = ["."]
   pruneopts = "UT"
-  revision = "4fdf99ab29366514c69ccccddab5dc58b8d84062"
+  revision = "147ff83818ae939913b2e20b91ae3cd6c391771c"
+  version = "v1.0.0"
 
 [[projects]]
   digest = "1:42eb1f52b84a06820cedc9baec2e710bfbda3ee6dac6cdb97f8b9a5066134ec6"
@@ -1749,6 +1773,14 @@
   pruneopts = "UT"
   revision = "baf6536d6259209c3edfa2b22237af82942d3dfa"
   version = "v0.1.1"
+
+[[projects]]
+  digest = "1:87e906f1e6fa5b8031355cabec9cfc19ca66d77f61c916aa1711d4944a0ce71c"
+  name = "github.com/opencontainers/selinux"
+  packages = ["go-selinux"]
+  pruneopts = "UT"
+  revision = "bd4431961747d849bd92a9853f63f05235344637"
+  version = "1.3.0"
 
 [[projects]]
   digest = "1:361de06aa7ae272616cbe71c3994a654cc6316324e30998e650f7765b20c5b33"
@@ -1948,6 +1980,14 @@
 
 [[projects]]
   branch = "master"
+  digest = "1:68cecd4c1137f77dfa2db1f13a0ceef2b5606d6b69d66fa69f7df1b2f2fe9afc"
+  name = "github.com/shurcooL/httpfs"
+  packages = ["vfsutil"]
+  pruneopts = "UT"
+  revision = "8d4bc4ba774931155e6cd5ef6098cb038dd45135"
+
+[[projects]]
+  branch = "master"
   digest = "1:def689e73e9252f6f7fe66834a76751a41b767e03daab299e607e7226c58a855"
   name = "github.com/shurcooL/sanitized_anchor_name"
   packages = ["."]
@@ -1955,16 +1995,16 @@
   revision = "86672fcb3f950f35f2e675df2240550f2a50762f"
 
 [[projects]]
-  digest = "1:2dc4fddf37503f952699873c7433efc11b569253ecd90d3ad4d8081431df100f"
+  digest = "1:7eb9685a010202bad7133819945fdae3773630398b7211defb3c1b81d3ec8233"
   name = "github.com/sirupsen/logrus"
   packages = [
     ".",
     "hooks/syslog",
   ]
   pruneopts = "UT"
-  revision = "dcdb95d728dbb6fe4b9fbe6b3b9d1fb268e68036"
+  revision = "9ebd8dcf727178553227307b785304594abef057"
   source = "github.com/gravitational/logrus"
-  version = "1.0.6"
+  version = "v1.4.3-alpha.1"
 
 [[projects]]
   digest = "1:645cabccbb4fa8aab25a956cbcbdf6a6845ca736b2c64e197ca7cbb9d210b939"
@@ -3152,6 +3192,7 @@
     "github.com/gogo/protobuf/types",
     "github.com/gokyle/hotp",
     "github.com/golang/protobuf/ptypes/any",
+    "github.com/google/shlex",
     "github.com/gravitational/configure",
     "github.com/gravitational/configure/cstrings",
     "github.com/gravitational/configure/schema",
@@ -3195,6 +3236,7 @@
     "github.com/gravitational/trace",
     "github.com/gravitational/ttlmap",
     "github.com/gravitational/version",
+    "github.com/gravitational/vfsgen",
     "github.com/hashicorp/terraform/helper/schema",
     "github.com/hashicorp/terraform/plugin",
     "github.com/hashicorp/terraform/terraform",
@@ -3208,6 +3250,7 @@
     "github.com/mitchellh/go-ps",
     "github.com/olekukonko/tablewriter",
     "github.com/opencontainers/go-digest",
+    "github.com/opencontainers/selinux/go-selinux",
     "github.com/pborman/uuid",
     "github.com/prometheus/alertmanager/api/v2/client",
     "github.com/prometheus/alertmanager/api/v2/client/alert",

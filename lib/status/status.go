@@ -214,7 +214,7 @@ type Cluster struct {
 	// Endpoints contains cluster and application endpoints.
 	Endpoints Endpoints `json:"endpoints"`
 	// Extension is a cluster status extension
-	Extension `json:",inline,omitempty"`
+	Extension `json:"inline,omitempty"`
 	// ServerVersion is version of the server the operator is talking to.
 	ServerVersion *modules.Version `json:"server_version,omitempty"`
 	// ClientVersion is version of the binary collecting the status.
@@ -233,9 +233,9 @@ type Endpoints struct {
 type ClusterEndpoints struct {
 	// AuthGateway contains addresses that users should specify via --proxy
 	// flag to tsh commands (essentially, address of gravity-site service)
-	AuthGateway []string `json:"auth_gateway"`
+	AuthGateway []string `json:"auth_gateway,omitempty"`
 	// UI contains URLs of the cluster control panel.
-	UI []string `json:"ui"`
+	UI []string `json:"ui,omitempty"`
 }
 
 // WriteTo writes cluster endpoints to the provided writer.
@@ -256,7 +256,7 @@ func (e ClusterEndpoints) WriteTo(w io.Writer) (n int64, err error) {
 // ApplicationsEndpoints contains endpoints for multiple applications.
 type ApplicationsEndpoints struct {
 	// Endpoints lists the endpoints of all applications
-	Endpoints []ApplicationEndpoints
+	Endpoints []ApplicationEndpoints `json:"endpoints,omitempty"`
 	// Error indicates whether there was an error fetching endpoints
 	Error error `json:"-"`
 }
@@ -369,6 +369,8 @@ type ClusterServer struct {
 	Profile string `json:"profile"`
 	// Status describes the node's status
 	Status string `json:"status"`
+	// SELinux indicates whether the SELinux support is on on the node
+	SELinux *bool `json:"selinux,omitempty"`
 	// FailedProbes lists all failed probes if the node is not healthy
 	FailedProbes []string `json:"failed_probes,omitempty"`
 	// WarnProbes lists all warning probes
@@ -421,6 +423,7 @@ func fromClusterState(systemStatus pb.SystemStatus, cluster []storage.Server) (o
 		status := fromNodeStatus(*node)
 		status.Hostname = server.Hostname
 		status.Profile = server.Role
+		status.SELinux = utils.BoolPtr(server.SELinux)
 		out = append(out, status)
 	}
 	return out

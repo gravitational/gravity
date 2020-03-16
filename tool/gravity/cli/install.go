@@ -753,6 +753,9 @@ func NewInstallerConnectStrategy(env *localenv.LocalEnvironment, config InstallC
 	}
 	args = append([]string{utils.Exe.Path}, args...)
 	args = append(args, "--from-service", utils.Exe.WorkingDir)
+	if !config.SELinux {
+		args = append(args, "--no-selinux")
+	}
 	servicePath, err := state.GravityInstallDir(defaults.GravityRPCInstallerServiceName)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -822,6 +825,9 @@ func newAutoAgentConnectStrategy(env *localenv.LocalEnvironment, config JoinConf
 func newAgentConnectStrategy(env *localenv.LocalEnvironment, config JoinConfig) (strategy installerclient.ConnectStrategy, err error) {
 	args := append([]string{utils.Exe.Path}, os.Args[1:]...)
 	args = append(args, "--from-service")
+	if !config.SELinux {
+		args = append(args, "--no-selinux")
+	}
 	servicePath, err := state.GravityInstallDir(defaults.GravityRPCAgentServiceName)
 	if err != nil {
 		return nil, trace.Wrap(err)

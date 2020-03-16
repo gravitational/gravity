@@ -71,6 +71,7 @@ const (
 	remoteClustersP             = "remoteclusters"
 	systemP                     = "system"
 	dnsP                        = "dns"
+	seLinuxP                    = "seLinux"
 	chartsP                     = "charts"
 	indexP                      = "index"
 

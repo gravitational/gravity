@@ -288,6 +288,11 @@ func configureInitContainer(job *batchv1.Job, p Params) error {
 						MountPath: StateDir,
 					},
 				},
+				SecurityContext: &v1.SecurityContext{
+					SELinuxOptions: &v1.SELinuxOptions{
+						Type: constants.GravitySystemContainerType,
+					},
+				},
 			},
 		}, job.Spec.Template.Spec.InitContainers...)
 	}

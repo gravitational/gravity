@@ -59,7 +59,7 @@ echo "$(date) [INFO] Install agent will be using ${TMPDIR:-/tmp} for temporary f
     --advertise-addr={{.advertise_addr}} \
     --server-addr={{.agent_server_addr}} \
     --role={{.profile}} \
-    --cloud-provider={{.cloud_provider}} \
+    --cloud-provider={{.cloud_provider}} {{if .selinux}}--selinux{{else}}--no-selinux{{end}} \
     --operation-id={{.operation_id}} {{if .background}}1>/dev/null 2>&1 &{{end}}
 `, gravityTemplateSource)))
 

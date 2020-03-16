@@ -22,6 +22,7 @@ import (
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/fsm"
+	"github.com/gravitational/gravity/lib/install/phases"
 	installphases "github.com/gravitational/gravity/lib/install/phases"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
@@ -73,6 +74,19 @@ func (b *planBuilder) AddInitPhase(plan *storage.OperationPlan) {
 	})
 }
 
+// AddBootstrapSELinuxPhase appends the phase to configure SELinux on a node
+func (b *planBuilder) AddBootstrapSELinuxPhase(plan *storage.OperationPlan) {
+	plan.Phases = append(plan.Phases, storage.OperationPhase{
+		ID:          phases.BootstrapSELinuxPhase,
+		Description: "Configure SELinux",
+		Data: &storage.OperationPhaseData{
+			Server:     &b.JoiningNode,
+			ExecServer: &b.JoiningNode,
+			Package:    &b.Application.Package,
+		},
+	})
+}
+
 // AddChecksPhase appends preflight checks phase to the plan.
 func (b *planBuilder) AddChecksPhase(plan *storage.OperationPlan) {
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
@@ -82,7 +96,10 @@ func (b *planBuilder) AddChecksPhase(plan *storage.OperationPlan) {
 			Server: &b.JoiningNode,
 			Master: &b.Master,
 		},
-		Requires: []string{installphases.InitPhase, StartAgentPhase},
+		Requires: fsm.RequireIfPresent(plan,
+			installphases.BootstrapSELinuxPhase,
+			installphases.InitPhase,
+			StartAgentPhase),
 	})
 }
 
@@ -157,9 +174,10 @@ func (b *planBuilder) AddSystemPhase(plan *storage.OperationPlan) {
 				Description: fmt.Sprintf("Install system package %v:%v",
 					b.TeleportPackage.Name, b.TeleportPackage.Version),
 				Data: &storage.OperationPhaseData{
-					Server:     &b.JoiningNode,
-					ExecServer: &b.JoiningNode,
-					Package:    &b.TeleportPackage,
+					Server:      &b.JoiningNode,
+					ExecServer:  &b.JoiningNode,
+					Package:     &b.TeleportPackage,
+					ServiceUser: &b.ServiceUser,
 				},
 				Requires: []string{installphases.PullPhase},
 			},
@@ -168,10 +186,11 @@ func (b *planBuilder) AddSystemPhase(plan *storage.OperationPlan) {
 				Description: fmt.Sprintf("Install system package %v:%v",
 					b.PlanetPackage.Name, b.PlanetPackage.Version),
 				Data: &storage.OperationPhaseData{
-					Server:     &b.JoiningNode,
-					ExecServer: &b.JoiningNode,
-					Package:    &b.PlanetPackage,
-					Labels:     pack.RuntimePackageLabels,
+					Server:      &b.JoiningNode,
+					ExecServer:  &b.JoiningNode,
+					Package:     &b.PlanetPackage,
+					ServiceUser: &b.ServiceUser,
+					Labels:      pack.RuntimePackageLabels,
 				},
 				Requires: []string{installphases.PullPhase},
 			},

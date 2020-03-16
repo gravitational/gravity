@@ -260,6 +260,7 @@ func GetServerUpdateRequest(op ops.SiteOperation, servers []checks.ServerInfo) (
 			User:        serverInfo.GetUser(),
 			Provisioner: op.Provisioner,
 			Created:     time.Now().UTC(),
+			SELinux:     serverInfo.SELinux,
 		}
 		if serverInfo.CloudMetadata != nil {
 			server.Nodename = serverInfo.CloudMetadata.NodeName

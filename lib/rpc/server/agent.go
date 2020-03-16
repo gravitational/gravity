@@ -92,14 +92,15 @@ func (srv *agentServer) GetRuntimeConfig(ctx context.Context, _ *types.Empty) (*
 		}
 	}
 	config := &pb.RuntimeConfig{
-		Role:          srv.Role,
+		Role:          srv.RuntimeConfig.Role,
 		AdvertiseAddr: srv.Config.Listener.Addr().String(),
-		SystemDevice:  srv.SystemDevice,
-		Mounts:        srv.Mounts,
+		SystemDevice:  srv.RuntimeConfig.SystemDevice,
+		Mounts:        srv.RuntimeConfig.Mounts,
 		StateDir:      stateDir,
 		TempDir:       os.TempDir(),
-		KeyValues:     srv.KeyValues,
-		CloudMetadata: srv.CloudMetadata,
+		KeyValues:     srv.RuntimeConfig.KeyValues,
+		CloudMetadata: srv.RuntimeConfig.CloudMetadata,
+		SELinux:       srv.RuntimeConfig.SELinux,
 	}
 	return config, nil
 }

@@ -31,6 +31,8 @@ STORAGE_APP_TAG ?= 0.0.1
 STORAGE_APP_BRANCH ?= $(STORAGE_APP_TAG)
 K8S_APP_TAG ?= 0.0.1
 TILLER_APP_TAG ?= 0.0.1
+SELINUX_BRANCH ?= distro/centos_rhel/7
+
 GOLFLAGS ?= -w -s
 
 # Git repositories
@@ -41,6 +43,7 @@ MONITORING_APP_REPO = git@github.com:gravitational/monitoring-app.git
 STORAGE_APP_REPO = git@github.com:gravitational/storage-app.git
 BANDWAGON_REPO = git@github.com:gravitational/bandwagon.git
 FIO_REPO = git@github.com:axboe/fio.git
+SELINUX_REPO = git@github.com:gravitational/selinux.git
 
 # Amazon S3
 BUILD_BUCKET_URL = s3://clientbuilds.gravitational.io
@@ -168,7 +171,7 @@ endef
 # build gravity binaries
 #
 .PHONY: build
-build:
+build: selinux
 ifeq ($(OS),darwin)
 	$(MAKE) build-on-host
 	ln -sf $(GRAVITY_BUILDDIR) $(GRAVITY_CURRENT_BUILDDIR)
@@ -300,7 +303,7 @@ publish-telekube-s3:
 # publish artifacts to S3
 #
 .PHONY: publish
-publish: push-teleport push-gravity push-fio push-bandwagon push-logging-app push-monitoring-app push-storage-app
+publish: push-teleport push-gravity push-fio push-bandwagon push-logging-app push-monitoring-app push-storage-app push-selinux
 
 #
 # prepare ansible variables for publishing to the hub
@@ -663,6 +666,36 @@ push-storage-app: $(STORAGE_APP_OUT)
 .PHONY: enter
 enter:
 	docker run -ti --rm=true $(BBOX) /bin/bash
+
+.PHONY: selinux-policy-package
+selinux-policy-package: $(SELINUX_OUT)
+	$(GRAVITY) package delete $(SELINUX_POLICY_PKG) $(DELETE_OPTS) && \
+		$(GRAVITY) package import $(SELINUX_OUT) $(SELINUX_POLICY_PKG)
+
+.PHONY: selinux
+selinux: $(SELINUX_ASSETS)
+ifeq ($(OS),linux)
+	$(MAKE) -C $(TOP)/lib/system/selinux
+endif
+
+.PHONY: push-selinux
+push-selinux: $(SELINUX_OUT)
+	$(AWS) s3 cp $(S3_OPTS) $(SELINUX_OUT) $(BUILD_BUCKET_URL)/selinux/centos/$(SELINUX_VERSION)
+
+$(SELINUX_ASSETS): $(SELINUX_OUT)
+	tar xf $^ -C $(@D) $(@F)
+
+$(SELINUX_OUT): | $(GRAVITY_BUILDDIR)
+	if ! $(AWS) s3 cp $(S3_OPTS) $(BUILD_BUCKET_URL)/selinux/centos/$(SELINUX_VERSION) $@; then \
+		mkdir -p $(BUILDDIR) && cd $(BUILDDIR) && \
+		( test -d $(BUILDDIR)/selinux || git clone $(SELINUX_REPO) selinux ) && \
+		cd $(BUILDDIR)/selinux && \
+		git fetch --all && \
+		git checkout $(SELINUX_BRANCH) && \
+		git pull origin $(SELINUX_BRANCH) && git submodule update --init --recursive && \
+		make -C $(BUILDDIR)/selinux && \
+		tar czf $@ -C $(BUILDDIR)/selinux/output gravity.pp.bz2 container.pp.bz2 gravity.statedir.fc.template; \
+	fi
 
 #
 # buildbox container: container used for building packages

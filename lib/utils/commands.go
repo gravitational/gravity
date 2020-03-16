@@ -48,8 +48,8 @@ func PlanetCommandSlice(args []string, gravityArgs ...string) []string {
 
 // PlanetEnterCommand returns command that runs in planet using gravity from path
 func PlanetEnterCommand(args ...string) []string {
-	return append([]string{constants.GravityBin, "planet", "enter",
-		"--", "--notty", args[0], "--"}, args[1:]...)
+	return append([]string{constants.GravityBin,
+		"exec", "--no-tty", "--no-interactive"}, args...)
 }
 
 // Self returns the command line for the currently running executable.
@@ -89,8 +89,8 @@ func (r Executable) PlanetCommandSlice(args []string, gravityArgs ...string) []s
 
 	gravityCommand := []string{r.Path}
 	gravityCommand = append(gravityCommand, gravityArgs...)
-	gravityCommand = append(gravityCommand, "planet", "enter",
-		"--", "--notty", command, "--")
+	gravityCommand = append(gravityCommand,
+		"exec", "--no-tty", "--no-interactive", command)
 	gravityCommand = append(gravityCommand, commandArgs...)
 
 	return gravityCommand

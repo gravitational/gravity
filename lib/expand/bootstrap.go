@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/gravitational/gravity/lib/constants"
+	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/install"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
@@ -28,9 +29,9 @@ import (
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/system/environ"
-	log "github.com/sirupsen/logrus"
 
 	"github.com/gravitational/trace"
+	log "github.com/sirupsen/logrus"
 )
 
 // init initializes the peer after a successful connect
@@ -120,7 +121,7 @@ func (p *Peer) downloadFio(ctx operationContext) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = pack.ExportExecutable(ctx.Packages, *locator, path)
+	err = pack.ExportExecutable(ctx.Packages, *locator, path, defaults.GravityFileLabel)
 	if err != nil {
 		return trace.Wrap(err)
 	}

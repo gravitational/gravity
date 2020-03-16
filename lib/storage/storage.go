@@ -1073,12 +1073,16 @@ type LoginEntries interface {
 	SetCurrentOpsCenter(string) error
 }
 
-// SystemMetadata stores system-relevant data
+// SystemMetadata stores system-relevant data on the host
 type SystemMetadata interface {
 	// GetDNSConfig returns current DNS configuration
 	GetDNSConfig() (*DNSConfig, error)
 	// SetDNSConfig sets current DNS configuration
 	SetDNSConfig(DNSConfig) error
+	// GetSELinux returns whether SELinux support is on
+	GetSELinux() (enabled bool, err error)
+	// SetSELinux sets SELinux support
+	SetSELinux(enabled bool) error
 }
 
 // DefaultDNSConfig defines the default cluster local DNS configuration
@@ -1583,6 +1587,8 @@ type Server struct {
 	User OSUser `json:"user"`
 	// Created is the timestamp when the server was created
 	Created time.Time `json:"created"`
+	// SELinux specifies whether the node has SELinux support on
+	SELinux bool `json:"selinux,omitempty"`
 }
 
 // IsEqualTo returns true if this and the provided server are the same server.

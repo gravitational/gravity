@@ -136,22 +136,22 @@ func DeployAgents(ctx context.Context, req DeployAgentsRequest) error {
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		serverStateDir := stateServer.StateDir()
 
-		logger := req.WithFields(server.Fields())
-		go func(node, nodeStateDir string, leader bool) {
+		logger := req.WithFields(server.fields())
+
+		go func(nodeAddr string, leader bool) {
 			// Try a few times to account for possible network glitches.
 			err := utils.RetryOnNetworkError(defaults.RetryInterval, defaults.RetryLessAttempts, func() error {
-				if err := deployAgentOnNode(ctx, req, node, nodeStateDir, leader, req.SecretsPackage.String()); err != nil {
+				if err := deployAgentOnNode(ctx, req, *stateServer, nodeAddr, leader, req.SecretsPackage.String()); err != nil {
 					logger.WithError(err).Warn("Failed to deploy agent.")
 					return trace.Wrap(err)
 				}
-				req.Progress.Print(color.GreenString("Deployed agent on %v (%v)", server.Hostname, server.AdvertiseIP))
+				req.Progress.Print(color.GreenString("Deployed agent on %v (%v)", stateServer.Hostname, stateServer.AdvertiseIP))
 				logger.Info("Agent deployed.")
 				return nil
 			})
-			errors <- trace.Wrap(err, "failed to deploy agent on %v", node)
-		}(server.NodeAddr, serverStateDir, leaderProcess)
+			errors <- trace.Wrap(err, "failed to deploy agent on %v", stateServer.AdvertiseIP)
+		}(server.NodeAddr, leaderProcess)
 	}
 
 	err := utils.CollectErrors(ctx, errors)
@@ -184,8 +184,8 @@ type DeployServer struct {
 	NodeAddr string
 }
 
-// Fields returns log fields for the server.
-func (s DeployServer) Fields() logrus.Fields {
+// fields returns log fields for the server.
+func (s DeployServer) fields() logrus.Fields {
 	return logrus.Fields{"hostname": s.Hostname, "ip": s.AdvertiseIP}
 }
 
@@ -200,17 +200,18 @@ func NewDeployServer(node storage.Server) DeployServer {
 	}
 }
 
-func deployAgentOnNode(ctx context.Context, req DeployAgentsRequest, node, nodeStateDir string, leader bool, secretsPackage string) error {
-	nodeClient, err := req.Proxy.ConnectToNode(ctx, node, defaults.SSHUser, false)
+func deployAgentOnNode(ctx context.Context, req DeployAgentsRequest, server storage.Server, nodeAddr string, leader bool, secretsPackage string) error {
+	nodeClient, err := req.Proxy.ConnectToNode(ctx, nodeAddr, defaults.SSHUser, false)
 	if err != nil {
-		return trace.Wrap(err, node)
+		return trace.Wrap(err, "failed to connect").AddField("node", nodeAddr)
 	}
 	defer nodeClient.Close()
 
+	stateDir := server.StateDir()
 	gravityHostPath := filepath.Join(
-		state.GravityRPCAgentDir(nodeStateDir), constants.GravityPackage)
+		state.GravityRPCAgentDir(stateDir), constants.GravityPackage)
 	secretsHostDir := filepath.Join(
-		state.GravityRPCAgentDir(nodeStateDir), defaults.SecretsDir)
+		state.GravityRPCAgentDir(stateDir), defaults.SecretsDir)
 
 	var runCmd string
 	if leader {
@@ -221,18 +222,24 @@ func deployAgentOnNode(ctx context.Context, req DeployAgentsRequest, node, nodeS
 			gravityHostPath, req.NodeParams)
 	}
 
+	exportFormat := "%s package export --file-mask=%o %s %s --ops-url=%s --insecure"
+	exportArgs := []interface{}{
+		constants.GravityBin, defaults.SharedExecutableMask,
+		req.GravityPackage, gravityHostPath, defaults.GravityServiceURL,
+	}
+	if server.SELinux {
+		exportFormat = "%s package export --file-mask=%o %s %s --ops-url=%s --insecure --file-label=%s"
+		exportArgs = append(exportArgs, defaults.GravityFileLabel)
+	}
 	err = utils.NewSSHCommands(nodeClient.Client).
 		C("rm -rf %s", secretsHostDir).
 		C("mkdir -p %s", secretsHostDir).
 		WithRetries("%s package unpack %s %s --debug --ops-url=%s --insecure",
 			constants.GravityBin, secretsPackage, secretsHostDir, defaults.GravityServiceURL).
 		IgnoreError("/bin/systemctl stop %s", defaults.GravityRPCAgentServiceName).
-		WithRetries("%s package export --file-mask=%o %s %s --ops-url=%s --insecure", 
-			constants.GravityBin, defaults.SharedExecutableMask,
-			req.GravityPackage, gravityHostPath, defaults.GravityServiceURL,
-		).
+		WithRetries(exportFormat, exportArgs...).
 		C(runCmd).
-		WithLogger(req.WithField("node", node)).
+		WithLogger(req.WithField("node", nodeAddr)).
 		Run(ctx)
 	if err != nil {
 		return trace.Wrap(err)
