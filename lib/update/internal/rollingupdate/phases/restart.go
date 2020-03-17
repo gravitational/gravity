@@ -35,7 +35,7 @@ import (
 // the environment variables update
 func NewRestart(
 	params libfsm.ExecutorParams,
-	operator localClusterGetter,
+	operator LocalClusterGetter,
 	operationID string,
 	apps appGetter,
 	backend storage.Backend,

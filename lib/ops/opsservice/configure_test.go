@@ -152,7 +152,7 @@ func (s *ConfigureSuite) TestGeneratesPlanetConfigPackage(c *check.C) {
 				ComponentConfigs: clusterconfig.ComponentConfigs{
 					Kubelet: &clusterconfig.Kubelet{Config: configBytes},
 				},
-				Global: &clusterconfig.Global{
+				Global: clusterconfig.Global{
 					CloudProvider: "gce",
 					CloudConfig: `
 [global]
