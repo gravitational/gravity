@@ -240,7 +240,7 @@ func (r *backendOperations) getOperationAndUpdateCache(backend storage.Backend, 
 	if err == nil {
 		// Operation from the backend takes precedence over the existing operation (from cluster state)
 		r.operations[op.ID] = (ops.SiteOperation)(*op)
-	} else {
+	} else if !trace.IsNotFound(err) {
 		logger.WithError(err).Warn("Failed to query operation.")
 	}
 	return (*ops.SiteOperation)(op)

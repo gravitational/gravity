@@ -54,17 +54,13 @@ func ReadConfig(configDir string) (*Config, *telecfg.FileConfig, error) {
 		searchPaths = defaults.GravityConfigDirs
 	}
 
-	log.Debugf("got search paths: %v", searchPaths)
 	for _, path := range searchPaths {
-		log.Debugf("look up configs in %v", path)
-
 		gravityName := filepath.Join(path, defaults.GravityYAMLFile)
 		data, err := teleutils.ReadPath(gravityName)
 		if err != nil {
 			if !trace.IsNotFound(err) && !trace.IsAccessDenied(err) {
 				return nil, nil, trace.Wrap(err)
 			}
-			log.Debugf("%v not found in search path", gravityName)
 			continue
 		}
 
@@ -82,7 +78,6 @@ func ReadConfig(configDir string) (*Config, *telecfg.FileConfig, error) {
 			if !trace.IsNotFound(err) && !trace.IsAccessDenied(err) {
 				return nil, nil, trace.Wrap(err)
 			}
-			log.Debugf("%v not found in search path", teleportName)
 			continue
 		}
 
