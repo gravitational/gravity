@@ -128,8 +128,11 @@ func (s *site) createInstallExpandOperation(operationType, operationInitialState
 	}
 
 	tokenType := storage.ProvisioningTokenTypeInstall
+	expires := s.clock().UtcNow().Add(defaults.InstallTokenTTL)
 	if op.Type == ops.OperationExpand {
 		tokenType = storage.ProvisioningTokenTypeExpand
+		// Do not expire join tokens
+		expires = time.Time{}
 	}
 
 	_, err = s.users().CreateProvisioningToken(storage.ProvisioningToken{
@@ -137,7 +140,7 @@ func (s *site) createInstallExpandOperation(operationType, operationInitialState
 		AccountID:   s.key.AccountID,
 		SiteDomain:  s.key.SiteDomain,
 		Type:        storage.ProvisioningTokenType(tokenType),
-		Expires:     s.clock().UtcNow().Add(defaults.InstallTokenTTL),
+		Expires:     expires,
 		OperationID: op.ID,
 		UserEmail:   agentUser.GetName(),
 	})
@@ -152,7 +155,7 @@ func (s *site) createInstallExpandOperation(operationType, operationInitialState
 
 	variables.System = *systemVars
 	agents := make(map[string]storage.AgentProfile, len(profiles))
-	for role, _ := range profiles {
+	for role := range profiles {
 		instructions, err := s.getDownloadInstructions(token, role)
 		if err != nil {
 			return nil, trace.Wrap(err)
