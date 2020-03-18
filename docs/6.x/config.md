@@ -789,7 +789,7 @@ a Gravity Hub. It brings the following advantages:
 To configure a Trusted Cluster create the following resource:
 
 ```yaml
-kind: TrustedCluster
+kind: trusted_cluster
 version: v2
 metadata:
   name: hub.example.com
