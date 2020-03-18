@@ -89,9 +89,12 @@ func RunInPlanetCommand(ctx context.Context, log log.FieldLogger, args ...string
 }
 
 // RunCommand executes the command specified with args
-func RunCommand(ctx context.Context, log log.FieldLogger, args ...string) ([]byte, error) {
+func RunCommand(ctx context.Context, logger log.FieldLogger, args ...string) ([]byte, error) {
 	var out bytes.Buffer
-	log.WithField("args", args).Info("Run command.")
+	if logger == nil {
+		logger = log.WithField(trace.Component, "utils")
+	}
+	logger.WithField("args", args).Debug("Run command.")
 	if err := RunStream(ctx, &out, args...); err != nil {
 		return out.Bytes(), trace.Wrap(err)
 	}
