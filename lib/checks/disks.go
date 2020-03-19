@@ -107,7 +107,7 @@ func (e *fioTestError) Error() string {
 
 // isFioTestError returns true if the provided error is the fio disk test error.
 func isFioTestError(err error) bool {
-	_, ok := err.(*fioTestError)
+	_, ok := trace.Unwrap(err).(*fioTestError)
 	return ok
 }
 
