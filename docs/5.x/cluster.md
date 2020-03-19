@@ -484,6 +484,36 @@ root$ ./gravity plan resume
 root$ ./gravity agent shutdown
 ```
 
+## Direct Upgrades From Older LTS Versions
+
+Gravity LTS releases are at most 8 months apart and are based on Kubernetes releases which are no more than 2 minor versions apart.
+This requirement is partially necessitated by the Kubernetes version skew [support policy](https://kubernetes.io/docs/setup/release/version-skew-policy/#supported-version-skew).
+Gravity can thus only upgrade clusters from a previous LTS version. For example, an existing cluster based on Gravity `5.0.35` can be upgraded to one based on Gravity
+`5.2.14` but not to `5.5.20`.
+
+Since version `5.5.21` `tele` is capable of producing cluster image tarballs that can upgrade clusters based on older LTS versions (i.e. more than one version apart) directly.
+For this to work, it embeds the data from (a series) of previous LTS releases.
+
+As a result, the tarball will grow roughly by 1Gb per embedded release. Additionally, each embedded LTS release increases the upgrade time by a certain
+amount (which is cluster size-specific) - this should also be taken into account when planning for the upgrade.
+
+To embed an LTS release, specify its version as a parameter to `tele build`:
+
+```bash
+$ tele build ... --upgrade-via=5.2.15
+```
+
+The flag can be specified multiple times to add as many LTS versions as required.
+
+!!! note "Embedding intermediate LTS releases"
+    The version specified with the `--upgrade-via` flag must be an LTS version.
+    Check [Releases](changelog.md) page to see which LTS versions are available for embedding.
+    The upgrade path from the existing version must contain all intermediate LTS releases to reach the target version but
+    the target version does not have to be LTS.
+    For example, to upgrade a cluster based on Gravity `5.0.35` to the image based on Gravity `5.5.21`, the cluster
+    image must embed the LTS version `5.2.15`.
+
+
 ## Managing An Ongoing Operation
 
 Some operations in a Gravity cluster require cooperation from all cluster nodes.
