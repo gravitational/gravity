@@ -30,8 +30,10 @@ import (
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
+
+var log = logrus.WithField(trace.Component, "systemd")
 
 type systemdManager struct{}
 
@@ -343,8 +345,22 @@ func (s *systemdManager) InstallMountService(req NewMountServiceRequest) error {
 
 // UninstallService uninstalls service
 func (s *systemdManager) UninstallService(req UninstallServiceRequest) error {
-	logger := log.WithField("service", req.Name)
 	serviceName := serviceName(req.Name)
+	logger := log.WithField("service", serviceName)
+
+	serviceStatus, err := s.StatusService(serviceName)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	if serviceStatus == ServiceStatusFailed {
+		logger.Warn("Service unit is failed, trying to reset.")
+		out, err := invokeSystemctl("reset-failed", serviceName)
+		if err != nil {
+			logger.WithError(err).Error("Failed to reset failed service unit: %v.", out)
+		}
+	}
+
 	out, err := invokeSystemctl("stop", serviceName)
 	if err != nil {
 		if IsUnknownServiceError(err) {
@@ -364,8 +380,15 @@ func (s *systemdManager) UninstallService(req UninstallServiceRequest) error {
 
 	if err == nil {
 		unitPath := unitPath(req.Name)
-		if errDelete := os.Remove(unitPath); errDelete != nil && !os.IsNotExist(errDelete) {
-			logger.WithError(errDelete).Warn("Failed to delete service unit file.")
+		logger = logger.WithField("path", unitPath)
+		if errDelete := os.Remove(unitPath); errDelete != nil {
+			if !os.IsNotExist(errDelete) {
+				logger.WithError(errDelete).Warn("Failed to remove service unit file.")
+			} else {
+				logger.Info("Service unit files does not exist.")
+			}
+		} else {
+			logger.Info("Removed service unit file.")
 		}
 	}
 
@@ -379,9 +402,9 @@ func (s *systemdManager) UninstallService(req UninstallServiceRequest) error {
 		if err != nil && !IsUnknownServiceError(err) {
 			// Results of `systemctl is-failed` are purely informational
 			// beyond the state values we already check above
-			logger.WithFields(log.Fields{
-				log.ErrorKey: err,
-				"output":     out,
+			logger.WithFields(logrus.Fields{
+				logrus.ErrorKey: err,
+				"output":        out,
 			}).Warn("UninstallService.")
 		}
 	}
@@ -468,7 +491,7 @@ func (s *systemdManager) supportsTasksAccounting() bool {
 func invokeSystemctl(args ...string) (string, error) {
 	var out bytes.Buffer
 	cmd := exec.Command("systemctl", append(args, "--no-pager")...)
-	err := utils.Exec(cmd, &out)
+	err := utils.ExecL(cmd, &out, log)
 	return out.String(), trace.Wrap(err)
 }
 
