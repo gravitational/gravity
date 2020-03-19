@@ -38,8 +38,9 @@ type CommandArgs struct {
 
 // Update returns new command line for the provided command taking into account
 // flags that need to be added or removed as configured.
+// Positional arguments are moved to the end.
 //
-// If the flag needs to be replaced (possibly to update the value), it needs to be
+// If a flag needs to be replaced (possibly to update the value), it needs to be
 // placed into both FlagsToAdd and FlagsToRemove.
 //
 // The resulting command line adheres to command line format accepted by systemd.
@@ -49,33 +50,35 @@ func (r *CommandArgs) Update(command []string) (args []string, err error) {
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to parse command: %v", command)
 	}
-	for _, el := range r.addRemoveFlags(ctx) {
-		args = append(args, el.Format()...)
+	for _, flag := range r.addRemoveFlags(ctx) {
+		args = append(args, flag.Format()...)
 	}
 	outputCommand := ctx.SelectedCommand.FullCommand()
 	return append([]string{outputCommand}, args...), nil
 }
 
-func (r *CommandArgs) addRemoveFlags(ctx *kingpin.ParseContext) (elems []Flag) {
+func (r *CommandArgs) addRemoveFlags(ctx *kingpin.ParseContext) (flags []Flag) {
 	var args []Flag
 	seen := make(map[string]struct{})
 	for _, el := range ctx.Elements {
 		switch c := el.Clause.(type) {
 		case *kingpin.ArgClause:
 			if utils.StringInSlice(r.FlagsToRemove, c.Model().Name) {
+				// Remove the positional argument
 				continue
 			}
 			seen[c.Model().Name] = struct{}{}
 			args = append(args, NewArg(c.Model().Name, *el.Value))
 		case *kingpin.FlagClause:
 			if utils.StringInSlice(r.FlagsToRemove, c.Model().Name) {
+				// Remove the flag
 				continue
 			}
 			seen[c.Model().Name] = struct{}{}
 			if _, ok := c.Model().Value.(boolCmdlineFlag); ok {
-				elems = append(elems, newBoolFlag(c.Model().Name, *el.Value))
+				flags = append(flags, newBoolFlag(c.Model().Name, *el.Value))
 			} else {
-				elems = append(elems, NewFlag(c.Model().Name, *el.Value))
+				flags = append(flags, NewFlag(c.Model().Name, *el.Value))
 			}
 		}
 	}
@@ -84,19 +87,14 @@ func (r *CommandArgs) addRemoveFlags(ctx *kingpin.ParseContext) (elems []Flag) {
 			if _, exists := seen[arg.name]; !exists {
 				args = append(args, arg)
 			}
-		}
-	}
-	for _, flag := range r.FlagsToAdd {
-		if _, ok := flag.(arg); ok {
-			// Args have been filtered above
 			continue
 		}
 		if _, exists := seen[flag.Name()]; !exists {
-			elems = append(elems, flag)
+			flags = append(flags, flag)
 		}
 	}
-	// Return the new command line options with positional arguments following regular flags
-	return append(elems, args...)
+	// Return the new command line with positional arguments following non-positional flags
+	return append(flags, args...)
 }
 
 // NewArg creates a new positional argument
@@ -109,7 +107,7 @@ func (r arg) Name() string {
 	return r.name
 }
 
-// Formats returns this flag formatted for command line
+// Formats returns this argument formatted for command line
 func (r arg) Format() []string {
 	return []string{fmt.Sprint(strconv.Quote(r.value))}
 }
@@ -119,15 +117,15 @@ type arg struct {
 	value string
 }
 
-// Flag represents a command line option
+// Flag represents a command-line flag
 type Flag interface {
-	// Formats returns this flag formatted for command line
+	// Format formats the flag for command line
 	Format() []string
 	// Name returns the flag's name
 	Name() string
 }
 
-// NewFlag creates a new string flag.
+// NewFlag creates a new named command-line option with a value.
 func NewFlag(name, value string) Flag {
 	return stringFlag{name: name, value: value}
 }
@@ -142,7 +140,7 @@ func (r stringFlag) Format() []string {
 	return []string{fmt.Sprint("--", r.name), strconv.Quote(r.value)}
 }
 
-// stringFlag represents a command-line flag.
+// stringFlag represents a named command-line flag with a value.
 type stringFlag struct {
 	// name is the flag name.
 	name string
@@ -150,12 +148,12 @@ type stringFlag struct {
 	value string
 }
 
-// NewBoolFlag creates a new boolean flag.
+// NewBoolFlag creates a new boolean command-line flag.
 func NewBoolFlag(name string, value bool) Flag {
 	return boolFlag{name: name, value: value}
 }
 
-// Name returns the flag's name
+// Name returns this flag's name
 func (r boolFlag) Name() string {
 	return r.name
 }
@@ -173,6 +171,11 @@ func newBoolFlag(name, value string) Flag {
 }
 
 // boolFlag represents a boolean command-line flag.
+// Boolean flag does not have a value and can be flipped
+// by prefixing it with a 'no-' prefix:
+//
+//  --bool-value	to enable bool-value
+//  --no-bool-value	to disale bool-value
 type boolFlag struct {
 	// name is the flag name.
 	name string

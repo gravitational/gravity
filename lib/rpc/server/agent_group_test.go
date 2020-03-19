@@ -21,7 +21,7 @@ import (
 	"io/ioutil"
 	"time"
 
-	"github.com/gravitational/gravity/lib/rpc/proxy"
+	"github.com/gravitational/gravity/lib/rpc/internal/proxy"
 
 	"github.com/cenkalti/backoff"
 	"github.com/gravitational/trace"
@@ -132,9 +132,14 @@ func (r *S) TestAgentGroupReconnects(c *C) {
 
 	upstream := listen(c)
 	local := listen(c)
+	notifyCh := make(chan struct{}, 2)
 	proxyAddr := local.Addr().String()
 	proxyLink := proxy.New(proxy.NetLink{Local: local, Upstream: upstream.Addr().String()}, log)
+	proxyLink.StartedCh = notifyCh
 	c.Assert(proxyLink.Start(), IsNil)
+
+	// Wait for proxy to start processing
+	<-notifyCh
 
 	serverAddr := srv.Addr().String()
 	p1 := r.newPeer(c, PeerConfig{Config: Config{Listener: listen(c)}}, serverAddr, log)
@@ -166,9 +171,11 @@ func (r *S) TestAgentGroupReconnects(c *C) {
 		timeoutCh := time.After(5 * time.Second)
 		for i := 0; i < 2; i++ {
 			select {
-			case <-watchCh:
+			case ev := <-watchCh:
+				log.WithField("event", ev).Info("Received watch event.")
 			case <-timeoutCh:
-				c.Error("timeout waiting for reconnect")
+				close(doneCh)
+				c.Fatal("timeout waiting for reconnect")
 			}
 		}
 		close(doneCh)
@@ -199,8 +206,12 @@ func (r *S) TestAgentGroupReconnects(c *C) {
 	// Restore connection to peer 2
 	local = listenAddr(proxyAddr, c)
 	proxyLink = proxy.New(proxy.NetLink{Local: local, Upstream: upstream.Addr().String()}, log)
+	proxyLink.StartedCh = notifyCh
 	c.Assert(proxyLink.Start(), IsNil)
 	defer proxyLink.Stop()
+
+	// Wait for proxy to start processing
+	<-notifyCh
 
 	select {
 	case update := <-watchCh:
@@ -210,7 +221,7 @@ func (r *S) TestAgentGroupReconnects(c *C) {
 		}
 		// Reconnected
 	case <-time.After(5 * time.Second):
-		c.Error("timeout waiting for reconnect")
+		c.Fatal("timeout waiting for reconnect")
 	}
 
 	var buf bytes.Buffer
