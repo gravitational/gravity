@@ -357,7 +357,7 @@ func (s *systemdManager) UninstallService(req UninstallServiceRequest) error {
 		logger.Warn("Service unit is failed, trying to reset.")
 		out, err := invokeSystemctl("reset-failed", serviceName)
 		if err != nil {
-			logger.WithError(err).Error("Failed to reset failed service unit: %v.", out)
+			logger.WithError(err).Errorf("Failed to reset failed service unit: %v.", out)
 		}
 	}
 
