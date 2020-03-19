@@ -392,10 +392,13 @@ func (r *checker) CheckNode(ctx context.Context, server Server) (failed []*agent
 	if server.IsMaster() && r.TestEtcdDisk {
 		err = r.checkEtcdDisk(ctx, server)
 		if err != nil {
-			failed = append(failed, &agentpb.Probe{
-				Detail: err.Error(),
-				Error:  "failed to validate etcd disk requirements",
-			})
+			log.WithError(err).Warn("Failed to validate etcd disk requirements.")
+			if isFioTestError(err) {
+				failed = append(failed, &agentpb.Probe{
+					Detail: err.Error(),
+					Error:  "failed to validate etcd disk requirements",
+				})
+			}
 		}
 	}
 
