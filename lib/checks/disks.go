@@ -18,7 +18,9 @@ package checks
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
+	"strings"
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/network/validation/proto"
@@ -81,16 +83,32 @@ func fioEtcdJob(filename string) *proto.CheckDisksRequest {
 // formatEtcdErrors returns appropritate formatted error messages based
 // on the etcd disk performance test results.
 func formatEtcdErrors(server Server, testPath string, iops float64, latency int64) error {
-	var errors []error
+	err := &fioTestError{}
 	if iops < EtcdMinWriteIOPS {
-		errors = append(errors, trace.BadParameter("server %v has low sequential write IOPS of %v on %v (required minimum is %v)",
+		err.messages = append(err.messages, fmt.Sprintf("server %v has low sequential write IOPS of %v on %v (required minimum is %v)",
 			server.Hostname, iops, filepath.Dir(testPath), EtcdMinWriteIOPS))
 	}
 	if latency > EtcdMaxFsyncLatencyMs {
-		errors = append(errors, trace.BadParameter("server %v has high fsync latency of %vms on %v (required maximum is %vms)",
+		err.messages = append(err.messages, fmt.Sprintf("server %v has high fsync latency of %vms on %v (required maximum is %vms)",
 			server.Hostname, latency, filepath.Dir(testPath), EtcdMaxFsyncLatencyMs))
 	}
-	return trace.NewAggregate(errors...)
+	return err
+}
+
+// fioTestError is returned when fio disk test fails to validate requirements.
+type fioTestError struct {
+	messages []string
+}
+
+// Error returns all errors encountered during fio disk test.
+func (e *fioTestError) Error() string {
+	return strings.Join(e.messages, ", ")
+}
+
+// isFioTestError returns true if the provided error is the fio disk test error.
+func isFioTestError(err error) bool {
+	_, ok := err.(*fioTestError)
+	return ok
 }
 
 const (
@@ -109,7 +127,7 @@ const (
 	// being conservative here to ensure better dev/test experience:
 	// https://github.com/etcd-io/etcd/blob/master/Documentation/faq.md#what-does-the-etcd-warning-failed-to-send-out-heartbeat-on-time-mean
 	//
-	EtcdMaxFsyncLatencyMs = 30
+	EtcdMaxFsyncLatencyMs = 50
 
 	// testFile is the name of the disk performance test file.
 	testFile = "fio.test"
