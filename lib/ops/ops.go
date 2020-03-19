@@ -37,6 +37,7 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 	"github.com/gravitational/gravity/lib/utils"
+	"github.com/gravitational/gravity/lib/validate"
 
 	"github.com/cloudflare/cfssl/csr"
 	"github.com/cloudflare/cfssl/signer"
@@ -1231,7 +1232,7 @@ func (r *CreateSiteInstallOperationRequest) CheckAndSetDefaults() error {
 	if r.Provisioner == schema.ProvisionerAWSTerraform {
 		r.Variables.AWS.SetDefaults()
 	}
-	err := utils.ValidateKubernetesSubnets(r.Variables.OnPrem.PodCIDR, r.Variables.OnPrem.ServiceCIDR)
+	err := validate.KubernetesSubnets(r.Variables.OnPrem.PodCIDR, r.Variables.OnPrem.ServiceCIDR)
 	if err != nil {
 		return trace.Wrap(err)
 	}
