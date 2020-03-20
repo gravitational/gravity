@@ -46,7 +46,7 @@ RELEASE_OUT ?=
 TELEPORT_TAG = 3.2.14
 # TELEPORT_REPOTAG adapts TELEPORT_TAG to the teleport tagging scheme
 TELEPORT_REPOTAG := v$(TELEPORT_TAG)
-PLANET_TAG := 7.0.19-$(K8S_VER_SUFFIX)
+PLANET_TAG := 7.0.19-$(K8S_VER_SUFFIX)-1-gcefaa0f
 PLANET_BRANCH := $(PLANET_TAG)
 K8S_APP_TAG := $(GRAVITY_TAG)
 TELEKUBE_APP_TAG := $(GRAVITY_TAG)
@@ -416,7 +416,7 @@ binary-packages:
 
 .PHONY: rbac-app-package
 rbac-app-package:
-	-$(GRAVITY) app delete $(RBAC_APP_PKG) $(DELETE_OPTS) 
+	-$(GRAVITY) app delete $(RBAC_APP_PKG) $(DELETE_OPTS)
 	$(GRAVITY) app import $(RBAC_APP_OUT) $(VENDOR_OPTS)
 
 .PHONY: gravity-packages
