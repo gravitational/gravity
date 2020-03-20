@@ -58,7 +58,7 @@ func (*S) TestUpdatesCommandLine(c *check.C) {
 			flags:       []Flag{NewFlag("advertise-addr", "localhost:8080")},
 			removeFlags: []string{"cloud-provider"},
 			outputArgs: []string{
-				"install", "--token", `"some token"`, `"/path/to/data"`, "--advertise-addr", `"localhost:8080"`,
+				"install", "--token", `"some token"`, "--advertise-addr", `"localhost:8080"`, `"/path/to/data"`,
 			},
 		},
 		{
@@ -67,6 +67,18 @@ func (*S) TestUpdatesCommandLine(c *check.C) {
 			outputArgs: []string{
 				"install", "--no-selinux", `"/path/to/data"`,
 			},
+		},
+		{
+			comment: "Replaces boolean flag with opposite value",
+			// selinux is on by default
+			inputArgs: []string{"install", "/path/to/data"},
+			outputArgs: []string{
+				"install", "--no-selinux", `"/path/to/data"`,
+			},
+			flags: []Flag{
+				NewBoolFlag("selinux", false),
+			},
+			removeFlags: []string{"selinux"},
 		},
 	}
 

@@ -32,8 +32,8 @@ import (
 func New(link Link, log log.FieldLogger) *Proxy {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Proxy{
-		link:        link,
 		FieldLogger: log.WithField("proxy", link.String()),
+		link:        link,
 		doneCh:      ctx.Done(),
 		cancel:      cancel,
 	}
@@ -42,6 +42,11 @@ func New(link Link, log log.FieldLogger) *Proxy {
 // Proxy defines a link between two endpoints
 type Proxy struct {
 	log.FieldLogger
+	// NotifyCh signals new connections
+	NotifyCh chan<- struct{}
+	// StartedCh signals when proxy starts servicing
+	StartedCh chan<- struct{}
+
 	link Link
 	// doneCh signals that the connections should be dropped
 	// and proxy loop stopped
@@ -49,8 +54,6 @@ type Proxy struct {
 	cancel context.CancelFunc
 	// wg allows to track lifespan of internal processes
 	wg sync.WaitGroup
-	// notifyCh signals new connections
-	notifyCh chan<- struct{}
 }
 
 // Start starts the proxy
@@ -121,6 +124,7 @@ func (r NetLink) String() string {
 
 func (r *Proxy) serve(listener net.Listener) {
 	defer r.wg.Done()
+	r.notifyStartedServing()
 	for {
 		c1, err := listener.Accept()
 		if err != nil {
@@ -169,9 +173,16 @@ func (r *Proxy) watchConns(errCh <-chan error, closers ...io.Closer) {
 	}
 }
 
+func (r *Proxy) notifyStartedServing() {
+	select {
+	case r.StartedCh <- struct{}{}:
+	default:
+	}
+}
+
 func (r *Proxy) notifyNewConnection() {
 	select {
-	case r.notifyCh <- struct{}{}:
+	case r.NotifyCh <- struct{}{}:
 	default:
 	}
 }
