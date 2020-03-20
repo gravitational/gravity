@@ -627,9 +627,9 @@ func (s *site) removeNodeFromCluster(server storage.Server, runner *serverRunner
 		s.planetEnterCommand(
 			defaults.KubectlBin, "delete", "nodes", "--ignore-not-found=true",
 			fmt.Sprintf("-l=%v=%v", "kubernetes.io/hostname", server.KubeNodeID())),
-		// Issue `serf force-leave` from the master node to transition
-		// failed nodes to `left` state in case the node itself failed shutting down
-		s.planetEnterCommand(defaults.SerfBin, "force-leave", provisionedServer.AgentName(s.domainName)),
+		// Issue `serf force-leave -prune` from the master node to immediately
+		// evict the member from the serf cluster.
+		s.planetEnterCommand(defaults.SerfBin, "force-leave", "-prune", provisionedServer.AgentName(s.domainName)),
 	}
 
 	err = utils.Retry(defaults.RetryInterval, defaults.RetryAttempts, func() error {
