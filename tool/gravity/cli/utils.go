@@ -29,7 +29,6 @@ import (
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/install"
 	"github.com/gravitational/gravity/lib/localenv"
-	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack/webpack"
 	"github.com/gravitational/gravity/lib/processconfig"
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
@@ -174,27 +173,9 @@ func getLocalStateDir(stateDir string) (localStateDir string, err error) {
 	return filepath.Join(stateDir, defaults.LocalDir), nil
 }
 
-// findServer searches the provided cluster's state for a server that matches one of the provided
-// tokens, where a token can be the server's advertise IP, hostname or AWS internal DNS name
-func findServer(site ops.Site, tokens []string) (*storage.Server, error) {
-	for _, server := range site.ClusterState.Servers {
-		for _, token := range tokens {
-			if token == "" {
-				continue
-			}
-			switch token {
-			case server.AdvertiseIP, server.Hostname, server.Nodename:
-				return &server, nil
-			}
-		}
-	}
-	return nil, trace.NotFound("could not find server matching %v among registered cluster nodes",
-		tokens)
-}
-
 // findLocalServer searches the provided cluster's state for the server that matches the one
 // the current command is being executed from
-func findLocalServer(site ops.Site) (*storage.Server, error) {
+func findLocalServer(servers storage.Servers) (*storage.Server, error) {
 	// collect the machines's IP addresses and search by them
 	ifaces, err := systeminfo.NetworkInterfaces()
 	if err != nil {
@@ -209,12 +190,30 @@ func findLocalServer(site ops.Site) (*storage.Server, error) {
 		ips = append(ips, iface.IPv4)
 	}
 
-	server, err := findServer(site, ips)
+	server, err := findServer(servers, ips)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
 	return server, nil
+}
+
+// findServer searches the provided cluster's state for a server that matches one of the provided
+// tokens, where a token can be the server's advertise IP, hostname or AWS internal DNS name
+func findServer(servers storage.Servers, tokens []string) (*storage.Server, error) {
+	for _, server := range servers {
+		for _, token := range tokens {
+			if token == "" {
+				continue
+			}
+			switch token {
+			case server.AdvertiseIP, server.Hostname, server.Nodename:
+				return &server, nil
+			}
+		}
+	}
+	return nil, trace.NotFound("no server matching %v found among registered cluster nodes",
+		tokens)
 }
 
 func isCancelledError(err error) bool {

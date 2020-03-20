@@ -124,6 +124,7 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.UpdateTriggerCmd.FullCommand(),
 		g.UpdatePlanInitCmd.FullCommand(),
 		g.UpgradeCmd.FullCommand(),
+		g.UpdateUploadCmd.FullCommand(),
 		g.RPCAgentRunCmd.FullCommand(),
 		g.LeaveCmd.FullCommand(),
 		g.RemoveCmd.FullCommand(),
@@ -249,12 +250,6 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 		return statusSite()
 	}
 
-	if g.shouldBootstrapSELinuxForCommand(cmd) {
-		if err := g.bootstrapSELinuxForCommand(context.TODO(), cmd); err != nil {
-			return trace.Wrap(err, ErrorBootstrapSELinuxPolicy)
-		}
-	}
-
 	var localEnv *localenv.LocalEnvironment
 	switch cmd {
 	case g.InstallCmd.FullCommand(), g.JoinCmd.FullCommand():
@@ -264,6 +259,16 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			}
 		}
 		localEnv, err = g.NewInstallEnv()
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		defer localEnv.Close()
+	case g.UpdateUploadCmd.FullCommand():
+		localStateDir, err := localenv.LocalGravityDir()
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		localEnv, err = localenv.New(localStateDir)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -472,7 +477,11 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 	case g.StatusHistoryCmd.FullCommand():
 		return statusHistory()
 	case g.UpdateUploadCmd.FullCommand():
-		return uploadUpdate(localEnv, *g.UpdateUploadCmd.OpsCenterURL)
+		tarballEnv, err := getTarballEnvironForUpgrade(localEnv, *g.StateDir)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		return uploadUpdate(tarballEnv, localEnv, *g.UpdateUploadCmd.OpsCenterURL)
 	case g.AppPackageCmd.FullCommand():
 		return appPackage(localEnv)
 		// app commands
