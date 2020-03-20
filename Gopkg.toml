@@ -32,7 +32,7 @@ ignored = [
 
 [[override]]
   name = "github.com/gravitational/trace"
-  version = "=1.1.9"
+  version = "=1.1.10"
 
 [[override]]
   name = "github.com/mitchellh/go-ps"
@@ -64,7 +64,7 @@ ignored = [
 
 [[constraint]]
   name = "github.com/gravitational/satellite"
-  version = "=5.5.9"
+  version = "=5.5.11"
 
 [[constraint]]
   name = "github.com/xtgo/set"
