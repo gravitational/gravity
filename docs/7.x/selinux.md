@@ -2,7 +2,7 @@
 
 Starting with version 7, Gravity comes with SELinux support.
 It is not a requirement to have SELinux enabled, but whenever the installer detects that
-it runs on a SELinux-enabled node, it will automatically turn on SELinux support.
+it runs on a SELinux-enabled host, it will automatically turn on SELinux support.
 
 When operating with SELinux support on, the following changes:
 
@@ -26,32 +26,39 @@ Policy from config file:        targeted
 ...
 ```
 
-Next, the Linux user to perform the installation needs to be mapped to a SELinux user.
-Installer needs needs to run with an administrative role capable of loading the policy - for example, `sysadm_r`.
+Next, the Linux user performing the installation needs to be mapped to the proper SELinux user/role tuple.
+Installer needs to run with an administrative role capable of loading the SELinux policies - for example `sysadm_r`.
 
 To check existing mappings, use the following:
 
 ```sh
 $ semanage login -l
+                Labeling   MLS/       MLS/                          
+SELinux User    Prefix     MCS Level  MCS Range                      SELinux Roles
+root            user       s0         s0-s0:c0.c1023                 staff_r sysadm_r system_r unconfined_r
+staff_u         user       s0         s0-s0:c0.c1023                 staff_r sysadm_r system_r unconfined_r
+sysadm_u        user       s0         s0-s0:c0.c1023                 sysadm_r
+unconfined_u    user       s0         s0-s0:c0.c1023                 system_r unconfined_r
+...
 ```
 
-To map the Linux user `user` to a SELinux user `staff_u`, do the following:
+To map the Linux user `john` to a SELinux user `staff_u`, do the following:
 ```sh
-$ semanage login -a -s staff_u user
+$ semanage login -a -s staff_u john
 ```
 or modify the mapping with:
 ```
-$ semanage login -m -s staff_u user
+$ semanage login -m -s staff_u john
 ```
 
 Switch to the `sysadm_r` role:
 ```sh
-$ sudo -r sysadm_r -i
+$ sudo --role sysadm_r --login
 ```
 
 Alternatively, directly run the installer using the role `sysadm_r` and type `sysadm_t`:
 ```sh
-$ runcon -r sysadm_r -t sysadm_t ./gravity install ...
+$ runcon --role sysadm_r --type sysadm_t ./gravity install ...
 ```
 
 Gravity supports SELinux users `sysadm_u` and `unconfined_u` (and their corresponding roles) out of the box.
@@ -71,7 +78,7 @@ Installer does the following as the first step when running on a host with the a
   * creates local file contexts for paths used during the operation
   * creates local file contexts for custom state directory (if it has been overridden with `--state-dir`)
 
-Additional SELinux configuration might happen later as part of the operation plan.
+Additional SELinux configuration might happen later as part of execution of the operation plan.
 
 To start the installation, use the `gravity install` command as usual:
 
@@ -106,13 +113,14 @@ SELinux support is managed per-node.
 ## Upgrades
 
 The upgrade will automatically determine whether SELinux support is on on the cluster nodes and will install and configure
-the new policy in that case individually on each node.
+the new policy individually on each node.
 
 
 ## Custom SELinux policies
 
-It is not yet possible to bundle a custom SELinux policy in the cluster image. If you have custom domains
-you'd need to make sure to load the policy on each node where necessary prior to installing the cluster image.
+It is not yet possible to bundle a custom SELinux policy in the cluster image. If you have custom SELinux policy and want
+to use it for your Kubernetes workloads, you'll need to make sure to load the policy on each node where necessary prior to
+installing the cluster image.
 
 It is planned to add support for custom policies in a future version.
 
@@ -125,7 +133,6 @@ Currently the following distributions are supported:
 |--------------|----------------|
 | CentOS       | 7+            |
 | RedHat       | 7+            |
-|--------------|----------------|
 
 
 ## Troubleshooting
@@ -140,19 +147,19 @@ Absence of the logged denial in the SELinux audit log might be an indication tha
 
 The basic approach to determining whether a permission has been denied due to SELinux is as following:
 
-  1. Enable the logging of `dontaudit` rules which are usually suppressed by default:
+Enable the logging of `dontaudit` rules which are usually suppressed by default:
 
   ```sh
   $ semodule --disable_dontaudit --build
   ```
 
-  1. Search for recent denials using a catch-all message type:
+Search for recent denials using a catch-all message type:
 
   ```sh
   $ ausearch --message all --start recent --interpret --success no
   ```
 
-  1. If the logs still don't show a denial, it is likely a failed DAC check. In this case, check that the user in fact has permissions
+If the logs still don't show a denial, it is likely a failed DAC check. In this case, check that the user in fact has permissions
 to access the resources mentioned in the error message.
 
 
