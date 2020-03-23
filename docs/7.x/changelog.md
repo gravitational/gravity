@@ -39,7 +39,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 ## 6.x Releases
 
-### 6.3.9 (March 23rd, 2020)
+### 6.3.8 (March 23rd, 2020)
 
 #### Bugfixes
 
