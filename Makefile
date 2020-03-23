@@ -51,6 +51,7 @@ PLANET_BRANCH := $(PLANET_TAG)
 K8S_APP_TAG := $(GRAVITY_TAG)
 TELEKUBE_APP_TAG := $(GRAVITY_TAG)
 WORMHOLE_APP_TAG := $(GRAVITY_TAG)
+INGRESS_APP_TAG ?= 0.0.1
 STORAGE_APP_TAG ?= 0.0.3
 LOGGING_APP_TAG ?= 6.0.4
 MONITORING_APP_TAG ?= 6.0.8
@@ -87,6 +88,7 @@ PLANET_PKG := gravitational.io/planet:$(PLANET_TAG)
 WEB_ASSETS_PKG := gravitational.io/web-assets:$(GRAVITY_TAG)
 GRAVITY_PKG := gravitational.io/gravity:$(GRAVITY_TAG)
 DNS_APP_PKG := gravitational.io/dns-app:$(DNS_APP_TAG)
+INGRESS_APP_PKG := gravitational.io/ingress-app:$(INGRESS_APP_TAG)
 STORAGE_APP_PKG := gravitational.io/storage-app:$(STORAGE_APP_TAG)
 MONITORING_APP_PKG := gravitational.io/monitoring-app:$(MONITORING_APP_TAG)
 LOGGING_APP_PKG := gravitational.io/logging-app:$(LOGGING_APP_TAG)
@@ -136,6 +138,7 @@ TELEPORT_OUT := $(BUILDDIR)/$(TELEPORT_TARBALL)
 PLANET_OUT := $(PLANET_BINDIR)/planet.tar.gz
 LOGGING_APP_OUT := $(BUILDDIR)/logging-app-$(LOGGING_APP_TAG).tar.gz
 MONITORING_APP_OUT := $(BUILDDIR)/monitoring-app-$(MONITORING_APP_TAG).tar.gz
+INGRESS_APP_OUT := $(BUILDDIR)/ingress-app-$(INGRESS_APP_TAG).tar.gz
 STORAGE_APP_OUT := $(BUILDDIR)/storage-app-$(STORAGE_APP_TAG).tar.gz
 BANDWAGON_OUT := $(BUILDDIR)/bandwagon-$(BANDWAGON_TAG).tar.gz
 FIO_OUT := $(FIO_BUILDDIR)/fio
@@ -310,6 +313,10 @@ monitoring-app: dev
 logging-app: dev
 	$(MAKE) -C build.assets logging-app
 
+.PHONY: ingress-app
+ingress-app: dev
+	$(MAKE) -C build.assets ingress-app
+
 .PHONY: storage-app
 storage-app: dev
 	$(MAKE) -C build.assets storage-app
@@ -370,7 +377,8 @@ ci:
 .PHONY: packages
 packages: planet-packages binary-packages teleport-package gravity-packages dns-packages\
 	rbac-app-package bandwagon-package tiller-package monitoring-package \
-	storage-package log-package k8s-packages telekube-packages selinux-policy-package
+	ingress-package storage-package log-package k8s-packages telekube-packages \
+	selinux-policy-package
 
 .PHONY: teleport-package
 teleport-package:
@@ -389,6 +397,11 @@ tiller-package:
 # Tiller server
 	-$(GRAVITY) app delete $(TILLER_APP_PKG) $(DELETE_OPTS)
 	$(GRAVITY) app import $(TILLER_APP_OUT) $(VENDOR_OPTS)
+
+.PHONY: ingress-package
+ingress-package:
+	-$(GRAVITY) app delete $(INGRESS_APP_PKG) $(DELETE_OPTS)
+	$(GRAVITY) app import $(INGRESS_APP_OUT) $(VENDOR_OPTS)
 
 .PHONY: storage-package
 storage-package:
