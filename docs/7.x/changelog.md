@@ -7,9 +7,10 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 6.3.7         | No  | February 12th, 2020  | -                    | 1.17.2             | 3.2.13           |
+| 7.0.0-rc.3    | No  | March 23rd, 2020     | -                    | 1.17.4             | 3.2.13           |
+| 6.3.8         | No  | March 23rd, 2020     | -                    | 1.17.4             | 3.2.13           |
 | 6.2.5*        | No  | December 3rd, 2019   | -                    | 1.16.3             | 3.2.13           |
-| 6.1.18        | Yes | February 4th, 2020   | November 10th, 2021  | 1.15.5             | 3.2.12           |
+| 6.1.19        | Yes | March 23rd, 2020     | November 10th, 2021  | 1.15.11             | 3.2.12           |
 | 6.0.10*       | No  | October 17th, 2019   | -                    | 1.14.7             | 3.2.12           |
 | 5.6.8*        | No  | September 18th, 2019 | -                    | 1.14.7             | 3.0.6-gravity    |
 | 5.5.38        | Yes | March 10th, 2020     | September 7th, 2020  | 1.13.11            | 3.0.6-gravity    |
@@ -37,6 +38,56 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     See [Direct Upgrades From Older LTS Versions](cluster.md#direct-upgrades-from-older-lts-versions) for details.
 
 ## 6.x Releases
+
+### 6.3.9 (March 23rd, 2020)
+
+#### Bugfixes
+
+* Fix an issue with missing helm symlink on reinstall ([#1103](https://github.com/gravitational/gravity/pull/1103)).
+* Fix an issue with dns configuration during upgrade when host DNS has a localhost resolver ([#1161](https://github.com/gravitational/gravity/pull/1161)).
+* Fix an issue where the main upgrade agent could begin upgrade steps before all node agents are available ([#1205](https://github.com/gravitational/gravity/pull/1205)).
+* Agent deployment will now retry on transient network errors ([#1205](https://github.com/gravitational/gravity/pull/1205)).
+* If the upgrade fails to initialize, shut down all upgrade agents ([#1205](https://github.com/gravitational/gravity/pull/1205)).
+* Fix an issue with uploading teleport session logs ([#1225](https://github.com/gravitational/gravity/pull/1225)).
+* Prevent grafana from attempting to contact analytics servers ([#1250](https://github.com/gravitational/gravity/pull/1250)).
+* Fix an issue with serf members not leaving the cluster ([#1260](https://github.com/gravitational/gravity/pull/1260)).
+* Upgrade Kubernetes to `v1.17.04` (CVE-2020-8551, CVE-2020-8552) ([#1271](https://github.com/gravitational/gravity/pull/1271)).
+
+#### Improvements
+
+* Implement `gravity status history` command to show status changes ([#1119](https://github.com/gravitational/gravity/pull/1119)).
+* `gravity status` now shows both the client and server version in the status output ([#1166](https://github.com/gravitational/gravity/pull/1166)).
+* The runtime will now properly check and prevent upgrades on unsupported upgrade paths ([#1237](https://github.com/gravitational/gravity/pull/1237)).
+
+!!! warning
+    This release fixes a security vulnerability in kubernetes. Please see
+    [Kubernetes Announcement](https://groups.google.com/forum/#!topic/kubernetes-announce/jPiyJ1KL_FI) for more information.
+
+### 6.1.19 (March 23rd, 2020)
+
+#### Bugfixes
+
+* Fix an issue with serf members not leaving the cluster ([#1251](https://github.com/gravitational/gravity/pull/1251)).
+* Fix an issue with changing the pod CIDR on a running cluster ([#1045](https://github.com/gravitational/gravity/pull/1045)).
+* Prevent grafana from attempting to contact analytics servers ([#1250](https://github.com/gravitational/gravity/pull/1249)).
+* Fix an issue with uploading teleport session logs ([#1224](https://github.com/gravitational/gravity/pull/1224)).
+* Fix an issue where the main upgrade agent could begin upgrade steps before all node agents are available ([#1204](https://github.com/gravitational/gravity/pull/1204)).
+* Agent deployment will now retry on transient network errors ([#1204](https://github.com/gravitational/gravity/pull/1204)).
+* If the upgrade fails to initialize, shut down all upgrade agents ([#1204](https://github.com/gravitational/gravity/pull/1204)).
+* Fix an issue with dns configuration during upgrade when host DNS has a localhost resolver ([#1162](https://github.com/gravitational/gravity/pull/1162)).
+* Upgrade Kubernetes to `v1.15.11` (CVE-2020-8551, CVE-2020-8552) ([#1272](https://github.com/gravitational/gravity/pull/1272)).
+
+#### Improvements
+
+* Implement more extensive validations on ClusterConfiguration resource ([#1045](https://github.com/gravitational/gravity/pull/1045)).
+* The runtime will now properly check and prevent upgrades on unsupported upgrade paths ([#1236](https://github.com/gravitational/gravity/pull/1236)).
+* `gravity status` now shows both the client and server version in the status output ([#1165](https://github.com/gravitational/gravity/pull/1166)).
+* Implement `gravity status history` command to show status changes ([#1118](https://github.com/gravitational/gravity/pull/1118)).
+* Implement some low level convenience commands `gravity system service [stop/start/journal] ([1104](https://github.com/gravitational/gravity/pull/1104)).
+
+!!! warning
+    This release fixes a security vulnerability in kubernetes. Please see
+    [Kubernetes Announcement](https://groups.google.com/forum/#!topic/kubernetes-announce/jPiyJ1KL_FI) for more information.
 
 ### 6.3.7 (February 12th, 2020)
 
