@@ -504,7 +504,9 @@ func (i *InstallConfig) RunLocalChecks() error {
 
 // BootstrapSELinux configures SELinux on a node prior to installation
 func (i *InstallConfig) BootstrapSELinux(ctx context.Context, printer utils.Printer) error {
-	if !i.SELinux || i.FromService || i.Mode == constants.InstallModeInteractive || i.Remote {
+	logger := log.WithField(trace.Component, "selinux")
+	if !i.shouldBootstrapSELinux() {
+		logger.Info("SELinux disabled with configuration.")
 		return nil
 	}
 	metadata, err := monitoring.GetOSRelease()
@@ -512,16 +514,20 @@ func (i *InstallConfig) BootstrapSELinux(ctx context.Context, printer utils.Prin
 		return trace.Wrap(err)
 	}
 	if !selinux.GetEnabled() {
-		i.WithField(trace.Component, "selinux").Info("SELinux not enabled on host.")
+		logger.Info("SELinux not enabled on host.")
 		i.SELinux = false
 	} else if !libselinux.IsSystemSupported(metadata.ID) {
-		i.WithField("id", metadata.ID).Info("Distribution not supported.")
+		logger.WithField("id", metadata.ID).Info("Distribution not supported.")
 		i.SELinux = false
 	}
 	return BootstrapSELinuxAndRespawn(ctx, libselinux.BootstrapConfig{
 		StateDir: i.StateDir,
 		OS:       metadata,
 	}, printer)
+}
+
+func (i *InstallConfig) shouldBootstrapSELinux() bool {
+	return i.SELinux && !(i.FromService || i.Mode == constants.InstallModeInteractive || i.Remote)
 }
 
 func (i *InstallConfig) validateApplicationDir() error {
@@ -856,14 +862,15 @@ func (j *JoinConfig) GetRuntimeConfig() proto.RuntimeConfig {
 
 // bootstrapSELinux configures SELinux on a node prior to join
 func (j *JoinConfig) bootstrapSELinux(ctx context.Context, printer utils.Printer) error {
-	if !j.SELinux || j.FromService {
+	logger := log.WithField(trace.Component, "selinux")
+	if !j.shouldBootstrapSELinux() {
+		logger.Info("SELinux disable with configuration.")
 		return nil
 	}
 	metadata, err := monitoring.GetOSRelease()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	logger := log.WithField(trace.Component, "selinux")
 	if !selinux.GetEnabled() {
 		logger.Info("SELinux not enabled on host.")
 		j.SELinux = false
@@ -875,6 +882,10 @@ func (j *JoinConfig) bootstrapSELinux(ctx context.Context, printer utils.Printer
 		StateDir: j.SystemStateDir,
 		OS:       metadata,
 	}, printer)
+}
+
+func (j *JoinConfig) shouldBootstrapSELinux() bool {
+	return j.SELinux && !j.FromService
 }
 
 func (r *removeConfig) checkAndSetDefaults() error {
@@ -925,14 +936,15 @@ func (r *autojoinConfig) checkAndSetDefaults() error {
 
 // bootstrapSELinux configures SELinux on a node prior to join
 func (j *autojoinConfig) bootstrapSELinux(ctx context.Context, printer utils.Printer) error {
-	if !j.seLinux || j.fromService {
+	logger := log.WithField(trace.Component, "selinux")
+	if !j.shouldBootstrapSELinux() {
+		logger.Info("SELinux disable with configuration.")
 		return nil
 	}
 	metadata, err := monitoring.GetOSRelease()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	logger := log.WithField(trace.Component, "selinux")
 	if !selinux.GetEnabled() {
 		logger.Info("SELinux not enabled on host.")
 		j.seLinux = false
@@ -943,6 +955,10 @@ func (j *autojoinConfig) bootstrapSELinux(ctx context.Context, printer utils.Pri
 	return BootstrapSELinuxAndRespawn(ctx, libselinux.BootstrapConfig{
 		OS: metadata,
 	}, printer)
+}
+
+func (j *autojoinConfig) shouldBootstrapSELinux() bool {
+	return j.seLinux && !j.fromService
 }
 
 type autojoinConfig struct {
