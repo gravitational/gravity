@@ -63,6 +63,8 @@ type Manifest struct {
 	NodeProfiles NodeProfiles `json:"nodeProfiles,omitempty"`
 	// Providers contains settings specific to different providers (e.g. cloud)
 	Providers *Providers `json:"providers,omitempty"`
+	// Ingress configures persistent storage providers.
+	Ingress *Ingress `json:"storage,omitempty"`
 	// Storage configures persistent storage providers.
 	Storage *Storage `json:"storage,omitempty"`
 	// License allows to turn on/off license mode for the application
@@ -403,6 +405,11 @@ func (m Manifest) FirstNodeProfileName() (string, error) {
 		return "", trace.Wrap(err)
 	}
 	return profile.Name, nil
+}
+
+// IngressEnabled returns true if Ingress is enabled.
+func (m Manifest) IngressEnabled() bool {
+	return m.Ingress != nil && m.Ingress.Enabled
 }
 
 // OpenEBSEnabled returns true if OpenEBS storage provider is enabled.
@@ -928,6 +935,12 @@ type NodeProviders struct {
 type NodeProviderAWS struct {
 	// InstanceTypes is a list of supported instance types
 	InstanceTypes []string `json:"instanceTypes,omitempty"`
+}
+
+// Ingress represents Ingress configuration.
+type Ingress struct {
+	// Enabled indicates whether Ingress is enabled.
+	Enabled bool `json:"enabled,omitempty"`
 }
 
 // Storage represents persistent storage configuration.
