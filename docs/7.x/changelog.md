@@ -12,7 +12,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 | 6.1.18        | Yes | February 4th, 2020   | November 10th, 2021  | 1.15.5             | 3.2.12           |
 | 6.0.10*       | No  | October 17th, 2019   | -                    | 1.14.7             | 3.2.12           |
 | 5.6.8*        | No  | September 18th, 2019 | -                    | 1.14.7             | 3.0.6-gravity    |
-| 5.5.37        | Yes | February 11th, 2020  | September 7th, 2020  | 1.13.11            | 3.0.6-gravity    |
+| 5.5.38        | Yes | March 10th, 2020     | September 7th, 2020  | 1.13.11            | 3.0.6-gravity    |
 | 5.4.10*       | No  | March 26th, 2019     | -                    | 1.13.5             | 2.4.10           |
 | 5.3.9*        | No  | March 7th, 2019      | -                    | 1.12.3             | 2.4.7            |
 | 5.2.16        | Yes | October 11th, 2019   | October 15th, 2019   | 1.11.9             | 2.4.10           |
@@ -549,6 +549,25 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 * Add support for using `helm` directly from host.
 
 ## 5.x Releases
+
+### 5.5.38 LTS (March 10th, 2020)
+
+#### Improvements
+
+* Add ability to view [cluster status history](https://gravitational.com/gravity/docs/cluster/#cluster-status-history) using `gravity status history` command. ([#1116](https://github.com/gravitational/gravity/pull/1116))
+* Add RHEL 8 to the list of supported distros. ([#1144](https://github.com/gravitational/gravity/pull/1144))
+* Add client/server version information to `gravity status`. ([#1164](https://github.com/gravitational/gravity/pull/1164))
+* Make upgrade agents deployment more tolerant to networking issues. ([#1174](https://github.com/gravitational/gravity/pull/1174))
+* Update default Grafana dashboards to include data from medium and long retentions policies. ([monitoring-app#144](https://github.com/gravitational/monitoring-app/pull/144))
+* Update built-in Grafana configuration to disable update checks and analytics. ([monitoring-app#146](https://github.com/gravitational/monitoring-app/pull/146))
+
+#### Bugfixes
+
+* Fix an issue with CoreDNS config generation during upgrade. ([#1163](https://github.com/gravitational/gravity/pull/1163))
+* Fix an issue with upgrade operation starting even if some agents failed to deploy. ([#1174](https://github.com/gravitational/gravity/pull/1174))
+* Fix an issue with Teleport nodes failing to upload recorded sessions after upgrading from older clusters. ([#1216](https://github.com/gravitational/gravity/pull/1216))
+* Fix an issue with localhost resolution inside monitoring application containers. ([monitoring-app#145](https://github.com/gravitational/monitoring-app/pull/145))
+* Mitigate issues with launching buster-based Docker containers in some environments by rolling back to stretch. ([#1228](https://github.com/gravitational/gravity/pull/1228), [monitoring-app#149](https://github.com/gravitational/monitoring-app/pull/149))
 
 ### 5.5.37 LTS (February 11th, 2020)
 
