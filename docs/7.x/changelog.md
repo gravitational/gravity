@@ -7,7 +7,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 6.3.6         | No  | February 4th, 2020   | -                    | 1.17.0             | 3.2.13           |
+| 6.3.7         | No  | February 12th, 2020  | -                    | 1.17.2             | 3.2.13           |
 | 6.2.5*        | No  | December 3rd, 2019   | -                    | 1.16.3             | 3.2.13           |
 | 6.1.18        | Yes | February 4th, 2020   | November 10th, 2021  | 1.15.5             | 3.2.12           |
 | 6.0.10*       | No  | October 17th, 2019   | -                    | 1.14.7             | 3.2.12           |
@@ -37,6 +37,17 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     See [Direct Upgrades From Older LTS Versions](cluster.md#direct-upgrades-from-older-lts-versions) for details.
 
 ## 6.x Releases
+
+### 6.3.7 (February 12th, 2020)
+
+#### Improvements
+
+* Update Kubernetes to `v1.17.2` ([#1080](https://github.com/gravitational/gravity/pull/1080)).
+
+#### Bugfixes
+
+* Fix an issue with merging `ClusterConfiguration` resource and validation checks ([#1093](https://github.com/gravitational/gravity/pull/1093)).
+* Update kernel module checker to support 5.0/5.1 Linux kernels ([#1094](https://github.com/gravitational/gravity/pull/1094)).
 
 ### 6.3.6 (February 4th, 2020)
 
