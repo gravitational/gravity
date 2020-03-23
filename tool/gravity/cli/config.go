@@ -864,7 +864,7 @@ func (j *JoinConfig) GetRuntimeConfig() proto.RuntimeConfig {
 func (j *JoinConfig) bootstrapSELinux(ctx context.Context, printer utils.Printer) error {
 	logger := log.WithField(trace.Component, "selinux")
 	if !j.shouldBootstrapSELinux() {
-		logger.Info("SELinux disable with configuration.")
+		logger.Info("SELinux disabled with configuration.")
 		return nil
 	}
 	metadata, err := monitoring.GetOSRelease()
@@ -938,7 +938,7 @@ func (r *autojoinConfig) checkAndSetDefaults() error {
 func (j *autojoinConfig) bootstrapSELinux(ctx context.Context, printer utils.Printer) error {
 	logger := log.WithField(trace.Component, "selinux")
 	if !j.shouldBootstrapSELinux() {
-		logger.Info("SELinux disable with configuration.")
+		logger.Info("SELinux disabled with configuration.")
 		return nil
 	}
 	metadata, err := monitoring.GetOSRelease()
