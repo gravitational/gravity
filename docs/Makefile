@@ -9,7 +9,7 @@ WORKDIR=/home
 PORT=6601
 DOCKERPORTS = -p $(PORT):$(PORT)
 NOROOT=-u $$(id -u):$$(id -g)
-DOCKERFLAGS = --rm=true $(NOROOT) -v "$$(pwd)/../":$(WORKDIR) -w $(WORKDIR)/docs -h docs $(DOCKERPORTS)
+DOCKERFLAGS = --rm=true $(NOROOT) -v "$$(pwd)/../":$(WORKDIR) -w $(WORKDIR)/docs -h docs
 DOCKERMAKE=docker run $(DOCKERFLAGS) $(DOCBOX) make BUILDROOT=$(BUILDROOT)
 VERSIONS=4.x 5.x 6.x 7.x
 LATEST=$(lastword $(VERSIONS))
@@ -28,10 +28,14 @@ lint: $(DOCBOX_ID_FILE)
 	$(DOCKERMAKE) container-lint
 
 # run the docs in development mode
+#
+# requires DOCKERPORTS, which should not be shared with other targets due to
+# port collision. E.g. If other targets use DOCKERPORTS, multiple `make docs`
+# cannot run at the same time on the same server, which CI doesn't like --2020-03 walt
 .PHONY:run
 run: $(DOCBOX_ID_FILE) $(RUN_CFG)
 	@echo "\n\nOpen http://localhost:$(PORT)/ in your local browser\n\n"
-	$(DOCKERMAKE) container-run RUN_CFG=$(RUN_CFG)
+	docker run $(DOCKERFLAGS) $(DOCKERPORTS) $(DOCBOX) make BUILDROOT=$(BUILDROOT) container-run RUN_CFG=$(RUN_CFG)
 
 # drops you into bash shell of mkdocs container
 .PHONY:shell
