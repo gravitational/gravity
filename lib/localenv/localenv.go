@@ -182,7 +182,7 @@ func (env *LocalEnvironment) init() error {
 	}
 
 	if env.DNS.IsEmpty() {
-		dns, err := storage.GetDNSConfig(env.Backend, storage.LegacyDNSConfig)
+		dns, err := storage.GetDNSConfig(env.Backend, storage.DefaultDNSConfig)
 		if err != nil {
 			return trace.Wrap(err)
 		}

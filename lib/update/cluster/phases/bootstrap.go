@@ -72,8 +72,7 @@ type updatePhaseBootstrap struct {
 	log.FieldLogger
 	// ExecutorParams stores the phase parameters
 	fsm.ExecutorParams
-	remote           fsm.Remote
-	clusterDNSConfig storage.DNSConfig
+	remote fsm.Remote
 }
 
 // NewUpdatePhaseBootstrap creates a new bootstrap phase executor
@@ -119,7 +118,6 @@ func NewUpdatePhaseBootstrap(
 		FieldLogger:      logger,
 		ExecutorParams:   p,
 		remote:           remote,
-		clusterDNSConfig: cluster.DNSConfig,
 	}, nil
 }
 
@@ -200,13 +198,8 @@ func (p *updatePhaseBootstrap) exportGravity(ctx context.Context) error {
 
 // updateDNSConfig persists the DNS configuration in the local backend if it has not been set
 func (p *updatePhaseBootstrap) updateDNSConfig() error {
-	dnsConfig := storage.LegacyDNSConfig
-	if !p.clusterDNSConfig.IsEmpty() {
-		dnsConfig = p.clusterDNSConfig
-	}
-
-	err := p.HostLocalBackend.SetDNSConfig(dnsConfig)
-	p.Infof("Update cluster DNS configuration as %v.", dnsConfig)
+	p.Infof("Update cluster DNS configuration as %v.", p.Plan.DNSConfig)
+	err := p.HostLocalBackend.SetDNSConfig(p.Plan.DNSConfig)
 	if err != nil {
 		return trace.Wrap(err)
 	}
