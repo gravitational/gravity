@@ -36,7 +36,8 @@ func NewTarballEnvironment(config TarballEnvironmentArgs) (*TarballEnvironment, 
 		return nil, trace.Wrap(err)
 	}
 	env, err := NewLocalEnvironment(LocalEnvironmentArgs{
-		StateDir: config.StateDir,
+		StateDir:        config.StateDir,
+		ReadonlyBackend: true,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)

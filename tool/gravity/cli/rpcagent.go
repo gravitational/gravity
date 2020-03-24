@@ -204,7 +204,7 @@ func rpcAgentDeployHelper(ctx context.Context, localEnv *localenv.LocalEnvironme
 	}
 
 	// Force this node to be the operation leader
-	req.leader, err = findLocalServer(*cluster)
+	req.leader, err = findLocalServer(cluster.ClusterState.Servers)
 	if err != nil {
 		log.WithError(err).Warn("Failed to determine local node.")
 		return nil, trace.Wrap(err, "failed to find local node in cluster state.\n"+
