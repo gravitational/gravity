@@ -198,26 +198,16 @@ func (e *fsmEngine) RunCommand(ctx context.Context, runner rpc.RemoteRunner, nod
 // Complete is called to mark operation complete
 func (e *fsmEngine) Complete(fsmErr error) error {
 	plan, err := e.GetPlan()
-	if err != nil {
+	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
 	}
-	if fsm.IsCompleted(plan) {
-		err = ops.CompleteOperation(e.OperationKey, e.Operator)
-	} else {
-		var message string
-		if fsmErr != nil {
-			message = trace.Unwrap(fsmErr).Error()
-		}
-		err = ops.FailOperation(e.OperationKey, e.Operator, message)
+	if fsmErr == nil {
+		fsmErr = trace.Errorf("completed manually")
 	}
-	if err != nil {
-		return trace.Wrap(err)
+	if err == nil {
+		return fsm.CompleteOperation(plan, e.Operator, fsmErr.Error())
 	}
-	e.WithFields(logrus.Fields{
-		constants.FieldSuccess: fsm.IsCompleted(plan),
-		constants.FieldError:   fsmErr,
-	}).Debug("Marked operation complete.")
-	return nil
+	return ops.FailOperation(fsm.OperationKey(*plan), e.Operator, fsmErr.Error())
 }
 
 // UpdateProgress reports operation progress to the cluster's operator

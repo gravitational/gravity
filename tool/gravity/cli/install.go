@@ -709,7 +709,10 @@ func completeInstallPlan(localEnv *localenv.LocalEnvironment, operation *ops.Sit
 func completeJoinPlan(localEnv, joinEnv *localenv.LocalEnvironment, operation *ops.SiteOperation) error {
 	operator, err := joinEnv.CurrentOperator(httplib.WithInsecure())
 	if err != nil {
-		return trace.Wrap(err)
+		if !trace.IsAccessDenied(err) {
+			log.WithError(err).Warn("Failed to query cluster operator.")
+		}
+		return completeJoinPlanFromAnotherNode(localEnv, operation)
 	}
 	apps, err := joinEnv.CurrentApps(httplib.WithInsecure())
 	if err != nil {
@@ -741,6 +744,29 @@ func completeJoinPlan(localEnv, joinEnv *localenv.LocalEnvironment, operation *o
 		return trace.Wrap(err)
 	}
 	return joinFSM.Complete(trace.Errorf("completed manually"))
+}
+
+func completeJoinPlanFromAnotherNode(localEnv *localenv.LocalEnvironment, operation *ops.SiteOperation) error {
+	clusterEnv, err := localEnv.NewClusterEnvironment()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if operation == nil {
+		operation, err = ops.GetExpandOperation(clusterEnv.Backend)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	const manualCompletedError = "completed manually"
+	plan, err := clusterEnv.Operator.GetOperationPlan(operation.Key())
+	if err != nil && !trace.IsNotFound(err) {
+		return trace.Wrap(err)
+	}
+	if plan != nil {
+		return fsm.CompleteOperation(plan, clusterEnv.Operator, manualCompletedError)
+	}
+	// No operation plan created for the operation - fail the operation directly
+	return ops.FailOperation(operation.Key(), clusterEnv.Operator, manualCompletedError)
 }
 
 func isCancelledError(err error) bool {
