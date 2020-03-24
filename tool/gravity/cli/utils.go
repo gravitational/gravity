@@ -76,7 +76,24 @@ func (g *Application) NewInstallEnv() (env *localenv.LocalEnvironment, err error
 	} else {
 		stateDir = filepath.Join(stateDir, defaults.LocalDir)
 	}
-	return g.getEnv(stateDir)
+	return g.getEnvWithArgs(localenv.LocalEnvironmentArgs{
+		StateDir:         stateDir,
+		Insecure:         *g.Insecure,
+		Silent:           localenv.Silent(*g.Silent),
+		Debug:            *g.Debug,
+		EtcdRetryTimeout: *g.EtcdRetryTimeout,
+		// Use DNS configuration from installer command line.
+		// TODO(dmitri): setting this will only be useful for the install operation
+		// as in this case the DNS coniguration will first be set in local state during
+		// boostrapping step and the application service that is created based on this
+		// setting would have otherwise pointed to the legacy DNS configuration which is
+		// incorrect.
+		// This is rather a workaround - proper solution will be more involved and will have
+		// the application service using the kubernetes client (and hence the DNS config
+		// to resolve the names) only for hooks.
+		DNS:      localenv.DNSConfig(g.InstallCmd.DNSConfig()),
+		Reporter: common.ProgressReporter(*g.Silent),
+	})
 }
 
 // NewUpdateEnv returns an instance of the local environment that is used
