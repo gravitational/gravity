@@ -1077,7 +1077,7 @@ var DefaultDNSConfig = DNSConfig{
 // LegacyDNSConfig defines the local DNS configuration on older clusters
 var LegacyDNSConfig = DNSConfig{
 	Port:  defaults.DNSPort,
-	Addrs: []string{defaults.LegacyDNSListenAddr},
+	Addrs: []string{"127.0.0.1"},
 }
 
 // String returns textual representation of this DNS configuration
