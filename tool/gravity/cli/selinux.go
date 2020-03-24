@@ -27,7 +27,6 @@ import (
 	libselinux "github.com/gravitational/gravity/lib/system/selinux"
 	"github.com/gravitational/gravity/lib/utils"
 
-	"github.com/gravitational/satellite/monitoring"
 	"github.com/gravitational/trace"
 	"github.com/opencontainers/selinux/go-selinux"
 )
@@ -95,69 +94,6 @@ func bootstrapSELinux(env *localenv.LocalEnvironment, path, stateDir string, vxl
 	return libselinux.WriteBootstrapScript(f, config)
 }
 
-func (g *Application) shouldBootstrapSELinuxForCommand(cmd string) (ok bool) {
-	switch cmd {
-	case g.InstallCmd.FullCommand():
-		if !*g.InstallCmd.SELinux || *g.InstallCmd.FromService || *g.InstallCmd.Wizard || *g.InstallCmd.Remote {
-			return false
-		}
-	case g.JoinCmd.FullCommand():
-		if !*g.JoinCmd.SELinux || *g.JoinCmd.FromService {
-			return false
-		}
-	case g.AutoJoinCmd.FullCommand():
-		if !*g.AutoJoinCmd.SELinux || *g.AutoJoinCmd.FromService {
-			return false
-		}
-	case g.UpgradeCmd.FullCommand():
-		if *g.UpgradeCmd.Resume || *g.UpgradeCmd.Phase != "" {
-			return false
-		}
-	case g.UpdateTriggerCmd.FullCommand(), g.UpdateUploadCmd.FullCommand():
-		// Always bootstrap for upgrades even if the cluster was installed
-		// without SELinux support. SELinux status on each node will determine
-		// whether we continue running in SELinux mode and whether the plan will
-		// contain the SELinux-specific steps
-	default:
-		// Avoid bootstrapping step for any other command
-		return false
-	}
-	return true
-}
-
-// bootstrapSELinuxForCommand bootstraps SELinux on this node for the specified command.
-// Assumes shouldBootstrapSELinuxForCommand has returned true for the given command
-func (g *Application) bootstrapSELinuxForCommand(ctx context.Context, cmd string) error {
-	logger := log.WithField(trace.Component, "selinux")
-	metadata, err := monitoring.GetOSRelease()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	seLinuxEnabled := true
-	if !selinux.GetEnabled() {
-		log.WithField(trace.Component, "selinux").Info("SELinux not enabled on host.")
-		seLinuxEnabled = false
-	} else if !libselinux.IsSystemSupported(metadata.ID) {
-		logger.WithField("id", metadata.ID).Info("Distribution not supported.")
-		seLinuxEnabled = false
-	}
-	switch cmd {
-	case g.InstallCmd.FullCommand():
-		*g.InstallCmd.SELinux = seLinuxEnabled
-	case g.JoinCmd.FullCommand():
-		*g.JoinCmd.SELinux = seLinuxEnabled
-	case g.AutoJoinCmd.FullCommand():
-		*g.AutoJoinCmd.SELinux = seLinuxEnabled
-	}
-	if !seLinuxEnabled {
-		// Nothing to do
-		return nil
-	}
-	return BootstrapSELinuxAndRespawn(ctx, libselinux.BootstrapConfig{
-		StateDir: *g.StateDir,
-		OS:       metadata,
-	}, localenv.Silent(*g.Debug))
-}
 
 func isSELinuxAlreadyBootstrapped() bool {
 	_, ok := os.LookupEnv(alreadyBootstrappedEnv)

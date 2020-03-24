@@ -56,8 +56,10 @@ import (
 )
 
 func startInstall(env *localenv.LocalEnvironment, config InstallConfig) error {
+	if err := config.BootstrapSELinux(context.TODO(), env); err != nil {
+		return trace.Wrap(err)
+	}
 	env.PrintStep("Starting installer")
-
 	if err := config.CheckAndSetDefaults(); err != nil {
 		return trace.Wrap(err)
 	}
@@ -327,12 +329,12 @@ func tryLeave(env *localenv.LocalEnvironment, c leaveConfig) error {
 		return trace.Wrap(err)
 	}
 
-	site, err := operator.GetLocalSite()
+	cluster, err := operator.GetLocalSite()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	server, err := findLocalServer(*site)
+	server, err := findLocalServer(cluster.ClusterState.Servers)
 	if err != nil {
 		return trace.NotFound(
 			"this server is not a part of the running cluster, please use --force flag to clean up the local state")
@@ -373,12 +375,12 @@ func remove(env *localenv.LocalEnvironment, c removeConfig) error {
 		return trace.Wrap(err)
 	}
 
-	site, err := operator.GetLocalSite()
+	cluster, err := operator.GetLocalSite()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	server, err := findServer(*site, []string{c.server})
+	server, err := findServer(cluster.ClusterState.Servers, []string{c.server})
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -393,8 +395,8 @@ func remove(env *localenv.LocalEnvironment, c removeConfig) error {
 
 	key, err := operator.CreateSiteShrinkOperation(context.TODO(),
 		ops.CreateSiteShrinkOperationRequest{
-			AccountID:  site.AccountID,
-			SiteDomain: site.Domain,
+			AccountID:  cluster.AccountID,
+			SiteDomain: cluster.Domain,
 			Servers:    []string{server.Hostname},
 			Force:      c.force,
 		})
@@ -406,23 +408,26 @@ func remove(env *localenv.LocalEnvironment, c removeConfig) error {
 	return nil
 }
 
-func autojoin(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, d autojoinConfig) (err error) {
-	if d.fromService {
-		return autojoinFromService(env, environ, d)
+func autojoin(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, config autojoinConfig) (err error) {
+	if err := config.bootstrapSELinux(context.TODO(), env); err != nil {
+		return trace.Wrap(err)
 	}
 
-	err = retryUpdateJoinConfigFromCloudMetadata(context.TODO(), &d)
+	if config.fromService {
+		return autojoinFromService(env, environ, config)
+	}
+
+	err = retryUpdateJoinConfigFromCloudMetadata(context.TODO(), &config)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	if err := d.checkAndSetDefaults(); err != nil {
+	if err := config.checkAndSetDefaults(); err != nil {
 		return trace.Wrap(err)
 	}
 
-	env.PrintStep("Auto-joining cluster %q via %v\n", d.clusterName, d.serviceURL)
+	env.PrintStep("Auto-joining cluster %q via %v\n", config.clusterName, config.serviceURL)
 
-	config := d.newJoinConfig()
-	strategy, err := newAutoAgentConnectStrategy(env, config)
+	strategy, err := newAutoAgentConnectStrategy(env, config.newJoinConfig())
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -676,8 +681,10 @@ func InstallerClient(env *localenv.LocalEnvironment, config installerclient.Conf
 
 // join executes the join command and runs either the client or the service depending on the configuration
 func join(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, config JoinConfig) error {
+	if err := config.bootstrapSELinux(context.TODO(), env); err != nil {
+		return trace.Wrap(err)
+	}
 	env.PrintStep("Starting agent")
-
 	if err := config.CheckAndSetDefaults(); err != nil {
 		return trace.Wrap(err)
 	}

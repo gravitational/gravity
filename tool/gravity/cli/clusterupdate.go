@@ -18,6 +18,8 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
+	"os/exec"
 
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
@@ -30,6 +32,7 @@ import (
 	"github.com/gravitational/gravity/lib/rpc"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/system/selinux"
 	"github.com/gravitational/gravity/lib/update"
 	clusterupdate "github.com/gravitational/gravity/lib/update/cluster"
 	"github.com/gravitational/gravity/lib/utils/helm"
@@ -79,12 +82,17 @@ type upgradeConfig struct {
 	values []byte
 }
 
-func updateTrigger(
-	localEnv *localenv.LocalEnvironment,
-	updateEnv *localenv.LocalEnvironment,
-	config upgradeConfig,
-) error {
+func updateTrigger(localEnv, updateEnv *localenv.LocalEnvironment, config upgradeConfig) error {
 	ctx := context.TODO()
+	seLinuxEnabled, err := querySELinuxEnabled(ctx)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if seLinuxEnabled {
+		if err := BootstrapSELinuxAndRespawn(ctx, selinux.BootstrapConfig{}, localEnv); err != nil {
+			return trace.Wrap(err)
+		}
+	}
 	updater, err := newClusterUpdater(ctx, localEnv, updateEnv, config)
 	if err != nil {
 		return trace.Wrap(err)
@@ -415,4 +423,46 @@ Please use the gravity binary from the upgrade installer tarball to execute the 
 	}
 
 	return nil
+}
+
+func querySELinuxEnabled(ctx context.Context) (enabled bool, err error) {
+	state, err := queryClusterState(ctx)
+	if err != nil {
+		return false, trace.Wrap(err)
+	}
+	servers := make(storage.Servers, 0, len(state.Cluster.Nodes))
+	for _, node := range state.Cluster.Nodes {
+		servers = append(servers, storage.Server{AdvertiseIP: node.AdvertiseIP, SELinux: node.SELinux})
+	}
+	server, err := findLocalServer(servers)
+	if err != nil {
+		return false, trace.Wrap(err)
+	}
+	return server.SELinux, nil
+}
+
+func queryClusterState(ctx context.Context) (*clusterState, error) {
+	out, err := exec.CommandContext(ctx, "gravity", "status", "--output=json").CombinedOutput()
+	log.WithField("output", string(out)).Info("Query cluster status.")
+	if err != nil {
+		return nil, trace.Wrap(err, "failed to fetch cluster status: %s", out)
+	}
+	var state clusterState
+	if err := json.Unmarshal(out, &state); err != nil {
+		return nil, trace.Wrap(err, "failed to interpret status as JSON")
+	}
+	return &state, nil
+}
+
+type clusterState struct {
+	// Cluster describes the state of a cluster
+	Cluster struct {
+		// Nodes lists cluster nodes
+		Nodes []struct {
+			// AdvertiseIP specifies the advertised IP of the node
+			AdvertiseIP string `json:"advertise_ip"`
+			// SELinux indicates the SELinux status on the node
+			SELinux bool `json:"selinux"`
+		} `json:"nodes"`
+	} `json:"cluster"`
 }
