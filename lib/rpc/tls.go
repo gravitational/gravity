@@ -28,18 +28,22 @@ import (
 	"github.com/gravitational/gravity/lib/pack"
 	pb "github.com/gravitational/gravity/lib/rpc/proto"
 	"github.com/gravitational/gravity/lib/utils"
-	"github.com/gravitational/teleport/lib/tlsca"
 
 	"github.com/cloudflare/cfssl/csr"
 	"github.com/gravitational/license/authority"
+	"github.com/gravitational/teleport/lib/tlsca"
 	"github.com/gravitational/trace"
+	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/credentials"
 )
 
 // GenerateAgentCredentialsPackage creates or updates a package in packages with client/server credentials.
 // pkgTemplate specifies the naming template for the resulting package
-func GenerateAgentCredentialsPackage(packages pack.PackageService, pkgTemplate loc.Locator,
-	archive utils.TLSArchive) (secretsLocator *loc.Locator, err error) {
+func GenerateAgentCredentialsPackage(
+	packages pack.PackageService,
+	pkgTemplate loc.Locator,
+	archive utils.TLSArchive,
+) (secretsLocator *loc.Locator, err error) {
 	secretsLocator, err = loc.NewLocator(
 		pkgTemplate.Repository,
 		defaults.RPCAgentSecretsPackage,
@@ -51,7 +55,6 @@ func GenerateAgentCredentialsPackage(packages pack.PackageService, pkgTemplate l
 	if err != nil {
 		return secretsLocator, trace.Wrap(err)
 	}
-
 	return secretsLocator, nil
 }
 
@@ -260,6 +263,22 @@ func InitCredentials(packages pack.PackageService) (*loc.Locator, error) {
 	return &loc.RPCSecrets, nil
 }
 
+// UpsertCredentials creates or updates RPC secrets package in the specified package service
+func UpsertCredentials(packages pack.PackageService) (*loc.Locator, error) {
+	longLivedClient := true
+	keys, err := GenerateAgentCredentials(nil, defaults.SystemAccountOrg, longLivedClient)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	err = upsertPackage(packages, loc.RPCSecrets, keys)
+	if err != nil {
+		return &loc.RPCSecrets, trace.Wrap(err)
+	}
+
+	return &loc.RPCSecrets, nil
+}
+
 // AgentAddr returns a complete agent address for specified address addr.
 // If addr already contains a port, the address is returned unaltered,
 // otherwise, a default RPC agent port is added
@@ -275,7 +294,6 @@ func createPackage(packages pack.PackageService, pkg loc.Locator, archive utils.
 		return trace.Wrap(err)
 	}
 	defer reader.Close()
-
 	err = packages.UpsertRepository(pkg.Repository, time.Time{})
 	if err != nil {
 		return trace.Wrap(err)
@@ -309,19 +327,23 @@ func upsertPackage(packages pack.PackageService, pkg loc.Locator, archive utils.
 }
 
 func validateCertificateExpiration(pemBytes []byte, now time.Time) error {
-	const tolerance = 30 * time.Second
 	cert, err := tlsca.ParseCertificatePEM(pemBytes)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	if now.Add(-tolerance).Before(cert.NotBefore) {
+	logrus.WithFields(logrus.Fields{
+		"now":        now,
+		"not-before": cert.NotBefore.String(),
+		"not-after":  cert.NotAfter.String(),
+	}).Info("Validate certificate.")
+	if now.Before(cert.NotBefore) {
 		return trace.BadParameter("certificate is valid in the future").
 			AddFields(trace.Fields{
 				"now":        now,
 				"not-before": cert.NotBefore,
 			})
 	}
-	if now.Add(tolerance).After(cert.NotAfter) {
+	if now.After(cert.NotAfter) {
 		return trace.BadParameter("certificate is valid in the past").
 			AddFields(trace.Fields{
 				"now":       now,

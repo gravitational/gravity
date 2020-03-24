@@ -24,9 +24,7 @@ import (
 	"github.com/gravitational/gravity/lib/app/service"
 	libcluster "github.com/gravitational/gravity/lib/blob/cluster"
 	"github.com/gravitational/gravity/lib/blob/fs"
-	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/httplib"
-	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/opsservice"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/pack/localpack"
@@ -45,11 +43,24 @@ import (
 func (r *LocalEnvironment) NewClusterEnvironment(opts ...ClusterEnvironmentOption) (*ClusterEnvironment, error) {
 	client, _, err := httplib.GetClusterKubeClient(r.DNS.Addr())
 	if err != nil {
-		log.Errorf("Failed to create Kubernetes client: %v.",
-			trace.DebugReport(err))
+		log.WithError(err).Warn("Failed to create Kubernetes client.")
+	}
+	user, err := r.Backend.GetServiceUser()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	serviceUser, err := systeminfo.FromOSUser(*user)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	nodeAddr, err := r.Backend.GetNodeAddr()
+	if err != nil {
+		return nil, trace.Wrap(err)
 	}
 	config := clusterEnvironmentConfig{
-		client: client,
+		client:      client,
+		serviceUser: serviceUser,
+		nodeAddr:    nodeAddr,
 	}
 	for _, opt := range opts {
 		opt(&config)
@@ -79,7 +90,30 @@ type ClusterEnvironment struct {
 // returns a new instance of cluster environment.
 // The resulting environment will not have a kubernetes client
 func NewClusterEnvironment() (*ClusterEnvironment, error) {
-	return newClusterEnvironment(clusterEnvironmentConfig{})
+	stateDir, err := LocalGravityDir()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	env, err := New(stateDir)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	user, err := env.Backend.GetServiceUser()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	serviceUser, err := systeminfo.FromOSUser(*user)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	nodeAddr, err := env.Backend.GetNodeAddr()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return newClusterEnvironment(clusterEnvironmentConfig{
+		serviceUser: serviceUser,
+		nodeAddr:    nodeAddr,
+	})
 }
 
 // WithClient is an option to override the kubernetes client to use
@@ -112,30 +146,15 @@ func newClusterEnvironment(config clusterEnvironmentConfig) (*ClusterEnvironment
 		return nil, trace.Wrap(err, "failed to connect to etcd")
 	}
 
-	cluster, err := backend.GetLocalSite(defaults.SystemAccountID)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
 	packagesDir, err := SitePackagesDir()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	user, err := systeminfo.FromOSUser(cluster.ServiceUser)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
 	localObjects, err := fs.New(fs.Config{
 		Path: packagesDir,
-		User: user,
+		User: config.serviceUser,
 	})
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	server, err := ops.FindLocalServer(cluster.ClusterState)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -144,10 +163,10 @@ func newClusterEnvironment(config clusterEnvironmentConfig) (*ClusterEnvironment
 		Local:       localObjects,
 		WriteFactor: 1,
 		Backend:     backend,
-		ID:          server.AdvertiseIP,
+		ID:          config.nodeAddr,
 		// This is not mandatory if LocalEnviron == true as the blob
 		// service will not be creating a peer client
-		AdvertiseAddr: fmt.Sprintf("https://%v", server.AdvertiseIP),
+		AdvertiseAddr: fmt.Sprintf("https://%v", config.nodeAddr),
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -223,4 +242,6 @@ type clusterEnvironmentConfig struct {
 	// etcdTimeout specifies the timeout for etcd queries.
 	// Falls back to defaults.EtcdRetryInterval if unspecified
 	etcdTimeout time.Duration
+	serviceUser *systeminfo.User
+	nodeAddr    string
 }

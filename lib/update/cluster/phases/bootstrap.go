@@ -381,7 +381,7 @@ func (p *updatePhaseBootstrap) Execute(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = p.updateDNSConfig()
+	err = p.updateSystemMetadata()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -419,19 +419,36 @@ func (p *updatePhaseBootstrap) configureNode() error {
 	return nil
 }
 
-// updateDNSConfig persists the DNS configuration in the local backend if it has not been set
-func (p *updatePhaseBootstrap) updateDNSConfig() error {
-	dnsConfig := storage.LegacyDNSConfig
-	if !p.clusterDNSConfig.IsEmpty() {
-		dnsConfig = p.clusterDNSConfig
+func (p *updatePhaseBootstrap) updateSystemMetadata() error {
+	if err := p.updateDNS(); err != nil {
+		return trace.Wrap(err)
 	}
+	if err := p.updateNodeAddr(); err != nil {
+		return trace.Wrap(err)
+	}
+	return p.updateServiceUser()
+}
 
-	err := p.HostLocalBackend.SetDNSConfig(dnsConfig)
-	p.Infof("Update cluster DNS configuration as %v.", dnsConfig)
+// updateDNS persists the DNS configuration in the local state database if it has not been set
+func (p *updatePhaseBootstrap) updateDNS() error {
+	err := p.HostLocalBackend.SetDNSConfig(p.Plan.DNSConfig)
+	p.Infof("Update cluster DNS configuration as %v.", p.Plan.DNSConfig)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	return nil
+}
+
+// updateNodeAddr persists the node advertise IP in the local state database
+func (p *updatePhaseBootstrap) updateNodeAddr() error {
+	p.Infof("Update node address as %v.", p.Server.AdvertiseIP)
+	return p.HostLocalBackend.SetNodeAddr(p.Server.AdvertiseIP)
+}
+
+// updateServiceUser persists the service user in the local state database
+func (p *updatePhaseBootstrap) updateServiceUser() error {
+	p.Infof("Update service user as %v.", p.ServiceUser)
+	return p.HostLocalBackend.SetServiceUser(p.ServiceUser)
 }
 
 func (p *updatePhaseBootstrap) pullSystemUpdates(ctx context.Context) error {

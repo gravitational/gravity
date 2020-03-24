@@ -244,7 +244,7 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 	case g.SiteInitCmd.FullCommand():
 		return initCluster(*g.SiteInitCmd.ConfigPath, *g.SiteInitCmd.InitPath)
 	case g.SiteStatusCmd.FullCommand():
-		return statusSite()
+		return statusSite(localenv.Silent(*g.Silent))
 	}
 
 	localEnv, err := g.LocalEnv(cmd)
@@ -719,8 +719,7 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 		})
 	case g.SystemRotateRPCCredsCmd.FullCommand():
 		return rotateRPCCredentials(localEnv, rotateRPCCredsOptions{
-			force:  *g.SystemRotateRPCCredsCmd.Force,
-			dryRun: *g.SystemRotateRPCCredsCmd.DryRun,
+			show: *g.SystemRotateRPCCredsCmd.Show,
 		})
 	case g.SystemExportCACmd.FullCommand():
 		return exportCertificateAuthority(localEnv,

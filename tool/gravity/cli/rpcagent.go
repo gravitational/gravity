@@ -229,7 +229,8 @@ func upsertRPCCredentialsPackage(
 	servers []rpc.DeployServer,
 	packages pack.PackageService,
 	clusterName string,
-	packageTemplate loc.Locator) (secretsPackage *loc.Locator, err error) {
+	packageTemplate loc.Locator,
+) (secretsPackage *loc.Locator, err error) {
 	hosts := make([]string, 0, len(servers))
 	for _, server := range servers {
 		hosts = append(hosts, strings.Split(server.NodeAddr, ":")[0])

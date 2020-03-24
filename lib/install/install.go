@@ -489,7 +489,7 @@ func (i *Installer) printPostInstallMessage() {
 func (i *Installer) printEndpoints() {
 	status, err := i.getClusterStatus()
 	if err != nil {
-		i.Errorf("Failed to collect cluster status: %v.", trace.DebugReport(err))
+		i.WithError(err).Error("Failed to collect cluster status.")
 		return
 	}
 	i.printf("\n")

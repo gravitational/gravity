@@ -619,8 +619,7 @@ func (p *Process) startSiteStatusChecker(ctx context.Context) error {
 				SiteDomain: site.Domain,
 			}
 			if err := p.operator.CheckSiteStatus(key); err != nil {
-				p.Errorf("Cluster status check failed: %v.",
-					trace.DebugReport(err))
+				p.WithError(err).Warn("Cluster status check failed.")
 			}
 		case <-ctx.Done():
 			p.Info("Stopping cluster status checker.")

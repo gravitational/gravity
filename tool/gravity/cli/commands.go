@@ -1333,11 +1333,9 @@ type SystemRotateCertsCmd struct {
 // SystemRotateRPCCredsCmd renews cluster RPC credentials
 type SystemRotateRPCCredsCmd struct {
 	*kingpin.CmdClause
-	// DryRun controls whether to actually rotate the credentials.
-	// If false, only checks the cetrificate validity
-	DryRun *bool
-	// Force forces the renewal of the RPC credentials package
-	Force *bool
+	// Show controls whether to actually rotate the credentials.
+	// If true, only verifies the certificate
+	Show *bool
 }
 
 // SystemExportCACmd exports cluster CA
