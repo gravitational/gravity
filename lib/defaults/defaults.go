@@ -964,10 +964,6 @@ const (
 	// DNSListenAddr is the default address coredns will be configured to listen on
 	DNSListenAddr = "127.0.0.2"
 
-	// LegacyDNSListenAddr is the address coredns was configured to listen on
-	// in older environments
-	LegacyDNSListenAddr = "127.0.0.1"
-
 	// DNSPort is the default DNS port coredns will be configured with
 	DNSPort = 53
 
