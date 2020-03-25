@@ -321,6 +321,17 @@ const manifestSchema = `
             "generic": {"$ref": "#/definitions/providerGeneric"}
           }
         },
+        "ingress": {
+          "type": "object",
+          "properties": {
+            "openebs": {
+              "type": "object",
+              "properties": {
+                "enabled": {"type": "boolean"}
+              }
+            }
+          }
+        },
         "storage": {
           "type": "object",
           "properties": {
