@@ -27,7 +27,7 @@ LOGGING_APP_TAG ?= 0.0.1
 LOGGING_APP_BRANCH ?= $(LOGGING_APP_TAG)
 MONITORING_APP_TAG ?= 0.0.1
 MONITORING_APP_BRANCH ?= $(MONITORING_APP_TAG)
-INGRESS_APP_TAG ?= 0.0.1
+INGRESS_APP_TAG ?= 0.0.1-dev
 INGRESS_APP_BRANCH ?= $(INGRESS_APP_TAG)
 STORAGE_APP_TAG ?= 0.0.1
 STORAGE_APP_BRANCH ?= $(STORAGE_APP_TAG)
@@ -159,7 +159,7 @@ define build_app
 		cd $(BUILDDIR) && \
 		( test -d $(BUILDDIR)/$1 || git clone $2 $1 ) && \
 		cd $(BUILDDIR)/$1 && \
-		git fetch --all && \
+		git fetch --recurse-submodules=yes --all && \
 		git checkout $3 && \
 		git pull origin $3 ; \
 		make -C $(BUILDDIR)/$1 import \
