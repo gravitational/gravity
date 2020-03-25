@@ -22,7 +22,8 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
+
+	"github.com/gravitational/gravity/lib/defaults"
 
 	"github.com/sirupsen/logrus"
 )
@@ -39,7 +40,7 @@ func WatchTerminationSignals(ctx context.Context, cancel context.CancelFunc, sto
 	log.Debugf("Installed signal handler: %v.", signals)
 	go func() {
 		defer func() {
-			localCtx, localCancel := context.WithTimeout(ctx, 5*time.Second)
+			localCtx, localCancel := context.WithTimeout(context.Background(), defaults.ShutdownTimeout)
 			stopper.Stop(localCtx)
 			localCancel()
 			cancel()

@@ -513,8 +513,16 @@ func (i *Installer) checkAndSetServerProfile() error {
 	return trace.NotFound("server role %q is not found", i.Role)
 }
 
-func PollProgress(ctx context.Context, send func(Event), operator ops.Operator,
-	opKey ops.SiteOperationKey, agentDoneCh <-chan struct{}) {
+// PollProgress runs the loop that queries operation progress until completion
+// or until the specified context expires.
+// Returns the context error if it expires before operation completion
+func PollProgress(
+	ctx context.Context,
+	send func(Event),
+	operator ops.Operator,
+	opKey ops.SiteOperationKey,
+	agentDoneCh <-chan struct{},
+) error {
 	ticker := backoff.NewTicker(backoff.NewConstantBackOff(1 * time.Second))
 	defer ticker.Stop()
 	var progress *ops.ProgressEntry
@@ -524,7 +532,7 @@ func PollProgress(ctx context.Context, send func(Event), operator ops.Operator,
 	for {
 		select {
 		case <-ctx.Done():
-			return
+			return trace.Wrap(ctx.Err())
 		case <-agentDoneCh:
 			log.Debug("Agent shut down.")
 			// avoid receiving on closed channel
@@ -547,7 +555,7 @@ func PollProgress(ctx context.Context, send func(Event), operator ops.Operator,
 				updateProgress(*progress, send)
 			}
 			if progress.IsCompleted() {
-				return
+				return nil
 			}
 			lastProgress = progress
 		}

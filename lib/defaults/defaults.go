@@ -887,6 +887,10 @@ const (
 	// RPCAgentSecretsPackage specifies the name of the RPC credentials package
 	RPCAgentSecretsPackage = "rpcagent-secrets"
 
+	// ShutdownTimeout specifies the maximum amount of time to wait for completion
+	// when closing
+	ShutdownTimeout = 1 * time.Minute
+
 	// ArchiveUID specifies the user ID to use for tarball items that do not exist on disk
 	ArchiveUID = 1000
 
