@@ -725,6 +725,8 @@ func join(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, confi
 
 // TerminationHandler implements the default interrupt handler for the installer service
 func TerminationHandler(interrupt *signals.InterruptHandler, printer utils.Printer) {
+	addAuditRules()
+	defer removeAuditRules()
 	for {
 		select {
 		case sig := <-interrupt.C:

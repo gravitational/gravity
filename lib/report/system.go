@@ -36,9 +36,10 @@ func NewSystemCollector() Collectors {
 
 	add(basicSystemInfo()...)
 	add(planetServices()...)
-	add(syslogExportLogs())
 	add(systemFileLogs()...)
 	add(planetLogs()...)
+	add(syslogExportLogs())
+	add(auditLog())
 
 	return collectors
 }
@@ -157,4 +158,12 @@ func fetchEtc(name string) CollectorFunc {
 			utils.Stdout(w),
 		)
 	})
+}
+
+// auditLog fetches host audit log
+func auditLog() Collector {
+	const script = `
+#!/bin/bash
+/sbin/ausearch --key=gravity --interpret --success no --message all --raw --start yesterday --end today | /bin/gzip -f`
+	return Script("audit.log.gz", script)
 }
