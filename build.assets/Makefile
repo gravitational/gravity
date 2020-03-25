@@ -159,9 +159,10 @@ define build_app
 		cd $(BUILDDIR) && \
 		( test -d $(BUILDDIR)/$1 || git clone $2 $1 ) && \
 		cd $(BUILDDIR)/$1 && \
-		git fetch --recurse-submodules=yes --all && \
+		git fetch --all && \
 		git checkout $3 && \
 		git pull origin $3 ; \
+		git submodule update --init --recursive ; \
 		make -C $(BUILDDIR)/$1 import \
 			OPS_URL=$(OPS_URL) \
 			GRAVITY="$(GRAVITY)" \
