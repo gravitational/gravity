@@ -77,12 +77,12 @@ dependencies:
   apps:
     - gravitational.io/rbac-app:0.0.0
     - gravitational.io/dns-app:0.0.0
-    - gravitational.io/ingress-app:0.0.0
     - gravitational.io/storage-app:0.0.0
     - gravitational.io/bandwagon:0.0.0
     - gravitational.io/logging-app:0.0.0
     - gravitational.io/monitoring-app:0.0.0
     - gravitational.io/tiller-app:0.0.0
+    - gravitational.io/ingress-app:0.0.0
     - gravitational.io/site:0.0.0
 systemOptions:
   dependencies:
