@@ -1043,7 +1043,7 @@ var (
 
 	// KubernetesReportResourceTypes lists the kubernetes resource types used in diagnostics report
 	KubernetesReportResourceTypes = []string{"pods", "jobs", "services", "daemonsets", "deployments",
-		"endpoints", "replicationcontrollers", "replicasets"}
+		"endpoints", "replicationcontrollers", "replicasets", "events"}
 
 	// LogServiceURL is the URL of logging app API running in the cluster
 	LogServiceURL = fmt.Sprintf("http://%v:%v",
