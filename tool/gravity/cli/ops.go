@@ -28,14 +28,11 @@ import (
 	"github.com/gravitational/gravity/lib/install"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
-	"github.com/gravitational/gravity/lib/pack"
-	"github.com/gravitational/gravity/lib/pack/encryptedpack"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/gravity/tool/common"
 
-	"github.com/gravitational/license"
 	"github.com/gravitational/trace"
 )
 
@@ -54,20 +51,8 @@ func appPackage(env *localenv.LocalEnvironment) error {
 	return nil
 }
 
-func uploadUpdate(env *localenv.LocalEnvironment, opsURL string) error {
-	// create local environment with gravity state dir because the environment
-	// provided above has upgrade tarball as a state dir
-	localStateDir, err := localenv.LocalGravityDir()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	defaultEnv, err := localenv.New(localStateDir)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	clusterOperator, err := defaultEnv.SiteOperator()
+func uploadUpdate(tarballEnv *localenv.TarballEnvironment, env *localenv.LocalEnvironment, opsURL string) error {
+	clusterOperator, err := env.SiteOperator()
 	if err != nil {
 		return trace.Wrap(err, "unable to access cluster.\n"+
 			"Use 'gravity status' to check the cluster state and make sure "+
@@ -86,45 +71,25 @@ func uploadUpdate(env *localenv.LocalEnvironment, opsURL string) error {
 			"attempting again.")
 	}
 
-	var tarballPackages pack.PackageService = env.Packages
-	if cluster.License != nil {
-		parsed, err := license.ParseLicense(cluster.License.Raw)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-
-		encryptionKey := parsed.GetPayload().EncryptionKey
-		if len(encryptionKey) != 0 {
-			tarballPackages = encryptedpack.New(tarballPackages, string(encryptionKey))
-		}
-	}
-
-	clusterPackages, err := defaultEnv.ClusterPackages()
+	clusterPackages, err := env.ClusterPackages()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	clusterApps, err := defaultEnv.AppServiceCluster()
+	clusterApps, err := env.AppServiceCluster()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	tarballApps, err := env.AppServiceLocal(localenv.AppConfig{
-		Packages: tarballPackages,
-	})
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	appPackage, err := install.GetAppPackage(tarballApps)
+	appPackage, err := install.GetAppPackage(tarballEnv.Apps)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
 	env.PrintStep("Importing application %v v%v", appPackage.Name, appPackage.Version)
 	_, err = appservice.PullApp(appservice.AppPullRequest{
-		SrcPack: tarballPackages,
-		SrcApp:  tarballApps,
+		SrcPack: tarballEnv.Packages,
+		SrcApp:  tarballEnv.Apps,
 		DstPack: clusterPackages,
 		DstApp:  clusterApps,
 		Package: *appPackage,
@@ -138,7 +103,7 @@ func uploadUpdate(env *localenv.LocalEnvironment, opsURL string) error {
 
 	var registries []string
 	err = utils.Retry(defaults.RetryInterval, defaults.RetryLessAttempts, func() error {
-		registries, err = getRegistries(context.TODO(), defaultEnv, cluster.ClusterState.Servers)
+		registries, err = getRegistries(context.TODO(), env, cluster.ClusterState.Servers)
 		return trace.Wrap(err)
 	})
 	if err != nil {
@@ -165,8 +130,8 @@ func uploadUpdate(env *localenv.LocalEnvironment, opsURL string) error {
 			return trace.Wrap(err)
 		}
 		err = appservice.SyncApp(context.TODO(), appservice.SyncRequest{
-			PackService:  tarballPackages,
-			AppService:   tarballApps,
+			PackService:  tarballEnv.Packages,
+			AppService:   tarballEnv.Apps,
 			ImageService: imageService,
 			Package:      *appPackage,
 		})
@@ -177,6 +142,31 @@ func uploadUpdate(env *localenv.LocalEnvironment, opsURL string) error {
 
 	env.PrintStep("Application has been uploaded")
 	return nil
+}
+
+func getTarballEnvironForUpgrade(env *localenv.LocalEnvironment, stateDir string) (*localenv.TarballEnvironment, error) {
+	clusterOperator, err := env.SiteOperator()
+	if err != nil {
+		return nil, trace.Wrap(err, "unable to access cluster.\n"+
+			"Use 'gravity status' to check the cluster state and make sure "+
+			"that the cluster DNS is working properly.")
+	}
+	cluster, err := clusterOperator.GetLocalSite()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	if stateDir == "" {
+		// Use current working directory as state directory if unspecified
+		stateDir = utils.Exe.WorkingDir
+	}
+	var license string
+	if cluster.License != nil {
+		license = cluster.License.Raw
+	}
+	return localenv.NewTarballEnvironment(localenv.TarballEnvironmentArgs{
+		StateDir: stateDir,
+		License:  license,
+	})
 }
 
 // getRegistries returns a list of registry addresses in the cluster

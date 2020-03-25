@@ -41,10 +41,11 @@ type phaseElectionChange struct {
 	ClusterName string
 	// ElectionChange represents changes to make to the cluster elections
 	ElectionChange storage.ElectionChange
+	// ExecutorParams stores the phase parameters
+	fsm.ExecutorParams
 	// FieldLogger is used for logging
 	logrus.FieldLogger
-	dnsConfig storage.DNSConfig
-	remote    fsm.Remote
+	remote fsm.Remote
 }
 
 // NewPhaseElectionChange is a phase for modifying cluster elections during upgrades
@@ -58,26 +59,13 @@ func NewPhaseElectionChange(
 		return nil, trace.BadParameter("no election status specified for phase %q", p.Phase.ID)
 	}
 
-	cluster, err := operator.GetLocalSite()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	var dnsConfig storage.DNSConfig
-	if cluster != nil {
-		dnsConfig = cluster.DNSConfig
-	}
-	if dnsConfig.IsEmpty() {
-		dnsConfig = storage.LegacyDNSConfig
-	}
-
 	return &phaseElectionChange{
 		OperationID:    p.Plan.OperationID,
 		Server:         *p.Phase.Data.Server,
 		ClusterName:    p.Plan.ClusterName,
 		ElectionChange: *p.Phase.Data.ElectionChange,
+		ExecutorParams: p,
 		FieldLogger:    logger,
-		dnsConfig:      dnsConfig,
 		remote:         remote,
 	}, nil
 }
@@ -85,7 +73,7 @@ func NewPhaseElectionChange(
 func (p *phaseElectionChange) waitForMasterMigration(rollback bool) error {
 	p.Info("Wait for new leader election.")
 	err := utils.Retry(defaults.RetryInterval, defaults.RetryAttempts, func() error {
-		leaderAddr, err := utils.ResolveAddr(constants.APIServerDomainName, p.dnsConfig.Addr())
+		leaderAddr, err := utils.ResolveAddr(constants.APIServerDomainName, p.Plan.DNSConfig.Addr())
 		if err != nil {
 			return trace.Wrap(err, "resolving current leader IP")
 		}
