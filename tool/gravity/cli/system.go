@@ -63,8 +63,11 @@ func systemClusterInfo(env *localenv.LocalEnvironment) error {
 	defer os.RemoveAll(dir)
 
 	var buf bytes.Buffer
-	cmd := exec.Command("kubectl", "cluster-info", "dump", "--all-namespaces",
-		fmt.Sprintf("--output-directory=%v", dir))
+	cmd := exec.Command("kubectl", "cluster-info", "dump",
+		"--all-namespaces",
+		"--output-directory", dir,
+		"--output", "yaml",
+	)
 	cmd.Stderr = &buf
 	if err := cmd.Run(); err != nil {
 		return trace.Wrap(err, "failed to dump kubernetes cluster info: %s", buf.String())

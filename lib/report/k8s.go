@@ -35,14 +35,29 @@ func NewKubernetesCollector(ctx context.Context, runner utils.CommandRunner) Col
 	runner = planetContextRunner{runner}
 	// general kubernetes info
 	commands := Collectors{
+		Cmd("k8s-nodes", utils.PlanetCommand(kubectl.Command("get", "nodes", "--output", "wide"))...),
+		Cmd("k8s-describe-nodes", utils.PlanetCommand(kubectl.Command("describe", "nodes"))...),
 		Cmd("k8s-cluster-info-dump.tgz",
 			constants.GravityBin, "system", "cluster-info"),
 	}
-
+	for _, resourceType := range defaults.KubernetesReportResourceTypes {
+		commands = append(commands,
+			Cmd(fmt.Sprintf("k8s-describe-%s", resourceType),
+				utils.PlanetCommand(kubectl.Command(
+					"describe", resourceType, "--all-namespaces"))...),
+			Cmd(fmt.Sprintf("k8s-%s", resourceType),
+				utils.PlanetCommand(kubectl.Command(
+					"get", resourceType, "--all-namespaces", "--output", "wide"))...),
+		)
+	}
 	namespaces, err := kubectl.GetNamespaces(ctx, runner)
 	if err != nil || len(namespaces) == 0 {
 		namespaces = defaults.UsedNamespaces
 	}
+	return append(commands, capturePreviousContainerLogs(ctx, namespaces, runner)...)
+}
+
+func capturePreviousContainerLogs(ctx context.Context, namespaces []string, runner utils.CommandRunner) (collectors Collectors) {
 	for _, namespace := range namespaces {
 		logger := log.WithField("namespace", namespace)
 		pods, err := kubectl.GetPods(ctx, namespace, runner)
@@ -62,14 +77,13 @@ func NewKubernetesCollector(ctx context.Context, runner utils.CommandRunner) Col
 			for _, container := range containers {
 				// Collect logs for the previous instance of the container if there's any.
 				name := fmt.Sprintf("k8s-logs-%v-%v-%v-prev", namespace, pod, container)
-				commands = append(commands, Cmd(name, kubectl.Command("logs", pod,
+				collectors = append(collectors, Cmd(name, kubectl.Command("logs", pod,
 					"--namespace", namespace, "-p",
 					fmt.Sprintf("-c=%v", container)).Args()...))
 			}
 		}
 	}
-
-	return commands
+	return collectors
 }
 
 // RunStream executes the command specified with args in the context of the planet container
