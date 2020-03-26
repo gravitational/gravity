@@ -162,15 +162,26 @@ func fetchEtc(name string) CollectorFunc {
 	})
 }
 
-// auditLog fetches host audit log
+// auditLog fetches audit logs from host.
+// The log will contain queries for each of the domains auditlog package is aware of.
+// The resulting file can be post-processed again with:
+//
+//  gunzip -c audit.log.gz | ausearch --interpret --success no ...
+//
+// For example, to see the SELinux denials generated for the gravity domain
+// as a list of allow rules:
+//
+//  gunzip -c audit.log.gz | ausearch --subject gravity_t | audit2allow
 func auditLog() Collector {
 	var subjects []string
 	for _, domain := range auditlog.Domains {
-		subjects = append(subjects, "--subject", domain)
+		subjects = append(subjects,
+			fmt.Sprint("/sbin/ausearch --success no --message all --raw --start yesterday --end today ", "--subject ", domain, " ;"),
+		)
 	}
 	script := fmt.Sprintf(`
 #!/bin/bash
-/sbin/ausearch --key gravity --success no --message all --raw --start yesterday --end today %v | /bin/gzip -f`,
+{ %v } | /bin/gzip -f`,
 		strings.Join(subjects, " "))
 	return Script("audit.log.gz", script)
 }

@@ -697,6 +697,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.SystemReportCmd.CmdClause = g.SystemCmd.Command("report", "collect system diagnostics and output as gzipped tarball to terminal").Hidden()
 	g.SystemReportCmd.Filter = g.SystemReportCmd.Flag("filter", "collect only specific diagnostics ('system', 'kubernetes'). Collect everything if unspecified").Strings()
 	g.SystemReportCmd.Compressed = g.SystemReportCmd.Flag("compressed", "whether to compress the tarball").Default("true").Bool()
+	g.SystemReportCmd.Output = g.SystemReportCmd.Flag("output", "optional output file path").String()
 
 	g.SystemStateDirCmd.CmdClause = g.SystemCmd.Command("state-dir", "show where all gravity data is stored on the node").Hidden()
 

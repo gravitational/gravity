@@ -154,9 +154,7 @@ func WrapWithMessage(err error, message interface{}, args ...interface{}) Error 
 // callee, line number and function that simplifies debugging
 func Errorf(format string, args ...interface{}) (err error) {
 	err = fmt.Errorf(format, args...)
-	trace := newTrace(err, 2)
-	trace.AddUserMessage(format, args...)
-	return trace
+	return newTrace(err, 2)
 }
 
 // Fatalf - If debug is false Fatalf calls Errorf. If debug is
@@ -370,11 +368,14 @@ func (e *TraceErr) UserMessage() string {
 		// Format all collected messages in the reverse order, with each error
 		// on its own line with appropriate indentation so they form a tree and
 		// it's easy to see the cause and effect.
-		result := e.Messages[len(e.Messages)-1]
-		for index, indent := len(e.Messages)-1, 1; index > 0; index, indent = index-1, indent+1 {
-			result = fmt.Sprintf("%v\n%v%v", result, strings.Repeat("\t", indent), e.Messages[index-1])
+		var buf bytes.Buffer
+		fmt.Fprintln(&buf, e.Messages[len(e.Messages)-1])
+		index, indent := len(e.Messages)-1, 1
+		for ; index > 0; index, indent = index-1, indent+1 {
+			fmt.Fprintf(&buf, "%v%v\n", strings.Repeat("\t", indent), e.Messages[index-1])
 		}
-		return result
+		fmt.Fprintf(&buf, "%v%v", strings.Repeat("\t", indent), UserMessage(e.Err))
+		return buf.String()
 	}
 	if e.Message != "" {
 		// For backwards compatibility return the old user message if it's present.

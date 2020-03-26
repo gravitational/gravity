@@ -1271,21 +1271,7 @@ func InstallerCleanup() error {
 // InstallerGenerateLocalReport creates a host-local debug report in the specified file
 func InstallerGenerateLocalReport(env *localenv.LocalEnvironment) func(context.Context, string) error {
 	return func(ctx context.Context, path string) error {
-		f, err := os.Create(path)
-		if err != nil {
-			return trace.ConvertSystemError(err)
-		}
-		defer func() {
-			f.Close()
-			if err != nil {
-				os.Remove(f.Name())
-			}
-		}()
-		err = systemReport(env, report.AllFilters, true, f)
-		if err != nil {
-			return trace.ConvertSystemError(err)
-		}
-		return nil
+		return systemReport(env, report.AllFilters, true, path)
 	}
 }
 

@@ -1,3 +1,20 @@
+/*
+Copyright 2018 Gravitational, Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+// package auditlog implements support for manipulating kernel audit system
 package auditlog
 
 import (
@@ -12,17 +29,13 @@ import (
 )
 
 // New returns a new instance of the logger
-func New(pid int) *Auditlog {
+func New() *Auditlog {
 	return &Auditlog{
-		log: log.New(logrus.WithFields(logrus.Fields{
-			trace.Component: "auditlog",
-			"pid":           pid,
-		})),
-		pid: pid,
+		log: log.New(logrus.WithField(trace.Component, "auditlog")),
 	}
 }
 
-// AddDefaultRules adds default audit rules for the underlying process
+// AddDefaultRules adds default audit rules for the all known domains
 func (r *Auditlog) AddDefaultRules() error {
 	subjtypeArg := func(subjtype string) string {
 		return fmt.Sprintf("subj_type=%v", subjtype)
@@ -47,7 +60,7 @@ func (r *Auditlog) AddDefaultRules() error {
 	return nil
 }
 
-// RemoveRules removes audit rules for the underlying process
+// RemoveRules removes audit rules previously with this package
 func (r *Auditlog) RemoveRules() error {
 	cmd := exec.Command(auditctlBin, "-D", "-k", auditKey)
 	r.log.WithField("cmd", cmd.Args).Info("Remove audit rules.")
@@ -61,7 +74,6 @@ func (r *Auditlog) RemoveRules() error {
 // Auditlog manages audit rules on the host
 type Auditlog struct {
 	log log.Logger
-	pid int
 }
 
 // Domains lists all gravity SELinux process Domains for auditing
