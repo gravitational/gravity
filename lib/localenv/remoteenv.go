@@ -17,11 +17,13 @@ limitations under the License.
 package localenv
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/app/client"
@@ -163,6 +165,22 @@ func (w *RemoteEnvironment) LoginWizard(addr, token string) (entry *storage.Logi
 		Password:     token,
 		OpsCenterURL: url,
 	})
+}
+
+// WaitForOperator blocks until the configured operator becomes available or context expires.
+func (w *RemoteEnvironment) WaitForOperator(ctx context.Context) error {
+	err := utils.RetryFor(ctx, time.Minute, func() error {
+		if err := w.Operator.Ping(ctx); err != nil {
+			w.Infof("Operator isn't available yet: %v.", err)
+			return trace.Wrap(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	w.Info("Operator is available.")
+	return nil
 }
 
 func (w *RemoteEnvironment) login(entry storage.LoginEntry) (*storage.LoginEntry, error) {

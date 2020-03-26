@@ -52,7 +52,6 @@ import (
 	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/monitoring"
-	"github.com/gravitational/gravity/lib/ops/opsclient"
 	"github.com/gravitational/gravity/lib/ops/opshandler"
 	"github.com/gravitational/gravity/lib/ops/opsroute"
 	"github.com/gravitational/gravity/lib/ops/opsservice"
@@ -1654,26 +1653,6 @@ func (p *Process) ServeHealth() error {
 		// TODO(dmitri): add a cancelation point for p.context
 		return trace.Wrap(p.healthServer.ListenAndServe())
 	})
-	return nil
-}
-
-// WaitForAPI blocks until the process API is available or retry attempts reached.
-func (p *Process) WaitForAPI(ctx context.Context) error {
-	client, err := opsclient.NewClient(p.packages.PortalURL(), opsclient.HTTPClient(httplib.GetClient(true)))
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	err = utils.RetryFor(ctx, time.Minute, func() error {
-		if err := client.Ping(ctx); err != nil {
-			p.Infof("Process API isn't available yet: %v.", err)
-			return trace.Wrap(err)
-		}
-		return nil
-	})
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	p.Info("Process API is available.")
 	return nil
 }
 

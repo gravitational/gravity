@@ -145,6 +145,10 @@ func newInstallerConfig(ctx context.Context, env *localenv.LocalEnvironment, con
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	err = wizard.WaitForOperator(ctx)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	installerConfig, err := config.NewInstallerConfig(env, wizard, process, resources.ValidateFunc(gravity.Validate))
 	if err != nil {
 		return nil, trace.Wrap(err)
