@@ -167,7 +167,7 @@ func (w *RemoteEnvironment) LoginWizard(addr, token string) (entry *storage.Logi
 	})
 }
 
-// WaitForOperator blocks until the configured operator becomes available or timeout expires.
+// WaitForOperator blocks until the configured operator becomes available or context expires.
 func (w *RemoteEnvironment) WaitForOperator(ctx context.Context) error {
 	err := utils.RetryFor(ctx, time.Minute, func() error {
 		if err := w.Operator.Ping(ctx); err != nil {
