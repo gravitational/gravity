@@ -58,12 +58,15 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 	"github.com/gravitational/gravity/lib/system/environ"
+	libselinux "github.com/gravitational/gravity/lib/system/selinux"
 	"github.com/gravitational/gravity/lib/system/signals"
 	"github.com/gravitational/gravity/lib/systeminfo"
 	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/users"
 	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/gravity/lib/utils/helm"
+	"github.com/gravitational/satellite/monitoring"
+	"github.com/opencontainers/selinux/go-selinux"
 
 	gcemeta "cloud.google.com/go/compute/metadata"
 	"github.com/cenkalti/backoff"
@@ -499,6 +502,34 @@ func (i *InstallConfig) RunLocalChecks() error {
 	}))
 }
 
+// BootstrapSELinux configures SELinux on a node prior to installation
+func (i *InstallConfig) BootstrapSELinux(ctx context.Context, printer utils.Printer) error {
+	logger := log.WithField(trace.Component, "selinux")
+	if !i.shouldBootstrapSELinux() {
+		logger.Info("SELinux disabled with configuration.")
+		return nil
+	}
+	metadata, err := monitoring.GetOSRelease()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if !selinux.GetEnabled() {
+		logger.Info("SELinux not enabled on host.")
+		i.SELinux = false
+	} else if !libselinux.IsSystemSupported(metadata.ID) {
+		logger.WithField("id", metadata.ID).Info("Distribution not supported.")
+		i.SELinux = false
+	}
+	return BootstrapSELinuxAndRespawn(ctx, libselinux.BootstrapConfig{
+		StateDir: i.StateDir,
+		OS:       metadata,
+	}, printer)
+}
+
+func (i *InstallConfig) shouldBootstrapSELinux() bool {
+	return i.SELinux && !(i.FromService || i.Mode == constants.InstallModeInteractive || i.Remote)
+}
+
 func (i *InstallConfig) validateApplicationDir() error {
 	_, err := i.getApp()
 	return trace.Wrap(err)
@@ -829,6 +860,34 @@ func (j *JoinConfig) GetRuntimeConfig() proto.RuntimeConfig {
 	}
 }
 
+// bootstrapSELinux configures SELinux on a node prior to join
+func (j *JoinConfig) bootstrapSELinux(ctx context.Context, printer utils.Printer) error {
+	logger := log.WithField(trace.Component, "selinux")
+	if !j.shouldBootstrapSELinux() {
+		logger.Info("SELinux disabled with configuration.")
+		return nil
+	}
+	metadata, err := monitoring.GetOSRelease()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if !selinux.GetEnabled() {
+		logger.Info("SELinux not enabled on host.")
+		j.SELinux = false
+	} else if !libselinux.IsSystemSupported(metadata.ID) {
+		logger.WithField("id", metadata.ID).Info("Distribution not supported.")
+		j.SELinux = false
+	}
+	return BootstrapSELinuxAndRespawn(ctx, libselinux.BootstrapConfig{
+		StateDir: j.SystemStateDir,
+		OS:       metadata,
+	}, printer)
+}
+
+func (j *JoinConfig) shouldBootstrapSELinux() bool {
+	return j.SELinux && !j.FromService
+}
+
 func (r *removeConfig) checkAndSetDefaults() error {
 	if r.server == "" {
 		return trace.BadParameter("server flag is required")
@@ -842,17 +901,18 @@ type removeConfig struct {
 	confirmed bool
 }
 
-func (r *autojoinConfig) newJoinConfig() JoinConfig {
+func (j *autojoinConfig) newJoinConfig() JoinConfig {
 	return JoinConfig{
-		SystemLogFile: r.systemLogFile,
-		UserLogFile:   r.userLogFile,
-		Role:          r.role,
-		SystemDevice:  r.systemDevice,
-		Mounts:        r.mounts,
-		AdvertiseAddr: r.advertiseAddr,
-		PeerAddrs:     r.serviceURL,
-		Token:         r.token,
-		FromService:   r.fromService,
+		SystemLogFile: j.systemLogFile,
+		UserLogFile:   j.userLogFile,
+		Role:          j.role,
+		SystemDevice:  j.systemDevice,
+		Mounts:        j.mounts,
+		AdvertiseAddr: j.advertiseAddr,
+		PeerAddrs:     j.serviceURL,
+		Token:         j.token,
+		FromService:   j.fromService,
+		SELinux:       j.seLinux,
 		// Autojoin can only join an existing cluster, so skip attempts to use the wizard
 		SkipWizard: true,
 	}
@@ -874,6 +934,33 @@ func (r *autojoinConfig) checkAndSetDefaults() error {
 	return nil
 }
 
+// bootstrapSELinux configures SELinux on a node prior to join
+func (j *autojoinConfig) bootstrapSELinux(ctx context.Context, printer utils.Printer) error {
+	logger := log.WithField(trace.Component, "selinux")
+	if !j.shouldBootstrapSELinux() {
+		logger.Info("SELinux disabled with configuration.")
+		return nil
+	}
+	metadata, err := monitoring.GetOSRelease()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if !selinux.GetEnabled() {
+		logger.Info("SELinux not enabled on host.")
+		j.seLinux = false
+	} else if !libselinux.IsSystemSupported(metadata.ID) {
+		logger.WithField("id", metadata.ID).Info("Distribution not supported.")
+		j.seLinux = false
+	}
+	return BootstrapSELinuxAndRespawn(ctx, libselinux.BootstrapConfig{
+		OS: metadata,
+	}, printer)
+}
+
+func (j *autojoinConfig) shouldBootstrapSELinux() bool {
+	return j.seLinux && !j.fromService
+}
+
 type autojoinConfig struct {
 	systemLogFile string
 	userLogFile   string
@@ -885,7 +972,7 @@ type autojoinConfig struct {
 	serviceURL    string
 	advertiseAddr string
 	token         string
-	selinux       bool
+	seLinux       bool
 }
 
 func (r *agentConfig) newServiceArgs(gravityPath string) (args []string) {

@@ -377,7 +377,7 @@ func printNodeStatus(node statusapi.ClusterServer, w io.Writer) {
 		description = fmt.Sprintf("%v / %v", description, node.Profile)
 	}
 	fmt.Fprintf(w, "        * %v / %v\n", unknownFallback(node.Hostname), description)
-	if node.SELinux != nil {
+	if node.SELinux != nil && *node.SELinux {
 		fmt.Fprintf(w, "            SELinux:\t%v\n", formatSELinuxStatus(*node.SELinux))
 	}
 	switch node.Status {

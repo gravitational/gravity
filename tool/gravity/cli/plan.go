@@ -53,7 +53,7 @@ func initUpdateOperationPlan(localEnv, updateEnv *localenv.LocalEnvironment) err
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	leader, err := findLocalServer(*cluster)
+	leader, err := findLocalServer(cluster.ClusterState.Servers)
 	if err != nil {
 		return trace.Wrap(err)
 	}

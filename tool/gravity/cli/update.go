@@ -95,7 +95,7 @@ func newUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironm
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	leader, err := findLocalServer(*cluster)
+	leader, err := findLocalServer(cluster.ClusterState.Servers)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to find local node in cluster state.\n"+
 			"Make sure you start the operation from one of the cluster master nodes.")

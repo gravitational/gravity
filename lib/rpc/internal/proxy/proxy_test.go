@@ -23,7 +23,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gravitational/gravity/lib/rpc/inprocess"
+	"github.com/gravitational/gravity/lib/rpc/internal/inprocess"
 
 	log "github.com/sirupsen/logrus"
 	. "gopkg.in/check.v1"
@@ -40,7 +40,7 @@ func (_ *S) TestProxiesConnections(c *C) {
 	defer link.stop()
 	proxy := New(link, log.WithField("test", "TestProxiesConnections"))
 	notifyCh := make(chan struct{}, 1)
-	proxy.notifyCh = notifyCh
+	proxy.NotifyCh = notifyCh
 	c.Assert(proxy.Start(), IsNil)
 	defer proxy.Stop()
 
@@ -74,7 +74,7 @@ func (_ *S) TestCanStopProxyOnDemand(c *C) {
 	logger := log.WithField("test", "TestCanStopProxyOnDemand")
 	proxy := New(link, logger)
 	notifyCh := make(chan struct{}, 2)
-	proxy.notifyCh = notifyCh
+	proxy.NotifyCh = notifyCh
 	c.Assert(proxy.Start(), IsNil)
 	defer proxy.Stop()
 
@@ -99,7 +99,7 @@ func (_ *S) TestCanStopProxyOnDemand(c *C) {
 	// Restart proxy to be able to write
 	link.resetLocal()
 	proxy = New(link, logger)
-	proxy.notifyCh = notifyCh
+	proxy.NotifyCh = notifyCh
 	c.Assert(proxy.Start(), IsNil)
 	defer proxy.Stop()
 
