@@ -275,10 +275,11 @@ func fetchNethealthMetrics(ctx context.Context, addr string) (map[string]network
 	//      # TYPE nethealth_echo_timeout_total counter
 	//      nethealth_echo_timeout_total{node_name="10.128.0.96",peer_name="10.128.0.70"} 37
 	//      nethealth_echo_timeout_total{node_name="10.128.0.96",peer_name="10.128.0.97"} 0
-	req, err := http.NewRequestWithContext(ctx, "GET", addr+"/metrics", nil)
+	req, err := http.NewRequest("GET", addr+"/metrics", nil)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	req = req.WithContext(ctx)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
