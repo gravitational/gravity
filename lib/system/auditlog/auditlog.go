@@ -3,6 +3,7 @@ package auditlog
 import (
 	"fmt"
 	"os/exec"
+	"strings"
 
 	"github.com/gravitational/gravity/lib/log"
 
@@ -23,37 +24,25 @@ func New(pid int) *Auditlog {
 
 // AddDefaultRules adds default audit rules for the underlying process
 func (r *Auditlog) AddDefaultRules() error {
-	pidArg := fmt.Sprintf("pid=%d", r.pid)
-	// exeArg := fmt.Sprintf("exe=%v", utils.Exe.Path)
 	subjtypeArg := func(subjtype string) string {
 		return fmt.Sprintf("subj_type=%v", subjtype)
 	}
-	rules := [][]string{
-		// Current process
-		{"-a", "always,exit", "-F", "success=0", "-F", pidArg, "-F", "arch=b64", "-S", "all", "-k", auditKey},
+	syscallArg := strings.Join(syscalls, ",")
+	rule := []string{
+		"-a", "always,exit", "-F", "success=0", "-F", "arch=b64", "-S", syscallArg, "-k", auditKey,
 	}
-	// TODO: split gravity vs the rest and add another rule without binary for the rest (or lose the exe)
-	rule := []string{"-a", "always,exit", "-F", "success=0", "-F", "arch=b64", "-S", "all", "-k", auditKey}
 	for _, domain := range Domains {
 		rule = append(rule, "-F", subjtypeArg(domain))
 	}
-	rules = append(rules, rule)
-	for _, rule := range rules {
-		cmd := exec.Command(auditctlBin, rule...)
-		logger := r.log.WithField("cmd", cmd.Args)
-		w := logger.Writer()
-		defer w.Close()
-		cmd.Stdout = w
-		cmd.Stderr = w
-		logger.Info("Set up audit rule.")
-		if err := cmd.Run(); err != nil {
-			logger.WithFields(logrus.Fields{
-				"error": err,
-				// "output": string(out),
-			}).Warn("Failed to set up audit rule.")
-			// return trace.Wrap(err, "failed to set up audit rule for process: %s", out)
-			return trace.Wrap(err, "failed to set up audit rule for process")
-		}
+	cmd := exec.Command(auditctlBin, rule...)
+	logger := r.log.WithField("cmd", cmd.Args)
+	w := logger.Writer()
+	defer w.Close()
+	cmd.Stdout = w
+	cmd.Stderr = w
+	logger.Info("Set up audit rule.")
+	if err := cmd.Run(); err != nil {
+		return trace.Wrap(err, "failed to set up audit rule for process")
 	}
 	return nil
 }
@@ -89,6 +78,13 @@ var Domains = []string{
 	"gravity_container_t",
 	"gravity_container_system_t",
 	"gravity_container_logger_t",
+}
+
+var syscalls = []string{
+	"open", "creat", "rename", "unlink", "mkdir", "rmdir", "chown", "chmod", "symlink",
+	"openat", "truncate", "renameat", "unlinkat", "mkdirat",
+	"execve", "setxattr",
+	"connect", "bind", "accept", "sendto", "recvfrom",
 }
 
 const (
