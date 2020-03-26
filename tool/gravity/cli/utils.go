@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -41,7 +40,6 @@ import (
 
 	"github.com/gravitational/roundtrip"
 	"github.com/gravitational/trace"
-	"github.com/sirupsen/logrus"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
@@ -278,48 +276,4 @@ func parseArgs(args []string) (*kingpin.ParseContext, error) {
 	app.Terminate(func(int) {})
 	app.Writer(ioutil.Discard)
 	return RegisterCommands(app).ParseContext(args)
-}
-
-func addAuditRules() {
-	pid := os.Getpid()
-	logger := log.WithFields(logrus.Fields{
-		trace.Component: "audit",
-		"pid":           pid,
-	})
-	if err := addAuditRulesInternal(pid, logger); err != nil {
-		log.WithError(err).Warn("Failed to set up audit rules.")
-	}
-}
-
-func removeAuditRules() {
-	pid := os.Getpid()
-	logger := log.WithField(trace.Component, "audit")
-	if err := removeAuditRulesInternal(pid, logger); err != nil {
-		log.WithError(err).Warn("Failed to clean up audit rules.")
-	}
-}
-
-func addAuditRulesInternal(pid int, logger logrus.FieldLogger) error {
-	pidArg := fmt.Sprintf("pid=%d", pid)
-	cmd := exec.Command("auditctl", "-a", "always,exit", "-S", "all", "-F", "success=0", "-F", pidArg, "-k", auditKey(pid))
-	logger.WithField("cmd", cmd.Path).Info("Set up audit rules.")
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return trace.Wrap(err, "failed to set up audit rules for current process: %s", out)
-	}
-	return nil
-}
-
-func removeAuditRulesInternal(pid int, logger logrus.FieldLogger) error {
-	cmd := exec.Command("auditctl", "-D", "-k", auditKey(pid))
-	logger.WithField("cmd", cmd.Path).Info("Remove up audit rules.")
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return trace.Wrap(err, "failed to remove audit rules: %s", out)
-	}
-	return nil
-}
-
-func auditKey(pid int) string {
-	return fmt.Sprintf("gravity_installer_%d", pid)
 }

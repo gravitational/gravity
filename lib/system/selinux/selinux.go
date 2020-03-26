@@ -109,12 +109,14 @@ func importLocalChangesFromReader(ctx context.Context, r io.Reader) error {
 	return trace.Wrap(cmd.Run())
 }
 
+// nolint:deadcode,unused
 func removePolicy() error {
 	// Leave the container policy module in-place as we might not be
 	// the only client
 	return removePolicyByName("gravity")
 }
 
+// nolint:deadcode,unused
 func removePolicyByName(module string) error {
 	logger := liblog.New(log.WithField(trace.Component, "selinux"))
 	logger.WithField("module", module).Info("Remove policy module.")

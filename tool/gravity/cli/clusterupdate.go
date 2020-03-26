@@ -310,7 +310,6 @@ type clusterInitializer struct {
 	updatePackage string
 	unattended    bool
 	values        []byte
-	seLinux       bool
 }
 
 const (

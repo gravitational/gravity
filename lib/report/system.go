@@ -21,8 +21,10 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
+	"strings"
 
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/system/auditlog"
 	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/trace"
 )
@@ -162,8 +164,13 @@ func fetchEtc(name string) CollectorFunc {
 
 // auditLog fetches host audit log
 func auditLog() Collector {
-	const script = `
+	var subjects []string
+	for _, domain := range auditlog.Domains {
+		subjects = append(subjects, "--subject", domain)
+	}
+	script := fmt.Sprintf(`
 #!/bin/bash
-/sbin/ausearch --key=gravity --interpret --success no --message all --raw --start yesterday --end today | /bin/gzip -f`
+/sbin/ausearch --key gravity --success no --message all --raw --start yesterday --end today %v | /bin/gzip -f`,
+		strings.Join(subjects, " "))
 	return Script("audit.log.gz", script)
 }

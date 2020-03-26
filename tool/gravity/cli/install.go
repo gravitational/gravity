@@ -44,6 +44,7 @@ import (
 	pb "github.com/gravitational/gravity/lib/rpc/proto"
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
 	"github.com/gravitational/gravity/lib/state"
+	"github.com/gravitational/gravity/lib/system/auditlog"
 	"github.com/gravitational/gravity/lib/system/environ"
 	"github.com/gravitational/gravity/lib/system/service"
 	"github.com/gravitational/gravity/lib/system/signals"
@@ -725,8 +726,9 @@ func join(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, confi
 
 // TerminationHandler implements the default interrupt handler for the installer service
 func TerminationHandler(interrupt *signals.InterruptHandler, printer utils.Printer) {
-	addAuditRules()
-	defer removeAuditRules()
+	audit := auditlog.New(os.Getpid())
+	audit.AddDefaultRules()   //nolint:errcheck
+	defer audit.RemoveRules() //nolint:errcheck
 	for {
 		select {
 		case sig := <-interrupt.C:

@@ -780,7 +780,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 		modules.GetResources().SupportedResources()))
 	g.ResourceGetCmd.Kind = g.ResourceGetCmd.Arg("kind", fmt.Sprintf("Resource kind. One of: %v.",
 		modules.GetResources().SupportedResources())).Required().String()
-	g.ResourceGetCmd.Name = g.ResourceGetCmd.Arg("name", fmt.Sprintf("Optional resource name. Lists all resources if omitted.")).String()
+	g.ResourceGetCmd.Name = g.ResourceGetCmd.Arg("name", "Optional resource name. Lists all resources if omitted.").String()
 	g.ResourceGetCmd.Format = common.Format(g.ResourceGetCmd.Flag("format", fmt.Sprintf("Output format: %v.", constants.OutputFormats)).Default(string(constants.EncodingText)))
 	g.ResourceGetCmd.WithSecrets = g.ResourceGetCmd.Flag("with-secrets", "Include secret properties like private keys.").Default("false").Bool()
 	g.ResourceGetCmd.User = g.ResourceGetCmd.Flag("user", "User to display resources for. Defaults to the currently logged in user.").String()

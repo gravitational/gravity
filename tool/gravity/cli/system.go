@@ -665,7 +665,7 @@ func outputServiceStatus(services systemservice.ServiceManager, loc loc.Locator,
 }
 
 func packageServicePattern(pattern string) string {
-	if strings.Index(pattern, "*") != -1 {
+	if strings.Contains(pattern, "*") {
 		return pattern
 	}
 	return fmt.Sprintf("*%v*", pattern)
