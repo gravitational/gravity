@@ -1,23 +1,13 @@
 # SELinux
 
 Starting with version 7, Gravity comes with SELinux support.
-It is not a requirement to have SELinux enabled, but whenever the installer detects that
-it runs on a SELinux-enabled host, it will automatically turn on SELinux support.
-
-When operating with SELinux support on, the following changes:
-
- * Installer process automatically loads the policy and configures the local paths and ports necessary
-for its operation. After bootstrapping, the installer will run confined in its own domain.
-
- * Planet container runs its services and all Kubernetes workloads confined - this means Docker will also
-be configured to run with SELinux support on.
 
 ## Host Preparation
 
 Before installing Gravity, you have to ensure that the user performing the installation has the privilege
-to load policy modules - otherwise the installer will fail to bootstrap.
+to load policy modules.
 
-To check the SELinux status, run the following:
+Check whether SELinux is enabled and is in enforcing mode:
 ```sh
 $ sestatus
 SELinux status:                 enabled
@@ -26,14 +16,14 @@ Policy from config file:        targeted
 ...
 ```
 
-Next, the Linux user performing the installation needs to be mapped to the proper SELinux user/role tuple.
-Installer needs to run with an administrative role capable of loading the SELinux policies - for example `sysadm_r`.
+Next, the Linux user performing the installation needs to be mapped to the proper SELinux user/role.
+Installer needs to run with an administrative role capable of loading SELinux policy modules - for example `sysadm_r`.
 
 To check existing mappings, use the following:
 
 ```sh
 $ semanage login -l
-                Labeling   MLS/       MLS/                          
+                Labeling   MLS/       MLS/
 SELinux User    Prefix     MCS Level  MCS Range                      SELinux Roles
 root            user       s0         s0-s0:c0.c1023                 staff_r sysadm_r system_r unconfined_r
 staff_u         user       s0         s0-s0:c0.c1023                 staff_r sysadm_r system_r unconfined_r
@@ -42,7 +32,7 @@ unconfined_u    user       s0         s0-s0:c0.c1023                 system_r un
 ...
 ```
 
-To map the Linux user `john` to a SELinux user `staff_u`, do the following:
+In order to map the Linux user `john` to the SELinux user `staff_u`, do the following:
 ```sh
 $ semanage login -a -s staff_u john
 ```
@@ -64,12 +54,10 @@ $ runcon --role sysadm_r --type sysadm_t ./gravity install ...
 Gravity supports SELinux users `sysadm_u` and `unconfined_u` (and their corresponding roles) out of the box.
 If you need to install and manage Gravity clusters using a different user/role, a custom user policy is required.
 
-TODO: user policy module template
-
 
 ## Installation
 
-The install will automatically use SELinux if a) the host has SELinux enabled and b) installer has SELinux support for the host OS distribution.
+Installer will automatically use SELinux if a) the host has SELinux enabled and b) installer has SELinux support for the host OS distribution.
 
 Installer does the following as the first step when running on a host with the above conditions met:
 
@@ -96,7 +84,7 @@ $ gravity join ...
  ...
 ```
 
-SELinux support can be turned off individually by specifying `--no-selinux` for either command:
+You can turn off SELinux support by specifying `--no-selinux` for either command:
 
 ```sh
 $ gravity install --no-selinux ...
@@ -137,33 +125,61 @@ Currently the following distributions are supported:
 
 ## Troubleshooting
 
-If the installer fails, pay attention to the errors about denied permissions which might be the indicator of an SELinux issue.
+If the installer fails, it is important to determine whether the problem is related to SELinux.
 
-Unfortunately, it might not be obvious whether the particular denied permission is an SELinux denial.
-Before SELinux gets a chance to validate permissions for a particular resource, the access first passes through the
-Linux DAC (Discretionary Access Control) validation.
+If the reported error is a permission denied error, it might be related to SELinux but it also might be a
+Linux DAC (Discretionary Access Control) violation.
+Before SELinux gets a chance to validate permissions for a particular resource, the access first passes through Linux DAC.
+So, an absence of denials in the SELinux audit log might be an indication that the access is due to a DAC violation.
 
-Absence of the logged denial in the SELinux audit log might be an indication that the access has failed DAC validation.
+As a first step, if the permission denied error has been generated for a specific file system location, verify that the location
+has proper access mode for the current user before turning to SELinux.
 
-The basic approach to determining whether a permission has been denied due to SELinux is as following:
+Gravity installer captures the audit log messages relevant for the operation as part of the automatically generated crash report file.
 
-Enable the logging of `dontaudit` rules which are usually suppressed by default:
+Extract the contents of the crashreport.tgz into a directory of your choice:
 
-  ```sh
-  $ semodule --disable_dontaudit --build
-  ```
+```sh
+$ tar xf crashreport.tgz -C /path/to/dir
+```
 
-Search for recent denials using a catch-all message type:
+The contents of the tarball might vary depending on the operation step and will either contain the captures from the current host only
+or the captures from all cluster nodes. In the latter case, the contents of the crashreport.tgz will be similar to:
 
-  ```sh
-  $ ausearch --message all --start recent --interpret --success no
-  ```
+```sh
+$ tar tvf crashreport.tgz
+<hostname>-debug-logs.tar.gz
+<hostname>-k8s-logs.tar.gz
+<hostname>-etcd-backup.json.tar.gz
+cluster.json
+...
+```
 
-If the logs still don't show a denial, it is likely a failed DAC check. In this case, check that the user in fact has permissions
-to access the resources mentioned in the error message.
+The audit log captures will be then available inside the `<hostname>-debug-logs.tar` where `hostname` is the name of the current host.
+
+Issue the following command to see the list of denials as SELinux allow rules:
+
+```sh
+$ tar xf <node>-debug-logs.tar --to-stdout audit.log.tz | gunzip -c | audit2allow
+```
+
+In order to see more detailed (but also more complex) output, use the following:
+
+```sh
+$ tar xf <node>-debug-logs.tar --to-stdout audit.log.tz | gunzip -c | ausearch --interpret
+```
+
+Sometimes, the lack of denials in the log is due to suppressed `dontaudit` rules.
+Force them to be logged with:
+
+```sh
+$ semodule --disable_dontaudit --build
+```
+
+and retry the operation.
 
 
-### Searching For Denials
+### Searching For Denials In Host Auditlog
 
 To check for all relevant recent SELinux denials, use the following:
 
@@ -171,22 +187,17 @@ To check for all relevant recent SELinux denials, use the following:
 $ ausearch --message all --start recent --interpret --success no
 ```
 
-To search for all SELinux denials logged today for the gravity binary context, use the following:
+To search for all SELinux denials logged today for the gravity process domain, use the following:
 
 ```sh
 $ ausearch --message all --start today --context gravity_t --interpret --success no
 ```
 
-To search for SELinux denials and have them automatically converted to SELinux rules:
-
-```sh
-$ ausearch --message all --start recent | audit2allow
-```
-
-Although the primary use for this is creating a custom policy to fix the denials, it also provides a succinct overview of the denials.
-
 
 ### Additional Tools
+
+See [autrace](http://man7.org/linux/man-pages/man8/autrace.8.html) and [ausearch](http://man7.org/linux/man-pages/man8/ausearch.8.html) for more details
+about the kernel audit system.
 
 #### setroubleshoot
 
@@ -199,3 +210,5 @@ The package consists of these additional tools:
  * sealert is the UI client to the setroubleshootd DBus daemon. It listens and displays the notifications that the daemon generates.
 
 See [setroubleshootd](https://linux.die.net/man/8/setroubleshootd) and [sealert](https://linux.die.net/man/8/sealert) for more details.
+
+
