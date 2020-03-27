@@ -620,7 +620,7 @@ func (p *Peer) waitForAgents(ctx operationContext) error {
 			if tm.IsZero() {
 				return trace.ConnectionProblem(nil, "timed out waiting for agents to join")
 			}
-			report, err := ctx.Operator.GetSiteExpandOperationAgentReport(ctx.Operation.Key())
+			report, err := ctx.Operator.GetSiteExpandOperationAgentReport(p.Context, ctx.Operation.Key())
 			if err != nil {
 				log.WithField("err", err).Warn("Failed to query operation report.")
 				continue

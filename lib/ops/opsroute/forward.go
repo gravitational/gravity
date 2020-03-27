@@ -377,12 +377,12 @@ func (r *Router) StreamOperationLogs(key ops.SiteOperationKey, reader io.Reader)
 	return client.StreamOperationLogs(key, reader)
 }
 
-func (r *Router) GetSiteExpandOperationAgentReport(key ops.SiteOperationKey) (*ops.AgentReport, error) {
+func (r *Router) GetSiteExpandOperationAgentReport(ctx context.Context, key ops.SiteOperationKey) (*ops.AgentReport, error) {
 	client, err := r.PickOperationClient(key.SiteDomain)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return client.GetSiteExpandOperationAgentReport(key)
+	return client.GetSiteExpandOperationAgentReport(ctx, key)
 }
 
 func (r *Router) SiteExpandOperationStart(key ops.SiteOperationKey) error {

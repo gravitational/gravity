@@ -68,6 +68,12 @@ func Run(g *Application) error {
 		return trace.Wrap(err)
 	}
 
+	if *g.Debug {
+		utils.InitGRPCLoggerWithDefaults()
+	} else {
+		utils.InitGRPCLoggerFromEnvironment()
+	}
+
 	if *g.UID != -1 || *g.GID != -1 {
 		return SwitchPrivileges(*g.UID, *g.GID)
 	}
@@ -139,7 +145,7 @@ func InitAndCheck(g *Application, cmd string) error {
 	if *g.ProfileEndpoint != "" {
 		err := process.StartProfiling(context.TODO(), *g.ProfileEndpoint, *g.ProfileTo)
 		if err != nil {
-			log.Warningf("Failed to setup profiling: %v.", trace.DebugReport(err))
+			log.WithError(err).Warn("Failed to setup profiling.")
 		}
 	}
 

@@ -868,11 +868,12 @@
   version = "5.5.2"
 
 [[projects]]
-  digest = "1:27daf346b94c013dcec722a9e596d5bff92d7559ab37f787fd71b128bc31066a"
+  branch = "dmitri/optional-context"
+  digest = "1:283710d107ea5e719f4515eb3f0593ffc826332964a3e019dea168a2ecc02674"
   name = "github.com/gravitational/roundtrip"
   packages = ["."]
   pruneopts = "UT"
-  revision = "6a87d116a90b9c4e73bedc19ebc9c17f1b43d826"
+  revision = "bb1c52b93c1831d2aad1cc403f172a9df9c17298"
 
 [[projects]]
   digest = "1:5fdac9094bb05fdf65f336bb375bd850a549af205739158f4a54301e17d86895"

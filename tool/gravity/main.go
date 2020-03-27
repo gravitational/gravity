@@ -20,23 +20,20 @@ import (
 	stdlog "log"
 	"os"
 
-	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/gravity/tool/common"
 	"github.com/gravitational/gravity/tool/gravity/cli"
 
 	teleutils "github.com/gravitational/teleport/lib/utils"
-	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
 func main() {
 	teleutils.InitLogger(teleutils.LoggingForCLI, log.InfoLevel)
-	utils.InitGRPCLogger()
 	stdlog.SetOutput(log.StandardLogger().Writer())
 	app := kingpin.New("gravity", "Cluster management tool")
 	if err := run(app); err != nil {
-		log.Error(trace.DebugReport(err))
+		log.WithError(err).Error("Command failed.")
 		common.PrintError(err)
 		os.Exit(255)
 	}

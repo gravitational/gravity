@@ -101,7 +101,7 @@ func (s *GravityResourcesSuite) TestUser(c *check.C) {
 
 	collectionI, err = s.r.GetCollection(resources.ListRequest{Kind: "user", Name: "test"})
 	if !trace.IsNotFound(err) {
-		c.Errorf("Expected err to be a not found error but got %T", err)
+		c.Error("Expected the error to be of type NotFound.")
 	}
 }
 

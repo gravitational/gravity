@@ -1022,7 +1022,7 @@ func (o *Operator) GetSiteInstallOperationAgentReport(key ops.SiteOperationKey) 
 	return o.getSiteOperationAgentReport(key)
 }
 
-func (o *Operator) GetSiteExpandOperationAgentReport(key ops.SiteOperationKey) (*ops.AgentReport, error) {
+func (o *Operator) GetSiteExpandOperationAgentReport(_ context.Context, key ops.SiteOperationKey) (*ops.AgentReport, error) {
 	return o.getSiteOperationAgentReport(key)
 }
 

@@ -196,7 +196,7 @@ ignored = [
 
 [[override]]
   name = "github.com/gravitational/roundtrip"
-  revision = "6a87d116a90b9c4e73bedc19ebc9c17f1b43d826"
+  branch = "dmitri/optional-context"
 
 [[constraint]]
   name = "github.com/gravitational/teleport"

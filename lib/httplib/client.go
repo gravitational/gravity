@@ -212,7 +212,11 @@ type Dialer func(ctx context.Context, network, addr string) (net.Conn, error)
 // using local resolver prior to dialing
 func DialFromEnviron(dnsAddr string) func(ctx context.Context, network, addr string) (net.Conn, error) {
 	return func(ctx context.Context, network, addr string) (conn net.Conn, err error) {
-		log.WithField("addr", addr).Debug("Dial.")
+		logger := log.WithFields(log.Fields{
+			"addr":    addr,
+			"network": network,
+		})
+		logger.Debug("Dial.")
 
 		if isInsidePod() {
 			return Dial(ctx, network, addr)
@@ -224,7 +228,7 @@ func DialFromEnviron(dnsAddr string) func(ctx context.Context, network, addr str
 		}
 
 		// Dial with a kubernetes service resolver
-		log.WithError(err).Warn("Failed to dial with local resolver.")
+		logger.WithError(err).Warn("Failed to dial with local resolver.")
 		return DialWithServiceResolver(ctx, network, addr)
 
 	}
@@ -250,7 +254,7 @@ func DialWithLocalResolver(ctx context.Context, dnsAddr, network, addr string) (
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to resolve %v", addr)
 	}
-	log.Debugf("Dialing %v", hostPort)
+	log.WithField("host-port", hostPort).Debug("Dial.")
 	var d net.Dialer
 	return d.DialContext(ctx, network, hostPort)
 }

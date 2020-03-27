@@ -902,7 +902,7 @@ func (m *Handler) agentReport(w http.ResponseWriter, r *http.Request, p httprout
 	case ops.OperationInstall:
 		agentReport, err = context.Operator.GetSiteInstallOperationAgentReport(opKey)
 	case ops.OperationExpand:
-		agentReport, err = context.Operator.GetSiteExpandOperationAgentReport(opKey)
+		agentReport, err = context.Operator.GetSiteExpandOperationAgentReport(r.Context(), opKey)
 	}
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -1397,7 +1397,7 @@ func (m *Handler) uploadApp(w http.ResponseWriter, r *http.Request, p httprouter
 		return nil, trace.Wrap(err)
 	}
 
-	for _ = range progressC {
+	for range progressC {
 	}
 
 	if err = <-errorC; err != nil {

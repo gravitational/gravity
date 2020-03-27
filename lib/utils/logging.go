@@ -38,21 +38,34 @@ func InitLogging(logFile string) {
 	setLoggingOptions()
 }
 
-// InitGRPCLogger restores the GRPC logger if any of the related environment variables
-// are set
-func InitGRPCLogger() {
+// InitGRPCLoggerFromEnvironment configures the GRPC logger if any of the related environment variables
+// are set.
+func InitGRPCLoggerFromEnvironment() {
 	const (
 		envSeverityLevel  = "GRPC_GO_LOG_SEVERITY_LEVEL"
 		envVerbosityLevel = "GRPC_GO_LOG_VERBOSITY_LEVEL"
 	)
 	severityLevel := os.Getenv(envSeverityLevel)
 	verbosityLevel := os.Getenv(envVerbosityLevel)
-
+	var verbosity int
+	if verbosityOverride, err := strconv.Atoi(verbosityLevel); err == nil {
+		verbosity = verbosityOverride
+	}
 	if severityLevel == "" && verbosityLevel == "" {
 		// Nothing to do
 		return
 	}
+	InitGRPCLogger(severityLevel, verbosity)
+}
 
+// InitGRPCLoggerWithDefaults configures the GRPC logger with debug defaults.
+func InitGRPCLoggerWithDefaults() {
+	InitGRPCLogger("info", 10)
+}
+
+// Severity level is one of `info`, `warning` or `error` and defaults to error if unspecified.
+// Verbosity is a non-negative integer.
+func InitGRPCLogger(severityLevel string, verbosity int) {
 	errorW := ioutil.Discard
 	warningW := ioutil.Discard
 	infoW := ioutil.Discard
@@ -66,10 +79,6 @@ func InitGRPCLogger() {
 		infoW = os.Stderr
 	}
 
-	var verbosity int
-	if verbosityOverride, err := strconv.Atoi(verbosityLevel); err == nil {
-		verbosity = verbosityOverride
-	}
 	grpclog.SetLoggerV2(grpclog.NewLoggerV2WithVerbosity(infoW, warningW, errorW, verbosity))
 }
 
