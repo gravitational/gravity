@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2020 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@ func New() *Auditlog {
 	}
 }
 
-// AddDefaultRules adds default audit rules for the all known domains
+// AddDefaultRules adds default audit rules for all known domains
 func (r *Auditlog) AddDefaultRules() error {
 	subjtypeArg := func(subjtype string) string {
 		return fmt.Sprintf("subj_type=%v", subjtype)
@@ -53,14 +53,14 @@ func (r *Auditlog) AddDefaultRules() error {
 	defer w.Close()
 	cmd.Stdout = w
 	cmd.Stderr = w
-	logger.Info("Set up audit rule.")
+	logger.Info("Set up audit rules.")
 	if err := cmd.Run(); err != nil {
 		return trace.Wrap(err, "failed to set up audit rule for process")
 	}
 	return nil
 }
 
-// RemoveRules removes audit rules previously with this package
+// RemoveRules removes previously configured audit rules
 func (r *Auditlog) RemoveRules() error {
 	cmd := exec.Command(auditctlBin, "-D", "-k", auditKey)
 	r.log.WithField("cmd", cmd.Args).Info("Remove audit rules.")
@@ -76,7 +76,7 @@ type Auditlog struct {
 	log log.Logger
 }
 
-// Domains lists all gravity SELinux process Domains for auditing
+// Domains lists all gravity SELinux process domains for auditing
 var Domains = []string{
 	// gravity_domain
 	"gravity_t",

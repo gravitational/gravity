@@ -103,7 +103,7 @@ func planetServices() Collectors {
 // syslogExportLogs fetches host journal logs
 func syslogExportLogs() Collector {
 	const script = `
-#!/bin/bash
+#!/bin/sh
 /bin/journalctl --no-pager --output=export | /bin/gzip -f`
 	return Script("gravity-system.log.gz", script)
 }
@@ -111,7 +111,7 @@ func syslogExportLogs() Collector {
 // systemFileLogs fetches gravity platform-related logs
 func systemFileLogs() Collectors {
 	const template = `
-#!/bin/bash
+#!/bin/sh
 cat %v 2> /dev/null || true`
 	workingDir := filepath.Dir(utils.Exe.Path)
 	return Collectors{
@@ -176,11 +176,11 @@ func auditLog() Collector {
 	var subjects []string
 	for _, domain := range auditlog.Domains {
 		subjects = append(subjects,
-			fmt.Sprint("/sbin/ausearch --success no --message all --raw --start yesterday --end today ", "--subject ", domain, " ;"),
+			fmt.Sprint("/sbin/ausearch --success no --message all --raw --start yesterday --end now", "--subject ", domain, " ;"),
 		)
 	}
 	script := fmt.Sprintf(`
-#!/bin/bash
+#!/bin/sh
 { %v } | /bin/gzip -f`,
 		strings.Join(subjects, " "))
 	return Script("audit.log.gz", script)

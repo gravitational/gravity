@@ -732,7 +732,7 @@ func TerminationHandler(interrupt *signals.InterruptHandler, printer utils.Print
 	for {
 		select {
 		case sig := <-interrupt.C:
-			log.Info("Received ", sig, " signal. Terminating the installer gracefully, please wait.")
+			printer.Println("Received ", sig, " signal. Terminating the installer gracefully, please wait.")
 			interrupt.Abort()
 			return
 		case <-interrupt.Done():

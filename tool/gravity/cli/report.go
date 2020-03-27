@@ -45,5 +45,5 @@ func systemReport(env *localenv.LocalEnvironment, filters []string, compressed b
 		Compressed: compressed,
 		Packages:   env.Packages,
 	}
-	return report.Collect(context.TODO(), config, w)
+	return trace.Wrap(report.Collect(context.TODO(), config, w))
 }
