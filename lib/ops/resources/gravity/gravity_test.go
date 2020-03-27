@@ -100,7 +100,9 @@ func (s *GravityResourcesSuite) TestUser(c *check.C) {
 	c.Assert(err, check.IsNil)
 
 	collectionI, err = s.r.GetCollection(resources.ListRequest{Kind: "user", Name: "test"})
-	c.Assert(err, check.FitsTypeOf, trace.NotFound(""))
+	if !trace.IsNotFound(err) {
+		c.Errorf("Expected err to be a not found error but got %T", err)
+	}
 }
 
 func (s *GravityResourcesSuite) TestToken(c *check.C) {
