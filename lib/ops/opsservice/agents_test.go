@@ -346,11 +346,11 @@ func (s *AgentSuite) token(tok string) string {
 	return fmt.Sprintf("%v.%v", tok, s.key.OperationID)
 }
 
-func newTestAgentGroup(c *C, addr, hostname string) agentGroup {
+func newTestAgentGroup(c *C, addr, hostname string) *agentGroup {
 	group, err := rpcserver.NewAgentGroup(rpcserver.AgentGroupConfig{}, []rpcserver.Peer{testPeer{addr: addr}})
 	c.Assert(err, IsNil)
 
-	return agentGroup{
+	return &agentGroup{
 		AgentGroup: *group,
 		hostnames:  map[string]string{addr: hostname},
 	}
@@ -380,19 +380,19 @@ func newSystemInfo(hostname string) rpcserver.TestSystemInfo {
 	sysinfo := storage.NewSystemInfo(storage.SystemSpecV2{
 		Hostname: hostname,
 		Filesystems: []storage.Filesystem{
-			storage.Filesystem{
+			{
 				DirName: "/foo/bar",
 				Type:    "tmpfs",
 			},
 		},
 		FilesystemStats: map[string]storage.FilesystemUsage{
-			"/foo/bar": storage.FilesystemUsage{
+			"/foo/bar": {
 				TotalKB: 512,
 				FreeKB:  0,
 			},
 		},
 		NetworkInterfaces: map[string]storage.NetworkInterface{
-			"device0": storage.NetworkInterface{
+			"device0": {
 				Name: "device0",
 				IPv4: "172.168.0.1",
 			},

@@ -213,6 +213,10 @@ const (
 	// PeerConnectTimeout is the timeout of an RPC agent connecting to its peer
 	PeerConnectTimeout = 10 * time.Second
 
+	// AgentGroupPeerReconnectTimeout is the maximum amount of time agent group will attempt
+	// to reconnect to the peer
+	AgentGroupPeerReconnectTimeout = 15 * time.Minute
+
 	// EnvPeerConnectTimeout is the environment variable that overrides the value of the
 	// agent timeout for the validating connect
 	EnvPeerConnectTimeout = "GRAVITY_PEER_CONNECT_TIMEOUT"

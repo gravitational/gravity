@@ -37,6 +37,7 @@ import (
 	"github.com/gravitational/gravity/lib/users"
 	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/cenkalti/backoff"
 	licenseapi "github.com/gravitational/license"
 	"github.com/gravitational/satellite/agent/proto/agentpb"
 	"github.com/gravitational/trace"
@@ -312,7 +313,7 @@ func NewAgentPeerStore(backend storage.Backend, users users.Users,
 	return &AgentPeerStore{
 		FieldLogger: log,
 		teleport:    teleport,
-		groups:      make(map[ops.SiteOperationKey]agentGroup),
+		groups:      make(map[ops.SiteOperationKey]*agentGroup),
 		backend:     backend,
 		users:       users,
 	}
@@ -491,7 +492,7 @@ func (r *AgentPeerStore) getOrCreateGroup(key ops.SiteOperationKey) (*agentGroup
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if group, ok := r.groups[key]; ok {
-		return &group, nil
+		return group, nil
 	}
 
 	group, err := r.addGroup(key)
@@ -505,7 +506,7 @@ func (r *AgentPeerStore) getGroup(key ops.SiteOperationKey) (*agentGroup, error)
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if group, ok := r.groups[key]; ok {
-		return &group, nil
+		return group, nil
 	}
 
 	return nil, trace.NotFound("no execution group for %v", key)
@@ -525,21 +526,25 @@ func (r *AgentPeerStore) removeGroup(ctx context.Context, key ops.SiteOperationK
 func (r *AgentPeerStore) addGroup(key ops.SiteOperationKey) (*agentGroup, error) {
 	config := rpcserver.AgentGroupConfig{
 		FieldLogger: log.StandardLogger(),
+		ReconnectStrategy: rpcserver.ReconnectStrategy{
+			Backoff: func() backoff.BackOff {
+				return utils.NewExponentialBackOff(defaults.AgentGroupPeerReconnectTimeout)
+			},
+		},
 	}
 	group, err := rpcserver.NewAgentGroup(config, nil)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	group.Start()
-	agentGroup := agentGroup{
+	agentGroup := &agentGroup{
 		AgentGroup: *group,
 		watchCh:    make(chan rpcserver.Peer),
 		hostnames:  make(map[string]string),
 	}
 	r.WithField("key", key).Debug("Added group.")
-	// FIXME: assignment copies lock value
 	r.groups[key] = agentGroup
-	return &agentGroup, nil
+	return agentGroup, nil
 }
 
 // AgentPeerStore manages groups of agents based on operation context.
@@ -550,7 +555,7 @@ type AgentPeerStore struct {
 	users    users.Users
 	teleport ops.TeleportProxyService
 	mu       sync.Mutex
-	groups   map[ops.SiteOperationKey]agentGroup
+	groups   map[ops.SiteOperationKey]*agentGroup
 }
 
 func (r *agentGroup) add(p rpcserver.Peer, hostname string) {
