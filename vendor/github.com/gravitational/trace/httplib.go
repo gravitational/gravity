@@ -79,7 +79,7 @@ func ReadError(statusCode int, respBytes []byte) error {
 	case http.StatusGatewayTimeout:
 		err = &ConnectionProblemError{}
 	default:
-		err = &externalError{}
+		err = &RawTrace{}
 	}
 	return wrapProxy(unmarshalError(err, respBytes))
 }
@@ -92,23 +92,13 @@ func replyJSON(w http.ResponseWriter, code int, err error) {
 	// otherwise capture error message and marshal it explicitly
 	var obj interface{} = err
 	if _, ok := err.(*TraceErr); !ok {
-		obj = externalError{Message: err.Error()}
+		obj = RawTrace{Message: err.Error()}
 	}
 	out, err = json.MarshalIndent(obj, "", "    ")
 	if err != nil {
 		out = []byte(fmt.Sprintf(`{"message": "internal marshal error: %v"}`, err))
 	}
 	w.Write(out)
-}
-
-// Error returns the underlying message
-func (r *externalError) Error() string {
-	return r.Message
-}
-
-type externalError struct {
-	// Message specifies the error message
-	Message string `json:"message"`
 }
 
 func unmarshalError(err error, responseBody []byte) error {
@@ -120,12 +110,17 @@ func unmarshalError(err error, responseBody []byte) error {
 		return err
 	}
 	if len(raw.Traces) != 0 && len(raw.Err) != 0 {
-		// try to capture traces, if there are any
 		err2 := json.Unmarshal(raw.Err, err)
 		if err2 != nil {
 			return err
 		}
-		return &TraceErr{Traces: raw.Traces, Err: err, Message: raw.Message}
+		return &TraceErr{
+			Traces:   raw.Traces,
+			Err:      err,
+			Message:  raw.Message,
+			Messages: raw.Messages,
+			Fields:   raw.Fields,
+		}
 	}
 	json.Unmarshal(responseBody, err)
 	return err
