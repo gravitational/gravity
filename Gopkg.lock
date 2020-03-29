@@ -535,6 +535,14 @@
   version = "v1.7.0"
 
 [[projects]]
+  digest = "1:af43bdaaf86655a2343f113e9b293bbc16b12099eaeb223982bbe4d4c22ba14d"
+  name = "github.com/fatih/structs"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "4966fc68f5b7593aafa6cbbba2d65ec6e1416047"
+  version = "v1.1.0"
+
+[[projects]]
   digest = "1:abeb38ade3f32a92943e5be54f55ed6d6e3b6602761d74b4aab4c9dd45c18abd"
   name = "github.com/fsnotify/fsnotify"
   packages = ["."]
@@ -867,7 +875,7 @@
   revision = "6a87d116a90b9c4e73bedc19ebc9c17f1b43d826"
 
 [[projects]]
-  digest = "1:f560959bdd0707bc01ef77848f659bb05db658109f3644c8384b83c8e42168aa"
+  digest = "1:5fdac9094bb05fdf65f336bb375bd850a549af205739158f4a54301e17d86895"
   name = "github.com/gravitational/satellite"
   packages = [
     "agent",
@@ -884,8 +892,8 @@
     "utils",
   ]
   pruneopts = "UT"
-  revision = "73961bdc6c6b5efb516ba2c35b14697e77e4f248"
-  version = "5.5.9"
+  revision = "df1dc80352329fe327e9927575055f6af3a25011"
+  version = "5.5.11"
 
 [[projects]]
   digest = "1:49f6abbce9ade5f43508429e4af1adcce55d27adcd62719fea049decc766a7c9"
@@ -962,12 +970,12 @@
   revision = "50a1f1cab731ca2d5096166e36f45c12ecb1cbe3"
 
 [[projects]]
-  digest = "1:3afdc8c5bad39bda75ede9cd18bf590c385ff9a28c742f7330e3d3e19c685c47"
+  digest = "1:dc84545f9f2a442b14864f2f7e54ae556cae53bd437a05a456572fea9e73cc87"
   name = "github.com/gravitational/trace"
   packages = ["."]
   pruneopts = "UT"
-  revision = "42a8fffe760db82cf94b0c3e0112f91c3526a604"
-  version = "v1.1.9"
+  revision = "dd5b2e8eae86d31f6273ff3ac46d5b15edd6d6be"
+  version = "1.1.10"
 
 [[projects]]
   digest = "1:841d5835e94129658adabece66a4cc54d2cec9a40fa8b51743ea35d0519dd6c2"
@@ -1323,6 +1331,14 @@
   revision = "eadb3ce320cbab8393bea5ca17bebac3f78a021b"
 
 [[projects]]
+  digest = "1:b787518ff1745b6710250b526c50cb32fa3322127d144bebc3602a606cbe332a"
+  name = "github.com/mailgun/holster"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "2296d2fb30b143ac13780cb07dd5e75b22d044b1"
+  version = "v3.8.0"
+
+[[projects]]
   digest = "1:7909a8ad77c5467c33627506121ddf884117adc69600139a6e525560843f7e43"
   name = "github.com/mailgun/lemma"
   packages = [
@@ -1585,6 +1601,14 @@
   version = "v2.0.1"
 
 [[projects]]
+  digest = "1:9e1d37b58d17113ec3cb5608ac0382313c5b59470b94ed97d0976e69c7022314"
+  name = "github.com/pkg/errors"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "614d223910a179a466c1767a985424175c39b465"
+  version = "v0.9.1"
+
+[[projects]]
   digest = "1:0028cb19b2e4c3112225cd871870f2d9cf49b9b4276531f03438a88e94be86fe"
   name = "github.com/pmezard/go-difflib"
   packages = ["difflib"]
@@ -1648,15 +1672,16 @@
   revision = "61f87aac8082fa8c3c5655c7608d7478d46ac2ad"
 
 [[projects]]
-  branch = "master"
-  digest = "1:e3f36c748588410d67b7bb3fb442c339ee0c297100425b9040ed6bf3074978f6"
+  digest = "1:5dc7e10a8b70e01a67e232210cb78758630895a0a7fd69d4b909f31d188250e6"
   name = "github.com/prometheus/procfs"
   packages = [
     ".",
-    "xfs",
+    "internal/fs",
+    "internal/util",
   ]
   pruneopts = "UT"
-  revision = "e645f4e5aaa8506fc71d6edbc5c4ff02c04c46f2"
+  revision = "46159f73e74d1cb8dc223deef9b2d049286f46b1"
+  version = "v0.0.11"
 
 [[projects]]
   digest = "1:70ecb8f830ca88eadd76baf6386ee7abdddb7037091971c78f81daf81b8be2d1"
