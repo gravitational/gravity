@@ -324,12 +324,7 @@ const manifestSchema = `
         "ingress": {
           "type": "object",
           "properties": {
-            "openebs": {
-              "type": "object",
-              "properties": {
-                "enabled": {"type": "boolean"}
-              }
-            }
+            "enabled": {"type": "boolean"}
           }
         },
         "storage": {
