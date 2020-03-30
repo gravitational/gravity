@@ -706,13 +706,13 @@ func completeInstallPlan(localEnv *localenv.LocalEnvironment, operation *ops.Sit
 	return nil
 }
 
-func completeJoinPlan(localEnv, joinEnv *localenv.LocalEnvironment, operation *ops.SiteOperation) error {
+func completeJoinPlan(localEnv, joinEnv *localenv.LocalEnvironment, operation ops.SiteOperation) error {
 	operator, err := joinEnv.CurrentOperator(httplib.WithInsecure())
 	if err != nil {
 		if !trace.IsAccessDenied(err) {
 			log.WithError(err).Warn("Failed to query cluster operator.")
 		}
-		return completeJoinPlanFromAnotherNode(localEnv, operation)
+		return completeJoinPlanFromExistingNode(localEnv, operation)
 	}
 	apps, err := joinEnv.CurrentApps(httplib.WithInsecure())
 	if err != nil {
@@ -721,12 +721,6 @@ func completeJoinPlan(localEnv, joinEnv *localenv.LocalEnvironment, operation *o
 	packages, err := joinEnv.CurrentPackages(httplib.WithInsecure())
 	if err != nil {
 		return trace.Wrap(err)
-	}
-	if operation == nil {
-		operation, err = ops.GetExpandOperation(joinEnv.Backend)
-		if err != nil {
-			return trace.Wrap(err)
-		}
 	}
 	joinFSM, err := expand.NewFSM(expand.FSMConfig{
 		OperationKey:  operation.Key(),
@@ -746,16 +740,13 @@ func completeJoinPlan(localEnv, joinEnv *localenv.LocalEnvironment, operation *o
 	return joinFSM.Complete(trace.Errorf("completed manually"))
 }
 
-func completeJoinPlanFromAnotherNode(localEnv *localenv.LocalEnvironment, operation *ops.SiteOperation) error {
+// completeJoinPlanFromExistingNode completes the specifies expand operation
+// from a existing cluster node in case the joining node (and its state) is not
+// available to perform the operation.
+func completeJoinPlanFromExistingNode(localEnv *localenv.LocalEnvironment, operation ops.SiteOperation) error {
 	clusterEnv, err := localEnv.NewClusterEnvironment()
 	if err != nil {
 		return trace.Wrap(err)
-	}
-	if operation == nil {
-		operation, err = ops.GetExpandOperation(clusterEnv.Backend)
-		if err != nil {
-			return trace.Wrap(err)
-		}
 	}
 	const manualCompletedError = "completed manually"
 	plan, err := clusterEnv.Operator.GetOperationPlan(operation.Key())
@@ -763,7 +754,7 @@ func completeJoinPlanFromAnotherNode(localEnv *localenv.LocalEnvironment, operat
 		return trace.Wrap(err)
 	}
 	if plan != nil {
-		return fsm.CompleteOperation(plan, clusterEnv.Operator, manualCompletedError)
+		return fsm.CompleteOrFailOperation(plan, clusterEnv.Operator, manualCompletedError)
 	}
 	// No operation plan created for the operation - fail the operation directly
 	return ops.FailOperation(operation.Key(), clusterEnv.Operator, manualCompletedError)

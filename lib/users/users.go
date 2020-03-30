@@ -83,8 +83,11 @@ type Users interface {
 	// GetOperationProvisioningToken returns token created for the particular site operation
 	GetOperationProvisioningToken(clusterName, operationID string) (*storage.ProvisioningToken, error)
 
-	// CreateProvisioningToken creates a provisioning token for the given user
+	// CreateProvisioningToken creates a provisioning token from the specified template
 	CreateProvisioningToken(storage.ProvisioningToken) (*storage.ProvisioningToken, error)
+
+	// DeleteProvisioningToken deletes the specified provisioning token
+	DeleteProvisioningToken(storage.ProvisioningToken) error
 
 	// CreateInstallToken creates a new one-time installation token
 	CreateInstallToken(storage.InstallToken) (*storage.InstallToken, error)

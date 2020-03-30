@@ -257,9 +257,22 @@ func (g *operationGroup) onSiteOperationComplete(key ops.SiteOperationKey) error
 		return nil
 	}
 
-	site, err := g.operator.openSite(g.siteKey)
+	cluster, err := g.operator.openSite(g.siteKey)
 	if err != nil {
 		return trace.Wrap(err)
+	}
+
+	if operation.IsCompleted() {
+		token, err := cluster.users().GetOperationProvisioningToken(key.SiteDomain, key.OperationID)
+		if err != nil && !trace.IsNotFound(err) {
+			return trace.Wrap(err)
+		}
+		if err == nil {
+			err = cluster.users().DeleteProvisioningToken(*token)
+			if err != nil {
+				return trace.Wrap(err)
+			}
+		}
 	}
 
 	state, err := operation.ClusterState()
@@ -267,7 +280,7 @@ func (g *operationGroup) onSiteOperationComplete(key ops.SiteOperationKey) error
 		return trace.Wrap(err)
 	}
 
-	err = site.setSiteState(state)
+	err = cluster.setSiteState(state)
 	if err != nil {
 		return trace.Wrap(err)
 	}

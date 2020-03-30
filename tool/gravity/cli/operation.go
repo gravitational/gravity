@@ -99,7 +99,10 @@ func completeOperationPlan(localEnv, updateEnv, joinEnv *localenv.LocalEnvironme
 		// There's only one install operation
 		return completeInstallPlan(localEnv, op)
 	case ops.OperationExpand:
-		return completeJoinPlan(localEnv, joinEnv, op)
+		if op == nil {
+			return trace.BadParameter("operation ID must be specified")
+		}
+		return completeJoinPlan(localEnv, joinEnv, *op)
 	case ops.OperationUpdate:
 		return completeUpdatePlan(localEnv, updateEnv, *op)
 	case ops.OperationUpdateRuntimeEnviron:

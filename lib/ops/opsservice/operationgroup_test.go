@@ -113,7 +113,7 @@ func (s *OperationGroupSuite) TestExpandMaxConcurrency(c *check.C) {
 			State:      ops.OperationStateExpandInitiated,
 			InstallExpand: &storage.InstallExpandOperationState{
 				Profiles: map[string]storage.ServerProfile{
-					"node": storage.ServerProfile{
+					"node": {
 						ServiceRole: string(schema.ServiceRoleNode),
 					},
 				},
@@ -132,7 +132,7 @@ func (s *OperationGroupSuite) TestExpandMaxConcurrency(c *check.C) {
 		State:      ops.OperationStateExpandInitiated,
 		InstallExpand: &storage.InstallExpandOperationState{
 			Profiles: map[string]storage.ServerProfile{
-				"node": storage.ServerProfile{
+				"node": {
 					ServiceRole: string(schema.ServiceRoleNode),
 				},
 			},
@@ -228,7 +228,7 @@ func (s *OperationGroupSuite) TestMultiExpandClusterState(c *check.C) {
 			State:      ops.OperationStateExpandInitiated,
 			InstallExpand: &storage.InstallExpandOperationState{
 				Profiles: map[string]storage.ServerProfile{
-					"node": storage.ServerProfile{
+					"node": {
 						ServiceRole: string(schema.ServiceRoleNode),
 					},
 				},

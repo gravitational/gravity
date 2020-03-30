@@ -218,9 +218,9 @@ func ClusterKey(plan storage.OperationPlan) ops.SiteKey {
 	}
 }
 
-// CompleteOperation completes the operation given by the plan in the specified operator.
-// planErr optionally specifies the error to record in the failed message
-func CompleteOperation(plan *storage.OperationPlan, operator ops.Operator, planErr string) (err error) {
+// CompleteOrFailOperation completes or fails the operation given by the plan in the specified operator.
+// planErr optionally specifies the error to record in the failed message and record operation failure
+func CompleteOrFailOperation(plan *storage.OperationPlan, operator ops.Operator, planErr string) (err error) {
 	key := OperationKey(*plan)
 	if IsCompleted(plan) {
 		err = ops.CompleteOperation(key, operator)

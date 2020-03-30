@@ -308,11 +308,20 @@ func (i *IdentityACL) UpsertLocalClusterName(clusterName string) error {
 	return i.identity.UpsertLocalClusterName(clusterName)
 }
 
+// CreateProvisioningToken creates a provisioning token from the specified template
 func (i *IdentityACL) CreateProvisioningToken(t storage.ProvisioningToken) (*storage.ProvisioningToken, error) {
 	if err := i.clusterAction(t.SiteDomain, teleservices.VerbCreate); err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return i.identity.CreateProvisioningToken(t)
+}
+
+// DeleteProvisioningToken deletes the specified provisioning token
+func (i *IdentityACL) DeleteProvisioningToken(t storage.ProvisioningToken) error {
+	if err := i.clusterAction(t.SiteDomain, teleservices.VerbDelete); err != nil {
+		return trace.Wrap(err)
+	}
+	return i.identity.DeleteProvisioningToken(t)
 }
 
 func (i *IdentityACL) GetSiteProvisioningTokens(siteDomain string) ([]storage.ProvisioningToken, error) {
