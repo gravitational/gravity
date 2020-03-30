@@ -13,7 +13,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 | 6.1.19        | Yes | March 24th, 2020     | November 10th, 2021  | 1.15.11            | 3.2.12           |
 | 6.0.10*       | No  | October 17th, 2019   | -                    | 1.14.7             | 3.2.12           |
 | 5.6.8*        | No  | September 18th, 2019 | -                    | 1.14.7             | 3.0.6-gravity    |
-| 5.5.38        | Yes | March 10th, 2020     | September 7th, 2020  | 1.13.11            | 3.0.6-gravity    |
+| 5.5.39        | Yes | March 30th, 2020     | September 7th, 2020  | 1.13.11            | 3.0.6-gravity    |
 | 5.4.10*       | No  | March 26th, 2019     | -                    | 1.13.5             | 2.4.10           |
 | 5.3.9*        | No  | March 7th, 2019      | -                    | 1.12.3             | 2.4.7            |
 | 5.2.16        | Yes | October 11th, 2019   | October 15th, 2019   | 1.11.9             | 2.4.10           |
@@ -611,6 +611,19 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 * Add support for using `helm` directly from host.
 
 ## 5.x Releases
+
+### 5.5.39 LTS (March 30th, 2020)
+
+#### Improvements
+
+* Add overlay network checker to the in-cluster problem detector ([#1293](https://github.com/gravitational/gravity/pull/1293)).
+* Add checks for unsupported upgrade paths ([#1232](https://github.com/gravitational/gravity/pull/1232)).
+* Add cgroup cleaner to planet to prevent leaking cgroups ([planet#578](https://github.com/gravitational/planet/pull/578)).
+
+#### Bugfixes
+
+* Fix an issue with copying lengthy commands in web terminal ([#1258](https://github.com/gravitational/gravity/pull/1258)).
+* Bring back flat container log structure in debug report tarballs ([#1278](https://github.com/gravitational/gravity/pull/1278)).
 
 ### 5.5.38 LTS (March 10th, 2020)
 
