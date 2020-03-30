@@ -64,8 +64,8 @@ func printEvent(w io.Writer, event *pb.TimelineEvent) {
 	case *pb.TimelineEvent_ClusterDegraded:
 		fmt.Fprintln(w, color.RedString("%s [Cluster Degraded]",
 			timestamp))
-	case *pb.TimelineEvent_ClusterRecovered:
-		fmt.Fprintln(w, color.GreenString("%s [Cluster Recovered]",
+	case *pb.TimelineEvent_ClusterHealthy:
+		fmt.Fprintln(w, color.GreenString("%s [Cluster Healthy]",
 			timestamp))
 	case *pb.TimelineEvent_NodeAdded:
 		fmt.Fprintln(w, color.YellowString("%s [Node Added]\tnode=%s",
@@ -76,9 +76,9 @@ func printEvent(w io.Writer, event *pb.TimelineEvent) {
 	case *pb.TimelineEvent_NodeDegraded:
 		fmt.Fprintln(w, color.RedString("%s [Node Degraded]\tnode=%s",
 			timestamp, event.GetNodeDegraded().GetNode()))
-	case *pb.TimelineEvent_NodeRecovered:
-		fmt.Fprintln(w, color.GreenString("%s [Node Recovered]\tnode=%s",
-			timestamp, event.GetNodeRecovered().GetNode()))
+	case *pb.TimelineEvent_NodeHealthy:
+		fmt.Fprintln(w, color.GreenString("%s [Node Healthy]\tnode=%s",
+			timestamp, event.GetNodeHealthy().GetNode()))
 	case *pb.TimelineEvent_ProbeFailed:
 		e := event.GetProbeFailed()
 		fmt.Fprintln(w, color.RedString("%s [Probe Failed]\tnode=%s\tchecker=%s",
@@ -87,6 +87,11 @@ func printEvent(w io.Writer, event *pb.TimelineEvent) {
 		e := event.GetProbeSucceeded()
 		fmt.Fprintln(w, color.GreenString("%s [Probe Succeeded]\tnode=%s\tchecker=%s",
 			timestamp, e.GetNode(), e.GetProbe()))
+	case *pb.TimelineEvent_LeaderElected:
+		e := event.GetLeaderElected()
+		fmt.Fprintln(w, color.YellowString("%s [Leader Elected]\tnode=%s",
+			timestamp, e.GetNode()))
+
 	default:
 		fmt.Fprintln(w, color.YellowString("%s Unknown event", timestamp))
 		log.WithField("event", event).Warn("Received unknown event type.")

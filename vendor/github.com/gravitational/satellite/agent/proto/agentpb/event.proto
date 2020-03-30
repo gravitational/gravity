@@ -17,8 +17,8 @@ syntax = "proto3";
 
 package agentpb;
 
-// ClusterRecovered represents a change in cluster state to a healthy state.
-message ClusterRecovered {}
+// ClusterHealthy represents a change in cluster state to a healthy state.
+message ClusterHealthy {}
 
 // ClusterDegraded represents a change in cluster state to a degraded state.
 message ClusterDegraded {}
@@ -30,41 +30,50 @@ message ClusterUpgrade {}
 // NodeAdded represents a cluster resize event in which a node is added to the
 // cluster.
 message NodeAdded {
-  // Node specifies the node name.
+  // Node specifies the name of the node that was added to the cluster.
   string node = 1;
 }
 
 // NodeRemoved represents a cluster resize event in which a node is removed from
 // the cluster.
 message NodeRemoved {
-  // Node specifies the node name.
+  // Node specifies the name of the node that was removed from the cluster.
   string node = 1;
 }
 
-// NodeRecovered represents a change in node state to a healthy state.
-message NodeRecovered {
-    // Node specifies the node name.
+// NodeHealthy represents a change in node state to a healthy state.
+message NodeHealthy {
+    // Node specifies name of the node that became healthy.
     string node = 1;
 }
 
 // NodeDegraded represents a change in node state to a degraded state.
 message NodeDegraded {
-    // Node specifies the node name.
+    // Node specifies the name of the node that became degraded.
     string node = 1;
 }
 
 // ProbeSucceeded represents a probe result that changed from failure to succeessful.
 message ProbeSucceeded {
-    // Node specifies the node name.
+    // Node specifies the name of the node that passed the health check.
     string node = 1;
-    // Probe specifies the probe name.
+    // Probe specifies the name of the probe that succeeded.
     string probe = 2;
 }
 
 // ProbeFailed represents a probe result that changed from successful to failure.
 message ProbeFailed {
-    // Node specifies the node name.
+    // Node specifies the name of the node that failed the health check. 
     string node = 1;
-    // Probe specifies the probe name.
+    // Probe specifies the name of the probe that failed.
     string probe = 2;
 }
+
+// LeaderElected represents a change in cluster leadership.
+message LeaderElected {
+    // Node specifies the name of the node that's been elected as a new leader.
+    string node = 1;
+}
+
+// UnknownEvent represents an unknown event.
+message UnknownEvent {}

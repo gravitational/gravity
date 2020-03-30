@@ -29,6 +29,8 @@ import (
 )
 
 // sqlEvent defines an sql event row.
+//
+// Implements history.ProtoBuffer
 type sqlEvent struct {
 	// ID specifies sqlite id.
 	ID int `db:"id"`
@@ -46,300 +48,189 @@ type sqlEvent struct {
 	New sql.NullString `db:"newState"`
 }
 
-// newDataInserter constructs a new DataInserter from the provided timeline event.
-func newDataInserter(event *pb.TimelineEvent) (row history.DataInserter, err error) {
-	timestamp := event.GetTimestamp().ToTime()
-	switch t := event.GetData().(type) {
-	case *pb.TimelineEvent_ClusterRecovered:
-		return newClusterRecovered(timestamp), nil
-	case *pb.TimelineEvent_ClusterDegraded:
-		return newClusterDegraded(timestamp), nil
-	case *pb.TimelineEvent_NodeAdded:
-		e := event.GetNodeAdded()
-		return newNodeAdded(timestamp, e.GetNode()), nil
-	case *pb.TimelineEvent_NodeRemoved:
-		e := event.GetNodeRemoved()
-		return newNodeRemoved(timestamp, e.GetNode()), nil
-	case *pb.TimelineEvent_NodeRecovered:
-		e := event.GetNodeRecovered()
-		return newNodeRecovered(timestamp, e.GetNode()), nil
-	case *pb.TimelineEvent_NodeDegraded:
-		e := event.GetNodeDegraded()
-		return newNodeDegraded(timestamp, e.GetNode()), nil
-	case *pb.TimelineEvent_ProbeSucceeded:
-		e := event.GetProbeSucceeded()
-		return newProbeSucceeded(timestamp, e.GetNode(), e.GetProbe()), nil
-	case *pb.TimelineEvent_ProbeFailed:
-		e := event.GetProbeFailed()
-		return newProbeFailed(timestamp, e.GetNode(), e.GetProbe()), nil
+// ProtoBuf returns the sql event row as a protobuf message.
+func (r sqlEvent) ProtoBuf() (event *pb.TimelineEvent) {
+	switch history.EventType(r.EventType) {
+	case history.ClusterDegraded:
+		return pb.NewClusterDegraded(r.Timestamp)
+	case history.ClusterHealthy:
+		return pb.NewClusterHealthy(r.Timestamp)
+	case history.NodeAdded:
+		return pb.NewNodeAdded(r.Timestamp, r.Node.String)
+	case history.NodeRemoved:
+		return pb.NewNodeRemoved(r.Timestamp, r.Node.String)
+	case history.NodeDegraded:
+		return pb.NewNodeDegraded(r.Timestamp, r.Node.String)
+	case history.NodeHealthy:
+		return pb.NewNodeHealthy(r.Timestamp, r.Node.String)
+	case history.ProbeFailed:
+		return pb.NewProbeFailed(r.Timestamp, r.Node.String, r.Probe.String)
+	case history.ProbeSucceeded:
+		return pb.NewProbeSucceeded(r.Timestamp, r.Node.String, r.Probe.String)
+	case history.LeaderElected:
+		return pb.NewLeaderElected(r.Timestamp, r.Node.String)
 	default:
-		return row, trace.BadParameter("unknown event type %T", t)
-	}
-}
-
-// newProtoBuffer constructs a new ProtoBuffer from the provided sql row.
-func newProtoBuffer(row sqlEvent) (event history.ProtoBuffer, err error) {
-	switch row.EventType {
-	case clusterDegradedType:
-		return clusterDegraded{sqlEvent: row}, nil
-	case clusterRecoveredType:
-		return clusterRecovered{sqlEvent: row}, nil
-	case nodeAddedType:
-		return nodeAdded{sqlEvent: row}, nil
-	case nodeRemovedType:
-		return nodeRemoved{sqlEvent: row}, nil
-	case nodeDegradedType:
-		return nodeDegraded{sqlEvent: row}, nil
-	case nodeRecoveredType:
-		return nodeRecovered{sqlEvent: row}, nil
-	case probeFailedType:
-		return probeFailed{sqlEvent: row}, nil
-	case probeSucceededType:
-		return probeSucceeded{sqlEvent: row}, nil
-	default:
-		return event, trace.BadParameter("unknown event type %s", row.EventType)
+		return pb.NewUnknownEvent(r.Timestamp)
 	}
 }
 
 // sqlExecer executes sql statements.
+//
+// Implements history.Execer
 type sqlExecer struct {
 	db *sqlx.DB
 }
 
-// newSQLExecer constructs a new sqlExecer.
+// newSQLExecer constructs a new sqlExecer with the provided database.
 func newSQLExecer(db *sqlx.DB) *sqlExecer {
 	return &sqlExecer{db: db}
 }
 
 // Exec executes the provided stmt with the provided args.
-func (e *sqlExecer) Exec(ctx context.Context, stmt string, args ...interface{}) error {
-	_, err := e.db.ExecContext(ctx, stmt, args...)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	return nil
+func (r *sqlExecer) Exec(ctx context.Context, stmt string, args ...interface{}) error {
+	_, err := r.db.ExecContext(ctx, stmt, args...)
+	return trace.Wrap(err)
 }
 
-// clusterDegraded defines a cluster degraded event.
+// newDataInserter returns the event as a history.DataInserter.
+func newDataInserter(event *pb.TimelineEvent) (row history.DataInserter, err error) {
+	switch data := event.GetData().(type) {
+	case *pb.TimelineEvent_ClusterDegraded:
+		return &clusterDegraded{ts: event.GetTimestamp()}, nil
+	case *pb.TimelineEvent_ClusterHealthy:
+		return &clusterHealthy{ts: event.GetTimestamp()}, nil
+	case *pb.TimelineEvent_NodeAdded:
+		return &nodeAdded{ts: event.GetTimestamp(), data: data.NodeAdded}, nil
+	case *pb.TimelineEvent_NodeRemoved:
+		return &nodeRemoved{ts: event.GetTimestamp(), data: data.NodeRemoved}, nil
+	case *pb.TimelineEvent_NodeHealthy:
+		return &nodeHealthy{ts: event.GetTimestamp(), data: data.NodeHealthy}, nil
+	case *pb.TimelineEvent_NodeDegraded:
+		return &nodeDegraded{ts: event.GetTimestamp(), data: data.NodeDegraded}, nil
+	case *pb.TimelineEvent_ProbeSucceeded:
+		return &probeSucceeded{ts: event.GetTimestamp(), data: data.ProbeSucceeded}, nil
+	case *pb.TimelineEvent_ProbeFailed:
+		return &probeFailed{ts: event.GetTimestamp(), data: data.ProbeFailed}, nil
+	case *pb.TimelineEvent_LeaderElected:
+		return &leaderElected{ts: event.GetTimestamp(), data: data.LeaderElected}, nil
+	default:
+		return row, trace.BadParameter("unknown event type %T", data)
+	}
+}
+
+// clusterDegraded represents a cluster degraded event.
+//
+// Implements history.DataInserter.
 type clusterDegraded struct {
-	sqlEvent
+	ts *pb.Timestamp
 }
 
-// newClusterDegraded constructs a new cluster degraded event.
-func newClusterDegraded(timestamp time.Time) clusterDegraded {
-	return clusterDegraded{
-		sqlEvent: sqlEvent{
-			Timestamp: timestamp,
-			EventType: clusterDegradedType,
-		},
-	}
-}
-
-// Insert inserts event into storage using the provided execer.
-func (e clusterDegraded) Insert(ctx context.Context, execer history.Execer) error {
+func (r *clusterDegraded) Insert(ctx context.Context, execer history.Execer) error {
 	const insertStmt = "INSERT INTO events (timestamp, type) VALUES (?,?)"
-	args := []interface{}{e.Timestamp, e.EventType}
-	return trace.Wrap(execer.Exec(ctx, insertStmt, args...))
+	return trace.Wrap(execer.Exec(ctx, insertStmt, r.ts.ToTime(), history.ClusterDegraded))
 }
 
-// ProtoBuf returns event as a protobuf message.
-func (e clusterDegraded) ProtoBuf() (*pb.TimelineEvent, error) {
-	return history.NewClusterDegraded(e.Timestamp), nil
+// clusterHealthy represents a cluster healthy event.
+//
+// Implements history.DataInserter.
+type clusterHealthy struct {
+	ts *pb.Timestamp
 }
 
-// clusterRecovered defines a cluster degraded event.
-type clusterRecovered struct {
-	sqlEvent
-}
-
-// newClusterRecovered constructs a new cluster recovered event.
-func newClusterRecovered(timestamp time.Time) clusterRecovered {
-	return clusterRecovered{
-		sqlEvent: sqlEvent{
-			Timestamp: timestamp,
-			EventType: clusterRecoveredType,
-		},
-	}
-}
-
-// Insert inserts event into storage using the provided execer.
-func (e clusterRecovered) Insert(ctx context.Context, execer history.Execer) error {
+func (r *clusterHealthy) Insert(ctx context.Context, execer history.Execer) error {
 	const insertStmt = "INSERT INTO events (timestamp, type) VALUES (?,?)"
-	args := []interface{}{e.Timestamp, e.EventType}
-	return trace.Wrap(execer.Exec(ctx, insertStmt, args...))
+	return trace.Wrap(execer.Exec(ctx, insertStmt, r.ts.ToTime(), history.ClusterHealthy))
 }
 
-// ProtoBuf returns event as a protobuf message.
-func (e clusterRecovered) ProtoBuf() (*pb.TimelineEvent, error) {
-	return history.NewClusterRecovered(e.Timestamp), nil
-}
-
-// nodeAdded defines a node added event.
+// nodeAdded represents a node added event.
+//
+// Implements history.DataInserter.
 type nodeAdded struct {
-	sqlEvent
+	ts   *pb.Timestamp
+	data *pb.NodeAdded
 }
 
-// newNodeAdded constructs a new node added event.
-func newNodeAdded(timestamp time.Time, node string) nodeAdded {
-	return nodeAdded{
-		sqlEvent: sqlEvent{
-			Timestamp: timestamp,
-			EventType: nodeAddedType,
-			Node:      sql.NullString{String: node, Valid: true},
-		},
-	}
-}
-
-// Insert inserts event into storage using the provided execer.
-func (e nodeAdded) Insert(ctx context.Context, execer history.Execer) error {
+func (r *nodeAdded) Insert(ctx context.Context, execer history.Execer) error {
 	const insertStmt = "INSERT INTO events (timestamp, type, node) VALUES (?,?,?)"
-	args := []interface{}{e.Timestamp, e.EventType, e.Node.String}
-	return trace.Wrap(execer.Exec(ctx, insertStmt, args...))
+	return trace.Wrap(execer.Exec(ctx, insertStmt, r.ts.ToTime(), history.NodeAdded, r.data.GetNode()))
 }
 
-// ProtoBuf returns event as a protobuf message.
-func (e nodeAdded) ProtoBuf() (*pb.TimelineEvent, error) {
-	return history.NewNodeAdded(e.Timestamp, e.Node.String), nil
-}
-
-// nodeRemoved defines a node added event.
+// nodeRemoved represents a node removed event.
+//
+// Implements history.DataInserter.
 type nodeRemoved struct {
-	sqlEvent
+	ts   *pb.Timestamp
+	data *pb.NodeRemoved
 }
 
-// newNodeRemoved constructs a new node removed event.
-func newNodeRemoved(timestamp time.Time, node string) nodeRemoved {
-	return nodeRemoved{
-		sqlEvent: sqlEvent{
-			Timestamp: timestamp,
-			EventType: nodeRemovedType,
-			Node:      sql.NullString{String: node, Valid: true},
-		},
-	}
-}
-
-// Insert inserts event into storage using the provided execer.
-func (e nodeRemoved) Insert(ctx context.Context, execer history.Execer) error {
+func (r *nodeRemoved) Insert(ctx context.Context, execer history.Execer) error {
 	const insertStmt = "INSERT INTO events (timestamp, type, node) VALUES (?,?,?)"
-	args := []interface{}{e.Timestamp, e.EventType, e.Node.String}
-	return trace.Wrap(execer.Exec(ctx, insertStmt, args...))
+	return trace.Wrap(execer.Exec(ctx, insertStmt, r.ts.ToTime(), history.NodeRemoved, r.data.GetNode()))
 }
 
-// ProtoBuf returns event as a protobuf message.
-func (e nodeRemoved) ProtoBuf() (*pb.TimelineEvent, error) {
-	return history.NewNodeRemoved(e.Timestamp, e.Node.String), nil
-}
-
-// nodeDegraded defines a node degraded event.
+// nodeDegraded represents a node degraded event.
+//
+// Implements history.DataInserter.
 type nodeDegraded struct {
-	sqlEvent
+	ts   *pb.Timestamp
+	data *pb.NodeDegraded
 }
 
-// newNodeDegraded constructs a new node degraded event.
-func newNodeDegraded(timestamp time.Time, node string) nodeDegraded {
-	return nodeDegraded{
-		sqlEvent: sqlEvent{
-			Timestamp: timestamp,
-			EventType: nodeDegradedType,
-			Node:      sql.NullString{String: node, Valid: true},
-		},
-	}
-}
-
-// Insert inserts event into storage using the provided execer.
-func (e nodeDegraded) Insert(ctx context.Context, execer history.Execer) error {
+func (r *nodeDegraded) Insert(ctx context.Context, execer history.Execer) error {
 	const insertStmt = "INSERT INTO events (timestamp, type, node) VALUES (?,?,?)"
-	args := []interface{}{e.Timestamp, e.EventType, e.Node.String}
-	return trace.Wrap(execer.Exec(ctx, insertStmt, args...))
+	return trace.Wrap(execer.Exec(ctx, insertStmt, r.ts.ToTime(), history.NodeDegraded, r.data.GetNode()))
 }
 
-// ProtoBuf returns event as a protobuf message.
-func (e nodeDegraded) ProtoBuf() (*pb.TimelineEvent, error) {
-	return history.NewNodeDegraded(e.Timestamp, e.Node.String), nil
+// nodeHealthy represents a node healthy event.
+//
+// Implements history.DataInserter.
+type nodeHealthy struct {
+	ts   *pb.Timestamp
+	data *pb.NodeHealthy
 }
 
-// nodeRecovered defines a node recovered event.
-type nodeRecovered struct {
-	sqlEvent
-}
-
-// newNodeRecovered constructs a new node recovered event.
-func newNodeRecovered(timestamp time.Time, node string) nodeRecovered {
-	return nodeRecovered{
-		sqlEvent: sqlEvent{
-			Timestamp: timestamp,
-			EventType: nodeRecoveredType,
-			Node:      sql.NullString{String: node, Valid: true},
-		},
-	}
-}
-
-// Insert inserts event into storage using the provided execer.
-func (e nodeRecovered) Insert(ctx context.Context, execer history.Execer) error {
+func (r *nodeHealthy) Insert(ctx context.Context, execer history.Execer) error {
 	const insertStmt = "INSERT INTO events (timestamp, type, node) VALUES (?,?,?)"
-	args := []interface{}{e.Timestamp, e.EventType, e.Node.String}
-	return trace.Wrap(execer.Exec(ctx, insertStmt, args...))
+	return trace.Wrap(execer.Exec(ctx, insertStmt, r.ts.ToTime(), history.NodeHealthy, r.data.GetNode()))
 }
 
-// ProtoBuf returns event as a protobuf message.
-func (e nodeRecovered) ProtoBuf() (*pb.TimelineEvent, error) {
-	return history.NewNodeRecovered(e.Timestamp, e.Node.String), nil
-}
-
-// probeFailed defines a probe failed event.
+// probeFailed represents a probe failed event.
+//
+// Implements history.DataInserter.
 type probeFailed struct {
-	sqlEvent
+	ts   *pb.Timestamp
+	data *pb.ProbeFailed
 }
 
-// newProbeFailed constructs a new probe failed event.
-func newProbeFailed(timestamp time.Time, node, probe string) probeFailed {
-	return probeFailed{
-		sqlEvent: sqlEvent{
-			Timestamp: timestamp,
-			EventType: probeFailedType,
-			Node:      sql.NullString{String: node, Valid: true},
-			Probe:     sql.NullString{String: probe, Valid: true},
-		},
-	}
-}
-
-// Insert inserts event into storage using the provided execer.
-func (e probeFailed) Insert(ctx context.Context, execer history.Execer) error {
+func (r *probeFailed) Insert(ctx context.Context, execer history.Execer) error {
 	const insertStmt = "INSERT INTO events (timestamp, type, node, probe) VALUES (?,?,?,?)"
-	args := []interface{}{e.Timestamp, e.EventType, e.Node.String, e.Probe.String}
-	return trace.Wrap(execer.Exec(ctx, insertStmt, args...))
+	return trace.Wrap(execer.Exec(ctx, insertStmt,
+		r.ts.ToTime(), history.ProbeFailed, r.data.GetNode(), r.data.GetProbe()))
 }
 
-// ProtoBuf returns event as a protobuf message.
-func (e probeFailed) ProtoBuf() (*pb.TimelineEvent, error) {
-	return history.NewProbeFailed(e.Timestamp, e.Node.String, e.Probe.String), nil
-}
-
-// probeSucceeded defines a probe succeeded event.
+// probeSucceeded represents a probe succeeded event.
+//
+// Implements history.DataInserter.
 type probeSucceeded struct {
-	sqlEvent
+	ts   *pb.Timestamp
+	data *pb.ProbeSucceeded
 }
 
-// newProbeSucceeded constrcuts a new probe succeeded event.
-func newProbeSucceeded(timestamp time.Time, node, probe string) probeSucceeded {
-	return probeSucceeded{
-		sqlEvent: sqlEvent{
-			Timestamp: timestamp,
-			EventType: probeSucceededType,
-			Node:      sql.NullString{String: node, Valid: true},
-			Probe:     sql.NullString{String: probe, Valid: true},
-		},
-	}
-}
-
-// Insert inserts event into storage using the provided execer.
-func (e probeSucceeded) Insert(ctx context.Context, execer history.Execer) error {
+func (r *probeSucceeded) Insert(ctx context.Context, execer history.Execer) error {
 	const insertStmt = "INSERT INTO events (timestamp, type, node, probe) VALUES (?,?,?,?)"
-	args := []interface{}{e.Timestamp, e.EventType, e.Node.String, e.Probe.String}
-	return trace.Wrap(execer.Exec(ctx, insertStmt, args...))
+	return trace.Wrap(execer.Exec(ctx, insertStmt,
+		r.ts.ToTime(), history.ProbeSucceeded, r.data.GetNode(), r.data.GetProbe()))
 }
 
-// ProtoBuf returns event as a protobuf message.
-func (e probeSucceeded) ProtoBuf() (*pb.TimelineEvent, error) {
-	return history.NewProbeSucceeded(e.Timestamp, e.Node.String, e.Probe.String), nil
+// leaderElected represents a leader elected event.
+//
+// Implements history.DataInserter.
+type leaderElected struct {
+	ts   *pb.Timestamp
+	data *pb.LeaderElected
+}
+
+func (r *leaderElected) Insert(ctx context.Context, execer history.Execer) error {
+	const insertStmt = "INSERT INTO events (timestamp, type, node) VALUES (?,?,?)"
+	return trace.Wrap(execer.Exec(ctx, insertStmt, r.ts.ToTime(), history.LeaderElected, r.data.GetNode()))
 }

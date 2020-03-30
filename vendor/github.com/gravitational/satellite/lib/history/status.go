@@ -29,7 +29,7 @@ func DiffCluster(clock clockwork.Clock, old, new *pb.SystemStatus) (events []*pb
 	newNodes := nodeMap(new)
 
 	// Keep track of removed nodes
-	removed := map[string]bool{}
+	removed := make(map[string]bool)
 	for name := range oldNodes {
 		removed[name] = true
 	}
@@ -43,14 +43,14 @@ func DiffCluster(clock clockwork.Clock, old, new *pb.SystemStatus) (events []*pb
 		}
 
 		// Nodes added to the cluster
-		event := NewNodeAdded(clock.Now(), name)
+		event := pb.NewNodeAdded(clock.Now(), name)
 		events = append(events, event)
 		events = append(events, DiffNode(clock, nil, newNode)...)
 	}
 
 	// Nodes removed from the cluster
 	for name := range removed {
-		event := NewNodeRemoved(clock.Now(), name)
+		event := pb.NewNodeRemoved(clock.Now(), name)
 		events = append(events, event)
 	}
 
@@ -60,11 +60,11 @@ func DiffCluster(clock clockwork.Clock, old, new *pb.SystemStatus) (events []*pb
 	}
 
 	if new.GetStatus() == pb.SystemStatus_Running {
-		events = append(events, NewClusterRecovered(clock.Now()))
+		events = append(events, pb.NewClusterHealthy(clock.Now()))
 		return events
 	}
 
-	events = append(events, NewClusterDegraded(clock.Now()))
+	events = append(events, pb.NewClusterDegraded(clock.Now()))
 	return events
 }
 
@@ -96,10 +96,10 @@ func DiffNode(clock clockwork.Clock, old, new *pb.NodeStatus) (events []*pb.Time
 	}
 
 	if new.GetStatus() == pb.NodeStatus_Running {
-		return append(events, NewNodeRecovered(clock.Now(), new.GetName()))
+		return append(events, pb.NewNodeHealthy(clock.Now(), new.GetName()))
 	}
 
-	return append(events, NewNodeDegraded(clock.Now(), new.GetName()))
+	return append(events, pb.NewNodeDegraded(clock.Now(), new.GetName()))
 }
 
 // probeMap returns the node's list of probes as a map with each probe mapped
@@ -121,8 +121,8 @@ func DiffProbe(clock clockwork.Clock, nodeName string, old, new *pb.Probe) (even
 	}
 
 	if new.GetStatus() == pb.Probe_Running {
-		return append(events, NewProbeSucceeded(clock.Now(), nodeName, new.GetChecker()))
+		return append(events, pb.NewProbeSucceeded(clock.Now(), nodeName, new.GetChecker()))
 	}
 
-	return append(events, NewProbeFailed(clock.Now(), nodeName, new.GetChecker()))
+	return append(events, pb.NewProbeFailed(clock.Now(), nodeName, new.GetChecker()))
 }
