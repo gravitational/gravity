@@ -96,7 +96,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.InstallCmd.DNSHosts = g.InstallCmd.Flag("dns-host", "Specify an IP address that will be returned for the given domain within the cluster. Accepts <domain>/<ip> format. Can be specified multiple times.").Hidden().Strings()
 	g.InstallCmd.DNSZones = g.InstallCmd.Flag("dns-zone", "Specify an upstream server for the given zone within the cluster. Accepts <zone>/<nameserver> format where <nameserver> can be either <ip> or <ip>:<port>. Can be specified multiple times.").Strings()
 	g.InstallCmd.Remote = g.InstallCmd.Flag("remote", "Do not use this node in the cluster.").Bool()
-	g.InstallCmd.SELinux = g.InstallCmd.Flag("selinux", "Run with SELinux support. Default 'true'.").Default("true").Bool()
+	g.InstallCmd.SELinux = g.InstallCmd.Flag("selinux", "Run with SELinux support. Default 'false'.").Default("false").Envar(defaults.GravitySELinuxEnv).Bool()
 	g.InstallCmd.FromService = g.InstallCmd.Flag("from-service", "Run in service mode.").Hidden().Bool()
 	g.InstallCmd.Set = g.InstallCmd.Flag("set", "Set Helm chart values on the command line. Can be specified multiple times and/or as comma-separated values: key1=val1,key2=val2.").Strings()
 	g.InstallCmd.Values = g.InstallCmd.Flag("values", "Set Helm chart values from the provided YAML file. Can be specified multiple times.").Strings()
@@ -113,7 +113,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.JoinCmd.Mounts = configure.KeyValParam(g.JoinCmd.Flag("mount", "One or several mounts in form <mount-name>:<path>, e.g. data:/var/lib/data."))
 	g.JoinCmd.CloudProvider = g.JoinCmd.Flag("cloud-provider", "[DEPRECATED] This flag has no effect and will be removed in a future version.").String()
 	g.JoinCmd.OperationID = g.JoinCmd.Flag("operation-id", "ID of the operation that was created via UI.").Hidden().String()
-	g.JoinCmd.SELinux = g.JoinCmd.Flag("selinux", "Run with SELinux support. Default 'true'.").Default("true").Bool()
+	g.JoinCmd.SELinux = g.JoinCmd.Flag("selinux", "Run with SELinux support. Default 'false'.").Default("false").Envar(defaults.GravitySELinuxEnv).Bool()
 	g.JoinCmd.FromService = g.JoinCmd.Flag("from-service", "Run in service mode.").Hidden().Bool()
 
 	g.AutoJoinCmd.CmdClause = g.Command("autojoin", "Use cloud provider data to join a node to existing cluster.")
@@ -126,7 +126,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.AutoJoinCmd.ServiceAddr = g.AutoJoinCmd.Flag("service-addr", "Service URL of the cluster to join.").String()
 	g.AutoJoinCmd.AdvertiseAddr = g.AutoJoinCmd.Flag("advertise-addr", "IP address this node will advertise to other cluster nodes.").Hidden().String()
 	g.AutoJoinCmd.Token = g.AutoJoinCmd.Flag("token", "Unique token to authorize this node to join the cluster.").Hidden().String()
-	g.AutoJoinCmd.SELinux = g.AutoJoinCmd.Flag("selinux", "Run with SELinux support. Default 'true'.").Default("true").Bool()
+	g.AutoJoinCmd.SELinux = g.AutoJoinCmd.Flag("selinux", "Run with SELinux support. Default 'false'.").Default("false").Envar(defaults.GravitySELinuxEnv).Bool()
 	g.AutoJoinCmd.FromService = g.AutoJoinCmd.Flag("from-service", "Run in service mode.").Hidden().Bool()
 
 	g.LeaveCmd.CmdClause = g.Command("leave", "Decommission this node from the cluster.")
@@ -697,6 +697,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.SystemReportCmd.CmdClause = g.SystemCmd.Command("report", "collect system diagnostics and output as gzipped tarball to terminal").Hidden()
 	g.SystemReportCmd.Filter = g.SystemReportCmd.Flag("filter", "collect only specific diagnostics ('system', 'kubernetes'). Collect everything if unspecified").Strings()
 	g.SystemReportCmd.Compressed = g.SystemReportCmd.Flag("compressed", "whether to compress the tarball").Default("true").Bool()
+	g.SystemReportCmd.Output = g.SystemReportCmd.Flag("output", "optional output file path").String()
 
 	g.SystemStateDirCmd.CmdClause = g.SystemCmd.Command("state-dir", "show where all gravity data is stored on the node").Hidden()
 
@@ -780,7 +781,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 		modules.GetResources().SupportedResources()))
 	g.ResourceGetCmd.Kind = g.ResourceGetCmd.Arg("kind", fmt.Sprintf("Resource kind. One of: %v.",
 		modules.GetResources().SupportedResources())).Required().String()
-	g.ResourceGetCmd.Name = g.ResourceGetCmd.Arg("name", fmt.Sprintf("Optional resource name. Lists all resources if omitted.")).String()
+	g.ResourceGetCmd.Name = g.ResourceGetCmd.Arg("name", "Optional resource name. Lists all resources if omitted.").String()
 	g.ResourceGetCmd.Format = common.Format(g.ResourceGetCmd.Flag("format", fmt.Sprintf("Output format: %v.", constants.OutputFormats)).Default(string(constants.EncodingText)))
 	g.ResourceGetCmd.WithSecrets = g.ResourceGetCmd.Flag("with-secrets", "Include secret properties like private keys.").Default("false").Bool()
 	g.ResourceGetCmd.User = g.ResourceGetCmd.Flag("user", "User to display resources for. Defaults to the currently logged in user.").String()

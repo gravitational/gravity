@@ -29,6 +29,7 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/devicemapper"
 	"github.com/gravitational/gravity/lib/state"
+	"github.com/gravitational/gravity/lib/system/auditlog"
 	libselinux "github.com/gravitational/gravity/lib/system/selinux"
 	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/utils"
@@ -59,6 +60,9 @@ func UninstallSystem(ctx context.Context, printer utils.Printer, logger log.Fiel
 		errors = append(errors, err)
 	}
 	if err := unloadSELinuxPolicy(ctx); err != nil {
+		errors = append(errors, err)
+	}
+	if err := removeAuditRules(); err != nil {
 		errors = append(errors, err)
 	}
 	return trace.NewAggregate(errors...)
@@ -148,6 +152,10 @@ func unloadSELinuxPolicy(ctx context.Context) error {
 	return libselinux.Unload(ctx, libselinux.BootstrapConfig{
 		StateDir: stateDir,
 	})
+}
+
+func removeAuditRules() error {
+	return auditlog.New().RemoveRules()
 }
 
 func uninstallPackageServices(svm systemservice.ServiceManager, printer utils.Printer, logger log.FieldLogger) error {

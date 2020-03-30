@@ -250,7 +250,7 @@ func GetReleaseSchema() string {
 }
 
 // ReleaseV1Schema defines the release resource schema.
-var ReleaseV1Schema = fmt.Sprintf(`{
+var ReleaseV1Schema = `{
   "type": "object",
   "additionalProperties": false,
   "properties": {
@@ -269,4 +269,4 @@ var ReleaseV1Schema = fmt.Sprintf(`{
     "revision": {"type": "number"},
     "updated": {"type": "string"}
   }
-}`)
+}`

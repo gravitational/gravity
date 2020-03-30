@@ -872,7 +872,7 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 		return systemReport(localEnv,
 			*g.SystemReportCmd.Filter,
 			*g.SystemReportCmd.Compressed,
-			os.Stdout)
+			*g.SystemReportCmd.Output)
 	case g.SystemStateDirCmd.FullCommand():
 		return printStateDir()
 	case g.SystemExportRuntimeJournalCmd.FullCommand():

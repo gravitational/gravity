@@ -37,6 +37,7 @@ func NewInit(p fsm.ExecutorParams, operator ops.Operator, apps app.Applications,
 		FieldLogger: logrus.WithField(constants.FieldPhase, p.Phase.ID),
 		Key:         opKey(p.Plan),
 		Operator:    operator,
+		Server:      p.Phase.Data.Server,
 	}
 	app, err := apps.GetApp(*p.Phase.Data.Package)
 	if err != nil {
@@ -49,6 +50,7 @@ func NewInit(p fsm.ExecutorParams, operator ops.Operator, apps app.Applications,
 		Packages:       packages,
 		Application:    *app,
 		ExecutorParams: p,
+		seLinux:        p.Phase.Data.Server.SELinux,
 	}, nil
 }
 
@@ -65,6 +67,7 @@ type initExecutor struct {
 	Application app.Application
 	// ExecutorParams is common executor params.
 	fsm.ExecutorParams
+	seLinux bool
 }
 
 // Execute prepares the node for the operation.
@@ -86,9 +89,13 @@ func (p *initExecutor) downloadFio() error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = pack.ExportExecutable(p.Packages, *locator, path, defaults.GravityFileLabel)
+	var label string
+	if p.seLinux {
+		label = defaults.GravityFileLabel
+	}
+	err = pack.ExportExecutable(p.Packages, *locator, path, label)
 	if err != nil {
-		return trace.Wrap(err)
+		return trace.Wrap(err, "failed to export fio binary")
 	}
 	p.Infof("Exported fio v%v to %v.", locator.Version, path)
 	return nil

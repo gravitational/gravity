@@ -130,6 +130,7 @@ func RunStream(ctx context.Context, w io.Writer, args ...string) error {
 	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Stdout = w
 	cmd.Stderr = w
+	log.WithField("cmd", cmd.Args).Debug("Execute.")
 	if err := cmd.Start(); err != nil {
 		return trace.Wrap(err)
 	}
