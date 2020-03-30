@@ -1276,7 +1276,7 @@ func unpack(p *localpack.PackageServer, loc loc.Locator) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return trace.Wrap(pack.Unpack(p, loc, path, nil))
+	return p.Unpack(loc, path)
 }
 
 func maybeConvertLegacyPlanetConfigPackage(configPackage loc.Locator) (*loc.Locator, error) {
