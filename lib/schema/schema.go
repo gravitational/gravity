@@ -324,7 +324,12 @@ const manifestSchema = `
         "ingress": {
           "type": "object",
           "properties": {
-            "enabled": {"type": "boolean"}
+            "ingress": {
+              "type": "object",
+              "properties": {
+                "enabled": {"type": "boolean"}
+              }
+            }
           }
         },
         "storage": {
