@@ -55,8 +55,11 @@ If you need to install and manage Gravity clusters using a different user/role, 
 
 ## Installation
 
-Installer will use SELinux if a) the host has SELinux enabled and b) installer has SELinux support for the host OS distribution and
-c) SELinux support has been turned on with `--selinux`.
+Installer will use SELinux if all of these conditions are met:
+
+  * the host has SELinux enabled
+  * installer has SELinux support for the host OS distribution (see [Supported OS Distributions](#os-distribution-support) below)
+  * SELinux support has been turned on with `--selinux`
 
 Installer does the following as the first step when running on a host with the above conditions met:
 
@@ -93,8 +96,7 @@ the new policy individually on each node.
 
 ## Kubernetes
 
-Kubernetes comes with SELinux support in the form of `seLinuxOptions` inside the `securityContext`.
-It can thus be [configured](https://v1-17.docs.kubernetes.io/docs/tasks/configure-pod-container/security-context/#assign-selinux-labels-to-a-container) either for the whole Pod or per-container:
+Kubernetes supports SELinux with [seLinuxOptions](https://v1-17.docs.kubernetes.io/docs/tasks/configure-pod-container/security-context/#assign-selinux-labels-to-a-container) inside the [securityContext](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/). The options can be configured either for the whole Pod or per-container:
 
 ```yaml
 ...
@@ -105,24 +107,24 @@ securityContext:
 ```
 
 Level specifies the SELinux MCS/MLS security level the container (or containers if specified for the Pod) is run with.
-If left unspecified, container runtime (Docker in this case) will generate a unique label.
-
-If multiple Pods run with the same `level`, they will be able to share volumes. If you need inter-Pod protection, consider running
-the Pods with unique MCS `level` or leave the `level` unspecified so it gets automatically generated to be unique.
+If left unspecified, container runtime (Docker in this case) will generate a unique level.
 
 The security context will also apply to Pod's volumes (where applicable). The volumes that support SELinux labeling,
 are automatically relabeled according to the specified level:
 
-  * If the `level` is left unspecified, the container runtime will use the same label generated for the container to label the volume
-  * Otherwise, the volume is labeled with the specified label
+  * If the `level` is left unspecified, the container runtime will use the same level generated for the container to label the volume
+  * Otherwise, the volume is labeled with the specified level
 
-Kubernetes divides volume storage into Unshared and Shared groups and provides different labeling handling for the two types.
-`Secret` (and consequently all `EmptyDir`-derived volume types) are examples of Unshared storage and support SELinux labeling, while `hostPath` (as Shared storage) does not support labeling.
+If multiple Pods run with the same `level`, they will be able to share volumes. If you need inter-Pod protection, consider running
+the Pods with unique MCS `level` or leave the `level` unspecified so it gets automatically generated to be unique.
+
+Kubernetes groups volume storage types into groups and differentiates between Unshared and Shared. SELinux labeling will differ depending on the storage type group.
+`Secret` (and consequently all `EmptyDir`-derived volume types) are examples of Unshared storage and support SELinux labeling, while `hostPath` (as a Shared storage) does not support labeling at the time of this writing.
 
 If you don't specify SELinux domain (`seLinuxOptions.type`) or leave `seLinuxOptions` unspecified, containers will run in the default container process domain.
 
 One implication of the SELinux labeling concerns the volumes bind-mounted from host inside the Planet container.
-In order for external volumes to be accessible to workloads inside the container they need to be labeled with a label accessible to the process domain the
+In order for external volumes to be accessible to Kubernetes workloads they need to be labeled with a label accessible to the process domain the
 containers are run with.
 By default, each volume will automatically get relabeled at install time to the default container file label unless overridden.
 The label can be customized in the application manifest:
@@ -134,10 +136,10 @@ nodeProfiles:
     volumes:
       - path: /var/data
         targetPath: /var/data
-        seLinuxLabel: system_u:object_r:my_file_type_t:s0
+        seLinuxLabel: "system_u:object_r:my_file_type_t:s0"
 ```
 
-If the directory has been labeled prior to the installation, the labeling can be turned off with:
+If the directory has been labeled prior to the installation and relabeling is undesired, the labeling can be turned off with:
 
 ```yaml
 nodeProfiles:
@@ -243,7 +245,6 @@ To search for all SELinux denials logged today for the gravity process domain, u
 ```sh
 $ ausearch --message all --start today --context gravity_t --interpret --success no
 ```
-
 
 ### Additional Tools
 

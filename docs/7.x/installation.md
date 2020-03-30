@@ -121,7 +121,7 @@ Flag               | Description
 `--dns-zone`         | _(Optional)_ Specify an upstream server for the given DNS zone within the Cluster. Accepts `<zone>/<nameserver>` format where `<nameserver>` can be either `<ip>` or `<ip>:<port>`. Can be specified multiple times.
 `--vxlan-port`       | _(Optional)_ Specify custom overlay network port. Default is `8472`.
 `--remote` | _(Optional)_ Excludes this node from the Cluster, i.e. allows to bootstrap the Cluster from a developer's laptop, for example. In this case the Kubernetes master will be chosen randomly.
-`--selinux` | _(Optional)_ Turns on SELinux support. Defaults to `true` on supported OS distributions. Can be explicitly turned off with `--no-selinux`.
+`--selinux` | _(Optional)_ Turns on SELinux support. Defaults to `false`. See [SELinux](selinux.md) for more details.
 
 The `gravity join` command accepts the following arguments:
 
