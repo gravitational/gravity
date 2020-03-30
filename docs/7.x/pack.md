@@ -468,7 +468,7 @@ nodeProfiles:
           # If left empty or unspecified, the installer will label the directory
           # using the default file label.
           # Special label value of "none" explicitly turns off labeling for the directory
-          label: "SELinux label"
+          seLinuxLabel: "system_u:object_r:my_file_type_t:s0"
 
       # This setting makes sure specified devices from host are made available
       # inside Gravity container

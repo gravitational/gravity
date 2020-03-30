@@ -11,6 +11,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/defaults"
 	liblog "github.com/gravitational/gravity/lib/log"
+	libschema "github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/system/selinux/internal/policy"
 	"github.com/gravitational/gravity/lib/system/selinux/internal/schema"
 	"github.com/gravitational/gravity/lib/utils"
@@ -29,9 +30,10 @@ func ApplyFileContexts(ctx context.Context, out io.Writer, paths ...string) erro
 	return trace.Wrap(cmd.Run())
 }
 
-// ShouldLabelVolume determines if the specified label is valid
-func ShouldLabelVolume(label string) bool {
-	return label != "none"
+// IsValidLabel returns whether the specified label is valid.
+// Empty label is valid and will be replaced with the default container file type
+func IsValidLabel(label string) bool {
+	return label != libschema.SELinuxLabelNone
 }
 
 func renderFcontext(w io.Writer, stateDir string, fcontextTemplate io.Reader, renderer commandRenderer) error {
