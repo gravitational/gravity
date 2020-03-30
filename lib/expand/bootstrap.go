@@ -121,9 +121,13 @@ func (p *Peer) downloadFio(ctx operationContext) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = pack.ExportExecutable(ctx.Packages, *locator, path, defaults.GravityFileLabel)
+	var label string
+	if p.RuntimeConfig.SELinux {
+		label = defaults.GravityFileLabel
+	}
+	err = pack.ExportExecutable(ctx.Packages, *locator, path, label)
 	if err != nil {
-		return trace.Wrap(err)
+		return trace.Wrap(err, "failed to export fio binary")
 	}
 	p.Infof("Exported fio v%v to %v.", locator.Version, path)
 	return nil
