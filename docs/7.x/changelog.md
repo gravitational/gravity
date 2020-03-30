@@ -618,6 +618,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 * Add overlay network checker to the in-cluster problem detector ([#1293](https://github.com/gravitational/gravity/pull/1293)).
 * Add checks for unsupported upgrade paths ([#1232](https://github.com/gravitational/gravity/pull/1232)).
+* Add cgroup cleaner to planet to prevent leaking cgroups ([planet#578](https://github.com/gravitational/planet/pull/578)).
 
 #### Bugfixes
 
