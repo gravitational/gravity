@@ -96,7 +96,7 @@ the new policy individually on each node.
 
 ## Kubernetes
 
-Kubernetes supports SELinux with [seLinuxOptions](https://v1-17.docs.kubernetes.io/docs/tasks/configure-pod-container/security-context/#assign-selinux-labels-to-a-container) inside the [securityContext](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/). The options can be configured either for the whole Pod or per-container:
+Kubernetes supports SELinux with [seLinuxOptions](https://v1-17.docs.kubernetes.io/docs/tasks/configure-pod-container/security-context/#assign-selinux-labels-to-a-container) inside the [securityContext](https://v1-17.docs.kubernetes.io/docs/tasks/configure-pod-container/security-context/). The options can be configured either for the whole Pod or per-container:
 
 ```yaml
 ...
