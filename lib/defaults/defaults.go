@@ -864,6 +864,9 @@ const (
 	// PlanetSELinuxEnv defines the planet selinux state marker in environment
 	PlanetSELinuxEnv = "PLANET_SELINUX"
 
+	// GravitySELinuxEnv defines the environment variable that controls whether to use SELinux
+	GravitySELinuxEnv = "GRAVITY_SELINUX"
+
 	// GravityClusterLabel defines the label to select cluster controller Pods
 	GravityClusterLabel = "gravity-site"
 
