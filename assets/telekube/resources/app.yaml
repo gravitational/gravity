@@ -196,7 +196,8 @@ hooks:
   preUpdate:
     job: file://preUpdate.yaml
 ingress:
-  enabled: true
+  nginx:
+    enabled: true
 storage:
   openebs:
     enabled: true
