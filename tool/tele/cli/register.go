@@ -56,7 +56,7 @@ func RegisterCommands(app *kingpin.Application) Application {
 	tele.BuildCmd.Quiet = tele.BuildCmd.Flag("quiet", "Suppress any output to stdout.").Short('q').Bool()
 	tele.BuildCmd.Set = tele.BuildCmd.Flag("set", "Set Helm chart values on the command line. Can be specified multiple times and/or as comma-separated values: key1=val1,key2=val2.").Strings()
 	tele.BuildCmd.Values = tele.BuildCmd.Flag("values", "Set Helm chart values from the provided YAML file. Can be specified multiple times.").Strings()
-	tele.BuildCmd.Pull = tele.BuildCmd.Flag("pull", "Pull Docker images even if they're already present in local Docker. Useful if a remote image changes.").Bool()
+	tele.BuildCmd.Pull = tele.BuildCmd.Flag("pull", "Always attempt to pull newer versions of Docker images.").Bool()
 
 	tele.ListCmd.CmdClause = app.Command("ls", "List cluster and application images published to Gravity Hub.")
 	tele.ListCmd.Runtimes = tele.ListCmd.Flag("runtimes", "Show only runtimes.").Short('r').Hidden().Bool()
