@@ -689,5 +689,5 @@ func unpack(packages update.LocalPackageService, loc loc.Locator) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return trace.Wrap(pack.Unpack(packages, loc, path, nil))
+	return packages.Unpack(loc, path)
 }
