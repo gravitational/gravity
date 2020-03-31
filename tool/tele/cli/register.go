@@ -55,6 +55,7 @@ func RegisterCommands(app *kingpin.Application) Application {
 	tele.BuildCmd.Parallel = tele.BuildCmd.Flag("parallel", "Specifies the number of concurrent tasks. If < 0, the number of tasks is not restricted, if unspecified, then tasks are capped at the number of logical CPU cores").Int()
 	tele.BuildCmd.Quiet = tele.BuildCmd.Flag("quiet", "Suppress any extra output to stdout").Short('q').Bool()
 	tele.BuildCmd.UpgradeVia = tele.BuildCmd.Flag("upgrade-via", "Use runtime version as intermediate in upgrade. Can be specified multiple times.").Hidden().Strings()
+	tele.BuildCmd.Pull = tele.BuildCmd.Flag("pull", "Always attempt to pull newer versions of Docker images.").Bool()
 
 	tele.ListCmd.CmdClause = app.Command("ls", "Display a list of user applications published in remote Ops Center")
 	tele.ListCmd.Runtimes = tele.ListCmd.Flag("runtimes", "Show only runtimes").Short('r').Hidden().Bool()

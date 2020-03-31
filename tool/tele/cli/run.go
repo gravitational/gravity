@@ -69,6 +69,7 @@ func Run(tele Application) error {
 			SetDeps:                *tele.BuildCmd.SetDeps,
 			Parallel:               *tele.BuildCmd.Parallel,
 			VendorRuntime:          true,
+			Pull:                   *tele.BuildCmd.Pull,
 		})
 	}
 

@@ -132,6 +132,8 @@ type VendorRequest struct {
 	// ProgressReporter is a special writer, if set, vendorer will output user-friendly
 	// information during vendoring
 	ProgressReporter utils.Progress
+	// Pull allows to force-pull Docker images even if they're already present.
+	Pull bool
 }
 
 // vendorer is a helper struct that encapsulates all services needed to vendor/rewrite images in
@@ -263,7 +265,7 @@ func (v *vendorer) VendorDir(ctx context.Context, unpackedDir string, req Vendor
 
 			// pull all missing images (this will correctly fail for images without a remote
 			// registry that do not exist i.e. due to failed image build)
-			if err := pullMissingRemoteImage(image, v.dockerPuller, log, req.ProgressReporter); err != nil {
+			if err := pullMissingRemoteImage(image, v.dockerPuller, log, req); err != nil {
 				return trace.Wrap(err)
 			}
 
