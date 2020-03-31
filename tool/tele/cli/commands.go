@@ -82,6 +82,8 @@ type BuildCmd struct {
 	UpgradeVia *[]string
 	// Quiet allows to suppress console output
 	Quiet *bool
+	// Pull allows to force-pull Docker images even if they're already present.
+	Pull *bool
 }
 
 type ListCmd struct {
