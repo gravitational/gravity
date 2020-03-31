@@ -55,20 +55,23 @@ If you need to install and manage Gravity clusters using a different user/role, 
 
 ## Installation
 
-Installer will use SELinux if all of these conditions are met:
+`gravity install` will use SELinux if all of these conditions are met:
 
   * the host has SELinux enabled
-  * installer has SELinux support for the host OS distribution (see [Supported OS Distributions](#os-distribution-support) below)
+  * the installer has SELinux support for the host OS distribution (see [Supported OS Distributions](#os-distribution-support) below)
   * SELinux support has been turned on with `--selinux`
 
-Installer does the following as the first step when running on a host with the above conditions met:
+The installer does the following as the first step when running on a host with the above conditions met:
 
   * loads the Gravity SELinux policy module
   * creates local port bindings for Gravity and Kubernetes-specific ports
   * creates local file contexts for paths used during the operation
   * creates local file contexts for custom state directory (if it has been overridden with `--state-dir`)
 
-Additional SELinux configuration might happen later as part of execution of the operation plan.
+Additionally, the operation plan will contain a dedicated step:
+
+  * to add SELinux mapping for the custom VXLAN port if one was provided
+  * to configure local file contexts for all volumes mounted into the container
 
 To start the installation, use the `gravity install` command as usual:
 
@@ -154,7 +157,6 @@ nodeProfiles:
 
 !!! warning "Performance"
   Relabeling of directories with a large number of files/sub-directories can be time-consuming.
-  This will be improved in future releases.
 
 
 ## Custom SELinux policies
@@ -162,8 +164,6 @@ nodeProfiles:
 It is not yet possible to bundle a custom SELinux policy in the cluster image. If you have custom SELinux policy and want
 to use it for your Kubernetes workloads, you'll need to make sure to load the policy on each node where necessary prior to
 installing the cluster image.
-
-It is planned to add support for custom policies in a future version.
 
 
 ## OS Distribution Support

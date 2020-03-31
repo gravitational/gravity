@@ -135,7 +135,7 @@ Flag               | Description
 `--state-dir`      | _(Optional)_ Directory where all Gravity system data will be kept on this node. Defaults to `/var/lib/gravity`.
 `--service-uid`    | _(Optional)_ Service user ID (numeric). See [Service User](pack.md#service-user) for details. A user named `planet` is created automatically if unspecified.
 `--service-gid`    | _(Optional)_ Service group ID (numeric). See [Service User](pack.md#service-user) for details. A group named `planet` is created automatically if unspecified.
-`--selinux` | _(Optional)_ Turns on SELinux support. Defaults to `true` on supported OS distributions. Can be explicitly turned off with `--no-selinux`.
+`--selinux` | _(Optional)_ Turns on SELinux support. Defaults to `false`. See [SELinux](selinux.md) for more details.
 
 ### Environment Variables
 
