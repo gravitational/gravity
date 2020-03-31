@@ -423,6 +423,14 @@ func (r statusOperator) GetApplicationEndpoints(clusterKey ops.SiteKey) ([]ops.E
 	return r.Operator.GetApplicationEndpoints(clusterKey)
 }
 
+// GetVersion returns version of Gravity running the operator service.
+func (r statusOperator) GetVersion(ctx context.Context) (*modules.Version, error) {
+	if r.clusterOperator != nil {
+		return r.clusterOperator.GetVersion(ctx)
+	}
+	return r.Operator.GetVersion(ctx)
+}
+
 // statusOperator is a thin-wrapper around operator that uses
 // etcd directly but falls back the cluster controller if available for certain APIs
 type statusOperator struct {
