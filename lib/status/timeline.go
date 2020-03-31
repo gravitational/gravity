@@ -23,6 +23,7 @@ import (
 
 	pb "github.com/gravitational/satellite/agent/proto/agentpb"
 	"github.com/gravitational/trace"
+	log "github.com/sirupsen/logrus"
 )
 
 // Timeline queries the currently stored cluster timeline.
@@ -31,5 +32,10 @@ func Timeline(ctx context.Context) (*pb.TimelineResponse, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	defer func() {
+		if err := client.Close(); err != nil {
+			log.WithError(err).Error("Failed to close client connection")
+		}
+	}()
 	return client.Timeline(ctx, &pb.TimelineRequest{})
 }
