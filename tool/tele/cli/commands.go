@@ -83,6 +83,8 @@ type BuildCmd struct {
 	Set *[]string
 	// Values is a list of YAML files with Helm chart values.
 	Values *[]string
+	// Pull allows to force-pull Docker images even if they're already present.
+	Pull *bool
 }
 
 type ListCmd struct {

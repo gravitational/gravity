@@ -73,6 +73,7 @@ func Run(tele Application) error {
 				Values: *tele.BuildCmd.Values,
 				Set:    *tele.BuildCmd.Set,
 			},
+			Pull: *tele.BuildCmd.Pull,
 		})
 	}
 
