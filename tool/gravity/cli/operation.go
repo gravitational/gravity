@@ -46,21 +46,26 @@ type PhaseParams struct {
 }
 
 func executePhase(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, params PhaseParams) error {
-	op, err := getActiveOperation(localEnv, updateEnv, joinEnv, params.OperationID)
+	operations, err := getActiveOperations(localEnv, updateEnv, joinEnv, params.OperationID)
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	if len(operations) != 1 {
+		log.WithField("operations", oplist(operations)).Warn("Multiple operations found.")
+		return trace.BadParameter("multiple operations found. Please specify operation with --operation-id")
+	}
+	op := operations[0]
 	switch op.Type {
 	case ops.OperationInstall:
 		return executeInstallPhase(localEnv, params, op)
 	case ops.OperationExpand:
 		return executeJoinPhase(localEnv, joinEnv, params, op)
 	case ops.OperationUpdate:
-		return executeUpdatePhase(localEnv, updateEnv, params, *op)
+		return executeUpdatePhase(localEnv, updateEnv, params, op)
 	case ops.OperationUpdateRuntimeEnviron:
-		return executeEnvironPhase(localEnv, updateEnv, params, *op)
+		return executeEnvironPhase(localEnv, updateEnv, params, op)
 	case ops.OperationUpdateConfig:
-		return executeConfigPhase(localEnv, updateEnv, params, *op)
+		return executeConfigPhase(localEnv, updateEnv, params, op)
 	case ops.OperationGarbageCollect:
 		return executeGarbageCollectPhase(localEnv, params, op)
 	default:
@@ -69,52 +74,61 @@ func executePhase(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, param
 }
 
 func rollbackPhase(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, params PhaseParams) error {
-	op, err := getActiveOperation(localEnv, updateEnv, joinEnv, params.OperationID)
+	operations, err := getActiveOperations(localEnv, updateEnv, joinEnv, params.OperationID)
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	if len(operations) != 1 {
+		log.WithField("operations", oplist(operations)).Warn("Multiple operations found.")
+		return trace.BadParameter("multiple operations found. Please specify operation with --operation-id")
+	}
+	op := operations[0]
 	switch op.Type {
 	case ops.OperationInstall:
 		return rollbackInstallPhase(localEnv, params, op)
 	case ops.OperationExpand:
 		return rollbackJoinPhase(localEnv, joinEnv, params, op)
 	case ops.OperationUpdate:
-		return rollbackUpdatePhase(localEnv, updateEnv, params, *op)
+		return rollbackUpdatePhase(localEnv, updateEnv, params, op)
 	case ops.OperationUpdateRuntimeEnviron:
-		return rollbackEnvironPhase(localEnv, updateEnv, params, *op)
+		return rollbackEnvironPhase(localEnv, updateEnv, params, op)
 	case ops.OperationUpdateConfig:
-		return rollbackConfigPhase(localEnv, updateEnv, params, *op)
+		return rollbackConfigPhase(localEnv, updateEnv, params, op)
 	default:
 		return trace.BadParameter("operation type %q does not support plan rollback", op.Type)
 	}
 }
 
 func completeOperationPlan(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, operationID string) error {
-	op, err := getActiveOperation(localEnv, updateEnv, joinEnv, operationID)
+	operations, err := getActiveOperations(localEnv, updateEnv, joinEnv, operationID)
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	if len(operations) != 1 {
+		log.WithField("operations", oplist(operations)).Warn("Multiple operations found.")
+		return trace.BadParameter("multiple operations found. Please specify operation with --operation-id")
+	}
+	op := operations[0]
 	switch op.Type {
 	case ops.OperationInstall:
 		// There's only one install operation
 		return completeInstallPlan(localEnv, op)
 	case ops.OperationExpand:
-		if op == nil {
-			return trace.BadParameter("operation ID must be specified")
-		}
-		return completeJoinPlan(localEnv, joinEnv, *op)
+		return completeJoinPlan(localEnv, joinEnv, op)
 	case ops.OperationUpdate:
-		return completeUpdatePlan(localEnv, updateEnv, *op)
+		return completeUpdatePlan(localEnv, updateEnv, op)
 	case ops.OperationUpdateRuntimeEnviron:
-		return completeEnvironPlan(localEnv, updateEnv, *op)
+		return completeEnvironPlan(localEnv, updateEnv, op)
 	case ops.OperationUpdateConfig:
-		return completeConfigPlan(localEnv, updateEnv, *op)
+		return completeConfigPlan(localEnv, updateEnv, op)
 	default:
 		return trace.BadParameter("operation type %q does not support plan completion", op.Type)
 	}
 }
 
-func getLastOperation(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, operationID string) (*ops.SiteOperation, error) {
+// getLastOperation returns the list of operations found across the specified backends.
+// If no operation is found, the returned error will indicate a not found operation
+func getLastOperation(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, operationID string) ([]ops.SiteOperation, error) {
 	operations, err := getBackendOperations(localEnv, updateEnv, joinEnv, operationID)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -126,17 +140,22 @@ func getLastOperation(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, o
 		}
 		return nil, trace.NotFound("no operation found")
 	}
-	if len(operations) == 1 && operationID != "" {
-		log.WithField("operation", operations[0]).Debug("Fetched operation by ID.")
-		return &operations[0], nil
-	}
-	log.Infof("Multiple operations found: \n%v\n, please specify operation with --operation-id.\n"+
-		"Displaying the most recent operation.",
-		oplist(operations))
-	return &operations[0], nil
+	return operations, nil
 }
 
 func getActiveOperation(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, operationID string) (*ops.SiteOperation, error) {
+	operations, err := getActiveOperations(localEnv, updateEnv, joinEnv, operationID)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	if len(operations) != 1 {
+		log.WithField("operations", oplist(operations)).Warn("Multiple operations found.")
+		return nil, trace.BadParameter("multiple operations found. Please specify operation with --operation-id")
+	}
+	return &operations[0], nil
+}
+
+func getActiveOperations(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, operationID string) ([]ops.SiteOperation, error) {
 	operations, err := getBackendOperations(localEnv, updateEnv, joinEnv, operationID)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -148,15 +167,7 @@ func getActiveOperation(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment,
 		}
 		return nil, trace.NotFound("no operation found")
 	}
-	if len(operations) == 1 && operationID != "" {
-		log.WithField("operation", operations[0]).Debug("Fetched operation by ID.")
-		return &operations[0], nil
-	}
-	op, err := getActiveOperationFromList(operations)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return op, nil
+	return getActiveOperationsFromList(operations)
 }
 
 // getBackendOperations returns the list of operation from the specified backends
@@ -260,13 +271,16 @@ type backendOperations struct {
 	clusterOperation *ops.SiteOperation
 }
 
-func getActiveOperationFromList(operations []ops.SiteOperation) (*ops.SiteOperation, error) {
+func getActiveOperationsFromList(operations []ops.SiteOperation) (result []ops.SiteOperation, err error) {
 	for _, op := range operations {
 		if !op.IsCompleted() {
-			return &op, nil
+			result = append(result, op)
 		}
 	}
-	return nil, trace.NotFound("no active operations found")
+	if len(result) == 0 {
+		return nil, trace.NotFound("no active operations found")
+	}
+	return result, nil
 }
 
 func (r oplist) String() string {

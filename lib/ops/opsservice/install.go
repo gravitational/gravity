@@ -128,11 +128,8 @@ func (s *site) createInstallExpandOperation(operationType, operationInitialState
 	}
 
 	tokenType := storage.ProvisioningTokenTypeInstall
-	expires := s.clock().UtcNow().Add(defaults.InstallTokenTTL)
 	if op.Type == ops.OperationExpand {
 		tokenType = storage.ProvisioningTokenTypeExpand
-		// Do not expire join tokens
-		expires = time.Time{}
 	}
 
 	_, err = s.users().CreateProvisioningToken(storage.ProvisioningToken{
@@ -140,7 +137,6 @@ func (s *site) createInstallExpandOperation(operationType, operationInitialState
 		AccountID:   s.key.AccountID,
 		SiteDomain:  s.key.SiteDomain,
 		Type:        storage.ProvisioningTokenType(tokenType),
-		Expires:     expires,
 		OperationID: op.ID,
 		UserEmail:   agentUser.GetName(),
 	})

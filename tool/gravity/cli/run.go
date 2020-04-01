@@ -315,11 +315,15 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			*g.InstallCmd.Force = false
 		}
 		if *g.InstallCmd.Phase != "" {
+			op, err := getActiveOperation(localEnv, nil, nil, *g.JoinCmd.OperationID)
+			if err != nil {
+				return trace.Wrap(err)
+			}
 			return executeInstallPhase(localEnv, PhaseParams{
 				PhaseID: *g.InstallCmd.Phase,
 				Force:   *g.InstallCmd.Force,
 				Timeout: *g.InstallCmd.PhaseTimeout,
-			}, nil)
+			}, *op)
 		}
 		return startInstall(localEnv, NewInstallConfig(g))
 	case g.JoinCmd.FullCommand():
@@ -328,12 +332,16 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			*g.JoinCmd.Force = false
 		}
 		if *g.JoinCmd.Phase != "" {
+			op, err := getActiveOperation(localEnv, nil, joinEnv, *g.JoinCmd.OperationID)
+			if err != nil {
+				return trace.Wrap(err)
+			}
 			return executeJoinPhase(localEnv, joinEnv, PhaseParams{
 				PhaseID:     *g.JoinCmd.Phase,
 				Force:       *g.JoinCmd.Force,
 				Timeout:     *g.JoinCmd.PhaseTimeout,
 				OperationID: *g.JoinCmd.OperationID,
-			}, nil)
+			}, *op)
 		}
 		return Join(localEnv, joinEnv, NewJoinConfig(g))
 	case g.AutoJoinCmd.FullCommand():
