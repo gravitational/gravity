@@ -78,6 +78,7 @@ func CreateAppWithDeps(apps app.Applications, packages pack.PackageService, c *C
 		"gravitational.io/dns-app:0.0.1",
 		"gravitational.io/logging-app:0.0.1",
 		"gravitational.io/monitoring-app:0.0.1",
+		"gravitational.io/ingress-app:0.0.1",
 		"gravitational.io/site:0.0.1",
 	}
 
@@ -99,6 +100,7 @@ func CreateAppWithDeps(apps app.Applications, packages pack.PackageService, c *C
   - gravitational.io/dns-app:0.0.1
   - gravitational.io/logging-app:0.0.1
   - gravitational.io/monitoring-app:0.0.1
+  - gravitational.io/ingress-app:0.0.1
   - gravitational.io/site:0.0.1`
 
 	return createApp(loc.MustParseLocator("gravitational.io/dummy:0.0.1"), deps, apps, c)
