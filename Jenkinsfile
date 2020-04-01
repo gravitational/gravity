@@ -33,7 +33,7 @@ properties([
            defaultValue: '1',
            description: 'How many times to repeat each test.'),
     string(name: 'ROBOTEST_VERSION',
-           defaultValue: 'stable-gce',
+           defaultValue: 'uid-gid',
            description: 'Robotest tag to use.'),
     choice(choices: ["false", "true"].join("\n"),
            description: 'Whether to use preemptible VMs.',
