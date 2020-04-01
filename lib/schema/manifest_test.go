@@ -27,7 +27,7 @@ import (
 
 	"github.com/gravitational/trace"
 	. "gopkg.in/check.v1"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -621,6 +621,10 @@ extensions:
 		},
 		{
 			name: defaults.MonitoringAppName,
+			skip: true,
+		},
+		{
+			name: defaults.IngressAppName,
 			skip: true,
 		},
 		{

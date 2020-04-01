@@ -1265,6 +1265,12 @@ func ShouldSkipApp(manifest Manifest, app loc.Locator) bool {
 		if ext != nil && ext.Monitoring != nil && ext.Monitoring.Disabled {
 			return true
 		}
+	case defaults.IngressAppName:
+		// do not install ingress-app if ingress feature is disabled
+		ext := manifest.Extensions
+		if ext != nil && ext.Ingress != nil && ext.Ingress.Disabled {
+			return true
+		}
 	case defaults.TillerAppName:
 		// do not install tiller-app if catalog feature is disabled
 		ext := manifest.Extensions
