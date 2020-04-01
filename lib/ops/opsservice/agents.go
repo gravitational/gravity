@@ -36,12 +36,14 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/users"
 	"github.com/gravitational/gravity/lib/utils"
-	licenseapi "github.com/gravitational/license"
 
+	"github.com/cenkalti/backoff"
+	licenseapi "github.com/gravitational/license"
 	"github.com/gravitational/satellite/agent/proto/agentpb"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
-	netcontext "golang.org/x/net/context" // TODO: remove in go1.9
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type agentServer storage.Server
@@ -311,25 +313,25 @@ func NewAgentPeerStore(backend storage.Backend, users users.Users,
 	return &AgentPeerStore{
 		FieldLogger: log,
 		teleport:    teleport,
-		groups:      make(map[ops.SiteOperationKey]agentGroup),
+		groups:      make(map[ops.SiteOperationKey]*agentGroup),
 		backend:     backend,
 		users:       users,
 	}
 }
 
 // NewPeer adds a new peer
-func (r *AgentPeerStore) NewPeer(ctx netcontext.Context, req pb.PeerJoinRequest, peer rpcserver.Peer) error {
+func (r *AgentPeerStore) NewPeer(ctx context.Context, req pb.PeerJoinRequest, peer rpcserver.Peer) error {
 	logger := r.WithField("peer", peer.Addr())
 	logger.Info("NewPeer.")
 
 	token, user, err := r.authenticatePeer(req.Config.Token)
 	if err != nil {
-		return trace.Wrap(err)
+		return err
 	}
 
 	info, err := storage.UnmarshalSystemInfo(req.SystemInfo)
 	if err != nil {
-		return trace.Wrap(err)
+		return err
 	}
 	logger.WithField("info", info.String()).Info("Peer system information.")
 
@@ -339,13 +341,13 @@ func (r *AgentPeerStore) NewPeer(ctx netcontext.Context, req pb.PeerJoinRequest,
 		OperationID: token.OperationID,
 	})
 	if err != nil {
-		return trace.Wrap(err)
+		return err
 	}
 
 	if req.Config.KeyValues[ops.AgentMode] != ops.AgentModeShrink {
 		errCheck := r.validatePeer(ctx, group, info, req, token.SiteDomain)
 		if errCheck != nil {
-			return trace.Wrap(errCheck)
+			return errCheck
 		}
 	}
 
@@ -359,17 +361,17 @@ func (r *AgentPeerStore) NewPeer(ctx netcontext.Context, req pb.PeerJoinRequest,
 }
 
 // RemovePeer removes the specified peer from the store
-func (r *AgentPeerStore) RemovePeer(ctx netcontext.Context, req pb.PeerLeaveRequest, peer rpcserver.Peer) error {
+func (r *AgentPeerStore) RemovePeer(ctx context.Context, req pb.PeerLeaveRequest, peer rpcserver.Peer) error {
 	r.WithField("peer", peer.Addr()).Info("RemovePeer.")
 
 	token, user, err := r.authenticatePeer(req.Config.Token)
 	if err != nil {
-		return trace.Wrap(err)
+		return err
 	}
 
 	info, err := storage.UnmarshalSystemInfo(req.SystemInfo)
 	if err != nil {
-		return trace.Wrap(err)
+		return err
 	}
 
 	group, err := r.getOrCreateGroup(ops.SiteOperationKey{
@@ -378,7 +380,7 @@ func (r *AgentPeerStore) RemovePeer(ctx netcontext.Context, req pb.PeerLeaveRequ
 		OperationID: token.OperationID,
 	})
 	if err != nil {
-		return trace.Wrap(err)
+		return err
 	}
 
 	group.remove(ctx, peer, info.GetHostname())
@@ -389,8 +391,8 @@ func (r *AgentPeerStore) RemovePeer(ctx netcontext.Context, req pb.PeerLeaveRequ
 func (r *AgentPeerStore) authenticatePeer(token string) (*storage.ProvisioningToken, storage.User, error) {
 	provToken, err := r.users.GetProvisioningToken(token)
 	if err != nil {
-		r.Warnf("Invalid peer auth token %q: %v.", token, trace.DebugReport(err))
-		return nil, nil, trace.AccessDenied("peer auth failed: %v",
+		r.WithError(err).WithField("token", token).Warn("Invalid peer auth token.")
+		return nil, nil, status.Errorf(codes.PermissionDenied, "peer auth failed: %v",
 			trace.UserMessage(err))
 	}
 	user, _, err := r.users.AuthenticateUser(httplib.AuthCreds{
@@ -398,8 +400,8 @@ func (r *AgentPeerStore) authenticatePeer(token string) (*storage.ProvisioningTo
 		Type:     httplib.AuthBearer,
 	})
 	if err != nil {
-		r.Warnf("Peer auth failed: %v.", trace.DebugReport(err))
-		return nil, nil, trace.AccessDenied("user auth failed: %v",
+		r.WithError(err).Warn("Peer auth failed.")
+		return nil, nil, status.Errorf(codes.PermissionDenied, "peer auth failed: %v",
 			trace.UserMessage(err))
 	}
 	return provToken, user, nil
@@ -490,7 +492,7 @@ func (r *AgentPeerStore) getOrCreateGroup(key ops.SiteOperationKey) (*agentGroup
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if group, ok := r.groups[key]; ok {
-		return &group, nil
+		return group, nil
 	}
 
 	group, err := r.addGroup(key)
@@ -504,7 +506,7 @@ func (r *AgentPeerStore) getGroup(key ops.SiteOperationKey) (*agentGroup, error)
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if group, ok := r.groups[key]; ok {
-		return &group, nil
+		return group, nil
 	}
 
 	return nil, trace.NotFound("no execution group for %v", key)
@@ -524,21 +526,25 @@ func (r *AgentPeerStore) removeGroup(ctx context.Context, key ops.SiteOperationK
 func (r *AgentPeerStore) addGroup(key ops.SiteOperationKey) (*agentGroup, error) {
 	config := rpcserver.AgentGroupConfig{
 		FieldLogger: log.StandardLogger(),
+		ReconnectStrategy: rpcserver.ReconnectStrategy{
+			Backoff: func() backoff.BackOff {
+				return utils.NewExponentialBackOff(defaults.AgentGroupPeerReconnectTimeout)
+			},
+		},
 	}
 	group, err := rpcserver.NewAgentGroup(config, nil)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	group.Start()
-	agentGroup := agentGroup{
+	agentGroup := &agentGroup{
 		AgentGroup: *group,
 		watchCh:    make(chan rpcserver.Peer),
 		hostnames:  make(map[string]string),
 	}
 	r.WithField("key", key).Debug("Added group.")
-	// FIXME: assignment copies lock value
 	r.groups[key] = agentGroup
-	return &agentGroup, nil
+	return agentGroup, nil
 }
 
 // AgentPeerStore manages groups of agents based on operation context.
@@ -549,7 +555,7 @@ type AgentPeerStore struct {
 	users    users.Users
 	teleport ops.TeleportProxyService
 	mu       sync.Mutex
-	groups   map[ops.SiteOperationKey]agentGroup
+	groups   map[ops.SiteOperationKey]*agentGroup
 }
 
 func (r *agentGroup) add(p rpcserver.Peer, hostname string) {
@@ -559,7 +565,7 @@ func (r *agentGroup) add(p rpcserver.Peer, hostname string) {
 	r.hostnames[p.Addr()] = hostname
 }
 
-func (r *agentGroup) remove(ctx netcontext.Context, p rpcserver.Peer, hostname string) {
+func (r *agentGroup) remove(ctx context.Context, p rpcserver.Peer, hostname string) {
 	r.AgentGroup.Remove(ctx, p)
 	r.mu.Lock()
 	defer r.mu.Unlock()

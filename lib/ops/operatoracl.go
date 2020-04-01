@@ -536,11 +536,11 @@ func (o *OperatorACL) StreamOperationLogs(key SiteOperationKey, reader io.Reader
 	return o.operator.StreamOperationLogs(key, reader)
 }
 
-func (o *OperatorACL) GetSiteExpandOperationAgentReport(key SiteOperationKey) (*AgentReport, error) {
+func (o *OperatorACL) GetSiteExpandOperationAgentReport(ctx context.Context, key SiteOperationKey) (*AgentReport, error) {
 	if err := o.ClusterAction(key.SiteDomain, storage.KindCluster, teleservices.VerbRead); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return o.operator.GetSiteExpandOperationAgentReport(key)
+	return o.operator.GetSiteExpandOperationAgentReport(ctx, key)
 }
 
 func (o *OperatorACL) SiteExpandOperationStart(key SiteOperationKey) error {

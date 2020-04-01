@@ -17,11 +17,13 @@ limitations under the License.
 package fsm
 
 import (
+	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 
 	"github.com/gravitational/trace"
+	"github.com/sirupsen/logrus"
 )
 
 // CanRollback checks if specified phase can be rolled back
@@ -214,6 +216,25 @@ func ClusterKey(plan storage.OperationPlan) ops.SiteKey {
 		AccountID:  plan.AccountID,
 		SiteDomain: plan.ClusterName,
 	}
+}
+
+// CompleteOrFailOperation completes or fails the operation given by the plan in the specified operator.
+// planErr optionally specifies the error to record in the failed message and record operation failure
+func CompleteOrFailOperation(plan *storage.OperationPlan, operator ops.Operator, planErr string) (err error) {
+	key := OperationKey(*plan)
+	if IsCompleted(plan) {
+		err = ops.CompleteOperation(key, operator)
+	} else {
+		err = ops.FailOperation(key, operator, planErr)
+	}
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	logrus.WithFields(logrus.Fields{
+		constants.FieldSuccess: IsCompleted(plan),
+		constants.FieldError:   planErr,
+	}).Debug("Marked operation complete.")
+	return nil
 }
 
 func addPhases(phase *storage.OperationPhase, result *[]*storage.OperationPhase) {

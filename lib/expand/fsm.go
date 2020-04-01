@@ -201,23 +201,10 @@ func (e *fsmEngine) Complete(fsmErr error) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	if fsm.IsCompleted(plan) {
-		err = ops.CompleteOperation(e.OperationKey, e.Operator)
-	} else {
-		var message string
-		if fsmErr != nil {
-			message = trace.Unwrap(fsmErr).Error()
-		}
-		err = ops.FailOperation(e.OperationKey, e.Operator, message)
+	if fsmErr == nil {
+		fsmErr = trace.Errorf("completed manually")
 	}
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	e.WithFields(logrus.Fields{
-		constants.FieldSuccess: fsm.IsCompleted(plan),
-		constants.FieldError:   fsmErr,
-	}).Debug("Marked operation complete.")
-	return nil
+	return fsm.CompleteOrFailOperation(plan, e.Operator, fsmErr.Error())
 }
 
 // UpdateProgress reports operation progress to the cluster's operator

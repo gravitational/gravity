@@ -37,6 +37,7 @@ package roundtrip
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -52,6 +53,9 @@ import (
 // ClientParam specifies functional argument for client
 type ClientParam func(c *Client) error
 
+// ClientRequestParam specifies functional argument for the HTTP request
+type ClientRequestParam func(*http.Request) *http.Request
+
 // Tracer sets a request tracer constructor
 func Tracer(newTracer NewTracer) ClientParam {
 	return func(c *Client) error {
@@ -66,6 +70,14 @@ func HTTPClient(h *http.Client) ClientParam {
 	return func(c *Client) error {
 		c.client = h
 		return nil
+	}
+}
+
+// WithContext is a functional parameter that binds the request to
+// the specified context
+func WithContext(ctx context.Context) ClientRequestParam {
+	return func(req *http.Request) *http.Request {
+		return req.WithContext(ctx)
 	}
 }
 
@@ -170,6 +182,14 @@ func (c *Client) Endpoint(params ...string) string {
 // c.PostForm(c.Endpoint("users"), url.Values{"name": []string{"John"}})
 //
 func (c *Client) PostForm(endpoint string, vals url.Values, files ...File) (*Response, error) {
+	return c.PostFormWithOptions(context.TODO(), endpoint, vals, files)
+}
+
+// PostFormWithOptions posts urlencoded form with values and specified list of request options and returns the result.
+//
+// c.PostFormWithOptions(c.Endpoint("users"), url.Values{"name": []string{"John"}})
+//
+func (c *Client) PostFormWithOptions(ctx context.Context, endpoint string, vals url.Values, files []File, opts ...ClientRequestParam) (*Response, error) {
 	// If the sanitizer is enabled, make sure the requested path is safe.
 	if c.sanitizerEnabled {
 		err := isPathSafe(endpoint)
@@ -183,6 +203,9 @@ func (c *Client) PostForm(endpoint string, vals url.Values, files ...File) (*Res
 			req, err := http.NewRequest(http.MethodPost, endpoint, strings.NewReader(vals.Encode()))
 			if err != nil {
 				return nil, err
+			}
+			for _, opt := range opts {
+				req = opt(req)
 			}
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 			c.addAuth(req)
@@ -207,16 +230,19 @@ func (c *Client) PostForm(endpoint string, vals url.Values, files ...File) (*Res
 			for i := range buffers {
 				buffers[i].rewind()
 			}
-			return c.writeWithPipe(endpoint, vals, buffers...)
+			return c.writeWithPipe(endpoint, vals, buffers, opts...)
 		}
 
 		req, err := http.NewRequest(http.MethodPost, endpoint, &buf)
 		if err != nil {
 			return nil, err
 		}
-		c.addAuth(req)
+		for _, opt := range opts {
+			req = opt(req)
+		}
 		req.Header.Set("Content-Type",
 			fmt.Sprintf(`multipart/form-data;boundary="%v"`, writer.Boundary()))
+		c.addAuth(req)
 		return c.client.Do(req)
 	})
 }
@@ -225,7 +251,7 @@ func (c *Client) PostForm(endpoint string, vals url.Values, files ...File) (*Res
 //
 // c.PostJSON(c.Endpoint("users"), map[string]string{"name": "alice@example.com"})
 //
-func (c *Client) PostJSON(endpoint string, data interface{}) (*Response, error) {
+func (c *Client) PostJSON(endpoint string, data interface{}, opts ...ClientRequestParam) (*Response, error) {
 	// If the sanitizer is enabled, make sure the requested path is safe.
 	if c.sanitizerEnabled {
 		err := isPathSafe(endpoint)
@@ -241,6 +267,9 @@ func (c *Client) PostJSON(endpoint string, data interface{}) (*Response, error) 
 		if err != nil {
 			return nil, err
 		}
+		for _, opt := range opts {
+			req = opt(req)
+		}
 		req.Header.Set("Content-Type", "application/json")
 		c.addAuth(req)
 		tracer.Start(req)
@@ -252,7 +281,7 @@ func (c *Client) PostJSON(endpoint string, data interface{}) (*Response, error) 
 //
 // c.PutJSON(c.Endpoint("users"), map[string]string{"name": "alice@example.com"})
 //
-func (c *Client) PutJSON(endpoint string, data interface{}) (*Response, error) {
+func (c *Client) PutJSON(endpoint string, data interface{}, opts ...ClientRequestParam) (*Response, error) {
 	// If the sanitizer is enabled, make sure the requested path is safe.
 	if c.sanitizerEnabled {
 		err := isPathSafe(endpoint)
@@ -268,6 +297,9 @@ func (c *Client) PutJSON(endpoint string, data interface{}) (*Response, error) {
 		if err != nil {
 			return nil, err
 		}
+		for _, opt := range opts {
+			req = opt(req)
+		}
 		req.Header.Set("Content-Type", "application/json")
 		c.addAuth(req)
 		tracer.Start(req)
@@ -279,7 +311,7 @@ func (c *Client) PutJSON(endpoint string, data interface{}) (*Response, error) {
 //
 // c.PatchJSON(c.Endpoint("users"), map[string]string{"name": "alice@example.com"})
 //
-func (c *Client) PatchJSON(endpoint string, data interface{}) (*Response, error) {
+func (c *Client) PatchJSON(endpoint string, data interface{}, opts ...ClientRequestParam) (*Response, error) {
 	// If the sanitizer is enabled, make sure the requested path is safe.
 	if c.sanitizerEnabled {
 		err := isPathSafe(endpoint)
@@ -295,6 +327,9 @@ func (c *Client) PatchJSON(endpoint string, data interface{}) (*Response, error)
 		if err != nil {
 			return nil, err
 		}
+		for _, opt := range opts {
+			req = opt(req)
+		}
 		req.Header.Set("Content-Type", "application/json")
 		c.addAuth(req)
 		tracer.Start(req)
@@ -306,7 +341,7 @@ func (c *Client) PatchJSON(endpoint string, data interface{}) (*Response, error)
 //
 // re, err := c.Delete(c.Endpoint("users", "id1"))
 //
-func (c *Client) Delete(endpoint string) (*Response, error) {
+func (c *Client) Delete(endpoint string, opts ...ClientRequestParam) (*Response, error) {
 	// If the sanitizer is enabled, make sure the requested path is safe.
 	if c.sanitizerEnabled {
 		err := isPathSafe(endpoint)
@@ -321,6 +356,9 @@ func (c *Client) Delete(endpoint string) (*Response, error) {
 		if err != nil {
 			return nil, err
 		}
+		for _, opt := range opts {
+			req = opt(req)
+		}
 		c.addAuth(req)
 		tracer.Start(req)
 		return c.client.Do(req)
@@ -331,20 +369,20 @@ func (c *Client) Delete(endpoint string) (*Response, error) {
 //
 // re, err := c.DeleteWithParams(c.Endpoint("users", "id1"), url.Values{"force": []string{"true"}})
 //
-func (c *Client) DeleteWithParams(endpoint string, params url.Values) (*Response, error) {
+func (c *Client) DeleteWithParams(endpoint string, params url.Values, opts ...ClientRequestParam) (*Response, error) {
 	baseURL, err := url.Parse(endpoint)
 	if err != nil {
 		return nil, err
 	}
 	baseURL.RawQuery = params.Encode()
-	return c.Delete(baseURL.String())
+	return c.Delete(baseURL.String(), opts...)
 }
 
 // Get executes GET request to the server endpoint with optional query arguments passed in params
 //
 // re, err := c.Get(c.Endpoint("users"), url.Values{"name": []string{"John"}})
 //
-func (c *Client) Get(endpoint string, params url.Values) (*Response, error) {
+func (c *Client) Get(endpoint string, params url.Values, opts ...ClientRequestParam) (*Response, error) {
 	// If the sanitizer is enabled, make sure the requested path is safe.
 	if c.sanitizerEnabled {
 		err := isPathSafe(endpoint)
@@ -364,6 +402,9 @@ func (c *Client) Get(endpoint string, params url.Values) (*Response, error) {
 		if err != nil {
 			return nil, err
 		}
+		for _, opt := range opts {
+			req = opt(req)
+		}
 		c.addAuth(req)
 		tracer.Start(req)
 		return c.client.Do(req)
@@ -374,7 +415,7 @@ func (c *Client) Get(endpoint string, params url.Values) (*Response, error) {
 //
 // f, err := c.GetFile("files", "report.txt") // returns "/v1/files/report.txt"
 //
-func (c *Client) GetFile(endpoint string, params url.Values) (*FileResponse, error) {
+func (c *Client) GetFile(endpoint string, params url.Values, opts ...ClientRequestParam) (*FileResponse, error) {
 	// If the sanitizer is enabled, make sure the requested path is safe.
 	if c.sanitizerEnabled {
 		err := isPathSafe(endpoint)
@@ -391,6 +432,9 @@ func (c *Client) GetFile(endpoint string, params url.Values) (*FileResponse, err
 	req, err := http.NewRequest(http.MethodGet, baseUrl.String(), nil)
 	if err != nil {
 		return nil, err
+	}
+	for _, opt := range opts {
+		req = opt(req)
 	}
 	c.addAuth(req)
 	tracer := c.newTracer()
@@ -474,7 +518,7 @@ func (c *Client) addAuth(r *http.Request) {
 	}
 }
 
-func (c *Client) writeWithPipe(endpoint string, vals url.Values, buffers ...fileBuffer) (*http.Response, error) {
+func (c *Client) writeWithPipe(endpoint string, vals url.Values, buffers []fileBuffer, opts ...ClientRequestParam) (*http.Response, error) {
 	r, w := io.Pipe()
 	writer := multipart.NewWriter(w)
 
@@ -488,6 +532,9 @@ func (c *Client) writeWithPipe(endpoint string, vals url.Values, buffers ...file
 	if err != nil {
 		r.Close()
 		return nil, err
+	}
+	for _, opt := range opts {
+		req = opt(req)
 	}
 
 	c.addAuth(req)

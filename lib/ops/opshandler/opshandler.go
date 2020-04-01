@@ -1630,8 +1630,8 @@ Success response:
       "instructions": "download instructions to display to user"
    }
 */
-func (h *WebHandler) getSiteExpandOperationAgentReport(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
-	agentReport, err := context.Operator.GetSiteExpandOperationAgentReport(siteOperationKey(p))
+func (h *WebHandler) getSiteExpandOperationAgentReport(w http.ResponseWriter, r *http.Request, p httprouter.Params, hcontext *HandlerContext) error {
+	agentReport, err := hcontext.Operator.GetSiteExpandOperationAgentReport(r.Context(), siteOperationKey(p))
 	if err != nil {
 		return trace.Wrap(err)
 	}

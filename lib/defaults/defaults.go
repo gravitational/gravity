@@ -213,6 +213,10 @@ const (
 	// PeerConnectTimeout is the timeout of an RPC agent connecting to its peer
 	PeerConnectTimeout = 10 * time.Second
 
+	// AgentGroupPeerReconnectTimeout is the maximum amount of time agent group will attempt
+	// to reconnect to the peer
+	AgentGroupPeerReconnectTimeout = 15 * time.Minute
+
 	// EnvPeerConnectTimeout is the environment variable that overrides the value of the
 	// agent timeout for the validating connect
 	EnvPeerConnectTimeout = "GRAVITY_PEER_CONNECT_TIMEOUT"
@@ -886,6 +890,10 @@ const (
 
 	// RPCAgentSecretsPackage specifies the name of the RPC credentials package
 	RPCAgentSecretsPackage = "rpcagent-secrets"
+
+	// ShutdownTimeout specifies the maximum amount of time to wait for completion
+	// when closing
+	ShutdownTimeout = 1 * time.Minute
 
 	// ArchiveUID specifies the user ID to use for tarball items that do not exist on disk
 	ArchiveUID = 1000

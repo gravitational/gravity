@@ -65,10 +65,16 @@ func initUpdateOperationPlan(localEnv, updateEnv *localenv.LocalEnvironment) err
 }
 
 func displayOperationPlan(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, operationID string, format constants.Format) error {
-	op, err := getLastOperation(localEnv, updateEnv, joinEnv, operationID)
+	operations, err := getLastOperation(localEnv, updateEnv, joinEnv, operationID)
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	if len(operations) != 1 {
+		log.WithField("operations", oplist(operations).String()).Warn("Multiple operations found.")
+		localEnv.Println("Multiple operations found: \n%v\n, please specify operation with --operation-id.\n" +
+			"Displaying the most recent operation.")
+	}
+	op := operations[0]
 	if op.IsCompleted() {
 		return displayClusterOperationPlan(localEnv, op.Key(), format)
 	}

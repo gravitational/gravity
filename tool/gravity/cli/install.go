@@ -459,7 +459,7 @@ func findLocalServer(site ops.Site) (*storage.Server, error) {
 	return server, nil
 }
 
-func executeInstallPhase(localEnv *localenv.LocalEnvironment, p PhaseParams, operation *ops.SiteOperation) error {
+func executeInstallPhase(localEnv *localenv.LocalEnvironment, p PhaseParams, operation ops.SiteOperation) error {
 	localApps, err := localEnv.AppServiceLocal(localenv.AppConfig{})
 	if err != nil {
 		return trace.Wrap(err)
@@ -468,13 +468,6 @@ func executeInstallPhase(localEnv *localenv.LocalEnvironment, p PhaseParams, ope
 	wizardEnv, err := localenv.NewRemoteEnvironment()
 	if err != nil {
 		return trace.Wrap(err)
-	}
-
-	if operation == nil {
-		operation, err = ops.GetWizardOperation(wizardEnv.Operator)
-		if err != nil {
-			return trace.Wrap(err)
-		}
 	}
 
 	installFSM, err := install.NewFSM(install.FSMConfig{
@@ -512,7 +505,7 @@ func executeInstallPhase(localEnv *localenv.LocalEnvironment, p PhaseParams, ope
 	return nil
 }
 
-func executeJoinPhase(localEnv, joinEnv *localenv.LocalEnvironment, p PhaseParams, operation *ops.SiteOperation) error {
+func executeJoinPhase(localEnv, joinEnv *localenv.LocalEnvironment, p PhaseParams, operation ops.SiteOperation) error {
 	operator, err := joinEnv.CurrentOperator(httplib.WithInsecure())
 	if err != nil {
 		return trace.Wrap(err)
@@ -524,14 +517,6 @@ func executeJoinPhase(localEnv, joinEnv *localenv.LocalEnvironment, p PhaseParam
 	packages, err := joinEnv.CurrentPackages(httplib.WithInsecure())
 	if err != nil {
 		return trace.Wrap(err)
-	}
-	if operation == nil {
-		// determine the ongoing expand operation, it should be the only
-		// operation present in the local join-specific backend
-		operation, err = ops.GetExpandOperation(joinEnv.Backend)
-		if err != nil {
-			return trace.Wrap(err)
-		}
 	}
 	joinFSM, err := expand.NewFSM(expand.FSMConfig{
 		OperationKey:  operation.Key(),
@@ -562,7 +547,7 @@ func executeJoinPhase(localEnv, joinEnv *localenv.LocalEnvironment, p PhaseParam
 	})
 }
 
-func rollbackJoinPhase(localEnv, joinEnv *localenv.LocalEnvironment, p PhaseParams, operation *ops.SiteOperation) error {
+func rollbackJoinPhase(localEnv, joinEnv *localenv.LocalEnvironment, p PhaseParams, operation ops.SiteOperation) error {
 	operator, err := joinEnv.CurrentOperator(httplib.WithInsecure(), httplib.WithTimeout(5*time.Second))
 	if err != nil {
 		return trace.Wrap(err)
@@ -574,14 +559,6 @@ func rollbackJoinPhase(localEnv, joinEnv *localenv.LocalEnvironment, p PhasePara
 	packages, err := joinEnv.CurrentPackages(httplib.WithInsecure(), httplib.WithTimeout(5*time.Second))
 	if err != nil {
 		return trace.Wrap(err)
-	}
-	if operation == nil {
-		// determine the ongoing expand operation, it should be the only
-		// operation present in the local join-specific backend
-		operation, err = ops.GetExpandOperation(joinEnv.Backend)
-		if err != nil {
-			return trace.Wrap(err)
-		}
 	}
 	joinFSM, err := expand.NewFSM(expand.FSMConfig{
 		OperationKey:  operation.Key(),
@@ -622,7 +599,7 @@ func ResumeInstall(ctx context.Context, machine *fsm.FSM, progress utils.Progres
 	return nil
 }
 
-func rollbackInstallPhase(localEnv *localenv.LocalEnvironment, p PhaseParams, operation *ops.SiteOperation) error {
+func rollbackInstallPhase(localEnv *localenv.LocalEnvironment, p PhaseParams, operation ops.SiteOperation) error {
 	localApps, err := localEnv.AppServiceLocal(localenv.AppConfig{})
 	if err != nil {
 		return trace.Wrap(err)
@@ -631,13 +608,6 @@ func rollbackInstallPhase(localEnv *localenv.LocalEnvironment, p PhaseParams, op
 	wizardEnv, err := localenv.NewRemoteEnvironment()
 	if err != nil {
 		return trace.Wrap(err)
-	}
-
-	if operation == nil {
-		operation, err = ops.GetWizardOperation(wizardEnv.Operator)
-		if err != nil {
-			return trace.Wrap(err)
-		}
 	}
 
 	installFSM, err := install.NewFSM(install.FSMConfig{
@@ -667,7 +637,7 @@ func rollbackInstallPhase(localEnv *localenv.LocalEnvironment, p PhaseParams, op
 	})
 }
 
-func completeInstallPlan(localEnv *localenv.LocalEnvironment, operation *ops.SiteOperation) error {
+func completeInstallPlan(localEnv *localenv.LocalEnvironment, operation ops.SiteOperation) error {
 	localApps, err := localEnv.AppServiceLocal(localenv.AppConfig{})
 	if err != nil {
 		return trace.Wrap(err)
@@ -676,13 +646,6 @@ func completeInstallPlan(localEnv *localenv.LocalEnvironment, operation *ops.Sit
 	wizardEnv, err := localenv.NewRemoteEnvironment()
 	if err != nil {
 		return trace.Wrap(err)
-	}
-
-	if operation == nil {
-		operation, err = ops.GetWizardOperation(wizardEnv.Operator)
-		if err != nil {
-			return trace.Wrap(err)
-		}
 	}
 
 	installFSM, err := install.NewFSM(install.FSMConfig{
@@ -706,10 +669,13 @@ func completeInstallPlan(localEnv *localenv.LocalEnvironment, operation *ops.Sit
 	return nil
 }
 
-func completeJoinPlan(localEnv, joinEnv *localenv.LocalEnvironment, operation *ops.SiteOperation) error {
+func completeJoinPlan(localEnv, joinEnv *localenv.LocalEnvironment, operation ops.SiteOperation) error {
 	operator, err := joinEnv.CurrentOperator(httplib.WithInsecure())
 	if err != nil {
-		return trace.Wrap(err)
+		if !trace.IsAccessDenied(err) {
+			log.WithError(err).Warn("Failed to query cluster operator.")
+		}
+		return completeJoinPlanFromExistingNode(localEnv, operation)
 	}
 	apps, err := joinEnv.CurrentApps(httplib.WithInsecure())
 	if err != nil {
@@ -718,12 +684,6 @@ func completeJoinPlan(localEnv, joinEnv *localenv.LocalEnvironment, operation *o
 	packages, err := joinEnv.CurrentPackages(httplib.WithInsecure())
 	if err != nil {
 		return trace.Wrap(err)
-	}
-	if operation == nil {
-		operation, err = ops.GetExpandOperation(joinEnv.Backend)
-		if err != nil {
-			return trace.Wrap(err)
-		}
 	}
 	joinFSM, err := expand.NewFSM(expand.FSMConfig{
 		OperationKey:  operation.Key(),
@@ -741,6 +701,26 @@ func completeJoinPlan(localEnv, joinEnv *localenv.LocalEnvironment, operation *o
 		return trace.Wrap(err)
 	}
 	return joinFSM.Complete(trace.Errorf("completed manually"))
+}
+
+// completeJoinPlanFromExistingNode completes the specifies expand operation
+// from a existing cluster node in case the joining node (and its state) is not
+// available to perform the operation.
+func completeJoinPlanFromExistingNode(localEnv *localenv.LocalEnvironment, operation ops.SiteOperation) error {
+	clusterEnv, err := localEnv.NewClusterEnvironment()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	const manualCompletedError = "completed manually"
+	plan, err := clusterEnv.Operator.GetOperationPlan(operation.Key())
+	if err != nil && !trace.IsNotFound(err) {
+		return trace.Wrap(err)
+	}
+	if plan != nil {
+		return fsm.CompleteOrFailOperation(plan, clusterEnv.Operator, manualCompletedError)
+	}
+	// No operation plan created for the operation - fail the operation directly
+	return ops.FailOperation(operation.Key(), clusterEnv.Operator, manualCompletedError)
 }
 
 func isCancelledError(err error) bool {

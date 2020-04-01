@@ -672,7 +672,7 @@ type Operations interface {
 	//
 	// 2. This method is called as a second step to get information
 	// about servers participating in the operations
-	GetSiteExpandOperationAgentReport(SiteOperationKey) (*AgentReport, error)
+	GetSiteExpandOperationAgentReport(context.Context, SiteOperationKey) (*AgentReport, error)
 
 	// SiteExpandOperationStart begins actuall expand using
 	// the Operation plan configured as a previous step

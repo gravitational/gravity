@@ -28,13 +28,15 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/cenkalti/backoff"
 	"github.com/gravitational/gravity/lib/loc"
 
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/cenkalti/backoff"
 	etcd "github.com/coreos/etcd/client"
 	"github.com/gravitational/trace"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	kubeerrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
@@ -342,10 +344,32 @@ func ExitStatusFromError(err error) *int {
 //
 // It detects unrecoverable errors and aborts the reconnect attempts
 func ShouldReconnectPeer(err error) error {
-	if isPeerDeniedError(err.Error()) {
-		return &backoff.PermanentError{err}
+	switch {
+	case isPermissionDeniedError(err),
+		isLicenseError(err.Error()),
+		isHostAlreadyRegisteredError(err.Error()):
+		return &backoff.PermanentError{Err: err}
 	}
 	return err
+}
+
+func isPermissionDeniedError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if statusErr, ok := status.FromError(trace.Unwrap(err)); ok {
+		return statusErr.Code() == codes.PermissionDenied
+	}
+	return trace.IsAccessDenied(err)
+}
+
+func isLicenseError(message string) bool {
+	return strings.Contains(message, "license allows maximum of")
+}
+
+func isHostAlreadyRegisteredError(message string) bool {
+	return strings.Contains(message, "One of existing peers already has hostname") ||
+		strings.Contains(message, "One of existing servers already has hostname")
 }
 
 func isPeerDeniedError(message string) bool {

@@ -500,8 +500,8 @@ func (c *Client) SiteInstallOperationStart(req ops.SiteOperationKey) error {
 	return nil
 }
 
-func (c *Client) GetSiteExpandOperationAgentReport(key ops.SiteOperationKey) (*ops.AgentReport, error) {
-	out, err := c.Get(c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "operations", "expand", key.OperationID, "agent-report"), url.Values{})
+func (c *Client) GetSiteExpandOperationAgentReport(ctx context.Context, key ops.SiteOperationKey) (*ops.AgentReport, error) {
+	out, err := c.GetWithContext(ctx, c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "operations", "expand", key.OperationID, "agent-report"), url.Values{})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -1531,7 +1531,12 @@ func (c *Client) PutJSON(endpoint string, data interface{}) (*roundtrip.Response
 
 // Get issues HTTP GET request to the server
 func (c *Client) Get(endpoint string, params url.Values) (*roundtrip.Response, error) {
-	return telehttplib.ConvertResponse(c.Client.Get(endpoint, params))
+	return c.GetWithContext(context.TODO(), endpoint, params)
+}
+
+// GetWithContext issues HTTP GET request bound to the specified context to the server
+func (c *Client) GetWithContext(ctx context.Context, endpoint string, params url.Values) (*roundtrip.Response, error) {
+	return telehttplib.ConvertResponse(c.Client.Get(endpoint, params, roundtrip.WithContext(ctx)))
 }
 
 // GetFile issues HTTP GET request to the server to download a file
