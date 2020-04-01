@@ -245,7 +245,7 @@ const manifestSchema = `
                         "mode": {"type": "string"},
                         "uid": {"type": "number"},
                         "gid": {"type": "number"},
-                        "label": {"type": "string"}
+                        "seLinuxLabel": {"type": "string"}
                       }
                     }
                   },

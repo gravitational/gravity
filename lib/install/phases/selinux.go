@@ -146,15 +146,15 @@ func getPorts(profile schema.NodeProfile) (ports []schema.PortRange, err error) 
 
 func getPaths(profile schema.NodeProfile, stateDir string) (paths []selinux.Path, err error) {
 	for _, volume := range profile.Requirements.Volumes {
-		if volume.Label == "" {
-			volume.Label = defaults.ContainerFileLabel
+		if volume.SELinuxLabel == "" {
+			volume.SELinuxLabel = defaults.ContainerFileLabel
 		}
-		if volume.Path == stateDir || !selinux.ShouldLabelVolume(volume.Label) {
+		if volume.Path == stateDir || !selinux.IsValidLabel(volume.SELinuxLabel) {
 			continue
 		}
 		paths = append(paths, selinux.Path{
 			Path:  volume.Path,
-			Label: volume.Label,
+			Label: volume.SELinuxLabel,
 		})
 	}
 	return paths, nil

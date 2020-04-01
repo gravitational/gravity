@@ -106,9 +106,9 @@ const (
 	// OpsCenterFlavor is the Ops Center app flavor
 	OpsCenterFlavor = "single"
 
-	// NoLabel is a special placeholder for a SELinux label indicating
+	// SELinuxLabelNone is a special placeholder for a SELinux label indicating
 	// that no labeling should be performed for the directory
-	NoLabel = "none"
+	SELinuxLabelNone = "none"
 )
 
 // ServiceRole defines the type for the node service role
