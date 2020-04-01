@@ -228,7 +228,7 @@ func releaseList(env *localenv.LocalEnvironment, all bool, tillerNamespace strin
 			r.GetStatus(),
 			r.GetChart(),
 			r.GetRevision(),
-			r.GetMetadata().Namespace,
+			r.GetNamespace(),
 			r.GetUpdated().Format(constants.HumanDateFormatSeconds))
 	}
 	w.Flush()

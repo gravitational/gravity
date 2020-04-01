@@ -452,6 +452,8 @@ const (
 	KindConfigMap = "ConfigMap"
 	// KindService is the Kubernetes Service resource kind
 	KindService = "Service"
+	// KindJob is the Kubernetes Job resource kind
+	KindJob = "Job"
 
 	// KubernetesKindUser defines the kubernetes user resource type
 	KubernetesKindUser = "User"

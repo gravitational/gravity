@@ -1,5 +1,5 @@
 /*
-Copyright 2018-2019 Gravitational, Inc.
+Copyright 2018-2020 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -265,7 +265,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.RestoreCmd.Timeout = g.RestoreCmd.Flag("timeout", fmt.Sprintf("Maximum time a restore job is active. Defaults to the value from the manifest or %v if unspecified.", defaults.HookJobDeadline)).Duration()
 
 	// operations on gravity applications
-	g.AppCmd.CmdClause = g.Command("app", "Operations with application images and releases.")
+	g.AppCmd.CmdClause = g.Command("app", "Operations with application images and releases.").Alias("helm")
 	g.AppCmd.TillerNamespace = g.AppCmd.Flag("tiller-namespace", "Namespace where Tiller is running").Default(defaults.KubeSystemNamespace).String()
 
 	// helm-specific flags

@@ -408,20 +408,16 @@ TMPDIR={{.StateDir}} {{.StateDir}}/gravity --state-dir={{.StateDir}} app unpack 
 	--service-uid={{.ServiceUser.UID}} \
 	--insecure --ops-url=$ops_url \
 	{{.Package}} {{.ResourcesDir}}
-{{if .HelmValues}}
 cat <<EOF > {{.HelmDir}}/{{.HelmValuesFile}}
 {{.HelmValues}}
 EOF
-{{end}}
 `))
 
 var initInstallScriptTemplate = template.Must(template.New("sh").Parse(`
 TMPDIR={{.StateDir}} /opt/bin/gravity app unpack --service-uid={{.ServiceUser.UID}} {{.Package}} {{.ResourcesDir}}
-{{if .HelmValues}}
 cat <<EOF > {{.HelmDir}}/{{.HelmValuesFile}}
 {{.HelmValues}}
 EOF
-{{end}}
 `))
 
 type initScriptContext struct {
