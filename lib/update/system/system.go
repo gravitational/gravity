@@ -917,7 +917,7 @@ func unpack(packages update.LocalPackageService, loc loc.Locator, opts *archive.
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return trace.Wrap(pack.Unpack(packages, loc, path, opts))
+	return packages.Unpack(loc, path)
 }
 
 // tctlScript is the template of the script that invokes tctl binary with
