@@ -62,9 +62,15 @@ func (r portCollector) sockets(fetchSockets ...socketGetterFunc) (ret []process,
 	}
 
 	for _, socket := range sockets {
+		if emptyInode(socket) {
+			continue
+		}
 		proc, err := r.findProcessByInode(socket.inode())
-		if err != nil {
-			log.Warn(err.Error())
+		if err != nil && !trace.IsNotFound(err) {
+			log.WithFields(log.Fields{
+				log.ErrorKey: err,
+				"inode":      socket.inode(),
+			}).Warn("Failed to find process for inode.")
 		}
 		ret = append(ret, process{
 			name:   proc.name,
@@ -353,7 +359,7 @@ func mapPidToInode(pid pid, inodes map[string]pid) error {
 	for _, f := range files {
 		inodePath := filepath.Join(dir, f)
 		inode, err := os.Readlink(inodePath)
-		if err != nil {
+		if err != nil && !os.IsNotExist(err) {
 			log.Debugf("failed to readlink(%q): %v", inodePath, err)
 			continue
 		}
@@ -501,4 +507,11 @@ type unixSocket struct {
 	State    uint
 	Inode    uint
 	Path     string
+}
+
+func emptyInode(socket socket) bool {
+	// Reference: https://ext4.wiki.kernel.org/index.php/Ext4_Disk_Layout#Special_inodes
+	// nilInode signifies an empty inode value
+	const nilInode = "0"
+	return socket.inode() == nilInode
 }

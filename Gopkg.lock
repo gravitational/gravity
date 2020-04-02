@@ -578,6 +578,14 @@
   version = "v1.7.0"
 
 [[projects]]
+  digest = "1:af43bdaaf86655a2343f113e9b293bbc16b12099eaeb223982bbe4d4c22ba14d"
+  name = "github.com/fatih/structs"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "4966fc68f5b7593aafa6cbbba2d65ec6e1416047"
+  version = "v1.1.0"
+
+[[projects]]
   digest = "1:abeb38ade3f32a92943e5be54f55ed6d6e3b6602761d74b4aab4c9dd45c18abd"
   name = "github.com/fsnotify/fsnotify"
   packages = ["."]
@@ -934,7 +942,7 @@
   version = "v1.0.0"
 
 [[projects]]
-  digest = "1:32eb66c3751efdb4ecff3f134ade8e78b2b0170d3e483afd61f64ab915f4c5f9"
+  digest = "1:d0cc178a6f11db3e62770faf9e00f3615a273badf7ef476242d5c71475ec5485"
   name = "github.com/gravitational/satellite"
   packages = [
     "agent",
@@ -951,8 +959,8 @@
     "utils",
   ]
   pruneopts = "UT"
-  revision = "9a1e3888bbf7f5f655772794afc630a84893b519"
-  version = "6.1.3"
+  revision = "18a45de4a4617e84d0f12f73ecfc09415178d651"
+  version = "6.1.6"
 
 [[projects]]
   digest = "1:49f6abbce9ade5f43508429e4af1adcce55d27adcd62719fea049decc766a7c9"
@@ -1420,6 +1428,14 @@
   revision = "89fcab3d43de07060e4fd4c1547430ed57e87f24"
 
 [[projects]]
+  digest = "1:b787518ff1745b6710250b526c50cb32fa3322127d144bebc3602a606cbe332a"
+  name = "github.com/mailgun/holster"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "2296d2fb30b143ac13780cb07dd5e75b22d044b1"
+  version = "v3.8.0"
+
+[[projects]]
   digest = "1:7909a8ad77c5467c33627506121ddf884117adc69600139a6e525560843f7e43"
   name = "github.com/mailgun/lemma"
   packages = [
@@ -1785,15 +1801,16 @@
   revision = "61f87aac8082fa8c3c5655c7608d7478d46ac2ad"
 
 [[projects]]
-  branch = "master"
-  digest = "1:e3f36c748588410d67b7bb3fb442c339ee0c297100425b9040ed6bf3074978f6"
+  digest = "1:5dc7e10a8b70e01a67e232210cb78758630895a0a7fd69d4b909f31d188250e6"
   name = "github.com/prometheus/procfs"
   packages = [
     ".",
-    "xfs",
+    "internal/fs",
+    "internal/util",
   ]
   pruneopts = "UT"
-  revision = "e645f4e5aaa8506fc71d6edbc5c4ff02c04c46f2"
+  revision = "46159f73e74d1cb8dc223deef9b2d049286f46b1"
+  version = "v0.0.11"
 
 [[projects]]
   branch = "master"
