@@ -28,6 +28,7 @@ import (
 
 	"github.com/gravitational/satellite/agent"
 	"github.com/gravitational/satellite/agent/health"
+	pb "github.com/gravitational/satellite/agent/proto/agentpb"
 	"github.com/gravitational/satellite/utils"
 
 	"github.com/gravitational/trace"
@@ -36,7 +37,6 @@ import (
 	"github.com/prometheus/common/expfmt"
 	log "github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 )
 
@@ -109,25 +109,36 @@ func (c *nethealthChecker) Name() string {
 func (c *nethealthChecker) Check(ctx context.Context, reporter health.Reporter) {
 	err := c.check(ctx, reporter)
 	if err != nil {
+		log.WithError(err).Warn("Failed to verify nethealth")
 		reporter.Add(NewProbeFromErr(c.Name(), "failed to verify nethealth", err))
 		return
 	}
-	reporter.Add(NewSuccessProbe(c.Name()))
+	if reporter.NumProbes() == 0 {
+		reporter.Add(NewSuccessProbe(c.Name()))
+	}
 }
 
 func (c *nethealthChecker) check(ctx context.Context, reporter health.Reporter) error {
 	addr, err := c.getNethealthAddr()
 	if trace.IsNotFound(err) {
-		log.Debug("Nethealth pod was not found.")
+		log.WithError(err).Warn("Nethealth pod was not found.")
 		return nil // pod was not found, log and treat gracefully
 	}
 	if err != nil {
 		return trace.Wrap(err) // received unexpected error, maybe network-related, will add error probe above
 	}
 
-	netData, err := fetchNethealthMetrics(ctx, addr)
+	resp, err := fetchNethealthMetrics(ctx, addr)
 	if err != nil {
 		return trace.Wrap(err, "failed to fetch nethealth metrics")
+	}
+
+	netData, err := parseMetrics(resp)
+	if err != nil {
+		log.WithError(err).
+			WithField("nethealth-metrics", string(resp)).
+			Error("Received incomplete set of metrics. Could be due to a bug in nethealth or a change in labels.")
+		return nil
 	}
 
 	updated, err := c.updateStats(netData)
@@ -142,18 +153,22 @@ func (c *nethealthChecker) check(ctx context.Context, reporter health.Reporter) 
 func (c *nethealthChecker) getNethealthAddr() (addr string, err error) {
 	opts := metav1.ListOptions{
 		LabelSelector: nethealthLabelSelector.String(),
-		FieldSelector: fields.OneTermEqualSelector("spec.nodeName", c.AdvertiseIP).String(),
-		Limit:         1,
 	}
 	pods, err := c.Client.CoreV1().Pods(nethealthNamespace).List(opts)
 	if err != nil {
 		return addr, utils.ConvertError(err) // this will convert error to a proper trace error, e.g. trace.NotFound
 	}
 
-	if len(pods.Items) == 0 {
-		return addr, trace.NotFound("unable to find local nethealth pod")
+	for _, pod := range pods.Items {
+		if pod.Status.HostIP == c.AdvertiseIP {
+			if pod.Status.PodIP == "" {
+				return addr, trace.NotFound("local nethealth pod IP has not been assigned yet.")
+			}
+			return fmt.Sprintf("http://%s:%d", pod.Status.PodIP, c.NethealthPort), nil
+		}
 	}
-	return fmt.Sprintf("http://%s:%d", pods.Items[0].Status.PodIP, c.NethealthPort), nil
+
+	return addr, trace.NotFound("unable to find nethealth pod running on host %s", c.AdvertiseIP)
 }
 
 // updateStats updates netStats with new incoming data.
@@ -228,9 +243,20 @@ func (c *nethealthChecker) verifyNethealth(peers []string, reporter health.Repor
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		if !healthy {
-			reporter.Add(NewProbeFromErr(c.Name(), nethealthDetail(peer), nil))
+		if healthy {
+			continue
 		}
+
+		// Report last recorded packet loss percentage
+		data, err := c.peerStats.Get(peer)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		if len(data.packetLoss) == 0 {
+			continue
+		}
+		packetLoss := data.packetLoss[len(data.packetLoss)-1]
+		reporter.Add(nethealthFailureProbe(c.Name(), peer, packetLoss))
 	}
 	return nil
 }
@@ -260,9 +286,21 @@ func (c *nethealthChecker) isHealthy(peer string) (healthy bool, err error) {
 	return false, nil
 }
 
+// nethealthFailureProbe constructs a probe that represents failed nethealth check
+// against the specified peer.
+func nethealthFailureProbe(name, peer string, packetLoss float64) *pb.Probe {
+	return &pb.Probe{
+		Checker: name,
+		Detail: fmt.Sprintf("overlay packet loss for node %s is higher than the allowed threshold of %.2f%%: %.2f%%",
+			peer, thresholdPercent, packetLoss*100),
+		Status:   pb.Probe_Failed,
+		Severity: pb.Probe_Warning,
+	}
+}
+
 // fetchNethealthMetrics collects the network metrics from the nethealth pod
-// specified by addr. Returns mapping of peer to networkData.
-func fetchNethealthMetrics(ctx context.Context, addr string) (map[string]networkData, error) {
+// specified by addr. Returns the resp as an array of bytes.
+func fetchNethealthMetrics(ctx context.Context, addr string) ([]byte, error) {
 	// The two relevant metrics exposed by nethealth are 'nethealth_echo_request_total' and
 	// 'nethealth_echo_timeout_total'. We expect a pair of request/timeout metrics per peer.
 	// Example metrics received from nethealth may look something like the output below:
@@ -297,26 +335,19 @@ func fetchNethealthMetrics(ctx context.Context, addr string) (map[string]network
 		return nil, trace.Wrap(err)
 	}
 
-	var parser expfmt.TextParser
-	metricFamilies, err := parser.TextToMetricFamilies(bytes.NewReader(byteData))
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	netData, err := parseMetrics(metricFamilies)
-	if err != nil {
-		log.WithError(err).
-			WithField("nethealth-metrics", string(byteData)).
-			Error("Received incomplete set of metrics. Could be due to a bug in nethealth or a change in labels.")
-		return nil, trace.Wrap(err)
-	}
-
-	return netData, nil
+	return byteData, nil
 }
 
-// parseMetrics parses the MetricsFamilies and returns the structured network
-// data. data maps a peer to its total request counter and total timeout counter.
-func parseMetrics(metricFamilies map[string]*dto.MetricFamily) (map[string]networkData, error) {
+// parseMetrics parses the provided data and returns the structured network
+// data. The returned networkData maps a peer to its total request counter and
+// total timeout counter.
+func parseMetrics(data []byte) (map[string]networkData, error) {
+	var parser expfmt.TextParser
+	metricFamilies, err := parser.TextToMetricFamilies(bytes.NewReader(data))
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
 	// echoRequests maps a peer to the current running total number of requests sent to that peer.
 	echoRequests, err := parseCounter(metricFamilies, echoRequestLabel)
 	if err != nil {
@@ -377,11 +408,6 @@ func getPeerName(labels []*dto.LabelPair) (peer string, err error) {
 		}
 	}
 	return "", trace.NotFound("unable to find %s label", peerLabel)
-}
-
-// nethealthDetail returns a failed probe detail message.
-func nethealthDetail(name string) string {
-	return fmt.Sprintf("overlay network communication failure with %s", name)
 }
 
 // netStats holds nethealth data for a peer.
@@ -479,6 +505,10 @@ const (
 	// loss is consistently observed to be above this threshold over the entire
 	// interval, network communication will be considered unhealthy.
 	packetLossThreshold = 0.20
+
+	// thresholdPercent converts the packetLossThreshold into a percent value.
+	// Used for logging purposes.
+	thresholdPercent = packetLossThreshold * 100
 )
 
 // nethealthLabelSelector defines label selector used when querying for
