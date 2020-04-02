@@ -602,14 +602,14 @@ kind: Bundle
 metadata:
   name: myapp
   resourceVersion: 0.0.1
+ingress:
+  nginx:
+    enabled: false
 extensions:
   logs:
     disabled: true
   monitoring:
     disabled: true
-  ingress:
-    nginx:
-      enabled: false
   catalog:
     disabled: true`)
 	m, err := ParseManifestYAML(bytes)
