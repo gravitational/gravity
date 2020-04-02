@@ -608,8 +608,8 @@ extensions:
   monitoring:
     disabled: true
   ingress:
-	nginx:
-	  enabled: false
+    nginx:
+      enabled: false
   catalog:
     disabled: true`)
 	m, err := ParseManifestYAML(bytes)

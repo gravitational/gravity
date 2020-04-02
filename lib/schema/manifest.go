@@ -1201,7 +1201,7 @@ type IngressExtension struct {
 
 // NginxIngress allows to customize a specific Nginx ingress feature
 type NginxIngressExtension struct {
-	// Disabled allows to disable Ingress feature
+	// Enabled allows to enable Ingress feature
 	Enabled bool `json:"enabled,omitempty"`
 }
 
@@ -1284,7 +1284,8 @@ func ShouldSkipApp(manifest Manifest, app loc.Locator) bool {
 	case defaults.IngressAppName:
 		// do not install ingress-app if ingress feature is disabled
 		ext := manifest.Extensions
-		if ext != nil && ext.Ingress != nil && !ext.Ingress.Nginx.Enabled {
+		if ext != nil && ext.Ingress != nil &&
+			ext.Ingress.Nginx != nil && !ext.Ingress.Nginx.Enabled {
 			return true
 		}
 	case defaults.TillerAppName:
