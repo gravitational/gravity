@@ -1161,10 +1161,6 @@ type Extensions struct {
 	Logs *LogsExtension `json:"logs,omitempty"`
 	// Monitoring allows to customize monitoring feature
 	Monitoring *MonitoringExtension `json:"monitoring,omitempty"`
-	// Ingress allows to customize ingress feature
-	Ingress *IngressExtension `json:"ingress,omitempty"`
-	// NginxIngress allows to customize a specific Nginx ingress feature
-	NginxIngress *NginxIngress `json:"nginx,omitempty"`
 	// Kubernetes allows to customize kubernetes feature
 	Kubernetes *KubernetesExtension `json:"kubernetes,omitempty"`
 	// Configuration allows to customize configuration feature
@@ -1191,18 +1187,6 @@ type LogsExtension struct {
 type MonitoringExtension struct {
 	// Disabled allows to disable Monitoring tab
 	Disabled bool `json:"disabled,omitempty"`
-}
-
-// Ingress allows to customize ingress feature
-type IngressExtension struct {
-	// Nginx object allows to customize the Ingress object
-	Nginx *NginxIngress `json:"nginx,omitempty"`
-}
-
-// NginxIngress allows to customize a specific Nginx ingress feature
-type NginxIngress struct {
-	// Enabled allows to enable Ingress feature
-	Enabled bool `json:"enabled,omitempty"`
 }
 
 // CatalogExtension allows to customize application catalog feature
@@ -1283,11 +1267,7 @@ func ShouldSkipApp(manifest Manifest, app loc.Locator) bool {
 		}
 	case defaults.IngressAppName:
 		// do not install ingress-app if ingress feature is disabled
-		ext := manifest.Extensions
-		if ext != nil && ext.Ingress != nil &&
-			ext.Ingress.Nginx != nil && !ext.Ingress.Nginx.Enabled {
-			return true
-		}
+		return !manifest.IngressEnabled()
 	case defaults.TillerAppName:
 		// do not install tiller-app if catalog feature is disabled
 		ext := manifest.Extensions
