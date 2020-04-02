@@ -1196,7 +1196,7 @@ type MonitoringExtension struct {
 // Ingress allows to customize ingress feature
 type IngressExtension struct {
 	// Disabled allows to disable Ingress feature
-	Nginx NginxIngressExtension `json:"nginx,omitempty"`
+	Nginx *NginxIngressExtension `json:"nginx,omitempty"`
 }
 
 // NginxIngress allows to customize a specific Nginx ingress feature
