@@ -607,6 +607,8 @@ extensions:
     disabled: true
   monitoring:
     disabled: true
+  ingress:
+    disabled: true
   catalog:
     disabled: true`)
 	m, err := ParseManifestYAML(bytes)
