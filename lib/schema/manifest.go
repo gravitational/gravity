@@ -1164,7 +1164,7 @@ type Extensions struct {
 	// Ingress allows to customize ingress feature
 	Ingress *IngressExtension `json:"ingress,omitempty"`
 	// NginxIngress allows to customize a specific Nginx ingress feature
-	NginxIngress *NginxIngressExtension `json:"nginx,omitempty"`
+	NginxIngress *NginxIngress `json:"nginx,omitempty"`
 	// Kubernetes allows to customize kubernetes feature
 	Kubernetes *KubernetesExtension `json:"kubernetes,omitempty"`
 	// Configuration allows to customize configuration feature
@@ -1195,12 +1195,12 @@ type MonitoringExtension struct {
 
 // Ingress allows to customize ingress feature
 type IngressExtension struct {
-	// Disabled allows to disable Ingress feature
-	Nginx *NginxIngressExtension `json:"nginx,omitempty"`
+	// Nginx object allows to customize the Ingress object
+	Nginx *NginxIngress `json:"nginx,omitempty"`
 }
 
 // NginxIngress allows to customize a specific Nginx ingress feature
-type NginxIngressExtension struct {
+type NginxIngress struct {
 	// Enabled allows to enable Ingress feature
 	Enabled bool `json:"enabled,omitempty"`
 }
