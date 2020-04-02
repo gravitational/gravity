@@ -324,7 +324,7 @@ const manifestSchema = `
         "ingress": {
           "type": "object",
           "properties": {
-            "ingress": {
+            "nginx": {
               "type": "object",
               "properties": {
                 "enabled": {"type": "boolean"}
