@@ -1161,6 +1161,8 @@ type Extensions struct {
 	Logs *LogsExtension `json:"logs,omitempty"`
 	// Monitoring allows to customize monitoring feature
 	Monitoring *MonitoringExtension `json:"monitoring,omitempty"`
+	// Ingress allows to customize ingress feature
+	Ingress *IngressExtension `json:"ingress,omitempty"`
 	// Kubernetes allows to customize kubernetes feature
 	Kubernetes *KubernetesExtension `json:"kubernetes,omitempty"`
 	// Configuration allows to customize configuration feature
@@ -1186,6 +1188,12 @@ type LogsExtension struct {
 // Monitoring allows to customize monitoring feature
 type MonitoringExtension struct {
 	// Disabled allows to disable Monitoring tab
+	Disabled bool `json:"disabled,omitempty"`
+}
+
+// Ingress allows to customize ingress feature
+type IngressExtension struct {
+	// Disabled allows to disable Ingress feature
 	Disabled bool `json:"disabled,omitempty"`
 }
 
