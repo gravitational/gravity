@@ -64,7 +64,6 @@ type PlanSuite struct {
 	dnsPackage         *loc.Locator
 	loggingPackage     *loc.Locator
 	monitoringPackage  *loc.Locator
-	ingressPackage     *loc.Locator
 	sitePackage        *loc.Locator
 	serviceUser        systeminfo.User
 	operationKey       *ops.SiteOperationKey
@@ -130,8 +129,6 @@ func (s *PlanSuite) SetUpSuite(c *check.C) {
 	s.loggingPackage, err = app.Manifest.Dependencies.ByName("logging-app")
 	c.Assert(err, check.IsNil)
 	s.monitoringPackage, err = app.Manifest.Dependencies.ByName("monitoring-app")
-	c.Assert(err, check.IsNil)
-	s.ingressPackage, err = app.Manifest.Dependencies.ByName("ingress-app")
 	c.Assert(err, check.IsNil)
 	s.sitePackage, err = app.Manifest.Dependencies.ByName("site")
 	c.Assert(err, check.IsNil)
@@ -658,14 +655,6 @@ func (s *PlanSuite) VerifyAppPhase(c *check.C, phase storage.OperationPhase) {
 			Data: &storage.OperationPhaseData{
 				Server:  &s.masterNode,
 				Package: s.monitoringPackage,
-			},
-			Requires: []string{phases.RuntimePhase},
-		},
-		{
-			ID: fmt.Sprintf("%v/%v", phases.AppPhase, s.ingressPackage.Name),
-			Data: &storage.OperationPhaseData{
-				Server:  &s.masterNode,
-				Package: s.ingressPackage,
 			},
 			Requires: []string{phases.RuntimePhase},
 		},
