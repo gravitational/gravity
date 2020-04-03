@@ -57,6 +57,8 @@ them to any Kubernetes cluster.
 section to learn how to take advantage of the built-in OpenEBS integration.
 * [SELinux](https://gravitational.com/gravity/docs/selinux/) documentation section
 to learn about installing on systems with SELinux enabled.
+* [Cluster Status History](https://gravitational.com/gravity/docs/cluster/#cluster-status-history)
+to learn how to gain insight into how the cluster status changes over time.
 
 ## 6.x Releases
 
