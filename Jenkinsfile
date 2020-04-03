@@ -10,8 +10,11 @@ def propagateParamsToEnv() {
 properties([
   disableConcurrentBuilds(),
   parameters([
+    // WARNING: changing parameters will not affect the next build, only the following one
+    // see issue #1315 or https://stackoverflow.com/questions/46680573/ -- 2020-04 walt
+
+    // For choice parameters, the first choice will be the default.
     choice(choices: ["run", "skip"].join("\n"),
-           // defaultValue is not applicable to choices. The first choice will be the default.
            description: 'Run or skip robotest system wide tests.',
            name: 'RUN_ROBOTEST'),
     choice(choices: ["true", "false"].join("\n"),
@@ -23,24 +26,6 @@ properties([
     choice(choices: ["true", "false"].join("\n"),
            description: 'Abort all tests upon first failure.',
            name: 'FAIL_FAST'),
-    choice(choices: ["gce"].join("\n"),
-           description: 'Cloud provider to deploy to.',
-           name: 'DEPLOY_TO'),
-    string(name: 'PARALLEL_TESTS',
-           defaultValue: '4',
-           description: 'Number of parallel tests to run.'),
-    string(name: 'REPEAT_TESTS',
-           defaultValue: '1',
-           description: 'How many times to repeat each test.'),
-    string(name: 'ROBOTEST_VERSION',
-           defaultValue: 'uid-gid',
-           description: 'Robotest tag to use.'),
-    choice(choices: ["false", "true"].join("\n"),
-           description: 'Whether to use preemptible VMs.',
-           name: 'GCE_PREEMPTIBLE'),
-    choice(choices: ["custom-4-8192", "custom-8-8192"].join("\n"),
-           description: 'VM type to use.',
-           name: 'GCE_VM'),
   ]),
 ])
 
@@ -90,7 +75,7 @@ timestamps {
                 [$class: 'FileBinding', credentialsId:'OPS_SSH_KEY', variable: 'SSH_KEY'],
                 [$class: 'FileBinding', credentialsId:'OPS_SSH_PUB', variable: 'SSH_PUB'],
                 ]) {
-                  sh "make -C e robotest-run-suite ROBOTEST_VERSION=$ROBOTEST_VERSION"
+                  sh 'make -C e robotest-run-suite'
             }
           }else {
             echo 'skipped system tests'
