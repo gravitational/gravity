@@ -1625,6 +1625,8 @@ type SystemReportCmd struct {
 	Filter *[]string
 	// Compressed allows to gzip the tarball
 	Compressed *bool
+	// Output optionally specifies output file path
+	Output *string
 }
 
 // SystemStateDirCmd shows local state directory

@@ -21,8 +21,10 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
+	"strings"
 
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/system/auditlog"
 	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/trace"
 )
@@ -36,9 +38,10 @@ func NewSystemCollector() Collectors {
 
 	add(basicSystemInfo()...)
 	add(planetServices()...)
-	add(syslogExportLogs())
 	add(systemFileLogs()...)
 	add(planetLogs()...)
+	add(syslogExportLogs())
+	add(auditLog())
 
 	return collectors
 }
@@ -100,7 +103,7 @@ func planetServices() Collectors {
 // syslogExportLogs fetches host journal logs
 func syslogExportLogs() Collector {
 	const script = `
-#!/bin/bash
+#!/bin/sh
 /bin/journalctl --no-pager --output=export | /bin/gzip -f`
 	return Script("gravity-system.log.gz", script)
 }
@@ -108,7 +111,7 @@ func syslogExportLogs() Collector {
 // systemFileLogs fetches gravity platform-related logs
 func systemFileLogs() Collectors {
 	const template = `
-#!/bin/bash
+#!/bin/sh
 cat %v 2> /dev/null || true`
 	workingDir := filepath.Dir(utils.Exe.Path)
 	return Collectors{
@@ -157,4 +160,28 @@ func fetchEtc(name string) CollectorFunc {
 			utils.Stdout(w),
 		)
 	})
+}
+
+// auditLog fetches audit logs from host.
+// The log will contain queries for each of the domains auditlog package is aware of.
+// The resulting file can be post-processed again with:
+//
+//  gunzip -c audit.log.gz | ausearch --interpret --success no ...
+//
+// For example, to see the SELinux denials generated for the gravity domain
+// as a list of allow rules:
+//
+//  gunzip -c audit.log.gz | ausearch --subject gravity_t | audit2allow
+func auditLog() Collector {
+	var subjects []string
+	for _, domain := range auditlog.Domains {
+		subjects = append(subjects,
+			fmt.Sprint("/sbin/ausearch --success no --message all --raw --start yesterday --end now", "--subject ", domain, " ;"),
+		)
+	}
+	script := fmt.Sprintf(`
+#!/bin/sh
+{ %v } | /bin/gzip -f`,
+		strings.Join(subjects, " "))
+	return Script("audit.log.gz", script)
 }

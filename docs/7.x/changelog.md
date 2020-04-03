@@ -7,10 +7,10 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 7.0.0-rc.3    | No  | March 24th, 2020     | -                    | 1.17.4             | 3.2.13           |
+| 7.0.0-rc.5    | No  | March 31st, 2020     | -                    | 1.17.4             | 3.2.13           |
 | 6.3.8         | No  | March 24th, 2020     | -                    | 1.17.4             | 3.2.13           |
 | 6.2.5*        | No  | December 3rd, 2019   | -                    | 1.16.3             | 3.2.13           |
-| 6.1.19        | Yes | March 24th, 2020     | November 10th, 2021  | 1.15.11            | 3.2.12           |
+| 6.1.20        | Yes | March 31st, 2020     | November 10th, 2021  | 1.15.11            | 3.2.12           |
 | 6.0.10*       | No  | October 17th, 2019   | -                    | 1.14.7             | 3.2.12           |
 | 5.6.8*        | No  | September 18th, 2019 | -                    | 1.14.7             | 3.0.6-gravity    |
 | 5.5.38        | Yes | March 10th, 2020     | September 7th, 2020  | 1.13.11            | 3.0.6-gravity    |
@@ -38,6 +38,18 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     See [Direct Upgrades From Older LTS Versions](cluster.md#direct-upgrades-from-older-lts-versions) for details.
 
 ## 6.x Releases
+
+### 6.1.20 LTS (March 31st, 2020)
+
+#### Improvements
+
+* Add `--pull` flag to `tele build` to allow always pulling latest versions of images ([#1302](https://github.com/gravitational/gravity/pull/1302)).
+
+#### Bugfixes
+
+* Apply CPU and memory limits and requests on Logrange components ([#1286](https://github.com/gravitational/gravity/pull/1286), [logging-app#64](https://github.com/gravitational/logging-app/pull/64)).
+* Fix an issue with displaying server version in `gravity status` ([#1306](https://github.com/gravitational/gravity/pull/1306)).
+* Fix a race condition that could lead to planet rootfs being reset during upgrade ([#1306](https://github.com/gravitational/gravity/pull/1306)).
 
 ### 6.3.8 (March 23rd, 2020)
 

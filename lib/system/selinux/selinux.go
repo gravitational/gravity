@@ -11,6 +11,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/defaults"
 	liblog "github.com/gravitational/gravity/lib/log"
+	libschema "github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/system/selinux/internal/policy"
 	"github.com/gravitational/gravity/lib/system/selinux/internal/schema"
 	"github.com/gravitational/gravity/lib/utils"
@@ -29,9 +30,10 @@ func ApplyFileContexts(ctx context.Context, out io.Writer, paths ...string) erro
 	return trace.Wrap(cmd.Run())
 }
 
-// ShouldLabelVolume determines if the specified label is valid
-func ShouldLabelVolume(label string) bool {
-	return label != "none"
+// IsValidLabel returns whether the specified label is valid.
+// Empty label is valid and will be replaced with the default container file type
+func IsValidLabel(label string) bool {
+	return label != libschema.SELinuxLabelNone
 }
 
 func renderFcontext(w io.Writer, stateDir string, fcontextTemplate io.Reader, renderer commandRenderer) error {
@@ -109,12 +111,14 @@ func importLocalChangesFromReader(ctx context.Context, r io.Reader) error {
 	return trace.Wrap(cmd.Run())
 }
 
+// nolint:deadcode,unused
 func removePolicy() error {
 	// Leave the container policy module in-place as we might not be
 	// the only client
 	return removePolicyByName("gravity")
 }
 
+// nolint:deadcode,unused
 func removePolicyByName(module string) error {
 	logger := liblog.New(log.WithField(trace.Component, "selinux"))
 	logger.WithField("module", module).Info("Remove policy module.")

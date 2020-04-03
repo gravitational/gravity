@@ -46,7 +46,7 @@ RELEASE_OUT ?=
 TELEPORT_TAG = 3.2.14
 # TELEPORT_REPOTAG adapts TELEPORT_TAG to the teleport tagging scheme
 TELEPORT_REPOTAG := v$(TELEPORT_TAG)
-PLANET_TAG := 7.0.21-$(K8S_VER_SUFFIX)
+PLANET_TAG := 7.0.22-$(K8S_VER_SUFFIX)
 PLANET_BRANCH := $(PLANET_TAG)
 K8S_APP_TAG := $(GRAVITY_TAG)
 TELEKUBE_APP_TAG := $(GRAVITY_TAG)
@@ -610,9 +610,7 @@ tele-mac: flags
 # goinstall builds and installs gravity locally
 #
 .PHONY: goinstall
-goinstall: remove-temp-files compile
-	mkdir -p $(GRAVITY_BUILDDIR)
-	mkdir -p $(TF_PROVIDER_DIR)
+goinstall: remove-temp-files compile | $(TF_PROVIDER_DIR) $(GRAVITY_BUILDDIR)
 	for bin in ${BINARIES} ; do \
 		cp $(GOPATH)/bin/$${bin} $(GRAVITY_BUILDDIR)/$${bin} ; \
 	done
@@ -627,8 +625,14 @@ goinstall: remove-temp-files compile
 		$(GRAVITY) package import $(GRAVITY_OUT) $(GRAVITY_PKG)
 	$(MAKE) binary-packages
 
+$(GRAVITY_BUILDDIR):
+	mkdir -p $@
+
+$(TF_PROVIDER_DIR):
+	mkdir -p $@
+
 .PHONY: $(BINARIES)
-$(BINARIES):
+$(BINARIES): selinux
 	go install -ldflags $(GRAVITY_LINKFLAGS) -tags "$(GRAVITY_BUILDTAGS)" $(GRAVITY_PKG_PATH)/tool/$@
 
 .PHONY: wizard-publish
@@ -705,7 +709,7 @@ robotest-installer-ready:
 	mv $(GRAVITY_BUILDDIR)/telekube.tar $(GRAVITY_BUILDDIR)/telekube_ready.tar
 
 .PHONY: dev
-dev: selinux goinstall
+dev: goinstall
 
 # Clean up development environment:
 #  + remove development directories

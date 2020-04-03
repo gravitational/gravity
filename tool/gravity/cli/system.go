@@ -665,7 +665,7 @@ func outputServiceStatus(services systemservice.ServiceManager, loc loc.Locator,
 }
 
 func packageServicePattern(pattern string) string {
-	if strings.Index(pattern, "*") != -1 {
+	if strings.Contains(pattern, "*") {
 		return pattern
 	}
 	return fmt.Sprintf("*%v*", pattern)
@@ -766,7 +766,7 @@ func unpack(p *localpack.PackageServer, loc loc.Locator) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return trace.Wrap(pack.Unpack(p, loc, path, nil))
+	return p.Unpack(loc, path)
 }
 
 func maybeConvertLegacyPlanetConfigPackage(configPackage loc.Locator) (*loc.Locator, error) {

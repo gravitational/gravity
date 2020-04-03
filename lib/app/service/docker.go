@@ -183,20 +183,21 @@ func parseImageNameTag(image string) (name, tag string, err error) {
 }
 
 // pullMissingRemoteImages downloads a subset of remote images missing locally
-func pullMissingRemoteImage(image string, puller docker.DockerPuller, log log.FieldLogger, progressReporter utils.Progress) error {
+func pullMissingRemoteImage(image string, puller docker.DockerPuller, log log.FieldLogger, req VendorRequest) error {
 	log.Infof("Pulling: %s.", image)
 	present, err := puller.IsImagePresent(image)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	if !present {
-		progressReporter.PrintSubStep("Pulling remote image %v", image)
-		if err = puller.Pull(image); err != nil {
-			return trace.Wrap(err)
-		}
-	} else {
-		progressReporter.PrintSubStep("Using local image %v", image)
+		req.ProgressReporter.PrintSubStep("Pulling remote image %v", image)
+		return puller.Pull(image)
 	}
+	if req.Pull {
+		req.ProgressReporter.PrintSubStep("Re-pulling remote image %v.", image)
+		return puller.Pull(image)
+	}
+	req.ProgressReporter.PrintSubStep("Using local image %v", image)
 	return nil
 }
 

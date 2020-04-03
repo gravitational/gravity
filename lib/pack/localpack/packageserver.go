@@ -401,7 +401,7 @@ func (p *PackageServer) Unpack(loc loc.Locator, targetDir string) error {
 		return trace.Wrap(err)
 	}
 	if unpacked {
-		log.Infof("%v is already unpacked", loc)
+		log.WithField("package", loc).Info("Package is already unpacked.")
 		return nil
 	}
 	if err := pack.Unpack(p, loc, targetDir, nil); err != nil {
