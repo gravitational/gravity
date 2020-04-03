@@ -7,7 +7,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 7.0.0-rc.5    | No  | March 31st, 2020     | -                    | 1.17.4             | 3.2.13           |
+| 7.0.0         | No  | April 3rd, 2020      | -                    | 1.17.4             | 3.2.13           |
 | 6.3.8         | No  | March 24th, 2020     | -                    | 1.17.4             | 3.2.13           |
 | 6.2.5*        | No  | December 3rd, 2019   | -                    | 1.16.3             | 3.2.13           |
 | 6.1.20        | Yes | March 31st, 2020     | November 10th, 2021  | 1.15.11            | 3.2.12           |
@@ -36,6 +36,27 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 !!! note "Direct upgrades"
     You can now upgrade existing 5.0.x clusters directly to 5.5.x.
     See [Direct Upgrades From Older LTS Versions](cluster.md#direct-upgrades-from-older-lts-versions) for details.
+
+## 7.x Releases
+
+### 7.0.0 (April 3rd, 2020)
+
+Gravity 7.0 is the next major release featuring improved support for existing
+Kubernetes clusters, out-of-the-box integration with OpenEBS, SELinux support,
+status history timeline view and a lot of other improvements and bug fixes.
+
+Please see [Announcing Gravity 7.0](https://gravitational.com/blog/announcing-gravity-7-0/)
+blog post for more details and refer to the following resources to find information
+about the major new features:
+
+* [Application Catalog](https://gravitational.com/gravity/docs/catalog/) documentation
+section and a [blog post](https://gravitational.com/blog/deploying-applications-to-a-kubernetes-cluster-to-which-you-dont-have-access/)
+to learn how to package Helm charts into self-contained application images and deliver
+them to any Kubernetes cluster.
+* [Persistent Storage](https://gravitational.com/gravity/docs/storage/) documentation
+section to learn how to take advantage of the built-in OpenEBS integration.
+* [SELinux](https://gravitational.com/gravity/docs/selinux/) documentation section
+to learn about installing on systems with SELinux enabled.
 
 ## 6.x Releases
 
