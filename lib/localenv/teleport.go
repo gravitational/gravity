@@ -44,8 +44,8 @@ func (env *LocalEnvironment) TeleportClient(proxyHost string) (*client.TeleportC
 }
 
 // AuditLog returns the cluster audit log service
-func (env *LocalEnvironment) AuditLog(ctx context.Context) (teleevents.IAuditLog, error) {
-	operator, err := env.SiteOperator()
+func (env *LocalEnvironment) AuditLog(ctx context.Context, opts ...httplib.ClientOption) (teleevents.IAuditLog, error) {
+	operator, err := env.SiteOperator(opts...)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
