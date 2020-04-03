@@ -157,6 +157,11 @@ commands.
 
 See [Helm Integration](pack.md#helm-integration) for more details.
 
+## Cluster Status
+
+Gravity provides the `gravity status` command to view [Cluster Status](cluster.md#cluster-status).
+This tool can help identify issues with the Cluster.
+
 ## Unable to Create Trusted Cluster (Enterprise) due to HTTP/TLS certificate issue
 
 Gravity Hub (Enterprise) requires a valid TLS key pair (not self signed) installed.  When attempting to create a trusted cluster from a Gravity Cluster to a Gravity Hub with a signed certificate installed it is possible to get this error:
