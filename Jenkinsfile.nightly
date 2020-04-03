@@ -1,11 +1,32 @@
 #!/usr/bin/env groovy
-def propagateParamsToEnv() {
-  for (param in params) {
-    if (env."${param.key}" == null) {
-      env."${param.key}" = param.value
-    }
-  }
-}
+
+// Nightly jobs are configured for critical release branches in Jenkins.
+//
+// To set up a new nightly job, configure a new job with the following by hand
+// or by machine:
+//
+// properties([
+//   disableConcurrentBuilds(),
+//   // Schedule a daily build between 6:00am and 6:30am UTC (10:00pm-10:30pm PST)
+//   pipelineTriggers([cron('H(0-30) 06 * * 1-5')]),
+//   parameters([
+//     choice(choices: ["run", "skip"].join("\n"),
+//            description: 'Run or skip robotest system wide tests.',
+//            name: 'RUN_ROBOTEST'),
+//     choice(choices: ["true", "false"].join("\n"),
+//            description: 'Destroy all VMs on success.',
+//            name: 'DESTROY_ON_SUCCESS'),
+//     choice(choices: ["true", "false"].join("\n"),
+//            description: 'Destroy all VMs on failure.',
+//            name: 'DESTROY_ON_FAILURE'),
+//     choice(choices: ["true", "false"].join("\n"),
+//            description: 'Abort all tests upon first failure.',
+//            name: 'FAIL_FAST'),
+//   ]),
+// ])
+//
+// The above Jenkins job config code is intentionally not active in this file
+// because of issue #1315 -- 2020-04 walt
 
 def withBuildResult(Closure body) {
   def previousBuildResult = currentBuild.previousBuild?.result
@@ -48,31 +69,6 @@ def sendBuildNotification(String currentBuildResult, String previousBuildResult)
   }
 }
 
-properties([
-  disableConcurrentBuilds(),
-  // Schedule a daily build between 6:00am and 6:30am UTC (10:00pm-10:30pm PST)
-  pipelineTriggers([cron('H(0-30) 06 * * 1-5')]),
-  parameters([
-    // WARNING: changing parameters will not affect the next build, only the following one
-    // see issue #1315 or https://stackoverflow.com/questions/46680573/ -- 2020-04 walt
-
-    // For choice parameters, the first choice will be the default.
-    choice(choices: ["run", "skip"].join("\n"),
-           // defaultValue is not applicable to choices. The first choice will be the default.
-           description: 'Run or skip robotest system wide tests.',
-           name: 'RUN_ROBOTEST'),
-    choice(choices: ["true", "false"].join("\n"),
-           description: 'Destroy all VMs on success.',
-           name: 'DESTROY_ON_SUCCESS'),
-    choice(choices: ["true", "false"].join("\n"),
-           description: 'Destroy all VMs on failure.',
-           name: 'DESTROY_ON_FAILURE'),
-    choice(choices: ["true", "false"].join("\n"),
-           description: 'Abort all tests upon first failure.',
-           name: 'FAIL_FAST'),
-  ]),
-])
-
 timestamps {
   withBuildResult {
     node {
@@ -82,8 +78,8 @@ timestamps {
         sh "sudo git clean -ffdx" // supply -f flag twice to force-remove untracked dirs with .git subdirs (e.g. submodules)
       }
       stage('params') {
-        echo "${params}"
-        propagateParamsToEnv()
+        echo "Jenkins Job Parameters:"
+        for (param in params) { echo "${param}" }
       }
       stage('clean') {
         sh "make -C e clean"
@@ -113,7 +109,7 @@ timestamps {
             }
           },
           robotest : {
-            if (params.RUN_ROBOTEST == 'run') {
+            if (env.RUN_ROBOTEST == 'run') {
               withCredentials([
                   [$class: 'StringBinding', credentialsId: 'GET_GRAVITATIONAL_IO_APIKEY', variable: 'GET_GRAVITATIONAL_IO_APIKEY'],
                   [$class: 'FileBinding', credentialsId:'ROBOTEST_LOG_GOOGLE_APPLICATION_CREDENTIALS', variable: 'GOOGLE_APPLICATION_CREDENTIALS'],

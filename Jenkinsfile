@@ -7,27 +7,31 @@ def propagateParamsToEnv() {
   }
 }
 
-properties([
-  disableConcurrentBuilds(),
-  parameters([
-    // WARNING: changing parameters will not affect the next build, only the following one
-    // see issue #1315 or https://stackoverflow.com/questions/46680573/ -- 2020-04 walt
-
-    // For choice parameters, the first choice will be the default.
-    choice(choices: ["run", "skip"].join("\n"),
-           description: 'Run or skip robotest system wide tests.',
-           name: 'RUN_ROBOTEST'),
-    choice(choices: ["true", "false"].join("\n"),
-           description: 'Destroy all VMs on success.',
-           name: 'DESTROY_ON_SUCCESS'),
-    choice(choices: ["true", "false"].join("\n"),
-           description: 'Destroy all VMs on failure.',
-           name: 'DESTROY_ON_FAILURE'),
-    choice(choices: ["true", "false"].join("\n"),
-           description: 'Abort all tests upon first failure.',
-           name: 'FAIL_FAST'),
-  ]),
-])
+// Define Robotest config that may be tweaked per job.
+// This is needed for the Jenkins GitHub Branch Source Plugin
+// which creases a unique Jenkins job for each pull request.
+def setRobotestParameters() {
+  properties([
+    disableConcurrentBuilds(),
+    parameters([
+      // WARNING: changing parameters will not affect the next build, only the following one
+      // see issue #1315 or https://stackoverflow.com/questions/46680573/ -- 2020-04 walt
+      choice(choices: ["run", "skip"].join("\n"),
+             // defaultValue is not applicable to choices. The first choice will be the default.
+             description: 'Run or skip robotest system wide tests.',
+             name: 'RUN_ROBOTEST'),
+      choice(choices: ["true", "false"].join("\n"),
+             description: 'Destroy all VMs on success.',
+             name: 'DESTROY_ON_SUCCESS'),
+      choice(choices: ["true", "false"].join("\n"),
+             description: 'Destroy all VMs on failure.',
+             name: 'DESTROY_ON_FAILURE'),
+      choice(choices: ["true", "false"].join("\n"),
+             description: 'Abort all tests upon first failure.',
+             name: 'FAIL_FAST'),
+    ]),
+  ])
+}
 
 timestamps {
   node {
@@ -37,8 +41,18 @@ timestamps {
       sh "sudo git clean -ffdx" // supply -f flag twice to force-remove untracked dirs with .git subdirs (e.g. submodules)
     }
     stage('params') {
-      echo "${params}"
-      propagateParamsToEnv()
+      // For try builds, we DO NOT want to overwrite parameters, as try builds
+      // offer a superset of PR/nightly parameters, and the extra ones will be
+      // lost when setRobotestParameters() is called -- 2020-04 walt
+      echo "Jenkins Job Parameters:"
+      for (param in params) { echo "${param}" }
+      if (env.KEEP_PARAMETERS == 'true') {
+        echo "KEEP_PARAMETERS detected. Ignoring Jenkins job parameters from Jenkinsfile."
+      } else {
+        echo "Overwriting Jenkins job parameters with parameters from Jenkinsfile."
+        setRobotestParameters()
+        propagateParamsToEnv()
+      }
     }
     stage('clean') {
       sh "make -C e clean"
@@ -68,7 +82,7 @@ timestamps {
           }
         },
         robotest : {
-          if (params.RUN_ROBOTEST == 'run') {
+          if (env.RUN_ROBOTEST == 'run') {
             withCredentials([
                 [$class: 'StringBinding', credentialsId: 'GET_GRAVITATIONAL_IO_APIKEY', variable: 'GET_GRAVITATIONAL_IO_APIKEY'],
                 [$class: 'FileBinding', credentialsId:'ROBOTEST_LOG_GOOGLE_APPLICATION_CREDENTIALS', variable: 'GOOGLE_APPLICATION_CREDENTIALS'],
