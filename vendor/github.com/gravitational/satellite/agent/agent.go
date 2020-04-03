@@ -528,7 +528,7 @@ func (r *agent) recycleLoop(ctx context.Context) {
 // updates the health status of the cluster by querying status of other active
 // cluster members.
 func (r *agent) statusUpdateLoop(ctx context.Context) {
-	ticker := r.Clock.NewTicker(statusUpdateTimeout)
+	ticker := r.Clock.NewTicker(StatusUpdateTimeout)
 	defer ticker.Stop()
 
 	for {
@@ -564,7 +564,7 @@ func (r *agent) updateStatus(ctx context.Context) error {
 // collectStatus obtains the cluster status by querying statuses of
 // known cluster members.
 func (r *agent) collectStatus(ctx context.Context) (systemStatus *pb.SystemStatus, err error) {
-	ctx, cancel := context.WithTimeout(ctx, statusUpdateTimeout)
+	ctx, cancel := context.WithTimeout(ctx, StatusUpdateTimeout)
 	defer cancel()
 
 	systemStatus = &pb.SystemStatus{
