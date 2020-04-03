@@ -340,7 +340,6 @@ func (s *site) configurePackages(ctx *operationContext, req ops.ConfigurePackage
 			master:            master,
 			secretsPackage:    &secretsPackage,
 			serviceSubnetCIDR: ctx.operation.InstallExpand.Subnets.Service,
-			sniHost:           s.service.cfg.SNIHost,
 		})
 		if err != nil {
 			return trace.Wrap(err)
@@ -659,6 +658,11 @@ func (s *site) getPlanetMasterSecretsPackage(ctx *operationContext, p planetMast
 			}
 			// this will make APIServer's certificate valid for requests
 			// via OpsCenter, e.g. siteDomain.opscenter.example.com
+			if s.service.cfg.SNIHost != "" {
+				req.Hosts = append(req.Hosts, strings.Join([]string{
+					s.domainName, s.service.cfg.SNIHost}, "."))
+			}
+			// add additional hosts that have been passed in
 			if p.sniHost != "" {
 				req.Hosts = append(req.Hosts, strings.Join([]string{
 					s.domainName, p.sniHost}, "."))
