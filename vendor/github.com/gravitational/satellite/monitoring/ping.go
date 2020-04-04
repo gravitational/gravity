@@ -28,8 +28,8 @@ import (
 
 	"github.com/codahale/hdrhistogram"
 	"github.com/gravitational/trace"
-	"github.com/gravitational/ttlmap"
 	serf "github.com/hashicorp/serf/client"
+	"github.com/mailgun/holster"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -39,8 +39,8 @@ import (
 const (
 	// pingCheckerID specifies the check name
 	pingCheckerID = "ping-checker"
-	// latencyStatsTTL specifies how long check results will be kept before being dropped
-	latencyStatsTTL = 1 * time.Hour
+	// latencyStatsTTLSeconds specifies how long check results will be kept before being dropped
+	latencyStatsTTLSeconds = 3600 // 1 hour
 	// latencyStatsCapacity sets the number of TTLMaps that can be stored; this will be the size of the cluster -1
 	latencyStatsCapacity = 1000
 	// latencyStatsSlidingWindowSize specifies the number of retained check results
@@ -63,7 +63,7 @@ type pingChecker struct {
 	self           serf.Member
 	serfClient     agent.SerfClient
 	serfMemberName string
-	latencyStats   ttlmap.TTLMap
+	latencyStats   holster.TTLMap
 	mux            sync.Mutex
 	logger         log.FieldLogger
 }
@@ -99,10 +99,7 @@ func NewPingChecker(conf PingCheckerConfig) (c health.Checker, err error) {
 		return nil, trace.Wrap(err)
 	}
 
-	latencyTTLMap, err := ttlmap.New(latencyStatsCapacity)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
+	latencyTTLMap := holster.NewTTLMap(latencyStatsCapacity)
 
 	client, err := conf.NewSerfClient(serf.Config{
 		Addr: conf.SerfRPCAddr,
@@ -261,7 +258,7 @@ func (c *pingChecker) saveLatencyStats(pingLatency int64, node serf.Member) (lat
 	latencies = append(latencies, pingLatency)
 	c.logger.Debugf("%d recorded ping values for node %s => %v", len(latencies), node.Name, latencies)
 
-	err = c.latencyStats.Set(node.Name, latencies, latencyStatsTTL)
+	err = c.latencyStats.Set(node.Name, latencies, latencyStatsTTLSeconds)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
