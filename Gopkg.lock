@@ -587,6 +587,14 @@
   version = "v1.7.0"
 
 [[projects]]
+  digest = "1:af43bdaaf86655a2343f113e9b293bbc16b12099eaeb223982bbe4d4c22ba14d"
+  name = "github.com/fatih/structs"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "4966fc68f5b7593aafa6cbbba2d65ec6e1416047"
+  version = "v1.1.0"
+
+[[projects]]
   digest = "1:abeb38ade3f32a92943e5be54f55ed6d6e3b6602761d74b4aab4c9dd45c18abd"
   name = "github.com/fsnotify/fsnotify"
   packages = ["."]
@@ -1019,7 +1027,7 @@
   version = "v1.0.0"
 
 [[projects]]
-  digest = "1:708b8826eddcfa457229688d389aa6ac2e3b0bb3ddaaa7dd145a62ebd95464e6"
+  digest = "1:7eacba1c4966d88845770ad337a6d8151541cc25046ebb5923eee00fcb29c6c1"
   name = "github.com/gravitational/satellite"
   packages = [
     "agent",
@@ -1036,7 +1044,8 @@
     "utils",
   ]
   pruneopts = "UT"
-  revision = "bec2fc16d52d3f4f7bd55dc4d380ca26f9d477c6"
+  revision = "5bb05cd0c683afed2977ac3fe90c25e815f97aae"
+  version = "7.0.8"
 
 [[projects]]
   digest = "1:49f6abbce9ade5f43508429e4af1adcce55d27adcd62719fea049decc766a7c9"
@@ -1508,6 +1517,14 @@
   packages = ["."]
   pruneopts = "UT"
   revision = "89fcab3d43de07060e4fd4c1547430ed57e87f24"
+
+[[projects]]
+  digest = "1:b787518ff1745b6710250b526c50cb32fa3322127d144bebc3602a606cbe332a"
+  name = "github.com/mailgun/holster"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "2296d2fb30b143ac13780cb07dd5e75b22d044b1"
+  version = "v3.8.0"
 
 [[projects]]
   digest = "1:7909a8ad77c5467c33627506121ddf884117adc69600139a6e525560843f7e43"
