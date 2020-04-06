@@ -7,13 +7,13 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 7.0.0-rc.5    | No  | March 31st, 2020     | -                    | 1.17.4             | 3.2.13           |
-| 6.3.8         | No  | March 24th, 2020     | -                    | 1.17.4             | 3.2.13           |
+| 7.0.0         | No  | April 3rd, 2020      | -                    | 1.17.4             | 3.2.13           |
+| 6.3.9         | No  | April 3rd, 2020      | -                    | 1.17.4             | 3.2.13           |
 | 6.2.5*        | No  | December 3rd, 2019   | -                    | 1.16.3             | 3.2.13           |
 | 6.1.20        | Yes | March 31st, 2020     | November 10th, 2021  | 1.15.11            | 3.2.12           |
 | 6.0.10*       | No  | October 17th, 2019   | -                    | 1.14.7             | 3.2.12           |
 | 5.6.8*        | No  | September 18th, 2019 | -                    | 1.14.7             | 3.0.6-gravity    |
-| 5.5.38        | Yes | March 10th, 2020     | September 7th, 2020  | 1.13.11            | 3.0.6-gravity    |
+| 5.5.40        | Yes | April 3rd, 2020      | September 7th, 2020  | 1.13.11            | 3.0.6-gravity    |
 | 5.4.10*       | No  | March 26th, 2019     | -                    | 1.13.5             | 2.4.10           |
 | 5.3.9*        | No  | March 7th, 2019      | -                    | 1.12.3             | 2.4.7            |
 | 5.2.16        | Yes | October 11th, 2019   | October 15th, 2019   | 1.11.9             | 2.4.10           |
@@ -37,7 +37,41 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     You can now upgrade existing 5.0.x clusters directly to 5.5.x.
     See [Direct Upgrades From Older LTS Versions](cluster.md#direct-upgrades-from-older-lts-versions) for details.
 
+## 7.x Releases
+
+### 7.0.0 (April 3rd, 2020)
+
+Gravity 7.0 is the next major release featuring improved support for existing
+Kubernetes clusters, out-of-the-box integration with OpenEBS, SELinux support,
+status history timeline view and a lot of other improvements and bug fixes.
+
+Please see [Announcing Gravity 7.0](https://gravitational.com/blog/announcing-gravity-7-0/)
+blog post for more details and refer to the following resources to find information
+about the major new features:
+
+* [Application Catalog](https://gravitational.com/gravity/docs/catalog/) documentation
+and a [blog post](https://gravitational.com/blog/deploying-applications-to-a-kubernetes-cluster-to-which-you-dont-have-access/)
+to learn how to package Helm charts into self-contained application images and deliver
+them to any Kubernetes cluster.
+* [Persistent Storage](https://gravitational.com/gravity/docs/storage/) to learn how to take advantage of the built-in OpenEBS integration.
+* [SELinux](https://gravitational.com/gravity/docs/selinux/) to learn about installing on systems with SELinux enabled.
+* [Cluster Status History](https://gravitational.com/gravity/docs/cluster/#cluster-status-history)
+to learn how to gain insight into how the cluster status changes over time.
+
 ## 6.x Releases
+
+### 6.3.9 (April 3rd, 2020)
+
+#### Improvements
+
+* Add `--pull` flag to `tele build` to allow always pulling latest versions of images ([#1309](https://github.com/gravitational/gravity/pull/1309)).
+
+#### Bugfixes
+
+* Apply CPU and memory limits and requests on Logrange components ([#1287](https://github.com/gravitational/gravity/pull/1287), [logging-app#64](https://github.com/gravitational/logging-app/pull/64)).
+* Fix an issue with hub certificates missing SANs after expand ([#1318](https://github.com/gravitational/gravity/pull/1318)).
+* Fix an issue with displaying server version in `gravity status` ([#1309](https://github.com/gravitational/gravity/pull/1309)).
+* Fix a race condition that could lead to planet rootfs being reset during upgrade ([#1309](https://github.com/gravitational/gravity/pull/1309)).
 
 ### 6.1.20 LTS (March 31st, 2020)
 
@@ -623,6 +657,24 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 * Add support for using `helm` directly from host.
 
 ## 5.x Releases
+
+### 5.5.40 LTS (April 3rd, 2020)
+
+#### Improvements
+
+* Add overlay network checker to the in-cluster problem detector ([#1293](https://github.com/gravitational/gravity/pull/1293)).
+* Add checks for unsupported upgrade paths ([#1232](https://github.com/gravitational/gravity/pull/1232)).
+* Add cgroup cleaner to planet to prevent leaking cgroups ([planet#578](https://github.com/gravitational/planet/pull/578)).
+* Add `--pull` flag to `tele build` to allow always pulling latest versions of images ([#1308](https://github.com/gravitational/gravity/pull/1308)).
+* Upgrade serf to `v0.8.5` ([#1314](https://github.com/gravitational/gravity/pull/1314)).
+
+#### Bugfixes
+
+* Fix an issue with copying lengthy commands in web terminal ([#1258](https://github.com/gravitational/gravity/pull/1258)).
+* Bring back flat container log structure in debug report tarballs ([#1278](https://github.com/gravitational/gravity/pull/1278)).
+* Fix an issue with displaying server version in `gravity status` ([#1304](https://github.com/gravitational/gravity/pull/1304)).
+* Fix a race condition that could lead to planet rootfs being reset during upgrade ([#1301](https://github.com/gravitational/gravity/pull/1301)).
+* Fix a number of issues that could lead to expand operation being stuck ([#1298](https://github.com/gravitational/gravity/pull/1298)).
 
 ### 5.5.38 LTS (March 10th, 2020)
 
