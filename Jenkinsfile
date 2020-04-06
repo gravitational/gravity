@@ -85,22 +85,12 @@ timestamps {
         robotest : {
           if (params.RUN_ROBOTEST == 'run') {
             withCredentials([
-                [
-                  $class: 'UsernamePasswordMultiBinding',
-                  credentialsId: 'jenkins-aws-s3',
-                  usernameVariable: 'AWS_ACCESS_KEY_ID',
-                  passwordVariable: 'AWS_SECRET_ACCESS_KEY'
-                ],
                 [$class: 'StringBinding', credentialsId: 'GET_GRAVITATIONAL_IO_APIKEY', variable: 'GET_GRAVITATIONAL_IO_APIKEY'],
                 [$class: 'FileBinding', credentialsId:'ROBOTEST_LOG_GOOGLE_APPLICATION_CREDENTIALS', variable: 'GOOGLE_APPLICATION_CREDENTIALS'],
                 [$class: 'FileBinding', credentialsId:'OPS_SSH_KEY', variable: 'SSH_KEY'],
                 [$class: 'FileBinding', credentialsId:'OPS_SSH_PUB', variable: 'SSH_PUB'],
                 ]) {
-                  sh """
-                  make -C e robotest-run-suite \
-                    AWS_KEYPAIR=ops \
-                    AWS_REGION=us-east-1 \
-                    ROBOTEST_VERSION=$ROBOTEST_VERSION"""
+                  sh "make -C e robotest-run-suite ROBOTEST_VERSION=$ROBOTEST_VERSION"
             }
           }else {
             echo 'skipped system tests'
