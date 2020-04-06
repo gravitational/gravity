@@ -51,14 +51,14 @@ const (
 
 	// timelineInitTimeout specifies the amount of time to wait for the
 	// timeline to initialize.
-	timelineInitTimeout = 5 * time.Second
+	timelineInitTimeout = time.Minute
 
 	// updateTimelineTimeout specifies the amount of time to wait for events
 	// to be stored into the timeline.
 	updateTimelineTimeout = 5 * time.Second
 
-	// statusUpdateTimeout is the amount of time to wait between status update collections.
-	statusUpdateTimeout = 30 * time.Second
+	// StatusUpdateTimeout is the amount of time to wait between status update collections.
+	StatusUpdateTimeout = 30 * time.Second
 
 	// recycleTimeout is the amount of time to wait between recycle attempts.
 	// Recycle is a request to clean up / remove stale data that backends can choose to
