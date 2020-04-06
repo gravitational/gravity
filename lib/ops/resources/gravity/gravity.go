@@ -414,6 +414,16 @@ func (r *Resources) GetCollection(req resources.ListRequest) (resources.Collecti
 			return nil, trace.Wrap(err)
 		}
 		return storageCollection{PersistentStorage: ps}, nil
+	case storage.KindOperation:
+		operations, err := r.Operator.GetSiteOperations(req.SiteKey)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		var resources []storage.Operation
+		for _, op := range operations {
+			resources = append(resources, ops.NewOperation(op))
+		}
+		return &operationsCollection{operations: resources}, nil
 	case "":
 		return nil, trace.BadParameter("missing resource kind")
 	}
