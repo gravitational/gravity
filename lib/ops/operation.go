@@ -17,14 +17,19 @@ limitations under the License.
 package ops
 
 import (
+	"fmt"
+
+	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/storage"
 
 	"github.com/gravitational/teleport/lib/defaults"
 	"github.com/gravitational/teleport/lib/services"
+
+	"github.com/gravitational/trace"
 )
 
 // NewOperation creates a new operation resource from storage operation.
-func NewOperation(op storage.SiteOperation) storage.Operation {
+func NewOperation(op storage.SiteOperation) (storage.Operation, error) {
 	operation := &storage.OperationV2{
 		Kind:    storage.KindOperation,
 		Version: services.V2,
@@ -35,7 +40,6 @@ func NewOperation(op storage.SiteOperation) storage.Operation {
 		Spec: storage.OperationSpecV2{
 			Type:    op.Type,
 			Created: op.Created,
-			Updated: op.Updated,
 			State:   op.State,
 		},
 	}
@@ -53,8 +57,12 @@ func NewOperation(op storage.SiteOperation) storage.Operation {
 			Node: newNode(op.Shrink.Servers[0]),
 		}
 	case OperationUpdate:
+		locator, err := loc.ParseLocator(op.Update.UpdatePackage)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
 		operation.Spec.Upgrade = &storage.OperationUpgrade{
-			Package: op.Update.UpdatePackage,
+			Package: *locator,
 		}
 	case OperationUpdateRuntimeEnviron:
 		operation.Spec.UpdateEnviron = &storage.OperationUpdateEnviron{
@@ -69,7 +77,33 @@ func NewOperation(op storage.SiteOperation) storage.Operation {
 			IP: op.Reconfigure.AdvertiseAddr,
 		}
 	}
-	return operation
+	return operation, nil
+}
+
+// DescribeOperation returns a human friendly description of the operation.
+func DescribeOperation(o storage.Operation) string {
+	switch o.GetType() {
+	case OperationInstall:
+		return fmt.Sprintf("Install on %v nodes",
+			len(o.GetInstall().Nodes))
+	case OperationExpand:
+		return fmt.Sprintf("Node %s join as %v",
+			o.GetExpand().Node, o.GetExpand().Node.Role)
+	case OperationShrink:
+		return fmt.Sprintf("Node %s leave",
+			o.GetShrink().Node)
+	case OperationUpdate:
+		return fmt.Sprintf("Upgrade to version %v",
+			o.GetUpgrade().Package.Version)
+	case OperationUpdateRuntimeEnviron:
+		return "Runtime environment update"
+	case OperationUpdateConfig:
+		return "Runtime configuration update"
+	case OperationReconfigure:
+		return fmt.Sprintf("Advertise address change to %v",
+			o.GetReconfigure().IP)
+	}
+	return "Unknown operation"
 }
 
 func newNodes(servers []storage.Server) (nodes []storage.OperationNode) {

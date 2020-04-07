@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/gravitational/gravity/lib/loc"
+
 	"github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/teleport/lib/utils"
 
@@ -38,8 +40,6 @@ type Operation interface {
 	GetType() string
 	// GetCreates returns the operation created timestamp.
 	GetCreated() time.Time
-	// GetUpdated returns the operation last updated timestamp.
-	GetUpdated() time.Time
 	// GetState returns the operation state.
 	GetState() string
 	// GetInstall returns install operation data.
@@ -58,7 +58,7 @@ type Operation interface {
 	GetReconfigure() *OperationReconfigure
 }
 
-// OperationV2 is the operation resource spec.
+// OperationV2 is the operation resource definition.
 type OperationV2 struct {
 	// Kind is the operation resource kind.
 	Kind string `json:"kind"`
@@ -70,13 +70,12 @@ type OperationV2 struct {
 	Spec OperationSpecV2 `json:"spec"`
 }
 
+// OperationSpecV2 is the operation resource spec.
 type OperationSpecV2 struct {
 	// Type is the operation type.
 	Type string `json:"type"`
 	// Created is when the operation was created.
 	Created time.Time `json:"created"`
-	// Updated is when the operation was last updated.
-	Updated time.Time `json:"updated"`
 	// State is the operation state.
 	State string `json:"state"`
 	// Install is install operation data.
@@ -95,6 +94,7 @@ type OperationSpecV2 struct {
 	Reconfigure *OperationReconfigure `json:"reconfigure,omitempty"`
 }
 
+// OperationNode describes an operation node.
 type OperationNode struct {
 	// IP is the node advertise IP address.
 	IP string `json:"ip"`
@@ -104,36 +104,48 @@ type OperationNode struct {
 	Role string `json:"role"`
 }
 
+// String returns the node human friendly description.
+func (n OperationNode) String() string {
+	return fmt.Sprintf("%v (%v)", n.Hostname, n.IP)
+}
+
+// OperationInstall contains install specific parameters.
 type OperationInstall struct {
 	// Nodes is a list of nodes participating in installation.
 	Nodes []OperationNode `json:"nodes"`
 }
 
+// OperationExpand contains expand specific parameters.
 type OperationExpand struct {
 	// Node is the joining node.
 	Node OperationNode `json:"node"`
 }
 
+// OperationShrink contains shrink specific parameters.
 type OperationShrink struct {
 	// Node is the node that's leaving.
 	Node OperationNode `json:"node"`
 }
 
+// OperationUpgrade contains upgrade specific parameters.
 type OperationUpgrade struct {
 	// Package is the upgrade package.
-	Package string `json:"package"`
+	Package loc.Locator `json:"package"`
 }
 
+// OperationUpdateEnviron contains environment update specific parameters.
 type OperationUpdateEnviron struct {
 	// Env is the new environment.
 	Env map[string]string `json:"env"`
 }
 
+// OperationUpdateConfig contains configuration update specific parameters.
 type OperationUpdateConfig struct {
 	// Config is the new runtime config.
 	Config []byte `json:"config"`
 }
 
+// OperationReconfigure contains reconfiguration specific parameters.
 type OperationReconfigure struct {
 	// IP is the new advertise IP address.
 	IP string `json:"ip"`
@@ -177,11 +189,6 @@ func (o *OperationV2) GetType() string {
 // GetCreates returns the operation created timestamp.
 func (o *OperationV2) GetCreated() time.Time {
 	return o.Spec.Created
-}
-
-// GetUpdated returns the operation last updated timestamp.
-func (o *OperationV2) GetUpdated() time.Time {
-	return o.Spec.Updated
 }
 
 // GetState returns the operation state.
@@ -285,7 +292,6 @@ var OperationSpecV2Schema = fmt.Sprintf(`{
   "properties": {
     "type": {"type": "string"},
     "created": {"type": "string"},
-    "updated": {"type": "string"},
     "install": {
       "type": "object",
       "additionalProperties": false,

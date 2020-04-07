@@ -421,7 +421,11 @@ func (r *Resources) GetCollection(req resources.ListRequest) (resources.Collecti
 		}
 		var resources []storage.Operation
 		for _, op := range operations {
-			resources = append(resources, ops.NewOperation(op))
+			resource, err := ops.NewOperation(op)
+			if err != nil {
+				return nil, trace.Wrap(err)
+			}
+			resources = append(resources, resource)
 		}
 		return &operationsCollection{operations: resources}, nil
 	case "":

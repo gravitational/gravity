@@ -26,6 +26,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 	"github.com/gravitational/gravity/lib/utils"
@@ -729,8 +730,6 @@ func formatFeatureGates(features map[string]bool) string {
 	return strings.Join(result, ",")
 }
 
-////////////
-
 type operationsCollection struct {
 	operations []storage.Operation
 }
@@ -750,22 +749,16 @@ func (c *operationsCollection) Resources() (resources []teleservices.UnknownReso
 // WriteText serializes operations in human-friendly text format.
 func (c *operationsCollection) WriteText(w io.Writer) error {
 	t := goterm.NewTable(0, 10, 5, ' ', 0)
-	common.PrintTableHeader(t, []string{"ID", "Type", "State", "Created", "Updated", "Notes"})
+	common.PrintTableHeader(t, []string{"ID", "Description", "State", "Created"})
 	for _, o := range c.operations {
-		fmt.Fprintf(t, "%v\t%v\t%v\n",
+		fmt.Fprintf(t, "%v\t%v\t%v\t%v\n",
 			o.GetName(),
-			o.GetType(),
-			o.GetState(),
-			o.GetCreated(),
-			o.GetUpdated(),
-			formatOperationNotes(o))
+			ops.DescribeOperation(o),
+			strings.Title(o.GetState()),
+			o.GetCreated().Format(constants.HumanDateFormat))
 	}
 	_, err := io.WriteString(w, t.String())
 	return trace.Wrap(err)
-}
-
-func formatOperationNotes(o storage.Operation) string {
-	return ""
 }
 
 // WriteJSON serializes collection into json format.
@@ -785,8 +778,6 @@ func (c *operationsCollection) ToMarshal() interface{} {
 func (c *operationsCollection) WriteYAML(w io.Writer) error {
 	return utils.WriteYAML(c, w)
 }
-
-//////////////
 
 type storageCollection struct {
 	storage.PersistentStorage
