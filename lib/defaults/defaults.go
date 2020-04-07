@@ -1120,6 +1120,8 @@ const (
 	TillerAppName = "tiller-app"
 	// StorageAppName is the name of the gravity application with OpenEBS
 	StorageAppName = "storage-app"
+	// IngressAppName is the name of the ingress application
+	IngressAppName = "ingress-app"
 
 	// InstallGroupTTL is for how long installer IP is kept in a TTL map in
 	// an install group
