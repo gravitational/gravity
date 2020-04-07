@@ -155,6 +155,38 @@ func newRPCServer(agent *agent, caFile, certFile, keyFile string, rpcAddrs []str
 	caCertPool := x509.NewCertPool()
 	caCertPool.AppendCertsFromPEM(caCert)
 
+	backend := grpc.NewServer(grpc.Creds(creds))
+	server := &server{agent: agent, Server: backend}
+	pb.RegisterAgentServer(backend, server)
+
+	healthzHandler := newHealthHandler(server)
+
+	// handler is a multiplexer for both gRPC and HTTPS queries.
+	// The HTTPS endpoint returns the cluster status as JSON
+	// TODO: why does server need to handle both gRPC and HTTPS queries?
+	handler := grpcHandlerFunc(server, healthzHandler)
+
+	for _, addr := range rpcAddrs {
+		srv := newHTTPServer(addr, newTLSConfig(caCertPool), handler)
+		server.httpServers = append(server.httpServers, srv)
+
+		// TODO: separate Start function to start listening.
+		go func(srv *http.Server) {
+			err := srv.ListenAndServeTLS(certFile, keyFile)
+			if err == http.ErrServerClosed {
+				log.WithError(err).Debug("Server has been shutdown/closed.")
+				return
+			}
+			if err != nil {
+				log.WithError(err).Errorf("Failed to serve on %v.", srv.Addr)
+				return
+			}
+		}(srv)
+	}
+	return server, nil
+}
+
+func newTLSConfig(caCertPool *x509.CertPool) *tls.Config {
 	tlsConfig := &tls.Config{
 		ClientCAs:  caCertPool,
 		ClientAuth: tls.RequireAndVerifyClientCert,
@@ -174,36 +206,7 @@ func newRPCServer(agent *agent, caFile, certFile, keyFile string, rpcAddrs []str
 		MinVersion:               tls.VersionTLS12,
 	}
 	tlsConfig.BuildNameToCertificate()
-
-	backend := grpc.NewServer(grpc.Creds(creds))
-	server := &server{agent: agent, Server: backend}
-	pb.RegisterAgentServer(backend, server)
-
-	healthzHandler := newHealthHandler(server)
-
-	// handler is a multiplexer for both gRPC and HTTPS queries.
-	// The HTTPS endpoint returns the cluster status as JSON
-	// TODO: why does server need to handle both gRPC and HTTPS queries?
-	handler := grpcHandlerFunc(server, healthzHandler)
-
-	for _, addr := range rpcAddrs {
-		srv := newHTTPServer(addr, tlsConfig, handler)
-		server.httpServers = append(server.httpServers, srv)
-
-		// TODO: separate Start function to start listening.
-		go func(srv *http.Server) {
-			err := srv.ListenAndServeTLS(certFile, keyFile)
-			if err == http.ErrServerClosed {
-				log.WithError(err).Debug("Server has been shutdown/closed.")
-				return
-			}
-			if err != nil {
-				log.WithError(err).Errorf("Failed to serve on %v.", srv.Addr)
-				return
-			}
-		}(srv)
-	}
-	return server, nil
+	return tlsConfig
 }
 
 // newHTTPServer constructs a new server using the provided config values.

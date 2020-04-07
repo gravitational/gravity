@@ -35,9 +35,9 @@ import (
 	"github.com/gravitational/satellite/lib/rpc/client"
 
 	"github.com/gravitational/trace"
-	"github.com/gravitational/ttlmap"
 	serf "github.com/hashicorp/serf/client"
 	"github.com/jonboulle/clockwork"
+	"github.com/mailgun/holster"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 )
@@ -154,7 +154,7 @@ type agent struct {
 	// specific cluster member.
 	// The last seen timestamp can be queried by a member and be used to
 	// filter out events that have already been recorded by this agent.
-	lastSeen *ttlmap.TTLMap
+	lastSeen *holster.TTLMap
 
 	// Config is the agent configuration.
 	Config
@@ -195,17 +195,14 @@ func New(config *Config) (*agent, error) {
 
 	// Only initialize cluster timeline for master nodes.
 	var timeline history.Timeline
-	var lastSeen *ttlmap.TTLMap
+	var lastSeen *holster.TTLMap
 	if role, ok := config.Tags["role"]; ok && Role(role) == RoleMaster {
 		timeline, err = initTimeline(config.TimelineConfig, "cluster.db")
 		if err != nil {
 			return nil, trace.Wrap(err, "failed to initialize timeline")
 		}
 
-		lastSeen, err = ttlmap.New(lastSeenCapacity)
-		if err != nil {
-			return nil, trace.Wrap(err, "failed to initialize last seen ttl map")
-		}
+		lastSeen = holster.NewTTLMap(lastSeenCapacity)
 	}
 
 	agent := &agent{
@@ -374,7 +371,7 @@ func (r *agent) LastSeen(name string) (lastSeen time.Time, err error) {
 
 	// Reset ttl if successfully retrieved lastSeen.
 	// Initialize value if lastSeen had not been previously stored.
-	if err := r.lastSeen.Set(name, time.Time{}, lastSeenTTL); err != nil {
+	if err := r.lastSeen.Set(name, time.Time{}, lastSeenTTLSeconds); err != nil {
 		return lastSeen, trace.Wrap(err, fmt.Sprintf("failed to initialize timestamp for %s", name))
 	}
 
@@ -404,7 +401,7 @@ func (r *agent) RecordLastSeen(name string, timestamp time.Time) error {
 		return nil
 	}
 
-	return r.lastSeen.Set(name, timestamp, lastSeenTTL)
+	return r.lastSeen.Set(name, timestamp, lastSeenTTLSeconds)
 }
 
 // runChecks executes the monitoring tests configured for this agent in parallel.
@@ -533,7 +530,7 @@ func (r *agent) recycleLoop(ctx context.Context) {
 // updates the health status of the cluster by querying status of other active
 // cluster members.
 func (r *agent) statusUpdateLoop(ctx context.Context) {
-	ticker := r.Clock.NewTicker(statusUpdateTimeout)
+	ticker := r.Clock.NewTicker(StatusUpdateTimeout)
 	defer ticker.Stop()
 
 	for {
@@ -569,7 +566,7 @@ func (r *agent) updateStatus(ctx context.Context) error {
 // collectStatus obtains the cluster status by querying statuses of
 // known cluster members.
 func (r *agent) collectStatus(ctx context.Context) (systemStatus *pb.SystemStatus, err error) {
-	ctx, cancel := context.WithTimeout(ctx, statusUpdateTimeout)
+	ctx, cancel := context.WithTimeout(ctx, StatusUpdateTimeout)
 	defer cancel()
 
 	systemStatus = &pb.SystemStatus{
