@@ -43,19 +43,19 @@ type Operation interface {
 	// GetState returns the operation state.
 	GetState() string
 	// GetInstall returns install operation data.
-	GetInstall() *OperationInstall
+	GetInstall() OperationInstall
 	// GetExpand returns expand operation data.
-	GetExpand() *OperationExpand
+	GetExpand() OperationExpand
 	// GetShrink returns shrink operation data.
-	GetShrink() *OperationShrink
+	GetShrink() OperationShrink
 	// GetUpgrade returns upgrade operation data.
-	GetUpgrade() *OperationUpgrade
+	GetUpgrade() OperationUpgrade
 	// GetUpdateEnviron returns environment update operation data.
-	GetUpdateEnviron() *OperationUpdateEnviron
+	GetUpdateEnviron() OperationUpdateEnviron
 	// GetUpdateConfig returns runtime configuration update operation data.
-	GetUpdateConfig() *OperationUpdateConfig
+	GetUpdateConfig() OperationUpdateConfig
 	// GetReconfigure returns reconfigure operation data.
-	GetReconfigure() *OperationReconfigure
+	GetReconfigure() OperationReconfigure
 }
 
 // OperationV2 is the operation resource definition.
@@ -197,38 +197,59 @@ func (o *OperationV2) GetState() string {
 }
 
 // GetInstall returns install operation data.
-func (o *OperationV2) GetInstall() *OperationInstall {
-	return o.Spec.Install
+func (o *OperationV2) GetInstall() OperationInstall {
+	if o.Spec.Install != nil {
+		return *o.Spec.Install
+	}
+	return OperationInstall{}
 }
 
 // GetExpand returns expand operation data.
-func (o *OperationV2) GetExpand() *OperationExpand {
-	return o.Spec.Expand
+func (o *OperationV2) GetExpand() OperationExpand {
+	if o.Spec.Expand != nil {
+		return *o.Spec.Expand
+	}
+	return OperationExpand{}
 }
 
 // GetShrink returns shrink operation data.
-func (o *OperationV2) GetShrink() *OperationShrink {
-	return o.Spec.Shrink
+func (o *OperationV2) GetShrink() OperationShrink {
+	if o.Spec.Shrink != nil {
+		return *o.Spec.Shrink
+	}
+	return OperationShrink{}
 }
 
 // GetUpgrade returns upgrade operation data.
-func (o *OperationV2) GetUpgrade() *OperationUpgrade {
-	return o.Spec.Upgrade
+func (o *OperationV2) GetUpgrade() OperationUpgrade {
+	if o.Spec.Upgrade != nil {
+		return *o.Spec.Upgrade
+	}
+	return OperationUpgrade{}
 }
 
 // GetUpdateEnviron returns environment update operation data.
-func (o *OperationV2) GetUpdateEnviron() *OperationUpdateEnviron {
-	return o.Spec.UpdateEnviron
+func (o *OperationV2) GetUpdateEnviron() OperationUpdateEnviron {
+	if o.Spec.UpdateEnviron != nil {
+		return *o.Spec.UpdateEnviron
+	}
+	return OperationUpdateEnviron{}
 }
 
 // GetUpdateConfig returns runtime configuration update operation data.
-func (o *OperationV2) GetUpdateConfig() *OperationUpdateConfig {
-	return o.Spec.UpdateConfig
+func (o *OperationV2) GetUpdateConfig() OperationUpdateConfig {
+	if o.Spec.UpdateConfig != nil {
+		return *o.Spec.UpdateConfig
+	}
+	return OperationUpdateConfig{}
 }
 
 // GetReconfigure returns reconfigure operation data.
-func (o *OperationV2) GetReconfigure() *OperationReconfigure {
-	return o.Spec.Reconfigure
+func (o *OperationV2) GetReconfigure() OperationReconfigure {
+	if o.Spec.Reconfigure != nil {
+		return *o.Spec.Reconfigure
+	}
+	return OperationReconfigure{}
 }
 
 // CheckAndSetDefaults validates operation resource and sets defaults.
@@ -298,7 +319,7 @@ var OperationSpecV2Schema = fmt.Sprintf(`{
       "properties": {
         "nodes": {
           "type": "array",
-          "items": %[0]v
+          "items": %[1]v
         }
       }
     },
@@ -306,14 +327,14 @@ var OperationSpecV2Schema = fmt.Sprintf(`{
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "node": %[0]v
+        "node": %[1]v
       }
     },
     "shrink": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "node": %[0]v
+        "node": %[1]v
       }
     },
     "upgrade": {

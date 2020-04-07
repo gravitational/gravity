@@ -49,12 +49,16 @@ func NewOperation(op storage.SiteOperation) (storage.Operation, error) {
 			Nodes: newNodes(op.Servers),
 		}
 	case OperationExpand:
-		operation.Spec.Expand = &storage.OperationExpand{
-			Node: newNode(op.Servers[0]),
+		if len(op.Servers) != 0 {
+			operation.Spec.Expand = &storage.OperationExpand{
+				Node: newNode(op.Servers[0]),
+			}
 		}
 	case OperationShrink:
-		operation.Spec.Shrink = &storage.OperationShrink{
-			Node: newNode(op.Shrink.Servers[0]),
+		if len(op.Shrink.Servers) != 0 {
+			operation.Spec.Shrink = &storage.OperationShrink{
+				Node: newNode(op.Shrink.Servers[0]),
+			}
 		}
 	case OperationUpdate:
 		locator, err := loc.ParseLocator(op.Update.UpdatePackage)
@@ -84,13 +88,13 @@ func NewOperation(op storage.SiteOperation) (storage.Operation, error) {
 func DescribeOperation(o storage.Operation) string {
 	switch o.GetType() {
 	case OperationInstall:
-		return fmt.Sprintf("Install on %v nodes",
+		return fmt.Sprintf("%v-node install",
 			len(o.GetInstall().Nodes))
 	case OperationExpand:
-		return fmt.Sprintf("Node %s join as %v",
+		return fmt.Sprintf("Join node %s as %v",
 			o.GetExpand().Node, o.GetExpand().Node.Role)
 	case OperationShrink:
-		return fmt.Sprintf("Node %s leave",
+		return fmt.Sprintf("Remove node %s",
 			o.GetShrink().Node)
 	case OperationUpdate:
 		return fmt.Sprintf("Upgrade to version %v",
