@@ -395,6 +395,26 @@ func (r *Resources) GetCollection(req resources.ListRequest) (resources.Collecti
 			return nil, trace.Wrap(err)
 		}
 		return configCollection{Interface: config}, nil
+	case storage.KindOperation:
+		operations, err := r.Operator.GetSiteOperations(req.SiteKey)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		var resources []storage.Operation
+		for _, op := range operations {
+			if req.Name != "" && req.Name != op.ID {
+				continue
+			}
+			resource, err := ops.NewOperation(op)
+			if err != nil {
+				return nil, trace.Wrap(err)
+			}
+			resources = append(resources, resource)
+		}
+		if req.Name != "" && len(resources) == 0 {
+			return nil, trace.NotFound("operation %v not found", req.Name)
+		}
+		return &operationsCollection{operations: resources}, nil
 	case "":
 		return nil, trace.BadParameter("missing resource kind")
 	}
