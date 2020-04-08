@@ -27,8 +27,6 @@ LOGGING_APP_TAG ?= 0.0.1
 LOGGING_APP_BRANCH ?= $(LOGGING_APP_TAG)
 MONITORING_APP_TAG ?= 0.0.1
 MONITORING_APP_BRANCH ?= $(MONITORING_APP_TAG)
-INGRESS_APP_TAG ?= 0.0.1-dev
-INGRESS_APP_BRANCH ?= $(INGRESS_APP_TAG)
 STORAGE_APP_TAG ?= 0.0.1
 STORAGE_APP_BRANCH ?= $(STORAGE_APP_TAG)
 K8S_APP_TAG ?= 0.0.1
@@ -42,7 +40,6 @@ TELEPORT_REPO = git@github.com:gravitational/teleport.git
 PLANET_REPO = git@github.com:gravitational/planet.git
 LOGGING_APP_REPO = git@github.com:gravitational/logging-app.git
 MONITORING_APP_REPO = git@github.com:gravitational/monitoring-app.git
-INGRESS_APP_REPO = git@github.com:gravitational/ingress-app.git
 STORAGE_APP_REPO = git@github.com:gravitational/storage-app.git
 BANDWAGON_REPO = git@github.com:gravitational/bandwagon.git
 FIO_REPO = git@github.com:axboe/fio.git
@@ -162,7 +159,6 @@ define build_app
 		git fetch --all && \
 		git checkout $3 && \
 		git pull origin $3 ; \
-		git submodule update --init --recursive ; \
 		make -C $(BUILDDIR)/$1 import \
 			OPS_URL=$(OPS_URL) \
 			GRAVITY="$(GRAVITY)" \
@@ -307,7 +303,7 @@ publish-telekube-s3:
 # publish artifacts to S3
 #
 .PHONY: publish
-publish: push-teleport push-gravity push-fio push-bandwagon push-logging-app push-monitoring-app push-ingress-app push-storage-app push-selinux
+publish: push-teleport push-gravity push-fio push-bandwagon push-logging-app push-monitoring-app push-storage-app push-selinux
 
 #
 # prepare ansible variables for publishing to the hub
@@ -378,7 +374,6 @@ K8S_IMPORT_OPTIONS := \
 		--set-dep=$(DNS_APP_PKG) \
 		--set-dep=$(LOGGING_APP_PKG) \
 		--set-dep=$(MONITORING_APP_PKG) \
-		--set-dep=$(INGRESS_APP_PKG) \
 		--set-dep=$(STORAGE_APP_PKG) \
 		--set-dep=$(BANDWAGON_PKG) \
 		--set-dep=$(TILLER_APP_PKG) \
@@ -392,7 +387,7 @@ rbac-app:
 	$(GRAVITY) package export $(RBAC_APP_PKG) $(RBAC_APP_OUT)
 
 .PHONY: k8s-app
-k8s-app: gravity-package teleport fio planet web-assets site-app monitoring-app logging-app ingress-app storage-app tiller-app rbac-app dns-app bandwagon
+k8s-app: gravity-package teleport fio planet web-assets site-app monitoring-app logging-app storage-app tiller-app rbac-app dns-app bandwagon
 	@echo -e "\n----> Building kubernetes-app...\n"
 	- $(GRAVITY) app delete $(K8S_APP_PKG) $(DELETE_OPTS) && \
 	  $(GRAVITY) app import $(ASSETSDIR)/kubernetes $(VENDOR_OPTS) $(K8S_IMPORT_OPTIONS) \
@@ -649,21 +644,6 @@ $(MONITORING_APP_OUT):
 
 push-monitoring-app: $(MONITORING_APP_OUT)
 	$(AWS) s3 cp $(S3_OPTS) $(MONITORING_APP_OUT) $(BUILD_BUCKET_URL)/monitoring-app/$(MONITORING_APP_TAG)
-
-#
-# dependency: ingress app
-#
-.PHONY: ingress-app push-ingress-app
-ingress-app: $(INGRESS_APP_OUT)
-	if ! $(GRAVITY) package list | grep $(INGRESS_APP_PKG); then \
-		$(GRAVITY) app import $(INGRESS_APP_OUT) $(IMPORT_OPTS) ; \
-	fi
-
-$(INGRESS_APP_OUT):
-	$(call build_app,ingress-app,$(INGRESS_APP_REPO),$(INGRESS_APP_BRANCH),$(INGRESS_APP_PKG),$(INGRESS_APP_TAG))
-
-push-ingress-app: $(INGRESS_APP_OUT)
-	$(AWS) s3 cp $(S3_OPTS) $(INGRESS_APP_OUT) $(BUILD_BUCKET_URL)/ingress-app/$(INGRESS_APP_TAG)
 
 #
 # dependency: storage app

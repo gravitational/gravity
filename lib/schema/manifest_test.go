@@ -27,7 +27,7 @@ import (
 
 	"github.com/gravitational/trace"
 	. "gopkg.in/check.v1"
-	v1 "k8s.io/api/core/v1"
+	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -602,9 +602,6 @@ kind: Bundle
 metadata:
   name: myapp
   resourceVersion: 0.0.1
-ingress:
-  nginx:
-    enabled: false
 extensions:
   logs:
     disabled: true
@@ -624,10 +621,6 @@ extensions:
 		},
 		{
 			name: defaults.MonitoringAppName,
-			skip: true,
-		},
-		{
-			name: defaults.IngressAppName,
 			skip: true,
 		},
 		{

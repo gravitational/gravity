@@ -321,17 +321,6 @@ const manifestSchema = `
             "generic": {"$ref": "#/definitions/providerGeneric"}
           }
         },
-        "ingress": {
-          "type": "object",
-          "properties": {
-            "nginx": {
-              "type": "object",
-              "properties": {
-                "enabled": {"type": "boolean"}
-              }
-            }
-          }
-        },
         "storage": {
           "type": "object",
           "properties": {
