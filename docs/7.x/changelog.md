@@ -8,11 +8,21 @@
 | 6.1.20        | Yes | March 31st, 2020     | November 10th, 2021  | 1.15.11            | 3.2.12           |
 | 5.5.40        | Yes | April 3rd, 2020      | September 7th, 2020  | 1.13.11            | 3.0.6-gravity    |
 
+Gravity offers one Long Term Support (LTS) release for every 2nd Kubernetes
+minor version, allowing for seamless upgrades per Kubernetes
+[supported version skew policy](https://kubernetes.io/docs/setup/release/version-skew-policy/#supported-version-skew).
+LTS Gravity versions are supported with security and bug fixes for two years
+after the x.x.0 release date.
+
+Non-LTS (regular) versions of Gravity have the latest features and offer
+more current versions of Kubernetes. Regular versions of Gravity are supported
+with security and bug fixes until the subsequent Gravity release is published.
+
 ## Unsupported Releases
 
 These releases are past their End of Life date, and no longer receive security
-fixes and features. [Paying Gravity customers](https://gravitational.com/gravity/demo/)
-may conditionally receive extended support.
+and bug fixes. [Gravity customers](https://gravitational.com/gravity/demo/) can
+extend updates past EOL through customer agreements if required.
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
