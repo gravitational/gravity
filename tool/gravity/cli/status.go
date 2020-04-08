@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"text/tabwriter"
 	"time"
 
@@ -323,17 +324,18 @@ func printClusterStatus(cluster statusapi.Cluster, w io.Writer) {
 }
 
 func printOperation(operation *statusapi.ClusterOperation, w io.Writer) {
-	fmt.Fprintf(w, "    * %v (%v)\n", operation.Type, operation.ID)
-	fmt.Fprintf(w, "      started:\t%v (%v)\n",
+	fmt.Fprintf(w, "    * %v\n", operation.Description)
+	fmt.Fprintf(w, "      ID:\t%v\n", operation.ID)
+	fmt.Fprintf(w, "      Started:\t%v (%v)\n",
 		operation.Created.Format(constants.HumanDateFormat),
 		humanize.RelTime(operation.Created, time.Now(), "ago", ""))
 	if operation.Progress.IsCompleted() {
-		fmt.Fprintf(w, "      %v:\t%v (%v)\n", operation.State,
+		fmt.Fprintf(w, "      %v:\t%v (%v)\n", strings.Title(operation.State),
 			operation.Progress.Created.Format(constants.HumanDateFormat),
 			humanize.RelTime(operation.Progress.Created, time.Now(), "ago", ""))
 	} else {
 		if operation.Type == ops.OperationUpdate {
-			fmt.Fprintf(w, "      use 'gravity plan --operation-id=%v' to check operation status\n",
+			fmt.Fprintf(w, `      Use "gravity plan --operation-id=%v" to check operation status\n`,
 				operation.ID)
 		} else {
 			fmt.Fprint(w, "      ")
