@@ -69,6 +69,8 @@ const (
 	KindRuntimeEnvironment = "runtimeenvironment"
 	// KindClusterConfiguration defines the resource that manages cluster configuration
 	KindClusterConfiguration = "clusterconfiguration"
+	// KindOperation is the cluster operation resource type.
+	KindOperation = "operation"
 	// KindRelease defines the application release resource type
 	KindRelease = "release"
 	// KindInvite defines the user invite token.
@@ -105,6 +107,8 @@ func CanonicalKind(kind string) string {
 		return KindClusterConfiguration
 	case KindAuthGateway, "gw":
 		return KindAuthGateway
+	case KindOperation, "operations", "op", "ops":
+		return KindOperation
 	}
 	return kind
 }
@@ -171,6 +175,7 @@ var SupportedGravityResources = []string{
 	KindAuthGateway,
 	KindRuntimeEnvironment,
 	KindClusterConfiguration,
+	KindOperation,
 }
 
 // SupportedGravityResourcesToRemove is a list of resources supported by
