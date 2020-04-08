@@ -23,6 +23,7 @@ Resource Name             | Resource Description
 `runtimeenvironment`      | Cluster runtime environment variables
 `clusterconfiguration`    | General Cluster configuration
 `authgateway`             | Authentication gateway configuration
+`operations`              | Cluster operations
 
 
 ## General Cluster Configuration
@@ -72,7 +73,7 @@ to the `gravity install` command:
 root$ ./gravity install --cluster=<cluster-name> ... --config=Cluster-config.yaml
 ```
 
-!!! note 
+!!! note
     You can combine multiple kubernetes and Gravity-specific resources in the config file prior to
     running the install command to have the installer automatically create all resources upon installation.
 
@@ -115,6 +116,31 @@ root$ ./gravity resource rm config
     Updating the configuration of an active Cluster is disruptive and might necessitate the restart
     of runtime containers either on master or on all Cluster nodes. Take this into account and plan
     each update accordingly.
+
+## Cluster Operations
+
+Operations performed on a cluster (install, upgrade, node join or removal, etc.)
+are exposed via an `operation` resource.
+
+To see a list of cluster operations:
+
+```bsh
+$ sudo gravity resource get operations
+ID                                       Description                                   State         Created
+--                                       -----------                                   -----         -------
+eb0d0a68-f835-471b-9ceb-500460ffcd0b     Remove node node-2 (192.168.99.103)           Completed     Tue Apr  7 21:56 UTC
+7e95deca-3a71-4abe-8616-097bab26c943     Join node node-2 (192.168.99.103) as node     Completed     Tue Apr  7 21:50 UTC
+b75f28bc-b8e9-403f-9cda-972013a652e8     1-node install                                Completed     Tue Apr  7 21:37 UTC
+```
+
+To view a particular operation details:
+
+```bsh
+$ sudo gravity resource get operation 7e95deca-3a71-4abe-8616-097bab26c943 --format=json
+```
+
+The `operation` resource is read-only and, as such, not supported by the
+resource create and delete commands.
 
 ## Cluster Access
 
@@ -290,7 +316,7 @@ The new user can now log into the Cluster via the Web UI with the user
 credentials created above.
 
 !!! tip "Username and Password Restrictions"
-    Usernames should be composed of characters, hyphens, the at symbol and dots. 
+    Usernames should be composed of characters, hyphens, the at symbol and dots.
     Passwords must be between 6 and 128 characters long.
 
 
@@ -332,7 +358,7 @@ $ gravity resource create github.yaml
 Once the connector has been created, the Cluster login screen will start
 presenting "Login with GitHub" button.
 
-!!! note 
+!!! note
     When going through the Github authentication flow for the first time, the
     application must be granted the access to all organizations that are present
     in the "teams to logins" mapping, otherwise Gravity will not be able to
@@ -423,7 +449,7 @@ The `hd` scope contains the hosted Google suite domain of the user so in the
 above example, any user who belongs to the "example.com" domain will be
 allowed to log in and granted the admin role.
 
-!!! note 
+!!! note
     The user must belong to a hosted domain, otherwise the `hd` claim will
     not be populated.
 
@@ -459,7 +485,7 @@ spec:
     ...
 ```
 
-!!! note 
+!!! note
     For an example of configuring a SAML application with Okta take a look
     at the following guide: [SSH Authentication With Okta](https://gravitational.com/teleport/docs/ssh_okta/).
 
@@ -533,7 +559,7 @@ To update authentication gateway configuration, run:
 $ gravity resource create gateway.yaml
 ```
 
-!!! note 
+!!! note
     The `gravity-site` pods will be restarted upon resource creation in order
     for the new settings to take effect, so the Cluster management UI / API
     will become briefly unavailable.
@@ -609,7 +635,7 @@ Create it:
 $ gravity resource create auth.yaml
 ```
 
-!!! note 
+!!! note
     Make sure to configure a proper [OIDC connector](config.md#configuring-openid-connect)
     when using "oidc" authentication type.
 
@@ -853,4 +879,3 @@ To disconnect the Cluster Gravity Hub, remove the Trusted Cluster:
 $ gravity resource rm trustedCluster hub.example.com
 Trusted Cluster "hub.example.com" has been deleted
 ```
-
