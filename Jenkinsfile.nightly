@@ -1,11 +1,32 @@
 #!/usr/bin/env groovy
-def propagateParamsToEnv() {
-  for (param in params) {
-    if (env."${param.key}" == null) {
-      env."${param.key}" = param.value
-    }
-  }
-}
+
+// Nightly jobs are configured for critical release branches in Jenkins.
+//
+// To set up a new nightly job, configure a new job with the following by hand
+// or by machine:
+//
+// properties([
+//   disableConcurrentBuilds(),
+//   // Schedule a daily build between 6:00am and 6:30am UTC (10:00pm-10:30pm PST)
+//   pipelineTriggers([cron('H(0-30) 06 * * 1-5')]),
+//   parameters([
+//     choice(choices: ["run", "skip"].join("\n"),
+//            description: 'Run or skip robotest system wide tests.',
+//            name: 'RUN_ROBOTEST'),
+//     choice(choices: ["true", "false"].join("\n"),
+//            description: 'Destroy all VMs on success.',
+//            name: 'DESTROY_ON_SUCCESS'),
+//     choice(choices: ["true", "false"].join("\n"),
+//            description: 'Destroy all VMs on failure.',
+//            name: 'DESTROY_ON_FAILURE'),
+//     choice(choices: ["true", "false"].join("\n"),
+//            description: 'Abort all tests upon first failure.',
+//            name: 'FAIL_FAST'),
+//   ]),
+// ])
+//
+// The above Jenkins job config code is intentionally not active in this file
+// because of issue #1315 -- 2020-04 walt
 
 def withBuildResult(Closure body) {
   def previousBuildResult = currentBuild.previousBuild?.result
@@ -48,51 +69,6 @@ def sendBuildNotification(String currentBuildResult, String previousBuildResult)
   }
 }
 
-properties([
-  disableConcurrentBuilds(),
-  // Schedule a daily build between 6:00am and 6:30am UTC (10:00pm-10:30pm PST)
-  pipelineTriggers([cron('H(0-30) 06 * * 1-5')]),
-  parameters([
-    choice(choices: ["run", "skip"].join("\n"),
-           defaultValue: 'run',
-           description: 'Run or skip robotest system wide tests.',
-           name: 'RUN_ROBOTEST'),
-    choice(choices: ["true", "false"].join("\n"),
-           defaultValue: 'true',
-           description: 'Destroy all VMs on success.',
-           name: 'DESTROY_ON_SUCCESS'),
-    choice(choices: ["true", "false"].join("\n"),
-           defaultValue: 'true',
-           description: 'Destroy all VMs on failure.',
-           name: 'DESTROY_ON_FAILURE'),
-    choice(choices: ["true", "false"].join("\n"),
-           defaultValue: 'true',
-           description: 'Abort all tests upon first failure.',
-           name: 'FAIL_FAST'),
-    choice(choices: ["gce"].join("\n"),
-           defaultValue: 'gce',
-           description: 'Cloud provider to deploy to.',
-           name: 'DEPLOY_TO'),
-    string(name: 'PARALLEL_TESTS',
-           defaultValue: '4',
-           description: 'Number of parallel tests to run.'),
-    string(name: 'REPEAT_TESTS',
-           defaultValue: '1',
-           description: 'How many times to repeat each test.'),
-    string(name: 'ROBOTEST_VERSION',
-           defaultValue: 'uid-gid',
-           description: 'Robotest tag to use.'),
-    choice(choices: ["true", "false"].join("\n"),
-           defaultValue: 'true',
-           description: 'Whether to use preemptible VMs.',
-           name: 'GCE_PREEMPTIBLE'),
-    choice(choices: ["custom-4-8192", "custom-8-8192"].join("\n"),
-           defaultValue: 'custom-4-8192',
-           description: 'VM type to use.',
-           name: 'GCE_VM'),
-  ]),
-])
-
 timestamps {
   withBuildResult {
     node {
@@ -102,8 +78,8 @@ timestamps {
         sh "sudo git clean -ffdx" // supply -f flag twice to force-remove untracked dirs with .git subdirs (e.g. submodules)
       }
       stage('params') {
-        echo "${params}"
-        propagateParamsToEnv()
+        echo "Jenkins Job Parameters:"
+        for (param in params) { echo "${param}" }
       }
       stage('clean') {
         sh "make -C e clean"
@@ -133,24 +109,14 @@ timestamps {
             }
           },
           robotest : {
-            if (params.RUN_ROBOTEST == 'run') {
+            if (env.RUN_ROBOTEST == 'run') {
               withCredentials([
-                  [
-                    $class: 'UsernamePasswordMultiBinding',
-                    credentialsId: 'jenkins-aws-s3',
-                    usernameVariable: 'AWS_ACCESS_KEY_ID',
-                    passwordVariable: 'AWS_SECRET_ACCESS_KEY',
-                  ],
                   [$class: 'StringBinding', credentialsId: 'GET_GRAVITATIONAL_IO_APIKEY', variable: 'GET_GRAVITATIONAL_IO_APIKEY'],
                   [$class: 'FileBinding', credentialsId:'ROBOTEST_LOG_GOOGLE_APPLICATION_CREDENTIALS', variable: 'GOOGLE_APPLICATION_CREDENTIALS'],
                   [$class: 'FileBinding', credentialsId:'OPS_SSH_KEY', variable: 'SSH_KEY'],
                   [$class: 'FileBinding', credentialsId:'OPS_SSH_PUB', variable: 'SSH_PUB'],
                   ]) {
-                    sh """
-                    make -C e robotest-run-nightly \
-                      AWS_KEYPAIR=ops \
-                      AWS_REGION=us-east-1 \
-                      ROBOTEST_VERSION=$ROBOTEST_VERSION"""
+                    sh 'make -C e robotest-run-nightly'
               }
             } else {
               echo 'skipped system tests'
