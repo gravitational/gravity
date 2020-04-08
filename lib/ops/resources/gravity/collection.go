@@ -26,6 +26,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 	"github.com/gravitational/gravity/lib/utils"
@@ -726,4 +727,53 @@ func formatFeatureGates(features map[string]bool) string {
 		result = append(result, fmt.Sprintf("%v=%v", feature, enabled))
 	}
 	return strings.Join(result, ",")
+}
+
+type operationsCollection struct {
+	operations []storage.Operation
+}
+
+// Resources returns the operations collection in the generic format.
+func (c *operationsCollection) Resources() (resources []teleservices.UnknownResource, err error) {
+	for _, item := range c.operations {
+		resource, err := utils.ToUnknownResource(item)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		resources = append(resources, *resource)
+	}
+	return resources, nil
+}
+
+// WriteText serializes operations in human-friendly text format.
+func (c *operationsCollection) WriteText(w io.Writer) error {
+	t := goterm.NewTable(0, 10, 5, ' ', 0)
+	common.PrintTableHeader(t, []string{"ID", "Description", "State", "Created"})
+	for _, o := range c.operations {
+		fmt.Fprintf(t, "%v\t%v\t%v\t%v\n",
+			o.GetName(),
+			ops.DescribeOperation(o),
+			strings.Title(o.GetState()),
+			o.GetCreated().Format(constants.HumanDateFormat))
+	}
+	_, err := io.WriteString(w, t.String())
+	return trace.Wrap(err)
+}
+
+// WriteJSON serializes collection into json format.
+func (c *operationsCollection) WriteJSON(w io.Writer) error {
+	return utils.WriteJSON(c, w)
+}
+
+// ToMarshal returns objects to marshal.
+func (c *operationsCollection) ToMarshal() interface{} {
+	if len(c.operations) == 1 {
+		return c.operations[0]
+	}
+	return c.operations
+}
+
+// WriteYAML serializes collection into yaml format.
+func (c *operationsCollection) WriteYAML(w io.Writer) error {
+	return utils.WriteYAML(c, w)
 }
