@@ -67,14 +67,14 @@ type ServiceControl struct {
 func (c *ServiceControl) Delete(ctx context.Context, cascade bool) error {
 	c.Infof("delete %v", formatMeta(c.Service.ObjectMeta))
 
-	err := c.Client.Core().Services(c.Service.Namespace).Delete(c.Service.Name, nil)
+	err := c.Client.CoreV1().Services(c.Service.Namespace).Delete(c.Service.Name, nil)
 	return ConvertError(err)
 }
 
 func (c *ServiceControl) Upsert(ctx context.Context) error {
 	c.Infof("upsert %v", formatMeta(c.Service.ObjectMeta))
 
-	services := c.Client.Core().Services(c.Service.Namespace)
+	services := c.Client.CoreV1().Services(c.Service.Namespace)
 	currentService, err := services.Get(c.Service.Name, metav1.GetOptions{})
 	err = ConvertError(err)
 	if err != nil {
@@ -94,7 +94,7 @@ func (c *ServiceControl) Upsert(ctx context.Context) error {
 }
 
 func (c *ServiceControl) Status() error {
-	services := c.Client.Core().Services(c.Service.Namespace)
+	services := c.Client.CoreV1().Services(c.Service.Namespace)
 	_, err := services.Get(c.Service.Name, metav1.GetOptions{})
 	return ConvertError(err)
 }

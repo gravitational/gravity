@@ -17,7 +17,6 @@ package client
 
 import (
 	"context"
-	"fmt"
 	"path/filepath"
 
 	"github.com/gravitational/gravity/lib/defaults"
@@ -29,6 +28,7 @@ import (
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
+	"github.com/gravitational/trace/trail"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 	grpcstatus "google.golang.org/grpc/status"
@@ -104,7 +104,7 @@ func (r *Client) Complete(ctx context.Context, key ops.SiteOperationKey) error {
 		Key: installpb.KeyToProto(key),
 	})
 	if err != nil {
-		return trace.Wrap(err)
+		return trail.FromGRPC(err)
 	}
 	return trace.Wrap(r.Lifecycle.Complete(ctx, r, installpb.StatusCompleted))
 }
@@ -304,10 +304,6 @@ type Lifecycle interface {
 	// Abort handles clean up of state files and directories
 	// the installer maintains throughout the operation
 	Abort(context.Context, *Client) error
-}
-
-func removeSocketFileCommand(socketPath string) (cmd string) {
-	return fmt.Sprintf("-/usr/bin/rm -f %v", socketPath)
 }
 
 var _ signals.Stopper = (*Client)(nil)

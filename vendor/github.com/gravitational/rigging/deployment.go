@@ -76,7 +76,7 @@ func (c *DeploymentControl) Delete(ctx context.Context, cascade bool) error {
 		return ConvertError(err)
 	}
 
-	pods := c.Client.Core().Pods(c.Deployment.Namespace)
+	pods := c.Client.CoreV1().Pods(c.Deployment.Namespace)
 	currentPods, err := c.collectPods(currentDeployment)
 	if err != nil {
 		return trace.Wrap(err)
@@ -144,7 +144,7 @@ func (c *DeploymentControl) nodeSelector() labels.Selector {
 }
 
 func (c *DeploymentControl) Status() error {
-	deployments := c.Client.Extensions().Deployments(c.Deployment.Namespace)
+	deployments := c.Client.ExtensionsV1beta1().Deployments(c.Deployment.Namespace)
 	currentDeployment, err := deployments.Get(c.Deployment.Name, metav1.GetOptions{})
 	if err != nil {
 		return ConvertError(err)

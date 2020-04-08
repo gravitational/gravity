@@ -39,7 +39,7 @@ func (srv *agentServer) Command(req *pb.CommandArgs, stream pb.Agent_CommandServ
 	log := srv.WithFields(log.Fields{
 		"request": "Command",
 		"args":    req.Args})
-	log.Debug("request received")
+	log.Debug("Request received.")
 
 	if req.SelfCommand {
 		gravityPath, err := os.Executable()
@@ -62,7 +62,7 @@ func (srv *agentServer) PeerJoin(ctx context.Context, req *pb.PeerJoinRequest) (
 		reconnectTimeout: srv.Config.ReconnectTimeout,
 	})
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return nil, err
 	}
 	return &types.Empty{}, nil
 }
@@ -76,7 +76,7 @@ func (srv *agentServer) PeerLeave(ctx context.Context, req *pb.PeerLeaveRequest)
 		reconnectTimeout: srv.Config.ReconnectTimeout,
 	})
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return nil, err
 	}
 	return &types.Empty{}, nil
 }
@@ -94,11 +94,10 @@ func (srv *agentServer) GetRuntimeConfig(ctx context.Context, _ *types.Empty) (*
 	config := &pb.RuntimeConfig{
 		Role:          srv.Role,
 		AdvertiseAddr: srv.Config.Listener.Addr().String(),
-		DockerDevice:  srv.DockerDevice,
 		SystemDevice:  srv.SystemDevice,
 		Mounts:        srv.Mounts,
 		StateDir:      stateDir,
-		TempDir:       srv.TempDir,
+		TempDir:       os.TempDir(),
 		KeyValues:     srv.KeyValues,
 		CloudMetadata: srv.CloudMetadata,
 	}

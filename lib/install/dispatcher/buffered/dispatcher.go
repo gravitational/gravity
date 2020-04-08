@@ -72,7 +72,7 @@ func (r *Dispatcher) startMessageBufferLoop() {
 		defer r.wg.Done()
 		var notifyC chan *installpb.ProgressResponse
 		var first *installpb.ProgressResponse
-		// Pending accumulates the progress messages we could not send
+		// pending accumulates the progress messages we could not send
 		// to the receiver.
 		// It is unbounded but the installer is not expected to have a large
 		// number of progress messages so it is an acceptable compromise

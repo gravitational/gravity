@@ -83,7 +83,7 @@ func UpsertAuthGateway(client *kubernetes.Clientset, identity users.Identity, gw
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return updateConfigMap(client.Core().ConfigMaps(defaults.KubeSystemNamespace),
+	return updateConfigMap(client.CoreV1().ConfigMaps(defaults.KubeSystemNamespace),
 		constants.AuthGatewayConfigMap, defaults.KubeSystemNamespace, string(data), nil)
 }
 
@@ -98,7 +98,7 @@ func (o *Operator) GetAuthGateway(key ops.SiteKey) (storage.AuthGateway, error) 
 
 // GetAuthGateway returns auth gateway configuration
 func GetAuthGateway(client *kubernetes.Clientset, identity users.Identity) (storage.AuthGateway, error) {
-	data, err := getConfigMap(client.Core().ConfigMaps(defaults.KubeSystemNamespace),
+	data, err := getConfigMap(client.CoreV1().ConfigMaps(defaults.KubeSystemNamespace),
 		constants.AuthGatewayConfigMap)
 	if err != nil {
 		return nil, trace.Wrap(err)

@@ -54,7 +54,7 @@ func GetFilesystem(ctx context.Context, path string, runner utils.CommandRunner)
 // GetFilesystemForPath returns the filesystem type for given path.
 // It does not verify whether the path actually exists
 func GetFilesystemForPath(path string) (fstype string, err error) {
-	mounts, err := mount.GetMounts()
+	mounts, err := mount.GetMounts(nil)
 	if err != nil {
 		return "", trace.Wrap(trace.ConvertSystemError(err))
 	}

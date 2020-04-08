@@ -72,7 +72,7 @@ func (o *Operator) GetApplicationEndpoints(key ops.SiteKey) ([]ops.Endpoint, err
 	}
 
 	// query for nodes, we might need them later on
-	nodeList, err := client.Core().Nodes().List(metav1.ListOptions{})
+	nodeList, err := client.CoreV1().Nodes().List(metav1.ListOptions{})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

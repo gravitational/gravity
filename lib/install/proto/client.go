@@ -101,8 +101,7 @@ func SocketPath() (path string, err error) {
 }
 
 // Temporary returns false for this error.
-// This implements the interface necessary to indicate the error as
-// non-temporary to the gRPC dialing logic
+// This indicates to the gRPC dialing logic that the error is not retryable
 func (serviceError) Temporary() bool {
 	return false
 }
@@ -114,8 +113,8 @@ func (r serviceError) Error() string {
 
 type serviceError string
 
-// wrappedError models an aspect of the gRPC transport connection error.
-// It exists to enable access to the original error that caused Dial to fail
+// wrappedError models the functionality of an gRPC error that wraps another error.
+// It exists as gRPC package does not expose the interface itself
 type wrappedError interface {
 	// Origin returns the original error
 	Origin() error

@@ -44,7 +44,7 @@ func NewAgentGroup(config AgentGroupConfig, from []Peer) (*AgentGroup, error) {
 	// FIXME: arbitrary channel size
 	watchCh := make(chan WatchEvent, 10)
 	peersConfig := peersConfig{
-		FieldLogger:       config.FieldLogger.WithField(trace.Component, "peers"),
+		FieldLogger:       config.FieldLogger.WithField(trace.Component, "agent-group"),
 		ReconnectStrategy: config.ReconnectStrategy,
 		watchCh:           watchCh,
 		checkTimeout:      config.HealthCheckTimeout,

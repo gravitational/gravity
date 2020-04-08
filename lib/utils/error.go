@@ -36,6 +36,8 @@ import (
 	"github.com/cenkalti/backoff"
 	etcd "github.com/coreos/etcd/client"
 	"github.com/gravitational/trace"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	kubeerrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
@@ -343,7 +345,7 @@ func IsConnectionRefusedError(err error) bool {
 }
 
 // ExitStatusFromError returns the exit status from the specified error.
-// If the error is not exit status error, return nil
+// If the error is not exit status error, returns nil
 func ExitStatusFromError(err error) *int {
 	exitErr, ok := trace.Unwrap(err).(*exec.ExitError)
 	if !ok {
@@ -361,7 +363,8 @@ func ExitStatusFromError(err error) *int {
 // It detects unrecoverable errors and aborts the reconnect attempts
 func ShouldReconnectPeer(err error) error {
 	switch {
-	case isPeerDeniedError(err.Error()),
+	case trace.IsAccessDenied(err),
+		isPeerDeniedError(err),
 		isLicenseError(err.Error()),
 		isHostAlreadyRegisteredError(err.Error()):
 		return &backoff.PermanentError{Err: err}
@@ -378,9 +381,19 @@ func NewFailedPreconditionError(err error) error {
 // ExitCodeError defines an interface for exit code errors
 type ExitCodeError interface {
 	error
+	// ExitCode returns the numeric error code to exit with
 	ExitCode() int
 	// OrigError returns the original error this error wraps.
 	OrigError() error
+}
+
+// NewPreconditionFailedError returns a new error signifying a failed
+// precondition
+func NewPreconditionFailedError(err error) error {
+	return exitCodeError{
+		code: defaults.FailedPreconditionExitCode,
+		err:  err,
+	}
 }
 
 // NewExitCodeError returns a new error with the specified exit code
@@ -442,8 +455,14 @@ type exitCodeError struct {
 	err error
 }
 
-func isPeerDeniedError(message string) bool {
-	return strings.Contains(message, "peer not authorized")
+func isPeerDeniedError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if statusErr, ok := status.FromError(trace.Unwrap(err)); ok {
+		return statusErr.Code() == codes.PermissionDenied
+	}
+	return strings.Contains(err.Error(), "peer auth failed")
 }
 
 func isLicenseError(message string) bool {

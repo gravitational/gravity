@@ -332,6 +332,8 @@ func (s *site) updateOperationState(op *ops.SiteOperation, req ops.OperationUpda
 			ops.OperationStateInstallInitiated,
 			ops.OperationStateInstallProvisioning,
 			ops.OperationStateReady,
+			ops.OperationStateInstallPrechecks,
+			ops.OperationStateFailed,
 		}
 		newState = ops.OperationStateInstallPrechecks
 	case ops.OperationExpand:
@@ -339,6 +341,8 @@ func (s *site) updateOperationState(op *ops.SiteOperation, req ops.OperationUpda
 			ops.OperationStateExpandInitiated,
 			ops.OperationStateExpandProvisioning,
 			ops.OperationStateReady,
+			ops.OperationStateExpandPrechecks,
+			ops.OperationStateFailed,
 		}
 		newState = ops.OperationStateExpandPrechecks
 	default:
@@ -504,11 +508,6 @@ func (s *site) checkOnPremServers(req ops.OperationUpdateRequest) error {
 		if !ok {
 			return trace.BadParameter("unknown server role %v for %v", server.Role, server)
 		}
-		if server.SystemState.Device.Path() == server.Docker.Device.Path() && server.Docker.Device.Path() != "" {
-			return trace.BadParameter(
-				"cannot use the same device %q for system and docker configuration",
-				server.Docker.Device)
-		}
 	}
 
 	return nil
@@ -669,12 +668,6 @@ func (s *site) configureOnPremServers(ctx *operationContext, servers []storage.S
 		}
 		servers[i].SystemState.Device = info.GetDevices().GetByName(systemDevice)
 		servers[i].SystemState.StateDir = info.StateDir
-		dockerDevice := server.Docker.Device.Name
-		if dockerDevice.Path() == "" {
-			dockerDevice = storage.DeviceName(info.DockerDevice)
-		}
-		servers[i].Docker.Device = info.GetDevices().GetByName(dockerDevice)
-		servers[i].Docker.LVMSystemDirectory = info.GetLVMSystemDirectory()
 		servers[i].User = info.GetUser()
 		servers[i].Provisioner = schema.ProvisionerOnPrem
 		servers[i].Created = time.Now().UTC()
@@ -718,8 +711,8 @@ func (s *site) waitForInstaller(ctx *operationContext) (ops.Operator, error) {
 	for {
 		select {
 		case <-ticker.C:
-			installer, err := s.service.cfg.Clients.OpsClient(fmt.Sprintf(
-				"%v%v", constants.InstallerTunnelPrefix, s.domainName))
+			installer, err := s.service.cfg.Clients.OpsClient(
+				constants.InstallerClusterName(s.domainName))
 			if err == nil {
 				ctx.Infof("Got installer client.")
 				return installer, nil
@@ -897,7 +890,7 @@ func (s *site) newProvisioningToken(operation ops.SiteOperation) (token string, 
 		tokenRequest.Expires = s.clock().UtcNow().Add(defaults.InstallTokenTTL)
 	}
 	_, err = s.users().CreateProvisioningToken(tokenRequest)
-	if err != nil {
+	if err != nil && !trace.IsAlreadyExists(err) {
 		log.WithError(err).Warn("Failed to create provisioning token.")
 		return "", trace.Wrap(err)
 	}

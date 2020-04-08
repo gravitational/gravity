@@ -41,14 +41,12 @@ import (
 // with all services initialized
 func (r *LocalEnvironment) NewClusterEnvironment(opts ...ClusterEnvironmentOption) (*ClusterEnvironment, error) {
 	client, _, err := httplib.GetClusterKubeClient(r.DNS.Addr())
-	if err != nil {
-		log.Errorf("Failed to create Kubernetes client: %v.",
-			trace.DebugReport(err))
+	if err != nil && !trace.IsNotFound(err) {
+		log.WithError(err).Warn("Failed to create Kubernetes client.")
 	}
 	auditLog, err := r.AuditLog(context.TODO())
-	if err != nil {
-		log.Warnf("Failed to create audit log: %v.",
-			trace.DebugReport(err))
+	if err != nil && !trace.IsNotFound(err) {
+		log.WithError(err).Warn("Failed to create audit log.")
 	}
 	config := clusterEnvironmentConfig{
 		client:   client,

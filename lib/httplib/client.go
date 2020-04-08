@@ -292,7 +292,7 @@ func DialWithServiceResolver(ctx context.Context, network, addr string) (conn ne
 		return nil, trace.Wrap(err, "failed to create kubernetes client from %v", kubeconfigPath)
 	}
 
-	service, err := client.Core().Services(namespace).Get(serviceName, metav1.GetOptions{})
+	service, err := client.CoreV1().Services(namespace).Get(serviceName, metav1.GetOptions{})
 	if err != nil {
 		return nil, trace.Wrap(rigging.ConvertError(err))
 	}
@@ -373,7 +373,7 @@ func getKubeClient(dnsAddr string, tlsConfig rest.TLSClientConfig, options ...Ku
 	}
 	client, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		return nil, nil, trace.Wrap(err)
+		return nil, nil, trace.ConvertSystemError(err)
 	}
 	return client, config, nil
 }

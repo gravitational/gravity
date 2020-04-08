@@ -41,7 +41,8 @@ import (
 	"github.com/gravitational/satellite/agent/proto/agentpb"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
-	netcontext "golang.org/x/net/context" // TODO: remove in go1.9
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type agentServer storage.Server
@@ -338,17 +339,17 @@ func NewAgentPeerStore(backend storage.Backend, users users.Users,
 }
 
 // NewPeer adds a new peer
-func (r *AgentPeerStore) NewPeer(ctx netcontext.Context, req pb.PeerJoinRequest, peer rpcserver.Peer) error {
+func (r *AgentPeerStore) NewPeer(ctx context.Context, req pb.PeerJoinRequest, peer rpcserver.Peer) error {
 	r.Infof("NewPeer(%v).", peer.Addr())
 
 	token, user, err := r.authenticatePeer(req.Config.Token)
 	if err != nil {
-		return trace.Wrap(err)
+		return err
 	}
 
 	info, err := storage.UnmarshalSystemInfo(req.SystemInfo)
 	if err != nil {
-		return trace.Wrap(err)
+		return err
 	}
 
 	group, err := r.getOrCreateGroup(ops.SiteOperationKey{
@@ -357,13 +358,13 @@ func (r *AgentPeerStore) NewPeer(ctx netcontext.Context, req pb.PeerJoinRequest,
 		OperationID: token.OperationID,
 	})
 	if err != nil {
-		return trace.Wrap(err)
+		return err
 	}
 
 	if req.Config.KeyValues[ops.AgentMode] != ops.AgentModeShrink {
 		errCheck := r.validatePeer(ctx, group, info, req, token.SiteDomain)
 		if errCheck != nil {
-			return trace.Wrap(errCheck)
+			return errCheck
 		}
 	}
 
@@ -377,17 +378,17 @@ func (r *AgentPeerStore) NewPeer(ctx netcontext.Context, req pb.PeerJoinRequest,
 }
 
 // RemovePeer removes the specified peer from the store
-func (r *AgentPeerStore) RemovePeer(ctx netcontext.Context, req pb.PeerLeaveRequest, peer rpcserver.Peer) error {
+func (r *AgentPeerStore) RemovePeer(ctx context.Context, req pb.PeerLeaveRequest, peer rpcserver.Peer) error {
 	r.Infof("RemovePeer(%v).", peer.Addr())
 
 	token, user, err := r.authenticatePeer(req.Config.Token)
 	if err != nil {
-		return trace.Wrap(err)
+		return err
 	}
 
 	info, err := storage.UnmarshalSystemInfo(req.SystemInfo)
 	if err != nil {
-		return trace.Wrap(err)
+		return err
 	}
 
 	group, err := r.getOrCreateGroup(ops.SiteOperationKey{
@@ -396,7 +397,7 @@ func (r *AgentPeerStore) RemovePeer(ctx netcontext.Context, req pb.PeerLeaveRequ
 		OperationID: token.OperationID,
 	})
 	if err != nil {
-		return trace.Wrap(err)
+		return err
 	}
 
 	group.remove(ctx, peer, info.GetHostname())
@@ -407,8 +408,8 @@ func (r *AgentPeerStore) RemovePeer(ctx netcontext.Context, req pb.PeerLeaveRequ
 func (r *AgentPeerStore) authenticatePeer(token string) (*storage.ProvisioningToken, storage.User, error) {
 	provToken, err := r.users.GetProvisioningToken(token)
 	if err != nil {
-		r.Warnf("Invalid peer auth token %q: %v.", token, trace.DebugReport(err))
-		return nil, nil, trace.AccessDenied("peer auth failed: %v",
+		r.WithError(err).Warn("Invalid peer auth token.")
+		return nil, nil, status.Errorf(codes.PermissionDenied, "peer auth failed: %v",
 			trace.UserMessage(err))
 	}
 	user, _, err := r.users.AuthenticateUser(httplib.AuthCreds{
@@ -416,8 +417,8 @@ func (r *AgentPeerStore) authenticatePeer(token string) (*storage.ProvisioningTo
 		Type:     httplib.AuthBearer,
 	})
 	if err != nil {
-		r.Warnf("Peer auth failed: %v.", trace.DebugReport(err))
-		return nil, nil, trace.AccessDenied("user auth failed: %v",
+		r.WithError(err).Warn("Peer auth failed.")
+		return nil, nil, status.Errorf(codes.PermissionDenied, "peer auth failed: %v",
 			trace.UserMessage(err))
 	}
 	return provToken, user, nil
@@ -572,7 +573,7 @@ func (r *agentGroup) add(p rpcserver.Peer, hostname string) {
 	r.hostnames[p.Addr()] = hostname
 }
 
-func (r *agentGroup) remove(ctx netcontext.Context, p rpcserver.Peer, hostname string) {
+func (r *agentGroup) remove(ctx context.Context, p rpcserver.Peer, hostname string) {
 	_ = r.AgentGroup.Remove(ctx, p)
 	r.mu.Lock()
 	defer r.mu.Unlock()

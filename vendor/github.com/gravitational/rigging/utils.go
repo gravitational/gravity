@@ -12,7 +12,7 @@ import (
 	"github.com/gravitational/trace"
 
 	log "github.com/sirupsen/logrus"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -102,7 +102,7 @@ func CollectPods(namespace string, matchLabels map[string]string, logger log.Fie
 		set[key] = val
 	}
 
-	podList, err := client.Core().Pods(namespace).List(metav1.ListOptions{
+	podList, err := client.CoreV1().Pods(namespace).List(metav1.ListOptions{
 		LabelSelector: set.AsSelector().String(),
 	})
 	if err != nil {
