@@ -939,7 +939,7 @@ type NodeProviderAWS struct {
 
 // Ingress represents Ingress configuration.
 type Ingress struct {
-	// Enabled indicates whether Ingress is enabled.
+	// Nginx allows to customize the nginx based Ingress resource
 	Nginx *Nginx `json:"nginx,omitempty"`
 }
 
