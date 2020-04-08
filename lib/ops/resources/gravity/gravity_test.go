@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2018-2020 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import (
 	"context"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gravitational/gravity/lib/compare"
 	"github.com/gravitational/gravity/lib/defaults"
@@ -32,6 +33,7 @@ import (
 
 	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
+	"github.com/jonboulle/clockwork"
 	"gopkg.in/check.v1"
 )
 
@@ -42,10 +44,12 @@ type GravityResourcesSuite struct {
 	r       *Resources
 	cluster *ops.Site
 	server  *httptest.Server
+	clock   clockwork.Clock
 }
 
 var _ = check.Suite(&GravityResourcesSuite{
-	s: &Suite{},
+	s:     &Suite{},
+	clock: clockwork.NewFakeClock(),
 })
 
 func (s *GravityResourcesSuite) SetUpSuite(c *check.C) {
@@ -128,6 +132,98 @@ func (s *GravityResourcesSuite) TestToken(c *check.C) {
 	if !trace.IsNotFound(err) {
 		c.Error("Expected the error to be of type NotFound.")
 	}
+}
+
+func (s *GravityResourcesSuite) TestOperation(c *check.C) {
+	node1 := storage.Server{AdvertiseIP: "192.168.1.1", Hostname: "node-1", Role: "master"}
+	node2 := storage.Server{AdvertiseIP: "192.168.1.2", Hostname: "node-2", Role: "master"}
+	node3 := storage.Server{AdvertiseIP: "192.168.1.3", Hostname: "node-3", Role: "worker"}
+
+	installOp, err := s.s.Services.Backend.CreateSiteOperation(storage.SiteOperation{
+		AccountID:  s.cluster.AccountID,
+		SiteDomain: s.cluster.Domain,
+		Type:       ops.OperationInstall,
+		State:      ops.OperationStateCompleted,
+		Servers:    storage.Servers{node1, node2},
+		Created:    s.clock.Now(),
+	})
+	c.Assert(err, check.IsNil)
+
+	expandOp, err := s.s.Services.Backend.CreateSiteOperation(storage.SiteOperation{
+		AccountID:  s.cluster.AccountID,
+		SiteDomain: s.cluster.Domain,
+		Type:       ops.OperationExpand,
+		State:      ops.OperationStateCompleted,
+		Servers:    storage.Servers{node3},
+		Created:    s.clock.Now().Add(time.Hour),
+	})
+	c.Assert(err, check.IsNil)
+
+	shrinkOp, err := s.s.Services.Backend.CreateSiteOperation(storage.SiteOperation{
+		AccountID:  s.cluster.AccountID,
+		SiteDomain: s.cluster.Domain,
+		Type:       ops.OperationShrink,
+		State:      ops.OperationStateCompleted,
+		Shrink: &storage.ShrinkOperationState{
+			Servers: storage.Servers{node2},
+		},
+		Created: s.clock.Now().Add(2 * time.Hour),
+	})
+	c.Assert(err, check.IsNil)
+
+	upgradeOp, err := s.s.Services.Backend.CreateSiteOperation(storage.SiteOperation{
+		AccountID:  s.cluster.AccountID,
+		SiteDomain: s.cluster.Domain,
+		Type:       ops.OperationUpdate,
+		State:      ops.OperationStateCompleted,
+		Update: &storage.UpdateOperationState{
+			UpdatePackage: "gravitational.io/example:0.0.2",
+		},
+		Created: s.clock.Now().Add(3 * time.Hour),
+	})
+	c.Assert(err, check.IsNil)
+
+	runtimeOp, err := s.s.Services.Backend.CreateSiteOperation(storage.SiteOperation{
+		AccountID:  s.cluster.AccountID,
+		SiteDomain: s.cluster.Domain,
+		Type:       ops.OperationUpdateRuntimeEnviron,
+		State:      ops.OperationStateCompleted,
+		UpdateEnviron: &storage.UpdateEnvarsOperationState{
+			Env: map[string]string{"a": "b"},
+		},
+		Created: s.clock.Now().Add(4 * time.Hour),
+	})
+	c.Assert(err, check.IsNil)
+
+	configOp, err := s.s.Services.Backend.CreateSiteOperation(storage.SiteOperation{
+		AccountID:  s.cluster.AccountID,
+		SiteDomain: s.cluster.Domain,
+		Type:       ops.OperationUpdateConfig,
+		State:      ops.OperationStateCompleted,
+		UpdateConfig: &storage.UpdateConfigOperationState{
+			Config: []byte("config"),
+		},
+		Created: s.clock.Now().Add(5 * time.Hour),
+	})
+	c.Assert(err, check.IsNil)
+
+	collection, err := s.r.GetCollection(resources.ListRequest{SiteKey: s.cluster.Key(), Kind: storage.KindOperation})
+	c.Assert(err, check.IsNil)
+	// Should be returned in newest-to-oldest order.
+	compare.DeepCompare(c, collection, &operationsCollection{[]storage.Operation{
+		toOperation(c, configOp),
+		toOperation(c, runtimeOp),
+		toOperation(c, upgradeOp),
+		toOperation(c, shrinkOp),
+		toOperation(c, expandOp),
+		toOperation(c, installOp),
+	}})
+}
+
+func toOperation(c *check.C, operation *storage.SiteOperation) storage.Operation {
+	resource, err := ops.NewOperation(*operation)
+	c.Assert(err, check.IsNil)
+	return resource
 }
 
 func toUnknown(c *check.C, resource teleservices.Resource) teleservices.UnknownResource {
