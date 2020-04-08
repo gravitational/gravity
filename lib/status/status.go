@@ -111,8 +111,11 @@ func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, o
 		if err != nil {
 			return status, trace.Wrap(err)
 		}
-		status.ActiveOperations = append(status.ActiveOperations,
-			fromOperationAndProgress(op, *progress))
+		operation, err := fromOperationAndProgress(op, *progress)
+		if err != nil {
+			return status, trace.Wrap(err)
+		}
+		status.ActiveOperations = append(status.ActiveOperations, operation)
 	}
 
 	var operation *ops.SiteOperation
@@ -129,7 +132,10 @@ func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, o
 	if err != nil {
 		return status, trace.Wrap(err)
 	}
-	status.Operation = fromOperationAndProgress(*operation, *progress)
+	status.Operation, err = fromOperationAndProgress(*operation, *progress)
+	if err != nil {
+		return status, trace.Wrap(err)
+	}
 
 	status.Agent, err = FromPlanetAgent(ctx, cluster.ClusterState.Servers)
 	if err != nil {
@@ -322,6 +328,8 @@ type ClusterOperation struct {
 	State string `json:"state"`
 	// Created specifies the time the operation was created
 	Created time.Time `json:"created"`
+	// Description is the human friendly operation description
+	Description string `json:"description"`
 	// Progress describes the progress of an operation
 	Progress   ClusterOperationProgress `json:"progress"`
 	accountID  string
@@ -377,16 +385,21 @@ type ClusterServer struct {
 	WarnProbes []string `json:"warn_probes,omitempty"`
 }
 
-func fromOperationAndProgress(operation ops.SiteOperation, progress ops.ProgressEntry) *ClusterOperation {
-	return &ClusterOperation{
-		Type:       operation.Type,
-		ID:         operation.ID,
-		State:      operation.State,
-		Created:    operation.Created,
-		Progress:   fromProgressEntry(progress),
-		siteDomain: operation.SiteDomain,
-		accountID:  operation.AccountID,
+func fromOperationAndProgress(operation ops.SiteOperation, progress ops.ProgressEntry) (*ClusterOperation, error) {
+	resource, err := ops.NewOperation(storage.SiteOperation(operation))
+	if err != nil {
+		return nil, trace.Wrap(err)
 	}
+	return &ClusterOperation{
+		Type:        operation.Type,
+		ID:          operation.ID,
+		State:       operation.State,
+		Created:     operation.Created,
+		Description: ops.DescribeOperation(resource),
+		Progress:    fromProgressEntry(progress),
+		siteDomain:  operation.SiteDomain,
+		accountID:   operation.AccountID,
+	}, nil
 }
 
 func fromProgressEntry(src ops.ProgressEntry) ClusterOperationProgress {
