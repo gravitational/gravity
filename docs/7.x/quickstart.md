@@ -1,7 +1,7 @@
 # Introduction
 
 This guide will help you quickly evaluate Gravity by packaging, and installing
-a sample multi-node Kubernetes application. 
+a sample multi-node Kubernetes application.
 
 We will use [Mattermost](https://www.mattermost.org/), an open source chat
 application for teams. Mattermost represents a fairly typical web application
@@ -69,10 +69,10 @@ $ cd quickstart
 
 To build a Cluster Image we'll perform the following steps:
 
-1. Create Docker containers for application services. 
+1. Create Docker containers for application services.
 2. Create definitions of Kubernetes resources (pods, etc) for application
-   components. This makes an application capable of running on Kubernetes. 
-   You can place all Kubernetes resource files (usually in YAML format) in the 
+   components. This makes an application capable of running on Kubernetes.
+   You can place all Kubernetes resource files (usually in YAML format) in the
    same directory or you can use Helm.
 3. Create a Cluster Image Manifest to describe the system requirements
    for a Kubernetes cluster capable of running your application. A Cluster Image Manifest
@@ -308,9 +308,10 @@ Cluster status:	active
 Application:	mattermost, version 2.2.0
 Join token:	3f59d1923ed4e2f1499f3e272c86310b46666c8ddce708f3131b16f256f10004
 Last completed operation:
-    * operation_install (6784ad01-530a-45f0-a303-119ac8cd3417)
-      started:		Tue Jan 22 22:40 UTC (10 minutes ago)
-      completed:	Tue Jan 22 22:40 UTC (10 minutes ago)
+    * 1-node install
+      ID:		    b75f28bc-b8e9-403f-9cda-972013a652e8
+      Started:		Tue Apr  7 21:37 UTC (13 minutes ago)
+      Completed:	Tue Apr  7 21:37 UTC (13 minutes ago)
 Cluster:		friendlypoincare4048
     Masters:
         * host (10.5.5.28, node)
@@ -433,9 +434,9 @@ You can press `Ctrl+C` to stop the `install` script.
 
 ## Conclusion
 
-This is a brief overview of how Kubernetes clusters can be packaged into simple 
-`tar` files and then installed anywhere. Gravity's image-based approach is quite 
-similar to how virtual machines/instances are treated by using disk images in 
+This is a brief overview of how Kubernetes clusters can be packaged into simple
+`tar` files and then installed anywhere. Gravity's image-based approach is quite
+similar to how virtual machines/instances are treated by using disk images in
 virtualized environments.
 
 This dramatically lowers the operational overhead of running multiple Kubernetes
