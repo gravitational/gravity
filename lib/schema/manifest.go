@@ -63,8 +63,6 @@ type Manifest struct {
 	NodeProfiles NodeProfiles `json:"nodeProfiles,omitempty"`
 	// Providers contains settings specific to different providers (e.g. cloud)
 	Providers *Providers `json:"providers,omitempty"`
-	// Ingress configures Ingress controllers.
-	Ingress *Ingress `json:"ingress,omitempty"`
 	// Storage configures persistent storage providers.
 	Storage *Storage `json:"storage,omitempty"`
 	// License allows to turn on/off license mode for the application
@@ -405,11 +403,6 @@ func (m Manifest) FirstNodeProfileName() (string, error) {
 		return "", trace.Wrap(err)
 	}
 	return profile.Name, nil
-}
-
-// IngressEnabled returns true if Ingress is enabled.
-func (m Manifest) IngressEnabled() bool {
-	return m.Ingress != nil && m.Ingress.Nginx != nil && m.Ingress.Nginx.Enabled
 }
 
 // OpenEBSEnabled returns true if OpenEBS storage provider is enabled.
@@ -937,18 +930,6 @@ type NodeProviderAWS struct {
 	InstanceTypes []string `json:"instanceTypes,omitempty"`
 }
 
-// Ingress represents Ingress configuration.
-type Ingress struct {
-	// Enabled indicates whether Ingress is enabled.
-	Nginx *Nginx `json:"nginx,omitempty"`
-}
-
-// Nginx represents a specific Ingress controller based on nginx.
-type Nginx struct {
-	// Enabled indicates whether nginx is enabled.
-	Enabled bool `json:"enabled,omitempty"`
-}
-
 // Storage represents persistent storage configuration.
 type Storage struct {
 	// OpenEBS is the OpenEBS storage provider configuration.
@@ -1265,9 +1246,6 @@ func ShouldSkipApp(manifest Manifest, app loc.Locator) bool {
 		if ext != nil && ext.Monitoring != nil && ext.Monitoring.Disabled {
 			return true
 		}
-	case defaults.IngressAppName:
-		// do not install ingress-app if ingress feature is disabled
-		return !manifest.IngressEnabled()
 	case defaults.TillerAppName:
 		// do not install tiller-app if catalog feature is disabled
 		ext := manifest.Extensions
