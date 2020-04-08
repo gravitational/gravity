@@ -1,26 +1,33 @@
 # Releases
 
-## Current Releases
-
-Every major Gravity version `x.0.0` has it's long term support release, e.g. for `3.0.0` version
-LTS starts with `3.51.0` with minor backwards compatible changes added over time until the end of support cycle.
+## Supported Releases
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
 | 7.0.0         | No  | April 3rd, 2020      | 7.1 is released      | 1.17.4             | 3.2.13           |
-| 6.3.9*        | No  | April 3rd, 2020      | April 3rd, 2020      | 1.17.4             | 3.2.13           |
-| 6.2.5*        | No  | December 3rd, 2019   | December 18th, 2019  | 1.16.3             | 3.2.13           |
 | 6.1.20        | Yes | March 31st, 2020     | November 10th, 2021  | 1.15.11            | 3.2.12           |
-| 6.0.10*       | No  | October 17th, 2019   | August 2nd, 2019     | 1.14.7             | 3.2.12           |
-| 5.6.8*        | No  | September 18th, 2019 | July 17th, 2019      | 1.14.7             | 3.0.6-gravity    |
 | 5.5.40        | Yes | April 3rd, 2020      | September 7th, 2020  | 1.13.11            | 3.0.6-gravity    |
-| 5.4.10*       | No  | March 26th, 2019     | March 8th, 2019      | 1.13.5             | 2.4.10           |
-| 5.3.9*        | No  | March 7th, 2019      | December 14, 2018    | 1.12.3             | 2.4.7            |
-| 5.2.16*       | Yes | October 11th, 2019   | October 15th, 2019   | 1.11.9             | 2.4.10           |
-| 5.0.35*       | Yes | September 2nd, 2019  | April 13th, 2019     | 1.9.13-gravitational | 2.4.10         |
-| 4.68.0*       | Yes | January 17th, 2019   | November 16th, 2018  | 1.7.18-gravitational | 2.3.5          |
-| 3.64.0*       | Yes | December 21st, 2017  | June 2nd, 2018       | 1.5.7              | 2.0.6            |
-| 1.30.0*       | Yes | March 21st, 2017     | March 21st, 2018     | 1.3.8              | 1.2.0            |
+
+## Unsupported Releases
+
+These releases are past their End of Life date, and no longer receive security
+fixes and features. [Paying Gravity customers](https://gravitational.com/gravity/demo/)
+may conditionally receive extended support.
+
+| Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
+| --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
+| 6.3.9         | No  | April 3rd, 2020      | April 3rd, 2020      | 1.17.4             | 3.2.13           |
+| 6.2.5         | No  | December 3rd, 2019   | December 18th, 2019  | 1.16.3             | 3.2.13           |
+| 6.0.10        | No  | October 17th, 2019   | August 2nd, 2019     | 1.14.7             | 3.2.12           |
+| 5.6.8         | No  | September 18th, 2019 | July 17th, 2019      | 1.14.7             | 3.0.6-gravity    |
+| 5.4.10        | No  | March 26th, 2019     | March 8th, 2019      | 1.13.5             | 2.4.10           |
+| 5.3.9         | No  | March 7th, 2019      | December 14, 2018    | 1.12.3             | 2.4.7            |
+| 5.2.16        | Yes | October 11th, 2019   | October 15th, 2019   | 1.11.9             | 2.4.10           |
+| 5.0.35        | Yes | September 2nd, 2019  | April 13th, 2019     | 1.9.13-gravitational | 2.4.10         |
+| 4.68.0        | Yes | January 17th, 2019   | November 16th, 2018  | 1.7.18-gravitational | 2.3.5          |
+| 3.64.0        | Yes | December 21st, 2017  | June 2nd, 2018       | 1.5.7              | 2.0.6            |
+| 1.30.0        | Yes | March 21st, 2017     | March 21st, 2018     | 1.3.8              | 1.2.0            |
+
 
 !!! tip "Cluster certificates expiration"
     If you have a Gravity cluster of version before `5.0.0-alpha.12` that
@@ -29,13 +36,11 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
     expired, please refer to the [Gravity Manual Certificates Renewal](https://gravitational.zendesk.com/hc/en-us/articles/360000755967-Telekube-Manual-Certificates-Renewal)
     article in our Help Center.
 
-!!! note "Unsupported releases"
-    Releases marked with `*` in the table above are no longer supported and
-    do not receive updates and bugfixes.
-
 !!! note "Direct upgrades"
     You can now upgrade existing 5.0.x clusters directly to 5.5.x.
     See [Direct Upgrades From Older LTS Versions](cluster.md#direct-upgrades-from-older-lts-versions) for details.
+
+# Release Notes
 
 ## 7.x Releases
 
