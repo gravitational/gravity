@@ -28,18 +28,6 @@ may conditionally receive extended support.
 | 3.64.0        | Yes | December 21st, 2017  | June 2nd, 2018       | 1.5.7              | 2.0.6            |
 | 1.30.0        | Yes | March 21st, 2017     | March 21st, 2018     | 1.3.8              | 1.2.0            |
 
-
-!!! tip "Cluster certificates expiration"
-    If you have a Gravity cluster of version before `5.0.0-alpha.12` that
-    hasn't been upgraded in about a year, its certificates may be expiring soon.
-    If you are unable to upgrade, or your cluster certificates have already
-    expired, please refer to the [Gravity Manual Certificates Renewal](https://gravitational.zendesk.com/hc/en-us/articles/360000755967-Telekube-Manual-Certificates-Renewal)
-    article in our Help Center.
-
-!!! note "Direct upgrades"
-    You can now upgrade existing 5.0.x clusters directly to 5.5.x.
-    See [Direct Upgrades From Older LTS Versions](cluster.md#direct-upgrades-from-older-lts-versions) for details.
-
 # Release Notes
 
 ## 7.x Releases
@@ -847,6 +835,10 @@ to learn how to gain insight into how the cluster status changes over time.
     [Teleport Announcement](https://github.com/gravitational/teleport/releases/tag/v4.0.5) for more information.
 
 ### 5.5.21 LTS (September 26th, 2019)
+
+!!! note "Direct upgrades"
+    You can now upgrade existing 5.0.x clusters directly to 5.5.x.
+    See [Direct Upgrades From Older LTS Versions](cluster.md#direct-upgrades-from-older-lts-versions) for details.
 
 #### Improvements
 
@@ -2064,6 +2056,13 @@ install/upgrade.
 * Increase lifetime of CA certificates used internally within the cluster.
 * Add support for separating the endpoint for cluster and user traffic, see [Configuring Ops Center Endpoints](hub.md#post-provisioning) for details.
 * Add support for using flags with ./install script.
+
+!!! tip "Cluster certificates expiration"
+    If you have a Gravity cluster of version before `5.0.0-alpha.12` that
+    hasn't been upgraded in about a year, its certificates may be expiring soon.
+    If you are unable to upgrade, or your cluster certificates have already
+    expired, please refer to the [Gravity Manual Certificates Renewal](https://gravitational.zendesk.com/hc/en-us/articles/360000755967-Telekube-Manual-Certificates-Renewal)
+    article in our Help Center.
 
 #### Bugfixes
 
