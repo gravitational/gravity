@@ -7,42 +7,31 @@ def propagateParamsToEnv() {
   }
 }
 
-properties([
-  disableConcurrentBuilds(),
-  parameters([
-    choice(choices: ["run", "skip"].join("\n"),
-           // defaultValue is not applicable to choices. The first choice will be the default.
-           description: 'Run or skip robotest system wide tests.',
-           name: 'RUN_ROBOTEST'),
-    choice(choices: ["true", "false"].join("\n"),
-           description: 'Destroy all VMs on success.',
-           name: 'DESTROY_ON_SUCCESS'),
-    choice(choices: ["true", "false"].join("\n"),
-           description: 'Destroy all VMs on failure.',
-           name: 'DESTROY_ON_FAILURE'),
-    choice(choices: ["true", "false"].join("\n"),
-           description: 'Abort all tests upon first failure.',
-           name: 'FAIL_FAST'),
-    choice(choices: ["gce"].join("\n"),
-           description: 'Cloud provider to deploy to.',
-           name: 'DEPLOY_TO'),
-    string(name: 'PARALLEL_TESTS',
-           defaultValue: '4',
-           description: 'Number of parallel tests to run.'),
-    string(name: 'REPEAT_TESTS',
-           defaultValue: '1',
-           description: 'How many times to repeat each test.'),
-    string(name: 'ROBOTEST_VERSION',
-           defaultValue: 'uid-gid',
-           description: 'Robotest tag to use.'),
-    choice(choices: ["false", "true"].join("\n"),
-           description: 'Whether to use preemptible VMs.',
-           name: 'GCE_PREEMPTIBLE'),
-    choice(choices: ["custom-4-8192", "custom-8-8192"].join("\n"),
-           description: 'VM type to use.',
-           name: 'GCE_VM'),
-  ]),
-])
+// Define Robotest config that may be tweaked per job.
+// This is needed for the Jenkins GitHub Branch Source Plugin
+// which creases a unique Jenkins job for each pull request.
+def setRobotestParameters() {
+  properties([
+    disableConcurrentBuilds(),
+    parameters([
+      // WARNING: changing parameters will not affect the next build, only the following one
+      // see issue #1315 or https://stackoverflow.com/questions/46680573/ -- 2020-04 walt
+      choice(choices: ["run", "skip"].join("\n"),
+             // defaultValue is not applicable to choices. The first choice will be the default.
+             description: 'Run or skip robotest system wide tests.',
+             name: 'RUN_ROBOTEST'),
+      choice(choices: ["true", "false"].join("\n"),
+             description: 'Destroy all VMs on success.',
+             name: 'DESTROY_ON_SUCCESS'),
+      choice(choices: ["true", "false"].join("\n"),
+             description: 'Destroy all VMs on failure.',
+             name: 'DESTROY_ON_FAILURE'),
+      choice(choices: ["true", "false"].join("\n"),
+             description: 'Abort all tests upon first failure.',
+             name: 'FAIL_FAST'),
+    ]),
+  ])
+}
 
 timestamps {
   node {
@@ -52,8 +41,18 @@ timestamps {
       sh "sudo git clean -ffdx" // supply -f flag twice to force-remove untracked dirs with .git subdirs (e.g. submodules)
     }
     stage('params') {
-      echo "${params}"
-      propagateParamsToEnv()
+      // For try builds, we DO NOT want to overwrite parameters, as try builds
+      // offer a superset of PR/nightly parameters, and the extra ones will be
+      // lost when setRobotestParameters() is called -- 2020-04 walt
+      echo "Jenkins Job Parameters:"
+      for (param in params) { echo "${param}" }
+      if (env.KEEP_PARAMETERS == 'true') {
+        echo "KEEP_PARAMETERS detected. Ignoring Jenkins job parameters from Jenkinsfile."
+      } else {
+        echo "Overwriting Jenkins job parameters with parameters from Jenkinsfile."
+        setRobotestParameters()
+        propagateParamsToEnv()
+      }
     }
     stage('clean') {
       sh "make -C e clean"
@@ -83,24 +82,14 @@ timestamps {
           }
         },
         robotest : {
-          if (params.RUN_ROBOTEST == 'run') {
+          if (env.RUN_ROBOTEST == 'run') {
             withCredentials([
-                [
-                  $class: 'UsernamePasswordMultiBinding',
-                  credentialsId: 'jenkins-aws-s3',
-                  usernameVariable: 'AWS_ACCESS_KEY_ID',
-                  passwordVariable: 'AWS_SECRET_ACCESS_KEY'
-                ],
                 [$class: 'StringBinding', credentialsId: 'GET_GRAVITATIONAL_IO_APIKEY', variable: 'GET_GRAVITATIONAL_IO_APIKEY'],
                 [$class: 'FileBinding', credentialsId:'ROBOTEST_LOG_GOOGLE_APPLICATION_CREDENTIALS', variable: 'GOOGLE_APPLICATION_CREDENTIALS'],
                 [$class: 'FileBinding', credentialsId:'OPS_SSH_KEY', variable: 'SSH_KEY'],
                 [$class: 'FileBinding', credentialsId:'OPS_SSH_PUB', variable: 'SSH_PUB'],
                 ]) {
-                  sh """
-                  make -C e robotest-run-suite \
-                    AWS_KEYPAIR=ops \
-                    AWS_REGION=us-east-1 \
-                    ROBOTEST_VERSION=$ROBOTEST_VERSION"""
+                  sh 'make -C e robotest-run-suite'
             }
           }else {
             echo 'skipped system tests'
