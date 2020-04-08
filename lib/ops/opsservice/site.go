@@ -18,6 +18,7 @@ package opsservice
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -427,7 +428,7 @@ func (s *site) executeOperationWithContext(ctx *operationContext, op *ops.SiteOp
 
 	// change the state without "compare" part just to take leverage of
 	// the operation group locking to ensure atomicity
-	_, err := s.compareAndSwapOperationState(swap{
+	_, err := s.compareAndSwapOperationState(context.TODO(), swap{
 		key:        ctx.key(),
 		newOpState: ops.OperationStateFailed,
 	})
@@ -575,8 +576,8 @@ func (s *site) renderString(data []byte, server map[string]interface{}, ctx *ope
 	return string(out), nil
 }
 
-func (s *site) compareAndSwapOperationState(swap swap) (*ops.SiteOperation, error) {
-	return s.getOperationGroup().compareAndSwapOperationState(swap)
+func (s *site) compareAndSwapOperationState(ctx context.Context, swap swap) (*ops.SiteOperation, error) {
+	return s.getOperationGroup().compareAndSwapOperationState(ctx, swap)
 }
 
 func (s *site) setOperationState(key ops.SiteOperationKey, state string) (*ops.SiteOperation, error) {

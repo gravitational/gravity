@@ -1026,7 +1026,7 @@ func (h *WebHandler) activateSite(w http.ResponseWriter, r *http.Request, p http
    GET /portal/v1/accounts/:account_id/sites/:site_domain/report
 */
 func (h *WebHandler) getSiteReport(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
-	report, err := context.Operator.GetSiteReport(siteKey(p))
+	report, err := context.Operator.GetSiteReport(r.Context(), siteKey(p))
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -1490,7 +1490,7 @@ func (h *WebHandler) completeSiteOperation(w http.ResponseWriter, r *http.Reques
 		return trace.BadParameter(err.Error())
 	}
 	opKey := siteOperationKey(p)
-	err := context.Operator.SetOperationState(opKey, req)
+	err := context.Operator.SetOperationState(r.Context(), opKey, req)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -1596,7 +1596,7 @@ Success response:
    }
 */
 func (h *WebHandler) getSiteInstallOperationAgentReport(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
-	agentReport, err := context.Operator.GetSiteInstallOperationAgentReport(siteOperationKey(p))
+	agentReport, err := context.Operator.GetSiteInstallOperationAgentReport(r.Context(), siteOperationKey(p))
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -1707,7 +1707,7 @@ Success response:
    }
 */
 func (h *WebHandler) getSiteExpandOperationAgentReport(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
-	agentReport, err := context.Operator.GetSiteExpandOperationAgentReport(siteOperationKey(p))
+	agentReport, err := context.Operator.GetSiteExpandOperationAgentReport(r.Context(), siteOperationKey(p))
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -1828,7 +1828,7 @@ func (h *WebHandler) streamOperationLogs(w http.ResponseWriter, r *http.Request,
 
 */
 func (h *WebHandler) getSiteOperationCrashReport(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
-	report, err := context.Operator.GetSiteReport(siteKey(p))
+	report, err := context.Operator.GetSiteReport(r.Context(), siteKey(p))
 	if err != nil {
 		return trace.Wrap(err)
 	}

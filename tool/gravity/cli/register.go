@@ -139,7 +139,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.ResumeCmd.PhaseTimeout = g.ResumeCmd.Flag("timeout", "Phase execution timeout.").Default(defaults.PhaseTimeout).Hidden().Duration()
 
 	g.PlanCmd.CmdClause = g.Command("plan", "Manage operation plan.")
-	g.PlanCmd.OperationID = g.PlanCmd.Flag("operation-id", "ID of the active operation. It not specified, the last operation will be used.").Hidden().String()
+	g.PlanCmd.OperationID = g.PlanCmd.Flag("operation-id", "ID of the active operation. It not specified, the last operation will be used.").String()
 	g.PlanCmd.SkipVersionCheck = g.PlanCmd.Flag("skip-version-check", "Bypass version compatibility check.").Hidden().Bool()
 
 	g.PlanDisplayCmd.CmdClause = g.PlanCmd.Command("display", "Display a plan for an ongoing operation.").Default()

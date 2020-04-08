@@ -140,13 +140,13 @@ func (i *Installer) SetPhase(req *installpb.SetStateRequest) error {
 
 // Complete manually completes the operation given with key.
 // Implements server.Executor
-func (i *Installer) Complete(key ops.SiteOperationKey) error {
+func (i *Installer) Complete(ctx context.Context, key ops.SiteOperationKey) error {
 	i.WithField("key", key).Info("Complete.")
 	machine, err := i.config.FSMFactory.NewFSM(i.config.Operator, key)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return trace.Wrap(machine.Complete(trace.Errorf("completed manually")))
+	return trace.Wrap(machine.Complete(ctx, trace.Errorf("completed manually")))
 }
 
 // GenerateDebugReport captures the state of the operation to the file given with path.

@@ -114,7 +114,7 @@ func (r *Server) SetState(ctx context.Context, req *installpb.SetStateRequest) (
 // Implements installpb.AgentServer
 func (r *Server) Complete(ctx context.Context, req *installpb.CompleteRequest) (*types.Empty, error) {
 	r.WithField("req", req).Info("Complete.")
-	err := r.executor.Complete(installpb.KeyFromProto(req.Key))
+	err := r.executor.Complete(ctx, installpb.KeyFromProto(req.Key))
 	if err != nil {
 		return nil, trail.ToGRPC(err)
 	}
@@ -164,7 +164,7 @@ type Executor interface {
 	// SetPhase sets the phase state without executing it.
 	SetPhase(req *installpb.SetStateRequest) error
 	// Complete manually completes the operation given with operationKey.
-	Complete(operationKey ops.SiteOperationKey) error
+	Complete(ctx context.Context, operationKey ops.SiteOperationKey) error
 }
 
 // DebugReporter allows to capture the operation state

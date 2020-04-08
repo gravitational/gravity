@@ -207,17 +207,17 @@ func (p *Peer) SetPhase(req *installpb.SetStateRequest) error {
 
 // Complete manually completes the operation given with opKey.
 // Implements server.Executor
-func (p *Peer) Complete(opKey ops.SiteOperationKey) error {
+func (p *Peer) Complete(ctx context.Context, opKey ops.SiteOperationKey) error {
 	p.WithField("key", opKey).Info("Complete.")
-	ctx, err := p.tryConnect(opKey.OperationID)
+	opCtx, err := p.tryConnect(opKey.OperationID)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	machine, err := p.getFSM(*ctx)
+	machine, err := p.getFSM(*opCtx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return trace.Wrap(machine.Complete(trace.Errorf("completed manually")))
+	return trace.Wrap(machine.Complete(ctx, trace.Errorf("completed manually")))
 }
 
 // HandleCompleted completes the operation by dispatching a completion event to the client.
@@ -871,7 +871,7 @@ func (p *Peer) executeExpandOperation(ctx operationContext) error {
 	if fsmErr != nil {
 		p.WithError(fsmErr).Warn("Failed to execute plan.")
 	}
-	err = fsm.Complete(fsmErr)
+	err = fsm.Complete(p.ctx, fsmErr)
 	if err != nil {
 		return trace.Wrap(err, "failed to complete operation")
 	}
@@ -909,13 +909,13 @@ func (p *Peer) createExpandOperation(operator ops.Operator, cluster ops.Site) (*
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	err = operator.SetOperationState(*key, ops.SetOperationStateRequest{
-		State: ops.OperationStateReady,
-	})
+	operation, err := operator.GetSiteOperation(*key)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	operation, err := operator.GetSiteOperation(*key)
+	err = operator.SetOperationState(p.ctx, *key, ops.SetOperationStateRequest{
+		State: ops.OperationStateReady,
+	})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -966,7 +966,18 @@ func (p *Peer) leave() error {
 	p.Info("Leave cluster.")
 	ctx, cancel := context.WithTimeout(context.Background(), defaults.NodeLeaveTimeout)
 	defer cancel()
+	if err := p.failOperation(ctx); err != nil {
+		p.WithError(err).Warn("Failed to mark the operation as failed.")
+	}
 	return p.createShrinkOperation(ctx)
+}
+
+func (p *Peer) failOperation(ctx context.Context) error {
+	opCtx, err := p.operationContext()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return ops.FailOperation(ctx, opCtx.Operation.Key(), opCtx.Operator, "aborted")
 }
 
 func (p *Peer) createShrinkOperation(ctx context.Context) error {
@@ -1009,7 +1020,7 @@ func (p *Peer) waitForAgents(operator ops.Operator, operation ops.SiteOperation)
 			if tm.IsZero() {
 				return trace.ConnectionProblem(nil, "timed out waiting for agents to join")
 			}
-			report, err := operator.GetSiteExpandOperationAgentReport(operation.Key())
+			report, err := operator.GetSiteExpandOperationAgentReport(p.ctx, operation.Key())
 			if err != nil {
 				log.WithError(err).Warn("Failed to query agent report.")
 				continue
@@ -1224,7 +1235,7 @@ func watchReconnects(ctx context.Context, errC chan<- error, watchCh <-chan rpcs
 // formatClusterURL returns cluster API URL from the provided peer addr which
 // can be either IP address or a URL (in which case it is returned as-is)
 func formatClusterURL(addr string) string {
-	if strings.Contains(addr, "http") {
+	if strings.HasPrefix(addr, "http") {
 		return addr
 	}
 	return fmt.Sprintf("https://%v:%v", addr, defaults.GravitySiteNodePort)
