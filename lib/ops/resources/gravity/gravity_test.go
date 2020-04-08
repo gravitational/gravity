@@ -207,23 +207,10 @@ func (s *GravityResourcesSuite) TestOperation(c *check.C) {
 	})
 	c.Assert(err, check.IsNil)
 
-	reconfigureOp, err := s.s.Services.Backend.CreateSiteOperation(storage.SiteOperation{
-		AccountID:  s.cluster.AccountID,
-		SiteDomain: s.cluster.Domain,
-		Type:       ops.OperationReconfigure,
-		State:      ops.OperationStateCompleted,
-		Reconfigure: &storage.ReconfigureOperationState{
-			AdvertiseAddr: "192.168.100.1",
-		},
-		Created: s.clock.Now().Add(6 * time.Hour),
-	})
-	c.Assert(err, check.IsNil)
-
 	collection, err := s.r.GetCollection(resources.ListRequest{SiteKey: s.cluster.Key(), Kind: storage.KindOperation})
 	c.Assert(err, check.IsNil)
 	// Should be returned in newest-to-oldest order.
 	compare.DeepCompare(c, collection, &operationsCollection{[]storage.Operation{
-		toOperation(c, reconfigureOp),
 		toOperation(c, configOp),
 		toOperation(c, runtimeOp),
 		toOperation(c, upgradeOp),
