@@ -221,10 +221,6 @@ const (
 	// to reconnect to the peer
 	AgentGroupPeerReconnectTimeout = 15 * time.Minute
 
-	// EnvPeerConnectTimeout is the environment variable that overrides the value of the
-	// agent timeout for the validating connect
-	EnvPeerConnectTimeout = "GRAVITY_PEER_CONNECT_TIMEOUT"
-
 	// GravityPackagePrefix defines base prefix of gravity package
 	GravityPackagePrefix = "gravitational.io/gravity"
 
@@ -1131,7 +1127,7 @@ var (
 	// TODO(dmitri): this is trickier to handle correctly - ideally, this should much shorter
 	// and for the initial data wait (until there's data coming on the conn).
 	// There should be no timeout for the actual report receive operation.
-	GenerateDebugReportTimeout = 1 * time.Minute
+	GenerateDebugReportTimeout = 10 * time.Minute
 
 	// WormholeImg is the docker image reference to use when embedding wormhole
 	// Note: This is a build parameter, and the build scripts will replace this with an image reference

@@ -251,7 +251,7 @@ func (p *Peer) HandleAborted(ctx context.Context) error {
 // Implements server.Completer
 func (p *Peer) HandleStopped(context.Context) error {
 	p.Debug("Stop signaled.")
-	p.exitWithError(nil)
+	p.exitWithError(context.Canceled)
 	return nil
 }
 
@@ -461,7 +461,7 @@ func (p *Peer) submit(req *installpb.ExecuteRequest) bool {
 // execute executes either the complete operation or a single phase specified with req
 func (p *Peer) execute(req *installpb.ExecuteRequest) (dispatcher.Status, error) {
 	p.WithField("req", req).Info("Execute.")
-	opCtx, err := p.operationContext()
+	opCtx, err := p.operationContext(p.ctx)
 	if err != nil {
 		return dispatcher.StatusUnknown, trace.Wrap(err)
 	}
@@ -480,7 +480,7 @@ func (p *Peer) execute(req *installpb.ExecuteRequest) (dispatcher.Status, error)
 // remotely by the installer process
 func (p *Peer) executeConcurrentStep(req *installpb.ExecuteRequest, stream installpb.Agent_ExecuteServer) error {
 	p.WithField("req", req).Info("Executing phase concurrently.")
-	opCtx, err := p.operationContext()
+	opCtx, err := p.operationContext(stream.Context())
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -985,7 +985,7 @@ func (p *Peer) fail(message string) error {
 }
 
 func (p *Peer) failOperation(ctx context.Context, message string) error {
-	opCtx, err := p.operationContext()
+	opCtx, err := p.operationContext(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -993,7 +993,7 @@ func (p *Peer) failOperation(ctx context.Context, message string) error {
 }
 
 func (p *Peer) createShrinkOperation(ctx context.Context) error {
-	opCtx, err := p.operationContext()
+	opCtx, err := p.operationContext(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -1076,7 +1076,7 @@ func (p *Peer) emitAuditEvent(ctx operationContext) error {
 	return nil
 }
 
-func (p *Peer) operationContext() (*operationContext, error) {
+func (p *Peer) operationContext(ctx context.Context) (*operationContext, error) {
 	select {
 	case result := <-p.connectC:
 		p.connectC <- result
@@ -1084,8 +1084,8 @@ func (p *Peer) operationContext() (*operationContext, error) {
 			return nil, result.err
 		}
 		return result.operationContext, nil
-	case <-p.ctx.Done():
-		return nil, trace.Wrap(p.ctx.Err())
+	case <-ctx.Done():
+		return nil, trace.Wrap(ctx.Err())
 	}
 }
 

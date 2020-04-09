@@ -763,6 +763,7 @@ var InterruptSignals = signals.WithSignals(
 	os.Interrupt,
 	syscall.SIGTERM,
 	syscall.SIGQUIT,
+	syscall.SIGHUP,
 )
 
 // NewInstallerConnectStrategy returns default installer service connect strategy
