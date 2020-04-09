@@ -137,6 +137,11 @@ func (p *Peer) Run(listener net.Listener) error {
 			p.WithError(err).Warn("Failed to leave cluster.")
 		}
 	}
+	if err != nil {
+		if err2 := p.fail(err.Error()); err2 != nil {
+			p.WithError(err2).Warn("Failed to mark operation as failed.")
+		}
+	}
 	return installpb.WrapServiceError(err)
 }
 
@@ -966,18 +971,25 @@ func (p *Peer) leave() error {
 	p.Info("Leave cluster.")
 	ctx, cancel := context.WithTimeout(context.Background(), defaults.NodeLeaveTimeout)
 	defer cancel()
-	if err := p.failOperation(ctx); err != nil {
+	if err := p.failOperation(ctx, "aborted"); err != nil {
 		p.WithError(err).Warn("Failed to mark the operation as failed.")
 	}
 	return p.createShrinkOperation(ctx)
 }
 
-func (p *Peer) failOperation(ctx context.Context) error {
+func (p *Peer) fail(message string) error {
+	p.Debug("Mark operation as failed.")
+	ctx, cancel := context.WithTimeout(context.Background(), defaults.NodeLeaveTimeout)
+	defer cancel()
+	return p.failOperation(ctx, message)
+}
+
+func (p *Peer) failOperation(ctx context.Context, message string) error {
 	opCtx, err := p.operationContext()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return ops.FailOperation(ctx, opCtx.Operation.Key(), opCtx.Operator, "aborted")
+	return ops.FailOperation(ctx, opCtx.Operation.Key(), opCtx.Operator, message)
 }
 
 func (p *Peer) createShrinkOperation(ctx context.Context) error {
