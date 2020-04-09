@@ -48,8 +48,8 @@ type clusterBuilder struct {
 type ClusterRequest struct {
 	// SourcePath specifies the path to build the cluster image out of.
 	SourcePath string
-	// Output is the resulting cluster image output file path.
-	Output string
+	// OutputPath is the resulting cluster image output file path.
+	OutputPath string
 	// Overwrite is whether to overwrite existing output file.
 	Overwrite bool
 	// Vendor combines vendoring parameters.
@@ -78,7 +78,7 @@ func (b *clusterBuilder) Build(ctx context.Context, req ClusterRequest) error {
 		manifest.SetBase(*locator)
 	}
 
-	outputPath, err := checkOutputPath(manifest, req.Output, req.Overwrite)
+	outputPath, err := checkOutputPath(manifest, req.OutputPath, req.Overwrite)
 	if err != nil {
 		return trace.Wrap(err)
 	}

@@ -65,7 +65,7 @@ func GetClusterImageSource(path string) (ClusterImageSource, error) {
 	if !isDir {
 		// Neither a file nor directory, maybe a symlink or device file or
 		// anything else which is not supported.
-		return nil, trace.BadParameter(pathError, path)
+		return nil, trace.BadParameter(pathError, defaults.ManifestFileName, path)
 	}
 	// This is a directory, see if there's an app.yaml in it.
 	manifestPath := filepath.Join(path, defaults.ManifestFileName)
@@ -89,7 +89,7 @@ func GetClusterImageSource(path string) (ClusterImageSource, error) {
 		}, nil
 	}
 	// Neither cluster image dir nor Helm chart, can't build.
-	return nil, trace.BadParameter(pathError, path)
+	return nil, trace.BadParameter(pathError, defaults.ManifestFileName, path)
 }
 
 type clusterImageSourceManifest struct {
@@ -110,7 +110,7 @@ func (s *clusterImageSourceManifest) Dir() string {
 func (s *clusterImageSourceManifest) Manifest() (*schema.Manifest, error) {
 	manifest, err := schema.ParseManifest(s.manifestPath)
 	if err != nil {
-		log.Error(trace.DebugReport(err))
+		log.WithError(err).Error("Failed to parse manifest file.")
 		return nil, trace.BadParameter("could not parse manifest file:\n%v",
 			trace.Unwrap(err)) // show original parsing error
 	}
@@ -147,7 +147,7 @@ func (s *clusterImageSourceChart) Manifest() (*schema.Manifest, error) {
 const (
 	pathError = `Path provided to tele build command should be one of the following:
 * Cluster image manifest file path.
-* Directory that contains cluster image manifest file named "app.yaml".
+* Directory that contains cluster image manifest file named "%v".
 * Helm chart directory.
 The provided path %v is neither of those.`
 )

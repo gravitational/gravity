@@ -46,8 +46,8 @@ type applicationBuilder struct {
 type ApplicationRequest struct {
 	// ChartPath is path to a Helm chart to build an image from.
 	ChartPath string
-	// Output is the resulting cluster image output file path.
-	Output string
+	// OutputPath is the resulting cluster image output file path.
+	OutputPath string
 	// Overwrite is whether to overwrite existing output file.
 	Overwrite bool
 	// Vendor combines vendoring parameters.
@@ -66,7 +66,7 @@ func (b *applicationBuilder) Build(ctx context.Context, req ApplicationRequest) 
 		return trace.Wrap(err)
 	}
 
-	outputPath, err := checkOutputPath(manifest, req.Output, req.Overwrite)
+	outputPath, err := checkOutputPath(manifest, req.OutputPath, req.Overwrite)
 	if err != nil {
 		return trace.Wrap(err)
 	}

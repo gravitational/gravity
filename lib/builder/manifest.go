@@ -18,7 +18,6 @@ package builder
 
 import (
 	"encoding/json"
-	"fmt"
 	"path/filepath"
 
 	"github.com/gravitational/gravity/lib/app/hooks"
@@ -132,7 +131,7 @@ func generateInstallHookJob() ([]byte, error) {
 		//               an admission controller for rewriting images to local
 		//               registry, this variable won't be needed then.
 		"--set",
-		fmt.Sprintf("%v=%v/", defaults.ImageRegistryVar, defaults.DockerRegistry),
+		defaults.HelmRegistryVar,
 		"--values",
 		filepath.Join(hooks.HelmDir, hooks.HelmValuesFile),
 		"--name",
@@ -146,7 +145,7 @@ func generateUpgradeHookJob() ([]byte, error) {
 		hooks.HelmPath,
 		"upgrade",
 		"--set",
-		fmt.Sprintf("%v=%v/", defaults.ImageRegistryVar, defaults.DockerRegistry),
+		defaults.HelmRegistryVar,
 		"--values",
 		filepath.Join(hooks.HelmDir, hooks.HelmValuesFile),
 		gravityReleaseName,

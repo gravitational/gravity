@@ -1270,6 +1270,11 @@ var (
 	AlertmanagerServiceAddr = fmt.Sprintf(
 		"alertmanager-main.monitoring.svc.cluster.local:%v",
 		AlertmanagerServicePort)
+
+	// HelmRegistryVar is the Helm variable that gets passed via --set flag and
+	// sets the registry variable to the address of internal cluster registry:
+	// image.registry=leader.telekube.local:5000/
+	HelmRegistryVar = fmt.Sprintf("%v=%v/", ImageRegistryVar, DockerRegistry)
 )
 
 // HookSecurityContext returns default securityContext for hook pods

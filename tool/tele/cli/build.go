@@ -79,7 +79,7 @@ func buildClusterImage(ctx context.Context, params BuildParameters) error {
 	defer clusterBuilder.Close()
 	return clusterBuilder.Build(ctx, builder.ClusterRequest{
 		SourcePath: params.SourcePath,
-		Output:     params.OutPath,
+		OutputPath: params.OutPath,
 		Overwrite:  params.Overwrite,
 		BaseImage:  params.BaseImage,
 		Vendor:     params.Vendor,
@@ -93,9 +93,9 @@ func buildApplicationImage(ctx context.Context, params BuildParameters) error {
 	}
 	defer appBuilder.Close()
 	return appBuilder.Build(ctx, builder.ApplicationRequest{
-		ChartPath: params.SourcePath,
-		Output:    params.OutPath,
-		Overwrite: params.Overwrite,
-		Vendor:    params.Vendor,
+		ChartPath:  params.SourcePath,
+		OutputPath: params.OutPath,
+		Overwrite:  params.Overwrite,
+		Vendor:     params.Vendor,
 	})
 }

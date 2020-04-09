@@ -45,7 +45,7 @@ func checkOutputPath(manifest *schema.Manifest, outputPath string, overwrite boo
 		return "", trace.BadParameter(
 			`Output file %v already exists.
 To resolve the issue you can do one of the following:
-  * Remove it.
+  * Remove the existing output file.
   * Use -f/--overwrite flag to overwrite it.
   * Use -o/--output flag to specify different output file.`, outputPath)
 	}
@@ -69,7 +69,7 @@ func checkBuildEnv() error {
 		return trace.BadParameter(
 			`Docker does not seem to be available on this machine.
 To resolve the issue:
-  * Install it (https://docs.docker.com/engine/installation/).
+  * Install Docker (https://docs.docker.com/engine/installation/).
   * Make sure it can be used by a non-root user (https://docs.docker.com/install/linux/linux-postinstall/).`)
 	}
 	return nil
@@ -110,13 +110,13 @@ func versionsCompatible(teleVer, runtimeVer semver.Version) bool {
 
 // ensureCacheDir makes sure that the default local cache directory for
 // the provided Gravity Hub exists.
-func ensureCacheDir(hubURL string) (string, error) {
+func ensureCacheDir(hubURL string) (dir string, err error) {
 	u, err := url.Parse(hubURL)
 	if err != nil {
 		return "", trace.Wrap(err)
 	}
 	// cache directory is ~/.gravity/cache/<hub>/
-	dir, err := utils.EnsureLocalPath("", defaults.LocalCacheDir, u.Host)
+	dir, err = utils.EnsureLocalPath("", defaults.LocalCacheDir, u.Host)
 	if err != nil {
 		return "", trace.Wrap(err)
 	}
