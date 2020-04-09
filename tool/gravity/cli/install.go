@@ -544,8 +544,15 @@ func rollbackJoinPhase(env *localenv.LocalEnvironment, params PhaseParams, opera
 }
 
 func completeJoinPlan(env *localenv.LocalEnvironment, operation ops.SiteOperation) error {
-	return trace.Wrap(completePlanFromService(
-		env, operation, "Connecting to agent", "Connected to agent"))
+	err := completePlanFromService(
+		env, operation, "Connecting to agent", "Connected to agent")
+	if err == nil {
+		return nil
+	}
+	if !trace.IsNotFound(err) {
+		log.WithError(err).Warn("Failed to complete operation from service.")
+	}
+	return completeJoinPlanFromExistingNode(env, operation)
 }
 
 // completeJoinPlanFromExistingNode completes the specifies expand operation
