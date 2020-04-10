@@ -38,9 +38,11 @@ import (
 
 	"github.com/cenkalti/backoff"
 	"github.com/gravitational/license"
+	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
 	"github.com/mailgun/timetools"
 	log "github.com/sirupsen/logrus"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // site is an internal helper object that implements operations
@@ -539,6 +541,56 @@ func (s site) gid() string {
 	return defaults.ServiceUserID
 }
 
+func (s *site) getClusterConfiguration() (*clusterconfig.Resource, error) {
+	client, err := s.service.GetKubeClient()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	configmap, err := client.CoreV1().ConfigMaps(defaults.KubeSystemNamespace).
+		Get(constants.ClusterConfigurationMap, metav1.GetOptions{})
+	err = rigging.ConvertError(err)
+	if err != nil && !trace.IsNotFound(err) {
+		return nil, trace.Wrap(err)
+	}
+	var spec string
+	if configmap != nil {
+		spec = configmap.Data["spec"]
+	}
+	var config *clusterconfig.Resource
+	if spec != "" {
+		config, err = clusterconfig.Unmarshal([]byte(spec))
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+	} else {
+		config = clusterconfig.NewEmpty()
+	}
+	if err := s.setClusterConfigDefaults(config); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return config, nil
+}
+
+func (s *site) setClusterConfigDefaults(config *clusterconfig.Resource) error {
+	if config.Spec.Global.CloudProvider == "" {
+		config.Spec.Global.CloudProvider = s.provider
+	}
+	installOp, _, err := ops.GetInstallOperation(s.key, s.service)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if installOp == nil {
+		return trace.NotFound("no install operation found for cluster %q", s.key.SiteDomain)
+	}
+	if config.Spec.Global.PodCIDR == "" {
+		config.Spec.Global.PodCIDR = installOp.InstallExpand.Vars.OnPrem.PodCIDR
+	}
+	if config.Spec.Global.ServiceCIDR == "" {
+		config.Spec.Global.ServiceCIDR = installOp.InstallExpand.Vars.OnPrem.ServiceCIDR
+	}
+	return nil
+}
+
 func (s *site) getClusterEnvironmentVariables() (env storage.EnvironmentVariables, err error) {
 	b := backoff.NewExponentialBackOff()
 	b.MaxElapsedTime = defaults.APIWaitTimeout
@@ -550,19 +602,6 @@ func (s *site) getClusterEnvironmentVariables() (env storage.EnvironmentVariable
 		return nil, trace.Wrap(err)
 	}
 	return env, nil
-}
-
-func (s *site) getClusterConfiguration() (config clusterconfig.Interface, err error) {
-	b := backoff.NewExponentialBackOff()
-	b.MaxElapsedTime = defaults.APIWaitTimeout
-	err = utils.RetryTransient(context.TODO(), b, func() error {
-		config, err = s.service.GetClusterConfiguration(s.key)
-		return trace.Wrap(err)
-	})
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return config, nil
 }
 
 func convertSite(in storage.Site, apps appservice.Applications) (*ops.Site, error) {

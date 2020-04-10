@@ -371,19 +371,19 @@ func (r peer) String() string {
 }
 
 // Command executes the command specified with args on this peer
-func (r *peer) Command(ctx context.Context, log log.FieldLogger, out io.Writer, args ...string) error {
+func (r *peer) Command(ctx context.Context, log log.FieldLogger, stdout, stderr io.Writer, args ...string) error {
 	if r.Client == nil {
 		return trace.ConnectionProblem(nil, "%v not connected", r.Addr())
 	}
-	return trace.Wrap(r.Client.Client().Command(ctx, log, out, args...))
+	return trace.Wrap(r.Client.Client().Command(ctx, log, stdout, stderr, args...))
 }
 
 // GravityCommand executes the gravity command specified with args on this peer
-func (r *peer) GravityCommand(ctx context.Context, log log.FieldLogger, out io.Writer, args ...string) error {
+func (r *peer) GravityCommand(ctx context.Context, log log.FieldLogger, stdout, stderr io.Writer, args ...string) error {
 	if r.Client == nil {
 		return trace.ConnectionProblem(nil, "%v not connected", r.Addr())
 	}
-	return trace.Wrap(r.Client.Client().GravityCommand(ctx, log, out, args...))
+	return trace.Wrap(r.Client.Client().GravityCommand(ctx, log, stdout, stderr, args...))
 }
 
 // GetSystemInfo queries remote system information

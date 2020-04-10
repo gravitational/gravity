@@ -619,7 +619,7 @@ $(TF_PROVIDER_DIR):
 	mkdir -p $@
 
 .PHONY: $(BINARIES)
-$(BINARIES): selinux
+$(BINARIES): selinux grpc
 	go install -ldflags $(GRAVITY_LINKFLAGS) -tags "$(GRAVITY_BUILDTAGS)" $(GRAVITY_PKG_PATH)/tool/$@
 
 .PHONY: wizard-publish

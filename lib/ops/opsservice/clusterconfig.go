@@ -45,11 +45,25 @@ func (o *Operator) CreateUpdateConfigOperation(ctx context.Context, req ops.Crea
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	config, err := o.getClusterConfiguration()
+	existing, err := cluster.getClusterConfiguration()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	key, err := cluster.createUpdateConfigOperation(ctx, req, []byte(config))
+	update, err := clusterconfig.Unmarshal(req.Config)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	merged := existing.Merge(*update)
+	existingBytes, err := clusterconfig.Marshal(existing)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	mergedBytes, err := clusterconfig.Marshal(&merged)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	req.Config = mergedBytes
+	key, err := cluster.createUpdateConfigOperation(ctx, req, existingBytes)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -57,35 +71,12 @@ func (o *Operator) CreateUpdateConfigOperation(ctx context.Context, req ops.Crea
 }
 
 // GetClusterConfiguration retrieves the cluster configuration
-func (o *Operator) GetClusterConfiguration(ops.SiteKey) (config clusterconfig.Interface, err error) {
-	spec, err := o.getClusterConfiguration()
+func (o *Operator) GetClusterConfiguration(key ops.SiteKey) (config clusterconfig.Interface, err error) {
+	cluster, err := o.openSite(key)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	if len(spec) != 0 {
-		config, err = clusterconfig.Unmarshal([]byte(spec))
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-	} else {
-		config = clusterconfig.NewEmpty()
-	}
-	return config, nil
-}
-
-func (o *Operator) getClusterConfiguration() (config string, err error) {
-	client, err := o.GetKubeClient()
-	if err != nil {
-		return "", trace.Wrap(err)
-	}
-	configmap, err := client.CoreV1().ConfigMaps(defaults.KubeSystemNamespace).
-		Get(constants.ClusterConfigurationMap, metav1.GetOptions{})
-	err = rigging.ConvertError(err)
-	if err != nil && !trace.IsNotFound(err) {
-		return "", trace.Wrap(err)
-	}
-	config = configmap.Data["spec"]
-	return config, nil
+	return cluster.getClusterConfiguration()
 }
 
 // UpdateClusterConfiguration updates the cluster configuration to the value given

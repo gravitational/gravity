@@ -38,6 +38,7 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 	"github.com/gravitational/gravity/lib/utils"
+	"github.com/gravitational/gravity/lib/validate"
 
 	"github.com/cloudflare/cfssl/csr"
 	"github.com/cloudflare/cfssl/signer"
@@ -84,7 +85,7 @@ type TeleportProxyService interface {
 
 	// ExecuteCommand executes a command on a remote node addrress
 	// for a given site domain
-	ExecuteCommand(ctx context.Context, domainName, nodeAddr, command string, out io.Writer) error
+	ExecuteCommand(ctx context.Context, domainName, nodeAddr, command string, stdout, stderr io.Writer) error
 
 	// GetClient returns admin client to local proxy
 	GetClient() teleauth.ClientI
@@ -1254,7 +1255,7 @@ func (r *CreateSiteInstallOperationRequest) CheckAndSetDefaults() error {
 	if r.Provisioner == schema.ProvisionerAWSTerraform {
 		r.Variables.AWS.SetDefaults()
 	}
-	err := utils.ValidateKubernetesSubnets(r.Variables.OnPrem.PodCIDR, r.Variables.OnPrem.ServiceCIDR)
+	err := validate.KubernetesSubnets(r.Variables.OnPrem.PodCIDR, r.Variables.OnPrem.ServiceCIDR)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -1463,12 +1464,12 @@ type AgentService interface {
 
 	// Exec executes the command specified with args on a remote server given with addr.
 	// It streams the process's output to the given writer out.
-	Exec(ctx context.Context, opKey SiteOperationKey, addr string, args []string, out io.Writer) error
+	Exec(ctx context.Context, opKey SiteOperationKey, addr string, args []string, stdout, stderr io.Writer) error
 
 	// ExecNoLog executes the command specified with args on a remote server given with addr.
 	// It streams the process's output to the given writer out.
 	// Underlying remote call output is not logged
-	ExecNoLog(ctx context.Context, opKey SiteOperationKey, addr string, args []string, out io.Writer) error
+	ExecNoLog(ctx context.Context, opKey SiteOperationKey, addr string, args []string, stdout, stderr io.Writer) error
 
 	// Validate executes preflight checks on the node specified with addr
 	// against the specified manifest and profile.

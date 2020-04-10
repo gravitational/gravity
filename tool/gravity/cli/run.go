@@ -226,6 +226,7 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.PlanExecuteCmd.FullCommand(),
 		g.PlanRollbackCmd.FullCommand(),
 		g.PlanResumeCmd.FullCommand(),
+		g.LeaveCmd.FullCommand(),
 		g.EnterCmd.FullCommand():
 		if utils.CheckInPlanet() {
 			return trace.BadParameter("this command must be run outside of planet container")

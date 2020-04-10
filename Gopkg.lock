@@ -1123,9 +1123,12 @@
   revision = "bebf7a500543a21911aaea5f7e57032918fb7b8c"
 
 [[projects]]
-  digest = "1:5639168299375c369a68748214586e3b25bbc17e7ec9c64564f43f4635097bfc"
+  digest = "1:403af811cfc53bf78a655e601b01dc9a149aa154cbd63384784b25799cdbea8c"
   name = "github.com/gravitational/trace"
-  packages = ["."]
+  packages = [
+    ".",
+    "trail",
+  ]
   pruneopts = "UT"
   revision = "2d27a078e25b4e8f656d1354fddf37d316d1e9bf"
   version = "1.1.11"
@@ -2022,7 +2025,7 @@
   pruneopts = "UT"
   revision = "9ebd8dcf727178553227307b785304594abef057"
   source = "github.com/gravitational/logrus"
-  version = "v1.4.3-alpha.1"
+  version = "v1.4.3"
 
 [[projects]]
   digest = "1:645cabccbb4fa8aab25a956cbcbdf6a6845ca736b2c64e197ca7cbb9d210b939"
@@ -3252,6 +3255,7 @@
     "github.com/gravitational/teleport/lib/web",
     "github.com/gravitational/teleport/lib/web/ui",
     "github.com/gravitational/trace",
+    "github.com/gravitational/trace/trail",
     "github.com/gravitational/ttlmap",
     "github.com/gravitational/version",
     "github.com/gravitational/vfsgen",

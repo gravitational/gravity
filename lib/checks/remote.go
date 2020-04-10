@@ -36,7 +36,7 @@ import (
 // Remote defines an interface for validating remote nodes.
 type Remote interface {
 	// Exec executes the command remotely on the specified node.
-	Exec(ctx context.Context, addr string, command []string, out io.Writer) error
+	Exec(ctx context.Context, addr string, command []string, stdout, stderr io.Writer) error
 	// CheckPorts executes network test to test port availability.
 	CheckPorts(context.Context, PingPongGame) (PingPongGameResults, error)
 	// CheckBandwidth executes network bandwidth test.
@@ -79,12 +79,12 @@ type remote struct {
 // Exec executes the command remotely on the specified node.
 //
 // The command's output is written to the provided writer.
-func (r *remote) Exec(ctx context.Context, addr string, command []string, out io.Writer) error {
+func (r *remote) Exec(ctx context.Context, addr string, command []string, stdout, stderr io.Writer) error {
 	clt, err := r.GetClient(ctx, addr)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = clt.Command(ctx, r.FieldLogger, out, command...)
+	err = clt.Command(ctx, r.FieldLogger, stdout, stderr, command...)
 	if err != nil {
 		return trace.Wrap(err)
 	}

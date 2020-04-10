@@ -31,13 +31,13 @@ import (
 
 // GetFilesystem detects the filesystem on device specified with path
 func GetFilesystem(ctx context.Context, path string, runner utils.CommandRunner) (filesystem string, err error) {
-	var out bytes.Buffer
-	err = runner.RunStream(ctx, &out, "lsblk", "--noheading", "--output", "FSTYPE", path)
+	var stdout, stderr bytes.Buffer
+	err = runner.RunStream(ctx, &stdout, &stderr, "lsblk", "--noheading", "--output", "FSTYPE", path)
 	if err != nil {
 		return "", trace.Wrap(err, "failed to determine filesystem type on %v", path)
 	}
 
-	s := bufio.NewScanner(&out)
+	s := bufio.NewScanner(&stdout)
 	s.Split(bufio.ScanLines)
 
 	for s.Scan() {
