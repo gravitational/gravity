@@ -89,8 +89,8 @@ func printEvent(w io.Writer, event *pb.TimelineEvent) {
 			timestamp, e.GetNode(), e.GetProbe()))
 	case *pb.TimelineEvent_LeaderElected:
 		e := event.GetLeaderElected()
-		fmt.Fprintln(w, color.YellowString("%s [Leader Elected]\tnode=%s",
-			timestamp, e.GetNode()))
+		fmt.Fprintln(w, color.YellowString("%s [Leader Elected]\tprev=%s\tnew=%s",
+			timestamp, e.GetPrev(), e.GetNew()))
 
 	default:
 		fmt.Fprintln(w, color.YellowString("%s Unknown event", timestamp))

@@ -112,11 +112,12 @@ func NewProbeFailed(timestamp time.Time, node, probe string) *TimelineEvent {
 }
 
 // NewLeaderElected constructs a new LeaderElected event with the provided data.
-func NewLeaderElected(timestamp time.Time, node string) *TimelineEvent {
+func NewLeaderElected(timestamp time.Time, prevVal, newVal string) *TimelineEvent {
 	event := newTimelineEvent(timestamp)
 	event.Data = &TimelineEvent_LeaderElected{
 		LeaderElected: &LeaderElected{
-			Node: node,
+			Prev: prevVal,
+			New:  newVal,
 		},
 	}
 	return event

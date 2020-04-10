@@ -68,7 +68,7 @@ func (r sqlEvent) ProtoBuf() (event *pb.TimelineEvent) {
 	case history.ProbeSucceeded:
 		return pb.NewProbeSucceeded(r.Timestamp, r.Node.String, r.Probe.String)
 	case history.LeaderElected:
-		return pb.NewLeaderElected(r.Timestamp, r.Node.String)
+		return pb.NewLeaderElected(r.Timestamp, r.Old.String, r.New.String)
 	default:
 		return pb.NewUnknownEvent(r.Timestamp)
 	}
@@ -231,6 +231,7 @@ type leaderElected struct {
 }
 
 func (r *leaderElected) Insert(ctx context.Context, execer history.Execer) error {
-	const insertStmt = "INSERT INTO events (timestamp, type, node) VALUES (?,?,?)"
-	return trace.Wrap(execer.Exec(ctx, insertStmt, r.ts.ToTime(), history.LeaderElected, r.data.GetNode()))
+	const insertStmt = "INSERT INTO events (timestamp, type, oldState, newState) VALUES (?,?,?,?)"
+	return trace.Wrap(execer.Exec(ctx, insertStmt,
+		r.ts.ToTime(), history.LeaderElected, r.data.GetPrev(), r.data.GetNew()))
 }

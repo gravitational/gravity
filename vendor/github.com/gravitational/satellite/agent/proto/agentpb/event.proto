@@ -71,8 +71,10 @@ message ProbeFailed {
 
 // LeaderElected represents a change in cluster leadership.
 message LeaderElected {
-    // Node specifies the name of the node that's been elected as a new leader.
-    string node = 1;
+    // Prev specifies the name of the node that was the previous leader.
+    string prev = 1;
+    // New specifies the name of the node that's been elected as a new leader.
+    string new = 2;
 }
 
 // UnknownEvent represents an unknown event.
