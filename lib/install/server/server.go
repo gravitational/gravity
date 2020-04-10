@@ -146,7 +146,7 @@ func (r *Server) Shutdown(ctx context.Context, req *installpb.ShutdownRequest) (
 func (r *Server) GenerateDebugReport(ctx context.Context, req *installpb.DebugReportRequest) (*types.Empty, error) {
 	r.WithField("req", req).Info("Generate debug report.")
 	if reporter, ok := r.executor.(DebugReporter); ok {
-		err := reporter.GenerateDebugReport(req.Path)
+		err := reporter.GenerateDebugReport(ctx, req.Path)
 		if err != nil {
 			// Not wrapping err as it passes the gRPC boundary
 			return nil, err
@@ -170,7 +170,7 @@ type Executor interface {
 // DebugReporter allows to capture the operation state
 type DebugReporter interface {
 	// GenerateDebugReport captures the state of the operation state for debugging
-	GenerateDebugReport(path string) error
+	GenerateDebugReport(ctx context.Context, path string) error
 }
 
 // Completer describes completion outcomes

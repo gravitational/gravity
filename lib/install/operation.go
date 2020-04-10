@@ -249,7 +249,7 @@ func (i *Installer) emitAuditEvents(ctx context.Context, operation ops.SiteOpera
 	return nil
 }
 
-func (i *Installer) generateDebugReport(clusterKey ops.SiteKey, path string) error {
+func (i *Installer) generateDebugReport(ctx context.Context, clusterKey ops.SiteKey, path string) error {
 	f, err := os.Create(path)
 	if err != nil {
 		return trace.ConvertSystemError(err)
@@ -260,7 +260,7 @@ func (i *Installer) generateDebugReport(clusterKey ops.SiteKey, path string) err
 			os.Remove(f.Name())
 		}
 	}()
-	rc, err := i.config.Operator.GetSiteReport(i.ctx, clusterKey)
+	rc, err := i.config.Operator.GetSiteReport(ctx, clusterKey)
 	if err != nil {
 		return trace.ConvertSystemError(err)
 	}

@@ -151,13 +151,13 @@ func (i *Installer) Complete(ctx context.Context, key ops.SiteOperationKey) erro
 
 // GenerateDebugReport captures the state of the operation to the file given with path.
 // Implements server.DebugReporter
-func (i *Installer) GenerateDebugReport(path string) error {
+func (i *Installer) GenerateDebugReport(ctx context.Context, path string) error {
 	i.WithField("path", path).Info("Generate debug report.")
 	op, err := ops.GetWizardOperation(i.config.Operator)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = i.generateDebugReport(op.ClusterKey(), path)
+	err = i.generateDebugReport(ctx, op.ClusterKey(), path)
 	if err != nil {
 		return trace.Wrap(err)
 	}

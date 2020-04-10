@@ -125,7 +125,7 @@ func (s *site) getReport(ctx context.Context, runner remoteRunner, servers []rem
 	if err != nil {
 		// Intermediate steps in diagnostics collection are not fatal
 		// to collect all possible pieces in best-effort
-		log.Errorf("failed to run cluster collectors: %v", trace.DebugReport(err))
+		log.WithError(err).Warn("Failed to run cluster collectors.")
 	}
 
 	collectOperationsLogs(*s, dir)
