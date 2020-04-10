@@ -208,10 +208,15 @@ func InitAndCheck(g *Application, cmd string) error {
 	// following commands must be run outside the planet container
 	switch cmd {
 	case g.SystemUpdateCmd.FullCommand(),
+		g.SystemRollbackCmd.FullCommand(),
 		g.UpdateSystemCmd.FullCommand(),
 		g.UpgradeCmd.FullCommand(),
 		g.SystemGCRegistryCmd.FullCommand(),
+		g.SystemUninstallCmd.FullCommand(),
 		g.PlanetEnterCmd.FullCommand(),
+		g.PlanExecuteCmd.FullCommand(),
+		g.PlanRollbackCmd.FullCommand(),
+		g.PlanResumeCmd.FullCommand(),
 		g.EnterCmd.FullCommand():
 		if utils.CheckInPlanet() {
 			return trace.BadParameter("this command must be run outside of planet container")
