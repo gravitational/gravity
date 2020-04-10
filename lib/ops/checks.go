@@ -58,7 +58,6 @@ func CheckServers(ctx context.Context,
 		Features: checks.Features{
 			TestBandwidth:    true,
 			TestPorts:        true,
-			TestDockerDevice: true,
 		},
 	})
 	if err != nil {
@@ -75,7 +74,7 @@ func FormatValidationError(err error) error {
 	}
 	var buf bytes.Buffer
 	for _, err := range errors {
-		fmt.Fprint(&buf, "\n", err.Error())
+		fmt.Fprint(&buf, err.Error(), "\n")
 	}
 	return trace.BadParameter(buf.String())
 }

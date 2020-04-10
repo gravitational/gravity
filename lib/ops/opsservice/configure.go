@@ -242,7 +242,7 @@ func (s *site) configureExpandPackages(ctx context.Context, opCtx *operationCont
 			masterParams.sniHost = trustedCluster.GetSNIHost()
 		}
 		err = s.configurePlanetMasterSecrets(opCtx, masterParams)
-		if err != nil {
+		if err != nil && !trace.IsAlreadyExists(err) {
 			return trace.Wrap(err)
 		}
 		planetConfig.master = masterConfig{
@@ -263,7 +263,7 @@ func (s *site) configureExpandPackages(ctx context.Context, opCtx *operationCont
 		}
 	} else {
 		err = s.configurePlanetNodeSecrets(opCtx, provisionedServer, secretsPackage)
-		if err != nil {
+		if err != nil && !trace.IsAlreadyExists(err) {
 			return trace.Wrap(err)
 		}
 		err = s.configurePlanetNode(planetConfig, secretsPackage, configPackage)
@@ -291,7 +291,7 @@ func (s *site) configurePackages(ctx *operationContext, req ops.ConfigurePackage
 	}
 
 	err = s.configureRemoteCluster()
-	if err != nil {
+	if err != nil && !trace.IsAlreadyExists(err) {
 		return trace.Wrap(err)
 	}
 
@@ -341,7 +341,7 @@ func (s *site) configurePackages(ctx *operationContext, req ops.ConfigurePackage
 			secretsPackage:    &secretsPackage,
 			serviceSubnetCIDR: ctx.operation.InstallExpand.Subnets.Service,
 		})
-		if err != nil {
+		if err != nil && !trace.IsAlreadyExists(err) {
 			return trace.Wrap(err)
 		}
 
@@ -403,7 +403,8 @@ func (s *site) configurePackages(ctx *operationContext, req ops.ConfigurePackage
 
 		secretsPackage := s.planetSecretsPackage(node, planetPackage.Version)
 
-		if err := s.configurePlanetNodeSecrets(ctx, node, secretsPackage); err != nil {
+		err = s.configurePlanetNodeSecrets(ctx, node, secretsPackage)
+		if err != nil && !trace.IsAlreadyExists(err) {
 			return trace.Wrap(err)
 		}
 
@@ -911,7 +912,6 @@ func (s *site) getPlanetConfig(config planetConfig) (args []string, err error) {
 		fmt.Sprintf("--initial-cluster=%v", config.etcd.initialCluster),
 		fmt.Sprintf("--secrets-dir=%v", node.InGravity(defaults.SecretsDir)),
 		fmt.Sprintf("--etcd-initial-cluster-state=%v", config.etcd.initialClusterState),
-		fmt.Sprintf("--election-enabled=%v", config.master.electionEnabled),
 		fmt.Sprintf("--volume=%v:/ext/etcd", node.InGravity("planet", "etcd")),
 		fmt.Sprintf("--volume=%v:/ext/registry", node.InGravity("planet", "registry")),
 		fmt.Sprintf("--volume=%v:/ext/docker", node.InGravity("planet", "docker")),
@@ -924,6 +924,12 @@ func (s *site) getPlanetConfig(config planetConfig) (args []string, err error) {
 	overrideArgs := map[string]string{
 		"service-subnet": config.installExpand.InstallExpand.Subnets.Service,
 		"pod-subnet":     config.installExpand.InstallExpand.Subnets.Overlay,
+	}
+
+	if config.master.electionEnabled {
+		args = append(args, "--election-enabled")
+	} else {
+		args = append(args, "--no-election-enabled")
 	}
 
 	for k, v := range config.env {
@@ -1016,11 +1022,11 @@ func (s *site) getPlanetConfig(config planetConfig) (args []string, err error) {
 
 	// If the manifest contains an install hook to install a separate overlay network, disable flannel inside planet
 	if manifest.Hooks != nil && manifest.Hooks.NetworkInstall != nil {
-		args = append(args, "--disable-flannel=true")
+		args = append(args, "--disable-flannel")
 	}
 
 	if manifest.SystemOptions != nil && manifest.SystemOptions.AllowPrivileged {
-		args = append(args, "--allow-privileged=true")
+		args = append(args, "--allow-privileged")
 	}
 
 	for k, v := range overrideArgs {
@@ -1154,7 +1160,7 @@ func (s *site) configureTeleportMaster(ctx *operationContext, master *Provisione
 		return trace.Wrap(err)
 	}
 	_, err = s.packages().CreatePackage(resp.Locator, resp.Reader, pack.WithLabels(resp.Labels))
-	if err != nil {
+	if err != nil && !trace.IsAlreadyExists(err) {
 		return trace.Wrap(err)
 	}
 	return nil
@@ -1268,7 +1274,7 @@ func (s *site) configureTeleportNode(ctx *operationContext, masterIPs []string, 
 		return trace.Wrap(err)
 	}
 	_, err = s.packages().CreatePackage(resp.Locator, resp.Reader, pack.WithLabels(resp.Labels))
-	if err != nil {
+	if err != nil && !trace.IsAlreadyExists(err) {
 		return trace.Wrap(err)
 	}
 	return nil
@@ -1307,7 +1313,7 @@ func (s *site) configureSiteExportPackage(ctx *operationContext) (*loc.Locator, 
 			pack.OperationIDLabel: ctx.operation.ID,
 		},
 	))
-	if err != nil {
+	if err != nil && !trace.IsAlreadyExists(err) {
 		return nil, trace.Wrap(err)
 	}
 

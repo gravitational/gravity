@@ -88,6 +88,11 @@ func InitAndCheck(g *Application, cmd string) error {
 	if *g.Debug {
 		level = logrus.DebugLevel
 	}
+	systemLogSet := true
+	if *g.SystemLogFile == "" {
+		systemLogSet = false
+		*g.SystemLogFile = defaults.GravitySystemLogPath
+	}
 	switch cmd {
 	case g.SiteStartCmd.FullCommand():
 		teleutils.InitLogger(teleutils.LoggingForDaemon, level)
@@ -132,9 +137,14 @@ func InitAndCheck(g *Application, cmd string) error {
 		// own location
 		switch cmd {
 		case g.InstallCmd.FullCommand(), g.JoinCmd.FullCommand():
-			if *g.SystemLogFile == defaults.GravitySystemLog {
+			if *g.SystemLogFile == defaults.GravitySystemLogPath {
 				utils.InitLogging(defaults.GravitySystemLogFile)
 			}
+		}
+	default:
+		if systemLogSet {
+			// For all commands, use the system log file explicitly set on command line
+			utils.InitLogging(*g.SystemLogFile)
 		}
 	}
 
@@ -204,6 +214,8 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.UpgradeCmd.FullCommand(),
 		g.SystemGCRegistryCmd.FullCommand(),
 		g.PlanetEnterCmd.FullCommand(),
+		g.LeaveCmd.FullCommand(),
+		g.SystemUninstallCmd.FullCommand(),
 		g.EnterCmd.FullCommand():
 		if utils.CheckInPlanet() {
 			return trace.BadParameter("this command must be run outside of planet container")
@@ -300,7 +312,6 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			clusterName:   *g.AutoJoinCmd.ClusterName,
 			role:          *g.AutoJoinCmd.Role,
 			systemDevice:  *g.AutoJoinCmd.SystemDevice,
-			dockerDevice:  *g.AutoJoinCmd.DockerDevice,
 			mounts:        *g.AutoJoinCmd.Mounts,
 			fromService:   *g.AutoJoinCmd.FromService,
 			serviceURL:    *g.AutoJoinCmd.ServiceAddr,
@@ -765,10 +776,17 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			*g.SystemServiceUninstallCmd.Name)
 	case g.SystemServiceListCmd.FullCommand():
 		return systemServiceList(localEnv)
+	case g.SystemServiceStartCmd.FullCommand():
+		return systemServiceStart(localEnv, *g.SystemServiceStartCmd.Package)
+	case g.SystemServiceStopCmd.FullCommand():
+		return systemServiceStop(localEnv, *g.SystemServiceStopCmd.Package)
+	case g.SystemServiceJournalCmd.FullCommand():
+		return systemServiceJournal(localEnv,
+			*g.SystemServiceJournalCmd.Package,
+			*g.SystemServiceJournalCmd.Args)
 	case g.SystemServiceStatusCmd.FullCommand():
 		return systemServiceStatus(localEnv,
-			*g.SystemServiceStatusCmd.Package,
-			*g.SystemServiceStatusCmd.Name)
+			*g.SystemServiceStatusCmd.Package)
 	case g.SystemUninstallCmd.FullCommand():
 		return systemUninstall(localEnv, *g.SystemUninstallCmd.Confirmed)
 	case g.SystemReportCmd.FullCommand():

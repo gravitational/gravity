@@ -32,11 +32,12 @@ ignored = [
 
 [[override]]
   name = "github.com/gravitational/trace"
-  version = "=1.1.10"
+  version = "=1.1.11"
 
 [[override]]
   name = "github.com/mitchellh/go-ps"
-  branch = "master"
+  source = "github.com/gravitational/go-ps"
+  version = "=1.0.0"
 
 [[override]]
   name = "github.com/spf13/pflag"
@@ -56,7 +57,8 @@ ignored = [
 
 [[constraint]]
   name = "github.com/gravitational/configure"
-  branch = "master"
+  #branch = "master"
+  branch = "dmitri/kingpin-bool-flag"
 
 [[constraint]]
   name = "github.com/santhosh-tekuri/jsonschema"
@@ -88,39 +90,45 @@ ignored = [
 
 [[constraint]]
   name = "k8s.io/helm"
-  branch = "release-2.12"
+  branch = "release-2.14"
 
 [[override]]
   name = "k8s.io/apimachinery"
-  version = "kubernetes-1.13.3"
+  version = "kubernetes-1.15.5"
 
 [[override]]
   name = "k8s.io/api"
-  version = "kubernetes-1.13.3"
+  version = "kubernetes-1.15.5"
 
 [[override]]
   name = "k8s.io/apiserver"
-  version = "kubernetes-1.13.3"
+  version = "kubernetes-1.15.5"
 
 [[override]]
+  # TODO: matches the version of helm as it's relying on various packages
+  # (i.e. pkg/kubectl/cmd/get and pkg/kubectl/cmd/util) moved elsewhere in 1.17.x and 1.16.x
   name = "k8s.io/kubernetes"
-  branch = "release-1.13"
+  version = "=1.15.5"
 
 [[override]]
   name = "k8s.io/cli-runtime"
-  version = "kubernetes-1.13.3"
+  version = "kubernetes-1.15.5"
 
 [[override]]
   name = "k8s.io/apiextensions-apiserver"
-  version = "kubernetes-1.13.3"
+  version = "kubernetes-1.15.5"
 
 [[override]]
   name = "k8s.io/kube-aggregator"
-  branch = "release-1.13"
+  version = "kubernetes-1.15.5"
+
+[[override]]
+  name = "k8s.io/client-go"
+  version = "kubernetes-1.15.5"
 
 [[constraint]]
   name = "github.com/gravitational/rigging"
-  version = "=5.5.2"
+  version = "=7.0.1"
 
 [[override]]
   name = "github.com/docker/distribution"
@@ -133,7 +141,10 @@ ignored = [
 
 [[override]]
   name = "github.com/docker/docker"
-  version = "v1.4.1-4831-g0f5c9d3"
+  source = "github.com/gravitational/moby"
+  # TODO(dmitri): update to release once the bugfix is tagged.
+  # See: https://github.com/moby/moby/issues/39859
+  revision = "2adf434ca69614dfc897dd0acf29018e5590a732"
 
 [[override]]
   name = "golang.org/x/sys"
@@ -147,7 +158,7 @@ ignored = [
 [[constraint]]
   name = "github.com/sirupsen/logrus"
   source = "github.com/gravitational/logrus"
-  version = "1.0.6"
+  version = "=v1.4.3"
 
 [[constraint]]
   name = "github.com/aws/aws-sdk-go"
@@ -231,10 +242,6 @@ ignored = [
   source = "github.com/gravitational/kingpin"
   #version = "=v2.2.7"
   branch = "telekube"
-
-[[override]]
-  name = "k8s.io/client-go"
-  version = "=v10.0.0"
 
 [[constraint]]
   name = "github.com/gravitational/license"

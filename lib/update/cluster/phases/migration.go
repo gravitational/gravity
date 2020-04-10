@@ -181,7 +181,7 @@ func (p *phaseUpdateLabels) Execute(ctx context.Context) error {
 			"kubernetes.io/os":                  "linux", // Only linux is currently supported
 		}
 		p.Infof("Update labels on %v.", server)
-		err := libkubernetes.UpdateLabels(ctx, p.Client.Core().Nodes(), server.KubeNodeID(), labels)
+		err := libkubernetes.UpdateLabels(ctx, p.Client.CoreV1().Nodes(), server.KubeNodeID(), labels)
 		if err != nil {
 			return trace.Wrap(err)
 		}

@@ -204,7 +204,7 @@ func newCollector(env *localenv.LocalEnvironment) (*vacuum.Collector, error) {
 	return collector, nil
 }
 
-func getGarbageCollector(env *localenv.LocalEnvironment, operation *ops.SiteOperation) (*vacuum.Collector, error) {
+func getGarbageCollector(env *localenv.LocalEnvironment, operation ops.SiteOperation) (*vacuum.Collector, error) {
 	clusterPackages, err := env.ClusterPackages()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -223,13 +223,6 @@ func getGarbageCollector(env *localenv.LocalEnvironment, operation *ops.SiteOper
 	cluster, err := operator.GetLocalSite()
 	if err != nil {
 		return nil, trace.Wrap(err)
-	}
-
-	if operation == nil {
-		operation, _, err = ops.GetLastOperation(cluster.Key(), operator)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
 	}
 
 	runtimePath, err := getAnyRuntimePackagePath(env.Packages)
@@ -252,7 +245,7 @@ func getGarbageCollector(env *localenv.LocalEnvironment, operation *ops.SiteOper
 		Packages:      clusterPackages,
 		LocalPackages: env.Packages,
 		Operator:      operator,
-		Operation:     operation,
+		Operation:     &operation,
 		Servers:       cluster.ClusterState.Servers,
 		ClusterKey:    cluster.Key(),
 		RuntimePath:   runtimePath,
@@ -261,7 +254,7 @@ func getGarbageCollector(env *localenv.LocalEnvironment, operation *ops.SiteOper
 	})
 }
 
-func executeGarbageCollectPhase(env *localenv.LocalEnvironment, params PhaseParams, operation *ops.SiteOperation) error {
+func executeGarbageCollectPhase(env *localenv.LocalEnvironment, params PhaseParams, operation ops.SiteOperation) error {
 	collector, err := getGarbageCollector(env, operation)
 	if err != nil {
 		return trace.Wrap(err)
@@ -269,7 +262,7 @@ func executeGarbageCollectPhase(env *localenv.LocalEnvironment, params PhasePara
 	return collector.RunPhase(context.TODO(), params.PhaseID, params.Timeout, params.Force)
 }
 
-func setGarbageCollectPhase(env *localenv.LocalEnvironment, params SetPhaseParams, operation *ops.SiteOperation) error {
+func setGarbageCollectPhase(env *localenv.LocalEnvironment, params SetPhaseParams, operation ops.SiteOperation) error {
 	collector, err := getGarbageCollector(env, operation)
 	if err != nil {
 		return trace.Wrap(err)

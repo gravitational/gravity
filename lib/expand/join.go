@@ -44,6 +44,7 @@ import (
 	"github.com/gravitational/gravity/lib/ops/events"
 	"github.com/gravitational/gravity/lib/ops/opsclient"
 	"github.com/gravitational/gravity/lib/pack"
+	"github.com/gravitational/gravity/lib/pack/localpack"
 	"github.com/gravitational/gravity/lib/pack/webpack"
 	pb "github.com/gravitational/gravity/lib/rpc/proto"
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
@@ -172,15 +173,8 @@ func (p *Peer) Execute(req *installpb.ExecuteRequest, stream installpb.Agent_Exe
 		case result := <-p.execDoneC:
 			if result.Error != nil {
 				// Phase finished with an error.
-				if installpb.IsRPCError(result.Error) {
-					return trace.Unwrap(result.Error)
-				}
-				// Flag a failed intermediate step as codes.Aborted.
-				// From gRPC documentation:
-				// Use Aborted if the client should retry at a higher-level
-				// (e.g., restarting a read-modify-write sequence).
 				// See https://github.com/grpc/grpc-go/blob/v1.22.0/codes/codes.go#L78
-				return status.Error(codes.Aborted, trace.UserMessage(result.Error))
+				return status.Error(codes.Aborted, install.FormatAbortError(result.Error))
 			}
 			if result.CompletionEvent != nil {
 				err := stream.Send(result.CompletionEvent.AsProgressResponse())
@@ -280,7 +274,7 @@ type PeerConfig struct {
 	// LocalApps is local apps service of the joining node
 	LocalApps app.Applications
 	// LocalPackages is local package service of the joining node
-	LocalPackages pack.PackageService
+	LocalPackages *localpack.PackageServer
 	// LocalClusterClient is a factory for creating a client to the installed cluster
 	LocalClusterClient func() (*opsclient.Client, error)
 	// JoinBackend is the local backend where join-specific operation data is stored

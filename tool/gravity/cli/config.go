@@ -26,11 +26,10 @@ import (
 	"strings"
 	"time"
 
-	gcemeta "cloud.google.com/go/compute/metadata"
-	"github.com/fatih/color"
 	"github.com/gravitational/gravity/lib/app"
 	appservice "github.com/gravitational/gravity/lib/app"
 	autoscaleaws "github.com/gravitational/gravity/lib/autoscale/aws"
+	"github.com/gravitational/gravity/lib/checks"
 	awscloud "github.com/gravitational/gravity/lib/cloudprovider/aws"
 	cloudaws "github.com/gravitational/gravity/lib/cloudprovider/aws"
 	cloudgce "github.com/gravitational/gravity/lib/cloudprovider/gce"
@@ -43,10 +42,11 @@ import (
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/modules"
+	validationpb "github.com/gravitational/gravity/lib/network/validation/proto"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/opsclient"
 	"github.com/gravitational/gravity/lib/ops/resources"
-	"github.com/gravitational/gravity/lib/pack"
+	"github.com/gravitational/gravity/lib/pack/localpack"
 	"github.com/gravitational/gravity/lib/process"
 	"github.com/gravitational/gravity/lib/processconfig"
 	"github.com/gravitational/gravity/lib/report"
@@ -62,7 +62,9 @@ import (
 	"github.com/gravitational/gravity/lib/users"
 	"github.com/gravitational/gravity/lib/utils"
 
+	gcemeta "cloud.google.com/go/compute/metadata"
 	"github.com/docker/docker/pkg/namesgenerator"
+	"github.com/fatih/color"
 	"github.com/gravitational/configure"
 	teledefaults "github.com/gravitational/teleport/lib/defaults"
 	"github.com/gravitational/trace"
@@ -104,8 +106,6 @@ type InstallConfig struct {
 	ClusterResources []storage.UnknownResource
 	// SystemDevice is a device for gravity data
 	SystemDevice string
-	// DockerDevice is a device for docker
-	DockerDevice string
 	// Mounts is a list of mount points (name -> source pairs)
 	Mounts map[string]string
 	// DNSOverrides contains installer node DNS overrides
@@ -123,7 +123,7 @@ type InstallConfig struct {
 	// Insecure allows to turn off cert validation
 	Insecure bool
 	// LocalPackages is the machine-local package service
-	LocalPackages pack.PackageService
+	LocalPackages *localpack.PackageServer
 	// LocalApps is the machine-local apps service
 	LocalApps appservice.Applications
 	// LocalBackend is the machine-local backend
@@ -179,7 +179,6 @@ func NewInstallConfig(env *localenv.LocalEnvironment, g *Application) InstallCon
 		SiteDomain:    *g.InstallCmd.Cluster,
 		Role:          *g.InstallCmd.Role,
 		SystemDevice:  *g.InstallCmd.SystemDevice,
-		DockerDevice:  *g.InstallCmd.DockerDevice,
 		Mounts:        *g.InstallCmd.Mounts,
 		PodCIDR:       *g.InstallCmd.PodCIDR,
 		ServiceCIDR:   *g.InstallCmd.ServiceCIDR,
@@ -375,11 +374,9 @@ func (i *InstallConfig) NewInstallerConfig(
 		StateDir:           i.StateDir,
 		WriteStateDir:      i.writeStateDir,
 		UserLogFile:        i.UserLogFile,
-		SystemLogFile:      i.SystemLogFile,
 		CloudProvider:      i.CloudProvider,
 		GCENodeTags:        i.GCENodeTags,
 		SystemDevice:       i.SystemDevice,
-		DockerDevice:       i.DockerDevice,
 		Mounts:             i.Mounts,
 		DNSConfig:          i.DNSConfig,
 		PodCIDR:            i.PodCIDR,
@@ -403,6 +400,40 @@ func (i *InstallConfig) NewInstallerConfig(
 		LocalAgent:         !i.Remote,
 	}, nil
 
+}
+
+// RunLocalChecks executes host-local preflight checks for this configuration
+func (i *InstallConfig) RunLocalChecks() error {
+	if i.Mode == constants.InstallModeInteractive {
+		return nil
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	interrupt := signals.WatchTerminationSignals(ctx, cancel, utils.DiscardPrinter)
+	defer interrupt.Close()
+
+	app, err := i.getApp()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	flavor, err := getFlavor(i.Flavor, app.Manifest, i.FieldLogger)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	role, err := validateRole(i.Role, *flavor, app.Manifest.NodeProfiles, i.FieldLogger)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return trace.Wrap(checks.RunLocalChecks(ctx, checks.LocalChecksRequest{
+		Manifest: app.Manifest,
+		Role:     role,
+		Docker:   i.Docker,
+		Options: &validationpb.ValidateOptions{
+			VxlanPort: int32(i.VxlanPort),
+			DnsAddrs:  i.DNSConfig.Addrs,
+			DnsPort:   int32(i.DNSConfig.Port),
+		},
+		AutoFix: true,
+	}))
 }
 
 func (i *InstallConfig) validateApplicationDir() error {
@@ -450,8 +481,9 @@ func (i *InstallConfig) getApp() (app *app.Application, err error) {
 	}
 	app, err = install.GetApp(env.Apps)
 	if err != nil {
+		i.WithError(err).Warn("Failed to find application package.")
 		if trace.IsNotFound(err) {
-			return nil, trace.NotFound("the specified state dir %v does not "+
+			return nil, trace.NotFound("specified state directory %v does not "+
 				"contain application data, please provide a path to the "+
 				"unpacked installer tarball or specify an application "+
 				"package via --app flag", i.StateDir)
@@ -641,8 +673,6 @@ type JoinConfig struct {
 	Role string
 	// SystemDevice is device for gravity data
 	SystemDevice string
-	// DockerDevice is device for docker data
-	DockerDevice string
 	// Mounts is a list of additional mounts
 	Mounts map[string]string
 	// CloudProvider is the node cloud provider
@@ -671,7 +701,6 @@ func NewJoinConfig(g *Application) JoinConfig {
 		Token:         *g.JoinCmd.Token,
 		Role:          *g.JoinCmd.Role,
 		SystemDevice:  *g.JoinCmd.SystemDevice,
-		DockerDevice:  *g.JoinCmd.DockerDevice,
 		Mounts:        *g.JoinCmd.Mounts,
 		OperationID:   *g.JoinCmd.OperationID,
 		FromService:   *g.JoinCmd.FromService,
@@ -734,7 +763,6 @@ func (j *JoinConfig) GetRuntimeConfig() proto.RuntimeConfig {
 		Token:        j.Token,
 		Role:         j.Role,
 		SystemDevice: j.SystemDevice,
-		DockerDevice: j.DockerDevice,
 		Mounts:       convertMounts(j.Mounts),
 	}
 }
@@ -758,7 +786,6 @@ func (r *autojoinConfig) newJoinConfig() JoinConfig {
 		UserLogFile:   r.userLogFile,
 		Role:          r.role,
 		SystemDevice:  r.systemDevice,
-		DockerDevice:  r.dockerDevice,
 		Mounts:        r.mounts,
 		AdvertiseAddr: r.advertiseAddr,
 		PeerAddrs:     r.serviceURL,
@@ -791,7 +818,6 @@ type autojoinConfig struct {
 	clusterName   string
 	role          string
 	systemDevice  string
-	dockerDevice  string
 	mounts        map[string]string
 	fromService   bool
 	serviceURL    string

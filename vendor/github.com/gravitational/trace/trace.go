@@ -154,9 +154,7 @@ func WrapWithMessage(err error, message interface{}, args ...interface{}) Error 
 // callee, line number and function that simplifies debugging
 func Errorf(format string, args ...interface{}) (err error) {
 	err = fmt.Errorf(format, args...)
-	trace := newTrace(err, 2)
-	trace.AddUserMessage(format, args...)
-	return trace
+	return newTrace(err, 2)
 }
 
 // Fatalf - If debug is false Fatalf calls Errorf. If debug is
@@ -293,7 +291,7 @@ func (r *TraceErr) MarshalJSON() ([]byte, error) {
 	}
 	type marshalableError TraceErr
 	err := marshalableError(*r)
-	err.Err = &externalError{Message: r.Err.Error()}
+	err.Err = &RawTrace{Message: r.Err.Error()}
 	return json.Marshal(err)
 }
 
@@ -303,7 +301,7 @@ type TraceErr struct {
 	// Err is the underlying error that TraceErr wraps
 	Err error `json:"error"`
 	// Traces is a slice of stack trace entries for the error
-	Traces `json:"traces"`
+	Traces `json:"traces,omitempty"`
 	// Message is an optional message that can be wrapped with the original error.
 	//
 	// This field is obsolete, replaced by messages list below.
@@ -317,6 +315,12 @@ type TraceErr struct {
 // Fields maps arbitrary keys to values inside an error
 type Fields map[string]interface{}
 
+// Error returns the error message this trace describes.
+// Implements error
+func (r *RawTrace) Error() string {
+	return r.Message
+}
+
 // RawTrace describes the error trace on the wire
 type RawTrace struct {
 	// Err specifies the original error
@@ -324,9 +328,9 @@ type RawTrace struct {
 	// Traces lists the stack traces at the moment the error was recorded
 	Traces `json:"traces,omitempty"`
 	// Message specifies the optional user-facing message
-	Message string `json:"message"`
+	Message string `json:"message,omitempty"`
 	// Messages is a list of user messages added to this error.
-	Messages []string `json:"messages"`
+	Messages []string `json:"messages,omitempty"`
 	// Fields is a list of key-value-pairs that can be wrapped with the error to give additional context
 	Fields map[string]interface{} `json:"fields,omitempty"`
 }
@@ -364,11 +368,14 @@ func (e *TraceErr) UserMessage() string {
 		// Format all collected messages in the reverse order, with each error
 		// on its own line with appropriate indentation so they form a tree and
 		// it's easy to see the cause and effect.
-		result := e.Messages[len(e.Messages)-1]
-		for index, indent := len(e.Messages)-1, 1; index > 0; index, indent = index-1, indent+1 {
-			result = fmt.Sprintf("%v\n%v%v", result, strings.Repeat("\t", indent), e.Messages[index-1])
+		var buf bytes.Buffer
+		fmt.Fprintln(&buf, e.Messages[len(e.Messages)-1])
+		index, indent := len(e.Messages)-1, 1
+		for ; index > 0; index, indent = index-1, indent+1 {
+			fmt.Fprintf(&buf, "%v%v\n", strings.Repeat("\t", indent), e.Messages[index-1])
 		}
-		return result
+		fmt.Fprintf(&buf, "%v%v", strings.Repeat("\t", indent), UserMessage(e.Err))
+		return buf.String()
 	}
 	if e.Message != "" {
 		// For backwards compatibility return the old user message if it's present.
@@ -571,6 +578,12 @@ func (r proxyError) OrigError() error {
 // Error returns the error message of the underlying error
 func (r proxyError) Error() string {
 	return r.TraceErr.Error()
+}
+
+// GoString formats this trace object for use with
+// with the "%#v" format string
+func (r proxyError) GoString() string {
+	return r.DebugReport()
 }
 
 // proxyError wraps another error

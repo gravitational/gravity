@@ -52,6 +52,7 @@ func UninstallSystem(printer utils.Printer, logger log.FieldLogger) (err error) 
 		errors = append(errors, err)
 	}
 	pathsToRemove := append(getStateDirectories(), state.GravityBinPaths...)
+	pathsToRemove = append(pathsToRemove, state.KubectlBinPaths...)
 	if err := removePaths(printer, logger, pathsToRemove...); err != nil {
 		errors = append(errors, err)
 	}
@@ -118,7 +119,7 @@ func DisableAgentServices(logger log.FieldLogger) error {
 }
 
 func uninstallPackageServices(svm systemservice.ServiceManager, printer utils.Printer, logger log.FieldLogger) error {
-	services, err := svm.ListPackageServices()
+	services, err := svm.ListPackageServices(systemservice.DefaultListServiceOptions)
 	if err != nil {
 		return trace.Wrap(err)
 	}

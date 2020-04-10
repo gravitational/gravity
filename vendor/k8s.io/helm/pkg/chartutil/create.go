@@ -63,6 +63,7 @@ image:
   tag: stable
   pullPolicy: IfNotPresent
 
+imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
 
@@ -75,9 +76,10 @@ ingress:
   annotations: {}
     # kubernetes.io/ingress.class: nginx
     # kubernetes.io/tls-acme: "true"
-  paths: []
   hosts:
-    - chart-example.local
+    - host: chart-example.local
+      paths: []
+
   tls: []
   #  - secretName: chart-example-tls
   #    hosts:
@@ -89,11 +91,11 @@ resources: {}
   # resources, such as Minikube. If you do want to specify resources, uncomment the following
   # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
   # limits:
-  #  cpu: 100m
-  #  memory: 128Mi
+  #   cpu: 100m
+  #   memory: 128Mi
   # requests:
-  #  cpu: 100m
-  #  memory: 128Mi
+  #   cpu: 100m
+  #   memory: 128Mi
 
 nodeSelector: {}
 
@@ -128,16 +130,12 @@ const defaultIgnore = `# Patterns to ignore when building packages.
 
 const defaultIngress = `{{- if .Values.ingress.enabled -}}
 {{- $fullName := include "<CHARTNAME>.fullname" . -}}
-{{- $ingressPaths := .Values.ingress.paths -}}
 apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
   name: {{ $fullName }}
   labels:
-    app.kubernetes.io/name: {{ include "<CHARTNAME>.name" . }}
-    helm.sh/chart: {{ include "<CHARTNAME>.chart" . }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
-    app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{ include "<CHARTNAME>.labels" . | indent 4 }}
   {{- with .Values.ingress.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -155,15 +153,15 @@ spec:
 {{- end }}
   rules:
   {{- range .Values.ingress.hosts }}
-    - host: {{ . | quote }}
+    - host: {{ .host | quote }}
       http:
         paths:
-	{{- range $ingressPaths }}
+        {{- range .paths }}
           - path: {{ . }}
             backend:
               serviceName: {{ $fullName }}
               servicePort: http
-	{{- end }}
+        {{- end }}
   {{- end }}
 {{- end }}
 `
@@ -173,10 +171,7 @@ kind: Deployment
 metadata:
   name: {{ include "<CHARTNAME>.fullname" . }}
   labels:
-    app.kubernetes.io/name: {{ include "<CHARTNAME>.name" . }}
-    helm.sh/chart: {{ include "<CHARTNAME>.chart" . }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
-    app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{ include "<CHARTNAME>.labels" . | indent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
@@ -189,6 +184,10 @@ spec:
         app.kubernetes.io/name: {{ include "<CHARTNAME>.name" . }}
         app.kubernetes.io/instance: {{ .Release.Name }}
     spec:
+    {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
@@ -226,10 +225,7 @@ kind: Service
 metadata:
   name: {{ include "<CHARTNAME>.fullname" . }}
   labels:
-    app.kubernetes.io/name: {{ include "<CHARTNAME>.name" . }}
-    helm.sh/chart: {{ include "<CHARTNAME>.chart" . }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
-    app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{ include "<CHARTNAME>.labels" . | indent 4 }}
 spec:
   type: {{ .Values.service.type }}
   ports:
@@ -245,8 +241,8 @@ spec:
 const defaultNotes = `1. Get the application URL by running these commands:
 {{- if .Values.ingress.enabled }}
 {{- range $host := .Values.ingress.hosts }}
-  {{- range $.Values.ingress.paths }}
-  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ $host }}{{ . }}
+  {{- range .paths }}
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ $host.host }}{{ . }}
   {{- end }}
 {{- end }}
 {{- else if contains "NodePort" .Values.service.type }}
@@ -255,7 +251,7 @@ const defaultNotes = `1. Get the application URL by running these commands:
   echo http://$NODE_IP:$NODE_PORT
 {{- else if contains "LoadBalancer" .Values.service.type }}
      NOTE: It may take a few minutes for the LoadBalancer IP to be available.
-           You can watch the status of by running 'kubectl get svc -w {{ include "<CHARTNAME>.fullname" . }}'
+           You can watch the status of by running 'kubectl get --namespace {{ .Release.Namespace }} svc -w {{ include "<CHARTNAME>.fullname" . }}'
   export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ include "<CHARTNAME>.fullname" . }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
   echo http://$SERVICE_IP:{{ .Values.service.port }}
 {{- else if contains "ClusterIP" .Values.service.type }}
@@ -297,6 +293,19 @@ Create chart name and version as used by the chart label.
 {{- define "<CHARTNAME>.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
+
+{{/*
+Common labels
+*/}}
+{{- define "<CHARTNAME>.labels" -}}
+app.kubernetes.io/name: {{ include "<CHARTNAME>.name" . }}
+helm.sh/chart: {{ include "<CHARTNAME>.chart" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- if .Chart.AppVersion }}
+app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+{{- end }}
+app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{- end -}}
 `
 
 const defaultTestConnection = `apiVersion: v1
@@ -304,10 +313,7 @@ kind: Pod
 metadata:
   name: "{{ include "<CHARTNAME>.fullname" . }}-test-connection"
   labels:
-    app.kubernetes.io/name: {{ include "<CHARTNAME>.name" . }}
-    helm.sh/chart: {{ include "<CHARTNAME>.chart" . }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
-    app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{ include "<CHARTNAME>.labels" . | indent 4 }}
   annotations:
     "helm.sh/hook": test-success
 spec:

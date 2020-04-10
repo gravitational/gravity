@@ -17,6 +17,7 @@ package install
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -62,6 +63,7 @@ func GetAppPackage(service app.Applications) (*loc.Locator, error) {
 func GetApp(service app.Applications) (*app.Application, error) {
 	apps, err := service.ListApps(app.ListAppsRequest{
 		Repository: defaults.SystemAccountOrg,
+		Type:       storage.AppUser,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -295,6 +297,12 @@ func InstallBinary(uid, gid int, logger log.FieldLogger) (err error) {
 		if err == nil {
 			break
 		}
+		logger.WithFields(log.Fields{
+			log.ErrorKey:  err,
+			"uid":         uid,
+			"gid":         gid,
+			"target-path": targetPath,
+		}).Warn("Failed to install binary.")
 	}
 	if err != nil {
 		return trace.Wrap(err, "failed to install gravity binary in any of %v",
@@ -334,7 +342,7 @@ func (r ProgressPoller) Run(ctx context.Context) error {
 				r.WithError(err).Warn("Failed to query operation progress.")
 				continue
 			}
-			if lastProgress != nil && lastProgress.IsEqual(*progress) {
+			if shouldIgnoreProgress(progress, lastProgress) {
 				continue
 			}
 			r.Dispatcher.Send(dispatcher.Event{Progress: progress})
@@ -346,6 +354,11 @@ func (r ProgressPoller) Run(ctx context.Context) error {
 			return nil
 		}
 	}
+}
+
+func shouldIgnoreProgress(current, prev *ops.ProgressEntry) bool {
+	return prev != nil && prev.IsEqual(*current) ||
+		prev == nil && current.IsFailed()
 }
 
 // ProgressPoller is a progress message poller
@@ -364,6 +377,24 @@ type ExecResult struct {
 	CompletionEvent *dispatcher.Event
 	// Error specifies the optional execution error
 	Error error
+}
+
+// FormatAbortError formats the specified error for output by the installer client.
+// Output will contain error message for err as well as any error it wraps.
+func FormatAbortError(err error) string {
+	switch err := err.(type) {
+	case trace.Error:
+		userMessage := trace.UserMessage(err)
+		if err.OrigError() != nil {
+			detail := trace.UserMessage(err.OrigError())
+			if detail != userMessage {
+				userMessage = fmt.Sprintf("%v (%v)", userMessage, detail)
+			}
+		}
+		return userMessage
+	default:
+		return trace.UserMessage(err)
+	}
 }
 
 func isOperationSuccessful(progress ops.ProgressEntry) bool {
@@ -396,7 +427,7 @@ func tryInstallBinary(targetPath string, uid, gid int, logger log.FieldLogger) e
 	}
 	err = os.MkdirAll(filepath.Dir(targetPath), defaults.SharedDirMask)
 	if err != nil {
-		return trace.Wrap(err)
+		return trace.ConvertSystemError(err)
 	}
 	err = utils.CopyFileWithPerms(targetPath, path, defaults.SharedExecutableMask)
 	if err != nil {

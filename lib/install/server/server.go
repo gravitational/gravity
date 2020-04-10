@@ -26,6 +26,7 @@ import (
 
 	"github.com/gogo/protobuf/types"
 	"github.com/gravitational/trace"
+	"github.com/gravitational/trace/trail"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -115,8 +116,7 @@ func (r *Server) Complete(ctx context.Context, req *installpb.CompleteRequest) (
 	r.WithField("req", req).Info("Complete.")
 	err := r.executor.Complete(installpb.KeyFromProto(req.Key))
 	if err != nil {
-		// Not wrapping err as it passes the gRPC boundary
-		return nil, err
+		return nil, trail.ToGRPC(err)
 	}
 	return installpb.Empty, nil
 }

@@ -68,9 +68,15 @@ func startInstall(env *localenv.LocalEnvironment, config InstallConfig) error {
 		}
 		return trace.Wrap(err)
 	}
+	if err := config.RunLocalChecks(); err != nil {
+		return trace.Wrap(err)
+	}
 	strategy, err := NewInstallerConnectStrategy(env, config, cli.CommandArgs{
 		Parser: cli.ArgsParserFunc(parseArgs),
 	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	err = InstallerClient(env, installerclient.Config{
 		ConnectStrategy: strategy,
 		Lifecycle: &installerclient.AutomaticLifecycle{
@@ -95,7 +101,7 @@ func startInstallFromService(env *localenv.LocalEnvironment, config InstallConfi
 	go TerminationHandler(interrupt, env)
 	listener, err := NewServiceListener()
 	if err != nil {
-		return trace.Wrap(err)
+		return trace.Wrap(utils.NewPreconditionFailedError(err))
 	}
 	defer func() {
 		if err != nil {
@@ -104,7 +110,7 @@ func startInstallFromService(env *localenv.LocalEnvironment, config InstallConfi
 	}()
 	installerConfig, err := newInstallerConfig(ctx, env, config)
 	if err != nil {
-		return trace.Wrap(err)
+		return trace.Wrap(utils.NewPreconditionFailedError(err))
 	}
 	var installer *install.Installer
 	switch config.Mode {
@@ -116,7 +122,7 @@ func startInstallFromService(env *localenv.LocalEnvironment, config InstallConfi
 		return trace.BadParameter("unknown mode %q", config.Mode)
 	}
 	if err != nil {
-		return trace.Wrap(err)
+		return trace.Wrap(utils.NewPreconditionFailedError(err))
 	}
 	interrupt.AddStopper(installer)
 	return trace.Wrap(installer.Run(listener))
@@ -511,37 +517,37 @@ func agent(env *localenv.LocalEnvironment, config agentConfig) error {
 	return trace.Wrap(agent.Serve())
 }
 
-func executeInstallPhase(env *localenv.LocalEnvironment, params PhaseParams, operation *ops.SiteOperation) error {
+func executeInstallPhase(env *localenv.LocalEnvironment, params PhaseParams, operation ops.SiteOperation) error {
 	return trace.Wrap(executePhaseFromService(
 		env, params, operation, "Connecting to installer", "Connected to installer"))
 }
 
-func rollbackInstallPhase(env *localenv.LocalEnvironment, params PhaseParams, operation *ops.SiteOperation) error {
+func rollbackInstallPhase(env *localenv.LocalEnvironment, params PhaseParams, operation ops.SiteOperation) error {
 	return trace.Wrap(rollbackPhaseFromService(
 		env, params, operation, "Connecting to installer", "Connected to installer"))
 }
 
-func completeInstallPlan(env *localenv.LocalEnvironment, operation *ops.SiteOperation) error {
+func completeInstallPlan(env *localenv.LocalEnvironment, operation ops.SiteOperation) error {
 	return trace.Wrap(completePlanFromService(
 		env, operation, "Connecting to installer", "Connected to installer"))
 }
 
-func executeJoinPhase(env *localenv.LocalEnvironment, params PhaseParams, operation *ops.SiteOperation) error {
+func executeJoinPhase(env *localenv.LocalEnvironment, params PhaseParams, operation ops.SiteOperation) error {
 	return trace.Wrap(executePhaseFromService(
 		env, params, operation, "Connecting to agent", "Connected to agent"))
 }
 
-func rollbackJoinPhase(env *localenv.LocalEnvironment, params PhaseParams, operation *ops.SiteOperation) error {
+func rollbackJoinPhase(env *localenv.LocalEnvironment, params PhaseParams, operation ops.SiteOperation) error {
 	return trace.Wrap(rollbackPhaseFromService(
 		env, params, operation, "Connecting to agent", "Connected to agent"))
 }
 
-func completeJoinPlan(env *localenv.LocalEnvironment, operation *ops.SiteOperation) error {
+func completeJoinPlan(env *localenv.LocalEnvironment, operation ops.SiteOperation) error {
 	return trace.Wrap(completePlanFromService(
 		env, operation, "Connecting to agent", "Connected to agent"))
 }
 
-func setPhaseFromService(env *localenv.LocalEnvironment, params SetPhaseParams, operation *ops.SiteOperation) error {
+func setPhaseFromService(env *localenv.LocalEnvironment, params SetPhaseParams, operation ops.SiteOperation) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	interrupt := signals.NewInterruptHandler(ctx, cancel, clientInterruptSignals)
 	defer interrupt.Close()
@@ -562,7 +568,7 @@ func setPhaseFromService(env *localenv.LocalEnvironment, params SetPhaseParams, 
 func executePhaseFromService(
 	env *localenv.LocalEnvironment,
 	params PhaseParams,
-	operation *ops.SiteOperation,
+	operation ops.SiteOperation,
 	connecting, connected string,
 ) error {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -601,7 +607,7 @@ func executePhaseFromService(
 func rollbackPhaseFromService(
 	env *localenv.LocalEnvironment,
 	params PhaseParams,
-	operation *ops.SiteOperation,
+	operation ops.SiteOperation,
 	connecting, connected string,
 ) error {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -630,7 +636,7 @@ func rollbackPhaseFromService(
 
 func completePlanFromService(
 	env *localenv.LocalEnvironment,
-	operation *ops.SiteOperation,
+	operation ops.SiteOperation,
 	connecting, connected string,
 ) error {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -717,6 +723,9 @@ func NewServiceListener() (net.Listener, error) {
 	socketPath, err := installpb.SocketPath()
 	if err != nil {
 		return nil, trace.Wrap(err)
+	}
+	if err := os.RemoveAll(socketPath); err != nil {
+		return nil, trace.Wrap(trace.ConvertSystemError(err), "failed to remove installer socket")
 	}
 	return net.Listen("unix", socketPath)
 }
@@ -819,7 +828,7 @@ func printInstallInstructionsBanner(printer utils.Printer) {
 To abort the installation and clean up the system,
 press Ctrl+C two times in a row.
 
-If the you get disconnected from the terminal, you can reconnect to the installer
+If you get disconnected from the terminal, you can reconnect to the installer
 agent by issuing 'gravity resume' command.
 
 If the installation fails, use 'gravity plan' to inspect the state and
@@ -833,7 +842,7 @@ func printJoinInstructionsBanner(printer utils.Printer) {
 To abort the agent and clean up the system,
 press Ctrl+C two times in a row.
 
-If the you get disconnected from the terminal, you can reconnect to the installer
+If you get disconnected from the terminal, you can reconnect to the installer
 agent by issuing 'gravity resume' command.
 See https://gravitational.com/gravity/docs/cluster/#managing-an-ongoing-operation for details.
 `))

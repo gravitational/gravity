@@ -87,7 +87,7 @@ func (c *DSControl) Delete(ctx context.Context, cascade bool) error {
 	if err != nil {
 		return ConvertError(err)
 	}
-	pods := c.Client.Core().Pods(c.DaemonSet.Namespace)
+	pods := c.Client.CoreV1().Pods(c.DaemonSet.Namespace)
 	currentPods, err := c.collectPods(currentDS)
 	if err != nil {
 		return trace.Wrap(err)
@@ -119,7 +119,7 @@ func (c *DSControl) Delete(ctx context.Context, cascade bool) error {
 func (c *DSControl) Upsert(ctx context.Context) error {
 	c.Infof("upsert %v", formatMeta(c.DaemonSet.ObjectMeta))
 
-	daemons := c.Client.Apps().DaemonSets(c.DaemonSet.Namespace)
+	daemons := c.Client.AppsV1().DaemonSets(c.DaemonSet.Namespace)
 	currentDS, err := daemons.Get(c.DaemonSet.Name, metav1.GetOptions{})
 	err = ConvertError(err)
 	if err != nil {
@@ -173,7 +173,7 @@ func (c *DSControl) Status() error {
 		return trace.Wrap(err)
 	}
 
-	nodes, err := c.Client.Core().Nodes().List(metav1.ListOptions{
+	nodes, err := c.Client.CoreV1().Nodes().List(metav1.ListOptions{
 		LabelSelector: c.nodeSelector().String(),
 	})
 	if err != nil {

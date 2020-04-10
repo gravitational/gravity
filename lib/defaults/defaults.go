@@ -324,7 +324,7 @@ const (
 	SerfBin = "/usr/bin/serf"
 
 	// JournalctlBin is the default location of the journalctl inside planet
-	JournalctlBin = "/usr/bin/journalctl"
+	JournalctlBin = "/bin/journalctl"
 
 	// SystemctlBin is systemctl executable inside planet
 	SystemctlBin = "/bin/systemctl"
@@ -1096,11 +1096,11 @@ var (
 	// during cluster installation (such as apiserver, etcd, kubelet, etc.)
 	CertificateExpiry = 10 * 365 * 24 * time.Hour // 10 years
 
-	// GravitySystemLog defines the default location for the system log
-	GravitySystemLog = filepath.Join(SystemLogDir, GravitySystemLogFile)
+	// GravitySystemLogPath defines the default location for the system log
+	GravitySystemLogPath = filepath.Join(SystemLogDir, GravitySystemLogFile)
 
-	// GravityUserLog the default location for user-facing log file
-	GravityUserLog = filepath.Join(SystemLogDir, GravityUserLogFile)
+	// GravityUserLogPath the default location for user-facing log file
+	GravityUserLogPath = filepath.Join(SystemLogDir, GravityUserLogFile)
 
 	// TransientErrorTimeout specifies the maximum amount of time to attempt
 	// an operation experiencing transient errors

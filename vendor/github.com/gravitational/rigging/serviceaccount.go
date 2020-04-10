@@ -19,7 +19,7 @@ import (
 
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
@@ -67,14 +67,14 @@ type ServiceAccountControl struct {
 func (c *ServiceAccountControl) Delete(ctx context.Context, cascade bool) error {
 	c.Infof("delete %v", formatMeta(c.ObjectMeta))
 
-	err := c.Client.Core().ServiceAccounts(c.Namespace).Delete(c.Name, nil)
+	err := c.Client.CoreV1().ServiceAccounts(c.Namespace).Delete(c.Name, nil)
 	return ConvertError(err)
 }
 
 func (c *ServiceAccountControl) Upsert(ctx context.Context) error {
 	c.Infof("upsert %v", formatMeta(c.ObjectMeta))
 
-	accounts := c.Client.Core().ServiceAccounts(c.Namespace)
+	accounts := c.Client.CoreV1().ServiceAccounts(c.Namespace)
 	c.UID = ""
 	c.SelfLink = ""
 	c.ResourceVersion = ""
@@ -92,7 +92,7 @@ func (c *ServiceAccountControl) Upsert(ctx context.Context) error {
 }
 
 func (c *ServiceAccountControl) Status() error {
-	accounts := c.Client.Core().ServiceAccounts(c.Namespace)
+	accounts := c.Client.CoreV1().ServiceAccounts(c.Namespace)
 	_, err := accounts.Get(c.Name, metav1.GetOptions{})
 	return ConvertError(err)
 }

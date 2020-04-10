@@ -33,23 +33,9 @@ import (
 // inside the new environment
 func (r *Mounter) RoBindMount(hostDir, localDir string) error {
 	dir := r.abs(localDir)
-
-	err := os.MkdirAll(dir, defaults.SharedDirMask)
-	if err != nil {
-		return trace.ConvertSystemError(err)
+	if err := r.BindMount(hostDir, localDir); err != nil {
+		return trace.Wrap(err)
 	}
-
-	if mounted, _ := mount.Mounted(dir); !mounted {
-		if err := mount.Mount(hostDir, dir, "none", "bind,rw"); err != nil {
-			log.WithFields(log.Fields{
-				log.ErrorKey: err,
-				"src":        hostDir,
-				"dst":        dir,
-			}).Warn("Failed to mount.")
-			return trace.Wrap(err, "failed to mount %v as %v", hostDir, dir)
-		}
-	}
-
 	if err := mount.ForceMount(hostDir, dir, "none", "remount,ro,bind"); err != nil {
 		log.WithFields(log.Fields{
 			log.ErrorKey: err,
@@ -58,7 +44,29 @@ func (r *Mounter) RoBindMount(hostDir, localDir string) error {
 		}).Warn("Failed to remount.")
 		return trace.Wrap(err, "failed to remount %v as %v (read-only)", hostDir, dir)
 	}
+	return nil
+}
 
+// BindMount bind-mounts the specified hostDir.
+// After chroot(r.rootDir), hostDir will be available as localDir
+// inside the new environment
+func (r *Mounter) BindMount(hostDir, localDir string) error {
+	dir := r.abs(localDir)
+	err := os.MkdirAll(dir, defaults.SharedDirMask)
+	if err != nil {
+		return trace.ConvertSystemError(err)
+	}
+	if mounted, _ := mount.Mounted(dir); mounted {
+		return nil
+	}
+	if err := mount.Mount(hostDir, dir, "none", "bind,rw"); err != nil {
+		log.WithFields(log.Fields{
+			log.ErrorKey: err,
+			"src":        hostDir,
+			"dst":        dir,
+		}).Warn("Failed to mount.")
+		return trace.Wrap(err, "failed to mount %v as %v", hostDir, dir)
+	}
 	return nil
 }
 
