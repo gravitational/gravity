@@ -30,8 +30,8 @@ import (
 type BuildParameters struct {
 	// StateDir is build state directory, if was specified
 	StateDir string
-	// ManifestPath holds the path to the application manifest
-	ManifestPath string
+	// SourcePath is the path to a manifest file or a Helm chart to build image from
+	SourcePath string
 	// OutPath holds the path to the installer tarball to be output
 	OutPath string
 	// Overwrite indicates whether or not to overwrite an existing installer file
@@ -44,6 +44,10 @@ type BuildParameters struct {
 	Verbose bool
 	// Insecure turns on insecure verify mode
 	Insecure bool
+	// Vendor combines vendoring parameters
+	Vendor service.VendorRequest
+	// BaseImage sets base image for the cluster image
+	BaseImage string
 }
 
 // Level returns level at which the progress should be reported based on the CLI parameters.
@@ -56,22 +60,42 @@ func (p BuildParameters) Level() utils.ProgressLevel {
 	return utils.ProgressLevelInfo // Normal output.
 }
 
-// build builds an installer tarball according to the provided parameters
-func build(ctx context.Context, params BuildParameters, req service.VendorRequest) error {
-	installerBuilder, err := builder.New(builder.Config{
-		Context:          ctx,
-		StateDir:         params.StateDir,
-		Insecure:         params.Insecure,
-		ManifestPath:     params.ManifestPath,
-		OutPath:          params.OutPath,
-		Overwrite:        params.Overwrite,
-		SkipVersionCheck: params.SkipVersionCheck,
-		VendorReq:        req,
-		Level:            params.Level(),
-	})
+// BuilderConfig makes builder config from CLI parameters.
+func (p BuildParameters) BuilderConfig() builder.Config {
+	return builder.Config{
+		StateDir:         p.StateDir,
+		Insecure:         p.Insecure,
+		SkipVersionCheck: p.SkipVersionCheck,
+		Parallel:         p.Vendor.Parallel,
+		Level:            p.Level(),
+	}
+}
+
+func buildClusterImage(ctx context.Context, params BuildParameters) error {
+	clusterBuilder, err := builder.NewClusterBuilder(params.BuilderConfig())
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	defer installerBuilder.Close()
-	return builder.Build(ctx, installerBuilder)
+	defer clusterBuilder.Close()
+	return clusterBuilder.Build(ctx, builder.ClusterRequest{
+		SourcePath: params.SourcePath,
+		OutputPath: params.OutPath,
+		Overwrite:  params.Overwrite,
+		BaseImage:  params.BaseImage,
+		Vendor:     params.Vendor,
+	})
+}
+
+func buildApplicationImage(ctx context.Context, params BuildParameters) error {
+	appBuilder, err := builder.NewApplicationBuilder(params.BuilderConfig())
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer appBuilder.Close()
+	return appBuilder.Build(ctx, builder.ApplicationRequest{
+		ChartPath:  params.SourcePath,
+		OutputPath: params.OutPath,
+		Overwrite:  params.Overwrite,
+		Vendor:     params.Vendor,
+	})
 }

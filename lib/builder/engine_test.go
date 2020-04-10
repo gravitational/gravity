@@ -24,7 +24,6 @@ import (
 	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/trace"
 	"github.com/gravitational/version"
-	"github.com/sirupsen/logrus"
 	check "gopkg.in/check.v1"
 )
 
@@ -73,26 +72,25 @@ func (s *BuilderSuite) TestVersionsCompatibility(c *check.C) {
 }
 
 func (s *BuilderSuite) TestSelectRuntimeVersion(c *check.C) {
-	b := &Builder{
+	b := &Engine{
 		Config: Config{
-			FieldLogger: logrus.WithField(trace.Component, "test"),
-			Progress:    utils.DiscardProgress,
+			Progress: utils.DiscardProgress,
 		},
 	}
 
-	b.Manifest = schema.MustParseManifestYAML([]byte(manifestWithBase))
-	ver, err := b.SelectRuntime()
+	manifest := schema.MustParseManifestYAML([]byte(manifestWithBase))
+	ver, err := b.SelectRuntime(&manifest)
 	c.Assert(err, check.IsNil)
 	c.Assert(ver, check.DeepEquals, semver.New("5.5.0"))
 
-	b.Manifest = schema.MustParseManifestYAML([]byte(manifestWithoutBase))
+	manifest = schema.MustParseManifestYAML([]byte(manifestWithoutBase))
 	version.Init("5.4.2")
-	ver, err = b.SelectRuntime()
+	ver, err = b.SelectRuntime(&manifest)
 	c.Assert(err, check.IsNil)
 	c.Assert(ver, check.DeepEquals, semver.New("5.4.2"))
 
-	b.Manifest = schema.MustParseManifestYAML([]byte(manifestInvalidBase))
-	_, err = b.SelectRuntime()
+	manifest = schema.MustParseManifestYAML([]byte(manifestInvalidBase))
+	_, err = b.SelectRuntime(&manifest)
 	c.Assert(err, check.FitsTypeOf, trace.BadParameter(""))
 	c.Assert(err, check.ErrorMatches, "unsupported base image .*")
 }
