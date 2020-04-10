@@ -53,8 +53,7 @@ func WizardTeleportConfig(clusterName, stateDir string) *telecfg.FileConfig {
 				EnabledFlag:   "yes",
 				ListenAddress: fmt.Sprintf("localhost:%v", defaults.WizardAuthServerPort),
 			},
-			ClusterName: telecfg.ClusterName(fmt.Sprintf("%v%v",
-				constants.InstallerTunnelPrefix, clusterName)),
+			ClusterName: telecfg.ClusterName(constants.InstallerClusterName(clusterName)),
 		},
 		Proxy: telecfg.Proxy{
 			Service: telecfg.Service{

@@ -85,22 +85,26 @@ func resumeOperation(localEnv *localenv.LocalEnvironment, environ LocalEnvironme
 
 // executePhase executes a phase for the operation specified with params
 func executePhase(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params PhaseParams) error {
-	op, err := getActiveOperation(localEnv, environ, params.OperationID)
+	operations, err := getActiveOperations(localEnv, environ, params.OperationID)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
+	if len(operations) != 1 {
+		log.WithField("operations", oplist(operations)).Warn("Multiple operations found.")
+		return trace.BadParameter("multiple operations found. Please specify operation with --operation-id")
+	}
+	op := operations[0]
 	switch op.Type {
 	case ops.OperationInstall:
 		return executeInstallPhase(localEnv, params, op)
 	case ops.OperationExpand:
 		return executeJoinPhase(localEnv, params, op)
 	case ops.OperationUpdate:
-		return executeUpdatePhase(localEnv, environ, params, *op)
+		return executeUpdatePhase(localEnv, environ, params, op)
 	case ops.OperationUpdateRuntimeEnviron:
-		return executeEnvironPhase(localEnv, environ, params, *op)
+		return executeEnvironPhase(localEnv, environ, params, op)
 	case ops.OperationUpdateConfig:
-		return executeConfigPhase(localEnv, environ, params, *op)
+		return executeConfigPhase(localEnv, environ, params, op)
 	case ops.OperationGarbageCollect:
 		return executeGarbageCollectPhase(localEnv, params, op)
 	default:
@@ -110,19 +114,24 @@ func executePhase(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentF
 
 // setPhase sets the specified phase state without executing it.
 func setPhase(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params SetPhaseParams) error {
-	op, err := getActiveOperation(env, environ, params.OperationID)
+	operations, err := getActiveOperations(env, environ, params.OperationID)
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	if len(operations) != 1 {
+		log.WithField("operations", oplist(operations)).Warn("Multiple operations found.")
+		return trace.BadParameter("multiple operations found. Please specify operation with --operation-id")
+	}
+	op := operations[0]
 	switch op.Type {
 	case ops.OperationInstall, ops.OperationExpand:
 		err = setPhaseFromService(env, params, op)
 	case ops.OperationUpdate:
-		err = setUpdatePhase(env, environ, params, *op)
+		err = setUpdatePhase(env, environ, params, op)
 	case ops.OperationUpdateRuntimeEnviron:
-		err = setEnvironPhase(env, environ, params, *op)
+		err = setEnvironPhase(env, environ, params, op)
 	case ops.OperationUpdateConfig:
-		err = setConfigPhase(env, environ, params, *op)
+		err = setConfigPhase(env, environ, params, op)
 	case ops.OperationGarbageCollect:
 		err = setGarbageCollectPhase(env, params, op)
 	default:
@@ -137,47 +146,58 @@ func setPhase(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, p
 
 // rollbackPhase rolls back a phase for the operation specified with params
 func rollbackPhase(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params PhaseParams) error {
-	op, err := getActiveOperation(localEnv, environ, params.OperationID)
+	operations, err := getActiveOperations(localEnv, environ, params.OperationID)
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	if len(operations) != 1 {
+		log.WithField("operations", oplist(operations)).Warn("Multiple operations found.")
+		return trace.BadParameter("multiple operations found. Please specify operation with --operation-id")
+	}
+	op := operations[0]
 	switch op.Type {
 	case ops.OperationInstall:
 		return rollbackInstallPhase(localEnv, params, op)
 	case ops.OperationExpand:
 		return rollbackJoinPhase(localEnv, params, op)
 	case ops.OperationUpdate:
-		return rollbackUpdatePhase(localEnv, environ, params, *op)
+		return rollbackUpdatePhase(localEnv, environ, params, op)
 	case ops.OperationUpdateRuntimeEnviron:
-		return rollbackEnvironPhase(localEnv, environ, params, *op)
+		return rollbackEnvironPhase(localEnv, environ, params, op)
 	case ops.OperationUpdateConfig:
-		return rollbackConfigPhase(localEnv, environ, params, *op)
+		return rollbackConfigPhase(localEnv, environ, params, op)
 	default:
 		return trace.BadParameter("operation type %q does not support plan rollback", op.Type)
 	}
 }
 
 func completeOperationPlan(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operationID string) error {
-	op, err := getActiveOperation(localEnv, environ, operationID)
+	operations, err := getActiveOperations(localEnv, environ, operationID)
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	if len(operations) != 1 {
+		log.WithField("operations", oplist(operations)).Warn("Multiple operations found.")
+		return trace.BadParameter("multiple operations found. Please specify operation with --operation-id")
+	}
+	op := operations[0]
 	switch op.Type {
 	case ops.OperationInstall:
 		err = completeInstallPlan(localEnv, op)
 	case ops.OperationExpand:
 		err = completeJoinPlan(localEnv, op)
 	case ops.OperationUpdate:
-		err = completeUpdatePlan(localEnv, environ, *op)
+		err = completeUpdatePlan(localEnv, environ, op)
 	case ops.OperationUpdateRuntimeEnviron:
-		err = completeEnvironPlan(localEnv, environ, *op)
+		err = completeEnvironPlan(localEnv, environ, op)
 	case ops.OperationUpdateConfig:
-		err = completeConfigPlan(localEnv, environ, *op)
+		err = completeConfigPlan(localEnv, environ, op)
 	default:
 		return trace.BadParameter("operation type %q does not support plan completion", op.Type)
 	}
-	if trace.IsNotFound(err) {
-		return completeClusterOperationPlan(localEnv, *op)
+	if op.Type != ops.OperationInstall && trace.IsNotFound(err) {
+		log.WithError(err).Warn("Failed to complete operation from service.")
+		return completeClusterOperationPlan(localEnv, op)
 	}
 	return trace.Wrap(err)
 }
@@ -197,7 +217,7 @@ func completeClusterOperationPlan(localEnv *localenv.LocalEnvironment, operation
 	return ops.FailOperation(operation.Key(), clusterEnv.Operator, "completed manually")
 }
 
-func getLastOperation(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operationID string) (*ops.SiteOperation, error) {
+func getLastOperations(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operationID string) ([]ops.SiteOperation, error) {
 	operations, err := getBackendOperations(localEnv, environ, operationID)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -209,19 +229,22 @@ func getLastOperation(localEnv *localenv.LocalEnvironment, environ LocalEnvironm
 		}
 		return nil, trace.NotFound("no operation found")
 	}
-	if len(operations) == 1 && operationID != "" {
-		log.WithField("operation", operations[0]).Debug("Fetched operation by ID.")
-		return &operations[0], nil
+	return operations, nil
+}
+
+func getActiveOperation(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operationID string) (*ops.SiteOperation, error) {
+	operations, err := getActiveOperations(localEnv, environ, operationID)
+	if err != nil {
+		return nil, trace.Wrap(err)
 	}
 	if len(operations) != 1 {
-		log.Infof("Multiple operations found: \n%v\n, please specify operation with --operation-id.\n"+
-			"Displaying the most recent operation.",
-			oplist(operations))
+		log.WithField("operations", oplist(operations)).Warn("Multiple operations found.")
+		return nil, trace.BadParameter("multiple operations found. Please specify operation with --operation-id")
 	}
 	return &operations[0], nil
 }
 
-func getActiveOperation(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operationID string) (*ops.SiteOperation, error) {
+func getActiveOperations(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operationID string) ([]ops.SiteOperation, error) {
 	operations, err := getBackendOperations(localEnv, environ, operationID)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -233,11 +256,7 @@ func getActiveOperation(localEnv *localenv.LocalEnvironment, environ LocalEnviro
 		}
 		return nil, trace.NotFound("no operation found")
 	}
-	op, err := getActiveOperationFromList(operations)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return op, nil
+	return getActiveOperationsFromList(operations)
 }
 
 // getBackendOperations returns the list of operation from the specified backends
@@ -314,7 +333,7 @@ func (r *backendOperations) getOperationAndUpdateCache(getter operationGetter, l
 	if err == nil {
 		// Operation from the backend takes precedence over the existing operation (from cluster state)
 		r.operations[op.ID] = (ops.SiteOperation)(*op)
-	} else {
+	} else if !trace.IsNotFound(err) {
 		logger.WithError(err).Warn("Failed to query operation.")
 	}
 	return (*ops.SiteOperation)(op)
@@ -391,13 +410,16 @@ type backendOperations struct {
 	clusterOperation *ops.SiteOperation
 }
 
-func getActiveOperationFromList(operations []ops.SiteOperation) (*ops.SiteOperation, error) {
+func getActiveOperationsFromList(operations []ops.SiteOperation) (result []ops.SiteOperation, err error) {
 	for _, op := range operations {
 		if !op.IsCompleted() {
-			return &op, nil
+			result = append(result, op)
 		}
 	}
-	return nil, trace.NotFound("no active operations found")
+	if len(result) == 0 {
+		return nil, trace.NotFound("no active operations found")
+	}
+	return result, nil
 }
 
 func (r oplist) String() string {

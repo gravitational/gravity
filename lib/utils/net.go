@@ -108,48 +108,6 @@ func SelectSubnet(blocks []string) (string, error) {
 	return "", trace.NotFound("no /16 subnet found in private network range")
 }
 
-// ValidateKubernetesSubnets makes sure that the provided CIDR ranges can be used as
-// pod/service Kubernetes subnets
-func ValidateKubernetesSubnets(podCIDR, serviceCIDR string) error {
-	var podNet, serviceNet *net.IPNet
-	var err error
-
-	// make sure the pod subnet is valid
-	if podCIDR != "" {
-		_, podNet, err = net.ParseCIDR(podCIDR)
-		if err != nil {
-			return trace.BadParameter(
-				"invalid pod network CIDR: %v", podCIDR)
-		}
-
-		// the pod network should be /16 minimum so k8s can allocate /24 to each node
-		ones, _ := podNet.Mask.Size()
-		if ones > 16 {
-			return trace.BadParameter(
-				"pod network should be a minimum of /16: %v", podCIDR)
-		}
-	}
-
-	// make sure the service subnet is valid
-	if serviceCIDR != "" {
-		_, serviceNet, err = net.ParseCIDR(serviceCIDR)
-		if err != nil {
-			return trace.BadParameter(
-				"invalid service network CIDR: %v", serviceCIDR)
-		}
-	}
-
-	// make sure the subnets do not overlap
-	if podNet != nil && serviceNet != nil {
-		if podNet.Contains(serviceNet.IP) || serviceNet.Contains(podNet.IP) {
-			return trace.BadParameter(
-				"pod and service subnets should not overlap")
-		}
-	}
-
-	return nil
-}
-
 // PickAdvertiseIP selects an advertise IP among the host's interfaces
 func PickAdvertiseIP() (string, error) {
 	ip, err := netutils.ChooseHostInterface()

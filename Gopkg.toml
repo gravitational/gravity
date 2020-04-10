@@ -116,6 +116,8 @@ ignored = [
   version = "kubernetes-1.15.5"
 
 [[override]]
+  # TODO: matches the version of helm as it's relying on various packages
+  # (i.e. pkg/kubectl/cmd/get and pkg/kubectl/cmd/util) moved elsewhere in 1.17.x and 1.16.x
   name = "k8s.io/kubernetes"
   version = "1.15.5"
 
@@ -175,7 +177,7 @@ ignored = [
 [[override]]
   name = "github.com/sirupsen/logrus"
   source = "github.com/gravitational/logrus"
-  version = "=1.4.3-alpha.1"
+  version = "=v1.4.3"
 
 [[constraint]]
   name = "github.com/aws/aws-sdk-go"

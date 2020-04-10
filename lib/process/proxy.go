@@ -339,7 +339,7 @@ func (t *teleportProxyService) GetServerCount(ctx context.Context, siteName stri
 	return len(servers), nil
 }
 
-func (t *teleportProxyService) ExecuteCommand(ctx context.Context, siteName, nodeAddr, command string, out io.Writer) error {
+func (t *teleportProxyService) ExecuteCommand(ctx context.Context, siteName, nodeAddr, command string, stdout, stderr io.Writer) error {
 	t.Infof("ExecuteCommand(%v, %v, %v)", siteName, nodeAddr, command)
 	hostChecker, err := t.hostCertChecker()
 	if err != nil {
@@ -366,7 +366,8 @@ func (t *teleportProxyService) ExecuteCommand(ctx context.Context, siteName, nod
 		SSHProxyAddr:    t.cfg.SSHProxyAddr,
 		HostPort:        targetPort,
 		Host:            targetHost,
-		Stdout:          out,
+		Stdout:          stdout,
+		Stderr:          stderr,
 		SiteName:        siteName,
 		HostKeyCallback: hostChecker,
 		TLS:             tlsConfig,

@@ -65,7 +65,7 @@ func initUpdateOperationPlan(localEnv, updateEnv *localenv.LocalEnvironment) err
 }
 
 func displayOperationPlan(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operationID string, format constants.Format) error {
-	op, err := getLastOperation(localEnv, environ, operationID)
+	operations, err := getLastOperations(localEnv, environ, operationID)
 	if err != nil {
 		if trace.IsNotFound(err) {
 			// FIXME(dmitri): better phrasing
@@ -76,6 +76,7 @@ To restart the installation, use 'gravity resume' after fixing the issues.
 		}
 		return trace.Wrap(err)
 	}
+	op := operations[0]
 	if op.IsCompleted() {
 		return displayClusterOperationPlan(localEnv, op.Key(), format)
 	}

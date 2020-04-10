@@ -27,6 +27,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
@@ -194,6 +195,23 @@ func DefaultServiceUser() *User {
 		UID:  defaults.ServiceUID,
 		GID:  defaults.ServiceGID,
 	}
+}
+
+// UserFromOSUser returns a new user from the specified storage user
+func UserFromOSUser(user storage.OSUser) (*User, error) {
+	uid, err := strconv.Atoi(user.UID)
+	if err != nil {
+		return nil, trace.BadParameter("expected a numeric UID but got %v", user.UID)
+	}
+	gid, err := strconv.Atoi(user.GID)
+	if err != nil {
+		return nil, trace.BadParameter("expected a numeric GID but got %v", user.GID)
+	}
+	return &User{
+		Name: user.Name,
+		UID:  uid,
+		GID:  gid,
+	}, nil
 }
 
 // String returns a textual representation of this user.

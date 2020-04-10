@@ -891,8 +891,9 @@ func (s *site) newProvisioningToken(operation ops.SiteOperation) (token string, 
 		tokenRequest.Expires = s.clock().UtcNow().Add(defaults.InstallTokenTTL)
 	}
 	_, err = s.users().CreateProvisioningToken(tokenRequest)
-	if err != nil {
-		return token, trace.Wrap(err)
+	if err != nil && !trace.IsAlreadyExists(err) {
+		log.WithError(err).Warn("Failed to create provisioning token.")
+		return "", trace.Wrap(err)
 	}
 	return token, nil
 }

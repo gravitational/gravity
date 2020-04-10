@@ -24,6 +24,7 @@ import (
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack/localpack"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/systeminfo"
 	"github.com/gravitational/gravity/lib/update/system"
 
 	"github.com/gravitational/trace"
@@ -42,7 +43,7 @@ func NewSystem(p fsm.ExecutorParams, operator ops.Operator, localPackages *local
 		Operator: operator,
 		Server:   p.Phase.Data.Server,
 	}
-	serviceUser, err := userFromOSUser(*p.Phase.Data.ServiceUser)
+	serviceUser, err := systeminfo.UserFromOSUser(*p.Phase.Data.ServiceUser)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
