@@ -77,14 +77,14 @@ xfs
 	}
 }
 
-func (r testRunner) RunStream(ctx context.Context, w io.Writer, args ...string) error {
-	fmt.Fprint(w, string(r))
+func (r testRunner) RunStream(ctx context.Context, stdout, stderr io.Writer, args ...string) error {
+	fmt.Fprint(stdout, string(r))
 	return nil
 }
 
 type testRunner string
 
-func (r failingRunner) RunStream(context.Context, io.Writer, ...string) error {
+func (r failingRunner) RunStream(ctx context.Context, stdout, stderr io.Writer, args ...string) error {
 	return r.error
 }
 
