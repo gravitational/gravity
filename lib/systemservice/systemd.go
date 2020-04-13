@@ -125,10 +125,6 @@ func (u *systemdUnit) serviceName() string {
 		systemdServiceDelimiter) + systemdUnitFileSuffix
 }
 
-func (u *systemdUnit) servicePath() string {
-	return unitPath(u.serviceName())
-}
-
 func (s *systemdManager) installService(service serviceTemplate, req NewServiceRequest) error {
 	if service.Environment == nil {
 		service.Environment = make(map[string]string)
