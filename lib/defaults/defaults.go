@@ -1224,6 +1224,13 @@ var (
 	// GravityUserLogPath the default location for user-facing log file
 	GravityUserLogPath = filepath.Join(SystemLogDir, GravityUserLogFile)
 
+	// GenerateDebugReportTimeout specifies the maximum amount of time to wait for
+	// cluster-wide debug report generation.
+	// TODO(dmitri): this is trickier to handle correctly - ideally, this should much shorter
+	// and for the initial data wait (until there's data coming on the conn).
+	// There should be no timeout for the actual report receive operation.
+	GenerateDebugReportTimeout = 10 * time.Minute
+
 	// WormholeImg is the docker image reference to use when embedding wormhole
 	// Note: This is a build parameter, and the build scripts will replace this with an image reference
 	WormholeImg = "<build param>"

@@ -76,6 +76,11 @@ To restart the installation, use 'gravity resume' after fixing the issues.
 		}
 		return trace.Wrap(err)
 	}
+	if len(operations) != 1 {
+		log.WithField("operations", oplist(operations).String()).Warn("Multiple operations found.")
+		localEnv.Println("Multiple operations found: \n%v\n, please specify operation with --operation-id.\n" +
+			"Displaying the most recent operation.")
+	}
 	op := operations[0]
 	if op.IsCompleted() {
 		return displayClusterOperationPlan(localEnv, op.Key(), format)

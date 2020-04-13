@@ -148,7 +148,7 @@ func (s *site) executeOnServers(ctx context.Context, servers []remoteServer, fn 
 				}
 				errCh <- trace.Wrap(err)
 			}(ctx, server)
-		case <-ctx.Done(): // someone has cancelled the operation
+		case <-ctx.Done():
 			return trace.LimitExceeded("cancelled")
 		}
 	}
@@ -160,7 +160,7 @@ func (s *site) executeOnServers(ctx context.Context, servers []remoteServer, fn 
 		case err := <-errCh:
 			errors = append(errors, err)
 		case <-ctx.Done():
-			return trace.BadParameter("cancelled")
+			return trace.LimitExceeded("cancelled")
 		}
 	}
 

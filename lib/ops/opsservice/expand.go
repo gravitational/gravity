@@ -66,7 +66,7 @@ func (s *site) getSiteOperation(operationID string) (*ops.SiteOperation, error) 
 // expandOperationStart kicks off actuall expansion process:
 // resource provisioning, package configuration and deployment
 func (s *site) expandOperationStart(ctx *operationContext) error {
-	op, err := s.compareAndSwapOperationState(swap{
+	op, err := s.compareAndSwapOperationState(context.TODO(), swap{
 		key: ctx.key(),
 		expectedStates: []string{
 			ops.OperationStateExpandInitiated,
@@ -106,7 +106,7 @@ func (s *site) expandOperationStart(ctx *operationContext) error {
 		Message: "The node is up",
 	})
 
-	_, err = s.compareAndSwapOperationState(swap{
+	_, err = s.compareAndSwapOperationState(context.TODO(), swap{
 		key:            ctx.key(),
 		expectedStates: []string{ops.OperationStateExpandProvisioning},
 		newOpState:     ops.OperationStateReady,

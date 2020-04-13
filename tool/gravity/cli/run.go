@@ -69,6 +69,12 @@ func Run(g *Application) error {
 		return trace.Wrap(err)
 	}
 
+	if *g.Debug {
+		utils.InitGRPCLoggerWithDefaults()
+	} else {
+		utils.InitGRPCLoggerFromEnvironment()
+	}
+
 	if *g.UID != -1 || *g.GID != -1 {
 		return SwitchPrivileges(*g.UID, *g.GID)
 	}

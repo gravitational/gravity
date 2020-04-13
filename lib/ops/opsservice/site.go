@@ -396,7 +396,7 @@ func (s *site) executeOperationWithContext(ctx *operationContext, op *ops.SiteOp
 
 	// change the state without "compare" part just to take leverage of
 	// the operation group locking to ensure atomicity
-	_, err := s.compareAndSwapOperationState(swap{
+	_, err := s.compareAndSwapOperationState(context.TODO(), swap{
 		key:        ctx.key(),
 		newOpState: ops.OperationStateFailed,
 	})
@@ -462,8 +462,8 @@ func (s *site) copyFileFromStream(stream io.ReadCloser, dst string, transform tr
 	return nil
 }
 
-func (s *site) compareAndSwapOperationState(swap swap) (*ops.SiteOperation, error) {
-	return s.getOperationGroup().compareAndSwapOperationState(swap)
+func (s *site) compareAndSwapOperationState(ctx context.Context, swap swap) (*ops.SiteOperation, error) {
+	return s.getOperationGroup().compareAndSwapOperationState(ctx, swap)
 }
 
 func (s *site) setOperationState(key ops.SiteOperationKey, state string) (*ops.SiteOperation, error) {

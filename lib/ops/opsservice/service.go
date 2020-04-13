@@ -1050,7 +1050,7 @@ func (o *Operator) CreateClusterGarbageCollectOperation(ctx context.Context, r o
 	return key, nil
 }
 
-func (o *Operator) SetOperationState(key ops.SiteOperationKey, req ops.SetOperationStateRequest) error {
+func (o *Operator) SetOperationState(ctx context.Context, key ops.SiteOperationKey, req ops.SetOperationStateRequest) error {
 	o.Infof("%#v", req)
 	site, err := o.openSite(key.SiteKey())
 	if err != nil {
@@ -1058,7 +1058,7 @@ func (o *Operator) SetOperationState(key ops.SiteOperationKey, req ops.SetOperat
 	}
 	// change the state without "compare" part just to take leverage of
 	// the operation group locking to ensure atomicity
-	_, err = site.compareAndSwapOperationState(swap{
+	_, err = site.compareAndSwapOperationState(ctx, swap{
 		key:        key,
 		newOpState: req.State,
 	})
@@ -1074,15 +1074,15 @@ func (o *Operator) SetOperationState(key ops.SiteOperationKey, req ops.SetOperat
 	return nil
 }
 
-func (o *Operator) GetSiteInstallOperationAgentReport(key ops.SiteOperationKey) (*ops.AgentReport, error) {
-	return o.getSiteOperationAgentReport(key)
+func (o *Operator) GetSiteInstallOperationAgentReport(ctx context.Context, key ops.SiteOperationKey) (*ops.AgentReport, error) {
+	return o.getSiteOperationAgentReport(ctx, key)
 }
 
-func (o *Operator) GetSiteExpandOperationAgentReport(key ops.SiteOperationKey) (*ops.AgentReport, error) {
-	return o.getSiteOperationAgentReport(key)
+func (o *Operator) GetSiteExpandOperationAgentReport(ctx context.Context, key ops.SiteOperationKey) (*ops.AgentReport, error) {
+	return o.getSiteOperationAgentReport(ctx, key)
 }
 
-func (o *Operator) getSiteOperationAgentReport(key ops.SiteOperationKey) (*ops.AgentReport, error) {
+func (o *Operator) getSiteOperationAgentReport(ctx context.Context, key ops.SiteOperationKey) (*ops.AgentReport, error) {
 	cluster, err := o.openSite(ops.SiteKey{AccountID: key.AccountID, SiteDomain: key.SiteDomain})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -1091,12 +1091,12 @@ func (o *Operator) getSiteOperationAgentReport(key ops.SiteOperationKey) (*ops.A
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	ctx, err := cluster.newOperationContext(*op)
+	opCtx, err := cluster.newOperationContext(*op)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	defer ctx.Close()
-	return cluster.agentReport(context.TODO(), ctx)
+	defer opCtx.Close()
+	return cluster.agentReport(ctx, opCtx)
 }
 
 func (o *Operator) SiteInstallOperationStart(key ops.SiteOperationKey) error {
@@ -1140,13 +1140,13 @@ func (o *Operator) CreateLogEntry(key ops.SiteOperationKey, entry ops.LogEntry) 
 	return site.createLogEntry(key, entry)
 }
 
-func (o *Operator) GetSiteReport(key ops.SiteKey) (io.ReadCloser, error) {
+func (o *Operator) GetSiteReport(ctx context.Context, key ops.SiteKey) (io.ReadCloser, error) {
 	cluster, err := o.openSite(key)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	return cluster.getClusterReport()
+	return cluster.getClusterReport(ctx)
 }
 
 func (o *Operator) GetSiteOperationProgress(key ops.SiteOperationKey) (*ops.ProgressEntry, error) {

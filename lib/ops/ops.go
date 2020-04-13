@@ -417,7 +417,7 @@ type Sites interface {
 	CompleteFinalInstallStep(CompleteFinalInstallStepRequest) error
 
 	// GetSiteReport returns a tarball that contains all debugging information gathered for the site
-	GetSiteReport(SiteKey) (io.ReadCloser, error)
+	GetSiteReport(context.Context, SiteKey) (io.ReadCloser, error)
 
 	// SignTLSKey signs X509 Public Key with X509 certificate authority of this site
 	SignTLSKey(TLSSignRequest) (*TLSSignResponse, error)
@@ -744,7 +744,7 @@ type Operations interface {
 	//
 	// 2. This method is called as a second step to get information
 	// about servers participating in the operations
-	GetSiteInstallOperationAgentReport(SiteOperationKey) (*AgentReport, error)
+	GetSiteInstallOperationAgentReport(context.Context, SiteOperationKey) (*AgentReport, error)
 
 	// SiteInstallOperationStart begins actuall install using
 	// the Operation plan configured as a previous step
@@ -798,7 +798,7 @@ type Operations interface {
 	//
 	// 2. This method is called as a second step to get information
 	// about servers participating in the operations
-	GetSiteExpandOperationAgentReport(SiteOperationKey) (*AgentReport, error)
+	GetSiteExpandOperationAgentReport(context.Context, SiteOperationKey) (*AgentReport, error)
 
 	// SiteExpandOperationStart begins actuall expand using
 	// the Operation plan configured as a previous step
@@ -828,7 +828,7 @@ type Operations interface {
 	DeleteSiteOperation(SiteOperationKey) error
 
 	// SetOperationState moves operation into specified state
-	SetOperationState(key SiteOperationKey, req SetOperationStateRequest) error
+	SetOperationState(ctx context.Context, key SiteOperationKey, req SetOperationStateRequest) error
 
 	// CreateOperationPlan saves the provided operation plan
 	CreateOperationPlan(SiteOperationKey, storage.OperationPlan) error
