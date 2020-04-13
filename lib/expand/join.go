@@ -206,7 +206,7 @@ func (p *Peer) dialSite(addr string) (*operationContext, error) {
 	if err != nil {
 		return nil, utils.Abort(err) // stop retrying on failed checks
 	}
-	creds, err := install.LoadRPCCredentials(p.Context, packages, p.FieldLogger)
+	creds, err := install.LoadRPCCredentials(p.Context, packages)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

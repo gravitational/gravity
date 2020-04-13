@@ -22,6 +22,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/app/service"
+	"github.com/gravitational/gravity/lib/blob"
 	libcluster "github.com/gravitational/gravity/lib/blob/cluster"
 	"github.com/gravitational/gravity/lib/blob/fs"
 	"github.com/gravitational/gravity/lib/httplib"
@@ -46,15 +47,18 @@ func (r *LocalEnvironment) NewClusterEnvironment(opts ...ClusterEnvironmentOptio
 		log.WithError(err).Warn("Failed to create Kubernetes client.")
 	}
 	user, err := r.Backend.GetServiceUser()
-	if err != nil {
+	if err != nil && !trace.IsNotFound(err) {
 		return nil, trace.Wrap(err)
 	}
-	serviceUser, err := systeminfo.FromOSUser(*user)
-	if err != nil {
-		return nil, trace.Wrap(err)
+	var serviceUser *systeminfo.User
+	if user != nil {
+		serviceUser, err = systeminfo.FromOSUser(*user)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
 	}
 	nodeAddr, err := r.Backend.GetNodeAddr()
-	if err != nil {
+	if err != nil && !trace.IsNotFound(err) {
 		return nil, trace.Wrap(err)
 	}
 	config := clusterEnvironmentConfig{
@@ -159,17 +163,30 @@ func newClusterEnvironment(config clusterEnvironmentConfig) (*ClusterEnvironment
 		return nil, trace.Wrap(err)
 	}
 
-	objects, err := libcluster.New(libcluster.Config{
-		Local:       localObjects,
-		WriteFactor: 1,
-		Backend:     backend,
-		ID:          config.nodeAddr,
-		// This is not mandatory if LocalEnviron == true as the blob
-		// service will not be creating a peer client
-		AdvertiseAddr: fmt.Sprintf("https://%v", config.nodeAddr),
-	})
-	if err != nil {
-		return nil, trace.Wrap(err)
+	var objects blob.Objects
+	if config.nodeAddr == "" {
+		objects, err = fs.New(fs.Config{Path: packagesDir})
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+	} else {
+		// TODO(dmitri): leaving this as a workaround.
+		// To be able to use cluster-level package service,
+		// a node address is required. This is not available on nodes prior to upgrade
+		// with an version that did not support the necessary system metadata (node address
+		// and service user).
+		// This is normally not a problem as the cluster-level package service is not required
+		// during the upgrade.
+		objects, err = libcluster.New(libcluster.Config{
+			Local:         localObjects,
+			WriteFactor:   1,
+			Backend:       backend,
+			ID:            config.nodeAddr,
+			AdvertiseAddr: fmt.Sprintf("https://%v", config.nodeAddr),
+		})
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
 	}
 
 	unpackedDir, err := SiteUnpackedDir()
