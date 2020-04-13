@@ -200,8 +200,6 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.AutoJoinCmd.FullCommand(),
 		g.LeaveCmd.FullCommand(),
 		g.RemoveCmd.FullCommand(),
-		g.SystemDevicemapperMountCmd.FullCommand(),
-		g.SystemDevicemapperUnmountCmd.FullCommand(),
 		g.BackupCmd.FullCommand(),
 		g.RestoreCmd.FullCommand(),
 		g.GarbageCollectCmd.FullCommand(),
@@ -837,12 +835,6 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 		return planetShell(localEnv)
 	case g.PlanetStatusCmd.FullCommand():
 		return getPlanetStatus(localEnv, extraArgs)
-	case g.SystemDevicemapperMountCmd.FullCommand():
-		return devicemapperMount(*g.SystemDevicemapperMountCmd.Disk)
-	case g.SystemDevicemapperUnmountCmd.FullCommand():
-		return devicemapperUnmount()
-	case g.SystemDevicemapperSystemDirCmd.FullCommand():
-		return devicemapperQuerySystemDirectory()
 	case g.UsersInviteCmd.FullCommand():
 		return inviteUser(localEnv,
 			*g.UsersInviteCmd.Name,

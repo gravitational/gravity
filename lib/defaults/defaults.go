@@ -328,7 +328,10 @@ const (
 	SerfBin = "/usr/bin/serf"
 
 	// JournalctlBin is the default location of the journalctl inside planet
-	JournalctlBin = "/bin/journalctl"
+	JournalctlBin = "/usr/bin/journalctl"
+
+	// JournalctlBinHost is the default location of the journalctl on host
+	JournalctlBinHost = "/bin/journalctl"
 
 	// SystemctlBin is systemctl executable inside planet
 	SystemctlBin = "/bin/systemctl"

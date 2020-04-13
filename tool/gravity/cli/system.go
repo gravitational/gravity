@@ -1032,7 +1032,7 @@ func systemUninstall(env *localenv.LocalEnvironment, confirmed bool) error {
 }
 
 func execJournalctl(loc loc.Locator, args ...string) error {
-	const cmd = defaults.JournalctlBin
+	const cmd = defaults.JournalctlBinHost
 	args = append([]string{cmd, "--unit", systemservice.PackageServiceName(loc)}, args...)
 	if err := syscall.Exec(cmd, args, os.Environ()); err != nil {
 		return trace.Wrap(trace.ConvertSystemError(err),

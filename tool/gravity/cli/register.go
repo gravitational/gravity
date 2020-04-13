@@ -660,13 +660,6 @@ func RegisterCommands(app *kingpin.Application) *Application {
 
 	g.SystemStateDirCmd.CmdClause = g.SystemCmd.Command("state-dir", "show where all gravity data is stored on the node").Hidden()
 
-	// manage docker devicemapper environment
-	g.SystemDevicemapperCmd.CmdClause = g.SystemCmd.Command("devicemapper", "manage docker devicemapper environment").Hidden()
-	g.SystemDevicemapperMountCmd.CmdClause = g.SystemDevicemapperCmd.Command("mount", "configure devicemapper environment").Hidden()
-	g.SystemDevicemapperMountCmd.Disk = g.SystemDevicemapperMountCmd.Arg("disk", "disk/partition to use for physical volume").String()
-	g.SystemDevicemapperUnmountCmd.CmdClause = g.SystemDevicemapperCmd.Command("unmount", "remove devicemapper environment").Hidden()
-	g.SystemDevicemapperSystemDirCmd.CmdClause = g.SystemDevicemapperCmd.Command("system-dir", "query the location of the lvm system directory").Hidden()
-
 	// journal helpers
 	g.SystemExportRuntimeJournalCmd.CmdClause = g.SystemCmd.Command("export-runtime-journal", "Export runtime journal logs to a file").Hidden()
 	g.SystemExportRuntimeJournalCmd.OutputFile = g.SystemExportRuntimeJournalCmd.Flag("output", "Name of resulting tarball. Output to stdout if unspecified").String()
