@@ -584,12 +584,6 @@ const (
 	// AuthGatewayConfigMap is the name of config map with auth gateway configuration.
 	AuthGatewayConfigMap = "auth-gateway"
 
-	// LVMSystemDir specifies the default location where lvm2 keeps state and configuration data
-	LVMSystemDir = "/etc/lvm"
-	// LVMSystemDirEnvvar defines the name of the environment variable that overrides the
-	// default system location
-	LVMSystemDirEnvvar = "LVM_SYSTEM_DIR"
-
 	// RPCAgentUpgradeFunction requests deployed agents to run automatic upgrade operation on leader node
 	RPCAgentUpgradeFunction = "upgrade"
 

@@ -37,6 +37,7 @@ import (
 	"github.com/coreos/go-semver/semver"
 	dockerarchive "github.com/docker/docker/pkg/archive"
 	"github.com/gravitational/trace"
+	"github.com/opencontainers/selinux/go-selinux"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -695,6 +696,26 @@ func FindSecretsPackage(packages PackageService) (*loc.Locator, error) {
 		return nil, trace.Wrap(err)
 	}
 	return &env.Locator, nil
+}
+
+// ExportExecutable downloads the specified package from the package service
+// into the provided path as an executable.
+func ExportExecutable(packages PackageService, locator loc.Locator, path, label string) error {
+	_, reader, err := packages.ReadPackage(locator)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer reader.Close()
+	err = utils.CopyReaderWithPerms(path, reader, defaults.SharedExecutableMask)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if selinux.GetEnabled() && label != "" {
+		if err := selinux.SetFileLabel(path, label); err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	return nil
 }
 
 // IsSecretsPackage returns true if the specified package is a runtime secrets package

@@ -29,6 +29,7 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/devicemapper"
 	"github.com/gravitational/gravity/lib/state"
+	"github.com/gravitational/gravity/lib/system/auditlog"
 	libselinux "github.com/gravitational/gravity/lib/system/selinux"
 	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/utils"
@@ -54,15 +55,30 @@ func UninstallSystem(ctx context.Context, printer utils.Printer, logger log.Fiel
 	if err := removeInterfaces(printer); err != nil {
 		errors = append(errors, err)
 	}
-	pathsToRemove := append(getStatePaths(), state.GravityBinPaths...)
-	pathsToRemove = append(pathsToRemove, state.KubectlBinPaths...)
+	pathsToRemove := getPathsToRemove()
 	if err := removePaths(printer, logger, pathsToRemove...); err != nil {
 		errors = append(errors, err)
 	}
 	if err := unloadSELinuxPolicy(ctx); err != nil {
 		errors = append(errors, err)
 	}
+	if err := removeAuditRules(); err != nil {
+		errors = append(errors, err)
+	}
 	return trace.NewAggregate(errors...)
+}
+
+// getPathsToRemove returns a list of paths to gravity artifacts that need
+// to be cleaned up on the system.
+func getPathsToRemove() []string {
+	return append(getStatePaths(),
+		defaults.GravityBin,
+		defaults.GravityBinAlternate,
+		defaults.KubectlBin,
+		defaults.KubectlBinAlternate,
+		defaults.HelmBin,
+		defaults.HelmBinAlternate,
+	)
 }
 
 // CleanupOperationState removes all operation state after the operation is complete
@@ -135,6 +151,10 @@ func unloadSELinuxPolicy(ctx context.Context) error {
 	return libselinux.Unload(ctx, libselinux.BootstrapConfig{
 		StateDir: stateDir,
 	})
+}
+
+func removeAuditRules() error {
+	return auditlog.New().RemoveRules()
 }
 
 func uninstallPackageServices(svm systemservice.ServiceManager, printer utils.Printer, logger log.FieldLogger) error {
@@ -212,7 +232,7 @@ func removeInterfaces(printer utils.Printer) error {
 	}
 	var errors []error
 	for _, iface := range ifaces {
-		if utils.HasOneOfPrefixes(iface.Name, "docker", "flannel", "cni", "wormhole") {
+		if utils.HasOneOfPrefixes(iface.Name, defaults.NetworkInterfacePrefixes...) {
 			printer.PrintStep("Removing network interface %q", iface.Name)
 			var out bytes.Buffer
 			if err := utils.Exec(exec.Command("ip", "link", "del", iface.Name), &out); err != nil {

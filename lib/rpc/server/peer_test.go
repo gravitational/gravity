@@ -19,7 +19,7 @@ package server
 import (
 	"time"
 
-	"github.com/gravitational/gravity/lib/rpc/proxy"
+	"github.com/gravitational/gravity/lib/rpc/internal/proxy"
 
 	"golang.org/x/net/context"
 	. "gopkg.in/check.v1"

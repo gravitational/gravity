@@ -54,7 +54,6 @@ func InitOperationPlan(
 	clusterEnv *localenv.ClusterEnvironment,
 	opKey ops.SiteOperationKey,
 	leader *storage.Server,
-	seLinuxEnabled bool,
 ) (*storage.OperationPlan, error) {
 	operation, err := storage.GetOperationByID(clusterEnv.Backend, opKey.OperationID)
 	if err != nil {
@@ -98,7 +97,6 @@ func InitOperationPlan(
 		Operator:  clusterEnv.Operator,
 		Operation: operation,
 		Leader:    leader,
-		SELinux:   seLinuxEnabled,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -204,7 +202,6 @@ func NewOperationPlan(config PlanConfig) (*storage.OperationPlan, error) {
 			Servers:        servers,
 			DNSConfig:      config.DNSConfig,
 			GravityPackage: *gravityPackage,
-			SELinux:        config.SELinux,
 		},
 		operator:          config.Operator,
 		operation:         *config.Operation,
@@ -264,7 +261,6 @@ type PlanConfig struct {
 	Operation *storage.SiteOperation
 	Client    *kubernetes.Clientset
 	Leader    *storage.Server
-	SELinux   bool
 }
 
 // planConfig collects parameters needed to generate an update operation plan
@@ -314,7 +310,7 @@ func newOperationPlan(p planConfig) (*storage.OperationPlan, error) {
 	initPhase := *builder.init(p.leadMaster.Server)
 	checkDeps := []update.PhaseIder{initPhase}
 	var seLinuxPhase *update.Phase
-	if p.plan.SELinux {
+	if builder.hasSELinuxPhase() {
 		seLinuxPhase = builder.bootstrapSELinux().Require(initPhase)
 		checkDeps = append(checkDeps, *seLinuxPhase)
 	}

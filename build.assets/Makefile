@@ -166,13 +166,13 @@ endef
 #
 # build gravity binaries
 #
-.PHONY: build
-build: selinux
 ifeq ($(OS),darwin)
-	$(MAKE) build-on-host
+.PHONY: build
+build: build-on-host
 	ln -sf $(GRAVITY_BUILDDIR) $(GRAVITY_CURRENT_BUILDDIR)
 else
-	$(MAKE) build-in-container
+.PHONY: build
+build: selinux build-in-container
 	ln --symbolic --force --no-target-directory $(GRAVITY_BUILDDIR) $(GRAVITY_CURRENT_BUILDDIR)
 endif
 

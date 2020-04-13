@@ -23,7 +23,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gravitational/gravity/lib/rpc/inprocess"
+	"github.com/gravitational/gravity/lib/rpc/internal/inprocess"
 
 	log "github.com/sirupsen/logrus"
 	. "gopkg.in/check.v1"
@@ -37,12 +37,19 @@ var _ = Suite(&S{})
 
 func (_ *S) TestProxiesConnections(c *C) {
 	link := newLocalLink()
+	defer link.stop()
 	proxy := New(link, log.WithField("test", "TestProxiesConnections"))
-	proxy.Start()
+	notifyCh := make(chan struct{}, 1)
+	proxy.NotifyCh = notifyCh
+	c.Assert(proxy.Start(), IsNil)
 	defer proxy.Stop()
 
 	conn, err := link.local.Dial()
 	c.Assert(err, IsNil)
+
+	// wait for new connection: this blocks until the proxy has accepted
+	// the connection and created handler loop
+	<-notifyCh
 
 	s := newServer(1)
 	go s.serve(link.upstream)
@@ -67,8 +74,8 @@ func (_ *S) TestCanStopProxyOnDemand(c *C) {
 	link := newLocalLink()
 	logger := log.WithField("test", ") TestCanStopProxyOnDemand")
 	proxy := New(link, logger)
-	notifyCh := make(chan struct{}, 1)
-	proxy.notifyCh = notifyCh
+	notifyCh := make(chan struct{}, 2)
+	proxy.NotifyCh = notifyCh
 	c.Assert(proxy.Start(), IsNil)
 	defer proxy.Stop()
 
@@ -93,11 +100,17 @@ func (_ *S) TestCanStopProxyOnDemand(c *C) {
 	// Restart proxy to be able to write
 	link.resetLocal()
 	proxy = New(link, logger)
+	proxy.NotifyCh = notifyCh
 	c.Assert(proxy.Start(), IsNil)
 	defer proxy.Stop()
 
 	conn, err = link.local.Dial()
 	c.Assert(err, IsNil)
+
+	// wait for new connection: this blocks until the proxy has accepted
+	// the connection and created handler loop
+	<-notifyCh
+
 	_, err = conn.Write(payload)
 	c.Assert(err, IsNil)
 	conn.Close()
@@ -145,10 +158,9 @@ func (r *localLink) resetLocal() {
 	r.local = inprocess.Listen()
 }
 
-func (r *localLink) stop() error {
+func (r *localLink) stop() {
 	r.local.Close()
 	r.upstream.Close()
-	return nil
 }
 
 type localLink struct {

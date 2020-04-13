@@ -255,6 +255,9 @@ const (
 	// StatusCollectionTimeout specifies the timeout for collecting gravity status.
 	StatusCollectionTimeout = 1 * time.Minute
 
+	// AuditLogClientTimeout specifies the timeout for collecting audit logs.
+	AuditLogClientTimeout = 5 * time.Second
+
 	// SatelliteRPCAgentPort is port used by satellite agent to expose its status
 	SatelliteRPCAgentPort = 7575
 
@@ -266,6 +269,9 @@ const (
 
 	// SerfAgentPort is port that serf agent on a node binds on
 	SerfAgentPort = 7496
+
+	// AlertmanagerServicePort is the Alertmanage service port
+	AlertmanagerServicePort = 9093
 
 	// GravityWebAssetsDir is the directory where gravity stores assets (including web)
 	// depending on the work mode.
@@ -333,7 +339,10 @@ const (
 	SerfBin = "/usr/bin/serf"
 
 	// JournalctlBin is the default location of the journalctl inside planet
-	JournalctlBin = "/bin/journalctl"
+	JournalctlBin = "/usr/bin/journalctl"
+
+	// JournalctlBinHost is the default location of the journalctl on host
+	JournalctlBinHost = "/bin/journalctl"
 
 	// SystemctlBin is systemctl executable inside planet
 	SystemctlBin = "/bin/systemctl"
@@ -821,6 +830,12 @@ const (
 	// GravityServicePortEnv defines the gravity service port in environment
 	GravityServicePortEnv = "GRAVITY_SITE_SERVICE_PORT_WEB"
 
+	// PlanetSELinuxEnv defines the planet selinux state marker in environment
+	PlanetSELinuxEnv = "PLANET_SELINUX"
+
+	// GravitySELinuxEnv defines the environment variable that controls whether to use SELinux
+	GravitySELinuxEnv = "GRAVITY_SELINUX"
+
 	// GravityClusterLabel defines the label to select cluster controller Pods
 	GravityClusterLabel = "gravity-site"
 
@@ -1091,8 +1106,14 @@ const (
 	// agents to form a cluster before commencing the operation
 	AgentWaitTimeout = 5 * time.Minute
 
+	// GravityInstallerProcessLabel specifies the SELinux label of the installer process
+	GravityInstallerProcessLabel = "system_u:system_r:gravity_installer_t:s0"
+
 	// ContainerFileLabel specifies the default SELinux container file label
 	ContainerFileLabel = "system_u:object_r:container_file_t:s0"
+
+	// GravityFileLabel specifies the file label for the gravity binary
+	GravityFileLabel = "system_u:object_r:gravity_exec_t:s0"
 )
 
 var (
@@ -1183,6 +1204,14 @@ var (
 
 	// DockerRegistry is a default name for private docker registry
 	DockerRegistry = DockerRegistryAddr("leader.telekube.local")
+
+	// NetworkIntefacePrefixes is a list of Kubernetes-specific network interface prefixes.
+	NetworkInterfacePrefixes = []string{
+		"docker",
+		"flannel",
+		"cni",
+		"wormhole",
+	}
 
 	// LocalRegistryAddr is the address of the local docker registry
 	LocalRegistryAddr = DockerRegistryAddr("127.0.0.1")

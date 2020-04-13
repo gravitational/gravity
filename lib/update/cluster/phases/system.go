@@ -54,7 +54,7 @@ type updatePhaseSystem struct {
 	// FieldLogger is used for logging
 	log.FieldLogger
 	remote fsm.Remote
-	// seLinux controls SELinux support
+	// seLinux indicates whether the SELinux support is on on the node
 	seLinux bool
 }
 
@@ -79,7 +79,7 @@ func NewUpdatePhaseSystem(
 		HostLocalPackages: localPackages,
 		FieldLogger:       logger,
 		remote:            remote,
-		seLinux:           p.Plan.SELinux,
+		seLinux:           p.Phase.Data.Update.Servers[0].SELinux,
 	}, nil
 }
 

@@ -565,9 +565,7 @@ tele-mac: flags
 # goinstall builds and installs gravity locally
 #
 .PHONY: goinstall
-goinstall: remove-temp-files compile
-	mkdir -p $(GRAVITY_BUILDDIR)
-	mkdir -p $(TF_PROVIDER_DIR)
+goinstall: remove-temp-files compile | $(TF_PROVIDER_DIR) $(GRAVITY_BUILDDIR)
 	for bin in ${BINARIES} ; do \
 		cp $(GOPATH)/bin/$${bin} $(GRAVITY_BUILDDIR)/$${bin} ; \
 	done
@@ -582,8 +580,14 @@ goinstall: remove-temp-files compile
 		$(GRAVITY) package import $(GRAVITY_OUT) $(GRAVITY_PKG)
 	$(MAKE) binary-packages
 
+$(GRAVITY_BUILDDIR):
+	mkdir -p $@
+
+$(TF_PROVIDER_DIR):
+	mkdir -p $@
+
 .PHONY: $(BINARIES)
-$(BINARIES):
+$(BINARIES): selinux
 	go install -ldflags $(GRAVITY_LINKFLAGS) -tags "$(GRAVITY_BUILDTAGS)" $(GRAVITY_PKG_PATH)/tool/$@
 
 .PHONY: wizard-publish

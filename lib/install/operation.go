@@ -62,7 +62,7 @@ func (i *Installer) NewCluster() ops.NewSiteRequest {
 // ExecuteOperation executes the specified operation to completion.
 // Implements Interface
 func (i *Installer) ExecuteOperation(operationKey ops.SiteOperationKey) error {
-	err := initOperationPlan(i.config.Operator, i.config.Planner)
+	err := i.initOperationPlan(operationKey)
 	if err != nil && !trace.IsAlreadyExists(err) {
 		return trace.Wrap(err)
 	}

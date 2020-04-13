@@ -8,12 +8,12 @@ import "gogo.proto";
 
 // Discovery provides access to agent's environment and runtime configuration.
 service Discovery {
-    // GetRuntimeConfig returns the agent's runtime configuration 
+    // GetRuntimeConfig returns the agent's runtime configuration
     rpc GetRuntimeConfig(google.protobuf.Empty) returns (RuntimeConfig);
 
     // GetSystemInfo queries system information on the host the agent is running on
     rpc GetSystemInfo(google.protobuf.Empty) returns (SystemInfo);
-    
+
     // GetCurrentTime returns the node's current time as UTC timestamp
     rpc GetCurrentTime(google.protobuf.Empty) returns (google.protobuf.Timestamp);
 }
@@ -52,6 +52,8 @@ message RuntimeConfig {
     // KeyValues specifies additional runtime configuration parameters
     // as key=value pairs
     map<string, string> key_values = 10;
+    // SELinux indicates that the node has SELinux support on
+    bool selinux = 11 [(gogoproto.customname) = "SELinux"];
 }
 
 // Device is a system I/O device

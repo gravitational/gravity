@@ -23,8 +23,11 @@ import (
 	"io"
 	"io/ioutil"
 	"os/exec"
+	"os/user"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/gravitational/gravity/lib/constants"
@@ -86,8 +89,12 @@ func RunInPlanetCommand(ctx context.Context, log log.FieldLogger, args ...string
 }
 
 // RunCommand executes the command specified with args
-func RunCommand(ctx context.Context, log log.FieldLogger, args ...string) ([]byte, error) {
+func RunCommand(ctx context.Context, logger log.FieldLogger, args ...string) ([]byte, error) {
 	var out bytes.Buffer
+	if logger == nil {
+		logger = log.WithField(trace.Component, "utils")
+	}
+	logger.WithField("args", args).Debug("Run command.")
 	if err := RunStream(ctx, &out, args...); err != nil {
 		return out.Bytes(), trace.Wrap(err)
 	}
@@ -122,10 +129,39 @@ func RunStream(ctx context.Context, w io.Writer, args ...string) error {
 	args = args[1:]
 	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Stdout = w
+	cmd.Stderr = w
+	log.WithField("cmd", cmd.Args).Debug("Execute.")
 	if err := cmd.Start(); err != nil {
 		return trace.Wrap(err)
 	}
 	return trace.Wrap(cmd.Wait())
+}
+
+// ExecUnprivileged executes the specified command as unprivileged user
+func ExecUnprivileged(ctx context.Context, command string, args []string, opts ...CommandOptionSetter) error {
+	nobody, err := user.Lookup("nobody")
+	if err != nil {
+		return trace.ConvertSystemError(err)
+	}
+	cmd := exec.CommandContext(ctx, command, args...)
+	uid, err := getUid(*nobody)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	gid, err := getGid(*nobody)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Credential: &syscall.Credential{
+			Uid: uid,
+			Gid: gid,
+		},
+	}
+	for _, opt := range opts {
+		opt(cmd)
+	}
+	return cmd.Run()
 }
 
 // ExecL executes the specified cmd and logs the command line to the specified entry
@@ -222,4 +258,20 @@ fi
 type Command interface {
 	// Args returns the complete command line of this command
 	Args() []string
+}
+
+func getUid(u user.User) (uid uint32, err error) {
+	id, err := strconv.Atoi(u.Uid)
+	if err != nil {
+		return 0, trace.BadParameter("invalid UID for user %v: %v", u.Username, u.Uid)
+	}
+	return uint32(id), nil
+}
+
+func getGid(u user.User) (gid uint32, err error) {
+	id, err := strconv.Atoi(u.Gid)
+	if err != nil {
+		return 0, trace.BadParameter("invalid GID for user %v: %v", u.Username, u.Gid)
+	}
+	return uint32(id), nil
 }

@@ -174,7 +174,6 @@ func newCollector(env *localenv.LocalEnvironment) (*vacuum.Collector, error) {
 		clusterName:  cluster.Domain,
 		clusterEnv:   clusterEnv,
 		proxy:        proxy,
-		seLinux:      cluster.SELinux,
 	}
 	creds, err := deployAgents(ctx, env, req)
 	if err != nil {

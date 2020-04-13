@@ -1576,8 +1576,6 @@ type NewSiteRequest struct {
 	DNSConfig storage.DNSConfig `json:"dns_config"`
 	// Docker specifies the cluster Docker configuration
 	Docker storage.DockerConfig `json:"docker"`
-	// SELinux indicates whether the cluster will have SELinux support on
-	SELinux bool `json:"selinux,omitempty"`
 }
 
 // SiteKey is a key used to identify site
@@ -1675,8 +1673,6 @@ type Site struct {
 	DNSConfig storage.DNSConfig `json:"dns_config"`
 	// InstallToken specifies the original token the cluster was installed with
 	InstallToken string `json:"install_token"`
-	// SELinux specifies whether the cluster is using SELinux support
-	SELinux bool `json:"selinux,omitempty"`
 }
 
 // IsOnline returns whether this site is online
@@ -1789,7 +1785,7 @@ func (s *Site) String() string {
 type ProgressEntry storage.ProgressEntry
 
 // IsFailed returns whether this progress entry identifies a failed
-// failed operation
+// operation
 func (r ProgressEntry) IsFailed() bool {
 	return r.State == OperationStateFailed
 }

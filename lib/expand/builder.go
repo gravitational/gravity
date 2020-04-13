@@ -83,7 +83,9 @@ func (b *planBuilder) AddChecksPhase(plan *storage.OperationPlan) {
 			Server: &b.JoiningNode,
 			Master: &b.Master,
 		},
-		Requires: []string{StartAgentPhase},
+		Requires: fsm.RequireIfPresent(plan,
+			installphases.BootstrapSELinuxPhase,
+			StartAgentPhase),
 	})
 }
 

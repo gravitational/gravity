@@ -31,7 +31,6 @@ import (
 	"github.com/gravitational/gravity/lib/clients"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
-	"github.com/gravitational/gravity/lib/devicemapper"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
@@ -1030,7 +1029,7 @@ func (s *site) getPlanetConfig(config planetConfig) (args []string, err error) {
 		args = append(args, fmt.Sprintf("--%v=%v", k, v))
 	}
 
-	if s.seLinuxEnabled() {
+	if node.SELinux {
 		args = append(args, "--selinux")
 	}
 
@@ -1452,30 +1451,6 @@ func configureDockerOptions(
 	args = []string{fmt.Sprintf("--docker-backend=%v", docker.StorageDriver)}
 
 	switch docker.StorageDriver {
-	case constants.DockerStorageDriverDevicemapper:
-		// Override udev sync check to support devicemapper on a system with a kernel that does not support it
-		// See: https://github.com/docker/docker/pull/11412
-		const dmUdevSyncOverride = "--storage-opt=dm.override_udev_sync_check=1"
-		const dmFilesystem = "--storage-opt=dm.fs=xfs"
-		dmThinpool := fmt.Sprintf("--storage-opt=dm.thinpooldev=/dev/mapper/%v", devicemapper.PoolName)
-
-		options := append(docker.Args, dmUdevSyncOverride)
-		if dockerRuntime.Device.Path() == "" {
-			// if no device has been been configured for devicemapper direct-lvm
-			// use the loop-lvm mode by configuring just the storage driver
-			// with no other configuration
-			return append(args, formatOptions(options)), nil
-		}
-		systemDir := dockerRuntime.LVMSystemDirectory
-
-		options = append(options, []string{dmFilesystem, dmThinpool}...)
-		args = append(args, formatOptions(options))
-		// expose directories used by LVM
-		args = append(args, "--volume=/dev/mapper:/dev/mapper")
-		args = append(args, "--volume=/dev/docker:/dev/docker")
-		if systemDir != "" {
-			args = append(args, fmt.Sprintf("--volume=%v:%v", systemDir, constants.LVMSystemDir))
-		}
 	case constants.DockerStorageDriverOverlay2:
 		// Override kernel check to support overlay2
 		// See: https://github.com/docker/docker/issues/26559

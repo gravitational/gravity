@@ -1047,12 +1047,12 @@
   revision = "bebf7a500543a21911aaea5f7e57032918fb7b8c"
 
 [[projects]]
-  digest = "1:dc84545f9f2a442b14864f2f7e54ae556cae53bd437a05a456572fea9e73cc87"
+  digest = "1:5639168299375c369a68748214586e3b25bbc17e7ec9c64564f43f4635097bfc"
   name = "github.com/gravitational/trace"
   packages = ["."]
   pruneopts = "UT"
-  revision = "dd5b2e8eae86d31f6273ff3ac46d5b15edd6d6be"
-  version = "1.1.10"
+  revision = "2d27a078e25b4e8f656d1354fddf37d316d1e9bf"
+  version = "1.1.11"
 
 [[projects]]
   digest = "1:841d5835e94129658adabece66a4cc54d2cec9a40fa8b51743ea35d0519dd6c2"
@@ -1598,7 +1598,6 @@
   packages = ["."]
   pruneopts = "UT"
   revision = "e4db5bf9c2843548a77769573f0d723fa1a56f33"
-  source = "github.com/gravitational/go-ps"
   version = "1.0.0"
 
 [[projects]]
@@ -1932,7 +1931,7 @@
   pruneopts = "UT"
   revision = "9ebd8dcf727178553227307b785304594abef057"
   source = "github.com/gravitational/logrus"
-  version = "v1.4.3-alpha.1"
+  version = "v1.4.3"
 
 [[projects]]
   digest = "1:645cabccbb4fa8aab25a956cbcbdf6a6845ca736b2c64e197ca7cbb9d210b939"

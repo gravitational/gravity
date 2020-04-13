@@ -56,6 +56,7 @@ fcontext -D
 fcontext -a -f f -t gravity_installer_exec_t -r 's0' '/path/to/installer/gravity'
 fcontext -a -f f -t gravity_log_t -r 's0' '/path/to/installer/gravity-(install|system)\.log'
 fcontext -a -f a -t gravity_home_t -r 's0' '/path/to/installer/.gravity(/.*)?'
+fcontext -a -f a -t gravity_home_t -r 's0' '/path/to/installer/crashreport.tgz'
 `,
 			comment: "does nothing for custom fcontext if no custom state directory",
 		},
@@ -84,6 +85,7 @@ fcontext -D
 fcontext -a -f f -t gravity_installer_exec_t -r 's0' '/path/to/installer/gravity'
 fcontext -a -f f -t gravity_log_t -r 's0' '/path/to/installer/gravity-(install|system)\.log'
 fcontext -a -f a -t gravity_home_t -r 's0' '/path/to/installer/.gravity(/.*)?'
+fcontext -a -f a -t gravity_home_t -r 's0' '/path/to/installer/crashreport.tgz'
 fcontext --add --ftype f --type file_type_t --range 's0' '/custom/state/dir/file'
 fcontext --add --ftype d --type dir_type_t --range 's0' '/custom/state/dir/dir'
 fcontext --add --ftype s --type socket_type_t --range 's0' '/custom/state/dir/socket.*'
@@ -113,6 +115,7 @@ port -a -t gravity_port_t -r 's0' -p udp 4000-4002
 fcontext -a -f f -t gravity_installer_exec_t -r 's0' '/path/to/installer/gravity'
 fcontext -a -f f -t gravity_log_t -r 's0' '/path/to/installer/gravity-(install|system)\.log'
 fcontext -a -f a -t gravity_home_t -r 's0' '/path/to/installer/.gravity(/.*)?'
+fcontext -a -f a -t gravity_home_t -r 's0' '/path/to/installer/crashreport.tgz'
 `,
 			comment: "overrides vxlan port",
 		},

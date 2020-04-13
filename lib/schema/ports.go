@@ -46,6 +46,12 @@ var DefaultPortRanges = PortRanges{
 			To:          defaults.SerfAgentPort,
 			Description: "serf (health check agents) peer to peer",
 		},
+		{
+			Protocol:    "tcp",
+			From:        defaults.AlertmanagerServicePort,
+			To:          defaults.AlertmanagerServicePort,
+			Description: "alert manager service port",
+		},
 	},
 	Installer: []PortRange{
 		{

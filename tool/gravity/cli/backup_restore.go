@@ -128,17 +128,17 @@ func runBackupRestore(env *localenv.LocalEnvironment, operation string,
 		return trace.Wrap(err)
 	}
 
-	site, err := operator.GetLocalSite()
+	cluster, err := operator.GetLocalSite()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	node, err := findLocalServer(*site)
+	node, err := findLocalServer(cluster.ClusterState.Servers)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	log.Infof("running %v for %v on %v", operation, site.App.Package, node.KubeNodeID())
+	log.Infof("running %v for %v on %v", operation, cluster.App.Package, node.KubeNodeID())
 
 	id, err := teleutils.CryptoRandomHex(3)
 	if err != nil {
@@ -146,7 +146,7 @@ func runBackupRestore(env *localenv.LocalEnvironment, operation string,
 	}
 
 	req := &app.HookRunRequest{
-		Application: site.App.Package,
+		Application: cluster.App.Package,
 		Volumes: []v1.Volume{{
 			Name: hooks.VolumeBackup,
 			VolumeSource: v1.VolumeSource{

@@ -57,7 +57,7 @@ var (
 type defaultExtension struct{}
 
 // Collect is no-op for the default extension
-func (e *defaultExtension) Collect() error { return nil }
+func (*defaultExtension) Collect() error { return nil }
 
 // WriteTo is no-op for the default extension
-func (e *defaultExtension) WriteTo(io.Writer) (int64, error) { return 0, nil }
+func (*defaultExtension) WriteTo(io.Writer) (int64, error) { return 0, nil }

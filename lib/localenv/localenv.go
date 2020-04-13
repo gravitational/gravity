@@ -78,6 +78,8 @@ type LocalEnvironmentArgs struct {
 	Reporter pack.ProgressReporter
 	// DNS is the local cluster DNS server configuration
 	DNS DNSConfig
+	// SELinux specifies whether SELinux support is on
+	SELinux bool
 	// ReadonlyBackend specifies if the backend should be opened
 	// read-only.
 	ReadonlyBackend bool
@@ -178,6 +180,11 @@ func (env *LocalEnvironment) init() error {
 		Timeout:  env.BoltOpenTimeout,
 	})
 	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	env.SELinux, err = env.Backend.GetSELinux()
+	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
 	}
 

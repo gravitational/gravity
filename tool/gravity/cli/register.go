@@ -96,7 +96,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.InstallCmd.DNSHosts = g.InstallCmd.Flag("dns-host", "Specify an IP address that will be returned for the given domain within the cluster. Accepts <domain>/<ip> format. Can be specified multiple times.").Hidden().Strings()
 	g.InstallCmd.DNSZones = g.InstallCmd.Flag("dns-zone", "Specify an upstream server for the given zone within the cluster. Accepts <zone>/<nameserver> format where <nameserver> can be either <ip> or <ip>:<port>. Can be specified multiple times.").Strings()
 	g.InstallCmd.Remote = g.InstallCmd.Flag("remote", "Do not use this node in the cluster.").Bool()
-	g.InstallCmd.SELinux = g.InstallCmd.Flag("selinux", "Run with SELinux support. Default 'true'.").Default("true").Bool()
+	g.InstallCmd.SELinux = g.InstallCmd.Flag("selinux", "Run with SELinux support. Default 'false'.").Default("false").Envar(defaults.GravitySELinuxEnv).Bool()
 	g.InstallCmd.FromService = g.InstallCmd.Flag("from-service", "Run in service mode.").Hidden().Bool()
 	g.InstallCmd.AcceptEULA = g.InstallCmd.Flag("accept-eula", "Auto-accept the end-user license agreement if the application requires it.").Bool()
 
@@ -112,17 +112,20 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.JoinCmd.Mounts = configure.KeyValParam(g.JoinCmd.Flag("mount", "One or several mounts in form <mount-name>:<path>, e.g. data:/var/lib/data."))
 	g.JoinCmd.CloudProvider = g.JoinCmd.Flag("cloud-provider", "[DEPRECATED] This flag has no effect and will be removed in a future version.").String()
 	g.JoinCmd.OperationID = g.JoinCmd.Flag("operation-id", "ID of the operation that was created via UI.").Hidden().String()
-	g.JoinCmd.SELinux = g.JoinCmd.Flag("selinux", "Run with SELinux support. Default 'true'.").Default("true").Bool()
+	g.JoinCmd.SELinux = g.JoinCmd.Flag("selinux", "Run with SELinux support. Default 'false'.").Default("false").Envar(defaults.GravitySELinuxEnv).Bool()
 	g.JoinCmd.FromService = g.JoinCmd.Flag("from-service", "Run in service mode.").Hidden().Bool()
 
 	g.AutoJoinCmd.CmdClause = g.Command("autojoin", "Use cloud provider data to join a node to existing cluster.")
 	g.AutoJoinCmd.ClusterName = g.AutoJoinCmd.Arg("cluster-name", "Cluster name used for discovery.").Required().String()
 	g.AutoJoinCmd.Role = g.AutoJoinCmd.Flag("role", "Role of this node.").String()
+	// Deprecated
+	_ = g.AutoJoinCmd.Flag("docker-device", "Docker device to use.").Hidden().String()
 	g.AutoJoinCmd.SystemDevice = g.AutoJoinCmd.Flag("system-device", "Device to use for system data directory.").Hidden().String()
 	g.AutoJoinCmd.Mounts = configure.KeyValParam(g.AutoJoinCmd.Flag("mount", "One or several mounts in form <mount-name>:<path>, e.g. data:/var/lib/data."))
 	g.AutoJoinCmd.ServiceAddr = g.AutoJoinCmd.Flag("service-addr", "Service URL of the cluster to join.").String()
 	g.AutoJoinCmd.AdvertiseAddr = g.AutoJoinCmd.Flag("advertise-addr", "IP address this node will advertise to other cluster nodes.").Hidden().String()
 	g.AutoJoinCmd.Token = g.AutoJoinCmd.Flag("token", "Unique token to authorize this node to join the cluster.").Hidden().String()
+	g.AutoJoinCmd.SELinux = g.AutoJoinCmd.Flag("selinux", "Run with SELinux support. Default 'false'.").Default("false").Envar(defaults.GravitySELinuxEnv).Bool()
 	g.AutoJoinCmd.FromService = g.AutoJoinCmd.Flag("from-service", "Run in service mode.").Hidden().Bool()
 
 	g.LeaveCmd.CmdClause = g.Command("leave", "Decommission this node from the cluster.")
@@ -155,7 +158,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.PlanExecuteCmd.PhaseTimeout = g.PlanExecuteCmd.Flag("timeout", "Phase execution timeout.").Default(defaults.PhaseTimeout).Hidden().Duration()
 
 	g.PlanRollbackCmd.CmdClause = g.PlanCmd.Command("rollback", "Rollback the specified operation phase.")
-	g.PlanRollbackCmd.Phase = g.PlanRollbackCmd.Flag("phase", "Phase ID to rollback.").String()
+	g.PlanRollbackCmd.Phase = g.PlanRollbackCmd.Flag("phase", "Phase ID to rollback.").Required().String()
 	g.PlanRollbackCmd.Force = g.PlanRollbackCmd.Flag("force", "Force rollback of the specified phase.").Bool()
 	g.PlanRollbackCmd.PhaseTimeout = g.PlanRollbackCmd.Flag("timeout", "Phase rollback timeout.").Default(defaults.PhaseTimeout).Hidden().Duration()
 
@@ -374,7 +377,6 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.WizardCmd.ServiceGID = g.WizardCmd.Flag("service-gid", fmt.Sprintf("Service group ID for planet. %q group will created and used if none specified", defaults.ServiceUserGroup)).Default(defaults.ServiceGroupID).OverrideDefaultFromEnvar(constants.ServiceGroupEnvVar).String()
 	g.WizardCmd.AdvertiseAddr = g.WizardCmd.Flag("advertise-addr", "The IP address to advertise. Will be selected automatically if unspecified").String()
 	g.WizardCmd.Token = g.WizardCmd.Flag("token", "Unique install token to authorize other nodes to join the cluster. Generated automatically if unspecified").String()
-	g.WizardCmd.SELinux = g.WizardCmd.Flag("selinux", "Run with SELinux support. Default 'true'.").Default("true").Bool()
 	g.WizardCmd.FromService = g.WizardCmd.Flag("from-service", "Run in service mode").Hidden().Bool()
 
 	g.AppPackageCmd.CmdClause = g.Command("app-package", "Display the name of application package from installer tarball").Hidden()
@@ -623,7 +625,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.SystemServiceCmd.CmdClause = g.SystemCmd.Command("service", "operations on system services")
 
 	// install a new system service
-	g.SystemServiceInstallCmd.CmdClause = g.SystemServiceCmd.Command("install", "install a new service").Hidden()
+	g.SystemServiceInstallCmd.CmdClause = g.SystemServiceCmd.Command("install", "install a new service")
 	g.SystemServiceInstallCmd.Package = Locator(g.SystemServiceInstallCmd.Arg("pkg", "the package to generate unit file for").Required())
 	g.SystemServiceInstallCmd.ConfigPackage = Locator(g.SystemServiceInstallCmd.Arg("conf-pkg", "the configuration package used to launch the service with").Required())
 	g.SystemServiceInstallCmd.StartCommand = g.SystemServiceInstallCmd.Flag("start-command", "the command used to start the service").Required().String()
@@ -643,34 +645,28 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.SystemServiceUninstallCmd.Name = g.SystemServiceUninstallCmd.Flag("name", "the service name").String()
 
 	// list running services
-	g.SystemServiceListCmd.CmdClause = g.SystemServiceCmd.Command("list", "list running services").Hidden()
+	g.SystemServiceListCmd.CmdClause = g.SystemServiceCmd.Command("list", "list running services")
 
-	g.SystemServiceStopCmd.CmdClause = g.SystemServiceCmd.Command("stop", "stop a running service").Hidden()
+	g.SystemServiceStopCmd.CmdClause = g.SystemServiceCmd.Command("stop", "stop a running service")
 	g.SystemServiceStopCmd.Package = g.SystemServiceStopCmd.Arg("package", "package for the service. Can be specified either as a partial match - i.e. planet or complete package locator").Required().String()
 
-	g.SystemServiceStartCmd.CmdClause = g.SystemServiceCmd.Command("start", "start a service").Hidden()
+	g.SystemServiceStartCmd.CmdClause = g.SystemServiceCmd.Command("start", "start a service")
 	g.SystemServiceStartCmd.Package = g.SystemServiceStartCmd.Arg("package", "package for the service. Can be specified either as a partial match - i.e. planet or complete package locator").Required().String()
 
 	// query runtime status of a package service
-	g.SystemServiceStatusCmd.CmdClause = g.SystemServiceCmd.Command("status", "query runtime status information of the specified service").Interspersed(false).Hidden()
+	g.SystemServiceStatusCmd.CmdClause = g.SystemServiceCmd.Command("status", "query runtime status information of the specified service")
 	g.SystemServiceStatusCmd.Package = g.SystemServiceStatusCmd.Arg("package", "package for the service. Can be specified either as a partial match - i.e. planet or complete package locator").Required().String()
 
-	g.SystemServiceJournalCmd.CmdClause = g.SystemServiceCmd.Command("journal", "query system journal of the specified service").Interspersed(false).Hidden()
+	g.SystemServiceJournalCmd.CmdClause = g.SystemServiceCmd.Command("journal", "query system journal of the specified service").Interspersed(false)
 	g.SystemServiceJournalCmd.Package = g.SystemServiceJournalCmd.Arg("package", "package for the service. Can be specified either as a partial match - i.e. planet or complete package locator").Required().String()
 	g.SystemServiceJournalCmd.Args = g.SystemServiceJournalCmd.Arg("arg", "optional arguments to the journalctl").Strings()
 
 	g.SystemReportCmd.CmdClause = g.SystemCmd.Command("report", "collect system diagnostics and output as gzipped tarball to terminal").Hidden()
 	g.SystemReportCmd.Filter = g.SystemReportCmd.Flag("filter", "collect only specific diagnostics ('system', 'kubernetes'). Collect everything if unspecified").Strings()
 	g.SystemReportCmd.Compressed = g.SystemReportCmd.Flag("compressed", "whether to compress the tarball").Default("true").Bool()
+	g.SystemReportCmd.Output = g.SystemReportCmd.Flag("output", "optional output file path").String()
 
 	g.SystemStateDirCmd.CmdClause = g.SystemCmd.Command("state-dir", "show where all gravity data is stored on the node").Hidden()
-
-	// manage docker devicemapper environment
-	g.SystemDevicemapperCmd.CmdClause = g.SystemCmd.Command("devicemapper", "manage docker devicemapper environment").Hidden()
-	g.SystemDevicemapperMountCmd.CmdClause = g.SystemDevicemapperCmd.Command("mount", "configure devicemapper environment").Hidden()
-	g.SystemDevicemapperMountCmd.Disk = g.SystemDevicemapperMountCmd.Arg("disk", "disk/partition to use for physical volume").String()
-	g.SystemDevicemapperUnmountCmd.CmdClause = g.SystemDevicemapperCmd.Command("unmount", "remove devicemapper environment").Hidden()
-	g.SystemDevicemapperSystemDirCmd.CmdClause = g.SystemDevicemapperCmd.Command("system-dir", "query the location of the lvm system directory").Hidden()
 
 	// journal helpers
 	g.SystemExportRuntimeJournalCmd.CmdClause = g.SystemCmd.Command("export-runtime-journal", "Export runtime journal logs to a file").Hidden()
@@ -711,7 +707,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	// operations on planet (planet plugin)
 	g.PlanetCmd.CmdClause = g.Command("planet", "operations with planet").Hidden()
 
-	g.PlanetEnterCmd.CmdClause = g.PlanetCmd.Command("enter", "enters currently installed planet").Hidden()
+	g.PlanetEnterCmd.CmdClause = g.PlanetCmd.Command("enter", "[DEPRECATED] enters currently installed planet").Hidden()
 
 	g.PlanetStatusCmd.CmdClause = g.PlanetCmd.Command("status", "calls status for currently installed planet").Hidden()
 
@@ -752,7 +748,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 		modules.GetResources().SupportedResources()))
 	g.ResourceGetCmd.Kind = g.ResourceGetCmd.Arg("kind", fmt.Sprintf("Resource kind. One of: %v.",
 		modules.GetResources().SupportedResources())).Required().String()
-	g.ResourceGetCmd.Name = g.ResourceGetCmd.Arg("name", fmt.Sprintf("Optional resource name. Lists all resources if omitted.")).String()
+	g.ResourceGetCmd.Name = g.ResourceGetCmd.Arg("name", "Optional resource name. Lists all resources if omitted.").String()
 	g.ResourceGetCmd.Format = common.Format(g.ResourceGetCmd.Flag("format", fmt.Sprintf("Output format: %v.", constants.OutputFormats)).Default(string(constants.EncodingText)))
 	g.ResourceGetCmd.WithSecrets = g.ResourceGetCmd.Flag("with-secrets", "Include secret properties like private keys.").Default("false").Bool()
 	g.ResourceGetCmd.User = g.ResourceGetCmd.Flag("user", "User to display resources for. Defaults to the currently logged in user.").String()

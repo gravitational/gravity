@@ -61,12 +61,23 @@ func BootstrapSELinuxAndRespawn(ctx context.Context, config libselinux.Bootstrap
 	newProcContext["type"] = libselinux.GravityInstallerProcessContext["type"]
 	logger.WithField("context", newProcContext).Info("Set process context.")
 	if err := selinux.SetExecLabel(newProcContext.Get()); err != nil {
-		return trace.Wrap(err)
+		logger.WithError(err).WithField("new-label", newProcContext.Get()).Warn("Failed to change binary label.")
+		return trace.Wrap(err, "failed to change label to %v", newProcContext.Get())
 	}
 	logger.WithField("args", os.Args).Info("Respawn.")
 	cmd := os.Args[0]
 	return syscall.Exec(cmd, os.Args, newRespawnEnviron())
 }
+
+// ErrorBootstrapSELinuxPolicy is the error message resulting when bootstrapping
+// step fails.
+const ErrorBootstrapSELinuxPolicy = `failed to bootstrap SELinux policy.
+
+Make sure you're running with a role that has permissions to
+write to temporary directory and load SELinux policies - for example, "sysadm_r".
+
+See https://gravitational.com/gravity/docs/selinux/ for details.
+`
 
 func bootstrapSELinux(env *localenv.LocalEnvironment, path, stateDir string, vxlanPort int) error {
 	config := libselinux.BootstrapConfig{

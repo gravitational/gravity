@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 
 	archiveutils "github.com/gravitational/gravity/lib/archive"
 	"github.com/gravitational/gravity/lib/constants"
@@ -33,11 +34,14 @@ import (
 	libstatus "github.com/gravitational/gravity/lib/status"
 	"github.com/gravitational/gravity/lib/storage"
 	libselinux "github.com/gravitational/gravity/lib/system/selinux"
+	"github.com/gravitational/gravity/lib/systeminfo"
 	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/update"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/docker/docker/pkg/archive"
+	"github.com/docker/docker/pkg/idtools"
+	"github.com/gravitational/satellite/agent/proto/agentpb"
 	"github.com/gravitational/trace"
 	"github.com/opencontainers/selinux/go-selinux"
 	"github.com/sirupsen/logrus"
@@ -270,22 +274,11 @@ func (r *System) getChangesetByID(changesetID string) (*storage.PackageChangeset
 	return changeset, nil
 }
 
-// NewPackageUpdater creates a new package updater for the specified package service
-func NewPackageUpdater(packages update.LocalPackageService, opts ...PackageUpdaterOption) (*PackageUpdater, error) {
-	p := &PackageUpdater{
-		Packages: packages,
-	}
-	for _, opt := range opts {
-		opt(p)
-	}
-	if err := p.checkAndSetDefaults(); err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return p, nil
-}
-
 // Reinstall reinstalls the package specified by update
 func (r *PackageUpdater) Reinstall(ctx context.Context, update storage.PackageUpdate) error {
+	if err := r.checkAndSetDefaults(); err != nil {
+		return trace.Wrap(err)
+	}
 	labelUpdates, err := r.reinstallPackage(ctx, update)
 	if err != nil {
 		return trace.Wrap(err)
@@ -300,7 +293,7 @@ func (r *PackageUpdater) reinstallPackage(ctx context.Context, update storage.Pa
 	r.WithField("update", update).Info("Reinstalling package.")
 	switch {
 	case update.To.Name == constants.GravityPackage:
-		return r.updateGravityPackage(update.To)
+		return r.updateGravityPackage(ctx, update.To)
 	case pack.IsPlanetPackage(update.To, update.Labels):
 		updates, err := r.updatePlanetPackage(ctx, update)
 		return updates, trace.Wrap(err)
@@ -314,7 +307,7 @@ func (r *PackageUpdater) reinstallPackage(ctx context.Context, update storage.Pa
 	return nil, trace.BadParameter("unsupported package: %v", update.To)
 }
 
-func (r *PackageUpdater) updateGravityPackage(newPackage loc.Locator) (labelUpdates []pack.LabelUpdate, err error) {
+func (r *PackageUpdater) updateGravityPackage(ctx context.Context, newPackage loc.Locator) (labelUpdates []pack.LabelUpdate, err error) {
 	for _, targetPath := range state.GravityBinPaths {
 		labelUpdates, err = reinstallBinaryPackage(r.Packages, newPackage, targetPath)
 		if err == nil {
@@ -333,9 +326,14 @@ func (r *PackageUpdater) updateGravityPackage(newPackage loc.Locator) (labelUpda
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to find planet package")
 	}
-	err = copyGravityToPlanet(newPackage, r.Packages, planetPath)
+	targetPath := filepath.Join(planetPath, constants.PlanetRootfs, defaults.GravityBin)
+	err = copyGravityToPlanet(newPackage, r.Packages, targetPath)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to copy gravity inside planet")
+	}
+	err = r.applySELinuxFileContexts(ctx, targetPath)
+	if err != nil {
+		return nil, trace.Wrap(err)
 	}
 	return labelUpdates, nil
 }
@@ -343,7 +341,7 @@ func (r *PackageUpdater) updateGravityPackage(newPackage loc.Locator) (labelUpda
 func (r *PackageUpdater) updatePlanetPackage(ctx context.Context, update storage.PackageUpdate) (labelUpdates []pack.LabelUpdate, err error) {
 	var gravityPackageFilter = loc.MustCreateLocator(
 		defaults.SystemAccountOrg, constants.GravityPackage, loc.ZeroVersion)
-	err = unpack(r.Packages, update.To)
+	err = unpack(r.Packages, update.To, r.planetUnpackOptions())
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to unpack package %v", update.To)
 	}
@@ -359,7 +357,8 @@ func (r *PackageUpdater) updatePlanetPackage(ctx context.Context, update storage
 		return nil, trace.Wrap(err, "failed to find installed package for gravity")
 	}
 
-	err = copyGravityToPlanet(*gravityPackage, r.Packages, planetPath)
+	targetPath := filepath.Join(planetPath, constants.PlanetRootfs, defaults.GravityBin)
+	err = copyGravityToPlanet(*gravityPackage, r.Packages, targetPath)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to copy gravity inside planet")
 	}
@@ -369,7 +368,7 @@ func (r *PackageUpdater) updatePlanetPackage(ctx context.Context, update storage
 		r.WithError(err).Warn("kubectl will not work on host.")
 	}
 
-	labelUpdates, err = r.reinstallService(update)
+	labelUpdates, err = r.reinstallService(update, r.environForPlanetService())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -386,12 +385,42 @@ func (r *PackageUpdater) updatePlanetPackage(ctx context.Context, update storage
 	return labelUpdates, nil
 }
 
+func (r *PackageUpdater) planetUnpackOptions() *archive.TarOptions {
+	return &archive.TarOptions{
+		NoLchown: true,
+		UIDMaps: []idtools.IDMap{
+			{
+				ContainerID: defaults.ServiceUID,
+				HostID:      r.ServiceUser.UID,
+				Size:        1,
+			},
+			{
+				ContainerID: constants.RootUID,
+				HostID:      constants.RootUID,
+				Size:        1,
+			},
+		},
+		GIDMaps: []idtools.IDMap{
+			{
+				ContainerID: defaults.ServiceGID,
+				HostID:      r.ServiceUser.GID,
+				Size:        1,
+			},
+			{
+				ContainerID: constants.RootGID,
+				HostID:      constants.RootGID,
+				Size:        1,
+			},
+		},
+	}
+}
+
 func (r *PackageUpdater) updateTeleportPackage(update storage.PackageUpdate) (labelUpdates []pack.LabelUpdate, err error) {
-	err = unpack(r.Packages, update.To)
+	err = unpack(r.Packages, update.To, nil)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to unpack package %v", update.To)
 	}
-	updates, err := r.reinstallService(update)
+	updates, err := r.reinstallService(update, nil)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -451,7 +480,7 @@ func (r *PackageUpdater) reinstallSecretsPackage(newPackage loc.Locator) (labelU
 	return labelUpdates, nil
 }
 
-func (r *PackageUpdater) reinstallService(update storage.PackageUpdate) (labelUpdates []pack.LabelUpdate, err error) {
+func (r *PackageUpdater) reinstallService(update storage.PackageUpdate, environ map[string]string) (labelUpdates []pack.LabelUpdate, err error) {
 	services, err := systemservice.New()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -483,7 +512,7 @@ func (r *PackageUpdater) reinstallService(update storage.PackageUpdate) (labelUp
 		configPackage = update.ConfigPackage.To
 	}
 
-	err = unpack(r.Packages, configPackage)
+	err = unpack(r.Packages, configPackage, nil)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -497,6 +526,12 @@ func (r *PackageUpdater) reinstallService(update storage.PackageUpdate) (labelUp
 	manifest.Service.Package = update.To
 	manifest.Service.ConfigPackage = configPackage
 	manifest.Service.GravityPath = gravityPath
+	if manifest.Service.Environment == nil {
+		manifest.Service.Environment = make(map[string]string)
+	}
+	for key, value := range environ {
+		manifest.Service.Environment[key] = value
+	}
 
 	r.WithField("package", update.To).Info("Installing new package.")
 	if err = services.InstallPackageService(*manifest.Service); err != nil {
@@ -515,9 +550,15 @@ func (r *PackageUpdater) reinstallService(update storage.PackageUpdate) (labelUp
 
 func (r *PackageUpdater) checkAndSetDefaults() error {
 	if r.Logger == nil {
-		r.Logger = log.New(logrus.WithField(trace.Component, "update:package"))
+		r.Logger = log.New(logrus.WithField(trace.Component, "packupdate"))
 	}
 	return nil
+}
+
+func (r *PackageUpdater) environForPlanetService() map[string]string {
+	return map[string]string{
+		defaults.PlanetSELinuxEnv: strconv.FormatBool(r.SELinux),
+	}
 }
 
 func (r *PackageUpdater) applySELinuxFileContexts(ctx context.Context, path string) error {
@@ -527,6 +568,7 @@ func (r *PackageUpdater) applySELinuxFileContexts(ctx context.Context, path stri
 	}
 	w := r.Logger.Writer()
 	defer w.Close()
+	r.WithField("path", path).Info("Restore file contexts.")
 	return libselinux.ApplyFileContexts(ctx, w, path)
 }
 
@@ -546,6 +588,8 @@ type PackageUpdater struct {
 	log.Logger
 	// Packages specifies the package service to use
 	Packages update.LocalPackageService
+	// ServiceUser specifies the container service user
+	ServiceUser systeminfo.User
 	// SELinux specifies whether SELinux support is on
 	SELinux bool
 }
@@ -569,12 +613,23 @@ func updateSymlinks(planetPath string, logger log.Logger) (err error) {
 	for _, path := range []string{defaults.KubectlBin, defaults.KubectlBinAlternate} {
 		out, err = exec.Command("ln", "-sfT", kubectlPath, path).CombinedOutput()
 		if err == nil {
+			logger.Infof("Updated kubectl symlink: %v -> %v.", path, kubectlPath)
 			break
 		}
-		logger.WithFields(logrus.Fields{
-			logrus.ErrorKey: err,
-			"output":        string(out),
-		}).Warn("Failed to update kubectl symlink.")
+		logger.WithError(err).WithField("output", string(out)).Warn(
+			"Failed to update kubectl symlink.")
+	}
+
+	// update helm symlink
+	helmPath := filepath.Join(planetPath, constants.PlanetRootfs, defaults.HelmScript)
+	for _, path := range []string{defaults.HelmBin, defaults.HelmBinAlternate} {
+		out, err = exec.Command("ln", "-sfT", helmPath, path).CombinedOutput()
+		if err == nil {
+			logger.Infof("Updated helm symlink: %v -> %v.", path, helmPath)
+			break
+		}
+		logger.WithError(err).WithField("output", string(out)).Warn(
+			"Failed to update helm symlink.")
 	}
 
 	// update kube config environment variable
@@ -597,17 +652,6 @@ func updateSymlinks(planetPath string, logger log.Logger) (err error) {
 			kubectlSymlink, string(out))
 	}
 
-	// update helm symlink
-	helmPath := filepath.Join(planetPath, constants.PlanetRootfs, defaults.HelmScript)
-	for _, path := range []string{defaults.HelmBin, defaults.HelmBinAlternate} {
-		out, err = exec.Command("ln", "-sfT", helmPath, path).CombinedOutput()
-		if err == nil {
-			logger.Infof("Updated helm symlink: %v -> %v.", path, helmPath)
-			break
-		}
-		logger.WithError(err).Warnf("Failed to update helm symlink: %s.", out)
-	}
-
 	environment[constants.EnvKubeConfig] = kubeConfigPath
 	err = utils.WriteEnv(defaults.EnvironmentPath, environment)
 	if err != nil {
@@ -618,8 +662,7 @@ func updateSymlinks(planetPath string, logger log.Logger) (err error) {
 	return nil
 }
 
-func copyGravityToPlanet(newPackage loc.Locator, packages pack.PackageService, planetPath string) error {
-	targetPath := filepath.Join(planetPath, constants.PlanetRootfs, defaults.GravityBin)
+func copyGravityToPlanet(newPackage loc.Locator, packages pack.PackageService, targetPath string) error {
 	_, rc, err := packages.ReadPackage(newPackage)
 	if err != nil {
 		return trace.Wrap(err)

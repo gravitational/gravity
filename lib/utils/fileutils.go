@@ -340,7 +340,7 @@ func (r *CleanupReadCloser) Close() (err error) {
 func WithTempDir(fn func(dir string) error, prefix string) error {
 	dir, err := ioutil.TempDir("", prefix)
 	if err != nil {
-		return trace.Wrap(err)
+		return trace.ConvertSystemError(err)
 	}
 	defer os.RemoveAll(dir)
 

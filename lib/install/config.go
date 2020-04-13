@@ -223,7 +223,6 @@ func (r *clusterFactory) NewCluster() ops.NewSiteRequest {
 		DNSOverrides: r.DNSOverrides,
 		DNSConfig:    r.DNSConfig,
 		Docker:       r.Docker,
-		SELinux:      r.SELinux,
 	}
 }
 
@@ -296,6 +295,7 @@ func newAgent(ctx context.Context, config Config) (*rpcserver.PeerServer, error)
 		SystemDevice: config.SystemDevice,
 		Role:         config.Role,
 		Mounts:       mounts,
+		SELinux:      config.SELinux,
 	}
 	return NewAgent(AgentConfig{
 		FieldLogger:   config.FieldLogger.WithField(trace.Component, "agent:rpc"),

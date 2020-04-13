@@ -29,11 +29,9 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/install/dispatcher"
-	"github.com/gravitational/gravity/lib/install/engine"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
-	"github.com/gravitational/gravity/lib/process"
 	"github.com/gravitational/gravity/lib/rpc"
 	pb "github.com/gravitational/gravity/lib/rpc/proto"
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
@@ -262,6 +260,7 @@ func GetServerUpdateRequest(op ops.SiteOperation, servers []checks.ServerInfo) (
 			User:        serverInfo.GetUser(),
 			Provisioner: op.Provisioner,
 			Created:     time.Now().UTC(),
+			SELinux:     serverInfo.SELinux,
 		}
 		if serverInfo.CloudMetadata != nil {
 			server.Nodename = serverInfo.CloudMetadata.NodeName
@@ -405,28 +404,13 @@ type eventDispatcher interface {
 	Send(dispatcher.Event)
 }
 
-func wait(ctx context.Context, cancel context.CancelFunc, p process.GravityProcess) error {
-	errC := make(chan error, 1)
-	go func() {
-		err := p.Wait()
-		cancel()
-		errC <- err
-	}()
-	select {
-	case err := <-errC:
-		return trace.Wrap(err)
-	case <-ctx.Done():
-		return trace.Wrap(ctx.Err())
-	}
-}
-
 func tryInstallBinary(targetPath string, uid, gid int, logger log.FieldLogger) error {
 	path, err := osext.Executable()
 	if err != nil {
 		return trace.Wrap(err, "failed to determine path to binary")
 	}
 	dir := filepath.Dir(targetPath)
-	if dir != string(filepath.Separator) {
+	if !isRootDir(dir) {
 		err = os.MkdirAll(dir, defaults.SharedDirMask)
 		if err != nil {
 			return trace.ConvertSystemError(err)
@@ -447,30 +431,30 @@ func tryInstallBinary(targetPath string, uid, gid int, logger log.FieldLogger) e
 
 // initOperationPlan initializes a new operation plan for the specified install operation
 // in the given operator
-func initOperationPlan(operator ops.Operator, planner engine.Planner) error {
-	clusters, err := operator.GetSites(defaults.SystemAccountID)
+func (i *Installer) initOperationPlan(key ops.SiteOperationKey) error {
+	clusters, err := i.config.Operator.GetSites(defaults.SystemAccountID)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	if len(clusters) != 1 {
 		return trace.BadParameter("expected 1 cluster, got: %v", clusters)
 	}
-	operation, _, err := ops.GetInstallOperation(clusters[0].Key(), operator)
+	operation, err := i.config.Operator.GetSiteOperation(key)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	plan, err := operator.GetOperationPlan(operation.Key())
+	plan, err := i.config.Operator.GetOperationPlan(operation.Key())
 	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
 	}
 	if plan != nil {
 		return trace.AlreadyExists("plan is already initialized")
 	}
-	plan, err = planner.GetOperationPlan(operator, clusters[0], *operation)
+	plan, err = i.config.Planner.GetOperationPlan(i.config.Operator, clusters[0], *operation)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = operator.CreateOperationPlan(operation.Key(), *plan)
+	err = i.config.Operator.CreateOperationPlan(operation.Key(), *plan)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -502,6 +486,10 @@ func newRPCCredentials(tls utils.TLSArchive) (*rpcserver.Credentials, error) {
 		Server: serverCreds,
 		Client: clientCreds,
 	}, nil
+}
+
+func isRootDir(path string) bool {
+	return len(path) == 1 && os.IsPathSeparator(path[0])
 }
 
 func loadCredentialsFromPackage(ctx context.Context, packages pack.PackageService, loc loc.Locator) (tls utils.TLSArchive, err error) {

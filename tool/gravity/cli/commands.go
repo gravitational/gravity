@@ -460,6 +460,9 @@ type AutoJoinCmd struct {
 	AdvertiseAddr *string
 	// Token is join token
 	Token *string
+	// SELinux specifies whether to run with SELinux support.
+	// This flag makes the installer run in its own SELinux domain
+	SELinux *bool
 	// FromService specifies whether this process runs in service mode.
 	//
 	// The agent runs the install/join code in service mode, while
@@ -993,9 +996,6 @@ type WizardCmd struct {
 	AdvertiseAddr *string
 	// Token is unique install token
 	Token *string
-	// SELinux specifies whether to run with SELinux support.
-	// This flag makes the installer run in its own SELinux domain
-	SELinux *bool
 	// FromService specifies whether this process runs in service mode.
 	//
 	// The installer runs the main installer code in service mode, while
@@ -1547,6 +1547,8 @@ type SystemReportCmd struct {
 	Filter *[]string
 	// Compressed allows to gzip the tarball
 	Compressed *bool
+	// Output optionally specifies output file path
+	Output *string
 }
 
 // SystemStateDirCmd shows local state directory

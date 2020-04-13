@@ -55,7 +55,7 @@ func (srv *agentServer) Command(req *pb.CommandArgs, stream pb.Agent_CommandServ
 
 // PeerJoin accepts a new peer
 func (srv *agentServer) PeerJoin(ctx context.Context, req *pb.PeerJoinRequest) (*types.Empty, error) {
-	srv.WithField("req", req).Debug("PeerJoin.")
+	srv.WithField("req", req.String()).Info("PeerJoin.")
 	err := srv.PeerStore.NewPeer(ctx, *req, &remotePeer{
 		addr:             req.Addr,
 		creds:            srv.Config.Client,
@@ -69,7 +69,7 @@ func (srv *agentServer) PeerJoin(ctx context.Context, req *pb.PeerJoinRequest) (
 
 // PeerLeave receives a "leave" request from a peer and initiates its shutdown
 func (srv *agentServer) PeerLeave(ctx context.Context, req *pb.PeerLeaveRequest) (*types.Empty, error) {
-	srv.WithField("req", req).Debug("PeerLeave.")
+	srv.WithField("req", req.String()).Info("PeerLeave.")
 	err := srv.PeerStore.RemovePeer(ctx, *req, &remotePeer{
 		addr:             req.Addr,
 		creds:            srv.Config.Client,
@@ -91,16 +91,16 @@ func (srv *agentServer) GetRuntimeConfig(ctx context.Context, _ *types.Empty) (*
 			return nil, trace.Wrap(err)
 		}
 	}
-	tempDir := os.TempDir()
 	config := &pb.RuntimeConfig{
-		Role:          srv.Role,
+		Role:          srv.RuntimeConfig.Role,
 		AdvertiseAddr: srv.Config.Listener.Addr().String(),
-		SystemDevice:  srv.SystemDevice,
-		Mounts:        srv.Mounts,
+		SystemDevice:  srv.RuntimeConfig.SystemDevice,
+		Mounts:        srv.RuntimeConfig.Mounts,
 		StateDir:      stateDir,
-		TempDir:       tempDir,
-		KeyValues:     srv.KeyValues,
-		CloudMetadata: srv.CloudMetadata,
+		TempDir:       os.TempDir(),
+		KeyValues:     srv.RuntimeConfig.KeyValues,
+		CloudMetadata: srv.RuntimeConfig.CloudMetadata,
+		SELinux:       srv.RuntimeConfig.SELinux,
 	}
 	return config, nil
 }
@@ -160,10 +160,9 @@ func (srv *agentServer) command(req pb.CommandArgs, stream pb.Agent_CommandServe
 
 	err = srv.commandExecutor.exec(stream.Context(), stream, req.Args, makeRemoteLogger(stream, srv.FieldLogger))
 	if err != nil {
-		stream.Send(pb.ErrorToMessage(err))
 		log.WithError(err).Warn("Command completed with error.")
-	} else {
-		log.Debug("Command completed OK.")
+		return stream.Send(pb.ErrorToMessage(err))
 	}
-	return trace.Wrap(err)
+	log.Debug("Command completed OK.")
+	return nil
 }

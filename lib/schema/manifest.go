@@ -848,8 +848,10 @@ type Volume struct {
 	Mode string `json:"mode,omitempty"`
 	// Recursive means that all mount points inside this mount should also be mounted
 	Recursive bool `json:"recursive,omitempty"`
-	// Label specifies the SELinux label
-	Label string `json:"label"`
+	// SELinuxLabel specifies the SELinux label.
+	// If left unspecified, the default.ContainerFileLabel will be used to label the directory.
+	// If a special value SELinuxLabelNone is specified - no labeling is performed
+	SELinuxLabel string `json:"seLinuxLabel,omitempty"`
 }
 
 // CheckAndSetDefaults checks and sets defaults
@@ -1158,7 +1160,7 @@ func init() {
 }
 
 // addKnownTypes adds the list of known types to the given scheme.
-func addKnownTypes(scheme *runtime.Scheme) error {
+func addKnownTypes(scheme *runtime.Scheme) {
 	scheme.AddKnownTypeWithName(SchemeGroupVersion.WithKind(KindSystemApplication), &Manifest{})
 	scheme.AddKnownTypeWithName(SchemeGroupVersion.WithKind(KindBundle), &Manifest{})
 	scheme.AddKnownTypeWithName(SchemeGroupVersion.WithKind(KindRuntime), &Manifest{})
@@ -1166,7 +1168,6 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypeWithName(SchemeGroupVersion.WithKind(KindApplication), &Manifest{})
 	scheme.AddKnownTypeWithName(ClusterGroupVersion.WithKind(KindCluster), &Manifest{})
 	scheme.AddKnownTypeWithName(AppGroupVersion.WithKind(KindApplication), &Manifest{})
-	return nil
 }
 
 var (

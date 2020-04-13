@@ -121,6 +121,7 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.UpdateTriggerCmd.FullCommand(),
 		g.UpdatePlanInitCmd.FullCommand(),
 		g.UpgradeCmd.FullCommand(),
+		g.UpdateUploadCmd.FullCommand(),
 		g.RPCAgentRunCmd.FullCommand(),
 		g.LeaveCmd.FullCommand(),
 		g.RemoveCmd.FullCommand(),
@@ -131,20 +132,20 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.ResourceCreateCmd.FullCommand(),
 		g.ResourceRemoveCmd.FullCommand(),
 		g.OpsAgentCmd.FullCommand():
-		utils.InitLogging(*g.SystemLogFile)
-		// install and join command also duplicate their logs to the file in
+		utils.InitLogging(level, *g.SystemLogFile)
+		// install and join commands also duplicate their logs to the file in
 		// the current directory for convenience, unless the user set their
 		// own location
 		switch cmd {
 		case g.InstallCmd.FullCommand(), g.JoinCmd.FullCommand():
 			if *g.SystemLogFile == defaults.GravitySystemLogPath {
-				utils.InitLogging(defaults.GravitySystemLogFile)
+				utils.InitLogging(level, defaults.GravitySystemLogFile)
 			}
 		}
 	default:
 		if systemLogSet {
 			// For all commands, use the system log file explicitly set on command line
-			utils.InitLogging(*g.SystemLogFile)
+			utils.InitLogging(level, *g.SystemLogFile)
 		}
 	}
 	log.WithField("args", os.Args).Info("Start.")
@@ -195,14 +196,13 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.AutoJoinCmd.FullCommand(),
 		g.LeaveCmd.FullCommand(),
 		g.RemoveCmd.FullCommand(),
-		g.SystemDevicemapperMountCmd.FullCommand(),
-		g.SystemDevicemapperUnmountCmd.FullCommand(),
 		g.BackupCmd.FullCommand(),
 		g.RestoreCmd.FullCommand(),
 		g.GarbageCollectCmd.FullCommand(),
 		g.SystemGCRegistryCmd.FullCommand(),
 		g.OpsAgentCmd.FullCommand(),
-		g.CheckCmd.FullCommand():
+		g.CheckCmd.FullCommand(),
+		g.ReportCmd.FullCommand():
 		if err := checkRunningAsRoot(); err != nil {
 			return trace.Wrap(err)
 		}
@@ -261,6 +261,16 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			}
 		}
 		localEnv, err = g.NewInstallEnv()
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		defer localEnv.Close()
+	case g.UpdateUploadCmd.FullCommand():
+		localStateDir, err := localenv.LocalGravityDir()
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		localEnv, err = localenv.New(localStateDir)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -445,7 +455,11 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 	case g.StatusHistoryCmd.FullCommand():
 		return statusHistory()
 	case g.UpdateUploadCmd.FullCommand():
-		return uploadUpdate(localEnv, *g.UpdateUploadCmd.OpsCenterURL)
+		tarballEnv, err := getTarballEnvironForUpgrade(localEnv, *g.StateDir)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		return uploadUpdate(tarballEnv, localEnv, *g.UpdateUploadCmd.OpsCenterURL)
 	case g.AppPackageCmd.FullCommand():
 		return appPackage(localEnv)
 		// app commands
@@ -800,7 +814,7 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 		return systemReport(localEnv,
 			*g.SystemReportCmd.Filter,
 			*g.SystemReportCmd.Compressed,
-			os.Stdout)
+			*g.SystemReportCmd.Output)
 	case g.SystemStateDirCmd.FullCommand():
 		return printStateDir()
 	case g.SystemExportRuntimeJournalCmd.FullCommand():
@@ -838,12 +852,6 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 		return planetShell(localEnv)
 	case g.PlanetStatusCmd.FullCommand():
 		return getPlanetStatus(localEnv, extraArgs)
-	case g.SystemDevicemapperMountCmd.FullCommand():
-		return devicemapperMount(*g.SystemDevicemapperMountCmd.Disk)
-	case g.SystemDevicemapperUnmountCmd.FullCommand():
-		return devicemapperUnmount()
-	case g.SystemDevicemapperSystemDirCmd.FullCommand():
-		return devicemapperQuerySystemDirectory()
 	case g.UsersInviteCmd.FullCommand():
 		return inviteUser(localEnv,
 			*g.UsersInviteCmd.Name,

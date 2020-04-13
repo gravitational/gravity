@@ -87,7 +87,6 @@ func (p *agentStartExecutor) Execute(ctx context.Context) error {
 		SecretsPackage: loc.RPCSecrets,
 		Proxy:          proxyClient,
 		FieldLogger:    p.FieldLogger,
-		SELinux:        p.seLinux,
 	})
 	if err != nil {
 		return trace.Wrap(err)

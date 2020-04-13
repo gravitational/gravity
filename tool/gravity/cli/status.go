@@ -60,18 +60,15 @@ func status(env *localenv.LocalEnvironment, printOptions printOptions) error {
 
 	status, err := statusOnce(ctx, operator, printOptions.operationID)
 	if err == nil {
-		err = printStatus(operator, clusterStatus{*status, nil}, printOptions)
-		return trace.Wrap(err)
-	} else {
-		log.Errorf(trace.DebugReport(err))
+		return printStatus(operator, clusterStatus{*status, nil}, printOptions)
 	}
-
+	log.WithError(err).Warn("Failed to fetch status.")
 	if printOptions.operationID != "" {
 		return trace.Wrap(err)
 	}
 
 	if status == nil {
-		log.Warnf("Failed to collect cluster status: %v.", trace.DebugReport(err))
+		log.WithError(err).Warn("Failed to collect cluster status.")
 		status = &statusapi.Status{
 			Cluster: &statusapi.Cluster{
 				State: ops.SiteStateDegraded,
@@ -79,9 +76,11 @@ func status(env *localenv.LocalEnvironment, printOptions printOptions) error {
 		}
 	}
 	if status.Agent == nil {
+		ctx, cancel := context.WithTimeout(context.TODO(), defaults.StatusCollectionTimeout)
+		defer cancel()
 		status.Agent, err = statusapi.FromPlanetAgent(ctx, nil)
 		if err != nil {
-			log.Warnf("Failed to query status from planet agent: %v.", trace.DebugReport(err))
+			log.WithError(err).Warn("Failed to query status from planet agent.")
 		}
 	}
 
@@ -186,7 +185,6 @@ func printStatus(operator ops.Operator, status clusterStatus, printOptions print
 			return nil
 		}
 		fmt.Printf("%v\n", status.Operation.State)
-		return nil
 
 	case printOptions.token:
 		fmt.Print(status.Token.Token)
@@ -201,11 +199,10 @@ func printStatus(operator ops.Operator, status clusterStatus, printOptions print
 func printStatusWithOptions(status clusterStatus, printOptions printOptions) error {
 	switch printOptions.format {
 	case constants.EncodingJSON:
-		return trace.Wrap(printStatusJSON(status))
+		return printStatusJSON(os.Stdout, status)
 	default:
-		printStatusText(status)
+		return printStatusText(os.Stdout, status)
 	}
-	return nil
 }
 
 // tailOperationLogs follows the logs of the currently ongoing operation until the operation completes
@@ -250,25 +247,24 @@ func tailOperationLogs(operator ops.Operator, operationKey ops.SiteOperationKey)
 	}
 }
 
-func printStatusJSON(status clusterStatus) error {
+func printStatusJSON(out io.Writer, status clusterStatus) error {
 	log.Debugf("status: %#v", status)
 	bytes, err := json.Marshal(&status)
 	if err != nil {
 		return trace.Wrap(err, "failed to marshal")
 	}
 
-	fmt.Fprint(os.Stdout, string(bytes))
-	return nil
+	fmt.Fprint(out, string(bytes))
+	return clusterStatusError(status)
 }
 
-func printStatusText(cluster clusterStatus) {
+func printStatusText(out io.Writer, cluster clusterStatus) error {
 	w := new(tabwriter.Writer)
 
-	w.Init(os.Stdout, 0, 8, 1, '\t', 0)
+	w.Init(out, 0, 8, 1, '\t', 0)
 
 	if cluster.Cluster != nil {
 		fmt.Fprintf(w, "Cluster name:\t%v\n", unknownFallback(cluster.Cluster.Domain))
-		fmt.Fprintf(w, "Gravity version:\t%v\n", cluster.Version)
 		if cluster.Status.IsDegraded() {
 			fmt.Fprintf(w, "Cluster status:\t%v\n", color.RedString("degraded"))
 		} else {
@@ -287,6 +283,7 @@ func printStatusText(cluster clusterStatus) {
 	if len(cluster.FailedLocalProbes) != 0 {
 		printFailedChecks(cluster.FailedLocalProbes)
 	}
+	return clusterStatusError(cluster)
 }
 
 func formatVersion(version *modules.Version) string {
@@ -297,11 +294,8 @@ func formatVersion(version *modules.Version) string {
 }
 
 func printClusterStatus(cluster statusapi.Cluster, w io.Writer) {
-	if cluster.SELinux {
-		fmt.Fprintf(w, "SELinux support:\t%v\n", formatSELinuxStatus(cluster.SELinux))
-	}
 	if cluster.App.Name != "" {
-		fmt.Fprintf(w, "Application:\t%v, version %v\n", cluster.App.Name,
+		fmt.Fprintf(w, "Cluster image:\t%v, version %v\n", cluster.App.Name,
 			cluster.App.Version)
 	}
 	fmt.Fprintf(w, "Gravity version:\t%v (client) / %v (server)\n",
@@ -381,6 +375,9 @@ func printNodeStatus(node statusapi.ClusterServer, w io.Writer) {
 		description = fmt.Sprintf("%v / %v", description, node.Profile)
 	}
 	fmt.Fprintf(w, "        * %v / %v\n", unknownFallback(node.Hostname), description)
+	if node.SELinux != nil && *node.SELinux {
+		fmt.Fprintf(w, "            SELinux:\t%v\n", formatSELinuxStatus(*node.SELinux))
+	}
 	switch node.Status {
 	case statusapi.NodeOffline:
 		fmt.Fprintf(w, "            Status:\t%v\n", color.YellowString("offline"))
@@ -417,6 +414,13 @@ func unknownFallback(text string) string {
 		return text
 	}
 	return "<unknown>"
+}
+
+func clusterStatusError(status clusterStatus) error {
+	if status.Status.IsDegraded() {
+		return trace.BadParameter("degraded")
+	}
+	return nil
 }
 
 // printOptions controls status command output

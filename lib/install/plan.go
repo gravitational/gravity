@@ -46,12 +46,9 @@ func (r *Planner) GetOperationPlan(operator ops.Operator, cluster ops.Site, oper
 		ClusterName:   operation.SiteDomain,
 		Servers:       append(builder.Masters, builder.Nodes...),
 		DNSConfig:     cluster.DNSConfig,
-		SELinux:       cluster.SELinux,
 	}
 
-	if cluster.SELinux {
-		builder.AddBootstrapSELinuxPhase(plan)
-	}
+	builder.AddBootstrapSELinuxPhase(plan)
 
 	if r.preflightChecks {
 		builder.AddChecksPhase(plan)

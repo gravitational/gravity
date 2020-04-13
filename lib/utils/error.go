@@ -427,20 +427,6 @@ func WrapExitCodeError(exitCode int, err error) error {
 	}
 }
 
-// ExitStatusFromError returns the exit status from the specified error.
-// If the error is not exit status error, return nil
-func ExitStatusFromError(err error) *int {
-	exitErr, ok := trace.Unwrap(err).(*exec.ExitError)
-	if !ok {
-		return nil
-	}
-	if waitStatus, ok := exitErr.ProcessState.Sys().(syscall.WaitStatus); ok {
-		status := waitStatus.ExitStatus()
-		return &status
-	}
-	return nil
-}
-
 // ExitCode interprets this value as exit code.
 // Implements ExitCodeError
 func (r exitCodeError) ExitCode() int {

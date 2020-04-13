@@ -44,6 +44,7 @@ import (
 	pb "github.com/gravitational/gravity/lib/rpc/proto"
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
 	"github.com/gravitational/gravity/lib/state"
+	"github.com/gravitational/gravity/lib/system/auditlog"
 	"github.com/gravitational/gravity/lib/system/environ"
 	"github.com/gravitational/gravity/lib/system/service"
 	"github.com/gravitational/gravity/lib/system/signals"
@@ -56,10 +57,9 @@ import (
 )
 
 func startInstall(env *localenv.LocalEnvironment, config InstallConfig) error {
-	if err := config.BootstrapSELinux(env); err != nil {
+	if err := config.BootstrapSELinux(context.TODO(), env); err != nil {
 		return trace.Wrap(err)
 	}
-
 	env.PrintStep("Starting installer")
 	if err := config.CheckAndSetDefaults(); err != nil {
 		return trace.Wrap(err)
@@ -326,12 +326,12 @@ func tryLeave(env *localenv.LocalEnvironment, c leaveConfig) error {
 		return trace.Wrap(err)
 	}
 
-	site, err := operator.GetLocalSite()
+	cluster, err := operator.GetLocalSite()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	server, err := findLocalServer(*site)
+	server, err := findLocalServer(cluster.ClusterState.Servers)
 	if err != nil {
 		return trace.NotFound(
 			"this server is not a part of the running cluster, please use --force flag to clean up the local state")
@@ -372,12 +372,12 @@ func remove(env *localenv.LocalEnvironment, c removeConfig) error {
 		return trace.Wrap(err)
 	}
 
-	site, err := operator.GetLocalSite()
+	cluster, err := operator.GetLocalSite()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	server, err := findServer(*site, []string{c.server})
+	server, err := findServer(cluster.ClusterState.Servers, []string{c.server})
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -392,8 +392,8 @@ func remove(env *localenv.LocalEnvironment, c removeConfig) error {
 
 	key, err := operator.CreateSiteShrinkOperation(context.TODO(),
 		ops.CreateSiteShrinkOperationRequest{
-			AccountID:  site.AccountID,
-			SiteDomain: site.Domain,
+			AccountID:  cluster.AccountID,
+			SiteDomain: cluster.Domain,
 			Servers:    []string{server.Hostname},
 			Force:      c.force,
 		})
@@ -405,27 +405,26 @@ func remove(env *localenv.LocalEnvironment, c removeConfig) error {
 	return nil
 }
 
-func autojoin(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, d autojoinConfig) (err error) {
-	if err := d.bootstrapSELinux(env); err != nil {
+func autojoin(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, config autojoinConfig) (err error) {
+	if err := config.bootstrapSELinux(context.TODO(), env); err != nil {
 		return trace.Wrap(err)
 	}
 
-	if d.fromService {
-		return autojoinFromService(env, environ, d)
+	if config.fromService {
+		return autojoinFromService(env, environ, config)
 	}
 
-	err = updateJoinConfigFromCloudMetadata(context.TODO(), &d)
+	err = updateJoinConfigFromCloudMetadata(context.TODO(), &config)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	if err := d.checkAndSetDefaults(); err != nil {
+	if err := config.checkAndSetDefaults(); err != nil {
 		return trace.Wrap(err)
 	}
 
-	env.PrintStep("Auto-joining cluster %q via %v\n", d.clusterName, d.serviceURL)
+	env.PrintStep("Auto-joining cluster %q via %v\n", config.clusterName, config.serviceURL)
 
-	config := d.newJoinConfig()
-	strategy, err := newAutoAgentConnectStrategy(env, config)
+	strategy, err := newAutoAgentConnectStrategy(env, config.newJoinConfig())
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -677,12 +676,10 @@ func InstallerClient(env *localenv.LocalEnvironment, config installerclient.Conf
 
 // join executes the join command and runs either the client or the service depending on the configuration
 func join(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, config JoinConfig) error {
-	if err := config.bootstrapSELinux(env); err != nil {
+	if err := config.bootstrapSELinux(context.TODO(), env); err != nil {
 		return trace.Wrap(err)
 	}
-
 	env.PrintStep("Starting agent")
-
 	if err := config.CheckAndSetDefaults(); err != nil {
 		return trace.Wrap(err)
 	}
@@ -717,10 +714,13 @@ func join(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, confi
 
 // TerminationHandler implements the default interrupt handler for the installer service
 func TerminationHandler(interrupt *signals.InterruptHandler, printer utils.Printer) {
+	audit := auditlog.New()
+	audit.AddDefaultRules()   //nolint:errcheck
+	defer audit.RemoveRules() //nolint:errcheck
 	for {
 		select {
 		case sig := <-interrupt.C:
-			log.Info("Received ", sig, " signal. Terminating the installer gracefully, please wait.")
+			printer.Println("Received ", sig, " signal. Terminating the installer gracefully, please wait.")
 			interrupt.Abort()
 			return
 		case <-interrupt.Done():
@@ -750,12 +750,17 @@ var InterruptSignals = signals.WithSignals(
 
 // NewInstallerConnectStrategy returns default installer service connect strategy
 func NewInstallerConnectStrategy(env *localenv.LocalEnvironment, config InstallConfig, commandArgs cli.CommandArgs) (strategy installerclient.ConnectStrategy, err error) {
-	args, err := commandArgs.Update(os.Args[1:], cli.NewFlag("token", config.Token))
+	commandArgs.FlagsToAdd = append(commandArgs.FlagsToAdd,
+		cli.NewFlag("token", config.Token),
+		cli.NewBoolFlag("selinux", config.SELinux),
+	)
+	commandArgs.FlagsToRemove = append(commandArgs.FlagsToRemove, "selinux")
+	args, err := commandArgs.Update(os.Args[1:])
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	args = append([]string{utils.Exe.Path}, args...)
 	args = append(args, "--from-service", utils.Exe.WorkingDir)
-	if !config.SELinux {
-		args = append(args, "--no-selinux")
-	}
 	servicePath, err := state.GravityInstallDir(defaults.GravityRPCInstallerServiceName)
 	if err != nil {
 		return nil, trace.Wrap(err)

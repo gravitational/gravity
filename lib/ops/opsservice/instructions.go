@@ -114,7 +114,6 @@ func (s *site) getJoinInstructions(token storage.ProvisioningToken, serverProfil
 		"gravity_bin_path":  defaults.GravityBin,
 		"cloud_provider":    s.provider,
 		"operation_id":      token.OperationID,
-		"selinux":           s.seLinuxEnabled(),
 	}
 	var out bytes.Buffer
 	err = joinTemplate.Execute(&out, vars)
