@@ -139,7 +139,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.ResumeCmd.PhaseTimeout = g.ResumeCmd.Flag("timeout", "Phase execution timeout.").Default(defaults.PhaseTimeout).Hidden().Duration()
 
 	g.PlanCmd.CmdClause = g.Command("plan", "Manage operation plan.")
-	g.PlanCmd.OperationID = g.PlanCmd.Flag("operation-id", "ID of the active operation. It not specified, the last operation will be used.").Hidden().String()
+	g.PlanCmd.OperationID = g.PlanCmd.Flag("operation-id", "ID of the active operation. It not specified, the last operation will be used.").String()
 	g.PlanCmd.SkipVersionCheck = g.PlanCmd.Flag("skip-version-check", "Bypass version compatibility check.").Hidden().Bool()
 
 	g.PlanDisplayCmd.CmdClause = g.PlanCmd.Command("display", "Display a plan for an ongoing operation.").Default()
@@ -659,13 +659,6 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.SystemReportCmd.Compressed = g.SystemReportCmd.Flag("compressed", "whether to compress the tarball").Default("true").Bool()
 
 	g.SystemStateDirCmd.CmdClause = g.SystemCmd.Command("state-dir", "show where all gravity data is stored on the node").Hidden()
-
-	// manage docker devicemapper environment
-	g.SystemDevicemapperCmd.CmdClause = g.SystemCmd.Command("devicemapper", "manage docker devicemapper environment").Hidden()
-	g.SystemDevicemapperMountCmd.CmdClause = g.SystemDevicemapperCmd.Command("mount", "configure devicemapper environment").Hidden()
-	g.SystemDevicemapperMountCmd.Disk = g.SystemDevicemapperMountCmd.Arg("disk", "disk/partition to use for physical volume").String()
-	g.SystemDevicemapperUnmountCmd.CmdClause = g.SystemDevicemapperCmd.Command("unmount", "remove devicemapper environment").Hidden()
-	g.SystemDevicemapperSystemDirCmd.CmdClause = g.SystemDevicemapperCmd.Command("system-dir", "query the location of the lvm system directory").Hidden()
 
 	// journal helpers
 	g.SystemExportRuntimeJournalCmd.CmdClause = g.SystemCmd.Command("export-runtime-journal", "Export runtime journal logs to a file").Hidden()

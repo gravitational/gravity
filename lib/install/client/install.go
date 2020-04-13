@@ -150,7 +150,7 @@ func isServiceFailed(serviceName string) func() error {
 			return trace.Errorf("service %q has failed. Check journal log for details.",
 				serviceName)
 		}
-		return nil
+		return trace.Wrap(err)
 	}
 }
 

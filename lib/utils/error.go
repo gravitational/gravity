@@ -363,8 +363,7 @@ func ExitStatusFromError(err error) *int {
 // It detects unrecoverable errors and aborts the reconnect attempts
 func ShouldReconnectPeer(err error) error {
 	switch {
-	case trace.IsAccessDenied(err),
-		isPeerDeniedError(err),
+	case isPermissionDeniedError(err),
 		isLicenseError(err.Error()),
 		isHostAlreadyRegisteredError(err.Error()):
 		return &backoff.PermanentError{Err: err}
@@ -455,14 +454,14 @@ type exitCodeError struct {
 	err error
 }
 
-func isPeerDeniedError(err error) bool {
+func isPermissionDeniedError(err error) bool {
 	if err == nil {
 		return false
 	}
 	if statusErr, ok := status.FromError(trace.Unwrap(err)); ok {
 		return statusErr.Code() == codes.PermissionDenied
 	}
-	return strings.Contains(err.Error(), "peer auth failed")
+	return trace.IsAccessDenied(err)
 }
 
 func isLicenseError(message string) bool {

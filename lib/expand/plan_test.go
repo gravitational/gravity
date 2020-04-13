@@ -133,13 +133,15 @@ func (s *PlanSuite) SetUpSuite(c *check.C) {
 	s.installOp, err = s.services.Operator.GetSiteOperation(*s.installOpKey)
 	c.Assert(err, check.IsNil)
 	err = s.services.Operator.UpdateInstallOperationState(
-		*s.installOpKey, ops.OperationUpdateRequest{
+		*s.installOpKey,
+		ops.OperationUpdateRequest{
 			Profiles: map[string]storage.ServerProfileRequest{
 				s.masterNode.Role: {Count: 1}},
 			Servers: []storage.Server{s.masterNode},
 		})
 	c.Assert(err, check.IsNil)
-	err = s.services.Operator.SetOperationState(*s.installOpKey,
+	err = s.services.Operator.SetOperationState(context.TODO(),
+		*s.installOpKey,
 		ops.SetOperationStateRequest{
 			State: ops.OperationStateCompleted,
 			Progress: &ops.ProgressEntry{

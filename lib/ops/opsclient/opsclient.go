@@ -480,9 +480,13 @@ func (c *Client) ResumeShrink(key ops.SiteKey) (*ops.SiteOperationKey, error) {
 	return &opKey, trace.Wrap(err)
 }
 
-func (c *Client) GetSiteInstallOperationAgentReport(key ops.SiteOperationKey) (*ops.AgentReport, error) {
-	out, err := c.Get(c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "operations", "install",
-		key.OperationID, "agent-report"), url.Values{})
+func (c *Client) GetSiteInstallOperationAgentReport(ctx context.Context, key ops.SiteOperationKey) (*ops.AgentReport, error) {
+	out, err := c.GetWithContext(ctx,
+		c.Endpoint("accounts", key.AccountID,
+			"sites", key.SiteDomain,
+			"operations", "install",
+			key.OperationID, "agent-report",
+		), url.Values{})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -508,8 +512,13 @@ func (c *Client) SiteInstallOperationStart(req ops.SiteOperationKey) error {
 	return nil
 }
 
-func (c *Client) GetSiteExpandOperationAgentReport(key ops.SiteOperationKey) (*ops.AgentReport, error) {
-	out, err := c.Get(c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "operations", "expand", key.OperationID, "agent-report"), url.Values{})
+func (c *Client) GetSiteExpandOperationAgentReport(ctx context.Context, key ops.SiteOperationKey) (*ops.AgentReport, error) {
+	out, err := c.GetWithContext(ctx,
+		c.Endpoint("accounts", key.AccountID,
+			"sites", key.SiteDomain,
+			"operations", "expand",
+			key.OperationID, "agent-report",
+		), url.Values{})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -684,8 +693,8 @@ func (c *Client) GetSiteOperationCrashReport(key ops.SiteOperationKey) (io.ReadC
 	return file.Body(), nil
 }
 
-func (c *Client) GetSiteReport(key ops.SiteKey) (io.ReadCloser, error) {
-	file, err := c.GetFile(c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "report"), url.Values{})
+func (c *Client) GetSiteReport(ctx context.Context, key ops.SiteKey) (io.ReadCloser, error) {
+	file, err := c.GetFileWithContext(ctx, c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "report"), url.Values{})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -844,9 +853,13 @@ func (c *Client) DeleteSiteOperation(key ops.SiteOperationKey) error {
 }
 
 // SetOperationState moves operation into specified state
-func (c *Client) SetOperationState(key ops.SiteOperationKey, req ops.SetOperationStateRequest) error {
-	_, err := c.PutJSON(c.Endpoint(
-		"accounts", key.AccountID, "sites", key.SiteDomain, "operations", "common", key.OperationID, "complete"), req)
+func (c *Client) SetOperationState(ctx context.Context, key ops.SiteOperationKey, req ops.SetOperationStateRequest) error {
+	_, err := c.PutJSONWithContext(ctx,
+		c.Endpoint("accounts", key.AccountID,
+			"sites", key.SiteDomain,
+			"operations", "common",
+			key.OperationID, "complete",
+		), req)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -1588,14 +1601,29 @@ func (c *Client) PutJSON(endpoint string, data interface{}) (*roundtrip.Response
 	return telehttplib.ConvertResponse(c.Client.PutJSON(context.TODO(), endpoint, data))
 }
 
+// PutJSONWithContext issues HTTP PUT request bound to the given context to the server with the provided JSON data
+func (c *Client) PutJSONWithContext(ctx context.Context, endpoint string, data interface{}) (*roundtrip.Response, error) {
+	return telehttplib.ConvertResponse(c.Client.PutJSON(ctx, endpoint, data))
+}
+
 // Get issues HTTP GET request to the server
 func (c *Client) Get(endpoint string, params url.Values) (*roundtrip.Response, error) {
 	return telehttplib.ConvertResponse(c.Client.Get(context.TODO(), endpoint, params))
 }
 
+// GetWithContext issues HTTP GET request to the server bound to the specified context
+func (c *Client) GetWithContext(ctx context.Context, endpoint string, params url.Values) (*roundtrip.Response, error) {
+	return telehttplib.ConvertResponse(c.Client.Get(ctx, endpoint, params))
+}
+
 // GetFile issues HTTP GET request to the server to download a file
 func (c *Client) GetFile(endpoint string, params url.Values) (*roundtrip.FileResponse, error) {
-	re, err := c.Client.GetFile(context.TODO(), endpoint, params)
+	return c.GetFileWithContext(context.TODO(), endpoint, params)
+}
+
+// GetFileWithContext issues HTTP GET request bound to the given context to the server to download a file
+func (c *Client) GetFileWithContext(ctx context.Context, endpoint string, params url.Values) (*roundtrip.FileResponse, error) {
+	re, err := c.Client.GetFile(ctx, endpoint, params)
 	if err != nil {
 		if uerr, ok := err.(*url.Error); ok && uerr != nil && uerr.Err != nil {
 			return nil, trace.Wrap(uerr.Err)

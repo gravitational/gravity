@@ -114,7 +114,7 @@ func (r *Server) SetState(ctx context.Context, req *installpb.SetStateRequest) (
 // Implements installpb.AgentServer
 func (r *Server) Complete(ctx context.Context, req *installpb.CompleteRequest) (*types.Empty, error) {
 	r.WithField("req", req).Info("Complete.")
-	err := r.executor.Complete(installpb.KeyFromProto(req.Key))
+	err := r.executor.Complete(ctx, installpb.KeyFromProto(req.Key))
 	if err != nil {
 		return nil, trail.ToGRPC(err)
 	}
@@ -146,7 +146,7 @@ func (r *Server) Shutdown(ctx context.Context, req *installpb.ShutdownRequest) (
 func (r *Server) GenerateDebugReport(ctx context.Context, req *installpb.DebugReportRequest) (*types.Empty, error) {
 	r.WithField("req", req).Info("Generate debug report.")
 	if reporter, ok := r.executor.(DebugReporter); ok {
-		err := reporter.GenerateDebugReport(req.Path)
+		err := reporter.GenerateDebugReport(ctx, req.Path)
 		if err != nil {
 			// Not wrapping err as it passes the gRPC boundary
 			return nil, err
@@ -164,13 +164,13 @@ type Executor interface {
 	// SetPhase sets the phase state without executing it.
 	SetPhase(req *installpb.SetStateRequest) error
 	// Complete manually completes the operation given with operationKey.
-	Complete(operationKey ops.SiteOperationKey) error
+	Complete(ctx context.Context, operationKey ops.SiteOperationKey) error
 }
 
 // DebugReporter allows to capture the operation state
 type DebugReporter interface {
 	// GenerateDebugReport captures the state of the operation state for debugging
-	GenerateDebugReport(path string) error
+	GenerateDebugReport(ctx context.Context, path string) error
 }
 
 // Completer describes completion outcomes

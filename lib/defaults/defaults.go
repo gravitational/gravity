@@ -217,6 +217,10 @@ const (
 	// ServiceConnectTimeout specifies the timeout for connecting to the installer service
 	ServiceConnectTimeout = 1 * time.Minute
 
+	// AgentGroupPeerReconnectTimeout is the maximum amount of time agent group will attempt
+	// to reconnect to the peer
+	AgentGroupPeerReconnectTimeout = 15 * time.Minute
+
 	// GravityPackagePrefix defines base prefix of gravity package
 	GravityPackagePrefix = "gravitational.io/gravity"
 
@@ -324,7 +328,10 @@ const (
 	SerfBin = "/usr/bin/serf"
 
 	// JournalctlBin is the default location of the journalctl inside planet
-	JournalctlBin = "/bin/journalctl"
+	JournalctlBin = "/usr/bin/journalctl"
+
+	// JournalctlBinHost is the default location of the journalctl on host
+	JournalctlBinHost = "/bin/journalctl"
 
 	// SystemctlBin is systemctl executable inside planet
 	SystemctlBin = "/bin/systemctl"
@@ -1117,6 +1124,13 @@ var (
 	// AgentWaitTimeout specifies the maximum amount of time to wait for
 	// agents to form a cluster before commencing the operation
 	AgentWaitTimeout = 5 * time.Minute
+
+	// GenerateDebugReportTimeout specifies the maximum amount of time to wait for
+	// cluster-wide debug report generation.
+	// TODO(dmitri): this is trickier to handle correctly - ideally, this should much shorter
+	// and for the initial data wait (until there's data coming on the conn).
+	// There should be no timeout for the actual report receive operation.
+	GenerateDebugReportTimeout = 10 * time.Minute
 
 	// WormholeImg is the docker image reference to use when embedding wormhole
 	// Note: This is a build parameter, and the build scripts will replace this with an image reference

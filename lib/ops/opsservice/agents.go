@@ -36,8 +36,9 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/users"
 	"github.com/gravitational/gravity/lib/utils"
-	licenseapi "github.com/gravitational/license"
 
+	"github.com/cenkalti/backoff"
+	licenseapi "github.com/gravitational/license"
 	"github.com/gravitational/satellite/agent/proto/agentpb"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
@@ -539,6 +540,11 @@ func (r *AgentPeerStore) removeGroup(ctx context.Context, key ops.SiteOperationK
 func (r *AgentPeerStore) addGroup(key ops.SiteOperationKey) (*agentGroup, error) {
 	config := rpcserver.AgentGroupConfig{
 		FieldLogger: log.StandardLogger(),
+		ReconnectStrategy: rpcserver.ReconnectStrategy{
+			Backoff: func() backoff.BackOff {
+				return utils.NewExponentialBackOff(defaults.AgentGroupPeerReconnectTimeout)
+			},
+		},
 	}
 	group, err := rpcserver.NewAgentGroup(config, nil)
 	if err != nil {
