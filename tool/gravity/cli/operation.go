@@ -17,14 +17,18 @@ limitations under the License.
 package cli
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/tool/common"
 
+	"github.com/buger/goterm"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
 )
@@ -281,6 +285,17 @@ func getActiveOperationsFromList(operations []ops.SiteOperation) (result []ops.S
 		return nil, trace.NotFound("no active operations found")
 	}
 	return result, nil
+}
+
+// formatTable formats this operation list as a table
+func (r oplist) formatTable() string {
+	t := goterm.NewTable(0, 10, 5, ' ', 0)
+	common.PrintTableHeader(t, []string{"Type", "ID", "State", "Created"})
+	for _, op := range r {
+		fmt.Fprintf(t, "%v\t%v\t%v\t%v\n",
+			op.Type, op.ID, op.State, op.Created.Format(constants.ShortDateFormat))
+	}
+	return t.String()
 }
 
 func (r oplist) String() string {

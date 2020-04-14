@@ -69,10 +69,10 @@ func displayOperationPlan(localEnv, updateEnv, joinEnv *localenv.LocalEnvironmen
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	if len(operations) != 1 {
+	if len(operations) != 1 && format == constants.EncodingText {
 		log.WithField("operations", oplist(operations).String()).Warn("Multiple operations found.")
-		localEnv.Printf("Multiple operations found: \n\t%v\n, please specify operation with --operation-id.\n"+
-			"Displaying the most recent operation.", oplist(operations))
+		localEnv.Printf("Multiple operations found: \n%v\nPlease specify operation with --operation-id. "+
+			"Displaying the most recent operation.\n\n", oplist(operations).formatTable())
 	}
 	op := operations[0]
 	if op.IsCompleted() {
