@@ -26,7 +26,7 @@ extend updates past EOL through customer agreements if required.
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 6.3.9         | No  | April 3rd, 2020      | April 3rd, 2020      | 1.17.4             | 3.2.13           |
+| 6.3.10        | No  | April 13th, 2020     | April 3rd, 2020      | 1.17.4             | 3.2.13           |
 | 6.2.5         | No  | December 3rd, 2019   | December 18th, 2019  | 1.16.3             | 3.2.13           |
 | 6.0.10        | No  | October 17th, 2019   | August 2nd, 2019     | 1.14.7             | 3.2.12           |
 | 5.6.8         | No  | September 18th, 2019 | July 17th, 2019      | 1.14.7             | 3.0.6-gravity    |
@@ -63,12 +63,25 @@ to learn how to gain insight into how the cluster status changes over time.
 
 ## 6.x Releases
 
+### 6.3.10 (April 13th, 2020)
+
+#### Improvements
+
+* Add overlay network checker to the in-cluster problem detector ([#1324](https://github.com/gravitational/gravity/pull/1324)).
+* Add ability to view cluster operations from CLI using `gravity resource get operations` command ([#1338](https://github.com/gravitational/gravity/pull/1338)).
+* Set apiserver flags to enable service account token volume projection ([#1359](https://github.com/gravitational/gravity/pull/1359)).
+
+#### Bugfixes
+
+* Disallow running certain commands inside planet container which could lead to unexpected results ([#1350](https://github.com/gravitational/gravity/pull/1350)).
+* Fix a number of issues that could lead to expand operation being stuck ([#1348](https://github.com/gravitational/gravity/pull/1348)).
+
 ### 6.1.21 LTS (April 10th, 2020)
 
 #### Improvements
 
 * Add overlay network checker to the in-cluster problem detector ([#1321](https://github.com/gravitational/gravity/pull/1321)).
-* Add ability to view cluster operations from command-line ([#1337](https://github.com/gravitational/gravity/pull/1337)).
+* Add ability to view cluster operations from CLI using `gravity resource get operations` command ([#1337](https://github.com/gravitational/gravity/pull/1337)).
 * Implement planet container changes allowing easier integration with OpenEBS ([#1344](https://github.com/gravitational/gravity/pull/1344)).
 
 #### Bugfixes
