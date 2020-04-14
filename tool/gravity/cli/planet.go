@@ -42,9 +42,6 @@ func planetEnter(env *localenv.LocalEnvironment, args []string) error {
 		return trace.Wrap(err)
 	}
 	var cmd []string
-	if env.SELinux {
-		cmd = append(cmd, "--selinux")
-	}
 	if env.Debug {
 		cmd = append(cmd, "--debug")
 	}
@@ -71,9 +68,6 @@ func planetExec(env *localenv.LocalEnvironment, tty bool, stdin bool, cmd string
 	}
 	if stdin {
 		args = append(args, "-i")
-	}
-	if env.SELinux {
-		args = append(args, "--selinux")
 	}
 	if env.Debug {
 		args = append(args, "--debug")
