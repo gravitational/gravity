@@ -317,7 +317,6 @@ func (p *pullExecutor) unpackPackages() error {
 				pack.PurposeCA,
 				pack.PurposePlanetSecrets,
 				pack.PurposePlanetConfig,
-				pack.PurposeRuntime,
 				pack.PurposeTeleportMasterConfig,
 				pack.PurposeTeleportNodeConfig,
 			},
