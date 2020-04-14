@@ -301,7 +301,7 @@ func (i *InstallConfig) CheckAndSetDefaults() (err error) {
 	return nil
 }
 
-// checkEULA asks the user to accept the end-user license agreement is one
+// checkEULA asks the user to accept the end-user license agreement if one
 // is required.
 func (i *InstallConfig) checkEULA() error {
 	if i.Mode != constants.InstallModeCLI || i.FromService {
