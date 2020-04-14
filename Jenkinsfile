@@ -29,6 +29,9 @@ def setRobotestParameters() {
       choice(choices: ["true", "false"].join("\n"),
              description: 'Abort all tests upon first failure.',
              name: 'FAIL_FAST'),
+      string(name: 'ROBOTEST_VERSION',
+             defaultValue: 'uid-gid',
+             description: 'Robotest tag to use.'),
     ]),
   ])
 }
