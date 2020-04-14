@@ -419,6 +419,8 @@ type InstallCmd struct {
 	Set *[]string
 	// Values is a list of YAML files with Helm chart values.
 	Values *[]string
+	// AcceptEULA allows to auto-accept end-user license agreement.
+	AcceptEULA *bool
 }
 
 // JoinCmd joins to the installer or existing cluster

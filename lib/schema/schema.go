@@ -121,7 +121,6 @@ const manifestSchema = `
             },
             "flavors": {
               "type": "object",
-              "required": ["items"],
               "additionalProperties": false,
               "properties": {
                 "prompt": {"type": "string"},
