@@ -30,7 +30,7 @@ def setRobotestParameters() {
              description: 'Abort all tests upon first failure.',
              name: 'FAIL_FAST'),
       string(name: 'ROBOTEST_VERSION',
-             defaultValue: 'uid-gid',
+             defaultValue: 'dima',
              description: 'Robotest tag to use.'),
     ]),
   ])
