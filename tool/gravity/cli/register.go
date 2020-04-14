@@ -97,6 +97,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.InstallCmd.DNSZones = g.InstallCmd.Flag("dns-zone", "Specify an upstream server for the given zone within the cluster. Accepts <zone>/<nameserver> format where <nameserver> can be either <ip> or <ip>:<port>. Can be specified multiple times.").Strings()
 	g.InstallCmd.Remote = g.InstallCmd.Flag("remote", "Do not use this node in the cluster.").Bool()
 	g.InstallCmd.FromService = g.InstallCmd.Flag("from-service", "Run in service mode.").Hidden().Bool()
+	g.InstallCmd.AcceptEULA = g.InstallCmd.Flag("accept-eula", "Auto-accept the end-user license agreement if the application requires it.").Bool()
 
 	g.JoinCmd.CmdClause = g.Command("join", "Join the existing cluster or an on-going install operation.")
 	g.JoinCmd.PeerAddr = g.JoinCmd.Arg("peer-addrs", "One or several IP addresses of cluster nodes to join, as comma-separated values.").String()

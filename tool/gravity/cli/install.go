@@ -57,7 +57,6 @@ import (
 
 func startInstall(env *localenv.LocalEnvironment, config InstallConfig) error {
 	env.PrintStep("Starting installer")
-
 	if err := config.CheckAndSetDefaults(); err != nil {
 		return trace.Wrap(err)
 	}
