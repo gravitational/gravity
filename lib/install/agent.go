@@ -54,7 +54,7 @@ func NewAgent(ctx context.Context, config AgentConfig, log log.FieldLogger, watc
 		return nil, trace.Wrap(err)
 	}
 
-	creds, err := LoadRPCCredentials(ctx, packages, log)
+	creds, err := LoadRPCCredentials(ctx, packages)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

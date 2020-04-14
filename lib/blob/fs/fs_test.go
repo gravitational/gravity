@@ -39,7 +39,7 @@ func (s *FSSuite) SetUpTest(c *C) {
 	log.SetOutput(os.Stderr)
 	s.dir = c.MkDir()
 
-	obj, err := New(s.dir)
+	obj, err := New(Config{Path: s.dir})
 	c.Assert(err, IsNil)
 
 	s.suite.Objects = obj

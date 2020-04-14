@@ -35,19 +35,16 @@ import (
 // bootstrap prepares the local installer state for the operation based
 // on the installation mode
 func (i *Installer) bootstrap(ctx context.Context) error {
-	if i.Mode != constants.InstallModeInteractive {
-		err := installBinary(i.ServiceUser.UID, i.ServiceUser.GID)
-		if err != nil {
-			return trace.Wrap(err, "failed to install binary")
-		}
-		err = i.configureStateDirectory()
-		if err != nil {
-			return trace.Wrap(err, "failed to configure state directory")
-		}
+	if i.Mode == constants.InstallModeInteractive {
+		return nil
 	}
-	err := exportRPCCredentials(ctx, i.Packages, i.FieldLogger)
+	err := installBinary(i.ServiceUser.UID, i.ServiceUser.GID)
 	if err != nil {
-		return trace.Wrap(err, "failed to export RPC credentials")
+		return trace.Wrap(err, "failed to install binary")
+	}
+	err = i.configureStateDirectory()
+	if err != nil {
+		return trace.Wrap(err, "failed to configure state directory")
 	}
 	return nil
 }

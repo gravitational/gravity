@@ -18,36 +18,143 @@ package cli
 
 import (
 	"bytes"
+	"context"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"net/http"
+	"os"
+	"os/exec"
+	"text/tabwriter"
 	"time"
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/pack"
+	"github.com/gravitational/gravity/lib/rpc"
+	pb "github.com/gravitational/gravity/lib/rpc/proto"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/users"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/cloudflare/cfssl/csr"
 	"github.com/gravitational/license/authority"
+	"github.com/gravitational/teleport/lib/tlsca"
 	"github.com/gravitational/trace"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-type rotateOptions struct {
-	// clusterName is the local cluster name
-	clusterName string
-	// validFor specifies validity duration for renewed certs
-	validFor time.Duration
-	// caPath is optional CA to use
-	caPath string
+func rotateRPCCredentials(env *localenv.LocalEnvironment, o rotateRPCCredsOptions) (err error) {
+	clusterEnv, err := env.NewClusterEnvironment()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	archive, err := rpc.LoadCredentials(clusterEnv.Packages)
+	if err != nil && !trace.IsNotFound(err) {
+		return trace.Wrap(err)
+	}
+	now := time.Now()
+	if o.show {
+		if archive == nil {
+			return trace.NotFound("no RPC credentials found. Run the command again without --show to generate.")
+		}
+		if err := dumpCertificates(archive); err != nil {
+			log.WithError(err).Warn("Failed to output certificate expiration dates.")
+		}
+		env.Println("Validate certificates.")
+		if err := rpc.ValidateCredentials(archive, now); err != nil {
+			return trace.Wrap(err)
+		}
+		env.Println("Nothing to do.")
+		return nil
+	}
+	if archive != nil {
+		env.Println("Validate certificates.")
+		err = rpc.ValidateCredentials(archive, now)
+		if err == nil {
+			env.Println("Nothing to do.")
+			return nil
+		}
+	}
+	env.Println("Generate new certificates.")
+	_, err = rpc.UpsertCredentials(clusterEnv.Packages)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	env.Println("Restart cluster controller.")
+	err = restartClusterControllerAndWait(env)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	env.Println("Done.")
+	return nil
+}
+
+func dumpCertificates(archive utils.TLSArchive) error {
+	w := new(tabwriter.Writer)
+	w.Init(os.Stdout, 0, 8, 1, '\t', 0)
+	defer w.Flush()
+	fmt.Fprintln(w, "Certificate\tNot-Before\tNot-After")
+	caKeyPair := archive[pb.CA]
+	if err := dumpCertificateDates(caKeyPair.CertPEM, "CA", w); err != nil {
+		return trace.Wrap(err)
+	}
+	clientKeyPair := archive[pb.Client]
+	if err := dumpCertificateDates(clientKeyPair.CertPEM, "Client", w); err != nil {
+		return trace.Wrap(err)
+	}
+	serverKeyPair := archive[pb.Server]
+	if err := dumpCertificateDates(serverKeyPair.CertPEM, "Server", w); err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+func dumpCertificateDates(pemBytes []byte, prefix string, w io.Writer) error {
+	cert, err := tlsca.ParseCertificatePEM(pemBytes)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	fmt.Fprintf(w, "%v\t%v\t%v\n", prefix, cert.NotBefore, cert.NotAfter)
+	return nil
+}
+
+func restartClusterControllerAndWait(env *localenv.LocalEnvironment) error {
+	cmd := exec.Command("kubectl", "delete", "pods", "--namespace", metav1.NamespaceSystem, "--selector", "app=gravity-site")
+	out, err := cmd.CombinedOutput()
+	log.WithField("cmd", cmd.Path).Info("Restart cluster controller.")
+	if err != nil {
+		return trace.Wrap(err, "failed to restart cluster controller: %s", out)
+	}
+	client := httplib.NewClient(httplib.WithInsecure(), httplib.WithLocalResolver(env.DNS.Addr()))
+	b := utils.NewExponentialBackOff(defaults.ClusterStatusTimeout)
+	return utils.RetryTransient(context.TODO(), b, func() error {
+		return statusController(client)
+	})
+}
+
+func statusController(client *http.Client) error {
+	targetURL := defaults.GravityServiceURL + "/healthz"
+	resp, err := client.Get(targetURL)
+	if err != nil {
+		return trace.Wrap(err, "failed to connect to %v", targetURL)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusOK {
+		return nil
+	}
+	return trace.BadParameter("cluster is unhealthy")
 }
 
 func rotateCertificates(env *localenv.LocalEnvironment, o rotateOptions) (err error) {
+	if err := o.checkAndSetDefaults(); err != nil {
+		return trace.Wrap(err)
+	}
 	var archive utils.TLSArchive
 	if o.caPath != "" {
 		archive, err = readCertAuthorityFromFile(o.caPath)
@@ -194,6 +301,26 @@ func readCertAuthorityFromFile(path string) (utils.TLSArchive, error) {
 		return nil, trace.Wrap(err)
 	}
 	return utils.ReadTLSArchive(bytes.NewBuffer(data))
+}
+
+type rotateRPCCredsOptions struct {
+	show bool
+}
+
+func (r *rotateOptions) checkAndSetDefaults() error {
+	if r.clusterName == "" && r.caPath == "" {
+		return trace.BadParameter("either cluster-name or ca-path needs to be specified")
+	}
+	return nil
+}
+
+type rotateOptions struct {
+	// clusterName is the local cluster name
+	clusterName string
+	// validFor specifies validity duration for renewed certs
+	validFor time.Duration
+	// caPath is optional CA to use
+	caPath string
 }
 
 const renewDuration = "26280h" // 3 years

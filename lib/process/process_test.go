@@ -224,11 +224,11 @@ func (s *ProcessSuite) TestReverseTunnelsFromTrustedClusters(c *check.C) {
 				}),
 			},
 			tunnels: []telecfg.ReverseTunnel{
-				telecfg.ReverseTunnel{
+				{
 					DomainName: "cluster1",
 					Addresses:  []string{"cluster1:3024"},
 				},
-				telecfg.ReverseTunnel{
+				{
 					DomainName: "cluster2",
 					Addresses:  []string{"cluster2:3024"},
 				},
@@ -304,7 +304,7 @@ func (s *importerSuite) SetUpTest(c *check.C) {
 	})
 	c.Assert(err, check.IsNil)
 
-	objects, err := fs.New(s.dir)
+	objects, err := fs.New(fs.Config{Path: s.dir})
 	c.Assert(err, check.IsNil)
 
 	s.pack, err = localpack.New(localpack.Config{

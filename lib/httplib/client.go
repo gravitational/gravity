@@ -154,11 +154,17 @@ func WithIdleConnTimeout(timeout time.Duration) ClientOption {
 
 // GetClient returns secure or insecure client based on settings
 func GetClient(insecure bool, options ...ClientOption) *http.Client {
+	if insecure {
+		options = append(options, WithInsecure())
+	}
+	return NewClient(options...)
+}
+
+// NewClient creates a new HTTP client with the specified list of configuration
+// options
+func NewClient(options ...ClientOption) *http.Client {
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{},
-	}
-	if insecure {
-		transport.TLSClientConfig.InsecureSkipVerify = true
 	}
 	client := &http.Client{Transport: transport}
 	for _, o := range options {

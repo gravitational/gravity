@@ -36,8 +36,6 @@ import (
 	"github.com/gravitational/gravity/lib/ops/resources/gravity"
 	pb "github.com/gravitational/gravity/lib/rpc/proto"
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
-	"github.com/gravitational/gravity/lib/storage"
-	"github.com/gravitational/gravity/lib/systeminfo"
 	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -175,7 +173,7 @@ func tryLeave(env *localenv.LocalEnvironment, c leaveConfig) error {
 		return trace.Wrap(err)
 	}
 
-	server, err := findLocalServer(*site)
+	server, err := ops.FindLocalServer(site.ClusterState)
 	if err != nil {
 		return trace.NotFound(
 			"this server is not a part of the running cluster, please use --force flag to clean up the local state")
@@ -234,7 +232,7 @@ func remove(env *localenv.LocalEnvironment, c removeConfig) error {
 		return trace.Wrap(err)
 	}
 
-	server, err := findServer(*site, []string{c.server})
+	server, err := ops.FindServer(site.ClusterState, []string{c.server})
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -414,49 +412,6 @@ func agent(env *localenv.LocalEnvironment, config agentConfig, serviceName strin
 	utils.WatchTerminationSignals(ctx, cancel, agent, logrus.StandardLogger())
 
 	return trace.Wrap(agent.Serve())
-}
-
-// findServer searches the provided cluster's state for a server that matches one of the provided
-// tokens, where a token can be the server's advertise IP, hostname or AWS internal DNS name
-func findServer(site ops.Site, tokens []string) (*storage.Server, error) {
-	for _, server := range site.ClusterState.Servers {
-		for _, token := range tokens {
-			if token == "" {
-				continue
-			}
-			switch token {
-			case server.AdvertiseIP, server.Hostname, server.Nodename:
-				return &server, nil
-			}
-		}
-	}
-	return nil, trace.NotFound("could not find server matching %v among registered cluster nodes",
-		tokens)
-}
-
-// findLocalServer searches the provided cluster's state for the server that matches the one
-// the current command is being executed from
-func findLocalServer(site ops.Site) (*storage.Server, error) {
-	// collect the machines's IP addresses and search by them
-	ifaces, err := systeminfo.NetworkInterfaces()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	if len(ifaces) == 0 {
-		return nil, trace.NotFound("no network interfaces found")
-	}
-
-	var ips []string
-	for _, iface := range ifaces {
-		ips = append(ips, iface.IPv4)
-	}
-
-	server, err := findServer(site, ips)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	return server, nil
 }
 
 func executeInstallPhase(localEnv *localenv.LocalEnvironment, p PhaseParams, operation ops.SiteOperation) error {

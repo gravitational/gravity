@@ -17,10 +17,13 @@ limitations under the License.
 package localenv
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/app/service"
+	"github.com/gravitational/gravity/lib/blob"
+	libcluster "github.com/gravitational/gravity/lib/blob/cluster"
 	"github.com/gravitational/gravity/lib/blob/fs"
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/ops/opsservice"
@@ -28,6 +31,7 @@ import (
 	"github.com/gravitational/gravity/lib/pack/localpack"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/keyval"
+	"github.com/gravitational/gravity/lib/systeminfo"
 	"github.com/gravitational/gravity/lib/users"
 	"github.com/gravitational/gravity/lib/users/usersservice"
 
@@ -40,11 +44,27 @@ import (
 func (r *LocalEnvironment) NewClusterEnvironment(opts ...ClusterEnvironmentOption) (*ClusterEnvironment, error) {
 	client, _, err := httplib.GetClusterKubeClient(r.DNS.Addr())
 	if err != nil {
-		log.Errorf("Failed to create Kubernetes client: %v.",
-			trace.DebugReport(err))
+		log.WithError(err).Warn("Failed to create Kubernetes client.")
+	}
+	user, err := r.Backend.GetServiceUser()
+	if err != nil && !trace.IsNotFound(err) {
+		return nil, trace.Wrap(err)
+	}
+	var serviceUser *systeminfo.User
+	if user != nil {
+		serviceUser, err = systeminfo.FromOSUser(*user)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+	}
+	nodeAddr, err := r.Backend.GetNodeAddr()
+	if err != nil && !trace.IsNotFound(err) {
+		return nil, trace.Wrap(err)
 	}
 	config := clusterEnvironmentConfig{
-		client: client,
+		client:      client,
+		serviceUser: serviceUser,
+		nodeAddr:    nodeAddr,
 	}
 	for _, opt := range opts {
 		opt(&config)
@@ -74,7 +94,30 @@ type ClusterEnvironment struct {
 // returns a new instance of cluster environment.
 // The resulting environment will not have a kubernetes client
 func NewClusterEnvironment() (*ClusterEnvironment, error) {
-	return newClusterEnvironment(clusterEnvironmentConfig{})
+	stateDir, err := LocalGravityDir()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	env, err := New(stateDir)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	user, err := env.Backend.GetServiceUser()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	serviceUser, err := systeminfo.FromOSUser(*user)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	nodeAddr, err := env.Backend.GetNodeAddr()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return newClusterEnvironment(clusterEnvironmentConfig{
+		serviceUser: serviceUser,
+		nodeAddr:    nodeAddr,
+	})
 }
 
 // WithClient is an option to override the kubernetes client to use
@@ -112,9 +155,38 @@ func newClusterEnvironment(config clusterEnvironmentConfig) (*ClusterEnvironment
 		return nil, trace.Wrap(err)
 	}
 
-	objects, err := fs.New(packagesDir)
+	localObjects, err := fs.New(fs.Config{
+		Path: packagesDir,
+		User: config.serviceUser,
+	})
 	if err != nil {
 		return nil, trace.Wrap(err)
+	}
+
+	var objects blob.Objects
+	if config.nodeAddr == "" {
+		objects, err = fs.New(fs.Config{Path: packagesDir})
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+	} else {
+		// TODO(dmitri): leaving this as a workaround.
+		// To be able to use cluster-level package service,
+		// a node address is required. This is not available on nodes prior to upgrade
+		// with an version that did not support the necessary system metadata (node address
+		// and service user).
+		// This is normally not a problem as the cluster-level package service is not required
+		// during the upgrade.
+		objects, err = libcluster.New(libcluster.Config{
+			Local:         localObjects,
+			WriteFactor:   1,
+			Backend:       backend,
+			ID:            config.nodeAddr,
+			AdvertiseAddr: fmt.Sprintf("https://%v", config.nodeAddr),
+		})
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
 	}
 
 	unpackedDir, err := SiteUnpackedDir()
@@ -187,4 +259,6 @@ type clusterEnvironmentConfig struct {
 	// etcdTimeout specifies the timeout for etcd queries.
 	// Falls back to defaults.EtcdRetryInterval if unspecified
 	etcdTimeout time.Duration
+	serviceUser *systeminfo.User
+	nodeAddr    string
 }

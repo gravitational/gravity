@@ -33,18 +33,12 @@ import (
 
 // phaseElectionChange is the executor for the update master update phase
 type phaseElectionChange struct {
-	// OperationID is the id of the current update operation
-	OperationID string
-	// Server is the server currently being updated
-	Server storage.Server
-	// SiteName is local cluster name
-	ClusterName string
-	// ElectionChange represents changes to make to the cluster elections
 	ElectionChange storage.ElectionChange
 	// FieldLogger is used for logging
 	logrus.FieldLogger
-	dnsConfig storage.DNSConfig
-	remote    fsm.Remote
+	// ExecutorParams stores the phase parameters
+	fsm.ExecutorParams
+	remote fsm.Remote
 }
 
 // NewPhaseElectionChange is a phase for modifying cluster elections during upgrades
@@ -58,26 +52,9 @@ func NewPhaseElectionChange(
 		return nil, trace.BadParameter("no election status specified for phase %q", p.Phase.ID)
 	}
 
-	cluster, err := operator.GetLocalSite()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	var dnsConfig storage.DNSConfig
-	if cluster != nil {
-		dnsConfig = cluster.DNSConfig
-	}
-	if dnsConfig.IsEmpty() {
-		dnsConfig = storage.LegacyDNSConfig
-	}
-
 	return &phaseElectionChange{
-		OperationID:    p.Plan.OperationID,
-		Server:         *p.Phase.Data.Server,
-		ClusterName:    p.Plan.ClusterName,
-		ElectionChange: *p.Phase.Data.ElectionChange,
 		FieldLogger:    logger,
-		dnsConfig:      dnsConfig,
+		ExecutorParams: p,
 		remote:         remote,
 	}, nil
 }
@@ -85,12 +62,12 @@ func NewPhaseElectionChange(
 func (p *phaseElectionChange) waitForMasterMigration(rollback bool) error {
 	p.Info("Wait for new leader election.")
 	err := utils.Retry(defaults.RetryInterval, defaults.RetryAttempts, func() error {
-		leaderAddr, err := utils.ResolveAddr(constants.APIServerDomainName, p.dnsConfig.Addr())
+		leaderAddr, err := utils.ResolveAddr(constants.APIServerDomainName, p.Plan.DNSConfig.Addr())
 		if err != nil {
 			return trace.Wrap(err, "resolving current leader IP")
 		}
 
-		servers := p.ElectionChange.DisableServers
+		servers := p.Phase.Data.ElectionChange.DisableServers
 		if rollback {
 			servers = p.ElectionChange.EnableServers
 		}
@@ -111,7 +88,7 @@ func (p *phaseElectionChange) waitForMasterMigration(rollback bool) error {
 }
 
 func (p *phaseElectionChange) setElectionStatus(server storage.Server, enable bool) error {
-	key := fmt.Sprintf("/planet/cluster/%s/election/%s", p.ClusterName, server.AdvertiseIP)
+	key := fmt.Sprintf("/planet/cluster/%s/election/%s", p.Plan.ClusterName, server.AdvertiseIP)
 
 	out, err := fsm.RunCommand(utils.PlanetCommandArgs(defaults.EtcdCtlBin,
 		"set", key, fmt.Sprintf("%v", enable)))
@@ -120,7 +97,7 @@ func (p *phaseElectionChange) setElectionStatus(server storage.Server, enable bo
 
 // PreCheck makes sure the phase is being executed on the correct server
 func (p *phaseElectionChange) PreCheck(ctx context.Context) error {
-	return trace.Wrap(p.remote.CheckServer(ctx, p.Server))
+	return trace.Wrap(p.remote.CheckServer(ctx, *p.Phase.Data.Server))
 }
 
 // PostCheck is no-op for this phase
@@ -139,14 +116,14 @@ func (p *phaseElectionChange) Rollback(ctx context.Context) error {
 }
 
 func (p *phaseElectionChange) updateElectionStatus(rollback bool) error {
-	for _, server := range p.ElectionChange.DisableServers {
+	for _, server := range p.Phase.Data.ElectionChange.DisableServers {
 		err := p.setElectionStatus(server, rollback)
 		if err != nil {
 			return trace.Wrap(err)
 		}
 	}
 
-	for _, server := range p.ElectionChange.EnableServers {
+	for _, server := range p.Phase.Data.ElectionChange.EnableServers {
 		err := p.setElectionStatus(server, !rollback)
 		if err != nil {
 			return trace.Wrap(err)
