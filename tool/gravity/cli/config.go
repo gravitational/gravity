@@ -155,6 +155,8 @@ type InstallConfig struct {
 	ServiceUser *systeminfo.User
 	// FromService specifies whether the process runs in service mode
 	FromService bool
+	// AcceptEULA allows to auto-accept end-user license agreement.
+	AcceptEULA bool
 	// writeStateDir is the directory where installer stores state for the duration
 	// of the operation
 	writeStateDir string
@@ -203,6 +205,7 @@ func NewInstallConfig(env *localenv.LocalEnvironment, g *Application) InstallCon
 		Flavor:             *g.InstallCmd.Flavor,
 		Remote:             *g.InstallCmd.Remote,
 		FromService:        *g.InstallCmd.FromService,
+		AcceptEULA:         *g.InstallCmd.AcceptEULA,
 		Printer:            env,
 	}
 }
@@ -291,6 +294,41 @@ func (i *InstallConfig) CheckAndSetDefaults() (err error) {
 	if i.DNSConfig.IsEmpty() {
 		i.DNSConfig = storage.DefaultDNSConfig
 	}
+	err = i.checkEULA()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+// checkEULA asks the user to accept the end-user license agreement is one
+// is required.
+func (i *InstallConfig) checkEULA() error {
+	if i.Mode != constants.InstallModeCLI || i.FromService {
+		return nil
+	}
+	app, err := i.getApp()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	eula := app.Manifest.EULA()
+	if eula == "" {
+		return nil
+	}
+	if i.AcceptEULA {
+		i.Info("EULA was auto-accepted due to --accept-eula flag set.")
+		return nil
+	}
+	i.Printer.Println(eula)
+	confirmed, err := confirmWithTitle("Do you accept the end-user license agreement?")
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if !confirmed {
+		i.Warn("User did not accept EULA.")
+		return trace.BadParameter("end-user license agreement was not accepted")
+	}
+	i.Info("User accepted EULA.")
 	return nil
 }
 

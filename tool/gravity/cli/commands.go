@@ -402,6 +402,8 @@ type InstallCmd struct {
 	// the client will simply connect to the service and stream its output and errors
 	// and control whether it should stop
 	FromService *bool
+	// AcceptEULA allows to auto-accept end-user license agreement.
+	AcceptEULA *bool
 }
 
 // JoinCmd joins to the installer or existing cluster
