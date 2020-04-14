@@ -32,6 +32,9 @@ import (
 
 // NewSystem returns a new "system" phase executor
 func NewSystem(p fsm.ExecutorParams, operator ops.Operator, localPackages *localpack.PackageServer, remote fsm.Remote) (*systemExecutor, error) {
+	if p.Phase.Data == nil || p.Phase.Data.ServiceUser == nil {
+		return nil, trace.BadParameter("service user is required")
+	}
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithFields(logrus.Fields{
 			constants.FieldPhase:       p.Phase.ID,
