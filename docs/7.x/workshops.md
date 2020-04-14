@@ -2189,8 +2189,7 @@ collected, forwarded and rotated.
 
 Every time you write something to container's filesystem, it activates [copy on write strategy](https://docs.docker.com/engine/userguide/storagedriver/imagesandcontainers/#container-and-layers).
 
-New storage layer is created using a storage driver (devicemapper, overlayfs or others). In case of active usage,
-it can put a lot of load on storage drivers, especially in case of Devicemapper or BTRFS.
+New storage layer is created using a storage driver (overlayfs or others).
 
 Make sure your containers write data only to volumes. You can use `tmpfs` for small (as tmpfs stores everything in memory) temporary files:
 
