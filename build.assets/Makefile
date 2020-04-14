@@ -140,7 +140,7 @@ define build_app
 		cd $(BUILDDIR)/$1 && \
 		git fetch --all && \
 		git checkout $3 && \
-		git pull origin $3 ; \
+		git pull origin $3 && \
 		make -C $(BUILDDIR)/$1 import \
 			OPS_URL=$(OPS_URL) \
 			GRAVITY="$(GRAVITY)" \
