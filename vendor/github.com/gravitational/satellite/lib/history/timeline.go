@@ -14,7 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package history provides interfaces for keeping track of cluster status history.
+// Package history provides a Timeline interfaces that can be used for keeping
+// track of cluster status history.
 package history
 
 import (
@@ -23,15 +24,12 @@ import (
 	pb "github.com/gravitational/satellite/agent/proto/agentpb"
 )
 
-// Timeline can be used to record changes in the system status and retrieve them
-// as a list of Events.
+// Timeline keeps a temporary record of events. This can be used to track the
+// history of changes to the status of a gravity cluster.
 type Timeline interface {
-	// RecordStatus records any changes that have occurred since the previous
-	// recorded status.
-	RecordStatus(ctx context.Context, status *pb.NodeStatus) error
-	// RecordTimeline merges the provided events into the current timeline.
+	// RecordEvents records the provided event into the current timeline.
 	// Duplicate events will be ignored.
-	RecordTimeline(ctx context.Context, events []*pb.TimelineEvent) error
+	RecordEvents(ctx context.Context, events []*pb.TimelineEvent) error
 	// GetEvents returns a filtered list of events based on the provided params.
 	// Events will be returned in sorted order by timestamp.
 	GetEvents(ctx context.Context, params map[string]string) ([]*pb.TimelineEvent, error)
