@@ -23,7 +23,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	pb "github.com/gravitational/satellite/agent/proto/agentpb"
@@ -32,7 +31,7 @@ import (
 
 	"github.com/gravitational/trace"
 	"github.com/jmoiron/sqlx"
-	"github.com/jonboulle/clockwork" // initialize sqlite3
+	"github.com/jonboulle/clockwork"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -73,13 +72,10 @@ func (c *Config) CheckAndSetDefaults() error {
 //
 // Implements history.Timeline
 type Timeline struct {
-	sync.Mutex
-	// Config contains timeline configuration.
+	// config contains timeline configuration.
 	config Config
 	// database points to underlying sqlite database.
 	database *sqlx.DB
-	// lastStatus holds the last recorded status.
-	lastStatus *pb.NodeStatus
 }
 
 // NewTimeline initializes and returns a new Timeline with the
@@ -89,22 +85,12 @@ func NewTimeline(ctx context.Context, config Config) (*Timeline, error) {
 		return nil, trace.Wrap(err)
 	}
 
-	timeline := &Timeline{
-		config: config,
-	}
+	timeline := &Timeline{config: config}
 
 	if err := timeline.initSQLite(ctx); err != nil {
 		return nil, trace.Wrap(err, "failed to initialize sqlite database")
 	}
 
-	// if err := timeline.initPrevStatus(ctx); err != nil {
-	// 	return nil, trace.Wrap(err, "failed to init previous status")
-	// }
-
-	// TODO: For now the eviction loop uses an empty context.
-	// Should the constructor accept an additional context to be used here?
-	// Should the timeline initialize its own context to be used here and
-	// provide a `shutdown` method to cancel the context?
 	go timeline.eventEvictionLoop(context.TODO())
 
 	return timeline, nil
@@ -130,13 +116,6 @@ func (t *Timeline) initSQLite(ctx context.Context) error {
 	return nil
 }
 
-// initPrevStatus initializes the previously record status in case satellite
-// is restarted.
-func (t *Timeline) initPrevStatus(ctx context.Context) error {
-	// TODO
-	return trace.NotImplemented("not implemented")
-}
-
 // eventEvictionLoop periodically evicts old events to free up storage.
 func (t *Timeline) eventEvictionLoop(ctx context.Context) {
 	ticker := t.config.Clock.NewTicker(evictionFrequency)
@@ -155,33 +134,24 @@ func (t *Timeline) eventEvictionLoop(ctx context.Context) {
 	}
 }
 
-// RecordStatus records the differences between the previously stored status and
-// the provided status.
-func (t *Timeline) RecordStatus(ctx context.Context, status *pb.NodeStatus) (err error) {
-	t.Lock()
-	events := history.DiffNode(t.config.Clock, t.lastStatus, status)
-	if len(events) == 0 {
-		t.Unlock()
-		return nil
-	}
-
-	log.WithField("prev-status", t.lastStatus).
-		WithField("next-status", status).
-		Debug("New status recorded.")
-
-	t.lastStatus = status
-	t.Unlock()
-
-	if err = t.insertEvents(ctx, events); err != nil {
+// evictEvents deletes events that have outlived the timeline retention
+// duration. All events before this cut off time will be deleted.
+func (t *Timeline) evictEvents(ctx context.Context, retentionCutOff time.Time) (err error) {
+	if _, err := t.database.ExecContext(ctx, deleteOldFromEvents, retentionCutOff); err != nil {
 		return trace.Wrap(err)
 	}
-
 	return nil
 }
 
-// RecordTimeline merges the provided events into the current timeline.
+// getRetentionCutOff returns the retention cut off time for the timeline. All
+// events before this time is expired and should be removed from the timeline.
+func (t *Timeline) getRetentionCutOff() time.Time {
+	return t.config.Clock.Now().Add(-(t.config.RetentionDuration))
+}
+
+// RecordEvents records the provided events into the timeline.
 // Duplicate events will be ignored.
-func (t *Timeline) RecordTimeline(ctx context.Context, events []*pb.TimelineEvent) (err error) {
+func (t *Timeline) RecordEvents(ctx context.Context, events []*pb.TimelineEvent) error {
 	if len(events) == 0 {
 		return nil
 	}
@@ -196,7 +166,39 @@ func (t *Timeline) RecordTimeline(ctx context.Context, events []*pb.TimelineEven
 		filtered = append(filtered, event)
 	}
 
-	if err = t.insertEvents(ctx, filtered); err != nil {
+	if err := t.insertEvents(ctx, filtered); err != nil {
+		return trace.Wrap(err)
+	}
+
+	return nil
+}
+
+// insertEvents inserts the provided events into the timeline.
+func (t *Timeline) insertEvents(ctx context.Context, events []*pb.TimelineEvent) error {
+	sqlExecer := newSQLExecer(t.database)
+	for _, event := range events {
+		if err := t.insertEvent(ctx, sqlExecer, event); err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	return nil
+}
+
+func (t *Timeline) insertEvent(ctx context.Context, execer history.Execer, event *pb.TimelineEvent) error {
+	row, err := newDataInserter(event)
+	if err != nil {
+		log.WithError(err).Warn("Attempting to insert unknown event.")
+		return nil
+	}
+
+	err = row.Insert(ctx, execer)
+	// Unique constraint error indicates duplicate row.
+	// Just ignore duplicates and continue.
+	if isErrConstraintUnique(err) {
+		log.WithField("row", row).Debug("Attempting to insert duplicate row.")
+		return nil
+	}
+	if err != nil {
 		return trace.Wrap(err)
 	}
 
@@ -221,21 +223,10 @@ func (t *Timeline) GetEvents(ctx context.Context, params map[string]string) (eve
 
 	var row sqlEvent
 	for rows.Next() {
-		if err = rows.StructScan(&row); err != nil {
+		if err := rows.StructScan(&row); err != nil {
 			return nil, trace.Wrap(err)
 		}
-
-		event, err := newProtoBuffer(row)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-
-		proto, err := event.ProtoBuf()
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-
-		events = append(events, proto)
+		events = append(events, row.ProtoBuf())
 	}
 
 	if err := rows.Err(); err != nil {
@@ -243,46 +234,6 @@ func (t *Timeline) GetEvents(ctx context.Context, params map[string]string) (eve
 	}
 
 	return events, nil
-}
-
-// insertEvents inserts the provided events into the timeline.
-// TODO: Batch inserts. Not expected to handle a large number of inserts, so
-// optimization here is not a high priority.
-func (t *Timeline) insertEvents(ctx context.Context, events []*pb.TimelineEvent) (err error) {
-	sqlExecer := newSQLExecer(t.database)
-	for _, event := range events {
-		row, err := newDataInserter(event)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-
-		err = row.Insert(ctx, sqlExecer)
-		// Unique constraint error indicates duplicate row.
-		// Just ignore duplicates and continue.
-		if isErrConstraintUnique(err) {
-			continue
-		}
-		if err != nil {
-			return trace.Wrap(err)
-		}
-	}
-
-	return nil
-}
-
-// evictEvents deletes events that have outlived the timeline retention
-// duration. All events before this cut off time will be deleted.
-func (t *Timeline) evictEvents(ctx context.Context, retentionCutOff time.Time) (err error) {
-	if _, err := t.database.ExecContext(ctx, deleteOldFromEvents, retentionCutOff); err != nil {
-		return trace.Wrap(err)
-	}
-	return nil
-}
-
-// getRetentionCutOff returns the retention cut off time for the timeline. All
-// events before this time is expired and should be removed from the timeline.
-func (t *Timeline) getRetentionCutOff() time.Time {
-	return t.config.Clock.Now().Add(-(t.config.RetentionDuration))
 }
 
 // prepareQuery prepares a query string and a list of arguments constructed from
@@ -294,7 +245,6 @@ func prepareQuery(params map[string]string) (query string, args []interface{}) {
 	// Need to filter params beforehand to check if WHERE clause is needed.
 	filterParams(params)
 
-	// TODO: checkout text/template package for cleaner code
 	sb.WriteString("SELECT * FROM events ")
 	if len(params) == 0 {
 		sb.WriteString("ORDER BY timestamp ASC ")
