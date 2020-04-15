@@ -263,6 +263,14 @@ func (m Manifest) ImageType() string {
 	}
 }
 
+// EULA returns the end-user license agreement text.
+func (m Manifest) EULA() string {
+	if m.Installer != nil {
+		return m.Installer.EULA.Source
+	}
+	return ""
+}
+
 func dockerConfigWithDefaults(config *Docker) Docker {
 	if config == nil {
 		return defaultDocker
