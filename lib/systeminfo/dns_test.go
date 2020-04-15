@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/gravitational/gravity/lib/storage"
+
 	"github.com/stretchr/testify/assert"
 )
 
