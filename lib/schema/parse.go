@@ -328,8 +328,7 @@ func (m *Manifest) UnmarshalJSON(data []byte) error {
 	switch header.APIVersion {
 	case APIVersionV2, APIVersionV2Cluster, APIVersionV2App:
 		if err := schema.Validate(bytes.NewReader(data)); err != nil {
-			log.Warnf("Failed to validate manifest against schema: %v.",
-				trace.DebugReport(err))
+			log.WithError(err).Warn("Failed to validate manifest against schema.")
 			return trace.Wrap(err, "failed to validate manifest")
 		}
 
