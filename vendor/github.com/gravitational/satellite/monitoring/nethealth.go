@@ -293,8 +293,7 @@ func nethealthFailureProbe(name, peer string, packetLoss float64) *pb.Probe {
 		Checker: name,
 		Detail: fmt.Sprintf("overlay packet loss for node %s is higher than the allowed threshold of %.2f%%: %.2f%%",
 			peer, thresholdPercent, packetLoss*100),
-		Status:   pb.Probe_Failed,
-		Severity: pb.Probe_Warning,
+		Status: pb.Probe_Failed,
 	}
 }
 
