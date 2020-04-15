@@ -117,7 +117,7 @@ func streamRuntimeJournal(env *localenv.LocalEnvironment) error {
 		return trace.Wrap(err)
 	}
 
-	const cmd = defaults.JournalctlBin
+	const cmd = defaults.JournalctlBinHost
 	args := []string{
 		cmd,
 		"--output", "export",
