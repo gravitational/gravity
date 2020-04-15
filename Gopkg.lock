@@ -942,7 +942,7 @@
   version = "v1.0.0"
 
 [[projects]]
-  digest = "1:f86dfd4ec221f5804c98174ec46a8ae913df99c4346b710e087d56ec5b3f9ec8"
+  digest = "1:51a0b944b34c74f895293821206306fd88517dddd20a71d241c3853c3bb7d324"
   name = "github.com/gravitational/satellite"
   packages = [
     "agent",
@@ -959,8 +959,8 @@
     "utils",
   ]
   pruneopts = "UT"
-  revision = "8cbd9f772d5abd4e0bbf628bb7e1cb346189477c"
-  version = "6.3.2"
+  revision = "e96f5a81659cb311e648f9f55e9e2524bc39b01f"
+  version = "6.3.3"
 
 [[projects]]
   digest = "1:49f6abbce9ade5f43508429e4af1adcce55d27adcd62719fea049decc766a7c9"
