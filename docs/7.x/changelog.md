@@ -139,12 +139,13 @@ to learn how to gain insight into how the cluster status changes over time.
 * Implement `gravity status history` command to show status changes ([#1119](https://github.com/gravitational/gravity/pull/1119)).
 * `gravity status` now shows both the client and server version in the status output ([#1166](https://github.com/gravitational/gravity/pull/1166)).
 * The runtime will now properly check and prevent upgrades on unsupported upgrade paths ([#1237](https://github.com/gravitational/gravity/pull/1237)).
+* Add cgroup cleaner to planet to prevent leaking cgroups ([planet#576](https://github.com/gravitational/planet/pull/576)).
 
 !!! warning
     This release fixes a security vulnerability in kubernetes. Please see
     [Kubernetes Announcement](https://groups.google.com/forum/#!topic/kubernetes-announce/jPiyJ1KL_FI) for more information.
 
-### 6.1.19 (March 23rd, 2020)
+### 6.1.19 LTS (March 23rd, 2020)
 
 #### Bugfixes
 
@@ -165,6 +166,7 @@ to learn how to gain insight into how the cluster status changes over time.
 * `gravity status` now shows both the client and server version in the status output ([#1165](https://github.com/gravitational/gravity/pull/1166)).
 * Implement `gravity status history` command to show status changes ([#1118](https://github.com/gravitational/gravity/pull/1118)).
 * Implement some low level convenience commands `gravity system service [stop/start/journal]` ([1104](https://github.com/gravitational/gravity/pull/1104)).
+* Add cgroup cleaner to planet to prevent leaking cgroups ([planet#577](https://github.com/gravitational/planet/pull/577)).
 
 !!! warning
     This release fixes a security vulnerability in kubernetes. Please see
@@ -281,7 +283,7 @@ to learn how to gain insight into how the cluster status changes over time.
 #### Improvements
 
 * Upgrade Kubernetes to `v1.17.0` ([#967](https://github.com/gravitational/gravity/pull/967), [planet#537](https://github.com/gravitational/planet/pull/537)).
-* Remove Docker brigde and promiscuous mode configurations ([#959](https://github.com/gravitational/gravity/pull/959), [planet#536](https://github.com/gravitational/planet/pull/536)).
+* Remove Docker bridge and promiscuous mode configurations ([#959](https://github.com/gravitational/gravity/pull/959), [planet#536](https://github.com/gravitational/planet/pull/536)).
 * Use relative binary path when displaying `gravity join` command hint ([#935](https://github.com/gravitational/gravity/pull/935)).
 
 #### Bugfixes
@@ -345,20 +347,20 @@ to learn how to gain insight into how the cluster status changes over time.
 * Update `gravity check` command to support upgrade preflight checks ([#870](https://github.com/gravitational/gravity/pull/870)).
 * Disable unused Docker bridge interface ([#873](https://github.com/gravitational/gravity/pull/873),  [planet#527](https://github.com/gravitational/planet/pull/527)).
 
-### 6.1.11 (October 31st, 2019)
+### 6.1.11 LTS (October 31st, 2019)
 
 #### Bugfixes
 
 * Fix the issue with cluster erroneously returning to the active state after upgrade operation failure ([#846](https://github.com/gravitational/gravity/pull/846), [#857](https://github.com/gravitational/gravity/pull/857)).
 
-### 6.1.10 (October 24th, 2019)
+### 6.1.10 LTS (October 24th, 2019)
 
 #### Bugfixes
 
 * Fix the issue with the installer systemd unit failing due to long command when installing with a `--license` flag ([#821](https://github.com/gravitational/gravity/pull/821)).
 * Fix the issue with application-only (without runtime) upgrades ([#835](https://github.com/gravitational/gravity/pull/835)).
 
-### 6.1.9 (October 21st, 2019)
+### 6.1.9 LTS (October 21st, 2019)
 
 #### Bugfixes
 
@@ -375,7 +377,7 @@ to learn how to gain insight into how the cluster status changes over time.
     This release fixes a security vulnerability in kubernetes. Please see
     [Kubernetes Announcement](https://github.com/kubernetes/kubernetes/issues/83253) for more information.
 
-### 6.1.8 (October 17th, 2019)
+### 6.1.8 LTS (October 17th, 2019)
 
 #### Bugfixes
 
@@ -419,7 +421,7 @@ to learn how to gain insight into how the cluster status changes over time.
 * Fix the issue with UI showing "user not found" error after choosing a password for a new user ([#793](https://github.com/gravitational/gravity/pull/793)).
 * Fix the issue with `gravity report` accessing journal files ([#732](https://github.com/gravitational/gravity/pull/732)).
 
-### 6.1.7 (October 11th, 2019)
+### 6.1.7 LTS (October 11th, 2019)
 
 #### Bugfixes
 
@@ -427,7 +429,7 @@ to learn how to gain insight into how the cluster status changes over time.
 * Fix the issue with web UI installer displaying the login screen ([#793](https://github.com/gravitational/gravity/pull/793)).
 * Fix the issue with UI showing "user not found" error after choosing a password for a new user ([#793](https://github.com/gravitational/gravity/pull/793)).
 
-### 6.1.6 (October 10th, 2019)
+### 6.1.6 LTS (October 10th, 2019)
 
 #### Improvements
 
@@ -450,7 +452,7 @@ to learn how to gain insight into how the cluster status changes over time.
 
 * Upgrade Kubernetes to `v1.16.0`.
 
-### 6.1.5 (September 18th, 2019)
+### 6.1.5 LTS (September 18th, 2019)
 
 #### Bugfixes
 
@@ -490,19 +492,19 @@ to learn how to gain insight into how the cluster status changes over time.
 
 * Update kubelet configuration to respect `allowPrivileged` flag.
 
-### 6.1.4 (September 10th, 2019)
+### 6.1.4 LTS (September 10th, 2019)
 
 #### Bugfixes
 
 * Fix `allowPrivileged` flag placement in the manifest schema.
 
-### 6.0.7 (September 10th, 2019)
+### 6.0.7 LTS (September 10th, 2019)
 
 #### Bugfixes
 
 * Fix `allowPrivileged` flag placement in the manifest schema.
 
-### 6.1.3 (September 9th, 2019)
+### 6.1.3 LTS (September 9th, 2019)
 
 #### Improvements
 
@@ -514,7 +516,7 @@ to learn how to gain insight into how the cluster status changes over time.
 
 * Add ability to run privileged containers. See [Running Privileged Containers](faq.md#running-privileged-containers) for details.
 
-### 6.1.2 (August 26th, 2019)
+### 6.1.2 LTS (August 26th, 2019)
 
 #### Bugfixes
 
@@ -549,7 +551,7 @@ to learn how to gain insight into how the cluster status changes over time.
 
 * Do not set auth gateway public addresses to the cluster name during installation.
 
-### 6.1.1 (August 6th, 2019)
+### 6.1.1 LTS (August 6th, 2019)
 
 #### Improvements
 
@@ -587,7 +589,7 @@ to learn how to gain insight into how the cluster status changes over time.
     This release fixes a security vulnerability in kubernetes. Please see
     [Kubernetes Announcement](https://groups.google.com/forum/#!topic/kubernetes-security-discuss/Vf31dXp0EJc) for more information.
 
-### 6.1.0 (August 2nd, 2019)
+### 6.1.0 LTS (August 2nd, 2019)
 
 #### Improvements
 
