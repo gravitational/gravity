@@ -49,7 +49,7 @@ $ ls -lh
 -rw-r--r-- 1 user user 2.4G Apr 16 12:20 hub-7.0.0.tar
 ```
 
-The name of the image doesn't have to be `hub:6.0.1`, it will vary based on the
+The name of the image doesn't have to be `hub:7.0.0`, it will vary based on the
 version of Gravity you're using, so we'll refer to it simply as
 `gravity-hub.tar` below.
 
