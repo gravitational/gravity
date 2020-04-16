@@ -333,7 +333,7 @@ func printOperation(operation *statusapi.ClusterOperation, w io.Writer) {
 			humanize.RelTime(operation.Progress.Created, time.Now(), "ago", ""))
 	} else {
 		if operation.Type == ops.OperationUpdate {
-			fmt.Fprintf(w, `      Use "gravity plan --operation-id=%v" to check operation status\n`,
+			fmt.Fprintf(w, "      Use 'gravity plan --operation-id=%v' to check operation status\n",
 				operation.ID)
 		} else {
 			fmt.Fprint(w, "      ")
