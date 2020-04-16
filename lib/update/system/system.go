@@ -111,7 +111,7 @@ func (r *System) Update(ctx context.Context, withStatus bool) error {
 		return trace.Wrap(err)
 	}
 
-	err = waitForAgentRunning(ctx)
+	err = libstatus.WaitForAgent(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -150,7 +150,7 @@ func (r *System) Rollback(ctx context.Context, withStatus bool) (err error) {
 		return nil
 	}
 
-	err = waitForAgentRunning(ctx)
+	err = libstatus.WaitForNodeHealthy(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}

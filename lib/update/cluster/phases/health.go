@@ -21,8 +21,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/defaults"
 	libstatus "github.com/gravitational/gravity/lib/status"
-	"github.com/gravitational/gravity/lib/utils"
-	"github.com/gravitational/satellite/agent/proto/agentpb"
+
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 )
@@ -40,7 +39,10 @@ func NewPhaseNodeHealth(logger log.FieldLogger) (*checkLocalHealth, error) {
 
 // Execute will block progress until the node enters a healthy state
 func (p *checkLocalHealth) Execute(ctx context.Context) error {
-	return trace.Wrap(waitNodeStatus(ctx))
+	ctx, cancel := context.WithTimeout(ctx, defaults.NodeStatusTimeout)
+	defer cancel()
+
+	return trace.Wrap(libstatus.WaitForNodeHealthy(ctx))
 }
 
 // Rollback is no-op for this phase
@@ -55,32 +57,5 @@ func (p *checkLocalHealth) PreCheck(context.Context) error {
 
 // PostCheck is no-op for this phase
 func (p *checkLocalHealth) PostCheck(context.Context) error {
-	return nil
-}
-
-func waitNodeStatus(ctx context.Context) (err error) {
-	b := utils.NewExponentialBackOff(defaults.NodeStatusTimeout)
-	err = utils.RetryWithInterval(ctx, b, func() error {
-		return trace.Wrap(getLocalNodeStatus(ctx))
-	})
-	return trace.Wrap(err)
-}
-
-func getLocalNodeStatus(ctx context.Context) (err error) {
-	var status *libstatus.Agent
-	b := utils.NewExponentialBackOff(defaults.NodeStatusTimeout)
-	err = utils.RetryTransient(ctx, b, func() error {
-		status, err = libstatus.FromLocalPlanetAgent(ctx)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		return nil
-	})
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	if status.GetSystemStatus() != agentpb.SystemStatus_Running {
-		return trace.BadParameter("node is degraded")
-	}
 	return nil
 }
