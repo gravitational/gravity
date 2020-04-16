@@ -209,7 +209,9 @@ func New(ctx context.Context, cfg processconfig.Config, tcfg telecfg.FileConfig)
 		return nil, trace.Wrap(err)
 	}
 
-	objects, err := blobfs.New(filepath.Join(cfg.DataDir, defaults.PackagesDir))
+	objects, err := blobfs.New(blobfs.Config{
+		Path: filepath.Join(cfg.DataDir, defaults.PackagesDir),
+	})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -243,6 +245,7 @@ func New(ctx context.Context, cfg processconfig.Config, tcfg telecfg.FileConfig)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	clusterObjects.Start()
 
 	packages, err := localpack.New(localpack.Config{
 		Backend:     backend,
@@ -452,7 +455,7 @@ func (p *Process) ImportState(importDir string) (err error) {
 
 // InitRPCCredentials initializes the package with RPC secrets
 func (p *Process) InitRPCCredentials() error {
-	pkg, err := rpc.InitRPCCredentials(p.packages)
+	pkg, err := rpc.InitCredentials(p.packages)
 	if err != nil && !trace.IsAlreadyExists(err) {
 		return trace.Wrap(err, "failed to init RPC credentials")
 	}
@@ -616,8 +619,7 @@ func (p *Process) startSiteStatusChecker(ctx context.Context) error {
 				SiteDomain: site.Domain,
 			}
 			if err := p.operator.CheckSiteStatus(key); err != nil {
-				p.Errorf("Cluster status check failed: %v.",
-					trace.DebugReport(err))
+				p.WithError(err).Warn("Cluster status check failed.")
 			}
 		case <-ctx.Done():
 			p.Info("Stopping cluster status checker.")
@@ -1068,7 +1070,9 @@ func (p *Process) initService(ctx context.Context) (err error) {
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		objects, err := blobfs.New(filepath.Join(p.cfg.Pack.ReadDir, defaults.PackagesDir))
+		objects, err := blobfs.New(blobfs.Config{
+			Path: filepath.Join(p.cfg.Pack.ReadDir, defaults.PackagesDir),
+		})
 		if err != nil {
 			return trace.Wrap(err)
 		}

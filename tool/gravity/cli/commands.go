@@ -240,6 +240,8 @@ type Application struct {
 	SystemCmd SystemCmd
 	// SystemRotateCertsCmd renews cluster certificates on local node
 	SystemRotateCertsCmd SystemRotateCertsCmd
+	// SystemRotateRPCCredsCmd renews cluster RPC credentials
+	SystemRotateRPCCredsCmd SystemRotateRPCCredsCmd
 	// SystemExportCACmd exports cluster CA
 	SystemExportCACmd SystemExportCACmd
 	// SystemUninstallCmd uninstalls all gravity services from local node
@@ -1326,6 +1328,14 @@ type SystemRotateCertsCmd struct {
 	ValidFor *time.Duration
 	// CAPath is CA to use
 	CAPath *string
+}
+
+// SystemRotateRPCCredsCmd renews cluster RPC credentials
+type SystemRotateRPCCredsCmd struct {
+	*kingpin.CmdClause
+	// Show controls whether to actually rotate the credentials.
+	// If true, only verifies the certificate
+	Show *bool
 }
 
 // SystemExportCACmd exports cluster CA

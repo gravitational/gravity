@@ -29,6 +29,7 @@ import (
 	"github.com/gravitational/gravity/lib/archive"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/localenv"
+	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -134,7 +135,7 @@ func runBackupRestore(env *localenv.LocalEnvironment, operation string,
 		return trace.Wrap(err)
 	}
 
-	node, err := findLocalServer(*site)
+	node, err := ops.FindLocalServer(site.ClusterState)
 	if err != nil {
 		return trace.Wrap(err)
 	}

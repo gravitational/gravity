@@ -27,6 +27,7 @@ import (
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/pack/encryptedpack"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/systeminfo"
 
 	licenseapi "github.com/gravitational/license"
 	"github.com/gravitational/trace"
@@ -381,4 +382,47 @@ func GetDockerConfig(operator Operator, key SiteKey) (*storage.DockerConfig, err
 	defaultConfig := checks.DockerConfigFromSchemaValue(cluster.App.Manifest.SystemDocker())
 	checks.OverrideDockerConfig(&defaultConfig, installOp.InstallExpand.Vars.System.Docker)
 	return &defaultConfig, nil
+}
+
+// FindLocalServer searches the provided cluster's state for the server that matches the one
+// the current command is being executed from
+func FindLocalServer(clusterState storage.ClusterState) (*storage.Server, error) {
+	// collect the machines's IP addresses and search by them
+	ifaces, err := systeminfo.NetworkInterfaces()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	if len(ifaces) == 0 {
+		return nil, trace.NotFound("no network interfaces found")
+	}
+
+	var ips []string
+	for _, iface := range ifaces {
+		ips = append(ips, iface.IPv4)
+	}
+
+	server, err := FindServer(clusterState, ips)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	return server, nil
+}
+
+// FindServer searches the provided cluster's state for a server that matches one of the provided
+// tokens, where a token can be the server's advertise IP, hostname or AWS internal DNS name
+func FindServer(clusterState storage.ClusterState, tokens []string) (*storage.Server, error) {
+	for _, server := range clusterState.Servers {
+		for _, token := range tokens {
+			if token == "" {
+				continue
+			}
+			switch token {
+			case server.AdvertiseIP, server.Hostname, server.Nodename:
+				return &server, nil
+			}
+		}
+	}
+	return nil, trace.NotFound("could not find server matching %v among registered cluster nodes",
+		tokens)
 }

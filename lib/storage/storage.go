@@ -38,10 +38,9 @@ import (
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/dustin/go-humanize"
 	teleservices "github.com/gravitational/teleport/lib/services"
 	teleutils "github.com/gravitational/teleport/lib/utils"
-
-	"github.com/dustin/go-humanize"
 	"github.com/gravitational/trace"
 	"github.com/jonboulle/clockwork"
 	"github.com/sirupsen/logrus"
@@ -1060,6 +1059,14 @@ type SystemMetadata interface {
 	GetDNSConfig() (*DNSConfig, error)
 	// SetDNSConfig sets current DNS configuration
 	SetDNSConfig(DNSConfig) error
+	// GetNodeAddr returns the current node advertise IP
+	GetNodeAddr() (addr string, err error)
+	// SetNodeAddr sets current node advertise IP
+	SetNodeAddr(addr string) error
+	// GetServiceUser returns the current service user
+	GetServiceUser() (*OSUser, error)
+	// SetServiceUser sets current service user
+	SetServiceUser(OSUser) error
 }
 
 // DefaultDNSConfig defines the default cluster local DNS configuration

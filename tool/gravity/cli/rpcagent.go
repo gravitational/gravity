@@ -30,6 +30,7 @@ import (
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
+	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/rpc"
 	pb "github.com/gravitational/gravity/lib/rpc/proto"
@@ -96,7 +97,7 @@ func startAgent() (rpcserver.Server, error) {
 		return nil, trace.Wrap(err)
 	}
 
-	serverCreds, clientCreds, err := rpc.Credentials(secretsDir)
+	serverCreds, clientCreds, err := rpc.CredentialsFromDir(secretsDir)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -178,7 +179,7 @@ func rpcAgentDeployHelper(ctx context.Context, localEnv *localenv.LocalEnvironme
 	}
 
 	// Force this node to be the operation leader
-	req.leader, err = findLocalServer(*cluster)
+	req.leader, err = ops.FindLocalServer(cluster.ClusterState)
 	if err != nil {
 		log.WithError(err).Warn("Failed to determine local node.")
 		return nil, trace.Wrap(err, "failed to find local node in cluster state.\n"+
@@ -228,7 +229,8 @@ func upsertRPCCredentialsPackage(
 	servers []rpc.DeployServer,
 	packages pack.PackageService,
 	clusterName string,
-	packageTemplate loc.Locator) (secretsPackage *loc.Locator, err error) {
+	packageTemplate loc.Locator,
+) (secretsPackage *loc.Locator, err error) {
 	hosts := make([]string, 0, len(servers))
 	for _, server := range servers {
 		hosts = append(hosts, strings.Split(server.NodeAddr, ":")[0])

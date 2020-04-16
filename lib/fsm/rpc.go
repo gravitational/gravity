@@ -247,13 +247,18 @@ func IsMasterServer(server storage.Server) bool {
 	return server.ClusterRole == string(schema.ServiceRoleMaster)
 }
 
-// GetClientCredentials returns the RPC credentials for an update operation
+// GetClientCredentials reads the RPC credentials for an update operation from a predefined directory.
+//
+// The reason credentials are not read from the cluster package service is that
+// during certain operations (cluster upgrades, cluster or environment configuration updates), the etcd backend
+// might be temporarily inaccessible between commands hence in this mode, the credentials
+// are cached on disk.
 func GetClientCredentials() (credentials.TransportCredentials, error) {
 	secretsDir, err := AgentSecretsDir()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	creds, err := rpc.ClientCredentials(secretsDir)
+	creds, err := rpc.ClientCredentialsFromDir(secretsDir)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

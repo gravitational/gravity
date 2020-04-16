@@ -211,7 +211,7 @@ func (i *Installer) StartAgent(agentURL string) (rpcserver.Server, error) {
 		return nil, trace.Wrap(err)
 	}
 
-	serverCreds, clientCreds, err := rpc.Credentials(defaults.RPCAgentSecretsDir)
+	serverCreds, clientCreds, err := rpc.Credentials(i.Packages)
 	if err != nil {
 		listener.Close()
 		return nil, trace.Wrap(err)

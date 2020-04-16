@@ -25,6 +25,7 @@ import (
 	libfsm "github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/rpc"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/vacuum"
@@ -230,7 +231,7 @@ func executeGarbageCollectPhase(env *localenv.LocalEnvironment, params PhasePara
 		return trace.Wrap(err, "failed to fetch the path to the container's rootfs")
 	}
 
-	creds, err := libfsm.GetClientCredentials()
+	creds, err := rpc.ClientCredentials(clusterPackages)
 	if err != nil {
 		return trace.Wrap(err)
 	}

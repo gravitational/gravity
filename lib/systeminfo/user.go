@@ -27,6 +27,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
@@ -104,6 +105,23 @@ func LookupUserByUID(uid int) (*User, error) {
 	}
 	return &User{
 		Name: usr.Username,
+		UID:  uid,
+		GID:  gid,
+	}, nil
+}
+
+// FromOSUser converts the user to this package format
+func FromOSUser(user storage.OSUser) (*User, error) {
+	uid, err := strconv.Atoi(user.UID)
+	if err != nil {
+		return nil, trace.BadParameter("expected a numeric UID but got %v", user.UID)
+	}
+	gid, err := strconv.Atoi(user.GID)
+	if err != nil {
+		return nil, trace.BadParameter("expected a numeric GID but got %v", user.GID)
+	}
+	return &User{
+		Name: user.Name,
 		UID:  uid,
 		GID:  gid,
 	}, nil

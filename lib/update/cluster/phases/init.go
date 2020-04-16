@@ -211,7 +211,7 @@ func (p *updatePhaseInit) initRPCCredentials() error {
 	// to restart the cluster controller (gravity-site) to make sure it has
 	// reloaded its copy of the credentials.
 	// See: https://github.com/gravitational/gravity/issues/3607.
-	pkg, err := rpc.InitRPCCredentials(p.Packages)
+	pkg, err := rpc.InitCredentials(p.Packages)
 	if err != nil && !trace.IsAlreadyExists(err) {
 		return trace.Wrap(err)
 	}

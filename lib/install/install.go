@@ -28,7 +28,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/fatih/color"
 	appservice "github.com/gravitational/gravity/lib/app"
 	cloudaws "github.com/gravitational/gravity/lib/cloudprovider/aws"
 	cloudgce "github.com/gravitational/gravity/lib/cloudprovider/gce"
@@ -54,7 +53,9 @@ import (
 	"github.com/gravitational/gravity/lib/utils"
 
 	gcemeta "cloud.google.com/go/compute/metadata"
+	"github.com/cenkalti/backoff"
 	"github.com/docker/docker/pkg/namesgenerator"
+	"github.com/fatih/color"
 	teleutils "github.com/gravitational/teleport/lib/utils"
 	"github.com/gravitational/trace"
 	"github.com/kardianos/osext"
@@ -488,7 +489,7 @@ func (i *Installer) printPostInstallMessage() {
 func (i *Installer) printEndpoints() {
 	status, err := i.getClusterStatus()
 	if err != nil {
-		i.Errorf("Failed to collect cluster status: %v.", trace.DebugReport(err))
+		i.WithError(err).Error("Failed to collect cluster status.")
 		return
 	}
 	i.printf("\n")
@@ -814,41 +815,20 @@ func StartAgent(agentURL string, config rpcserver.PeerConfig, log log.FieldLogge
 	return agent, nil
 }
 
-func LoadRPCCredentials(ctx context.Context, packages pack.PackageService, log log.FieldLogger) (*rpcserver.Credentials, error) {
-	err := exportRPCCredentials(ctx, packages, log)
+func LoadRPCCredentials(ctx context.Context, packages pack.PackageService) (*rpcserver.Credentials, error) {
+	tls, err := loadCredentialsFromPackage(ctx, packages)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	serverCreds, clientCreds, err := rpc.Credentials(defaults.RPCAgentSecretsDir)
+	err = rpc.ValidateCredentials(tls, time.Now())
+	if err != nil {
+		return nil, newInvalidCertError(err)
+	}
+	creds, err := newRPCCredentials(tls)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return &rpcserver.Credentials{
-		Server: serverCreds,
-		Client: clientCreds,
-	}, nil
-}
-
-func exportRPCCredentials(ctx context.Context, packages pack.PackageService, log log.FieldLogger) error {
-	// retry several times to account for possible transient errors, for
-	// example if the target package service is still starting up.
-	// Another case would be if joins are started before an installer process
-	// in Ops Center-based workflow, in which case the initial package requests
-	// will fail with "bad user name or password" and need to be retried.
-	//
-	// FIXME: this will also mask all other possibly terminal failures (file permission
-	// issues, etc.) and will keep the command blocked for the whole interval.
-	// Get rid of retry or use a better error classification.
-	err := utils.Retry(defaults.RetryInterval, defaults.RetryAttempts, func() error {
-		err := pack.Unpack(packages, loc.RPCSecrets,
-			defaults.RPCAgentSecretsDir, nil)
-		return trace.Wrap(err)
-	})
-	if err != nil {
-		return trace.Wrap(err, "failed to unpack RPC credentials")
-	}
-	log.Debug("RPC credentials unpacked.")
-	return nil
+	return creds, nil
 }
 
 func wait(ctx context.Context, cancel context.CancelFunc, p process.GravityProcess) error {
@@ -864,4 +844,54 @@ func wait(ctx context.Context, cancel context.CancelFunc, p process.GravityProce
 	case <-ctx.Done():
 		return trace.Wrap(ctx.Err())
 	}
+}
+
+func newRPCCredentials(tls utils.TLSArchive) (*rpcserver.Credentials, error) {
+	caKeyPair, err := tls.GetKeyPair(pb.CA)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	serverKeyPair, err := tls.GetKeyPair(pb.Server)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	serverCreds, err := rpc.ServerCredentialsFromKeyPairs(*serverKeyPair, *caKeyPair)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	clientKeyPair, err := tls.GetKeyPair(pb.Client)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	clientCreds, err := rpc.ClientCredentialsFromKeyPairs(*clientKeyPair, *caKeyPair)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &rpcserver.Credentials{
+		Server: serverCreds,
+		Client: clientCreds,
+	}, nil
+}
+
+func loadCredentialsFromPackage(ctx context.Context, packages pack.PackageService) (tls utils.TLSArchive, err error) {
+	b := utils.NewUnlimitedExponentialBackOff()
+	ctx, cancel := defaults.WithTimeout(ctx)
+	defer cancel()
+	err = utils.RetryWithInterval(ctx, b, func() (err error) {
+		tls, err = rpc.LoadCredentials(packages)
+		if err != nil && !trace.IsNotFound(err) {
+			return &backoff.PermanentError{Err: err}
+		}
+		return trace.Wrap(err)
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return tls, nil
+}
+
+func newInvalidCertError(err error) error {
+	return trace.BadParameter("%s. Please make sure that clocks are synchronized between the nodes "+
+		"by using ntp, chrony or other time-synchronization programs.",
+		trace.UserMessage(err))
 }

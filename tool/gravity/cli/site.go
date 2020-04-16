@@ -40,7 +40,7 @@ import (
 	"github.com/olekukonko/tablewriter"
 )
 
-func statusSite() error {
+func statusSite(printer localenv.Printer) error {
 	client := &http.Client{
 		Timeout: 10 * time.Second,
 		Transport: &http.Transport{
@@ -54,7 +54,7 @@ func statusSite() error {
 	}
 	defer re.Body.Close()
 	if re.StatusCode == http.StatusOK {
-		fmt.Printf("site is up and running\n")
+		printer.Println("site is up and running")
 		return nil
 	}
 	out, _ := ioutil.ReadAll(re.Body)

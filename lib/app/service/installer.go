@@ -81,7 +81,9 @@ func (r *applications) GetAppInstaller(req appservice.InstallerRequest) (install
 		return nil, trace.Wrap(err)
 	}
 
-	objects, err := fs.New(filepath.Join(tempDir, defaults.PackagesDir))
+	objects, err := fs.New(fs.Config{
+		Path: filepath.Join(tempDir, defaults.PackagesDir),
+	})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
