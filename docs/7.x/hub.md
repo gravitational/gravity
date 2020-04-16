@@ -36,20 +36,17 @@ Gravity Hub. Assuming you have an enterprise version of `tele` CLI tool, pull
 the Cluster Image:
 
 ```bash
-$ tele pull hub:6.0.1
-* [1/3] Requesting Cluster Image from https://get.gravitational.io
-* [2/3] Downloading hub:6.0.1
-	Still downloading hub:6.0.1 (10 seconds elapsed)
-	Still downloading hub:6.0.1 (20 seconds elapsed)
-	Still downloading hub:6.0.1 (30 seconds elapsed)
-	Still downloading hub:6.0.1 (40 seconds elapsed)
-	Still downloading hub:6.0.1 (50 seconds elapsed)
-	Still downloading hub:6.0.1 (1 minute elapsed)
-* [3/3] Application hub:6.0.1 downloaded
-* [3/3] Download completed in 1 minute
+$ tele pull hub:7.0.0
+* Thu Apr 16 12:19:39 UTC Not logged in. Using default Gravitational Hub
+* Thu Apr 16 12:19:39 UTC Requesting cluster image from https://get.gravitational.io
+        Still requesting cluster image from https://get.gravitational.io (10 seconds elapsed)
+* Thu Apr 16 12:19:52 UTC Downloading hub:7.0.0
+        Still downloading hub:7.0.0 (10 seconds elapsed)
+* Thu Apr 16 12:20:11 UTC Application hub:7.0.0 downloaded
+* Thu Apr 16 12:20:11 UTC Download finished in 32 seconds 
 
 $ ls -lh
--rw-r--r-- 1 user user 1.3G Feb 20 13:02 hub-6.0.1.tar
+-rw-r--r-- 1 user user 2.4G Apr 16 12:20 hub-7.0.0.tar
 ```
 
 The name of the image doesn't have to be `hub:6.0.1`, it will vary based on the
