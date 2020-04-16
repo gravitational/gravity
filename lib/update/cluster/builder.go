@@ -318,23 +318,19 @@ func (r phaseBuilder) masters(leadMaster storage.UpdateServer, otherMasters []st
 
 		// election - stepdown first node we will upgrade
 		node.AddSequential(setLeaderElection(enable(), disable(leadMaster), leadMaster, "stepdown", "Step down %q as Kubernetes leader"))
+		node.AddSequential(r.commonNode(leadMaster, leadMaster, supportsTaints,
+			waitsForEndpoints(len(otherMasters) == 0), enable(leadMaster), disable(otherMasters...))...)
+	} else {
+		node.AddSequential(r.commonNode(leadMaster, leadMaster, supportsTaints,
+			waitsForEndpoints(len(otherMasters) == 0), enable(), disable())...)
 	}
 
-	node.AddSequential(r.commonNode(leadMaster, leadMaster, supportsTaints,
-		waitsForEndpoints(len(otherMasters) == 0))...)
 	root.AddSequential(node)
-
-	if len(otherMasters) != 0 {
-		// election - force election to first upgraded node
-		root.AddSequential(setLeaderElection(enable(leadMaster), disable(otherMasters...), leadMaster, "elect", "Make node %q Kubernetes leader"))
-	}
 
 	for i, server := range otherMasters {
 		node = r.node(server.Server, &root, "Update system software on master node %q")
 		node.AddSequential(r.commonNode(otherMasters[i], leadMaster, supportsTaints,
-			waitsForEndpoints(true))...)
-		// election - enable election on the upgraded node
-		node.AddSequential(setLeaderElection(enable(server), disable(), server, "enable", "Enable leader election on node %q"))
+			waitsForEndpoints(true), enable(server), disable())...)
 		root.AddSequential(node)
 	}
 	return &root
@@ -349,7 +345,7 @@ func (r phaseBuilder) nodes(leadMaster storage.UpdateServer, nodes []storage.Upd
 	for i, server := range nodes {
 		node := r.node(server.Server, &root, "Update system software on node %q")
 		node.AddSequential(r.commonNode(nodes[i], leadMaster, supportsTaints,
-			waitsForEndpoints(true))...)
+			waitsForEndpoints(true), enable(), disable())...)
 		root.AddParallel(node)
 	}
 	return &root
@@ -528,7 +524,7 @@ func (r phaseBuilder) node(server storage.Server, parent update.ParentPhase, for
 
 // commonNode returns a list of operations required for any node role to upgrade its system software
 func (r phaseBuilder) commonNode(server, leadMaster storage.UpdateServer, supportsTaints bool,
-	waitsForEndpoints waitsForEndpoints) []update.Phase {
+	waitsForEndpoints waitsForEndpoints, enable, disable []storage.Server) []update.Phase {
 	phases := []update.Phase{
 		{
 			ID:          "drain",
@@ -551,6 +547,25 @@ func (r phaseBuilder) commonNode(server, leadMaster storage.UpdateServer, suppor
 			},
 		},
 	}
+	if len(enable) != 0 || len(disable) != 0 {
+		phases = append(phases,
+			setLeaderElection(
+				enable,
+				disable,
+				leadMaster,
+				"elect",
+				"Enable leader election on node %q",
+			),
+		)
+	}
+	phases = append(phases, update.Phase{
+		ID:          "health",
+		Executor:    nodeHealth,
+		Description: fmt.Sprintf("Health check node %q", server.Hostname),
+		Data: &storage.OperationPhaseData{
+			ExecServer: &leadMaster.Server,
+		},
+	})
 	if supportsTaints {
 		phases = append(phases, update.Phase{
 			ID:          "taint",
@@ -747,5 +762,6 @@ var disable = serversToStorage
 var enable = serversToStorage
 
 type waitsForEndpoints bool
+type enableElections bool
 
 const etcdPhaseName = "etcd"
