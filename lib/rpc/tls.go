@@ -197,7 +197,7 @@ func ValidateCredentials(archive utils.TLSArchive, now time.Time) error {
 }
 
 // Credentials returns both server and client credentials read from the
-// specified directory
+// specified package service
 func Credentials(packages pack.PackageService) (server credentials.TransportCredentials, client credentials.TransportCredentials, err error) {
 	_, reader, err := packages.ReadPackage(loc.RPCSecrets)
 	if err != nil {
@@ -221,7 +221,7 @@ func Credentials(packages pack.PackageService) (server credentials.TransportCred
 	return server, client, nil
 }
 
-// ClientCredentials reads client credentials from specified packages
+// ClientCredentials reads client credentials from specified package service
 func ClientCredentials(packages pack.PackageService) (credentials.TransportCredentials, error) {
 	_, reader, err := packages.ReadPackage(loc.RPCSecrets)
 	if err != nil {
@@ -236,7 +236,7 @@ func ClientCredentials(packages pack.PackageService) (credentials.TransportCrede
 		*tlsArchive[pb.CA])
 }
 
-// ServerCredentials reads server credentials from the specified package
+// ServerCredentials reads server credentials from the specified package service
 func ServerCredentials(packages pack.PackageService) (credentials.TransportCredentials, error) {
 	_, reader, err := packages.ReadPackage(loc.RPCSecrets)
 	if err != nil {
@@ -304,7 +304,7 @@ func ServerCredentialsFromDir(secretsDir string) (credentials.TransportCredentia
 	return creds, nil
 }
 
-// DeleteCredentials deletes the package with RPC credentials from the specified package store
+// DeleteCredentials deletes the package with RPC credentials from the specified package service
 func DeleteCredentials(packages pack.PackageService) error {
 	return packages.DeletePackage(loc.RPCSecrets)
 }

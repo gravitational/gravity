@@ -116,12 +116,10 @@ func FromOSUser(user storage.OSUser) (*User, error) {
 	if err != nil {
 		return nil, trace.BadParameter("expected a numeric UID but got %v", user.UID)
 	}
-
 	gid, err := strconv.Atoi(user.GID)
 	if err != nil {
 		return nil, trace.BadParameter("expected a numeric GID but got %v", user.GID)
 	}
-
 	return &User{
 		Name: user.Name,
 		UID:  uid,

@@ -103,15 +103,18 @@ func NewClusterEnvironment() (*ClusterEnvironment, error) {
 		return nil, trace.Wrap(err)
 	}
 	user, err := env.Backend.GetServiceUser()
-	if err != nil {
+	if err != nil && !trace.IsNotFound(err) {
 		return nil, trace.Wrap(err)
 	}
-	serviceUser, err := systeminfo.FromOSUser(*user)
-	if err != nil {
-		return nil, trace.Wrap(err)
+	var serviceUser *systeminfo.User
+	if user != nil {
+		serviceUser, err = systeminfo.FromOSUser(*user)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
 	}
 	nodeAddr, err := env.Backend.GetNodeAddr()
-	if err != nil {
+	if err != nil && !trace.IsNotFound(err) {
 		return nil, trace.Wrap(err)
 	}
 	return newClusterEnvironment(clusterEnvironmentConfig{
