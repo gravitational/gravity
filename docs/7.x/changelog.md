@@ -2232,7 +2232,7 @@ to invite users and reset user passwords from CLI.
 
 ## 4.x Releases
 
-## Instructions on upgrading to 4.23.0+
+### Instructions on upgrading to 4.23.0+
 
 Upgrading clusters to Gravity 4.23.0 works via the command line interface (CLI) only.
 To upgrade a cluster with an application packaged with the Gravity 4.23+
