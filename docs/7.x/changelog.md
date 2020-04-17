@@ -26,7 +26,7 @@ extend updates past EOL through customer agreements if required.
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 6.3.10        | No  | April 13th, 2020     | April 3rd, 2020      | 1.17.4             | 3.2.13           |
+| 6.3.12        | No  | April 15th, 2020     | April 3rd, 2020      | 1.17.4             | 3.2.13           |
 | 6.2.5         | No  | December 3rd, 2019   | December 18th, 2019  | 1.16.3             | 3.2.13           |
 | 6.0.10        | No  | October 17th, 2019   | August 2nd, 2019     | 1.14.7             | 3.2.12           |
 | 5.6.8         | No  | September 18th, 2019 | July 17th, 2019      | 1.14.7             | 3.0.6-gravity    |
@@ -62,6 +62,25 @@ them to any Kubernetes cluster.
 to learn how to gain insight into how the cluster status changes over time.
 
 ## 6.x Releases
+
+### 6.3.12 (April 15th, 2020)
+
+#### Improvements
+
+* Overlay network checker failure will now move cluster to degraded state ([#1388](https://github.com/gravitational/gravity/pull/1388)).
+* Update gravity status history to track planet leader change events ([#1388](https://github.com/gravitational/gravity/pull/1388)).
+
+#### Bugfixes
+
+* Fix an issue with planet agent logs verbosity in case of disabled monitoring app ([#1388](https://github.com/gravitational/gravity/pull/1388)).
+
+### 6.3.11 (April 15th, 2020)
+
+#### Bugfixes
+
+* Fix an issue with successfully completed join operations being marked as failed ([#1383](https://github.com/gravitational/gravity/pull/1383)).
+* Fix an issue with 6.3.10 gravity binary not being able to join to older 6.3 clusters ([#1383](https://github.com/gravitational/gravity/pull/1383)).
+* Fix a cosmetic issue with messages being improperly formatted when printing operations ([#1374](https://github.com/gravitational/gravity/pull/1374)).
 
 ### 6.1.22 LTS (April 14th, 2020)
 
