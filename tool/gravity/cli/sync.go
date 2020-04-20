@@ -111,10 +111,7 @@ func appSyncEnv(env *localenv.LocalEnvironment, imageEnv *localenv.ImageEnvironm
 			DstApp:  clusterApps,
 			Upsert:  true,
 		}
-		err = puller.PullApp(context.TODO(), imageEnv.Manifest.Locator())
-		if err != nil {
-			return trace.Wrap(err)
-		}
+		return puller.PullApp(context.TODO(), imageEnv.Manifest.Locator())
 	} else if httplib.InKubernetes() {
 		// If we're running inside generic Kubernetes cluster, sync images
 		// to the registry specified on the command line.
