@@ -154,15 +154,6 @@ func (r *AgentGroup) Add(p Peer) {
 
 // Remove shuts down the specified peer and removes it from the group
 func (r *AgentGroup) Remove(ctx context.Context, p Peer) error {
-	err := r.peers.iterate(func(peer peer) error {
-		if p.Addr() == peer.Addr() {
-			return trace.Wrap(peer.Shutdown(ctx, &pb.ShutdownRequest{}))
-		}
-		return nil
-	})
-	if err != nil {
-		return trace.Wrap(err)
-	}
 	r.peers.delete(peer{Peer: p})
 	return nil
 }
@@ -177,17 +168,10 @@ func (r *AgentGroup) Shutdown(ctx context.Context, req *pb.ShutdownRequest) erro
 
 // Abort requests agents to abort the operation and uninstall
 func (r *AgentGroup) Abort(ctx context.Context) error {
-	var errors []error
-	r.peers.iterate(func(p peer) error {
-		logger := r.WithField("peer", p)
-		logger.Info("Abort peer.")
-		if err := p.Abort(ctx); err != nil {
-			logger.WithError(err).Warn("Failed to abort peer.")
-			errors = append(errors, err)
-		}
-		return nil
+	return r.peers.iterate(func(p peer) error {
+		r.WithField("peer", p).Info("Abort peer.")
+		return p.Abort(ctx)
 	})
-	return trace.NewAggregate(errors...)
 }
 
 // Start starts this group's internal goroutines

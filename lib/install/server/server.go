@@ -18,7 +18,6 @@ package server
 import (
 	"context"
 	"net"
-	"sync"
 
 	installpb "github.com/gravitational/gravity/lib/install/proto"
 	"github.com/gravitational/gravity/lib/ops"
@@ -83,7 +82,7 @@ func (r *Server) Interrupted(ctx context.Context) error {
 // This cannot block or invoke blocking APIs since it might be invoked
 // by the RPC agent during shutdown
 func (r *Server) ManualStop(ctx context.Context, completed bool) error {
-	r.WithField("completed", completed).Info("Stop.")
+	r.WithField("completed", completed).Info("Manual stop.")
 	if completed {
 		r.complete(ctx)
 	} else {
@@ -196,8 +195,6 @@ type Server struct {
 	// rpc is the internal gRPC server instance
 	rpc      *grpc.Server
 	executor Executor
-
-	doneOnce sync.Once
 
 	// errC signals the error from either the execute or
 	// operation being aborted

@@ -20,6 +20,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/gravitational/gravity/lib/defaults"
 	pb "github.com/gravitational/gravity/lib/rpc/proto"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
@@ -55,7 +56,7 @@ func (srv *agentServer) Command(req *pb.CommandArgs, stream pb.Agent_CommandServ
 
 // PeerJoin accepts a new peer
 func (srv *agentServer) PeerJoin(ctx context.Context, req *pb.PeerJoinRequest) (*types.Empty, error) {
-	srv.WithField("req", req).Debug("PeerJoin.")
+	srv.WithField("req", req.String()).Info("PeerJoin.")
 	err := srv.PeerStore.NewPeer(ctx, *req, &remotePeer{
 		addr:             req.Addr,
 		creds:            srv.Config.Client,
@@ -69,7 +70,7 @@ func (srv *agentServer) PeerJoin(ctx context.Context, req *pb.PeerJoinRequest) (
 
 // PeerLeave receives a "leave" request from a peer and initiates its shutdown
 func (srv *agentServer) PeerLeave(ctx context.Context, req *pb.PeerLeaveRequest) (*types.Empty, error) {
-	srv.WithField("req", req).Debug("PeerLeave.")
+	srv.WithField("req", req.String()).Info("PeerLeave.")
 	err := srv.PeerStore.RemovePeer(ctx, *req, &remotePeer{
 		addr:             req.Addr,
 		creds:            srv.Config.Client,
@@ -134,7 +135,15 @@ func (srv *agentServer) Shutdown(ctx context.Context, req *pb.ShutdownRequest) (
 	if srv.StopHandler != nil {
 		err = srv.StopHandler(ctx, req.Completed)
 	}
-	go srv.Stop(ctx)
+	go func() {
+		// Create a separate context from the parent one since the parent
+		// context is canceled once the handler has returned
+		ctx, cancel := context.WithTimeout(context.Background(), defaults.ShutdownTimeout)
+		if err := srv.Stop(ctx); err != nil {
+			srv.Warnf("Failed to shutdown: %v.", err)
+		}
+		cancel()
+	}()
 	return &types.Empty{}, trace.Wrap(err)
 }
 
@@ -143,7 +152,15 @@ func (srv *agentServer) Abort(ctx context.Context, req *types.Empty) (resp *type
 	if srv.AbortHandler != nil {
 		err = srv.AbortHandler(ctx)
 	}
-	go srv.Stop(ctx)
+	go func() {
+		// Create a separate context from the parent one since the parent
+		// context is canceled once the handler has returned
+		ctx, cancel := context.WithTimeout(context.Background(), defaults.ShutdownTimeout)
+		if err := srv.Stop(ctx); err != nil {
+			srv.Warnf("Failed to stop server: %v.", err)
+		}
+		cancel()
+	}()
 	return &types.Empty{}, trace.Wrap(err)
 }
 

@@ -102,7 +102,7 @@ func (r *AutomaticLifecycle) Abort(ctx context.Context, c *Client) error {
 type AutomaticLifecycle struct {
 	// Aborter specifies the completion handler for when the operation is aborted
 	Aborter func(context.Context) error
-	// Completer specifies the optional completion handler for when the operation
+	// Completer specifies the completion handler for when the operation
 	// is completed successfully
 	Completer CompletionHandler
 	// DebugReportPath specifies the path to the debug report file
@@ -129,7 +129,7 @@ func (r *AutomaticLifecycle) generateDebugReport(ctx context.Context, c *Client)
 	err := c.generateDebugReport(clusterCtx, r.DebugReportPath)
 	if err != nil {
 		if r.LocalDebugReporter != nil {
-			r.LocalDebugReporter(ctx, r.DebugReportPath)
+			err = r.LocalDebugReporter(ctx, r.DebugReportPath)
 		}
 	}
 	return trace.Wrap(err)

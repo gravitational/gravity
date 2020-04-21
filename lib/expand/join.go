@@ -340,7 +340,7 @@ func (p *Peer) startConnectLoop() {
 		defer p.wg.Done()
 		ctx, err := p.connectLoop()
 		if err == nil {
-			err = p.init(*ctx)
+			ctx.agent, err = p.init(*ctx)
 		}
 		if err != nil {
 			// Consider failure to connect/init a terminal error.
@@ -594,7 +594,7 @@ func (p *Peer) dialWizard(addr string) (*operationContext, error) {
 		Creds:     *creds,
 	}
 	if shouldRunLocalChecks(ctx) {
-		err = p.runLocalChecks(*cluster, *operation)
+		err = p.runLocalChecks(ctx)
 		if err != nil {
 			return nil, utils.Abort(err)
 		}
@@ -613,13 +613,13 @@ func (p *Peer) dialCluster(addr, operationID string) (*operationContext, error) 
 	if err != nil {
 		return nil, utils.Abort(err)
 	}
-	if shouldRunLocalChecks(*ctx) {
-		err = p.runLocalChecksExpand(ctx.Operator, ctx.Cluster)
-		if err != nil {
-			return nil, utils.Abort(err)
-		}
-	}
 	if ctx.hasOperation() {
+		if shouldRunLocalChecks(*ctx) {
+			err = p.runLocalChecks(*ctx)
+			if err != nil {
+				return nil, utils.Abort(err)
+			}
+		}
 		return ctx, nil
 	}
 	operation, err := p.getOrCreateExpandOperation(ctx.Operator, ctx.Cluster, operationID)
@@ -627,6 +627,12 @@ func (p *Peer) dialCluster(addr, operationID string) (*operationContext, error) 
 		return nil, trace.Wrap(err)
 	}
 	ctx.Operation = *operation
+	if shouldRunLocalChecks(*ctx) {
+		err = p.runLocalChecks(*ctx)
+		if err != nil {
+			return nil, utils.Abort(err)
+		}
+	}
 	return ctx, nil
 }
 
@@ -710,23 +716,19 @@ func (p *Peer) getOrCreateExpandOperation(operator ops.Operator, cluster ops.Sit
 	return operation, nil
 }
 
-func (p *Peer) runLocalChecksExpand(operator ops.Operator, cluster ops.Site) error {
-	installOperation, _, err := ops.GetInstallOperation(cluster.Key(), operator)
+func (p *Peer) runLocalChecks(ctx operationContext) error {
+	installOperation, _, err := ops.GetInstallOperation(ctx.Cluster.Key(), ctx.Operator)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return p.runLocalChecks(cluster, *installOperation)
-}
-
-func (p *Peer) runLocalChecks(cluster ops.Site, installOperation ops.SiteOperation) error {
 	return checks.RunLocalChecks(p.ctx, checks.LocalChecksRequest{
-		Manifest: cluster.App.Manifest,
+		Manifest: ctx.Cluster.App.Manifest,
 		Role:     p.Role,
-		Docker:   cluster.ClusterState.Docker,
+		Docker:   ctx.Cluster.ClusterState.Docker,
 		Options: &validationpb.ValidateOptions{
 			VxlanPort: int32(installOperation.GetVars().OnPrem.VxlanPort),
-			DnsAddrs:  cluster.DNSConfig.Addrs,
-			DnsPort:   int32(cluster.DNSConfig.Port),
+			DnsAddrs:  ctx.Cluster.DNSConfig.Addrs,
+			DnsPort:   int32(ctx.Cluster.DNSConfig.Port),
 		},
 		AutoFix: true,
 	})
@@ -754,6 +756,8 @@ type operationContext struct {
 	Cluster ops.Site
 	// Creds is the RPC agent credentials
 	Creds rpcserver.Credentials
+	// agent specifies the agent instance active during the operation.
+	agent *rpcserver.PeerServer
 }
 
 // connectLoop dials to either a running wizard OpsCenter or a local gravity cluster.
@@ -789,14 +793,30 @@ func (p *Peer) connectLoop() (*operationContext, error) {
 	}
 }
 
-func (p *Peer) stop() error {
+func (p *Peer) stop() {
 	ctx, cancel := context.WithTimeout(context.Background(), defaults.ShutdownTimeout)
 	defer cancel()
+	if err := p.shutdownAgent(ctx); err != nil {
+		p.WithError(err).Warn("Failed to shut down agent.")
+	}
 	p.cancel()
 	p.wg.Wait()
 	p.dispatcher.Close()
 	p.server.Stop(ctx)
-	return nil
+}
+
+func (p *Peer) shutdownAgent(ctx context.Context) error {
+	opCtx, err := p.operationContext(ctx)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if opCtx.agent == nil {
+		return nil
+	}
+	p.Info("Stop peer agent.")
+	err = opCtx.agent.Stop(ctx)
+	<-opCtx.agent.Done()
+	return trace.Wrap(err)
 }
 
 func (p *Peer) tryConnect(operationID string) (ctx *operationContext, err error) {
