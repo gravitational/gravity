@@ -141,6 +141,7 @@ func GetConfigPackage(p PackageService, loc loc.Locator, confLoc loc.Locator, ar
 	logger := log.WithFields(log.Fields{
 		"package":  loc.String(),
 		"manifest": fmt.Sprintf("%#v", manifest),
+		"args":     args,
 	})
 	logger.Info("Generate configuration package.")
 	if manifest.Config == nil {

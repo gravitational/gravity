@@ -69,6 +69,12 @@ func Run(g *Application) error {
 		return trace.Wrap(err)
 	}
 
+	if *g.Debug {
+		utils.InitGRPCLoggerWithDefaults()
+	} else {
+		utils.InitGRPCLoggerFromEnvironment()
+	}
+
 	if *g.UID != -1 || *g.GID != -1 {
 		return SwitchPrivileges(*g.UID, *g.GID)
 	}
@@ -226,6 +232,7 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.PlanExecuteCmd.FullCommand(),
 		g.PlanRollbackCmd.FullCommand(),
 		g.PlanResumeCmd.FullCommand(),
+		g.LeaveCmd.FullCommand(),
 		g.EnterCmd.FullCommand():
 		if utils.CheckInPlanet() {
 			return trace.BadParameter("this command must be run outside of planet container")

@@ -124,19 +124,24 @@ func (r *Updater) RollbackPhase(ctx context.Context, phase string, phaseTimeout 
 }
 
 // Complete completes the active operation
-func (r *Updater) Complete(fsmErr error) error {
+func (r *Updater) Complete(ctx context.Context, fsmErr error) error {
 	if fsmErr == nil {
 		fsmErr = trace.Errorf("completed manually")
 	}
-	if err := r.machine.Complete(fsmErr); err != nil {
+	if err := r.machine.Complete(ctx, fsmErr); err != nil {
 		return trace.Wrap(err)
 	}
 	if err := r.emitAuditEvent(context.TODO()); err != nil {
 		log.WithError(err).Warn("Failed to emit audit event.")
 	}
+	return nil
+}
+
+// Activate activates the cluster.
+func (r *Updater) Activate() error {
 	return r.Operator.ActivateSite(ops.ActivateSiteRequest{
-		AccountID:  r.Operation.ClusterKey().AccountID,
-		SiteDomain: r.Operation.ClusterKey().SiteDomain,
+		AccountID:  r.Operation.AccountID,
+		SiteDomain: r.Operation.SiteDomain,
 	})
 }
 
@@ -175,7 +180,7 @@ func (r *Updater) executePlan(ctx context.Context) error {
 		r.WithError(planErr).Warn("Failed to execute plan.")
 	}
 
-	err := r.machine.Complete(planErr)
+	err := r.machine.Complete(ctx, planErr)
 	if err == nil {
 		err = planErr
 	}

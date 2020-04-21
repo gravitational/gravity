@@ -218,6 +218,10 @@ type SystemSpecV2 struct {
 	SystemPackages []SystemPackage `json:"system_packages"`
 	// OS identifies the host operating system
 	OS OSInfo `json:"os"`
+	// LVMSystemDirectory specifies the location of the LVM system directory if the
+	// docker storage driver is devicemapper, empty otherwise
+	// DEPRECATED
+	LVMSystemDirectory string `json:"lvm_system_dir"`
 	// User specifies the agent's user identity
 	User OSUser `json:"user"`
 }
@@ -249,8 +253,8 @@ const SystemSpecV2Schema = `{
   "type": "object",
   "additionalProperties": false,
   "required": ["hostname", "interfaces", "filesystem", "filesystem_stats",
-      "memory", "swap", "cpus", "processes", "devices", "system_packages", "os",
-      "user"],
+      "memory", "swap", "cpus", "processes", "devices", "system_packages",
+      "os", "lvm_system_dir", "user"],
   "properties": {
     "hostname": {"type": "string"},
     "interfaces": {
@@ -350,6 +354,7 @@ const SystemSpecV2Schema = `{
         "version": {"type": "string"}
       }
     },
+    "lvm_system_dir": {"type": "string"},
     "user": {
       "type": "object",
       "required": ["name", "uid", "gid"],

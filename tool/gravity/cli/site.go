@@ -138,7 +138,8 @@ func getClusterReport(env *localenv.LocalEnvironment, targetFile string) error {
 		return trace.Wrap(err)
 	}
 
-	report, err := operator.GetSiteReport(ops.SiteKey{
+	// TODO(dmitri): see comments on defaults.GenerateDebugReportTimeout
+	report, err := operator.GetSiteReport(context.TODO(), ops.SiteKey{
 		AccountID:  site.AccountID,
 		SiteDomain: site.Domain,
 	})
@@ -151,7 +152,7 @@ func getClusterReport(env *localenv.LocalEnvironment, targetFile string) error {
 		return trace.Wrap(err)
 	}
 
-	fmt.Printf("report for %v exported to %v\n", site, targetFile)
+	env.Printf("report for %v exported to %v\n", site, targetFile)
 	return nil
 }
 

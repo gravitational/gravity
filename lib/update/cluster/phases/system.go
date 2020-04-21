@@ -29,6 +29,7 @@ import (
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/systeminfo"
 	"github.com/gravitational/gravity/lib/update"
 	"github.com/gravitational/gravity/lib/update/system"
 	"github.com/gravitational/gravity/lib/utils"
@@ -199,7 +200,7 @@ type updatePhaseConfig struct {
 	// LocalPackages is the local package service
 	LocalPackages pack.PackageService
 	// ServiceUser is the user used for services and system storage
-	ServiceUser storage.OSUser
+	ServiceUser systeminfo.User
 	// ExecutorParams is common phase executor parameters
 	fsm.ExecutorParams
 	// FieldLogger specifies the logger
@@ -221,10 +222,14 @@ func NewUpdatePhaseConfig(
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	serviceUser, err := systeminfo.UserFromOSUser(cluster.ServiceUser)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	return &updatePhaseConfig{
 		Packages:       packages,
 		LocalPackages:  localPackages,
-		ServiceUser:    cluster.ServiceUser,
+		ServiceUser:    *serviceUser,
 		ExecutorParams: p,
 		FieldLogger:    logger,
 		remote:         remote,

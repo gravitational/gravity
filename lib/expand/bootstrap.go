@@ -35,10 +35,10 @@ import (
 )
 
 // init initializes the peer after a successful connect
-func (p *Peer) init(ctx operationContext) error {
+func (p *Peer) init(ctx operationContext) (*rpcserver.PeerServer, error) {
 	err := p.initEnviron(ctx)
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 	return p.startAgent(ctx)
 }
@@ -173,15 +173,15 @@ func (p *Peer) syncOperation(operator ops.Operator, cluster ops.Site, operationK
 
 // startAgent starts a new RPC agent using the specified operation context.
 // The agent will signal p.errC once it has terminated
-func (p *Peer) startAgent(ctx operationContext) error {
+func (p *Peer) startAgent(ctx operationContext) (*rpcserver.PeerServer, error) {
 	agent, err := p.newAgent(ctx)
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 	go func() {
 		p.errC <- agent.Serve()
 	}()
-	return nil
+	return agent, nil
 }
 
 // newAgent returns an instance of the RPC agent to handle remote calls

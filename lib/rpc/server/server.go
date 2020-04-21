@@ -97,12 +97,12 @@ func (srv *agentServer) Stop(ctx context.Context) error {
 	case <-srv.ctx.Done():
 		return nil
 	default:
-		srv.cancel()
 	}
 	for _, c := range srv.closers {
 		c.Close(ctx)
 	}
 	srv.grpcServer.GracefulStop()
+	srv.cancel()
 	return nil
 }
 

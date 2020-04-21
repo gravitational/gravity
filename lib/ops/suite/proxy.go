@@ -111,7 +111,7 @@ func (t *TestProxy) GetServerCount(ctx context.Context, domainName string) (int,
 
 // ExecuteCommand executes a command on a remote node addrress
 // for a given site domain
-func (t *TestProxy) ExecuteCommand(ctx context.Context, domainName, nodeAddr, command string, out io.Writer) error {
+func (t *TestProxy) ExecuteCommand(ctx context.Context, domainName, nodeAddr, command string, stdout, stderr io.Writer) error {
 	panic("not implemented")
 }
 
