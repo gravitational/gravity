@@ -7,16 +7,16 @@ Gravity Clusters.
 
 Gravity supports the following distributions:
 
-| Linux Distribution       | Version         | Docker Storage Drivers                 |
-|--------------------------|-----------------|----------------------------------------|
-| Red Hat Enterprise Linux | 7.2-7.3         | `devicemapper`*                        |
-| Red Hat Enterprise Linux | 7.4-7.7         | `devicemapper`*, `overlay`, `overlay2` |
-| CentOS                   | 7.2-7.7         | `devicemapper`*, `overlay`, `overlay2` |
-| Debian                   | 8-9             | `devicemapper`*, `overlay`, `overlay2` |
-| Ubuntu                   | 16.04           | `devicemapper`*, `overlay`, `overlay2` |
-| Ubuntu-Core              | 16.04           | `devicemapper`*, `overlay`, `overlay2` |
-| openSuse                 | 12 SP2 - 12 SP3 | `overlay`, `overlay2`                  |
-| Suse Linux Enterprise    | 12 SP2 - 12 SP3 | `overlay`, `overlay2`                  |
+| Linux Distribution       | Version          | Docker Storage Drivers                 |
+|--------------------------|------------------|----------------------------------------|
+| Red Hat Enterprise Linux | 7.2-7.3          | `devicemapper`*                        |
+| Red Hat Enterprise Linux | 7.4-7.8, 8.0-8.1 | `devicemapper`*, `overlay`, `overlay2` |
+| CentOS                   | 7.2-7.7, 8.0-8.1 | `devicemapper`*, `overlay`, `overlay2` |
+| Debian                   | 8-9              | `devicemapper`*, `overlay`, `overlay2` |
+| Ubuntu                   | 16.04            | `devicemapper`*, `overlay`, `overlay2` |
+| Ubuntu-Core              | 16.04            | `devicemapper`*, `overlay`, `overlay2` |
+| openSuse                 | 12 SP2 - 12 SP3  | `overlay`, `overlay2`                  |
+| Suse Linux Enterprise    | 12 SP2 - 12 SP3  | `overlay`, `overlay2`                  |
 
 !!! note
     devicemapper has been deprecated by the docker project, and is not supported by gravity 5.3.4 or later
@@ -31,15 +31,15 @@ During validation, values from the `name` attribute are matched against `ID` att
 
 Following table lists all the supported distributions and how they can be specified in the manifest:
 
-| Distribution Name        | ID                         | Version        |
-|--------------------------|----------------------------|----------------|
-| Red Hat Enterprise Linux | rhel                       | 7.2-7.7        |
-| CentOS                   | centos                     | 7.2-7.7        |
-| Debian                   | debian                     | 8-9            |
-| Ubuntu                   | ubuntu                     | 16.04          |
-| Ubuntu-Core              | ubuntu                     | 16.04          |
-| openSuse                 | suse, opensuse, opensuse-* | 12-SP2, 12-SP3 |
-| Suse Linux Enterprise    | sles, sles_sap             | 12-SP2, 12-SP3 |
+| Distribution Name        | ID                         | Version          |
+|--------------------------|----------------------------|------------------|
+| Red Hat Enterprise Linux | rhel                       | 7.4-7.8, 8.0-8.1 |
+| CentOS                   | centos                     | 7.2-7.7, 8.0-8.1 |
+| Debian                   | debian                     | 8-9              |
+| Ubuntu                   | ubuntu                     | 16.04            |
+| Ubuntu-Core              | ubuntu                     | 16.04            |
+| openSuse                 | suse, opensuse, opensuse-* | 12-SP2, 12-SP3   |
+| Suse Linux Enterprise    | sles, sles_sap             | 12-SP2, 12-SP3   |
 
 For example, to specify openSUSE as a dependency and support both services packs:
 
