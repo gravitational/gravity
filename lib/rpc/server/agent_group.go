@@ -154,15 +154,6 @@ func (r *AgentGroup) Add(p Peer) {
 
 // Remove shuts down the specified peer and removes it from the group
 func (r *AgentGroup) Remove(ctx context.Context, p Peer) error {
-	err := r.peers.iterate(func(peer peer) error {
-		if p.Addr() == peer.Addr() {
-			return trace.Wrap(peer.Shutdown(ctx, &pb.ShutdownRequest{}))
-		}
-		return nil
-	})
-	if err != nil {
-		return trace.Wrap(err)
-	}
 	r.peers.delete(peer{Peer: p})
 	return nil
 }

@@ -1224,6 +1224,11 @@ func (s SiteOperationKey) Check() error {
 	return nil
 }
 
+// String returns a text presentation of this operation key
+func (s SiteOperationKey) String() string {
+	return fmt.Sprintf("operation(id=%v)", s.OperationID)
+}
+
 // CreateSiteInstallOperationRequest is a request to create
 // install operation - the operation that provisions servers, gravity software
 // and sets up everything

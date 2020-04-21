@@ -20,6 +20,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/gravitational/gravity/lib/defaults"
 	pb "github.com/gravitational/gravity/lib/rpc/proto"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
@@ -136,9 +137,13 @@ func (srv *agentServer) Shutdown(ctx context.Context, req *pb.ShutdownRequest) (
 		err = srv.StopHandler(ctx, req.Completed)
 	}
 	go func() {
+		// Create a separate context from the parent one since the parent
+		// context is canceled once the handler has returned
+		ctx, cancel := context.WithTimeout(context.Background(), defaults.ShutdownTimeout)
 		if err := srv.Stop(ctx); err != nil {
 			srv.Warnf("Failed to shutdown: %v.", err)
 		}
+		cancel()
 	}()
 	return &types.Empty{}, trace.Wrap(err)
 }
@@ -149,9 +154,13 @@ func (srv *agentServer) Abort(ctx context.Context, req *types.Empty) (resp *type
 		err = srv.AbortHandler(ctx)
 	}
 	go func() {
+		// Create a separate context from the parent one since the parent
+		// context is canceled once the handler has returned
+		ctx, cancel := context.WithTimeout(context.Background(), defaults.ShutdownTimeout)
 		if err := srv.Stop(ctx); err != nil {
 			srv.Warnf("Failed to stop server: %v.", err)
 		}
+		cancel()
 	}()
 	return &types.Empty{}, trace.Wrap(err)
 }

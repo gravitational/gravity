@@ -119,6 +119,10 @@ func (r *InstallerStrategy) checkAndSetDefaults() (err error) {
 	return nil
 }
 
+func (r *InstallerStrategy) serviceName() string {
+	return serviceNameFromPath(r.ServicePath)
+}
+
 // InstallerStrategy implements the strategy that creates a new installer service
 // before attempting to connect.
 // This strategy also validates the environment before attempting to set up the service
@@ -145,17 +149,16 @@ type InstallerStrategy struct {
 // isServiceFailed returns an error if the service has failed.
 func isServiceFailed(serviceName string) func() error {
 	return func() error {
-		failed, err := service.IsFailed(serviceName)
-		if err == nil && failed {
+		err := service.IsFailed(serviceName)
+		if err == nil {
 			return trace.Errorf("service %q has failed. Check journal log for details.",
 				serviceName)
 		}
-		return trace.Wrap(err)
+		if !trace.IsCompareFailed(err) {
+			return trace.Wrap(err)
+		}
+		return nil
 	}
-}
-
-func serviceName(path string) (name string) {
-	return filepath.Base(path)
 }
 
 var (

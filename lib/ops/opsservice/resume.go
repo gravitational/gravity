@@ -38,14 +38,14 @@ func (o *Operator) ResumeShrink(key ops.SiteKey) (*ops.SiteOperationKey, error) 
 }
 
 func (s *site) resumeShrink() (*ops.SiteOperationKey, error) {
-	s.Debug("resume shrink operation")
+	s.Debug("Resume shrink operation.")
 
-	site, err := s.service.GetSite(s.key)
+	cluster, err := s.service.GetSite(s.key)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	if site.State != ops.SiteStateShrinking {
+	if cluster.State != ops.SiteStateShrinking {
 		return nil, trace.NotFound("cluster is not shrinking")
 	}
 
@@ -59,7 +59,7 @@ func (s *site) resumeShrink() (*ops.SiteOperationKey, error) {
 		return nil, trace.NotFound("shrink operation is not in progress: %v", op)
 	}
 
-	s.Debugf("resuming shrink operation: %v", op)
+	s.WithField("op", op.String()).Debug("Resume shrink operation.")
 
 	ctx, err := s.newOperationContext(*op)
 	if err != nil {

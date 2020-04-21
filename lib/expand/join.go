@@ -148,7 +148,7 @@ func (p *Peer) Run(listener net.Listener) error {
 // Stop shuts down this RPC agent
 // Implements signals.Stopper
 func (p *Peer) Stop(ctx context.Context) error {
-	p.Info("Stop.")
+	p.Info("Peer Stop.")
 	return p.server.ManualStop(ctx, false)
 }
 
@@ -338,7 +338,7 @@ func (p *Peer) startConnectLoop() {
 		defer p.wg.Done()
 		ctx, err := p.connectLoop()
 		if err == nil {
-			err = p.init(*ctx)
+			ctx.agent, err = p.init(*ctx)
 		}
 		if err != nil {
 			// Consider failure to connect/init a terminal error.
@@ -756,6 +756,8 @@ type operationContext struct {
 	Cluster ops.Site
 	// Creds is the RPC agent credentials
 	Creds rpcserver.Credentials
+	// agent specifies the agent instance active during the operation.
+	agent *rpcserver.PeerServer
 }
 
 // connectLoop dials to either a running wizard OpsCenter or a local gravity cluster.
@@ -794,10 +796,27 @@ func (p *Peer) connectLoop() (*operationContext, error) {
 func (p *Peer) stop() {
 	ctx, cancel := context.WithTimeout(context.Background(), defaults.ShutdownTimeout)
 	defer cancel()
+	if err := p.shutdownAgent(ctx); err != nil {
+		p.WithError(err).Warn("Failed to shut down agent.")
+	}
 	p.cancel()
 	p.wg.Wait()
 	p.dispatcher.Close()
 	p.server.Stop(ctx)
+}
+
+func (p *Peer) shutdownAgent(ctx context.Context) error {
+	opCtx, err := p.operationContext(ctx)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if opCtx.agent == nil {
+		return nil
+	}
+	p.Info("Stop peer agent.")
+	err = opCtx.agent.Stop(ctx)
+	<-opCtx.agent.Done()
+	return trace.Wrap(err)
 }
 
 func (p *Peer) tryConnect(operationID string) (ctx *operationContext, err error) {
