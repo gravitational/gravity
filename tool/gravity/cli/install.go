@@ -794,14 +794,15 @@ func NewInstallerConnectStrategy(env *localenv.LocalEnvironment, config InstallC
 	commandArgs.FlagsToAdd = append(commandArgs.FlagsToAdd,
 		cli.NewFlag("token", config.Token),
 		cli.NewBoolFlag("selinux", config.SELinux),
+		cli.NewBoolFlag("from-service", true),
+		cli.NewArg("path", config.StateDir),
 	)
-	commandArgs.FlagsToRemove = append(commandArgs.FlagsToRemove, "selinux")
+	commandArgs.FlagsToRemove = append(commandArgs.FlagsToRemove, "token", "selinux", "path", "from-service")
 	args, err := commandArgs.Update(os.Args[1:])
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	args = append([]string{utils.Exe.Path}, args...)
-	args = append(args, "--from-service", utils.Exe.WorkingDir)
 	servicePath, err := state.GravityInstallDir(defaults.GravityRPCInstallerServiceName)
 	if err != nil {
 		return nil, trace.Wrap(err)

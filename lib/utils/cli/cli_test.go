@@ -80,6 +80,28 @@ func (*S) TestUpdatesCommandLine(c *check.C) {
 			},
 			removeFlags: []string{"selinux"},
 		},
+		{
+			comment:   "Can update existing positional argument",
+			inputArgs: []string{"install", "/path/to/data"},
+			outputArgs: []string{
+				"install", `"/path/to/data"`,
+			},
+			flags: []Flag{
+				NewArg("path", "/path/to/data"),
+			},
+			removeFlags: []string{"path"},
+		},
+		{
+			comment:   "Adds implicit positional argument",
+			inputArgs: []string{"install"},
+			outputArgs: []string{
+				"install", `"/path/to/data"`,
+			},
+			flags: []Flag{
+				NewArg("path", "/path/to/data"),
+			},
+			removeFlags: []string{"path"},
+		},
 	}
 
 	for _, testCase := range testCases {
