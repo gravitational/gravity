@@ -98,7 +98,7 @@ func rollbackEnvironPhaseForOperation(env *localenv.LocalEnvironment, environ Lo
 		return trace.Wrap(err)
 	}
 	defer updater.Close()
-	err = updater.RollbackPhase(context.TODO(), params.PhaseID, params.Timeout, params.Force)
+	err = updater.RollbackPhase(context.TODO(), params.PhaseID, params.Timeout, params.Force, params.DryRun)
 	return trace.Wrap(err)
 }
 
