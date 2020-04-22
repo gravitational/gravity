@@ -17,6 +17,8 @@ limitations under the License.
 package process
 
 import (
+	"fmt"
+
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/ops/opsservice"
 	"github.com/gravitational/gravity/lib/processconfig"
@@ -65,6 +67,15 @@ func (p *Process) buildTeleportConfig(authGatewayConfig storage.AuthGateway) (*s
 	serviceConfig.Auth.StorageConfig.Params["path"] = fileConfig.DataDir
 	if len(serviceConfig.AuthServers) == 0 && serviceConfig.Auth.Enabled {
 		serviceConfig.AuthServers = append(serviceConfig.AuthServers, serviceConfig.Auth.SSHAddr)
+	}
+	// Configure auth tokens so nodes can join.
+	tokens, err := storage.GetExpandTokens(p.backend)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	for _, token := range tokens {
+		serviceConfig.Auth.StaticTokens = append(serviceConfig.Auth.StaticTokens,
+			config.StaticToken(fmt.Sprintf("node:%v", token.Token)))
 	}
 	// Teleport will be using Gravity backend implementation.
 	serviceConfig.Identity = p.identity
