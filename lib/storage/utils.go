@@ -292,24 +292,6 @@ func GetDNSConfig(backend Backend, fallback DNSConfig) (config *DNSConfig, err e
 	return config, nil
 }
 
-// GetExpandTokens returns all persistent (non-expiring) join tokens.
-func GetExpandTokens(backend Backend) (result []storage.ProvisioningToken, err error) {
-	cluster, err := backend.GetLocalSite(defaults.SystemAccountID)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	tokens, err := backend.GetSiteProvisioningTokens(cluster.Domain)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	for _, token := range tokens {
-		if token.Type == ProvisioningTokenTypeExpand && token.Expires.IsZero() {
-			result = append(result, token)
-		}
-	}
-	return result, nil
-}
-
 // DeepComparePhases compares the actual phase to the expected phase omitting
 // some insignificant fields like description or UI step number
 func DeepComparePhases(c *check.C, expected, actual OperationPhase) {
