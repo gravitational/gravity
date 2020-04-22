@@ -421,10 +421,10 @@ func (s *site) executeOperationWithContext(ctx *operationContext, op *ops.SiteOp
 	opErr := fn(ctx)
 
 	if opErr == nil {
-		return trace.Wrap(opErr)
+		return nil
 	}
 
-	ctx.Errorf("operation failure: %v", trace.DebugReport(opErr))
+	ctx.WithError(opErr).Error("Operation failure.")
 
 	// change the state without "compare" part just to take leverage of
 	// the operation group locking to ensure atomicity
@@ -433,7 +433,7 @@ func (s *site) executeOperationWithContext(ctx *operationContext, op *ops.SiteOp
 		newOpState: ops.OperationStateFailed,
 	})
 	if err != nil {
-		ctx.Errorf("failed to compare and swap operation state: %v", trace.DebugReport(err))
+		ctx.WithError(err).Error("Failed to compare and swap operation state.")
 	}
 
 	s.reportProgress(ctx, ops.ProgressEntry{
@@ -441,7 +441,7 @@ func (s *site) executeOperationWithContext(ctx *operationContext, op *ops.SiteOp
 		Completion: constants.Completed,
 		Message:    opErr.Error(),
 	})
-	return trace.Wrap(err)
+	return trace.Wrap(opErr)
 }
 
 type transformFn func(reader io.Reader) (io.ReadCloser, error)

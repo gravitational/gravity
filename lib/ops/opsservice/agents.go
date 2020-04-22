@@ -341,7 +341,8 @@ func NewAgentPeerStore(backend storage.Backend, users users.Users,
 
 // NewPeer adds a new peer
 func (r *AgentPeerStore) NewPeer(ctx context.Context, req pb.PeerJoinRequest, peer rpcserver.Peer) error {
-	r.Infof("NewPeer(%v).", peer.Addr())
+	logger := r.WithField("peer", peer.Addr())
+	logger.Info("NewPeer.")
 
 	token, user, err := r.authenticatePeer(req.Config.Token)
 	if err != nil {
@@ -352,6 +353,7 @@ func (r *AgentPeerStore) NewPeer(ctx context.Context, req pb.PeerJoinRequest, pe
 	if err != nil {
 		return err
 	}
+	logger.WithField("info", info.String()).Info("Peer system information.")
 
 	group, err := r.getOrCreateGroup(ops.SiteOperationKey{
 		AccountID:   user.GetAccountID(),
@@ -380,7 +382,7 @@ func (r *AgentPeerStore) NewPeer(ctx context.Context, req pb.PeerJoinRequest, pe
 
 // RemovePeer removes the specified peer from the store
 func (r *AgentPeerStore) RemovePeer(ctx context.Context, req pb.PeerLeaveRequest, peer rpcserver.Peer) error {
-	r.Infof("RemovePeer(%v).", peer.Addr())
+	r.WithField("peer", peer.Addr()).Info("RemovePeer.")
 
 	token, user, err := r.authenticatePeer(req.Config.Token)
 	if err != nil {
@@ -427,6 +429,10 @@ func (r *AgentPeerStore) authenticatePeer(token string) (*storage.ProvisioningTo
 
 func (r *AgentPeerStore) validatePeer(ctx context.Context, group *agentGroup, info storage.System,
 	req pb.PeerJoinRequest, clusterName string) error {
+	if group.hasPeer(req.Addr, info.GetHostname()) {
+		return nil
+	}
+
 	if err := r.checkHostname(ctx, group, req.Addr, info.GetHostname(), clusterName); err != nil {
 		return trace.Wrap(err)
 	}
@@ -459,7 +465,7 @@ func (r *AgentPeerStore) checkHostname(ctx context.Context, group *agentGroup, a
 		return trace.AccessDenied("One of existing servers already has hostname %q: %q.", hostname, existingServers)
 	}
 
-	if group.hasPeer(addr, hostname) {
+	if group.hasConflictingPeer(addr, hostname) {
 		return trace.AccessDenied("One of existing peers already has hostname %q.", hostname)
 	}
 
@@ -587,8 +593,21 @@ func (r *agentGroup) remove(ctx context.Context, p rpcserver.Peer, hostname stri
 }
 
 // hasPeer determines whether the group already has a peer with the specified
-// hostname but a different address
+// address and hostname
 func (r *agentGroup) hasPeer(addr, hostname string) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for existingAddr, existingHostname := range r.hostnames {
+		if existingHostname == hostname && existingAddr == addr {
+			return true
+		}
+	}
+	return false
+}
+
+// hasConflictingPeer determines whether the group already has a peer with the specified
+// hostname but a different address
+func (r *agentGroup) hasConflictingPeer(addr, hostname string) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	for existingAddr, existingHostname := range r.hostnames {

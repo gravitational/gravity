@@ -18,15 +18,17 @@ package client
 import (
 	"context"
 	"path/filepath"
+	"time"
 
-	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	installpb "github.com/gravitational/gravity/lib/install/proto"
 	"github.com/gravitational/gravity/lib/ops"
-	"github.com/gravitational/gravity/lib/state"
+	"github.com/gravitational/gravity/lib/system/service"
 	"github.com/gravitational/gravity/lib/system/signals"
+	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/cenkalti/backoff"
 	"github.com/gravitational/trace"
 	"github.com/gravitational/trace/trail"
 	log "github.com/sirupsen/logrus"
@@ -137,26 +139,11 @@ func (r *Config) checkAndSetDefaults() (err error) {
 	if r.InterruptHandler == nil {
 		return trace.BadParameter("InterruptHandler is required")
 	}
-	if r.ServicePath == "" {
-		r.ServicePath, err = state.GravityInstallDir(defaults.GravityRPCInstallerServiceName)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-	}
-	if !filepath.IsAbs(r.ServicePath) {
-		return trace.BadParameter("ServicePath needs to be absolute path")
-	}
 	if r.Printer == nil {
 		r.Printer = utils.DiscardPrinter
 	}
 	if r.FieldLogger == nil {
 		r.FieldLogger = log.WithField(trace.Component, "client:installer")
-	}
-	if r.SocketPath == "" {
-		r.SocketPath, err = installpb.SocketPath()
-		if err != nil {
-			return trace.Wrap(err)
-		}
 	}
 	return nil
 }
@@ -166,6 +153,7 @@ type ConnectStrategy interface {
 	// connect connects to the service and returns a client
 	connect(context.Context) (installpb.AgentClient, error)
 	checkAndSetDefaults() error
+	serviceName() string
 }
 
 // Config describes the configuration of the installer client
@@ -178,10 +166,6 @@ type Config struct {
 	*signals.InterruptHandler
 	// ConnectStrategy specifies the connection to setup/connect to the service
 	ConnectStrategy
-	// SocketPath specifies the path to the service socket file
-	SocketPath string
-	// ServicePath specifies the absolute path to the service unit
-	ServicePath string
 	// Lifecycle specifies the implementation of exit strategies after operation
 	// completion
 	Lifecycle Lifecycle
@@ -265,11 +249,17 @@ func (r *Client) complete(ctx context.Context) error {
 	_, err := r.client.Shutdown(ctx, &installpb.ShutdownRequest{
 		Completed: true,
 	})
+	if err := r.waitForServiceStopped(ctx); err != nil {
+		log.WithError(err).Warn("Failed to wait for installer service to shut down.")
+	}
 	return trace.Wrap(err)
 }
 
 func (r *Client) shutdown(ctx context.Context) error {
 	_, err := r.client.Shutdown(ctx, &installpb.ShutdownRequest{})
+	if err := r.waitForServiceStopped(ctx); err != nil {
+		log.WithError(err).Warn("Failed to wait for installer service to shut down.")
+	}
 	return trace.Wrap(err)
 }
 
@@ -277,6 +267,9 @@ func (r *Client) shutdownWithExitCode(ctx context.Context, code int) error {
 	_, err := r.client.Shutdown(ctx, &installpb.ShutdownRequest{
 		ExitCode: int32(code),
 	})
+	if err := r.waitForServiceStopped(ctx); err != nil {
+		log.WithError(err).Warn("Failed to wait for installer service to shut down.")
+	}
 	return trace.Wrap(err)
 }
 
@@ -304,6 +297,26 @@ type Lifecycle interface {
 	// Abort handles clean up of state files and directories
 	// the installer maintains throughout the operation
 	Abort(context.Context, *Client) error
+}
+
+func (r *Client) waitForServiceStopped(ctx context.Context) error {
+	boff := backoff.NewExponentialBackOff()
+	boff.MaxElapsedTime = 5 * time.Minute
+	return utils.RetryWithInterval(ctx, boff, func() error {
+		return service.IsStatus(
+			r.ConnectStrategy.serviceName(),
+			systemservice.ServiceStatusInactive,
+			systemservice.ServiceStatusFailed,
+		)
+	})
+}
+
+func serviceNameFromPath(servicePath string) (name string) {
+	return service.Name(servicePath)
+}
+
+func serviceName(path string) (name string) {
+	return filepath.Base(path)
 }
 
 var _ signals.Stopper = (*Client)(nil)
