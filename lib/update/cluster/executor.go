@@ -45,6 +45,8 @@ const (
 	electionStatus = "election_status"
 	// taintNode is the phase to taint a node
 	taintNode = "taint_node"
+	// nodeHealth is the phase to check if the node is healthy within satellite
+	nodeHealth = "node_health"
 	// untaintNode is the phase to remove the node taint
 	untaintNode = "untaint_node"
 	// drainNode is the phase to drain a node
@@ -128,6 +130,8 @@ func fsmSpec(c Config) fsm.FSMSpecFunc {
 			return libphase.NewPhaseTaint(p, c.Client, logger)
 		case untaintNode:
 			return libphase.NewPhaseUntaint(p, c.Client, logger)
+		case nodeHealth:
+			return libphase.NewPhaseNodeHealth(logger)
 		case drainNode:
 			return libphase.NewPhaseDrain(p, c.Client, logger)
 		case uncordonNode:
