@@ -179,7 +179,7 @@ endef
 #
 ifeq ($(OS),darwin)
 .PHONY: build
-build: grpc build-on-host
+build: build-on-host
 	ln -sf $(GRAVITY_BUILDDIR) $(GRAVITY_CURRENT_BUILDDIR)
 else
 .PHONY: build
