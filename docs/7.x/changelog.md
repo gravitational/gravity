@@ -4,7 +4,7 @@
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 7.0.0         | No  | April 3rd, 2020      | 7.1 is released      | 1.17.4             | 3.2.13           |
+| 7.0.1         | No  | April 22nd, 2020     | 7.1 is released      | 1.17.4             | 3.2.13           |
 | 6.1.22        | Yes | April 14th, 2020     | November 10th, 2021  | 1.15.11            | 3.2.12           |
 | 5.5.40        | Yes | April 3rd, 2020      | September 7th, 2020  | 1.13.11            | 3.0.6-gravity    |
 
@@ -41,6 +41,25 @@ extend updates past EOL through customer agreements if required.
 # Release Notes
 
 ## 7.x Releases
+
+### 7.0.1 (April 22nd, 2020)
+
+#### Improvements
+
+* Add overlay network checker to the in-cluster problem detector ([#1326](https://github.com/gravitational/gravity/pull/1326)).
+* Add ability to view cluster operations from CLI using `gravity resource get operations` command ([#1336](https://github.com/gravitational/gravity/pull/1336)).
+* Add EULA prompt to CLI installer if the application requires it ([#1379](https://github.com/gravitational/gravity/pull/1379)).
+
+#### Bugfixes
+
+* Fix an issue with hub certificates missing SANs after expand ([#1322](https://github.com/gravitational/gravity/pull/1322)).
+* Disallow running certain commands inside planet container which could lead to unexpected results ([#1352](https://github.com/gravitational/gravity/pull/1352)).
+* Fix a number of issues that could lead to expand operation being stuck ([#1361](https://github.com/gravitational/gravity/pull/1361)).
+* Fix an issue with custom dashboards watcher not being able to authenticate with Grafana ([#1366](https://github.com/gravitational/gravity/pull/1366)).
+* Fix an issue with wormhole CNI plugin installation ([#1370](https://github.com/gravitational/gravity/pull/1370)).
+* Fix an issue with status hook not being executed to verify the application health after install and upgrade ([#1392](https://github.com/gravitational/gravity/pull/1392)).
+* Fix an issue with launching `gravity install` outside of the unpacked installed directory ([#1415](https://github.com/gravitational/gravity/pull/1415)).
+* Fix an issue with `tele build` missing some Helm templating functions ([#1418](https://github.com/gravitational/gravity/pull/1418)).
 
 ### 7.0.0 (April 3rd, 2020)
 
