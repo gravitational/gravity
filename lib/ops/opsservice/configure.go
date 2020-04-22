@@ -889,6 +889,10 @@ func (s *site) getPlanetConfig(config planetConfig) (args []string, err error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	serfKey, err := s.serfKey()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	args = []string{
 		fmt.Sprintf("--node-name=%v", node.KubeNodeID()),
 		fmt.Sprintf("--hostname=%v", node.Hostname),
@@ -909,6 +913,7 @@ func (s *site) getPlanetConfig(config planetConfig) (args []string, err error) {
 		fmt.Sprintf("--volume=%v:/var/log", node.InGravity("planet", "log")),
 		fmt.Sprintf("--volume=%v:%v", node.StateDir(), defaults.GravityDir),
 		fmt.Sprintf("--service-uid=%v", s.uid()),
+		fmt.Sprintf("--serf-key=%v", serfKey),
 	}
 	overrideArgs := map[string]string{
 		"service-subnet": config.installExpand.InstallExpand.Subnets.Service,

@@ -18,6 +18,7 @@ package opsservice
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -645,6 +646,14 @@ func (s site) gid() string {
 		return s.backendSite.ServiceUser.GID
 	}
 	return defaults.ServiceUserID
+}
+
+func (s site) serfKey() (key string, err error) {
+	op, _, err := ops.GetInstallOperation(s.key, s.service)
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+	return base64.StdEncoding.EncodeToString([]byte(op.ID[:32])), nil
 }
 
 func (s *site) getClusterConfiguration() (*clusterconfig.Resource, error) {
