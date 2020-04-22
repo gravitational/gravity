@@ -511,11 +511,7 @@ func (p *Peer) run() error {
 	// schedule a cleanup function to fail the operation if this exits
 	// with error
 	defer func() {
-		if err == nil {
-			return
-		}
-		p.WithError(err).Warn("Peer is exiting with error.")
-		stopCtx, cancel := context.WithTimeout(context.Background(), defaults.AgentStopTimeout)
+		stopCtx, cancel := context.WithTimeout(context.Background(), defaults.ShutdownTimeout)
 		defer cancel()
 		if p.agent != nil {
 			p.Info("Stopping peer.")
@@ -523,6 +519,10 @@ func (p *Peer) run() error {
 				p.WithError(err).Error("Failed to stop peer.")
 			}
 		}
+		if err == nil {
+			return
+		}
+		p.WithError(err).Warn("Peer is exiting with error.")
 		if ctx != nil && ctx.Operation.ID != "" {
 			if err2 := ops.FailOperation(ctx.Operation.Key(), ctx.Operator, err.Error()); err2 != nil {
 				p.WithError(err2).Error("Failed to mark the operation as failed.")
