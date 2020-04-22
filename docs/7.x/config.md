@@ -13,7 +13,7 @@ Resource Name             | Resource Description
 `role`                    | User role (Enterprise only)
 `user`                    | Cluster user
 `token`                   | User tokens such as API keys
-`logforwarder`            | Forwarding logs to a remote rsyslog server!
+`logforwarder`            | Forwarding logs to a remote rsyslog server
 `trusted_cluster`         | Managing access to remote Gravity Hubs (Enterprise Only)
 `endpoints`               | Gravity Hub endpoints for user and Cluster traffic (Enterprise Only)
 `cluster_auth_preference` | Cluster authentication settings such as second-factor
