@@ -208,7 +208,7 @@ spec:
       verbs:
       - list
     - resources:
-      - Cluster
+      - cluster
       verbs:
       - read
       - update
@@ -510,6 +510,7 @@ $ gravity resource rm saml okta
 ### Cluster Authentication Gateway
 
 !!! warning "Version Warning":
+
     Authentication gateway resource is supported starting Gravity version `5.5.0`.
 
 The Cluster authentication gateway handles the authentication and authorization
