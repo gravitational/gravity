@@ -74,7 +74,7 @@ nodeProfiles:
         min: "2GB"
       os:
         - name: centos
-          versions: ["7"]
+          versions: ["7", "8"]
         - name: rhel
           versions: ["7", "8"]
         - name: ubuntu
@@ -112,7 +112,7 @@ nodeProfiles:
         min: "2GB"
       os:
         - name: centos
-          versions: ["7"]
+          versions: ["7", "8"]
         - name: rhel
           versions: ["7", "8"]
         - name: ubuntu
@@ -155,7 +155,7 @@ nodeProfiles:
         min: "2GB"
       os:
         - name: centos
-          versions: ["7"]
+          versions: ["7", "8"]
         - name: rhel
           versions: ["7", "8"]
         - name: ubuntu

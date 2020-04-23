@@ -162,9 +162,9 @@ type agent struct {
 	// ClusterMembership provides access to cluster membership service.
 	ClusterMembership membership.ClusterMembership
 
-	// Timeline keeps track of all timeline events in the cluster. This timeline
-	// is only used on members that have the role 'master'.
-	Timeline history.Timeline
+	// ClusterTimeline keeps track of all timeline events in the cluster. This
+	// timeline is only used by members that have the role 'master'.
+	ClusterTimeline history.Timeline
 
 	// LocalTimeline keeps track of local timeline events.
 	LocalTimeline history.Timeline
@@ -194,10 +194,10 @@ func New(config *Config) (*agent, error) {
 	}
 
 	// Only initialize cluster timeline for master nodes.
-	var timeline history.Timeline
+	var clusterTimeline history.Timeline
 	var lastSeen *holster.TTLMap
 	if role, ok := config.Tags["role"]; ok && Role(role) == RoleMaster {
-		timeline, err = initTimeline(config.TimelineConfig, "cluster.db")
+		clusterTimeline, err = initTimeline(config.TimelineConfig, "cluster.db")
 		if err != nil {
 			return nil, trace.Wrap(err, "failed to initialize timeline")
 		}
@@ -214,7 +214,7 @@ func New(config *Config) (*agent, error) {
 		done:                    make(chan struct{}),
 		Config:                  *config,
 		ClusterMembership:       serfClient,
-		Timeline:                timeline,
+		ClusterTimeline:         clusterTimeline,
 		LocalTimeline:           localTimeline,
 	}
 
@@ -449,17 +449,23 @@ func (r *agent) runChecks(ctx context.Context) *pb.NodeStatus {
 // GetTimeline returns the current cluster timeline.
 func (r *agent) GetTimeline(ctx context.Context, params map[string]string) ([]*pb.TimelineEvent, error) {
 	if hasRoleMaster(r.Tags) {
-		return r.Timeline.GetEvents(ctx, params)
+		return r.ClusterTimeline.GetEvents(ctx, params)
 	}
 	return nil, trace.BadParameter("requesting cluster timeline from non master")
 }
 
-// RecordTimeline records the events into the cluster timeline.
-func (r *agent) RecordTimeline(ctx context.Context, events []*pb.TimelineEvent) error {
+// RecordClusterEvents records the events into the cluster timeline.
+// Cluster timeline can only be updated if agent has role 'master'.
+func (r *agent) RecordClusterEvents(ctx context.Context, events []*pb.TimelineEvent) error {
 	if hasRoleMaster(r.Tags) {
-		return r.Timeline.RecordTimeline(ctx, events)
+		return r.ClusterTimeline.RecordEvents(ctx, events)
 	}
 	return trace.BadParameter("attempting to update cluster timeline of non master")
+}
+
+// RecordLocalEvents records the events into the local timeline.
+func (r *agent) RecordLocalEvents(ctx context.Context, events []*pb.TimelineEvent) error {
+	return r.LocalTimeline.RecordEvents(ctx, events)
 }
 
 // runChecker executes the specified checker and reports results on probeCh.
@@ -635,7 +641,7 @@ func (r *agent) collectLocalStatus(ctx context.Context) (status *pb.NodeStatus, 
 	r.Unlock()
 
 	/// TODO: handle recording of timeline outside of collection.
-	if err := r.LocalTimeline.RecordTimeline(ctx, changes); err != nil {
+	if err := r.LocalTimeline.RecordEvents(ctx, changes); err != nil {
 		return status, trace.Wrap(err, "failed to record local timeline events")
 	}
 

@@ -24,6 +24,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/cenkalti/backoff"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/httplib"
@@ -35,6 +36,7 @@ import (
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/roundtrip"
+	"github.com/gravitational/satellite/agent/proto/agentpb"
 	pb "github.com/gravitational/satellite/agent/proto/agentpb"
 	"github.com/gravitational/satellite/monitoring"
 	"github.com/gravitational/trace"
@@ -180,6 +182,42 @@ func fromPlanetAgent(ctx context.Context, local bool, servers []storage.Server) 
 		SystemStatus: SystemStatus(status.Status),
 		Nodes:        nodes,
 	}, nil
+}
+
+// WaitForAgent blocks until able to retrieve status from planet-agent on local node (ignoring the result)
+func WaitForAgent(ctx context.Context) error {
+	b := backoff.NewConstantBackOff(1 * time.Second)
+	return trace.Wrap(utils.RetryWithInterval(ctx, b, func() error {
+		_, err := FromLocalPlanetAgent(ctx)
+		return trace.Wrap(err)
+	}))
+}
+
+// WaitForNodeHealthy blocks until receiving a healthy status from planet-agent on local node
+func WaitForNodeHealthy(ctx context.Context) (err error) {
+	b := backoff.NewConstantBackOff(1 * time.Second)
+	return trace.Wrap(utils.RetryWithInterval(ctx, b, func() error {
+		return trace.Wrap(getLocalNodeStatus(ctx))
+	}))
+}
+
+func getLocalNodeStatus(ctx context.Context) (err error) {
+	var status *Agent
+	b := utils.NewExponentialBackOff(defaults.NodeStatusTimeout)
+	err = utils.RetryTransient(ctx, b, func() error {
+		status, err = FromLocalPlanetAgent(ctx)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if status.GetSystemStatus() != agentpb.SystemStatus_Running {
+		return trace.BadParameter("node is degraded")
+	}
+	return nil
 }
 
 // IsDegraded returns whether the cluster is in degraded state

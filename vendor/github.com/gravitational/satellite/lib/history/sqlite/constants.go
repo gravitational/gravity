@@ -29,20 +29,6 @@ const (
 	evictionTimeout = 10 * time.Second
 )
 
-// These types are used to specify the type of an event when storing event
-// into a database.
-const (
-	clusterRecoveredType = "ClusterRecovered"
-	clusterDegradedType  = "ClusterDegraded"
-	nodeAddedType        = "NodeAdded"
-	nodeRemovedType      = "NodeRemoved"
-	nodeRecoveredType    = "NodeRecovered"
-	nodeDegradedType     = "NodeDegraded"
-	probeSucceededType   = "ProbeSucceeded"
-	probeFailedType      = "ProbeFailed"
-	unknownType          = "Unknown"
-)
-
 // createTableEvents is sql statement to create an `events` table.
 // Rows must be unique, excluding id.
 // TODO: might not need oldState/newState.
@@ -58,8 +44,6 @@ CREATE TABLE IF NOT EXISTS events (
 	UNIQUE(timestamp, type, node, probe, oldState, newState)
 )
 `
-
-// TODO: index node/probe fields to improve filtering performance.
 
 // insertIntoEvents is sql statement to insert entry into `events` table. Used for
 // batch insert statement.

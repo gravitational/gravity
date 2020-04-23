@@ -167,21 +167,28 @@ message TimelineEvent {
   
   // Data contains event specific data.
   oneof data {
-    ClusterRecovered clusterRecovered = 2;
+    // ClusterHealthy indicates the cluster is in a healthy state.
+    ClusterHealthy clusterHealthy = 2;
+    // ClusterDegraded indicates the cluster is in a degraded state.
     ClusterDegraded clusterDegraded = 3;
-
+    // ClusterUpgrade indicates the gravity cluster was upgraded.
     ClusterUpgrade clusterUpgrade = 4;
-
+    // NodeAdded indicates a node was added to the cluster.
     NodeAdded nodeAdded = 5;
+    // NodeRemoved indicates a node was removed from the cluster.
     NodeRemoved nodeRemoved = 6;
-    
-    NodeRecovered nodeRecovered = 7;
+    //NodeHealthy indicates a node is in a healthy state.
+    NodeHealthy nodeHealthy = 7;
+    // NodeDegraded indicates a node is in a degraded state.
     NodeDegraded nodeDegraded = 8;
-    
+    // ProbeSucceeded indicates a probe has succeeded.
     ProbeSucceeded probeSucceeded = 9;
+    // ProbeFailed indicates a probe has failed.
     ProbeFailed probeFailed = 10;
-
-    // TODO: Additional events
+    // LeaderElected indicates a new leader was elected.
+    LeaderElected leaderElected = 11;
+    // UnknownEvent indicates a unknown event.
+    UnknownEvent unknownEvent = 12;
   }
 }
 

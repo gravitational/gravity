@@ -52,6 +52,14 @@
   revision = "e9091a26100e9cfb2b6a8f470085bfa541931a91"
 
 [[projects]]
+  digest = "1:3b10c6fd33854dc41de2cf78b7bae105da94c2789b6fa5b9ac9e593ea43484ac"
+  name = "github.com/Masterminds/goutils"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "41ac8693c5c10a92ea1ff5ac3a7f95646f6123b0"
+  version = "v1.1.0"
+
+[[projects]]
   digest = "1:55388fd080150b9a072912f97b1f5891eb0b50df43401f8b75fb4273d3fec9fc"
   name = "github.com/Masterminds/semver"
   packages = ["."]
@@ -60,12 +68,12 @@
   version = "v1.4.2"
 
 [[projects]]
-  digest = "1:b0baf96eb3f1387dfd368f38f1d9c91adb947239530014d1006540ccee7579b2"
+  digest = "1:b565deb585c50ab8e94fe5d6c9903f1495970b97814803e4ab0e70c0a9c87a30"
   name = "github.com/Masterminds/sprig"
   packages = ["."]
   pruneopts = "UT"
-  revision = "15f9564e7e9cf0da02a48e0d25f12a7b83559aa6"
-  version = "v2.16.0"
+  revision = "e4c0945838d570720d876a6ad9b4568ed32317b4"
+  version = "v2.22.0"
 
 [[projects]]
   digest = "1:adbfc2db750d6fbe0c165ad801ba2d730883a3bc40bc8fe829516eb42ed17771"
@@ -115,14 +123,6 @@
   packages = ["."]
   pruneopts = "UT"
   revision = "6b4e7dc5e3143b85ea77909c72caf89416fc2915"
-
-[[projects]]
-  digest = "1:8f5416c7f59da8600725ae1ff00a99af1da8b04c211ae6f3c8f8bcab0164f650"
-  name = "github.com/aokoli/goutils"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "3391d3790d23d03408670993e957e8f408993c34"
-  version = "v1.0.1"
 
 [[projects]]
   digest = "1:1929b21a34400d463a99336f8e2908d2a154dc525c52411a8d99bb519942dc4c"
@@ -1027,7 +1027,7 @@
   version = "v1.0.0"
 
 [[projects]]
-  digest = "1:7eacba1c4966d88845770ad337a6d8151541cc25046ebb5923eee00fcb29c6c1"
+  digest = "1:1526fb3e42ee1b9eaf254aa812772712ebb335b78ced7bb906ee35489e2a5c09"
   name = "github.com/gravitational/satellite"
   packages = [
     "agent",
@@ -1044,8 +1044,8 @@
     "utils",
   ]
   pruneopts = "UT"
-  revision = "5bb05cd0c683afed2977ac3fe90c25e815f97aae"
-  version = "7.0.8"
+  revision = "d7a2a93a8ed510f0fe9145b41c175f557b8b430b"
+  version = "7.0.9"
 
 [[projects]]
   digest = "1:49f6abbce9ade5f43508429e4af1adcce55d27adcd62719fea049decc766a7c9"
