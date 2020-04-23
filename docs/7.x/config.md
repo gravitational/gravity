@@ -404,6 +404,9 @@ spec:
     - {% raw %}{claim: "roles", value: "gravitational/admins", roles: ["@teleadmin"]}{% endraw %}
 ```
 
+!!! note 
+    For Auth0 the "OIDC Conformant" setting should be off in Advanced Setting -> OAuth or Claims will not populate properly 
+
 Add this connector to the Cluster:
 
 ```bsh
