@@ -58,8 +58,8 @@ extend updates past EOL through customer agreements if required.
 * Fix an issue with custom dashboards watcher not being able to authenticate with Grafana ([#1366](https://github.com/gravitational/gravity/pull/1366)).
 * Fix an issue with wormhole CNI plugin installation ([#1370](https://github.com/gravitational/gravity/pull/1370)).
 * Fix an issue with status hook not being executed to verify the application health after install and upgrade ([#1392](https://github.com/gravitational/gravity/pull/1392)).
-* Fix an issue with launching `gravity install` outside of the unpacked installed directory ([#1415](https://github.com/gravitational/gravity/pull/1415)).
-* Fix an issue with `tele build` missing some Helm templating functions ([#1418](https://github.com/gravitational/gravity/pull/1418)).
+* Fix an issue with explicitly specifying installer directory in `gravity install` command ([#1415](https://github.com/gravitational/gravity/pull/1415)).
+* Update templating library to match the version used by Helm v2.15 ([#1418](https://github.com/gravitational/gravity/pull/1418)).
 
 ### 7.0.0 (April 3rd, 2020)
 
