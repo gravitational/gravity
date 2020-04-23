@@ -1105,16 +1105,9 @@ func (s *site) getTeleportMasterConfig(ctx *operationContext, configPackage loc.
 	fileConf.AdvertiseIP = advertiseIP.String()
 	fileConf.Global.NodeName = master.FQDN(s.domainName)
 
-	joinToken, err := s.service.GetExpandToken(s.key)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
 	// turn on auth service
 	fileConf.Auth.EnabledFlag = "yes"
 	fileConf.Auth.ClusterName = telecfg.ClusterName(s.domainName)
-	fileConf.Auth.StaticTokens = telecfg.StaticTokens{
-		telecfg.StaticToken(fmt.Sprintf("node:%v", joinToken.Token))}
 
 	// turn on proxy and Kubernetes integration
 	fileConf.Proxy.EnabledFlag = "yes"
