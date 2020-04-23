@@ -50,9 +50,18 @@ nginx Ingress will be installed and configured during the upgrade operation.
 
 ## Configure nginx Ingress
 
-### HTTP
+In order to be able to route network requests to Kubernetes Pods inside Gravity,
+you should follow the usual Ingress configuration pattern.
+
+This usually includes creating a new resource of `kind: Ingress` which specifies
+how to route requests to Services that address running Pods.
+
+Here's an example of an HTTP Ingress, configured to listen to requests sent
+toward anyway hostname, and send them to two different services based on the
+path of the request.
 
 ```yaml
+# HTTP Ingress
 ---
 apiVersion: networking.k8s.io/v1beta1
 kind: Ingress
@@ -74,12 +83,16 @@ spec:
           servicePort: 80
 ```
 
+Here's a slightly different of an Ingress which only receives requests sent 
+toward the hostname example.gravitational.com hostname and also enables the
+'/status' path sending it to a different pod.
+
 ```yaml
 ---
 apiVersion: networking.k8s.io/v1beta1
 kind: Ingress
 metadata:
-  name: test-ingress
+  name: test-ingress-host
   annotations:
     kubernetes.io/ingress.class: "nginx"
 spec:
@@ -93,25 +106,50 @@ spec:
           servicePort: 80
       - path: /status
         backend:
-          serviceName: nginx-with-host
+          serviceName: nginx-status-with-host
           servicePort: 80
 ```
 
-### HTTPs
 
+### HTTPS enabled Ingress
+
+In order to create an Ingress which supports SSL/TLS encrypted traffic via HTTPs
+you'll have to create a certificate containing the certificate itself.
+
+Usually this involves the use of a dynamic cert-manager, but that goes beyond
+the scope of this example.
+
+In this case we'll assume that you already have a certificate saved in two files
+called `tls.crt` for the certificate and `tls.key` for the private key file.
+
+!!!NOTE: please note that since the web server underlying this the Ingress is
+nginx you will have to include your entire CA anchor chain inside the tls.crt file
+
+To create the certificate, please create the two files explained above and then
+run the following command:
+
+```bash
+$ kubectl create secret tls example-gravitational-com-cert --cert=tls.crt --key=tls.key
+```
+
+Alternatively you could manually create your certificate following the template
+below. Remember to base64 encode the data records' content.
 
 ```yaml
 ---
 apiVersion: v1
 kind: Secret
+type: kubernetes.io/tls
 metadata:
-  name: test-secret-tls
+  name: example-gravitational-com-cert 
   namespace: default
 data:
   tls.crt: base64 encoded cert
   tls.key: base64 encoded key
-type: kubernetes.io/tls
 ```
+
+Now you should be able to dd a new Ingress which uses that certificate to enable
+HTTPs traffic as showcased below:
 
 ```yaml
 ---
@@ -122,7 +160,7 @@ metadata:
   tls:
   - hosts:
     - ssl-example.gravitational.com
-    secretName: test-secret-tls
+    secretName: example-gravitational-com-cert
   rules:
     - host: ssl-example.gravitational.com
       http:
@@ -133,7 +171,11 @@ metadata:
             servicePort: 80
 ```
 
+### Testing your Ingress
 
+In case you need a quick way to test our Ingress deployment, we suggest using
+the example below, which will create a quick nginx deployment and service that
+can then be used to test if the Ingress itself is working fine.
 
 ```yaml
 ---
