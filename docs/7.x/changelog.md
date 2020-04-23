@@ -26,7 +26,7 @@ extend updates past EOL through customer agreements if required.
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 6.3.12        | No  | April 15th, 2020     | April 3rd, 2020      | 1.17.4             | 3.2.13           |
+| 6.3.13        | No  | April 23rd, 2020     | April 3rd, 2020      | 1.17.4             | 3.2.13           |
 | 6.2.5         | No  | December 3rd, 2019   | December 18th, 2019  | 1.16.3             | 3.2.13           |
 | 6.0.10        | No  | October 17th, 2019   | August 2nd, 2019     | 1.14.7             | 3.2.12           |
 | 5.6.8         | No  | September 18th, 2019 | July 17th, 2019      | 1.14.7             | 3.0.6-gravity    |
@@ -81,6 +81,14 @@ them to any Kubernetes cluster.
 to learn how to gain insight into how the cluster status changes over time.
 
 ## 6.x Releases
+
+### 6.3.13 (April 23rd, 2020)
+
+#### Bugfixes
+
+* Fix formatting issue in `gravity status` ([#1394](https://github.com/gravitational/gravity/pull/1394)).
+* Fix an issue with cluster controller attempting to connect to the agent after operation completion ([#1420](https://github.com/gravitational/gravity/pull/1420)).
+* Fix an issue with Teleport nodes failing to join after expand operation ([#1434](https://github.com/gravitational/gravity/pull/1434)).
 
 ### 6.3.12 (April 15th, 2020)
 
