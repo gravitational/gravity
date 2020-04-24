@@ -238,6 +238,14 @@ type Application struct {
 	RPCAgentRunCmd RPCAgentRunCmd
 	// SystemCmd combines system subcommands
 	SystemCmd SystemCmd
+	// SystemTeleportCmd combines internal Teleport commands
+	SystemTeleportCmd SystemTeleportCmd
+	// SystemTeleportShowConfigCmd displays Teleport config
+	SystemTeleportShowConfigCmd SystemTeleportShowConfigCmd
+	// SystemTeleportMasterTokenCmd updates Teleport master auth tokens
+	SystemTeleportMasterTokenCmd SystemTeleportMasterTokenCmd
+	// SystemTeleportNodeTokenCmd updates Teleport node auth token
+	SystemTeleportNodeTokenCmd SystemTeleportNodeTokenCmd
 	// SystemRotateCertsCmd renews cluster certificates on local node
 	SystemRotateCertsCmd SystemRotateCertsCmd
 	// SystemRotateRPCCredsCmd renews cluster RPC credentials
@@ -1317,6 +1325,36 @@ type RPCAgentRunCmd struct {
 // SystemCmd combines system subcommands
 type SystemCmd struct {
 	*kingpin.CmdClause
+}
+
+// SystemTeleportCmd combines internal Teleport commands
+type SystemTeleportCmd struct {
+	*kingpin.CmdClause
+}
+
+// SystemTeleportShowConfigCmd displays Teleport config from specified package
+type SystemTeleportShowConfigCmd struct {
+	*kingpin.CmdClause
+	// Package is the package to show config from
+	Package *string
+}
+
+// SystemTeleportMasterTokenCmd updates Teleport master auth tokens
+type SystemTeleportMasterTokenCmd struct {
+	*kingpin.CmdClause
+	// Package is the Teleport master config package
+	Package *string
+	// Tokens is a list of auth tokens to add to the config
+	Tokens *[]string
+}
+
+// SystemTeleportNodeTokenCmd updates Teleport node auth token
+type SystemTeleportNodeTokenCmd struct {
+	*kingpin.CmdClause
+	// Package is the Teleport node config package
+	Package *string
+	// Token is the auth token to set
+	Token *string
 }
 
 // SystemRotateCertsCmd renews cluster certificates on local node
