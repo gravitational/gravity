@@ -4,7 +4,7 @@
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 7.0.1         | No  | April 22nd, 2020     | 7.1 is released      | 1.17.4             | 3.2.13           |
+| 7.0.2         | No  | April 23rd, 2020     | 7.1 is released      | 1.17.4             | 3.2.13           |
 | 6.1.22        | Yes | April 14th, 2020     | November 10th, 2021  | 1.15.11            | 3.2.12           |
 | 5.5.40        | Yes | April 3rd, 2020      | September 7th, 2020  | 1.13.11            | 3.0.6-gravity    |
 
@@ -41,6 +41,12 @@ extend updates past EOL through customer agreements if required.
 # Release Notes
 
 ## 7.x Releases
+
+### 7.0.2 (April 23rd, 2020)
+
+#### Improvements
+
+* Update vendored Helm to version `v2.15.2` ([#1440](https://github.com/gravitational/gravity/pull/1440)).
 
 ### 7.0.1 (April 22nd, 2020)
 
