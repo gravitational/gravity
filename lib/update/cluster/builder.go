@@ -334,10 +334,10 @@ func (r phaseBuilder) masters(leadMaster storage.UpdateServer, otherMasters []st
 		}
 
 		node.AddSequential(r.commonNode(leadMaster, leadMaster, supportsTaints,
-			waitsForEndpoints(len(otherMasters) == 0), electionChanges)...)
+			waitsForEndpoints(false), electionChanges)...)
 	} else {
 		node.AddSequential(r.commonNode(leadMaster, leadMaster, supportsTaints,
-			waitsForEndpoints(len(otherMasters) == 0), electionChanges{})...)
+			waitsForEndpoints(true), electionChanges{})...)
 	}
 
 	root.AddSequential(node)
