@@ -101,7 +101,7 @@ ignored = [
 
 [[constraint]]
   name = "k8s.io/helm"
-  branch = "release-2.15"
+  version = "=v2.15.2"
 
 [[override]]
   name = "github.com/Masterminds/sprig"
