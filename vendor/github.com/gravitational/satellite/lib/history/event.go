@@ -18,7 +18,6 @@ package history
 
 import (
 	"context"
-	"time"
 
 	pb "github.com/gravitational/satellite/agent/proto/agentpb"
 )
@@ -38,97 +37,31 @@ type Execer interface {
 // ProtoBuffer can be converted into a protobuf TimelineEvent.
 type ProtoBuffer interface {
 	// ProtoBuf returns event as a protobuf message.
-	ProtoBuf() (*pb.TimelineEvent, error)
+	ProtoBuf() *pb.TimelineEvent
 }
 
-// newTimelineEvent constructs a new TimelineEvent with the provided timestamp.
-func newTimelineEvent(timestamp time.Time) *pb.TimelineEvent {
-	return &pb.TimelineEvent{
-		Timestamp: &pb.Timestamp{
-			Seconds:     timestamp.Unix(),
-			Nanoseconds: int32(timestamp.Nanosecond()),
-		},
-	}
-}
+// EventType specifies the type of event.
+type EventType string
 
-// NewClusterRecovered constructs a new ClusterRecovered event with the
-// provided data.
-func NewClusterRecovered(timestamp time.Time) *pb.TimelineEvent {
-	event := newTimelineEvent(timestamp)
-	event.Data = &pb.TimelineEvent_ClusterRecovered{
-		ClusterRecovered: &pb.ClusterRecovered{},
-	}
-	return event
-}
-
-// NewClusterDegraded constructs a new ClusterDegraded event with the provided
-// data.
-func NewClusterDegraded(timestamp time.Time) *pb.TimelineEvent {
-	event := newTimelineEvent(timestamp)
-	event.Data = &pb.TimelineEvent_ClusterDegraded{
-		ClusterDegraded: &pb.ClusterDegraded{},
-	}
-	return event
-}
-
-// NewNodeAdded constructs a new NodeAdded event with the provided data.
-func NewNodeAdded(timestamp time.Time, node string) *pb.TimelineEvent {
-	event := newTimelineEvent(timestamp)
-	event.Data = &pb.TimelineEvent_NodeAdded{
-		NodeAdded: &pb.NodeAdded{Node: node},
-	}
-	return event
-}
-
-// NewNodeRemoved constructs a new NodeRemoved event with the provided data.
-func NewNodeRemoved(timestamp time.Time, node string) *pb.TimelineEvent {
-	event := newTimelineEvent(timestamp)
-	event.Data = &pb.TimelineEvent_NodeRemoved{
-		NodeRemoved: &pb.NodeRemoved{Node: node},
-	}
-	return event
-}
-
-// NewNodeRecovered constructs a new NodeRecovered event with the provided data.
-func NewNodeRecovered(timestamp time.Time, node string) *pb.TimelineEvent {
-	event := newTimelineEvent(timestamp)
-	event.Data = &pb.TimelineEvent_NodeRecovered{
-		NodeRecovered: &pb.NodeRecovered{Node: node},
-	}
-	return event
-}
-
-// NewNodeDegraded constructs a new NodeDegraded event with the provided data.
-func NewNodeDegraded(timestamp time.Time, node string) *pb.TimelineEvent {
-	event := newTimelineEvent(timestamp)
-	event.Data = &pb.TimelineEvent_NodeDegraded{
-		NodeDegraded: &pb.NodeDegraded{Node: node},
-	}
-	return event
-}
-
-// NewProbeSucceeded constructs a new ProbeSucceeded event with the provided
-// data.
-func NewProbeSucceeded(timestamp time.Time, node, probe string) *pb.TimelineEvent {
-	event := newTimelineEvent(timestamp)
-	event.Data = &pb.TimelineEvent_ProbeSucceeded{
-		ProbeSucceeded: &pb.ProbeSucceeded{
-			Node:  node,
-			Probe: probe,
-		},
-	}
-	return event
-
-}
-
-// NewProbeFailed constructs a new ProbeFailed event with the provided data.
-func NewProbeFailed(timestamp time.Time, node, probe string) *pb.TimelineEvent {
-	event := newTimelineEvent(timestamp)
-	event.Data = &pb.TimelineEvent_ProbeFailed{
-		ProbeFailed: &pb.ProbeFailed{
-			Node:  node,
-			Probe: probe,
-		},
-	}
-	return event
-}
+const (
+	// ClusterDegraded indicates the overall cluster is in a degraded state.
+	ClusterDegraded EventType = "ClusterDegraded"
+	// ClusterHealthy indicates the overall cluster is in a healthy state.
+	ClusterHealthy = "ClusterHealthy"
+	// NodeAdded indicates a node was added to the cluster.
+	NodeAdded EventType = "NodeAdded"
+	// NodeRemoved indicates a node was removed from the cluster.
+	NodeRemoved EventType = "NodeRemoved"
+	// NodeDegraded indicates a node is in a degraded state.
+	NodeDegraded EventType = "NodeDegraded"
+	// NodeHealthy indicates a node is in a healthy state.
+	NodeHealthy EventType = "NodeHealthy"
+	// ProbeFailed indicates a checker has failed.
+	ProbeFailed EventType = "ProbeFailed"
+	// ProbeSucceeded indicates a checker has succeeded.
+	ProbeSucceeded EventType = "ProbeSucceeded"
+	// LeaderElected indicates a node was elected to leader.
+	LeaderElected EventType = "LeaderElected"
+	// UnknownEvent specifies an unknown event type.
+	UnknownEvent EventType = "Unknown"
+)
