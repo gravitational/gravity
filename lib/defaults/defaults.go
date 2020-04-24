@@ -126,6 +126,9 @@ const (
 	// has been completed/or failed
 	InstallTokenTTL = time.Hour
 
+	// ExpandTokenTTL is the TTL for the expand token during the operation
+	ExpandTokenTTL = 24 * time.Hour
+
 	// MaxOperationConcurrency defines a number of servers an operation can run on concurrently
 	MaxOperationConcurrency = 5
 
