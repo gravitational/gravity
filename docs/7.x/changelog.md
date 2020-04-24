@@ -752,6 +752,7 @@ to learn how to gain insight into how the cluster status changes over time.
 #### Improvements
 
 * Add leader change event to gravity timeline ([#1355](https://github.com/gravitational/gravity/pull/1355)).
+* Update kube-apiserver and kubelet to use Mozilla modern compatibility ciphers ([#1439](https://github.com/gravitational/gravity/pull/1439)).
 
 #### Bugfixes
 
