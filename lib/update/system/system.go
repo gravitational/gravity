@@ -724,16 +724,6 @@ func ensureServiceRunning(servicePackage loc.Locator) error {
 	return trace.Wrap(err)
 }
 
-// waitForAgentRunning blocks until able to successfully connect to the local agent, but ignores whether the node is
-// healthy
-func waitForAgentRunning(ctx context.Context) error {
-	b := utils.NewExponentialBackOff(defaults.NodeStatusTimeout)
-	return utils.RetryWithInterval(ctx, b, func() error {
-		_, err := libstatus.FromLocalPlanetAgent(ctx)
-		return trace.Wrap(err)
-	})
-}
-
 // unpack reads the package from the package service and unpacks its contents
 // to the default package unpack directory
 func unpack(packages update.LocalPackageService, loc loc.Locator) error {

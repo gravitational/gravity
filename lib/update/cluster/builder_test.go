@@ -474,7 +474,7 @@ func (r *params) leaderMasterPhase(otherMasters []storage.Server) storage.Operat
 				Requires: []string{t("/masters/%v/drain")},
 			},
 			{
-				ID:          t("/masters/%[1]v/elect"),
+				ID:          t("/masters/%v/elect"),
 				Executor:    electionStatus,
 				Description: t("Make node %q Kubernetes leader"),
 				Data: &storage.OperationPhaseData{
