@@ -20,6 +20,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/gravitational/gravity/lib/defaults"
 	pb "github.com/gravitational/gravity/lib/rpc/proto"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
@@ -136,7 +137,15 @@ func (srv *agentServer) GetCurrentTime(ctx context.Context, _ *types.Empty) (*ty
 // Shutdown requests agent to shut down
 func (srv *agentServer) Shutdown(ctx context.Context, _ *types.Empty) (*types.Empty, error) {
 	srv.Info("Shutdown.")
-	go srv.Stop(ctx)
+	go func() {
+		// Create a separate context from the parent one since the parent
+		// context is canceled once the handler has returned
+		ctx, cancel := context.WithTimeout(context.Background(), defaults.ShutdownTimeout)
+		if err := srv.Stop(ctx); err != nil {
+			srv.Warnf("Failed to shutdown: %v.", err)
+		}
+		cancel()
+	}()
 	return &types.Empty{}, nil
 }
 

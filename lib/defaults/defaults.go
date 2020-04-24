@@ -126,6 +126,9 @@ const (
 	// has been completed/or failed
 	InstallTokenTTL = time.Hour
 
+	// ExpandTokenTTL is the TTL for the expand token during the operation
+	ExpandTokenTTL = 24 * time.Hour
+
 	// MaxOperationConcurrency defines a number of servers an operation can run on concurrently
 	MaxOperationConcurrency = 5
 
@@ -206,9 +209,6 @@ const (
 
 	// AgentConnectTimeout specifies the timeout for the initial connect
 	AgentConnectTimeout = 1 * time.Minute
-
-	// AgentStopTimeout is amount of time agent gets to gracefully shut down
-	AgentStopTimeout = 10 * time.Second
 
 	// PeerConnectTimeout is the timeout of an RPC agent connecting to its peer
 	PeerConnectTimeout = 10 * time.Second

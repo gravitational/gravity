@@ -23,11 +23,9 @@ import (
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
-	"github.com/gravitational/gravity/lib/users"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
-	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -264,15 +262,6 @@ func (g *operationGroup) onSiteOperationComplete(key ops.SiteOperationKey) error
 		return trace.Wrap(err)
 	}
 
-	if operation.IsCompleted() {
-		if err := deleteProvisioningTokenForOperation(cluster.users(), key); err != nil && !trace.IsNotFound(err) {
-			log.WithFields(logrus.Fields{
-				logrus.ErrorKey: err,
-				"operation":     operation.String(),
-			}).Warn("Failed to delete provisioning token.")
-		}
-	}
-
 	state, err := operation.ClusterState()
 	if err != nil {
 		return trace.Wrap(err)
@@ -284,14 +273,6 @@ func (g *operationGroup) onSiteOperationComplete(key ops.SiteOperationKey) error
 	}
 
 	return nil
-}
-
-func deleteProvisioningTokenForOperation(users users.Identity, key ops.SiteOperationKey) error {
-	token, err := users.GetOperationProvisioningToken(key.SiteDomain, key.OperationID)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	return users.DeleteProvisioningToken(*token)
 }
 
 // addClusterStateServers adds the provided servers to the cluster state
