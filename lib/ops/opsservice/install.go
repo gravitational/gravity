@@ -886,6 +886,10 @@ func (s *site) newProvisioningToken(operation ops.SiteOperation) (token string, 
 		OperationID: operation.ID,
 		UserEmail:   agentUser.GetName(),
 	}
+	if operation.Type == ops.OperationExpand {
+		// Set a TTL for expand provisioning token.
+		tokenRequest.Expires = s.clock().UtcNow().Add(24 * time.Hour)
+	}
 	_, err = s.users().CreateProvisioningToken(tokenRequest)
 	if err != nil && !trace.IsAlreadyExists(err) {
 		log.WithError(err).Warn("Failed to create provisioning token.")
