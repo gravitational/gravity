@@ -235,7 +235,7 @@ func (i *importer) findLatestTeleportConfigPackage(clusterName string, teleportV
 	config, err := pack.FindLatestPackageCustom(pack.FindLatestPackageRequest{
 		Packages:   i.packages,
 		Repository: clusterName,
-		Match:      matchTeleportConfigPackage(teleportVersion),
+		Match:      MatchTeleportConfigPackage(teleportVersion),
 	})
 	if err == nil {
 		return config, nil
@@ -254,7 +254,9 @@ func (i *importer) findLatestLegacyTeleportConfigPackage(clusterName string) (*l
 	})
 }
 
-func matchTeleportConfigPackage(teleportVersion semver.Version) pack.MatchFunc {
+// MatchTeleportConfigPackage returns a match function that matches Teleport
+// master configuration package with specified version.
+func MatchTeleportConfigPackage(teleportVersion semver.Version) pack.MatchFunc {
 	return func(env pack.PackageEnvelope) bool {
 		if !env.HasLabel(pack.PurposeLabel, pack.PurposeTeleportMasterConfig) {
 			return false

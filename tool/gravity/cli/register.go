@@ -563,14 +563,14 @@ func RegisterCommands(app *kingpin.Application) *Application {
 
 	g.SystemCmd.CmdClause = g.Command("system", "operations on system components")
 
-	g.SystemTeleportCmd.CmdClause = g.SystemCmd.Command("teleport", "System level operations with Teleport service").Hidden()
+	g.SystemTeleportCmd.CmdClause = g.SystemCmd.Command("teleport", "System level operations on Teleport service").Hidden()
 	g.SystemTeleportShowConfigCmd.CmdClause = g.SystemTeleportCmd.Command("show-config", "Display Teleport configuration from the specified package")
-	g.SystemTeleportShowConfigCmd.Package = g.SystemTeleportShowConfigCmd.Flag("package", "Package with Teleport configuration").Required().String()
+	g.SystemTeleportShowConfigCmd.Package = g.SystemTeleportShowConfigCmd.Flag("package", "Package with Teleport configuration. Can also be 'master' or 'node' to auto-detect package").Required().String()
 	g.SystemTeleportMasterTokenCmd.CmdClause = g.SystemTeleportCmd.Command("set-master-tokens", "Set auth tokens in Teleport master config")
-	g.SystemTeleportMasterTokenCmd.Package = g.SystemTeleportMasterTokenCmd.Flag("package", "Package with Teleport master config").Required().String()
+	g.SystemTeleportMasterTokenCmd.Package = g.SystemTeleportMasterTokenCmd.Flag("package", "Package with Teleport master config. Provide 'master' to try and auto-detect package").Required().String()
 	g.SystemTeleportMasterTokenCmd.Tokens = g.SystemTeleportMasterTokenCmd.Flag("token", "Auth tokens to set").Required().Strings()
 	g.SystemTeleportNodeTokenCmd.CmdClause = g.SystemTeleportCmd.Command("set-node-token", "Set auth token in Teleport node config")
-	g.SystemTeleportNodeTokenCmd.Package = g.SystemTeleportNodeTokenCmd.Flag("package", "Package with Teleport node config").Required().String()
+	g.SystemTeleportNodeTokenCmd.Package = g.SystemTeleportNodeTokenCmd.Flag("package", "Package with Teleport node config. Provide 'node' to try and auto-detect package").Required().String()
 	g.SystemTeleportNodeTokenCmd.Token = g.SystemTeleportNodeTokenCmd.Flag("token", "Auth token to set").Required().String()
 
 	g.SystemRotateCertsCmd.CmdClause = g.SystemCmd.Command("rotate-certs", "Renew cluster certificates on a node").Hidden()

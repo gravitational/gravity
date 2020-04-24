@@ -21,9 +21,11 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/coreos/go-semver/semver"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/pack"
+	"github.com/gravitational/gravity/lib/process"
 
 	"github.com/gravitational/teleport/lib/config"
 	"github.com/gravitational/teleport/lib/defaults"
@@ -66,7 +68,7 @@ func updateTeleportMasterTokens(env *localenv.LocalEnvironment, packageName stri
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	fmt.Println("Teleport master auth token updated. Please restart gravity-site using 'kubectl -nkube-system delete pods -lapp=gravity-site'.")
+	fmt.Println("Teleport master auth token updated. Please restart gravity-site using 'kubectl -nkube-system delete pods -lapp=gravity-site'")
 	return nil
 }
 
@@ -84,7 +86,7 @@ func updateTeleportNodeToken(env *localenv.LocalEnvironment, packageName, token 
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	fmt.Println("Teleport node auth token updated. Please restart Teleport service using 'sudo systemctl restart *teleport*'.")
+	fmt.Println("Teleport node auth token updated. Please restart Teleport service using 'sudo systemctl restart *teleport*'")
 	return nil
 }
 
@@ -139,9 +141,29 @@ func getTeleportLocators(env *localenv.LocalEnvironment, packageName string) (*t
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	configLocator, err := loc.ParseLocator(packageName)
+	teleportVersion, err := teleportLocator.SemVer()
 	if err != nil {
 		return nil, trace.Wrap(err)
+	}
+	var configLocator *loc.Locator
+	switch packageName {
+	case "master":
+		configLocator, err = findTeleportMasterConfig(env, *teleportVersion)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		fmt.Printf("Using Teleport master config from %s\n", configLocator)
+	case "node":
+		configLocator, err = findTeleportNodeConfig(env)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		fmt.Printf("Using Teleport node config from %s\n", configLocator)
+	default:
+		configLocator, err = loc.ParseLocator(packageName)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
 	}
 	envelope, reader, err := env.Packages.ReadPackage(*configLocator)
 	if err != nil {
@@ -153,4 +175,24 @@ func getTeleportLocators(env *localenv.LocalEnvironment, packageName string) (*t
 		configEnvelope:  *envelope,
 		configReader:    reader,
 	}, nil
+}
+
+func findTeleportMasterConfig(env *localenv.LocalEnvironment, teleportVersion semver.Version) (*loc.Locator, error) {
+	clusterEnv, err := env.NewClusterEnvironment()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	cluster, err := clusterEnv.Operator.GetLocalSite()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return pack.FindLatestPackageCustom(pack.FindLatestPackageRequest{
+		Packages:   env.Packages,
+		Repository: cluster.Domain,
+		Match:      process.MatchTeleportConfigPackage(teleportVersion),
+	})
+}
+
+func findTeleportNodeConfig(env *localenv.LocalEnvironment) (*loc.Locator, error) {
+	return pack.FindInstalledConfigPackage(env.Packages, loc.Teleport)
 }
