@@ -68,8 +68,8 @@ OS := $(shell uname | tr '[:upper:]' '[:lower:]')
 ARCH := $(shell uname -m)
 
 CURRENT_COMMIT := $(shell git rev-parse HEAD)
-VERSION_FLAGS := -X github.com/gravitational/gravity/vendor/github.com/gravitational/version.gitCommit=$(CURRENT_COMMIT) \
-	-X github.com/gravitational/gravity/vendor/github.com/gravitational/version.version=$(GRAVITY_VERSION) \
+VERSION_FLAGS := -X github.com/gravitational/version.gitCommit==$(CURRENT_COMMIT) \
+	-X github.com/gravitational/version.version=$(GRAVITY_VERSION) \
 	-X github.com/gravitational/gravity/lib/defaults.WormholeImg=$(WORMHOLE_IMG) \
 	-X github.com/gravitational/gravity/lib/defaults.TeleportVersionString=$(TELEPORT_TAG)
 GRAVITY_LINKFLAGS = "$(VERSION_FLAGS) $(GOLFLAGS)"
@@ -202,8 +202,6 @@ USER := $(shell echo $${SUDO_USER:-$$USER})
 TEST_ETCD ?= false
 TEST_K8S ?= false
 
-GODEP_TAG ?= v0.5.4
-
 # grpc
 PROTOC_VER ?= 3.10.0
 PROTOC_PLATFORM := linux-x86_64
@@ -223,7 +221,7 @@ build:
 # 'install' uses the host's Golang to place output into $GOPATH/bin
 .PHONY: install
 install:
-	go install -ldflags $(GRAVITY_LINKFLAGS) -tags "$(GRAVITY_BUILDTAGS)" ./tool/tele ./tool/gravity
+	GO111MODULE=on go install -ldflags $(GRAVITY_LINKFLAGS) -tags "$(GRAVITY_BUILDTAGS)" ./tool/tele ./tool/gravity
 
 # 'clean' removes the build artifacts
 .PHONY: clean
@@ -620,7 +618,7 @@ $(TF_PROVIDER_DIR):
 
 .PHONY: $(BINARIES)
 $(BINARIES): selinux
-	go install -ldflags $(GRAVITY_LINKFLAGS) -tags "$(GRAVITY_BUILDTAGS)" $(GRAVITY_PKG_PATH)/tool/$@
+	GO111MODULE=on go install -ldflags $(GRAVITY_LINKFLAGS) -tags "$(GRAVITY_BUILDTAGS)" $(GRAVITY_PKG_PATH)/tool/$@
 
 .PHONY: wizard-publish
 wizard-publish: BUILD_BUCKET_URL = s3://get.gravitational.io
