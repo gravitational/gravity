@@ -68,7 +68,7 @@ OS := $(shell uname | tr '[:upper:]' '[:lower:]')
 ARCH := $(shell uname -m)
 
 CURRENT_COMMIT := $(shell git rev-parse HEAD)
-VERSION_FLAGS := -X github.com/gravitational/version.gitCommit==$(CURRENT_COMMIT) \
+VERSION_FLAGS := -X github.com/gravitational/version.gitCommit=$(CURRENT_COMMIT) \
 	-X github.com/gravitational/version.version=$(GRAVITY_VERSION) \
 	-X github.com/gravitational/gravity/lib/defaults.WormholeImg=$(WORMHOLE_IMG) \
 	-X github.com/gravitational/gravity/lib/defaults.TeleportVersionString=$(TELEPORT_TAG)

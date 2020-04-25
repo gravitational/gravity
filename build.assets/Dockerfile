@@ -9,13 +9,13 @@ ARG UID
 ARG GID
 
 ENV TARBALL protoc-${PROTOC_VER}-${PROTOC_PLATFORM}.zip
-ENV GRPC_GATEWAY_ROOT /src/github.com/grpc-ecosystem/grpc-gateway
-ENV GOGOPROTO_ROOT /src/github.com/gogo/protobuf
+ENV GRPC_GATEWAY_ROOT /gopath/src/github.com/grpc-ecosystem/grpc-gateway
+ENV GOGOPROTO_ROOT /gopath/src/github.com/gogo/protobuf
 ENV PROTOC_URL https://github.com/google/protobuf/releases/download/v${PROTOC_VER}/protoc-${PROTOC_VER}-${PROTOC_PLATFORM}.zip
 
 RUN (groupadd jenkins --gid=$GID -o && \
      useradd jenkins --uid=$UID --gid=$GID --create-home --shell=/bin/sh && \
-     # install some development libraries used when compiling fio
+     # install development libraries used when compiling fio
      apt-get -q -y update --fix-missing && apt-get -q -y install libaio-dev zlib1g-dev)
 
 RUN (mkdir -p /opt/protoc && \

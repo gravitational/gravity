@@ -336,13 +336,13 @@ $(GOCACHE):
 .PHONY: $(TARGETS)
 $(TARGETS): | $(GOCACHE)
 	@echo -e "\n----> Building $@ binary...\n"
-	GO111MODULE=on GOMOD=$(SRCDIR)/go.mod go build -mod=vendor -o $@ -ldflags $(GRAVITY_LINKFLAGS) $(GRAVITY_BUILDFLAGS) -tags "$(GRAVITY_BUILDTAGS)" $(GRAVITY_PKG_PATH)/tool/$(@F)
+	GO111MODULE=on go build -mod=vendor -o $@ -ldflags $(GRAVITY_LINKFLAGS) $(GRAVITY_BUILDFLAGS) -tags "$(GRAVITY_BUILDTAGS)" $(GRAVITY_PKG_PATH)/tool/$(@F)
 	@echo "\nDone --> $@\n"
 
 .PHONY: $(HOST_TARGETS)
 $(HOST_TARGETS): | $(GOCACHE)
 	@echo -e "\n----> Building $@ binary...\n"
-	GO111MODULE=on GOMOD=$(SRCDIR)/go.mod go build -mod=vendor -o $@ -ldflags $(GRAVITY_LINKFLAGS) $(GRAVITY_BUILDFLAGS) -tags "$(GRAVITY_BUILDTAGS)" $(GRAVITY_PKG_PATH)/tool/$(@F)
+	GO111MODULE=on go build -mod=vendor -o $@ -ldflags $(GRAVITY_LINKFLAGS) $(GRAVITY_BUILDFLAGS) -tags "$(GRAVITY_BUILDTAGS)" $(GRAVITY_PKG_PATH)/tool/$(@F)
 	@echo "\nDone --> $@\n"
 
 .PHONY: compile
