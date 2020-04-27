@@ -1,18 +1,18 @@
 ## Description
-<!--Provide high-level overview of what the change is for.-->
+<!--Required. Provide high-level overview of what the change is for.-->
 
 ## Type of change
-<!--Select all options appropriate for this change.-->
+<!--Required. Keep only those that apply.-->
 
-- [ ] Bug fix (non-breaking change which fixes an issue)
-- [ ] Regression fix (non-breaking change which fixes a regression)
-- [ ] New feature (non-breaking change which adds functionality)
-- [ ] Breaking change (fix or feature that would cause existing functionality to not work as expected)
-- [ ] Internal change (not necessarily a bug fix or a new feature)
-- [ ] This change has a user-facing impact
+* Bug fix (non-breaking change which fixes an issue)
+* Regression fix (non-breaking change which fixes a regression)
+* New feature (non-breaking change which adds functionality)
+* Breaking change (fix or feature that would cause existing functionality to not work as expected)
+* Internal change (not necessarily a bug fix or a new feature)
+* This change has a user-facing impact
 
 ## Linked tickets and other PRs
-<!--Keep only relevant items.-->
+<!--Required. Keep only those that apply.-->
 
 <!--This PR addresses the following issues.-->
 * Closes #, refs #
@@ -22,7 +22,7 @@
 * Ports #
 
 ## TODOs
-<!--Keep only relevant items and check them as they get completed.-->
+<!--Required. Keep only those that apply and check them off as they get completed.-->
 
 - [ ] Self-review the change
 - [ ] Write tests
@@ -31,10 +31,10 @@
 - [ ] Address review feedback
 
 ## Implementation
-<!--Add any relevant implementation details that might help the reviewers.-->
+<!--Optional. Add any relevant implementation details that might help the reviewers.-->
 
 ## Testing done
-<!--Explain what kind of testing these changes underwent.-->
+<!--Required. Explain what kind of testing these changes underwent.-->
 
 ## Additional information
-<!--Anything else that may be relevant.-->
+<!--Optional. Anything else that may be relevant.-->
