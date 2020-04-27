@@ -110,7 +110,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0-rc1
 	github.com/opencontainers/image-spec v1.0.1 // indirect
 	github.com/opencontainers/runc v0.1.1 // indirect
-	github.com/opencontainers/selinux v1.3.0
+	github.com/opencontainers/selinux v1.4.0
 	github.com/pborman/uuid v1.2.0
 	github.com/petar/GoLLRB v0.0.0-20130427215148-53be0d36a84c // indirect
 	github.com/posener/complete v1.1.2 // indirect
@@ -141,9 +141,9 @@ require (
 	golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550
 	golang.org/x/net v0.0.0-20190812203447-cdfb69ac37fc
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e // indirect
-	golang.org/x/sys v0.0.0-20191010194322-b09406accb47
+	golang.org/x/sys v0.0.0-20191115151921-52ab43148777
 	gonum.org/v1/gonum v0.6.1 // indirect
-	google.golang.org/grpc v1.20.1
+	google.golang.org/grpc v1.26.0
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127
 	gopkg.in/gorp.v1 v1.7.2 // indirect
@@ -191,7 +191,6 @@ replace (
 	github.com/go-openapi/strfmt => github.com/go-openapi/strfmt v0.19.2
 	github.com/go-openapi/swag => github.com/go-openapi/swag v0.18.0
 	github.com/golang/groupcache => github.com/golang/groupcache v0.0.0-20181024230925-c65c006176ff
-	github.com/golang/protobuf => github.com/golang/protobuf v1.1.0
 	github.com/google/certificate-transparency-go => github.com/gravitational/certificate-transparency-go v0.0.0-20180803094710-99d8352410cb
 	github.com/google/gofuzz => github.com/google/gofuzz v0.0.0-20150304233714-bbcb9da2d746
 	github.com/google/uuid => github.com/google/uuid v1.1.0
@@ -236,7 +235,6 @@ replace (
 	golang.org/x/time => golang.org/x/time v0.0.0-20180412165947-fbb02b2291d2
 	google.golang.org/appengine => google.golang.org/appengine v1.2.0
 	google.golang.org/genproto => google.golang.org/genproto v0.0.0-20170818010345-ee236bd376b0
-	google.golang.org/grpc => google.golang.org/grpc v1.19.1
 	gopkg.in/alecthomas/kingpin.v2 => github.com/gravitational/kingpin v2.1.11-0.20180808090833-85085db9f49b+incompatible
 	gopkg.in/inf.v0 => gopkg.in/inf.v0 v0.9.0
 	gopkg.in/yaml.v2 => gopkg.in/yaml.v2 v2.2.2
