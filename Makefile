@@ -221,7 +221,7 @@ build:
 # 'install' uses the host's Golang to place output into $GOPATH/bin
 .PHONY: install
 install:
-	GO111MODULE=on go install -ldflags $(GRAVITY_LINKFLAGS) -tags "$(GRAVITY_BUILDTAGS)" ./tool/tele ./tool/gravity
+	GO111MODULE=on go install -mod=vendor -ldflags $(GRAVITY_LINKFLAGS) -tags "$(GRAVITY_BUILDTAGS)" ./tool/tele ./tool/gravity
 
 # 'clean' removes the build artifacts
 .PHONY: clean
@@ -618,7 +618,7 @@ $(TF_PROVIDER_DIR):
 
 .PHONY: $(BINARIES)
 $(BINARIES): selinux
-	GO111MODULE=on go install -ldflags $(GRAVITY_LINKFLAGS) -tags "$(GRAVITY_BUILDTAGS)" $(GRAVITY_PKG_PATH)/tool/$@
+	GO111MODULE=on go install -mod=vendor -ldflags $(GRAVITY_LINKFLAGS) -tags "$(GRAVITY_BUILDTAGS)" $(GRAVITY_PKG_PATH)/tool/$@
 
 .PHONY: wizard-publish
 wizard-publish: BUILD_BUCKET_URL = s3://get.gravitational.io
