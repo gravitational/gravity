@@ -292,19 +292,21 @@ func (s *PlanSuite) verifySystemPhase(c *check.C, phase storage.OperationPhase) 
 			{
 				ID: fmt.Sprintf("%v/teleport", SystemPhase),
 				Data: &storage.OperationPhaseData{
-					Server:     &s.joiningNode,
-					ExecServer: &s.joiningNode,
-					Package:    s.teleportPackage,
+					Server:      &s.joiningNode,
+					ExecServer:  &s.joiningNode,
+					Package:     s.teleportPackage,
+					ServiceUser: &s.serviceUser,
 				},
 				Requires: []string{installphases.PullPhase},
 			},
 			{
 				ID: fmt.Sprintf("%v/planet", SystemPhase),
 				Data: &storage.OperationPhaseData{
-					Server:     &s.joiningNode,
-					ExecServer: &s.joiningNode,
-					Package:    s.planetPackage,
-					Labels:     pack.RuntimePackageLabels,
+					Server:      &s.joiningNode,
+					ExecServer:  &s.joiningNode,
+					Package:     s.planetPackage,
+					Labels:      pack.RuntimePackageLabels,
+					ServiceUser: &s.serviceUser,
 				},
 				Requires: []string{installphases.PullPhase},
 			},
