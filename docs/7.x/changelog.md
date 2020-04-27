@@ -4,7 +4,7 @@
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 7.0.2         | No  | April 23rd, 2020     | 7.1 is released      | 1.17.4             | 3.2.13           |
+| 7.0.3         | No  | April 27th, 2020     | 7.1 is released      | 1.17.4             | 3.2.13           |
 | 6.1.22        | Yes | April 14th, 2020     | November 10th, 2021  | 1.15.11            | 3.2.12           |
 | 5.5.41        | Yes | April 24th, 2020     | September 7th, 2020  | 1.13.11            | 3.0.6-gravity    |
 
@@ -41,6 +41,17 @@ extend updates past EOL through customer agreements if required.
 # Release Notes
 
 ## 7.x Releases
+
+### 7.0.3 (April 27th, 2020)
+
+#### Improvements
+
+* Update `gravity status history` to track planet leader change events ([#1449](https://github.com/gravitational/gravity/pull/1449)).
+* Upgrade Helm to `v2.15.2` ([#1455](https://github.com/gravitational/gravity/pull/1455)).
+
+#### Bugfixes
+
+* Fix an issue with Teleport nodes failing to join after expand operation ([#1453](https://github.com/gravitational/gravity/pull/1453)).
 
 ### 7.0.2 (April 23rd, 2020)
 
