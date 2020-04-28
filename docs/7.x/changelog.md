@@ -4,9 +4,9 @@
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 7.0.1         | No  | April 22nd, 2020     | 7.1 is released      | 1.17.4             | 3.2.13           |
+| 7.0.3         | No  | April 27th, 2020     | 7.1 is released      | 1.17.4             | 3.2.13           |
 | 6.1.22        | Yes | April 14th, 2020     | November 10th, 2021  | 1.15.11            | 3.2.12           |
-| 5.5.40        | Yes | April 3rd, 2020      | September 7th, 2020  | 1.13.11            | 3.0.6-gravity    |
+| 5.5.41        | Yes | April 24th, 2020     | September 7th, 2020  | 1.13.11            | 3.0.6-gravity    |
 
 Gravity offers one Long Term Support (LTS) release for every 2nd Kubernetes
 minor version, allowing for seamless upgrades per Kubernetes
@@ -26,7 +26,7 @@ extend updates past EOL through customer agreements if required.
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 6.3.12        | No  | April 15th, 2020     | April 3rd, 2020      | 1.17.4             | 3.2.13           |
+| 6.3.13        | No  | April 23rd, 2020     | April 3rd, 2020      | 1.17.4             | 3.2.13           |
 | 6.2.5         | No  | December 3rd, 2019   | December 18th, 2019  | 1.16.3             | 3.2.13           |
 | 6.0.10        | No  | October 17th, 2019   | August 2nd, 2019     | 1.14.7             | 3.2.12           |
 | 5.6.8         | No  | September 18th, 2019 | July 17th, 2019      | 1.14.7             | 3.0.6-gravity    |
@@ -41,6 +41,23 @@ extend updates past EOL through customer agreements if required.
 # Release Notes
 
 ## 7.x Releases
+
+### 7.0.3 (April 27th, 2020)
+
+#### Improvements
+
+* Update `gravity status history` to track planet leader change events ([#1449](https://github.com/gravitational/gravity/pull/1449)).
+* Upgrade Helm to `v2.15.2` ([#1455](https://github.com/gravitational/gravity/pull/1455)).
+
+#### Bugfixes
+
+* Fix an issue with Teleport nodes failing to join after expand operation ([#1453](https://github.com/gravitational/gravity/pull/1453)).
+
+### 7.0.2 (April 23rd, 2020)
+
+#### Improvements
+
+* Update vendored Helm to version `v2.15.2` ([#1440](https://github.com/gravitational/gravity/pull/1440)).
 
 ### 7.0.1 (April 22nd, 2020)
 
@@ -81,6 +98,14 @@ them to any Kubernetes cluster.
 to learn how to gain insight into how the cluster status changes over time.
 
 ## 6.x Releases
+
+### 6.3.13 (April 23rd, 2020)
+
+#### Bugfixes
+
+* Fix formatting issue in `gravity status` ([#1394](https://github.com/gravitational/gravity/pull/1394)).
+* Fix an issue with cluster controller attempting to connect to the agent after operation completion ([#1420](https://github.com/gravitational/gravity/pull/1420)).
+* Fix an issue with Teleport nodes failing to join after expand operation ([#1434](https://github.com/gravitational/gravity/pull/1434)).
 
 ### 6.3.12 (April 15th, 2020)
 
@@ -732,6 +757,23 @@ to learn how to gain insight into how the cluster status changes over time.
 * Add support for using `helm` directly from host.
 
 ## 5.x Releases
+
+### 5.5.41 LTS (April 24th, 2020)
+
+#### Improvements
+
+* Add leader change event to gravity timeline ([#1355](https://github.com/gravitational/gravity/pull/1355)).
+* Update kube-apiserver and kubelet to use Mozilla modern compatibility ciphers ([#1439](https://github.com/gravitational/gravity/pull/1439)).
+
+#### Bugfixes
+
+* Disallow running certain commands inside planet container which could lead to unexpected results ([#1353](https://github.com/gravitational/gravity/pull/1353)).
+* Fix an issue with wormhole CNI plugin installation ([#1372](https://github.com/gravitational/gravity/pull/1372)).
+* Fix an issue with `gravity app install` command returning an error ([#1408](https://github.com/gravitational/gravity/pull/1408)).
+* Fix an issue with monitoring app upgrade silently failing sometimes ([#1428](https://github.com/gravitational/gravity/pull/1428)).
+* Fix an issue with InfluxDB consuming a lot of CPU and memory when CronJobs are used ([#1428](https://github.com/gravitational/gravity/pull/1428)).
+* Fix an issue with cluster controller attempting to connect to the agent after operation completion ([#1430](https://github.com/gravitational/gravity/pull/1430)).
+* Fix an issue with Teleport nodes failing to join after expand operation ([#1443](https://github.com/gravitational/gravity/pull/1443)).
 
 ### 5.5.40 LTS (April 3rd, 2020)
 
