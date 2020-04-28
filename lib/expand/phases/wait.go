@@ -158,3 +158,69 @@ func (*waitK8sExecutor) PreCheck(ctx context.Context) error {
 func (*waitK8sExecutor) PostCheck(ctx context.Context) error {
 	return nil
 }
+
+// NewWaitTeleport returns executor that waits for Teleport node to register
+func NewWaitTeleport(p fsm.ExecutorParams, operator ops.Operator) (*waitK8sExecutor, error) {
+	logger := &fsm.Logger{
+		FieldLogger: logrus.WithFields(logrus.Fields{
+			constants.FieldPhase: p.Phase.ID,
+		}),
+		Key:      opKey(p.Plan),
+		Operator: operator,
+		Server:   p.Phase.Data.Server,
+	}
+	return &waitK8sExecutor{
+		FieldLogger:    logger,
+		Operator:       operator,
+		ExecutorParams: p,
+	}, nil
+}
+
+type waitTeleportExecutor struct {
+	// FieldLogger is used for logging
+	logrus.FieldLogger
+	// Operator is the cluster operator service
+	Operator ops.Operator
+	// ExecutorParams is common executor params
+	fsm.ExecutorParams
+}
+
+// Execute blocks until Teleport node has registered with the auth server
+func (p *waitTeleportExecutor) Execute(ctx context.Context) error {
+	p.Progress.NextStep("Waiting for the Teleport node to join the cluster")
+	p.Info("Waiting for the Teleport node to join the cluster.")
+	err := utils.Retry(defaults.RetryInterval, defaults.RetryAttempts,
+		func() error {
+			nodes, err := p.Operator.GetClusterNodes(p.Key().SiteKey())
+			if err != nil {
+				return trace.Wrap(err)
+			}
+			for _, node := range nodes {
+				if node.AdvertiseIP == p.Phase.Data.Server.AdvertiseIP {
+					p.WithField("node", node).Info("Teleport node has registered.")
+					return nil
+				}
+			}
+			return trace.NotFound("Teleport on %s hasn't registered yet.",
+				p.Phase.Data.Server)
+		})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+// Rollback is no-op for this phase
+func (*waitTeleportExecutor) Rollback(ctx context.Context) error {
+	return nil
+}
+
+// PreCheck is no-op for this phase
+func (*waitTeleportExecutor) PreCheck(ctx context.Context) error {
+	return nil
+}
+
+// PostCheck is no-op for this phase
+func (*waitTeleportExecutor) PostCheck(ctx context.Context) error {
+	return nil
+}

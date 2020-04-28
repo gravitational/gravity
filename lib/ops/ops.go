@@ -590,6 +590,19 @@ type Node struct {
 	InstanceType string `json:"instance_type"`
 }
 
+// Nodes is a list of nodes.
+type Nodes []Node
+
+// FindByIP returns node with specified IP or nil.
+func (n Nodes) FindByIP(ip string) *Node {
+	for _, node := range n {
+		if node.AdvertiseIP == ip {
+			return &node
+		}
+	}
+	return nil
+}
+
 // Operations installs and uninstalls gravity on a given site,
 // it takes care of provisioning, configuring and deploying end user application
 // as well as our system packages like planet and teleport
