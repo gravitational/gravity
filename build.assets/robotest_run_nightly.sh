@@ -9,10 +9,10 @@ DOCKER_STORAGE_DRIVERS="overlay2"
 declare -A UPGRADE_MAP
 
 # latest patch release on this branch, keep this up to date
-UPGRADE_MAP[6.1.18]="centos:7 ubuntu:16"
+UPGRADE_MAP[6.1.24]="centos:7 ubuntu:16"
 
 # latest patch release on previous compatible LTS, keep this up to date
-UPGRADE_MAP[5.5.37]="centos:7 ubuntu:16"
+UPGRADE_MAP[5.5.41]="centos:7 ubuntu:16"
 
 # first release from this release & last LTS, these don't need to change until a new major/minor release
 UPGRADE_MAP[6.1.0]="ubuntu:16"
@@ -20,10 +20,10 @@ UPGRADE_MAP[5.5.0]="ubuntu:16"
 
 # important versions in the field, per:
 # https://github.com/gravitational/robotest/issues/155#issuecomment-589743687
-UPGRADE_MAP[5.5.19]="ubuntu:16"
-UPGRADE_MAP[5.5.20]="ubuntu:16"
 UPGRADE_MAP[5.5.28]="ubuntu:16"
 UPGRADE_MAP[5.5.36]="ubuntu:16"
+UPGRADE_MAP[5.5.38]="ubuntu:16"
+UPGRADE_MAP[5.5.40]="ubuntu:16"
 
 readonly GET_GRAVITATIONAL_IO_APIKEY=${GET_GRAVITATIONAL_IO_APIKEY:?API key for distribution Ops Center required}
 readonly GRAVITY_BUILDDIR=${GRAVITY_BUILDDIR:?Set GRAVITY_BUILDDIR to the build directory}
