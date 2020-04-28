@@ -23,11 +23,11 @@ UPGRADE_MAP[5.0.35]="debian:9 ubuntu:16"
 
 # important versions in the field, per:
 # https://github.com/gravitational/robotest/issues/155#issuecomment-589743687
-UPGRADE_MAP[5.2.12]="ubuntu:16"
-UPGRADE_MAP[5.5.19]="ubuntu:16"
-UPGRADE_MAP[5.5.20]="ubuntu:16"
 UPGRADE_MAP[5.5.28]="ubuntu:16"
 UPGRADE_MAP[5.5.36]="ubuntu:16"
+UPGRADE_MAP[5.5.38]="ubuntu:16"
+UPGRADE_MAP[5.5.40]="ubuntu:16"
+UPGRADE_MAP[5.5.41]="ubuntu:16"
 
 readonly GET_GRAVITATIONAL_IO_APIKEY=${GET_GRAVITATIONAL_IO_APIKEY:?API key for distribution Ops Center required}
 readonly GRAVITY_BUILDDIR=${GRAVITY_BUILDDIR:?Set GRAVITY_BUILDDIR to the build directory}
