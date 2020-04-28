@@ -703,6 +703,16 @@ func (s ClusterState) HasServer(hostname string) bool {
 	return err == nil
 }
 
+// NumMasters returns the number of master servers in this state
+func (s ClusterState) NumMasters() (result int) {
+	for _, server := range s.Servers {
+		if server.IsMaster() {
+			result += 1
+		}
+	}
+	return result
+}
+
 // Applications defines operations on the site applications
 type Applications interface {
 	// GetApplication queries an existing application

@@ -232,7 +232,7 @@ func (c *cluster) fetchNewObjects() error {
 		c.Infof("Found missing object %v.", hash)
 		err = c.fetchObject(hash)
 		if err != nil {
-			c.Warningf("Failed to fetch object(%v) %v.", hash, trace.DebugReport(err))
+			c.WithError(err).Warn("Failed to fetch object(%v).", hash)
 			return trace.Wrap(err)
 		}
 	}
@@ -244,7 +244,7 @@ func (c *cluster) fetchObject(hash string) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	peers, err := c.getPeers(peerIDs)
+	peers, err := c.getPeers(peerIDs...)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -256,13 +256,13 @@ func (c *cluster) fetchObject(hash string) error {
 	for _, p := range peers {
 		objects, err := c.getObjects(p)
 		if err != nil {
-			c.Errorf("Failure to fetch %v from %v: %v.", hash, p, trace.DebugReport(err))
+			c.WithError(err).Errorf("Failure to fetch %v from %v.", hash, p)
 			errors = append(errors, err)
 			continue
 		}
 		f, err := objects.OpenBLOB(hash)
 		if err != nil {
-			c.Errorf("Failure to fetch %v from %v: %v.", hash, p, trace.DebugReport(err))
+			c.WithError(err).Errorf("Failure to fetch %v from %v.", hash, p)
 			errors = append(errors, err)
 			continue
 		}
@@ -285,8 +285,7 @@ func (c *cluster) fetchObject(hash string) error {
 
 // WriteBLOB writes object to the storage, returns object envelope
 func (c *cluster) WriteBLOB(data io.Reader) (*blob.Envelope, error) {
-	// get peers
-	peers, err := c.getPeers(nil)
+	peers, err := c.getPeers()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -302,7 +301,7 @@ func (c *cluster) WriteBLOB(data io.Reader) (*blob.Envelope, error) {
 
 	successWrites := []string{c.ID}
 	if len(successWrites) >= c.WriteFactor {
-		c.Debugf("Got enough success writes for %v %v.", envelope.SHA512, successWrites)
+		c.Debugf("Got enough success writes (%v) for %v.", successWrites, envelope.SHA512)
 		err := c.Backend.UpsertObjectPeers(envelope.SHA512, successWrites, 0)
 		if err != nil {
 			return nil, trace.Wrap(err, "failed to write object metadata %v", err)
@@ -326,19 +325,19 @@ func (c *cluster) WriteBLOB(data io.Reader) (*blob.Envelope, error) {
 		}
 		peerClient, err := c.GetPeer(p)
 		if err != nil {
-			c.Infof("%v returned error: %v", p, err)
+			c.Warnf("failed to create clien to peer %v: %v", p, err)
 			errors = append(errors, err)
 			continue
 		}
 		_, err = peerClient.WriteBLOB(f)
 		if err != nil {
-			c.Infof("%v returned error: %v", p, err)
+			c.Warnf("%v returned error: %v", p, err)
 			errors = append(errors, err)
 			continue
 		}
 		successWrites = append(successWrites, p.ID)
 		if len(successWrites) >= c.WriteFactor {
-			c.Debugf("Got enough success writes for %v %v.", envelope.SHA512, successWrites)
+			c.Debugf("Got enough success writes (%v) for %v.", successWrites, envelope.SHA512)
 			err := c.Backend.UpsertObjectPeers(envelope.SHA512, successWrites, 0)
 			if err != nil {
 				return nil, trace.Wrap(err, "failed to write object metadata %v", err)
@@ -347,7 +346,10 @@ func (c *cluster) WriteBLOB(data io.Reader) (*blob.Envelope, error) {
 		}
 	}
 
-	return nil, trace.Wrap(trace.NewAggregate(errors...), "not enough successfull writes")
+	if len(errors) == 0 {
+		return nil, trace.NotFound("not enough peers")
+	}
+	return nil, trace.Wrap(trace.NewAggregate(errors...), "not enough successful writes")
 }
 
 func (c *cluster) getObjects(p storage.Peer) (blob.Objects, error) {
@@ -363,7 +365,7 @@ func (c *cluster) OpenBLOB(hash string) (blob.ReadSeekCloser, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	peers, err := c.getPeers(ids)
+	peers, err := c.getPeers(ids...)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -412,7 +414,7 @@ func (c *cluster) withoutSelf(in []storage.Peer) []storage.Peer {
 	return out
 }
 
-func (c *cluster) getPeers(ids []string) ([]storage.Peer, error) {
+func (c *cluster) getPeers(ids ...string) ([]storage.Peer, error) {
 	in, err := c.Backend.GetPeers()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -429,9 +431,10 @@ func (c *cluster) getPeers(ids []string) ([]storage.Peer, error) {
 			if !matchPeer(ids, p.ID) {
 				continue
 			}
-			// if it's last heartbeat is older than the acceptance time frame
+			// if its last heartbeat is older than the acceptance time frame
 			if c.Clock.Now().UTC().Sub(p.LastHeartbeat) > missedWindow {
-				c.Infof("Excluding %v, missed heartbeat window %v, last heartbeat: %v.", p.ID, missedWindow, p.LastHeartbeat)
+				c.Warnf("Excluding %v, missed heartbeat window %v, last heartbeat: %v.",
+					p.ID, missedWindow, p.LastHeartbeat)
 				continue
 			}
 		}
