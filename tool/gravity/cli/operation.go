@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/gravitational/gravity/lib/constants"
+	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
@@ -116,18 +117,38 @@ func completeOperationPlan(localEnv, updateEnv, joinEnv *localenv.LocalEnvironme
 	switch op.Type {
 	case ops.OperationInstall:
 		// There's only one install operation
-		return completeInstallPlan(localEnv, op)
+		err = completeInstallPlan(localEnv, op)
 	case ops.OperationExpand:
-		return completeJoinPlan(localEnv, joinEnv, op)
+		err = completeJoinPlan(localEnv, joinEnv, op)
 	case ops.OperationUpdate:
-		return completeUpdatePlan(localEnv, updateEnv, op)
+		err = completeUpdatePlan(localEnv, updateEnv, op)
 	case ops.OperationUpdateRuntimeEnviron:
-		return completeEnvironPlan(localEnv, updateEnv, op)
+		err = completeEnvironPlan(localEnv, updateEnv, op)
 	case ops.OperationUpdateConfig:
-		return completeConfigPlan(localEnv, updateEnv, op)
+		err = completeConfigPlan(localEnv, updateEnv, op)
 	default:
 		return trace.BadParameter("operation type %q does not support plan completion", op.Type)
 	}
+	if op.Type != ops.OperationInstall && trace.IsNotFound(err) {
+		log.WithError(err).Warn("Failed to complete operation locally, will fallback to cluster operation.")
+		return completeClusterOperationPlan(localEnv, op)
+	}
+	return trace.Wrap(err)
+}
+
+func completeClusterOperationPlan(localEnv *localenv.LocalEnvironment, operation ops.SiteOperation) error {
+	clusterEnv, err := localEnv.NewClusterEnvironment()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	plan, err := fsm.GetOperationPlan(clusterEnv.Backend, operation.SiteDomain, operation.ID)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if fsm.IsCompleted(plan) {
+		return ops.CompleteOperation(operation.Key(), clusterEnv.Operator)
+	}
+	return ops.FailOperation(operation.Key(), clusterEnv.Operator, "completed manually")
 }
 
 // getLastOperation returns the list of operations found across the specified backends.
@@ -265,6 +286,16 @@ func (r *backendOperations) getOperationAndUpdateCache(backend storage.Backend, 
 }
 
 func (r backendOperations) isActiveInstallOperation() bool {
+	// Bail out if there's an operation from a local backend and we failed to query
+	// cluster operations.
+	// It cannot be an install operation as wizard has not been queried yet
+	if r.clusterOperation == nil && len(r.operations) != 0 {
+		return false
+	}
+	// Otherwise, consider this to be an install operation if:
+	//  - we failed to fetch any operation (either from cluster or local storage)
+	//  - we fetched operation(s) from cluster storage and the most recent one is an install operation
+	//
 	// FIXME: continue using wizard as source of truth as operation state
 	// replicated in etcd is reported completed before it actually is
 	return r.clusterOperation == nil || (r.clusterOperation.Type == ops.OperationInstall)
