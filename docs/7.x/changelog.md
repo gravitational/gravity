@@ -4,8 +4,8 @@
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 7.0.3         | No  | April 27th, 2020     | 7.1 is released      | 1.17.4             | 3.2.13           |
-| 6.1.22        | Yes | April 14th, 2020     | November 10th, 2021  | 1.15.11            | 3.2.12           |
+| 7.0.4         | No  | April 29th, 2020     | 7.1 is released      | 1.17.4             | 3.2.13           |
+| 6.1.25        | Yes | April 29th, 2020     | November 10th, 2021  | 1.15.11            | 3.2.12           |
 | 5.5.42        | Yes | April 28th, 2020     | September 7th, 2020  | 1.13.11            | 3.0.6-gravity    |
 
 Gravity offers one Long Term Support (LTS) release for every 2nd Kubernetes
@@ -26,7 +26,7 @@ extend updates past EOL through customer agreements if required.
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 6.3.13        | No  | April 23rd, 2020     | April 3rd, 2020      | 1.17.4             | 3.2.13           |
+| 6.3.14        | No  | April 29th, 2020     | April 3rd, 2020      | 1.17.4             | 3.2.13           |
 | 6.2.5         | No  | December 3rd, 2019   | December 18th, 2019  | 1.16.3             | 3.2.13           |
 | 6.0.10        | No  | October 17th, 2019   | August 2nd, 2019     | 1.14.7             | 3.2.12           |
 | 5.6.8         | No  | September 18th, 2019 | July 17th, 2019      | 1.14.7             | 3.0.6-gravity    |
@@ -41,6 +41,12 @@ extend updates past EOL through customer agreements if required.
 # Release Notes
 
 ## 7.x Releases
+
+### 7.0.4 (April 29th, 2020)
+
+#### Bugfixes
+
+* Prevent nethealth checker from affecting the cluster status temporarily to avoid possible issues with cluster becoming degraded after removing a node ([#1467](https://github.com/gravitational/gravity/pull/1467)).
 
 ### 7.0.3 (April 27th, 2020)
 
@@ -102,6 +108,18 @@ them to any Kubernetes cluster.
 to learn how to gain insight into how the cluster status changes over time.
 
 ## 6.x Releases
+
+### 6.3.14 (April 29th, 2020)
+
+#### Bugfixes
+
+* Prevent nethealth checker from affecting the cluster status temporarily to avoid possible issues with cluster becoming degraded after removing a node ([#1466](https://github.com/gravitational/gravity/pull/1466)).
+
+### 6.1.25 LTS (April 29th, 2020)
+
+#### Bugfixes
+
+* Prevent nethealth checker from affecting the cluster status temporarily to avoid possible issues with cluster becoming degraded after removing a node ([#1465](https://github.com/gravitational/gravity/pull/1465)).
 
 ### 6.3.13 (April 23rd, 2020)
 
