@@ -6,11 +6,14 @@ readonly UPGRADE_FROM_DIR=${1:-$(pwd)/../upgrade_from}
 # UPGRADE_MAP maps gravity version -> list of OS releases to upgrade from
 declare -A UPGRADE_MAP
 
+# latest patch release on this branch, keep this up to date
+UPGRADE_MAP[7.0.3]="ubuntu:18"
+
 # latest patch release on compatible LTS, keep this up to date
-UPGRADE_MAP[6.1.18]="ubuntu:18"
+UPGRADE_MAP[6.1.24]="ubuntu:18"
 
 # latest patch release on supported non-LTS version, keep this up to date
-UPGRADE_MAP[6.3.6]="ubuntu:18"
+UPGRADE_MAP[6.3.13]="ubuntu:18"
 
 # important versions in the field, these are static
 UPGRADE_MAP[6.1.0]="ubuntu:16"
