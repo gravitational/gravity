@@ -115,12 +115,6 @@ to learn how to gain insight into how the cluster status changes over time.
 
 * Prevent nethealth checker from affecting the cluster status temporarily to avoid possible issues with cluster becoming degraded after removing a node ([#1466](https://github.com/gravitational/gravity/pull/1466)).
 
-### 6.1.25 LTS (April 29th, 2020)
-
-#### Bugfixes
-
-* Prevent nethealth checker from affecting the cluster status temporarily to avoid possible issues with cluster becoming degraded after removing a node ([#1465](https://github.com/gravitational/gravity/pull/1465)).
-
 ### 6.3.13 (April 23rd, 2020)
 
 #### Bugfixes
@@ -151,6 +145,26 @@ to learn how to gain insight into how the cluster status changes over time.
 * Fix an issue with successfully completed join operations being marked as failed ([#1383](https://github.com/gravitational/gravity/pull/1383)).
 * Fix an issue with 6.3.10 gravity binary not being able to join to older 6.3 clusters ([#1383](https://github.com/gravitational/gravity/pull/1383)).
 * Fix a cosmetic issue with messages being improperly formatted when printing operations ([#1374](https://github.com/gravitational/gravity/pull/1374)).
+
+### 6.1.25 LTS (April 29th, 2020)
+
+#### Bugfixes
+
+* Prevent nethealth checker from affecting the cluster status temporarily to avoid possible issues with cluster becoming degraded after removing a node ([#1465](https://github.com/gravitational/gravity/pull/1465)).
+
+### 6.1.24 LTS (April 27th, 2020)
+
+#### Bugfixes
+
+* Fix an issue with wormhole image upgrade hook ([#1457](https://github.com/gravitational/gravity/pull/1457))
+* Fix an issue with the join token ([#1444](https://github.com/gravitational/gravity/pull/1444)).
+* Fix the upgrade to adhere to the Kubernetes version skew ([#1459](https://github.com/gravitational/gravity/pull/1459)).
+
+#### Improvements
+
+* Add CentOS 8 to the list of supported distributions ([#1412](https://github.com/gravitational/gravity/pull/1412)).
+* Invoke status hook after successful installation/upgrade ([#1385](https://github.com/gravitational/gravity/pull/1385))
+* Add EULA prompt to CLI installer if the application requires it ([#1375](https://github.com/gravitational/gravity/pull/1375)).
 
 ### 6.1.22 LTS (April 14th, 2020)
 
