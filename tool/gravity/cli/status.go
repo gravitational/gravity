@@ -382,12 +382,14 @@ func printNodeStatus(node statusapi.ClusterServer, w io.Writer) {
 		fmt.Fprintf(w, "            Status:\t%v\n", color.GreenString("healthy"))
 	case statusapi.NodeDegraded:
 		fmt.Fprintf(w, "            Status:\t%v\n", color.RedString("degraded"))
-		if node.TeleportNode == nil {
-			fmt.Fprintf(w, "            [%v]\t%v\n", constants.FailureMark, color.New(color.FgYellow).SprintFunc()(""))
-		}
 		for _, probe := range node.FailedProbes {
 			fmt.Fprintf(w, "            [%v]\t%v\n", constants.FailureMark, color.New(color.FgRed).SprintFunc()(probe))
 		}
+	}
+	if node.TeleportNode != nil {
+		fmt.Fprintf(w, "            Teleport:\t%v\n", color.GreenString("connected"))
+	} else {
+		fmt.Fprintf(w, "            Teleport:\t%v\n", color.YellowString("disconnected"))
 	}
 }
 

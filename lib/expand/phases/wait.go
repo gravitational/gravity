@@ -18,6 +18,7 @@ package phases
 
 import (
 	"context"
+	"time"
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
@@ -160,7 +161,7 @@ func (*waitK8sExecutor) PostCheck(ctx context.Context) error {
 }
 
 // NewWaitTeleport returns executor that waits for Teleport node to register
-func NewWaitTeleport(p fsm.ExecutorParams, operator ops.Operator) (*waitK8sExecutor, error) {
+func NewWaitTeleport(p fsm.ExecutorParams, operator ops.Operator) (*waitTeleportExecutor, error) {
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithFields(logrus.Fields{
 			constants.FieldPhase: p.Phase.ID,
@@ -169,7 +170,7 @@ func NewWaitTeleport(p fsm.ExecutorParams, operator ops.Operator) (*waitK8sExecu
 		Operator: operator,
 		Server:   p.Phase.Data.Server,
 	}
-	return &waitK8sExecutor{
+	return &waitTeleportExecutor{
 		FieldLogger:    logger,
 		Operator:       operator,
 		ExecutorParams: p,
@@ -189,25 +190,20 @@ type waitTeleportExecutor struct {
 func (p *waitTeleportExecutor) Execute(ctx context.Context) error {
 	p.Progress.NextStep("Waiting for the Teleport node to join the cluster")
 	p.Info("Waiting for the Teleport node to join the cluster.")
-	err := utils.Retry(defaults.RetryInterval, defaults.RetryAttempts,
-		func() error {
-			nodes, err := p.Operator.GetClusterNodes(p.Key().SiteKey())
-			if err != nil {
-				return trace.Wrap(err)
+	return utils.RetryFor(ctx, 2*time.Minute, func() error {
+		nodes, err := p.Operator.GetClusterNodes(p.Key().SiteKey())
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		for _, node := range nodes {
+			if node.AdvertiseIP == p.Phase.Data.Server.AdvertiseIP {
+				p.WithField("node", node).Info("Teleport node has registered.")
+				return nil
 			}
-			for _, node := range nodes {
-				if node.AdvertiseIP == p.Phase.Data.Server.AdvertiseIP {
-					p.WithField("node", node).Info("Teleport node has registered.")
-					return nil
-				}
-			}
-			return trace.NotFound("Teleport on %s hasn't registered yet.",
-				p.Phase.Data.Server)
-		})
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	return nil
+		}
+		return trace.NotFound("Teleport on %s hasn't registered yet",
+			p.Phase.Data.Server)
+	})
 }
 
 // Rollback is no-op for this phase
