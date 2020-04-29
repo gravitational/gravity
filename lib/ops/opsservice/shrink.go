@@ -630,6 +630,19 @@ func (s *site) unlabelNode(server storage.Server, runner *serverRunner) error {
 }
 
 func (s *site) removeObjectPeer(peerID string) error {
+	objects, err := s.backend().GetObjects()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	var errors []error
+	for _, hash := range objects {
+		if err := s.backend().DeleteObjectPeers(hash, []string{peerID}); err != nil {
+			errors = append(errors, err)
+		}
+	}
+	if len(errors) != 0 {
+		return trace.NewAggregate(errors...)
+	}
 	return trace.Wrap(s.backend().DeletePeer(peerID))
 }
 
