@@ -33,10 +33,13 @@ import (
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
+	"github.com/gravitational/gravity/lib/update"
 	"github.com/gravitational/gravity/lib/users"
+	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
+	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -78,6 +81,7 @@ type updatePhaseInit struct {
 	existingDNS           storage.DNSConfig
 	existingEnviron       map[string]string
 	existingClusterConfig []byte
+	peerCleaner
 }
 
 // NewUpdatePhaseInit creates a new update init phase executor
@@ -153,6 +157,11 @@ func NewUpdatePhaseInit(
 		existingDNS:           p.Plan.DNSConfig,
 		existingClusterConfig: configBytes,
 		existingEnviron:       env.GetKeyValues(),
+		peerCleaner: peerCleaner{
+			log:           logger,
+			p:             backend,
+			existingPeers: clusterPeers(p.Phase.Data.Update.Servers),
+		},
 	}, nil
 }
 
@@ -192,6 +201,9 @@ func (p *updatePhaseInit) Execute(context.Context) error {
 	}
 	if err := p.updateDockerConfig(); err != nil {
 		return trace.Wrap(err, "failed to update Docker configuration")
+	}
+	if err := p.cleanPeers(); err != nil {
+		return trace.Wrap(err, "failed to clean up object peers")
 	}
 	for _, server := range p.Servers {
 		if server.Runtime.Update != nil {
@@ -288,7 +300,7 @@ func (p *updatePhaseInit) updateClusterInfoMap() error {
 	_, err := p.Client.CoreV1().ConfigMaps(constants.KubeSystemNamespace).Get(
 		constants.ClusterInfoMap, metav1.GetOptions{})
 	if err == nil {
-		p.Info("Config map %v already exists.", constants.ClusterInfoMap)
+		p.Infof("Config map %v already exists.", constants.ClusterInfoMap)
 		return nil
 	}
 	err = rigging.ConvertError(err)
@@ -490,4 +502,127 @@ func (p *updatePhaseInit) removeConfiguredPackages() error {
 			}
 			return nil
 		})
+}
+
+func (r peerCleaner) cleanPeers() error {
+	if err := r.removeInvalidObjectPeerRefs(); err != nil {
+		return trace.Wrap(err)
+	}
+	if err := r.removeLostObjects(); err != nil {
+		return trace.Wrap(err)
+	}
+	if err := r.removeInvalidObjectPeers(); err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+// removeLostObjects removes the object hashes from the state database
+// that only have peers that are no longer in the cluster
+func (r peerCleaner) removeLostObjects() error {
+	objects, err := r.p.GetObjects()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	var errors []error
+	for _, hash := range objects {
+		peers, err := r.p.GetObjectPeers(hash)
+		if err != nil && !trace.IsNotFound(err) {
+			return trace.Wrap(err)
+		}
+		if !r.invalidPeers(peers...) {
+			continue
+		}
+		r.log.WithField("hash", hash).Info("Remove lost object.")
+		if err := r.p.DeleteObject(hash); err != nil {
+			// Continue with other objects but collect errors to report
+			errors = append(errors, err)
+		}
+	}
+	return trace.NewAggregate(errors...)
+}
+
+// removeInvalidObjectPeers removes object peers that are no longer
+// in the cluster
+func (r peerCleaner) removeInvalidObjectPeers() error {
+	peers, err := r.p.GetPeers()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	var errors []error
+	for _, peer := range peers {
+		if !r.invalidPeers(peer.ID) {
+			continue
+		}
+		r.log.WithField("peer", peer).Info("Remove invalid peer.")
+		if err := r.p.DeletePeer(peer.ID); err != nil {
+			// Continue with other peers but collect errors to report
+			errors = append(errors, err)
+		}
+	}
+	return trace.NewAggregate(errors...)
+}
+
+// removeInvalidObjectPeerRefs removes invalid peer references for existing objects.
+// Orphaned objects will be removed at a later step
+func (r peerCleaner) removeInvalidObjectPeerRefs() error {
+	objects, err := r.p.GetObjects()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	var errors []error
+	for _, hash := range objects {
+		peers, err := r.p.GetObjectPeers(hash)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		for _, peer := range peers {
+			if !r.invalidPeers(peer) {
+				continue
+			}
+			r.log.WithFields(logrus.Fields{
+				"peer": peer,
+				"hash": hash,
+			}).Info("Remove invalid peer reference.")
+			if err := r.p.DeleteObjectPeers(hash, []string{peer}); err != nil {
+				// Continue with other objects but collect errors to report
+				errors = append(errors, err)
+			}
+		}
+	}
+	return trace.NewAggregate(errors...)
+}
+
+// invalidPeers returns true if all given peers are invalid (no longer in the cluster)
+func (r peerCleaner) invalidPeers(peers ...string) (invalid bool) {
+	for _, peer := range peers {
+		if utils.StringInSlice(r.existingPeers, peer) {
+			return false
+		}
+	}
+	return true
+}
+
+type peerCleaner struct {
+	log           log.FieldLogger
+	p             peerManager
+	existingPeers []string
+}
+
+type peerManager interface {
+	GetObjects() (hashes []string, err error)
+	GetObjectPeers(hash string) (peers []string, err error)
+	GetPeers() (peers []storage.Peer, err error)
+	DeleteObject(hash string) error
+	DeletePeer(peerID string) error
+	DeleteObjectPeers(hash string, peers []string) error
+}
+
+func clusterPeers(servers []storage.UpdateServer) (peers []string) {
+	masters, _ := update.SplitServers(servers)
+	peers = make([]string, 0, len(masters))
+	for _, server := range masters {
+		peers = append(peers, server.ObjectPeerID())
+	}
+	return peers
 }

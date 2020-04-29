@@ -214,6 +214,10 @@ func (c *cluster) purgeDeletedObjects() error {
 	return nil
 }
 
+// fetchNewObjects downloads the objects that has been recorded in the database
+// but not available locally.
+// It works on best-effort basis - pulling all missing objects before returning
+// whatever error(s) it has encountered
 func (c *cluster) fetchNewObjects() error {
 	objects, err := c.Backend.GetObjects()
 	if err != nil {
@@ -228,15 +232,16 @@ func (c *cluster) fetchNewObjects() error {
 			missingObjects = append(missingObjects, hash)
 		}
 	}
+	var errors []error
 	for _, hash := range missingObjects {
 		c.Infof("Found missing object %v.", hash)
 		err = c.fetchObject(hash)
 		if err != nil {
-			c.WithError(err).Warn("Failed to fetch object(%v).", hash)
-			return trace.Wrap(err)
+			c.WithError(err).Warnf("Failed to fetch object(%v).", hash)
+			errors = append(errors, err)
 		}
 	}
-	return nil
+	return trace.NewAggregate(errors...)
 }
 
 func (c *cluster) fetchObject(hash string) error {

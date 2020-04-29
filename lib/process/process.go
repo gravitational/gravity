@@ -231,25 +231,15 @@ func New(ctx context.Context, cfg processconfig.Config, tcfg telecfg.FileConfig)
 		return nil, trace.Wrap(err)
 	}
 
-	var numMasters int
-	if inKubernetes() {
-		cluster, err := backend.GetLocalSite(defaults.SystemAccountID)
-		// Ignore not found errors during import
-		if err != nil && !trace.IsNotFound(err) {
-			return nil, trace.Wrap(err)
-		}
-		if cluster != nil {
-			numMasters = cluster.ClusterState.NumMasters()
-		}
-	}
-
 	clusterObjects, err := blobcluster.New(blobcluster.Config{
 		Local:         objects,
 		Backend:       backend,
 		GetPeer:       peerPool.GetPeer,
 		ID:            processID,
 		AdvertiseAddr: fmt.Sprintf("https://%v", peerAddr.Addr),
-		WriteFactor:   numMasters, // will be reset to default if 0
+		// default WriteFactor to defaults.WriteFactor to avoid blocking
+		// on possibly inaccessible nodes
+		WriteFactor: defaults.WriteFactor,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
