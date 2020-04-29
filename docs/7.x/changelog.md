@@ -6,7 +6,7 @@
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
 | 7.0.3         | No  | April 27th, 2020     | 7.1 is released      | 1.17.4             | 3.2.13           |
 | 6.1.22        | Yes | April 14th, 2020     | November 10th, 2021  | 1.15.11            | 3.2.12           |
-| 5.5.41        | Yes | April 24th, 2020     | September 7th, 2020  | 1.13.11            | 3.0.6-gravity    |
+| 5.5.42        | Yes | April 28th, 2020     | September 7th, 2020  | 1.13.11            | 3.0.6-gravity    |
 
 Gravity offers one Long Term Support (LTS) release for every 2nd Kubernetes
 minor version, allowing for seamless upgrades per Kubernetes
@@ -54,6 +54,10 @@ extend updates past EOL through customer agreements if required.
 * Fix an issue with Teleport nodes failing to join after expand operation ([#1453](https://github.com/gravitational/gravity/pull/1453)).
 
 ### 7.0.2 (April 23rd, 2020)
+
+!!! warning
+    This release has a known issue that can lead to new Teleport nodes failing to join the cluster.
+    See our community [article](https://community.gravitational.com/t/recover-teleport-nodes-failing-to-join-due-to-bad-token/649) for more details and workaround.
 
 #### Improvements
 
@@ -108,6 +112,10 @@ to learn how to gain insight into how the cluster status changes over time.
 * Fix an issue with Teleport nodes failing to join after expand operation ([#1434](https://github.com/gravitational/gravity/pull/1434)).
 
 ### 6.3.12 (April 15th, 2020)
+
+!!! warning
+    This release has a known issue that can lead to new Teleport nodes failing to join the cluster.
+    See our community [article](https://community.gravitational.com/t/recover-teleport-nodes-failing-to-join-due-to-bad-token/649) for more details and workaround.
 
 #### Improvements
 
@@ -758,6 +766,12 @@ to learn how to gain insight into how the cluster status changes over time.
 
 ## 5.x Releases
 
+### 5.5.42 LTS (April 28th, 2020)
+
+#### Bugfixes
+
+* Prevent nethealth checker from affecting the cluster status temporarily to avoid possible issues with cluster becoming degraded after removing a node ([#1464](https://github.com/gravitational/gravity/pull/1464)).
+
 ### 5.5.41 LTS (April 24th, 2020)
 
 #### Improvements
@@ -776,6 +790,10 @@ to learn how to gain insight into how the cluster status changes over time.
 * Fix an issue with Teleport nodes failing to join after expand operation ([#1443](https://github.com/gravitational/gravity/pull/1443)).
 
 ### 5.5.40 LTS (April 3rd, 2020)
+
+!!! warning
+    This release has a known issue that can lead to new Teleport nodes failing to join the cluster.
+    See our community [article](https://community.gravitational.com/t/recover-teleport-nodes-failing-to-join-due-to-bad-token/649) for more details and workaround.
 
 #### Improvements
 
