@@ -105,10 +105,6 @@ to learn how to gain insight into how the cluster status changes over time.
 
 ### 6.3.13 (April 23rd, 2020)
 
-!!! warning
-    This release has a known issue that can lead to cluster degraded status due to "overlay network" failure for removed nodes.
-    See our community [article](https://community.gravitational.com/t/gravity-status-reports-overlay-network-issue-with-removed-node/654) for more details and workaround.
-
 #### Bugfixes
 
 * Fix formatting issue in `gravity status` ([#1394](https://github.com/gravitational/gravity/pull/1394)).
@@ -132,10 +128,6 @@ to learn how to gain insight into how the cluster status changes over time.
 
 ### 6.3.11 (April 15th, 2020)
 
-!!! warning
-    This release has a known issue that can lead to cluster degraded status due to "overlay network" failure for removed nodes.
-    See our community [article](https://community.gravitational.com/t/gravity-status-reports-overlay-network-issue-with-removed-node/654) for more details and workaround.
-
 #### Bugfixes
 
 * Fix an issue with successfully completed join operations being marked as failed ([#1383](https://github.com/gravitational/gravity/pull/1383)).
@@ -144,20 +136,12 @@ to learn how to gain insight into how the cluster status changes over time.
 
 ### 6.1.22 LTS (April 14th, 2020)
 
-!!! warning
-    This release has a known issue that can lead to cluster degraded status due to "overlay network" failure for removed nodes.
-    See our community [article](https://community.gravitational.com/t/gravity-status-reports-overlay-network-issue-with-removed-node/654) for more details and workaround.
-
 #### Bugfixes
 
 * Fix an issue with custom dashboards watcher not being able to authenticate with Grafana ([#1364](https://github.com/gravitational/gravity/pull/1364)).
 * Fix an issue with wormhole CNI plugin installation ([#1371](https://github.com/gravitational/gravity/pull/1371)).
 
 ### 6.3.10 (April 13th, 2020)
-
-!!! warning
-    This release has a known issue that can lead to cluster degraded status due to "overlay network" failure for removed nodes.
-    See our community [article](https://community.gravitational.com/t/gravity-status-reports-overlay-network-issue-with-removed-node/654) for more details and workaround.
 
 #### Improvements
 
