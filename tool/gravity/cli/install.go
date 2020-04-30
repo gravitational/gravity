@@ -460,7 +460,12 @@ func executeInstallPhase(localEnv *localenv.LocalEnvironment, p PhaseParams, ope
 	return nil
 }
 
-func executeJoinPhase(localEnv, joinEnv *localenv.LocalEnvironment, p PhaseParams, operation ops.SiteOperation) error {
+func executeJoinPhase(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, p PhaseParams, operation ops.SiteOperation) error {
+	joinEnv, err := environ.NewJoinEnv()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer joinEnv.Close()
 	operator, err := joinEnv.CurrentOperator(httplib.WithInsecure())
 	if err != nil {
 		return trace.Wrap(err)
@@ -502,7 +507,12 @@ func executeJoinPhase(localEnv, joinEnv *localenv.LocalEnvironment, p PhaseParam
 	})
 }
 
-func rollbackJoinPhase(localEnv, joinEnv *localenv.LocalEnvironment, p PhaseParams, operation ops.SiteOperation) error {
+func rollbackJoinPhase(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, p PhaseParams, operation ops.SiteOperation) error {
+	joinEnv, err := environ.NewJoinEnv()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer joinEnv.Close()
 	operator, err := joinEnv.CurrentOperator(httplib.WithInsecure(), httplib.WithTimeout(5*time.Second))
 	if err != nil {
 		return trace.Wrap(err)
@@ -624,7 +634,12 @@ func completeInstallPlan(localEnv *localenv.LocalEnvironment, operation ops.Site
 	return nil
 }
 
-func completeJoinPlan(localEnv, joinEnv *localenv.LocalEnvironment, operation ops.SiteOperation) error {
+func completeJoinPlan(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operation ops.SiteOperation) error {
+	joinEnv, err := environ.NewJoinEnv()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer joinEnv.Close()
 	operator, err := joinEnv.CurrentOperator(httplib.WithInsecure())
 	if err != nil {
 		if !trace.IsAccessDenied(err) {

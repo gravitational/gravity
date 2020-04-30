@@ -64,8 +64,8 @@ func initUpdateOperationPlan(localEnv, updateEnv *localenv.LocalEnvironment) err
 	return trace.Wrap(err)
 }
 
-func displayOperationPlan(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, operationID string, format constants.Format) error {
-	operations, err := getLastOperation(localEnv, updateEnv, joinEnv, operationID)
+func displayOperationPlan(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operationID string, format constants.Format) error {
+	operations, err := getLastOperation(localEnv, environ, operationID)
 	if err != nil {
 		if trace.IsNotFound(err) {
 			return trace.NotFound(`no operation found.
@@ -88,13 +88,13 @@ Clean up the node with 'gravity leave' if necessary and start the installation w
 	case ops.OperationInstall:
 		return displayInstallOperationPlan(op.Key(), format)
 	case ops.OperationExpand:
-		return displayExpandOperationPlan(joinEnv, op.Key(), format)
+		return displayExpandOperationPlan(environ, op.Key(), format)
 	case ops.OperationUpdate:
-		return displayUpdateOperationPlan(localEnv, updateEnv, op.Key(), format)
+		return displayUpdateOperationPlan(localEnv, environ, op.Key(), format)
 	case ops.OperationUpdateRuntimeEnviron:
-		return displayUpdateOperationPlan(localEnv, updateEnv, op.Key(), format)
+		return displayUpdateOperationPlan(localEnv, environ, op.Key(), format)
 	case ops.OperationUpdateConfig:
-		return displayUpdateOperationPlan(localEnv, updateEnv, op.Key(), format)
+		return displayUpdateOperationPlan(localEnv, environ, op.Key(), format)
 	case ops.OperationGarbageCollect:
 		return displayClusterOperationPlan(localEnv, op.Key(), format)
 	default:
@@ -120,7 +120,11 @@ func displayClusterOperationPlan(env *localenv.LocalEnvironment, opKey ops.SiteO
 	return trace.Wrap(err)
 }
 
-func displayUpdateOperationPlan(localEnv, updateEnv *localenv.LocalEnvironment, opKey ops.SiteOperationKey, format constants.Format) error {
+func displayUpdateOperationPlan(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, opKey ops.SiteOperationKey, format constants.Format) error {
+	updateEnv, err := environ.NewUpdateEnv()
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	plan, err := fsm.GetOperationPlan(updateEnv.Backend, opKey.SiteDomain, opKey.OperationID)
 	if err != nil {
 		return trace.Wrap(err)
@@ -148,7 +152,12 @@ func displayInstallOperationPlan(opKey ops.SiteOperationKey, format constants.Fo
 }
 
 // displayExpandOperationPlan shows plan of the join operation from the local join backend
-func displayExpandOperationPlan(joinEnv *localenv.LocalEnvironment, opKey ops.SiteOperationKey, format constants.Format) error {
+func displayExpandOperationPlan(environ LocalEnvironmentFactory, opKey ops.SiteOperationKey, format constants.Format) error {
+	joinEnv, err := environ.NewJoinEnv()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer joinEnv.Close()
 	plan, err := fsm.GetOperationPlan(joinEnv.Backend, opKey.SiteDomain, opKey.OperationID)
 	if err != nil {
 		return trace.Wrap(err)
