@@ -470,7 +470,7 @@ func (c *Cluster) getPeers(ids ...string) ([]storage.Peer, error) {
 			if c.Clock.Now().UTC().Sub(p.LastHeartbeat) > missedWindow {
 				c.WithFields(logrus.Fields{
 					"peer":           p.String(),
-					"time-window":         missedWindow,
+					"time-window":    missedWindow,
 					"last-heartbeat": p.LastHeartbeat,
 				}).Warn("Exclude stale peer.")
 				continue
