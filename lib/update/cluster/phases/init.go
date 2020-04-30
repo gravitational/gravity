@@ -181,6 +181,9 @@ func (p *updatePhaseInit) Execute(context.Context) error {
 	if err := p.initRPCCredentials(); err != nil {
 		return trace.Wrap(err, "failed to update RPC credentials")
 	}
+	if err := p.initTeleportAuthToken(); err != nil {
+		return trace.Wrap(err, "failed to initialize Teleport auth token")
+	}
 	if err := p.updateClusterRoles(); err != nil {
 		return trace.Wrap(err, "failed to update RPC credentials")
 	}
@@ -208,6 +211,40 @@ func (p *updatePhaseInit) Execute(context.Context) error {
 			}
 		}
 	}
+	return nil
+}
+
+// initTeleportAuthToken creates a provisioning token that teleport nodes will
+// use to authenticate with the auth server if it doesn't exist yet.
+func (p *updatePhaseInit) initTeleportAuthToken() error {
+	cluster, err := p.Backend.GetLocalSite(defaults.SystemAccountID)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	allTokens, err := p.Backend.GetSiteProvisioningTokens(cluster.Domain)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	for _, t := range allTokens {
+		if t.IsTeleport() && t.IsPersistent() {
+			p.Info("Teleport auth token already initialized.")
+			return nil
+		}
+	}
+	token, err := users.CryptoRandomToken(defaults.ProvisioningTokenBytes)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	_, err = p.Backend.CreateProvisioningToken(storage.ProvisioningToken{
+		AccountID:  cluster.AccountID,
+		SiteDomain: cluster.Domain,
+		Token:      token,
+		Type:       storage.ProvisioningTokenTypeTeleport,
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	p.Info("Initialized Teleport auth token.")
 	return nil
 }
 
