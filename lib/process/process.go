@@ -244,6 +244,7 @@ func New(ctx context.Context, cfg processconfig.Config, tcfg telecfg.FileConfig)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	clusterObjects.Start()
 
 	packages, err := localpack.New(localpack.Config{
 		Backend:     backend,

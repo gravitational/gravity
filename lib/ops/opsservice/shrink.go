@@ -311,14 +311,6 @@ func (s *site) shrinkOperationStart(ctx *operationContext) (err error) {
 			serverName)
 	}
 
-	if err = s.removeObjectPeer(server.ObjectPeerID()); err != nil && !trace.IsNotFound(err) {
-		if !force {
-			return trace.Wrap(err, "failed to remove the object peer for the node")
-		}
-		ctx.WithError(err).Warnf("Failed to remove the object peer for the node %q, force continue.",
-			serverName)
-	}
-
 	s.reportProgress(ctx, ops.ProgressEntry{
 		State:      ops.ProgressStateInProgress,
 		Completion: 40,
@@ -397,6 +389,14 @@ func (s *site) shrinkOperationStart(ctx *operationContext) (err error) {
 
 	if err = s.waitForServerToDisappear(serverName); err != nil {
 		ctx.WithError(err).Warnf("Failed to wait for server %v to disappear.", serverName)
+	}
+
+	if err = s.removeObjectPeer(server.ObjectPeerID()); err != nil && !trace.IsNotFound(err) {
+		if !force {
+			return trace.Wrap(err, "failed to remove the object peer for the node")
+		}
+		ctx.WithError(err).Warnf("Failed to remove the object peer for the node %q, force continue.",
+			serverName)
 	}
 
 	if err = s.removeClusterStateServers([]string{server.Hostname}); err != nil {
@@ -630,19 +630,6 @@ func (s *site) unlabelNode(server storage.Server, runner *serverRunner) error {
 }
 
 func (s *site) removeObjectPeer(peerID string) error {
-	objects, err := s.backend().GetObjects()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	var errors []error
-	for _, hash := range objects {
-		if err := s.backend().DeleteObjectPeers(hash, []string{peerID}); err != nil {
-			errors = append(errors, err)
-		}
-	}
-	if len(errors) != 0 {
-		return trace.NewAggregate(errors...)
-	}
 	return trace.Wrap(s.backend().DeletePeer(peerID))
 }
 

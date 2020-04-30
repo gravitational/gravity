@@ -159,7 +159,7 @@ func NewUpdatePhaseInit(
 		existingEnviron:       env.GetKeyValues(),
 		peerCleaner: peerCleaner{
 			log:           logger,
-			p:             backend,
+			m:             backend,
 			existingPeers: clusterPeers(p.Phase.Data.Update.Servers),
 		},
 	}, nil
@@ -520,13 +520,13 @@ func (r peerCleaner) cleanPeers() error {
 // removeLostObjects removes the object hashes from the state database
 // that only have peers that are no longer in the cluster
 func (r peerCleaner) removeLostObjects() error {
-	objects, err := r.p.GetObjects()
+	objects, err := r.m.GetObjects()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	var errors []error
 	for _, hash := range objects {
-		peers, err := r.p.GetObjectPeers(hash)
+		peers, err := r.m.GetObjectPeers(hash)
 		if err != nil && !trace.IsNotFound(err) {
 			return trace.Wrap(err)
 		}
@@ -534,7 +534,7 @@ func (r peerCleaner) removeLostObjects() error {
 			continue
 		}
 		r.log.WithField("hash", hash).Info("Remove lost object.")
-		if err := r.p.DeleteObject(hash); err != nil {
+		if err := r.m.DeleteObject(hash); err != nil {
 			// Continue with other objects but collect errors to report
 			errors = append(errors, err)
 		}
@@ -545,7 +545,7 @@ func (r peerCleaner) removeLostObjects() error {
 // removeInvalidObjectPeers removes object peers that are no longer
 // in the cluster
 func (r peerCleaner) removeInvalidObjectPeers() error {
-	peers, err := r.p.GetPeers()
+	peers, err := r.m.GetPeers()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -555,7 +555,7 @@ func (r peerCleaner) removeInvalidObjectPeers() error {
 			continue
 		}
 		r.log.WithField("peer", peer).Info("Remove invalid peer.")
-		if err := r.p.DeletePeer(peer.ID); err != nil {
+		if err := r.m.DeletePeer(peer.ID); err != nil {
 			// Continue with other peers but collect errors to report
 			errors = append(errors, err)
 		}
@@ -566,13 +566,13 @@ func (r peerCleaner) removeInvalidObjectPeers() error {
 // removeInvalidObjectPeerRefs removes invalid peer references for existing objects.
 // Orphaned objects will be removed at a later step
 func (r peerCleaner) removeInvalidObjectPeerRefs() error {
-	objects, err := r.p.GetObjects()
+	objects, err := r.m.GetObjects()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	var errors []error
 	for _, hash := range objects {
-		peers, err := r.p.GetObjectPeers(hash)
+		peers, err := r.m.GetObjectPeers(hash)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -584,7 +584,7 @@ func (r peerCleaner) removeInvalidObjectPeerRefs() error {
 				"peer": peer,
 				"hash": hash,
 			}).Info("Remove invalid peer reference.")
-			if err := r.p.DeleteObjectPeers(hash, []string{peer}); err != nil {
+			if err := r.m.DeleteObjectPeers(hash, []string{peer}); err != nil {
 				// Continue with other objects but collect errors to report
 				errors = append(errors, err)
 			}
@@ -605,7 +605,7 @@ func (r peerCleaner) invalidPeers(peers ...string) (invalid bool) {
 
 type peerCleaner struct {
 	log           log.FieldLogger
-	p             peerManager
+	m             peerManager
 	existingPeers []string
 }
 

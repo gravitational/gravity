@@ -44,7 +44,7 @@ func (*S) TestPeerCleaner(c *C) {
 			comment: "no changes to peer state",
 			c: peerCleaner{
 				log: log.WithField("test", "TestPeerCleaner"),
-				p: &testPeerManager{
+				m: &testPeerManager{
 					objects: []blobObject{
 						{
 							hash:  "hash1",
@@ -59,7 +59,7 @@ func (*S) TestPeerCleaner(c *C) {
 				existingPeers: []string{"peer2", "peer1"},
 			},
 			expected: peerCleaner{
-				p: &testPeerManager{
+				m: &testPeerManager{
 					objects: []blobObject{
 						{
 							hash:  "hash1",
@@ -77,7 +77,7 @@ func (*S) TestPeerCleaner(c *C) {
 			comment: "removes stale peer and its references",
 			c: peerCleaner{
 				log: log.WithField("test", "TestPeerCleaner"),
-				p: &testPeerManager{
+				m: &testPeerManager{
 					objects: []blobObject{
 						{
 							hash:  "hash1",
@@ -96,7 +96,7 @@ func (*S) TestPeerCleaner(c *C) {
 				existingPeers: []string{"peer2"},
 			},
 			expected: peerCleaner{
-				p: &testPeerManager{
+				m: &testPeerManager{
 					objects: []blobObject{
 						{
 							hash:  "hash1",
@@ -117,7 +117,7 @@ func (*S) TestPeerCleaner(c *C) {
 			comment: "removes stale peer and its references; removes lost object",
 			c: peerCleaner{
 				log: log.WithField("test", "TestPeerCleaner"),
-				p: &testPeerManager{
+				m: &testPeerManager{
 					objects: []blobObject{
 						{
 							hash:  "hash1",
@@ -136,7 +136,7 @@ func (*S) TestPeerCleaner(c *C) {
 				existingPeers: []string{"peer2"},
 			},
 			expected: peerCleaner{
-				p: &testPeerManager{
+				m: &testPeerManager{
 					objects: []blobObject{
 						{
 							hash:  "hash1",
@@ -153,7 +153,7 @@ func (*S) TestPeerCleaner(c *C) {
 	for _, tc := range testCases {
 		comment := Commentf(tc.comment)
 		c.Assert(tc.c.cleanPeers(), IsNil, comment)
-		c.Assert(tc.c.p, DeepEquals, tc.expected.p, comment)
+		c.Assert(tc.c.m, DeepEquals, tc.expected.m, comment)
 	}
 }
 
