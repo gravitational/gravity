@@ -95,11 +95,23 @@ func newClusterUpdater(
 	return updater, nil
 }
 
-func executeUpdatePhase(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params PhaseParams, operation ops.SiteOperation) error {
+func executeUpdatePhase(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params PhaseParams) error {
+	operation, err := getActiveOperation(env, environ, params.OperationID)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if operation.Type != ops.OperationUpdate {
+		return trace.NotFound("no active update operation found")
+	}
+	return executeUpdatePhaseForOperation(env, environ, params, *operation)
+}
+
+func executeUpdatePhaseForOperation(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params PhaseParams, operation ops.SiteOperation) error {
 	updateEnv, err := environ.NewUpdateEnv()
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	defer updateEnv.Close()
 	updater, err := getClusterUpdater(env, updateEnv, operation, params.SkipVersionCheck)
 	if err != nil {
 		return trace.Wrap(err)
@@ -109,11 +121,12 @@ func executeUpdatePhase(env *localenv.LocalEnvironment, environ LocalEnvironment
 	return trace.Wrap(err)
 }
 
-func rollbackUpdatePhase(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params PhaseParams, operation ops.SiteOperation) error {
+func rollbackUpdatePhaseForOperation(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params PhaseParams, operation ops.SiteOperation) error {
 	updateEnv, err := environ.NewUpdateEnv()
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	defer updateEnv.Close()
 	updater, err := getClusterUpdater(env, updateEnv, operation, params.SkipVersionCheck)
 	if err != nil {
 		return trace.Wrap(err)
@@ -123,11 +136,12 @@ func rollbackUpdatePhase(env *localenv.LocalEnvironment, environ LocalEnvironmen
 	return trace.Wrap(err)
 }
 
-func completeUpdatePlan(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operation ops.SiteOperation) error {
+func completeUpdatePlanForOperation(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operation ops.SiteOperation) error {
 	updateEnv, err := environ.NewUpdateEnv()
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	defer updateEnv.Close()
 	updater, err := getClusterUpdater(env, updateEnv, operation, true)
 	if err != nil {
 		return trace.Wrap(err)

@@ -33,7 +33,6 @@ import (
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/localenv"
-	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/process"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/systemservice"
@@ -301,15 +300,11 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			*g.InstallCmd.Force = false
 		}
 		if *g.InstallCmd.Phase != "" {
-			op, err := getActiveOperation(localEnv, g, "")
-			if err != nil {
-				return trace.Wrap(err)
-			}
-			return executeInstallPhase(localEnv, PhaseParams{
+			return executeInstallPhase(localEnv, g, PhaseParams{
 				PhaseID: *g.InstallCmd.Phase,
 				Force:   *g.InstallCmd.Force,
 				Timeout: *g.InstallCmd.PhaseTimeout,
-			}, *op)
+			})
 		}
 		return startInstall(localEnv, NewInstallConfig(g))
 	case g.JoinCmd.FullCommand():
@@ -318,16 +313,12 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			*g.JoinCmd.Force = false
 		}
 		if *g.JoinCmd.Phase != "" {
-			op, err := getActiveOperation(localEnv, g, *g.JoinCmd.OperationID)
-			if err != nil {
-				return trace.Wrap(err)
-			}
 			return executeJoinPhase(localEnv, g, PhaseParams{
 				PhaseID:     *g.JoinCmd.Phase,
 				Force:       *g.JoinCmd.Force,
 				Timeout:     *g.JoinCmd.PhaseTimeout,
 				OperationID: *g.JoinCmd.OperationID,
-			}, *op)
+			})
 		}
 		joinEnv, err := g.NewJoinEnv()
 		if err != nil {
@@ -377,20 +368,12 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			*g.UpgradeCmd.Force = false
 		}
 		if *g.UpgradeCmd.Phase != "" {
-			op, err := getActiveOperation(localEnv, g, "")
-			if err != nil {
-				return trace.Wrap(err)
-			}
-			if op.Type != ops.OperationUpdate {
-				return trace.NotFound("no active update operation found")
-			}
-			return executeUpdatePhase(localEnv, g,
-				PhaseParams{
-					PhaseID:          *g.UpgradeCmd.Phase,
-					Force:            *g.UpgradeCmd.Force,
-					Timeout:          *g.UpgradeCmd.Timeout,
-					SkipVersionCheck: *g.UpgradeCmd.SkipVersionCheck,
-				}, *op)
+			return executeUpdatePhase(localEnv, g, PhaseParams{
+				PhaseID:          *g.UpgradeCmd.Phase,
+				Force:            *g.UpgradeCmd.Force,
+				Timeout:          *g.UpgradeCmd.Timeout,
+				SkipVersionCheck: *g.UpgradeCmd.SkipVersionCheck,
+			})
 		}
 		updateEnv, err := g.NewUpdateEnv()
 		if err != nil {

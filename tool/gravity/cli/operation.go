@@ -62,17 +62,17 @@ func executePhase(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentF
 	op := operations[0]
 	switch op.Type {
 	case ops.OperationInstall:
-		return executeInstallPhase(localEnv, params, op)
+		return executeInstallPhaseForOperation(localEnv, params, op)
 	case ops.OperationExpand:
-		return executeJoinPhase(localEnv, environ, params, op)
+		return executeJoinPhaseForOperation(localEnv, environ, params, op)
 	case ops.OperationUpdate:
-		return executeUpdatePhase(localEnv, environ, params, op)
+		return executeUpdatePhaseForOperation(localEnv, environ, params, op)
 	case ops.OperationUpdateRuntimeEnviron:
-		return executeEnvironPhase(localEnv, environ, params, op)
+		return executeEnvironPhaseForOperation(localEnv, environ, params, op)
 	case ops.OperationUpdateConfig:
-		return executeConfigPhase(localEnv, environ, params, op)
+		return executeConfigPhaseForOperation(localEnv, environ, params, op)
 	case ops.OperationGarbageCollect:
-		return executeGarbageCollectPhase(localEnv, params, op)
+		return executeGarbageCollectPhaseForOperation(localEnv, params, op)
 	default:
 		return trace.BadParameter("operation type %q does not support plan execution", op.Type)
 	}
@@ -90,15 +90,15 @@ func rollbackPhase(localEnv *localenv.LocalEnvironment, environ LocalEnvironment
 	op := operations[0]
 	switch op.Type {
 	case ops.OperationInstall:
-		return rollbackInstallPhase(localEnv, params, op)
+		return rollbackInstallPhaseForOperation(localEnv, params, op)
 	case ops.OperationExpand:
-		return rollbackJoinPhase(localEnv, environ, params, op)
+		return rollbackJoinPhaseForOperation(localEnv, environ, params, op)
 	case ops.OperationUpdate:
-		return rollbackUpdatePhase(localEnv, environ, params, op)
+		return rollbackUpdatePhaseForOperation(localEnv, environ, params, op)
 	case ops.OperationUpdateRuntimeEnviron:
-		return rollbackEnvironPhase(localEnv, environ, params, op)
+		return rollbackEnvironPhaseForOperation(localEnv, environ, params, op)
 	case ops.OperationUpdateConfig:
-		return rollbackConfigPhase(localEnv, environ, params, op)
+		return rollbackConfigPhaseForOperation(localEnv, environ, params, op)
 	default:
 		return trace.BadParameter("operation type %q does not support plan rollback", op.Type)
 	}
@@ -117,15 +117,15 @@ func completeOperationPlan(localEnv *localenv.LocalEnvironment, environ LocalEnv
 	switch op.Type {
 	case ops.OperationInstall:
 		// There's only one install operation
-		err = completeInstallPlan(localEnv, op)
+		err = completeInstallPlanForOperation(localEnv, op)
 	case ops.OperationExpand:
-		err = completeJoinPlan(localEnv, environ, op)
+		err = completeJoinPlanForOperation(localEnv, environ, op)
 	case ops.OperationUpdate:
-		err = completeUpdatePlan(localEnv, environ, op)
+		err = completeUpdatePlanForOperation(localEnv, environ, op)
 	case ops.OperationUpdateRuntimeEnviron:
-		err = completeEnvironPlan(localEnv, environ, op)
+		err = completeEnvironPlanForOperation(localEnv, environ, op)
 	case ops.OperationUpdateConfig:
-		err = completeConfigPlan(localEnv, environ, op)
+		err = completeConfigPlanForOperation(localEnv, environ, op)
 	default:
 		return trace.BadParameter("operation type %q does not support plan completion", op.Type)
 	}
@@ -240,9 +240,7 @@ func (r *backendOperations) List(localEnv *localenv.LocalEnvironment, environ Lo
 	// Only fetch operation from remote (install) environment if the install operation is ongoing
 	// or we failed to fetch the operation details from the cluster
 	if r.isActiveInstallOperation() {
-		if err := r.listInstallOperation(); err != nil {
-			return trace.Wrap(err)
-		}
+		r.listInstallOperation()
 	}
 	return nil
 }
@@ -289,7 +287,7 @@ func (r *backendOperations) listJoinOperation(environ LocalEnvironmentFactory) e
 	return nil
 }
 
-func (r *backendOperations) listInstallOperation() error {
+func (r *backendOperations) listInstallOperation() {
 	wizardEnv, err := localenv.NewRemoteEnvironment()
 	if err != nil {
 		log.WithError(err).Warn("Failed to create wizard environment.")
@@ -303,7 +301,6 @@ func (r *backendOperations) listInstallOperation() error {
 			log.WithError(err).Warn("Failed to query install operation.")
 		}
 	}
-	return nil
 }
 
 func (r *backendOperations) getOperationAndUpdateCache(backend storage.Backend, logger logrus.FieldLogger) *ops.SiteOperation {
@@ -334,7 +331,13 @@ func (r backendOperations) isActiveInstallOperation() bool {
 }
 
 type backendOperations struct {
-	operations       map[string]ops.SiteOperation
+	// operations lists currently detected operations.
+	// Operations are queried over a variety of backends due to disparity of state storage
+	// locations (including cluster state store).
+	// Operations found outside the cluster state store (etcd) are considered to be
+	// more up-to-date and take precedence.
+	operations map[string]ops.SiteOperation
+	// clusterOperation stores the first operation found in cluster state store (if any)
 	clusterOperation *ops.SiteOperation
 }
 

@@ -69,8 +69,8 @@ func displayOperationPlan(localEnv *localenv.LocalEnvironment, environ LocalEnvi
 	if err != nil {
 		if trace.IsNotFound(err) {
 			return trace.NotFound(`no operation found.
-This usually means that the installation has failed to start or was not started.
-Clean up the node with 'gravity leave' if necessary and start the installation with 'gravity install'.
+This usually means that the installation/join operation has failed to start or was not started.
+Clean up the node with 'gravity leave' if necessary and start the installation/join with either 'gravity install' or 'gravity join'.
 `)
 		}
 		return trace.Wrap(err)
@@ -86,17 +86,17 @@ Clean up the node with 'gravity leave' if necessary and start the installation w
 	}
 	switch op.Type {
 	case ops.OperationInstall:
-		return displayInstallOperationPlan(op.Key(), format)
+		err = displayInstallOperationPlan(op.Key(), format)
 	case ops.OperationExpand:
-		return displayExpandOperationPlan(environ, op.Key(), format)
+		err = displayExpandOperationPlan(environ, op.Key(), format)
 	case ops.OperationUpdate:
-		return displayUpdateOperationPlan(localEnv, environ, op.Key(), format)
+		err = displayUpdateOperationPlan(localEnv, environ, op.Key(), format)
 	case ops.OperationUpdateRuntimeEnviron:
-		return displayUpdateOperationPlan(localEnv, environ, op.Key(), format)
+		err = displayUpdateOperationPlan(localEnv, environ, op.Key(), format)
 	case ops.OperationUpdateConfig:
-		return displayUpdateOperationPlan(localEnv, environ, op.Key(), format)
+		err = displayUpdateOperationPlan(localEnv, environ, op.Key(), format)
 	case ops.OperationGarbageCollect:
-		return displayClusterOperationPlan(localEnv, op.Key(), format)
+		err = displayClusterOperationPlan(localEnv, op.Key(), format)
 	default:
 		return trace.BadParameter("unknown operation type %q", op.Type)
 	}
