@@ -44,7 +44,6 @@ import (
 
 	"github.com/docker/docker/pkg/archive"
 	"github.com/docker/docker/pkg/idtools"
-	"github.com/gravitational/satellite/agent/proto/agentpb"
 	teleconfig "github.com/gravitational/teleport/lib/config"
 	"github.com/gravitational/trace"
 	"github.com/opencontainers/selinux/go-selinux"
@@ -112,7 +111,7 @@ func (r *System) Update(ctx context.Context, withStatus bool) error {
 		return trace.Wrap(err)
 	}
 
-	err = waitNodeStatus(ctx)
+	err = libstatus.WaitForAgent(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -151,7 +150,7 @@ func (r *System) Rollback(ctx context.Context, withStatus bool) (err error) {
 		return nil
 	}
 
-	err = waitNodeStatus(ctx)
+	err = libstatus.WaitForNodeHealthy(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -881,33 +880,6 @@ func ensureServiceRunning(servicePackage loc.Locator) error {
 	noBlock := true
 	err = services.StartPackageService(servicePackage, noBlock)
 	return trace.Wrap(err)
-}
-
-func waitNodeStatus(ctx context.Context) (err error) {
-	b := utils.NewExponentialBackOff(defaults.NodeStatusTimeout)
-	err = utils.RetryWithInterval(ctx, b, func() error {
-		return trace.Wrap(getLocalNodeStatus(ctx))
-	})
-	return trace.Wrap(err)
-}
-
-func getLocalNodeStatus(ctx context.Context) (err error) {
-	var status *libstatus.Agent
-	b := utils.NewExponentialBackOff(defaults.NodeStatusTimeout)
-	err = utils.RetryTransient(ctx, b, func() error {
-		status, err = libstatus.FromLocalPlanetAgent(ctx)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		return nil
-	})
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	if status.GetSystemStatus() != agentpb.SystemStatus_Running {
-		return trace.BadParameter("node is degraded")
-	}
-	return nil
 }
 
 // unpack reads the package from the package service and unpacks its contents
