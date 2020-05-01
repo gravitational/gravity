@@ -295,7 +295,7 @@ func (c *Cluster) fetchObject(hash string) error {
 			errors = append(errors, err)
 			continue
 		}
-		logger.WithField("package", envelope).Error("Successfully fetched object from peer.")
+		logger.WithField("package", envelope).Debug("Successfully fetched object from peer.")
 		err = c.Backend.UpsertObjectPeers(hash, []string{c.ID}, 0)
 		if err != nil {
 			logger.WithError(err).Error("Failed to upsert peer to the object's list of peers.")
