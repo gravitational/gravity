@@ -1242,6 +1242,21 @@ func (p *ProvisioningToken) Check() error {
 	return nil
 }
 
+// IsExpand returns true if this is an expand token.
+func (p *ProvisioningToken) IsExpand() bool {
+	return p.Type == ProvisioningTokenTypeExpand
+}
+
+// IsTeleport returns true if this is a teleport token.
+func (p *ProvisioningToken) IsTeleport() bool {
+	return p.Type == ProvisioningTokenTypeTeleport
+}
+
+// IsPersistent returns true if this token does not expire.
+func (p *ProvisioningToken) IsPersistent() bool {
+	return p.Expires.IsZero()
+}
+
 // ProvisioningTokenType specifies token type
 type ProvisioningTokenType string
 
@@ -1250,12 +1265,14 @@ const (
 	ProvisioningTokenTypeInstall = "install"
 	// ProvisioningTokenTypeExpand is used to validate joining nodes
 	ProvisioningTokenTypeExpand = "expand"
+	// ProvisioningTokenTypeTeleport is used by Teleport nodes to authenticate with auth server
+	ProvisioningTokenTypeTeleport = "teleport"
 )
 
 // Check returns nil if the value is correct, error otherwise
 func (s *ProvisioningTokenType) Check() error {
 	switch *s {
-	case ProvisioningTokenTypeInstall, ProvisioningTokenTypeExpand:
+	case ProvisioningTokenTypeInstall, ProvisioningTokenTypeExpand, ProvisioningTokenTypeTeleport:
 		return nil
 	}
 	return trace.BadParameter("unsupported token type: %v", *s)

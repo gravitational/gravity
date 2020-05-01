@@ -887,8 +887,7 @@ func (s *site) newProvisioningToken(operation ops.SiteOperation) (token string, 
 		UserEmail:   agentUser.GetName(),
 	}
 	if operation.Type == ops.OperationExpand {
-		// Set a TTL for expand provisioning token.
-		tokenRequest.Expires = s.clock().UtcNow().Add(defaults.InstallTokenTTL)
+		tokenRequest.Expires = s.clock().UtcNow().Add(defaults.ExpandTokenTTL)
 	}
 	_, err = s.users().CreateProvisioningToken(tokenRequest)
 	if err != nil {

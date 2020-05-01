@@ -128,6 +128,9 @@ const (
 	// InstallTokenTTL is the TTL for the install token after the installation
 	// has been completed/or failed
 	InstallTokenTTL = time.Hour
+	// ExpandTokenTTL is used for temporary provisioning tokens created during
+	// expand operations.
+	ExpandTokenTTL = 24 * time.Hour
 
 	// MaxOperationConcurrency defines a number of servers an operation can run on concurrently
 	MaxOperationConcurrency = 5

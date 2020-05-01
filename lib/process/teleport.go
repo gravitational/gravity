@@ -23,10 +23,12 @@ import (
 	"github.com/gravitational/gravity/lib/processconfig"
 	"github.com/gravitational/gravity/lib/storage"
 
+	"github.com/gravitational/teleport"
 	"github.com/gravitational/teleport/lib/client"
 	"github.com/gravitational/teleport/lib/config"
 	teledefaults "github.com/gravitational/teleport/lib/defaults"
 	"github.com/gravitational/teleport/lib/service"
+	"github.com/gravitational/teleport/lib/services"
 
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
@@ -67,6 +69,13 @@ func (p *Process) buildTeleportConfig(authGatewayConfig storage.AuthGateway) (*s
 	if len(serviceConfig.AuthServers) == 0 && serviceConfig.Auth.Enabled {
 		serviceConfig.AuthServers = append(serviceConfig.AuthServers, serviceConfig.Auth.SSHAddr)
 	}
+	// Configure auth tokens so nodes can join.
+	tokens, err := p.getTeleportAuthTokens()
+	if err != nil && !trace.IsNotFound(err) {
+		return nil, trace.Wrap(err)
+	}
+	serviceConfig.Auth.StaticTokens.SetStaticTokens(append(tokens,
+		serviceConfig.Auth.StaticTokens.GetStaticTokens()...))
 	// Teleport will be using Gravity backend implementation.
 	serviceConfig.Identity = p.identity
 	serviceConfig.Trust = p.identity
@@ -81,6 +90,29 @@ func (p *Process) buildTeleportConfig(authGatewayConfig storage.AuthGateway) (*s
 	// faster when auth gateway settings are updated.
 	serviceConfig.PollingPeriod = teledefaults.HighResPollingPeriod
 	return serviceConfig, nil
+}
+
+// getTeleportAuthTokens returns tokens Teleport nodes can use to authenticate
+// with auth server to join the cluster.
+func (p *Process) getTeleportAuthTokens() (result []services.ProvisionToken, err error) {
+	cluster, err := p.backend.GetLocalSite(defaults.SystemAccountID)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	allTokens, err := p.backend.GetSiteProvisioningTokens(cluster.Domain)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	for _, t := range allTokens {
+		// Consider expand tokens as well for backwards compatibility.
+		if (t.IsTeleport() || t.IsExpand()) && t.IsPersistent() {
+			result = append(result, services.ProvisionToken{
+				Roles: teleport.Roles{teleport.RoleNode},
+				Token: t.Token,
+			})
+		}
+	}
+	return result, nil
 }
 
 // getOrInitAuthGatewayConfig returns auth gateway configuration.
