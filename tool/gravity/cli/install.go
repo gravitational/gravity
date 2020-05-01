@@ -502,7 +502,7 @@ func executeJoinPhase(localEnv *localenv.LocalEnvironment, environ LocalEnvironm
 	if operation.Type != ops.OperationExpand {
 		return trace.NotFound("no active expand operation found")
 	}
-	return executeJoinPhaseForOperation(localEnv, environ, p, *operation)
+	return executeJoinPhaseForOperation(localEnv, environ, p, operation.SiteOperation)
 }
 
 func executeJoinPhaseForOperation(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, p PhaseParams, operation ops.SiteOperation) error {

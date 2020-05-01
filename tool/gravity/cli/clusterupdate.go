@@ -103,7 +103,7 @@ func executeUpdatePhase(env *localenv.LocalEnvironment, environ LocalEnvironment
 	if operation.Type != ops.OperationUpdate {
 		return trace.NotFound("no active update operation found")
 	}
-	return executeUpdatePhaseForOperation(env, environ, params, *operation)
+	return executeUpdatePhaseForOperation(env, environ, params, operation.SiteOperation)
 }
 
 func executeUpdatePhaseForOperation(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params PhaseParams, operation ops.SiteOperation) error {
