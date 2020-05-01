@@ -113,7 +113,13 @@ func completeEnvironPlanForOperation(env *localenv.LocalEnvironment, environ Loc
 		return trace.Wrap(err)
 	}
 	defer updater.Close()
-	return trace.Wrap(updater.Complete(nil))
+	if err := updater.Complete(nil); err != nil {
+		return trace.Wrap(err)
+	}
+	if err := updater.Activate(); err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
 }
 
 func getEnvironUpdater(env, updateEnv *localenv.LocalEnvironment, operation ops.SiteOperation) (*update.Updater, error) {

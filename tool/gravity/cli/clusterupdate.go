@@ -147,7 +147,13 @@ func completeUpdatePlanForOperation(env *localenv.LocalEnvironment, environ Loca
 		return trace.Wrap(err)
 	}
 	defer updater.Close()
-	return trace.Wrap(updater.Complete(nil))
+	if err := updater.Complete(nil); err != nil {
+		return trace.Wrap(err)
+	}
+	if err := updater.Activate(); err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
 }
 
 func getClusterUpdater(localEnv, updateEnv *localenv.LocalEnvironment, operation ops.SiteOperation, noValidateVersion bool) (*update.Updater, error) {

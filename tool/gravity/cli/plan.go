@@ -76,12 +76,19 @@ func displayOperationPlan(localEnv *localenv.LocalEnvironment, environ LocalEnvi
 		}
 		return trace.Wrap(err)
 	}
-	if len(operations) != 1 && format == constants.EncodingText {
-		log.WithField("operations", oplist(operations).String()).Warn("Multiple operations found.")
-		localEnv.Printf("Multiple operations found: \n%v\nPlease specify operation with --operation-id. "+
-			"Displaying the most recent operation.\n\n", oplist(operations).formatTable())
+	var op *clusterOperation
+	if len(operations) != 1 {
+		// Default to first operation
+		op = &operations[0]
+		if activeOperation, err := getActiveOperationFromList(operations); err == nil {
+			// Use the active operation if available
+			op = activeOperation
+		} else if format == constants.EncodingText {
+			log.WithField("operations", oplist(operations).String()).Warn("Multiple operations found.")
+			localEnv.Printf("Multiple operations found: \n%v\nPlease specify operation with --operation-id. "+
+				"Displaying the most recent operation.\n\n", oplist(operations).formatTable())
+		}
 	}
-	op := operations[0]
 	if op.IsCompleted() {
 		return displayClusterOperationPlan(localEnv, op.Key(), format)
 	}
