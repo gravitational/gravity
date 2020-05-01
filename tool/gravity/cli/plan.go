@@ -67,11 +67,12 @@ func initUpdateOperationPlan(localEnv, updateEnv *localenv.LocalEnvironment) err
 func displayOperationPlan(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operationID string, format constants.Format) error {
 	operations, err := getLastOperation(localEnv, environ, operationID)
 	if err != nil {
+		message := noOperationStateNoClusterStateBanner
+		if err2 := CheckLocalState(localEnv); err2 != nil {
+			message = NoOperationStateBanner
+		}
 		if trace.IsNotFound(err) {
-			return trace.NotFound(`no operation found.
-This usually means that the installation/join operation has failed to start or was not started.
-Clean up the node with 'gravity leave' if necessary and start the installation/join with either 'gravity install' or 'gravity join'.
-`)
+			return trace.NotFound(message)
 		}
 		return trace.Wrap(err)
 	}
@@ -246,3 +247,17 @@ func getPlanFromWizard(opKey ops.SiteOperationKey) (*storage.OperationPlan, erro
 	}
 	return plan, nil
 }
+
+const (
+	// NoOperationStateBanner specifies the message for when the operation
+	// cannot be retrieved from the installer process and that the operation
+	// should be restarted
+	NoOperationStateBanner = `no operation found.
+This usually means that the installation/join operation has failed to start or was not started.
+Clean up the node with 'gravity leave' and start the operation with either 'gravity install' or 'gravity join'.
+`
+	noOperationStateNoClusterStateBanner = `no operation found.
+This usually means that the installation/join operation has failed to start or was not started.
+Start the operation with either 'gravity install' or 'gravity join'.
+`
+)

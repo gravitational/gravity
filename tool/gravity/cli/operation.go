@@ -199,10 +199,7 @@ func getActiveOperations(localEnv *localenv.LocalEnvironment, environ LocalEnvir
 // in descending order (sorted by creation time)
 func getBackendOperations(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operationID string) (result []ops.SiteOperation, err error) {
 	b := newBackendOperations()
-	err = b.List(localEnv, environ)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
+	b.List(localEnv, environ)
 	for _, op := range b.operations {
 		if operationID == "" || operationID == op.ID {
 			result = append(result, op)
@@ -220,7 +217,7 @@ func newBackendOperations() backendOperations {
 	}
 }
 
-func (r *backendOperations) List(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory) error {
+func (r *backendOperations) List(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory) {
 	clusterEnv, err := localEnv.NewClusterEnvironment(localenv.WithEtcdTimeout(1 * time.Second))
 	if err != nil {
 		log.WithError(err).Debug("Failed to create cluster environment.")
@@ -230,6 +227,9 @@ func (r *backendOperations) List(localEnv *localenv.LocalEnvironment, environ Lo
 		if err != nil {
 			log.WithError(err).Warn("Failed to query cluster operations.")
 		}
+	}
+	if environ == nil {
+		return
 	}
 	if err := r.listUpdateOperation(environ); err != nil && !trace.IsNotFound(err) {
 		log.WithError(err).Warn("Failed to list update operation.")
@@ -242,7 +242,6 @@ func (r *backendOperations) List(localEnv *localenv.LocalEnvironment, environ Lo
 	if r.isActiveInstallOperation() {
 		r.listInstallOperation()
 	}
-	return nil
 }
 
 func (r *backendOperations) init(clusterBackend storage.Backend) error {

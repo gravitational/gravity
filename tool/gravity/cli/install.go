@@ -414,15 +414,38 @@ func agent(env *localenv.LocalEnvironment, config agentConfig, serviceName strin
 	return trace.Wrap(agent.Serve())
 }
 
-func executeInstallPhase(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, p PhaseParams) error {
-	operation, err := getActiveOperation(localEnv, environ, p.OperationID)
+func executeInstallPhase(localEnv *localenv.LocalEnvironment, p PhaseParams) error {
+	wizardEnv, err := localenv.NewRemoteEnvironment()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	if operation.Type != ops.OperationInstall {
-		return trace.NotFound("no active install operation found")
+	if wizardEnv.Operator == nil {
+		return trace.BadParameter(NoOperationStateBanner)
+	}
+	operation, err := ops.GetWizardOperation(wizardEnv.Operator)
+	if err != nil {
+		if trace.IsConnectionProblem(err) {
+			if err2 := CheckInstallOperationComplete(localEnv); err2 != nil {
+				return trace.Wrap(err, "unable to connect to installer. Is the installer process running?")
+			}
+			return trace.BadParameter("installation already completed")
+		}
+		return trace.Wrap(err)
 	}
 	return executeInstallPhaseForOperation(localEnv, p, *operation)
+}
+
+// CheckInstallOperationComplete verifies whether there's a completed install operation.
+// Returns nil if there is a completed install operation
+func CheckInstallOperationComplete(localEnv *localenv.LocalEnvironment) error {
+	operations, err := getLastOperation(localEnv, nil, "")
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if len(operations) == 1 && operations[0].Type == ops.OperationInstall && operations[0].IsCompleted() {
+		return nil
+	}
+	return trace.NotFound("no operation found")
 }
 
 func executeInstallPhaseForOperation(localEnv *localenv.LocalEnvironment, p PhaseParams, operation ops.SiteOperation) error {
@@ -490,6 +513,10 @@ func executeJoinPhaseForOperation(localEnv *localenv.LocalEnvironment, environ L
 	defer joinEnv.Close()
 	operator, err := joinEnv.CurrentOperator(httplib.WithInsecure())
 	if err != nil {
+		if trace.IsAccessDenied(err) {
+			log.WithError(err).Warn("Failed to connect to cluster service.")
+			return trace.BadParameter("unable to connect to the cluster service. Is the command being run from the joining node?")
+		}
 		return trace.Wrap(err)
 	}
 	apps, err := joinEnv.CurrentApps(httplib.WithInsecure())

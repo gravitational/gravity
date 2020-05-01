@@ -300,7 +300,7 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			*g.InstallCmd.Force = false
 		}
 		if *g.InstallCmd.Phase != "" {
-			return executeInstallPhase(localEnv, g, PhaseParams{
+			return executeInstallPhase(localEnv, PhaseParams{
 				PhaseID: *g.InstallCmd.Phase,
 				Force:   *g.InstallCmd.Force,
 				Timeout: *g.InstallCmd.PhaseTimeout,
