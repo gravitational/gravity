@@ -6,7 +6,7 @@
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
 | 7.0.4         | No  | April 29th, 2020     | 7.1 is released      | 1.17.4             | 3.2.13           |
 | 6.1.25        | Yes | April 29th, 2020     | November 10th, 2021  | 1.15.11            | 3.2.12           |
-| 5.5.42        | Yes | April 28th, 2020     | September 7th, 2020  | 1.13.11            | 3.0.6-gravity    |
+| 5.5.43        | Yes | May 1st, 2020        | September 7th, 2020  | 1.13.11            | 3.0.6-gravity    |
 
 Gravity offers one Long Term Support (LTS) release for every 2nd Kubernetes
 minor version, allowing for seamless upgrades per Kubernetes
@@ -797,6 +797,12 @@ to learn how to gain insight into how the cluster status changes over time.
 * Add support for using `helm` directly from host.
 
 ## 5.x Releases
+
+### 5.5.43 LTS (May 1st, 2020)
+
+#### Bugfixes
+
+* Restore `/bin/helm` and `/bin/kubectl` symlinks in planet container ([#1483](https://github.com/gravitational/gravity/pull/1483)).
 
 ### 5.5.42 LTS (April 28th, 2020)
 
