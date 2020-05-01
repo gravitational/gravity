@@ -387,9 +387,9 @@ func printNodeStatus(node statusapi.ClusterServer, w io.Writer) {
 		}
 	}
 	if node.TeleportNode != nil {
-		fmt.Fprintf(w, "            Teleport:\t%v\n", color.GreenString("connected"))
+		fmt.Fprintf(w, "            Remote access:\t%v\n", color.GreenString("online"))
 	} else {
-		fmt.Fprintf(w, "            Teleport:\t%v\n", color.YellowString("disconnected"))
+		fmt.Fprintf(w, "            Remote access:\t%v\n", color.YellowString("offline"))
 	}
 }
 
