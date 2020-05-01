@@ -1346,15 +1346,7 @@ func (o *Operator) GetAppInstaller(req ops.AppInstallerRequest) (io.ReadCloser, 
 
 // GetClusterNodes returns a real-time information about cluster nodes
 func (o *Operator) GetClusterNodes(key ops.SiteKey) ([]ops.Node, error) {
-	remote, err := o.cfg.Tunnel.GetSite(key.SiteDomain)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	client, err := remote.GetClient()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	nodes, err := client.GetNodes(defaults.Namespace)
+	nodes, err := o.backend().GetNodes(defaults.Namespace)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

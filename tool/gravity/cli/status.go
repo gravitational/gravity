@@ -386,6 +386,11 @@ func printNodeStatus(node statusapi.ClusterServer, w io.Writer) {
 			fmt.Fprintf(w, "            [%v]\t%v\n", constants.FailureMark, color.New(color.FgRed).SprintFunc()(probe))
 		}
 	}
+	if node.TeleportNode != nil {
+		fmt.Fprintf(w, "            Remote access:\t%v\n", color.GreenString("online"))
+	} else {
+		fmt.Fprintf(w, "            Remote access:\t%v\n", color.YellowString("offline"))
+	}
 }
 
 func unknownFallback(text string) string {

@@ -722,9 +722,7 @@ func (p *Peer) Wait() error {
 				return nil
 			}
 			if progress.State == ops.ProgressStateFailed {
-				p.Silent.Println(color.RedString("Failed to join the cluster"))
-				p.Silent.Printf("---\nAgent process will keep running so you can re-run certain steps.\n" +
-					"Once no longer needed, this process can be shutdown using Ctrl-C.\n")
+				return trace.BadParameter("failed to join the cluster")
 			}
 		}
 	}
