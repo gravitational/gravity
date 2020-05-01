@@ -39,7 +39,7 @@ func New(path string) (blob.Objects, error) {
 	o := &objects{dir: path}
 	for _, d := range []string{o.tempDir(), o.blobDir()} {
 		if err := os.MkdirAll(d, defaults.SharedDirMask); err != nil {
-			return nil, trace.Wrap(err)
+			return nil, trace.ConvertSystemError(err)
 		}
 	}
 	return o, nil
@@ -120,7 +120,7 @@ func (o *objects) WriteBLOB(data io.Reader) (*blob.Envelope, error) {
 	targetDir := o.hashDir(hash)
 	if err := os.MkdirAll(targetDir, defaults.SharedDirMask); err != nil {
 		defer os.Remove(f.Name())
-		return nil, trace.Wrap(err)
+		return nil, trace.ConvertSystemError(err)
 	}
 	// now place it to the right place in the filesystem
 	targetPath := filepath.Join(targetDir, hash)
@@ -131,9 +131,9 @@ func (o *objects) WriteBLOB(data io.Reader) (*blob.Envelope, error) {
 	fileInfo, err := os.Stat(targetPath)
 	if err != nil {
 		if err2 := os.Remove(targetPath); err2 != nil {
-			log.Errorf("failed to remove: %v", trace.DebugReport(err2))
+			log.WithError(err).Errorf("Failed to remove %v.", targetPath)
 		}
-		return nil, trace.Wrap(err)
+		return nil, trace.ConvertSystemError(err)
 	}
 	return &blob.Envelope{
 		SizeBytes: size,
@@ -147,7 +147,7 @@ func (o *objects) GetBLOBEnvelope(hash string) (*blob.Envelope, error) {
 	targetPath := filepath.Join(o.hashDir(hash), hash)
 	fileInfo, err := os.Stat(targetPath)
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return nil, trace.ConvertSystemError(err)
 	}
 	return &blob.Envelope{
 		SizeBytes: fileInfo.Size(),
@@ -160,7 +160,7 @@ func (o *objects) GetBLOBEnvelope(hash string) (*blob.Envelope, error) {
 func (o *objects) OpenBLOB(hash string) (blob.ReadSeekCloser, error) {
 	f, err := os.Open(filepath.Join(o.hashDir(hash), hash))
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return nil, trace.ConvertSystemError(err)
 	}
 	return f, nil
 }
@@ -169,7 +169,7 @@ func (o *objects) OpenBLOB(hash string) (blob.ReadSeekCloser, error) {
 func (o *objects) DeleteBLOB(hash string) error {
 	err := os.Remove(filepath.Join(o.hashDir(hash), hash))
 	if err != nil {
-		return trace.Wrap(err)
+		return trace.ConvertSystemError(err)
 	}
 	return nil
 }
