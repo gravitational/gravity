@@ -399,6 +399,11 @@ func printNodeStatus(node statusapi.ClusterServer, w io.Writer) {
 			fmt.Fprintf(w, "            [%v]\t%v\n", constants.WarnMark, color.New(color.FgYellow).SprintFunc()(probe))
 		}
 	}
+	if node.TeleportNode != nil {
+		fmt.Fprintf(w, "            Remote access:\t%v\n", color.GreenString("online"))
+	} else {
+		fmt.Fprintf(w, "            Remote access:\t%v\n", color.YellowString("offline"))
+	}
 }
 
 func printPrometheusAlerts(alerts []*models.GettableAlert, w io.Writer) {
