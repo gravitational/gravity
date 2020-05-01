@@ -809,6 +809,7 @@ to learn how to gain insight into how the cluster status changes over time.
 #### Bugfixes
 
 * Prevent nethealth checker from affecting the cluster status temporarily to avoid possible issues with cluster becoming degraded after removing a node ([#1464](https://github.com/gravitational/gravity/pull/1464)).
+* Upgrade etcd to the latest release in order to fix a problem with missed etcd events ([#1464](https://github.com/gravitational/gravity/pull/1464)) ([#1436](https://github.com/gravitational/gravity/issues/1436)).
 
 ### 5.5.41 LTS (April 24th, 2020)
 
