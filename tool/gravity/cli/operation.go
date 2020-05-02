@@ -146,7 +146,7 @@ func getLastOperation(localEnv *localenv.LocalEnvironment, environ LocalEnvironm
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	log.WithField("operations", oplist(operations).String()).Debug("Fetched backend operations.")
+	log.WithField("operations", operationList(operations).String()).Debug("Fetched backend operations.")
 	if len(operations) == 0 {
 		if operationID != "" {
 			return nil, trace.NotFound("no operation with ID %v found", operationID)
@@ -161,7 +161,7 @@ func getActiveOperation(localEnv *localenv.LocalEnvironment, environ LocalEnviro
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	log.WithField("operations", oplist(operations).String()).Debug("Fetched backend operations.")
+	log.WithField("operations", operationList(operations).String()).Debug("Fetched backend operations.")
 	if len(operations) == 0 {
 		if operationID != "" {
 			return nil, trace.NotFound("no operation with ID %v found", operationID)
@@ -207,6 +207,8 @@ func (r *backendOperations) List(localEnv *localenv.LocalEnvironment, environ Lo
 	if environ == nil {
 		return
 	}
+	// List operation from a local state store.
+	// This is required in cases when the cluster store is inaccessible (like during upgrades)
 	if err := r.listUpdateOperation(environ); err != nil && !trace.IsNotFound(err) {
 		log.WithError(err).Warn("Failed to list update operation.")
 	}
@@ -228,9 +230,10 @@ func (r *backendOperations) init(clusterBackend storage.Backend) error {
 	if len(clusterOperations) == 0 {
 		return nil
 	}
-	// Initialize the operation state from the list of existing cluster operations
-	// operations filters the latest operation of each type
-	operations := make(map[string]clusterOperation)
+	// Initialize the operation state from the list of existing cluster operations.
+	// operationsByType groups the operations by type to avoid looking at multiple operations
+	// of the same type as we are only interested in the latest operation
+	operationsByType := make(map[string]clusterOperation)
 	for _, op := range clusterOperations {
 		clusterOperation := clusterOperation{
 			SiteOperation: (ops.SiteOperation)(op),
@@ -238,11 +241,11 @@ func (r *backendOperations) init(clusterBackend storage.Backend) error {
 		if _, err := clusterBackend.GetOperationPlan(op.SiteDomain, op.ID); err == nil {
 			clusterOperation.hasPlan = true
 		}
-		if _, exists := operations[op.Type]; !exists {
-			operations[op.Type] = clusterOperation
+		if _, exists := operationsByType[op.Type]; !exists {
+			operationsByType[op.Type] = clusterOperation
 		}
 	}
-	for _, op := range operations {
+	for _, op := range operationsByType {
 		r.operations[op.ID] = op
 	}
 	latestOperation := r.operations[clusterOperations[0].ID]
@@ -256,7 +259,7 @@ func (r *backendOperations) listUpdateOperation(environ LocalEnvironmentFactory)
 		return trace.Wrap(err)
 	}
 	defer env.Close()
-	r.maybeUpdateOperationInCache(env.Backend, log.WithField("context", "update"))
+	r.updateOperationInCache(env.Backend, log.WithField("context", "update"))
 	return nil
 }
 
@@ -272,7 +275,7 @@ func (r *backendOperations) listJoinOperation(environ LocalEnvironmentFactory) e
 		return nil
 	}
 	defer env.Close()
-	r.maybeUpdateOperationInCache(env.Backend, log.WithField("context", "expand"))
+	r.updateOperationInCache(env.Backend, log.WithField("context", "expand"))
 	return nil
 }
 
@@ -300,17 +303,12 @@ func (r *backendOperations) listInstallOperation() {
 	r.operations[op.ID] = clusterOperation
 }
 
-func (r *backendOperations) maybeUpdateOperationInCache(backend storage.Backend, logger logrus.FieldLogger) {
+func (r *backendOperations) updateOperationInCache(backend storage.Backend, logger logrus.FieldLogger) {
 	op, err := storage.GetLastOperation(backend)
 	if err != nil {
 		if !trace.IsNotFound(err) {
 			logger.WithError(err).Warn("Failed to query operation.")
 		}
-		return
-	}
-	if _, exists := r.operations[op.ID]; !exists {
-		// Operation must exist in cluster store, otherwise it is stale state that should not be considered
-		logger.WithField("op", (*ops.SiteOperation)(op).String()).Warn("Unrelated operation found - will ingnore.")
 		return
 	}
 	clusterOperation := clusterOperation{
@@ -360,7 +358,7 @@ func getActiveOperationFromList(operations []clusterOperation) (*clusterOperatio
 }
 
 // formatTable formats this operation list as a table
-func (r oplist) formatTable() string {
+func (r operationList) formatTable() string {
 	t := goterm.NewTable(0, 10, 5, ' ', 0)
 	common.PrintTableHeader(t, []string{"Type", "ID", "State", "Created"})
 	for _, op := range r {
@@ -370,7 +368,7 @@ func (r oplist) formatTable() string {
 	return t.String()
 }
 
-func (r oplist) String() string {
+func (r operationList) String() string {
 	var ops []string
 	for _, op := range r {
 		ops = append(ops, op.String())
@@ -378,7 +376,7 @@ func (r oplist) String() string {
 	return strings.Join(ops, "\n")
 }
 
-type oplist []clusterOperation
+type operationList []clusterOperation
 
 type clusterOperation struct {
 	ops.SiteOperation

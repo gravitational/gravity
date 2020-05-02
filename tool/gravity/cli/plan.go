@@ -84,9 +84,9 @@ func displayOperationPlan(localEnv *localenv.LocalEnvironment, environ LocalEnvi
 			// Use the active operation if available
 			op = activeOperation
 		} else if format == constants.EncodingText {
-			log.WithField("operations", oplist(operations).String()).Warn("Multiple operations found.")
+			log.WithField("operations", operationList(operations).String()).Warn("Multiple operations found.")
 			localEnv.Printf("Multiple operations found: \n%v\nPlease specify operation with --operation-id. "+
-				"Displaying the most recent operation.\n\n", oplist(operations).formatTable())
+				"Displaying the most recent operation.\n\n", operationList(operations).formatTable())
 		}
 	}
 	if op.IsCompleted() {
