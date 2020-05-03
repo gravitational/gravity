@@ -435,19 +435,6 @@ func executeInstallPhase(localEnv *localenv.LocalEnvironment, p PhaseParams) err
 	return executeInstallPhaseForOperation(localEnv, p, *operation)
 }
 
-// CheckInstallOperationComplete verifies whether there's a completed install operation.
-// Returns nil if there is a completed install operation
-func CheckInstallOperationComplete(localEnv *localenv.LocalEnvironment) error {
-	operations, err := getLastOperation(localEnv, nil, "")
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	if len(operations) == 1 && operations[0].Type == ops.OperationInstall && operations[0].IsCompleted() {
-		return nil
-	}
-	return trace.NotFound("no operation found")
-}
-
 func executeInstallPhaseForOperation(localEnv *localenv.LocalEnvironment, p PhaseParams, operation ops.SiteOperation) error {
 	localApps, err := localEnv.AppServiceLocal(localenv.AppConfig{})
 	if err != nil {
@@ -497,6 +484,9 @@ func executeInstallPhaseForOperation(localEnv *localenv.LocalEnvironment, p Phas
 func executeJoinPhase(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, p PhaseParams) error {
 	operation, err := getActiveOperation(localEnv, environ, p.OperationID)
 	if err != nil {
+		if trace.IsNotFound(err) {
+			return trace.NotFound("no active expand operation found")
+		}
 		return trace.Wrap(err)
 	}
 	if operation.Type != ops.OperationExpand {

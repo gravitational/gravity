@@ -139,9 +139,27 @@ func completeClusterOperationPlan(localEnv *localenv.LocalEnvironment, operation
 	return ops.FailOperation(operation.Key(), clusterEnv.Operator, "completed manually")
 }
 
-// getLastOperation returns the list of operations found across the specified backends.
+// CheckInstallOperationComplete verifies whether there's a completed install operation.
+// Returns nil if there is a completed install operation
+func CheckInstallOperationComplete(localEnv *localenv.LocalEnvironment) error {
+	operations, err := getBackendOperations(localEnv, nil, "")
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	log.WithField("operations", operationList(operations).String()).Debug("Fetched backend operations.")
+	if len(operations) == 0 {
+		return trace.NotFound("no install operation found")
+	}
+	firstOperation := operations[len(operations)-1]
+	if firstOperation.Type == ops.OperationInstall && firstOperation.IsCompleted() {
+		return nil
+	}
+	return trace.NotFound("no install operation found")
+}
+
+// getLastOperation returns the last operation found across the specified backends.
 // If no operation is found, the returned error will indicate a not found operation
-func getLastOperation(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operationID string) ([]clusterOperation, error) {
+func getLastOperation(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operationID string) (*clusterOperation, error) {
 	operations, err := getBackendOperations(localEnv, environ, operationID)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -153,22 +171,18 @@ func getLastOperation(localEnv *localenv.LocalEnvironment, environ LocalEnvironm
 		}
 		return nil, trace.NotFound("no operation found")
 	}
-	return operations, nil
+	return &operations[0], nil
 }
 
 func getActiveOperation(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operationID string) (*clusterOperation, error) {
-	operations, err := getBackendOperations(localEnv, environ, operationID)
+	operation, err := getLastOperation(localEnv, environ, operationID)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	log.WithField("operations", operationList(operations).String()).Debug("Fetched backend operations.")
-	if len(operations) == 0 {
-		if operationID != "" {
-			return nil, trace.NotFound("no operation with ID %v found", operationID)
-		}
-		return nil, trace.NotFound("no operation found")
+	if operation.IsCompleted() {
+		return nil, trace.NotFound("no active operation found")
 	}
-	return getActiveOperationFromList(operations)
+	return operation, nil
 }
 
 // getBackendOperations returns the list of operation from the specified backends
@@ -177,7 +191,7 @@ func getBackendOperations(localEnv *localenv.LocalEnvironment, environ LocalEnvi
 	b := newBackendOperations()
 	b.List(localEnv, environ)
 	for _, op := range b.operations {
-		if operationID == "" || operationID == op.ID {
+		if (operationID == "" || operationID == op.ID) && op.hasPlan {
 			result = append(result, op)
 		}
 	}
@@ -296,7 +310,7 @@ func (r *backendOperations) listInstallOperation() {
 	clusterOperation := clusterOperation{
 		SiteOperation: (ops.SiteOperation)(*op),
 	}
-	if _, err := wizardEnv.Operator.GetOperationPlan(op.Key()); err != nil {
+	if _, err := wizardEnv.Operator.GetOperationPlan(op.Key()); err == nil {
 		clusterOperation.hasPlan = true
 	}
 	log.Debug("Fetched install operation from wizard environment.")
@@ -346,15 +360,6 @@ type backendOperations struct {
 	operations map[string]clusterOperation
 	// clusterOperation stores the first operation found in cluster state store (if any)
 	clusterOperation *clusterOperation
-}
-
-func getActiveOperationFromList(operations []clusterOperation) (*clusterOperation, error) {
-	for _, op := range operations {
-		if !op.IsCompleted() && op.hasPlan {
-			return &op, nil
-		}
-	}
-	return nil, trace.NotFound("no active operation found")
 }
 
 // formatTable formats this operation list as a table

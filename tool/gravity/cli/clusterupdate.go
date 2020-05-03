@@ -98,6 +98,9 @@ func newClusterUpdater(
 func executeUpdatePhase(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params PhaseParams) error {
 	operation, err := getActiveOperation(env, environ, params.OperationID)
 	if err != nil {
+		if trace.IsNotFound(err) {
+			return trace.NotFound("no active update operation found")
+		}
 		return trace.Wrap(err)
 	}
 	if operation.Type != ops.OperationUpdate {
