@@ -72,7 +72,12 @@ func newEnvironUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalE
 	return newUpdater(ctx, localEnv, updateEnv, init)
 }
 
-func executeEnvironPhase(env, updateEnv *localenv.LocalEnvironment, params PhaseParams, operation ops.SiteOperation) error {
+func executeEnvironPhaseForOperation(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params PhaseParams, operation ops.SiteOperation) error {
+	updateEnv, err := environ.NewUpdateEnv()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer updateEnv.Close()
 	updater, err := getEnvironUpdater(env, updateEnv, operation)
 	if err != nil {
 		return trace.Wrap(err)
@@ -82,7 +87,12 @@ func executeEnvironPhase(env, updateEnv *localenv.LocalEnvironment, params Phase
 	return trace.Wrap(err)
 }
 
-func rollbackEnvironPhase(env, updateEnv *localenv.LocalEnvironment, params PhaseParams, operation ops.SiteOperation) error {
+func rollbackEnvironPhaseForOperation(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params PhaseParams, operation ops.SiteOperation) error {
+	updateEnv, err := environ.NewUpdateEnv()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer updateEnv.Close()
 	updater, err := getEnvironUpdater(env, updateEnv, operation)
 	if err != nil {
 		return trace.Wrap(err)
@@ -92,13 +102,24 @@ func rollbackEnvironPhase(env, updateEnv *localenv.LocalEnvironment, params Phas
 	return trace.Wrap(err)
 }
 
-func completeEnvironPlan(env, updateEnv *localenv.LocalEnvironment, operation ops.SiteOperation) error {
+func completeEnvironPlanForOperation(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operation ops.SiteOperation) error {
+	updateEnv, err := environ.NewUpdateEnv()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer updateEnv.Close()
 	updater, err := getEnvironUpdater(env, updateEnv, operation)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	defer updater.Close()
-	return trace.Wrap(updater.Complete(nil))
+	if err := updater.Complete(nil); err != nil {
+		return trace.Wrap(err)
+	}
+	if err := updater.Activate(); err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
 }
 
 func getEnvironUpdater(env, updateEnv *localenv.LocalEnvironment, operation ops.SiteOperation) (*update.Updater, error) {

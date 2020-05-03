@@ -122,6 +122,14 @@ func (r *Updater) Complete(fsmErr error) error {
 	return r.machine.Complete(fsmErr)
 }
 
+// Activate activates the cluster.
+func (r *Updater) Activate() error {
+	return r.Operator.ActivateSite(ops.ActivateSiteRequest{
+		AccountID:  r.Operation.AccountID,
+		SiteDomain: r.Operation.SiteDomain,
+	})
+}
+
 // GetPlan returns the up-to-date operation plan
 func (r *Updater) GetPlan() (*storage.OperationPlan, error) {
 	return r.machine.GetPlan()

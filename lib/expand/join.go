@@ -433,7 +433,8 @@ func (p *Peer) tryConnect() (op *operationContext, err error) {
 			return op, trace.Wrap(err)
 		}
 		if trace.IsCompareFailed(err) {
-			p.sendMessage("Waiting for another operation to finish at %v", addr)
+			p.WithError(err).Info("Failed to create expand operation.")
+			p.sendMessage("Waiting to create expand operation at %v: %v", addr, err)
 		}
 	}
 	return op, trace.Wrap(err)

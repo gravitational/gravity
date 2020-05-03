@@ -414,7 +414,28 @@ func agent(env *localenv.LocalEnvironment, config agentConfig, serviceName strin
 	return trace.Wrap(agent.Serve())
 }
 
-func executeInstallPhase(localEnv *localenv.LocalEnvironment, p PhaseParams, operation ops.SiteOperation) error {
+func executeInstallPhase(localEnv *localenv.LocalEnvironment, p PhaseParams) error {
+	wizardEnv, err := localenv.NewRemoteEnvironment()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if wizardEnv.Operator == nil {
+		return trace.BadParameter(NoOperationStateBanner)
+	}
+	operation, err := ops.GetWizardOperation(wizardEnv.Operator)
+	if err != nil {
+		if trace.IsConnectionProblem(err) {
+			if err2 := CheckInstallOperationComplete(localEnv); err2 != nil {
+				return trace.Wrap(err, "unable to connect to installer. Is the installer process running?")
+			}
+			return trace.BadParameter("installation already completed")
+		}
+		return trace.Wrap(err)
+	}
+	return executeInstallPhaseForOperation(localEnv, p, *operation)
+}
+
+func executeInstallPhaseForOperation(localEnv *localenv.LocalEnvironment, p PhaseParams, operation ops.SiteOperation) error {
 	localApps, err := localEnv.AppServiceLocal(localenv.AppConfig{})
 	if err != nil {
 		return trace.Wrap(err)
@@ -460,9 +481,32 @@ func executeInstallPhase(localEnv *localenv.LocalEnvironment, p PhaseParams, ope
 	return nil
 }
 
-func executeJoinPhase(localEnv, joinEnv *localenv.LocalEnvironment, p PhaseParams, operation ops.SiteOperation) error {
+func executeJoinPhase(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, p PhaseParams) error {
+	operation, err := getActiveOperation(localEnv, environ, p.OperationID)
+	if err != nil {
+		if trace.IsNotFound(err) {
+			return trace.NotFound("no active expand operation found")
+		}
+		return trace.Wrap(err)
+	}
+	if operation.Type != ops.OperationExpand {
+		return trace.NotFound("no active expand operation found")
+	}
+	return executeJoinPhaseForOperation(localEnv, environ, p, operation.SiteOperation)
+}
+
+func executeJoinPhaseForOperation(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, p PhaseParams, operation ops.SiteOperation) error {
+	joinEnv, err := environ.NewJoinEnv()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer joinEnv.Close()
 	operator, err := joinEnv.CurrentOperator(httplib.WithInsecure())
 	if err != nil {
+		if trace.IsAccessDenied(err) {
+			log.WithError(err).Warn("Failed to connect to cluster service.")
+			return trace.BadParameter("unable to connect to the cluster service. Is the command being run from the joining node?")
+		}
 		return trace.Wrap(err)
 	}
 	apps, err := joinEnv.CurrentApps(httplib.WithInsecure())
@@ -502,7 +546,12 @@ func executeJoinPhase(localEnv, joinEnv *localenv.LocalEnvironment, p PhaseParam
 	})
 }
 
-func rollbackJoinPhase(localEnv, joinEnv *localenv.LocalEnvironment, p PhaseParams, operation ops.SiteOperation) error {
+func rollbackJoinPhaseForOperation(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, p PhaseParams, operation ops.SiteOperation) error {
+	joinEnv, err := environ.NewJoinEnv()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer joinEnv.Close()
 	operator, err := joinEnv.CurrentOperator(httplib.WithInsecure(), httplib.WithTimeout(5*time.Second))
 	if err != nil {
 		return trace.Wrap(err)
@@ -554,7 +603,7 @@ func ResumeInstall(ctx context.Context, machine *fsm.FSM, progress utils.Progres
 	return nil
 }
 
-func rollbackInstallPhase(localEnv *localenv.LocalEnvironment, p PhaseParams, operation ops.SiteOperation) error {
+func rollbackInstallPhaseForOperation(localEnv *localenv.LocalEnvironment, p PhaseParams, operation ops.SiteOperation) error {
 	localApps, err := localEnv.AppServiceLocal(localenv.AppConfig{})
 	if err != nil {
 		return trace.Wrap(err)
@@ -592,7 +641,7 @@ func rollbackInstallPhase(localEnv *localenv.LocalEnvironment, p PhaseParams, op
 	})
 }
 
-func completeInstallPlan(localEnv *localenv.LocalEnvironment, operation ops.SiteOperation) error {
+func completeInstallPlanForOperation(localEnv *localenv.LocalEnvironment, operation ops.SiteOperation) error {
 	localApps, err := localEnv.AppServiceLocal(localenv.AppConfig{})
 	if err != nil {
 		return trace.Wrap(err)
@@ -624,7 +673,12 @@ func completeInstallPlan(localEnv *localenv.LocalEnvironment, operation ops.Site
 	return nil
 }
 
-func completeJoinPlan(localEnv, joinEnv *localenv.LocalEnvironment, operation ops.SiteOperation) error {
+func completeJoinPlanForOperation(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operation ops.SiteOperation) error {
+	joinEnv, err := environ.NewJoinEnv()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer joinEnv.Close()
 	operator, err := joinEnv.CurrentOperator(httplib.WithInsecure())
 	if err != nil {
 		if !trace.IsAccessDenied(err) {

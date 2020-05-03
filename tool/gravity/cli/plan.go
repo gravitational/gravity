@@ -64,36 +64,42 @@ func initUpdateOperationPlan(localEnv, updateEnv *localenv.LocalEnvironment) err
 	return trace.Wrap(err)
 }
 
-func displayOperationPlan(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, operationID string, format constants.Format) error {
-	operations, err := getLastOperation(localEnv, updateEnv, joinEnv, operationID)
+func displayOperationPlan(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operationID string, format constants.Format) error {
+	op, err := getLastOperation(localEnv, environ, operationID)
 	if err != nil {
+		if trace.IsNotFound(err) {
+			message := noOperationStateNoClusterStateBanner
+			if err2 := CheckLocalState(localEnv); err2 != nil {
+				message = NoOperationStateBanner
+			}
+			return trace.NotFound(message)
+		}
 		return trace.Wrap(err)
 	}
-	if len(operations) != 1 && format == constants.EncodingText {
-		log.WithField("operations", oplist(operations).String()).Warn("Multiple operations found.")
-		localEnv.Printf("Multiple operations found: \n%v\nPlease specify operation with --operation-id. "+
-			"Displaying the most recent operation.\n\n", oplist(operations).formatTable())
-	}
-	op := operations[0]
 	if op.IsCompleted() {
 		return displayClusterOperationPlan(localEnv, op.Key(), format)
 	}
 	switch op.Type {
 	case ops.OperationInstall:
-		return displayInstallOperationPlan(op.Key(), format)
+		err = displayInstallOperationPlan(op.Key(), format)
 	case ops.OperationExpand:
-		return displayExpandOperationPlan(joinEnv, op.Key(), format)
+		err = displayExpandOperationPlan(environ, op.Key(), format)
 	case ops.OperationUpdate:
-		return displayUpdateOperationPlan(localEnv, updateEnv, op.Key(), format)
+		err = displayUpdateOperationPlan(localEnv, environ, op.Key(), format)
 	case ops.OperationUpdateRuntimeEnviron:
-		return displayUpdateOperationPlan(localEnv, updateEnv, op.Key(), format)
+		err = displayUpdateOperationPlan(localEnv, environ, op.Key(), format)
 	case ops.OperationUpdateConfig:
-		return displayUpdateOperationPlan(localEnv, updateEnv, op.Key(), format)
+		err = displayUpdateOperationPlan(localEnv, environ, op.Key(), format)
 	case ops.OperationGarbageCollect:
-		return displayClusterOperationPlan(localEnv, op.Key(), format)
+		err = displayClusterOperationPlan(localEnv, op.Key(), format)
 	default:
 		return trace.BadParameter("unknown operation type %q", op.Type)
 	}
+	if err != nil && trace.IsNotFound(err) {
+		// Fallback to cluster plan
+		return displayClusterOperationPlan(localEnv, op.Key(), format)
+	}
+	return trace.Wrap(err)
 }
 
 func displayClusterOperationPlan(env *localenv.LocalEnvironment, opKey ops.SiteOperationKey, format constants.Format) error {
@@ -109,7 +115,11 @@ func displayClusterOperationPlan(env *localenv.LocalEnvironment, opKey ops.SiteO
 	return trace.Wrap(err)
 }
 
-func displayUpdateOperationPlan(localEnv, updateEnv *localenv.LocalEnvironment, opKey ops.SiteOperationKey, format constants.Format) error {
+func displayUpdateOperationPlan(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, opKey ops.SiteOperationKey, format constants.Format) error {
+	updateEnv, err := environ.NewUpdateEnv()
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	plan, err := fsm.GetOperationPlan(updateEnv.Backend, opKey.SiteDomain, opKey.OperationID)
 	if err != nil {
 		return trace.Wrap(err)
@@ -128,38 +138,21 @@ func displayUpdateOperationPlan(localEnv, updateEnv *localenv.LocalEnvironment, 
 }
 
 func displayInstallOperationPlan(opKey ops.SiteOperationKey, format constants.Format) error {
-	wizardEnv, err := localenv.NewRemoteEnvironment()
-	if err != nil {
-		return trace.Wrap(err)
+	plan, err := getPlanFromWizard(opKey)
+	if err == nil {
+		log.Debug("Showing install operation plan retrieved from wizard process.")
+		return trace.Wrap(outputPlan(*plan, format))
 	}
-	if wizardEnv.Operator == nil {
-		return trace.NotFound(`could not retrieve install operation plan.
-
-If you have not launched the installation, or it has been started moments ago,
-the plan may not be initialized yet.
-
-If the install operation is in progress, please make sure you're invoking
-"gravity plan" command from the same directory where "gravity install"
-was run.`)
-	}
-	plan, err := wizardEnv.Operator.GetOperationPlan(opKey)
-	if err != nil {
-		if trace.IsNotFound(err) {
-			return trace.NotFound(
-				"Install operation plan hasn't been initialized yet.")
-		}
-		return trace.Wrap(err)
-	}
-	log.Debug("Showing install operation plan retrieved from wizard process.")
-	err = outputPlan(*plan, format)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	return nil
+	return trace.Wrap(outputPlan(*plan, format))
 }
 
 // displayExpandOperationPlan shows plan of the join operation from the local join backend
-func displayExpandOperationPlan(joinEnv *localenv.LocalEnvironment, opKey ops.SiteOperationKey, format constants.Format) error {
+func displayExpandOperationPlan(environ LocalEnvironmentFactory, opKey ops.SiteOperationKey, format constants.Format) error {
+	joinEnv, err := environ.NewJoinEnv()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer joinEnv.Close()
 	plan, err := fsm.GetOperationPlan(joinEnv.Backend, opKey.SiteDomain, opKey.OperationID)
 	if err != nil {
 		return trace.Wrap(err)
@@ -183,7 +176,6 @@ func outputPlan(plan storage.OperationPlan, format constants.Format) (err error)
 	default:
 		return trace.BadParameter("unknown output format %q", format)
 	}
-
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -231,4 +223,35 @@ func tryReconcilePlan(ctx context.Context, localEnv, updateEnv *localenv.LocalEn
 	return reconciledPlan, nil
 }
 
-const recoveryModeWarning = "Failed to retrieve plan from etcd, showing cached plan. If etcd went down as a result of a system upgrade, you can perform a rollback phase. Run 'gravity plan --repair' when etcd connection is restored.\n"
+func getPlanFromWizard(opKey ops.SiteOperationKey) (*storage.OperationPlan, error) {
+	wizardEnv, err := localenv.NewRemoteEnvironment()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	if wizardEnv.Operator == nil {
+		return nil, trace.NotFound("no operation plan")
+	}
+	plan, err := wizardEnv.Operator.GetOperationPlan(opKey)
+	if err != nil {
+		if trace.IsNotFound(err) {
+			return nil, trace.NotFound(
+				"install operation plan hasn't been initialized yet.")
+		}
+		return nil, trace.Wrap(err)
+	}
+	return plan, nil
+}
+
+const (
+	// NoOperationStateBanner specifies the message for when the operation
+	// cannot be retrieved from the installer process and that the operation
+	// should be restarted
+	NoOperationStateBanner = `no operation found.
+This usually means that the installation/join operation has failed to start or was not started.
+Clean up the node with 'gravity leave' and start the operation with either 'gravity install' or 'gravity join'.
+`
+	noOperationStateNoClusterStateBanner = `no operation found.
+This usually means that the installation/join operation has failed to start or was not started.
+Start the operation with either 'gravity install' or 'gravity join'.
+`
+)
