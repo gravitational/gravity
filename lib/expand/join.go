@@ -830,7 +830,8 @@ func (p *Peer) tryConnect(operationID string) (ctx *operationContext, err error)
 			return nil, utils.Abort(err)
 		}
 		if trace.IsCompareFailed(err) {
-			p.printStep("Waiting for another operation to finish at %v", addr)
+			p.WithError(err).Info("Failed to create expand operation.")
+			p.printStep("Waiting to create expand operation at %v: %v", addr, err)
 		}
 	}
 	return ctx, trace.Wrap(err)
