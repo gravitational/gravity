@@ -666,6 +666,11 @@ func (o *Operator) CreateSite(r ops.NewSiteRequest) (*ops.Site, error) {
 		return nil, trace.Wrap(err)
 	}
 
+	err = o.initTeleportAuthToken(clusterKey)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
 	if r.InstallToken != "" {
 		_, err = o.cfg.Users.CreateAPIKey(storage.APIKey{
 			Token:     r.InstallToken,
@@ -676,6 +681,24 @@ func (o *Operator) CreateSite(r ops.NewSiteRequest) (*ops.Site, error) {
 		}
 	}
 	return convertSite(*clusterData, o.cfg.Apps)
+}
+
+// initTeleportAuthToken creates an auth token for teleport nodes.
+func (o *Operator) initTeleportAuthToken(key ops.SiteKey) error {
+	token, err := users.CryptoRandomToken(defaults.ProvisioningTokenBytes)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	_, err = o.backend().CreateProvisioningToken(storage.ProvisioningToken{
+		AccountID:  key.AccountID,
+		SiteDomain: key.SiteDomain,
+		Token:      token,
+		Type:       storage.ProvisioningTokenTypeTeleport,
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
 }
 
 func (o *Operator) upsertAgentUsers(clusterKey ops.SiteKey, opsCenter string) (agent storage.User, err error) {

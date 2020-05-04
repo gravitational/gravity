@@ -1118,16 +1118,9 @@ func (s *site) getTeleportMasterConfig(ctx *operationContext, configPackage loc.
 	fileConf.AdvertiseIP = advertiseIP.String()
 	fileConf.Global.NodeName = master.FQDN(s.domainName)
 
-	joinToken, err := s.service.GetExpandToken(s.key)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
 	// turn on auth service
 	fileConf.Auth.EnabledFlag = "yes"
 	fileConf.Auth.ClusterName = telecfg.ClusterName(s.domainName)
-	fileConf.Auth.StaticTokens = telecfg.StaticTokens{
-		telecfg.StaticToken(fmt.Sprintf("node:%v", joinToken.Token))}
 
 	// turn on proxy and Kubernetes integration
 	fileConf.Proxy.EnabledFlag = "yes"
@@ -1187,12 +1180,28 @@ func toObject(in interface{}) (map[string]interface{}, error) {
 	return out, nil
 }
 
-func (s *site) getTeleportNodeConfig(ctx *operationContext, masterIPs []string, configPackage loc.Locator, node *ProvisionedServer) (*ops.RotatePackageResponse, error) {
-	joinToken, err := s.service.GetExpandToken(s.key)
+func (s *site) getTeleportAuthToken() (string, error) {
+	tokens, err := s.backend().GetSiteProvisioningTokens(s.domainName)
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return "", trace.Wrap(err)
 	}
+	// See if there's a teleport specific token.
+	for _, t := range tokens {
+		if t.IsTeleport() && t.IsPersistent() {
+			return t.Token, nil
+		}
+	}
+	// Fallback to expand tokens for backwards compatibility.
+	for _, t := range tokens {
+		if t.IsExpand() && t.IsPersistent() {
+			return t.Token, nil
+		}
+	}
+	return "", trace.NotFound("could not find persistent teleport or expand token among %v",
+		tokens)
+}
 
+func (s *site) getTeleportNodeConfig(ctx *operationContext, masterIPs []string, configPackage loc.Locator, node *ProvisionedServer) (*ops.RotatePackageResponse, error) {
 	fileConf := &telecfg.FileConfig{
 		Global: telecfg.Global{
 			Ciphers:       defaults.TeleportCiphers,
@@ -1212,7 +1221,12 @@ func (s *site) getTeleportNodeConfig(ctx *operationContext, masterIPs []string, 
 	for _, masterIP := range masterIPs {
 		fileConf.AuthServers = append(fileConf.AuthServers, fmt.Sprintf("%v:3025", masterIP))
 	}
-	fileConf.AuthToken = joinToken.Token
+
+	var err error
+	fileConf.AuthToken, err = s.getTeleportAuthToken()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 
 	fileConf.SSH.Labels = map[string]string{}
 
