@@ -18,6 +18,7 @@ package cli
 
 import (
 	"context"
+	"fmt"
 	"sort"
 	"strings"
 	"time"
@@ -78,6 +79,11 @@ func resumeOperation(localEnv *localenv.LocalEnvironment, environ LocalEnvironme
 	}
 	if !trace.IsNotFound(err) {
 		return trace.Wrap(err)
+	}
+	if opErr, ok := trace.Unwrap(err).(operationNotFound); ok {
+		if opErr.existing {
+			return trace.Wrap(opErr)
+		}
 	}
 	log.WithError(err).Warn("No operation found - will attempt to restart installation (resume join).")
 	return trace.Wrap(restartInstallOrJoin(localEnv))
@@ -228,9 +234,9 @@ func getLastOperation(localEnv *localenv.LocalEnvironment, environ LocalEnvironm
 	log.WithField("operations", operationList(operations).String()).Debug("Fetched backend operations.")
 	if len(operations) == 0 {
 		if operationID != "" {
-			return nil, trace.NotFound("no operation with ID %v found", operationID)
+			return nil, newOperationNotFound("no operation with ID %v found", operationID)
 		}
-		return nil, trace.NotFound("no operation found")
+		return nil, newOperationNotFound("no operation found")
 	}
 	return &operations[0], nil
 }
@@ -241,7 +247,7 @@ func getActiveOperation(localEnv *localenv.LocalEnvironment, environ LocalEnviro
 		return nil, trace.Wrap(err)
 	}
 	if operation.IsCompleted() {
-		return nil, trace.NotFound("no active operation found")
+		return nil, operationNotFound{message: "no active operation found", existing: true}
 	}
 	return operation, nil
 }
@@ -529,4 +535,31 @@ func ensureInstallerServiceRunning() error {
 		return trace.Wrap(err)
 	}
 	return nil
+}
+
+func newOperationNotFound(format string, args ...interface{}) operationNotFound {
+	return operationNotFound{
+		message: fmt.Sprintf(format, args...),
+	}
+}
+
+// Error returns the text representation of this error.
+// Implement error
+func (r operationNotFound) Error() string {
+	if r.message != "" {
+		return r.message
+	}
+	return "no operation found"
+}
+
+// IsNotFoundError indicates that this is a not found error type.
+// Implements trace.IsNotFoundError
+func (r operationNotFound) IsNotFoundError() bool {
+	return true
+}
+
+type operationNotFound struct {
+	message string
+	// existing indicates whether an operation exists but is not active
+	existing bool
 }
