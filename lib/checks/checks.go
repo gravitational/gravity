@@ -760,7 +760,7 @@ func checkRAM(info ServerInfo, ram schema.RAM) error {
 // The check will pass if all nodes in the cluster are based on the same OS distribution and major version.
 // Variance in minor/patch versions is acceptable.
 func checkSameOS(servers []Server) error {
-	// distros maps distribnution name to list of versions
+	// distros maps distribution name to list of versions
 	distros := make(map[string][]string)
 	for _, server := range servers {
 		info := server.GetOS()
@@ -769,33 +769,35 @@ func checkSameOS(servers []Server) error {
 	if len(distros) != 1 {
 		return trace.BadParameter("servers have different OS distributions: %v", formatKeysAsList(distros))
 	}
-	// Version verification is purposedly simply and will compare the prefixes
-	// upto to either the first '.' or eol
+	// Version verification is purposely simply and will compare the prefixes
+	// up to to either the first '.' or end of line
 	for _, versions := range distros {
 		if !verifyCommonVersionPrefix(versions...) {
 			return trace.BadParameter("servers have different OS versions: %v", formatAsList(distros))
 		}
 	}
-	log.Info("Servers passed check for the same OS.")
+	log.Infof("Servers passed check for same OS: %v.", formatAsList(distros))
 	return nil
 }
 
 func verifyCommonVersionPrefix(versions ...string) bool {
-	prefixes := make(map[string]struct{})
-	for _, v := range versions {
-		index := strings.Index(v, ".")
-		if index == -1 {
-			index = len(v)
-		}
-		prefixes[v[:index]] = struct{}{}
+	if len(versions) <= 1 {
+		return true
 	}
-	return len(prefixes) == 1
+	for i := 0; i < len(versions)-1; i += 1 {
+		if !strings.EqualFold(
+			strings.Split(versions[i], ".")[0],
+			strings.Split(versions[i+1], ".")[0]) {
+			return false
+		}
+	}
+	return true
 }
 
 func formatAsList(m map[string][]string) (result []string) {
 	result = make([]string, 0, len(m))
 	for k, v := range m {
-		result = append(result, fmt.Sprintf("%v (%q)", k, v))
+		result = append(result, fmt.Sprintf("%v (%v)", k, v))
 	}
 	return result
 }

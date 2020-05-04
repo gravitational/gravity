@@ -163,14 +163,6 @@ func (s *ChecksSuite) TestCheckSameOS(c *check.C) {
 			},
 			err: "servers have different OS distributions.*",
 		},
-		// {
-		// 	comment: "no match on bogus input? (identical to previous behavior)",
-		// 	servers: []Server{
-		// 		newServer("node-1", "centos", "greatest release"),
-		// 		newServer("node-2", "centos", "greatest release. more text"),
-		// 	},
-		// 	err: "servers have different OS versions.*",
-		// },
 	}
 	for _, tc := range testCases {
 		comment := check.Commentf(tc.comment)
