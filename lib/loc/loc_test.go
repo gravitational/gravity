@@ -75,8 +75,8 @@ func (s *LocatorSuite) TestLocatorFail(c *C) {
 		"example:0.0.1",                 // missing repository
 		"example.com/example:blabla",    // not a sem ver
 		"example.com/example com:0.0.2", // unallowed chars
-		"", //emtpy
-		"arffewfaef aefeafaesf e", //garbage
+		"",                              //emtpy
+		"arffewfaef aefeafaesf e",       //garbage
 		"-:.",
 	}
 	for i, tc := range tcs {
