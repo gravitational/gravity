@@ -206,24 +206,6 @@ func completeClusterOperationPlan(localEnv *localenv.LocalEnvironment, operation
 	return ops.FailOperation(operation.Key(), clusterEnv.Operator, "completed manually")
 }
 
-// CheckInstallOperationComplete verifies whether there's a completed install operation.
-// Returns nil if there is a completed install operation
-func CheckInstallOperationComplete(localEnv *localenv.LocalEnvironment) error {
-	operations, err := getBackendOperations(localEnv, nil, "")
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	log.WithField("operations", operationList(operations).String()).Debug("Fetched backend operations.")
-	if len(operations) == 0 {
-		return trace.NotFound("no install operation found")
-	}
-	firstOperation := operations[len(operations)-1]
-	if firstOperation.Type == ops.OperationInstall && firstOperation.IsCompleted() {
-		return nil
-	}
-	return trace.NotFound("no install operation found")
-}
-
 // getLastOperation returns the last operation found across the specified backends.
 // If no operation is found, the returned error will indicate a not found operation
 func getLastOperation(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operationID string) (*clusterOperation, error) {
@@ -318,15 +300,16 @@ func (r *backendOperations) init(clusterBackend storage.Backend) error {
 	// of the same type as we are only interested in the latest operation
 	operationsByType := make(map[string]clusterOperation)
 	for _, op := range clusterOperations {
+		if _, exists := operationsByType[op.Type]; exists {
+			continue
+		}
 		clusterOperation := clusterOperation{
 			SiteOperation: (ops.SiteOperation)(op),
 		}
 		if _, err := clusterBackend.GetOperationPlan(op.SiteDomain, op.ID); err == nil {
 			clusterOperation.hasPlan = true
 		}
-		if _, exists := operationsByType[op.Type]; !exists {
-			operationsByType[op.Type] = clusterOperation
-		}
+		operationsByType[op.Type] = clusterOperation
 	}
 	for _, op := range operationsByType {
 		r.operations[op.ID] = op
