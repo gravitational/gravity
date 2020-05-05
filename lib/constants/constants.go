@@ -651,6 +651,8 @@ const (
 	FailureMark = "×"
 	// InProgressMark is used in CLI to visually indicate progress
 	InProgressMark = "→"
+	// WarnMark is used in CLI to visually indicate a warning
+	WarnMark = "!"
 
 	// WireguardNetworkType is a network type that is used for wireguard/wormhole support
 	WireguardNetworkType = "wireguard"
