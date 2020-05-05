@@ -236,6 +236,15 @@ func (b *planBuilder) AddWaitPhase(plan *storage.OperationPlan) {
 				},
 				Requires: []string{WaitPlanetPhase},
 			},
+			{
+				ID:          WaitTeleportPhase,
+				Description: "Wait for the Teleport node to join cluster",
+				Data: &storage.OperationPhaseData{
+					Server:     &b.JoiningNode,
+					ExecServer: &b.JoiningNode,
+				},
+				Requires: []string{WaitPlanetPhase},
+			},
 		},
 	})
 }

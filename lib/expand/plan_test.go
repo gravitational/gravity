@@ -370,6 +370,14 @@ func (s *PlanSuite) verifyWaitPhase(c *check.C, phase storage.OperationPhase) {
 				},
 				Requires: []string{WaitPlanetPhase},
 			},
+			{
+				ID: WaitTeleportPhase,
+				Data: &storage.OperationPhaseData{
+					Server:     &s.joiningNode,
+					ExecServer: &s.joiningNode,
+				},
+				Requires: []string{WaitPlanetPhase},
+			},
 		},
 	}, phase)
 }
