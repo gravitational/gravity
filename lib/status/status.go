@@ -144,6 +144,15 @@ func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, o
 		return status, trace.Wrap(err, "failed to collect system status from agents")
 	}
 
+	// Collect registered Teleport nodes.
+	teleportNodes, err := operator.GetClusterNodes(cluster.Key())
+	if err != nil {
+		return status, trace.Wrap(err, "failed to query teleport nodes")
+	}
+	for i, server := range status.Agent.Nodes {
+		status.Agent.Nodes[i].TeleportNode = ops.Nodes(teleportNodes).FindByIP(server.AdvertiseIP)
+	}
+
 	status.State = cluster.State
 
 	// Collect information from alertmanager
@@ -421,6 +430,12 @@ type ClusterServer struct {
 	FailedProbes []string `json:"failed_probes,omitempty"`
 	// WarnProbes lists all warning probes
 	WarnProbes []string `json:"warn_probes,omitempty"`
+	// TeleportNode contains information about Teleport node running on this server
+	TeleportNode *ops.Node `json:"teleport_node,omitempty"`
+}
+
+func (r ClusterOperation) isFailed() bool {
+	return r.State == ops.OperationStateFailed
 }
 
 func fromOperationAndProgress(operation ops.SiteOperation, progress ops.ProgressEntry) (*ClusterOperation, error) {
