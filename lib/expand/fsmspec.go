@@ -106,6 +106,10 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 			return phases.NewWaitK8s(p,
 				config.Operator)
 
+		case strings.HasPrefix(p.Phase.ID, WaitTeleportPhase):
+			return phases.NewWaitTeleport(p,
+				config.Operator)
+
 		case strings.HasPrefix(p.Phase.ID, PostHookPhase):
 			return installphases.NewHook(p,
 				config.Operator,
@@ -137,6 +141,8 @@ const (
 	WaitPlanetPhase = "/wait/planet"
 	// WaitK8sPhase waits for joining node to register with Kubernetes
 	WaitK8sPhase = "/wait/k8s"
+	// WaitTeleportPhase waits for Teleport on the joining node to join the cluster
+	WaitTeleportPhase = "/wait/teleport"
 	// PostHookPhase runs post-expand application hook
 	PostHookPhase = "/postHook"
 	// ElectPhase enables leader election on master node
