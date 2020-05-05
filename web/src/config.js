@@ -34,9 +34,9 @@ const cfg = {
 
   baseUrl: window.location.origin,
 
-  dateTimeFormat: 'DD/MM/YYYY HH:mm:ss',
+  dateTimeFormat: 'MM/DD/YYYY HH:mm:ss',
 
-  dateFormat: 'DD/MM/YYYY',
+  dateFormat: 'MM/DD/YYYY',
 
   isEnterprise: false,
 
