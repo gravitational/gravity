@@ -768,12 +768,17 @@ var InterruptSignals = signals.WithSignals(
 
 // NewInstallerConnectStrategy returns default installer service connect strategy
 func NewInstallerConnectStrategy(env *localenv.LocalEnvironment, config InstallConfig, commandArgs cli.CommandArgs) (strategy installerclient.ConnectStrategy, err error) {
-	args, err := commandArgs.Update(os.Args[1:], cli.NewFlag("token", config.Token))
+	commandArgs.FlagsToAdd = append(commandArgs.FlagsToAdd,
+		cli.NewFlag("token", config.Token),
+		cli.NewBoolFlag("from-service", true),
+		cli.NewArg("path", config.StateDir),
+	)
+	commandArgs.FlagsToRemove = append(commandArgs.FlagsToRemove, "token", "path", "from-service")
+	args, err := commandArgs.Update(os.Args[1:])
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	args = append([]string{utils.Exe.Path}, args...)
-	args = append(args, "--from-service", utils.Exe.WorkingDir)
 	servicePath, err := state.GravityInstallDir(defaults.GravityRPCInstallerServiceName)
 	if err != nil {
 		return nil, trace.Wrap(err)
