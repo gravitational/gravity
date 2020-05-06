@@ -28,9 +28,9 @@ type TrustedClusterSuite struct{}
 
 var _ = check.Suite(&TrustedClusterSuite{})
 
-// TestTrustedCluster verifies basic trusted cluster resource parsing and
+// TestTrustedClusterDefaults verifies basic trusted cluster resource parsing and
 // default field values.
-func (s *TrustedClusterSuite) TestTrustedCluster(c *check.C) {
+func (s *TrustedClusterSuite) TestTrustedClusterDefaults(c *check.C) {
 	spec := `kind: trusted_cluster
 version: v2
 metadata:
@@ -49,6 +49,30 @@ spec:
 		ProxyAddress:         "hub.example.com:32009",
 		ReverseTunnelAddress: "hub.example.com:3024",
 		Roles:                []string{constants.RoleAdmin},
+	}))
+}
+
+// TestTrustedClusterRoles makes sure roles field can be set.
+func (s *TrustedClusterSuite) TestTrustedClusterRoles(c *check.C) {
+	spec := `kind: trusted_cluster
+version: v2
+metadata:
+  name: hub.example.com
+spec:
+  enabled: true
+  token: trusted_cluster_token
+  tunnel_addr: "hub.example.com:3024"
+  web_proxy_addr: "hub.example.com:32009"
+  roles: ["admin", "developer"]
+`
+	tc, err := UnmarshalTrustedCluster([]byte(spec))
+	c.Assert(err, check.IsNil)
+	compare.DeepCompare(c, tc, NewTrustedCluster("hub.example.com", TrustedClusterSpecV2{
+		Enabled:              true,
+		Token:                "trusted_cluster_token",
+		ProxyAddress:         "hub.example.com:32009",
+		ReverseTunnelAddress: "hub.example.com:3024",
+		Roles:                []string{"admin", "developer"},
 	}))
 }
 
@@ -90,8 +114,8 @@ spec:
 	}))
 }
 
-// TestTrustedClusterRoles makes sure roles and role_map can't be both set.
-func (s *TrustedClusterSuite) TestTrustedClusterRoles(c *check.C) {
+// TestTrustedClusterRolesAndRoleMaps makes sure roles and role_map can't be both set.
+func (s *TrustedClusterSuite) TestTrustedClusterRolesAndRoleMaps(c *check.C) {
 	spec := `kind: trusted_cluster
 version: v2
 metadata:
