@@ -26,7 +26,7 @@ extend updates past EOL through customer agreements if required.
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 6.3.14        | No  | April 29th, 2020     | April 3rd, 2020      | 1.17.4             | 3.2.13           |
+| 6.3.15        | No  | May 6th, 2020        | April 3rd, 2020      | 1.17.4             | 3.2.13           |
 | 6.2.5         | No  | December 3rd, 2019   | December 18th, 2019  | 1.16.3             | 3.2.13           |
 | 6.0.10        | No  | October 17th, 2019   | August 2nd, 2019     | 1.14.7             | 3.2.12           |
 | 5.6.8         | No  | September 18th, 2019 | July 17th, 2019      | 1.14.7             | 3.0.6-gravity    |
@@ -108,6 +108,16 @@ them to any Kubernetes cluster.
 to learn how to gain insight into how the cluster status changes over time.
 
 ## 6.x Releases
+
+### 6.3.15 (May 6th, 2020)
+
+#### Bugfixes
+
+* Fix an issue with explicitly specifying installer directory in `gravity install` command ([#1425](https://github.com/gravitational/gravity/pull/1425)).
+* Fix a number of issues that could lead to blob synchronizer being stuck on removed peers ([#1472](https://github.com/gravitational/gravity/pull/1472)).
+* Loosen preflight check to allow variance in OS patch versions between cluster nodes ([#1484](https://github.com/gravitational/gravity/pull/1484)).
+* Make sure `tele login` checks for cluster existence ([#1500](https://github.com/gravitational/gravity/pull/1500)).
+* Fix an issue with setting `role_map` trusted cluster field ([#1504](https://github.com/gravitational/gravity/pull/1504)).
 
 ### 6.3.14 (April 29th, 2020)
 
