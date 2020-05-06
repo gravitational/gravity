@@ -41,7 +41,6 @@ import (
 
 	"github.com/docker/docker/pkg/archive"
 	"github.com/docker/docker/pkg/idtools"
-	"github.com/gravitational/satellite/agent/proto/agentpb"
 	"github.com/gravitational/trace"
 	"github.com/opencontainers/selinux/go-selinux"
 	"github.com/sirupsen/logrus"
@@ -803,10 +802,10 @@ func ensureServiceRunning(servicePackage loc.Locator) error {
 
 // unpack reads the package from the package service and unpacks its contents
 // to the default package unpack directory
-func unpack(packages update.LocalPackageService, loc loc.Locator) error {
+func unpack(packages update.LocalPackageService, loc loc.Locator, opts *archive.TarOptions) error {
 	path, err := packages.UnpackedPath(loc)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return packages.Unpack(loc, path)
+	return pack.Unpack(packages, loc, path, opts)
 }
