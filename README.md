@@ -25,8 +25,8 @@ clusters and the applications running inside the clusters. The resulting
 images are called *cluster images* and they are just `.tar` files.
 
 A cluster image can be used to re-create full replicas of the original
-cluster in any environment where compliance and consistency matters, i.e. in 
-locked-down AWS/GCE/Azure environments or even in air-gapped server rooms. 
+cluster in any environment where compliance and consistency matters, i.e. in
+locked-down AWS/GCE/Azure environments or even in air-gapped server rooms.
 An image can run without human supervision, as a "kubernetes appliance".
 
 Gravity has been running in production in major financial institutions,
@@ -47,10 +47,10 @@ on compliance and reducing the overhead of managing Kubernetes**:
   are _always identical_. There is no configuration drift over time; no
   "special snowflakes".
 * Gravity clusters are always "wrapped" with a privileged access gateway called
-  [Teleport](https://gravitational.com/teleport), which unifies k8s and SSH 
-  authentication, integrates with SSO and keeps a detailed audit log for compliance 
+  [Teleport](https://gravitational.com/teleport), which unifies k8s and SSH
+  authentication, integrates with SSO and keeps a detailed audit log for compliance
   purposes. It even records the interactive SSH and `kubectl exec` sessions.
-* Gravity clusters deployed world-wide can be remotely managed via built-in 
+* Gravity clusters deployed world-wide can be remotely managed via built-in
   reverse SSH tunnels, i.e. developers can have access to thousands of k8s API
   endpoints even if they're located behind NAT/firewalls.
 * Gravity includes tools to perform _infrastructure validation_ prior to
@@ -141,7 +141,7 @@ listed on the [Gravitational web site](https://gravitational.com)
 ## Why did We Build Gravity?
 
 Gravity was built by [Gravitational Inc](https://gravitational.com), a company
-based in Oakland, California. 
+based in Oakland, California.
 
 The original use case for Gravity was to allow Kubernetes applications to be
 deployed into 3rd party environments, like on-premises datacenters. That's why
@@ -179,6 +179,17 @@ $ make install
 # To remove the build artifacts:
 $ make clean
 ```
+
+## Examples
+
+Take a look at our [quickstart](https://github.com/gravitational/quickstart)
+repository to find examples of how to package and deploy Kubernetes applications
+using Gravity.
+
+The following examples are available:
+
+* [Wordpress](https://github.com/gravitational/quickstart/tree/master/wordpress).
+  Deploys Wordpress CMS with an OpenEBS-backed persistent storage.
 
 ## Known Issues
 
