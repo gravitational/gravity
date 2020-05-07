@@ -26,6 +26,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/archive"
@@ -34,6 +35,7 @@ import (
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/report"
 	"github.com/gravitational/gravity/lib/schema"
+	statusapi "github.com/gravitational/gravity/lib/status"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -150,6 +152,10 @@ func (s *site) getReport(runner remoteRunner, servers []remoteServer, master rem
 		if err := s.collectDebugInfoFromServers(dir, servers, runner); err != nil {
 			log.WithError(err).Error("Failed to collect diagnostics from some nodes.")
 		}
+	}
+
+	if err := collectStatusHistory(dir); err != nil {
+		log.WithError(err).Warn("Failed to collect status history.")
 	}
 
 	// use a pipe to avoid allocating a buffer
@@ -341,6 +347,30 @@ func collectOperationLogs(site site, operation ops.SiteOperation, reportWriter r
 	return trace.Wrap(err)
 }
 
+// collectStatusHistory collects the cluster status history and stores it in the
+// specified dir.
+func collectStatusHistory(dir string) error {
+	ctx, cancel := context.WithTimeout(context.TODO(), timelineTimeout)
+	defer cancel()
+
+	resp, err := statusapi.Timeline(ctx)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	w, err := report.NewFileWriter(dir).NewWriter(statusHistoryFilename)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer w.Close()
+
+	for _, event := range resp.GetEvents() {
+		statusapi.PrintEvent(w, event)
+	}
+
+	return nil
+}
+
 type collectorFn func(report.FileWriter, site) error
 
 func getReportWriterForServer(dir string, server remoteServer) report.FileWriter {
@@ -362,4 +392,8 @@ const (
 	// opLogsFilename defines the file pattern that stores operation log for a particular
 	// cluster operation
 	opLogsFilename = "%v.%v"
+	// statusHistoryFilename is the name of the file that stores the status history output
+	statusHistoryFilename = "status-history"
+	// timelineTimeout is maximum amount of time to wait for timeline response
+	timelineTimeout = 10 * time.Second
 )
