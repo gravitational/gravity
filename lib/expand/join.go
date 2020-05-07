@@ -830,11 +830,11 @@ func (p *Peer) tryConnect(operationID string) (ctx *operationContext, err error)
 			return nil, utils.Abort(err)
 		}
 		if trace.IsCompareFailed(err) {
-			p.WithError(err).Info("Failed to create expand operation.")
+			p.Warnf("Waiting for precondition to create expand operation: %v.", err)
 			if utils.IsClusterDegradedError(err) {
-				p.printStep("Waiting to cluster to become healthy")
+				p.printStep("Cluster is degraded, waiting for it to become healthy")
 			} else {
-				p.printStep("Waiting to another operation to complete at %v", addr)
+				p.printStep("Waiting for another operation to complete at %v", addr)
 			}
 		}
 	}
