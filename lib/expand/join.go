@@ -418,7 +418,9 @@ func (p *Peer) startStatusLoop() {
 		for {
 			select {
 			case err := <-p.errC:
-				p.sendErrorResponse(err)
+				if err != nil {
+					p.sendErrorResponse(err)
+				}
 				p.exitWithError(err)
 				return
 			case <-p.ctx.Done():
@@ -1229,7 +1231,7 @@ func (p *Peer) sendCloseResponse(resp *installpb.ProgressResponse) bool {
 		<-doneC
 		return true
 	default:
-		// Do not block if otherwise
+		// Do not block otherwise
 		return false
 	}
 }
