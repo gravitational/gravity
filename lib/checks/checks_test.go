@@ -118,41 +118,72 @@ func (s *ChecksSuite) TestTime(c *check.C) {
 }
 
 func (s *ChecksSuite) TestCheckSameOS(c *check.C) {
-	infos := []Server{
+	var testCases = []struct {
+		comment string
+		servers []Server
+		err     string
+	}{
 		{
-			ServerInfo: ServerInfo{
-				System: storage.NewSystemInfo(storage.SystemSpecV2{
-					Hostname: "node-1",
-					OS: storage.OSInfo{
-						ID:      "centos",
-						Version: "7.1",
-					},
-				}),
+			comment: "servers match on the major version",
+			servers: []Server{
+				newServer("node-1", "centos", "7.1"),
+				newServer("node-2", "centos", "7.2"),
+				newServer("node-3", "centos", "7.2"),
 			},
 		},
 		{
-			ServerInfo: ServerInfo{
-				System: storage.NewSystemInfo(storage.SystemSpecV2{
-					Hostname: "node-2",
-					OS: storage.OSInfo{
-						ID:      "centos",
-						Version: "7.2",
-					},
-				}),
+			comment: "servers do not match on the major version",
+			servers: []Server{
+				newServer("node-1", "centos", "7.1"),
+				newServer("node-2", "centos", "6.2"),
+				newServer("node-3", "centos", "7.2"),
+			},
+			err: "servers have different OS versions.*",
+		},
+		{
+			comment: "match on the whole version",
+			servers: []Server{
+				newServer("node-1", "centos", "7"),
+				newServer("node-2", "centos", "7"),
 			},
 		},
 		{
-			ServerInfo: ServerInfo{
-				System: storage.NewSystemInfo(storage.SystemSpecV2{
-					Hostname: "node-3",
-					OS: storage.OSInfo{
-						ID:      "centos",
-						Version: "7.2",
-					},
-				}),
+			comment: "no match on the whole version",
+			servers: []Server{
+				newServer("node-1", "centos", "7"),
+				newServer("node-2", "centos", "6"),
 			},
+			err: "servers have different OS versions.*",
+		},
+		{
+			comment: "no match on distribution",
+			servers: []Server{
+				newServer("node-1", "centos", "7"),
+				newServer("node-2", "rhel", "7"),
+			},
+			err: "servers have different OS distributions.*",
 		},
 	}
-	c.Assert(checkSameOS(infos[:2]), check.NotNil)
-	c.Assert(checkSameOS(infos[1:]), check.IsNil)
+	for _, tc := range testCases {
+		comment := check.Commentf(tc.comment)
+		if tc.err != "" {
+			c.Assert(checkSameOS(tc.servers), check.ErrorMatches, tc.err, comment)
+		} else {
+			c.Assert(checkSameOS(tc.servers), check.IsNil, comment)
+		}
+	}
+}
+
+func newServer(hostname, os, version string) Server {
+	return Server{
+		ServerInfo: ServerInfo{
+			System: storage.NewSystemInfo(storage.SystemSpecV2{
+				Hostname: hostname,
+				OS: storage.OSInfo{
+					ID:      os,
+					Version: version,
+				},
+			}),
+		},
+	}
 }
