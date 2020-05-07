@@ -47,6 +47,7 @@ extend updates past EOL through customer agreements if required.
 #### Bugfixes
 
 * Prevent nethealth checker from affecting the cluster status temporarily to avoid possible issues with cluster becoming degraded after removing a node ([#1467](https://github.com/gravitational/gravity/pull/1467)).
+* Upgrade etcd to `3.3.20` in order to fix a problem with missed etcd events ([#1467](https://github.com/gravitational/gravity/pull/1467)).
 
 ### 7.0.3 (April 27th, 2020)
 
@@ -124,6 +125,7 @@ to learn how to gain insight into how the cluster status changes over time.
 #### Bugfixes
 
 * Prevent nethealth checker from affecting the cluster status temporarily to avoid possible issues with cluster becoming degraded after removing a node ([#1466](https://github.com/gravitational/gravity/pull/1466)).
+* Upgrade etcd to `3.3.20` in order to fix a problem with missed etcd events ([#1466](https://github.com/gravitational/gravity/pull/1466)).
 
 ### 6.3.13 (April 23rd, 2020)
 
@@ -161,6 +163,7 @@ to learn how to gain insight into how the cluster status changes over time.
 #### Bugfixes
 
 * Prevent nethealth checker from affecting the cluster status temporarily to avoid possible issues with cluster becoming degraded after removing a node ([#1465](https://github.com/gravitational/gravity/pull/1465)).
+* Upgrade etcd to `3.3.20` in order to fix a problem with missed etcd events ([#1465](https://github.com/gravitational/gravity/pull/1465)).
 
 ### 6.1.24 LTS (April 27th, 2020)
 
