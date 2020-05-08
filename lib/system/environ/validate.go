@@ -70,7 +70,7 @@ func ValidateInstall(env *localenv.LocalEnvironment) func() error {
 				"(see https://gravitational.com/gravity/docs/cluster/#deleting-a-cluster for more details)",
 				stateDir)
 		}
-		if err := validateNoPackageState(env.Packages, env.StateDir); err != nil {
+		if err := ValidateNoPackageState(env.Packages, env.StateDir); err != nil {
 			return trace.Wrap(err)
 		}
 		return nil
@@ -126,7 +126,9 @@ func validateNoActiveService(stateDir string) error {
 	}
 }
 
-func validateNoPackageState(packages pack.PackageService, stateDir string) error {
+// ValidateNoPackageState checks whether the specified package service
+// has state (i.e. has packages) and returns an error in this case.
+func ValidateNoPackageState(packages pack.PackageService, stateDir string) error {
 	// make sure that there are no packages in the local state left from
 	// some improperly cleaned up installation
 	installedPackages, err := packages.GetPackages(defaults.SystemAccountOrg)
