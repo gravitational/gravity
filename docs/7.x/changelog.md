@@ -26,7 +26,7 @@ extend updates past EOL through customer agreements if required.
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 6.3.14        | No  | April 29th, 2020     | April 3rd, 2020      | 1.17.4             | 3.2.13           |
+| 6.3.16        | No  | May 7th, 2020        | April 3rd, 2020      | 1.17.4             | 3.2.13           |
 | 6.2.5         | No  | December 3rd, 2019   | December 18th, 2019  | 1.16.3             | 3.2.13           |
 | 6.0.10        | No  | October 17th, 2019   | August 2nd, 2019     | 1.14.7             | 3.2.12           |
 | 5.6.8         | No  | September 18th, 2019 | July 17th, 2019      | 1.14.7             | 3.0.6-gravity    |
@@ -47,6 +47,7 @@ extend updates past EOL through customer agreements if required.
 #### Bugfixes
 
 * Prevent nethealth checker from affecting the cluster status temporarily to avoid possible issues with cluster becoming degraded after removing a node ([#1467](https://github.com/gravitational/gravity/pull/1467)).
+* Upgrade etcd to `3.3.20` in order to fix a problem with missed etcd events ([#1467](https://github.com/gravitational/gravity/pull/1467)).
 
 ### 7.0.3 (April 27th, 2020)
 
@@ -109,11 +110,26 @@ to learn how to gain insight into how the cluster status changes over time.
 
 ## 6.x Releases
 
+### 6.3.16 (May 7th, 2020)
+
+* Fix an issue with trusted cluster connection becoming invalid after gravity-site restart if trusted cluster has `role_map` defined ([#1510](https://github.com/gravitational/gravity/pull/1510)).
+
+### 6.3.15 (May 6th, 2020)
+
+#### Bugfixes
+
+* Fix an issue with explicitly specifying installer directory in `gravity install` command ([#1425](https://github.com/gravitational/gravity/pull/1425)).
+* Fix a number of issues that could lead to blob synchronizer being stuck on removed peers ([#1472](https://github.com/gravitational/gravity/pull/1472)).
+* Loosen preflight check to allow variance in OS patch versions between cluster nodes ([#1484](https://github.com/gravitational/gravity/pull/1484)).
+* Make sure `tele login` checks for cluster existence ([#1500](https://github.com/gravitational/gravity/pull/1500)).
+* Fix an issue with setting `role_map` trusted cluster field ([#1504](https://github.com/gravitational/gravity/pull/1504)).
+
 ### 6.3.14 (April 29th, 2020)
 
 #### Bugfixes
 
 * Prevent nethealth checker from affecting the cluster status temporarily to avoid possible issues with cluster becoming degraded after removing a node ([#1466](https://github.com/gravitational/gravity/pull/1466)).
+* Upgrade etcd to `3.3.20` in order to fix a problem with missed etcd events ([#1466](https://github.com/gravitational/gravity/pull/1466)).
 
 ### 6.3.13 (April 23rd, 2020)
 
@@ -151,6 +167,7 @@ to learn how to gain insight into how the cluster status changes over time.
 #### Bugfixes
 
 * Prevent nethealth checker from affecting the cluster status temporarily to avoid possible issues with cluster becoming degraded after removing a node ([#1465](https://github.com/gravitational/gravity/pull/1465)).
+* Upgrade etcd to `3.3.20` in order to fix a problem with missed etcd events ([#1465](https://github.com/gravitational/gravity/pull/1465)).
 
 ### 6.1.24 LTS (April 27th, 2020)
 
@@ -802,7 +819,7 @@ to learn how to gain insight into how the cluster status changes over time.
 
 #### Bugfixes
 
-* Restore `/bin/helm` and `/bin/kubectl` symlinks in planet container ([#1483](https://github.com/gravitational/gravity/pull/1483)).
+* Restore `/usr/local/bin`, `/bin/helm` and `/bin/kubectl` symlinks in planet container ([#1483](https://github.com/gravitational/gravity/pull/1483)).
 
 ### 5.5.42 LTS (April 28th, 2020)
 
