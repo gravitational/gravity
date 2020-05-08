@@ -83,7 +83,7 @@ func NewPeer(config PeerConfig) (*Peer, error) {
 		closeC:    make(chan closeResponse),
 		connectC:  make(chan connectResult, 1),
 	}
-	peer.startConnectLoop()
+	// peer.startConnectLoop()
 	peer.startStatusLoop()
 	peer.startExecuteLoop()
 	peer.startReconnectWatchLoop()
@@ -116,6 +116,9 @@ type Peer struct {
 	execDoneC chan install.ExecResult
 	// wg is a wait group used to ensure completion of internal processes
 	wg sync.WaitGroup
+	// connectOnce enables the execute loop to start the connect loop
+	// only on the first execute request
+	connectOnce sync.Once
 }
 
 // Run runs the peer operation
@@ -333,27 +336,29 @@ func (c *PeerConfig) CheckAndSetDefaults() (err error) {
 }
 
 func (p *Peer) startConnectLoop() {
-	p.wg.Add(1)
-	go func() {
-		defer p.wg.Done()
-		ctx, err := p.connectLoop()
-		if err == nil {
-			ctx.agent, err = p.init(*ctx)
-		}
-		if err != nil {
-			// Consider failure to connect/init a terminal error.
-			// This will prevent the service from automatically restarting.
-			// It can be restarted manually though (i.e. after correcting the configuration)
-			err = status.Error(codes.FailedPrecondition, trace.UserMessage(err))
-		}
-		select {
-		case p.connectC <- connectResult{
-			operationContext: ctx,
-			err:              err,
-		}:
-		case <-p.ctx.Done():
-		}
-	}()
+	p.connectOnce.Do(func() {
+		p.wg.Add(1)
+		go func() {
+			defer p.wg.Done()
+			ctx, err := p.connectLoop()
+			if err == nil {
+				ctx.agent, err = p.init(*ctx)
+			}
+			if err != nil {
+				// Consider failure to connect/init a terminal error.
+				// This will prevent the service from automatically restarting.
+				// It can be restarted manually though (i.e. after correcting the configuration)
+				err = status.Error(codes.FailedPrecondition, trace.UserMessage(err))
+			}
+			select {
+			case p.connectC <- connectResult{
+				operationContext: ctx,
+				err:              err,
+			}:
+			case <-p.ctx.Done():
+			}
+		}()
+	})
 }
 
 // startExecuteLoop starts a loop that services the channel to handle
@@ -420,8 +425,8 @@ func (p *Peer) startStatusLoop() {
 			case err := <-p.errC:
 				if err != nil {
 					p.sendErrorResponse(err)
+					p.exitWithError(err)
 				}
-				p.exitWithError(err)
 				return
 			case <-p.ctx.Done():
 				return
@@ -464,6 +469,7 @@ func (p *Peer) submit(req *installpb.ExecuteRequest) bool {
 // execute executes either the complete operation or a single phase specified with req
 func (p *Peer) execute(req *installpb.ExecuteRequest) (dispatcher.Status, error) {
 	p.WithField("req", req).Info("Execute.")
+	p.startConnectLoop()
 	opCtx, err := p.operationContext(p.ctx)
 	if err != nil {
 		return dispatcher.StatusUnknown, trace.Wrap(err)
