@@ -26,7 +26,7 @@ extend updates past EOL through customer agreements if required.
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 6.3.15        | No  | May 6th, 2020        | April 3rd, 2020      | 1.17.4             | 3.2.13           |
+| 6.3.16        | No  | May 7th, 2020        | April 3rd, 2020      | 1.17.4             | 3.2.13           |
 | 6.2.5         | No  | December 3rd, 2019   | December 18th, 2019  | 1.16.3             | 3.2.13           |
 | 6.0.10        | No  | October 17th, 2019   | August 2nd, 2019     | 1.14.7             | 3.2.12           |
 | 5.6.8         | No  | September 18th, 2019 | July 17th, 2019      | 1.14.7             | 3.0.6-gravity    |
@@ -109,6 +109,10 @@ them to any Kubernetes cluster.
 to learn how to gain insight into how the cluster status changes over time.
 
 ## 6.x Releases
+
+### 6.3.16 (May 7th, 2020)
+
+* Fix an issue with trusted cluster connection becoming invalid after gravity-site restart if trusted cluster has `role_map` defined ([#1510](https://github.com/gravitational/gravity/pull/1510)).
 
 ### 6.3.15 (May 6th, 2020)
 
@@ -815,7 +819,7 @@ to learn how to gain insight into how the cluster status changes over time.
 
 #### Bugfixes
 
-* Restore `/bin/helm` and `/bin/kubectl` symlinks in planet container ([#1483](https://github.com/gravitational/gravity/pull/1483)).
+* Restore `/usr/local/bin`, `/bin/helm` and `/bin/kubectl` symlinks in planet container ([#1483](https://github.com/gravitational/gravity/pull/1483)).
 
 ### 5.5.42 LTS (April 28th, 2020)
 
