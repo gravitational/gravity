@@ -134,9 +134,14 @@ func (r *Updater) Complete(fsmErr error) error {
 	if err := r.emitAuditEvent(context.TODO()); err != nil {
 		log.WithError(err).Warn("Failed to emit audit event.")
 	}
+	return nil
+}
+
+// Activate activates the cluster.
+func (r *Updater) Activate() error {
 	return r.Operator.ActivateSite(ops.ActivateSiteRequest{
-		AccountID:  r.Operation.ClusterKey().AccountID,
-		SiteDomain: r.Operation.ClusterKey().SiteDomain,
+		AccountID:  r.Operation.AccountID,
+		SiteDomain: r.Operation.SiteDomain,
 	})
 }
 
