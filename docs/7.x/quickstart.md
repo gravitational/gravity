@@ -333,13 +333,14 @@ https://10.150.15.236:3009/web/newuser/e5b5422da69ff44d41f92e3ce6167659a7fee10e1
 Now click on the printed URL and select a password. You are now inside the Cluster
 Control Panel. You can bookmark the following URL to access it in the future: `https://10.5.5.28:32009/web/`
 
-![Gravity Dashboard](images/gravity-quickstart/gravity-mattermost-dashboard.png)
+![Gravity Dashboard](images/gravity-quickstart/gravity-wordpress-dashboard.png)
 
-You will also see that this Cluster is running Mattermost inside, accessible as a Kubernetes service
-on port `32010`, i.e. it's accessible using IP addresses of both machines in the Cluster:
+You will also see that this Cluster is running Wordpress inside, accessible as a Kubernetes service
+on port `30080`, i.e. it's accessible using IP addresses of both machines in the Cluster:
 
-* `http://10.5.5.28:32010/`
-* `http://10.5.5.29:32010/`
+* `http://10.5.5.28:30080/`
+* `http://10.5.5.29:30080/`
+* `http://10.5.5.30:30080/`
 
 ### Installing via Web Browser
 
@@ -347,17 +348,17 @@ This method of installation launches a graphical installation wizard in a web br
 
 To launch a web installer, you will need:
 
-* The Cluster Image `mattermost.tar` which we have prepared earlier.
+* The Cluster Image `wordpress.tar` which we have prepared earlier.
 * A Linux computer with a graphical interface and web browser connected to the same network as the target nodes.
 
-First, untar `mattermost.tar` and execute the `install` script. This command
+First, untar `wordpress.tar` and execute the `./gravity install --wizard` command. This command
 launches an HTTP server which serves a web UI and acts as a bootstrapping agent
 to create a new Cluster. It will print a web URL for you to click
 on or paste in your browser.
 
 ```bash
-$ sudo ./install
-OPEN THIS IN BROWSER: https://host:61009/web/installer/new/gravitational.io/mattermost/2.2.0?install_token=2a9de4a72ede
+$ sudo ./gravity install --wizard
+OPEN THIS IN BROWSER: https://host:61009/web/installer/new/gravitational.io/wordpress/0.0.1?install_token=2a9de4a72ede
 ```
 
 **If you don't have TLS setup you might see this error message. Click Advanced -> Proceed **
@@ -366,7 +367,7 @@ OPEN THIS IN BROWSER: https://host:61009/web/installer/new/gravitational.io/matt
 The browser-based installer will ask for the following:
 
 * Name of your Cluster. We recommend FQDN-like names like
-  `mattermost.example.com`.
+  `wordpress.example.com`.
 
 ![Name of Cluster](images/gravity-quickstart/cluster-name.png)
 
@@ -376,7 +377,7 @@ The browser-based installer will ask for the following:
 ![Set Capacity](images/gravity-quickstart/setting-capacity.png)
 
 
-* The "flavor" of the Cluster, i.e. 1, 2 or 3 nodes. The installer will provide a CLI
+* The "flavor" of the Cluster, i.e. small (1 node), medium (2 nodes) or large (5 nodes). The installer will provide a CLI
   command to copy to and execute on each node.
 * Once all nodes report into the Cluster, the installer will proceed setting up
   Kubernetes.
@@ -384,12 +385,12 @@ The browser-based installer will ask for the following:
 ![All Nodes](images/gravity-quickstart/all-nodes.png)
 
 
-The final step is to select the user name and password for the administrator. You will be able to change it later (or configure the SSO). Once you are logged in, you will be placed in Gravity's Control Panel UI where you will find the HTTP end point of Mattermost.
+The final step is to select the user name and password for the administrator. You will be able to change it later (or configure the SSO). Once you are logged in, you will be placed in Gravity's Control Panel UI.  Wordpress will be available at the NodePort of 30080.
 
 
 **Mattermost Install Complete**
-![Create Mattermost](images/gravity-quickstart/mattermost/create-mattermost.png)
-![Mattermost Fin](images/gravity-quickstart/mattermost/mattermost.png)
+![Install Wordpress](images/gravity-quickstart/wordpressinstall.png)
+![Mattermost Fin](images/gravity-quickstart/wordpresscomplete.png)
 
 You can press `Ctrl+C` to stop the `install` script.
 
