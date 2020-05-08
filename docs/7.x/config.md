@@ -404,8 +404,8 @@ spec:
     - {% raw %}{claim: "roles", value: "gravitational/admins", roles: ["@teleadmin"]}{% endraw %}
 ```
 
-!!! note 
-    For Auth0 the "OIDC Conformant" setting should be off in Advanced Setting -> OAuth or Claims will not populate properly 
+!!! note
+    For Auth0 the "OIDC Conformant" setting should be off in Advanced Setting -> OAuth or Claims will not populate properly
 
 Add this connector to the Cluster:
 
@@ -829,6 +829,9 @@ spec:
   token: c523fd0961be71a45ceed81bdfb61b859da8963e2d9d7befb474e47d6040dbb5
   tunnel_addr: "hub.example.com:3024"
   web_proxy_addr: "hub.example.com:32009"
+  role_map:
+  - remote: "@teleadmin"
+    local: ["@teleadmin"]
 ```
 
 Let's go over the resource fields:
@@ -842,8 +845,15 @@ Let's go over the resource fields:
 * `spec.tunnel_addr`: The address of Gravity Hub reverse tunnel service as
    host:port. Typically it is exposed on port `3024`.
 * `spec.web_proxy_addr`: The address which Gravity Hub serves its Web
-   API on. It is the same address specified via the `--ops-advertise-addr` parameter
+   API on. It is the same address specified via the `--hub-advertise-addr` parameter
    when [installing Gravity Hub](http://localhost:6600/hub/#installing-gravity-hub).
+* `spec.role_map`: Role mapping between the Hub and the Cluster. A user that has a
+   matching "remote" role assigned in the Hub, will assume all corresponding "local"
+   roles on the Cluster.
+
+!!! warning "Role mapping"
+    If `role_map` property is not specified, any remote role will map to the default
+    administrative local role `@teleadmin`.
 
 Create the Trusted Cluster:
 
