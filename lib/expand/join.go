@@ -83,7 +83,6 @@ func NewPeer(config PeerConfig) (*Peer, error) {
 		closeC:    make(chan closeResponse),
 		connectC:  make(chan connectResult, 1),
 	}
-	// peer.startConnectLoop()
 	peer.startStatusLoop()
 	peer.startExecuteLoop()
 	peer.startReconnectWatchLoop()
