@@ -27,6 +27,7 @@ import (
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
+	libenviron "github.com/gravitational/gravity/lib/system/environ"
 	"github.com/gravitational/gravity/lib/update"
 	clusterupdate "github.com/gravitational/gravity/lib/update/cluster"
 	"github.com/gravitational/gravity/lib/utils"
@@ -68,11 +69,11 @@ func displayOperationPlan(localEnv *localenv.LocalEnvironment, environ LocalEnvi
 	op, err := getLastOperation(localEnv, environ, operationID)
 	if err != nil {
 		if trace.IsNotFound(err) {
-			// FIXME(dmitri): better phrasing
-			return trace.NotFound(`no operation found.
-This usually means that the installation has failed to start.
-To restart the installation, use 'gravity resume' after fixing the issues.
-`)
+			message := noOperationStateNoClusterStateBanner
+			if err2 := libenviron.ValidateNoPackageState(localEnv.Packages, localEnv.StateDir); err2 != nil {
+				message = NoOperationStateBanner
+			}
+			return trace.NotFound(message)
 		}
 		return trace.Wrap(err)
 	}
@@ -147,7 +148,7 @@ func displayInstallOperationPlan(opKey ops.SiteOperationKey, format constants.Fo
 	plan, err = getPlanFromWizardBackend(opKey)
 	if err != nil {
 		return trace.Wrap(err, "failed to get plan for the install operation.\n"+
-			"Make suer you are running 'gravity plan' from the installer node.")
+			"Make sure you are running 'gravity plan' from the installer node.")
 	}
 	return trace.Wrap(outputPlan(*plan, format))
 }
@@ -259,3 +260,17 @@ func getPlanFromWizard(opKey ops.SiteOperationKey) (*storage.OperationPlan, erro
 	}
 	return plan, nil
 }
+
+const (
+	// NoOperationStateBanner specifies the message for when the operation
+	// cannot be retrieved from the installer process and that the operation
+	// should be restarted
+	NoOperationStateBanner = `no operation found.
+This usually means that the installation/join operation has failed to start or was not started.
+Clean up the node with 'gravity leave' and start the operation with either 'gravity install' or 'gravity join'.
+`
+	noOperationStateNoClusterStateBanner = `no operation found.
+This usually means that the installation/join operation has failed to start or was not started.
+Start the operation with either 'gravity install' or 'gravity join'.
+`
+)

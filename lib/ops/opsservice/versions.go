@@ -63,6 +63,7 @@ var (
 		semver.New("6.2.0"),
 		semver.New("6.3.0"),
 		semver.New("7.0.0"),
+		semver.New("7.1.0"),
 	}
 
 	// UpgradeViaVersions maps older gravity versions to versions that can be
