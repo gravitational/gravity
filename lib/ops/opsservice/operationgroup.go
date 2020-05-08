@@ -148,8 +148,11 @@ func (g *operationGroup) canCreateExpandOperation(site ops.Site, operation ops.S
 	}
 
 	// cluster is not active, but there are no expand operations so there is either
-	// other type of operation is in progress, or it's degraded
+	// other type of operation in progress, or it's degraded
 	if len(operations) == 0 {
+		if site.State == ops.SiteStateDegraded {
+			return utils.ClusterDegradedError{}
+		}
 		return trace.CompareFailed("cannot expand %v cluster", site.State)
 	}
 
