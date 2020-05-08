@@ -112,7 +112,7 @@ in the example manifest.
 
 ### Step 4: Building the Cluster Image
 
-et's build the cluster image which will consist of a Kubernetes
+Let's build the cluster image which will consist of a Kubernetes
 cluster with Wordpress pre-installed inside:
 
 ```bsh
@@ -368,29 +368,26 @@ The browser-based installer will ask for the following:
 
 * Name of your Cluster. We recommend FQDN-like names like
   `wordpress.example.com`.
-
-![Name of Cluster](images/gravity-quickstart/cluster-name.png)
-
 * The network interface to use. This must be the interface which Kubernetes
   nodes will use to talk to each other.
 
-![Set Capacity](images/gravity-quickstart/setting-capacity.png)
-
+![Name of Cluster](images/gravity-quickstart/cluster-name.png)
 
 * The "flavor" of the Cluster, i.e. small (1 node), medium (2 nodes) or large (5 nodes). The installer will provide a CLI
   command to copy to and execute on each node.
+
+![All Nodes](images/gravity-quickstart/setting-capacity.png)
+
 * Once all nodes report into the Cluster, the installer will proceed setting up
   Kubernetes.
-
-![All Nodes](images/gravity-quickstart/all-nodes.png)
-
+![Installing](images/gravity-quickstart/clusterinstall.png)
 
 The final step is to select the user name and password for the administrator. You will be able to change it later (or configure the SSO). Once you are logged in, you will be placed in Gravity's Control Panel UI.  Wordpress will be available at the NodePort of 30080.
 
 
-**Mattermost Install Complete**
+**Wordpress Install Complete**
 ![Install Wordpress](images/gravity-quickstart/wordpressinstall.png)
-![Mattermost Fin](images/gravity-quickstart/wordpresscomplete.png)
+![Wordpress Fin](images/gravity-quickstart/finishedwordpress.png)
 
 You can press `Ctrl+C` to stop the `install` script.
 
