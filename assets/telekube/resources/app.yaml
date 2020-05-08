@@ -195,6 +195,9 @@ hooks:
     job: file://clusterDeprovision.yaml
   preUpdate:
     job: file://preUpdate.yaml
+ingress:
+  nginx:
+    enabled: true
 storage:
   openebs:
     enabled: true
