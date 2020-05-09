@@ -83,7 +83,6 @@ func NewPeer(config PeerConfig) (*Peer, error) {
 		closeC:    make(chan closeResponse),
 		connectC:  make(chan connectResult, 1),
 	}
-	peer.startStatusLoop()
 	peer.startExecuteLoop()
 	peer.startReconnectWatchLoop()
 	return peer, nil
@@ -131,6 +130,9 @@ func (p *Peer) Run(listener net.Listener) error {
 	case err = <-errC:
 	case err = <-p.exitC:
 	}
+	if err != nil {
+		p.sendClientErrorResponse(err)
+	}
 	// Stopping is on best-effort basis, the client will be trying to stop the service
 	// if notified
 	p.stop()
@@ -144,6 +146,7 @@ func (p *Peer) Run(listener net.Listener) error {
 			p.WithError(err2).Warn("Failed to mark operation as failed.")
 		}
 	}
+	p.WithField("exit-error", err).Info("Exit with error.")
 	return installpb.WrapServiceError(err)
 }
 
@@ -229,7 +232,7 @@ func (p *Peer) Complete(ctx context.Context, opKey ops.SiteOperationKey) error {
 // Implements server.Completer
 func (p *Peer) HandleCompleted(ctx context.Context) error {
 	p.Debug("Completion signaled.")
-	if p.sendCloseResponse(installpb.CompleteEvent) {
+	if p.sendClientCloseResponse(installpb.CompleteEvent) {
 		p.Debug("Client notified about completion.")
 	}
 	p.exitWithError(installpb.ErrCompleted)
@@ -240,7 +243,7 @@ func (p *Peer) HandleCompleted(ctx context.Context) error {
 // Implements server.Completer
 func (p *Peer) HandleAborted(ctx context.Context) error {
 	p.Debug("Abort signaled.")
-	if p.sendCloseResponse(installpb.AbortEvent) {
+	if p.sendClientCloseResponse(installpb.AbortEvent) {
 		p.Debug("Client notified about abort.")
 	}
 	p.exitWithError(installpb.ErrAborted)
@@ -385,7 +388,7 @@ func (p *Peer) startExecuteLoop() {
 					}).Warn("Failed to execute.")
 					p.execDoneC <- install.ExecResult{Error: err}
 					if installpb.IsFailedPreconditionError(err) {
-						p.errC <- err
+						p.exitWithError(err)
 						return
 					}
 				} else {
@@ -412,25 +415,6 @@ func (p *Peer) startReconnectWatchLoop() {
 	go func() {
 		watchReconnects(p.ctx, p.errC, p.WatchCh, p.FieldLogger)
 		p.wg.Done()
-	}()
-}
-
-func (p *Peer) startStatusLoop() {
-	p.wg.Add(1)
-	go func() {
-		defer p.wg.Done()
-		for {
-			select {
-			case err := <-p.errC:
-				if err != nil {
-					p.sendErrorResponse(err)
-					p.exitWithError(err)
-				}
-				return
-			case <-p.ctx.Done():
-				return
-			}
-		}
 	}()
 }
 
@@ -1217,18 +1201,18 @@ func (p *Peer) newCompletionEvent() *dispatcher.Event {
 	}
 }
 
-func (p *Peer) sendErrorResponse(err error) bool {
+func (p *Peer) sendClientErrorResponse(err error) bool {
 	message := err.Error()
 	s, ok := status.FromError(trace.Unwrap(err))
 	if ok {
 		message = s.Message()
 	}
-	return p.sendCloseResponse(&installpb.ProgressResponse{
+	return p.sendClientCloseResponse(&installpb.ProgressResponse{
 		Error: &installpb.Error{Message: message},
 	})
 }
 
-func (p *Peer) sendCloseResponse(resp *installpb.ProgressResponse) bool {
+func (p *Peer) sendClientCloseResponse(resp *installpb.ProgressResponse) bool {
 	doneC := make(chan struct{})
 	select {
 	case p.closeC <- closeResponse{doneC: doneC, resp: resp}:
