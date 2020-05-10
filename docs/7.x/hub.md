@@ -71,14 +71,14 @@ $ ./gravity install --advertise-addr=10.1.1.5 \
                     --token=$TOKEN \
                     --flavor=standalone \
                     --cluster=hub.example.com \
-                    --ops-advertise-addr=hub.example.com:443
+                    --hub-advertise-addr=hub.example.com:443
 ```
 
 * `--advertise-addr` is an IP address the Hub machine will be visible as.
 * `--flavor=standalone` tells the installer to use a single machine to run
   Gravity Hub.  For production, we recommend to use a 3-node cluster for
   high-availability.
-* `--ops-advertise-addr` should be a DNS name publicly accessible via internet
+* `--hub-advertise-addr` should be a DNS name publicly accessible via internet
 * `--token` is a security token for nodes to join to the cluster
 * `--cluster` is a unique cluster name, e.g. `hub.example.com`
 
