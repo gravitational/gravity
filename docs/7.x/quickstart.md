@@ -1,22 +1,16 @@
 # Introduction
 
 This guide will help you quickly evaluate Gravity by packaging, and installing
-a sample multi-node Kubernetes application.
+a sample Kubernetes application.
 
-We will use [Mattermost](https://www.mattermost.org/), an open source chat
-application for teams. Mattermost represents a fairly typical web application
-and consists of an HTTP request handling process which connects to a PostgreSQL
+We will use [Wordpress](https://www.wordpress.org/), an open source content management
+application. Wordpress represents a fairly typical web application
+and consists of a front-end web application connecting to a MySQL
 instance.
 
 Before we start, you may want to go over the [Gravity Overview](index.md) to
 get familiar with basic concepts of the Gravity solution.
 
-You can also watch the video below which walks through this Quickstart Guide.
-
-<iframe width="768" height="432" src="https://www.youtube.com/embed/ixMKjK0F4Uk?rel=0" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-
-!!! note "Note on Quickstart Video"
-    The video uses version 5.4 of Gravity, so users of newer versions of Gravity may have a slightly different experience.
 
 ## System Requirements
 
@@ -28,21 +22,24 @@ of running Kubernetes. For this tutorial, you will need:
   you have Docker up and running. We recommend following instructions on [installing Docker CE from Docker.com](https://docs.docker.com/install/)
 * You must be a member of the `docker` group. Run `groups` command to make sure
   `docker` group is listed. If not, you can add yourself to the "docker" group via `sudo usermod -aG docker $USER`
-* You must install [Helm 2.0](https://docs.helm.sh/using_helm/#installing-helm) - [Helm v2.12 Github Release](https://github.com/helm/helm/releases/tag/v2.12.3).
 * You must have `git` installed to clone the example application repo.
-* A _target cluster_ of Linux nodes. It can be just one machine but this example quickstart will use three. The nodes in a target cluster must have at least 2GB of RAM and 40GB of free disk space. They must **_not_** have Docker or any other container runtime installed on them.
+* A _target cluster_ of Linux nodes. It can be just one machine and we also show how to deploy to three. The nodes in a target cluster must have at least 2GB of RAM and 40GB of free disk space. They must **_not_** have Docker installed on them.
 * You must have `sudo` privileges on all nodes.
 
-## Getting the Tools
+## Step 1 Getting the Tools
 
 Start by [downloading Gravity](https://gravitational.com/gravity/download/) and
 unpacking the archive. You should see the following files:
-
 ```
 $ ls -l
--rwxr-xr-x 1 user user      128 Dec  3 13:07 install.sh
--rwxr-xr-x 1 user user 50562960 Dec  3 13:07 tele
--rwxr-xr-x 1 user user 21417992 Dec  3 13:07 tsh
+-rwxr-xr-x 1 user user 108093824 Apr 22 11:43 gravity
+-rwxr-xr-x 1 user user       137 Apr 22 11:43 install.sh
+-rw-r--r-- 1 user user     11357 Apr 22 11:43 LICENSE
+-rw-r--r-- 1 user user      2880 Apr 22 11:43 README.md
+-rwxr-xr-x 1 user user  84764672 Apr 22 11:43 tele
+-rwxr-xr-x 1 user user  57863592 Apr 22 11:43 terraform-provider-gravity
+-rwxr-xr-x 1 user user  32488888 Apr 22 11:43 tsh
+-rw-r--r-- 1 user user         6 Apr 22 11:43 VERSION
 ```
 
 Execute `install.sh` to copy `tele` and `tsh` binaries to
@@ -51,14 +48,14 @@ everything works:
 
 ```
 $ tele version
-Edition:	open-source
-Version:	6.2.0
-Git Commit:	59f55954483989fef11bbe47a91c4d09743f65fe
-Helm Version:	v2.12
+Edition:        open-source
+Version:        7.0.4
+Git Commit:     a16e2074bf9b88f69719b80b9b7d178cc1ce6349
+Helm Version:   v2.15
 ```
 
 Clone the sample Git repository which contains the Kubernetes resources for
-[Mattermost](https://www.mattermost.org/), which we are using in this tutorial as a sample application:
+[Wordpress](https://www.wordpress.org/), which we are using in this tutorial as a sample application:
 
 ```bsh
 $ git clone https://github.com/gravitational/quickstart.git
@@ -79,133 +76,106 @@ To build a Cluster Image we'll perform the following steps:
    is a YAML file which allows you to customize the Cluster Image.
 4. Execute `tele build` CLI command.
 
-### Step 1: Containerizing
-
-Run the following to build the Mattermost containers:
-
-```bsh
-$ cd mattermost/worker
-$ docker build -t mattermost-worker:2.2.0 .
-```
-
-When Docker finishes building the container, you should be able to see it listed:
-
-```
-$ docker images | grep mattermost
-mattermost-worker      2.2.0       ce3ead6dff48     43 seconds ago      405MB
-```
-
-You can now return to the quickstart home directory.
 
 ### Step 2: Creating the Kubernetes Resources
 
-Making Mattermost run on Kubernetes is easy. The quickstart repository you have
+Making Wordpress run on Kubernetes is easy. The quickstart repository you have
 cloned above includes the YAML definitions of Kubernetes objects. We'll use
 a Helm chart for this:
 
 ```
-$ tree mattermost/resources/charts/mattermost/
-mattermost/resources/charts/mattermost/
+$ tree wordpress/resources/charts/wordpress/
+wordpress/resources/charts/wordpress/
 ├── Chart.yaml
 ├── templates
 │   ├── _helpers.tpl
-│   └── mattermost.yaml
+│   ├── mysql-deployment.yaml
+│   ├── secret.yaml
+│   └── wordpress-deployment.yaml
 └── values.yaml
-```
-The most interesting file to take a look at is [mattermost.yaml](https://github.com/gravitational/quickstart/blob/master/mattermost/resources/charts/mattermost/templates/mattermost.yaml).
-You are welcome to modify it to your liking.
 
-!!! tip "Tip"
-    In this tutorial, we are packaging a single Helm chart but it is possible
-    to have several of them packaged into a single Cluster Image.
+```
+
+The values.yaml specifies several important values including
+  - Using OpenEBS for storage
+  - Size of the Persistent Storage for Wordpress and MySQL
+  - Password for MySQL db.
+You are welcome to modify this file and you can use --set and --values in the tele build process to replace these values. In this tutorial, we are packaging a single Helm chart but it is possible to have several of them packaged into a single Cluster Image.
 
 ### Step 3: Creating the Cluster Image Manifest
 
 In this step, we create an Image Manifest which describes the system
 requirements for the Cluster.
 
-We have already prepared one for this guide in the cloned repo: `mattermost/resources/app.yaml`. You can [open it on Github](https://github.com/gravitational/quickstart/blob/master/mattermost/resources/app.yaml) for convenience. We have commented the most important fields
+We have already prepared one for this guide in the cloned repo: `wordpress/resources/app.yaml`. You can [open it on Github](https://github.com/gravitational/quickstart/blob/master/wordpress/resources/app.yaml) for convenience. We have commented the most important fields
 in the example manifest.
 
 ### Step 4: Building the Cluster Image
 
-Before we build our first Cluster Image, let's make sure [Helm](https://helm.sh/) is properly
-initialized.
-
-```bash
-$ helm init --client-only
-```
-
-Now you can build the Cluster Image, which will consist of a Kubernetes
-cluster with Mattermost pre-installed inside:
+Let's build the cluster image which will consist of a Kubernetes
+cluster with Wordpress pre-installed inside:
 
 ```bsh
-$ tele build -o mattermost.tar mattermost/resources/app.yaml
-
-# the output:
-* [1/6] Selecting application runtime
-	Will use latest runtime version 5.2.4
-* [2/6] Downloading dependencies from s3://hub.gravitational.io
-	Still downloading dependencies from s3://hub.gravitational.io (10 seconds elapsed)
-	Still downloading dependencies from s3://hub.gravitational.io (20 seconds elapsed)
-* [3/6] Embedding application container images
-	Detected application manifest app.yaml
-	Detected resource file clusterDeprovision.yaml
-	Detected resource file clusterProvision.yaml
-	Detected resource file install.yaml
-	Detected resource file nodesDeprovision.yaml
-	Detected resource file nodesProvision.yaml
-	Detected Helm chart charts/mattermost
-	Using local image quay.io/gravitational/debian-tall:0.0.1
-	Using local image quay.io/gravitational/debian-tall:0.0.1
-	Using local image quay.io/gravitational/provisioner:ci.82
-	Using local image mattermost-worker:2.2.0
-	Using local image postgres:9.4.4
-	Vendored image gravitational/debian-tall:0.0.1
-	Vendored image gravitational/provisioner:ci.82
-	Still embedding application container images (10 seconds elapsed)
-	Vendored image mattermost-worker:2.2.0
-	Vendored image postgres:9.4.4
-* [4/6] Using runtime version 5.2.4
-	Still using runtime version 5.2.4 (10 seconds elapsed)
-* [5/6] Generating the cluster snapshot
-* [6/6] Saving the snapshot as mattermost.tar
-* [6/6] Build completed in 2 minutes
+$ tele build -o wordpress.tar wordpress/resources/app.yaml
+Mon Apr 27 00:49:02 UTC Building cluster image wordpress 0.0.1
+Mon Apr 27 00:49:02 UTC Selecting base image version
+        Will use base image version 7.0.4
+Mon Apr 27 00:49:02 UTC Downloading dependencies from s3://hub.gravitational.io
+        Still downloading dependencies from s3://hub.gravitational.io (10 seconds elapsed)
+        Still downloading dependencies from s3://hub.gravitational.io (20 seconds elapsed)
+Mon Apr 27 00:50:31 UTC Embedding application container images
+        Pulling remote image quay.io/gravitational/debian-tall:0.0.1
+        Pulling remote image quay.io/gravitational/debian-tall:stretch
+        Pulling remote image quay.io/gravitational/provisioner:ci.82
+        Pulling remote image quay.io/gravitational/debian-tall:buster
+        Using local image mysql:5.6
+        Using local image wordpress:4.8-apache
+        Vendored image gravitational/debian-tall:0.0.1
+        Vendored image gravitational/debian-tall:stretch
+        Vendored image gravitational/debian-tall:buster
+        Vendored image gravitational/provisioner:ci.82
+        Vendored image mysql:5.6
+        Vendored image wordpress:4.8-apache
+Mon Apr 27 00:51:21 UTC Creating application
+        Still creating application (10 seconds elapsed)
+Mon Apr 27 00:51:36 UTC Generating the cluster image
+Mon Apr 27 00:51:44 UTC Saving the image as wordpress.tar
+        Still saving the image as wordpress.tar (10 seconds elapsed)
+Mon Apr 27 00:52:02 UTC Build finished in 3 minutes 
 ```
 
 Let's review what just happened. `tele build` did the following:
 
-* Downloaded Kubernetes binaries and Gravity tooling from `s3://hub.gravitational.io`.
+* Downloaded Kubernetes binaries and Gravity tooling from Gravitational distribution hub.
 * Scanned the current directory and the subdirectories for Kubernetes resources and Helm charts.
 * Downloaded external container images referenced in the resources discovered in the previous step.
 * Packaged (or vendored) Docker images into the Cluster Image.
 * Removed the duplicate container image layers, reducing the size of the Cluster Image.
-* Saved the Cluster Image as `mattermost.tar`.
+* Saved the Cluster Image as `wordpress.tar`.
 
-!!! warning "Slow Operation Warning"
+Note: Slow Operation Warning
     `tele build` needs to download hundreds of megabytes of binary dependencies which
     can take a considerable amount of time, depending on your Internet connection speed.
 
-The resulting `mattermost.tar` file is about 1.6GB and it is **entirely
+The resulting `wordpress.tar` file is about 2.9GB and it is **entirely
 self-sufficient** and dependency-free. It contains everything: the Kubernetes
-binaries, the Docker engine, the Docker registry and the Mattermost application itself:
-everything one needs to get Mattermost up and running on any fleet of Linux
+binaries, the Docker engine, the Docker registry and the Wordpress application itself:
+everything one needs to get Wordpress up and running on any fleet of Linux
 servers (or into an AWS/GCE/Azure account).
 
 Congratulations! You have created your first **Kubernetes virtual appliance**!
 
-
 ## Installing
 
-Installing the `mattermost.tar` Cluster Image results in creating a Kubernetes
+Installing the `wordpress.tar` Cluster Image results in creating a Kubernetes
 cluster with the application pre-loaded. This file is the only artifact
-one needs to create a Kubernetes cluster with Mattermost running inside.
+one needs to create a Kubernetes cluster with Wordpress running inside.
 
-Copy `mattermost.tar` to a clean Linux machine. Let's call it `host`. This node
+Copy `wordpress.tar` to a clean Linux machine. Let's call it `host`. This node
 will be used to bootstrap the cluster. Let's untar it and look inside:
 
 ```bash
-$ tar -xf mattermost.tar
+$ tar -xf wordpress.tar
 $ tree
 ├── app.yaml
 ├── gravity
@@ -246,124 +216,115 @@ Gravity supports two modes of installation:
 ### Installing via CLI
 
 To install a Cluster via CLI, you have to execute the `./gravity install` command and
-supply two mandatory flags:
+supply three flags:
 
 Flag              | Description
 -------------------|---------------------------------
 `--token`          | A secret token of your choosing which will be used to add additional nodes to this Cluster in the future. We'll use word "secret" here.
 `--advertise-addr` | The IP address this host will be visible on by other nodes in this Cluster. We'll use `10.5.5.28`.
+`--cloud-provider` | Whether in a specific cloud environment or a no-cloud provider such as standalone VMs/bare-metal environment [generic aws gce] We'll use `generic` here.  
 
-The command below will create a single-node Kubernetes cluster with Mattermost running inside:
+The command below will create a single-node Kubernetes cluster with Wordpress running inside:
 
 ```
 # We are executing this on the node named 'host' with IP address of 10.5.5.28
 $ sudo ./gravity install \
         --advertise-addr=10.5.5.28 \
-        --token=secret
+        --token=secret \
+        --cloud-provider=generic
 # Output:
-Sat Jan 12 05:30:44 UTC Starting installer
-Sat Jan 12 05:30:44 UTC Preparing for installation...
-Sat Jan 12 05:31:09 UTC Installing application mattermost:2.2.0
-Sat Jan 12 05:31:09 UTC Starting non-interactive install
-Fri Jan 11 21:31:09 UTC Auto-loaded kernel module: br_netfilter
-Fri Jan 11 21:31:09 UTC Auto-loaded kernel module: iptable_nat
-Fri Jan 11 21:31:09 UTC Auto-loaded kernel module: iptable_filter
-Fri Jan 11 21:31:09 UTC Auto-loaded kernel module: ebtables
-Fri Jan 11 21:31:09 UTC Auto-set kernel parameter: net.ipv4.ip_forward=1
-Fri Jan 11 21:31:09 UTC Auto-set kernel parameter: net.bridge.bridge-nf-call-iptables=1
-Sat Jan 12 05:31:10 UTC All agents have connected!
-Sat Jan 12 05:31:10 UTC Starting the installation
-Sat Jan 12 05:31:11 UTC Operation has been created
-Sat Jan 12 05:31:12 UTC Execute preflight checks
-Sat Jan 12 05:31:16 UTC Configure packages for all nodes
-Sat Jan 12 05:31:20 UTC Bootstrap master node host
-Sat Jan 12 05:31:24 UTC Pull packages on master node host
-Sat Jan 12 05:32:20 UTC Install system package teleport:2.4.7 on master node host
-Sat Jan 12 05:32:22 UTC Install system package planet:5.2.19-11105 on master node host
-Sat Jan 12 05:32:48 UTC Wait for system services to start on all nodes
-Sat Jan 12 05:33:24 UTC Label and taint master node host
-Sat Jan 12 05:33:25 UTC Bootstrap Kubernetes roles and PSPs
-Sat Jan 12 05:33:26 UTC Export applications layers to Docker registries
-Sat Jan 12 05:33:27 UTC Populate Docker registry on master node host
-Sat Jan 12 05:34:24 UTC Install system application dns-app:0.1.0
-Sat Jan 12 05:34:31 UTC Install system application logging-app:5.0.2
-Sat Jan 12 05:35:05 UTC Install system application tiller-app:5.2.1
-Sat Jan 12 05:35:43 UTC Install system application site:5.2.4
-Sat Jan 12 05:36:59 UTC Install system application kubernetes:5.2.4
-Sat Jan 12 05:37:00 UTC Install application mattermost:2.2.0
-Sat Jan 12 05:37:10 UTC Enable elections
-Sat Jan 12 05:37:12 UTC Operation has completed
-Sat Jan 12 05:37:13 UTC Installation succeeded in 6m3.257480586s
+Sun Apr 26 23:55:11 UTC Starting enterprise installer
+
+To abort the installation and clean up the system,                                                                                                                                                                                              
+press Ctrl+C two times in a row.                                                                                                                                                                                                                
+
+If you get disconnected from the terminal, you can reconnect to the installer                                                                                                                                                                   
+agent by issuing 'gravity resume' command.                                                                                                                                                                                                      
+
+If the installation fails, use 'gravity plan' to inspect the state and                                                                                                                                                                          
+'gravity resume' to continue the operation.                                                                                                                                                                                                     
+See https://gravitational.com/gravity/docs/cluster/#managing-an-ongoing-operation for details.                                                                                                                                                  
+
+Sun Apr 26 23:55:11 UTC Connecting to installer
+Sun Apr 26 23:55:32 UTC Connected to installer
+Sun Apr 26 23:55:32 UTC Successfully added "master" node on 10.150.15.236
+...
+
+Mon Apr 27 00:03:05 UTC Install application wordpress:0.0.1
+Mon Apr 27 00:03:05 UTC Executing install hook for wordpress:0.0.1
+Mon Apr 27 00:03:15 UTC         Still executing install hook for wordpress:0.0.1 (10 seconds elapsed)
+Mon Apr 27 00:03:16 UTC Executing "/connect-installer" locally
+Mon Apr 27 00:03:17 UTC Connecting to installer
+Mon Apr 27 00:03:17 UTC Connect to installer
+Mon Apr 27 00:03:19 UTC Executing "/election" locally
+Mon Apr 27 00:03:19 UTC Enable leader elections
+Mon Apr 27 00:03:19 UTC Enable cluster leader elections
+Mon Apr 27 00:03:20 UTC Executing operation finished in 6 minutes
+Mon Apr 27 00:03:20 UTC The operation has finished successfully in 7m48s
+Mon Apr 27 00:03:21 UTC
+Cluster endpoints:
+    * Authentication gateway:
+        - 10.150.15.236:32009
+    * Cluster management URL:
+        - https://10.150.15.236:32009
+
+Application endpoints:
+    * wordpress:0.0.1:
+        - wordpress:
+            - http://10.150.15.236:30080
+
 ```
 
 **Congratulations!** You have created a fully functional Kubernetes cluster
-with Mattermost running inside. To check the health and status of the Cluster,
+with Wordpress running inside. To check the health and status of the Cluster,
 execute this command on the target node:
 
 ```bash
-$ gravity status
-
-# the output:
-Cluster status:	active
-Application:	mattermost, version 2.2.0
-Join token:	3f59d1923ed4e2f1499f3e272c86310b46666c8ddce708f3131b16f256f10004
+$ sudo gravity status
+Cluster name:           wordpress
+Cluster status:         active
+Cluster image:          wordpress, version 0.0.1
+Gravity version:        7.0.4 (client) / 7.0.4 (server)
+Join token:             c2d3757aec3e50d210e189dc16b1fb37
+Periodic updates:       Not Configured
+Remote support:         Not Configured
 Last completed operation:
     * 1-node install
-      ID:		    b75f28bc-b8e9-403f-9cda-972013a652e8
-      Started:		Tue Apr  7 21:37 UTC (13 minutes ago)
-      Completed:	Tue Apr  7 21:37 UTC (13 minutes ago)
-Cluster:		friendlypoincare4048
-    Masters:
-        * host (10.5.5.28, node)
-            Status:	healthy
+      ID:               e5608f31-0d8e-4399-9987-00a96f0b41f8
+      Started:          Sun Apr 26 23:55 UTC (1 hour ago)
+      Completed:        Sun Apr 26 23:57 UTC (1 hour ago)
+Cluster endpoints:
+    * Authentication gateway:
+        - 10.150.15.236:32009
+    * Cluster management URL:
+        - https://10.150.15.236:32009
+```
+Navigate to `http://<node ip>:30080` to access the application.
+
+**Note** that this is a single node deployment example.  You have the option of [joining](https://gravitational.com/gravity/docs/cluster/#adding-a-node) or installing with a different flavor.  The default flavor for this Cluster Manifest is small (1 node).  Other flavors include medium (3 nodes) and large (5 nodes). 
+```
+#Ex:
+
+$ sudo ./gravity install \
+        --advertise-addr=10.5.5.28 \
+        --token=secret \
+        --cloud-provider=generic \
+        --flavor=medium
 ```
 
-If a single node cluster is not enough, you can add additional nodes to it:
+Flavor details are in the Wordpress [Cluster Manifest](./resources/app.yaml) . Flavors provide for specifying the number and configuration of nodes for a deployment. 
 
-1. Copy `gravity` binary from the bootstrapping node above to another host which
-   is about to be added to the Cluster.  Let's assume its IP is `10.5.5.29`.
-2. Execute `gravity join` command as shown below. Note that this command will
-   "think" in silence for a few seconds before dumping any output.
-
-```bash
-# Execute this on the second node with an IP 10.5.5.29
-$ sudo ./gravity join 10.5.5.28 --advertise-addr=10.5.5.29 --token=secret
-
-# Output:
-Sat Jan 12 06:00:16 UTC	Connecting to cluster
-Fri Jan 11 22:00:16 UTC	Auto-loaded kernel module: br_netfilter
-Fri Jan 11 22:00:16 UTC	Auto-loaded kernel module: iptable_nat
-Fri Jan 11 22:00:16 UTC	Auto-loaded kernel module: iptable_filter
-Fri Jan 11 22:00:16 UTC	Auto-loaded kernel module: ebtables
-Fri Jan 11 22:00:16 UTC	Auto-set kernel parameter: net.ipv4.ip_forward=1
-Fri Jan 11 22:00:16 UTC	Auto-set kernel parameter: net.bridge.bridge-nf-call-iptables=1
-Sat Jan 12 06:00:16 UTC	Connected to existing cluster at 10.5.5.28
-Sat Jan 12 06:00:17 UTC	Operation has been created
-Sat Jan 12 06:00:18 UTC	Configure packages for the joining node
-Sat Jan 12 06:00:20 UTC	Bootstrap the joining node
-Sat Jan 12 06:00:21 UTC	Pull packages on the joining node
-Sat Jan 12 06:01:18 UTC	Install system package teleport:2.4.7
-Sat Jan 12 06:01:19 UTC	Install system package planet:5.2.19-11105
-Sat Jan 12 06:01:41 UTC	Start RPC agent on the master node 10.5.5.28
-Sat Jan 12 06:01:45 UTC	Add the joining node to the etcd cluster
-Sat Jan 12 06:01:49 UTC	Wait for the planet to start
-Sat Jan 12 06:02:24 UTC	Stop RPC agent on the master node 10.5.5.28
-Sat Jan 12 06:02:25 UTC	Enable leader election on the joined node
-Sat Jan 12 06:02:26 UTC	Operation has completed
-Sat Jan 12 06:02:26 UTC	Joined cluster in 2m10.547146946s
-```
-
-Now you have a two-node Kubernetes cluster with Mattermost running inside.
+## Adding a User
 The next step is to create a new Kubernetes user:
 
 ```bash
 # execute this on the K8s master node (running on 10.5.5.28 in our example)
-# to create a user "ekontsevoy"
-$ gravity users add --roles=@teleadmin ekontsevoy
+# to create a user "jeff"
+$ gravity users add --roles=@teleadmin  jeff
 
 # output:
 Signup token has been created and is valid for 8h0m0s hours. Share this URL with the user:
-https://10.5.5.28:3009/web/newuser/e5b5422da69ff44d41f92e3ce6167659a7fee10e1023acea22062141dfe0238e
+https://10.150.15.236:3009/web/newuser/e5b5422da69ff44d41f92e3ce6167659a7fee10e1023acea22062141dfe0238e
 ```
 
 ![Sign into Gravity](images/gravity-quickstart/logging-into-gravity.png)
@@ -372,13 +333,14 @@ https://10.5.5.28:3009/web/newuser/e5b5422da69ff44d41f92e3ce6167659a7fee10e1023a
 Now click on the printed URL and select a password. You are now inside the Cluster
 Control Panel. You can bookmark the following URL to access it in the future: `https://10.5.5.28:32009/web/`
 
-![Gravity Dashboard](images/gravity-quickstart/gravity-mattermost-dashboard.png)
+![Gravity Dashboard](images/gravity-quickstart/gravity-wordpress-dashboard.png)
 
-You will also see that this Cluster is running Mattermost inside, accessible as a Kubernetes service
-on port `32010`, i.e. it's accessible using IP addresses of both machines in the Cluster:
+You will also see that this Cluster is running Wordpress inside, accessible as a Kubernetes service
+on port `30080`, i.e. it's accessible using IP addresses of both machines in the Cluster:
 
-* `http://10.5.5.28:32010/`
-* `http://10.5.5.29:32010/`
+* `http://10.5.5.28:30080/`
+* `http://10.5.5.29:30080/`
+* `http://10.5.5.30:30080/`
 
 ### Installing via Web Browser
 
@@ -386,17 +348,17 @@ This method of installation launches a graphical installation wizard in a web br
 
 To launch a web installer, you will need:
 
-* The Cluster Image `mattermost.tar` which we have prepared earlier.
+* The Cluster Image `wordpress.tar` which we have prepared earlier.
 * A Linux computer with a graphical interface and web browser connected to the same network as the target nodes.
 
-First, untar `mattermost.tar` and execute the `install` script. This command
+First, untar `wordpress.tar` and execute the `./gravity install --wizard` command. This command
 launches an HTTP server which serves a web UI and acts as a bootstrapping agent
 to create a new Cluster. It will print a web URL for you to click
 on or paste in your browser.
 
 ```bash
-$ sudo ./install
-OPEN THIS IN BROWSER: https://host:61009/web/installer/new/gravitational.io/mattermost/2.2.0?install_token=2a9de4a72ede
+$ sudo ./gravity install --wizard
+OPEN THIS IN BROWSER: https://host:61009/web/installer/new/gravitational.io/wordpress/0.0.1?install_token=2a9de4a72ede
 ```
 
 **If you don't have TLS setup you might see this error message. Click Advanced -> Proceed **
@@ -405,30 +367,27 @@ OPEN THIS IN BROWSER: https://host:61009/web/installer/new/gravitational.io/matt
 The browser-based installer will ask for the following:
 
 * Name of your Cluster. We recommend FQDN-like names like
-  `mattermost.example.com`.
-
-![Name of Cluster](images/gravity-quickstart/cluster-name.png)
-
+  `wordpress.example.com`.
 * The network interface to use. This must be the interface which Kubernetes
   nodes will use to talk to each other.
 
-![Set Capacity](images/gravity-quickstart/setting-capacity.png)
+![Name of Cluster](images/gravity-quickstart/cluster-name.png)
 
-
-* The "flavor" of the Cluster, i.e. 1, 2 or 3 nodes. The installer will provide a CLI
+* The "flavor" of the Cluster, i.e. small (1 node), medium (2 nodes) or large (5 nodes). The installer will provide a CLI
   command to copy to and execute on each node.
+
+![All Nodes](images/gravity-quickstart/setting-capacity.png)
+
 * Once all nodes report into the Cluster, the installer will proceed setting up
   Kubernetes.
+![Installing](images/gravity-quickstart/clusterinstall.png)
 
-![All Nodes](images/gravity-quickstart/all-nodes.png)
-
-
-The final step is to select the user name and password for the administrator. You will be able to change it later (or configure the SSO). Once you are logged in, you will be placed in Gravity's Control Panel UI where you will find the HTTP end point of Mattermost.
+The final step is to select the user name and password for the administrator. You will be able to change it later (or configure the SSO). Once you are logged in, you will be placed in Gravity's Control Panel UI.  Wordpress will be available at the NodePort of 30080.
 
 
-**Mattermost Install Complete**
-![Create Mattermost](images/gravity-quickstart/mattermost/create-mattermost.png)
-![Mattermost Fin](images/gravity-quickstart/mattermost/mattermost.png)
+**Wordpress Install Complete**
+![Install Wordpress](images/gravity-quickstart/wordpressinstall.png)
+![Wordpress Fin](images/gravity-quickstart/finishedwordpress.png)
 
 You can press `Ctrl+C` to stop the `install` script.
 
@@ -445,4 +404,4 @@ into downloadable Kubernetes appliances and dramatically simplifies implementing
 compliance in organizations by publishing Kubernetes images that are pre-configured and approved by the security and compliance teams.
 
 If you need additional guidance with packaging your Kubernetes clusters into
-Gravity appliances, our implementation services team can help (info@gravitational.com).
+Gravity deployments, our implementation services team can help (info@gravitational.com).
