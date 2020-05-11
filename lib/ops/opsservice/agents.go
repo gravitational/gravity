@@ -575,9 +575,10 @@ func (r *AgentPeerStore) isPartOfActiveOperation(addr string, token storage.Prov
 	if operation.IsCompleted() {
 		return trace.BadParameter("operation %v is already completed", token.OperationID)
 	}
-	if (storage.Servers)(op.Servers).FindByIP(addr) == nil {
+	serverAddr := utils.ExtractHost(addr)
+	if (storage.Servers)(op.Servers).FindByIP(serverAddr) == nil {
 		return trace.NotFound("server is not part of the active operation").AddFields(map[string]interface{}{
-			"server-addr": addr,
+			"server-addr": serverAddr,
 			"operation":   operation.String(),
 		})
 	}

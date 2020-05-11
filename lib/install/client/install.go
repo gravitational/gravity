@@ -52,9 +52,9 @@ func (r *InstallerStrategy) connect(ctx context.Context) (installpb.AgentClient,
 	ctx, cancel = context.WithTimeout(ctx, r.ConnectTimeout)
 	defer cancel()
 	client, err := installpb.NewClient(ctx, installpb.ClientConfig{
-		FieldLogger:     r.FieldLogger,
-		SocketPath:      r.SocketPath,
-		IsServiceFailed: isServiceFailed(serviceName(r.ServicePath)),
+		FieldLogger:            r.FieldLogger,
+		SocketPath:             r.SocketPath,
+		ShouldReconnectService: shouldReconnectService(serviceName(r.ServicePath)),
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -146,12 +146,14 @@ type InstallerStrategy struct {
 	ConnectTimeout time.Duration
 }
 
-// isServiceFailed returns an error if the service has failed.
-func isServiceFailed(serviceName string) func() error {
+// shouldReconnectService returns an error if the service has failed or has been uninstalled
+func shouldReconnectService(serviceName string) func() error {
 	return func() error {
-		err := service.IsFailed(serviceName)
+		err := service.IsStatus(serviceName,
+			systemservice.ServiceStatusFailed,
+			systemservice.ServiceStatusUnknown)
 		if err == nil {
-			return trace.Errorf("service %q has failed. Check journal log for details.",
+			return trace.Errorf("service %q has failed or has been uninstalled. Check journal log for details.",
 				serviceName)
 		}
 		if !trace.IsCompareFailed(err) {

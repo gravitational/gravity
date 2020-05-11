@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	"github.com/gravitational/gravity/lib/clients"
 	"github.com/gravitational/gravity/lib/constants"
@@ -98,7 +99,7 @@ type etcdExecutor struct {
 func (p *etcdExecutor) Execute(ctx context.Context) error {
 	p.Progress.NextStep("Adding etcd member")
 	member, err := p.Etcd.Add(ctx, p.Phase.Data.Server.EtcdPeerURL())
-	if err != nil {
+	if err != nil && !isMemberAlreadyExistsError(err) {
 		return trace.Wrap(err)
 	}
 	p.Infof("Added etcd member: %v.", member)
@@ -282,4 +283,10 @@ func opKey(plan storage.OperationPlan) ops.SiteOperationKey {
 		SiteDomain:  plan.ClusterName,
 		OperationID: plan.OperationID,
 	}
+}
+
+func isMemberAlreadyExistsError(err error) bool {
+	// https://github.com/etcd-io/etcd/blob/v3.4.7/etcdserver/api/membership/errors.go#L27
+	const errPeerURLExists = "membership: peerURL exists"
+	return strings.Contains(err.Error(), errPeerURLExists)
 }
