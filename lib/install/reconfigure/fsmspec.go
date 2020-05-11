@@ -45,6 +45,10 @@ func FSMSpec(config install.FSMConfig) fsm.FSMSpecFunc {
 		// so only "/masters" phase can be present.
 		case strings.HasPrefix(p.Phase.ID, installphases.MastersPhase):
 			return installphases.NewSystem(p, config.Operator, config.LocalPackages, remote)
+		case strings.HasPrefix(p.Phase.ID, phases.RestartPhase):
+			return phases.NewRestart(p,
+				config.Operator,
+				config.LocalPackages)
 		}
 		switch p.Phase.ID {
 		case installphases.ChecksPhase:
@@ -81,8 +85,6 @@ func FSMSpec(config install.FSMConfig) fsm.FSMSpecFunc {
 			return phases.NewDirectories(p, config.Operator)
 		case phases.PodsPhase:
 			return phases.NewPods(p, config.Operator)
-		case phases.TeleportPhase:
-			return phases.NewTeleport(p, config.Operator)
 		case phases.GravityPhase:
 			return phases.NewGravity(p, config.Operator)
 		case phases.ClusterPackagesPhase:

@@ -23,61 +23,68 @@ import (
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/systemservice"
 
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
 )
 
-// NewTeleport returns executor that restarts teleport node so it can regenerate
-// the secrets and reconnect to the auth server.
-func NewTeleport(p fsm.ExecutorParams, operator ops.Operator) (*teleportExecutor, error) {
+// NewRestart returns executor that restarts systemd unit for the specified package.
+func NewRestart(p fsm.ExecutorParams, operator ops.Operator, packages pack.PackageService) (*restartExecutor, error) {
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithField(constants.FieldPhase, p.Phase.ID),
 		Key:         p.Key(),
 		Operator:    operator,
 		Server:      p.Phase.Data.Server,
 	}
-	return &teleportExecutor{
+	return &restartExecutor{
 		FieldLogger:    logger,
 		ExecutorParams: p,
+		LocalPackages:  packages,
 		Package:        *p.Phase.Data.Package,
 	}, nil
 }
 
-type teleportExecutor struct {
+type restartExecutor struct {
 	// FieldLogger is used for logging.
 	logrus.FieldLogger
 	// ExecutorParams are common executor parameters.
 	fsm.ExecutorParams
-	// Package is the locator of the installed teleport package.
+	// LocalPackages is the machine-local package service.
+	LocalPackages pack.PackageService
+	// Package is the locator of the package service to restart.
 	Package loc.Locator
 }
 
-// Execute restarts teleport node service.
-func (p *teleportExecutor) Execute(ctx context.Context) error {
+// Execute restarts specified package service.
+func (p *restartExecutor) Execute(ctx context.Context) error {
+	installed, err := pack.FindInstalledPackage(p.LocalPackages, p.Package)
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	svm, err := systemservice.New()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	p.Progress.NextStep("Restarting system service %s", p.Package)
-	if err := svm.RestartPackageService(p.Package); err != nil {
+	p.Progress.NextStep("Restarting system service %s", installed)
+	if err := svm.RestartPackageService(*installed); err != nil {
 		return trace.Wrap(err)
 	}
 	return nil
 }
 
 // Rollback is no-op for this phase.
-func (*teleportExecutor) Rollback(ctx context.Context) error {
+func (*restartExecutor) Rollback(ctx context.Context) error {
 	return nil
 }
 
 // PreCheck is no-op for this phase.
-func (*teleportExecutor) PreCheck(ctx context.Context) error {
+func (*restartExecutor) PreCheck(ctx context.Context) error {
 	return nil
 }
 
 // PostCheck is no-op for this phase.
-func (*teleportExecutor) PostCheck(ctx context.Context) error {
+func (*restartExecutor) PostCheck(ctx context.Context) error {
 	return nil
 }
