@@ -26,7 +26,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"os/user"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -2144,10 +2143,6 @@ func (p *Process) initAccount() error {
 		}
 	}
 
-	if err := p.fixOpsCenterRoles(*account); err != nil {
-		p.Errorf("Failed to migrate Gravity Hub: %v.", trace.DebugReport(err))
-	}
-
 	return nil
 }
 
@@ -2226,47 +2221,6 @@ func (p *Process) ensureClusterState() error {
 		return trace.Wrap(err)
 	}
 
-	return nil
-}
-
-// fixOpsCenterRoles fixes use case when cert authorities
-// for remote ops center did not have any roles set to them,
-// so user could not SSH into terminal
-func (p *Process) fixOpsCenterRoles(account users.Account) error {
-	clusters, err := p.backend.GetTrustedClusters()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	currentUser, err := user.Current()
-	if err != nil {
-		p.Warningf("Failed to query current user: %v.", trace.ConvertSystemError(err))
-	}
-	p.Debugf("Going to update certificate authorities for %v.", clusters)
-	for _, cluster := range clusters {
-		certAuthority, err := p.backend.GetCertAuthority(teleservices.CertAuthID{
-			Type:       teleservices.UserCA,
-			DomainName: cluster.GetName(),
-		}, true)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		if len(certAuthority.GetRoles()) != 0 {
-			p.Debugf("CA %v has assigned roles.", certAuthority.GetClusterName())
-			continue
-		}
-		p.Debugf("Migrating CA %v.", certAuthority.GetClusterName())
-		role := teleservices.RoleForCertAuthority(certAuthority)
-		role.SetLogins(teleservices.Allow, storage.GetAllowedLogins(currentUser))
-		err = p.backend.UpsertRole(role, storage.Forever)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		certAuthority.SetRoles([]string{role.GetName()})
-		err = p.backend.UpsertCertAuthority(certAuthority)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-	}
 	return nil
 }
 
