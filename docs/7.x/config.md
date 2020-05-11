@@ -851,9 +851,11 @@ Let's go over the resource fields:
    matching "remote" role assigned in the Hub, will assume all corresponding "local"
    roles on the Cluster.
 
-!!! warning "Role mapping"
-    If `role_map` property is not specified, any remote role will map to the default
-    administrative local role `@teleadmin`.
+!!! note "Role mapping"
+    If not explicitly specified, the default role mapping will only map the remote
+    admin role `@teleadmin` to the local admin role `@teleadmin` as shown in the
+    example above. See Teleport documentation on [Trusted Clusters RBAC](https://gravitational.com/teleport/docs/trustedclusters/#rbac)
+    for information about configuring role mapping.
 
 Create the Trusted Cluster:
 
