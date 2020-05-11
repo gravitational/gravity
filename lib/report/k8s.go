@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/gravity/lib/utils/kubectl"
@@ -38,7 +37,7 @@ func NewKubernetesCollector(ctx context.Context, runner utils.CommandRunner) Col
 		Cmd("k8s-nodes", utils.PlanetCommand(kubectl.Command("get", "nodes", "--output", "wide"))...),
 		Cmd("k8s-describe-nodes", utils.PlanetCommand(kubectl.Command("describe", "nodes"))...),
 		Cmd("k8s-cluster-info-dump.tgz",
-			constants.GravityBin, "system", "cluster-info"),
+			utils.Exe.Path, "system", "cluster-info"),
 	}
 	for _, resourceType := range defaults.KubernetesReportResourceTypes {
 		commands = append(commands,
