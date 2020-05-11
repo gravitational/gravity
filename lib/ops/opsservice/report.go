@@ -26,7 +26,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/archive"
@@ -380,8 +379,4 @@ const (
 	// opLogsFilename defines the file pattern that stores operation log for a particular
 	// cluster operation
 	opLogsFilename = "%v.%v"
-	// statusHistoryFilename is the name of the file that stores the status history output
-	statusHistoryFilename = "status-history"
-	// timelineTimeout is maximum amount of time to wait for timeline response
-	timelineTimeout = 10 * time.Second
 )
