@@ -35,7 +35,6 @@ import (
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/report"
 	"github.com/gravitational/gravity/lib/schema"
-	statusapi "github.com/gravitational/gravity/lib/status"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -152,10 +151,9 @@ func (s *site) getReport(runner remoteRunner, servers []remoteServer, master rem
 		if err := s.collectDebugInfoFromServers(dir, servers, runner); err != nil {
 			log.WithError(err).Error("Failed to collect diagnostics from some nodes.")
 		}
-	}
-
-	if err := collectStatusHistory(dir); err != nil {
-		log.WithError(err).Warn("Failed to collect status history.")
+		if err := s.collectStatusTimeline(reportWriter, serverRunner); err != nil {
+			log.WithError(err).Error("Failed to collect status timeline.")
+		}
 	}
 
 	// use a pipe to avoid allocating a buffer
@@ -239,6 +237,20 @@ func (s *site) collectEtcdBackup(reportWriter report.FileWriter, runner *serverR
 	defer w.Close()
 	err = runner.RunStream(w, s.gravityCommand("system", "report", fmt.Sprintf(
 		"--filter=%v", report.FilterEtcd), "--compressed")...)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+func (s *site) collectStatusTimeline(reportWriter report.FileWriter, runner *serverRunner) error {
+	w, err := reportWriter.NewWriter("status.tar.gz")
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer w.Close()
+	err = runner.RunStream(w, s.gravityCommand("system", "report",
+		fmt.Sprintf("--filter=%v", report.FilterTimeline), "--compressed")...)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -345,30 +357,6 @@ func collectOperationLogs(site site, operation ops.SiteOperation, reportWriter r
 
 	_, err = io.Copy(w, f)
 	return trace.Wrap(err)
-}
-
-// collectStatusHistory collects the cluster status history and stores it in the
-// specified dir.
-func collectStatusHistory(dir string) error {
-	ctx, cancel := context.WithTimeout(context.TODO(), timelineTimeout)
-	defer cancel()
-
-	resp, err := statusapi.Timeline(ctx)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	w, err := report.NewFileWriter(dir).NewWriter(statusHistoryFilename)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	defer w.Close()
-
-	for _, event := range resp.GetEvents() {
-		statusapi.PrintEvent(w, event)
-	}
-
-	return nil
 }
 
 type collectorFn func(report.FileWriter, site) error
