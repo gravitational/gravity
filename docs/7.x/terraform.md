@@ -11,7 +11,7 @@ The terraform provider will be automatically installed when getting the Gravity 
 curl https://get.gravitational.io/gravity/install/5.2.5 | bash
 ```
 
-Please see the [getting started guide](quickstart.md#getting-the-tools) for more information.
+Please see the [getting started guide](quickstart.md#step-1-getting-the-tools) for more information.
 
 ### Example Usage
 
@@ -204,7 +204,7 @@ The terraform provider will be automatically installed when getting the Gravity 
 curl https://get.gravitational.io/gravity/install/5.2.5 | bash
 ```
 
-Please see the [getting started guide](quickstart.md#getting-the-tools) for more information.
+Please see the [getting started guide](quickstart.md#step-1-getting-the-tools) for more information.
 
 ### Example Usage
 
