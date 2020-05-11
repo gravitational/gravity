@@ -420,10 +420,34 @@ func WrapExitCodeError(exitCode int, err error) error {
 	}
 }
 
+// IsCompareFailedError returns true to indicate this error
+// complies with compare failed error protocol
+func (ClusterDegradedError) IsCompareFailedError() bool {
+	return true
+}
+
+// Error returns the text representation of this error
+func (ClusterDegradedError) Error() string {
+	return "cluster is degraded"
+}
+
+// ClusterDegradedError indicates that the cluster is degraded
+type ClusterDegradedError struct{}
+
 // ExitCode interprets this value as exit code.
 // Implements ExitCodeError
 func (r exitCodeError) ExitCode() int {
 	return r.code
+}
+
+// IsClusterDegradedError determines if the error indicates that
+// the cluster is degraded
+func IsClusterDegradedError(err error) bool {
+	if _, ok := trace.Unwrap(err).(ClusterDegradedError); ok {
+		return true
+	}
+	// Handle the case when the error has come over the wire
+	return strings.Contains(err.Error(), "cluster is degraded")
 }
 
 // Error returns this exit code as error string.

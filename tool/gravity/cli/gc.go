@@ -254,7 +254,7 @@ func getGarbageCollector(env *localenv.LocalEnvironment, operation ops.SiteOpera
 	})
 }
 
-func executeGarbageCollectPhase(env *localenv.LocalEnvironment, params PhaseParams, operation ops.SiteOperation) error {
+func executeGarbageCollectPhaseForOperation(env *localenv.LocalEnvironment, params PhaseParams, operation ops.SiteOperation) error {
 	collector, err := getGarbageCollector(env, operation)
 	if err != nil {
 		return trace.Wrap(err)
@@ -262,7 +262,7 @@ func executeGarbageCollectPhase(env *localenv.LocalEnvironment, params PhasePara
 	return collector.RunPhase(context.TODO(), params.PhaseID, params.Timeout, params.Force)
 }
 
-func setGarbageCollectPhase(env *localenv.LocalEnvironment, params SetPhaseParams, operation ops.SiteOperation) error {
+func setGarbageCollectPhaseForOperation(env *localenv.LocalEnvironment, params SetPhaseParams, operation ops.SiteOperation) error {
 	collector, err := getGarbageCollector(env, operation)
 	if err != nil {
 		return trace.Wrap(err)
