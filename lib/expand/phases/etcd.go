@@ -35,6 +35,7 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/cenkalti/backoff"
 	etcd "github.com/coreos/etcd/client"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
@@ -98,8 +99,8 @@ type etcdExecutor struct {
 // Execute adds the joining node to the cluster's etcd cluster
 func (p *etcdExecutor) Execute(ctx context.Context) error {
 	p.Progress.NextStep("Adding etcd member")
-	member, err := p.Etcd.Add(ctx, p.Phase.Data.Server.EtcdPeerURL())
-	if err != nil && !isMemberAlreadyExistsError(err) {
+	member, err := p.addEtcdMember(ctx)
+	if err != nil {
 		return trace.Wrap(err)
 	}
 	p.Infof("Added etcd member: %v.", member)
@@ -136,6 +137,23 @@ func (p *etcdExecutor) Rollback(ctx context.Context) error {
 	}
 	p.Infof("Restored etcd data from %v.", backupPath)
 	return nil
+}
+
+func (p *etcdExecutor) addEtcdMember(ctx context.Context) (member *etcd.Member, err error) {
+	boff := backoff.NewExponentialBackOff()
+	boff.MaxElapsedTime = defaults.TransientErrorTimeout
+	err = utils.RetryTransient(ctx, boff, func() error {
+		var err error
+		member, err = p.Etcd.Add(ctx, p.Phase.Data.Server.EtcdPeerURL())
+		if err != nil && !isMemberAlreadyExistsError(err) {
+			return trace.Wrap(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return member, nil
 }
 
 func (p *etcdExecutor) checkBackup(ctx context.Context, agent rpcclient.Client, backupPath string) error {
