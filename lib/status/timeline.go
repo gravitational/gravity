@@ -79,7 +79,7 @@ func PrintEvent(w io.Writer, event *pb.TimelineEvent) {
 		fmt.Fprintln(w, color.YellowString("%s [Leader Elected]\tprev=%s\tnew=%s",
 			timestamp, e.GetPrev(), e.GetNew()))
 	default:
-		fmt.Fprintln(w, color.YellowString("%s Unknown event", timestamp))
+		fmt.Fprintln(w, color.YellowString("%s [Unknown Event]\t%s", timestamp, event))
 		log.WithField("event", event).Warn("Received unknown event type.")
 	}
 }
