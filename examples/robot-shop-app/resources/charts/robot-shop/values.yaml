@@ -1,0 +1,44 @@
+#image registry
+registry: ""
+
+# Registry and rpository for Docker images
+# Default is docker/robotshop/image:latest
+image:
+  repo: robotshop
+  version: latest
+
+# Alternative payment gateway URL
+# Default is https://www.paypal.com
+payment:
+  gateway: null
+  #gateway: https://www.worldpay.com
+
+# EUM configuration
+# Provide your key and set the endpoint
+eum:
+  key: null
+  url: https://eum-eu-west-1.instana.io
+  #url: https://eum-us-west-2.instana.io
+
+# Pod Security Policy
+psp:
+  enabled: false
+
+# For the mini ones minikube, minishift set to true
+nodeport: true
+nodeportValue: 30085
+
+# "special" Openshift. Set to true when deploying to any openshift flavour
+openshift: false
+
+#Storage configuration
+storageClassType: openebs-hostpath
+specifyVolumeMode: false
+
+
+#Istio security setting
+securitySettingIstio: false
+
+
+# web deployment replicas
+numberWebReplicas: 3
