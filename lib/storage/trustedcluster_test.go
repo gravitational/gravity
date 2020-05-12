@@ -48,7 +48,9 @@ spec:
 		Token:                "trusted_cluster_token",
 		ProxyAddress:         "hub.example.com:32009",
 		ReverseTunnelAddress: "hub.example.com:3024",
-		Roles:                []string{constants.RoleAdmin},
+		RoleMap: services.RoleMap{
+			{Remote: constants.RoleAdmin, Local: []string{constants.RoleAdmin}},
+		},
 	}))
 }
 
