@@ -132,7 +132,7 @@ func (b *PlanBuilder) AddPodsPhase(plan *storage.OperationPlan) {
 }
 
 // AddRestartPhase adds phase that restarts Teleport and Planet units.
-func (b *PlanBuilder) AddTeleportPhase(plan *storage.OperationPlan) {
+func (b *PlanBuilder) AddRestartPhase(plan *storage.OperationPlan) {
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
 		ID:          phases.RestartPhase,
 		Description: "Restart Gravity services",
