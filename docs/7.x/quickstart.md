@@ -312,7 +312,7 @@ $ sudo ./gravity install \
         --flavor=medium
 ```
 
-Flavor details are in the Wordpress [Cluster Manifest](https://github.com/gravitational/quickstart/blob/master/wordpress/resources/app.yaml) . Flavors provide for specifying the number and configuration of nodes for a deployment.
+Flavor details are in the Wordpress [Cluster Manifest](https://github.com/gravitational/quickstart/blob/master/wordpress/resources/app.yaml). Flavors provide for specifying the number and configuration of nodes for a deployment.
 
 ## Adding a User
 The next step is to create a new Kubernetes user:
