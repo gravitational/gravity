@@ -173,7 +173,7 @@ github.com/cyphar/filepath-securejoin
 github.com/davecgh/go-spew/spew
 # github.com/dgrijalva/jwt-go v3.2.0+incompatible
 github.com/dgrijalva/jwt-go
-# github.com/docker/distribution v2.6.0-rc.1.0.20170726174610-edc3ab29cdff+incompatible
+# github.com/docker/distribution v2.7.1+incompatible
 github.com/docker/distribution
 github.com/docker/distribution/configuration
 github.com/docker/distribution/context
@@ -182,8 +182,10 @@ github.com/docker/distribution/health
 github.com/docker/distribution/health/checks
 github.com/docker/distribution/manifest
 github.com/docker/distribution/manifest/manifestlist
+github.com/docker/distribution/manifest/ocischema
 github.com/docker/distribution/manifest/schema1
 github.com/docker/distribution/manifest/schema2
+github.com/docker/distribution/metrics
 github.com/docker/distribution/notifications
 github.com/docker/distribution/reference
 github.com/docker/distribution/registry/api/errcode
@@ -222,6 +224,8 @@ github.com/docker/docker/pkg/pools
 github.com/docker/docker/pkg/system
 github.com/docker/docker/pkg/term
 github.com/docker/docker/pkg/term/windows
+# github.com/docker/go-metrics v0.0.1
+github.com/docker/go-metrics
 # github.com/docker/go-units v0.4.0 => github.com/docker/go-units v0.3.1
 github.com/docker/go-units
 # github.com/docker/libtrust v0.0.0-20150526203908-9cbd2a1374f4
@@ -747,10 +751,6 @@ github.com/sirupsen/logrus/hooks/syslog
 github.com/spf13/cobra
 # github.com/spf13/pflag v1.0.3
 github.com/spf13/pflag
-# github.com/stevvooe/resumable v0.0.0-20150521211217-51ad44105773
-github.com/stevvooe/resumable
-github.com/stevvooe/resumable/sha256
-github.com/stevvooe/resumable/sha512
 # github.com/stretchr/testify v1.4.0 => github.com/stretchr/testify v1.2.2
 github.com/stretchr/testify/assert
 # github.com/tstranex/u2f v0.0.0-20160508205855-eb799ce68da4
