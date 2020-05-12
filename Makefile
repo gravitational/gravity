@@ -527,7 +527,7 @@ wormhole: $(GRAVITY_BUILDDIR)/wormhole.tar
 
 $(GRAVITY_BUILDDIR)/wormhole.tar: packages
 	$(GRAVITY_BUILDDIR)/tele build $(ASSETSDIR)/wormhole/resources/app.yaml -f \
-		--version=$(GRAVITY_APP_TAG) \
+		--version=$(WORMHOLE_APP_TAG) \
 		--state-dir=$(PACKAGES_DIR) \
 		--skip-version-check \
 		-o $(GRAVITY_BUILDDIR)/wormhole.tar
