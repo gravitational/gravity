@@ -137,7 +137,12 @@ func (r *layerExporter) pushCmd(name, tag string) error {
 		Tag:  tag,
 	}
 	r.Infof("Pushing %v.", opts)
-	return r.dockerClient.PushImage(opts, dockerapi.AuthConfiguration{})
+	// Workaround a registry issue after updating go-dockerclient, set the password field to an invalid value so the
+	// auth headers are set.
+	// https://github.com/moby/moby/issues/10983
+	return r.dockerClient.PushImage(opts, dockerapi.AuthConfiguration{
+		Password: "not-a-real-password",
+	})
 }
 
 func (r *layerExporter) removeTagCmd(name, tag string) error {

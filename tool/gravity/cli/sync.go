@@ -52,6 +52,11 @@ type registryConfig struct {
 	Prefix string
 	// Insecure indicates insecure registry.
 	Insecure bool
+	// ScanningRepository is a docker repository to push a copy of all vendored images
+	// Used internally so the registry can scan those images and report on vulnerabilities
+	ScanningRepository *string
+	// ScanningTagPrefix is a prefix to add to each tag when pushed to help identify the image from the scan results
+	ScanningTagPrefix *string
 }
 
 // imageService returns a new registry client for this config.
@@ -136,12 +141,22 @@ func appSyncEnv(env *localenv.LocalEnvironment, imageEnv *localenv.ImageEnvironm
 		if err != nil {
 			return trace.Wrap(err)
 		}
+
+		var scanConfig *docker.ScanningConfig
+		if conf.ScanningRepository != nil {
+			scanConfig = &docker.ScanningConfig{
+				RemoteRepository: *conf.ScanningRepository,
+				TagPrefix:        *conf.ScanningTagPrefix,
+			}
+		}
+
 		err = service.SyncApp(context.TODO(), service.SyncRequest{
 			PackService:  imageEnv.Packages,
 			AppService:   imageEnv.Apps,
 			ImageService: imageService,
 			Package:      imageEnv.Manifest.Locator(),
 			Progress:     env,
+			ScanConfig:   scanConfig,
 		})
 		if err != nil {
 			return trace.Wrap(err)

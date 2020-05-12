@@ -884,6 +884,11 @@ type AppSyncCmd struct {
 	RegistryPassword *string
 	// RegistryPrefix is registry prefix when pushing images.
 	RegistryPrefix *string
+	// ScanningRepository is a docker repository to push a copy of all vendored images
+	// Used internally so the registry can scan those images and report on vulnerabilities
+	ScanningRepository *string
+	// ScanningTagPrefix is a prefix to add to each tag when pushed to help identify the image from the scan results
+	ScanningTagPrefix *string
 }
 
 // AppSearchCmd searches for applications.

@@ -41,6 +41,7 @@ type SyncRequest struct {
 	ImageService docker.ImageService
 	Package      loc.Locator
 	Progress     utils.Printer
+	ScanConfig   *docker.ScanningConfig
 }
 
 // CheckAndSetDefaults validates the request and sets some defaults.
@@ -72,6 +73,7 @@ func SyncApp(ctx context.Context, req SyncRequest) error {
 			ImageService: req.ImageService,
 			Package:      *base,
 			Progress:     req.Progress,
+			ScanConfig:   req.ScanConfig,
 		})
 		if err != nil {
 			return trace.Wrap(err)
@@ -86,6 +88,7 @@ func SyncApp(ctx context.Context, req SyncRequest) error {
 			ImageService: req.ImageService,
 			Package:      dep.Locator,
 			Progress:     req.Progress,
+			ScanConfig:   req.ScanConfig,
 		})
 		if err != nil {
 			return trace.Wrap(err)
@@ -132,6 +135,13 @@ func SyncApp(ctx context.Context, req SyncRequest) error {
 	}
 
 	log.Infof("Syncing %v.", req.Package)
+
+	if req.ScanConfig != nil {
+		if err = req.ImageService.SyncForScanning(ctx, *req.ScanConfig, syncPath, req.Progress); err != nil {
+			return trace.Wrap(err)
+		}
+		return nil
+	}
 
 	if _, err = req.ImageService.Sync(ctx, syncPath, req.Progress); err != nil {
 		return trace.Wrap(err)

@@ -17,9 +17,10 @@ limitations under the License.
 package docker
 
 import (
+	"context"
+
 	"github.com/gravitational/gravity/lib/utils"
 
-	"github.com/docker/distribution/context"
 	dockerapi "github.com/fsouza/go-dockerclient"
 )
 
@@ -50,6 +51,10 @@ type ImageService interface {
 	// Sync synchronizes the contents of dir with this private docker registry
 	// Returns the list of images synced
 	Sync(ctx context.Context, dir string, progress utils.Printer) ([]TagSpec, error)
+
+	// SyncForScanning syncs all images in a local directory, with a remote registry that is capable of scanning and
+	// reporting vulnerabilities in those images
+	SyncForScanning(ctx context.Context, conf ScanningConfig, dir string, progress utils.Printer) (err error)
 
 	// Wrap translates the specified image name to point to the private registry.
 	Wrap(image string) string
