@@ -155,9 +155,12 @@ func RegisterCommands(app *kingpin.Application) *Application {
 
 	g.PlanCompleteCmd.CmdClause = g.PlanCmd.Command("complete", "Mark operation as completed")
 
-	g.RollbackCmd.CmdClause = g.Command("rollback", "Rollback an operation. Currently supports only upgrade, runtime environment and cluster configuration operations. For other operations use gravity plan rollback command to rollback phase by phase.")
+	g.RollbackCmd.CmdClause = g.Command("rollback", "Rollback currently ongoing operation. Currently supports only upgrade, runtime environment and cluster configuration operations. For other operations use gravity plan rollback command to rollback phase by phase.")
 	g.RollbackCmd.PhaseTimeout = g.RollbackCmd.Flag("timeout", "Individual phase rollback timeout").Default(defaults.PhaseTimeout).Hidden().Duration()
-	g.RollbackCmd.OperationID = g.RollbackCmd.Flag("operation-id", "ID of the operation to rollback. If not specified, the last operation will be used").String()
+	// TODO(r0mant): Hide operation id flag for now, only the current operation
+	//               rollback is currently allowed. We might unhide it when we
+	//               allow completed operation rollbacks.
+	g.RollbackCmd.OperationID = g.RollbackCmd.Flag("operation-id", "ID of the operation to rollback. If not specified, the last operation will be used").Hidden().String()
 	g.RollbackCmd.SkipVersionCheck = g.RollbackCmd.Flag("skip-version-check", "Bypass version compatibility check").Hidden().Bool()
 	g.RollbackCmd.Confirmed = g.RollbackCmd.Flag("confirm", "Do not ask for confirmation").Bool()
 	g.RollbackCmd.DryRun = g.RollbackCmd.Flag("dry-run", "Print rollback phases without actually performing them").Bool()
