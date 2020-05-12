@@ -138,7 +138,7 @@ func (b *PlanBuilder) AddTeleportPhase(plan *storage.OperationPlan) {
 		Description: "Restart Gravity services",
 		Phases: []storage.OperationPhase{
 			{
-				ID:          fmt.Sprintf("%v/%v", phases.RestartPhase, phases.TeleportPhase),
+				ID:          fmt.Sprintf("%v%v", phases.RestartPhase, phases.TeleportPhase),
 				Description: "Restart Teleport",
 				Data: &storage.OperationPhaseData{
 					Server:  &b.Master,
@@ -146,7 +146,7 @@ func (b *PlanBuilder) AddTeleportPhase(plan *storage.OperationPlan) {
 				},
 			},
 			{
-				ID:          fmt.Sprintf("%v/%v", phases.RestartPhase, phases.PlanetPhase),
+				ID:          fmt.Sprintf("%v%v", phases.RestartPhase, phases.PlanetPhase),
 				Description: "Restart Planet",
 				Data: &storage.OperationPhaseData{
 					Server:  &b.Master,
