@@ -114,19 +114,21 @@ func (p *stateExecutor) updateNode(backend storage.Backend) error {
 
 func (p *stateExecutor) updateTokens(backend storage.Backend, operator ops.Operator) error {
 	existingToken, err := operator.GetExpandToken(p.Key().SiteKey())
-	if err != nil {
+	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
 	}
-	err = backend.DeleteProvisioningToken(existingToken.Token)
-	if err != nil {
-		return trace.Wrap(err)
+	if existingToken != nil {
+		err = backend.DeleteProvisioningToken(existingToken.Token)
+		if err != nil {
+			return trace.Wrap(err)
+		}
 	}
 	token, err := p.Operator.GetExpandToken(p.Key().SiteKey())
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	_, err = backend.CreateProvisioningToken(*token)
-	if err != nil {
+	if err != nil && !trace.IsAlreadyExists(err) {
 		return trace.Wrap(err)
 	}
 	p.Debug("Updated provisioning tokens.")
