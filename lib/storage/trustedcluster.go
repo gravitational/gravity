@@ -336,7 +336,12 @@ func (c *TrustedClusterV2) CheckAndSetDefaults() error {
 	// default mapping if neither of those is set, otherwise it will lead to
 	// incorrect trusted cluster configuration.
 	if len(c.Spec.Roles)+len(c.Spec.RoleMap) == 0 {
-		c.Spec.Roles = []string{constants.RoleAdmin}
+		c.Spec.RoleMap = teleservices.RoleMap{
+			{
+				Remote: constants.RoleAdmin,
+				Local:  []string{constants.RoleAdmin},
+			},
+		}
 	}
 	return nil
 }
