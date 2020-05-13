@@ -5,7 +5,7 @@
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
 | 7.0.5         | No  | May 13th, 2020       | 7.1 is released      | 1.17.4             | 3.2.13           |
-| 6.1.26        | Yes | May 13th, 2020       | November 10th, 2021  | 1.15.11            | 3.2.12           |
+| 6.1.27        | Yes | May 13th, 2020       | November 10th, 2021  | 1.15.11            | 3.2.12           |
 | 5.5.44        | Yes | May 13th, 2020       | September 7th, 2020  | 1.13.11            | 3.0.6-gravity    |
 
 Gravity offers one Long Term Support (LTS) release for every 2nd Kubernetes
@@ -53,11 +53,11 @@ extend updates past EOL through customer agreements if required.
 
 * Make upgrade operation more tolerant to Kubernetes version skew policy ([#1458](https://github.com/gravitational/gravity/pull/1458)).
 * Make sure Teleport node has connected successfully when joining a new node ([#1487](https://github.com/gravitational/gravity/pull/1487)).
-* Fix dates displayed in the UI to use standard US format MM/DD/YYY ([#1491](https://github.com/gravitational/gravity/pull/1491)).
+* Fix dates displayed in the UI to use standard US format MM/DD/YYYY ([#1491](https://github.com/gravitational/gravity/pull/1491)).
 * Fix an issue with inability to set a `role_map` property when configuring a trusted cluster ([#1527](https://github.com/gravitational/gravity/pull/1527)).
 * Loosen preflight check to allow variance in OS patch versions between cluster nodes ([#1530](https://github.com/gravitational/gravity/pull/1530)).
 * Fix an issue with bogus expand operations sometimes appearing after multi-node installs ([#1537](https://github.com/gravitational/gravity/pull/1537)).
-* Fix issues with empty Prometheus metrics what prevented `kubectl top` and HPA from working ([#1543](https://github.com/gravitational/gravity/pull/1543), [monitoring-app#163](https://github.com/gravitational/monitoring-app/pull/163)).
+* Fix issues with empty Prometheus metrics that prevented `kubectl top` and HPA from working ([#1543](https://github.com/gravitational/gravity/pull/1543), [monitoring-app#163](https://github.com/gravitational/monitoring-app/pull/163)).
 * Update default trusted cluster role mapping to only map remote admin role to local admin role ([#1546](https://github.com/gravitational/gravity/pull/1546)).
 * Fix an issue with kube-controller-manager getting unauthorized errors after changing the node advertise address ([#1548](https://github.com/gravitational/gravity/pull/1548)).
 * Fix an issue with Teleport node not being able to join after changing the node advertise address ([#1548](https://github.com/gravitational/gravity/pull/1548)).
@@ -141,6 +141,19 @@ to learn how to gain insight into how the cluster status changes over time.
 
 * Update default trusted cluster role mapping to only map remote admin role to local admin role ([#1544](https://github.com/gravitational/gravity/pull/1544)).
 * Fix a number of issues that may have led to crashes when trying to resume operations ([#1525](https://github.com/gravitational/gravity/pull/1525)).
+
+!!! warning
+    This release addresses an issue with an insecure default that would map any remote role to the local admin role when connecting
+    a cluster to a Hub using a trusted cluster without an explicitly configured role mapping. See [Trusted Clusters](config.md#trusted-clusters-enterprise)
+    documentation for role mapping configuration details.
+
+### 6.1.27 LTS (May 13th, 2020)
+
+#### Bugfixes
+
+* Fix an issue with inability to set a `role_map` property when configuring a trusted cluster ([#1557](https://github.com/gravitational/gravity/pull/1557)).
+* Update default trusted cluster role mapping to only map remote admin role to local admin role ([#1557](https://github.com/gravitational/gravity/pull/1557)).
+* Fix an issue with wormhole CNI plugin installation ([#1565](https://github.com/gravitational/gravity/pull/1565)).
 
 !!! warning
     This release addresses an issue with an insecure default that would map any remote role to the local admin role when connecting
