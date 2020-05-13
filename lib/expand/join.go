@@ -433,8 +433,12 @@ func (p *Peer) tryConnect() (op *operationContext, err error) {
 			return op, trace.Wrap(err)
 		}
 		if trace.IsCompareFailed(err) {
-			p.WithError(err).Info("Failed to create expand operation.")
-			p.sendMessage("Waiting to create expand operation at %v: %v", addr, err)
+			p.Warnf("Waiting for precondition to create expand operation: %v.", err)
+			if utils.IsClusterDegradedError(err) {
+				p.sendMessage("Cluster is degraded, waiting for it to become healthy")
+			} else {
+				p.sendMessage("Waiting for another operation to complete at %v", addr)
+			}
 		}
 	}
 	return op, trace.Wrap(err)
