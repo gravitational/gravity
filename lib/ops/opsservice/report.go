@@ -150,6 +150,9 @@ func (s *site) getReport(runner remoteRunner, servers []remoteServer, master rem
 		if err := s.collectDebugInfoFromServers(dir, servers, runner); err != nil {
 			log.WithError(err).Error("Failed to collect diagnostics from some nodes.")
 		}
+		if err := s.collectStatusTimeline(reportWriter, serverRunner); err != nil {
+			log.WithError(err).Error("Failed to collect status timeline.")
+		}
 	}
 
 	// use a pipe to avoid allocating a buffer
@@ -233,6 +236,20 @@ func (s *site) collectEtcdBackup(reportWriter report.FileWriter, runner *serverR
 	defer w.Close()
 	err = runner.RunStream(w, s.gravityCommand("system", "report", fmt.Sprintf(
 		"--filter=%v", report.FilterEtcd), "--compressed")...)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+func (s *site) collectStatusTimeline(reportWriter report.FileWriter, runner *serverRunner) error {
+	w, err := reportWriter.NewWriter("status.tar.gz")
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer w.Close()
+	err = runner.RunStream(w, s.gravityCommand("system", "report",
+		fmt.Sprintf("--filter=%v", report.FilterTimeline), "--compressed")...)
 	if err != nil {
 		return trace.Wrap(err)
 	}
