@@ -72,8 +72,8 @@ func (r *InstallerStrategy) installSelfAsService() error {
 		ServiceSpec: systemservice.ServiceSpec{
 			StartCommand:             strings.Join(r.Args, " "),
 			User:                     constants.RootUIDString,
-			SuccessExitStatus:        successExitStatuses,
-			RestartPreventExitStatus: noRestartExitStatuses,
+			SuccessExitStatus:        successExitStatusList,
+			RestartPreventExitStatus: noRestartExitStatusList,
 			// Enable automatic restart of the service
 			Restart:          "always",
 			Timeout:          int(time.Duration(defaults.ServiceConnectTimeout).Seconds()),
@@ -161,17 +161,35 @@ func isServiceFailed(serviceName string) func() error {
 	}
 }
 
+func isNoRestartExitCode(code int) bool {
+	for _, s := range noRestartExitStatuses {
+		if code == s {
+			return true
+		}
+	}
+	return false
+}
+
+func toWhitespaceSeparated(vs ...int) string {
+	result := make([]string, 0, len(vs))
+	for _, v := range vs {
+		result = append(result, strconv.Itoa(v))
+	}
+	return strings.Join(result, " ")
+}
+
 var (
-	// successExitStatuses lists exit statuses considered a successful exit for the service
-	successExitStatuses = strings.Join([]string{
-		strconv.Itoa(defaults.AbortedOperationExitCode),
-		strconv.Itoa(defaults.CompletedOperationExitCode),
-	}, " ")
-	// noRestartExitStatuses lists exit statuses that prevent service from getting automatically
+	noRestartExitStatuses = []int{
+		defaults.AbortedOperationExitCode,
+		defaults.CompletedOperationExitCode,
+		defaults.FailedPreconditionExitCode,
+	}
+	// successExitStatusList lists exit statuses considered a successful exit for the service
+	successExitStatusList = toWhitespaceSeparated([]int{
+		defaults.AbortedOperationExitCode,
+		defaults.CompletedOperationExitCode,
+	}...)
+	// noRestartExitStatusList lists exit statuses that prevent service from getting automatically
 	// restarted by systemd
-	noRestartExitStatuses = strings.Join([]string{
-		strconv.Itoa(defaults.AbortedOperationExitCode),
-		strconv.Itoa(defaults.CompletedOperationExitCode),
-		strconv.Itoa(defaults.FailedPreconditionExitCode),
-	}, " ")
+	noRestartExitStatusList = toWhitespaceSeparated(noRestartExitStatuses...)
 )

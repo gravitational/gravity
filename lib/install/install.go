@@ -84,6 +84,7 @@ func (i *Installer) Run(listener net.Listener) error {
 	}()
 	err := <-i.errC
 	i.stop()
+	i.WithField("exit-error", err).Info("Exit with error.")
 	return installpb.WrapServiceError(err)
 }
 
