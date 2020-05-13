@@ -64,7 +64,7 @@ extend updates past EOL through customer agreements if required.
 
 !!! warning
     This release addresses an issue with an insecure default that would map any remote role to the local admin role when connecting
-    a cluster to a Hub using a trusted cluster without an explicitly configured role mapping. See [Trusted Clusters](/config/#trusted-clusters-enterprise)
+    a cluster to a Hub using a trusted cluster without an explicitly configured role mapping. See [Trusted Clusters](config.md#trusted-clusters-enterprise)
     documentation for role mapping configuration details.
 
 ### 7.0.4 (April 29th, 2020)
@@ -144,7 +144,7 @@ to learn how to gain insight into how the cluster status changes over time.
 
 !!! warning
     This release addresses an issue with an insecure default that would map any remote role to the local admin role when connecting
-    a cluster to a Hub using a trusted cluster without an explicitly configured role mapping. See [Trusted Clusters](/config/#trusted-clusters-enterprise)
+    a cluster to a Hub using a trusted cluster without an explicitly configured role mapping. See [Trusted Clusters](config.md#trusted-clusters-enterprise)
     documentation for role mapping configuration details.
 
 ### 6.1.26 LTS (May 13th, 2020)
@@ -882,7 +882,7 @@ to learn how to gain insight into how the cluster status changes over time.
 
 !!! warning
     This release addresses an issue with an insecure default that would map any remote role to the local admin role when connecting
-    a cluster to a Hub using a trusted cluster without an explicitly configured role mapping. See [Trusted Clusters](/config/#trusted-clusters-enterprise)
+    a cluster to a Hub using a trusted cluster without an explicitly configured role mapping. See [Trusted Clusters](config.md#trusted-clusters-enterprise)
     documentation for role mapping configuration details.
 
 ### 5.5.43 LTS (May 1st, 2020)
