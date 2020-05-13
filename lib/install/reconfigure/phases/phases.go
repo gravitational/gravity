@@ -37,6 +37,10 @@ const (
 	PodsPhase = "/pods"
 	// GravityPhase waits for gravity-site API to become available.
 	GravityPhase = "/gravity"
-	// TeleportPhase restarts teleport node.
+	// RestartPhase encapsulates Teleport/Planet restart subphases.
+	RestartPhase = "/restart"
+	// TeleportPhase restarts Teleport unit.
 	TeleportPhase = "/teleport"
+	// PlanetPhase restart Planet unit.
+	PlanetPhase = "/planet"
 )
