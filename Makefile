@@ -62,7 +62,7 @@ TILLER_VERSION = 2.15.0
 TILLER_APP_TAG = 7.0.0
 SELINUX_VERSION ?= 6.0.0
 # URI of Wormhole container for default install
-WORMHOLE_IMG ?= quay.io/gravitational/wormhole:0.3.0
+WORMHOLE_IMG ?= quay.io/gravitational/wormhole:0.3.3
 # set this to true if you want to use locally built planet packages
 DEV_PLANET ?=
 OS := $(shell uname | tr '[:upper:]' '[:lower:]')
