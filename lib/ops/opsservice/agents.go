@@ -460,7 +460,9 @@ func (r *AgentPeerStore) validatePeer(ctx context.Context, group *agentGroup, in
 
 func (r *AgentPeerStore) checkHostname(ctx context.Context, group *agentGroup, addr, hostname string, token storage.ProvisioningToken) error {
 	if err := r.isPartOfActiveOperation(addr, token); err != nil {
-		r.WithError(err).Warn("Failed to check whether the server is part of the active operation.")
+		if !trace.IsNotFound(err) && !trace.IsCompareFailed(err) {
+			r.Warnf("Failed to check whether the server is part of the active operation: %v.", err)
+		}
 		if err := r.isExistingServer(ctx, hostname, token.SiteDomain); err != nil {
 			return trace.Wrap(err)
 		}
@@ -571,16 +573,21 @@ func (r *AgentPeerStore) isPartOfActiveOperation(addr string, token storage.Prov
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	if op.Type != ops.OperationExpand || op.Type != ops.OperationInstall {
+		// Only relevant for install/expand operation
+		return nil
+	}
 	operation := (ops.SiteOperation)(*op)
-	if operation.IsCompleted() {
-		return trace.BadParameter("operation %v is already completed", token.OperationID)
+	logger := r.WithField("operation", operation.String())
+	if operation.Type == ops.OperationExpand && operation.IsCompleted() {
+		// Always fall-through for install as we cannot reliably say if it's completed
+		logger.Warn("Operation is already completed.")
+		return trace.CompareFailed("operation is already completed")
 	}
 	serverAddr := utils.ExtractHost(addr)
-	if (storage.Servers)(op.Servers).FindByIP(serverAddr) == nil {
-		return trace.NotFound("server is not part of the active operation").AddFields(map[string]interface{}{
-			"server-addr": serverAddr,
-			"operation":   operation.String(),
-		})
+	if op.Servers.FindByIP(serverAddr) == nil {
+		r.WithField("server-addr", serverAddr).Warn("Server is not part of the active operation.")
+		return trace.NotFound("server is not part of the active operation")
 	}
 	return nil
 }

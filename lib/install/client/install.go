@@ -146,18 +146,19 @@ type InstallerStrategy struct {
 	ConnectTimeout time.Duration
 }
 
-// shouldReconnectService returns an error if the service has failed or has been uninstalled
+// shouldReconnectService returns a function that determines whether the client should continue
+// reconnecting to the service given with serviceName
 func shouldReconnectService(serviceName string) func() error {
 	return func() error {
 		err := service.IsStatus(serviceName,
-			systemservice.ServiceStatusFailed,
-			systemservice.ServiceStatusUnknown)
+			systemservice.ServiceStatusFailed)
 		if err == nil {
-			return trace.Errorf("service %q has failed or has been uninstalled. Check journal log for details.",
+			return trace.Errorf("service %q has failed. Check journal log for details.",
 				serviceName)
 		}
 		if !trace.IsCompareFailed(err) {
-			return trace.Wrap(err)
+			// Continue reconnecting if unable to query service status
+			log.Warn("Failed to query service status: %v.", err)
 		}
 		return nil
 	}

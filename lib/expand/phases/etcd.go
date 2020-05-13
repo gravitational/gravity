@@ -145,8 +145,11 @@ func (p *etcdExecutor) addEtcdMember(ctx context.Context) (member *etcd.Member, 
 	err = utils.RetryTransient(ctx, boff, func() error {
 		var err error
 		member, err = p.Etcd.Add(ctx, p.Phase.Data.Server.EtcdPeerURL())
-		if err != nil && !isMemberAlreadyExistsError(err) {
-			return trace.Wrap(err)
+		if err != nil {
+			if !isMemberAlreadyExistsError(err) {
+				return trace.Wrap(err)
+			}
+			p.Infof("Etcd peer %v already exists.", p.Phase.Data.Server.EtcdPeerURL())
 		}
 		return nil
 	})
