@@ -202,9 +202,7 @@ func (p *bootstrapExecutor) configureSystemDirectories() error {
 		filepath.Join(stateDir, "site", "packages", "tmp"),
 		filepath.Join(stateDir, "secrets"),
 		filepath.Join(stateDir, "backup"),
-	}
-	if p.isMonitoringEnabled() {
-		mkdirList = append(mkdirList, filepath.Join(stateDir, "monitoring"))
+		filepath.Join(stateDir, "monitoring"),
 	}
 
 	for _, dir := range mkdirList {
@@ -230,9 +228,7 @@ func (p *bootstrapExecutor) configureSystemDirectories() error {
 		filepath.Join(stateDir, "site"),
 		filepath.Join(stateDir, "secrets"),
 		filepath.Join(stateDir, "backup"),
-	}
-	if p.isMonitoringEnabled() {
-		chownList = append(chownList, filepath.Join(stateDir, "monitoring"))
+		filepath.Join(stateDir, "monitoring"),
 	}
 
 	for _, dir := range chownList {
@@ -369,13 +365,6 @@ func (p *bootstrapExecutor) configureServiceUser() error {
 	}
 	p.Infof("Set service user: %v.", p.ServiceUser)
 	return nil
-}
-
-func (p *bootstrapExecutor) isMonitoringEnabled() bool {
-	if p.Application.Manifest.Extensions != nil && p.Application.Manifest.Extensions.Monitoring != nil && p.Application.Manifest.Extensions.Monitoring.Disabled {
-		return false
-	}
-	return true
 }
 
 // Rollback is no-op for this phase
