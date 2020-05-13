@@ -62,6 +62,11 @@ extend updates past EOL through customer agreements if required.
 * Fix an issue with kube-controller-manager getting unauthorized errors after changing the node advertise address ([#1548](https://github.com/gravitational/gravity/pull/1548)).
 * Fix an issue with Teleport node not being able to join after changing the node advertise address ([#1548](https://github.com/gravitational/gravity/pull/1548)).
 
+!!! warning
+    This release addresses an issue with an insecure default that would map any remote role to the local admin role when connecting
+    a cluster to a Hub using a trusted cluster without an explicitly configured role mapping. See [Trusted Clusters](/config/#trusted-clusters-enterprise)
+    documentation for role mapping configuration details.
+
 ### 7.0.4 (April 29th, 2020)
 
 #### Bugfixes
@@ -136,6 +141,11 @@ to learn how to gain insight into how the cluster status changes over time.
 
 * Update default trusted cluster role mapping to only map remote admin role to local admin role ([#1544](https://github.com/gravitational/gravity/pull/1544)).
 * Fix a number of issues that may have led to crashes when trying to resume operations ([#1525](https://github.com/gravitational/gravity/pull/1525)).
+
+!!! warning
+    This release addresses an issue with an insecure default that would map any remote role to the local admin role when connecting
+    a cluster to a Hub using a trusted cluster without an explicitly configured role mapping. See [Trusted Clusters](/config/#trusted-clusters-enterprise)
+    documentation for role mapping configuration details.
 
 ### 6.1.26 LTS (May 13th, 2020)
 
@@ -869,6 +879,11 @@ to learn how to gain insight into how the cluster status changes over time.
 * Fix a number of issues that may have led to crashes when trying to resume operations ([#1479](https://github.com/gravitational/gravity/pull/1479), [#1526](https://github.com/gravitational/gravity/pull/1526)).
 * Fix an issue with inability to set a `role_map` property when configuring a trusted cluster ([#1556](https://github.com/gravitational/gravity/pull/1556)).
 * Update default trusted cluster role mapping to only map remote admin role to local admin role ([#1556](https://github.com/gravitational/gravity/pull/1556)).
+
+!!! warning
+    This release addresses an issue with an insecure default that would map any remote role to the local admin role when connecting
+    a cluster to a Hub using a trusted cluster without an explicitly configured role mapping. See [Trusted Clusters](/config/#trusted-clusters-enterprise)
+    documentation for role mapping configuration details.
 
 ### 5.5.43 LTS (May 1st, 2020)
 
