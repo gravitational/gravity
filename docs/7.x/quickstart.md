@@ -141,7 +141,7 @@ Mon Apr 27 00:51:21 UTC Creating application
 Mon Apr 27 00:51:36 UTC Generating the cluster image
 Mon Apr 27 00:51:44 UTC Saving the image as wordpress.tar
         Still saving the image as wordpress.tar (10 seconds elapsed)
-Mon Apr 27 00:52:02 UTC Build finished in 3 minutes 
+Mon Apr 27 00:52:02 UTC Build finished in 3 minutes
 ```
 
 Let's review what just happened. `tele build` did the following:
@@ -222,7 +222,7 @@ Flag              | Description
 -------------------|---------------------------------
 `--token`          | A secret token of your choosing which will be used to add additional nodes to this Cluster in the future. We'll use word "secret" here.
 `--advertise-addr` | The IP address this host will be visible on by other nodes in this Cluster. We'll use `10.5.5.28`.
-`--cloud-provider` | Whether in a specific cloud environment or a no-cloud provider such as standalone VMs/bare-metal environment [generic aws gce] We'll use `generic` here.  
+`--cloud-provider` | Whether in a specific cloud environment or a no-cloud provider such as standalone VMs/bare-metal environment [generic aws gce] We'll use `generic` here.
 
 The command below will create a single-node Kubernetes cluster with Wordpress running inside:
 
@@ -235,15 +235,15 @@ $ sudo ./gravity install \
 # Output:
 Sun Apr 26 23:55:11 UTC Starting enterprise installer
 
-To abort the installation and clean up the system,                                                                                                                                                                                              
-press Ctrl+C two times in a row.                                                                                                                                                                                                                
+To abort the installation and clean up the system,
+press Ctrl+C two times in a row.
 
-If you get disconnected from the terminal, you can reconnect to the installer                                                                                                                                                                   
-agent by issuing 'gravity resume' command.                                                                                                                                                                                                      
+If you get disconnected from the terminal, you can reconnect to the installer
+agent by issuing 'gravity resume' command.
 
-If the installation fails, use 'gravity plan' to inspect the state and                                                                                                                                                                          
-'gravity resume' to continue the operation.                                                                                                                                                                                                     
-See https://gravitational.com/gravity/docs/cluster/#managing-an-ongoing-operation for details.                                                                                                                                                  
+If the installation fails, use 'gravity plan' to inspect the state and
+'gravity resume' to continue the operation.
+See https://gravitational.com/gravity/docs/cluster/#managing-an-ongoing-operation for details.
 
 Sun Apr 26 23:55:11 UTC Connecting to installer
 Sun Apr 26 23:55:32 UTC Connected to installer
@@ -301,7 +301,7 @@ Cluster endpoints:
 ```
 Navigate to `http://<node ip>:30080` to access the application.
 
-**Note** that this is a single node deployment example.  You have the option of [joining](https://gravitational.com/gravity/docs/cluster/#adding-a-node) or installing with a different flavor.  The default flavor for this Cluster Manifest is small (1 node).  Other flavors include medium (3 nodes) and large (5 nodes). 
+**Note** that this is a single node deployment example.  You have the option of [joining](https://gravitational.com/gravity/docs/cluster/#adding-a-node) or installing with a different flavor.  The default flavor for this Cluster Manifest is small (1 node).  Other flavors include medium (3 nodes) and large (5 nodes).
 ```
 #Ex:
 
@@ -312,7 +312,7 @@ $ sudo ./gravity install \
         --flavor=medium
 ```
 
-Flavor details are in the Wordpress [Cluster Manifest](https://github.com/gravitational/quickstart/blob/master/wordpress/resources/app.yaml) . Flavors provide for specifying the number and configuration of nodes for a deployment. 
+Flavor details are in the Wordpress [Cluster Manifest](https://github.com/gravitational/quickstart/blob/master/wordpress/resources/app.yaml). Flavors provide for specifying the number and configuration of nodes for a deployment.
 
 ## Adding a User
 The next step is to create a new Kubernetes user:
