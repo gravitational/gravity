@@ -1209,7 +1209,7 @@ func ShouldSkipApp(manifest Manifest, app loc.Locator) bool {
 			return true
 		}
 	case defaults.MonitoringAppName:
-		// do not install monitoring-app if logs feature is disabled
+		// do not install monitoring-app if monitoring feature is disabled
 		ext := manifest.Extensions
 		if ext != nil && ext.Monitoring != nil && ext.Monitoring.Disabled {
 			return true
