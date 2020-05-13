@@ -353,6 +353,30 @@ func ShouldReconnectPeer(err error) error {
 	return err
 }
 
+// IsCompareFailedError returns true to indicate this error
+// complies with compare failed error protocol
+func (ClusterDegradedError) IsCompareFailedError() bool {
+	return true
+}
+
+// Error returns the text representation of this error
+func (ClusterDegradedError) Error() string {
+	return "cluster is degraded"
+}
+
+// ClusterDegradedError indicates that the cluster is degraded
+type ClusterDegradedError struct{}
+
+// IsClusterDegradedError determines if the error indicates that
+// the cluster is degraded
+func IsClusterDegradedError(err error) bool {
+	if _, ok := trace.Unwrap(err).(ClusterDegradedError); ok {
+		return true
+	}
+	// Handle the case when the error has come over the wire
+	return strings.Contains(err.Error(), "cluster is degraded")
+}
+
 func isPermissionDeniedError(err error) bool {
 	if err == nil {
 		return false

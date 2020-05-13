@@ -17,19 +17,15 @@ limitations under the License.
 package cli
 
 import (
-	"fmt"
 	"sort"
 	"strings"
 	"time"
 
-	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
-	"github.com/gravitational/gravity/tool/common"
 
-	"github.com/buger/goterm"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
 )
@@ -215,7 +211,7 @@ func (r *backendOperations) List(localEnv *localenv.LocalEnvironment, environ Lo
 	if clusterEnv != nil {
 		err = r.init(clusterEnv.Backend)
 		if err != nil {
-			log.WithError(err).Warn("Failed to query cluster operations.")
+			log.WithError(err).Debug("Failed to query cluster operations.")
 		}
 	}
 	if environ == nil {
@@ -249,15 +245,16 @@ func (r *backendOperations) init(clusterBackend storage.Backend) error {
 	// of the same type as we are only interested in the latest operation
 	operationsByType := make(map[string]clusterOperation)
 	for _, op := range clusterOperations {
+		if _, exists := operationsByType[op.Type]; exists {
+			continue
+		}
 		clusterOperation := clusterOperation{
 			SiteOperation: (ops.SiteOperation)(op),
 		}
 		if _, err := clusterBackend.GetOperationPlan(op.SiteDomain, op.ID); err == nil {
 			clusterOperation.hasPlan = true
 		}
-		if _, exists := operationsByType[op.Type]; !exists {
-			operationsByType[op.Type] = clusterOperation
-		}
+		operationsByType[op.Type] = clusterOperation
 	}
 	for _, op := range operationsByType {
 		r.operations[op.ID] = op
@@ -360,17 +357,6 @@ type backendOperations struct {
 	operations map[string]clusterOperation
 	// clusterOperation stores the first operation found in cluster state store (if any)
 	clusterOperation *clusterOperation
-}
-
-// formatTable formats this operation list as a table
-func (r operationList) formatTable() string {
-	t := goterm.NewTable(0, 10, 5, ' ', 0)
-	common.PrintTableHeader(t, []string{"Type", "ID", "State", "Created"})
-	for _, op := range r {
-		fmt.Fprintf(t, "%v\t%v\t%v\t%v\n",
-			op.Type, op.ID, op.State, op.Created.Format(constants.ShortDateFormat))
-	}
-	return t.String()
 }
 
 func (r operationList) String() string {
