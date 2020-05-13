@@ -24,6 +24,7 @@ import (
 	"github.com/gravitational/gravity/lib/install"
 	installphases "github.com/gravitational/gravity/lib/install/phases"
 	"github.com/gravitational/gravity/lib/install/reconfigure/phases"
+	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
 
@@ -80,7 +81,7 @@ func (s *ReconfiguratorSuite) TestPlan(c *check.C) {
 		{phases.NodePhase, s.verifyNodePhase},
 		{phases.DirectoriesPhase, s.verifyDirectoriesPhase},
 		{phases.PodsPhase, s.verifyPodsPhase},
-		{phases.TeleportPhase, s.verifyTeleportPhase},
+		{phases.RestartPhase, s.verifyRestartPhase},
 		{phases.GravityPhase, s.verifyGravityPhase},
 		{phases.ClusterPackagesPhase, s.verifyClusterPackagesPhase},
 	}
@@ -184,13 +185,25 @@ func (s *ReconfiguratorSuite) verifyPodsPhase(c *check.C, phase storage.Operatio
 	}, phase)
 }
 
-func (s *ReconfiguratorSuite) verifyTeleportPhase(c *check.C, phase storage.OperationPhase) {
+func (s *ReconfiguratorSuite) verifyRestartPhase(c *check.C, phase storage.OperationPhase) {
 	master := s.suite.Master()
 	storage.DeepComparePhases(c, storage.OperationPhase{
-		ID: phases.TeleportPhase,
-		Data: &storage.OperationPhaseData{
-			Server:  &master,
-			Package: s.suite.TeleportPackage(),
+		ID: phases.RestartPhase,
+		Phases: []storage.OperationPhase{
+			{
+				ID: fmt.Sprintf("%v%v", phases.RestartPhase, phases.TeleportPhase),
+				Data: &storage.OperationPhaseData{
+					Server:  &master,
+					Package: &loc.Teleport,
+				},
+			},
+			{
+				ID: fmt.Sprintf("%v%v", phases.RestartPhase, phases.PlanetPhase),
+				Data: &storage.OperationPhaseData{
+					Server:  &master,
+					Package: &loc.Planet,
+				},
+			},
 		},
 	}, phase)
 }
