@@ -158,7 +158,7 @@ func shouldReconnectService(serviceName string) func() error {
 		}
 		if !trace.IsCompareFailed(err) {
 			// Continue reconnecting if unable to query service status
-			log.Warn("Failed to query service status: %v.", err)
+			log.Warnf("Failed to query service status: %v.", err)
 		}
 		return nil
 	}
