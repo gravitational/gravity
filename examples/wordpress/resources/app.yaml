@@ -27,9 +27,9 @@ endpoints:
 # for the cluster.
 installer:
 
-  # if 'flavors' section is present, the installer will ask the end user what
-  # type of Kubernetes cluster to create. We are offering either a small
-  # single node, 3 node or 5 node configuration.
+  # If 'flavors' section is present, the installer will ask the end user what
+  # type of Kubernetes cluster to create. Here we are offering either a small
+  # single node, 3 node or 6 node configuration.
   flavors:
     prompt: "What size install do you want (small, medium, or large)?"
     # The default flavor
@@ -50,7 +50,7 @@ installer:
         count: 1
       - profile: db
         count: 1
-#HA Master nodes (3) configuration with a 2 fronts and a db
+    # HA Master nodes (3) configuration with a 2 fronts and a db
     - name: "large"
       description: "High Availability Master Node configuration with 2 Wordpress PHP nodes and 1 DB node"
       nodes:
@@ -62,17 +62,17 @@ installer:
         count: 3
 
 # This section allows to define what flavors of servers are required for
-# this cluster. This example uses a single flavor called "node" but you
-# can have flavors like "database" or "gpu", etc.
-#
-#
+# this cluster. This example defines 4 flavors: a "general" flavor used
+# to run all services in a single-node install, and 3 flavors dedicated
+# to different components (control plane, frontend, database) used in
+# multi-node configurations.
 nodeProfiles:
   - name: general
     description: "Master node with labels for running database and front-end facing containers"
     labels:
       front: "true"
       db: "true"
-    # gravity will validate that the nodes have the requested amounts
+    # Gravity will validate that the nodes have the requested amounts
     # of RAM/CPU
     requirements:
       cpu:
@@ -83,7 +83,7 @@ nodeProfiles:
     description: "master node"
     labels:
       node-role.kubernetes.io/master: "true"
-    # gravity will validate that the nodes have the requested amounts
+    # Gravity will validate that the nodes have the requested amounts
     # of RAM/CPU
     requirements:
       cpu:
@@ -95,7 +95,7 @@ nodeProfiles:
     labels:
       front: "true"
       node-role.kubernetes.io/node: "true"
-    # gravity will validate that the nodes have the requested amounts
+    # Gravity will validate that the nodes have the requested amounts
     # of RAM/CPU
     requirements:
       cpu:
@@ -107,7 +107,7 @@ nodeProfiles:
     labels:
       db: "true"
       node-role.kubernetes.io/node: "true"
-    # gravity will validate that the nodes have the requested amounts
+    # Gravity will validate that the nodes have the requested amounts
     # of RAM/CPU
     requirements:
       cpu:
@@ -118,11 +118,10 @@ nodeProfiles:
 # This section allows you to specify Kubernetes jobs that will be executed
 # inside the cluster when certain cluster lifecycle events happen
 hooks:
-# Will install the Wordpress application
+  # Will install the Wordpress application
   install:
     job: file://install.yaml
-#As new versions of wordpress are realized this upgrade hook will invoke
-# the helm call to upgrade.
+  # As new versions of wordpress are realized this upgrade hook will invoke
+  # the helm call to upgrade.
   update:
     job: file://upgrade.yaml
-

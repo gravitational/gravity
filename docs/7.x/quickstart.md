@@ -58,8 +58,8 @@ Clone the sample Git repository which contains the Kubernetes resources for
 [Wordpress](https://www.wordpress.org/), which we are using in this tutorial as a sample application:
 
 ```bsh
-$ git clone https://github.com/gravitational/quickstart.git
-$ cd quickstart
+$ git clone https://github.com/gravitational/gravity.git
+$ cd gravity/examples
 ```
 
 ## Building a Cluster Image
@@ -79,7 +79,7 @@ To build a Cluster Image we'll perform the following steps:
 
 ### Step 2: Creating the Kubernetes Resources
 
-Making Wordpress run on Kubernetes is easy. The quickstart repository you have
+Making Wordpress run on Kubernetes is easy. The Gravity examples repository you have
 cloned above includes the YAML definitions of Kubernetes objects. We'll use
 a Helm chart for this:
 
@@ -107,7 +107,7 @@ You are welcome to modify this file and you can use --set and --values in the te
 In this step, we create an Image Manifest which describes the system
 requirements for the Cluster.
 
-We have already prepared one for this guide in the cloned repo: `wordpress/resources/app.yaml`. You can [open it on Github](https://github.com/gravitational/quickstart/blob/master/wordpress/resources/app.yaml) for convenience. We have commented the most important fields
+We have already prepared one for this guide in the cloned repo: `wordpress/resources/app.yaml`. You can [open it on Github](https://github.com/gravitational/gravity/blob/master/examples/wordpress/resources/app.yaml) for convenience. We have commented the most important fields
 in the example manifest.
 
 ### Step 4: Building the Cluster Image
@@ -312,7 +312,7 @@ $ sudo ./gravity install \
         --flavor=medium
 ```
 
-Flavor details are in the Wordpress [Cluster Manifest](https://github.com/gravitational/quickstart/blob/master/wordpress/resources/app.yaml). Flavors provide for specifying the number and configuration of nodes for a deployment.
+Flavor details are in the Wordpress [Cluster Manifest](https://github.com/gravitational/gravity/blob/master/examples/wordpress/resources/app.yaml). Flavors provide for specifying the number and configuration of nodes for a deployment.
 
 ## Adding a User
 The next step is to create a new Kubernetes user:

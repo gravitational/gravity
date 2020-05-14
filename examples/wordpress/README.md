@@ -139,7 +139,7 @@ cluster with the application pre-loaded. This file is the only artifact
 one needs to create a Kubernetes cluster with Wordpress running inside.
 
 Copy `wordpress.tar` to a clean Linux machine. Let's call it `host`. This node
-will be used to bootstrap the cluster. Let's untar it and look inside:
+will be used to bootstrap the cluster. Let's extract it and look inside:
 
 ```bash
 $ tar -xf wordpress.tar
