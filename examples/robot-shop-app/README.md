@@ -1,6 +1,6 @@
 # Introduction
 
-This is an example online shopping app utilizing microservices in K8s with minor modifications from https://github.com/instana/robot-shop.  The modifications were to set registry helm varaibles and storage.  Note this image by default uses OpenEBS from Gravity 7.0+.  On deployment you will get this front page:
+This is an example online shopping app utilizing microservices in K8s with minor modifications from https://github.com/instana/robot-shop.  The modifications were to set registry helm variables and storage.  Note this image by default uses OpenEBS from Gravity 7.0+.  On deployment you will get this front page:
 
 ![Robot Shop](robotshop.png)
 
