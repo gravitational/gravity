@@ -573,7 +573,7 @@ func (r *AgentPeerStore) isPartOfActiveOperation(addr string, token storage.Prov
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	if op.Type != ops.OperationExpand || op.Type != ops.OperationInstall {
+	if op.Type != ops.OperationInstall && op.Type != ops.OperationExpand {
 		// Only relevant for install/expand operation
 		return nil
 	}
