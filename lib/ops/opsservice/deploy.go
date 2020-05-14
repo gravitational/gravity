@@ -117,7 +117,8 @@ func remoteDirectories(operation ops.SiteOperation, server *ProvisionedServer, m
 		server.InGravity("planet", "state"),
 		server.InGravity("site"),
 		server.InGravity("backup"),
-		server.InGravity("monitoring"),
+		server.InGravity("monitoring", "influxdb"),
+		server.InGravity("monitoring", "kapacitor"),
 	}
 
 	chmodList := []string{
