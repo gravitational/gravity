@@ -166,7 +166,7 @@ to learn how to gain insight into how the cluster status changes over time.
 
 * Add ability to display warning probes in `gravity status` ([#1499](https://github.com/gravitational/gravity/pull/1499)).
 * Add Teleport nodes status to `gravity status` ([#1486](https://github.com/gravitational/gravity/pull/1486)).
-* Make the hook that installs a system DNS application idempotent ([#1513](https://github.com/gravitational/gravity/pull/1513)).
+* Make the hook that installs the system DNS application idempotent ([#1513](https://github.com/gravitational/gravity/pull/1513)).
 
 #### Bugfixes
 
