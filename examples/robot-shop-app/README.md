@@ -1,20 +1,24 @@
 # Introduction
 
-This is an example online shopping app utilizing microservices in K8s with minor modifications from https://github.com/instana/robot-shop.  The modifications were to set registry helm varaibles and storage.  Note this image by default uses OpenEBS from gravity 7.0+.  On deployment you will get this front page.
+This is an example online shopping app utilizing microservices in K8s with minor modifications from https://github.com/instana/robot-shop.  The modifications were to set registry helm varaibles and storage.  Note this image by default uses OpenEBS from Gravity 7.0+.  On deployment you will get this front page:
 
 ![Robot Shop](robotshop.png)
 
 
 ## Building Image
+```bash
 tele build -o robotshop.tar robot-shop-app/resources/app.yaml
+```
 
 ## Building App
+```bash
 tele build -o robotshop.tar robot-shop-app/resources/charts/robot-shop
+```
 
 The application runs in this configuration on a nodeport of 30085. 
 
 ## Installing
-After deploying you should see the following available deployments.  
+After deploying you should see the following available deployments:  
 
 ```bash
 $ kubectl get deployments
@@ -33,8 +37,8 @@ web         3/3     3            3           15h
 ```
 
 # Load generation
-Instana's github [repository](https://github.com/instana/robot-shop) contains load generation scripts. Pull down this repository if you'd like to execute load examples. After the application has deployed change the load-gen/load-gen.sh file's HOST variable to the application deployment  (http://<my ip>:30085).
- Go the dir load-gen and run the `load-gen.sh` alone or you can pass specific number of users `load-gen -n 20`.
+Instana's github [repository](https://github.com/instana/robot-shop) contains load generation scripts. Pull down this repository if you'd like to execute load examples. After the application has deployed, change the load-gen/load-gen.sh file's HOST variable to the application deployment  (http://<my ip>:30085).
+Switch to the load-gen directory and run `load-gen.sh -n 20` to generate load from 20 clients.  Please explore the load script for other options.
 ```  
    Name                                                          # reqs      # fails     Avg     Min     Max  |  Median   req/s failures/s
 --------------------------------------------------------------------------------------------------------------------------------------------
