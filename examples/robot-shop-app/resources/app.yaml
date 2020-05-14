@@ -1,4 +1,4 @@
-# Sample application manifest for Robotshop, a end to end robot store example utilizing microservices
+# Sample application manifest for Robotshop, a end-to-end robot store example utilizing microservices
 
 apiVersion: cluster.gravitational.io/v2
 kind: Cluster
@@ -25,7 +25,7 @@ installer:
 
   # if 'flavors' section is present, the installer will ask the end user what
   # type of Kubernetes cluster to create. We are offering either a small
-  # single node, 3 node or 5 node configuration.
+  # single node, two nodes or 3 nodes configuration.
   flavors:
     prompt: "What size install do you want (single, double, or triple)?"
     # The default flavor
@@ -49,8 +49,7 @@ installer:
         count: 3
 
 # This section allows to define what flavors of servers are required for
-# this cluster. This example uses a single flavor called "node" but you
-# can have flavors like "database" or "gpu", etc.
+# this cluster. 
 #
 #
 nodeProfiles:
