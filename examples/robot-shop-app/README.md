@@ -6,16 +6,21 @@ This is an example online shopping app utilizing microservices in K8s with minor
 
 
 ## Building Cluster Image
+To construct the Robot Shop Cluster Image with a dependency-free .tar file use this command.  You can then deploy the Robot Shop as a self-contained, truely portable application for your preferred infrastructure. 
 ```bash
 tele build -o robotshop.tar robot-shop-app/resources/app.yaml
 ```
 
-## Building App
+Further details on installing Gravity Cluster Images is available [here](https://gravitational.com/gravity/docs/installation/). 
+
+
+## Building Application
+In addition to Cluster Images, Gravity supports packaging application helm charts as self-contained application images. The application is then deployable in the same manner as helm charts to Gravity clusters. Further information on application packaging deployment is available [here](https://gravitational.com/gravity/docs/catalog/).
 ```bash
 tele build -o robotshop.tar robot-shop-app/resources/charts/robot-shop
 ```
 
-The application runs in this configuration on a nodeport of 30085. 
+The Robot Shop web application runs in this configuration on a nodeport of 30085. 
 
 ## Installing
 After deploying you should see the following available deployments:  
