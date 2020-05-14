@@ -5,7 +5,7 @@ This is an example online shopping app utilizing microservices in K8s with minor
 ![Robot Shop](robotshop.png)
 
 
-## Building Image
+## Building Cluster Image
 ```bash
 tele build -o robotshop.tar robot-shop-app/resources/app.yaml
 ```
