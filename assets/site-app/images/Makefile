@@ -20,7 +20,7 @@ hook:
 
 .PHONY: site
 site:
-	docker build -t $(SITE_TAG) site
+	docker build --pull -t $(SITE_TAG) site
 
 .PHONY: deploy
 deploy:

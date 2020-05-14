@@ -1,4 +1,4 @@
-FROM quay.io/gravitational/debian-tall
+FROM quay.io/gravitational/debian-tall:stretch
 
 COPY ./start.sh /opt/
 COPY ./init.sh /opt/
