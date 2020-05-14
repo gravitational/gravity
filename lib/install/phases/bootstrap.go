@@ -202,7 +202,9 @@ func (p *bootstrapExecutor) configureSystemDirectories() error {
 		filepath.Join(stateDir, "site", "packages", "tmp"),
 		filepath.Join(stateDir, "secrets"),
 		filepath.Join(stateDir, "backup"),
+		filepath.Join(stateDir, "monitoring"),
 	}
+
 	for _, dir := range mkdirList {
 		p.Infof("Creating system directory %v.", dir)
 		err := os.MkdirAll(dir, defaults.SharedDirMask)
@@ -226,14 +228,16 @@ func (p *bootstrapExecutor) configureSystemDirectories() error {
 		filepath.Join(stateDir, "site"),
 		filepath.Join(stateDir, "secrets"),
 		filepath.Join(stateDir, "backup"),
+		filepath.Join(stateDir, "monitoring"),
 	}
+
 	for _, dir := range chownList {
 		p.Infof("Setting ownership on system directory %v to %v:%v.",
 			dir, p.ServiceUser.UID, p.ServiceUser.GID)
 		out, err := exec.Command("chown", "-R", fmt.Sprintf("%v:%v",
 			p.ServiceUser.UID, p.ServiceUser.GID), dir).CombinedOutput()
 		if err != nil {
-			return trace.Wrap(err, "failed to chmod %v: %s", dir, out)
+			return trace.Wrap(err, "failed to chown %v: %s", dir, out)
 		}
 	}
 	chmodList := []string{
@@ -278,10 +282,10 @@ func (p *bootstrapExecutor) configureApplicationVolumes() error {
 		uid, gid := mount.UID, mount.GID
 		if !existingDir {
 			if uid == nil {
-				uid = utils.IntPtr(defaults.ServiceUID)
+				uid = utils.IntPtr(p.ServiceUser.UID)
 			}
 			if gid == nil {
-				gid = utils.IntPtr(defaults.ServiceGID)
+				gid = utils.IntPtr(p.ServiceUser.GID)
 			}
 		}
 		// Only chown directories/files if necessary
