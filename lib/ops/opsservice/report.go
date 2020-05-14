@@ -252,10 +252,11 @@ func (s *site) collectStatusTimeline(reportWriter report.FileWriter, runner *ser
 		return trace.Wrap(err)
 	}
 	defer w.Close()
-	err = runner.RunStream(w, s.gravityCommand("system", "report",
+	var stderr bytes.Buffer
+	err = runner.RunStream(w, &stderr, s.gravityCommand("system", "report",
 		fmt.Sprintf("--filter=%v", report.FilterTimeline), "--compressed")...)
 	if err != nil {
-		return trace.Wrap(err)
+		return trace.Wrap(err, "failed to collect status timeline: %s", stderr.String())
 	}
 	return nil
 }
