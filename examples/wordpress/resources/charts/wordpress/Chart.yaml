@@ -1,0 +1,6 @@
+name: wordpress
+version: 0.0.1 
+description: Wordpress
+keywords:
+  - Demo of Wordpress chart with Gravity
+tillerVersion: ">=2.8.0"

@@ -14,6 +14,7 @@ the world without a massive DevOps team.
 |---|----
 | [Gravity Website](https://gravitational.com/gravity/)  | The official website of the enterprise edition of Gravity |
 | [Gravity Documentation](https://gravitational.com/gravity/docs/)  | Gravity Documentation |
+| [Gravity Examples](examples/) | Examples of applications packaged with Gravity |
 | [Blog](http://blog.gravitational.com) | Our blog, where we publish Gravity news |
 | [Security and Release Updates](https://community.gravitational.com/c/gravity-news) | Gravity Community Security and Release Updates |
 | [Community Forum](https://community.gravitational.com) | Gravity Community Forum|
@@ -88,6 +89,15 @@ A Cluster Image produced by Gravity includes:
 An image is all one needs to re-create the complete replica of the original
 Kubernetes cluster, with all deployed applications inside, even in an
 air-gapped server room.
+
+## Examples
+
+Take a look at the [examples](examples/) directory in this repository to find
+examples of how to package and deploy Kubernetes applications using Gravity.
+
+The following examples are currently available:
+
+* [Wordpress](examples/wordpress). Deploys Wordpress CMS with an OpenEBS-backed persistent storage.
 
 ## How do Initial Deployments work?
 
@@ -179,17 +189,6 @@ $ make install
 # To remove the build artifacts:
 $ make clean
 ```
-
-## Examples
-
-Take a look at our [quickstart](https://github.com/gravitational/quickstart)
-repository to find examples of how to package and deploy Kubernetes applications
-using Gravity.
-
-The following examples are available:
-
-* [Wordpress](https://github.com/gravitational/quickstart/tree/master/wordpress).
-  Deploys Wordpress CMS with an OpenEBS-backed persistent storage.
 
 ## Known Issues
 
