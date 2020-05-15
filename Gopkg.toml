@@ -203,7 +203,8 @@ ignored = [
   # use gravity-specific 3.0 branch of teleport which includes
   # new Kubernetes because it can't be revendored in regular
   # 3.0 branch due to some compability issues
-  branch = "branch/3.0-g"
+  # branch = "branch/3.0-g"
+  branch = "roman/3.0-g/rolemap"
 
 [[constraint]]
   version = "0.0.1"
