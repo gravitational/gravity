@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+  labels:
+    service: web
+spec:
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+  {{ if .Values.nodeport }}
+    nodePort: {{ .Values.nodeportValue }}
+  {{ end }}
+  selector:
+    service: web
+  {{ if .Values.nodeport }}
+  type: NodePort
+  {{ else }}
+  type: LoadBalancer
+  {{ end }}
