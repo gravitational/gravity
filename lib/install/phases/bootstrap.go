@@ -202,7 +202,8 @@ func (p *bootstrapExecutor) configureSystemDirectories() error {
 		filepath.Join(stateDir, "site", "packages", "tmp"),
 		filepath.Join(stateDir, "secrets"),
 		filepath.Join(stateDir, "backup"),
-		filepath.Join(stateDir, "monitoring"),
+		filepath.Join(stateDir, "monitoring", "influxdb"),
+		filepath.Join(stateDir, "monitoring", "kapacitor"),
 	}
 
 	for _, dir := range mkdirList {
