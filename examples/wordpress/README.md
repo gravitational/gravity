@@ -1,21 +1,11 @@
-# Introduction
+# Wordpress on Gravity
 
-This guide will help you quickly evaluate Gravity by packaging, and installing
-a sample Kubernetes application.
+This repository includes the necessary files to package and deploy [Wordpress](https://www.wordpress.org/), an open source content management system, into on-prem, public or private cloud environments using [Gravity](http://gravitational.com/gravity/).
 
-We will use [Wordpress](https://www.wordpress.org/), an open source content management
-application. Wordpress represents a fairly typical web application
-and consists of a front-end web application connecting to a MySQL
-instance.
+This manifest uses the Open Elastic Block Store [OpenEBS](https://openebs.io/) built into Gravity 7.X.
 
-Before we start, you may want to go over the [Gravity Overview](index.md) to
-get familiar with basic concepts of the Gravity solution.
+# System Requirements
 
-
-## System Requirements
-
-Gravity is a Kubernetes packaging solution so it only runs on computers capable
-of running Kubernetes. For this tutorial, you will need:
 
 * A x86_64 Linux machine or a VM for building a Cluster Image that is running one of the [supported Linux distributions](requirements.md#linux-distributions).
 * Docker version 17 or newer. Run `docker info` before continuing to make sure
@@ -23,13 +13,15 @@ of running Kubernetes. For this tutorial, you will need:
 * You must be a member of the `docker` group. Run `groups` command to make sure
   `docker` group is listed. If not, you can add yourself to the "docker" group via `sudo usermod -aG docker $USER`
 * You must have `git` installed to clone the example application repo.
-* A _target cluster_ of Linux nodes. It can be just one machine and we also show how to deploy to three. The nodes in a target cluster must have at least 2GB of RAM and 40GB of free disk space. They must **_not_** have Docker installed on them.
+* At least one Linux node. . The nodes in a target cluster must have at least 2GB of RAM and 40GB of free disk space. They must **_not_** have Docker.
 * You must have `sudo` privileges on all nodes.
+
 
 ## Step 1 Getting the Tools
 
 Start by [downloading Gravity](https://gravitational.com/gravity/download/) and
 unpacking the archive. You should see the following files:
+
 ```
 $ ls -l
 -rwxr-xr-x 1 user user 108093824 Apr 22 11:43 gravity
@@ -49,11 +41,10 @@ everything works:
 ```
 $ tele version
 Edition:        open-source
-Version:        7.0.4
-Git Commit:     a16e2074bf9b88f69719b80b9b7d178cc1ce6349
+Version:        7.0.1
+Git Commit:     af393fcddf8c675f00cf322ec054125d5e239727
 Helm Version:   v2.15
 ```
-
 Clone the sample Git repository which contains the Kubernetes resources for
 [Wordpress](https://www.wordpress.org/), which we are using in this tutorial as a sample application:
 
@@ -61,25 +52,9 @@ Clone the sample Git repository which contains the Kubernetes resources for
 $ git clone https://github.com/gravitational/gravity.git
 $ cd gravity/examples
 ```
-
-## Building a Cluster Image
-
-To build a Cluster Image we'll perform the following steps:
-
-1. Create Docker containers for application services.
-2. Create definitions of Kubernetes resources (pods, etc) for application
-   components. This makes an application capable of running on Kubernetes.
-   You can place all Kubernetes resource files (usually in YAML format) in the
-   same directory or you can use Helm.
-3. Create a Cluster Image Manifest to describe the system requirements
-   for a Kubernetes cluster capable of running your application. A Cluster Image Manifest
-   is a YAML file which allows you to customize the Cluster Image.
-4. Execute `tele build` CLI command.
-
-
 ### Step 2: Creating the Kubernetes Resources
 
-Making Wordpress run on Kubernetes is easy. The Gravity examples repository you have
+Making Wordpress run on Kubernetes is easy. The examples repository you have
 cloned above includes the YAML definitions of Kubernetes objects. We'll use
 a Helm chart for this:
 
@@ -102,16 +77,8 @@ The values.yaml specifies several important values including
   - Password for MySQL db.
 You are welcome to modify this file and you can use --set and --values in the tele build process to replace these values. In this tutorial, we are packaging a single Helm chart but it is possible to have several of them packaged into a single Cluster Image.
 
-### Step 3: Creating the Cluster Image Manifest
 
-In this step, we create an Image Manifest which describes the system
-requirements for the Cluster.
-
-We have already prepared one for this guide in the cloned repo: `wordpress/resources/app.yaml`. You can [open it on Github](https://github.com/gravitational/gravity/blob/master/examples/wordpress/resources/app.yaml) for convenience. We have commented the most important fields
-in the example manifest.
-
-### Step 4: Building the Cluster Image
-
+### Step 3: Building the Cluster Image
 Let's build the cluster image which will consist of a Kubernetes
 cluster with Wordpress pre-installed inside:
 
@@ -165,14 +132,14 @@ servers (or into an AWS/GCE/Azure account).
 
 Congratulations! You have created your first **Kubernetes virtual appliance**!
 
-## Installing
+## Step 4 Installing
 
 Installing the `wordpress.tar` Cluster Image results in creating a Kubernetes
 cluster with the application pre-loaded. This file is the only artifact
 one needs to create a Kubernetes cluster with Wordpress running inside.
 
 Copy `wordpress.tar` to a clean Linux machine. Let's call it `host`. This node
-will be used to bootstrap the cluster. Let's untar it and look inside:
+will be used to bootstrap the cluster. Let's extract it and look inside:
 
 ```bash
 $ tar -xf wordpress.tar
@@ -194,24 +161,6 @@ $ tree
 └── upload
 ```
 
-Here is a brief description of these files:
-
-File Name    | Description
--------------|------------------------
-`gravity`    | Gravity Cluster manager which is a Linux binary (executable). It's responsible for installing, upgrading and managing clusters.
-`app.yaml`   | The Image Manifest which we've defined earlier and fed to `tele build`. You'll notice that the build process populated the manifest with additional metadata.
-`packages`   | The database of Docker image layers for all containers and other binary artifacts, like Kubernetes binaries.
-`gravity.db` | The metadata of what's stored in `packages`.
-`upgrade`, `install`, `upload` | Helpful bash wrappers around `gravity` commands.
-`README`     | Instructions for the end user.
-
-Gravity supports two modes of installation:
-
-* **CLI mode** or non-interactive mode is useful for advanced users
-  and for scripting. It allows clusters to be created programmatically or via
-  command line.
-* **Web mode** uses a web browser to guide a user through an installation wizard.
-  This mode is useful for non-technical users, sales demos, etc.
 
 ### Installing via CLI
 
@@ -301,6 +250,13 @@ Cluster endpoints:
 ```
 Navigate to `http://<node ip>:30080` to access the application.
 
+  This is powered by the following service:
+```
+$ sudo kubectl get service wordpress
+NAME        TYPE       CLUSTER-IP       EXTERNAL-IP   PORT(S)        AGE
+wordpress   NodePort   100.100.204.73   <none>        80:30080/TCP   75m
+```
+
 **Note** that this is a single node deployment example.  You have the option of [joining](https://gravitational.com/gravity/docs/cluster/#adding-a-node) or installing with a different flavor.  The default flavor for this Cluster Manifest is small (1 node).  Other flavors include medium (3 nodes) and large (5 nodes).
 ```
 #Ex:
@@ -312,96 +268,4 @@ $ sudo ./gravity install \
         --flavor=medium
 ```
 
-Flavor details are in the Wordpress [Cluster Manifest](https://github.com/gravitational/gravity/blob/master/examples/wordpress/resources/app.yaml). Flavors provide for specifying the number and configuration of nodes for a deployment.
-
-## Adding a User
-The next step is to create a new Kubernetes user:
-
-```bash
-# execute this on the K8s master node (running on 10.5.5.28 in our example)
-# to create a user "jeff"
-$ gravity users add --roles=@teleadmin  jeff
-
-# output:
-Signup token has been created and is valid for 8h0m0s hours. Share this URL with the user:
-https://10.150.15.236:3009/web/newuser/e5b5422da69ff44d41f92e3ce6167659a7fee10e1023acea22062141dfe0238e
-```
-
-![Sign into Gravity](images/gravity-quickstart/logging-into-gravity.png)
-
-
-Now click on the printed URL and select a password. You are now inside the Cluster
-Control Panel. You can bookmark the following URL to access it in the future: `https://10.5.5.28:32009/web/`
-
-![Gravity Dashboard](images/gravity-quickstart/gravity-wordpress-dashboard.png)
-
-You will also see that this Cluster is running Wordpress inside, accessible as a Kubernetes service
-on port `30080`, i.e. it's accessible using IP addresses of both machines in the Cluster:
-
-* `http://10.5.5.28:30080/`
-* `http://10.5.5.29:30080/`
-* `http://10.5.5.30:30080/`
-
-### Installing via Web Browser
-
-This method of installation launches a graphical installation wizard in a web browser.
-
-To launch a web installer, you will need:
-
-* The Cluster Image `wordpress.tar` which we have prepared earlier.
-* A Linux computer with a graphical interface and web browser connected to the same network as the target nodes.
-
-First, untar `wordpress.tar` and execute the `./gravity install --wizard` command. This command
-launches an HTTP server which serves a web UI and acts as a bootstrapping agent
-to create a new Cluster. It will print a web URL for you to click
-on or paste in your browser.
-
-```bash
-$ sudo ./gravity install --wizard
-OPEN THIS IN BROWSER: https://host:61009/web/installer/new/gravitational.io/wordpress/0.0.1?install_token=2a9de4a72ede
-```
-
-**If you don't have TLS setup you might see this error message. Click Advanced -> Proceed **
-![SSL Error Message](images/gravity-quickstart/click-proceed.png)
-
-The browser-based installer will ask for the following:
-
-* Name of your Cluster. We recommend FQDN-like names like
-  `wordpress.example.com`.
-* The network interface to use. This must be the interface which Kubernetes
-  nodes will use to talk to each other.
-
-![Name of Cluster](images/gravity-quickstart/cluster-name.png)
-
-* The "flavor" of the Cluster, i.e. small (1 node), medium (2 nodes) or large (5 nodes). The installer will provide a CLI
-  command to copy to and execute on each node.
-
-![All Nodes](images/gravity-quickstart/setting-capacity.png)
-
-* Once all nodes report into the Cluster, the installer will proceed setting up
-  Kubernetes.
-![Installing](images/gravity-quickstart/clusterinstall.png)
-
-The final step is to select the user name and password for the administrator. You will be able to change it later (or configure the SSO). Once you are logged in, you will be placed in Gravity's Control Panel UI.  Wordpress will be available at the NodePort of 30080.
-
-
-**Wordpress Install Complete**
-![Install Wordpress](images/gravity-quickstart/wordpressinstall.png)
-![Wordpress Fin](images/gravity-quickstart/finishedwordpress.png)
-
-You can press `Ctrl+C` to stop the `install` script.
-
-## Conclusion
-
-This is a brief overview of how Kubernetes clusters can be packaged into simple
-`tar` files and then installed anywhere. Gravity's image-based approach is quite
-similar to how virtual machines/instances are treated by using disk images in
-virtualized environments.
-
-This dramatically lowers the operational overhead of running multiple Kubernetes
-clusters within an organization, allows complex SaaS applications to be converted
-into downloadable Kubernetes appliances and dramatically simplifies implementing
-compliance in organizations by publishing Kubernetes images that are pre-configured and approved by the security and compliance teams.
-
-If you need additional guidance with packaging your Kubernetes clusters into
-Gravity deployments, our implementation services team can help (info@gravitational.com).
+Flavor details are in the Wordpress [Cluster Manifest](./resources/app.yaml) . Flavors provide for specifying the number and configuration of nodes for a deployment.

@@ -1,0 +1,127 @@
+# Sample application manifest for Wordpress, the open source content management system
+
+apiVersion: cluster.gravitational.io/v2
+kind: Cluster
+metadata:
+  name: wordpress
+  resourceVersion: "0.0.1"
+
+# Note the use of Elastic Blockstore now available for Persistent Volumes since 7.0
+storage:
+ openebs:
+   enabled: true
+
+# The logo can be used to white label Gravity web interface for Kubernetes/Wordpress
+# management
+logo: https://bitnami.com/assets/stacks/wordpress/img/wordpress-stack-220x234.png
+
+# This section declares the endpoints Wordpress requires.
+endpoints:
+ - name: "wordpress"
+   description: "Wordpress Application"
+   selector:
+    name: wordpress
+   protocol: http
+
+# This section allows to customize the graphical (web UI) installer
+# for the cluster.
+installer:
+
+  # If 'flavors' section is present, the installer will ask the end user what
+  # type of Kubernetes cluster to create. Here we are offering either a small
+  # single node, 3 node or 6 node configuration.
+  flavors:
+    prompt: "What size install do you want (small, medium, or large)?"
+    # The default flavor
+    default: small
+    # List of flavors:
+    items:
+    - name: "small"
+      description: "Single node"
+      nodes:
+      - profile: general
+        count: 1
+    - name: "medium"
+      description: "Three node install with one Master, one DB worker node, and one Front worker node "
+      nodes:
+      - profile: master
+        count: 1
+      - profile: front
+        count: 1
+      - profile: db
+        count: 1
+    # HA Master nodes (3) configuration with a 2 fronts and a db
+    - name: "large"
+      description: "High Availability Master Node configuration with 2 Wordpress PHP nodes and 1 DB node"
+      nodes:
+      - profile: front
+        count: 2
+      - profile: db
+        count: 1
+      - profile: master
+        count: 3
+
+# This section allows to define what flavors of servers are required for
+# this cluster. This example defines 4 flavors: a "general" flavor used
+# to run all services in a single-node install, and 3 flavors dedicated
+# to different components (control plane, frontend, database) used in
+# multi-node configurations.
+nodeProfiles:
+  - name: general
+    description: "Master node with labels for running database and front-end facing containers"
+    labels:
+      front: "true"
+      db: "true"
+    # Gravity will validate that the nodes have the requested amounts
+    # of RAM/CPU
+    requirements:
+      cpu:
+        min: 2
+      ram:
+        min: "2GB"
+  - name: master
+    description: "master node"
+    labels:
+      node-role.kubernetes.io/master: "true"
+    # Gravity will validate that the nodes have the requested amounts
+    # of RAM/CPU
+    requirements:
+      cpu:
+        min: 2
+      ram:
+        min: "2GB"
+  - name: front
+    description: "Worker node labeled for Web front-facing containers"
+    labels:
+      front: "true"
+      node-role.kubernetes.io/node: "true"
+    # Gravity will validate that the nodes have the requested amounts
+    # of RAM/CPU
+    requirements:
+      cpu:
+        min: 2
+      ram:
+        min: "2GB"
+  - name: db
+    description: "Worker node labeled for Database containers"
+    labels:
+      db: "true"
+      node-role.kubernetes.io/node: "true"
+    # Gravity will validate that the nodes have the requested amounts
+    # of RAM/CPU
+    requirements:
+      cpu:
+        min: 2
+      ram:
+        min: "2GB"
+
+# This section allows you to specify Kubernetes jobs that will be executed
+# inside the cluster when certain cluster lifecycle events happen
+hooks:
+  # Will install the Wordpress application
+  install:
+    job: file://install.yaml
+  # As new versions of wordpress are realized this upgrade hook will invoke
+  # the helm call to upgrade.
+  update:
+    job: file://upgrade.yaml
