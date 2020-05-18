@@ -21,7 +21,6 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
-	"strings"
 
 	"github.com/gravitational/gravity/lib/clients"
 	"github.com/gravitational/gravity/lib/constants"
@@ -143,20 +142,34 @@ func (p *etcdExecutor) addEtcdMember(ctx context.Context) (member *etcd.Member, 
 	boff := backoff.NewExponentialBackOff()
 	boff.MaxElapsedTime = defaults.TransientErrorTimeout
 	err = utils.RetryTransient(ctx, boff, func() error {
-		var err error
-		member, err = p.Etcd.Add(ctx, p.Phase.Data.Server.EtcdPeerURL())
+		peers, err := p.Etcd.List(ctx)
 		if err != nil {
-			if !isMemberAlreadyExistsError(err) {
-				return trace.Wrap(err)
-			}
-			p.Infof("Etcd peer %v already exists.", p.Phase.Data.Server.EtcdPeerURL())
+			return trace.Wrap(err)
 		}
-		return nil
+		if p.hasSelfAsMember(peers) {
+			p.Infof("Etcd peer %v already exists.", p.Phase.Data.Server.EtcdPeerURL())
+			return nil
+		}
+		member, err = p.Etcd.Add(ctx, p.Phase.Data.Server.EtcdPeerURL())
+		return trace.Wrap(err)
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return member, nil
+}
+
+func (p *etcdExecutor) hasSelfAsMember(peers []etcd.Member) bool {
+	peerURL := p.Phase.Data.Server.EtcdPeerURL()
+	for _, peer := range peers {
+		if len(peer.PeerURLs) != 1 {
+			continue
+		}
+		if peer.PeerURLs[0] == peerURL {
+			return true
+		}
+	}
+	return false
 }
 
 func (p *etcdExecutor) checkBackup(ctx context.Context, agent rpcclient.Client, backupPath string) error {
@@ -304,10 +317,4 @@ func opKey(plan storage.OperationPlan) ops.SiteOperationKey {
 		SiteDomain:  plan.ClusterName,
 		OperationID: plan.OperationID,
 	}
-}
-
-func isMemberAlreadyExistsError(err error) bool {
-	// https://github.com/etcd-io/etcd/blob/v3.4.7/etcdserver/api/membership/errors.go#L27
-	const errPeerURLExists = "membership: peerURL exists"
-	return strings.Contains(err.Error(), errPeerURLExists)
 }
