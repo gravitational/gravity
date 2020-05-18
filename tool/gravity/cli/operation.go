@@ -17,15 +17,19 @@ limitations under the License.
 package cli
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/tool/common"
 
+	"github.com/buger/goterm"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
 )
@@ -84,7 +88,7 @@ You can suppress this warning in future by providing --confirm flag.
 `
 	// unsupportedRollbackWarning is shown for operations that "gravity rollback"
 	// command does not support.
-	unsupportedRollbackWarning = `"gravity rollback" command does not support %q operations currently.
+	unsupportedRollbackWarning = `Operation %q does not support automatic rollback.
 Please use "gravity plan rollback" command to rollback individual phases.`
 )
 
@@ -113,7 +117,7 @@ func rollbackPlan(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentF
 		err = rollbackEnvironPhaseForOperation(localEnv, environ, params, op)
 	case ops.OperationUpdateConfig:
 		err = rollbackConfigPhaseForOperation(localEnv, environ, params, op)
-	default: // Should never hit this.
+	default:
 		return trace.BadParameter(unsupportedRollbackWarning, op.TypeString())
 	}
 	if err != nil {
@@ -421,6 +425,17 @@ type backendOperations struct {
 	operations map[string]clusterOperation
 	// clusterOperation stores the first operation found in cluster state store (if any)
 	clusterOperation *clusterOperation
+}
+
+// formatTable formats this operation list as a table
+func (r operationList) formatTable() string {
+	t := goterm.NewTable(0, 10, 5, ' ', 0)
+	common.PrintTableHeader(t, []string{"Type", "ID", "State", "Created"})
+	for _, op := range r {
+		fmt.Fprintf(t, "%v\t%v\t%v\t%v\n",
+			op.Type, op.ID, op.State, op.Created.Format(constants.ShortDateFormat))
+	}
+	return t.String()
 }
 
 func (r operationList) String() string {

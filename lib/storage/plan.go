@@ -63,7 +63,7 @@ func (p OperationPlan) Check() error {
 	return nil
 }
 
-// GetLeafPhases "unfolds" the plan and returns all phases that do not have
+// GetLeafPhases flattens the plan and returns all phases that do not have
 // any subphases in the order they appear in the plan.
 //
 // For instance, for the following plan

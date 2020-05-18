@@ -24,14 +24,15 @@ import (
 
 	"github.com/gravitational/gravity/lib/rpc"
 	"github.com/gravitational/gravity/lib/storage"
-	"github.com/sirupsen/logrus"
 
 	"github.com/gravitational/trace"
-	"github.com/pborman/uuid"
+	"github.com/sirupsen/logrus"
 )
 
 func newTestEngine(plan storage.OperationPlan) *testEngine {
-	return &testEngine{plan: plan}
+	return &testEngine{
+		plan: plan,
+	}
 }
 
 // testEngine is fsm engine used in tests. Keeps its changelog in memory.
@@ -55,10 +56,11 @@ func (t *testEngine) GetExecutor(p ExecutorParams, r Remote) (PhaseExecutor, err
 // ChangePhaseState records the provided phase state change in the test engine.
 func (t *testEngine) ChangePhaseState(ctx context.Context, ch StateChange) error {
 	t.changelog = append(t.changelog, storage.PlanChange{
-		ID:       uuid.New(),
 		PhaseID:  ch.Phase,
 		NewState: ch.State,
-		Created:  time.Now().UTC(),
+		// Using real time on purpose, because the final state is determined
+		// by the most recent phase in the changelog.
+		Created: time.Now().UTC(),
 	})
 	return nil
 }

@@ -302,7 +302,7 @@ func (f *FSM) RollbackPhase(ctx context.Context, p Params) error {
 		default:
 			return trace.BadParameter(
 				`Node %[1]v does not appear to have an upgrade agent running so phase %[2]q rollback cannot be performed remotely from this node.
-You can either try to redeploy upgrade agents on all cluster nodes using "./gravity agent deploy", or execute "./gravity plan rollback --phase=%[2]v" directly from %[1]v."`,
+You can redeploy upgrade agents on all cluster nodes using "./gravity agent deploy", or execute "./gravity plan rollback --phase=%[2]v" directly from %[1]v."`,
 				execServer.Hostname, p.PhaseID)
 		}
 

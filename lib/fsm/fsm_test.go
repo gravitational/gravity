@@ -20,6 +20,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/gravitational/gravity/lib/compare"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -70,7 +71,7 @@ func (s *FSMSuite) TestExecutePlan(c *check.C) {
 	))
 }
 
-// TestRollbackPlan rolls back a failed plan and make sure all phases have been
+// TestRollbackPlan rolls back a failed plan and makes sure all phases have been
 // rolled back in correct order.
 func (s *FSMSuite) TestRollbackPlan(c *check.C) {
 	plan := s.planner.newPlan(
@@ -162,7 +163,7 @@ func (s *FSMSuite) TestRollbackPlanDryRun(c *check.C) {
 func (s *FSMSuite) checkChangelog(c *check.C, actual, expected storage.PlanChangelog) {
 	c.Assert(len(actual), check.Equals, len(expected))
 	for i := 0; i < len(actual); i += 1 {
-		c.Assert(actual[i].PhaseID, check.Equals, expected[i].PhaseID)
-		c.Assert(actual[i].NewState, check.Equals, expected[i].NewState)
+		actual[i].Created = expected[i].Created // Do not compare timestamps.
+		compare.DeepCompare(c, actual[i], expected[i])
 	}
 }

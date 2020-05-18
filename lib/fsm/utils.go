@@ -45,7 +45,7 @@ func CanRollback(plan *storage.OperationPlan, phaseID string) error {
 
 // IsCompleted returns true if all phases of the provided plan are completed
 func IsCompleted(plan *storage.OperationPlan) bool {
-	for _, phase := range FlattenPlan(plan) {
+	for _, phase := range plan.GetLeafPhases() {
 		if !phase.IsCompleted() {
 			return false
 		}
@@ -55,7 +55,7 @@ func IsCompleted(plan *storage.OperationPlan) bool {
 
 // IsRolledBack returns true if the provided plan is rolled back.
 func IsRolledBack(plan *storage.OperationPlan) bool {
-	for _, phase := range FlattenPlan(plan) {
+	for _, phase := range plan.GetLeafPhases() {
 		if !phase.IsRolledBack() && !phase.IsUnstarted() {
 			return false
 		}

@@ -100,21 +100,21 @@ func (r *Updater) RunPhase(ctx context.Context, phase string, phaseTimeout time.
 }
 
 // RollbackPhase rolls back the specified phase.
-func (r *Updater) RollbackPhase(ctx context.Context, phase string, phaseTimeout time.Duration, force, dryRun bool) error {
-	if phase == fsm.RootPhase {
-		return r.rollbackPlan(ctx, dryRun)
+func (r *Updater) RollbackPhase(ctx context.Context, params fsm.Params, phaseTimeout time.Duration) error {
+	if params.PhaseID == fsm.RootPhase {
+		return r.rollbackPlan(ctx, params.DryRun)
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, phaseTimeout)
 	defer cancel()
 
-	progress := utils.NewProgress(ctx, fmt.Sprintf("Rolling back phase %q", phase), -1, false)
+	progress := utils.NewProgress(ctx, fmt.Sprintf("Rolling back phase %q", params.PhaseID), -1, false)
 	defer progress.Stop()
 
 	return trace.Wrap(r.machine.RollbackPhase(ctx, fsm.Params{
-		PhaseID:  phase,
+		PhaseID:  params.PhaseID,
 		Progress: progress,
-		Force:    force,
+		Force:    params.Force,
 	}))
 }
 
