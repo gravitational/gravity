@@ -62,6 +62,35 @@ func (p OperationPlan) Check() error {
 	return nil
 }
 
+// GetLeafPhases flattens the plan and returns all phases that do not have
+// any subphases in the order they appear in the plan.
+//
+// For instance, for the following plan
+//
+//  * /init
+//    * /node-1
+//    * /node-2
+//  * /checks
+//
+// it will return ["/init/node-1", "/init/node-2", "/checks"].
+func (p *OperationPlan) GetLeafPhases() (result []OperationPhase) {
+	for _, phase := range p.Phases {
+		result = append(result, getLeafPhases(phase)...)
+	}
+	return result
+}
+
+func getLeafPhases(phase OperationPhase) (result []OperationPhase) {
+	if len(phase.Phases) == 0 {
+		result = append(result, phase)
+	} else {
+		for _, sub := range phase.Phases {
+			result = append(result, getLeafPhases(sub)...)
+		}
+	}
+	return result
+}
+
 // OperationPhase represents a single operation plan phase
 type OperationPhase struct {
 	// ID is the ID of the phase within operation

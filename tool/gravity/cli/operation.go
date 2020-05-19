@@ -23,6 +23,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	installerclient "github.com/gravitational/gravity/lib/install/client"
@@ -30,7 +31,9 @@ import (
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/system/signals"
+	"github.com/gravitational/gravity/tool/common"
 
+	"github.com/buger/goterm"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
 )
@@ -49,6 +52,8 @@ type PhaseParams struct {
 	Timeout time.Duration
 	// SkipVersionCheck overrides the verification of binary version compatibility
 	SkipVersionCheck bool
+	// DryRun allows to only print execute/rollback phases
+	DryRun bool
 }
 
 func (r PhaseParams) isResume() bool {
@@ -142,6 +147,58 @@ func setPhase(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, p
 	return nil
 }
 
+const (
+	// planRollbackWarning is shown when "gravity rollback" command is launched
+	// without --confirm flag.
+	planRollbackWarning = `You are about to rollback the following operation:
+%v
+Consider checking the operation plan and using --dry-run flag first to see which actions will be performed.
+You can suppress this warning in future by providing --confirm flag.
+`
+	// unsupportedRollbackWarning is shown for operations that "gravity rollback"
+	// command does not support.
+	unsupportedRollbackWarning = `Operation %q does not support automatic rollback.
+Please use "gravity plan rollback" command to rollback individual phases.`
+)
+
+func rollbackPlan(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params PhaseParams, confirmed bool) error {
+	op, err := getActiveOperation(localEnv, environ, params.OperationID)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	switch op.Type {
+	case ops.OperationUpdate, ops.OperationUpdateRuntimeEnviron, ops.OperationUpdateConfig:
+	default:
+		return trace.BadParameter(unsupportedRollbackWarning, op.TypeString())
+	}
+	if !confirmed && !params.DryRun {
+		localEnv.Printf(planRollbackWarning, operationList{*op}.formatTable())
+		if err := enforceConfirmation("Proceed?"); err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	params.PhaseID = fsm.RootPhase
+	switch op.Type {
+	case ops.OperationUpdate:
+		err = rollbackUpdatePhaseForOperation(localEnv, environ, params, op.SiteOperation)
+	case ops.OperationUpdateRuntimeEnviron:
+		err = rollbackEnvironPhaseForOperation(localEnv, environ, params, op.SiteOperation)
+	case ops.OperationUpdateConfig:
+		err = rollbackConfigPhaseForOperation(localEnv, environ, params, op.SiteOperation)
+	default:
+		return trace.BadParameter(unsupportedRollbackWarning, op.TypeString())
+	}
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	// Make sure to reset the cluster state after the operation has been
+	// fully rolled back.
+	if !params.DryRun {
+		return completeOperationPlanForOperation(localEnv, environ, op.SiteOperation)
+	}
+	return nil
+}
+
 // rollbackPhase rolls back a phase for the operation specified with params
 func rollbackPhase(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params PhaseParams) error {
 	operation, err := getActiveOperation(localEnv, environ, params.OperationID)
@@ -170,7 +227,14 @@ func completeOperationPlan(localEnv *localenv.LocalEnvironment, environ LocalEnv
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	op := operation.SiteOperation
+	err = completeOperationPlanForOperation(localEnv, environ, operation.SiteOperation)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+func completeOperationPlanForOperation(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, op ops.SiteOperation) (err error) {
 	switch op.Type {
 	case ops.OperationInstall:
 		err = completeInstallPlanForOperation(localEnv, op)
@@ -413,6 +477,17 @@ func isInvalidOperation(op clusterOperation) bool {
 	default:
 		return !op.hasPlan
 	}
+}
+
+// formatTable formats this operation list as a table
+func (r operationList) formatTable() string {
+	t := goterm.NewTable(0, 10, 5, ' ', 0)
+	common.PrintTableHeader(t, []string{"Type", "ID", "State", "Created"})
+	for _, op := range r {
+		fmt.Fprintf(t, "%v\t%v\t%v\t%v\n",
+			op.Type, op.ID, op.State, op.Created.Format(constants.ShortDateFormat))
+	}
+	return t.String()
 }
 
 func (r operationList) String() string {
