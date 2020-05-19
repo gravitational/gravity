@@ -6,7 +6,7 @@
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
 | 7.0.5         | No  | May 13th, 2020       | 7.1 is released      | 1.17.4             | 3.2.13           |
 | 6.1.27        | Yes | May 13th, 2020       | November 10th, 2021  | 1.15.11            | 3.2.12           |
-| 5.5.44        | Yes | May 13th, 2020       | September 7th, 2020  | 1.13.11            | 3.0.6-gravity    |
+| 5.5.45        | Yes | May 18th, 2020       | September 7th, 2020  | 1.13.11            | 3.0.6-gravity    |
 
 Gravity offers one Long Term Support (LTS) release for every 2nd Kubernetes
 minor version, allowing for seamless upgrades per Kubernetes
@@ -878,6 +878,17 @@ to learn how to gain insight into how the cluster status changes over time.
 * Add support for using `helm` directly from host.
 
 ## 5.x Releases
+
+### 5.5.45 LTS (May 18th, 2020)
+
+#### Improvements
+
+* Include `gravity status history` in the debug report ([#1570](https://github.com/gravitational/gravity/pull/1570)).
+
+#### Bugfixes
+
+* Strip gravity-site image from unnecessary binaries ([#1574](https://github.com/gravitational/gravity/pull/1574)).
+* Fix a "role not found" issue when connecting to a leaf cluster via Hub ([#1577](https://github.com/gravitational/gravity/pull/1577)).
 
 ### 5.5.44 LTS (May 13th, 2020)
 
