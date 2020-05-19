@@ -160,7 +160,11 @@ func (f *engine) GetExecutor(p fsm.ExecutorParams, remote fsm.Remote) (fsm.Phase
 // RunCommand executes the phase specified by params on the specified server
 // using the provided runner
 func (f *engine) RunCommand(ctx context.Context, runner rpc.RemoteRunner, server storage.Server, p fsm.Params) error {
-	args := []string{"plan", "execute",
+	command := "execute"
+	if p.Rollback {
+		command = "rollback"
+	}
+	args := []string{"plan", command,
 		"--phase", p.PhaseID,
 		"--operation-id", f.plan.OperationID,
 	}
@@ -210,22 +214,24 @@ func (f *engine) Complete(fsmErr error) error {
 		return trace.Wrap(err)
 	}
 
-	if !completed {
-		return nil
-	}
-
 	cluster, err := f.Backend.GetLocalSite(defaults.SystemAccountID)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	err = f.commitClusterChanges(cluster, *op)
-	if err != nil {
-		return trace.Wrap(err)
+	if completed {
+		if err := f.commitClusterChanges(cluster, *op); err != nil {
+			return trace.Wrap(err)
+		}
 	}
 
-	err = f.activateCluster(*cluster)
-	return trace.Wrap(err)
+	if completed || fsm.IsRolledBack(plan) {
+		if err := f.activateCluster(*cluster); err != nil {
+			return trace.Wrap(err)
+		}
+	}
+
+	return nil
 }
 
 // GetPlan returns an up-to-date plan
@@ -264,14 +270,15 @@ func (f *engine) commitClusterChanges(cluster *storage.Site, op ops.SiteOperatio
 }
 
 func (f *engine) activateCluster(cluster storage.Site) error {
+	f.WithFields(logrus.Fields{
+		"cluster": cluster.Domain,
+		"state":   cluster.State,
+	}).Debug("Activating cluster.")
 	cluster.State = ops.SiteStateActive
-	_, err := f.Backend.UpdateSite(cluster)
-	if err != nil {
+	if _, err := f.Backend.UpdateSite(cluster); err != nil {
 		return trace.Wrap(err)
 	}
-
-	_, err = f.LocalBackend.UpdateSite(cluster)
-	if err != nil {
+	if _, err := f.LocalBackend.UpdateSite(cluster); err != nil {
 		return trace.Wrap(err)
 	}
 	return nil

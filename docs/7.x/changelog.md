@@ -1234,7 +1234,7 @@ to learn how to gain insight into how the cluster status changes over time.
 
 !!! note "Direct upgrades"
     You can now upgrade existing 5.0.x clusters directly to 5.5.x.
-    See [Direct Upgrades From Older LTS Versions](cluster.md#direct-upgrades-from-older-lts-versions) for details.
+    See [Direct Upgrades From Older LTS Versions](cluster.md#multi-hop-upgrades) for details.
 
 #### Improvements
 
