@@ -110,6 +110,7 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.UpgradeCmd.FullCommand(),
 		g.StartCmd.FullCommand(),
 		g.StopCmd.FullCommand(),
+		g.RollbackCmd.FullCommand(),
 		g.ResourceCreateCmd.FullCommand():
 		if *g.Debug {
 			teleutils.InitLogger(teleutils.LoggingForDaemon, level)
@@ -182,6 +183,7 @@ func InitAndCheck(g *Application, cmd string) error {
 	switch cmd {
 	case g.SystemUpdateCmd.FullCommand(),
 		g.UpgradeCmd.FullCommand(),
+		g.RollbackCmd.FullCommand(),
 		g.SystemRollbackCmd.FullCommand(),
 		g.StopCmd.FullCommand(),
 		g.StartCmd.FullCommand(),
@@ -225,6 +227,7 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.SystemRollbackCmd.FullCommand(),
 		g.UpdateSystemCmd.FullCommand(),
 		g.UpgradeCmd.FullCommand(),
+		g.RollbackCmd.FullCommand(),
 		g.SystemGCRegistryCmd.FullCommand(),
 		g.SystemUninstallCmd.FullCommand(),
 		g.PlanetEnterCmd.FullCommand(),
@@ -461,6 +464,14 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			*g.PlanCmd.OperationID, outputFormat)
 	case g.PlanCompleteCmd.FullCommand():
 		return completeOperationPlan(localEnv, g, *g.PlanCmd.OperationID)
+	case g.RollbackCmd.FullCommand():
+		return rollbackPlan(localEnv, g,
+			PhaseParams{
+				Timeout:          *g.RollbackCmd.PhaseTimeout,
+				SkipVersionCheck: *g.RollbackCmd.SkipVersionCheck,
+				OperationID:      *g.RollbackCmd.OperationID,
+				DryRun:           *g.RollbackCmd.DryRun,
+			}, *g.RollbackCmd.Confirmed)
 	case g.LeaveCmd.FullCommand():
 		return leave(localEnv, leaveConfig{
 			force:     *g.LeaveCmd.Force,
