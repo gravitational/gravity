@@ -26,12 +26,14 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 
 	"github.com/gravitational/trace"
+	"github.com/jonboulle/clockwork"
 	"github.com/sirupsen/logrus"
 )
 
 func newTestEngine(plan storage.OperationPlan) *testEngine {
 	return &testEngine{
-		plan: plan,
+		plan:  plan,
+		clock: clockwork.NewFakeClock(),
 	}
 }
 
@@ -39,6 +41,7 @@ func newTestEngine(plan storage.OperationPlan) *testEngine {
 type testEngine struct {
 	plan      storage.OperationPlan
 	changelog storage.PlanChangelog
+	clock     clockwork.Clock
 }
 
 // GetExecutor returns one of the test executors depending on the specified phase.
@@ -55,12 +58,12 @@ func (t *testEngine) GetExecutor(p ExecutorParams, r Remote) (PhaseExecutor, err
 
 // ChangePhaseState records the provided phase state change in the test engine.
 func (t *testEngine) ChangePhaseState(ctx context.Context, ch StateChange) error {
+	// Make sure that new changelog entries get the most recent timestamp.
+	timestamp := t.clock.Now().Add(time.Duration(len(t.changelog)) * time.Minute)
 	t.changelog = append(t.changelog, storage.PlanChange{
 		PhaseID:  ch.Phase,
 		NewState: ch.State,
-		// Using real time on purpose, because the final state is determined
-		// by the most recent phase in the changelog.
-		Created: time.Now().UTC(),
+		Created:  timestamp,
 	})
 	return nil
 }
