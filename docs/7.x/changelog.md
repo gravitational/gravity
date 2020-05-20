@@ -4,9 +4,9 @@
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 7.0.4         | No  | April 29th, 2020     | 7.1 is released      | 1.17.4             | 3.2.13           |
-| 6.1.25        | Yes | April 29th, 2020     | November 10th, 2021  | 1.15.11            | 3.2.12           |
-| 5.5.43        | Yes | May 1st, 2020        | September 7th, 2020  | 1.13.11            | 3.0.6-gravity    |
+| 7.0.5         | No  | May 13th, 2020       | 7.1 is released      | 1.17.4             | 3.2.13           |
+| 6.1.27        | Yes | May 13th, 2020       | November 10th, 2021  | 1.15.11            | 3.2.12           |
+| 5.5.45        | Yes | May 18th, 2020       | September 7th, 2020  | 1.13.11            | 3.0.6-gravity    |
 
 Gravity offers one Long Term Support (LTS) release for every 2nd Kubernetes
 minor version, allowing for seamless upgrades per Kubernetes
@@ -26,7 +26,7 @@ extend updates past EOL through customer agreements if required.
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 6.3.16        | No  | May 7th, 2020        | April 3rd, 2020      | 1.17.4             | 3.2.13           |
+| 6.3.17        | No  | May 13th, 2020       | April 3rd, 2020      | 1.17.4             | 3.2.13           |
 | 6.2.5         | No  | December 3rd, 2019   | December 18th, 2019  | 1.16.3             | 3.2.13           |
 | 6.0.10        | No  | October 17th, 2019   | August 2nd, 2019     | 1.14.7             | 3.2.12           |
 | 5.6.8         | No  | September 18th, 2019 | July 17th, 2019      | 1.14.7             | 3.0.6-gravity    |
@@ -41,6 +41,31 @@ extend updates past EOL through customer agreements if required.
 # Release Notes
 
 ## 7.x Releases
+
+### 7.0.5 (May 13th, 2020)
+
+#### Improvements
+
+* Add Teleport nodes status to `gravity status` ([#1487](https://github.com/gravitational/gravity/pull/1487)).
+* Make the hook that installs a system DNS application idempotent ([#1514](https://github.com/gravitational/gravity/pull/1514)).
+
+#### Bugfixes
+
+* Make upgrade operation more tolerant to Kubernetes version skew policy ([#1458](https://github.com/gravitational/gravity/pull/1458)).
+* Make sure Teleport node has connected successfully when joining a new node ([#1487](https://github.com/gravitational/gravity/pull/1487)).
+* Fix dates displayed in the UI to use standard US format MM/DD/YYYY ([#1491](https://github.com/gravitational/gravity/pull/1491)).
+* Fix an issue with inability to set a `role_map` property when configuring a trusted cluster ([#1527](https://github.com/gravitational/gravity/pull/1527)).
+* Loosen preflight check to allow variance in OS patch versions between cluster nodes ([#1530](https://github.com/gravitational/gravity/pull/1530)).
+* Fix an issue with bogus expand operations sometimes appearing after multi-node installs ([#1537](https://github.com/gravitational/gravity/pull/1537)).
+* Fix issues with empty Prometheus metrics that prevented `kubectl top` and HPA from working ([#1543](https://github.com/gravitational/gravity/pull/1543), [monitoring-app#163](https://github.com/gravitational/monitoring-app/pull/163)).
+* Update default trusted cluster role mapping to only map remote admin role to local admin role ([#1546](https://github.com/gravitational/gravity/pull/1546)).
+* Fix an issue with kube-controller-manager getting unauthorized errors after changing the node advertise address ([#1548](https://github.com/gravitational/gravity/pull/1548)).
+* Fix an issue with Teleport node not being able to join after changing the node advertise address ([#1548](https://github.com/gravitational/gravity/pull/1548)).
+
+!!! warning
+    This release addresses an issue with an insecure default that would map any remote role to the local admin role when connecting
+    a cluster to a Hub using a trusted cluster without an explicitly configured role mapping. See [Trusted Clusters](config.md#trusted-clusters-enterprise)
+    documentation for role mapping configuration details.
 
 ### 7.0.4 (April 29th, 2020)
 
@@ -109,6 +134,45 @@ them to any Kubernetes cluster.
 to learn how to gain insight into how the cluster status changes over time.
 
 ## 6.x Releases
+
+### 6.3.17 (May 13th, 2020)
+
+#### Bugfixes
+
+* Update default trusted cluster role mapping to only map remote admin role to local admin role ([#1544](https://github.com/gravitational/gravity/pull/1544)).
+* Fix a number of issues that may have led to crashes when trying to resume operations ([#1525](https://github.com/gravitational/gravity/pull/1525)).
+
+!!! warning
+    This release addresses an issue with an insecure default that would map any remote role to the local admin role when connecting
+    a cluster to a Hub using a trusted cluster without an explicitly configured role mapping. See [Trusted Clusters](config.md#trusted-clusters-enterprise)
+    documentation for role mapping configuration details.
+
+### 6.1.27 LTS (May 13th, 2020)
+
+#### Bugfixes
+
+* Fix an issue with inability to set a `role_map` property when configuring a trusted cluster ([#1557](https://github.com/gravitational/gravity/pull/1557)).
+* Update default trusted cluster role mapping to only map remote admin role to local admin role ([#1557](https://github.com/gravitational/gravity/pull/1557)).
+* Fix an issue with wormhole CNI plugin installation ([#1565](https://github.com/gravitational/gravity/pull/1565)).
+
+!!! warning
+    This release addresses an issue with an insecure default that would map any remote role to the local admin role when connecting
+    a cluster to a Hub using a trusted cluster without an explicitly configured role mapping. See [Trusted Clusters](config.md#trusted-clusters-enterprise)
+    documentation for role mapping configuration details.
+
+### 6.1.26 LTS (May 13th, 2020)
+
+#### Improvements
+
+* Add ability to display warning probes in `gravity status` ([#1499](https://github.com/gravitational/gravity/pull/1499)).
+* Add Teleport nodes status to `gravity status` ([#1486](https://github.com/gravitational/gravity/pull/1486)).
+* Make the hook that installs the system DNS application idempotent ([#1513](https://github.com/gravitational/gravity/pull/1513)).
+
+#### Bugfixes
+
+* Make sure Teleport node has connected successfully when joining a new node ([#1486](https://github.com/gravitational/gravity/pull/1486)).
+* Loosen preflight check to allow variance in OS patch versions between cluster nodes ([#1551](https://github.com/gravitational/gravity/pull/1551)).
+* Fix an issue with wormhole failing to upgrade due to file permission errors ([#1562](https://github.com/gravitational/gravity/pull/1562)).
 
 ### 6.3.16 (May 7th, 2020)
 
@@ -814,6 +878,36 @@ to learn how to gain insight into how the cluster status changes over time.
 * Add support for using `helm` directly from host.
 
 ## 5.x Releases
+
+### 5.5.45 LTS (May 18th, 2020)
+
+#### Improvements
+
+* Include `gravity status history` in the debug report ([#1570](https://github.com/gravitational/gravity/pull/1570)).
+
+#### Bugfixes
+
+* Strip gravity-site image from unnecessary binaries ([#1574](https://github.com/gravitational/gravity/pull/1574)).
+* Fix a "role not found" issue when connecting to a leaf cluster via Hub ([#1577](https://github.com/gravitational/gravity/pull/1577)).
+
+### 5.5.44 LTS (May 13th, 2020)
+
+#### Improvements
+
+* Add Teleport nodes status to `gravity status` ([#1477](https://github.com/gravitational/gravity/pull/1477)).
+* Add ability to display warning probes in `gravity status` ([#1498](https://github.com/gravitational/gravity/pull/1498)).
+
+#### Bugfixes
+
+* Make sure Teleport node has connected successfully when joining a new node ([#1477](https://github.com/gravitational/gravity/pull/1477)).
+* Fix a number of issues that may have led to crashes when trying to resume operations ([#1479](https://github.com/gravitational/gravity/pull/1479), [#1526](https://github.com/gravitational/gravity/pull/1526)).
+* Fix an issue with inability to set a `role_map` property when configuring a trusted cluster ([#1556](https://github.com/gravitational/gravity/pull/1556)).
+* Update default trusted cluster role mapping to only map remote admin role to local admin role ([#1556](https://github.com/gravitational/gravity/pull/1556)).
+
+!!! warning
+    This release addresses an issue with an insecure default that would map any remote role to the local admin role when connecting
+    a cluster to a Hub using a trusted cluster without an explicitly configured role mapping. See [Trusted Clusters](config.md#trusted-clusters-enterprise)
+    documentation for role mapping configuration details.
 
 ### 5.5.43 LTS (May 1st, 2020)
 

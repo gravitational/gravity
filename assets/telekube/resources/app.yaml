@@ -185,14 +185,6 @@ nodeProfiles:
           - c3.4xlarge
           - i2.2xlarge
 hooks:
-  clusterProvision:
-    job: file://clusterProvision.yaml
-  nodesProvision:
-    job: file://nodesProvision.yaml
-  nodesDeprovision:
-    job: file://nodesDeprovision.yaml
-  clusterDeprovision:
-    job: file://clusterDeprovision.yaml
   preUpdate:
     job: file://preUpdate.yaml
 ingress:
