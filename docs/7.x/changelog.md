@@ -6,7 +6,7 @@
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
 | 7.0.5         | No  | May 13th, 2020       | 7.1 is released      | 1.17.4             | 3.2.13           |
 | 6.1.27        | Yes | May 13th, 2020       | November 10th, 2021  | 1.15.11            | 3.2.12           |
-| 5.5.45        | Yes | May 18th, 2020       | September 7th, 2020  | 1.13.11            | 3.0.6-gravity    |
+| 5.5.45        | Yes | May 18th, 2020       | March 7th, 2021      | 1.13.11            | 3.0.6-gravity    |
 
 Gravity offers one Long Term Support (LTS) release for every 2nd Kubernetes
 minor version, allowing for seamless upgrades per Kubernetes
