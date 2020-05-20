@@ -91,7 +91,7 @@ func (p *Planner) GetOperationPlan(operator ops.Operator, cluster ops.Site, oper
 	builder.AddNodePhase(plan)
 	builder.AddDirectoriesPhase(plan)
 	builder.AddPodsPhase(plan)
-	builder.AddTeleportPhase(plan)
+	builder.AddRestartPhase(plan)
 	builder.AddGravityPhase(plan)
 	builder.AddClusterPackagesPhase(plan)
 

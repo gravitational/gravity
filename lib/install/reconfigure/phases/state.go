@@ -51,6 +51,7 @@ func NewState(p fsm.ExecutorParams, operator ops.Operator) (*stateExecutor, erro
 	return &stateExecutor{
 		FieldLogger:    logger,
 		ExecutorParams: p,
+		Operator:       operator,
 		Operation:      *operation,
 		Server:         *p.Phase.Data.Server,
 	}, nil
@@ -61,6 +62,8 @@ type stateExecutor struct {
 	logrus.FieldLogger
 	// ExecutorParams are common executor parameters.
 	fsm.ExecutorParams
+	// Operator is the installer operator.
+	Operator ops.Operator
 	// Operation is the current reconfigure operation.
 	Operation ops.SiteOperation
 	// Server is the server undergoing the reconfigure operation.
@@ -83,6 +86,9 @@ func (p *stateExecutor) Execute(ctx context.Context) error {
 	if err := p.removeAuthorities(clusterEnv.Backend); err != nil {
 		return trace.Wrap(err)
 	}
+	if err := p.updateTokens(clusterEnv.Backend, clusterEnv.Operator); err != nil {
+		return trace.Wrap(err)
+	}
 	if err := p.updatePeers(clusterEnv.Backend); err != nil {
 		return trace.Wrap(err)
 	}
@@ -103,6 +109,29 @@ func (p *stateExecutor) updateNode(backend storage.Backend) error {
 		return trace.Wrap(err)
 	}
 	p.Debug("Updated node in the cluster state.")
+	return nil
+}
+
+func (p *stateExecutor) updateTokens(backend storage.Backend, operator ops.Operator) error {
+	existingToken, err := operator.GetExpandToken(p.Key().SiteKey())
+	if err != nil && !trace.IsNotFound(err) {
+		return trace.Wrap(err)
+	}
+	if existingToken != nil {
+		err = backend.DeleteProvisioningToken(existingToken.Token)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	token, err := p.Operator.GetExpandToken(p.Key().SiteKey())
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	_, err = backend.CreateProvisioningToken(*token)
+	if err != nil && !trace.IsAlreadyExists(err) {
+		return trace.Wrap(err)
+	}
+	p.Debug("Updated provisioning tokens.")
 	return nil
 }
 
