@@ -421,7 +421,7 @@ type SiteOperation struct {
 	// in case of 'install' or 'provision_servers' it will store the
 	// servers that will be added and configured, for 'deprovision_servers'
 	// it will store the servers that will be deleted
-	Servers []Server `json:"servers"`
+	Servers Servers `json:"servers"`
 	// Shrink is set when the operation type is shrink (removing nodes from the cluster)
 	Shrink *ShrinkOperationState `json:"shrink,omitempty"`
 	// InstallExpand is set when the operation is install or expand

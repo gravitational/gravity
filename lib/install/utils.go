@@ -17,7 +17,6 @@ package install
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -381,19 +380,7 @@ type ExecResult struct {
 // FormatAbortError formats the specified error for output by the installer client.
 // Output will contain error message for err as well as any error it wraps.
 func FormatAbortError(err error) string {
-	switch err := err.(type) {
-	case trace.Error:
-		userMessage := trace.UserMessage(err)
-		if err.OrigError() != nil {
-			detail := trace.UserMessage(err.OrigError())
-			if detail != userMessage {
-				userMessage = fmt.Sprintf("%v (%v)", userMessage, detail)
-			}
-		}
-		return userMessage
-	default:
-		return trace.UserMessage(err)
-	}
+	return trace.UserMessage(err)
 }
 
 func isOperationSuccessful(progress ops.ProgressEntry) bool {
