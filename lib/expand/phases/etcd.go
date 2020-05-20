@@ -79,6 +79,7 @@ func NewEtcd(p fsm.ExecutorParams, operator ops.Operator, runner rpc.AgentReposi
 		Runner:         runner,
 		Master:         *p.Phase.Data.Master,
 		ExecutorParams: p,
+		etcdPeerURL:    p.Phase.Data.Server.EtcdPeerURL(),
 	}, nil
 }
 
@@ -93,6 +94,8 @@ type etcdExecutor struct {
 	Master storage.Server
 	// ExecutorParams is common executor params
 	fsm.ExecutorParams
+	// etcdPeerURL specifies this node's etcd peer URL
+	etcdPeerURL string
 }
 
 // Execute adds the joining node to the cluster's etcd cluster
@@ -147,10 +150,10 @@ func (p *etcdExecutor) addEtcdMember(ctx context.Context) (member *etcd.Member, 
 			return trace.Wrap(err)
 		}
 		if p.hasSelfAsMember(peers) {
-			p.Infof("Etcd peer %v already exists.", p.Phase.Data.Server.EtcdPeerURL())
+			p.WithField("peerURL", p.etcdPeerURL).Info("Node is already etcd peer.")
 			return nil
 		}
-		member, err = p.Etcd.Add(ctx, p.Phase.Data.Server.EtcdPeerURL())
+		member, err = p.Etcd.Add(ctx, p.etcdPeerURL)
 		return trace.Wrap(err)
 	})
 	if err != nil {
@@ -160,13 +163,11 @@ func (p *etcdExecutor) addEtcdMember(ctx context.Context) (member *etcd.Member, 
 }
 
 func (p *etcdExecutor) hasSelfAsMember(peers []etcd.Member) bool {
-	peerURL := p.Phase.Data.Server.EtcdPeerURL()
 	for _, peer := range peers {
-		if len(peer.PeerURLs) != 1 {
-			continue
-		}
-		if peer.PeerURLs[0] == peerURL {
-			return true
+		for _, peerURL := range peer.PeerURLs {
+			if peerURL == p.etcdPeerURL {
+				return true
+			}
 		}
 	}
 	return false

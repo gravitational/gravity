@@ -146,8 +146,8 @@ func (p *Peer) Run(listener net.Listener) error {
 				p.WithError(err).Warn("Failed to leave cluster.")
 			}
 		} else if !installpb.IsCompletedError(err) {
-			if err2 := p.fail(err.Error()); err2 != nil {
-				p.WithError(err2).Warn("Failed to mark operation as failed.")
+			if err := p.fail(err.Error()); err != nil {
+				p.WithError(err).Warn("Failed to mark operation as failed.")
 			}
 		}
 	}
