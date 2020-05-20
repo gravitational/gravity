@@ -76,13 +76,6 @@ type RegistryConnectionRequest struct {
 	Insecure bool
 }
 
-// ScanningConfig represents configuration used to push images to a docker repository configured for scanning those
-// images for vulnerabilities or other problems
-type ScanningConfig struct {
-	RemoteRepository string
-	TagPrefix        string
-}
-
 // HasBasicAuth returns true if the request contains basic auth credentials.
 func (r *RegistryConnectionRequest) HasBasicAuth() bool {
 	return r.Username != "" && r.Password != ""
@@ -310,86 +303,6 @@ func (r *imageService) Sync(ctx context.Context, dir string, progress utils.Prin
 	return installedTags, nil
 }
 
-// SyncForScanning syncs all images in a local directory, with a remote registry that is capable of scanning and
-// reporting vulnerabilities in those images. All images and tags are written into a designated repository, with the
-// image tag rewritten to help identify the image.
-// Example of gravity 7.0.0:
-//   quay.io/gravitational/debian-tall:0.0.1 -> quay.io/gravitational/gravity-scan:7.0.0_gravitational_debian-tall_0.0.1
-func (r *imageService) SyncForScanning(ctx context.Context, conf ScanningConfig, dir string, progress utils.Printer) (err error) {
-	if err = r.connect(ctx); err != nil {
-		return trace.Wrap(err)
-	}
-	r.Debugf("Synchronizing local directory %q.", dir)
-	localStore, err := openLocal(dir)
-	if err != nil {
-		return trace.Wrap(err, "failed to open local directory %q as local registry", dir)
-	}
-
-	repos, err := ListRepos(ctx, localStore)
-	if err != nil {
-		return trace.Wrap(err, "failed to list local repositories in %q", dir)
-	}
-
-	for _, localRepoName := range repos {
-		localRepo, err := localStore.Repository(ctx, localRepoName)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-
-		remoteRepo, err := r.remoteStore.Repository(ctx, conf.RemoteRepository)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-
-		localManifests, err := localRepo.Manifests(ctx)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-
-		localTags := localRepo.Tags(ctx)
-
-		tags, err := localTags.All(ctx)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-
-		for _, tag := range tags {
-			tagSpec := TagSpec{
-				Name: conf.RemoteRepository,
-				Version: fmt.Sprintf("%s_%s_%s",
-					conf.TagPrefix,
-					strings.ReplaceAll(localRepoName, "/", "_"),
-					tag,
-				),
-			}
-
-			desc, err := localTags.Get(ctx, tag)
-			if err != nil {
-				return trace.Wrap(err)
-			}
-
-			localManifest, err := localManifests.Get(ctx, desc.Digest)
-			if err != nil {
-				return trace.Wrap(err)
-			}
-
-			progress.Printf("Pushing image %s:%s -> %s\n", localRepoName, tag, tagSpec)
-			if r.remoteStore.tokenHandler != nil {
-				r.remoteStore.tokenHandler.AddScope(registryauth.RepositoryScope{
-					Repository: tagSpec.Name,
-					Class:      "image",
-					Actions:    []string{"push"},
-				})
-			}
-			if err = r.remoteStore.updateRepo(ctx, remoteRepo, localRepo, localManifest, tagSpec.Version); err != nil {
-				return trace.Wrap(err, "failed to update remote for tag %q: %v", tagSpec, err)
-			}
-		}
-	}
-
-	return nil
-}
-
 // Wrap translates the specified image to point to the private registry
 // this image service is managing if the image is not already pointing to it.
 func (r *imageService) Wrap(image string) string {
@@ -460,7 +373,7 @@ func newCertPool(CAFiles []string) (*x509.CertPool, error) {
 	return certPool, nil
 }
 
-func initTransport(req RegistryConnectionRequest) (http.RoundTripper, string, *multiScopeTokenHandler, error) {
+func initTransport(req RegistryConnectionRequest) (http.RoundTripper, string, error) {
 	const connectTimeout = 30 * time.Second
 	const keepAlivePeriod = 30 * time.Second
 	const handshakeTimeout = 30 * time.Second
@@ -496,37 +409,38 @@ func initTransport(req RegistryConnectionRequest) (http.RoundTripper, string, *m
 		}
 	}
 
-	challengeManager, err := ping(transport, registryAddress)
-	if err != nil {
-		return nil, "", nil, trace.Wrap(err, "failed to ping Docker registry: %s", err).AddField("req", req)
-	}
-
-	if !req.HasBasicAuth() {
-		return transport, registryAddress, nil, nil
-	}
-
-	// If basic auth credentials were provided, set up the authorizer
-	// middleware for the transport.
-	credentials := &credentials{
-		username: req.Username,
-		password: req.Password,
-		tokens:   make(map[string]string),
-	}
-	basicHandler := registryauth.NewBasicHandler(credentials)
-	tokenHandler := &multiScopeTokenHandler{
-		transport:   transport,
-		credentials: *credentials,
-	}
-	tokenHandler.createTokenHandler()
-	authorizer := registryauth.NewAuthorizer(challengeManager, tokenHandler, basicHandler)
-	return registrytransport.NewTransport(transport, authorizer), registryAddress, tokenHandler, nil
+	return transport, registryAddress, nil
 }
 
 // ConnectRegistry connects to the registry with the specified address
-func ConnectRegistry(ctx context.Context, request RegistryConnectionRequest) (*remoteStore, error) {
-	transport, registryAddr, tokenHandler, err := initTransport(request)
+func ConnectRegistry(ctx context.Context, req RegistryConnectionRequest) (*remoteStore, error) {
+	transport, registryAddr, err := initTransport(req)
 	if err != nil {
 		return nil, trace.Wrap(err)
+	}
+
+	challengeManager, err := ping(transport, registryAddr)
+	if err != nil {
+		return nil, trace.Wrap(err, "failed to ping Docker registry: %s", err).AddField("req", req)
+	}
+
+	var tokenHandler *multiScopeTokenHandler
+	if req.HasBasicAuth() {
+		// If basic auth credentials were provided, set up the authorizer
+		// middleware for the transport.
+		credentials := &credentials{
+			username: req.Username,
+			password: req.Password,
+			tokens:   make(map[string]string),
+		}
+		basicHandler := registryauth.NewBasicHandler(credentials)
+		tokenHandler = &multiScopeTokenHandler{
+			transport:   transport,
+			credentials: *credentials,
+		}
+		tokenHandler.createTokenHandler()
+		authorizer := registryauth.NewAuthorizer(challengeManager, tokenHandler, basicHandler)
+		transport = registrytransport.NewTransport(transport, authorizer)
 	}
 
 	registry, err := registryclient.NewRegistry(registryAddr, transport)
@@ -535,7 +449,7 @@ func ConnectRegistry(ctx context.Context, request RegistryConnectionRequest) (*r
 	}
 
 	return &remoteStore{
-		FieldLogger:  log.WithField("remote registry", registryAddr),
+		FieldLogger:  log.WithField("registry_addr", registryAddr),
 		addr:         registryAddr,
 		transport:    transport,
 		registry:     registry,
@@ -807,16 +721,14 @@ func (th *multiScopeTokenHandler) createTokenHandler() {
 
 func mergeRepositoryScopeActions(left, right registryauth.RepositoryScope) (changed bool, scope registryauth.RepositoryScope) {
 	var newActions []string
+L:
 	for _, rightAction := range right.Actions {
-		var found bool
 		for _, leftAction := range left.Actions {
 			if rightAction == leftAction {
-				found = true
+				continue L
 			}
 		}
-		if !found {
-			newActions = append(newActions, rightAction)
-		}
+		newActions = append(newActions, rightAction)
 	}
 
 	if len(newActions) != 0 {

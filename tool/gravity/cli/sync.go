@@ -61,7 +61,7 @@ type registryConfig struct {
 
 // imageService returns a new registry client for this config.
 func (c registryConfig) imageService() (docker.ImageService, error) {
-	return docker.NewImageService(docker.RegistryConnectionRequest{
+	req := docker.RegistryConnectionRequest{
 		RegistryAddress: c.Registry,
 		CACertPath:      c.CAPath,
 		ClientCertPath:  c.CertPath,
@@ -70,7 +70,16 @@ func (c registryConfig) imageService() (docker.ImageService, error) {
 		Password:        c.Password,
 		Prefix:          c.Prefix,
 		Insecure:        c.Insecure,
-	})
+	}
+
+	if c.ScanningRepository != nil {
+		return docker.NewScanningImageService(req, docker.ScanConfig{
+			RemoteRepository: *c.ScanningRepository,
+			TagPrefix:        *c.ScanningTagPrefix,
+		})
+	}
+
+	return docker.NewImageService(req)
 }
 
 func appSync(env *localenv.LocalEnvironment, conf appSyncConfig) error {
@@ -142,21 +151,12 @@ func appSyncEnv(env *localenv.LocalEnvironment, imageEnv *localenv.ImageEnvironm
 			return trace.Wrap(err)
 		}
 
-		var scanConfig *docker.ScanningConfig
-		if conf.ScanningRepository != nil {
-			scanConfig = &docker.ScanningConfig{
-				RemoteRepository: *conf.ScanningRepository,
-				TagPrefix:        *conf.ScanningTagPrefix,
-			}
-		}
-
 		err = service.SyncApp(context.TODO(), service.SyncRequest{
 			PackService:  imageEnv.Packages,
 			AppService:   imageEnv.Apps,
 			ImageService: imageService,
 			Package:      imageEnv.Manifest.Locator(),
 			Progress:     env,
-			ScanConfig:   scanConfig,
 		})
 		if err != nil {
 			return trace.Wrap(err)
