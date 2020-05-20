@@ -21,8 +21,6 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/gravitational/gravity/lib/app/service"
-	"github.com/gravitational/gravity/lib/helm"
 	"github.com/gravitational/gravity/lib/localenv"
 
 	teleutils "github.com/gravitational/teleport/lib/utils"
@@ -47,57 +45,25 @@ func Run(tele Application) error {
 		teleutils.InitLogger(teleutils.LoggingForCLI, logrus.InfoLevel)
 	}
 
+	ctx := context.Background()
+
 	switch cmd {
 	case tele.VersionCmd.FullCommand():
 		return printVersion(*tele.VersionCmd.Output)
+
 	case tele.BuildCmd.FullCommand():
-		return buildClusterImage(context.Background(), BuildParameters{
-			StateDir:         *tele.StateDir,
-			SourcePath:       *tele.BuildCmd.Path,
-			OutPath:          *tele.BuildCmd.OutFile,
-			Overwrite:        *tele.BuildCmd.Overwrite,
-			SkipVersionCheck: *tele.BuildCmd.SkipVersionCheck,
-			Silent:           *tele.BuildCmd.Quiet,
-			Verbose:          *tele.BuildCmd.Verbose,
-			BaseImage:        *tele.BuildCmd.BaseImage,
-			Insecure:         *tele.Insecure,
-			Vendor: service.VendorRequest{
-				PackageName:            *tele.BuildCmd.Name,
-				PackageVersion:         *tele.BuildCmd.Version,
-				ResourcePatterns:       *tele.BuildCmd.VendorPatterns,
-				IgnoreResourcePatterns: *tele.BuildCmd.VendorIgnorePatterns,
-				SetImages:              *tele.BuildCmd.SetImages,
-				SetDeps:                *tele.BuildCmd.SetDeps,
-				Parallel:               *tele.BuildCmd.Parallel,
-				VendorRuntime:          true,
-				Helm: helm.RenderParameters{
-					Values: *tele.BuildCmd.Values,
-					Set:    *tele.BuildCmd.Set,
-				},
-				Pull: *tele.BuildCmd.Pull,
-			},
-		})
+		parameters := BuildCommandParameters(tele)
+		if *tele.BuildCmd.Diff {
+			return diffClusterImage(ctx, parameters)
+		}
+		return buildClusterImage(ctx, parameters)
+
 	case tele.HelmBuildCmd.FullCommand():
-		return buildApplicationImage(context.Background(), BuildParameters{
-			StateDir:   *tele.StateDir,
-			SourcePath: *tele.HelmBuildCmd.Path,
-			OutPath:    *tele.HelmBuildCmd.OutFile,
-			Overwrite:  *tele.HelmBuildCmd.Overwrite,
-			Silent:     *tele.HelmBuildCmd.Quiet,
-			Verbose:    *tele.HelmBuildCmd.Verbose,
-			Insecure:   *tele.Insecure,
-			Vendor: service.VendorRequest{
-				ResourcePatterns:       *tele.HelmBuildCmd.VendorPatterns,
-				IgnoreResourcePatterns: *tele.HelmBuildCmd.VendorIgnorePatterns,
-				SetImages:              *tele.HelmBuildCmd.SetImages,
-				Parallel:               *tele.HelmBuildCmd.Parallel,
-				Helm: helm.RenderParameters{
-					Values: *tele.HelmBuildCmd.Values,
-					Set:    *tele.HelmBuildCmd.Set,
-				},
-				Pull: *tele.HelmBuildCmd.Pull,
-			},
-		})
+		parameters := HelmBuildCommandParameters(tele)
+		if *tele.HelmBuildCmd.Diff {
+			return diffApplicationImage(ctx, parameters)
+		}
+		return buildApplicationImage(ctx, parameters)
 	}
 
 	keystoreDir := *tele.StateDir

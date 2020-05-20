@@ -27,15 +27,13 @@ import (
 type Generator interface {
 	// Generate generates an installer tarball for the specified application
 	// using the provided builder and returns its data as a stream
-	Generate(*Engine, *schema.Manifest, app.Application) (io.ReadCloser, error)
+	Generate(*Engine, *schema.Manifest, app.InstallerRequest) (io.ReadCloser, error)
 }
 
 type generator struct{}
 
 // Generate generates an installer tarball for the specified application
 // using the provided builder and returns its data as a stream
-func (g *generator) Generate(engine *Engine, manifest *schema.Manifest, application app.Application) (io.ReadCloser, error) {
-	return engine.Apps.GetAppInstaller(app.InstallerRequest{
-		Application: application.Package,
-	})
+func (g *generator) Generate(engine *Engine, manifest *schema.Manifest, req app.InstallerRequest) (io.ReadCloser, error) {
+	return engine.Apps.GetAppInstaller(req)
 }

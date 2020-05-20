@@ -21,6 +21,8 @@ import (
 	"io/ioutil"
 	"os"
 
+	"github.com/fatih/color"
+	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/app/service"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
@@ -56,6 +58,10 @@ type ClusterRequest struct {
 	Vendor service.VendorRequest
 	// BaseImage is optional base image provided on the command line.
 	BaseImage string
+	// From is a path to the cluster image used as a base for the incremental upgrade.
+	From string
+	// SkipBaseCheck allows to bypass base image version check when building incremental image.
+	SkipBaseCheck bool
 }
 
 // Build builds a cluster image according to the provided parameters.
@@ -104,6 +110,38 @@ func (b *clusterBuilder) Build(ctx context.Context, req ClusterRequest) error {
 		return trace.Wrap(err)
 	}
 
+	var upgradeFrom *loc.Locator
+	if req.From != "" {
+		b.NextStep("Discovering Docker images from %v", req.From)
+		response, err := InspectImage(ctx, req.From)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		version, err := response.Manifest.Base().SemVer()
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		if !version.Equal(*runtimeVersion) {
+			if !req.SkipBaseCheck {
+				return trace.BadParameter(`The specified upgrade-from cluster image uses base image %v, while
+this image is based on %v.
+
+Building an incremental upgrade image from the image with a different base is
+not recommended because any differences in system dependencies will not be
+packaged which may result into a failed upgrade.
+
+You can provide --skip-base-check flag to bypass this check.`,
+					version,
+					runtimeVersion)
+			}
+			b.NextStep(color.YellowString("Upgrade-from image %v uses different base image %v",
+				response.Manifest.Locator().Human(),
+				version))
+		}
+		req.Vendor.SkipImages = response.Images
+		upgradeFrom = response.Manifest.LocatorP()
+	}
+
 	vendorDir, err := ioutil.TempDir("", "vendor")
 	if err != nil {
 		return trace.Wrap(err)
@@ -111,7 +149,7 @@ func (b *clusterBuilder) Build(ctx context.Context, req ClusterRequest) error {
 	defer os.RemoveAll(vendorDir)
 
 	b.NextStep("Discovering and embedding Docker images")
-	stream, err := b.Vendor(ctx, VendorRequest{
+	vendorResp, err := b.Vendor(ctx, VendorRequest{
 		SourceDir: imageSource.Dir(),
 		VendorDir: vendorDir,
 		Manifest:  manifest,
@@ -120,16 +158,23 @@ func (b *clusterBuilder) Build(ctx context.Context, req ClusterRequest) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	defer stream.Close()
+	defer vendorResp.Stream.Close()
 
 	b.NextStep("Creating application")
-	application, err := b.CreateApplication(stream)
+	application, err := b.CreateApplication(createAppRequest{
+		Stream:      vendorResp.Stream,
+		Images:      vendorResp.Images,
+		UpgradeFrom: upgradeFrom,
+	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
 	b.NextStep("Packaging cluster image")
-	installer, err := b.GenerateInstaller(manifest, *application)
+	installer, err := b.GenerateInstaller(manifest, app.InstallerRequest{
+		Application: application.Package,
+		Incremental: upgradeFrom != nil,
+	})
 	if err != nil {
 		return trace.Wrap(err)
 	}

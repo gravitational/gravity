@@ -29,6 +29,9 @@ const (
 	AdvertiseIPLabel = "advertise-ip"
 	// OperationIDLabel contains ID of the operation the package was configured for
 	OperationIDLabel = "operation-id"
+	// UpgradeFromLabel contains locator of the application the incremental
+	// installer was built off of.
+	UpgradeFromLabel = "upgrade-from"
 
 	// PurposeCA marks the planet certificate authority package
 	PurposeCA = "ca"

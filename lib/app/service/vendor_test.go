@@ -18,6 +18,7 @@ package service
 
 import (
 	"bytes"
+	"context"
 	"io/ioutil"
 	"path/filepath"
 	"sort"
@@ -27,9 +28,11 @@ import (
 	"github.com/gravitational/gravity/lib/app/resources"
 	"github.com/gravitational/gravity/lib/compare"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/docker"
 	"github.com/gravitational/gravity/lib/helm"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/schema"
+	"github.com/gravitational/gravity/lib/utils"
 
 	. "gopkg.in/check.v1"
 	"k8s.io/helm/pkg/chartutil"
@@ -39,6 +42,100 @@ import (
 type VendorSuite struct{}
 
 var _ = Suite(&VendorSuite{})
+
+func (s *VendorSuite) TestImages(c *C) {
+	vendorer, err := NewVendorer(VendorerConfig{})
+	c.Assert(err, IsNil)
+
+	result, err := vendorer.Images("./fixtures/test-app",
+		VendorRequest{
+			ManifestPath: "./fixtures/test-app/app.yaml",
+		})
+	c.Assert(err, IsNil)
+	sort.Sort(ByRepository(result))
+	c.Assert(result, DeepEquals, []loc.DockerImage{
+		{Repository: "install-hook", Tag: "latest"},
+		{Repository: "mysql", Tag: "5.7"},
+		{Repository: "nginx"},
+		{Repository: "wordpress", Tag: "5.4-apache"},
+	})
+}
+
+func (s *VendorSuite) TestVendor(c *C) {
+	vendorer, err := NewVendorer(VendorerConfig{
+		DockerClient: &docker.MockDocker{},
+		ImageService: &docker.MockImageService{},
+	})
+	c.Assert(err, IsNil)
+
+	dir := c.MkDir()
+	err = utils.CopyDirContents("./fixtures/test-app", dir)
+	c.Assert(err, IsNil)
+
+	result, err := vendorer.VendorDir(context.TODO(), dir,
+		VendorRequest{
+			ManifestPath: filepath.Join(dir, "app.yaml"),
+		})
+	c.Assert(err, IsNil)
+	sort.Sort(ByRepository(result.VendoredImages))
+	sort.Sort(ByRepository(result.Images))
+	c.Assert(result, DeepEquals, &VendorResponse{
+		VendoredImages: []loc.DockerImage{
+			{Repository: "install-hook", Tag: "latest"},
+			{Repository: "mysql", Tag: "5.7"},
+			{Repository: "nginx"},
+			{Repository: "wordpress", Tag: "5.4-apache"},
+		},
+		Images: []loc.DockerImage{
+			{Repository: "install-hook", Tag: "latest"},
+			{Repository: "mysql", Tag: "5.7"},
+			{Repository: "nginx"},
+			{Repository: "wordpress", Tag: "5.4-apache"},
+		},
+	})
+}
+
+func (s *VendorSuite) TestVendorSkipImages(c *C) {
+	vendorer, err := NewVendorer(VendorerConfig{
+		DockerClient: &docker.MockDocker{},
+		ImageService: &docker.MockImageService{},
+	})
+	c.Assert(err, IsNil)
+
+	dir := c.MkDir()
+	err = utils.CopyDirContents("./fixtures/test-app", dir)
+	c.Assert(err, IsNil)
+
+	result, err := vendorer.VendorDir(context.TODO(), dir,
+		VendorRequest{
+			ManifestPath: filepath.Join(dir, "app.yaml"),
+			SkipImages: []loc.DockerImage{
+				{Repository: "mysql", Tag: "5.7"},
+				{Repository: "nginx"},
+			},
+		})
+	c.Assert(err, IsNil)
+	sort.Sort(ByRepository(result.VendoredImages))
+	sort.Sort(ByRepository(result.Images))
+	c.Assert(result, DeepEquals, &VendorResponse{
+		VendoredImages: []loc.DockerImage{
+			{Repository: "install-hook", Tag: "latest"},
+			{Repository: "wordpress", Tag: "5.4-apache"},
+		},
+		Images: []loc.DockerImage{
+			{Repository: "install-hook", Tag: "latest"},
+			{Repository: "mysql", Tag: "5.7"},
+			{Repository: "nginx"},
+			{Repository: "wordpress", Tag: "5.4-apache"},
+		},
+	})
+}
+
+type ByRepository []loc.DockerImage
+
+func (r ByRepository) Len() int           { return len(r) }
+func (r ByRepository) Less(i, j int) bool { return r[i].Repository < r[j].Repository }
+func (r ByRepository) Swap(i, j int)      { r[i], r[j] = r[j], r[i] }
 
 func (s *VendorSuite) TestRewriteManifestMetadata(c *C) {
 	rFiles := createResourceFile("testmetadata", manifestWithMetadata, c)

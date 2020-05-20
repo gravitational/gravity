@@ -19,7 +19,7 @@ spec:
       {{ end }}
       containers:
       - name: web
-        image: {{ .Values.registry }}{{ .Values.image.repo }}/rs-web:{{ .Values.image.version }}
+        image: {{ .Values.registry }}{{ .Values.image.repo }}/rs-web:{{ .Values.robotshop.web.image.version }}
         {{- if .Values.eum.key }}
         env:
         - name: INSTANA_EUM_KEY

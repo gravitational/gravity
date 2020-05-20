@@ -418,6 +418,9 @@ func (r *clusterInitializer) validatePreconditions(localEnv *localenv.LocalEnvir
 	if err := checkCanUpdate(cluster, operator, updateApp.Manifest); err != nil {
 		return trace.Wrap(err)
 	}
+	if err := r.checkAppIntegrity(localEnv, updateApp); err != nil {
+		return trace.Wrap(err)
+	}
 	if err := r.checkTiller(localEnv, updateApp.Manifest); err != nil {
 		return trace.Wrap(err)
 	}
@@ -425,6 +428,29 @@ func (r *clusterInitializer) validatePreconditions(localEnv *localenv.LocalEnvir
 		return trace.Wrap(err)
 	}
 	r.updateLoc = updateApp.Package
+	return nil
+}
+
+// checkAppIntegrity makes sure that all upgrade application dependencies
+// are present in the cluster store.
+func (r *clusterInitializer) checkAppIntegrity(env *localenv.LocalEnvironment, upgradeApp *app.Application) error {
+	packages, err := env.ClusterPackages()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	apps, err := env.AppServiceCluster()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = app.VerifyDependencies(upgradeApp, apps, packages)
+	if err != nil {
+		log.WithError(err).Errorf("Failed to verify %v dependencies.", upgradeApp)
+		return trace.BadParameter(`There was an issue trying to verify %v cluster image integrity.
+
+Some required dependencies are missing from the cluster store. Check logs for more details.`,
+			upgradeApp.Package.Human())
+	}
+	log.Infof("All required dependencies for %v are present.", upgradeApp)
 	return nil
 }
 

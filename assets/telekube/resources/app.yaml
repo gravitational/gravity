@@ -201,10 +201,10 @@ hooks:
     job: file://preUpdate.yaml
 ingress:
   nginx:
-    enabled: true
+    enabled: false
 storage:
   openebs:
-    enabled: true
+    enabled: false
 systemOptions:
   runtime:
     version: "0.0.0+latest"

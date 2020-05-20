@@ -18,58 +18,18 @@ package cli
 
 import (
 	"context"
+	"fmt"
+	"io"
+	"os"
+	"strings"
 
-	"github.com/gravitational/gravity/lib/app/service"
 	"github.com/gravitational/gravity/lib/builder"
-	"github.com/gravitational/gravity/lib/utils"
+	"github.com/gravitational/gravity/lib/loc"
+	"github.com/gravitational/gravity/tool/common"
 
+	"github.com/buger/goterm"
 	"github.com/gravitational/trace"
 )
-
-// BuildParameters represents the arguments provided for building an application
-type BuildParameters struct {
-	// StateDir is build state directory, if was specified
-	StateDir string
-	// SourcePath is the path to a manifest file or a Helm chart to build image from
-	SourcePath string
-	// OutPath holds the path to the installer tarball to be output
-	OutPath string
-	// Overwrite indicates whether or not to overwrite an existing installer file
-	Overwrite bool
-	// SkipVersionCheck indicates whether or not to perform the version check of the tele binary with the application's runtime at build time
-	SkipVersionCheck bool
-	// Silent is whether builder should report progress to the console
-	Silent bool
-	// Verbose turns on more detailed progress output
-	Verbose bool
-	// Insecure turns on insecure verify mode
-	Insecure bool
-	// Vendor combines vendoring parameters
-	Vendor service.VendorRequest
-	// BaseImage sets base image for the cluster image
-	BaseImage string
-}
-
-// Level returns level at which the progress should be reported based on the CLI parameters.
-func (p BuildParameters) Level() utils.ProgressLevel {
-	if p.Silent { // No output.
-		return utils.ProgressLevelNone
-	} else if p.Verbose { // Detailed output.
-		return utils.ProgressLevelDebug
-	}
-	return utils.ProgressLevelInfo // Normal output.
-}
-
-// BuilderConfig makes builder config from CLI parameters.
-func (p BuildParameters) BuilderConfig() builder.Config {
-	return builder.Config{
-		StateDir:         p.StateDir,
-		Insecure:         p.Insecure,
-		SkipVersionCheck: p.SkipVersionCheck,
-		Parallel:         p.Vendor.Parallel,
-		Level:            p.Level(),
-	}
-}
 
 func buildClusterImage(ctx context.Context, params BuildParameters) error {
 	clusterBuilder, err := builder.NewClusterBuilder(params.BuilderConfig())
@@ -78,12 +38,27 @@ func buildClusterImage(ctx context.Context, params BuildParameters) error {
 	}
 	defer clusterBuilder.Close()
 	return clusterBuilder.Build(ctx, builder.ClusterRequest{
-		SourcePath: params.SourcePath,
-		OutputPath: params.OutPath,
-		Overwrite:  params.Overwrite,
-		BaseImage:  params.BaseImage,
-		Vendor:     params.Vendor,
+		SourcePath:    params.SourcePath,
+		OutputPath:    params.OutPath,
+		Overwrite:     params.Overwrite,
+		BaseImage:     params.BaseImage,
+		Vendor:        params.Vendor,
+		From:          params.UpgradeFrom,
+		SkipBaseCheck: params.SkipBaseCheck,
 	})
+}
+
+func diffClusterImage(ctx context.Context, params BuildParameters) error {
+	new, err := builder.InspectCluster(ctx, params.SourcePath, params.Vendor)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	old, err := builder.InspectImage(ctx, params.UpgradeFrom)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	printDiff(old, new)
+	return nil
 }
 
 func buildApplicationImage(ctx context.Context, params BuildParameters) error {
@@ -97,5 +72,50 @@ func buildApplicationImage(ctx context.Context, params BuildParameters) error {
 		OutputPath: params.OutPath,
 		Overwrite:  params.Overwrite,
 		Vendor:     params.Vendor,
+		From:       params.UpgradeFrom,
 	})
+}
+
+func diffApplicationImage(ctx context.Context, params BuildParameters) error {
+	new, err := builder.InspectChart(ctx, params.SourcePath, params.Vendor)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	old, err := builder.InspectImage(ctx, params.UpgradeFrom)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	printDiff(old, new)
+	return nil
+}
+
+func printDiff(oldImage, newImage *builder.InspectResponse) {
+	diffResults := loc.DiffDockerImages(oldImage.Images, newImage.Images)
+	t := goterm.NewTable(0, 10, 5, ' ', 0)
+	common.PrintTableHeader(t, []string{"",
+		oldImage.Manifest.Locator().Human(),
+		newImage.Manifest.Locator().Human()})
+	for _, diff := range diffResults {
+		var oldTags, newTags []string
+		for _, tag := range diff.Tags {
+			if tag.Left {
+				if !tag.Right {
+					oldTags = append(oldTags, fmt.Sprintf("%v (removed)", tag.Tag))
+				} else {
+					oldTags = append(oldTags, tag.Tag)
+				}
+			}
+			if tag.Right {
+				if !tag.Left {
+					newTags = append(newTags, fmt.Sprintf("%v (added)", tag.Tag))
+				} else {
+					newTags = append(newTags, tag.Tag)
+				}
+			}
+		}
+		fmt.Fprintf(t, "%v\t%v\t%v\n", diff.Repository,
+			strings.Join(oldTags, ", "),
+			strings.Join(newTags, ", "))
+	}
+	io.WriteString(os.Stdout, t.String())
 }

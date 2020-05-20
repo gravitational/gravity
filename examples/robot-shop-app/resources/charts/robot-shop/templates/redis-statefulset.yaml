@@ -20,7 +20,7 @@ spec:
       {{ end }}
       containers:
       - name: redis
-        image:  {{ .Values.registry }}redis:4.0.6
+        image:  {{ .Values.registry }}redis:{{ .Values.redis.image.version }}
         ports:
         - containerPort: 6379
         volumeMounts:
@@ -48,4 +48,3 @@ spec:
         resources:
           requests:
             storage: 1Gi
-

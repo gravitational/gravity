@@ -350,6 +350,18 @@ const manifestSchema = `
             "type": {"type": "string", "default": "certificate"}
           }
         },
+        "status": {
+          "type": "object",
+          "properties": {
+            "dockerImages": {
+              "type": "object",
+              "properties": {
+                "all": {"$ref": "#/definitions/dockerImages"},
+                "vendored": {"$ref": "#/definitions/dockerImages"}
+              }
+            }
+          }
+        },
         "hooks": {
           "type": "object",
           "additionalProperties": false,
@@ -729,6 +741,17 @@ const manifestSchema = `
       "properties": {
         "disabled": {"type": "boolean"}
       }
+    },
+    "dockerImages": {
+      "type": "array",
+      "items": {  
+        "type": "object",
+        "properties": {
+          "registry": {"type": "string"},
+          "repository": {"type": "string"},
+          "tag": {"type": "string"}
+        }
+      } 
     }
   }
 }

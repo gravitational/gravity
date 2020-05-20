@@ -128,7 +128,7 @@ func (r *scanningImageService) Sync(ctx context.Context, dir string, progress ut
 					Actions:    []string{"push"},
 				})
 			}
-			if err = r.remoteStore.updateRepo(ctx, remoteRepo, localRepo, localManifest, tagSpec.Version); err != nil {
+			if _, err = r.remoteStore.updateRepo(ctx, remoteRepo, localRepo, localManifest, tagSpec.Version); err != nil {
 				return nil, trace.Wrap(err, "failed to update remote for tag %q: %v", tagSpec, err)
 			}
 

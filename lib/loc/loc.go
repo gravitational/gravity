@@ -172,6 +172,11 @@ func (l Locator) String() string {
 	return str
 }
 
+// Human returns user-friendly string representation of the locator.
+func (l Locator) Human() string {
+	return fmt.Sprintf("%v v%v", l.Name, l.Version)
+}
+
 // WithVersion returns a copy of this locator with version set to the specified one
 func (l Locator) WithVersion(version *semver.Version) Locator {
 	return Locator{

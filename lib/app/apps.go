@@ -20,10 +20,12 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/gravitational/gravity/lib/app/hooks"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
+	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -174,4 +176,33 @@ func GetDirectDeps(app Application) (deps []loc.Locator, err error) {
 		return nil, trace.Wrap(err)
 	}
 	return append(manifest.Dependencies.GetApps(), app.Package), nil
+}
+
+// ImportApplication imports the specified stream of application data into
+// the provided package/application services.
+func ImportApplication(stream io.ReadCloser, packages pack.PackageService, apps Applications) (*Application, error) {
+	progressC := make(chan *ProgressEntry)
+	errorC := make(chan error, 1)
+	err := packages.UpsertRepository(defaults.SystemAccountOrg, time.Time{})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	operation, err := apps.CreateImportOperation(&ImportRequest{
+		Source:    stream,
+		ProgressC: progressC,
+		ErrorC:    errorC,
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	for range progressC {
+	}
+	if err := <-errorC; err != nil {
+		return nil, trace.Wrap(err)
+	}
+	app, err := apps.GetImportedApplication(*operation)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return app, nil
 }

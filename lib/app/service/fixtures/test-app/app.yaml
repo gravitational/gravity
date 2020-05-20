@@ -1,0 +1,8 @@
+apiVersion: cluster.gravitational.io/v2
+kind: Cluster
+metadata:
+  name: test-app
+  resourceVersion: "0.0.1"
+hooks:
+  install:
+    job: file://install.yaml

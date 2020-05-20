@@ -37,6 +37,7 @@ import (
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/utils"
+	"github.com/opencontainers/go-digest"
 
 	"github.com/docker/distribution"
 	dcontext "github.com/docker/distribution/context"
@@ -201,12 +202,59 @@ func (r *imageService) List(ctx context.Context) (result []Image, err error) {
 	return result, nil
 }
 
-// Sync synchronizes the contents of the local directory specified with dir
+// SyncTo pulls the specified images from this registry into the specified directory.
+func (r *imageService) SyncTo(ctx context.Context, dir string, images []Image, progress utils.Printer) error {
+	if err := r.connect(ctx); err != nil {
+		return trace.Wrap(err)
+	}
+	localStore, err := openLocal(dir)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	for _, image := range images {
+		localRepo, err := localStore.Repository(ctx, image.Repository)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		remoteRepo, err := r.remoteStore.Repository(ctx, image.Repository)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		remoteManifests, err := remoteRepo.Manifests(ctx)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		for _, tag := range image.Tags {
+			remoteTag, err := remoteRepo.Tags(ctx).Get(ctx, tag)
+			if err != nil {
+				return trace.Wrap(err)
+			}
+			remoteManifest, err := remoteManifests.Get(ctx, remoteTag.Digest)
+			if err != nil {
+				return trace.Wrap(err)
+			}
+			progress.PrintStep("Pulling image %v:%v", image.Repository, tag)
+			digest, err := r.remoteStore.updateRepo(ctx, localRepo, remoteRepo, remoteManifest, tag)
+			if err != nil {
+				return trace.Wrap(err)
+			}
+			// When updating the local directory, the manifest doesn't get
+			// tagged automatically so do it explicitly.
+			err = localRepo.Tags(ctx).Tag(ctx, tag, distribution.Descriptor{Digest: digest})
+			if err != nil {
+				return trace.Wrap(err)
+			}
+		}
+	}
+	return nil
+}
+
+// SyncFrom synchronizes the contents of the local directory specified with dir
 // with the contents of the remote registry.
 // dir is expected to be in docker registry 2.x format.
 //
 // Upon success, returns a list of images pushed to the registry.
-func (r *imageService) Sync(ctx context.Context, dir string, progress utils.Printer) (installedTags []TagSpec, err error) {
+func (r *imageService) SyncFrom(ctx context.Context, dir string, progress utils.Printer) (installedTags []TagSpec, err error) {
 	if err = r.connect(ctx); err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -291,7 +339,7 @@ func (r *imageService) Sync(ctx context.Context, dir string, progress utils.Prin
 			// different from the local one
 			if remoteManifest == nil || !compareManifests(localManifest, remoteManifest) {
 				progress.PrintStep("Pushing image %s", tagSpec)
-				if err = r.remoteStore.updateRepo(ctx, remoteRepo, localRepo, localManifest, tag); err != nil {
+				if _, err = r.remoteStore.updateRepo(ctx, remoteRepo, localRepo, localManifest, tag); err != nil {
 					return nil, trace.Wrap(err, "failed to update remote for tag %q: %v", tagSpec, err)
 				}
 			} else {
@@ -508,6 +556,35 @@ func ping(transport http.RoundTripper, registryAddr string) (registryauthchallen
 	return chManager, nil
 }
 
+// ListImages returns a list of Docker images from the specified registry directory.
+func ListImages(ctx context.Context, dir string) (images []loc.DockerImage, err error) {
+	localStore, err := openLocal(dir)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	repositories, err := ListRepos(ctx, localStore)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	for _, name := range repositories {
+		repository, err := localStore.Repository(ctx, name)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		tags, err := repository.Tags(ctx).All(ctx)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		for _, tag := range tags {
+			images = append(images, loc.DockerImage{
+				Repository: name,
+				Tag:        tag,
+			})
+		}
+	}
+	return images, nil
+}
+
 // openLocal creates a distribution registry in the local directory given with dir
 func openLocal(dir string) (store *localStore, err error) {
 	fi, err := os.Stat(dir)
@@ -621,11 +698,11 @@ func compareManifests(a, b distribution.Manifest) bool {
 
 // updateRepo takes a pair of local+remote repositories and makes the remote repo identical
 // to the local one.
-func (s *remoteStore) updateRepo(ctx context.Context, remote, local distribution.Repository, manifest distribution.Manifest, tag string) error {
+func (s *remoteStore) updateRepo(ctx context.Context, remote, local distribution.Repository, manifest distribution.Manifest, tag string) (digest.Digest, error) {
 	s.Debugf("Pushing %[1]v --> %[2]v/%[1]v.", local.Named(), s.addr)
 	remoteManifests, err := remote.Manifests(ctx)
 	if err != nil {
-		return trace.Wrap(err)
+		return "", trace.Wrap(err)
 	}
 	localBlobs := local.Blobs(ctx)
 	remoteBlobs := remote.Blobs(ctx)
@@ -638,28 +715,31 @@ func (s *remoteStore) updateRepo(ctx context.Context, remote, local distribution
 		}
 		reader, err := localBlobs.Open(ctx, localDesc.Digest)
 		if err != nil {
-			return trace.Wrap(err)
+			return "", trace.Wrap(err)
 		}
 		defer reader.Close()
 		writer, err := remoteBlobs.Create(ctx)
 		if err != nil {
-			return trace.Wrap(err)
+			return "", trace.Wrap(err)
 		}
 		defer writer.Close()
 		s.Debugf("Writing layer %v.", localDesc.Digest)
 		written, err := io.Copy(writer, reader)
 		if err != nil {
-			return trace.Wrap(err)
+			return "", trace.Wrap(err)
 		}
 		_, err = writer.Commit(ctx, distribution.Descriptor{Digest: localDesc.Digest})
 		if err != nil {
-			return trace.Wrap(err)
+			return "", trace.Wrap(err)
 		}
 		s.Debugf("Written %v bytes.", written)
 	}
 	s.Debugf("Updating manifest for %v.", local.Named())
-	_, err = remoteManifests.Put(ctx, manifest, distribution.WithTag(tag))
-	return trace.Wrap(err)
+	digest, err := remoteManifests.Put(ctx, manifest, distribution.WithTag(tag))
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+	return digest, nil
 }
 
 // multiScopeTokenHandler is a wrapper over the registry client token handler to allow additional scopes

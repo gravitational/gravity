@@ -77,6 +77,22 @@ type Manifest struct {
 	Extensions *Extensions `json:"extensions,omitempty"`
 	// WebConfig allows to specify config.js used by UI to customize installer
 	WebConfig string `json:"webConfig,omitempty"`
+	// Status contains runtime cluster or application image information
+	Status Status `json:"status,omitempty"`
+}
+
+// Status contains runtime cluster or application image information.
+type Status struct {
+	// DockerImages contains information about the application's Docker images.
+	DockerImages DockerImages `json:"dockerImages,omitempty"`
+}
+
+// DockerImages contains information about the application's Docker images.
+type DockerImages struct {
+	// All is a list of all Docker images the application depends on.
+	All loc.DockerImages `json:"all,omitempty"`
+	// Vendored is a list of Docker images vendored in the tarball.
+	Vendored loc.DockerImages `json:"vendored,omitempty"`
 }
 
 // BaseImage defines a base image type which is basically a locator with
@@ -150,6 +166,12 @@ func (m Manifest) Locator() loc.Locator {
 		Name:       m.Metadata.Name,
 		Version:    m.Metadata.ResourceVersion,
 	}
+}
+
+// LocatorP returns a pointer to the manifest's app locator.
+func (m Manifest) LocatorP() *loc.Locator {
+	locator := m.Locator()
+	return &locator
 }
 
 // SetBase sets a runtime application to the provided locator

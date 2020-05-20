@@ -230,7 +230,7 @@ func syncWithRegistry(ctx context.Context, registryDir string, imageService dock
 	if empty {
 		return trace.BadParameter("registry directory %v is empty", registryDir)
 	}
-	if _, err = imageService.Sync(ctx, registryDir, utils.DiscardPrinter); err != nil {
+	if _, err = imageService.SyncFrom(ctx, registryDir, utils.DiscardPrinter); err != nil {
 		return trace.Wrap(err)
 	}
 	return nil

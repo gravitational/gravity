@@ -1,0 +1,12 @@
+ apiVersion: batch/v1
+ kind: Job
+ metadata:
+   name: install
+ spec:
+   template:
+     metadata:
+       name: install
+     spec:
+       containers:
+         - name: install
+           image: install-hook:latest

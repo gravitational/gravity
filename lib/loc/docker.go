@@ -23,7 +23,7 @@ import (
 )
 
 type DockerImage struct {
-	Registry   string `json:"registry"`
+	Registry   string `json:"registry,omitempty"`
 	Repository string `json:"repository"`
 	Tag        string `json:"tag"`
 }
@@ -43,6 +43,14 @@ func (d *DockerImage) String() string {
 	return out
 }
 
+// WithoutRegistry returns the same Docker image without the registry part.
+func (d *DockerImage) WithoutRegistry() *DockerImage {
+	return &DockerImage{
+		Repository: d.Repository,
+		Tag:        d.Tag,
+	}
+}
+
 // ParseDockerImage parses docker image
 func ParseDockerImage(image string) (*DockerImage, error) {
 	if image == "" {
@@ -57,6 +65,18 @@ func ParseDockerImage(image string) (*DockerImage, error) {
 		return &DockerImage{Registry: "", Repository: strings.Join(parts, "/"), Tag: tag}, nil
 	}
 	return &DockerImage{Registry: parts[0], Repository: strings.Join(parts[1:], "/"), Tag: tag}, nil
+}
+
+// ParseDockerImages parses a list of Docker images.
+func ParseDockerImages(images []string) (result []DockerImage, err error) {
+	for _, image := range images {
+		parsed, err := ParseDockerImage(image)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		result = append(result, *parsed)
+	}
+	return result, nil
 }
 
 // Get a repos name and returns the right reposName + tag|digest

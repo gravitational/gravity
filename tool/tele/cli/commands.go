@@ -86,6 +86,10 @@ type HelmBuildCmd struct {
 	Values *[]string
 	// Pull allows to force-pull Docker images even if they're already present.
 	Pull *bool
+	// UpgradeFrom is a path to the image to build an incremental image off of.
+	UpgradeFrom *string
+	// Diff shows differences between two images without building the image.
+	Diff *bool
 }
 
 // BuildCmd builds app installer tarball
@@ -125,6 +129,12 @@ type BuildCmd struct {
 	Pull *bool
 	// BaseImage allows to specify base image on the CLI.
 	BaseImage *string
+	// UpgradeFrom is a path to the image to build an incremental image off of.
+	UpgradeFrom *string
+	// Diff shows differences between two images without building the image.
+	Diff *bool
+	// SkipBaseCheck allows to skip base version check when building incremental image.
+	SkipBaseCheck *bool
 }
 
 type ListCmd struct {

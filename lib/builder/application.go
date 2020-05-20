@@ -21,7 +21,9 @@ import (
 	"io/ioutil"
 	"os"
 
+	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/app/service"
+	"github.com/gravitational/gravity/lib/loc"
 
 	"github.com/gravitational/trace"
 	"k8s.io/helm/pkg/chartutil"
@@ -52,6 +54,8 @@ type ApplicationRequest struct {
 	Overwrite bool
 	// Vendor combines vendoring parameters.
 	Vendor service.VendorRequest
+	// From is a path to the application image used as a base for the incremental upgrade.
+	From string
 }
 
 // Build builds an application image according to the provided parameters.
@@ -75,6 +79,17 @@ func (b *applicationBuilder) Build(ctx context.Context, req ApplicationRequest) 
 	b.NextStep("Building application image %v %v from Helm chart", locator.Name,
 		locator.Version)
 
+	var upgradeFrom *loc.Locator
+	if req.From != "" {
+		b.NextStep("Discovering Docker images from %v", req.From)
+		response, err := InspectImage(ctx, req.From)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		req.Vendor.SkipImages = response.Images
+		upgradeFrom = response.Manifest.LocatorP()
+	}
+
 	vendorDir, err := ioutil.TempDir("", "vendor")
 	if err != nil {
 		return trace.Wrap(err)
@@ -82,7 +97,7 @@ func (b *applicationBuilder) Build(ctx context.Context, req ApplicationRequest) 
 	defer os.RemoveAll(vendorDir)
 
 	b.NextStep("Discovering and embedding Docker images")
-	stream, err := b.Vendor(ctx, VendorRequest{
+	vendorResp, err := b.Vendor(ctx, VendorRequest{
 		SourceDir: req.ChartPath,
 		VendorDir: vendorDir,
 		Manifest:  manifest,
@@ -91,16 +106,22 @@ func (b *applicationBuilder) Build(ctx context.Context, req ApplicationRequest) 
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	defer stream.Close()
+	defer vendorResp.Stream.Close()
 
 	b.NextStep("Creating application")
-	application, err := b.CreateApplication(stream)
+	application, err := b.CreateApplication(createAppRequest{
+		Stream:      vendorResp.Stream,
+		Images:      vendorResp.Images,
+		UpgradeFrom: upgradeFrom,
+	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
 	b.NextStep("Packaging application image")
-	installer, err := b.GenerateInstaller(manifest, *application)
+	installer, err := b.GenerateInstaller(manifest, app.InstallerRequest{
+		Application: application.Package,
+	})
 	if err != nil {
 		return trace.Wrap(err)
 	}

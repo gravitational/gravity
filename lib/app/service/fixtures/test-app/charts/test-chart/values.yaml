@@ -1,0 +1,4 @@
+registry: ""
+wordpressNamespace: default
+wordpressTag: 5.4-apache
+mysqlTag: 5.7

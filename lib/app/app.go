@@ -274,6 +274,9 @@ type InstallerRequest struct {
 	CACert string `json:"ca_cert,omitempty"`
 	// EncryptionKey is encryption key to encrypt installer packages with
 	EncryptionKey string `json:"encryption_key,omitempty"`
+	// Incremental indicates that incremental upgrade image is being built
+	// so no runtime packages will be included.
+	Incremental bool `json:"patch,omitempty"`
 }
 
 // Check validates this request
@@ -417,6 +420,19 @@ func (a Application) RequiresLicense() bool {
 		return false
 	}
 	return true
+}
+
+// LabelAsLocator returns the specified label as a parsed locator.
+func (a Application) LabelAsLocator(label string) (*loc.Locator, error) {
+	locatorS, ok := a.PackageEnvelope.RuntimeLabels[label]
+	if !ok {
+		return nil, trace.NotFound("%v doesn't have label %v", a, label)
+	}
+	locator, err := loc.ParseLocator(locatorS)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return locator, nil
 }
 
 // Logger defines an interface to log messages

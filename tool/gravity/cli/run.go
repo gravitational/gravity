@@ -533,7 +533,8 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			return trace.Wrap(err)
 		}
 		return uploadUpdate(context.Background(), tarballEnv, localEnv,
-			*g.UpdateUploadCmd.OpsCenterURL)
+			*g.UpdateUploadCmd.OpsCenterURL,
+			*g.UpdateUploadCmd.Force)
 	case g.AppPackageCmd.FullCommand():
 		return appPackage(localEnv)
 		// app commands

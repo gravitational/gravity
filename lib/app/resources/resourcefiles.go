@@ -188,17 +188,24 @@ func skipRewrite(hook *schema.Hook, job *batchv1.Job) bool {
 	return false
 }
 
+// ImagesRewriteFunc is the function that rewrites Docker images.
+type ImagesRewriteFunc func(string) string
+
 // RewriteImages rewrites container image references in all resource files part
 // of this collection using the specified imageService.
-func (r *ResourceFiles) RewriteImages(rewriteFunc func(string) string) error {
+func (r *ResourceFiles) RewriteImages(rewriteFuncs ...ImagesRewriteFunc) error {
 	rewrite := func(spec *corev1.PodSpec) {
 		for i := range spec.Containers {
 			container := &spec.Containers[i]
-			spec.Containers[i].Image = rewriteFunc(container.Image)
+			for _, rewriteFunc := range rewriteFuncs {
+				spec.Containers[i].Image = rewriteFunc(container.Image)
+			}
 		}
 		for i := range spec.InitContainers {
 			container := &spec.InitContainers[i]
-			spec.InitContainers[i].Image = rewriteFunc(container.Image)
+			for _, rewriteFunc := range rewriteFuncs {
+				spec.InitContainers[i].Image = rewriteFunc(container.Image)
+			}
 		}
 	}
 
@@ -238,8 +245,10 @@ func (r *ResourceFiles) RewriteImages(rewriteFunc func(string) string) error {
 			case *clusterv1beta1.ImageSet:
 				log.Infof("Rewriting images in ImageSet %q.", resource.Name)
 				for i := range resource.Spec.Images {
-					resource.Spec.Images[i].Image = rewriteFunc(
-						resource.Spec.Images[i].Image)
+					for _, rewriteFunc := range rewriteFuncs {
+						resource.Spec.Images[i].Image = rewriteFunc(
+							resource.Spec.Images[i].Image)
+					}
 				}
 			case *corev1.Pod:
 				log.Infof("Rewriting images in Pod %q.", resource.Name)

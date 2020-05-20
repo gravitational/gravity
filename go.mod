@@ -43,6 +43,7 @@ require (
 	github.com/garyburd/redigo v0.0.0-20151029235527-6ece6e0a09f2 // indirect
 	github.com/ghodss/yaml v1.0.1-0.20180820084758-c7ce16629ff4
 	github.com/gizak/termui v2.3.0+incompatible
+	github.com/go-delve/delve v1.5.0 // indirect
 	github.com/go-ini/ini v1.30.0 // indirect
 	github.com/go-openapi/runtime v0.19.4
 	github.com/gobuffalo/packr v1.30.1 // indirect
@@ -51,7 +52,6 @@ require (
 	github.com/gogo/protobuf v1.3.0
 	github.com/gokyle/hotp v0.0.0-20160218004637-c180d57d286b
 	github.com/golang/protobuf v1.3.2
-	github.com/google/go-cmp v0.3.1 // indirect
 	github.com/google/gops v0.3.8 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/gorilla/handlers v0.0.0-20151124211609-e96366d97736 // indirect
@@ -136,8 +136,9 @@ require (
 	github.com/ziutek/mymysql v1.5.4 // indirect
 	go.etcd.io/bbolt v1.3.5 // indirect
 	golang.org/x/crypto v0.0.0-20200728195943-123391ffb6de
-	golang.org/x/net v0.0.0-20200707034311-ab3426394381
-	golang.org/x/sys v0.0.0-20200803150936-fd5f0c170ac3
+	golang.org/x/net v0.0.0-20200822124328-c89045814202
+	golang.org/x/sys v0.0.0-20200625212154-ddb9806d33ae
+	golang.org/x/tools/gopls v0.5.0 // indirect
 	gonum.org/v1/gonum v0.6.1 // indirect
 	google.golang.org/grpc v1.26.0
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6

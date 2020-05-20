@@ -58,6 +58,46 @@ func LocatorSlice(s kingpin.Settings) *Locators {
 // DockerImages represent a slice of DockerImage.
 type DockerImages []DockerImage
 
+// Images returns a list of images as strings.
+func (d *DockerImages) Images() (result []string) {
+	for _, image := range *d {
+		result = append(result, image.String())
+	}
+	return result
+}
+
+// Tags returns a list of tags for the specified repository from these images.
+func (i DockerImages) Tags(repository string) (tags []string) {
+	for _, image := range i {
+		if image.Repository == repository {
+			tags = append(tags, image.Tag)
+		}
+	}
+	return tags
+}
+
+// Repositories returns a list of repositories from these images.
+func (i DockerImages) Repositories() (repositories []string) {
+	repositoriesMap := map[string]struct{}{}
+	for _, image := range i {
+		repositoriesMap[image.Repository] = struct{}{}
+	}
+	for repository := range repositoriesMap {
+		repositories = append(repositories, repository)
+	}
+	return repositories
+}
+
+// Has returns true if this list contains the image with specified repository and tag.
+func (i DockerImages) Has(repository, tag string) bool {
+	for _, image := range i {
+		if image.Repository == repository && image.Tag == tag {
+			return true
+		}
+	}
+	return false
+}
+
 // IsCumulative indicates that DockerImages is a cumulative argument.
 func (*DockerImages) IsCumulative() bool {
 	return true

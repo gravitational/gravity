@@ -16,7 +16,9 @@ limitations under the License.
 
 package pack
 
-import "github.com/gravitational/gravity/lib/storage"
+import (
+	"github.com/gravitational/gravity/lib/storage"
+)
 
 // WithLabels adds the specified labels as runtime labels to a package
 func WithLabels(labels map[string]string) PackageOption {

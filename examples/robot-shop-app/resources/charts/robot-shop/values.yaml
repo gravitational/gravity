@@ -42,3 +42,14 @@ securitySettingIstio: false
 
 # web deployment replicas
 numberWebReplicas: 3
+
+# redis
+redis:
+  image:
+    version: 4.0.6
+
+# robotshop
+robotshop:
+  web:
+    image:
+      version: 0.4.20

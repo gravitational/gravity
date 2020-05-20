@@ -24,14 +24,12 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"time"
 
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/app/service"
 	blobfs "github.com/gravitational/gravity/lib/blob/fs"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
-	"github.com/gravitational/gravity/lib/docker"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/localenv/credentials"
@@ -228,9 +226,17 @@ type VendorRequest struct {
 	Vendor service.VendorRequest
 }
 
+// VendorResponse combines vendoring results.
+type VendorResponse struct {
+	// Stream is the data stream with the vendored tarball.
+	Stream io.ReadCloser
+	// Images is a list of vendored Docker images.
+	Images []loc.DockerImage
+}
+
 // Vendor vendors the application images in the provided directory and
 // returns the compressed data stream with the application data
-func (b *Engine) Vendor(ctx context.Context, req VendorRequest) (io.ReadCloser, error) {
+func (b *Engine) Vendor(ctx context.Context, req VendorRequest) (*VendorResponse, error) {
 	err := utils.CopyDirContents(req.SourceDir, filepath.Join(req.VendorDir, defaults.ResourcesDir))
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -244,60 +250,65 @@ func (b *Engine) Vendor(ctx context.Context, req VendorRequest) (io.ReadCloser, 
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	dockerClient, err := docker.NewDefaultClient()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
 	vendorer, err := service.NewVendorer(service.VendorerConfig{
-		DockerClient: dockerClient,
-		ImageService: docker.NewDefaultImageService(),
-		RegistryURL:  defaults.DockerRegistry,
-		Packages:     b.Packages,
+		Packages: b.Packages,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	vendorReq := req.Vendor
-	vendorReq.ManifestPath = manifestPath
 	vendorReq.ProgressReporter = b.Progress
-	err = vendorer.VendorDir(ctx, req.VendorDir, vendorReq)
+	vendorResp, err := vendorer.VendorDir(ctx, req.VendorDir, vendorReq)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return archive.Tar(req.VendorDir, archive.Uncompressed)
+	stream, err := archive.Tar(req.VendorDir, archive.Uncompressed)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &VendorResponse{
+		Stream: stream,
+		Images: vendorResp.VendoredImages,
+	}, nil
+}
+
+type createAppRequest struct {
+	// Stream is the data stream with the vendored tarball.
+	Stream io.ReadCloser
+	// Images is a list of vendored Docker images.
+	Images []loc.DockerImage
+	// UpgradeFrom is the image the incremental image is being built off of.
+	UpgradeFrom *loc.Locator
 }
 
 // CreateApplication creates a Gravity application from the provided
 // data in the local database
-func (b *Engine) CreateApplication(data io.ReadCloser) (*app.Application, error) {
-	progressC := make(chan *app.ProgressEntry)
-	errorC := make(chan error, 1)
-	err := b.Packages.UpsertRepository(defaults.SystemAccountOrg, time.Time{})
+func (b *Engine) CreateApplication(req createAppRequest) (*app.Application, error) {
+	app, err := app.ImportApplication(req.Stream, b.Packages, b.Apps)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	op, err := b.Apps.CreateImportOperation(&app.ImportRequest{
-		Source:    data,
-		ProgressC: progressC,
-		ErrorC:    errorC,
-	})
-	if err != nil {
-		return nil, trace.Wrap(err)
+	// Set the package label to indicate that it contains an incremental
+	// upgrade image and not the full one.
+	var labels map[string]string
+	if req.UpgradeFrom != nil {
+		labels = map[string]string{
+			pack.UpgradeFromLabel: req.UpgradeFrom.String(),
+		}
 	}
-	// wait for the import to complete
-	for range progressC {
+	if len(labels) != 0 {
+		err = b.Packages.UpdatePackageLabels(app.Package, labels, nil)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
 	}
-	err = <-errorC
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return b.Apps.GetImportedApplication(*op)
+	return app, nil
 }
 
 // GenerateInstaller generates an installer tarball for the specified
 // application and returns its data as a stream
-func (b *Engine) GenerateInstaller(manifest *schema.Manifest, application app.Application) (io.ReadCloser, error) {
-	return b.Generator.Generate(b, manifest, application)
+func (b *Engine) GenerateInstaller(manifest *schema.Manifest, req app.InstallerRequest) (io.ReadCloser, error) {
+	return b.Generator.Generate(b, manifest, req)
 }
 
 // WriteInstaller writes the provided installer tarball data to disk

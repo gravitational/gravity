@@ -49,7 +49,7 @@ installer:
         count: 3
 
 # This section allows to define what flavors of servers are required for
-# this cluster. 
+# this cluster.
 #
 #
 nodeProfiles:
@@ -112,3 +112,6 @@ hooks:
   update:
     job: file://upgrade.yaml
 
+extensions:
+  monitoring:
+    disabled: true

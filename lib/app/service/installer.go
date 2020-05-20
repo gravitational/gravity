@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2018-2020 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -55,6 +55,30 @@ func (r *applications) getApplicationInstaller(
 		return nil, trace.Wrap(err)
 	}
 	return []*archive.Item{}, nil
+}
+
+func (r *applications) getIncrementalInstaller(
+	req appservice.InstallerRequest,
+	app *appservice.Application,
+	apps *applications,
+) ([]*archive.Item, error) {
+	// In addition to the application itself pull base application as well,
+	// it's needed to fully resolve the manifest.
+	toPull := []loc.Locator{app.Package}
+	baseLocator := app.Manifest.Base()
+	if baseLocator != nil {
+		// Base app should be pulled first.
+		toPull = append([]loc.Locator{*baseLocator}, toPull...)
+	}
+	err := pullApplications(toPull, apps, r, r)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	binary, err := r.getGravityBinaryForApp(app)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return []*archive.Item{binary}, nil
 }
 
 func (r *applications) getClusterInstaller(
@@ -165,7 +189,11 @@ func (r *applications) GetAppInstaller(req appservice.InstallerRequest) (install
 	var items []*archive.Item
 	switch app.Manifest.Kind {
 	case schema.KindBundle, schema.KindCluster:
-		items, err = r.getClusterInstaller(req, app, localApps)
+		if req.Incremental {
+			items, err = r.getIncrementalInstaller(req, app, localApps)
+		} else {
+			items, err = r.getClusterInstaller(req, app, localApps)
+		}
 	case schema.KindApplication:
 		items, err = r.getApplicationInstaller(req, app, localApps)
 	default:
@@ -176,21 +204,25 @@ func (r *applications) GetAppInstaller(req appservice.InstallerRequest) (install
 		return nil, trace.Wrap(err)
 	}
 
-	reader, writer := io.Pipe()
-	go func() {
-		uploadScript, err := renderUploadScript(*app)
-		if err != nil {
-			r.Warnf("Failed to render upload script: %v.", trace.DebugReport(err))
-			if errClose := writer.CloseWithError(err); errClose != nil {
-				r.Warnf("Failed to close writer: %v.", errClose)
-			}
-			return
+	uploadScript, err := renderUploadScript(*app)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	// Add image manifest file.
+	items = append(items, archive.ItemFromStringMode(
+		defaults.ManifestFileName, string(manifestBytes), defaults.SharedReadMask))
+
+	// For cluster images, add install and upgrade scripts.
+	switch app.Manifest.Kind {
+	case schema.KindBundle, schema.KindCluster:
+		// Do not include install script with Incremental upgrade images.
+		if !req.Incremental {
+			items = append(items,
+				archive.ItemFromStringMode(
+					installScriptFilename, installScript, defaults.SharedExecutableMask))
 		}
-		err = archive.CompressDirectory(tempDir, writer, append(items,
-			archive.ItemFromStringMode(
-				defaults.ManifestFileName, string(manifestBytes), defaults.SharedReadMask),
-			archive.ItemFromStringMode(
-				installScriptFilename, installScript, defaults.SharedExecutableMask),
+		items = append(items,
 			archive.ItemFromStringMode(
 				uploadScriptFilename, string(uploadScript), defaults.SharedExecutableMask),
 			archive.ItemFromStringMode(
@@ -198,8 +230,12 @@ func (r *applications) GetAppInstaller(req appservice.InstallerRequest) (install
 			archive.ItemFromStringMode(
 				checkScriptFilename, checkScript, defaults.SharedExecutableMask),
 			archive.ItemFromStringMode(
-				readmeFilename, readme, defaults.SharedReadMask))...)
-		// always returns nil
+				readmeFilename, readme, defaults.SharedReadMask))
+	}
+
+	reader, writer := io.Pipe()
+	go func() {
+		err = archive.CompressDirectory(tempDir, writer, items...)
 		writer.CloseWithError(err) //nolint:errcheck
 	}()
 	return &fileutils.CleanupReadCloser{

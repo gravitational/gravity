@@ -1,5 +1,5 @@
 /*
-Copyright 2018-2019 Gravitational, Inc.
+Copyright 2018-2020 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -27,8 +27,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/fatih/color"
-	"github.com/gravitational/gravity/lib/app/hooks"
 	"github.com/gravitational/gravity/lib/app/resources"
 	"github.com/gravitational/gravity/lib/archive"
 	"github.com/gravitational/gravity/lib/constants"
@@ -42,6 +40,7 @@ import (
 	"github.com/gravitational/gravity/lib/utils"
 
 	dockerarchive "github.com/docker/docker/pkg/archive"
+	"github.com/fatih/color"
 	"github.com/ghodss/yaml"
 	teleutils "github.com/gravitational/teleport/lib/utils"
 	"github.com/gravitational/trace"
@@ -64,8 +63,27 @@ type VendorerConfig struct {
 	Packages pack.PackageService
 }
 
+// CheckAndSetDefaults validates the config and sets default values.
+func (c *VendorerConfig) CheckAndSetDefaults() (err error) {
+	if c.DockerClient == nil {
+		if c.DockerClient, err = docker.NewDefaultClient(); err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	if c.ImageService == nil {
+		c.ImageService = docker.NewDefaultImageService()
+	}
+	if c.RegistryURL == "" {
+		c.RegistryURL = defaults.DockerRegistry
+	}
+	return nil
+}
+
 // NewVendorer creates a new vendorer instance.
 func NewVendorer(config VendorerConfig) (*vendorer, error) {
+	if err := config.CheckAndSetDefaults(); err != nil {
+		return nil, trace.Wrap(err)
+	}
 	dockerPuller := docker.NewDockerPuller(config.DockerClient)
 	v := &vendorer{
 		dockerClient: config.DockerClient,
@@ -82,9 +100,19 @@ type Vendorer interface {
 	// VendorDir takes information from an app vendor request, imports missing docker images if necessary,
 	// rewrites image names in the app's resources and returns a path to the directory containing ready
 	// to be imported app.
-	VendorDir(ctx context.Context, dir string, req VendorRequest) error
+	VendorDir(ctx context.Context, dir string, req VendorRequest) (*VendorResponse, error)
 	// VendorTarball is the same as VendorDir but accepts a tarball stream and unpacks it before vendoring
 	VendorTarball(ctx context.Context, tarball io.ReadCloser, req VendorRequest) (string, error)
+	// Images returns a list of Docker image references extracted from the resources.
+	Images(dir string, req VendorRequest) ([]loc.DockerImage, error)
+}
+
+// VendorResponse contains information about vendored Docker images.
+type VendorResponse struct {
+	// VendoredImages is a list of Docker images that have been vendored.
+	VendoredImages []loc.DockerImage
+	// Images is a list of all discovered Docker images.
+	Images []loc.DockerImage
 }
 
 // VendorRequest combined various vendoring options
@@ -103,6 +131,8 @@ type VendorRequest struct {
 	IgnoreResourcePatterns []string
 	// SetImages is a list of images to rewrite to new versions
 	SetImages []loc.DockerImage
+	// SkipImages is a list of Docker images to skip during vendoring
+	SkipImages loc.DockerImages
 	// SetDeps is a list of app dependencies to rewrite to new versions
 	SetDeps []loc.Locator
 	// VendorRuntime specifies whether to translate runtime images into packages.
@@ -125,6 +155,38 @@ type VendorRequest struct {
 	Pull bool
 }
 
+// CheckAndSetDefaults validates the request and sets default values.
+func (r *VendorRequest) CheckAndSetDefaults(vendorDir string) error {
+	if r.ManifestPath == "" {
+		r.ManifestPath = filepath.Join(vendorDir, defaults.ResourcesDir, defaults.ManifestFileName)
+	}
+	if len(r.ResourcePatterns) == 0 {
+		r.ResourcePatterns = []string{defaults.VendorPattern}
+	}
+	if r.ProgressReporter == nil {
+		r.ProgressReporter = utils.DiscardProgress
+	}
+	return nil
+}
+
+// Filter filters the provided list of images according to the set skip images.
+func (r *VendorRequest) Filter(images []string) (filteredImages []string, err error) {
+	for _, image := range teleutils.Deduplicate(images) {
+		parsed, err := loc.ParseDockerImage(image)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		image = parsed.WithoutRegistry().String()
+		log.Debugf("Searching for %q in %v", image, r.SkipImages)
+		if utils.StringInSlice(r.SkipImages.Images(), image) {
+			r.ProgressReporter.PrintSubWarn("Skip image %v", image)
+		} else {
+			filteredImages = append(filteredImages, image)
+		}
+	}
+	return filteredImages, nil
+}
+
 // vendorer is a helper struct that encapsulates all services needed to vendor/rewrite images in
 // the application being imported.
 type vendorer struct {
@@ -143,67 +205,132 @@ func (v *vendorer) VendorTarball(ctx context.Context, tarball io.ReadCloser, req
 	if err != nil {
 		return "", trace.Wrap(err)
 	}
-
-	if err = dockerarchive.Untar(tarball, unpackedDir, archive.DefaultOptions()); err != nil {
+	err = dockerarchive.Untar(tarball, unpackedDir, archive.DefaultOptions())
+	if err != nil {
 		return "", trace.Wrap(err)
 	}
-	req.ManifestPath = filepath.Join(unpackedDir, defaults.ResourcesDir, defaults.ManifestFileName)
+	_, err = v.VendorDir(ctx, unpackedDir, req)
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+	return unpackedDir, nil
+}
 
-	return unpackedDir, trace.Wrap(v.VendorDir(ctx, unpackedDir, req))
+// Images returns a list of Docker image references extracted from the resources.
+func (v *vendorer) Images(unpackedDir string, req VendorRequest) (result []loc.DockerImage, err error) {
+	err = req.CheckAndSetDefaults(unpackedDir)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	resourceFiles, chartResources, err := resourcesFromPath(unpackedDir, req)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	// Apply all the same transformations that vendoring would do in order
+	// to extract correct image references.
+	err = resourceFiles.RewriteManifest(v.getManifestRewrites(req)...)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	err = resourceFiles.RewriteImages(v.getImagesRewrites(req)...)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	images, err := resourceFiles.Images()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	chartImages, err := chartResources.Images()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	for _, image := range teleutils.Deduplicate(append(images, chartImages...)) {
+		parsed, err := loc.ParseDockerImage(image)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		result = append(result, *parsed)
+	}
+	return result, nil
+}
+
+// getManifestRewrites returns a list of transformations to apply to manifest
+// file according to the provided request.
+func (v *vendorer) getManifestRewrites(req VendorRequest) []resources.ManifestRewriteFunc {
+	return []resources.ManifestRewriteFunc{
+		// Rewrite file:// and http:// values.
+		makeRewriteMultiSourceFunc(req.ManifestPath),
+		// Inject wormhole hooks if necessary.
+		makeRewriteWormholeJobFunc(),
+		// Rewrite app/package dependencies according to --set-dep flags.
+		makeRewriteDepsFunc(req.SetDeps),
+		// Rewrite packages with meta versions.
+		makeRewritePackagesMetadataFunc(v.packages),
+		// Rewrite image metadata.
+		makeRewriteAppMetadataFunc(req.Repository, req.PackageName, req.PackageVersion),
+	}
+}
+
+// getManifestRewrites returns a list of transformations to apply to Docker
+// images according to the provided request.
+func (v *vendorer) getImagesRewrites(req VendorRequest) []resources.ImagesRewriteFunc {
+	return []resources.ImagesRewriteFunc{
+		// Rewrite image references according to --set-image flags.
+		makeRewriteSetImagesFunc(req.SetImages),
+	}
 }
 
 // VendorDir creates an application tarball from the unpackedDir using configuration specified in req.
 //
 // It will detect and import missing docker images and rewrite image references in all resource files
 // to point to a fixed docker registry address.
-func (v *vendorer) VendorDir(ctx context.Context, unpackedDir string, req VendorRequest) error {
-	if req.ProgressReporter == nil {
-		req.ProgressReporter = utils.DiscardProgress
+func (v *vendorer) VendorDir(ctx context.Context, unpackedDir string, req VendorRequest) (*VendorResponse, error) {
+	log.Infof("%#v", req)
+
+	if err := req.CheckAndSetDefaults(unpackedDir); err != nil {
+		return nil, trace.Wrap(err)
 	}
+
 	// before parsing resources apply basic transformations on manifest, e.g. environment
 	// variables interpolation
 	if req.ManifestPath != "" {
 		if err := expandEnvVars(req.ManifestPath); err != nil {
-			return trace.Wrap(err)
+			return nil, trace.Wrap(err)
 		}
 	}
 
 	// parse all resources
 	resourceFiles, chartResources, err := resourcesFromPath(unpackedDir, req)
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 
-	// first, rewrite all "multi-source" values that might refer to files and replace them
-	// with literal values, since some of them may also contain docker image references
-	// and generate overlay network jobs
-	err = resourceFiles.RewriteManifest(makeRewriteMultiSourceFunc(req.ManifestPath), makeRewriteWormholeJobFunc())
+	// Apply manifest transformations.
+	err = resourceFiles.RewriteManifest(v.getManifestRewrites(req)...)
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 
-	// next, rewrite images that were specified by `--set-image` since the
-	// original image tag might not actually exist.
-	err = resourceFiles.RewriteImages(makeRewriteSetImagesFunc(req.SetImages))
+	// Apply Docker images transformations.
+	err = resourceFiles.RewriteImages(v.getImagesRewrites(req)...)
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 
 	err = analyzeResources(resourceFiles, chartResources, req)
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 
 	images, err := resourceFiles.Images()
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 	log.Infof("Images: %v.", images)
 
-	// vendor chart images as well
 	chartImages, err := chartResources.Images()
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 	log.Infof("Chart images: %v.", chartImages)
 
@@ -211,28 +338,20 @@ func (v *vendorer) VendorDir(ctx context.Context, unpackedDir string, req Vendor
 
 	// Now that we have all referenced images in our local registry, and can find them without
 	// a registry prefix, rewrite our resource files to vendor the images.
-	if err = resourceFiles.RewriteImages(v.imageService.Wrap); err != nil {
-		return trace.Wrap(err)
+	err = resourceFiles.RewriteImages(v.imageService.Wrap)
+	if err != nil {
+		return nil, trace.Wrap(err)
 	}
 
 	var runtimeImages []string
-	manifestRewrites := []resources.ManifestRewriteFunc{
-		makeRewriteDepsFunc(req.SetDeps),
-		makeRewritePackagesMetadataFunc(v.packages),
-		makeRewriteAppMetadataFunc(req.Repository, req.PackageName, req.PackageVersion),
-	}
 	if req.VendorRuntime {
-		manifestRewrites = append(manifestRewrites, fetchRuntimeImages(&runtimeImages))
+		err := resourceFiles.RewriteManifest(fetchRuntimeImages(&runtimeImages))
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
 	}
 
-	err = resourceFiles.RewriteManifest(manifestRewrites...)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	// pull the default container image along with the rest of images
-	imagesToPull := append(images, defaults.ContainerImage)
-	imagesToPull = append(imagesToPull, runtimeImages...)
+	imagesToPull := append(images, runtimeImages...)
 
 	group, groupCtx := run.WithContext(ctx, run.WithParallel(req.Parallel))
 	for _, image := range imagesToPull {
@@ -258,47 +377,71 @@ func (v *vendorer) VendorDir(ctx context.Context, unpackedDir string, req Vendor
 		})
 	}
 	if err := group.Wait(); err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 
 	if req.VendorRuntime {
 		err = resourceFiles.RewriteManifest(v.translateRuntimeImages)
 		if err != nil {
-			return trace.Wrap(err)
+			return nil, trace.Wrap(err)
 		}
-	}
-
-	if err = resourceFiles.Write(); err != nil {
-		return trace.Wrap(err)
-	}
-
-	if ok, _ := utils.IsDirectory(filepath.Join(unpackedDir, defaults.RegistryDir)); ok {
-		log.Debug("Registry layers are present.")
-		return nil
 	}
 
 	// if the application package does not contain the dump of docker images of the referenced
 	// containers, pull all the necessary images, then export those images to disk
 	images, err = resourceFiles.Images()
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 
-	images = append(images, hooks.InitContainerImage)
 	for i, image := range images {
 		images[i] = v.imageService.Unwrap(image)
 	}
 
-	log.Infof("No registry layers found, will pull and export images %q.", images)
-	if err = v.pullAndExportImages(ctx, teleutils.Deduplicate(images), unpackedDir, req.Parallel, req.ProgressReporter); err != nil {
-		return trace.Wrap(err)
+	// Filter out images if some images need to be skipped when building an
+	// incremental upgrade image.
+	images = teleutils.Deduplicate(append(images, chartImages...))
+	imagesToVendor, err := req.Filter(images)
+	if err != nil {
+		return nil, trace.Wrap(err)
 	}
 
-	if err = v.pullAndExportImages(ctx, teleutils.Deduplicate(chartImages), unpackedDir, req.Parallel, req.ProgressReporter); err != nil {
-		return trace.Wrap(err)
+	// Return all images that have been discovered and vendored.
+	allImages, err := loc.ParseDockerImages(images)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	vendoredImages, err := loc.ParseDockerImages(imagesToVendor)
+	if err != nil {
+		return nil, trace.Wrap(err)
 	}
 
-	return nil
+	err = resourceFiles.RewriteManifest(setDockerImages(allImages, vendoredImages))
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	if err = resourceFiles.Write(); err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	if ok, _ := utils.IsDirectory(filepath.Join(unpackedDir, defaults.RegistryDir)); ok {
+		log.Debug("Registry layers are present.")
+		return nil, nil
+	}
+
+	log.Infof("Will vendor the following images: %v.", imagesToVendor)
+
+	// Perform vendoring.
+	err = v.pullAndExportImages(ctx, imagesToVendor, unpackedDir, req.Parallel, req.ProgressReporter)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	return &VendorResponse{
+		VendoredImages: vendoredImages,
+		Images:         allImages,
+	}, nil
 }
 
 // analyzeResources looks at the parsed Kubernetes/Helm resource files and
@@ -525,12 +668,10 @@ func expandEnvVars(path string) error {
 	return nil
 }
 
-type rewriteFunc func(string) string
-
 // makeRewriteSetImagesFunc prepares a function for rewriting images in resource files
 // if it finds a matching image name, it overrides image with the version set
 // in the request
-func makeRewriteSetImagesFunc(setImages []loc.DockerImage) rewriteFunc {
+func makeRewriteSetImagesFunc(setImages []loc.DockerImage) resources.ImagesRewriteFunc {
 	return func(image string) string {
 		origImage, err := loc.ParseDockerImage(image)
 		if err != nil {
@@ -679,6 +820,9 @@ func makeRewriteDepsFunc(setPackages []loc.Locator) resources.ManifestRewriteFun
 // packages (base, packages, apps) and rewrites versions accordingly
 func makeRewritePackagesMetadataFunc(packages pack.PackageService) resources.ManifestRewriteFunc {
 	return func(m *schema.Manifest) error {
+		if packages == nil {
+			return nil
+		}
 		base := m.Base()
 		if base != nil {
 			newLoc, err := pack.ProcessMetadata(packages, base)
@@ -711,6 +855,14 @@ func makeRewritePackagesMetadataFunc(packages pack.PackageService) resources.Man
 func fetchRuntimeImages(images *[]string) resources.ManifestRewriteFunc {
 	return func(m *schema.Manifest) error {
 		*images = m.RuntimeImages()
+		return nil
+	}
+}
+
+func setDockerImages(all, vendored loc.DockerImages) resources.ManifestRewriteFunc {
+	return func(m *schema.Manifest) error {
+		m.Status.DockerImages.All = all
+		m.Status.DockerImages.Vendored = vendored
 		return nil
 	}
 }

@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2018-2020 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,6 +17,9 @@ limitations under the License.
 package localenv
 
 import (
+	"archive/tar"
+	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -32,65 +35,142 @@ import (
 type ImageEnvironment struct {
 	// LocalEnvironment is a wrapped local environment.
 	*LocalEnvironment
+	// Path is the environment source location, directory or tarball path.
+	Path string
 	// Manifest is an application/cluster manifest.
 	Manifest *schema.Manifest
 	// cleanup is the environment cleanup function.
 	cleanup func()
 }
 
-// NewImageEnvironment returns a new environment for a specified image.
-//
-// The path can be either an image tarball or an unpacked image tarball.
-func NewImageEnvironment(path string) (*ImageEnvironment, error) {
-	fi, err := os.Stat(path)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	// see if it's a path to unpacked image tarball or a tarball
-	if fi.IsDir() {
-		// see if app.yaml is there
-		_, err := os.Stat(filepath.Join(path, defaults.ManifestFileName))
-		if err != nil {
-			return nil, trace.BadParameter("directory %q does not appear "+
-				"to contain an application image", path)
-		}
-		return newImageEnvironment(path)
-	}
-	// see if tarball has app.yaml
-	err = archive.HasFile(path, defaults.ManifestFileName)
-	if err != nil {
-		if !trace.IsNotFound(err) {
-			return nil, trace.Wrap(err)
-		}
-		return nil, trace.BadParameter("file %q does not appear to be "+
-			"a valid application image", path)
-	}
-	// extract tarball to a temporary directory
-	unpackedPath, err := archive.Unpack(path)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return newImageEnvironment(unpackedPath, WithCleanup())
+// ImageEnvironmentConfig is the cluster/application image environment configuration.
+type ImageEnvironmentConfig struct {
+	// Path is the path to the cluster/application image (unpacked or tarball).
+	Path string
+	// DBOnly creates environment without unpacked packages (only database).
+	DBOnly bool
 }
 
-func newImageEnvironment(unpackedDir string, opts ...ImageEnvironmentOption) (*ImageEnvironment, error) {
-	manifest, err := schema.ParseManifest(filepath.Join(unpackedDir,
-		defaults.ManifestFileName))
+// NewImageEnvironment returns a new environment for a specified application
+// or cluster image.
+//
+// The path can be either an image tarball or an unpacked image tarball.
+func NewImageEnvironment(config ImageEnvironmentConfig) (*ImageEnvironment, error) {
+	fi, err := os.Stat(config.Path)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	localEnv, err := New(unpackedDir)
+	var imageEnvironment *ImageEnvironment
+	if fi.IsDir() {
+		imageEnvironment, err = imageEnvFromDir(config.Path)
+	} else {
+		if config.DBOnly {
+			imageEnvironment, err = imageEnvFromTarDBOnly(config.Path)
+		} else {
+			imageEnvironment, err = imageEnvFromTar(config.Path)
+		}
+	}
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	imageEnv := &ImageEnvironment{
-		LocalEnvironment: localEnv,
+	return imageEnvironment, nil
+}
+
+// imageEnvFromDir creates image environment from an unpacked image.
+func imageEnvFromDir(path string) (*ImageEnvironment, error) {
+	log.WithField("path", path).Debug("Creating image environment from path.")
+	manifest, err := schema.ParseManifest(filepath.Join(path, defaults.ManifestFileName))
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	env, err := New(path)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &ImageEnvironment{
+		LocalEnvironment: env,
 		Manifest:         manifest,
+		Path:             path,
+	}, nil
+}
+
+// imageEnvFromTar creates image environment from a tarball.
+func imageEnvFromTar(path string) (*ImageEnvironment, error) {
+	log.WithField("path", path).Debug("Creating image environment tar.")
+	dir, err := archive.Unpack(path)
+	if err != nil {
+		return nil, trace.Wrap(err)
 	}
-	for _, opt := range opts {
-		opt(imageEnv)
+	manifestBytes, err := ioutil.ReadFile(filepath.Join(dir, defaults.ManifestFileName))
+	if err != nil {
+		return nil, trace.Wrap(err)
 	}
-	return imageEnv, nil
+	manifest, err := schema.ParseManifestYAMLNoValidate(manifestBytes)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	env, err := New(dir)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &ImageEnvironment{
+		LocalEnvironment: env,
+		Manifest:         manifest,
+		Path:             path,
+		cleanup: func() {
+			os.RemoveAll(dir)
+		},
+	}, nil
+}
+
+// imageEnvFromTarDBOnly create image environment without package blobs from a tarball.
+func imageEnvFromTarDBOnly(path string) (*ImageEnvironment, error) {
+	log.WithField("path", path).Debug("Creating image environment without packages from tar.")
+	tarball, err := os.Open(path)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	defer tarball.Close()
+	dir, err := ioutil.TempDir("", "")
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	err = archive.TarGlob(tar.NewReader(tarball), "",
+		[]string{defaults.ManifestFileName, defaults.GravityDBFile},
+		func(filename string, r io.Reader) error {
+			data, err := ioutil.ReadAll(r)
+			if err != nil {
+				return trace.Wrap(err)
+			}
+			err = ioutil.WriteFile(filepath.Join(dir, filename), data, defaults.SharedReadMask)
+			if err != nil {
+				return trace.Wrap(err)
+			}
+			return nil
+		})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	manifestBytes, err := ioutil.ReadFile(filepath.Join(dir, defaults.ManifestFileName))
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	manifest, err := schema.ParseManifestYAMLNoValidate(manifestBytes)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	env, err := New(dir)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &ImageEnvironment{
+		LocalEnvironment: env,
+		Manifest:         manifest,
+		Path:             path,
+		cleanup: func() {
+			os.RemoveAll(dir)
+		},
+	}, nil
 }
 
 // Close closes the image environment.
@@ -98,18 +178,8 @@ func (e *ImageEnvironment) Close() error {
 	if e.cleanup != nil {
 		e.cleanup()
 	}
-	return e.LocalEnvironment.Close()
-}
-
-// ImageEnvironmentOption defines an image environment functional argument.
-type ImageEnvironmentOption func(*ImageEnvironment)
-
-// WithCleanup cleans up an image environment state directory on close.
-func WithCleanup() ImageEnvironmentOption {
-	return func(env *ImageEnvironment) {
-		env.cleanup = func() {
-			log.Debugf("Cleaning up %v.", env.LocalEnvironment.StateDir)
-			os.RemoveAll(env.LocalEnvironment.StateDir)
-		}
+	if e.LocalEnvironment != nil {
+		return e.LocalEnvironment.Close()
 	}
+	return nil
 }

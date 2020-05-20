@@ -58,6 +58,9 @@ func RegisterCommands(app *kingpin.Application) Application {
 	tele.BuildCmd.Values = tele.BuildCmd.Flag("values", "Set Helm chart values from the provided YAML file. Can be specified multiple times.").Strings()
 	tele.BuildCmd.Pull = tele.BuildCmd.Flag("pull", "Always attempt to pull newer versions of Docker images.").Bool()
 	tele.BuildCmd.BaseImage = tele.BuildCmd.Flag("with-base-image", "Specify base image to use, for example 'gravity:7.0.0'.").String()
+	tele.BuildCmd.UpgradeFrom = tele.BuildCmd.Flag("upgrade-from", "Build an incremental upgrade image from the specified cluster image. Only new Docker images will be vendored.").String()
+	tele.BuildCmd.Diff = tele.BuildCmd.Flag("diff", "Print Docker image differences between the image being built and the image specified with --upgrade-from flag.").Bool()
+	tele.BuildCmd.SkipBaseCheck = tele.BuildCmd.Flag("skip-base-check", "Bypass base image check when building an incremental upgrade image.").Bool()
 
 	tele.HelmCmd.CmdClause = app.Command("helm", "Operations with Helm charts.").Alias("app")
 
@@ -74,6 +77,8 @@ func RegisterCommands(app *kingpin.Application) Application {
 	tele.HelmBuildCmd.Set = tele.HelmBuildCmd.Flag("set", "Set Helm chart values on the command line. Can be specified multiple times and/or as comma-separated values: key1=val1,key2=val2.").Strings()
 	tele.HelmBuildCmd.Values = tele.HelmBuildCmd.Flag("values", "Set Helm chart values from the provided YAML file. Can be specified multiple times.").Strings()
 	tele.HelmBuildCmd.Pull = tele.HelmBuildCmd.Flag("pull", "Always attempt to pull newer versions of Docker images.").Bool()
+	tele.HelmBuildCmd.UpgradeFrom = tele.HelmBuildCmd.Flag("upgrade-from", "Build an incremental image from the specified application image. Only new Docker images will be vendored.").String()
+	tele.HelmBuildCmd.Diff = tele.HelmBuildCmd.Flag("diff", "Print Docker image differences between the image being built and the image specified with --upgrade-from flag.").Bool()
 
 	tele.ListCmd.CmdClause = app.Command("ls", "List cluster and application images published to Gravity Hub.")
 	tele.ListCmd.Runtimes = tele.ListCmd.Flag("runtimes", "Show only runtimes.").Short('r').Hidden().Bool()

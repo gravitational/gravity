@@ -83,7 +83,9 @@ func (c registryConfig) imageService() (docker.ImageService, error) {
 }
 
 func appSync(env *localenv.LocalEnvironment, conf appSyncConfig) error {
-	imageEnv, err := localenv.NewImageEnvironment(conf.Image)
+	imageEnv, err := localenv.NewImageEnvironment(localenv.ImageEnvironmentConfig{
+		Path: conf.Image,
+	})
 	if err != nil {
 		return trace.Wrap(err)
 	}

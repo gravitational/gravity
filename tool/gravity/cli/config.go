@@ -48,6 +48,7 @@ import (
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/opsclient"
 	"github.com/gravitational/gravity/lib/ops/resources"
+	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/pack/localpack"
 	"github.com/gravitational/gravity/lib/process"
 	"github.com/gravitational/gravity/lib/processconfig"
@@ -363,11 +364,9 @@ func (i *InstallConfig) CheckAndSetDefaults(validator resources.Validator) (err 
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = i.validateApplicationDir()
+	err = i.validateApplication()
 	if err != nil {
-		return trace.Wrap(err, "failed to validate installer directory. "+
-			"Make sure you're running the installer from the directory with the contents "+
-			"of the installer tarball")
+		return trace.Wrap(err)
 	}
 	if i.DNSConfig.IsEmpty() {
 		i.DNSConfig = storage.DefaultDNSConfig
@@ -578,9 +577,23 @@ func (i *InstallConfig) shouldBootstrapSELinux() bool {
 	return i.SELinux && !(i.FromService || i.Mode == constants.InstallModeInteractive || i.Remote)
 }
 
-func (i *InstallConfig) validateApplicationDir() error {
-	_, err := i.getApp()
-	return trace.Wrap(err)
+func (i *InstallConfig) validateApplication() error {
+	application, err := i.getApp()
+	if err != nil {
+		return trace.Wrap(err, "failed to validate installer directory. "+
+			"Make sure you're running the installer from the directory with the contents "+
+			"of the installer tarball")
+	}
+	upgradeFrom, err := application.LabelAsLocator(pack.UpgradeFromLabel)
+	if err != nil && !trace.IsNotFound(err) {
+		return trace.Wrap(err)
+	}
+	if upgradeFrom != nil {
+		return trace.BadParameter("This cluster image was built as an incremental "+
+			"upgrade from %v. It cannot be used to perform full installation as "+
+			"only contains a subset of Docker images.", upgradeFrom.Human())
+	}
+	return nil
 }
 
 // getApp returns the application package for this installer

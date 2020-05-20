@@ -27,6 +27,7 @@ import (
 	"github.com/gravitational/gravity/lib/install"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/state"
 	libstatus "github.com/gravitational/gravity/lib/status"
 	"github.com/gravitational/gravity/lib/storage"
@@ -51,7 +52,7 @@ func appPackage(env *localenv.LocalEnvironment) error {
 	return nil
 }
 
-func uploadUpdate(ctx context.Context, tarballEnv *localenv.TarballEnvironment, env *localenv.LocalEnvironment, opsURL string) error {
+func uploadUpdate(ctx context.Context, tarballEnv *localenv.TarballEnvironment, env *localenv.LocalEnvironment, opsURL string, force bool) error {
 	clusterOperator, err := env.SiteOperator()
 	if err != nil {
 		return trace.Wrap(err, "unable to access cluster.\n"+
@@ -66,7 +67,7 @@ func uploadUpdate(ctx context.Context, tarballEnv *localenv.TarballEnvironment, 
 
 	if cluster.State == ops.SiteStateDegraded {
 		return trace.BadParameter("The cluster is in degraded state so " +
-			"uploading new applications is prohibited. Please check " +
+			"uploading new cluster images is prohibited. Please check " +
 			"gravity status output and correct the situation before " +
 			"attempting again.")
 	}
@@ -81,24 +82,9 @@ func uploadUpdate(ctx context.Context, tarballEnv *localenv.TarballEnvironment, 
 		return trace.Wrap(err)
 	}
 
-	appPackage, err := install.GetAppPackage(tarballEnv.Apps)
+	application, err := install.GetApp(tarballEnv.Apps)
 	if err != nil {
 		return trace.Wrap(err)
-	}
-
-	env.PrintStep("Importing application %v v%v", appPackage.Name, appPackage.Version)
-	_, err = appservice.PullApp(appservice.AppPullRequest{
-		SrcPack: tarballEnv.Packages,
-		SrcApp:  tarballEnv.Apps,
-		DstPack: clusterPackages,
-		DstApp:  clusterApps,
-		Package: *appPackage,
-	})
-	if err != nil {
-		if !trace.IsAlreadyExists(err) {
-			return trace.Wrap(err)
-		}
-		env.PrintStep("Application already exists in local cluster")
 	}
 
 	var registries []string
@@ -108,6 +94,75 @@ func uploadUpdate(ctx context.Context, tarballEnv *localenv.TarballEnvironment, 
 	})
 	if err != nil {
 		return trace.Wrap(err)
+	}
+	if len(registries) == 0 {
+		return trace.NotFound("could not determine cluster registry addresses")
+	}
+	images, err := docker.NewClusterImageService(registries[0])
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	sourcePackages := tarballEnv.Packages
+	sourceApps := tarballEnv.Apps
+
+	// Before importing check if the new version is an incremental upgrade
+	// and if so, check whether the currently installed version can be
+	// upgraded to it.
+	upgradeFrom, err := application.LabelAsLocator(pack.UpgradeFromLabel)
+	if err != nil && !trace.IsNotFound(err) {
+		return trace.Wrap(err)
+	}
+	if upgradeFrom != nil {
+		if !cluster.App.Package.IsEqualTo(*upgradeFrom) && !force {
+			return trace.BadParameter(`This cluster image was built as an incremental upgrade from %v.
+The currently installed cluster image is %v.
+You can force the upgrade by providing --force flag.`,
+				upgradeFrom.Human(),
+				cluster.App.Package.Human())
+		}
+		// Incremental images currently require that the upgrade image has the
+		// same base as the currently installed image. In future we may support
+		// including partial runtime updates as well.
+		if !application.Manifest.Base().IsEqualTo(*cluster.App.Manifest.Base()) {
+			return trace.BadParameter(`This cluster image can only be used as an incremental upgrade for clusters based on Gravity %v.
+The currently installed cluster image %v is based on Gravity %v.`,
+				application.Manifest.Base().Version,
+				cluster.App.Manifest.Locator().Human(),
+				cluster.App.Manifest.Base().Version)
+		}
+		response, err := appservice.RestoreApp(ctx, appservice.RestoreRequest{
+			Packages:        sourcePackages,
+			Apps:            sourceApps,
+			ClusterPackages: clusterPackages,
+			ClusterApps:     clusterApps,
+			Images:          images,
+			Locator:         application.Manifest.Locator(),
+			Progress:        env,
+		})
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		defer response.Cleanup()
+		// Use package/app services where the restored app has been imported
+		// as a source for importing into the cluster.
+		sourcePackages = response.Packages
+		sourceApps = response.Apps
+	}
+
+	env.PrintStep("Importing cluster image %v", application.Package.Human())
+	_, err = appservice.PullApp(appservice.AppPullRequest{
+		SrcPack: sourcePackages,
+		SrcApp:  sourceApps,
+		DstPack: clusterPackages,
+		DstApp:  clusterApps,
+		Package: application.Package,
+	})
+	if err != nil {
+		if !trace.IsAlreadyExists(err) {
+			return trace.Wrap(err)
+		}
+		env.PrintStep("Cluster image already exists in local cluster")
 	}
 
 	stateDir, err := state.GetStateDir()
@@ -130,10 +185,10 @@ func uploadUpdate(ctx context.Context, tarballEnv *localenv.TarballEnvironment, 
 			return trace.Wrap(err)
 		}
 		err = appservice.SyncApp(ctx, appservice.SyncRequest{
-			PackService:  tarballEnv.Packages,
-			AppService:   tarballEnv.Apps,
+			PackService:  sourcePackages,
+			AppService:   sourceApps,
 			ImageService: imageService,
-			Package:      *appPackage,
+			Package:      application.Package,
 		})
 		if err != nil {
 			return trace.Wrap(err)
@@ -158,7 +213,7 @@ func uploadUpdate(ctx context.Context, tarballEnv *localenv.TarballEnvironment, 
 		return trace.Wrap(err)
 	}
 
-	env.PrintStep("Application has been uploaded")
+	env.PrintStep("Cluster image has been uploaded")
 	return nil
 }
 

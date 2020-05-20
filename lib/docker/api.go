@@ -48,9 +48,12 @@ type DockerInterface interface {
 
 // ImageService defines an interface to a private docker registry
 type ImageService interface {
-	// Sync synchronizes the contents of dir with this private docker registry
+	// SyncFrom synchronizes the contents of dir with this private docker registry
 	// Returns the list of images synced
-	Sync(ctx context.Context, dir string, progress utils.Printer) ([]TagSpec, error)
+	SyncFrom(ctx context.Context, dir string, progress utils.Printer) ([]TagSpec, error)
+
+	// SyncTo pulls the specified images from this image service into the specified directory.
+	SyncTo(ctx context.Context, dir string, images []Image, progress utils.Printer) error
 
 	// Wrap translates the specified image name to point to the private registry.
 	Wrap(image string) string

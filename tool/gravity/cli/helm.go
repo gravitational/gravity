@@ -157,7 +157,9 @@ func releaseInstall(env *localenv.LocalEnvironment, conf releaseInstallConfig) e
 		conf.Image = result.Path
 		defer result.Close() // Remove downloaded tarball after install.
 	}
-	imageEnv, err := localenv.NewImageEnvironment(conf.Image)
+	imageEnv, err := localenv.NewImageEnvironment(localenv.ImageEnvironmentConfig{
+		Path: conf.Image,
+	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -264,7 +266,9 @@ func releaseUpgrade(env *localenv.LocalEnvironment, conf releaseUpgradeConfig) e
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	imageEnv, err := localenv.NewImageEnvironment(conf.Image)
+	imageEnv, err := localenv.NewImageEnvironment(localenv.ImageEnvironmentConfig{
+		Path: conf.Image,
+	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
