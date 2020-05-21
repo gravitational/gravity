@@ -69,12 +69,15 @@ func displayOperationPlan(localEnv *localenv.LocalEnvironment, environ LocalEnvi
 	if err != nil {
 		if trace.IsNotFound(err) {
 			message := noOperationStateNoClusterStateBanner
-			if err2 := CheckLocalState(localEnv); err2 != nil {
+			if err := CheckLocalState(localEnv); err != nil {
 				message = NoOperationStateBanner
 			}
 			return trace.NotFound(message)
 		}
 		return trace.Wrap(err)
+	}
+	if !op.hasPlan {
+		return trace.BadParameter(noOperationPlanBanner, op.String(), op.ID)
 	}
 	if op.IsCompleted() {
 		return displayClusterOperationPlan(localEnv, op.Key(), format)
@@ -253,5 +256,9 @@ Clean up the node with 'gravity leave' and start the operation with either 'grav
 	noOperationStateNoClusterStateBanner = `no operation found.
 This usually means that the installation/join operation has failed to start or was not started.
 Start the operation with either 'gravity install' or 'gravity join'.
+`
+	noOperationPlanBanner = `%v is invalid and has no plan.
+This usually means that the operation has failed to initialize properly.
+You can mark this operation explicitly as failed with 'gravity plan complete --operation-id=%v' so it does not appear active and re-attempt it.
 `
 )

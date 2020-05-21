@@ -255,7 +255,7 @@ func getBackendOperations(localEnv *localenv.LocalEnvironment, environ LocalEnvi
 	b := newBackendOperations()
 	b.List(localEnv, environ)
 	for _, op := range b.operations {
-		if (operationID == "" || operationID == op.ID) && op.hasPlan {
+		if operationID == "" || operationID == op.ID {
 			result = append(result, op)
 		}
 	}
