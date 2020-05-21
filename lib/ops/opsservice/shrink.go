@@ -628,7 +628,7 @@ func (s *site) removeNodeFromCluster(server storage.Server, runner *serverRunner
 			fmt.Sprintf("-l=%v=%v", defaults.KubernetesHostnameLabel, server.KubeNodeID())),
 		// Issue `serf force-leave` from the master node to transition
 		// failed nodes to `left` state in case the node itself failed shutting down
-		s.planetEnterCommand(defaults.SerfBin, "force-leave", provisionedServer.AgentName(s.domainName)),
+		s.planetEnterCommand(defaults.SerfBin, "force-leave", "-prune", provisionedServer.AgentName(s.domainName)),
 	}
 
 	err = utils.Retry(defaults.RetryInterval, defaults.RetryAttempts, func() error {

@@ -257,7 +257,7 @@ Clean up the node with 'gravity leave' and start the operation with either 'grav
 This usually means that the installation/join operation has failed to start or was not started.
 Start the operation with either 'gravity install' or 'gravity join'.
 `
-	noOperationPlanBanner = `%v is invalid and has no plan.
+	noOperationPlanBanner = `%v has no plan and is invalid.
 This usually means that the operation has failed to initialize properly.
 You can mark this operation explicitly as failed with 'gravity plan complete --operation-id=%v' so it does not appear active and re-attempt it.
 `
