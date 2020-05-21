@@ -6,7 +6,7 @@
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
 | 7.0.5         | No  | May 13th, 2020       | 7.1 is released      | 1.17.4             | 3.2.13           |
 | 6.1.27        | Yes | May 13th, 2020       | November 10th, 2021  | 1.15.11            | 3.2.12           |
-| 5.5.45        | Yes | May 18th, 2020       | March 7th, 2021      | 1.13.11            | 3.0.6-gravity    |
+| 5.5.46        | Yes | May 21st, 2020       | March 7th, 2021      | 1.13.11            | 3.0.6-gravity    |
 
 Gravity offers one Long Term Support (LTS) release for every 2nd Kubernetes
 minor version, allowing for seamless upgrades per Kubernetes
@@ -878,6 +878,20 @@ to learn how to gain insight into how the cluster status changes over time.
 * Add support for using `helm` directly from host.
 
 ## 5.x Releases
+
+### 5.5.46 LTS (May 21st, 2020)
+
+#### Improvements
+
+* Add `gravity rollback` command to support automatic plan rollback of failed upgrade operations ([#1558](https://github.com/gravitational/gravity/pull/1558)).
+* Add profiling endpoint to planet-agent ([#1579](https://github.com/gravitational/gravity/pull/1579), [planet#569](https://github.com/gravitational/planet/pull/569), [satellite#165](https://github.com/gravitational/satellite/pull/165)).
+* Bump Grafana to `5.4.5` and Telegraf to `1.11.5` ([#1593](https://github.com/gravitational/gravity/pull/1593), [monitoring-app#168](https://github.com/gravitational/monitoring-app/pull/168)).
+* Update monitoring containers to run as non-root and remove unnecessary binaries ([#1593](https://github.com/gravitational/gravity/pull/1593), [monitoring-app#168](https://github.com/gravitational/monitoring-app/pull/168)).
+
+#### Bugfixes
+
+* Re-enable nethealth checker as a warning and fix a number of issues related to removing stale data for deleted nodes ([#1580](https://github.com/gravitational/gravity/pull/1580), [planet#637](https://github.com/gravitational/planet/pull/637), [monitoring-app#166](https://github.com/gravitational/monitoring-app/pull/166)).
+* Increase image pull deadline on kubelet to 15m ([#1584](https://github.com/gravitational/gravity/pull/1584), [planet#640](https://github.com/gravitational/planet/pull/640)).
 
 ### 5.5.45 LTS (May 18th, 2020)
 
