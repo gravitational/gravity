@@ -417,6 +417,15 @@ type backendOperations struct {
 	clusterOperation *clusterOperation
 }
 
+func isInvalidOperation(op clusterOperation) bool {
+	switch op.Type {
+	case ops.OperationShrink:
+		return false
+	default:
+		return !op.hasPlan
+	}
+}
+
 // formatTable formats this operation list as a table
 func (r operationList) formatTable() string {
 	t := goterm.NewTable(0, 10, 5, ' ', 0)

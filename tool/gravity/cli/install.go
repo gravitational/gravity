@@ -100,7 +100,7 @@ func Join(env, joinEnv *localenv.LocalEnvironment, j JoinConfig) error {
 
 	err = uninstallExistingAgentService()
 	if err != nil {
-		log.Warn("Failed to stop agent service: %v.")
+		log.Warnf("Failed to stop agent service: %v.", err)
 	}
 
 	err = j.CheckAndSetDefaults()
