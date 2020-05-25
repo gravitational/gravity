@@ -534,32 +534,32 @@ func agent(env *localenv.LocalEnvironment, config agentConfig) error {
 	return trace.Wrap(agent.Serve())
 }
 
-func executeInstallPhase(env *localenv.LocalEnvironment, params PhaseParams, operation ops.SiteOperation) error {
+func executeInstallPhaseForOperation(env *localenv.LocalEnvironment, params PhaseParams, operation ops.SiteOperation) error {
 	return trace.Wrap(executePhaseFromService(
 		env, params, operation, "Connecting to installer", "Connected to installer"))
 }
 
-func rollbackInstallPhase(env *localenv.LocalEnvironment, params PhaseParams, operation ops.SiteOperation) error {
+func rollbackInstallPhaseForOperation(env *localenv.LocalEnvironment, params PhaseParams, operation ops.SiteOperation) error {
 	return trace.Wrap(rollbackPhaseFromService(
 		env, params, operation, "Connecting to installer", "Connected to installer"))
 }
 
-func completeInstallPlan(env *localenv.LocalEnvironment, operation ops.SiteOperation) error {
+func completeInstallPlanForOperation(env *localenv.LocalEnvironment, operation ops.SiteOperation) error {
 	return trace.Wrap(completePlanFromService(
 		env, operation, "Connecting to installer", "Connected to installer"))
 }
 
-func executeJoinPhase(env *localenv.LocalEnvironment, params PhaseParams, operation ops.SiteOperation) error {
+func executeJoinPhaseForOperation(env *localenv.LocalEnvironment, params PhaseParams, operation ops.SiteOperation) error {
 	return trace.Wrap(executePhaseFromService(
 		env, params, operation, "Connecting to agent", "Connected to agent"))
 }
 
-func rollbackJoinPhase(env *localenv.LocalEnvironment, params PhaseParams, operation ops.SiteOperation) error {
+func rollbackJoinPhaseForOperation(env *localenv.LocalEnvironment, params PhaseParams, operation ops.SiteOperation) error {
 	return trace.Wrap(rollbackPhaseFromService(
 		env, params, operation, "Connecting to agent", "Connected to agent"))
 }
 
-func completeJoinPlan(env *localenv.LocalEnvironment, operation ops.SiteOperation) error {
+func completeJoinPlanForOperation(env *localenv.LocalEnvironment, operation ops.SiteOperation) error {
 	err := completePlanFromService(
 		env, operation, "Connecting to agent", "Connected to agent")
 	if err == nil {

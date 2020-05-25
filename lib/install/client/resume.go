@@ -61,8 +61,8 @@ func (r *ResumeStrategy) checkAndSetDefaults() (err error) {
 		r.ServicePath, err = environ.GetServicePath(stateDir)
 		if err != nil {
 			if trace.IsNotFound(err) {
-				return trace.Wrap(err,
-					"failed to find installer service. Start the installation with 'gravity install'")
+				return trace.Wrap(err, "failed to find installer service. "+
+					"Use 'gravity install' to start new installation or 'gravity join' to join an existing cluster.")
 			}
 			return trace.Wrap(err)
 		}

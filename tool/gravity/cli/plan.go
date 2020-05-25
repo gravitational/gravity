@@ -27,6 +27,7 @@ import (
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
+	libenviron "github.com/gravitational/gravity/lib/system/environ"
 	"github.com/gravitational/gravity/lib/update"
 	clusterupdate "github.com/gravitational/gravity/lib/update/cluster"
 	"github.com/gravitational/gravity/lib/utils"
@@ -65,24 +66,21 @@ func initUpdateOperationPlan(localEnv, updateEnv *localenv.LocalEnvironment) err
 }
 
 func displayOperationPlan(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operationID string, format constants.Format) error {
-	operations, err := getLastOperations(localEnv, environ, operationID)
+	op, err := getLastOperation(localEnv, environ, operationID)
 	if err != nil {
 		if trace.IsNotFound(err) {
-			// FIXME(dmitri): better phrasing
-			return trace.NotFound(`no operation found.
-This usually means that the installation has failed to start.
-To restart the installation, use 'gravity resume' after fixing the issues.
-`)
+			message := noOperationStateNoClusterStateBanner
+			if err := libenviron.ValidateNoPackageState(localEnv.Packages, localEnv.StateDir); err != nil {
+				message = NoOperationStateBanner
+			}
+			return trace.NotFound(message)
 		}
 		return trace.Wrap(err)
 	}
-	if len(operations) != 1 && format == constants.EncodingText {
-		log.WithField("operations", oplist(operations).String()).Warn("Multiple operations found.")
-		localEnv.Printf("Multiple operations found: \n%v\nPlease specify operation with --operation-id. "+
-			"Displaying the most recent operation.\n\n", oplist(operations).formatTable())
+	if isInvalidOperation(*op) {
+		return trace.BadParameter(invalidOperationBanner, op.String(), op.ID)
 	}
-	op := operations[0]
-	if op.IsCompleted() {
+	if op.IsCompleted() && op.hasPlan {
 		return displayClusterOperationPlan(localEnv, op.Key(), format)
 	}
 	switch op.Type {
@@ -99,7 +97,7 @@ To restart the installation, use 'gravity resume' after fixing the issues.
 	case ops.OperationGarbageCollect:
 		err = displayClusterOperationPlan(localEnv, op.Key(), format)
 	default:
-		return trace.BadParameter("unknown operation type %q", op.Type)
+		return trace.BadParameter("cannot display plan for %q operation as it does not support plans", op.TypeString())
 	}
 	if err != nil && trace.IsNotFound(err) {
 		// Fallback to cluster plan
@@ -153,7 +151,7 @@ func displayInstallOperationPlan(opKey ops.SiteOperationKey, format constants.Fo
 	plan, err = getPlanFromWizardBackend(opKey)
 	if err != nil {
 		return trace.Wrap(err, "failed to get plan for the install operation.\n"+
-			"Make suer you are running 'gravity plan' from the installer node.")
+			"Make sure you are running 'gravity plan' from the installer node.")
 	}
 	return trace.Wrap(outputPlan(*plan, format))
 }
@@ -265,3 +263,21 @@ func getPlanFromWizard(opKey ops.SiteOperationKey) (*storage.OperationPlan, erro
 	}
 	return plan, nil
 }
+
+const (
+	// NoOperationStateBanner specifies the message for when the operation
+	// cannot be retrieved from the installer process and that the operation
+	// should be restarted
+	NoOperationStateBanner = `no operation found.
+This usually means that the installation/join operation has failed to start or was not started.
+Clean up the node with 'gravity leave' and start the operation with either 'gravity install' or 'gravity join'.
+`
+	noOperationStateNoClusterStateBanner = `no operation found.
+This usually means that the installation/join operation has failed to start or was not started.
+Start the operation with either 'gravity install' or 'gravity join'.
+`
+	invalidOperationBanner = `%v is invalid.
+This usually means that the operation has failed to initialize properly.
+You can mark this operation explicitly as failed with 'gravity plan complete --operation-id=%v' so it does not appear active and re-attempt it.
+`
+)
