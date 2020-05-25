@@ -227,7 +227,7 @@ func (s *site) configureExpandPackages(ctx context.Context, opCtx *operationCont
 	}
 	if provisionedServer.IsMaster() {
 		err := s.configureTeleportMaster(opCtx, provisionedServer)
-		if err != nil {
+		if err != nil && !trace.IsAlreadyExists(err) {
 			return trace.Wrap(err)
 		}
 		masterParams := planetMasterParams{
@@ -249,8 +249,8 @@ func (s *site) configureExpandPackages(ctx context.Context, opCtx *operationCont
 			electionEnabled: false,
 			addr:            s.teleport().GetPlanetLeaderIP(),
 		}
-		err = s.configurePlanetMaster(planetConfig, secretsPackage, configPackage)
-		if err != nil {
+		err = s.configurePlanetMaster(planetConfig, configPackage)
+		if err != nil && !trace.IsAlreadyExists(err) {
 			return trace.Wrap(err)
 		}
 		// Teleport nodes on masters prefer their local auth server
@@ -258,7 +258,7 @@ func (s *site) configureExpandPackages(ctx context.Context, opCtx *operationCont
 		// isn't running.
 		err = s.configureTeleportNode(opCtx, append([]string{constants.Localhost}, teleportMasterIPs...),
 			provisionedServer)
-		if err != nil {
+		if err != nil && !trace.IsAlreadyExists(err) {
 			return trace.Wrap(err)
 		}
 	} else {
@@ -266,12 +266,12 @@ func (s *site) configureExpandPackages(ctx context.Context, opCtx *operationCont
 		if err != nil && !trace.IsAlreadyExists(err) {
 			return trace.Wrap(err)
 		}
-		err = s.configurePlanetNode(planetConfig, secretsPackage, configPackage)
-		if err != nil {
+		err = s.configurePlanetNode(planetConfig, configPackage)
+		if err != nil && !trace.IsAlreadyExists(err) {
 			return trace.Wrap(err)
 		}
 		err = s.configureTeleportNode(opCtx, teleportMasterIPs, provisionedServer)
-		if err != nil {
+		if err != nil && !trace.IsAlreadyExists(err) {
 			return trace.Wrap(err)
 		}
 	}
@@ -296,12 +296,12 @@ func (s *site) configurePackages(ctx *operationContext, req ops.ConfigurePackage
 	}
 
 	_, err = s.configureSiteExportPackage(ctx)
-	if err != nil {
+	if err != nil && !trace.IsAlreadyExists(err) {
 		return trace.Wrap(err)
 	}
 
 	_, err = s.configureLicensePackage(ctx)
-	if err != nil {
+	if err != nil && !trace.IsAlreadyExists(err) {
 		return trace.Wrap(err)
 	}
 
@@ -373,12 +373,13 @@ func (s *site) configurePackages(ctx *operationContext, req ops.ConfigurePackage
 			env:           req.Env,
 			config:        clusterConfig,
 		}
-		err = s.configurePlanetMaster(config, secretsPackage, configPackage)
-		if err != nil {
+		err = s.configurePlanetMaster(config, configPackage)
+		if err != nil && !trace.IsAlreadyExists(err) {
 			return trace.Wrap(err)
 		}
 
-		if err := s.configureTeleportMaster(ctx, master); err != nil {
+		err = s.configureTeleportMaster(ctx, master)
+		if err != nil && !trace.IsAlreadyExists(err) {
 			return trace.Wrap(err)
 		}
 
@@ -387,13 +388,14 @@ func (s *site) configurePackages(ctx *operationContext, req ops.ConfigurePackage
 		// isn't running.
 		err = s.configureTeleportNode(ctx, append([]string{constants.Localhost}, p.MasterIPs()...),
 			master)
-		if err != nil {
+		if err != nil && !trace.IsAlreadyExists(err) {
 			return trace.Wrap(err)
 		}
 	}
 
 	for _, node := range p.Nodes() {
-		if err := s.configureTeleportNode(ctx, p.MasterIPs(), node); err != nil {
+		err := s.configureTeleportNode(ctx, p.MasterIPs(), node)
+		if err != nil && !trace.IsAlreadyExists(err) {
 			return trace.Wrap(err)
 		}
 
@@ -430,7 +432,7 @@ func (s *site) configurePackages(ctx *operationContext, req ops.ConfigurePackage
 			config:        clusterConfig,
 		}
 
-		err = s.configurePlanetNode(config, secretsPackage, configPackage)
+		err = s.configurePlanetNode(config, configPackage)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -838,14 +840,10 @@ type masterConfig struct {
 	addr string
 }
 
-func (s *site) configurePlanetMaster(
-	config planetConfig,
-	secretsPackage, configPackage loc.Locator,
-) error {
+func (s *site) configurePlanetMaster(config planetConfig, configPackage loc.Locator) error {
 	if server := config.installExpand.InstallExpand.Servers.FindByIP(config.server.AdvertiseIP); server != nil {
 		config.dockerRuntime = server.Docker
 	}
-
 	err := s.configurePlanetServer(config)
 	if err != nil {
 		return trace.Wrap(err)
@@ -853,14 +851,10 @@ func (s *site) configurePlanetMaster(
 	return nil
 }
 
-func (s *site) configurePlanetNode(
-	config planetConfig,
-	secretsPackage, configPackage loc.Locator,
-) error {
+func (s *site) configurePlanetNode(config planetConfig, configPackage loc.Locator) error {
 	if server := config.installExpand.InstallExpand.Servers.FindByIP(config.server.AdvertiseIP); server != nil {
 		config.dockerRuntime = server.Docker
 	}
-
 	err := s.configurePlanetServer(config)
 	if err != nil {
 		return trace.Wrap(err)
@@ -1039,7 +1033,10 @@ func (s *site) configurePlanetServer(config planetConfig) error {
 		return trace.Wrap(err)
 	}
 	_, err = s.packages().CreatePackage(resp.Locator, resp.Reader, pack.WithLabels(resp.Labels))
-	return trace.Wrap(err)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
 }
 
 type planetConfig struct {
@@ -1149,7 +1146,7 @@ func (s *site) configureTeleportMaster(ctx *operationContext, master *Provisione
 		return trace.Wrap(err)
 	}
 	_, err = s.packages().CreatePackage(resp.Locator, resp.Reader, pack.WithLabels(resp.Labels))
-	if err != nil && !trace.IsAlreadyExists(err) {
+	if err != nil {
 		return trace.Wrap(err)
 	}
 	return nil
@@ -1263,7 +1260,7 @@ func (s *site) configureTeleportNode(ctx *operationContext, masterIPs []string, 
 		return trace.Wrap(err)
 	}
 	_, err = s.packages().CreatePackage(resp.Locator, resp.Reader, pack.WithLabels(resp.Labels))
-	if err != nil && !trace.IsAlreadyExists(err) {
+	if err != nil {
 		return trace.Wrap(err)
 	}
 	return nil
@@ -1329,7 +1326,6 @@ func (s *site) configureLicensePackage(ctx *operationContext) (*loc.Locator, err
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-
 	return licensePackage, nil
 }
 
