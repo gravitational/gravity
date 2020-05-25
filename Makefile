@@ -67,6 +67,15 @@ DEV_PLANET ?=
 OS := $(shell uname | tr '[:upper:]' '[:lower:]')
 ARCH := $(shell uname -m)
 
+# Image Vulnerability Scanning
+# The following variables are used to copy all docker images from a cluster image to a docker repository 
+# that is able to scan and report on those images
+TELE_COPY_TO_REGISTRY ?= quay.io/gravitational
+TELE_COPY_TO_REPOSITORY ?= gravitational/gravity-scan
+TELE_COPY_TO_PREFIX ?= $(GRAVITY_VERSION)
+TELE_COPY_TO_USER ?=
+TELE_COPY_TO_PASS ?=
+
 CURRENT_COMMIT := $(shell git rev-parse HEAD)
 VERSION_FLAGS := -X github.com/gravitational/gravity/vendor/github.com/gravitational/version.gitCommit=$(CURRENT_COMMIT) \
 	-X github.com/gravitational/gravity/vendor/github.com/gravitational/version.version=$(GRAVITY_VERSION) \
@@ -322,7 +331,7 @@ bandwagon-app: dev
 # publish dependencies (planet and teleport) to Amazon S3
 #
 .PHONY: publish
-publish:
+publish: scan-artifacts
 	$(MAKE) -C build.assets publish
 
 #
@@ -491,6 +500,19 @@ publish-artifacts: opscenter telekube
 	$(GRAVITY_BUILDDIR)/tele login -o $(DISTRIBUTION_OPSCENTER) --token=$(TELE_KEY)
 	$(GRAVITY_BUILDDIR)/tele push $(GRAVITY_BUILDDIR)/telekube.tar
 	$(GRAVITY_BUILDDIR)/tele push $(GRAVITY_BUILDDIR)/opscenter.tar
+
+#
+# scan-artifacts uploads a copy of all vendored containers to a docker registry for scanning and vulnerability reporting
+#
+.PHONY: scan-artifacts
+scan-artifacts:
+	$(GRAVITY) app sync \
+		--registry=$(TELE_COPY_TO_REGISTRY) \
+		--registry-username=$(TELE_COPY_TO_USER) \
+		--registry-password=$(TELE_COPY_TO_PASS) \
+		--scan-repository=$(TELE_COPY_TO_REPOSITORY) \
+		--scan-prefix=$(TELE_COPY_TO_PREFIX) \
+		$(GRAVITY_BUILDDIR)/telekube.tar
 
 #
 # builds telekube installer
