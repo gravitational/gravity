@@ -17,9 +17,10 @@ limitations under the License.
 package docker
 
 import (
+	"context"
+
 	"github.com/gravitational/gravity/lib/utils"
 
-	"github.com/docker/distribution/context"
 	dockerapi "github.com/fsouza/go-dockerclient"
 )
 

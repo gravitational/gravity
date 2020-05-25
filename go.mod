@@ -33,8 +33,9 @@ require (
 	github.com/coreos/prometheus-operator v0.29.0 // indirect
 	github.com/cyphar/filepath-securejoin v0.2.2 // indirect
 	github.com/davecgh/go-spew v1.1.1
-	github.com/docker/distribution v2.6.0-rc.1.0.20170726174610-edc3ab29cdff+incompatible
+	github.com/docker/distribution v2.7.1+incompatible
 	github.com/docker/docker v1.4.2-0.20190327010347-be7ac8be2ae0
+	github.com/docker/go-metrics v0.0.1 // indirect
 	github.com/docker/libtrust v0.0.0-20150526203908-9cbd2a1374f4
 	github.com/docker/spdystream v0.0.0-20181023171402-6480d4af844c // indirect
 	github.com/dustin/go-humanize v1.0.0
@@ -54,8 +55,11 @@ require (
 	github.com/gokyle/hotp v0.0.0-20160218004637-c180d57d286b
 	github.com/golang/protobuf v1.3.2
 	github.com/google/go-cmp v0.3.1 // indirect
+	github.com/google/gops v0.3.8 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/gorilla/handlers v0.0.0-20151124211609-e96366d97736 // indirect
+	github.com/gosimple/slug v1.9.0 // indirect
+	github.com/gravitational/bandwagon v0.0.0-20200215230242-8a67c7595376 // indirect
 	github.com/gravitational/configure v0.0.0-20191213111049-fce91dea0d0d
 	github.com/gravitational/coordinate v0.0.0-20180225144834-2bc9a83f6fe2
 	github.com/gravitational/form v0.0.0-20151109031454-c4048f792f70

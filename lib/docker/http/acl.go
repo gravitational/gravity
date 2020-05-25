@@ -17,12 +17,13 @@ limitations under the License.
 package http
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
 	"github.com/gravitational/gravity/lib/users"
 
-	"github.com/docker/distribution/context"
+	dcontext "github.com/docker/distribution/context"
 	"github.com/docker/distribution/registry/auth"
 
 	"github.com/gravitational/trace"
@@ -78,11 +79,11 @@ func (acl *registryACL) Authorized(ctx context.Context, access ...auth.Access) (
 			return nil, trace.AccessDenied("pushing images directly is not supported")
 		}
 	}
-	r, err := context.GetRequest(ctx)
+	r, err := dcontext.GetRequest(ctx)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	w, err := context.GetResponseWriter(ctx)
+	w, err := dcontext.GetResponseWriter(ctx)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -113,7 +114,7 @@ var _ auth.Challenge = challenge{}
 
 // SetHeaders prepares the request to conduct a challenge response by adding
 // an HTTP challenge header on the response message.
-func (ch challenge) SetHeaders(w http.ResponseWriter) {
+func (ch challenge) SetHeaders(r *http.Request, w http.ResponseWriter) {
 	w.Header().Set("WWW-Authenticate", fmt.Sprintf("Basic realm=%q", ch.realm))
 }
 
