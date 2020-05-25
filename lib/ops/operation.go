@@ -87,8 +87,11 @@ func DescribeOperation(o storage.Operation) string {
 		return fmt.Sprintf("%v-node install",
 			len(o.GetInstall().Nodes))
 	case OperationExpand:
-		return fmt.Sprintf("Join node %s as %v",
-			o.GetExpand().Node, o.GetExpand().Node.Role)
+		if o.GetExpand().Node.IP != "" {
+			return fmt.Sprintf("Join node %s as %v",
+				o.GetExpand().Node, o.GetExpand().Node.Role)
+		}
+		return "Join node"
 	case OperationShrink:
 		return fmt.Sprintf("Remove node %s",
 			o.GetShrink().Node)

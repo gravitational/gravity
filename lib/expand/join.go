@@ -1022,6 +1022,10 @@ func (p *Peer) createShrinkOperation(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	if len(operation.Servers) == 0 {
+		p.WithField("operation", operation.String()).Warn("Failed to create shrink for invalid operation.")
+		return nil
+	}
 	_, err = opCtx.Operator.CreateSiteShrinkOperation(ctx,
 		ops.CreateSiteShrinkOperationRequest{
 			AccountID:  opCtx.Cluster.AccountID,
