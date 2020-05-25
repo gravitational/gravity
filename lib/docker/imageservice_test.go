@@ -85,11 +85,12 @@ func (r *ImageServiceSuite) TestListsRepos(c *C) {
 
 func (r *ImageServiceSuite) TestMergingScopeActions(c *C) {
 	cases := []struct {
+		comment  string
 		scopes   []registryauth.RepositoryScope
 		expected []registryauth.RepositoryScope
 	}{
 		{
-			// merging multiple actions into the same scope
+			comment: "merging multiple actions into the same scope",
 			scopes: []registryauth.RepositoryScope{
 				{
 					Repository: "a",
@@ -110,8 +111,8 @@ func (r *ImageServiceSuite) TestMergingScopeActions(c *C) {
 				},
 			},
 		},
-		// more that one scope added to the list without merging
 		{
+			comment: "more that one scope added to the list without merging",
 			scopes: []registryauth.RepositoryScope{
 				{
 					Repository: "a",
@@ -137,8 +138,8 @@ func (r *ImageServiceSuite) TestMergingScopeActions(c *C) {
 				},
 			},
 		},
-		// adding the same scope more than once should only include it once
 		{
+			comment: "adding the same scope more than once should only include it once",
 			scopes: []registryauth.RepositoryScope{
 				{
 					Repository: "a",
@@ -167,7 +168,7 @@ func (r *ImageServiceSuite) TestMergingScopeActions(c *C) {
 			th.AddScope(scope)
 		}
 
-		c.Assert(th.scopes, DeepEquals, tt.expected)
+		c.Assert(th.scopes, DeepEquals, tt.expected, Commentf(tt.comment))
 	}
 }
 

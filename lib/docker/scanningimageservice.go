@@ -28,8 +28,12 @@ import (
 // ScanConfig represents configuration used to push images to a docker repository configured for scanning those
 // images for vulnerabilities or other problems
 type ScanConfig struct {
+	// Remote Repository is the docker repository to use to scan the images.
+	// Example: gravitational/gravity-scan
 	RemoteRepository string
-	TagPrefix        string
+	// TagPrefix is a string to prepend to each images tag, in order to help identify the source of the image.
+	// Example: 7.0.0 for a release of gravity 7.0.0
+	TagPrefix string
 }
 
 // NewScanningImageService creates an image service that rewrites image paths to a

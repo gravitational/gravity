@@ -449,7 +449,7 @@ func ConnectRegistry(ctx context.Context, req RegistryConnectionRequest) (*remot
 	}
 
 	return &remoteStore{
-		FieldLogger:  log.WithField("registry_addr", registryAddr),
+		FieldLogger:  log.WithField("registry-addr", registryAddr),
 		addr:         registryAddr,
 		transport:    transport,
 		registry:     registry,
