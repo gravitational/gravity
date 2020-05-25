@@ -18,6 +18,7 @@ package cli
 
 import (
 	"context"
+	"fmt"
 	"sort"
 	"strings"
 	"time"
@@ -79,30 +80,35 @@ func resumeOperation(localEnv *localenv.LocalEnvironment, environ LocalEnvironme
 	if !trace.IsNotFound(err) {
 		return trace.Wrap(err)
 	}
+	if opErr, ok := trace.Unwrap(err).(operationNotFound); ok {
+		if opErr.existing {
+			return trace.Wrap(opErr)
+		}
+	}
 	log.WithError(err).Warn("No operation found - will attempt to restart installation (resume join).")
 	return trace.Wrap(restartInstallOrJoin(localEnv))
 }
 
 // executePhase executes a phase for the operation specified with params
 func executePhase(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params PhaseParams) error {
-	op, err := getActiveOperation(localEnv, environ, params.OperationID)
+	operation, err := getActiveOperation(localEnv, environ, params.OperationID)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
+	op := operation.SiteOperation
 	switch op.Type {
 	case ops.OperationInstall:
-		return executeInstallPhase(localEnv, params, op)
+		return executeInstallPhaseForOperation(localEnv, params, op)
 	case ops.OperationExpand:
-		return executeJoinPhase(localEnv, params, op)
+		return executeJoinPhaseForOperation(localEnv, params, op)
 	case ops.OperationUpdate:
-		return executeUpdatePhase(localEnv, environ, params, *op)
+		return executeUpdatePhaseForOperation(localEnv, environ, params, op)
 	case ops.OperationUpdateRuntimeEnviron:
-		return executeEnvironPhase(localEnv, environ, params, *op)
+		return executeEnvironPhaseForOperation(localEnv, environ, params, op)
 	case ops.OperationUpdateConfig:
-		return executeConfigPhase(localEnv, environ, params, *op)
+		return executeConfigPhaseForOperation(localEnv, environ, params, op)
 	case ops.OperationGarbageCollect:
-		return executeGarbageCollectPhase(localEnv, params, op)
+		return executeGarbageCollectPhaseForOperation(localEnv, params, op)
 	default:
 		return trace.BadParameter("operation type %q does not support plan execution", op.Type)
 	}
@@ -110,21 +116,22 @@ func executePhase(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentF
 
 // setPhase sets the specified phase state without executing it.
 func setPhase(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params SetPhaseParams) error {
-	op, err := getActiveOperation(env, environ, params.OperationID)
+	operation, err := getActiveOperation(env, environ, params.OperationID)
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	op := operation.SiteOperation
 	switch op.Type {
 	case ops.OperationInstall, ops.OperationExpand:
 		err = setPhaseFromService(env, params, op)
 	case ops.OperationUpdate:
-		err = setUpdatePhase(env, environ, params, *op)
+		err = setUpdatePhaseForOperation(env, environ, params, op)
 	case ops.OperationUpdateRuntimeEnviron:
-		err = setEnvironPhase(env, environ, params, *op)
+		err = setEnvironPhaseForOperation(env, environ, params, op)
 	case ops.OperationUpdateConfig:
-		err = setConfigPhase(env, environ, params, *op)
+		err = setConfigPhaseForOperation(env, environ, params, op)
 	case ops.OperationGarbageCollect:
-		err = setGarbageCollectPhase(env, params, op)
+		err = setGarbageCollectPhaseForOperation(env, params, op)
 	default:
 		return trace.BadParameter("operation type %q does not support setting phase state", op.Type)
 	}
@@ -137,47 +144,50 @@ func setPhase(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, p
 
 // rollbackPhase rolls back a phase for the operation specified with params
 func rollbackPhase(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params PhaseParams) error {
-	op, err := getActiveOperation(localEnv, environ, params.OperationID)
+	operation, err := getActiveOperation(localEnv, environ, params.OperationID)
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	op := operation.SiteOperation
 	switch op.Type {
 	case ops.OperationInstall:
-		return rollbackInstallPhase(localEnv, params, op)
+		return rollbackInstallPhaseForOperation(localEnv, params, op)
 	case ops.OperationExpand:
-		return rollbackJoinPhase(localEnv, params, op)
+		return rollbackJoinPhaseForOperation(localEnv, params, op)
 	case ops.OperationUpdate:
-		return rollbackUpdatePhase(localEnv, environ, params, *op)
+		return rollbackUpdatePhaseForOperation(localEnv, environ, params, op)
 	case ops.OperationUpdateRuntimeEnviron:
-		return rollbackEnvironPhase(localEnv, environ, params, *op)
+		return rollbackEnvironPhaseForOperation(localEnv, environ, params, op)
 	case ops.OperationUpdateConfig:
-		return rollbackConfigPhase(localEnv, environ, params, *op)
+		return rollbackConfigPhaseForOperation(localEnv, environ, params, op)
 	default:
 		return trace.BadParameter("operation type %q does not support plan rollback", op.Type)
 	}
 }
 
 func completeOperationPlan(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operationID string) error {
-	op, err := getActiveOperation(localEnv, environ, operationID)
+	operation, err := getActiveOperation(localEnv, environ, operationID)
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	op := operation.SiteOperation
 	switch op.Type {
 	case ops.OperationInstall:
-		err = completeInstallPlan(localEnv, op)
+		err = completeInstallPlanForOperation(localEnv, op)
 	case ops.OperationExpand:
-		err = completeJoinPlan(localEnv, op)
+		err = completeJoinPlanForOperation(localEnv, op)
 	case ops.OperationUpdate:
-		err = completeUpdatePlan(localEnv, environ, *op)
+		err = completeUpdatePlanForOperation(localEnv, environ, op)
 	case ops.OperationUpdateRuntimeEnviron:
-		err = completeEnvironPlan(localEnv, environ, *op)
+		err = completeEnvironPlanForOperation(localEnv, environ, op)
 	case ops.OperationUpdateConfig:
-		err = completeConfigPlan(localEnv, environ, *op)
+		err = completeConfigPlanForOperation(localEnv, environ, op)
 	default:
-		return trace.BadParameter("operation type %q does not support plan completion", op.Type)
+		return completeClusterOperationPlan(localEnv, op)
 	}
-	if trace.IsNotFound(err) {
-		return completeClusterOperationPlan(localEnv, *op)
+	if op.Type != ops.OperationInstall && trace.IsNotFound(err) {
+		log.WithError(err).Warn("Failed to complete operation from service.")
+		return completeClusterOperationPlan(localEnv, op)
 	}
 	return trace.Wrap(err)
 }
@@ -188,66 +198,48 @@ func completeClusterOperationPlan(localEnv *localenv.LocalEnvironment, operation
 		return trace.Wrap(err)
 	}
 	plan, err := fsm.GetOperationPlan(clusterEnv.Backend, operation.Key())
-	if err != nil {
+	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
 	}
-	if fsm.IsCompleted(plan) {
-		return ops.CompleteOperation(operation.Key(), clusterEnv.Operator)
+	if err == nil && fsm.IsCompleted(plan) {
+		return ops.CompleteOperation(context.TODO(), operation.Key(), clusterEnv.Operator)
 	}
-	return ops.FailOperation(operation.Key(), clusterEnv.Operator, "completed manually")
+	return ops.FailOperation(context.TODO(), operation.Key(), clusterEnv.Operator, "completed manually")
 }
 
-func getLastOperation(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operationID string) (*ops.SiteOperation, error) {
+// getLastOperation returns the last operation found across the specified backends.
+// If no operation is found, the returned error will indicate a not found operation
+func getLastOperation(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operationID string) (*clusterOperation, error) {
 	operations, err := getBackendOperations(localEnv, environ, operationID)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	log.WithField("operations", oplist(operations).String()).Debug("Fetched backend operations.")
+	log.WithField("operations", operationList(operations).String()).Debug("Fetched backend operations.")
 	if len(operations) == 0 {
 		if operationID != "" {
-			return nil, trace.NotFound("no operation with ID %v found", operationID)
+			return nil, newOperationNotFound("no operation with ID %v found", operationID)
 		}
-		return nil, trace.NotFound("no operation found")
-	}
-	if len(operations) == 1 && operationID != "" {
-		log.WithField("operation", operations[0]).Debug("Fetched operation by ID.")
-		return &operations[0], nil
-	}
-	if len(operations) != 1 {
-		log.Infof("Multiple operations found: \n%v\n, please specify operation with --operation-id.\n"+
-			"Displaying the most recent operation.",
-			oplist(operations))
+		return nil, newOperationNotFound("no operation found")
 	}
 	return &operations[0], nil
 }
 
-func getActiveOperation(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operationID string) (*ops.SiteOperation, error) {
-	operations, err := getBackendOperations(localEnv, environ, operationID)
+func getActiveOperation(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operationID string) (*clusterOperation, error) {
+	operation, err := getLastOperation(localEnv, environ, operationID)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	log.WithField("operations", oplist(operations).String()).Debug("Fetched backend operations.")
-	if len(operations) == 0 {
-		if operationID != "" {
-			return nil, trace.NotFound("no operation with ID %v found", operationID)
-		}
-		return nil, trace.NotFound("no operation found")
+	if operation.IsCompleted() {
+		return nil, operationNotFound{message: "no active operation found", existing: true}
 	}
-	op, err := getActiveOperationFromList(operations)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return op, nil
+	return operation, nil
 }
 
 // getBackendOperations returns the list of operation from the specified backends
 // in descending order (sorted by creation time)
-func getBackendOperations(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operationID string) (result []ops.SiteOperation, err error) {
+func getBackendOperations(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operationID string) (result []clusterOperation, err error) {
 	b := newBackendOperations()
-	err = b.List(localEnv, environ)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
+	b.List(localEnv, environ)
 	for _, op := range b.operations {
 		if operationID == "" || operationID == op.ID {
 			result = append(result, op)
@@ -261,11 +253,11 @@ func getBackendOperations(localEnv *localenv.LocalEnvironment, environ LocalEnvi
 
 func newBackendOperations() backendOperations {
 	return backendOperations{
-		operations: make(map[string]ops.SiteOperation),
+		operations: make(map[string]clusterOperation),
 	}
 }
 
-func (r *backendOperations) List(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory) error {
+func (r *backendOperations) List(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory) {
 	clusterEnv, err := localEnv.NewClusterEnvironment(localenv.WithEtcdTimeout(1 * time.Second))
 	if err != nil {
 		log.WithError(err).Debug("Failed to create cluster environment.")
@@ -276,6 +268,11 @@ func (r *backendOperations) List(localEnv *localenv.LocalEnvironment, environ Lo
 			log.WithError(err).Debug("Failed to query cluster operations.")
 		}
 	}
+	if environ == nil {
+		return
+	}
+	// List operation from a local state store.
+	// This is required in cases when the cluster store is inaccessible (like during upgrades)
 	if err := r.listUpdateOperation(environ); err != nil && !trace.IsNotFound(err) {
 		log.WithError(err).Warn("Failed to list update operation.")
 	}
@@ -286,10 +283,9 @@ func (r *backendOperations) List(localEnv *localenv.LocalEnvironment, environ Lo
 	// or we failed to fetch the operation details from the cluster
 	if r.isActiveInstallOperation() {
 		if err := r.listInstallOperation(); err != nil {
-			return trace.Wrap(err)
+			log.WithError(err).Warn("Failed to list install operation.")
 		}
 	}
-	return nil
 }
 
 func (r *backendOperations) init(clusterBackend storage.Backend) error {
@@ -302,22 +298,17 @@ func (r *backendOperations) init(clusterBackend storage.Backend) error {
 	}
 	// Initialize the operation state from the list of existing cluster operations
 	for _, op := range clusterOperations {
-		r.operations[op.ID] = (ops.SiteOperation)(op)
+		clusterOperation := clusterOperation{
+			SiteOperation: (ops.SiteOperation)(op),
+		}
+		if _, err := clusterBackend.GetOperationPlan(op.SiteDomain, op.ID); err == nil {
+			clusterOperation.hasPlan = true
+		}
+		r.operations[op.ID] = clusterOperation
 	}
-	r.clusterOperation = (*ops.SiteOperation)(&clusterOperations[0])
-	r.operations[r.clusterOperation.ID] = *r.clusterOperation
+	latestOperation := r.operations[clusterOperations[0].ID]
+	r.clusterOperation = &latestOperation
 	return nil
-}
-
-func (r *backendOperations) getOperationAndUpdateCache(getter operationGetter, logger logrus.FieldLogger) *ops.SiteOperation {
-	op, err := getter.getOperation()
-	if err == nil {
-		// Operation from the backend takes precedence over the existing operation (from cluster state)
-		r.operations[op.ID] = (ops.SiteOperation)(*op)
-	} else {
-		logger.WithError(err).Warn("Failed to query operation.")
-	}
-	return (*ops.SiteOperation)(op)
 }
 
 func (r *backendOperations) listUpdateOperation(environ LocalEnvironmentFactory) error {
@@ -326,7 +317,7 @@ func (r *backendOperations) listUpdateOperation(environ LocalEnvironmentFactory)
 		return trace.Wrap(err)
 	}
 	defer env.Close()
-	r.getOperationAndUpdateCache(getOperationFromBackend(env.Backend),
+	r.updateOperationInCache(getOperationFromBackend(env.Backend),
 		log.WithField("context", "update"))
 	return nil
 }
@@ -343,7 +334,7 @@ func (r *backendOperations) listJoinOperation(environ LocalEnvironmentFactory) e
 		return nil
 	}
 	defer env.Close()
-	r.getOperationAndUpdateCache(getOperationFromBackend(env.Backend),
+	r.updateOperationInCache(getOperationFromBackend(env.Backend),
 		log.WithField("context", "expand"))
 	return nil
 }
@@ -357,7 +348,7 @@ func (r *backendOperations) listInstallOperation() error {
 		cluster, err := getLocalClusterFromOperator(wizardEnv.Operator)
 		if err == nil {
 			log.Info("Fetching operation from wizard.")
-			r.getOperationAndUpdateCache(getOperationFromOperator(wizardEnv.Operator, cluster.Key()),
+			r.updateOperationInCache(getOperationFromOperator(wizardEnv.Operator, cluster.Key()),
 				log.WithField("context", "install"))
 			return nil
 		}
@@ -368,6 +359,24 @@ func (r *backendOperations) listInstallOperation() error {
 		log.WithError(err).Warn("Failed to connect to wizard.")
 	}
 	return trace.NotFound("no operation found")
+}
+
+func (r *backendOperations) updateOperationInCache(getter operationGetter, logger logrus.FieldLogger) {
+	op, err := getter.getLastOperation()
+	if err != nil {
+		if !trace.IsNotFound(err) {
+			logger.WithError(err).Warn("Failed to query operation.")
+		}
+		return
+	}
+	clusterOperation := clusterOperation{
+		SiteOperation: (ops.SiteOperation)(*op),
+	}
+	if _, err := getter.getOperationPlan(op.Key()); err == nil {
+		clusterOperation.hasPlan = true
+	}
+	// Operation from the backend takes precedence over the existing operation (from cluster state)
+	r.operations[op.ID] = clusterOperation
 }
 
 func (r backendOperations) isActiveInstallOperation() bool {
@@ -387,24 +396,26 @@ func (r backendOperations) isActiveInstallOperation() bool {
 }
 
 type backendOperations struct {
-	operations       map[string]ops.SiteOperation
-	clusterOperation *ops.SiteOperation
+	// operations lists currently detected operations.
+	// Operations are queried over a variety of backends due to disparity of state storage
+	// locations (including cluster state store).
+	// Operations found outside the cluster state store (etcd) are considered to be
+	// more up-to-date and take precedence.
+	operations map[string]clusterOperation
+	// clusterOperation stores the first operation found in cluster state store (if any)
+	clusterOperation *clusterOperation
 }
 
-func getActiveOperationFromList(operations []ops.SiteOperation) (*ops.SiteOperation, error) {
-	for _, op := range operations {
-		if !op.IsCompleted() {
-			return &op, nil
-		}
+func isInvalidOperation(op clusterOperation) bool {
+	switch op.Type {
+	case ops.OperationShrink:
+		return false
+	default:
+		return !op.hasPlan
 	}
-	return nil, trace.NotFound("no active operations found")
 }
 
-func isActiveOperation(op ops.SiteOperation) bool {
-	return op.IsFailed() || !op.IsCompleted()
-}
-
-func (r oplist) String() string {
+func (r operationList) String() string {
 	var ops []string
 	for _, op := range r {
 		ops = append(ops, op.String())
@@ -412,62 +423,70 @@ func (r oplist) String() string {
 	return strings.Join(ops, "\n")
 }
 
-type oplist []ops.SiteOperation
+type operationList []clusterOperation
+
+type clusterOperation struct {
+	ops.SiteOperation
+	hasPlan bool
+}
 
 func getOperationFromOperator(operator ops.Operator, clusterKey ops.SiteKey) operationGetter {
-	return operationGetterFunc(func() (*ops.SiteOperation, error) {
-		op, _, err := ops.GetLastOperation(clusterKey, operator)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-		return op, nil
-	})
+	return operatorGetter{
+		operator:   operator,
+		clusterKey: clusterKey,
+	}
 }
 
-func getOperationFromBackend(backend storage.Backend) operationGetter {
-	return operationGetterFunc(func() (*ops.SiteOperation, error) {
-		op, err := storage.GetLastOperation(backend)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-		return (*ops.SiteOperation)(op), nil
-	})
-}
-
-func getOperationFromWizardBackend(backend storage.Backend) operationGetter {
-	return operationGetterFunc(func() (*ops.SiteOperation, error) {
-		cluster, err := getLocalClusterFromBackend(backend)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-		op, err := storage.GetLastOperationForCluster(backend, cluster.Domain)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-		return (*ops.SiteOperation)(op), nil
-	})
-}
-
-func getLocalClusterFromBackend(backend storage.Backend) (cluster *storage.Site, err error) {
-	// TODO(dmitri): when cluster is created by the wizard, it is not local
-	// so resort to look up
-	clusters, err := backend.GetSites(defaults.SystemAccountID)
+func (r operatorGetter) getLastOperation() (*ops.SiteOperation, error) {
+	op, _, err := ops.GetLastOperation(r.clusterKey, r.operator)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	log.WithField("clusters", clusters).Info("Fetched clusters from wizard backend.")
-	if len(clusters) == 0 {
-		return nil, trace.NotFound("no clusters found")
+	return op, nil
+}
+
+func (r operatorGetter) getOperationPlan(key ops.SiteOperationKey) (*storage.OperationPlan, error) {
+	plan, err := r.operator.GetOperationPlan(key)
+	if err != nil {
+		return nil, trace.Wrap(err)
 	}
-	if len(clusters) != 1 {
-		return nil, trace.BadParameter("expected a single cluster, but found %v", len(clusters))
+	return plan, nil
+}
+
+type operatorGetter struct {
+	operator   ops.Operator
+	clusterKey ops.SiteKey
+}
+
+func getOperationFromBackend(backend storage.Backend) operationGetter {
+	return backendGetter{
+		backend: backend,
 	}
-	return &clusters[0], nil
+}
+
+func (r backendGetter) getLastOperation() (*ops.SiteOperation, error) {
+	op, err := storage.GetLastOperation(r.backend)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return (*ops.SiteOperation)(op), nil
+}
+
+func (r backendGetter) getOperationPlan(key ops.SiteOperationKey) (*storage.OperationPlan, error) {
+	plan, err := r.backend.GetOperationPlan(key.SiteDomain, key.OperationID)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return plan, nil
+}
+
+type backendGetter struct {
+	backend storage.Backend
 }
 
 func getLocalClusterFromOperator(operator ops.Operator) (cluster *ops.Site, err error) {
 	// TODO(dmitri): when cluster is created by the wizard, it is not local
-	// so resort to look up
+	// so resort to looking it up
 	clusters, err := operator.GetSites(defaults.SystemAccountID)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -482,14 +501,9 @@ func getLocalClusterFromOperator(operator ops.Operator) (cluster *ops.Site, err 
 	return &clusters[0], nil
 }
 
-func (r operationGetterFunc) getOperation() (*ops.SiteOperation, error) {
-	return r()
-}
-
-type operationGetterFunc func() (*ops.SiteOperation, error)
-
 type operationGetter interface {
-	getOperation() (*ops.SiteOperation, error)
+	getLastOperation() (*ops.SiteOperation, error)
+	getOperationPlan(key ops.SiteOperationKey) (*storage.OperationPlan, error)
 }
 
 func ensureInstallerServiceRunning() error {
@@ -505,4 +519,31 @@ func ensureInstallerServiceRunning() error {
 		return trace.Wrap(err)
 	}
 	return nil
+}
+
+func newOperationNotFound(format string, args ...interface{}) operationNotFound {
+	return operationNotFound{
+		message: fmt.Sprintf(format, args...),
+	}
+}
+
+// Error returns the text representation of this error.
+// Implement error
+func (r operationNotFound) Error() string {
+	if r.message != "" {
+		return r.message
+	}
+	return "no operation found"
+}
+
+// IsNotFoundError indicates that this is a not found error type.
+// Implements trace.IsNotFoundError
+func (r operationNotFound) IsNotFoundError() bool {
+	return true
+}
+
+type operationNotFound struct {
+	message string
+	// existing indicates whether an operation exists but is not active
+	existing bool
 }

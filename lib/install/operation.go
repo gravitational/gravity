@@ -43,12 +43,17 @@ func (i *Installer) NotifyOperationAvailable(op ops.SiteOperation) error {
 		return trace.Wrap(err)
 	}
 	i.registerExitHandlersForAgents(op)
-	go ProgressPoller{
-		FieldLogger:  i.FieldLogger,
-		Operator:     i.config.Operator,
-		OperationKey: op.Key(),
-		Dispatcher:   i.dispatcher,
-	}.Run(i.ctx)
+	go func() {
+		err := ProgressPoller{
+			FieldLogger:  i.FieldLogger,
+			Operator:     i.config.Operator,
+			OperationKey: op.Key(),
+			Dispatcher:   i.dispatcher,
+		}.Run(i.ctx)
+		if err != nil {
+			i.Warnf("Failed in progress poller: %v.", err)
+		}
+	}()
 
 	return nil
 }
@@ -62,7 +67,7 @@ func (i *Installer) NewCluster() ops.NewSiteRequest {
 // ExecuteOperation executes the specified operation to completion.
 // Implements Interface
 func (i *Installer) ExecuteOperation(operationKey ops.SiteOperationKey) error {
-	err := initOperationPlan(i.config.Operator, i.config.Planner)
+	err := i.initOperationPlan(operationKey)
 	if err != nil && !trace.IsAlreadyExists(err) {
 		return trace.Wrap(err)
 	}
@@ -77,7 +82,7 @@ func (i *Installer) ExecuteOperation(operationKey ops.SiteOperationKey) error {
 	if err != nil {
 		i.WithError(err).Warn("Failed to execute operation plan.")
 	}
-	if completeErr := machine.Complete(err); completeErr != nil {
+	if completeErr := machine.Complete(i.ctx, err); completeErr != nil {
 		i.WithError(completeErr).Warn("Failed to complete operation.")
 		if err == nil {
 			err = completeErr
@@ -134,7 +139,9 @@ func (i *Installer) PrintStep(format string, args ...interface{}) {
 // wait blocks until either the context has been cancelled or the wizard process
 // exits with an error.
 func (i *Installer) wait() error {
-	i.runStoppers(i.ctx, i.completers)
+	if err := i.runStoppers(i.ctx, i.completers); err != nil {
+		i.WithError(err).Warn("Stoppers failed to run.")
+	}
 	return trace.Wrap(i.config.Process.Wait())
 }
 
@@ -156,7 +163,8 @@ func (i *Installer) registerExitHandlersForAgents(op ops.SiteOperation) {
 func (i *Installer) sendElapsedTime(timeStarted time.Time) {
 	event := dispatcher.Event{
 		Progress: &ops.ProgressEntry{
-			Message: color.GreenString("Installation succeeded in %v", time.Since(timeStarted)),
+			Message: color.GreenString("The operation has finished successfully in %v",
+				time.Since(timeStarted).Truncate(time.Second)),
 		},
 	}
 	i.dispatcher.Send(event)
@@ -249,7 +257,7 @@ func (i *Installer) emitAuditEvents(ctx context.Context, operation ops.SiteOpera
 	return nil
 }
 
-func (i *Installer) generateDebugReport(clusterKey ops.SiteKey, path string) error {
+func (i *Installer) generateDebugReport(ctx context.Context, clusterKey ops.SiteKey, path string) error {
 	f, err := os.Create(path)
 	if err != nil {
 		return trace.ConvertSystemError(err)
@@ -260,7 +268,7 @@ func (i *Installer) generateDebugReport(clusterKey ops.SiteKey, path string) err
 			os.Remove(f.Name())
 		}
 	}()
-	rc, err := i.config.Operator.GetSiteReport(clusterKey)
+	rc, err := i.config.Operator.GetSiteReport(ctx, clusterKey)
 	if err != nil {
 		return trace.ConvertSystemError(err)
 	}

@@ -19,6 +19,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -28,7 +29,6 @@ import (
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/install"
 	"github.com/gravitational/gravity/lib/localenv"
-	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack/webpack"
 	"github.com/gravitational/gravity/lib/processconfig"
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
@@ -152,45 +152,6 @@ func (g *Application) getEnvWithArgs(args localenv.LocalEnvironmentArgs) (*local
 	return localenv.NewLocalEnvironment(args)
 }
 
-// isUpdateCommand returns true if the specified command is
-// an upgrade related command
-func (g *Application) isUpdateCommand(cmd string) bool {
-	switch cmd {
-	case g.PlanCmd.FullCommand(),
-		g.PlanDisplayCmd.FullCommand(),
-		g.PlanExecuteCmd.FullCommand(),
-		g.PlanRollbackCmd.FullCommand(),
-		g.PlanResumeCmd.FullCommand(),
-		g.PlanCompleteCmd.FullCommand(),
-		g.UpdatePlanInitCmd.FullCommand(),
-		g.UpdateTriggerCmd.FullCommand(),
-		g.UpgradeCmd.FullCommand():
-		return true
-	case g.RPCAgentRunCmd.FullCommand():
-		return len(*g.RPCAgentRunCmd.Args) > 0
-	case g.RPCAgentDeployCmd.FullCommand():
-		return len(*g.RPCAgentDeployCmd.LeaderArgs) > 0 ||
-			len(*g.RPCAgentDeployCmd.NodeArgs) > 0
-	}
-	return false
-}
-
-// isExpandCommand returns true if the specified command is
-// expand-related command
-func (g *Application) isExpandCommand(cmd string) bool {
-	switch cmd {
-	case g.AutoJoinCmd.FullCommand(),
-		g.PlanCmd.FullCommand(),
-		g.PlanDisplayCmd.FullCommand(),
-		g.PlanExecuteCmd.FullCommand(),
-		g.PlanRollbackCmd.FullCommand(),
-		g.PlanCompleteCmd.FullCommand(),
-		g.PlanResumeCmd.FullCommand():
-		return true
-	}
-	return false
-}
-
 // ConfigureNoProxy configures the current process to not use any configured HTTP proxy when connecting to any
 // destination by IP address, or a domain with a suffix of .local. Gravity internally connects to nodes by IP address,
 // and by queries to kubernetes using the .local suffix. The side effect is, connections towards the internet by IP
@@ -229,27 +190,9 @@ func getLocalStateDir(stateDir string) (localStateDir string, err error) {
 	return filepath.Join(stateDir, defaults.LocalDir), nil
 }
 
-// findServer searches the provided cluster's state for a server that matches one of the provided
-// tokens, where a token can be the server's advertise IP, hostname or AWS internal DNS name
-func findServer(site ops.Site, tokens []string) (*storage.Server, error) {
-	for _, server := range site.ClusterState.Servers {
-		for _, token := range tokens {
-			if token == "" {
-				continue
-			}
-			switch token {
-			case server.AdvertiseIP, server.Hostname, server.Nodename:
-				return &server, nil
-			}
-		}
-	}
-	return nil, trace.NotFound("could not find server matching %v among registered cluster nodes",
-		tokens)
-}
-
 // findLocalServer searches the provided cluster's state for the server that matches the one
 // the current command is being executed from
-func findLocalServer(site ops.Site) (*storage.Server, error) {
+func findLocalServer(servers storage.Servers) (*storage.Server, error) {
 	// collect the machines's IP addresses and search by them
 	ifaces, err := systeminfo.NetworkInterfaces()
 	if err != nil {
@@ -264,12 +207,30 @@ func findLocalServer(site ops.Site) (*storage.Server, error) {
 		ips = append(ips, iface.IPv4)
 	}
 
-	server, err := findServer(site, ips)
+	server, err := findServer(servers, ips)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
 	return server, nil
+}
+
+// findServer searches the provided cluster's state for a server that matches one of the provided
+// tokens, where a token can be the server's advertise IP, hostname or AWS internal DNS name
+func findServer(servers storage.Servers, tokens []string) (*storage.Server, error) {
+	for _, server := range servers {
+		for _, token := range tokens {
+			if token == "" {
+				continue
+			}
+			switch token {
+			case server.AdvertiseIP, server.Hostname, server.Nodename:
+				return &server, nil
+			}
+		}
+	}
+	return nil, trace.NotFound("no server matching %v found among registered cluster nodes",
+		tokens)
 }
 
 func isCancelledError(err error) bool {
@@ -312,5 +273,7 @@ func loadRPCCredentials(ctx context.Context, addr, token string) (*rpcserver.Cre
 
 func parseArgs(args []string) (*kingpin.ParseContext, error) {
 	app := kingpin.New("gravity", "")
+	app.Terminate(func(int) {})
+	app.Writer(ioutil.Discard)
 	return RegisterCommands(app).ParseContext(args)
 }

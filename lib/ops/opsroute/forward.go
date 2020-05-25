@@ -328,12 +328,12 @@ func (r *Router) CreateSiteAppUpdateOperation(ctx context.Context, req ops.Creat
 	return client.CreateSiteAppUpdateOperation(ctx, req)
 }
 
-func (r *Router) GetSiteInstallOperationAgentReport(key ops.SiteOperationKey) (*ops.AgentReport, error) {
+func (r *Router) GetSiteInstallOperationAgentReport(ctx context.Context, key ops.SiteOperationKey) (*ops.AgentReport, error) {
 	client, err := r.WizardClient(key.SiteDomain)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return client.GetSiteInstallOperationAgentReport(key)
+	return client.GetSiteInstallOperationAgentReport(ctx, key)
 }
 
 func (r *Router) SiteInstallOperationStart(key ops.SiteOperationKey) error {
@@ -385,12 +385,12 @@ func (r *Router) StreamOperationLogs(key ops.SiteOperationKey, reader io.Reader)
 	return client.StreamOperationLogs(key, reader)
 }
 
-func (r *Router) GetSiteExpandOperationAgentReport(key ops.SiteOperationKey) (*ops.AgentReport, error) {
+func (r *Router) GetSiteExpandOperationAgentReport(ctx context.Context, key ops.SiteOperationKey) (*ops.AgentReport, error) {
 	client, err := r.PickOperationClient(key.SiteDomain)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return client.GetSiteExpandOperationAgentReport(key)
+	return client.GetSiteExpandOperationAgentReport(ctx, key)
 }
 
 func (r *Router) SiteExpandOperationStart(key ops.SiteOperationKey) error {
@@ -417,12 +417,12 @@ func (r *Router) CreateProgressEntry(key ops.SiteOperationKey, entry ops.Progres
 	return client.CreateProgressEntry(key, entry)
 }
 
-func (r *Router) GetSiteReport(key ops.SiteKey) (io.ReadCloser, error) {
+func (r *Router) GetSiteReport(ctx context.Context, key ops.SiteKey) (io.ReadCloser, error) {
 	client, err := r.PickClient(key.SiteDomain)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return client.GetSiteReport(key)
+	return client.GetSiteReport(ctx, key)
 }
 
 // ValidateServers runs pre-installation checks
@@ -472,12 +472,12 @@ func (r *Router) DeleteSiteOperation(key ops.SiteOperationKey) error {
 	return client.DeleteSiteOperation(key)
 }
 
-func (r *Router) SetOperationState(key ops.SiteOperationKey, req ops.SetOperationStateRequest) error {
+func (r *Router) SetOperationState(ctx context.Context, key ops.SiteOperationKey, req ops.SetOperationStateRequest) error {
 	client, err := r.PickOperationClient(key.SiteDomain)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return client.SetOperationState(key, req)
+	return client.SetOperationState(ctx, key, req)
 }
 
 // CreateOperationPlan saves the provided operation plan

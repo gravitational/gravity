@@ -189,21 +189,15 @@ func (f *fsmEngine) UpdateProgress(ctx context.Context, p fsm.Params) error {
 
 // Complete marks the install operation as either completed or failed based
 // on the state of the operation plan
-func (f *fsmEngine) Complete(fsmErr error) error {
+func (f *fsmEngine) Complete(ctx context.Context, fsmErr error) error {
 	plan, err := f.GetPlan()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	if fsm.IsCompleted(plan) {
-		err = ops.CompleteOperation(f.OperationKey, f.Operator)
-	} else {
-		err = ops.FailOperation(f.OperationKey, f.Operator, trace.Unwrap(fsmErr).Error())
+	if fsmErr == nil {
+		fsmErr = trace.Errorf("completed manually")
 	}
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	f.Debug("Marked operation complete.")
-	return nil
+	return fsm.CompleteOrFailOperation(ctx, plan, f.Operator, fsmErr.Error())
 }
 
 // ChangePhaseState creates an operation plan changelog entry
