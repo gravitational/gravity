@@ -17,9 +17,12 @@ limitations under the License.
 package reconfigure
 
 import (
+	"fmt"
+
 	"github.com/gravitational/gravity/lib/install"
 	installphases "github.com/gravitational/gravity/lib/install/phases"
 	"github.com/gravitational/gravity/lib/install/reconfigure/phases"
+	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/storage"
 )
 
@@ -128,14 +131,28 @@ func (b *PlanBuilder) AddPodsPhase(plan *storage.OperationPlan) {
 	})
 }
 
-// AddTeleportPhase adds phase that restarts teleport service.
-func (b *PlanBuilder) AddTeleportPhase(plan *storage.OperationPlan) {
+// AddRestartPhase adds phase that restarts Teleport and Planet units.
+func (b *PlanBuilder) AddRestartPhase(plan *storage.OperationPlan) {
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
-		ID:          phases.TeleportPhase,
-		Description: "Restart Teleport service",
-		Data: &storage.OperationPhaseData{
-			Server:  &b.Master,
-			Package: &b.TeleportPackage,
+		ID:          phases.RestartPhase,
+		Description: "Restart Gravity services",
+		Phases: []storage.OperationPhase{
+			{
+				ID:          fmt.Sprintf("%v%v", phases.RestartPhase, phases.TeleportPhase),
+				Description: "Restart Teleport",
+				Data: &storage.OperationPhaseData{
+					Server:  &b.Master,
+					Package: &loc.Teleport,
+				},
+			},
+			{
+				ID:          fmt.Sprintf("%v%v", phases.RestartPhase, phases.PlanetPhase),
+				Description: "Restart Planet",
+				Data: &storage.OperationPhaseData{
+					Server:  &b.Master,
+					Package: &loc.Planet,
+				},
+			},
 		},
 	})
 }
