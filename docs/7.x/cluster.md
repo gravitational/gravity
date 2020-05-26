@@ -386,11 +386,7 @@ upgrade procedure.
 
 ### Performing an Upgrade
 
-An upgrade can be triggered either through Cluster Control Panel or using
-command line. To trigger the upgrade from the Control Panel, select an appropriate
-version on the "Updates" tab click `Update`.
-
-To trigger the operation from the command line, copy the Cluster Image into one
+To trigger the upgrade first copy the Cluster Image into one
 of the Cluster nodes and untar it:
 
 ```bash
