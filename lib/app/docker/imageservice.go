@@ -130,6 +130,10 @@ func (r RegistryConnectionRequest) String() string {
 // NewImageService creates an image service using the supplied
 // address and certificate name to connect to the remote registry
 func NewImageService(req RegistryConnectionRequest) (ImageService, error) {
+	return newImageService(req)
+}
+
+func newImageService(req RegistryConnectionRequest) (*imageService, error) {
 	err := req.CheckAndSetDefaults()
 	if err != nil {
 		return nil, trace.Wrap(err)
