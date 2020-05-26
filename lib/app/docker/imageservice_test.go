@@ -20,6 +20,7 @@ import (
 	"io"
 
 	"github.com/docker/distribution/context"
+	registryauth "github.com/docker/distribution/registry/client/auth"
 
 	. "gopkg.in/check.v1"
 )
