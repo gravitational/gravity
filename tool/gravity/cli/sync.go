@@ -44,16 +44,42 @@ type registryConfig struct {
 	CertPath string
 	// KeyPath is a client key path for a registry.
 	KeyPath string
+	// Username is optional username for basic auth.
+	Username string
+	// Password is optional password for basic auth.
+	Password string
+	// Prefix is optional registry prefix when pushing images.
+	Prefix string
+	// Insecure indicates insecure registry.
+	Insecure bool
+	// ScanningRepository is a docker repository to push a copy of all vendored images
+	// Used internally so the registry can scan those images and report on vulnerabilities
+	ScanningRepository *string
+	// ScanningTagPrefix is a prefix to add to each tag when pushed to help identify the image from the scan results
+	ScanningTagPrefix *string
 }
 
 // imageService returns a new registry client for this config.
 func (c registryConfig) imageService() (docker.ImageService, error) {
-	return docker.NewImageService(docker.RegistryConnectionRequest{
+	req := docker.RegistryConnectionRequest{
 		RegistryAddress: c.Registry,
 		CACertPath:      c.CAPath,
 		ClientCertPath:  c.CertPath,
 		ClientKeyPath:   c.KeyPath,
-	})
+		Username:        c.Username,
+		Password:        c.Password,
+		Prefix:          c.Prefix,
+		Insecure:        c.Insecure,
+	}
+
+	if c.ScanningRepository != nil {
+		return docker.NewScanningImageService(req, docker.ScanConfig{
+			RemoteRepository: *c.ScanningRepository,
+			TagPrefix:        *c.ScanningTagPrefix,
+		})
+	}
+
+	return docker.NewImageService(req)
 }
 
 func appSync(env *localenv.LocalEnvironment, conf appSyncConfig) error {

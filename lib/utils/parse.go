@@ -101,6 +101,29 @@ func SplitHostPort(in, defaultPort string) (host string, port string) {
 	return parts[0], defaultPort
 }
 
+// EnsurePort makes sure that the provided address includes a port and adds
+// the specified default one if it does not.
+func EnsurePort(address, defaultPort string) string {
+	if _, _, err := net.SplitHostPort(address); err == nil {
+		return address
+	}
+	return net.JoinHostPort(address, defaultPort)
+}
+
+// EnsureScheme makes sure the provided URL contains http or https scheme and
+// adds the specified default one if it does not.
+func EnsureScheme(url, defaultScheme string) string {
+	if strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://") {
+		return url
+	}
+	return fmt.Sprintf("%v://%v", defaultScheme, url)
+}
+
+// EnsurePortURL is like EnsurePort but for URLs.
+func EnsurePortURL(url, defaultPort string) string {
+	return ParseOpsCenterAddress(url, defaultPort)
+}
+
 // Hosts returns a list of hosts from the provided host:port addresses
 func Hosts(addrs []string) (hosts []string) {
 	for _, addr := range addrs {
