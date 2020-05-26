@@ -295,12 +295,12 @@ func (s *site) configurePackages(ctx *operationContext, req ops.ConfigurePackage
 		return trace.Wrap(err)
 	}
 
-	_, err = s.configureSiteExportPackage(ctx)
+	err = s.configureSiteExportPackage(ctx)
 	if err != nil && !trace.IsAlreadyExists(err) {
 		return trace.Wrap(err)
 	}
 
-	_, err = s.configureLicensePackage(ctx)
+	err = s.configureLicensePackage(ctx)
 	if err != nil && !trace.IsAlreadyExists(err) {
 		return trace.Wrap(err)
 	}
@@ -433,7 +433,7 @@ func (s *site) configurePackages(ctx *operationContext, req ops.ConfigurePackage
 		}
 
 		err = s.configurePlanetNode(config, configPackage)
-		if err != nil {
+		if err != nil && !trace.IsAlreadyExists(err) {
 			return trace.Wrap(err)
 		}
 	}
@@ -493,12 +493,8 @@ func (s *site) prepareEtcdConfig(ctx *operationContext) clusterEtcdConfig {
 }
 
 func (s *site) configurePlanetCertAuthority(ctx *operationContext) error {
-	caPackage, err := s.planetCertAuthorityPackage()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	if _, err := s.packages().ReadPackageEnvelope(*caPackage); err == nil {
+	caPackage := s.planetCertAuthorityPackage()
+	if _, err := s.packages().ReadPackageEnvelope(caPackage); err == nil {
 		s.Debugf("%v already created", caPackage)
 		return nil
 	}
@@ -550,7 +546,7 @@ func (s *site) configurePlanetCertAuthority(ctx *operationContext) error {
 	}
 	defer reader.Close()
 
-	_, err = s.packages().CreatePackage(*caPackage, reader, pack.WithLabels(
+	_, err = s.packages().CreatePackage(caPackage, reader, pack.WithLabels(
 		map[string]string{
 			pack.PurposeLabel:     pack.PurposeCA,
 			pack.OperationIDLabel: ctx.operation.ID,
@@ -561,11 +557,8 @@ func (s *site) configurePlanetCertAuthority(ctx *operationContext) error {
 // ReadCertAuthorityPackage returns the certificate authority package for
 // the specified cluster
 func ReadCertAuthorityPackage(packages pack.PackageService, clusterName string) (utils.TLSArchive, error) {
-	caPackage, err := PlanetCertAuthorityPackage(clusterName)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	_, reader, err := packages.ReadPackage(*caPackage)
+	caPackage := PlanetCertAuthorityPackage(clusterName)
+	_, reader, err := packages.ReadPackage(caPackage)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -1034,6 +1027,9 @@ func (s *site) configurePlanetServer(config planetConfig) error {
 	}
 	_, err = s.packages().CreatePackage(resp.Locator, resp.Reader, pack.WithLabels(resp.Labels))
 	if err != nil {
+		if trace.IsAlreadyExists(err) {
+			s.WithField("package", config.configPackage).Debug("Planet configuration package already exists.")
+		}
 		return trace.Wrap(err)
 	}
 	return nil
@@ -1139,19 +1135,6 @@ func (s *site) getTeleportMasterConfig(ctx *operationContext, configPackage loc.
 	}, nil
 }
 
-func (s *site) configureTeleportMaster(ctx *operationContext, master *ProvisionedServer) error {
-	configPackage := s.teleportMasterConfigPackage(master)
-	resp, err := s.getTeleportMasterConfig(ctx, configPackage, master)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	_, err = s.packages().CreatePackage(resp.Locator, resp.Reader, pack.WithLabels(resp.Labels))
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	return nil
-}
-
 func toObject(in interface{}) (map[string]interface{}, error) {
 	data, err := json.Marshal(in)
 	if err != nil {
@@ -1253,6 +1236,22 @@ func (s *site) getTeleportNodeConfig(ctx *operationContext, masterIPs []string, 
 	}, nil
 }
 
+func (s *site) configureTeleportMaster(ctx *operationContext, master *ProvisionedServer) error {
+	configPackage := s.teleportMasterConfigPackage(master)
+	resp, err := s.getTeleportMasterConfig(ctx, configPackage, master)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	_, err = s.packages().CreatePackage(resp.Locator, resp.Reader, pack.WithLabels(resp.Labels))
+	if err != nil {
+		if trace.IsAlreadyExists(err) {
+			s.WithField("package", configPackage.String()).Debug("Teleport master configuration package already exists.")
+		}
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
 func (s *site) configureTeleportNode(ctx *operationContext, masterIPs []string, node *ProvisionedServer) error {
 	configPackage := s.teleportNodeConfigPackage(node)
 	resp, err := s.getTeleportNodeConfig(ctx, masterIPs, configPackage, node)
@@ -1261,72 +1260,73 @@ func (s *site) configureTeleportNode(ctx *operationContext, masterIPs []string, 
 	}
 	_, err = s.packages().CreatePackage(resp.Locator, resp.Reader, pack.WithLabels(resp.Labels))
 	if err != nil {
+		if trace.IsAlreadyExists(err) {
+			s.WithField("package", configPackage.String()).Debug("Teleport node configuration package already exists.")
+		}
 		return trace.Wrap(err)
 	}
 	return nil
 }
 
-func (s *site) configureSiteExportPackage(ctx *operationContext) (*loc.Locator, error) {
-	exportPackage, err := s.siteExportPackage()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
+func (s *site) configureSiteExportPackage(ctx *operationContext) error {
+	exportPackage := s.siteExportPackage()
 	exportDir := s.siteDir("export")
 	if err := os.MkdirAll(exportDir, defaults.PrivateDirMask); err != nil {
-		return nil, trace.Wrap(err)
+		return trace.Wrap(err)
 	}
 
-	site, err := s.backend().GetSite(s.key.SiteDomain)
+	cluster, err := s.backend().GetSite(s.key.SiteDomain)
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return trace.Wrap(err)
 	}
-	reader, err := transfer.ExportSite(site, &exportBackend{s}, exportDir,
+	reader, err := transfer.ExportSite(cluster, &exportBackend{s}, exportDir,
 		s.seedConfig.TrustedClusters)
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return trace.Wrap(err)
 	}
 	defer func() {
 		reader.Close()
 		if err := os.RemoveAll(exportDir); err != nil {
-			log.Warningf("failed to delete temporary export directory %v: %v", exportDir, err)
+			s.Warnf("Failed to delete temporary export directory %v: %v.", exportDir, err)
 		}
 	}()
 
-	_, err = s.packages().CreatePackage(*exportPackage, reader, pack.WithLabels(
+	_, err = s.packages().CreatePackage(exportPackage, reader, pack.WithLabels(
 		map[string]string{
 			pack.PurposeLabel:     pack.PurposeExport,
 			pack.OperationIDLabel: ctx.operation.ID,
 		},
 	))
-	if err != nil && !trace.IsAlreadyExists(err) {
-		return nil, trace.Wrap(err)
+	if err != nil {
+		if trace.IsAlreadyExists(err) {
+			s.WithField("package", exportPackage.String()).Debug("Cluster export package already exists.")
+		}
+		return trace.Wrap(err)
 	}
 
-	return exportPackage, nil
+	return nil
 }
 
-func (s *site) configureLicensePackage(ctx *operationContext) (*loc.Locator, error) {
+func (s *site) configureLicensePackage(ctx *operationContext) error {
 	if s.license == "" {
-		return nil, nil // nothing to do
+		return nil // nothing to do
 	}
 
-	licensePackage, err := s.licensePackage()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
+	licensePackage := s.licensePackage()
 	reader := strings.NewReader(s.license)
-	_, err = s.packages().CreatePackage(*licensePackage, reader, pack.WithLabels(
+	_, err := s.packages().CreatePackage(licensePackage, reader, pack.WithLabels(
 		map[string]string{
 			pack.PurposeLabel:     pack.PurposeLicense,
 			pack.OperationIDLabel: ctx.operation.ID,
 		},
 	))
 	if err != nil {
-		return nil, trace.Wrap(err)
+		if trace.IsAlreadyExists(err) {
+			s.WithField("package", licensePackage.String()).Debug("License package already exists.")
+		}
+		return trace.Wrap(err)
 	}
-	return licensePackage, nil
+	return nil
 }
 
 func configureTeleportLabels(node *ProvisionedServer, labels map[string]string, domainName string) {
@@ -1342,34 +1342,6 @@ func configureTeleportLabels(node *ProvisionedServer, labels map[string]string, 
 		labels[schema.DisplayRole] = node.Profile.Description
 	}
 	labels[schema.ServiceLabelRole] = node.ClusterRole
-}
-
-// PlanetCertAuthorityPackage returns the name of the planet CA package
-func PlanetCertAuthorityPackage(clusterName string) (*loc.Locator, error) {
-	return loc.ParseLocator(
-		fmt.Sprintf("%v/%v:0.0.1", clusterName, constants.CertAuthorityPackage))
-}
-
-func (s *site) planetCertAuthorityPackage() (*loc.Locator, error) {
-	return PlanetCertAuthorityPackage(s.siteRepoName())
-}
-
-// opsCertAuthorityPackage is a shorthand to return locator for OpsCenter's certificate
-// authority package
-func (s *site) opsCertAuthorityPackage() (*loc.Locator, error) {
-	return loc.ParseLocator(
-		fmt.Sprintf("%v/%v", defaults.SystemAccountOrg, constants.OpsCenterCAPackage))
-}
-
-// siteExport package exports site state as BoltDB database dump
-func (s *site) siteExportPackage() (*loc.Locator, error) {
-	return loc.ParseLocator(
-		fmt.Sprintf("%v/%v:0.0.1", s.siteRepoName(), constants.SiteExportPackage))
-}
-
-func (s *site) licensePackage() (*loc.Locator, error) {
-	return loc.ParseLocator(
-		fmt.Sprintf("%v/%v:0.0.1", s.siteRepoName(), constants.LicensePackage))
 }
 
 func (s *site) addCloudConfig(config clusterconfig.Interface) (args []string) {

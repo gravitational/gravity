@@ -22,8 +22,18 @@ import (
 	"time"
 
 	"github.com/gravitational/gravity/lib/constants"
+	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
 )
+
+// PlanetCertAuthorityPackage returns the name of the planet CA package
+func PlanetCertAuthorityPackage(repository string) loc.Locator {
+	return loc.Locator{
+		Repository: repository,
+		Name:       constants.CertAuthorityPackage,
+		Version:    loc.FirstVersion,
+	}
+}
 
 // planetSecretsNextPackage generates a new planet secrets package name for the specified
 // node and planet package version.
@@ -142,6 +152,37 @@ func teleportNodeConfigPackage(node remoteServer, repository, clusterName, telep
 			PackageSuffix(node, clusterName),
 		),
 		Version: teleportVersion,
+	}
+}
+
+func (s *site) planetCertAuthorityPackage() loc.Locator {
+	return PlanetCertAuthorityPackage(s.siteRepoName())
+}
+
+// opsCertAuthorityPackage is a shorthand to return locator for OpsCenter's certificate
+// authority package
+func (s *site) opsCertAuthorityPackage() loc.Locator {
+	return loc.Locator{
+		Repository: defaults.SystemAccountOrg,
+		Name:       constants.OpsCenterCAPackage,
+		Version:    loc.FirstVersion,
+	}
+}
+
+// siteExport package exports site state as BoltDB database dump
+func (s *site) siteExportPackage() loc.Locator {
+	return loc.Locator{
+		Repository: s.siteRepoName(),
+		Name:       constants.SiteExportPackage,
+		Version:    loc.FirstVersion,
+	}
+}
+
+func (s *site) licensePackage() loc.Locator {
+	return loc.Locator{
+		Repository: s.siteRepoName(),
+		Name:       constants.LicensePackage,
+		Version:    loc.FirstVersion,
 	}
 }
 
