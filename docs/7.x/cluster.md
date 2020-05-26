@@ -386,8 +386,7 @@ upgrade procedure.
 
 ### Performing an Upgrade
 
-To trigger the upgrade first copy the Cluster Image into one
-of the Cluster nodes and untar it:
+First copy the Cluster Image onto one of the Cluster nodes and untar it:
 
 ```bash
 $ tar xf cluster-image.tar
