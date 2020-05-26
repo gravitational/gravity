@@ -39,13 +39,13 @@ type ScanConfig struct {
 // NewScanningImageService creates an image service that rewrites image paths to a
 // repository used for scanning those images.
 func NewScanningImageService(req RegistryConnectionRequest, conf ScanConfig) (ImageService, error) {
-	base, err := NewImageService(req)
+	base, err := newImageService(req)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
 	return &scanningImageService{
-		imageService: base.(*imageService),
+		imageService: base,
 		conf:         conf,
 	}, nil
 }
