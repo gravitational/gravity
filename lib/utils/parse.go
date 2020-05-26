@@ -111,6 +111,15 @@ func EnsurePort(address, defaultPort string) string {
 	return net.JoinHostPort(address, defaultPort)
 }
 
+// EnsureScheme makes sure the provided URL contains http or https scheme and
+// adds the specified default one if it does not.
+func EnsureScheme(url, defaultScheme string) string {
+	if strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://") {
+		return url
+	}
+	return fmt.Sprintf("%v://%v", defaultScheme, url)
+}
+
 // EnsurePortURL is like EnsurePort but for URLs.
 func EnsurePortURL(url, defaultPort string) string {
 	return ParseOpsCenterAddress(url, defaultPort)

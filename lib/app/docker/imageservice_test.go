@@ -104,3 +104,92 @@ func min(a, b int) int {
 	}
 	return b
 }
+
+func (r *ImageServiceSuite) TestMergingScopeActions(c *C) {
+	cases := []struct {
+		comment  string
+		scopes   []registryauth.RepositoryScope
+		expected []registryauth.RepositoryScope
+	}{
+		{
+			comment: "merging multiple actions into the same scope",
+			scopes: []registryauth.RepositoryScope{
+				{
+					Repository: "a",
+					Class:      "a",
+					Actions:    []string{"push"},
+				},
+				{
+					Repository: "a",
+					Class:      "a",
+					Actions:    []string{"pull"},
+				},
+			},
+			expected: []registryauth.RepositoryScope{
+				{
+					Repository: "a",
+					Class:      "a",
+					Actions:    []string{"push", "pull"},
+				},
+			},
+		},
+		{
+			comment: "more that one scope added to the list without merging",
+			scopes: []registryauth.RepositoryScope{
+				{
+					Repository: "a",
+					Class:      "a",
+					Actions:    []string{"push"},
+				},
+				{
+					Repository: "b",
+					Class:      "b",
+					Actions:    []string{"pull"},
+				},
+			},
+			expected: []registryauth.RepositoryScope{
+				{
+					Repository: "a",
+					Class:      "a",
+					Actions:    []string{"push"},
+				},
+				{
+					Repository: "b",
+					Class:      "b",
+					Actions:    []string{"pull"},
+				},
+			},
+		},
+		{
+			comment: "adding the same scope more than once should only include it once",
+			scopes: []registryauth.RepositoryScope{
+				{
+					Repository: "a",
+					Class:      "a",
+					Actions:    []string{"push"},
+				},
+				{
+					Repository: "a",
+					Class:      "a",
+					Actions:    []string{"push"},
+				},
+			},
+			expected: []registryauth.RepositoryScope{
+				{
+					Repository: "a",
+					Class:      "a",
+					Actions:    []string{"push"},
+				},
+			},
+		},
+	}
+
+	for _, tt := range cases {
+		th := &multiScopeTokenHandler{}
+		for _, scope := range tt.scopes {
+			th.AddScope(scope)
+		}
+
+		c.Assert(th.scopes, DeepEquals, tt.expected, Commentf(tt.comment))
+	}
+}
