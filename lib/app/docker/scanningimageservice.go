@@ -117,7 +117,7 @@ func (r *scanningImageService) Sync(ctx context.Context, dir string, progress ut
 				return nil, trace.Wrap(err)
 			}
 
-			progress.PrintStep("Pushing image %s:%s -> %s\n", localRepoName, tag, tagSpec)
+			progress.PrintStep("Pushing image %s:%s -> %s", localRepoName, tag, tagSpec)
 			if r.remoteStore.tokenHandler != nil {
 				r.remoteStore.tokenHandler.AddScope(registryauth.RepositoryScope{
 					Repository: tagSpec.Name,
