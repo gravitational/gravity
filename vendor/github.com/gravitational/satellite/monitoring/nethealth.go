@@ -120,7 +120,7 @@ func (c *nethealthChecker) Check(ctx context.Context, reporter health.Reporter) 
 func (c *nethealthChecker) check(ctx context.Context, reporter health.Reporter) error {
 	addr, err := c.getNethealthAddr()
 	if trace.IsNotFound(err) {
-		log.WithError(err).Warn("Nethealth pod was not found.")
+		log.Debug("Nethealth pod was not found.")
 		return nil // pod was not found, log and treat gracefully
 	}
 	if err != nil {
@@ -292,8 +292,7 @@ func nethealthFailureProbe(name, peer string, packetLoss float64) *pb.Probe {
 		Checker: name,
 		Detail: fmt.Sprintf("overlay packet loss for node %s is higher than the allowed threshold of %.2f%%: %.2f%%",
 			peer, thresholdPercent, packetLoss*100),
-		Status:   pb.Probe_Failed,
-		Severity: pb.Probe_Warning,
+		Status: pb.Probe_Failed,
 	}
 }
 
