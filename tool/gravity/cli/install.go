@@ -30,6 +30,7 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/expand"
+	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/install"
 	installerclient "github.com/gravitational/gravity/lib/install/client"
@@ -322,12 +323,12 @@ func tryLeave(env *localenv.LocalEnvironment, c leaveConfig) error {
 		return trace.Wrap(err)
 	}
 
-	site, err := operator.GetLocalSite()
+	cluster, err := operator.GetLocalSite()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	server, err := findLocalServer(*site)
+	server, err := findLocalServer(cluster.ClusterState.Servers)
 	if err != nil {
 		return trace.NotFound(
 			"this server is not a part of the running cluster, please use --force flag to clean up the local state")
@@ -368,12 +369,12 @@ func remove(env *localenv.LocalEnvironment, c removeConfig) error {
 		return trace.Wrap(err)
 	}
 
-	site, err := operator.GetLocalSite()
+	cluster, err := operator.GetLocalSite()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	server, err := findServer(*site, []string{c.server})
+	server, err := findServer(cluster.ClusterState.Servers, []string{c.server})
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -388,8 +389,8 @@ func remove(env *localenv.LocalEnvironment, c removeConfig) error {
 
 	key, err := operator.CreateSiteShrinkOperation(context.TODO(),
 		ops.CreateSiteShrinkOperationRequest{
-			AccountID:  site.AccountID,
-			SiteDomain: site.Domain,
+			AccountID:  cluster.AccountID,
+			SiteDomain: cluster.Domain,
 			Servers:    []string{server.Hostname},
 			Force:      c.force,
 		})
@@ -516,37 +517,64 @@ func agent(env *localenv.LocalEnvironment, config agentConfig) error {
 	return trace.Wrap(agent.Serve())
 }
 
-func executeInstallPhase(env *localenv.LocalEnvironment, params PhaseParams, operation *ops.SiteOperation) error {
+func executeInstallPhaseForOperation(env *localenv.LocalEnvironment, params PhaseParams, operation ops.SiteOperation) error {
 	return trace.Wrap(executePhaseFromService(
 		env, params, operation, "Connecting to installer", "Connected to installer"))
 }
 
-func rollbackInstallPhase(env *localenv.LocalEnvironment, params PhaseParams, operation *ops.SiteOperation) error {
+func rollbackInstallPhaseForOperation(env *localenv.LocalEnvironment, params PhaseParams, operation ops.SiteOperation) error {
 	return trace.Wrap(rollbackPhaseFromService(
 		env, params, operation, "Connecting to installer", "Connected to installer"))
 }
 
-func completeInstallPlan(env *localenv.LocalEnvironment, operation *ops.SiteOperation) error {
+func completeInstallPlanForOperation(env *localenv.LocalEnvironment, operation ops.SiteOperation) error {
 	return trace.Wrap(completePlanFromService(
 		env, operation, "Connecting to installer", "Connected to installer"))
 }
 
-func executeJoinPhase(env *localenv.LocalEnvironment, params PhaseParams, operation *ops.SiteOperation) error {
+func executeJoinPhaseForOperation(env *localenv.LocalEnvironment, params PhaseParams, operation ops.SiteOperation) error {
 	return trace.Wrap(executePhaseFromService(
 		env, params, operation, "Connecting to agent", "Connected to agent"))
 }
 
-func rollbackJoinPhase(env *localenv.LocalEnvironment, params PhaseParams, operation *ops.SiteOperation) error {
+func rollbackJoinPhaseForOperation(env *localenv.LocalEnvironment, params PhaseParams, operation ops.SiteOperation) error {
 	return trace.Wrap(rollbackPhaseFromService(
 		env, params, operation, "Connecting to agent", "Connected to agent"))
 }
 
-func completeJoinPlan(env *localenv.LocalEnvironment, operation *ops.SiteOperation) error {
-	return trace.Wrap(completePlanFromService(
-		env, operation, "Connecting to agent", "Connected to agent"))
+func completeJoinPlanForOperation(env *localenv.LocalEnvironment, operation ops.SiteOperation) error {
+	err := completePlanFromService(
+		env, operation, "Connecting to agent", "Connected to agent")
+	if err == nil {
+		return nil
+	}
+	if !trace.IsNotFound(err) {
+		log.WithError(err).Warn("Failed to complete operation from service.")
+	}
+	return completeJoinPlanFromExistingNode(env, operation)
 }
 
-func setPhaseFromService(env *localenv.LocalEnvironment, params SetPhaseParams, operation *ops.SiteOperation) error {
+// completeJoinPlanFromExistingNode completes the specifies expand operation
+// from a existing cluster node in case the joining node (and its state) is not
+// available to perform the operation.
+func completeJoinPlanFromExistingNode(localEnv *localenv.LocalEnvironment, operation ops.SiteOperation) error {
+	clusterEnv, err := localEnv.NewClusterEnvironment()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	const manualCompletedError = "completed manually"
+	plan, err := clusterEnv.Operator.GetOperationPlan(operation.Key())
+	if err != nil && !trace.IsNotFound(err) {
+		return trace.Wrap(err)
+	}
+	if plan != nil {
+		return fsm.CompleteOrFailOperation(context.TODO(), plan, clusterEnv.Operator, manualCompletedError)
+	}
+	// No operation plan created for the operation - fail the operation directly
+	return ops.FailOperation(context.TODO(), operation.Key(), clusterEnv.Operator, manualCompletedError)
+}
+
+func setPhaseFromService(env *localenv.LocalEnvironment, params SetPhaseParams, operation ops.SiteOperation) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	interrupt := signals.NewInterruptHandler(ctx, cancel, clientInterruptSignals)
 	defer interrupt.Close()
@@ -567,7 +595,7 @@ func setPhaseFromService(env *localenv.LocalEnvironment, params SetPhaseParams, 
 func executePhaseFromService(
 	env *localenv.LocalEnvironment,
 	params PhaseParams,
-	operation *ops.SiteOperation,
+	operation ops.SiteOperation,
 	connecting, connected string,
 ) error {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -606,7 +634,7 @@ func executePhaseFromService(
 func rollbackPhaseFromService(
 	env *localenv.LocalEnvironment,
 	params PhaseParams,
-	operation *ops.SiteOperation,
+	operation ops.SiteOperation,
 	connecting, connected string,
 ) error {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -635,7 +663,7 @@ func rollbackPhaseFromService(
 
 func completePlanFromService(
 	env *localenv.LocalEnvironment,
-	operation *ops.SiteOperation,
+	operation ops.SiteOperation,
 	connecting, connected string,
 ) error {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -708,7 +736,7 @@ func TerminationHandler(interrupt *signals.InterruptHandler, printer utils.Print
 	for {
 		select {
 		case sig := <-interrupt.C:
-			log.Info("Received ", sig, " signal. Terminating the installer gracefully, please wait.")
+			printer.Println("Received ", sig, " signal. Terminating the installer gracefully, please wait.")
 			interrupt.Abort()
 			return
 		case <-interrupt.Done():
@@ -734,13 +762,22 @@ var InterruptSignals = signals.WithSignals(
 	os.Interrupt,
 	syscall.SIGTERM,
 	syscall.SIGQUIT,
+	syscall.SIGHUP,
 )
 
 // NewInstallerConnectStrategy returns default installer service connect strategy
 func NewInstallerConnectStrategy(env *localenv.LocalEnvironment, config InstallConfig, commandArgs cli.CommandArgs) (strategy installerclient.ConnectStrategy, err error) {
-	args, err := commandArgs.Update(os.Args[1:], cli.NewFlag("token", config.Token))
+	commandArgs.FlagsToAdd = append(commandArgs.FlagsToAdd,
+		cli.NewFlag("token", config.Token),
+		cli.NewBoolFlag("from-service", true),
+		cli.NewArg("path", config.StateDir),
+	)
+	commandArgs.FlagsToRemove = append(commandArgs.FlagsToRemove, "token", "path", "from-service")
+	args, err := commandArgs.Update(os.Args[1:])
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	args = append([]string{utils.Exe.Path}, args...)
-	args = append(args, "--from-service", utils.Exe.WorkingDir)
 	servicePath, err := state.GravityInstallDir(defaults.GravityRPCInstallerServiceName)
 	if err != nil {
 		return nil, trace.Wrap(err)

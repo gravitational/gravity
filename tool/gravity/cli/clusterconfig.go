@@ -83,7 +83,7 @@ func newConfigUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEn
 	return newUpdater(ctx, localEnv, updateEnv, init)
 }
 
-func executeConfigPhase(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params PhaseParams, operation ops.SiteOperation) error {
+func executeConfigPhaseForOperation(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params PhaseParams, operation ops.SiteOperation) error {
 	updateEnv, err := environ.NewUpdateEnv()
 	if err != nil {
 		return trace.Wrap(err)
@@ -98,7 +98,7 @@ func executeConfigPhase(env *localenv.LocalEnvironment, environ LocalEnvironment
 	return trace.Wrap(err)
 }
 
-func setConfigPhase(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params SetPhaseParams, operation ops.SiteOperation) error {
+func setConfigPhaseForOperation(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params SetPhaseParams, operation ops.SiteOperation) error {
 	updateEnv, err := environ.NewUpdateEnv()
 	if err != nil {
 		return trace.Wrap(err)
@@ -112,7 +112,7 @@ func setConfigPhase(env *localenv.LocalEnvironment, environ LocalEnvironmentFact
 	return updater.SetPhase(context.TODO(), params.PhaseID, params.State)
 }
 
-func rollbackConfigPhase(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params PhaseParams, operation ops.SiteOperation) error {
+func rollbackConfigPhaseForOperation(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params PhaseParams, operation ops.SiteOperation) error {
 	updateEnv, err := environ.NewUpdateEnv()
 	if err != nil {
 		return trace.Wrap(err)
@@ -127,7 +127,7 @@ func rollbackConfigPhase(env *localenv.LocalEnvironment, environ LocalEnvironmen
 	return trace.Wrap(err)
 }
 
-func completeConfigPlan(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operation ops.SiteOperation) error {
+func completeConfigPlanForOperation(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operation ops.SiteOperation) error {
 	updateEnv, err := environ.NewUpdateEnv()
 	if err != nil {
 		return trace.Wrap(err)
@@ -138,7 +138,7 @@ func completeConfigPlan(env *localenv.LocalEnvironment, environ LocalEnvironment
 		return trace.Wrap(err)
 	}
 	defer updater.Close()
-	if err := updater.Complete(nil); err != nil {
+	if err := updater.Complete(context.TODO(), nil); err != nil {
 		return trace.Wrap(err)
 	}
 	if err := updater.Activate(); err != nil {

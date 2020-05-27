@@ -214,6 +214,10 @@ const (
 	// PeerConnectTimeout is the timeout of an RPC agent connecting to its peer
 	PeerConnectTimeout = 10 * time.Second
 
+	// AgentGroupPeerReconnectTimeout is the maximum amount of time agent group will attempt
+	// to reconnect to the peer
+	AgentGroupPeerReconnectTimeout = 15 * time.Minute
+
 	// ServiceConnectTimeout specifies the timeout for connecting to the installer service
 	ServiceConnectTimeout = 1 * time.Minute
 

@@ -36,12 +36,12 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/users"
 	"github.com/gravitational/gravity/lib/utils"
-	licenseapi "github.com/gravitational/license"
 
+	"github.com/cenkalti/backoff"
+	licenseapi "github.com/gravitational/license"
 	"github.com/gravitational/satellite/agent/proto/agentpb"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
-	netcontext "golang.org/x/net/context" // TODO: remove in go1.9
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -340,8 +340,9 @@ func NewAgentPeerStore(backend storage.Backend, users users.Users,
 }
 
 // NewPeer adds a new peer
-func (r *AgentPeerStore) NewPeer(ctx netcontext.Context, req pb.PeerJoinRequest, peer rpcserver.Peer) error {
-	r.Infof("NewPeer(%v).", peer.Addr())
+func (r *AgentPeerStore) NewPeer(ctx context.Context, req pb.PeerJoinRequest, peer rpcserver.Peer) error {
+	logger := r.WithField("peer", peer.Addr())
+	logger.Info("NewPeer.")
 
 	token, user, err := r.authenticatePeer(req.Config.Token)
 	if err != nil {
@@ -352,6 +353,7 @@ func (r *AgentPeerStore) NewPeer(ctx netcontext.Context, req pb.PeerJoinRequest,
 	if err != nil {
 		return err
 	}
+	logger.WithField("info", info.String()).Info("Peer system information.")
 
 	group, err := r.getOrCreateGroup(ops.SiteOperationKey{
 		AccountID:   user.GetAccountID(),
@@ -363,7 +365,7 @@ func (r *AgentPeerStore) NewPeer(ctx netcontext.Context, req pb.PeerJoinRequest,
 	}
 
 	if req.Config.KeyValues[ops.AgentMode] != ops.AgentModeShrink {
-		errCheck := r.validatePeer(ctx, group, info, req, token.SiteDomain)
+		errCheck := r.validatePeer(ctx, group, info, req, *token)
 		if errCheck != nil {
 			return errCheck
 		}
@@ -379,8 +381,8 @@ func (r *AgentPeerStore) NewPeer(ctx netcontext.Context, req pb.PeerJoinRequest,
 }
 
 // RemovePeer removes the specified peer from the store
-func (r *AgentPeerStore) RemovePeer(ctx netcontext.Context, req pb.PeerLeaveRequest, peer rpcserver.Peer) error {
-	r.Infof("RemovePeer(%v).", peer.Addr())
+func (r *AgentPeerStore) RemovePeer(ctx context.Context, req pb.PeerLeaveRequest, peer rpcserver.Peer) error {
+	r.WithField("peer", peer.Addr()).Info("RemovePeer.")
 
 	token, user, err := r.authenticatePeer(req.Config.Token)
 	if err != nil {
@@ -426,43 +428,34 @@ func (r *AgentPeerStore) authenticatePeer(token string) (*storage.ProvisioningTo
 }
 
 func (r *AgentPeerStore) validatePeer(ctx context.Context, group *agentGroup, info storage.System,
-	req pb.PeerJoinRequest, clusterName string) error {
-	if err := r.checkHostname(ctx, group, req.Addr, info.GetHostname(), clusterName); err != nil {
+	req pb.PeerJoinRequest, token storage.ProvisioningToken) error {
+	if group.hasPeer(req.Addr, info.GetHostname()) {
+		return nil
+	}
+
+	if err := r.checkHostname(ctx, group, req.Addr, info.GetHostname(), token); err != nil {
 		return trace.Wrap(err)
 	}
 
-	if err := r.checkLicense(ctx, int(group.NumPeers()), clusterName, info); err != nil {
+	if err := r.checkLicense(ctx, int(group.NumPeers()), token.SiteDomain, info); err != nil {
 		return trace.Wrap(err)
 	}
 
 	return nil
 }
 
-func (r *AgentPeerStore) checkHostname(ctx context.Context, group *agentGroup, addr, hostname, clusterName string) error {
-	// collect hostnames from existing servers (for expand)
-	servers, err := r.teleport.GetServers(ctx, clusterName, nil)
-	if err != nil && !trace.IsNotFound(err) {
-		return trace.Wrap(err)
-	}
-
-	var existingServers []string
-	for _, server := range servers {
-		hostname := server.GetLabels()[ops.Hostname]
-		if hostname == "" {
-			log.Warnf("Server hostname is empty: %+v.", server)
-			continue
+func (r *AgentPeerStore) checkHostname(ctx context.Context, group *agentGroup, addr, hostname string, token storage.ProvisioningToken) error {
+	if err := r.isPartOfActiveOperation(addr, token); err != nil {
+		if !trace.IsNotFound(err) && !trace.IsCompareFailed(err) {
+			r.Warnf("Failed to check whether the server is part of the active operation: %v.", err)
 		}
-		existingServers = append(existingServers, hostname)
+		if err := r.isExistingServer(ctx, hostname, token.SiteDomain); err != nil {
+			return trace.Wrap(err)
+		}
 	}
-
-	if utils.StringInSlice(existingServers, hostname) {
-		return trace.AccessDenied("One of existing servers already has hostname %q: %q.", hostname, existingServers)
-	}
-
-	if group.hasPeer(addr, hostname) {
+	if group.hasConflictingPeer(addr, hostname) {
 		return trace.AccessDenied("One of existing peers already has hostname %q.", hostname)
 	}
-
 	r.Debugf("Verified hostname %q.", hostname)
 	return nil
 }
@@ -540,6 +533,11 @@ func (r *AgentPeerStore) removeGroup(ctx context.Context, key ops.SiteOperationK
 func (r *AgentPeerStore) addGroup(key ops.SiteOperationKey) (*agentGroup, error) {
 	config := rpcserver.AgentGroupConfig{
 		FieldLogger: log.StandardLogger(),
+		ReconnectStrategy: rpcserver.ReconnectStrategy{
+			Backoff: func() backoff.BackOff {
+				return utils.NewExponentialBackOff(defaults.AgentGroupPeerReconnectTimeout)
+			},
+		},
 	}
 	group, err := rpcserver.NewAgentGroup(config, nil)
 	if err != nil {
@@ -554,6 +552,52 @@ func (r *AgentPeerStore) addGroup(key ops.SiteOperationKey) (*agentGroup, error)
 	r.WithField("key", key).Debug("Added group.")
 	r.groups[key] = agentGroup
 	return agentGroup, nil
+}
+
+func (r *AgentPeerStore) isPartOfActiveOperation(addr string, token storage.ProvisioningToken) error {
+	op, err := r.backend.GetSiteOperation(token.SiteDomain, token.OperationID)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if op.Type != ops.OperationInstall && op.Type != ops.OperationExpand {
+		// Only relevant for install/expand operation
+		return nil
+	}
+	operation := (ops.SiteOperation)(*op)
+	logger := r.WithField("operation", operation.String())
+	if operation.Type == ops.OperationExpand && operation.IsCompleted() {
+		// Always fall-through for install as we cannot reliably say if it's completed
+		logger.Warn("Operation is already completed.")
+		return trace.CompareFailed("operation is already completed")
+	}
+	serverAddr := utils.ExtractHost(addr)
+	if op.Servers.FindByIP(serverAddr) == nil {
+		r.WithField("server-addr", serverAddr).Warn("Server is not part of the active operation.")
+		return trace.NotFound("server is not part of the active operation")
+	}
+	return nil
+}
+
+func (r *AgentPeerStore) isExistingServer(ctx context.Context, hostname, clusterName string) error {
+	// collect hostnames from existing servers (for expand)
+	servers, err := r.teleport.GetServers(ctx, clusterName, nil)
+	if err != nil && !trace.IsNotFound(err) {
+		return trace.Wrap(err)
+	}
+	var existingServers []string
+	for _, server := range servers {
+		hostname := server.GetLabels()[ops.Hostname]
+		if hostname == "" {
+			log.WithField("server", server).Warn("Server hostname is empty, will ignore.")
+			continue
+		}
+		existingServers = append(existingServers, hostname)
+	}
+	if utils.StringInSlice(existingServers, hostname) {
+		return trace.AccessDenied("One of existing servers already has hostname %q: %q.",
+			hostname, existingServers)
+	}
+	return nil
 }
 
 // AgentPeerStore manages groups of agents based on operation context.
@@ -574,7 +618,7 @@ func (r *agentGroup) add(p rpcserver.Peer, hostname string) {
 	r.hostnames[p.Addr()] = hostname
 }
 
-func (r *agentGroup) remove(ctx netcontext.Context, p rpcserver.Peer, hostname string) {
+func (r *agentGroup) remove(ctx context.Context, p rpcserver.Peer, hostname string) {
 	_ = r.AgentGroup.Remove(ctx, p)
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -582,8 +626,21 @@ func (r *agentGroup) remove(ctx netcontext.Context, p rpcserver.Peer, hostname s
 }
 
 // hasPeer determines whether the group already has a peer with the specified
-// hostname but a different address
+// address and hostname
 func (r *agentGroup) hasPeer(addr, hostname string) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for existingAddr, existingHostname := range r.hostnames {
+		if existingHostname == hostname && existingAddr == addr {
+			return true
+		}
+	}
+	return false
+}
+
+// hasConflictingPeer determines whether the group already has a peer with the specified
+// hostname but a different address
+func (r *agentGroup) hasConflictingPeer(addr, hostname string) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	for existingAddr, existingHostname := range r.hostnames {
