@@ -850,7 +850,12 @@ func (p *Peer) tryConnect(operationID string) (ctx *operationContext, err error)
 			return nil, utils.Abort(err)
 		}
 		if trace.IsCompareFailed(err) {
-			p.printStep("Waiting for another operation to finish at %v", addr)
+			p.Warnf("Waiting for precondition to create expand operation: %v.", err)
+			if utils.IsClusterDegradedError(err) {
+				p.printStep("Cluster is degraded, waiting for it to become healthy")
+			} else {
+				p.printStep("Waiting for another operation to complete at %v", addr)
+			}
 		}
 	}
 	return ctx, trace.Wrap(err)
@@ -1021,6 +1026,10 @@ func (p *Peer) createShrinkOperation(ctx context.Context) error {
 	operation, err := opCtx.Operator.GetSiteOperation(opCtx.Operation.Key())
 	if err != nil {
 		return trace.Wrap(err)
+	}
+	if len(operation.Servers) == 0 {
+		p.WithField("operation", operation.String()).Warn("Failed to create shrink operation - no servers in state.")
+		return nil
 	}
 	_, err = opCtx.Operator.CreateSiteShrinkOperation(ctx,
 		ops.CreateSiteShrinkOperationRequest{

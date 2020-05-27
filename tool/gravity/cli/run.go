@@ -399,7 +399,7 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			*g.UpgradeCmd.Phase = fsm.RootPhase
 		}
 		if *g.UpgradeCmd.Phase != "" {
-			return executePhase(localEnv, g,
+			return executeUpdatePhase(localEnv, g,
 				PhaseParams{
 					PhaseID:          *g.UpgradeCmd.Phase,
 					Force:            *g.UpgradeCmd.Force,
