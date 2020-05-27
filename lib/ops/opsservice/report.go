@@ -145,10 +145,11 @@ func (s *site) getReport(ctx context.Context, runner remoteRunner, servers []rem
 		if err := s.collectKubernetesInfo(reportWriter, serverRunner); err != nil {
 			logger.WithError(err).Error("Failed to collect Kubernetes info.")
 		}
-
-		err = s.collectDebugInfoFromServers(ctx, dir, servers, runner)
-		if err != nil {
+		if err := s.collectDebugInfoFromServers(ctx, dir, servers, runner); err != nil {
 			log.WithError(err).Error("Failed to collect diagnostics from some nodes.")
+		}
+		if err := s.collectStatusTimeline(reportWriter, serverRunner); err != nil {
+			logger.WithError(err).Error("Failed to collect status timeline.")
 		}
 	}
 
@@ -221,6 +222,20 @@ func (s *site) collectKubernetesInfo(reportWriter report.FileWriter, runner *ser
 		fmt.Sprintf("--filter=%v", report.FilterKubernetes), "--compressed")...)
 	if err != nil {
 		return trace.Wrap(err, "failed to collect kubernetes diagnostics")
+	}
+	return nil
+}
+
+func (s *site) collectStatusTimeline(reportWriter report.FileWriter, runner *serverRunner) error {
+	w, err := reportWriter.NewWriter("status.tar.gz")
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer w.Close()
+	err = runner.RunStream(w, s.gravityCommand("system", "report",
+		fmt.Sprintf("--filter=%v", report.FilterTimeline), "--compressed")...)
+	if err != nil {
+		return trace.Wrap(err)
 	}
 	return nil
 }
