@@ -1028,7 +1028,7 @@ func (p *Peer) createShrinkOperation(ctx context.Context) error {
 		return trace.Wrap(err)
 	}
 	if len(operation.Servers) == 0 {
-		p.WithField("operation", operation.String()).Warn("Failed to create shrink for invalid operation.")
+		p.WithField("operation", operation.String()).Warn("Failed to create shrink operation - no servers in state.")
 		return nil
 	}
 	_, err = opCtx.Operator.CreateSiteShrinkOperation(ctx,
