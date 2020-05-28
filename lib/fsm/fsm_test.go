@@ -51,7 +51,7 @@ func (s *FSMSuite) TestExecutePlan(c *check.C) {
 	fsm, err := New(Config{Engine: engine})
 	c.Assert(err, check.IsNil)
 
-	err = fsm.ExecutePlan(context.TODO(), utils.NewNopProgress())
+	err = fsm.ExecutePlan(context.TODO(), utils.DiscardProgress)
 	c.Assert(err, check.IsNil)
 
 	plan, err = fsm.GetPlan()
@@ -85,7 +85,7 @@ func (s *FSMSuite) TestRollbackPlan(c *check.C) {
 	fsm, err := New(Config{Engine: engine})
 	c.Assert(err, check.IsNil)
 
-	err = fsm.RollbackPlan(context.TODO(), utils.NewNopProgress(), false)
+	err = fsm.RollbackPlan(context.TODO(), utils.DiscardProgress, false)
 	c.Assert(err, check.IsNil)
 
 	plan, err = fsm.GetPlan()
@@ -119,7 +119,7 @@ func (s *FSMSuite) TestRollbackPlanSkip(c *check.C) {
 	fsm, err := New(Config{Engine: engine})
 	c.Assert(err, check.IsNil)
 
-	err = fsm.RollbackPlan(context.TODO(), utils.NewNopProgress(), false)
+	err = fsm.RollbackPlan(context.TODO(), utils.DiscardProgress, false)
 	c.Assert(err, check.IsNil)
 
 	plan, err = fsm.GetPlan()
@@ -149,7 +149,7 @@ func (s *FSMSuite) TestRollbackPlanDryRun(c *check.C) {
 	fsm, err := New(Config{Engine: engine})
 	c.Assert(err, check.IsNil)
 
-	err = fsm.RollbackPlan(context.TODO(), utils.NewNopProgress(), true)
+	err = fsm.RollbackPlan(context.TODO(), utils.DiscardProgress, true)
 	c.Assert(err, check.IsNil)
 
 	plan, err = fsm.GetPlan()
