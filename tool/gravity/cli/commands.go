@@ -84,6 +84,8 @@ type Application struct {
 	PlanResumeCmd PlanResumeCmd
 	// PlanCompleteCmd completes the operation plan
 	PlanCompleteCmd PlanCompleteCmd
+	// RollbackCmd performs operation rollback
+	RollbackCmd RollbackCmd
 	// UpdateCmd combines app update related commands
 	UpdateCmd UpdateCmd
 	// UpdateCheckCmd checks if a new app version is available
@@ -554,6 +556,21 @@ type PlanResumeCmd struct {
 // PlanCompleteCmd completes the operation plan
 type PlanCompleteCmd struct {
 	*kingpin.CmdClause
+}
+
+// RollbackCmd performs operation rollback
+type RollbackCmd struct {
+	*kingpin.CmdClause
+	// PhaseTimeout is the individual phase rollback timeout
+	PhaseTimeout *time.Duration
+	// OperationID is optional ID of operation to rollback
+	OperationID *string
+	// SkipVersionCheck suppresses version mismatch errors
+	SkipVersionCheck *bool
+	// Confirmed suppresses confirmation prompt
+	Confirmed *bool
+	// DryRun prints rollback phases without actually performing them
+	DryRun *bool
 }
 
 // InstallPlanCmd combines subcommands for install plan
