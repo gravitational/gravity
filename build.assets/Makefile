@@ -88,7 +88,7 @@ GOCACHE ?= $(HOME)/.cache/go-build
 ifdef GOCACHE_ENABLED
 GOCACHE_DOCKER_OPTIONS = -v $(GOCACHE):$(GOCACHE) -e "GOCACHE=$(GOCACHE)"
 endif
-BINARIES ?= tele gravity terraform-provider-gravity
+BINARIES ?= tele gravity
 TARGETS ?= $(addprefix $(LOCAL_GRAVITY_BUILDDIR)/, $(BINARIES))
 HOST_TARGETS ?= $(addprefix $(GRAVITY_BUILDDIR)/, $(BINARIES))
 
@@ -280,12 +280,6 @@ publish-telekube: build
 	@echo -e "\n----> Publishing Tsh to $(DISTRIBUTION_OPSCENTER)...\n"
 	$(GRAVITY_OUT) package delete --ops-url=$(DISTRIBUTION_OPSCENTER) $(TELEKUBE_PUBLISH_FLAGS) --force $(TELEKUBE_TSH_PKG) && \
 	$(GRAVITY_OUT) package import --ops-url=$(DISTRIBUTION_OPSCENTER) $(TELEKUBE_PUBLISH_FLAGS) $(TSH_OUT) $(TELEKUBE_TSH_PKG)
-	@echo -e "\n----> Publishing terraform-provider-gravity to $(DISTRIBUTION_OPSCENTER)...\n"
-	$(GRAVITY_OUT) package delete --ops-url=$(DISTRIBUTION_OPSCENTER) $(TELEKUBE_PUBLISH_FLAGS) --force $(TF_PROVIDER_GRAVITY_PKG) && \
-	$(GRAVITY_OUT) package import --ops-url=$(DISTRIBUTION_OPSCENTER) $(TELEKUBE_PUBLISH_FLAGS) $(TF_PROVIDER_GRAVITY_OUT) $(TF_PROVIDER_GRAVITY_PKG)
-	@echo -e "\n----> Publishing terraform-provider-gravityenterprise to $(DISTRIBUTION_OPSCENTER)...\n"
-	$(GRAVITY_OUT) package delete --ops-url=$(DISTRIBUTION_OPSCENTER) $(TELEKUBE_PUBLISH_FLAGS) --force $(TF_PROVIDER_GRAVITYENTERPRISE_PKG) && \
-	$(GRAVITY_OUT) package import --ops-url=$(DISTRIBUTION_OPSCENTER) $(TELEKUBE_PUBLISH_FLAGS) $(TF_PROVIDER_GRAVITYENTERPRISE_OUT) $(TF_PROVIDER_GRAVITYENTERPRISE_PKG)
 
 
 #

@@ -189,9 +189,6 @@ const (
 	// cluster spec for external Ops Center when installing in wizard mode
 	TrustedClusterPackage = "trusted-cluster"
 
-	// TerraformGravityPackage specifies the package name of the gravity terraform provider
-	TerraformGravityPackage = "terraform-provider-gravity"
-
 	// DevmodeEnvVar is the name of environment variable that is passed inside hook
 	// container indicating whether the OpsCenter/Site is started in dev mode
 	DevmodeEnvVar = "DEVMODE"
