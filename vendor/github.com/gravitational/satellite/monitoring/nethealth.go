@@ -21,7 +21,6 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"net/url"
 	"sync"
 	"time"
 
@@ -36,14 +35,16 @@ import (
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
 	log "github.com/sirupsen/logrus"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 )
 
 // NethealthConfig specifies configuration for a nethealth checker.
 type NethealthConfig struct {
-	// AdvertiseIP specifies the advertised ip address of the host running this checker.
-	AdvertiseIP string
+	// NodeName specifies the kubernetes name of this node.
+	NodeName string
 	// NethealthPort specifies the port that nethealth is listening on.
 	NethealthPort int
 	// NetStatsInterval specifies the duration to store net stats.
@@ -56,8 +57,8 @@ type NethealthConfig struct {
 // value defaults where necessary.
 func (c *NethealthConfig) CheckAndSetDefaults() error {
 	var errors []error
-	if c.AdvertiseIP == "" {
-		errors = append(errors, trace.BadParameter("host advertise ip must be provided"))
+	if c.NodeName == "" {
+		errors = append(errors, trace.BadParameter("node name must be provided"))
 	}
 	if c.KubeConfig == nil {
 		errors = append(errors, trace.BadParameter("kubernetes access config must be provided"))
@@ -78,7 +79,7 @@ type nethealthChecker struct {
 	NethealthConfig
 	// Mutex locks access to peerStats
 	sync.Mutex
-	// peerStats maps a peer to its recorded nethealth stats.
+	// peerStats maps a peer's node name to its recorded nethealth stats.
 	peerStats *netStats
 }
 
@@ -110,7 +111,13 @@ func (c *nethealthChecker) Check(ctx context.Context, reporter health.Reporter) 
 	err := c.check(ctx, reporter)
 	if err != nil {
 		log.WithError(err).Warn("Failed to verify nethealth")
-		reporter.Add(NewProbeFromErr(c.Name(), "failed to verify nethealth", err))
+		reporter.Add(&pb.Probe{
+			Checker:  c.Name(),
+			Detail:   "failed to verify nethealth",
+			Error:    trace.UserMessage(err),
+			Status:   pb.Probe_Failed,
+			Severity: pb.Probe_Warning,
+		})
 		return
 	}
 	if reporter.NumProbes() == 0 {
@@ -121,7 +128,7 @@ func (c *nethealthChecker) Check(ctx context.Context, reporter health.Reporter) 
 func (c *nethealthChecker) check(ctx context.Context, reporter health.Reporter) error {
 	addr, err := c.getNethealthAddr()
 	if trace.IsNotFound(err) {
-		log.WithError(err).Warn("Nethealth pod was not found.")
+		log.Debug("Nethealth pod was not found.")
 		return nil // pod was not found, log and treat gracefully
 	}
 	if err != nil {
@@ -141,6 +148,12 @@ func (c *nethealthChecker) check(ctx context.Context, reporter health.Reporter) 
 		return nil
 	}
 
+	netData, err = c.filterNetData(netData)
+	if err != nil {
+		log.WithError(err).Error("Failed to filter nethealth data.")
+		return nil
+	}
+
 	updated, err := c.updateStats(netData)
 	if err != nil {
 		return trace.Wrap(err, "failed to update nethealth stats")
@@ -153,22 +166,27 @@ func (c *nethealthChecker) check(ctx context.Context, reporter health.Reporter) 
 func (c *nethealthChecker) getNethealthAddr() (addr string, err error) {
 	opts := metav1.ListOptions{
 		LabelSelector: nethealthLabelSelector.String(),
+		FieldSelector: fields.OneTermEqualSelector("spec.nodeName", c.NodeName).String(),
+		Limit:         1,
 	}
 	pods, err := c.Client.CoreV1().Pods(nethealthNamespace).List(opts)
 	if err != nil {
 		return addr, utils.ConvertError(err) // this will convert error to a proper trace error, e.g. trace.NotFound
 	}
 
-	for _, pod := range pods.Items {
-		if pod.Status.HostIP == c.AdvertiseIP {
-			if pod.Status.PodIP == "" {
-				return addr, trace.NotFound("local nethealth pod IP has not been assigned yet.")
-			}
-			return fmt.Sprintf("http://%s:%d", pod.Status.PodIP, c.NethealthPort), nil
-		}
+	if len(pods.Items) < 1 {
+		return addr, trace.NotFound("nethealth pod not found on local node %s", c.NodeName)
 	}
 
-	return addr, trace.NotFound("unable to find nethealth pod running on host %s", c.AdvertiseIP)
+	pod := pods.Items[0]
+	if pod.Status.Phase != corev1.PodRunning {
+		return addr, trace.NotFound("local nethealth pod %v is not Running: %v", pod.Name, pod.Status.Phase)
+	}
+	if pod.Status.PodIP == "" {
+		return addr, trace.NotFound("local nethealth pod %v has not been assigned an IP", pod.Name)
+	}
+
+	return fmt.Sprintf("http://%s:%d", pod.Status.PodIP, c.NethealthPort), nil
 }
 
 // updateStats updates netStats with new incoming data.
@@ -291,9 +309,10 @@ func (c *nethealthChecker) isHealthy(peer string) (healthy bool, err error) {
 func nethealthFailureProbe(name, peer string, packetLoss float64) *pb.Probe {
 	return &pb.Probe{
 		Checker: name,
-		Detail: fmt.Sprintf("overlay packet loss for node %s is higher than the allowed threshold of %.2f%%: %.2f%%",
-			peer, thresholdPercent, packetLoss*100),
-		Status: pb.Probe_Failed,
+		Detail: fmt.Sprintf("overlay packet loss for node %s is higher than the allowed threshold of %d%%: %d%%",
+			peer, int(thresholdPercent), int(packetLoss*100)),
+		Status:   pb.Probe_Failed,
+		Severity: pb.Probe_Warning,
 	}
 }
 
@@ -317,7 +336,7 @@ func fetchNethealthMetrics(ctx context.Context, addr string) ([]byte, error) {
 	//      # TYPE nethealth_echo_timeout_total counter
 	//      nethealth_echo_timeout_total{node_name="10.128.0.96",peer_name="10.128.0.70"} 37
 	//      nethealth_echo_timeout_total{node_name="10.128.0.96",peer_name="10.128.0.97"} 0
-	resp, err := client.Get(ctx, client.Endpoint("metrics"), url.Values{})
+	resp, err := client.Get(ctx, client.Endpoint("metrics"), nil)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -394,6 +413,34 @@ func getPeerName(labels []*dto.LabelPair) (peer string, err error) {
 		}
 	}
 	return "", trace.NotFound("unable to find %s label", peerLabel)
+}
+
+// filterNetData filters the netData. Nethealth may retain metrics for nodes
+// that are no longer part of the cluster. Metrics for these nodes should not
+// be further processed.
+func (c *nethealthChecker) filterNetData(netData map[string]networkData) (filtered map[string]networkData, err error) {
+	nodes, err := c.Client.CoreV1().Nodes().List(metav1.ListOptions{
+		FieldSelector: fields.OneTermNotEqualSelector("metadata.name", c.NodeName).String(),
+	})
+	if err != nil {
+		return filtered, trace.Wrap(err)
+	}
+	return filterByK8s(netData, nodes.Items)
+}
+
+// filterByK8s removes netData for nodes that are no longer members of the
+// kubernetes cluster.
+func filterByK8s(netData map[string]networkData, nodes []corev1.Node) (filtered map[string]networkData, err error) {
+	filtered = make(map[string]networkData)
+	for _, node := range nodes {
+		data, exists := netData[node.Name]
+		if !exists {
+			log.WithField("node", node.Name).Warn("Missing nethealth data for peer.")
+			continue
+		}
+		filtered[node.Name] = data
+	}
+	return filtered, nil
 }
 
 // netStats holds nethealth data for a peer.
