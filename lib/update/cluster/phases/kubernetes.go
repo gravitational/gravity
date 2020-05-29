@@ -378,4 +378,33 @@ func removeKubeletPermissions(client *kubeapi.Clientset) error {
 	return nil
 }
 
+func getInfluxDBNodeName(pod *v1.Pod) (string, error) {
+	if pod.Status.HostIP != "" {
+		return pod.Status.HostIP, nil
+	}
+	return "", trace.BadParameter("pod %v is not scheduled to any node", pod.ObjectMeta.GetName())
+}
+
+func getInfluxDBPod(client *kubeapi.Clientset) (*v1.Pod, error) {
+	pod, err := client.CoreV1().Pods(defaults.MonitoringNamespace).Get(defaults.InfluxDBDeploymentName, metav1.GetOptions{})
+	if err != nil {
+		return nil, trace.Wrap(rigging.ConvertError(err))
+	}
+	return pod, nil
+}
+
+func scaleInfluxDB(client *kubeapi.Clientset, replicas int32) error {
+	deployment, err := client.ExtensionsV1beta1().Deployments(defaults.MonitoringNamespace).Get(defaults.InfluxDBDeploymentName, metav1.GetOptions{})
+	if err != nil {
+		return trace.Wrap(rigging.ConvertError(err))
+	}
+
+	deployment.Spec.Replicas = &replicas
+	_, err = client.ExtensionsV1beta1().Deployments(defaults.MonitoringNamespace).Update(deployment)
+	if err != nil {
+		return trace.Wrap(rigging.ConvertError(err))
+	}
+	return nil
+}
+
 type addTaint bool

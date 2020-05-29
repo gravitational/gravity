@@ -326,6 +326,12 @@ func (o *Operator) ConfigureNode(req ops.ConfigureNodeRequest) error {
 		return trace.Wrap(err)
 	}
 
+	dataMigrationCommands, err := migrateInfluxDBData(node, cluster.ServiceUser.UID, cluster.ServiceUser.GID)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	commands = append(commands, dataMigrationCommands...)
+
 	runner := &localRunner{}
 	for _, command := range commands {
 		out, err := runner.Run(command.Args...)

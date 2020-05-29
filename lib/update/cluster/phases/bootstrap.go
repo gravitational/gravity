@@ -381,6 +381,10 @@ func (p *updatePhaseBootstrap) Execute(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	err = p.migrateInfluxDBData()
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	err = p.updateSystemMetadata()
 	if err != nil {
 		return trace.Wrap(err)
@@ -545,6 +549,10 @@ func (p *updatePhaseBootstrap) addUpdateRuntimePackageLabel() error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	return nil
+}
+
+func (p *updatePhaseBootstrap) migrateInfluxDBData() error {
 	return nil
 }
 
