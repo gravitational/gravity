@@ -138,6 +138,20 @@ func WithEtcdTimeout(timeout time.Duration) ClusterEnvironmentOption {
 	}
 }
 
+// WithNodeAddr is an option to override this node address
+func WithNodeAddr(addr string) ClusterEnvironmentOption {
+	return func(config *clusterEnvironmentConfig) {
+		config.nodeAddr = addr
+	}
+}
+
+// WithServiceUser is an option to override the service user
+func WithServiceUser(serviceUser systeminfo.User) ClusterEnvironmentOption {
+	return func(config *clusterEnvironmentConfig) {
+		config.serviceUser = &serviceUser
+	}
+}
+
 // ClusterEnvironmentOption describes a functional option for customizing
 // a cluster environment
 type ClusterEnvironmentOption func(*clusterEnvironmentConfig)

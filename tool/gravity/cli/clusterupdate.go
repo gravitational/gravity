@@ -60,6 +60,9 @@ func updateTrigger(
 	updatePackage string,
 	manual, noValidateVersion bool,
 ) error {
+	if err := updateRotateCertificates(localEnv); err != nil {
+		return trace.Wrap(err)
+	}
 	updater, err := newClusterUpdater(context.TODO(), localEnv, updateEnv, updatePackage, manual, noValidateVersion)
 	if err != nil {
 		return trace.Wrap(err)
@@ -94,6 +97,18 @@ func newClusterUpdater(
 		return nil, trace.Wrap(err)
 	}
 	return updater, nil
+}
+
+// updateRotateCertificates rotates the RPC credentials used for install/expand/leave operations
+func updateRotateCertificates(env *localenv.LocalEnvironment) error {
+	clusterPackages, err := env.ClusterPackages()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if _, err := rpc.UpsertCredentials(clusterPackages); err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
 }
 
 func executeUpdatePhase(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params PhaseParams) error {

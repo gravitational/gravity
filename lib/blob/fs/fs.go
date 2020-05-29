@@ -120,6 +120,10 @@ func (o *objects) WriteBLOB(data io.Reader) (*blob.Envelope, error) {
 	}
 	defer f.Close()
 
+	// if true, sets proper directory/file ownership.
+	// This will fail as expected if the command is not run as root or
+	// under a different user context
+	hasUser := o.config.User != nil && os.Geteuid() != o.config.User.UID
 	hasher := sha512.New()
 	w := io.MultiWriter(f, hasher)
 	size, err := io.Copy(w, data)
@@ -139,16 +143,18 @@ func (o *objects) WriteBLOB(data io.Reader) (*blob.Envelope, error) {
 		defer os.Remove(f.Name())
 		return nil, trace.Wrap(err)
 	}
+	if hasUser {
+		if err := os.Chown(targetDir, o.config.User.UID, o.config.User.GID); err != nil {
+			return nil, trace.Wrap(err)
+		}
+	}
 	// now place it to the right place in the filesystem
 	targetPath := filepath.Join(targetDir, hash)
 	if err := os.Rename(f.Name(), targetPath); err != nil {
 		os.Remove(f.Name())
 		return nil, trace.Wrap(err)
 	}
-	if o.config.User != nil && os.Geteuid() != o.config.User.UID {
-		// Set proper file ownership if configured.
-		// This will fail as expected if the command is not run as root or
-		// under a different user context
+	if hasUser {
 		if err := os.Chown(targetPath, o.config.User.UID, o.config.User.GID); err != nil {
 			return nil, trace.Wrap(err)
 		}

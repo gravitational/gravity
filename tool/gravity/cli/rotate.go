@@ -35,10 +35,12 @@ import (
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
+	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/rpc"
 	pb "github.com/gravitational/gravity/lib/rpc/proto"
 	"github.com/gravitational/gravity/lib/state"
+	"github.com/gravitational/gravity/lib/systeminfo"
 	"github.com/gravitational/gravity/lib/users"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -50,7 +52,7 @@ import (
 )
 
 func rotateRPCCredentials(env *localenv.LocalEnvironment, o rotateRPCCredsOptions) (err error) {
-	clusterEnv, err := env.NewClusterEnvironment()
+	clusterEnv, err := newClusterEnvironmentForRotate(env)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -149,6 +151,72 @@ func statusController(client *http.Client) error {
 		return nil
 	}
 	return trace.BadParameter("cluster is unhealthy")
+}
+
+func newClusterEnvironmentForRotate(env *localenv.LocalEnvironment) (*localenv.ClusterEnvironment, error) {
+	nodeAddr, err := getLocalNodeAddr(env)
+	if err != nil {
+		return nil, trace.Wrap(err, "failed to determine local node advertise address")
+	}
+	serviceUser, err := getServiceUser(env)
+	if err != nil {
+		return nil, trace.Wrap(err, "failed to determine cluster service user")
+	}
+	return env.NewClusterEnvironment(
+		localenv.WithNodeAddr(nodeAddr),
+		localenv.WithServiceUser(*serviceUser),
+	)
+}
+
+func getServiceUser(env *localenv.LocalEnvironment) (*systeminfo.User, error) {
+	// Try the local state first
+	user, err := env.Backend.GetServiceUser()
+	if err != nil && !trace.IsNotFound(err) {
+		return nil, trace.Wrap(err)
+	}
+	if user != nil {
+		if serviceUser, err := systeminfo.FromOSUser(*user); err == nil {
+			return serviceUser, nil
+		} else {
+			log.WithField("user", user).Warnf("Failed to convert system user: %v.", err)
+			// Fall-through
+		}
+	}
+	// Otherwise, use the cluster state for the lookup
+	clusterEnv, err := env.NewClusterEnvironment()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	cluster, err := clusterEnv.Operator.GetLocalSite()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return systeminfo.FromOSUser(cluster.ServiceUser)
+}
+
+func getLocalNodeAddr(env *localenv.LocalEnvironment) (nodeAddr string, err error) {
+	// Try the local state first
+	nodeAddr, err = env.Backend.GetNodeAddr()
+	if err != nil && !trace.IsNotFound(err) {
+		return "", trace.Wrap(err)
+	}
+	if nodeAddr != "" {
+		return nodeAddr, nil
+	}
+	// Otherwise, use the cluster server state for the lookup
+	clusterEnv, err := env.NewClusterEnvironment()
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+	cluster, err := clusterEnv.Operator.GetLocalSite()
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+	server, err := ops.FindLocalServer(cluster.ClusterState)
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+	return server.AdvertiseIP, nil
 }
 
 func rotateCertificates(env *localenv.LocalEnvironment, o rotateOptions) (err error) {
