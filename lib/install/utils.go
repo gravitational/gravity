@@ -17,7 +17,6 @@ package install
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -33,7 +32,6 @@ import (
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
-	"github.com/gravitational/gravity/lib/process"
 	"github.com/gravitational/gravity/lib/rpc"
 	pb "github.com/gravitational/gravity/lib/rpc/proto"
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
@@ -382,19 +380,7 @@ type ExecResult struct {
 // FormatAbortError formats the specified error for output by the installer client.
 // Output will contain error message for err as well as any error it wraps.
 func FormatAbortError(err error) string {
-	switch err := err.(type) {
-	case trace.Error:
-		userMessage := trace.UserMessage(err)
-		if err.OrigError() != nil {
-			detail := trace.UserMessage(err.OrigError())
-			if detail != userMessage {
-				userMessage = fmt.Sprintf("%v (%v)", userMessage, detail)
-			}
-		}
-		return userMessage
-	default:
-		return trace.UserMessage(err)
-	}
+	return trace.UserMessage(err)
 }
 
 func isOperationSuccessful(progress ops.ProgressEntry) bool {
@@ -403,21 +389,6 @@ func isOperationSuccessful(progress ops.ProgressEntry) bool {
 
 type eventDispatcher interface {
 	Send(dispatcher.Event)
-}
-
-func wait(ctx context.Context, cancel context.CancelFunc, p process.GravityProcess) error {
-	errC := make(chan error, 1)
-	go func() {
-		err := p.Wait()
-		cancel()
-		errC <- err
-	}()
-	select {
-	case err := <-errC:
-		return trace.Wrap(err)
-	case <-ctx.Done():
-		return trace.Wrap(ctx.Err())
-	}
 }
 
 func tryInstallBinary(targetPath string, uid, gid int, logger log.FieldLogger) error {
