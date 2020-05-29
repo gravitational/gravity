@@ -78,7 +78,6 @@ Clusters.
 - [Releases](changelog.md) - List of Gravity versions and release notes.
 - [FAQ](faq.md) - Common issues encountered in Cluster environments.
 - [Guides](guides.md) - A list of other Gravity related workshops and guides we have published.
-- [Terraform](terraform.md) - Guide for using Terraform with Gravity.
 
 
 ## Components

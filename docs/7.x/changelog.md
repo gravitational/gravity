@@ -1983,7 +1983,7 @@ for details.
 
 #### Improvements
 
-* Introduce gravity terraform provider. See [Terraform Provider](terraform.md) for details.
+* Introduce gravity terraform provider.
 * Refactor join operation to use FSM approach.
 * Suppress selection prompt in UI install flow if the installer machine has a single network interface.
 * Improve upgrade operation logging and move default log location to `/var/log`.
