@@ -194,19 +194,64 @@ func (p *updatePhaseInit) Rollback(ctx context.Context) error {
 			return trace.Wrap(err)
 		}
 	}
+	err := p.restoreRPCCredentials()
+	if err != nil && !trace.IsNotFound(err) {
+		return trace.Wrap(err)
+	}
 	if err := p.removeConfiguredPackages(); err != nil {
 		return trace.Wrap(err)
 	}
 	return nil
 }
 
-// updateRPCCredentials rotates the RPC credentials used for install/expand/leave operations
+// updateRPCCredentials rotates the RPC credentials used for install/expand/leave operations.
 func (p *updatePhaseInit) updateRPCCredentials() error {
+	// This assumes that the cluster controller Pods are eventually restarted
+	// by the upcoming phase for these changes to take effect.
+	//
+	// Currently the upgrade short-circuits the application-only upgrades by not
+	// including the init phase so this is safe.
+	//
+	// Keep it in mind for future changes.
+	// See https://github.com/gravitational/gravity/issues/3607 for more details when we had
+	// to be careful about it previously.
+	p.Info("Update RPC credentials")
+	if err := p.backupRPCCredentials(); err != nil {
+		return trace.Wrap(err)
+	}
 	loc, err := rpc.UpsertCredentials(p.Packages)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	p.WithField("package", loc.String()).Info("Update RPC credentials.")
+	return nil
+}
+
+func (p *updatePhaseInit) backupRPCCredentials() error {
+	p.Info("Backup RPC credentials")
+	env, rc, err := rpc.LoadCredentialsData(p.Packages)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer rc.Close()
+	_, err = p.Packages.CreatePackage(rpcBackupPackage, rc, pack.WithLabels(env.RuntimeLabels))
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+func (p *updatePhaseInit) restoreRPCCredentials() error {
+	p.Info("Restore RPC credentials from backup")
+	env, rc, err := p.Packages.ReadPackage(rpcBackupPackage)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer rc.Close()
+	err = rpc.UpsertCredentialsFromData(p.Packages, rc, env.RuntimeLabels)
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	return nil
 }
 
@@ -528,4 +573,10 @@ func removeLegacyUpdateDirectory(log log.FieldLogger) error {
 	}
 	log.WithField("dir", updateDir).Debug("Remove legacy update directory.")
 	return trace.ConvertSystemError(os.RemoveAll(updateDir))
+}
+
+var rpcBackupPackage = loc.Locator{
+	Repository: defaults.SystemAccountOrg,
+	Name:       "rpcagent-secrets-backup",
+	Version:    loc.FirstVersion,
 }

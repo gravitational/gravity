@@ -20,6 +20,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"path/filepath"
 	"strconv"
@@ -72,6 +73,16 @@ func LoadCredentials(packages pack.PackageService) (tls utils.TLSArchive, err er
 		return nil, trace.Wrap(err)
 	}
 	return tlsArchive, nil
+}
+
+// LoadCredentialsData returns an io.Reader into the credentials package.
+// Caller is responsible for closing the returned reader
+func LoadCredentialsData(packages pack.PackageService) (env *pack.PackageEnvelope, rc io.ReadCloser, err error) {
+	env, rc, err = packages.ReadPackage(loc.RPCSecrets)
+	if err != nil {
+		return nil, nil, trace.Wrap(err)
+	}
+	return env, rc, nil
 }
 
 // GenerateAgentCredentials creates client/server credentials archive.
@@ -339,6 +350,20 @@ func UpsertCredentials(packages pack.PackageService) (*loc.Locator, error) {
 	}
 
 	return &loc.RPCSecrets, nil
+}
+
+// UpsertCredentialsFromData creates or updates RPC credentials from the specified data
+func UpsertCredentialsFromData(packages pack.PackageService, r io.Reader, labels map[string]string) error {
+	err := packages.UpsertRepository(defaults.SystemAccountOrg, time.Time{})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	essential := map[string]string{
+		pack.PurposeLabel: pack.PurposeRPCCredentials,
+	}
+	runtimeLabels := utils.CombineLabels(essential, labels)
+	_, err = packages.UpsertPackage(loc.RPCSecrets, r, pack.WithLabels(runtimeLabels))
+	return trace.Wrap(err)
 }
 
 // CredentialsFromDir returns both server and client credentials read from the
