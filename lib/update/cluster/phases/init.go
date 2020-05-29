@@ -216,7 +216,8 @@ func (p *updatePhaseInit) updateRPCCredentials() error {
 	// See https://github.com/gravitational/gravity/issues/3607 for more details when we had
 	// to be careful about it previously.
 	p.Info("Update RPC credentials")
-	if err := p.backupRPCCredentials(); err != nil {
+	err := p.backupRPCCredentials()
+	if err != nil {
 		return trace.Wrap(err)
 	}
 	loc, err := rpc.UpsertCredentials(p.Packages)
@@ -234,7 +235,11 @@ func (p *updatePhaseInit) backupRPCCredentials() error {
 		return trace.Wrap(err)
 	}
 	defer rc.Close()
-	_, err = p.Packages.CreatePackage(rpcBackupPackage, rc, pack.WithLabels(env.RuntimeLabels))
+	essential := map[string]string{
+		pack.OperationIDLabel: p.Operation.ID,
+	}
+	runtimeLabels := utils.CombineLabels(essential, env.RuntimeLabels)
+	_, err = p.Packages.UpsertPackage(rpcBackupPackage(p.Operation.SiteDomain), rc, pack.WithLabels(runtimeLabels))
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -243,11 +248,12 @@ func (p *updatePhaseInit) backupRPCCredentials() error {
 
 func (p *updatePhaseInit) restoreRPCCredentials() error {
 	p.Info("Restore RPC credentials from backup")
-	env, rc, err := p.Packages.ReadPackage(rpcBackupPackage)
+	env, rc, err := p.Packages.ReadPackage(rpcBackupPackage(p.Operation.SiteDomain))
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	defer rc.Close()
+	delete(env.RuntimeLabels, pack.OperationIDLabel)
 	err = rpc.UpsertCredentialsFromData(p.Packages, rc, env.RuntimeLabels)
 	if err != nil {
 		return trace.Wrap(err)
@@ -575,8 +581,10 @@ func removeLegacyUpdateDirectory(log log.FieldLogger) error {
 	return trace.ConvertSystemError(os.RemoveAll(updateDir))
 }
 
-var rpcBackupPackage = loc.Locator{
-	Repository: defaults.SystemAccountOrg,
-	Name:       "rpcagent-secrets-backup",
-	Version:    loc.FirstVersion,
+func rpcBackupPackage(repository string) loc.Locator {
+	return loc.Locator{
+		Repository: repository,
+		Name:       "rpcagent-secrets-backup",
+		Version:    loc.FirstVersion,
+	}
 }
