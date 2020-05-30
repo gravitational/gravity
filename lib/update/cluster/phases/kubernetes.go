@@ -30,6 +30,7 @@ import (
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
+	"k8s.io/api/extensions/v1beta1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	rbacv1beta1 "k8s.io/api/rbac/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -378,31 +379,66 @@ func removeKubeletPermissions(client *kubeapi.Clientset) error {
 	return nil
 }
 
-func getInfluxDBNodeName(pod *v1.Pod) (string, error) {
-	if pod.Status.HostIP != "" {
-		return pod.Status.HostIP, nil
+func getInfluxDBNodename(client *kubeapi.Clientset, logger log.FieldLogger) (string, error) {
+	var labels map[string]string
+	var KindDeployment = "deployment"
+	deployment, err := getInfluxDBDeployment(client)
+	if deployment.Spec.Selector != nil {
+		labels = deployment.Spec.Selector.MatchLabels
 	}
-	return "", trace.BadParameter("pod %v is not scheduled to any node", pod.ObjectMeta.GetName())
+	pods, err := rigging.CollectPods(defaults.MonitoringNamespace, labels, logger, client, func(ref metav1.OwnerReference) bool {
+		return ref.Kind == KindDeployment && ref.UID == deployment.UID
+	})
+	if err != nil {
+		return "", trace.Wrap(rigging.ConvertError(err))
+	}
+	if len(pods) != 1 {
+		return "", trace.CompareFailed("unexpected number of InfluxDB pods running: %v, expected one pod", len(pods))
+	}
+	for nodename, _ := range pods {
+		return nodename, nil
+	}
+	return "", nil
 }
 
-func getInfluxDBPod(client *kubeapi.Clientset) (*v1.Pod, error) {
-	pod, err := client.CoreV1().Pods(defaults.MonitoringNamespace).Get(defaults.InfluxDBDeploymentName, metav1.GetOptions{})
+func getInfluxDBDeployment(client *kubeapi.Clientset) (*v1beta1.Deployment, error) {
+	deployment, err := client.ExtensionsV1beta1().Deployments(defaults.MonitoringNamespace).Get(defaults.InfluxDBDeploymentName, metav1.GetOptions{})
 	if err != nil {
 		return nil, trace.Wrap(rigging.ConvertError(err))
 	}
-	return pod, nil
+
+	return deployment, nil
 }
 
-func scaleInfluxDB(client *kubeapi.Clientset, replicas int32) error {
-	deployment, err := client.ExtensionsV1beta1().Deployments(defaults.MonitoringNamespace).Get(defaults.InfluxDBDeploymentName, metav1.GetOptions{})
+func upsertInfluxDBConfigMap(client *kubeapi.Clientset, logger log.FieldLogger, nodename string) error {
+	_, err := client.CoreV1().ConfigMaps(defaults.MonitoringNamespace).Create(&v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: defaults.MonitoringNamespace,
+			Name:      defaults.InfluxDBNodenameConfigMap,
+		},
+		Data: map[string]string{
+			defaults.InfluxDBConfigMapFieldName: nodename,
+		},
+	})
+	err = rigging.ConvertError(err)
 	if err != nil {
-		return trace.Wrap(rigging.ConvertError(err))
+		if trace.IsAlreadyExists(err) {
+			logger.WithField("configmap", defaults.InfluxDBNodenameConfigMap).Info("ConfigMap already exists, updating.")
+			err = updateInfluxDBConfigMap(client, nodename)
+		}
 	}
+	return trace.Wrap(err)
+}
 
-	deployment.Spec.Replicas = &replicas
-	_, err = client.ExtensionsV1beta1().Deployments(defaults.MonitoringNamespace).Update(deployment)
+func updateInfluxDBConfigMap(client *kubeapi.Clientset, nodename string) error {
+	configMap, err := client.CoreV1().ConfigMaps(defaults.MonitoringNamespace).Get(defaults.InfluxDBNodenameConfigMap, metav1.GetOptions{})
 	if err != nil {
-		return trace.Wrap(rigging.ConvertError(err))
+		return rigging.ConvertError(err)
+	}
+	configMap.Data[defaults.InfluxDBConfigMapFieldName] = nodename
+	_, err = client.CoreV1().ConfigMaps(defaults.MonitoringNamespace).Update(configMap)
+	if err != nil {
+		return rigging.ConvertError(err)
 	}
 	return nil
 }

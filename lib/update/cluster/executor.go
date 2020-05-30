@@ -131,7 +131,7 @@ func fsmSpec(c Config) fsm.FSMSpecFunc {
 		case updateBootstrapLeader:
 			return libphase.NewUpdatePhaseBootstrapLeader(p, c.Operator, c.Apps,
 				c.Backend, c.LocalBackend, c.HostLocalBackend,
-				c.HostLocalPackages, c.ClusterPackages,
+				c.HostLocalPackages, c.ClusterPackages, c.Client,
 				remote, logger)
 		case coredns:
 			return libphase.NewPhaseCoreDNS(p, c.Operator, c.Client, logger)

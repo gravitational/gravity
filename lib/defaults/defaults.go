@@ -552,6 +552,10 @@ const (
 	InfluxDBSecretName = "influxdb"
 	// InfluxDBDeploymentName is the name of InfluxDB deployment
 	InfluxDBDeploymentName = "influxdb"
+	// InfluxDBNodeNameConfigMap defines the name of configmap storing InfluxDB pod node name
+	InfluxDBNodenameConfigMap = "influxdb-node"
+	// InfluxDBConfigMapFieldName defines field key for node name
+	InfluxDBConfigMapFieldName = "nodename"
 
 	// WriteFactor is a default amount of acknowledged writes for object storage
 	// to be considered successfull

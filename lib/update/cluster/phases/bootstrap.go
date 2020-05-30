@@ -37,6 +37,7 @@ import (
 
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
+	"k8s.io/client-go/kubernetes"
 )
 
 // NewUpdatePhaseBootstrapLeader creates a new bootstrap phase executor
@@ -46,6 +47,7 @@ func NewUpdatePhaseBootstrapLeader(
 	apps libapp.Applications,
 	backend, localBackend, hostLocalBackend storage.Backend,
 	localPackages, packages pack.PackageService,
+	client *kubernetes.Clientset,
 	remote fsm.Remote,
 	logger log.FieldLogger,
 ) (fsm.PhaseExecutor, error) {
@@ -71,6 +73,10 @@ func NewUpdatePhaseBootstrapLeader(
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to query application")
 	}
+	op, err := newKubernetesOperation(p, client, logger)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	executor := updatePhaseBootstrapLeader{
 		FieldLogger: logger,
 		servers:     p.Phase.Data.Update.Servers,
@@ -90,9 +96,10 @@ func NewUpdatePhaseBootstrapLeader(
 			remote:           remote,
 			clusterDNSConfig: cluster.DNSConfig,
 		},
-		masterIPs:      storage.Servers(p.Plan.Servers).MasterIPs(),
-		packageRotator: operator,
-		updateManifest: app.Manifest,
+		masterIPs:           storage.Servers(p.Plan.Servers).MasterIPs(),
+		packageRotator:      operator,
+		updateManifest:      app.Manifest,
+		kubernetesOperation: *op,
 	}
 	if p.Phase.Data.Update.RuntimeAppVersion == "" {
 		executor.GravityPath, err = getGravityPath()
@@ -137,6 +144,10 @@ func (p *updatePhaseBootstrapLeader) Execute(ctx context.Context) error {
 		return trace.Wrap(err)
 	}
 	err = p.rotateConfigAndSecrets()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = p.saveInfluxDBNodename()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -261,6 +272,15 @@ func (p *updatePhaseBootstrapLeader) rotateTeleportConfig(server storage.UpdateS
 	return nil
 }
 
+func (p *updatePhaseBootstrapLeader) saveInfluxDBNodename() error {
+	nodename, err := getInfluxDBNodename(p.kubernetesOperation.Client, p.FieldLogger)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = upsertInfluxDBConfigMap(p.kubernetesOperation.Client, p.FieldLogger, nodename)
+	return trace.Wrap(err)
+}
+
 type updatePhaseBootstrapLeader struct {
 	// FieldLogger is used for logging
 	log.FieldLogger
@@ -277,6 +297,7 @@ type updatePhaseBootstrapLeader struct {
 	existingClusterConfig []byte
 	// updateManifest specifies the manifest of the update application
 	updateManifest schema.Manifest
+	kubernetesOperation
 }
 
 // updatePhaseBootstrap is the executor for the update bootstrap phase.
@@ -378,10 +399,6 @@ func (p *updatePhaseBootstrap) PostCheck(context.Context) error {
 // initializes local operation state
 func (p *updatePhaseBootstrap) Execute(ctx context.Context) error {
 	err := p.configureNode()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	err = p.migrateInfluxDBData()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -549,10 +566,6 @@ func (p *updatePhaseBootstrap) addUpdateRuntimePackageLabel() error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return nil
-}
-
-func (p *updatePhaseBootstrap) migrateInfluxDBData() error {
 	return nil
 }
 
