@@ -6,7 +6,7 @@
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
 | 7.0.5         | No  | May 13th, 2020       | 7.1 is released      | 1.17.4             | 3.2.13           |
 | 6.1.27        | Yes | May 13th, 2020       | November 10th, 2021  | 1.15.11            | 3.2.12           |
-| 5.5.46        | Yes | May 21st, 2020       | March 7th, 2021      | 1.13.11            | 3.0.6-gravity    |
+| 5.5.47        | Yes | May 29th, 2020       | March 7th, 2021      | 1.13.11            | 3.0.6-gravity    |
 
 Gravity offers one Long Term Support (LTS) release for every 2nd Kubernetes
 minor version, allowing for seamless upgrades per Kubernetes
@@ -878,6 +878,18 @@ to learn how to gain insight into how the cluster status changes over time.
 * Add support for using `helm` directly from host.
 
 ## 5.x Releases
+
+### 5.5.47 LTS (May 29th, 2020)
+
+#### Improvements
+
+* Upgrade etcd to `v3.3.22` ([#1619](https://github.com/gravitational/gravity/pull/1619), [planet#650](https://github.com/gravitational/planet/pull/650)).
+* Upgrade CNI plugins to `v0.8.6` ([#1619](https://github.com/gravitational/gravity/pull/1619), [planet#650](https://github.com/gravitational/planet/pull/650)).
+
+#### Bugfixes
+
+* Fix a number of issues related to handling of operations without plan in `gravity plan` ([#1597](https://github.com/gravitational/gravity/pull/1597)).
+* Fix an issue with RPC agent credentials not being rotated during upgrade ([#1629](https://github.com/gravitational/gravity/pull/1629)).
 
 ### 5.5.46 LTS (May 21st, 2020)
 
