@@ -19,6 +19,7 @@ package phases
 import (
 	"context"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
@@ -29,7 +30,7 @@ import (
 	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	rbacv1beta1 "k8s.io/api/rbac/v1beta1"
@@ -381,11 +382,13 @@ func removeKubeletPermissions(client *kubeapi.Clientset) error {
 
 func getInfluxDBNodename(client *kubeapi.Clientset, logger log.FieldLogger) (string, error) {
 	var labels map[string]string
-	var KindDeployment = "deployment"
+	var KindDeployment = "Deployment"
 	deployment, err := getInfluxDBDeployment(client)
+	spew.Dump(deployment)
 	if deployment.Spec.Selector != nil {
 		labels = deployment.Spec.Selector.MatchLabels
 	}
+	spew.Dump(labels)
 	pods, err := rigging.CollectPods(defaults.MonitoringNamespace, labels, logger, client, func(ref metav1.OwnerReference) bool {
 		return ref.Kind == KindDeployment && ref.UID == deployment.UID
 	})
@@ -395,7 +398,7 @@ func getInfluxDBNodename(client *kubeapi.Clientset, logger log.FieldLogger) (str
 	if len(pods) != 1 {
 		return "", trace.CompareFailed("unexpected number of InfluxDB pods running: %v, expected one pod", len(pods))
 	}
-	for nodename, _ := range pods {
+	for nodename := range pods {
 		return nodename, nil
 	}
 	return "", nil
