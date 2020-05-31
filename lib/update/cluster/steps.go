@@ -470,6 +470,7 @@ func (r targetUpdateStep) bootstrapPhase(servers []storage.UpdateServer, install
 		Executor:    updateBootstrapLeader,
 		Description: fmt.Sprintf("Bootstrap node %q", leadMaster.Hostname),
 		Data: &storage.OperationPhaseData{
+			Server:           &leadMaster.Server,
 			ExecServer:       &leadMaster.Server,
 			Package:          &updateApp,
 			InstalledPackage: &installedApp,
