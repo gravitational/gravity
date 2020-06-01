@@ -426,10 +426,6 @@ func getInfluxDBDeployment(client *kubeapi.Clientset) (*v1beta1.Deployment, erro
 	return deployment, nil
 }
 
-func getInfluxDBReplicaSet(client *kubeapi.Clientset, matchLabels map[string]string, ref metav1.OwnerReference) (*v1beta1.ReplicaSet, error) {
-
-}
-
 func upsertInfluxDBConfigMap(client *kubeapi.Clientset, logger log.FieldLogger, nodename string) error {
 	_, err := client.CoreV1().ConfigMaps(defaults.MonitoringNamespace).Create(&v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
