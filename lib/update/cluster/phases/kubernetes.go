@@ -19,7 +19,6 @@ package phases
 import (
 	"context"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
@@ -382,16 +381,30 @@ func removeKubeletPermissions(client *kubeapi.Clientset) error {
 
 func getInfluxDBNodename(client *kubeapi.Clientset, logger log.FieldLogger) (string, error) {
 	var labels map[string]string
-	var KindDeployment = "Deployment"
 	deployment, err := getInfluxDBDeployment(client)
-	spew.Dump(deployment)
 	if deployment.Spec.Selector != nil {
 		labels = deployment.Spec.Selector.MatchLabels
 	}
-	spew.Dump(labels)
-	pods, err := rigging.CollectPods(defaults.MonitoringNamespace, labels, logger, client, func(ref metav1.OwnerReference) bool {
-		return ref.Kind == KindDeployment && ref.UID == deployment.UID
+	replicaSets, err := rigging.CollectReplicaSets(deployment.Namespace, labels, logger, client, func(ref metav1.OwnerReference) bool {
+		return ref.Kind == rigging.KindDeployment && ref.UID == deployment.UID
 	})
+	if err != nil {
+		return "", trace.Wrap(rigging.ConvertError(err))
+	}
+
+	pods := make(map[string]v1.Pod, 0)
+	for _, replicaSet := range replicaSets {
+		podMap, err := rigging.CollectPods(replicaSet.Namespace, labels, logger, client, func(ref metav1.OwnerReference) bool {
+			return ref.Kind == rigging.KindReplicaSet && ref.UID == replicaSet.UID
+		})
+		if err != nil {
+			return "", trace.Wrap(rigging.ConvertError(err))
+		}
+		for nodename, pod := range podMap {
+			pods[nodename] = pod
+		}
+	}
+
 	if err != nil {
 		return "", trace.Wrap(rigging.ConvertError(err))
 	}
@@ -411,6 +424,10 @@ func getInfluxDBDeployment(client *kubeapi.Clientset) (*v1beta1.Deployment, erro
 	}
 
 	return deployment, nil
+}
+
+func getInfluxDBReplicaSet(client *kubeapi.Clientset, matchLabels map[string]string, ref metav1.OwnerReference) (*v1beta1.ReplicaSet, error) {
+
 }
 
 func upsertInfluxDBConfigMap(client *kubeapi.Clientset, logger log.FieldLogger, nodename string) error {

@@ -32,6 +32,14 @@ func ParseShortcut(in, defaultVal string) (string, error) {
 		return KindService, nil
 	case "serviceaccount", "serviceaccounts", "sa":
 		return KindServiceAccount, nil
+	case "role", "roles":
+		return KindRole, nil
+	case "rolebinding", "rolebindings":
+		return KindRoleBinding, nil
+	case "clusterroles", "clusterrole":
+		return KindClusterRole, nil
+	case "clusterrolebindings", "clusterrolebinding":
+		return KindClusterRoleBinding, nil
 	}
 	return "", trace.BadParameter("unsupported resource: %v", in)
 }

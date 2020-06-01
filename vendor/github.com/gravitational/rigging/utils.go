@@ -13,6 +13,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
+	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -114,13 +115,46 @@ func CollectPods(namespace string, matchLabels map[string]string, logger log.Fie
 		for _, ref := range pod.OwnerReferences {
 			if fn(ref) {
 				pods[pod.Spec.NodeName] = pod
-				logger.Infof("found pod %v on node %v", formatMeta(pod.ObjectMeta), pod.Spec.NodeName)
+				logger.WithFields(log.Fields{
+					"pod":  pod.ObjectMeta.Name,
+					"node": pod.Spec.NodeName,
+				}).Info("Found pod on node.")
 			}
 		}
 	}
 	return pods, nil
 }
 
+// CollectReplicaSets collects replicasets matched by fn
+func CollectReplicaSets(namespace string, matchLabels map[string]string, logger log.FieldLogger, client *kubernetes.Clientset,
+	fn func(metav1.OwnerReference) bool) ([]v1beta1.ReplicaSet, error) {
+	set := make(labels.Set)
+	for key, val := range matchLabels {
+		set[key] = val
+	}
+
+	rsList, err := client.ExtensionsV1beta1().ReplicaSets(namespace).List(metav1.ListOptions{
+		LabelSelector: set.AsSelector().String(),
+	})
+	if err != nil {
+		return nil, ConvertError(err)
+	}
+
+	var replicaSets []v1beta1.ReplicaSet
+	for _, replicaSet := range rsList.Items {
+		for _, ref := range replicaSet.OwnerReferences {
+			if fn(ref) {
+				replicaSets = append(replicaSets, replicaSet)
+				logger.WithFields(log.Fields{
+					"replicaset": replicaSet.ObjectMeta.Name,
+					"deployment": ref.Name,
+					"UID":        ref.UID,
+				}).Info("Found ReplicaSet owned by deployment.")
+			}
+		}
+	}
+	return replicaSets, nil
+}
 func retry(ctx context.Context, times int, period time.Duration, fn func() error) error {
 	if times < 1 {
 		return nil

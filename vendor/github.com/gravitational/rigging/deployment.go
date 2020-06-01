@@ -170,10 +170,26 @@ func (c *DeploymentControl) collectPods(deployment *appsv1.Deployment) (map[stri
 	if deployment.Spec.Selector != nil {
 		labels = deployment.Spec.Selector.MatchLabels
 	}
-	pods, err := CollectPods(deployment.Namespace, labels, c.FieldLogger, c.Client, func(ref metav1.OwnerReference) bool {
+	replicaSets, err := CollectReplicaSets(deployment.Namespace, labels, c.FieldLogger, c.Client, func(ref metav1.OwnerReference) bool {
 		return ref.Kind == KindDeployment && ref.UID == deployment.UID
 	})
-	return pods, ConvertError(err)
+	if err != nil {
+		return nil, ConvertError(err)
+	}
+
+	pods := make(map[string]v1.Pod, 0)
+	for _, replicaSet := range replicaSets {
+		podMap, err := CollectPods(replicaSet.Namespace, labels, c.FieldLogger, c.Client, func(ref metav1.OwnerReference) bool {
+			return ref.Kind == KindReplicaSet && ref.UID == replicaSet.UID
+		})
+		if err != nil {
+			return nil, ConvertError(err)
+		}
+		for nodename, pod := range podMap {
+			pods[nodename] = pod
+		}
+	}
+	return pods, nil
 }
 
 func updateTypeMetaDeployment(r *appsv1.Deployment) {

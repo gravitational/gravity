@@ -296,7 +296,7 @@
   version = "v2.2.2"
 
 [[projects]]
-  digest = "1:0d299a04c6472e4458461d7034c76d014cc6f632a3262cbf21d123b19ce13e65"
+  digest = "1:86b38004415341a2f678a19f9312213bc851a3620bb42b3dca005c8ad0d3485c"
   name = "k8s.io/api"
   packages = [
     "admissionregistration/v1alpha1",
@@ -333,11 +333,11 @@
     "storage/v1beta1",
   ]
   pruneopts = "UT"
-  revision = "74b699b93c15473932b89e3d1818ba8282f3b5ab"
-  version = "kubernetes-1.13.3"
+  revision = "ebce17126a01f5fe02364d88c899816bcc2a8165"
+  version = "kubernetes-1.13.11"
 
 [[projects]]
-  digest = "1:db0e48e58e92eddc9ae08e9efb3dfaa1d61e32de690fff0dae5bccf4b45ebcce"
+  digest = "1:56ff051ad8fb1a70b2e9849c01a3b4825585fa94a07b77c0f76c763f16835f31"
   name = "k8s.io/apiextensions-apiserver"
   packages = [
     "pkg/apis/apiextensions",
@@ -347,11 +347,11 @@
     "pkg/client/clientset/clientset/typed/apiextensions/v1beta1",
   ]
   pruneopts = "UT"
-  revision = "d4288ab6494571219e781fa423db363247635942"
-  version = "kubernetes-1.13.3"
+  revision = "e8460a76b3ad783b7b2f1bb45ad61ea0ebf197ed"
+  version = "kubernetes-1.13.11"
 
 [[projects]]
-  digest = "1:78b10be9cba7af79ccbeeeaa8b5f9c09d14e64c7a3dbc307f9ac58f8023a1571"
+  digest = "1:8cb35e4a283e5cc40bf9508e8c2235325fd0e72451bb20e5d3b439e222750816"
   name = "k8s.io/apimachinery"
   packages = [
     "pkg/api/errors",
@@ -392,11 +392,11 @@
     "third_party/forked/golang/reflect",
   ]
   pruneopts = "UT"
-  revision = "572dfc7bdfcb4531361a17d27b92851f59acf0dc"
-  version = "kubernetes-1.13.3"
+  revision = "bf4de9df677cd119930fa83483bad158956cdfcf"
+  version = "kubernetes-1.13.11"
 
 [[projects]]
-  digest = "1:20f641257f6c0c69ddf455a15b63b20bac524b08d90745da796d633724758bac"
+  digest = "1:d0e0162c76deffc2adcd4a94aa17ce4c8aa6d2bbfa0a603de66cb1d7ec47abe1"
   name = "k8s.io/client-go"
   packages = [
     "discovery",
@@ -456,8 +456,8 @@
     "util/integer",
   ]
   pruneopts = "UT"
-  revision = "e64494209f554a6723674bd494d69445fb76a1d4"
-  version = "v10.0.0"
+  revision = "ee6c071a42cffd19361fc3f4ca995829328a0678"
+  version = "kubernetes-1.13.11"
 
 [[projects]]
   digest = "1:e2999bf1bb6eddc2a6aa03fe5e6629120a53088926520ca3b4765f77d7ff7eab"

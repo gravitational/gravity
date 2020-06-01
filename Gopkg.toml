@@ -116,7 +116,8 @@ ignored = [
 
 [[constraint]]
   name = "github.com/gravitational/rigging"
-  version = "=5.5.2"
+  #version = "=5.5.2"
+  branch = "sergei/collect_replicasets"
 
 [[override]]
   name = "github.com/docker/distribution"
