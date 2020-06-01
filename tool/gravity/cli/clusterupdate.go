@@ -23,6 +23,7 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	libfsm "github.com/gravitational/gravity/lib/fsm"
+	"github.com/gravitational/gravity/lib/install"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
@@ -330,13 +331,7 @@ func checkForUpdate(
 	installedPackage loc.Locator,
 	updatePackage string,
 ) (updateApp *app.Application, err error) {
-	// if app package was not provided, default to the latest version of
-	// the currently installed app
-	if updatePackage == "" {
-		updatePackage = installedPackage.Name
-	}
-
-	updateLoc, err := loc.MakeLocator(updatePackage)
+	updateLoc, err := getUpdatePackage(env, updatePackage)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -360,6 +355,31 @@ func checkForUpdate(
 		updateApp.Package.Version)
 
 	return updateApp, nil
+}
+
+func getUpdatePackage(env *localenv.LocalEnvironment, updatePackagePattern string) (*loc.Locator, error) {
+	if updatePackagePattern != "" {
+		return loc.MakeLocator(updatePackagePattern)
+	}
+	clusterOperator, err := env.SiteOperator()
+	if err != nil {
+		return nil, trace.Wrap(err, "unable to access cluster.\n"+
+			"Use 'gravity status' to check the cluster state and retry when healthy.")
+	}
+	cluster, err := clusterOperator.GetLocalSite()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	var args localenv.TarballEnvironmentArgs
+	if cluster.License != nil {
+		args.License = cluster.License.Raw
+	}
+	tarballEnv, err := localenv.NewTarballEnvironment(args)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	defer tarballEnv.Close()
+	return install.GetAppPackage(tarballEnv.Apps)
 }
 
 func supportsUpdate(gravityPackage loc.Locator) (supports bool, err error) {
