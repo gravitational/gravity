@@ -153,7 +153,7 @@ to learn how to gain insight into how the cluster status changes over time.
 ### 6.3.18 (June 1st, 2020)
 
 #### Bugfixes
-* Update Kubernetes to 1.15.12 ([#1631](https://github.com/gravitational/gravity/pull/1487))([planet#655](https://github.com/gravitational/planet/pull/655))
+* Update Kubernetes to 1.17.6 ([#1631](https://github.com/gravitational/gravity/pull/1487))([planet#655](https://github.com/gravitational/planet/pull/655))
 * Bump etcd to v3.3.22 ([#1617](https://github.com/gravitational/gravity/pull/1487))([planet#649](https://github.com/gravitational/planet/pull/649))
 * Prevent etcd portion of upgrades from taking excessive amount of time ([#1617](https://github.com/gravitational/gravity/pull/1487))
 * Update CNI plugins to 0.8.6 ([#1617](https://github.com/gravitational/gravity/pull/1487))([planet#649](https://github.com/gravitational/planet/pull/649))
@@ -167,7 +167,7 @@ to learn how to gain insight into how the cluster status changes over time.
 * Add planet election change events to `gravity status history` ([#1355](https://github.com/gravitational/gravity/pull/1355))
 
 #### Bugfixes
-* Update Kubernetes to 1.17.6 ([#1627](https://github.com/gravitational/gravity/pull/1487))([planet#656](https://github.com/gravitational/planet/pull/656))
+* Update Kubernetes to 1.15.12 ([#1627](https://github.com/gravitational/gravity/pull/1487))([planet#656](https://github.com/gravitational/planet/pull/656))
 * Bump etcd to v3.3.22 ([#1618](https://github.com/gravitational/gravity/pull/1487))([planet#648](https://github.com/gravitational/planet/pull/648))
 * Prevent etcd portion of upgrades from taking excessive amount of time ([#1618](https://github.com/gravitational/gravity/pull/1487))
 * Update CNI plugins to 0.8.6 ([#1618](https://github.com/gravitational/gravity/pull/1487))([planet#648](https://github.com/gravitational/planet/pull/648))
