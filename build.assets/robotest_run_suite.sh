@@ -6,12 +6,17 @@ readonly UPGRADE_FROM_DIR=${1:-$(pwd)/../upgrade_from}
 # UPGRADE_MAP maps gravity version -> list of OS releases to upgrade from
 declare -A UPGRADE_MAP
 
+# latest patch release on compatible LTS, keep this up to date
+UPGRADE_MAP[6.1.28]="ubuntu:18"
+
 # latest patch release on supported non-LTS version, keep this up to date
 UPGRADE_MAP[6.3.18]="ubuntu:18"
 
 # latest patch release on supported LTS version, keep this up to date
 UPGRADE_MAP[7.0.6]="ubuntu:18"
 
+# important versions in the field, these are static
+UPGRADE_MAP[6.1.0]="ubuntu:16"
 # UPGRADE_MAP[6.3.0]="ubuntu:16"  # disabled due to https://github.com/gravitational/gravity/issues/1009
 
 readonly GET_GRAVITATIONAL_IO_APIKEY=${GET_GRAVITATIONAL_IO_APIKEY:?API key for distribution Ops Center required}
