@@ -947,12 +947,16 @@ to learn how to gain insight into how the cluster status changes over time.
 #### Improvements
 
 * Upgrade etcd to `v3.3.22` ([#1619](https://github.com/gravitational/gravity/pull/1619), [planet#650](https://github.com/gravitational/planet/pull/650)).
-* Upgrade CNI plugins to `v0.8.6` ([#1619](https://github.com/gravitational/gravity/pull/1619), [planet#650](https://github.com/gravitational/planet/pull/650)).
+* Upgrade CNI plugins to `v0.8.6` (CVE-2020-10749) ([#1619](https://github.com/gravitational/gravity/pull/1619), [planet#650](https://github.com/gravitational/planet/pull/650)).
 
 #### Bugfixes
 
 * Fix a number of issues related to handling of operations without plan in `gravity plan` ([#1597](https://github.com/gravitational/gravity/pull/1597)).
 * Fix an issue with RPC agent credentials not being rotated during upgrade ([#1629](https://github.com/gravitational/gravity/pull/1629)).
+
+!!! warning
+    This release fixes a security vulnerability in CNI. Please see
+    [Kubernetes Announcement](https://groups.google.com/forum/#!topic/kubernetes-announce/wGuDMGdnW9M) for more information.
 
 ### 5.5.46 LTS (May 21st, 2020)
 
