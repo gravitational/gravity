@@ -4,9 +4,9 @@
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 7.0.5         | No  | May 13th, 2020       | 7.1 is released      | 1.17.4             | 3.2.13           |
-| 6.1.27        | Yes | May 13th, 2020       | November 10th, 2021  | 1.15.11            | 3.2.12           |
-| 5.5.46        | Yes | May 21st, 2020       | March 7th, 2021      | 1.13.11            | 3.0.6-gravity    |
+| 7.0.6         | No  | June 1st, 2020       | 7.1 is released      | 1.17.6             | 3.2.13           |
+| 6.1.28        | Yes | June 1st, 2020       | November 10th, 2021  | 1.15.12            | 3.2.12           |
+| 5.5.47        | Yes | May 29th, 2020       | March 7th, 2021      | 1.13.11            | 3.0.6-gravity    |
 
 Gravity offers one Long Term Support (LTS) release for every 2nd Kubernetes
 minor version, allowing for seamless upgrades per Kubernetes
@@ -26,7 +26,7 @@ extend updates past EOL through customer agreements if required.
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 6.3.17        | No  | May 13th, 2020       | April 3rd, 2020      | 1.17.4             | 3.2.13           |
+| 6.3.18        | No  | June 1st, 2020       | April 3rd, 2020      | 1.17.6             | 3.2.13           |
 | 6.2.5         | No  | December 3rd, 2019   | December 18th, 2019  | 1.16.3             | 3.2.13           |
 | 6.0.10        | No  | October 17th, 2019   | August 2nd, 2019     | 1.14.7             | 3.2.12           |
 | 5.6.8         | No  | September 18th, 2019 | July 17th, 2019      | 1.14.7             | 3.0.6-gravity    |
@@ -41,6 +41,29 @@ extend updates past EOL through customer agreements if required.
 # Release Notes
 
 ## 7.x Releases
+
+### 7.0.6 (June 1st, 2020)
+
+#### Improvement
+
+* Collect `gravity status history` as part of debug report ([#1520](https://github.com/gravitational/gravity/pull/1520))
+
+#### Bugfixes
+* Update Kubernetes to 1.17.6 (CVE-2020-8555) ([#1632](https://github.com/gravitational/gravity/pull/1487))([planet#657](https://github.com/gravitational/planet/pull/657))
+* Update CNI plugins to 0.8.6 (CVE-2020-10749) ([#1616](https://github.com/gravitational/gravity/pull/1616))([planet#647](https://github.com/gravitational/planet/pull/647))
+* Bump etcd to v3.4.9 ([#1617](https://github.com/gravitational/gravity/pull/1487))([planet#648](https://github.com/gravitational/planet/pull/648))
+* Re-add nethealth check ([#1612](https://github.com/gravitational/gravity/pull/1612))
+* Prevent shrink operation when join operation not properly initialized ([#1603](https://github.com/gravitational/gravity/pull/1603))
+* Fix several issues that prevented expand operations from being resumable ([#1542](https://github.com/gravitational/gravity/pull/1542))
+* Update wormhole to 0.3.2 ([#1563](https://github.com/gravitational/gravity/pull/1563))
+
+!!! warning
+    This release fixes a security vulnerability in kubernetes. Please see
+    [Kubernetes Announcement](https://groups.google.com/forum/#!topic/kubernetes-announce/BGG-uvklk7Y) for more information.
+
+!!! warning
+    This release fixes a security vulnerability in CNI. Please see
+    [Kubernetes Announcement](https://groups.google.com/forum/#!topic/kubernetes-announce/wGuDMGdnW9M) for more information.
 
 ### 7.0.5 (May 13th, 2020)
 
@@ -134,6 +157,46 @@ them to any Kubernetes cluster.
 to learn how to gain insight into how the cluster status changes over time.
 
 ## 6.x Releases
+
+### 6.3.18 (June 1st, 2020)
+
+#### Bugfixes
+* Update Kubernetes to 1.17.6 (CVE-2020-8555) ([#1631](https://github.com/gravitational/gravity/pull/1487))([planet#655](https://github.com/gravitational/planet/pull/655))
+* Bump etcd to v3.3.22 ([#1617](https://github.com/gravitational/gravity/pull/1487))([planet#649](https://github.com/gravitational/planet/pull/649))
+* Prevent etcd portion of upgrades from taking excessive amount of time ([#1617](https://github.com/gravitational/gravity/pull/1487))
+* Update CNI plugins to 0.8.6 (CVE-2020-10749) ([#1617](https://github.com/gravitational/gravity/pull/1487))([planet#649](https://github.com/gravitational/planet/pull/649))
+* Fix several issues that prevented expand operations from being resumable ([#1594](https://github.com/gravitational/gravity/pull/1594))
+
+!!! warning
+    This release fixes a security vulnerability in kubernetes. Please see
+    [Kubernetes Announcement](https://groups.google.com/forum/#!topic/kubernetes-announce/BGG-uvklk7Y) for more information.
+
+!!! warning
+    This release fixes a security vulnerability in CNI. Please see
+    [Kubernetes Announcement](https://groups.google.com/forum/#!topic/kubernetes-announce/wGuDMGdnW9M) for more information.
+
+### 6.1.28 (June 1st, 2020)
+
+#### Improvements
+
+* Add gravity rollback command ([#1620](https://github.com/gravitational/gravity/pull/1620))
+* Add planet election change events to `gravity status history` ([#1355](https://github.com/gravitational/gravity/pull/1355))
+
+#### Bugfixes
+* Update Kubernetes to 1.15.12 (CVE-2020-8555) ([#1627](https://github.com/gravitational/gravity/pull/1487))([planet#656](https://github.com/gravitational/planet/pull/656))
+* Bump etcd to v3.3.22 ([#1618](https://github.com/gravitational/gravity/pull/1487))([planet#648](https://github.com/gravitational/planet/pull/648))
+* Prevent etcd portion of upgrades from taking excessive amount of time ([#1618](https://github.com/gravitational/gravity/pull/1487))
+* Update CNI plugins to 0.8.6 (CVE-2020-10749) ([#1618](https://github.com/gravitational/gravity/pull/1487))([planet#648](https://github.com/gravitational/planet/pull/648))
+* Fix several issues that prevented expand operations from being resumable ([#1605](https://github.com/gravitational/gravity/pull/1605))
+* Use consistent naming to prevent issues with re-running phases ([#1601](https://github.com/gravitational/gravity/pull/1601))
+
+!!! warning
+    This release fixes a security vulnerability in kubernetes. Please see
+    [Kubernetes Announcement](https://groups.google.com/forum/#!topic/kubernetes-announce/BGG-uvklk7Y) for more information.
+
+!!! warning
+    This release fixes a security vulnerability in CNI. Please see
+    [Kubernetes Announcement](https://groups.google.com/forum/#!topic/kubernetes-announce/wGuDMGdnW9M) for more information.
 
 ### 6.3.17 (May 13th, 2020)
 
@@ -878,6 +941,18 @@ to learn how to gain insight into how the cluster status changes over time.
 * Add support for using `helm` directly from host.
 
 ## 5.x Releases
+
+### 5.5.47 LTS (May 29th, 2020)
+
+#### Improvements
+
+* Upgrade etcd to `v3.3.22` ([#1619](https://github.com/gravitational/gravity/pull/1619), [planet#650](https://github.com/gravitational/planet/pull/650)).
+* Upgrade CNI plugins to `v0.8.6` ([#1619](https://github.com/gravitational/gravity/pull/1619), [planet#650](https://github.com/gravitational/planet/pull/650)).
+
+#### Bugfixes
+
+* Fix a number of issues related to handling of operations without plan in `gravity plan` ([#1597](https://github.com/gravitational/gravity/pull/1597)).
+* Fix an issue with RPC agent credentials not being rotated during upgrade ([#1629](https://github.com/gravitational/gravity/pull/1629)).
 
 ### 5.5.46 LTS (May 21st, 2020)
 
