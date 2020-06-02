@@ -15,7 +15,7 @@ readonly ROBOTEST_SCRIPT=$(mktemp -d)/runsuite.sh
 
 # number of environment variables are expected to be set
 # see https://github.com/gravitational/robotest/blob/master/suite/README.md
-export ROBOTEST_VERSION=${ROBOTEST_VERSION:-uid-gid}
+export ROBOTEST_VERSION=${ROBOTEST_VERSION:-2.0.0}
 export ROBOTEST_REPO=quay.io/gravitational/robotest-suite:$ROBOTEST_VERSION
 export WAIT_FOR_INSTALLER=true
 export INSTALLER_URL=$GRAVITY_BUILDDIR/telekube.tar
@@ -36,6 +36,7 @@ export REPEAT_TESTS=${REPEAT_TESTS:-1}
 function build_resize_suite {
   cat <<EOF
  resize={"to":3,"flavor":"one","nodes":1,"role":"node","state_dir":"/var/lib/telekube","os":"ubuntu:18","storage_driver":"overlay2"}
+ shrink={"nodes":3,"flavor":"three","role":"node","os":"redhat:7"}
 EOF
 }
 
