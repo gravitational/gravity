@@ -12,7 +12,7 @@ UPGRADE_MAP[6.1.28]="ubuntu:18"
 # latest patch release on supported non-LTS version, keep this up to date
 UPGRADE_MAP[6.3.18]="ubuntu:18"
 
-# latest patch release on supported LTS version, keep this up to date
+# latest patch release on 7.0.x branch, keep this up to date
 UPGRADE_MAP[7.0.6]="ubuntu:18"
 
 # important versions in the field, these are static
