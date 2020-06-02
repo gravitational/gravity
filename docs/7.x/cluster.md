@@ -210,8 +210,8 @@ In this case the response HTTP status code will be `503 Service Unavailable`.
 
 ### Cluster Status History
 
-Running `gravity status history` displays the history of changes to the 
-Cluster status. 
+Running `gravity status history` displays the history of changes to the
+Cluster status.
 
 Example output may look something like the following:
 
@@ -251,7 +251,7 @@ key specifies the name of the node (node-1, node-2, node-3).
 key specifies the name of the health check (time-drift, kube-apiserver).
 
 The `gravity status history` command is available on all `master` nodes of the
-cluster and provides an eventually consistent history between nodes. 
+cluster and provides an eventually consistent history between nodes.
 
 ## Application Status
 
@@ -1178,7 +1178,7 @@ Signup token has been created and is valid for 1h0m0s hours. Share this URL with
 https://<host>/web/newuser/<token>
 ```
 
-!!! note 
+!!! note
     Make sure that `<host>` is accessible to the invited user.
 
 ### Reset User Password
@@ -1199,7 +1199,7 @@ Password reset token has been created and is valid for 1h0m0s. Share this URL wi
 https://<host>/web/reset/<token>
 ```
 
-!!! note 
+!!! note
     Make sure that `<host>` is accessible to the user.
 
 ## Securing a Cluster
@@ -1503,6 +1503,51 @@ The command can also output the images in the json or yaml format which can come
 ```bash
 $ gravity registry list --format=json
 ```
+
+## Changing Node Advertise Address
+
+Gravity provides a way to migrate a single-node cluster to a different node, or reconfigure it to use a different
+network interface as its advertise address.
+
+This helps support a scenario where you might want to install and preconfigure a cluster and your applications and then
+package the entire environment as a single virtual appliance (such as AMI in case of Amazon EC2, OVF/OVA in case of VMWare
+or other virtualization platforms, etc.) and then ship it to customers so they can deploy it to their environment
+without having to perform a full installation.
+
+There are a few restrictions and assumptions about this procedure to keep in mind:
+
+* Only single-node clusters can be migrated this way. Clusters can be expanded after the deployment.
+* Only the node's advertise IP and hostname are allowed to change, e.g. cluster name and other changes are not supported.
+* Gravity and application data is assumed to be a part of the packaged VM image.
+
+With the above requirements satisfied, the operation of changing the node's advertise address can be performed using the
+following steps.
+
+On the node where a single-node cluster is running, stop and disable all Gravity and Kubernetes services:
+
+```bash
+$ sudo gravity stop
+```
+
+At this point the machine's snapshot (AMI/OVF/OVA/etc) can be taken. To start the cluster back on the original node if needed,
+use the command:
+
+```bash
+$ sudo gravity start
+```
+
+Once the image has been deployed on a new node, start the cluster providing a new advertise address configuration:
+
+```bash
+$ sudo gravity start --advertise-addr=<new-ip>
+```
+
+Gravity will regenerate all necessary configurations and cluster secrets and restart all the services.
+
+!!! note:
+    As a part of the advertise address change operation, all pods previously present in the cluster are recreated which
+    means that any pods not managed by controllers (deployments, daemon sets, etc.) will be deleted permanently, so
+    make sure to not use pods directly and use controllers instead.
 
 ## Troubleshooting
 
