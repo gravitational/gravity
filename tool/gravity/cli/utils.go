@@ -24,6 +24,7 @@ import (
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/processconfig"
 	"github.com/gravitational/gravity/lib/state"
+	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/tool/common"
 
 	"github.com/gravitational/trace"
@@ -151,4 +152,12 @@ func (g *Application) isJoinCommand(cmd string) bool {
 		return true
 	}
 	return false
+}
+
+func uninstallExistingAgentService() error {
+	svm, err := systemservice.New()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return svm.UninstallService(defaults.GravityRPCAgentServiceName)
 }

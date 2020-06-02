@@ -84,7 +84,7 @@ func rpcAgentRun(localEnv, upgradeEnv *localenv.LocalEnvironment, args []string)
 		log.Info("Execute.")
 		err = agentFunc(ctx, localEnv, upgradeEnv, args)
 		if err != nil {
-			log.Warnf("Error executing handler: %v.", trace.DebugReport(err))
+			log.WithError(err).Warn("Error executing handler.")
 		}
 	}(args[0], args[1:])
 
@@ -105,7 +105,7 @@ func startAgent() (rpcserver.Server, error) {
 	serverAddr := fmt.Sprintf(":%v", defaults.GravityRPCAgentPort)
 	listener, err := net.Listen("tcp4", serverAddr)
 	if err != nil {
-		return nil, trace.Wrap(err, "failed to bind to %v")
+		return nil, trace.Wrap(err, "failed to bind to %v", serverAddr)
 	}
 
 	config := rpcserver.Config{
@@ -119,7 +119,7 @@ func startAgent() (rpcserver.Server, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	log.Infof("Starting RPC agent on %v.", listener.Addr().String())
+	log.WithField("addr", listener.Addr().String()).Info("Starting RPC agent.")
 
 	return server, nil
 }
