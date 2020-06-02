@@ -942,7 +942,7 @@
   version = "v1.0.0"
 
 [[projects]]
-  digest = "1:d0cc178a6f11db3e62770faf9e00f3615a273badf7ef476242d5c71475ec5485"
+  digest = "1:8de3eb510d1b5dd0b658f476fc05a1a606f5821966ef572e28119850f5644fb1"
   name = "github.com/gravitational/satellite"
   packages = [
     "agent",
@@ -959,8 +959,8 @@
     "utils",
   ]
   pruneopts = "UT"
-  revision = "18a45de4a4617e84d0f12f73ecfc09415178d651"
-  version = "6.1.6"
+  revision = "77ab3d8928cea7e3cae346b80327dcae58a9ebaf"
+  version = "6.1.8"
 
 [[projects]]
   digest = "1:49f6abbce9ade5f43508429e4af1adcce55d27adcd62719fea049decc766a7c9"
@@ -1039,12 +1039,15 @@
   revision = "bebf7a500543a21911aaea5f7e57032918fb7b8c"
 
 [[projects]]
-  digest = "1:dc84545f9f2a442b14864f2f7e54ae556cae53bd437a05a456572fea9e73cc87"
+  digest = "1:403af811cfc53bf78a655e601b01dc9a149aa154cbd63384784b25799cdbea8c"
   name = "github.com/gravitational/trace"
-  packages = ["."]
+  packages = [
+    ".",
+    "trail",
+  ]
   pruneopts = "UT"
-  revision = "dd5b2e8eae86d31f6273ff3ac46d5b15edd6d6be"
-  version = "1.1.10"
+  revision = "2d27a078e25b4e8f656d1354fddf37d316d1e9bf"
+  version = "v1.1.11"
 
 [[projects]]
   digest = "1:841d5835e94129658adabece66a4cc54d2cec9a40fa8b51743ea35d0519dd6c2"
@@ -1337,7 +1340,6 @@
   version = "v1.2.0"
 
 [[projects]]
-  branch = "master"
   digest = "1:35f49695a600c368ad7811a672d583b3e004b44fe883a0a1eb2a6c0d75eaeb1b"
   name = "github.com/jonboulle/clockwork"
   packages = ["."]
@@ -2995,6 +2997,7 @@
     "github.com/gravitational/teleport/lib/web",
     "github.com/gravitational/teleport/lib/web/ui",
     "github.com/gravitational/trace",
+    "github.com/gravitational/trace/trail",
     "github.com/gravitational/ttlmap",
     "github.com/gravitational/version",
     "github.com/hashicorp/terraform/helper/schema",

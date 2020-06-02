@@ -69,12 +69,12 @@ func KeyToProto(key ops.SiteOperationKey) *OperationKey {
 
 // HasSpecificPhase determines if this request is for a specific phase (other than root)
 func (r *ExecuteRequest) HasSpecificPhase() bool {
-	return !r.HasResume()
+	return r.Phase != nil && !r.HasResume()
 }
 
 // HasResume determines if this is a request to resume an operation
 func (r *ExecuteRequest) HasResume() bool {
-	return r.Phase == nil || r.Phase.IsResume()
+	return r.Phase != nil && r.Phase.IsResume()
 }
 
 // OperationKey returns operation key from request.
@@ -135,8 +135,8 @@ var ErrAborted = utils.NewExitCodeErrorWithMessage(defaults.AbortedOperationExit
 
 // ErrCompleted defines the completed operation error.
 // This is not an error in the usual sense - rather, it indicates that the operation
-// has been completed and that the agent should not shut down and not restart
-var ErrCompleted = utils.NewExitCodeErrorWithMessage(defaults.AbortedOperationExitCode, "operation completed")
+// has been completed and that the agent should shut down and not restart
+var ErrCompleted = utils.NewExitCodeErrorWithMessage(defaults.CompletedOperationExitCode, "operation completed")
 
 // AbortEvent is a progress response that indicates an aborted operation
 var AbortEvent = &ProgressResponse{

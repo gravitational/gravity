@@ -110,25 +110,15 @@ func (r *Engine) UpdateProgress(ctx context.Context, params fsm.Params) error {
 
 // Complete marks the operation as either completed or failed based
 // on the state of the operation plan
-func (r *Engine) Complete(fsmErr error) error {
+func (r *Engine) Complete(ctx context.Context, fsmErr error) error {
 	plan, err := r.GetPlan()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	if fsm.IsCompleted(plan) {
-		err = ops.CompleteOperation(r.Operation.Key(), r.operator)
-	} else {
-		var msg string
-		if fsmErr != nil {
-			msg = trace.Unwrap(fsmErr).Error()
-		}
-		err = ops.FailOperation(r.Operation.Key(), r.operator, msg)
+	if fsmErr == nil {
+		fsmErr = trace.Errorf("completed manually")
 	}
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	r.WithField("operation", r.Operation).Debug("Marked operation complete.")
-	return nil
+	return fsm.CompleteOrFailOperation(ctx, plan, r.Operator, fsmErr.Error())
 }
 
 // ChangePhaseState creates a new changelog entry
@@ -157,7 +147,11 @@ func (r *Engine) ChangePhaseState(ctx context.Context, change fsm.StateChange) e
 // RunCommand executes the phase specified by params on the specified server
 // using the provided runner
 func (r *Engine) RunCommand(ctx context.Context, runner rpc.RemoteRunner, server storage.Server, params fsm.Params) error {
-	args := []string{"plan", "execute",
+	command := "execute"
+	if params.Rollback {
+		command = "rollback"
+	}
+	args := []string{"plan", command,
 		"--phase", params.PhaseID,
 		"--operation-id", r.Operation.ID,
 	}
@@ -198,5 +192,6 @@ type Dispatcher interface {
 // operator describes the subset of ops.Operator required for the FSM engine
 type operator interface {
 	CreateProgressEntry(ops.SiteOperationKey, ops.ProgressEntry) error
-	SetOperationState(ops.SiteOperationKey, ops.SetOperationStateRequest) error
+	SetOperationState(context.Context, ops.SiteOperationKey, ops.SetOperationStateRequest) error
+	ActivateSite(ops.ActivateSiteRequest) error
 }

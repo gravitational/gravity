@@ -109,26 +109,30 @@ func (r *Updater) SetPhase(ctx context.Context, phase, state string) error {
 }
 
 // RollbackPhase rolls back the specified phase.
-func (r *Updater) RollbackPhase(ctx context.Context, phase string, phaseTimeout time.Duration, force bool) error {
+func (r *Updater) RollbackPhase(ctx context.Context, params fsm.Params, phaseTimeout time.Duration) error {
+	if params.PhaseID == fsm.RootPhase {
+		return r.rollbackPlan(ctx, params.DryRun)
+	}
+
 	ctx, cancel := context.WithTimeout(ctx, phaseTimeout)
 	defer cancel()
 
-	progress := utils.NewProgress(ctx, fmt.Sprintf("Rolling back phase %q", phase), -1, false)
+	progress := utils.NewProgress(ctx, fmt.Sprintf("Rolling back phase %q", params.PhaseID), -1, false)
 	defer progress.Stop()
 
 	return trace.Wrap(r.machine.RollbackPhase(ctx, fsm.Params{
-		PhaseID:  phase,
+		PhaseID:  params.PhaseID,
 		Progress: progress,
-		Force:    force,
+		Force:    params.Force,
 	}))
 }
 
 // Complete completes the active operation
-func (r *Updater) Complete(fsmErr error) error {
+func (r *Updater) Complete(ctx context.Context, fsmErr error) error {
 	if fsmErr == nil {
 		fsmErr = trace.Errorf("completed manually")
 	}
-	if err := r.machine.Complete(fsmErr); err != nil {
+	if err := r.machine.Complete(ctx, fsmErr); err != nil {
 		return trace.Wrap(err)
 	}
 	if err := r.emitAuditEvent(context.TODO()); err != nil {
@@ -171,6 +175,23 @@ func (r *Updater) Close() error {
 	return r.machine.Close()
 }
 
+func (r *Updater) rollbackPlan(ctx context.Context, dryRun bool) error {
+	progress := utils.NewProgress(ctx, formatOperation(*r.Operation), -1, false)
+	defer progress.Stop()
+
+	if err := r.machine.RollbackPlan(ctx, progress, dryRun); err != nil {
+		return trace.Wrap(err)
+	}
+
+	if !dryRun {
+		if err := r.machine.Complete(ctx, trace.BadParameter("rolled back")); err != nil {
+			return trace.Wrap(err)
+		}
+	}
+
+	return nil
+}
+
 func (r *Updater) executePlan(ctx context.Context) error {
 	progress := utils.NewProgress(ctx, formatOperation(*r.Operation), -1, false)
 	defer progress.Stop()
@@ -180,7 +201,7 @@ func (r *Updater) executePlan(ctx context.Context) error {
 		r.WithError(planErr).Warn("Failed to execute plan.")
 	}
 
-	err := r.machine.Complete(planErr)
+	err := r.machine.Complete(ctx, planErr)
 	if err == nil {
 		err = planErr
 	}

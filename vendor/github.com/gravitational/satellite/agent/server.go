@@ -98,10 +98,10 @@ func (r *server) Timeline(ctx context.Context, req *pb.TimelineRequest) (*pb.Tim
 	return &pb.TimelineResponse{Events: events}, nil
 }
 
-// UpdateTimeline updates the timeline with a new event.
+// UpdateTimeline records a new event into the cluster timeline.
 // Duplicate requests will have no effect.
 func (r *server) UpdateTimeline(ctx context.Context, req *pb.UpdateRequest) (*pb.UpdateResponse, error) {
-	if err := r.agent.RecordTimeline(ctx, []*pb.TimelineEvent{req.GetEvent()}); err != nil {
+	if err := r.agent.RecordClusterEvents(ctx, []*pb.TimelineEvent{req.GetEvent()}); err != nil {
 		return nil, GRPCError(err)
 	}
 	if err := r.agent.RecordLastSeen(req.GetName(), req.GetEvent().GetTimestamp().ToTime()); err != nil {
@@ -311,8 +311,10 @@ type Agent interface {
 	RecordLastSeen(name string, timestamp time.Time) error
 	// GetTimeline returns the current cluster timeline.
 	GetTimeline(ctx context.Context, params map[string]string) ([]*pb.TimelineEvent, error)
-	// RecordTimeline records the events into the cluster timeline.
-	RecordTimeline(ctx context.Context, events []*pb.TimelineEvent) error
+	// RecordClusterEvents records the events into the cluster timeline.
+	RecordClusterEvents(ctx context.Context, events []*pb.TimelineEvent) error
+	// RecordLocalEvents records the events into the local timeline.
+	RecordLocalEvents(ctx context.Context, events []*pb.TimelineEvent) error
 	// IsMember returns whether this agent is already a member of serf cluster
 	IsMember() bool
 	// GetConfig returns the agent configuration.

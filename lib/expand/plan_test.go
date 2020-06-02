@@ -118,6 +118,7 @@ func (s *PlanSuite) SetUpSuite(c *check.C) {
 		ClusterName: s.cluster.Domain,
 		Admin:       true,
 	})
+	c.Assert(err, check.IsNil)
 	s.regularAgent, err = s.services.Operator.GetClusterAgent(ops.ClusterAgentRequest{
 		AccountID:   account.ID,
 		ClusterName: s.cluster.Domain,
@@ -139,7 +140,8 @@ func (s *PlanSuite) SetUpSuite(c *check.C) {
 			Servers: []storage.Server{s.masterNode},
 		})
 	c.Assert(err, check.IsNil)
-	err = s.services.Operator.SetOperationState(*s.installOpKey,
+	err = s.services.Operator.SetOperationState(context.TODO(),
+		*s.installOpKey,
 		ops.SetOperationStateRequest{
 			State: ops.OperationStateCompleted,
 			Progress: &ops.ProgressEntry{

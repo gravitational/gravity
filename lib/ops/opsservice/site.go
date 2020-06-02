@@ -18,6 +18,7 @@ package opsservice
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -410,7 +411,14 @@ func (s *site) executeOperation(key ops.SiteOperationKey, fn func(ctx *operation
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	go s.executeOperationWithContext(ctx, op, fn)
+	go func() {
+		if err := s.executeOperationWithContext(ctx, op, fn); err != nil {
+			s.WithFields(log.Fields{
+				log.ErrorKey: err,
+				"operation":  op,
+			}).Warn("Failed to execute operation.")
+		}
+	}()
 	return nil
 }
 
@@ -420,19 +428,19 @@ func (s *site) executeOperationWithContext(ctx *operationContext, op *ops.SiteOp
 	opErr := fn(ctx)
 
 	if opErr == nil {
-		return trace.Wrap(opErr)
+		return nil
 	}
 
-	ctx.Errorf("operation failure: %v", trace.DebugReport(opErr))
+	ctx.WithError(opErr).Error("Operation failure.")
 
 	// change the state without "compare" part just to take leverage of
 	// the operation group locking to ensure atomicity
-	_, err := s.compareAndSwapOperationState(swap{
+	_, err := s.compareAndSwapOperationState(context.TODO(), swap{
 		key:        ctx.key(),
 		newOpState: ops.OperationStateFailed,
 	})
 	if err != nil {
-		ctx.Errorf("failed to compare and swap operation state: %v", trace.DebugReport(err))
+		ctx.WithError(err).Error("Failed to compare and swap operation state.")
 	}
 
 	s.reportProgress(ctx, ops.ProgressEntry{
@@ -440,7 +448,7 @@ func (s *site) executeOperationWithContext(ctx *operationContext, op *ops.SiteOp
 		Completion: constants.Completed,
 		Message:    opErr.Error(),
 	})
-	return trace.Wrap(err)
+	return trace.Wrap(opErr)
 }
 
 type transformFn func(reader io.Reader) (io.ReadCloser, error)
@@ -575,8 +583,8 @@ func (s *site) renderString(data []byte, server map[string]interface{}, ctx *ope
 	return string(out), nil
 }
 
-func (s *site) compareAndSwapOperationState(swap swap) (*ops.SiteOperation, error) {
-	return s.getOperationGroup().compareAndSwapOperationState(swap)
+func (s *site) compareAndSwapOperationState(ctx context.Context, swap swap) (*ops.SiteOperation, error) {
+	return s.getOperationGroup().compareAndSwapOperationState(ctx, swap)
 }
 
 func (s *site) setOperationState(key ops.SiteOperationKey, state string) (*ops.SiteOperation, error) {

@@ -19,6 +19,7 @@ package cli
 import (
 	"context"
 
+	"github.com/gravitational/gravity/lib/fsm"
 	libfsm "github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
@@ -72,7 +73,7 @@ func newEnvironUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalE
 	return newUpdater(ctx, localEnv, updateEnv, init)
 }
 
-func executeEnvironPhase(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params PhaseParams, operation ops.SiteOperation) error {
+func executeEnvironPhaseForOperation(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params PhaseParams, operation ops.SiteOperation) error {
 	updateEnv, err := environ.NewUpdateEnv()
 	if err != nil {
 		return trace.Wrap(err)
@@ -87,7 +88,7 @@ func executeEnvironPhase(env *localenv.LocalEnvironment, environ LocalEnvironmen
 	return trace.Wrap(err)
 }
 
-func setEnvironPhase(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params SetPhaseParams, operation ops.SiteOperation) error {
+func setEnvironPhaseForOperation(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params SetPhaseParams, operation ops.SiteOperation) error {
 	updateEnv, err := environ.NewUpdateEnv()
 	if err != nil {
 		return trace.Wrap(err)
@@ -101,7 +102,7 @@ func setEnvironPhase(env *localenv.LocalEnvironment, environ LocalEnvironmentFac
 	return updater.SetPhase(context.TODO(), params.PhaseID, params.State)
 }
 
-func rollbackEnvironPhase(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params PhaseParams, operation ops.SiteOperation) error {
+func rollbackEnvironPhaseForOperation(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params PhaseParams, operation ops.SiteOperation) error {
 	updateEnv, err := environ.NewUpdateEnv()
 	if err != nil {
 		return trace.Wrap(err)
@@ -112,11 +113,15 @@ func rollbackEnvironPhase(env *localenv.LocalEnvironment, environ LocalEnvironme
 		return trace.Wrap(err)
 	}
 	defer updater.Close()
-	err = updater.RollbackPhase(context.TODO(), params.PhaseID, params.Timeout, params.Force)
+	err = updater.RollbackPhase(context.TODO(), fsm.Params{
+		PhaseID: params.PhaseID,
+		Force:   params.Force,
+		DryRun:  params.DryRun,
+	}, params.Timeout)
 	return trace.Wrap(err)
 }
 
-func completeEnvironPlan(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operation ops.SiteOperation) error {
+func completeEnvironPlanForOperation(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operation ops.SiteOperation) error {
 	updateEnv, err := environ.NewUpdateEnv()
 	if err != nil {
 		return trace.Wrap(err)
@@ -127,7 +132,7 @@ func completeEnvironPlan(env *localenv.LocalEnvironment, environ LocalEnvironmen
 		return trace.Wrap(err)
 	}
 	defer updater.Close()
-	if err := updater.Complete(nil); err != nil {
+	if err := updater.Complete(context.TODO(), nil); err != nil {
 		return trace.Wrap(err)
 	}
 	if err := updater.Activate(); err != nil {

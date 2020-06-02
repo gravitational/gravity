@@ -34,8 +34,12 @@ const (
 	// ZeroVersion is a special "zero" package version that means "no particular version"
 	ZeroVersion = "0.0.0"
 
+	// FirstVersion is a special package version that indicates the initial package version
+	FirstVersion = "0.0.1"
+
 	// LatestVersion defines a special placeholder for greatest available version
 	LatestVersion = "0.0.0+latest"
+
 	// StableVersion defines a special placeholder for the latest stable version
 	StableVersion = "0.0.0+stable"
 )

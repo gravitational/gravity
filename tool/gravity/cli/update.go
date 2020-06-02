@@ -25,6 +25,7 @@ import (
 	"github.com/fatih/color"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/fsm"
 	libfsm "github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
@@ -75,7 +76,7 @@ func newUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironm
 			if err != nil {
 				msg = err.Error()
 			}
-			if errReset := ops.FailOperationAndResetCluster(*key, operator, msg); errReset != nil {
+			if errReset := ops.FailOperationAndResetCluster(ctx, *key, operator, msg); errReset != nil {
 				logger.WithError(errReset).Warn("Failed to mark operation as failed.")
 			}
 			// Depending on where the operation initialization failed, some upgrade
@@ -95,7 +96,7 @@ func newUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironm
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	leader, err := findLocalServer(*cluster)
+	leader, err := findLocalServer(cluster.ClusterState.Servers)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to find local node in cluster state.\n"+
 			"Make sure you start the operation from one of the cluster master nodes.")
@@ -168,8 +169,8 @@ type updater interface {
 	io.Closer
 	Run(ctx context.Context) error
 	RunPhase(ctx context.Context, phase string, phaseTimeout time.Duration, force bool) error
-	RollbackPhase(ctx context.Context, phase string, phaseTimeout time.Duration, force bool) error
-	Complete(error) error
+	RollbackPhase(ctx context.Context, params fsm.Params, phaseTimeout time.Duration) error
+	Complete(context.Context, error) error
 }
 
 func clusterStateFromPlan(plan storage.OperationPlan) (result storage.ClusterState) {

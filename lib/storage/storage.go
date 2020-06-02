@@ -375,7 +375,7 @@ type Mount struct {
 	Name string `json:"name"`
 	// Source is the directory to mount
 	Source string `json:"source"`
-	// Destination is the mount destination dir
+	// Destination is the mount destination directory
 	Destination string `json:"destination"`
 	// CreateIfMissing is whether to create the source directory if it doesn't exist
 	CreateIfMissing bool `json:"create_if_missing"`
@@ -428,7 +428,7 @@ type SiteOperation struct {
 	// in case of 'install' or 'provision_servers' it will store the
 	// servers that will be added and configured, for 'deprovision_servers'
 	// it will store the servers that will be deleted
-	Servers []Server `json:"servers"`
+	Servers Servers `json:"servers"`
 	// Shrink is set when the operation type is shrink (removing nodes from the cluster)
 	Shrink *ShrinkOperationState `json:"shrink,omitempty"`
 	// InstallExpand is set when the operation is install or expand
@@ -587,6 +587,7 @@ type Site struct {
 	InstallToken string `json:"install_token"`
 }
 
+// Check validates the cluster object's fields.
 func (s *Site) Check() error {
 	if s.AccountID == "" {
 		return trace.BadParameter("missing parameter AccountID")
@@ -610,6 +611,7 @@ type ClusterState struct {
 	// Docker specifies current cluster Docker configuration
 	Docker DockerConfig `json:"docker"`
 }
+
 type nodeKey struct {
 	profile      string
 	instanceType string
@@ -1415,14 +1417,22 @@ type Links interface {
 	GetOpsCenterLinks(siteDomain string) ([]OpsCenterLink, error)
 }
 
+// Check validates this object
+func (r *RemoteAccessUser) Check() error {
+	if r.SiteDomain == "" {
+		return trace.BadParameter("Cluster name is required")
+	}
+	return nil
+}
+
 // RemoteAccessUser groups the attributes to identify or create a user to use
-// to connect a site to a remote OpsCenter
+// to connect a cluster to a remote OpsCenter
 type RemoteAccessUser struct {
 	// Email identifies the user
 	Email string `json:"email"`
 	// Token identifies the API key for this user
 	Token string `json:"token"`
-	// SiteDomain identifies the site this user represents
+	// SiteDomain identifies the cluster this user represents
 	SiteDomain string `json:"site_domain"`
 	// OpsCenter defines the OpsCenter on the other side
 	OpsCenter string `json:"ops_center"`
@@ -1602,6 +1612,11 @@ func (s *Server) KubeNodeID() string {
 		return s.Nodename
 	}
 	return s.AdvertiseIP
+}
+
+// EtcdPeerURL returns etcd peer advertise URL with the server's IP.
+func (s *Server) EtcdPeerURL() string {
+	return fmt.Sprintf("https://%v:%v", s.AdvertiseIP, defaults.EtcdPeerPort)
 }
 
 // IsMaster returns true if the server has a master role
