@@ -43,6 +43,8 @@ type updatePhaseChecks struct {
 	servers []storage.Server
 	// updatePackage specifies the updated application package
 	updatePackage loc.Locator
+	// dockerDevice is a device path to check
+	dockerDevice string
 	// remote allows remote control of servers
 	remote rpc.AgentRepository
 }
@@ -58,12 +60,17 @@ func NewUpdatePhaseChecks(
 	if p.Phase.Data.Package == nil {
 		return nil, trace.NotFound("no update application package specified for phase %v", p.Phase)
 	}
+	var dockerDevice string
+	if p.Phase.Data.Update != nil && p.Phase.Data.Update.DockerDevice != "" {
+		dockerDevice = p.Phase.Data.Update.DockerDevice
+	}
 	return &updatePhaseChecks{
 		FieldLogger:   logger,
 		operator:      operator,
 		apps:          apps,
 		servers:       p.Plan.Servers,
 		updatePackage: *p.Phase.Data.Package,
+		dockerDevice:  dockerDevice,
 		remote:        remote,
 	}, nil
 }
@@ -87,6 +94,7 @@ func (p *updatePhaseChecks) Execute(ctx context.Context) error {
 		UpgradeApps:     p.apps,
 		UpgradePackage:  p.updatePackage,
 		Agents:          p.remote,
+		DockerDevice:    p.dockerDevice,
 	})
 	if err != nil {
 		return trace.Wrap(err)

@@ -38,10 +38,12 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/update"
 	clusterupdate "github.com/gravitational/gravity/lib/update/cluster"
-	"github.com/gravitational/version"
+	"github.com/gravitational/gravity/tool/common"
 
+	"github.com/buger/goterm"
 	"github.com/coreos/go-semver/semver"
 	"github.com/gravitational/trace"
+	"github.com/gravitational/version"
 )
 
 func updateCheck(env *localenv.LocalEnvironment, updatePackage string) error {
@@ -61,10 +63,10 @@ func updateCheck(env *localenv.LocalEnvironment, updatePackage string) error {
 
 func updateTrigger(
 	localEnv, updateEnv *localenv.LocalEnvironment,
-	updatePackage string,
+	updatePackage, dockerDevice string,
 	manual, noValidateVersion, force bool,
 ) error {
-	updater, err := newClusterUpdater(context.TODO(), localEnv, updateEnv, updatePackage, manual, noValidateVersion, force)
+	updater, err := newClusterUpdater(context.TODO(), localEnv, updateEnv, updatePackage, dockerDevice, manual, noValidateVersion, force)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -80,12 +82,14 @@ func updateTrigger(
 func newClusterUpdater(
 	ctx context.Context,
 	localEnv, updateEnv *localenv.LocalEnvironment,
-	updatePackage string,
+	updatePackage, dockerDevice string,
 	manual, noValidateVersion, force bool,
 ) (updater, error) {
 	init := &clusterInitializer{
 		updatePackage: updatePackage,
+		dockerDevice:  dockerDevice,
 		unattended:    !manual,
+		force:         force,
 	}
 
 	if err := checkStatus(ctx, localEnv, force); err != nil {
@@ -273,8 +277,79 @@ func (r *clusterInitializer) validatePreconditions(localEnv *localenv.LocalEnvir
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	err = r.checkDockerDevice(cluster, operator)
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	r.updateLoc = updateApp.Package
 	return nil
+}
+
+func (r *clusterInitializer) checkDockerDevice(cluster ops.Site, operator ops.Operator) error {
+	// Force bypasses this check.
+	if r.force {
+		return nil
+	}
+	// The check is only relevant when upgrading from devicemapper to overlay.
+	//
+	// It should be sufficient to just check the current cluster storage driver:
+	// devicemapper was deprecated in 5.3.4 so any upgrade to this version will
+	// change it to overlay.
+	dockerConfig, err := ops.GetDockerConfig(operator, cluster.Key())
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if dockerConfig.StorageDriver != constants.DockerStorageDriverDevicemapper {
+		return nil
+	}
+	var nvmeServers storage.Servers
+	for _, server := range cluster.ClusterState.Servers {
+		if server.Docker.Device.IsNVMe() {
+			nvmeServers = append(nvmeServers, server)
+		}
+	}
+	if len(nvmeServers) > 0 && r.dockerDevice == "" {
+		return trace.BadParameter(nvmeMessage, formatServersTable(nvmeServers))
+	}
+	return nil
+}
+
+const nvmeMessage = `
+The following cluster nodes use NVMe block devices for their Docker data:
+
+%v
+NVMe drive labels may change after reboot which will lead to the device names
+saved in the cluster state (or the upgrade plan) being incorrect. Some providers
+configure stable identifiers for NVMe devices by creating symlinks always
+pointing to the correct devices. See the following resources for more information:
+
+https://www.suse.com/support/kb/doc/?id=000019309
+https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/nvme-ebs-volumes.html
+
+In order for this upgrade operation to be able to correctly identify the Docker
+device in case of a node reboot, please provide a stable device identifier via
+a --docker-device flag.
+
+For example, if "/dev/xvdb" is guaranteed to point to the correct NVMe device:
+
+$ sudo ./gravity upgrade --docker-device=/dev/xvdb
+
+Note that the symlink name is assumed to be the same on all cluster nodes.
+
+You can provide a --force flag to override this check, in which case the upgrade
+operation will use device names displayed in the table above.
+`
+
+func formatServersTable(servers storage.Servers) string {
+	t := goterm.NewTable(0, 10, 5, ' ', 0)
+	common.PrintTableHeader(t, []string{"Hostname", "IP", "Docker Device"})
+	for _, server := range servers {
+		fmt.Fprintf(t, "%v\t%v\t%v\n",
+			server.Hostname,
+			server.AdvertiseIP,
+			server.Docker.Device.Path())
+	}
+	return t.String()
 }
 
 func (r clusterInitializer) newOperation(operator ops.Operator, cluster ops.Site) (*ops.SiteOperationKey, error) {
@@ -294,9 +369,15 @@ func (r clusterInitializer) newOperationPlan(
 	clusterEnv *localenv.ClusterEnvironment,
 	leader *storage.Server,
 ) (*storage.OperationPlan, error) {
-	plan, err := clusterupdate.InitOperationPlan(
-		ctx, localEnv, updateEnv, clusterEnv, operation.Key(), leader,
-	)
+	plan, err := clusterupdate.InitOperationPlan(ctx,
+		clusterupdate.InitOperationPlanRequest{
+			LocalEnv:     localEnv,
+			UpdateEnv:    updateEnv,
+			ClusterEnv:   clusterEnv,
+			OperationKey: operation.Key(),
+			Leader:       leader,
+			DockerDevice: r.dockerDevice,
+		})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -340,7 +421,9 @@ func (r clusterInitializer) updateDeployRequest(req deployAgentsRequest) deployA
 type clusterInitializer struct {
 	updateLoc     loc.Locator
 	updatePackage string
+	dockerDevice  string
 	unattended    bool
+	force         bool
 }
 
 const (

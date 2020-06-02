@@ -49,15 +49,25 @@ import (
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
+// InitOperationPlanRequest combines parameters for a new operation plan.
+type InitOperationPlanRequest struct {
+	// LocalEnv is the node-local environment.
+	LocalEnv *localenv.LocalEnvironment
+	// UpdateEnv is the upgrade-specific environment.
+	UpdateEnv *localenv.LocalEnvironment
+	// ClusterEnv is the local cluster environment.
+	ClusterEnv *localenv.ClusterEnvironment
+	// OperationKey is the key of the operation.
+	OperationKey ops.SiteOperationKey
+	// Leader is the server selected as operation leader.
+	Leader *storage.Server
+	// DockerDevice is the device to use for devicemapper migration.
+	DockerDevice string
+}
+
 // InitOperationPlan will initialize operation plan for an operation
-func InitOperationPlan(
-	ctx context.Context,
-	localEnv, updateEnv *localenv.LocalEnvironment,
-	clusterEnv *localenv.ClusterEnvironment,
-	opKey ops.SiteOperationKey,
-	leader *storage.Server,
-) (*storage.OperationPlan, error) {
-	operation, err := storage.GetOperationByID(clusterEnv.Backend, opKey.OperationID)
+func InitOperationPlan(ctx context.Context, req InitOperationPlanRequest) (*storage.OperationPlan, error) {
+	operation, err := storage.GetOperationByID(req.ClusterEnv.Backend, req.OperationKey.OperationID)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -66,7 +76,7 @@ func InitOperationPlan(
 		return nil, trace.BadParameter("expected update operation but got %q", operation.Type)
 	}
 
-	plan, err := clusterEnv.Backend.GetOperationPlan(operation.SiteDomain, operation.ID)
+	plan, err := req.ClusterEnv.Backend.GetOperationPlan(operation.SiteDomain, operation.ID)
 	if err != nil && !trace.IsNotFound(err) {
 		return nil, trace.Wrap(err)
 	}
@@ -75,7 +85,7 @@ func InitOperationPlan(
 		return nil, trace.AlreadyExists("plan is already initialized")
 	}
 
-	cluster, err := clusterEnv.Operator.GetLocalSite()
+	cluster, err := req.ClusterEnv.Operator.GetLocalSite()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -83,7 +93,7 @@ func InitOperationPlan(
 	dnsConfig := cluster.DNSConfig
 	if dnsConfig.IsEmpty() {
 		log.Info("Detecting DNS configuration.")
-		existingDNS, err := getExistingDNSConfig(localEnv.Packages)
+		existingDNS, err := getExistingDNSConfig(req.LocalEnv.Packages)
 		if err != nil {
 			return nil, trace.Wrap(err, "failed to determine existing cluster DNS configuration")
 		}
@@ -91,21 +101,22 @@ func InitOperationPlan(
 	}
 
 	plan, err = NewOperationPlan(ctx, PlanConfig{
-		Backend:   clusterEnv.Backend,
-		Apps:      clusterEnv.Apps,
-		Packages:  clusterEnv.ClusterPackages,
-		Client:    clusterEnv.Client,
-		DNSConfig: dnsConfig,
-		Operator:  clusterEnv.Operator,
-		Operation: (*ops.SiteOperation)(operation),
-		Leader:    leader,
-		Cluster:   *cluster,
+		Backend:      req.ClusterEnv.Backend,
+		Apps:         req.ClusterEnv.Apps,
+		Packages:     req.ClusterEnv.ClusterPackages,
+		Client:       req.ClusterEnv.Client,
+		DNSConfig:    dnsConfig,
+		Operator:     req.ClusterEnv.Operator,
+		Operation:    (*ops.SiteOperation)(operation),
+		Leader:       req.Leader,
+		Cluster:      *cluster,
+		DockerDevice: req.DockerDevice,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	_, err = clusterEnv.Backend.CreateOperationPlan(*plan)
+	_, err = req.ClusterEnv.Backend.CreateOperationPlan(*plan)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -236,6 +247,7 @@ func NewOperationPlan(ctx context.Context, config PlanConfig) (*storage.Operatio
 		updateTeleport:             *updateTeleport,
 		installedDocker:            *installedDocker,
 		serviceUser:                config.Cluster.ServiceUser,
+		dockerDevice:               config.DockerDevice,
 	}
 
 	err = builder.initSteps(ctx)
@@ -295,6 +307,8 @@ type PlanConfig struct {
 	Leader *storage.Server
 	// Cluster describes the installed cluster
 	Cluster ops.Site
+	// DockerDevice specifies a device for devicemapper migration
+	DockerDevice string
 }
 
 func checkAndSetServerDefaults(servers []storage.Server, client corev1.NodeInterface) ([]storage.Server, error) {
