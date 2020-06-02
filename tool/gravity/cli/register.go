@@ -155,7 +155,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.StartCmd.Confirmed = g.StartCmd.Flag("confirm", "Suppress confirmation prompt.").Bool()
 
 	g.PlanCmd.CmdClause = g.Command("plan", "Manage operation plan.")
-	g.PlanCmd.OperationID = g.PlanCmd.Flag("operation-id", "ID of the active operation. It not specified, the last operation will be used.").String()
+	g.PlanCmd.OperationID = g.PlanCmd.Flag("operation-id", "ID of the active operation. If not specified, the last operation will be used.").Hidden().String()
 	g.PlanCmd.SkipVersionCheck = g.PlanCmd.Flag("skip-version-check", "Bypass version compatibility check.").Hidden().Bool()
 
 	g.PlanDisplayCmd.CmdClause = g.PlanCmd.Command("display", "Display a plan for an ongoing operation.").Default()
@@ -181,6 +181,16 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.PlanResumeCmd.PhaseTimeout = g.PlanResumeCmd.Flag("timeout", "Phase execution timeout.").Default(defaults.PhaseTimeout).Hidden().Duration()
 
 	g.PlanCompleteCmd.CmdClause = g.PlanCmd.Command("complete", "Mark the current operation as completed.")
+
+	g.RollbackCmd.CmdClause = g.Command("rollback", "Rollback currently ongoing operation. Currently supports only upgrade, runtime environment and cluster configuration operations. For other operations use 'gravity plan rollback' command to rollback phase by phase.")
+	g.RollbackCmd.PhaseTimeout = g.RollbackCmd.Flag("timeout", "Individual phase rollback timeout").Default(defaults.PhaseTimeout).Hidden().Duration()
+	// TODO(r0mant): Hide operation id flag for now, only the current operation
+	//               rollback is currently allowed. We might unhide it when we
+	//               allow completed operation rollbacks.
+	g.RollbackCmd.OperationID = g.RollbackCmd.Flag("operation-id", "ID of the operation to rollback. If not specified, the last operation will be used").Hidden().String()
+	g.RollbackCmd.SkipVersionCheck = g.RollbackCmd.Flag("skip-version-check", "Bypass version compatibility check").Hidden().Bool()
+	g.RollbackCmd.Confirmed = g.RollbackCmd.Flag("confirm", "Do not ask for confirmation").Bool()
+	g.RollbackCmd.DryRun = g.RollbackCmd.Flag("dry-run", "Print rollback phases without actually performing them").Bool()
 
 	g.UpdateCmd.CmdClause = g.Command("update", "Update actions on cluster.")
 

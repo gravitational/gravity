@@ -109,17 +109,21 @@ func (r *Updater) SetPhase(ctx context.Context, phase, state string) error {
 }
 
 // RollbackPhase rolls back the specified phase.
-func (r *Updater) RollbackPhase(ctx context.Context, phase string, phaseTimeout time.Duration, force bool) error {
+func (r *Updater) RollbackPhase(ctx context.Context, params fsm.Params, phaseTimeout time.Duration) error {
+	if params.PhaseID == fsm.RootPhase {
+		return r.rollbackPlan(ctx, params.DryRun)
+	}
+
 	ctx, cancel := context.WithTimeout(ctx, phaseTimeout)
 	defer cancel()
 
-	progress := utils.NewProgress(ctx, fmt.Sprintf("Rolling back phase %q", phase), -1, false)
+	progress := utils.NewProgress(ctx, fmt.Sprintf("Rolling back phase %q", params.PhaseID), -1, false)
 	defer progress.Stop()
 
 	return trace.Wrap(r.machine.RollbackPhase(ctx, fsm.Params{
-		PhaseID:  phase,
+		PhaseID:  params.PhaseID,
 		Progress: progress,
-		Force:    force,
+		Force:    params.Force,
 	}))
 }
 
@@ -169,6 +173,23 @@ func (r *Updater) GetPlan() (*storage.OperationPlan, error) {
 // Close closes the underlying FSM
 func (r *Updater) Close() error {
 	return r.machine.Close()
+}
+
+func (r *Updater) rollbackPlan(ctx context.Context, dryRun bool) error {
+	progress := utils.NewProgress(ctx, formatOperation(*r.Operation), -1, false)
+	defer progress.Stop()
+
+	if err := r.machine.RollbackPlan(ctx, progress, dryRun); err != nil {
+		return trace.Wrap(err)
+	}
+
+	if !dryRun {
+		if err := r.machine.Complete(ctx, trace.BadParameter("rolled back")); err != nil {
+			return trace.Wrap(err)
+		}
+	}
+
+	return nil
 }
 
 func (r *Updater) executePlan(ctx context.Context) error {
