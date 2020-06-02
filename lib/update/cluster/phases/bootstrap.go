@@ -18,6 +18,10 @@ package phases
 
 import (
 	"context"
+	"fmt"
+	"io/ioutil"
+	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 
@@ -402,6 +406,10 @@ func (p *updatePhaseBootstrap) Execute(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	err = p.migrateInfluxDBData(ctx)
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	err = p.updateSystemMetadata()
 	if err != nil {
 		return trace.Wrap(err)
@@ -567,6 +575,49 @@ func (p *updatePhaseBootstrap) addUpdateRuntimePackageLabel() error {
 		return trace.Wrap(err)
 	}
 	return nil
+}
+
+// migrateInfluxDBData copies all from /var/lib/data/influxdb if it exist on the node and if destination
+// directory /var/lib/gravity/monitoring/influxdb empty
+func (p *updatePhaseBootstrap) migrateInfluxDBData(ctx context.Context) error {
+	newDataDirectory := "/var/lib/gravity/monitoring/influxdb"
+	oldDataDirectory := "/var/lib/data/influxdb"
+
+	if _, err := os.Stat(oldDataDirectory); os.IsNotExist(err) {
+		// influxdb data is on another node
+		return nil
+	}
+
+	empty, err := isEmptyDir(newDataDirectory)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if !empty {
+		// directory already exist and not empty, probably data already migrated
+		return nil
+	}
+
+	p.Info("Copying InfluxDB data to the new directory.")
+	_, err = utils.RunCommand(ctx, p.FieldLogger,
+		utils.PlanetCommandArgs("cp", "-a", path.Join(oldDataDirectory, "/."), newDataDirectory)...)
+	if err != nil {
+		trace.Wrap(err)
+	}
+	p.Infof("Setting ownership of %v to %v:%v.", newDataDirectory, p.ServiceUser.UID, p.ServiceUser.GID)
+	_, err = utils.RunCommand(ctx, p.FieldLogger,
+		utils.PlanetCommandArgs("chown", "-R", fmt.Sprintf("%v:%v", p.ServiceUser.UID, p.ServiceUser.GID), newDataDirectory)...)
+	if err != nil {
+		trace.Wrap(err)
+	}
+	return nil
+}
+
+func isEmptyDir(path string) (bool, error) {
+	entries, err := ioutil.ReadDir(path)
+	if err != nil {
+		return false, trace.ConvertSystemError(err)
+	}
+	return len(entries) == 0, nil
 }
 
 // getGravityPath returns path to the new gravity binary

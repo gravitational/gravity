@@ -185,8 +185,8 @@ func (c *DeploymentControl) collectPods(deployment *appsv1.Deployment) (map[stri
 		if err != nil {
 			return nil, ConvertError(err)
 		}
-		for nodename, pod := range podMap {
-			pods[nodename] = pod
+		for _, pod := range podMap {
+			pods[pod.ObjectMeta.Name] = pod
 		}
 	}
 	return pods, nil

@@ -861,11 +861,11 @@
 
 [[projects]]
   branch = "sergei/collect_replicasets"
-  digest = "1:7583fd90f1ab8b94e654e830030447662ab9a319da0175875540bd62f47dfed3"
+  digest = "1:3e5ac8d5a972211d0e283a03e0c56698596a45b216ca8648c99f9bb254bc97a1"
   name = "github.com/gravitational/rigging"
   packages = ["."]
   pruneopts = "UT"
-  revision = "5fb7149657ac38cf4b58cf6519c80d0371d3329c"
+  revision = "c3d450786409a26ee134070995088fc81c6e72d7"
 
 [[projects]]
   branch = "version/5.5.x"
