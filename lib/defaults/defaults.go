@@ -18,11 +18,13 @@ package defaults
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"path/filepath"
 	"time"
 
 	"github.com/gravitational/gravity/lib/constants"
+	"github.com/gravitational/teleport/lib/utils"
 
 	"github.com/coreos/go-semver/semver"
 	v1 "k8s.io/api/core/v1"
@@ -1242,4 +1244,13 @@ func WithTimeout(ctx context.Context) (context.Context, context.CancelFunc) {
 // InfluxDBAddr returns the address of the InfluxDB cluster endpoint
 func InfluxDBAddr() string {
 	return fmt.Sprintf("http://%v:%v", InfluxDBServiceAddr, InfluxDBServicePort)
+}
+
+// TLSConfig returns default TLS configuration.
+func TLSConfig() *tls.Config {
+	return &tls.Config{
+		MinVersion:               tls.VersionTLS12,
+		CipherSuites:             utils.DefaultCipherSuites(),
+		PreferServerCipherSuites: true,
+	}
 }

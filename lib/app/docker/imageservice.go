@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2018-2020 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -41,6 +42,9 @@ import (
 	"github.com/docker/distribution/context"
 	"github.com/docker/distribution/registry/api/errcode"
 	registryclient "github.com/docker/distribution/registry/client"
+	registryauth "github.com/docker/distribution/registry/client/auth"
+	registryauthchallenge "github.com/docker/distribution/registry/client/auth/challenge"
+	registrytransport "github.com/docker/distribution/registry/client/transport"
 	registrystorage "github.com/docker/distribution/registry/storage"
 	"github.com/docker/distribution/registry/storage/cache/memory"
 	"github.com/docker/distribution/registry/storage/driver/filesystem"
@@ -62,6 +66,35 @@ type RegistryConnectionRequest struct {
 	ClientCertPath string
 	// ClientKeyPath is the full path to the client private key
 	ClientKeyPath string
+	// Username specifies optional registry username for basic auth
+	Username string
+	// Password specifies optional registry password for basic auth
+	Password string
+	// Prefix specifies optional registry prefix when pushing images
+	Prefix string
+	// Insecure indicates a plain http registry
+	Insecure bool
+}
+
+// HasBasicAuth returns true if the request contains basic auth credentials.
+func (r *RegistryConnectionRequest) HasBasicAuth() bool {
+	return r.Username != "" && r.Password != ""
+}
+
+// TLSClientConfig returns client TLS config for this request.
+func (r *RegistryConnectionRequest) TLSClientConfig() (*tls.Config, error) {
+	certificate, err := tls.LoadX509KeyPair(r.ClientCertPath, r.ClientKeyPath)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	roots, err := newCertPool([]string{r.CACertPath})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	tlsConfig := defaults.TLSConfig()
+	tlsConfig.Certificates = []tls.Certificate{certificate}
+	tlsConfig.RootCAs = roots
+	return tlsConfig, nil
 }
 
 // CheckAndSetDefaults makes sure the request is valid and sets some defaults
@@ -97,6 +130,10 @@ func (r RegistryConnectionRequest) String() string {
 // NewImageService creates an image service using the supplied
 // address and certificate name to connect to the remote registry
 func NewImageService(req RegistryConnectionRequest) (ImageService, error) {
+	return newImageService(req)
+}
+
+func newImageService(req RegistryConnectionRequest) (*imageService, error) {
 	err := req.CheckAndSetDefaults()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -152,11 +189,30 @@ func (r *imageService) Sync(ctx context.Context, dir string, progress utils.Emit
 	}
 
 	for _, localRepoName := range repos {
+		if r.remoteStore.tokenHandler != nil {
+			r.remoteStore.tokenHandler.AddScope(registryauth.RepositoryScope{
+				Repository: localRepoName,
+				Class:      "image",
+				Actions:    []string{"push"},
+			})
+		}
 		localRepo, err := localStore.Repository(ctx, localRepoName)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
-		remoteRepo, err := r.remoteStore.Repository(ctx, localRepoName)
+		remoteRepoName := localRepoName
+		// If the registry prefix was specified, rewrite all images to point
+		// to that domain - some registries (such as OpenShift) require a
+		// specific namespace where images should be pushed so an image like
+		// gravitational/debian-tall would become <namespace>/debian-tall.
+		if r.Prefix != "" {
+			named, err := parseNamed(localRepoName)
+			if err != nil {
+				return nil, trace.Wrap(err)
+			}
+			remoteRepoName = fmt.Sprintf("%v/%v", r.Prefix, Path(named))
+		}
+		remoteRepo, err := r.remoteStore.Repository(ctx, remoteRepoName)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
@@ -204,7 +260,7 @@ func (r *imageService) Sync(ctx context.Context, dir string, progress utils.Emit
 			if remoteManifest == nil || !compareManifests(localManifest, remoteManifest) {
 				progress.PrintStep("Pushing image %s", tagSpec)
 				if err = r.remoteStore.updateRepo(ctx, remoteRepo, localRepo, localManifest, tag); err != nil {
-					return nil, trace.Wrap(err, "failed to update remote for tag %q", tagSpec)
+					return nil, trace.Wrap(err, "failed to update remote for tag %q: %v", tagSpec, err)
 				}
 			} else {
 				progress.PrintStep("Image %s is up-to-date", tagSpec)
@@ -246,9 +302,10 @@ func (r *imageService) connect(ctx context.Context) (err error) {
 // remoteStore defines a remote distribution registry
 type remoteStore struct {
 	log.FieldLogger
-	transport *http.Transport
-	registry  registryclient.Registry
-	addr      string
+	transport    http.RoundTripper
+	registry     registryclient.Registry
+	addr         string
+	tokenHandler *multiScopeTokenHandler
 }
 
 // localStore defines a distribution registry from a local directory
@@ -284,7 +341,7 @@ func newCertPool(CAFiles []string) (*x509.CertPool, error) {
 	return certPool, nil
 }
 
-func initTransport(req RegistryConnectionRequest) (*http.Transport, string) {
+func initTransport(req RegistryConnectionRequest) (http.RoundTripper, string, error) {
 	const connectTimeout = 30 * time.Second
 	const keepAlivePeriod = 30 * time.Second
 	const handshakeTimeout = 30 * time.Second
@@ -300,30 +357,58 @@ func initTransport(req RegistryConnectionRequest) (*http.Transport, string) {
 		DisableKeepAlives:   true,
 	}
 
-	cert, err := tls.LoadX509KeyPair(req.ClientCertPath, req.ClientKeyPath)
-	if err == nil {
-		roots, err := newCertPool([]string{req.CACertPath})
-		if err == nil {
+	// Figure out the registry address scheme (http or https). If the scheme
+	// was specified explicitly, keep it as-is. Otherwise, default to https
+	// unless the insecure flag was provided.
+	registryAddress := utils.EnsureScheme(req.RegistryAddress, "https")
+
+	// If the scheme was set explicitly to https, along with the insecure
+	// flag, ignore the certificate error (this is what Docker does too).
+	var err error
+	if req.Insecure && strings.HasPrefix(registryAddress, "https://") {
+		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	} else if strings.HasPrefix(registryAddress, "https://") {
+		transport.TLSClientConfig, err = req.TLSClientConfig()
+		if err != nil {
+			log.WithError(err).Debugf("No TLS trust for %s.", req)
+			transport.TLSClientConfig = defaults.TLSConfig()
+		} else {
 			log.Debugf("Found TLS trust for %s.", req)
-			transport.TLSClientConfig = &tls.Config{
-				Certificates: []tls.Certificate{cert},
-				MinVersion:   tls.VersionTLS10,
-				RootCAs:      roots,
-			}
-			return transport, fmt.Sprintf("https://%v", req.RegistryAddress)
 		}
 	}
 
-	log.Debugf("No TLS trust for %s.", req)
-	transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
-	return transport, fmt.Sprintf("http://%v", req.RegistryAddress)
+	return transport, registryAddress, nil
 }
 
 // ConnectRegistry connects to the registry with the specified address
-func ConnectRegistry(ctx context.Context, request RegistryConnectionRequest) (*remoteStore, error) {
-	transport, registryAddr := initTransport(request)
-	if err := ping(transport, registryAddr); err != nil {
+func ConnectRegistry(ctx context.Context, req RegistryConnectionRequest) (*remoteStore, error) {
+	transport, registryAddr, err := initTransport(req)
+	if err != nil {
 		return nil, trace.Wrap(err)
+	}
+
+	challengeManager, err := ping(transport, registryAddr)
+	if err != nil {
+		return nil, trace.Wrap(err, "failed to ping Docker registry: %s", err).AddField("req", req)
+	}
+
+	var tokenHandler *multiScopeTokenHandler
+	if req.HasBasicAuth() {
+		// If basic auth credentials were provided, set up the authorizer
+		// middleware for the transport.
+		credentials := &credentials{
+			username: req.Username,
+			password: req.Password,
+			tokens:   make(map[string]string),
+		}
+		basicHandler := registryauth.NewBasicHandler(credentials)
+		tokenHandler = &multiScopeTokenHandler{
+			transport:   transport,
+			credentials: *credentials,
+		}
+		tokenHandler.createTokenHandler()
+		authorizer := registryauth.NewAuthorizer(challengeManager, tokenHandler, basicHandler)
+		transport = registrytransport.NewTransport(transport, authorizer)
 	}
 
 	registry, err := registryclient.NewRegistry(ctx, registryAddr, transport)
@@ -332,35 +417,63 @@ func ConnectRegistry(ctx context.Context, request RegistryConnectionRequest) (*r
 	}
 
 	return &remoteStore{
-		FieldLogger: log.WithField("remote registry", registryAddr),
-		addr:        registryAddr,
-		transport:   transport,
-		registry:    registry,
+		FieldLogger:  log.WithField("registry-addr", registryAddr),
+		addr:         registryAddr,
+		transport:    transport,
+		registry:     registry,
+		tokenHandler: tokenHandler,
 	}, nil
 }
 
-func ping(transport *http.Transport, registryAddr string) error {
+// credentials implements docker/distribution/registry/client/auth.CredentialsStore.
+type credentials struct {
+	username string
+	password string
+	tokens   map[string]string
+}
+
+func (c credentials) Basic(u *url.URL) (string, string) {
+	return c.username, c.password
+}
+
+func (c credentials) RefreshToken(u *url.URL, service string) string {
+	return c.tokens[service]
+}
+
+func (c credentials) SetRefreshToken(u *url.URL, service, token string) {
+	c.tokens[service] = token
+}
+
+func ping(transport http.RoundTripper, registryAddr string) (registryauthchallenge.Manager, error) {
 	const pingClientTimeout = 30 * time.Second
 	pingClient := &http.Client{
 		Transport: transport,
 		Timeout:   pingClientTimeout,
 	}
-	endpoint := registryAddr + "/v2/"
-	req, err := http.NewRequest("GET", endpoint, nil)
+	u, err := url.Parse(registryAddr)
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
+	}
+	endpoint := fmt.Sprintf("%v://%v/v2/", u.Scheme, u.Host)
+	req, err := http.NewRequest(http.MethodGet, endpoint, nil)
+	if err != nil {
+		return nil, trace.Wrap(err)
 	}
 	resp, err := pingClient.Do(req)
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 	defer resp.Body.Close()
 	data, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
-	log.WithField("registry", registryAddr).Debugf("Repository response: %s.", data)
-	return nil
+	chManager := registryauthchallenge.NewSimpleManager()
+	if err := chManager.AddResponse(resp); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	log.WithField("registry", registryAddr).Debugf("Repository response: %s %v.", data, resp.Header)
+	return chManager, nil
 }
 
 // openLocal creates a distribution registry in the local directory given with dir
@@ -515,4 +628,83 @@ func (s *remoteStore) updateRepo(ctx context.Context, remote, local distribution
 	s.Debugf("Updating manifest for %v.", local.Named())
 	_, err = remoteManifests.Put(ctx, manifest, distribution.WithTag(tag))
 	return trace.Wrap(err)
+}
+
+// multiScopeTokenHandler is a wrapper over the registry client token handler to allow additional scopes
+// to be added to an existing client. This works by re-instantiating the wrapped token handler if there
+// are additional scopes (repositories) that need to be added to the oauth token.
+type multiScopeTokenHandler struct {
+	tokenHandler registryauth.AuthenticationHandler
+	scopes       []registryauth.RepositoryScope
+	transport    http.RoundTripper
+	credentials  credentials
+}
+
+func (th *multiScopeTokenHandler) Scheme() string {
+	return th.tokenHandler.Scheme()
+}
+
+func (th *multiScopeTokenHandler) AuthorizeRequest(req *http.Request, params map[string]string) error {
+	return th.tokenHandler.AuthorizeRequest(req, params)
+}
+
+func (th *multiScopeTokenHandler) AddScope(scope registryauth.RepositoryScope) {
+	var newScopes bool
+	var found bool
+	for i, s := range th.scopes {
+		if s.Repository == scope.Repository && s.Class == scope.Class {
+			found = true
+			changed, s := mergeRepositoryScopeActions(s, scope)
+			if changed {
+				newScopes = true
+				th.scopes[i] = s
+			}
+		}
+	}
+	if !found {
+		th.scopes = append(th.scopes, scope)
+		newScopes = true
+	}
+
+	if newScopes {
+		th.createTokenHandler()
+	}
+}
+
+func (th *multiScopeTokenHandler) createTokenHandler() {
+	scopes := make([]registryauth.Scope, len(th.scopes))
+	for i := range th.scopes {
+		scopes[i] = th.scopes[i]
+	}
+	th.tokenHandler = registryauth.NewTokenHandlerWithOptions(
+		registryauth.TokenHandlerOptions{
+			Transport:     th.transport,
+			Credentials:   th.credentials,
+			Scopes:        scopes,
+			OfflineAccess: false,
+			ClientID:      "gravity",
+		},
+	)
+}
+
+func mergeRepositoryScopeActions(left, right registryauth.RepositoryScope) (changed bool, scope registryauth.RepositoryScope) {
+	var newActions []string
+L:
+	for _, rightAction := range right.Actions {
+		for _, leftAction := range left.Actions {
+			if rightAction == leftAction {
+				continue L
+			}
+		}
+		newActions = append(newActions, rightAction)
+	}
+
+	if len(newActions) != 0 {
+		return true, registryauth.RepositoryScope{
+			Repository: left.Repository,
+			Class:      left.Class,
+			Actions:    append(left.Actions, newActions...),
+		}
+	}
+	return false, left
 }
