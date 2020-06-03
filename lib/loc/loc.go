@@ -189,13 +189,13 @@ func (l Locator) WithLiteralVersion(version string) Locator {
 func ParseLocator(v string) (*Locator, error) {
 	parts := strings.Split(v, "/")
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		return nil, trace.Errorf(
-			"package locator should be repository/name:semver, e.g. example.com/test:1.0.0, got %v", v)
+		return nil, trace.BadParameter(
+			"invalid package locator %q - should be repository/name:semver, e.g. example.com/test:1.0.0", v)
 	}
 	m := locRe.FindAllStringSubmatch(parts[1], -1)
 	if len(m) != 1 || len(m[0]) != 3 {
-		return nil, trace.Errorf(
-			"invalid package locator, should be repository/name:semver, e.g. example.com/test:1.0.0")
+		return nil, trace.BadParameter(
+			"invalid package locator %q - should be repository/name:semver, e.g. example.com/test:1.0.0", v)
 	}
 	return NewLocator(parts[0], m[0][1], m[0][2])
 }
