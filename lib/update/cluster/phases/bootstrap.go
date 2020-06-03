@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
 	"strconv"
 
@@ -599,7 +598,7 @@ func (p *updatePhaseBootstrap) migrateInfluxDBData(ctx context.Context) error {
 
 	p.Info("Copying InfluxDB data to the new directory.")
 	_, err = utils.RunCommand(ctx, p.FieldLogger,
-		utils.PlanetCommandArgs("cp", "-a", path.Join(oldDataDirectory, "/."), newDataDirectory)...)
+		utils.PlanetCommandArgs("cp", "-a", fmt.Sprintf("%s/.", oldDataDirectory), newDataDirectory)...)
 	if err != nil {
 		trace.Wrap(err)
 	}
