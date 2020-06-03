@@ -473,6 +473,10 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 				CAPath:   *g.AppInstallCmd.RegistryCA,
 				CertPath: *g.AppInstallCmd.RegistryCert,
 				KeyPath:  *g.AppInstallCmd.RegistryKey,
+				Username: *g.AppInstallCmd.RegistryUsername,
+				Password: *g.AppInstallCmd.RegistryPassword,
+				Prefix:   *g.AppInstallCmd.RegistryPrefix,
+				Insecure: *g.Insecure,
 			},
 		})
 	case g.AppListCmd.FullCommand():
@@ -491,6 +495,10 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 				CAPath:   *g.AppUpgradeCmd.RegistryCA,
 				CertPath: *g.AppUpgradeCmd.RegistryCert,
 				KeyPath:  *g.AppUpgradeCmd.RegistryKey,
+				Username: *g.AppUpgradeCmd.RegistryUsername,
+				Password: *g.AppUpgradeCmd.RegistryPassword,
+				Prefix:   *g.AppUpgradeCmd.RegistryPrefix,
+				Insecure: *g.Insecure,
 			},
 		})
 	case g.AppRollbackCmd.FullCommand():
@@ -510,10 +518,16 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 		return appSync(localEnv, appSyncConfig{
 			Image: *g.AppSyncCmd.Image,
 			registryConfig: registryConfig{
-				Registry: *g.AppSyncCmd.Registry,
-				CAPath:   *g.AppSyncCmd.RegistryCA,
-				CertPath: *g.AppSyncCmd.RegistryCert,
-				KeyPath:  *g.AppSyncCmd.RegistryKey,
+				Registry:           *g.AppSyncCmd.Registry,
+				CAPath:             *g.AppSyncCmd.RegistryCA,
+				CertPath:           *g.AppSyncCmd.RegistryCert,
+				KeyPath:            *g.AppSyncCmd.RegistryKey,
+				Username:           *g.AppSyncCmd.RegistryUsername,
+				Password:           *g.AppSyncCmd.RegistryPassword,
+				Prefix:             *g.AppSyncCmd.RegistryPrefix,
+				Insecure:           *g.Insecure,
+				ScanningRepository: g.AppSyncCmd.ScanningRepository,
+				ScanningTagPrefix:  g.AppSyncCmd.ScanningTagPrefix,
 			},
 		})
 	case g.AppSearchCmd.FullCommand():

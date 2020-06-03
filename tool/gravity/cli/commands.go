@@ -764,6 +764,12 @@ type AppInstallCmd struct {
 	RegistryCert *string
 	// RegistryKey is a registry client private key path.
 	RegistryKey *string
+	// RegistryUsername is registry username for basic auth.
+	RegistryUsername *string
+	// RegistryPassword is registry password for basic auth.
+	RegistryPassword *string
+	// RegistryPrefix is registry prefix when pushing images.
+	RegistryPrefix *string
 }
 
 // AppListCmd shows all application releases.
@@ -792,6 +798,12 @@ type AppUpgradeCmd struct {
 	RegistryCert *string
 	// RegistryKey is a registry client private key path.
 	RegistryKey *string
+	// RegistryUsername is registry username for basic auth.
+	RegistryUsername *string
+	// RegistryPassword is registry password for basic auth.
+	RegistryPassword *string
+	// RegistryPrefix is registry prefix when pushing images.
+	RegistryPrefix *string
 }
 
 // AppRollbackCmd rolls back a release.
@@ -830,6 +842,17 @@ type AppSyncCmd struct {
 	RegistryCert *string
 	// RegistryKey is a registry client private key path.
 	RegistryKey *string
+	// RegistryUsername is registry username for basic auth.
+	RegistryUsername *string
+	// RegistryPassword is registry password for basic auth.
+	RegistryPassword *string
+	// RegistryPrefix is registry prefix when pushing images.
+	RegistryPrefix *string
+	// ScanningRepository is a docker repository to push a copy of all vendored images
+	// Used internally so the registry can scan those images and report on vulnerabilities
+	ScanningRepository *string
+	// ScanningTagPrefix is a prefix to add to each tag when pushed to help identify the image from the scan results
+	ScanningTagPrefix *string
 }
 
 // AppSearchCmd searches for applications.
