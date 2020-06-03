@@ -329,6 +329,8 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.AppSyncCmd.RegistryUsername = g.AppSyncCmd.Flag("registry-username", "Docker registry username.").String()
 	g.AppSyncCmd.RegistryPassword = g.AppSyncCmd.Flag("registry-password", "Docker registry password.").String()
 	g.AppSyncCmd.RegistryPrefix = g.AppSyncCmd.Flag("registry-prefix", "Docker registry prefix.").String()
+	g.AppSyncCmd.ScanningRepository = g.AppSyncCmd.Flag("scan-repository", "Specify repository to copy vendored images to").Envar("GRAVITY_SCAN_REPOSITORY").Hidden().String()
+	g.AppSyncCmd.ScanningTagPrefix = g.AppSyncCmd.Flag("scan-prefix", "Specify a prefix for tags when copying to repository").Envar("GRAVITY_SCAN_PREFIX").Hidden().String()
 
 	g.AppSearchCmd.CmdClause = g.AppCmd.Command("search", "Search for applications.")
 	g.AppSearchCmd.Pattern = g.AppSearchCmd.Arg("pattern", "Application name pattern, treated as a substring.").String()
