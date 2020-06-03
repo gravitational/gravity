@@ -62,7 +62,7 @@ resource "libvirt_cloudinit_disk" "commoninit" {
             ip_address = "172.28.128.${count.index+3}",
             hostname = "telekube${count.index}"
             })
-  count     = var.nodes_count
+  count = var.nodes_count
 }
 
 # Create the machine
