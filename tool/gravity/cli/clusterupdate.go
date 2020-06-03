@@ -368,7 +368,7 @@ func checkForUpdate(
 	installedPackage loc.Locator,
 	updatePackage string,
 ) (updateApp *app.Application, err error) {
-	updateLoc, err := getUpdatePackage(env, updatePackage)
+	updateLoc, err := getUpdatePackage(env, installedPackage, updatePackage)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -394,10 +394,20 @@ func checkForUpdate(
 	return updateApp, nil
 }
 
-func getUpdatePackage(env *localenv.LocalEnvironment, updatePackagePattern string) (*loc.Locator, error) {
+func getUpdatePackage(env *localenv.LocalEnvironment, installedPackage loc.Locator, updatePackagePattern string) (*loc.Locator, error) {
 	if updatePackagePattern != "" {
 		return loc.MakeLocator(updatePackagePattern)
 	}
+	if loc, err := getAppPackageFromTarball(env); err == nil {
+		return loc, nil
+	} else if !trace.IsNotFound(err) {
+		log.WithError(err).Debug("Failed to query package from tarball environment.")
+	}
+	// default to the latest version of the currently installed application
+	return loc.MakeLocator(installedPackage.Name)
+}
+
+func getAppPackageFromTarball(env *localenv.LocalEnvironment) (*loc.Locator, error) {
 	clusterOperator, err := env.SiteOperator()
 	if err != nil {
 		return nil, trace.Wrap(err, "unable to access cluster.\n"+
