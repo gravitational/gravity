@@ -78,6 +78,12 @@ BINARIES ?= tele gravity terraform-provider-gravity
 RELEASE_TARBALL_NAME := gravity-$(GRAVITY_VERSION)-$(OS)-$(ARCH)-bin.tar.gz
 RELEASE_OUT := $(GRAVITY_BUILDDIR)/$(RELEASE_TARBALL_NAME)
 
+GRPC_PROTOS = \
+	$(TOP)/lib/rpc/proto/agent.proto \
+	$(TOP)/lib/rpc/proto/discovery.proto \
+	$(TOP)/lib/network/validation/proto/validation.proto
+GRPC_PROTO_OUTPUTS = $(GRPC_PROTOS:.proto=.pb.go)
+
 BASH ?= /bin/bash
 
 # Export variables for recursive make invocations
@@ -152,35 +158,27 @@ endef
 #
 # build gravity binaries
 #
+ifeq ($(OS),darwin)
 .PHONY: build
-build:
-	@if [ "$(OS)" = "darwin" ]; then \
-		$(MAKE) build-on-host; \
-		ln -sf $(GRAVITY_BUILDDIR) $(GRAVITY_CURRENT_BUILDDIR); \
-	else \
-		$(MAKE) build-in-container; \
-		ln --symbolic --force --no-target-directory $(GRAVITY_BUILDDIR) $(GRAVITY_CURRENT_BUILDDIR); \
-	fi;
+build: build-on-host
+	ln -sf $(GRAVITY_BUILDDIR) $(GRAVITY_CURRENT_BUILDDIR)
+else
+.PHONY: build
+build: grpc build-in-container
+	ln --symbolic --force --no-target-directory $(GRAVITY_BUILDDIR) $(GRAVITY_CURRENT_BUILDDIR)
+endif
 
 #
 # generate gRPC code
 #
 .PHONY: grpc
-grpc: buildbox grpc-agents grpc-validation
+grpc: buildbox $(GRPC_PROTO_OUTPUTS)
 
-.PHONY: grpc-agents
-grpc-agents:
+$(GRPC_PROTO_OUTPUTS): $(GRPC_PROTOS)
 	docker run --rm=true -u $$(id -u) \
 		   -v $(TOP):$(SRCDIR) \
 		   $(BBOX) \
-		   dumb-init make -C $(SRCDIR)/lib/rpc/proto
-
-.PHONY: grpc-validation
-grpc-validation:
-	docker run --rm=true -u $$(id -u) \
-		   -v $(TOP):$(SRCDIR) \
-		   $(BBOX) \
-		   dumb-init make -C $(SRCDIR)/lib/network/validation/proto
+		   dumb-init make -C $(subst $(TOP),$(SRCDIR),$(@D))
 
 #
 # this is a temporary target until we upgrade docker packages
