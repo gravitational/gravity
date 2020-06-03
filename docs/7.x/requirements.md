@@ -9,7 +9,7 @@ Gravity officially supports the following Linux distributions:
 
 | Linux Distribution       | Version          | Docker Storage Drivers                |
 |--------------------------|------------------|---------------------------------------|
-| Red Hat Enterprise Linux | 7.4-7.8, 8.0-8.1 | `overlay`, `overlay2`                 |
+| Red Hat Enterprise Linux | 7.4-7.8, 8.0-8.2 | `overlay`, `overlay2`                 |
 | CentOS                   | 7.2-7.7, 8.0-8.1 | `overlay`, `overlay2`                 |
 | Debian                   | 8-9              | `overlay`, `overlay2`                 |
 | Ubuntu                   | 16.04, 18.04     | `overlay`, `overlay2`                 |
@@ -31,7 +31,7 @@ specified in the manifest:
 
 | Distribution Name        | ID                         | Version          |
 |--------------------------|----------------------------|------------------|
-| Red Hat Enterprise Linux | rhel                       | 7.4-7.8, 8.0-8.1 |
+| Red Hat Enterprise Linux | rhel                       | 7.4-7.8, 8.0-8.2 |
 | CentOS                   | centos                     | 7.2-7.7, 8.0-8.1 |
 | Debian                   | debian                     | 8-9              |
 | Ubuntu                   | ubuntu                     | 16.04, 18.04     |
