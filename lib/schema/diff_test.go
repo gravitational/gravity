@@ -40,7 +40,7 @@ func (_ *DiffSuite) TestDiffsPorts(c *C) {
 			new: Requirements{
 				Network: Network{Ports: []Port{
 					{Protocol: "tcp", Ranges: []string{"3000-3199"}},
-					{Protocol: "udp", Ranges: []string{"3200", "3202"}},
+					{Protocol: "udp", Ranges: []string{"3202", "3200"}},
 				}}},
 			tcp:     newArray(3100, 3199),
 			udp:     []int{3202},
@@ -49,16 +49,16 @@ func (_ *DiffSuite) TestDiffsPorts(c *C) {
 		{
 			old: Requirements{
 				Network: Network{Ports: []Port{
-					{Protocol: "tcp", Ranges: []string{"3000-3009", "2099"}},
-					{Protocol: "udp", Ranges: []string{"3200", "1099"}},
+					{Protocol: "tcp", Ranges: []string{"2099", "3000-3009", "1098"}},
+					{Protocol: "udp", Ranges: []string{"1099", "3200", "2002"}},
 				}}},
 			new: Requirements{
 				Network: Network{Ports: []Port{
-					{Protocol: "tcp", Ranges: []string{"3000-3009", "3199"}},
-					{Protocol: "udp", Ranges: []string{"3200", "3201"}},
+					{Protocol: "tcp", Ranges: []string{"3000-3009", "3199", "1098"}},
+					{Protocol: "udp", Ranges: []string{"3200", "3201", "1098"}},
 				}}},
 			tcp:     []int{3199},
-			udp:     []int{3201},
+			udp:     []int{1098, 3201},
 			comment: "do not account for ports found only in old",
 		},
 	}
