@@ -64,7 +64,8 @@ ignored = [
 
 [[constraint]]
   name = "github.com/gravitational/satellite"
-  version = "=5.5.14"
+  # version = "=5.5.14"
+  branch = "bernard/5.5.x/disk-check"
 
 [[constraint]]
   name = "github.com/xtgo/set"
