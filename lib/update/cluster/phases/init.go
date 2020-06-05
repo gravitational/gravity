@@ -235,11 +235,7 @@ func (p *updatePhaseInit) backupRPCCredentials() error {
 		return trace.Wrap(err)
 	}
 	defer rc.Close()
-	essential := map[string]string{
-		pack.OperationIDLabel: p.Operation.ID,
-	}
-	runtimeLabels := utils.CombineLabels(essential, env.RuntimeLabels)
-	_, err = p.Packages.UpsertPackage(rpcBackupPackage(p.Operation.SiteDomain), rc, pack.WithLabels(runtimeLabels))
+	_, err = p.Packages.UpsertPackage(rpcBackupPackage(p.Operation.SiteDomain), rc, pack.WithLabels(env.RuntimeLabels))
 	if err != nil {
 		return trace.Wrap(err)
 	}
