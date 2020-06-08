@@ -254,7 +254,7 @@ func GetLocalPath(customPath, defaultLocalDir, defaultLocalPath string) (string,
 	}
 	homeDir := os.Getenv(constants.EnvHome)
 	if homeDir == "" {
-		return "", trace.BadParameter("no path provided and environment variable %v is not set", constants.EnvHome)
+		return "", trace.NotFound("no path provided and environment variable %v is not set", constants.EnvHome)
 	}
 	return filepath.Join(homeDir, defaultLocalDir, defaultLocalPath), nil
 }
