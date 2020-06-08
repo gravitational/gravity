@@ -33,7 +33,7 @@ extend updates past EOL through customer agreements if required.
 | 5.4.10        | No  | March 26th, 2019     | March 8th, 2019      | 1.13.5             | 2.4.10           |
 | 5.3.9         | No  | March 7th, 2019      | December 14, 2018    | 1.12.3             | 2.4.7            |
 | 5.2.16        | Yes | October 11th, 2019   | October 15th, 2019   | 1.11.9             | 2.4.10           |
-| 5.0.35        | Yes | September 2nd, 2019  | April 13th, 2019     | 1.9.13-gravitational | 2.4.10         |
+| 5.0.36        | Yes | June 8th, 2020       | April 13th, 2019     | 1.9.13-gravitational | 2.4.10         |
 | 4.68.0        | Yes | January 17th, 2019   | November 16th, 2018  | 1.7.18-gravitational | 2.3.5          |
 | 3.64.0        | Yes | December 21st, 2017  | June 2nd, 2018       | 1.5.7              | 2.0.6            |
 | 1.30.0        | Yes | March 21st, 2017     | March 21st, 2018     | 1.3.8              | 1.2.0            |
@@ -1278,6 +1278,12 @@ to learn how to gain insight into how the cluster status changes over time.
 
 * Wait for `kube-system` namespace to be created during the installation.
 * Update `tele push` to treat existing applications and their dependencies gracefully.
+
+### 5.0.36 LTS (June 8th, 2020)
+
+#### Bugfixes
+
+* Update `--docker-device` flag that sets devicemapper device to support symlinks to actual block devices.
 
 ### 5.0.35 (September 2nd, 2019)
 
