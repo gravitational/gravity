@@ -36,32 +36,39 @@ type StorageConfig struct {
 	Filesystems []string
 	// MinFreeBytes define minimum free volume capacity
 	MinFreeBytes uint64
-	// WatermarkWarning is the disk occupancy percentage that will trigger a warning probe
-	WatermarkWarning uint
-	// WatermarkCritical is the disk occupancy percentage that will trigger a critical probe
-	WatermarkCritical uint
+	// LowWatermark is the disk occupancy percentage that will trigger a warning probe
+	LowWatermark uint
+	// HighWatermark is the disk occupancy percentage that will trigger a critical probe
+	HighWatermark uint
 }
 
+// CheckAndSetDefaults validates this configuration object.
+// Config values that were not specified will be set to their default values if
+// available.
 func (c *StorageConfig) CheckAndSetDefaults() error {
 	var errors []error
 	if c.Path == "" {
 		errors = append(errors, trace.BadParameter("volume path must be provided"))
 	}
 
-	if c.WatermarkWarning > 100 {
-		errors = append(errors, trace.BadParameter("warning watermark must be between 0 and 100"))
+	if c.LowWatermark > 100 {
+		errors = append(errors, trace.BadParameter("low watermark must be 0-100"))
 	}
 
-	if c.WatermarkCritical > 100 {
-		errors = append(errors, trace.BadParameter("critical watermark must be between 0 and 100"))
+	if c.HighWatermark > 100 {
+		errors = append(errors, trace.BadParameter("high watermark must be 0-100"))
 	}
 
-	if c.WatermarkWarning == 0 {
-		c.WatermarkWarning = DefaultWarningWatermark
+	if c.LowWatermark == 0 {
+		c.LowWatermark = DefaultLowWatermark
 	}
 
-	if c.WatermarkCritical == 0 {
-		c.WatermarkCritical = DefaultCriticalWatermark
+	if c.HighWatermark == 0 {
+		c.HighWatermark = DefaultHighWatermark
+	}
+
+	if c.LowWatermark > c.HighWatermark {
+		c.LowWatermark = c.HighWatermark
 	}
 
 	return trace.NewAggregate(errors...)
@@ -69,10 +76,10 @@ func (c *StorageConfig) CheckAndSetDefaults() error {
 
 // HighWatermarkCheckerData is attached to high watermark check results
 type HighWatermarkCheckerData struct {
-	// WatermarkWarning is the watermark warning percentage value
-	WatermarkWarning uint `json:"watermark_warning"`
-	// WatermarkCritical is the watermark critical percentage value
-	WatermarkCritical uint `json:"watermark_critical"`
+	// LowWatermark is the low watermark percentage value
+	LowWatermark uint `json:"low_watermark"`
+	// HighWatermark is the high watermark percentage value
+	HighWatermark uint `json:"high_watermark"`
 	// Path is the absolute path to check
 	Path string `json:"path"`
 	// TotalBytes is the total disk capacity
@@ -83,27 +90,27 @@ type HighWatermarkCheckerData struct {
 
 // WarningMessage returns warning watermark check message
 func (d HighWatermarkCheckerData) WarningMessage() string {
-	return fmt.Sprintf("disk utilization on %s exceeds %v percent (%s is available out of %s), see https://gravitational.com/telekube/docs/cluster/#garbage-collection",
-		d.Path, d.WatermarkWarning, humanize.Bytes(d.AvailableBytes), humanize.Bytes(d.TotalBytes))
+	return fmt.Sprintf("disk utilization on %s exceeds %v%% (%s is available out of %s), cluster will degrade if usage exceeds %v%%, see https://gravitational.com/gravity/docs/cluster/#garbage-collection",
+		d.Path, d.LowWatermark, humanize.Bytes(d.AvailableBytes), humanize.Bytes(d.TotalBytes), d.HighWatermark)
 }
 
 // CriticalMessage returns critical watermark check message
 func (d HighWatermarkCheckerData) CriticalMessage() string {
-	return fmt.Sprintf("disk utilization on %s exceeds %v percent (%s is available out of %s), see https://gravitational.com/telekube/docs/cluster/#garbage-collection",
-		d.Path, d.WatermarkCritical, humanize.Bytes(d.AvailableBytes), humanize.Bytes(d.TotalBytes))
+	return fmt.Sprintf("disk utilization on %s exceeds %v%% (%s is available out of %s), see https://gravitational.com/gravity/docs/cluster/#garbage-collection",
+		d.Path, d.HighWatermark, humanize.Bytes(d.AvailableBytes), humanize.Bytes(d.TotalBytes))
 }
 
 // SuccessMessage returns success watermark check message
 func (d HighWatermarkCheckerData) SuccessMessage() string {
-	return fmt.Sprintf("disk utilization on %s is below %v percent (%s is available out of %s)",
-		d.Path, d.WatermarkCritical, humanize.Bytes(d.AvailableBytes), humanize.Bytes(d.TotalBytes))
+	return fmt.Sprintf("disk utilization on %s is below %v%% (%s is available out of %s)",
+		d.Path, d.HighWatermark, humanize.Bytes(d.AvailableBytes), humanize.Bytes(d.TotalBytes))
 }
 
 // DiskSpaceCheckerID is the checker that checks disk space utilization
 const DiskSpaceCheckerID = "disk-space"
 
-// DefaultWarningWatermark is the default warning disk usage percentage threshold.
-const DefaultWarningWatermark = 80
+// DefaultLowWatermark is the default low watermark percentage.
+const DefaultLowWatermark = 80
 
-// DefaultCriticalWatermark is the default critical disk usage percentage threshold.
-const DefaultCriticalWatermark = 90
+// DefaultHighWatermark is the default high watermark percentage.
+const DefaultHighWatermark = 90
