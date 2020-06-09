@@ -4,7 +4,7 @@
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 7.0.6         | No  | June 1st, 2020       | 7.1 is released      | 1.17.6             | 3.2.13           |
+| 7.0.7         | No  | June 9th, 2020       | 7.1 is released      | 1.17.6             | 3.2.13           |
 | 6.1.28        | Yes | June 1st, 2020       | November 10th, 2021  | 1.15.12            | 3.2.12           |
 | 5.5.47        | Yes | May 29th, 2020       | March 7th, 2021      | 1.13.11            | 3.0.6-gravity    |
 
@@ -41,6 +41,17 @@ extend updates past EOL through customer agreements if required.
 # Release Notes
 
 ## 7.x Releases
+
+### 7.0.7 (June 9th, 2020)
+
+#### Improvements
+
+* Add `gravity rollback` command ([#1626](https://github.com/gravitational/gravity/pull/1626)).
+
+#### Bugfixes
+
+* Fix an issue with block devices/partitions propagation in planet ([#1663](https://github.com/gravitational/gravity/pull/1663), [planet#671](https://github.com/gravitational/planet/pull/671)).
+* Fix an issue with `gravity resource` commands returning errors if `HOME` environment variable was not set ([#1665](https://github.com/gravitational/gravity/pull/1665)).
 
 ### 7.0.6 (June 1st, 2020)
 
@@ -1283,7 +1294,7 @@ to learn how to gain insight into how the cluster status changes over time.
 
 #### Bugfixes
 
-* Update `--docker-device` flag that sets devicemapper device to support symlinks to actual block devices.
+* Fix an issue where `--docker-device` wasn't able to follow symlinks to block devices ([gravity.e#4301](https://github.com/gravitational/gravity.e/pull/4301)).
 
 ### 5.0.35 (September 2nd, 2019)
 
