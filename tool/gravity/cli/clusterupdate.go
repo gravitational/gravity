@@ -18,6 +18,8 @@ package cli
 
 import (
 	"context"
+	"os"
+	"text/tabwriter"
 
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
@@ -86,6 +88,9 @@ func newClusterUpdater(
 	}
 
 	if err := checkStatus(ctx, force); err != nil {
+		if err := printNodes(ctx, localEnv); err != nil {
+			log.Warn("Failed to print nodes.")
+		}
 		return nil, trace.Wrap(err)
 	}
 
@@ -112,18 +117,50 @@ func checkStatus(ctx context.Context, force bool) error {
 
 	var failedProbes []string
 	var warningProbes []string
-
 	for _, node := range nodes {
 		failedProbes = append(failedProbes, node.FailedProbes...)
 		warningProbes = append(warningProbes, node.WarnProbes...)
 	}
 
 	if len(failedProbes) > 0 {
-		return trace.BadParameter("unable to upgrade degraded cluster (view `gravity status` for more details)")
+		return trace.BadParameter("unable to upgrade degraded cluster")
 	}
 
 	if !force && len(warningProbes) > 0 {
-		return trace.BadParameter("cluster has active warnings (view `gravity status` for more details or use --force to continue)")
+		return trace.BadParameter("cluster has active warnings (use --force to continue)")
+	}
+
+	return nil
+}
+
+// printNodes prints the node statuses
+func printNodes(ctx context.Context, env *localenv.LocalEnvironment) error {
+	clusterOperator, err := env.SiteOperator()
+	if err != nil {
+		log.WithError(err).Warn("Failed to create cluster operator.")
+	}
+	clusterEnv, err := env.NewClusterEnvironment()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	operator := statusOperator{
+		Operator:        clusterEnv.Operator,
+		clusterOperator: clusterOperator,
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, defaults.StatusCollectionTimeout)
+	defer cancel()
+
+	status, err := statusOnce(ctx, operator, "")
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	w := new(tabwriter.Writer)
+	w.Init(os.Stdout, 0, 8, 1, '\t', 0)
+	printAgentStatus(*status.Agent, w)
+	if err := w.Flush(); err != nil {
+		log.Warn("Failed to flush to stdout.")
 	}
 
 	return nil
