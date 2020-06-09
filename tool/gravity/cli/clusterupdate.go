@@ -31,6 +31,7 @@ import (
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/rpc"
 	"github.com/gravitational/gravity/lib/schema"
+	statusapi "github.com/gravitational/gravity/lib/status"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/update"
 	clusterupdate "github.com/gravitational/gravity/lib/update/cluster"
@@ -58,9 +59,9 @@ func updateCheck(env *localenv.LocalEnvironment, updatePackage string) error {
 func updateTrigger(
 	localEnv, updateEnv *localenv.LocalEnvironment,
 	updatePackage string,
-	manual, noValidateVersion bool,
+	manual, noValidateVersion, force bool,
 ) error {
-	updater, err := newClusterUpdater(context.TODO(), localEnv, updateEnv, updatePackage, manual, noValidateVersion)
+	updater, err := newClusterUpdater(context.TODO(), localEnv, updateEnv, updatePackage, manual, noValidateVersion, force)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -77,12 +78,17 @@ func newClusterUpdater(
 	ctx context.Context,
 	localEnv, updateEnv *localenv.LocalEnvironment,
 	updatePackage string,
-	manual, noValidateVersion bool,
+	manual, noValidateVersion, force bool,
 ) (updater, error) {
 	init := &clusterInitializer{
 		updatePackage: updatePackage,
 		unattended:    !manual,
 	}
+
+	if err := checkStatus(ctx, force); err != nil {
+		return nil, trace.Wrap(err)
+	}
+
 	updater, err := newUpdater(ctx, localEnv, updateEnv, init)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -94,6 +100,33 @@ func newClusterUpdater(
 		return nil, trace.Wrap(err)
 	}
 	return updater, nil
+}
+
+// checkStatus returns an error if the cluster is degraded.
+// If force is true, warnings will be ignored.
+func checkStatus(ctx context.Context, force bool) error {
+	nodes, err := statusapi.NodeStatuses(ctx)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	var failedProbes []string
+	var warningProbes []string
+
+	for _, node := range nodes {
+		failedProbes = append(failedProbes, node.FailedProbes...)
+		warningProbes = append(warningProbes, node.WarnProbes...)
+	}
+
+	if len(failedProbes) > 0 {
+		return trace.BadParameter("unable to upgrade degraded cluster (view `gravity status` for more details)")
+	}
+
+	if !force && len(warningProbes) > 0 {
+		return trace.BadParameter("cluster has active warnings (view `gravity status` for more details or use --force to continue)")
+	}
+
+	return nil
 }
 
 func executeUpdatePhase(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params PhaseParams) error {

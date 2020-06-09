@@ -41,6 +41,26 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// NodeStatuses returns the node statuses.
+func NodeStatuses(ctx context.Context) (nodes []ClusterServer, err error) {
+	client, err := httplib.GetGRPCPlanetClient(ctx)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	defer client.Close()
+
+	status, err := client.Status(ctx)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	for _, node := range status.GetNodes() {
+		nodes = append(nodes, fromNodeStatus(*node))
+	}
+
+	return nodes, nil
+}
+
 // FromCluster collects cluster status information.
 // The function returns the partial status if not all details can be collected
 func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, operationID string) (status *Status, err error) {

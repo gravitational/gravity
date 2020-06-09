@@ -174,6 +174,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.UpdateTriggerCmd.App = g.UpdateTriggerCmd.Arg("app", "Application version to update to, in the 'name:version' or 'name' (for latest version) format. If unspecified, currently installed application is updated").String()
 	g.UpdateTriggerCmd.Manual = g.UpdateTriggerCmd.Flag("manual", "Manual operation. Do not trigger automatic update").Short('m').Bool()
 	g.UpdateTriggerCmd.SkipVersionCheck = g.UpdateTriggerCmd.Flag("skip-version-check", "Bypass version compatibility check").Hidden().Bool()
+	g.UpdateTriggerCmd.Force = g.UpdateTriggerCmd.Flag("force", "Force update operation even if cluster is degraded").Bool()
 
 	g.UpdatePlanInitCmd.CmdClause = g.UpdateCmd.Command("init-plan", "Initialize operation plan").Hidden()
 
