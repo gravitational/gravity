@@ -522,9 +522,7 @@ func updateTeleportConfigLabels(packages pack.PackageService, clusterName string
 		Packages:   packages,
 		Repository: clusterName,
 		Match: func(e pack.PackageEnvelope) bool {
-			return e.Locator.Name == constants.TeleportNodeConfigPackage &&
-				(e.HasLabels(pack.TeleportNodeConfigPackageLabels) ||
-					e.HasLabels(pack.TeleportLegacyNodeConfigPackageLabels))
+			return e.Locator.Name == constants.TeleportNodeConfigPackage
 		},
 	})
 	if err != nil {
