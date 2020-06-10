@@ -876,7 +876,6 @@
   revision = "2e451040dbe9def043beba737d92a6b773bbd3f2"
 
 [[projects]]
-  branch = "bernard/5.5.x/disk-check"
   digest = "1:9c894f02ad5369a49c7ceb3d50d7d90ffe9f8112267b507d78385cacf74ca51e"
   name = "github.com/gravitational/satellite"
   packages = [
@@ -896,7 +895,8 @@
     "utils",
   ]
   pruneopts = "UT"
-  revision = "c1ded94b8ebd5ef053e82c2473e61d112b6ddddb"
+  revision = "d8d2853ec49f580e14fa5fe62f98cddf49709875"
+  version = "5.5.18"
 
 [[projects]]
   digest = "1:49f6abbce9ade5f43508429e4af1adcce55d27adcd62719fea049decc766a7c9"
