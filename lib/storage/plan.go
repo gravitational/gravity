@@ -17,6 +17,8 @@ limitations under the License.
 package storage
 
 import (
+	"bytes"
+	"fmt"
 	"time"
 
 	"github.com/gravitational/gravity/lib/constants"
@@ -188,6 +190,19 @@ type UpdateOperationData struct {
 	GravityPackage *loc.Locator `json:"gravity_package,omitempty"`
 }
 
+// String returns the text description of this server update value
+func (s UpdateServer) String() string {
+	return fmt.Sprintf("node(addr=%v,hostname=%v,role=%v,cluster_role=%v,%v,%v,%v)",
+		s.AdvertiseIP,
+		s.Hostname,
+		s.Role,
+		s.ClusterRole,
+		s.Runtime,
+		s.Teleport,
+		s.Docker,
+	)
+}
+
 // UpdateServer describes an intent to update runtime/teleport configuration
 // packages on a specific cluster node
 type UpdateServer struct {
@@ -199,6 +214,11 @@ type UpdateServer struct {
 	Teleport TeleportPackage `json:"teleport"`
 	// Docker describes Docker configuration update on the node
 	Docker DockerUpdate `json:"docker"`
+}
+
+// String returns the text description of this docker update value
+func (r DockerUpdate) String() string {
+	return fmt.Sprintf("docker(installed=%v,update=%v)", r.Installed, r.Update)
 }
 
 // DockerUpdate describes node's Docker configuration update if there's any.
@@ -228,6 +248,20 @@ func (s UpdateServer) ShouldMigrateDockerDevice() bool {
 	}, s.Docker.Update.StorageDriver)
 }
 
+// String returns the text description of this package update value
+func (r RuntimePackage) String() string {
+	var buf bytes.Buffer
+	fmt.Fprintf(&buf, "runtime(installed=%v", r.Installed.String())
+	if r.SecretsPackage != nil {
+		fmt.Fprintf(&buf, ",secrets=%v", r.SecretsPackage.String())
+	}
+	if r.Update != nil {
+		fmt.Fprint(&buf, ",", r.Update.String())
+	}
+	fmt.Fprint(&buf, ")")
+	return buf.String()
+}
+
 // RuntimePackage describes the state of the runtime package during update
 type RuntimePackage struct {
 	// Installed identifies the installed version of the runtime package
@@ -236,6 +270,11 @@ type RuntimePackage struct {
 	SecretsPackage *loc.Locator `json:"secrets_package,omitempty"`
 	// Update describes an update to the runtime package
 	Update *RuntimeUpdate `json:"update,omitempty"`
+}
+
+// String returns the text description of this package update value
+func (r RuntimeUpdate) String() string {
+	return fmt.Sprintf("update(package=%v,config-package=%v)", r.Package, r.ConfigPackage)
 }
 
 // RuntimeUpdate describes an update to the runtime package
@@ -247,12 +286,34 @@ type RuntimeUpdate struct {
 	ConfigPackage loc.Locator `json:"config_package"`
 }
 
+// String returns the text description of this package update value
+func (r TeleportPackage) String() string {
+	var buf bytes.Buffer
+	fmt.Fprintf(&buf, "teleport(installed=%v", r.Installed.String())
+	if r.Update != nil {
+		fmt.Fprint(&buf, ",", r.Update.String())
+	}
+	fmt.Fprint(&buf, ")")
+	return buf.String()
+}
+
 // TeleportPackage describes the state of the teleport package during update
 type TeleportPackage struct {
 	// Installed identifies the installed version of the teleport package
 	Installed loc.Locator `json:"installed"`
-	// Update describes an update to the runtime package
+	// Update describes an update to the teleport package
 	Update *TeleportUpdate `json:"update,omitempty"`
+}
+
+// String returns the text description of this package update value
+func (r TeleportUpdate) String() string {
+	var buf bytes.Buffer
+	fmt.Fprintf(&buf, "update(package=%v", r.Package.String())
+	if r.NodeConfigPackage != nil {
+		fmt.Fprintf(&buf, ",config-package=%v", r.NodeConfigPackage.String())
+	}
+	fmt.Fprint(&buf, ")")
+	return buf.String()
 }
 
 // TeleportUpdate describes an update to the teleport package
