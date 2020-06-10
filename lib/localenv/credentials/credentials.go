@@ -159,13 +159,18 @@ func (s *credentialsService) For(clusterURL string) (*Credentials, error) {
 	// Search the local Gravity keystore first (~/.gravity/config).
 	localKeyStore, err := s.getLocalKeyStore()
 	if err != nil {
-		return nil, trace.Wrap(err)
+		if !trace.IsNotFound(err) {
+			return nil, trace.Wrap(err)
+		}
+		s.Warnf("Local keystore unavailable: %v.", err)
 	}
-	for _, url := range []string{url.normalized, url.original} {
-		entry, err := localKeyStore.GetLoginEntry(url)
-		if err == nil {
-			s.Debugf("Found login entry for %v @ %v in the local key store.", entry.Email, url)
-			return credentialsFromEntry(*entry), nil
+	if localKeyStore != nil {
+		for _, url := range []string{url.normalized, url.original} {
+			entry, err := localKeyStore.GetLoginEntry(url)
+			if err == nil {
+				s.Debugf("Found login entry for %v @ %v in the local key store.", entry.Email, url)
+				return credentialsFromEntry(*entry), nil
+			}
 		}
 	}
 	// Search the Teleport keystore (~/.tsh).
