@@ -136,7 +136,7 @@ func checkStatus(ctx context.Context, env *localenv.LocalEnvironment, force bool
 		fmt.Println("The upgrade is prohibited because some cluster nodes are currently degraded.")
 		printAgentStatus(*status.Agent, w)
 		if err := w.Flush(); err != nil {
-			log.Warn("Failed to flush to stdout.")
+			log.WithError(err).Warn("Failed to flush to stdout.")
 		}
 		fmt.Println("Please make sure the cluster is healthy before re-attempting the upgrade.")
 		return trace.BadParameter("failed to start upgrade operation")
@@ -146,7 +146,7 @@ func checkStatus(ctx context.Context, env *localenv.LocalEnvironment, force bool
 		fmt.Println("Some cluster nodes have active warnings:")
 		printAgentStatus(*status.Agent, w)
 		if err := w.Flush(); err != nil {
-			log.Warn("Failed to flush to stdout.")
+			log.WithError(err).Warn("Failed to flush to stdout.")
 		}
 		fmt.Println("You can provide the --force flag to suppress this message and launch the upgrade anyways.")
 		return trace.BadParameter("failed to start upgrade operation")
