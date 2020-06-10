@@ -116,14 +116,15 @@ func checkStatus(ctx context.Context, env *localenv.LocalEnvironment, force bool
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	agent, err := statusapi.FromPlanetAgent(ctx, cluster.ClusterState.Servers)
+
+	status, err := statusapi.FromCluster(ctx, operator, *cluster, "")
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
 	var failedProbes []string
 	var warningProbes []string
-	for _, node := range agent.Nodes {
+	for _, node := range status.Agent.Nodes {
 		failedProbes = append(failedProbes, node.FailedProbes...)
 		warningProbes = append(warningProbes, node.WarnProbes...)
 	}
@@ -133,7 +134,7 @@ func checkStatus(ctx context.Context, env *localenv.LocalEnvironment, force bool
 
 	if len(failedProbes) > 0 {
 		fmt.Println("The upgrade is prohibited because some cluster nodes are currently degraded.")
-		printAgentStatus(*agent, w)
+		printAgentStatus(*status.Agent, w)
 		if err := w.Flush(); err != nil {
 			log.Warn("Failed to flush to stdout.")
 		}
@@ -143,7 +144,7 @@ func checkStatus(ctx context.Context, env *localenv.LocalEnvironment, force bool
 
 	if !force && len(warningProbes) > 0 {
 		fmt.Println("Some cluster nodes have active warnings:")
-		printAgentStatus(*agent, w)
+		printAgentStatus(*status.Agent, w)
 		if err := w.Flush(); err != nil {
 			log.Warn("Failed to flush to stdout.")
 		}
