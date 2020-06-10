@@ -40,6 +40,7 @@ import (
 	"github.com/coreos/go-semver/semver"
 	"github.com/gravitational/trace"
 	"github.com/pborman/uuid"
+	log "github.com/sirupsen/logrus"
 )
 
 func (r *phaseBuilder) initSteps(ctx context.Context) error {
@@ -87,28 +88,7 @@ func (r phaseBuilder) hasRuntimeUpdates() bool {
 }
 
 func (r phaseBuilder) buildIntermediateSteps(ctx context.Context) (updates []intermediateUpdateStep, err error) {
-	result := make(map[string]intermediateUpdateStep)
-	err = pack.ForeachPackage(r.packages, func(env pack.PackageEnvelope) error {
-		labels := pack.Labels(env.RuntimeLabels)
-		if !labels.HasAny(pack.PurposeRuntimeUpgrade) {
-			return nil
-		}
-		version := labels[pack.PurposeRuntimeUpgrade]
-		step, ok := result[version]
-		if !ok {
-			v, err := semver.NewVersion(version)
-			if err != nil {
-				return trace.Wrap(err, "invalid semver: %q", version)
-			}
-			if r.shouldSkipIntermediateUpdate(*v) {
-				return nil
-			}
-			step = newIntermediateUpdateStep(*v)
-		}
-		step.fromPackage(env, r.apps)
-		result[version] = step
-		return nil
-	})
+	result, err := r.collectIntermediateSteps()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -142,6 +122,7 @@ func (r phaseBuilder) buildIntermediateSteps(ctx context.Context) (updates []int
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
+		log.WithField("updates", serverUpdates).Info("Intermediate server upgrade step.")
 		update.servers = serverUpdates
 		update.runtimeUpdates, err = runtimeUpdates(prevRuntimeApp, update.runtimeApp, r.installedApp)
 		if err != nil {
@@ -154,6 +135,35 @@ func (r phaseBuilder) buildIntermediateSteps(ctx context.Context) (updates []int
 	}
 	sort.Sort(updatesByVersion(updates))
 	return updates, nil
+}
+
+func (r phaseBuilder) collectIntermediateSteps() (result map[string]intermediateUpdateStep, err error) {
+	result = make(map[string]intermediateUpdateStep)
+	err = pack.ForeachPackage(r.packages, func(env pack.PackageEnvelope) error {
+		labels := pack.Labels(env.RuntimeLabels)
+		if !labels.HasAny(pack.PurposeRuntimeUpgrade) {
+			return nil
+		}
+		version := labels[pack.PurposeRuntimeUpgrade]
+		step, ok := result[version]
+		if !ok {
+			v, err := semver.NewVersion(version)
+			if err != nil {
+				return trace.Wrap(err, "invalid semver: %q", version)
+			}
+			if r.shouldSkipIntermediateUpdate(*v) {
+				return nil
+			}
+			step = newIntermediateUpdateStep(*v)
+		}
+		step.fromPackage(env, r.apps)
+		result[version] = step
+		return nil
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return result, nil
 }
 
 // intermediateConfigUpdates computes the configuration updates for a specific update step
@@ -216,11 +226,11 @@ func (r phaseBuilder) intermediateConfigUpdates(
 			if err != nil {
 				return nil, trace.Wrap(err)
 			}
+			updateServer.Teleport.Update = &storage.TeleportUpdate{
+				Package: *updateTeleport,
+			}
 			if nodeConfig != nil {
-				updateServer.Teleport.Update = &storage.TeleportUpdate{
-					Package:           *updateTeleport,
-					NodeConfigPackage: &nodeConfig.Locator,
-				}
+				updateServer.Teleport.Update.NodeConfigPackage = &nodeConfig.Locator
 			}
 		}
 		updates = append(updates, updateServer)
