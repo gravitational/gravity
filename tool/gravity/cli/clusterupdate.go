@@ -110,14 +110,14 @@ func newClusterUpdater(
 // checkStatus returns an error if the cluster is degraded.
 // If force is true, warnings will be ignored.
 func checkStatus(ctx context.Context, force bool) error {
-	nodes, err := statusapi.NodeStatuses(ctx)
+	agent, err := statusapi.FromPlanetAgent(ctx, nil)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
 	var failedProbes []string
 	var warningProbes []string
-	for _, node := range nodes {
+	for _, node := range agent.Nodes {
 		failedProbes = append(failedProbes, node.FailedProbes...)
 		warningProbes = append(warningProbes, node.WarnProbes...)
 	}
