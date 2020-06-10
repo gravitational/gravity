@@ -108,7 +108,15 @@ func newClusterUpdater(
 // checkStatus returns an error if the cluster is degraded.
 // If force is true, warnings will be ignored.
 func checkStatus(ctx context.Context, env *localenv.LocalEnvironment, force bool) error {
-	agent, err := statusapi.FromPlanetAgent(ctx, nil)
+	operator, err := env.SiteOperator()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	cluster, err := operator.GetLocalSite()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	agent, err := statusapi.FromPlanetAgent(ctx, cluster.ClusterState.Servers)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -120,10 +128,14 @@ func checkStatus(ctx context.Context, env *localenv.LocalEnvironment, force bool
 		warningProbes = append(warningProbes, node.WarnProbes...)
 	}
 
+	w := new(tabwriter.Writer)
+	w.Init(os.Stdout, 0, 8, 1, '\t', 0)
+
 	if len(failedProbes) > 0 {
 		fmt.Println("The upgrade is prohibited because some cluster nodes are currently degraded.")
-		if err := printNodes(ctx, env); err != nil {
-			log.Warn("Failed to print nodes.")
+		printAgentStatus(*agent, w)
+		if err := w.Flush(); err != nil {
+			log.Warn("Failed to flush to stdout.")
 		}
 		fmt.Println("Please make sure the cluster is healthy before re-attempting the upgrade.")
 		return trace.BadParameter("failed to start upgrade operation")
@@ -131,44 +143,12 @@ func checkStatus(ctx context.Context, env *localenv.LocalEnvironment, force bool
 
 	if !force && len(warningProbes) > 0 {
 		fmt.Println("Some cluster nodes have active warnings:")
-		if err := printNodes(ctx, env); err != nil {
-			log.Warn("Failed to print nodes.")
+		printAgentStatus(*agent, w)
+		if err := w.Flush(); err != nil {
+			log.Warn("Failed to flush to stdout.")
 		}
 		fmt.Println("You can provide the --force flag to suppress this message and launch the upgrade anyways.")
 		return trace.BadParameter("failed to start upgrade operation")
-	}
-
-	return nil
-}
-
-// printNodes prints the node statuses
-func printNodes(ctx context.Context, env *localenv.LocalEnvironment) error {
-	clusterOperator, err := env.SiteOperator()
-	if err != nil {
-		log.WithError(err).Warn("Failed to create cluster operator.")
-	}
-	clusterEnv, err := env.NewClusterEnvironment()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	operator := statusOperator{
-		Operator:        clusterEnv.Operator,
-		clusterOperator: clusterOperator,
-	}
-
-	ctx, cancel := context.WithTimeout(ctx, defaults.StatusCollectionTimeout)
-	defer cancel()
-
-	status, err := statusOnce(ctx, operator, "")
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	w := new(tabwriter.Writer)
-	w.Init(os.Stdout, 0, 8, 1, '\t', 0)
-	printAgentStatus(*status.Agent, w)
-	if err := w.Flush(); err != nil {
-		log.Warn("Failed to flush to stdout.")
 	}
 
 	return nil
