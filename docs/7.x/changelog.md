@@ -4,7 +4,7 @@
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 7.0.6         | No  | June 1st, 2020       | 7.1 is released      | 1.17.6             | 3.2.13           |
+| 7.0.7         | No  | June 9th, 2020       | 7.1 is released      | 1.17.6             | 3.2.13           |
 | 6.1.28        | Yes | June 1st, 2020       | November 10th, 2021  | 1.15.12            | 3.2.12           |
 | 5.5.47        | Yes | May 29th, 2020       | March 7th, 2021      | 1.13.11            | 3.0.6-gravity    |
 
@@ -33,7 +33,7 @@ extend updates past EOL through customer agreements if required.
 | 5.4.10        | No  | March 26th, 2019     | March 8th, 2019      | 1.13.5             | 2.4.10           |
 | 5.3.9         | No  | March 7th, 2019      | December 14, 2018    | 1.12.3             | 2.4.7            |
 | 5.2.16        | Yes | October 11th, 2019   | October 15th, 2019   | 1.11.9             | 2.4.10           |
-| 5.0.35        | Yes | September 2nd, 2019  | April 13th, 2019     | 1.9.13-gravitational | 2.4.10         |
+| 5.0.36        | Yes | June 8th, 2020       | April 13th, 2019     | 1.9.13-gravitational | 2.4.10         |
 | 4.68.0        | Yes | January 17th, 2019   | November 16th, 2018  | 1.7.18-gravitational | 2.3.5          |
 | 3.64.0        | Yes | December 21st, 2017  | June 2nd, 2018       | 1.5.7              | 2.0.6            |
 | 1.30.0        | Yes | March 21st, 2017     | March 21st, 2018     | 1.3.8              | 1.2.0            |
@@ -41,6 +41,17 @@ extend updates past EOL through customer agreements if required.
 # Release Notes
 
 ## 7.x Releases
+
+### 7.0.7 (June 9th, 2020)
+
+#### Improvements
+
+* Add `gravity rollback` command ([#1626](https://github.com/gravitational/gravity/pull/1626)).
+
+#### Bugfixes
+
+* Fix an issue with block devices/partitions propagation in planet ([#1663](https://github.com/gravitational/gravity/pull/1663), [planet#671](https://github.com/gravitational/planet/pull/671)).
+* Fix an issue with `gravity resource` commands returning errors if `HOME` environment variable was not set ([#1665](https://github.com/gravitational/gravity/pull/1665)).
 
 ### 7.0.6 (June 1st, 2020)
 
@@ -1278,6 +1289,12 @@ to learn how to gain insight into how the cluster status changes over time.
 
 * Wait for `kube-system` namespace to be created during the installation.
 * Update `tele push` to treat existing applications and their dependencies gracefully.
+
+### 5.0.36 LTS (June 8th, 2020)
+
+#### Bugfixes
+
+* Fix an issue where `--docker-device` wasn't able to follow symlinks to block devices ([gravity.e#4301](https://github.com/gravitational/gravity.e/pull/4301)).
 
 ### 5.0.35 (September 2nd, 2019)
 
