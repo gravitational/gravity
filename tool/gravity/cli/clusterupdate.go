@@ -18,6 +18,7 @@ package cli
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"text/tabwriter"
 
@@ -87,10 +88,7 @@ func newClusterUpdater(
 		unattended:    !manual,
 	}
 
-	if err := checkStatus(ctx, force); err != nil {
-		if err := printNodes(ctx, localEnv); err != nil {
-			log.Warn("Failed to print nodes.")
-		}
+	if err := checkStatus(ctx, localEnv, force); err != nil {
 		return nil, trace.Wrap(err)
 	}
 
@@ -109,7 +107,7 @@ func newClusterUpdater(
 
 // checkStatus returns an error if the cluster is degraded.
 // If force is true, warnings will be ignored.
-func checkStatus(ctx context.Context, force bool) error {
+func checkStatus(ctx context.Context, env *localenv.LocalEnvironment, force bool) error {
 	agent, err := statusapi.FromPlanetAgent(ctx, nil)
 	if err != nil {
 		return trace.Wrap(err)
@@ -123,11 +121,21 @@ func checkStatus(ctx context.Context, force bool) error {
 	}
 
 	if len(failedProbes) > 0 {
-		return trace.BadParameter("unable to upgrade degraded cluster")
+		fmt.Println("The upgrade is prohibited because some cluster nodes are currently degraded.")
+		if err := printNodes(ctx, env); err != nil {
+			log.Warn("Failed to print nodes.")
+		}
+		fmt.Println("Please make sure the cluster is healthy before re-attempting the upgrade.")
+		return trace.BadParameter("failed to start upgrade operation")
 	}
 
 	if !force && len(warningProbes) > 0 {
-		return trace.BadParameter("cluster has active warnings (use --force to continue)")
+		fmt.Println("Some cluster nodes have active warnings:")
+		if err := printNodes(ctx, env); err != nil {
+			log.Warn("Failed to print nodes.")
+		}
+		fmt.Println("You can provide the --force flag to suppress this message and launch the upgrade anyways.")
+		return trace.BadParameter("failed to start upgrade operation")
 	}
 
 	return nil
