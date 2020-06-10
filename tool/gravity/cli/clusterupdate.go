@@ -106,8 +106,7 @@ func newClusterUpdater(
 }
 
 // checkStatus returns an error if the cluster is degraded.
-// If force is true, warnings will be ignored.
-func checkStatus(ctx context.Context, env *localenv.LocalEnvironment, force bool) error {
+func checkStatus(ctx context.Context, env *localenv.LocalEnvironment, ignoreWarnings bool) error {
 	operator, err := env.SiteOperator()
 	if err != nil {
 		return trace.Wrap(err)
@@ -142,7 +141,7 @@ func checkStatus(ctx context.Context, env *localenv.LocalEnvironment, force bool
 		return trace.BadParameter("failed to start upgrade operation")
 	}
 
-	if !force && len(warningProbes) > 0 {
+	if !ignoreWarnings && len(warningProbes) > 0 {
 		fmt.Println("Some cluster nodes have active warnings:")
 		printAgentStatus(*status.Agent, w)
 		if err := w.Flush(); err != nil {
