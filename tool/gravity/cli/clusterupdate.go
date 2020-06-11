@@ -24,6 +24,7 @@ import (
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/fsm"
 	libfsm "github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
@@ -169,7 +170,11 @@ func rollbackUpdatePhaseForOperation(env *localenv.LocalEnvironment, environ Loc
 		return trace.Wrap(err)
 	}
 	defer updater.Close()
-	err = updater.RollbackPhase(context.TODO(), params.PhaseID, params.Timeout, params.Force)
+	err = updater.RollbackPhase(context.TODO(), fsm.Params{
+		PhaseID: params.PhaseID,
+		Force:   params.Force,
+		DryRun:  params.DryRun,
+	}, params.Timeout)
 	return trace.Wrap(err)
 }
 
