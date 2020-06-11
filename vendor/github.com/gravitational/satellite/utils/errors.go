@@ -17,10 +17,15 @@ limitations under the License.
 package utils
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
 	"github.com/gravitational/trace"
+	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
+	grpcerrors "google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -58,6 +63,62 @@ func ConvertErrorWithContext(err error, format string, args ...interface{}) erro
 		return trace.AccessDenied(message)
 	}
 	return err
+}
+
+// ConvertGRPCError maps grpc error to one of trace type classes.
+// Returns original error if no mapping is possible
+func ConvertGRPCError(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	switch grpc.Code(trace.Unwrap(err)) {
+	case grpcerrors.InvalidArgument, grpcerrors.OutOfRange:
+		return trace.BadParameter(err.Error())
+	case grpcerrors.DeadlineExceeded:
+		return trace.LimitExceeded(err.Error())
+	case grpcerrors.AlreadyExists:
+		return trace.AlreadyExists(err.Error())
+	case grpcerrors.NotFound:
+		return trace.NotFound(err.Error())
+	case grpcerrors.PermissionDenied, grpcerrors.Unauthenticated:
+		return trace.AccessDenied(err.Error())
+	case grpcerrors.Unimplemented:
+		return trace.NotImplemented(err.Error())
+	}
+	return trace.Wrap(err)
+}
+
+// IsUnavailableError determines if the specified error
+// is a temporary agent availability error
+func IsUnavailableError(err error) bool {
+	err = ConvertGRPCError(err)
+	switch {
+	case grpc.Code(trace.Unwrap(err)) == grpcerrors.Unavailable:
+		return true
+	case trace.IsLimitExceeded(err):
+		return true
+	}
+	return false
+}
+
+// GRPCError converts the provided error into a grpc error.
+// TODO: Define additional errors
+func GRPCError(err error) error {
+	switch trace.Unwrap(err) {
+	case context.Canceled:
+		return status.Error(grpcerrors.Canceled, "rpc canceled")
+	case context.DeadlineExceeded:
+		return status.Error(grpcerrors.DeadlineExceeded, "rpc deadline exceeded")
+	default:
+		logrus.WithError(err).Warn("Failed to convert to grpc error.")
+		return status.Error(grpcerrors.Unknown, "unknown error")
+	}
+}
+
+// IsContextCanceledError determines if the error indicates a canceled context
+func IsContextCanceledError(err error) bool {
+	return trace.Unwrap(err) == context.Canceled
 }
 
 func isEmptyDetails(details *metav1.StatusDetails) bool {
