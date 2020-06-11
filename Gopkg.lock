@@ -942,7 +942,8 @@
   version = "v1.0.0"
 
 [[projects]]
-  digest = "1:8de3eb510d1b5dd0b658f476fc05a1a606f5821966ef572e28119850f5644fb1"
+  branch = "bernard/6.1.x/disk-check"
+  digest = "1:a48fd5a9e1bd8c635504b9a6b589ecc1b16a387dad035924f1780c96e7a193ef"
   name = "github.com/gravitational/satellite"
   packages = [
     "agent",
@@ -959,8 +960,7 @@
     "utils",
   ]
   pruneopts = "UT"
-  revision = "77ab3d8928cea7e3cae346b80327dcae58a9ebaf"
-  version = "6.1.8"
+  revision = "fe61fb3e57c282c0f657d5944d558c44fabb0d67"
 
 [[projects]]
   digest = "1:49f6abbce9ade5f43508429e4af1adcce55d27adcd62719fea049decc766a7c9"
@@ -2933,6 +2933,9 @@
     "github.com/docker/distribution/registry/api/errcode",
     "github.com/docker/distribution/registry/auth",
     "github.com/docker/distribution/registry/client",
+    "github.com/docker/distribution/registry/client/auth",
+    "github.com/docker/distribution/registry/client/auth/challenge",
+    "github.com/docker/distribution/registry/client/transport",
     "github.com/docker/distribution/registry/handlers",
     "github.com/docker/distribution/registry/listener",
     "github.com/docker/distribution/registry/storage",

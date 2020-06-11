@@ -18,6 +18,9 @@ package cli
 
 import (
 	"context"
+	"fmt"
+	"os"
+	"text/tabwriter"
 
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
@@ -30,6 +33,7 @@ import (
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/rpc"
 	"github.com/gravitational/gravity/lib/schema"
+	statusapi "github.com/gravitational/gravity/lib/status"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/update"
 	clusterupdate "github.com/gravitational/gravity/lib/update/cluster"
@@ -58,10 +62,10 @@ func updateTrigger(
 	localEnv *localenv.LocalEnvironment,
 	updateEnv *localenv.LocalEnvironment,
 	updatePackage string,
-	manual, noValidateVersion bool,
+	manual, noValidateVersion, force bool,
 ) error {
 	ctx := context.TODO()
-	updater, err := newClusterUpdater(ctx, localEnv, updateEnv, updatePackage, manual, noValidateVersion)
+	updater, err := newClusterUpdater(ctx, localEnv, updateEnv, updatePackage, manual, noValidateVersion, force)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -78,12 +82,17 @@ func newClusterUpdater(
 	ctx context.Context,
 	localEnv, updateEnv *localenv.LocalEnvironment,
 	updatePackage string,
-	manual, noValidateVersion bool,
+	manual, noValidateVersion, force bool,
 ) (updater, error) {
 	init := &clusterInitializer{
 		updatePackage: updatePackage,
 		unattended:    !manual,
 	}
+
+	if err := checkStatus(ctx, localEnv, force); err != nil {
+		return nil, trace.Wrap(err)
+	}
+
 	updater, err := newUpdater(ctx, localEnv, updateEnv, init)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -95,6 +104,55 @@ func newClusterUpdater(
 		return nil, trace.Wrap(err)
 	}
 	return updater, nil
+}
+
+// checkStatus returns an error if the cluster is degraded.
+func checkStatus(ctx context.Context, env *localenv.LocalEnvironment, ignoreWarnings bool) error {
+	operator, err := env.SiteOperator()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	cluster, err := operator.GetLocalSite()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	status, err := statusapi.FromCluster(ctx, operator, *cluster, "")
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	var failedProbes []string
+	var warningProbes []string
+	for _, node := range status.Agent.Nodes {
+		failedProbes = append(failedProbes, node.FailedProbes...)
+		warningProbes = append(warningProbes, node.WarnProbes...)
+	}
+
+	w := new(tabwriter.Writer)
+	w.Init(os.Stdout, 0, 8, 1, '\t', 0)
+
+	if len(failedProbes) > 0 {
+		fmt.Println("The upgrade is prohibited because some cluster nodes are currently degraded.")
+		printAgentStatus(*status.Agent, w)
+		if err := w.Flush(); err != nil {
+			log.WithError(err).Warn("Failed to flush to stdout.")
+		}
+		fmt.Println("Please make sure the cluster is healthy before re-attempting the upgrade.")
+		return trace.BadParameter("failed to start upgrade operation")
+	}
+
+	if !ignoreWarnings && len(warningProbes) > 0 {
+		fmt.Println("Some cluster nodes have active warnings:")
+		printAgentStatus(*status.Agent, w)
+		if err := w.Flush(); err != nil {
+			log.WithError(err).Warn("Failed to flush to stdout.")
+		}
+		fmt.Println("You can provide the --force flag to suppress this message and launch the upgrade anyways.")
+		return trace.BadParameter("failed to start upgrade operation")
+	}
+
+	return nil
 }
 
 func executeUpdatePhase(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params PhaseParams) error {

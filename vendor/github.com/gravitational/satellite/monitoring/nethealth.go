@@ -110,14 +110,7 @@ func (c *nethealthChecker) Name() string {
 func (c *nethealthChecker) Check(ctx context.Context, reporter health.Reporter) {
 	err := c.check(ctx, reporter)
 	if err != nil {
-		log.WithError(err).Warn("Failed to verify nethealth")
-		reporter.Add(&pb.Probe{
-			Checker:  c.Name(),
-			Detail:   "failed to verify nethealth",
-			Error:    trace.UserMessage(err),
-			Status:   pb.Probe_Failed,
-			Severity: pb.Probe_Warning,
-		})
+		log.WithError(err).Debug("Failed to verify nethealth.")
 		return
 	}
 	if reporter.NumProbes() == 0 {
@@ -126,6 +119,15 @@ func (c *nethealthChecker) Check(ctx context.Context, reporter health.Reporter) 
 }
 
 func (c *nethealthChecker) check(ctx context.Context, reporter health.Reporter) error {
+	peers, err := c.getPeers()
+	if err != nil {
+		log.Debugf("Failed to discover nethealth peers: %v.", err)
+		return nil
+	}
+	if len(peers) == 0 {
+		return nil
+	}
+
 	addr, err := c.getNethealthAddr()
 	if trace.IsNotFound(err) {
 		log.Debug("Nethealth pod was not found.")
@@ -148,18 +150,28 @@ func (c *nethealthChecker) check(ctx context.Context, reporter health.Reporter) 
 		return nil
 	}
 
-	netData, err = c.filterNetData(netData)
-	if err != nil {
-		log.WithError(err).Error("Failed to filter nethealth data.")
-		return nil
-	}
-
-	updated, err := c.updateStats(netData)
+	updated, err := c.updateStats(filterByK8s(netData, peers))
 	if err != nil {
 		return trace.Wrap(err, "failed to update nethealth stats")
 	}
 
 	return c.verifyNethealth(updated, reporter)
+}
+
+// getPeers returns all nethealth peers as a list of strings.
+func (c *nethealthChecker) getPeers() (peers []string, err error) {
+	opts := metav1.ListOptions{
+		LabelSelector: nethealthLabelSelector.String(),
+		FieldSelector: fields.OneTermNotEqualSelector("spec.nodeName", c.NodeName).String(),
+	}
+	pods, err := c.Client.CoreV1().Pods(nethealthNamespace).List(opts)
+	if err != nil {
+		return peers, utils.ConvertError(err)
+	}
+	for _, pod := range pods.Items {
+		peers = append(peers, pod.Spec.NodeName)
+	}
+	return peers, nil
 }
 
 // getNethealthAddr returns the address of the local nethealth pod.
@@ -309,8 +321,9 @@ func (c *nethealthChecker) isHealthy(peer string) (healthy bool, err error) {
 func nethealthFailureProbe(name, peer string, packetLoss float64) *pb.Probe {
 	return &pb.Probe{
 		Checker: name,
-		Detail: fmt.Sprintf("overlay packet loss for node %s is higher than the allowed threshold of %d%%: %d%%",
-			peer, int(thresholdPercent), int(packetLoss*100)),
+		Detail: fmt.Sprintf("overlay packet loss for node %s is higher than the allowed threshold of %d%%",
+			peer, int(thresholdPercent)),
+		Error:    fmt.Sprintf("current packet loss at %d%%", int(100*packetLoss)),
 		Status:   pb.Probe_Failed,
 		Severity: pb.Probe_Warning,
 	}
@@ -415,32 +428,19 @@ func getPeerName(labels []*dto.LabelPair) (peer string, err error) {
 	return "", trace.NotFound("unable to find %s label", peerLabel)
 }
 
-// filterNetData filters the netData. Nethealth may retain metrics for nodes
-// that are no longer part of the cluster. Metrics for these nodes should not
-// be further processed.
-func (c *nethealthChecker) filterNetData(netData map[string]networkData) (filtered map[string]networkData, err error) {
-	nodes, err := c.Client.CoreV1().Nodes().List(metav1.ListOptions{
-		FieldSelector: fields.OneTermNotEqualSelector("metadata.name", c.NodeName).String(),
-	})
-	if err != nil {
-		return filtered, trace.Wrap(err)
-	}
-	return filterByK8s(netData, nodes.Items)
-}
-
 // filterByK8s removes netData for nodes that are no longer members of the
 // kubernetes cluster.
-func filterByK8s(netData map[string]networkData, nodes []corev1.Node) (filtered map[string]networkData, err error) {
+func filterByK8s(netData map[string]networkData, nodes []string) (filtered map[string]networkData) {
 	filtered = make(map[string]networkData)
 	for _, node := range nodes {
-		data, exists := netData[node.Name]
+		data, exists := netData[node]
 		if !exists {
-			log.WithField("node", node.Name).Warn("Missing nethealth data for peer.")
+			log.WithField("node", node).Warn("Missing nethealth data for node.")
 			continue
 		}
-		filtered[node.Name] = data
+		filtered[node] = data
 	}
-	return filtered, nil
+	return filtered
 }
 
 // netStats holds nethealth data for a peer.

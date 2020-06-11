@@ -338,6 +338,7 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			*g.UpdateTriggerCmd.App,
 			*g.UpdateTriggerCmd.Manual,
 			*g.UpdateTriggerCmd.SkipVersionCheck,
+			*g.UpdateTriggerCmd.Force,
 		)
 	case g.UpdatePlanInitCmd.FullCommand():
 		updateEnv, err := g.NewUpdateEnv()
@@ -368,6 +369,7 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			*g.UpgradeCmd.App,
 			*g.UpgradeCmd.Manual,
 			*g.UpgradeCmd.SkipVersionCheck,
+			*g.UpgradeCmd.Force,
 		)
 	case g.ResumeCmd.FullCommand():
 		return resumeOperation(localEnv, g,

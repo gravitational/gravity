@@ -602,7 +602,16 @@ func diskSpaceProbeErrorDetail(p pb.Probe) (string, error) {
 	if err != nil {
 		return "", trace.Wrap(err)
 	}
-	return data.FailureMessage(), nil
+
+	if p.Severity == pb.Probe_Critical {
+		return data.CriticalMessage(), nil
+	}
+
+	if p.Severity == pb.Probe_Warning {
+		return data.WarningMessage(), nil
+	}
+
+	return "", trace.BadParameter("probe does not have warning or critical severity")
 }
 
 // String returns a textual representation of this system status

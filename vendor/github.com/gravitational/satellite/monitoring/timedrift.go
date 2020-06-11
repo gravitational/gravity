@@ -118,39 +118,31 @@ func (c *timeDriftChecker) Name() string {
 
 // Check fills in provided reporter with probes according to time drift check results.
 func (c *timeDriftChecker) Check(ctx context.Context, r health.Reporter) {
-	failedProbes, err := c.check(ctx, r)
-	if err != nil {
-		c.Error(err.Error())
-		r.Add(NewProbeFromErr(c.Name(), "failed to check time drift", err))
+	if err := c.check(ctx, r); err != nil {
+		log.WithError(err).Debug("Failed to check time drift.")
 		return
 	}
-	if len(failedProbes) == 0 {
+	if r.NumProbes() == 0 {
 		r.Add(c.successProbe())
-		return
-	}
-	for i := range failedProbes {
-		r.Add(failedProbes[i])
 	}
 }
 
 // check does a time drift check between this and other cluster nodes.
-//
-// Returns a list of probes that failed.
-func (c *timeDriftChecker) check(ctx context.Context, r health.Reporter) (probes []*pb.Probe, err error) {
+func (c *timeDriftChecker) check(ctx context.Context, r health.Reporter) (err error) {
 	nodes, err := c.nodesToCheck()
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return trace.Wrap(err)
 	}
 	for _, node := range nodes {
 		drift, err := c.getTimeDrift(ctx, node)
 		if err != nil {
-			return nil, trace.Wrap(err)
+			return trace.Wrap(err)
 		}
 		if isDriftHigh(drift) {
-			probes = append(probes, c.failureProbe(node, drift))
+			r.Add(c.failureProbe(node, drift))
 		}
 	}
-	return probes, nil
+	return nil
 }
 
 // getTimeDrift calculates the time drift value between this and the specified
