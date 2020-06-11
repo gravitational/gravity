@@ -115,6 +115,7 @@ spec:
         seccomp.security.alpha.kubernetes.io/pod: docker/default
     spec:
       serviceAccount: gravity-site
+      priorityClassName: gravity-high-priority
       tolerations:
       - key: "gravitational.io/runlevel"
         value: system
@@ -273,3 +274,11 @@ spec:
     nodePort: 32009
   selector:
     app: gravity-site
+---
+apiVersion: scheduling.k8s.io/v1beta1
+kind: PriorityClass
+metadata:
+  name: gravity-high-priority
+value: 1000000
+globalDefault: false
+description: "This priority class for gravity-site pods."

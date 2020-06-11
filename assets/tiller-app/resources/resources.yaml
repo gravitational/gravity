@@ -16,6 +16,7 @@ spec:
       annotations:
         seccomp.security.alpha.kubernetes.io/pod: docker/default
     spec:
+      priorityClassName: tiller-high-priority
       tolerations:
       - key: "gravitational.io/runlevel"
         value: system
@@ -51,3 +52,11 @@ spec:
               port: 44135
             initialDelaySeconds: 1
             timeoutSeconds: 1
+---
+apiVersion: scheduling.k8s.io/v1beta1
+kind: PriorityClass
+metadata:
+  name: tiller-high-priority
+value: 1000000
+globalDefault: false
+description: "This priority class for tiller pods."
