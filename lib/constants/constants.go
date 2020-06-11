@@ -677,6 +677,8 @@ const (
 	InProgressMark = "→"
 	// WarnMark is used in CLI to visually indicate a warning
 	WarnMark = "!"
+	// RollbackMark is used in CLI to visually indicate rollback
+	RollbackMark = "⤺"
 
 	// WireguardNetworkType is a network type that is used for wireguard/wormhole support
 	WireguardNetworkType = "wireguard"

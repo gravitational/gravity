@@ -144,9 +144,7 @@ func (s *S) TestDrainsNode(c *C) {
 			LabelSelector: labels.SelectorFromSet(labels.Set{"test-app": "foo"}).String(),
 		})
 	c.Assert(err, IsNil)
-	pendingPods, err := waitForDelete(ctx, s.CoreV1(), podList.Items, usingEviction(false))
-	c.Assert(err, IsNil)
-	c.Assert(pendingPods, HasLen, 0)
+	c.Assert(podList.Items, HasLen, 0)
 
 	// Clean up
 	err = SetUnschedulable(ctx, client, s.Name, false)

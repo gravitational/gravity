@@ -164,7 +164,11 @@ func (r *Engine) ChangePhaseState(ctx context.Context, change fsm.StateChange) e
 // RunCommand executes the phase specified by params on the specified server
 // using the provided runner
 func (r *Engine) RunCommand(ctx context.Context, runner rpc.RemoteRunner, server storage.Server, params fsm.Params) error {
-	args := []string{"plan", "execute",
+	command := "execute"
+	if params.Rollback {
+		command = "rollback"
+	}
+	args := []string{"plan", command,
 		"--phase", params.PhaseID,
 		"--operation-id", r.Operation.ID,
 	}

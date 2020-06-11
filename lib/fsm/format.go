@@ -72,8 +72,10 @@ func printPhase(w io.Writer, phase storage.OperationPhase, indent int) {
 		marker = constants.InProgressMark
 	} else if phase.GetState() == storage.OperationPhaseStateCompleted {
 		marker = constants.SuccessMark
-	} else if phase.GetState() == storage.OperationPhaseStateFailed || phase.GetState() == storage.OperationPhaseStateRolledBack {
+	} else if phase.GetState() == storage.OperationPhaseStateFailed {
 		marker = constants.FailureMark
+	} else if phase.GetState() == storage.OperationPhaseStateRolledBack {
+		marker = constants.RollbackMark
 	}
 	fmt.Fprintf(w, "%v%v %v\t%v\t%v\t%v\t%v\t%v\n",
 		strings.Repeat("  ", indent),

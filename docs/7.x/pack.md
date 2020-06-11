@@ -10,7 +10,7 @@ There are two use cases we'll cover here:
    Kubernetes Clusters within an organization.
 
 2. Building a Cluster Image that also includes Kubernetes applications.  You
-   can these to distribute Kubernetes applications to 3rd parties.
+   can use these to distribute Kubernetes applications to 3rd parties.
 
 If you wish to package a cloud-native application into a Cluster Image, the
 application must run on Kubernetes. This means:
