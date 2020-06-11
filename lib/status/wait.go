@@ -20,11 +20,15 @@ import (
 	"context"
 
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/satellite/agent/proto/agentpb"
 	"github.com/gravitational/trace"
+	"github.com/sirupsen/logrus"
 )
+
+var log = logrus.WithField(trace.Component, "status")
 
 // Wait blocks until the local agent reports healthy status or until the
 // provided context expires.
@@ -32,6 +36,27 @@ func Wait(ctx context.Context) error {
 	b := utils.NewExponentialBackOff(defaults.NodeStatusTimeout)
 	return utils.RetryWithInterval(ctx, b, func() error {
 		return getLocalNodeStatus(ctx)
+	})
+}
+
+// WaitCluster blocks until the local cluster is healthy or until the context
+// expires.
+func WaitCluster(ctx context.Context, operator ops.Operator) error {
+	b := utils.NewExponentialBackOff(defaults.NodeStatusTimeout)
+	return utils.RetryWithInterval(ctx, b, func() error {
+		cluster, err := operator.GetLocalSite()
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		status, err := FromCluster(ctx, operator, *cluster, "")
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		if status.IsDegraded() {
+			return trace.BadParameter("cluster is not healthy: %s", status)
+		}
+		log.Info("Cluster is healthy.")
+		return nil
 	})
 }
 

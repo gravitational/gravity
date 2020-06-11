@@ -38,7 +38,6 @@ import (
 	pb "github.com/gravitational/satellite/agent/proto/agentpb"
 	"github.com/gravitational/satellite/monitoring"
 	"github.com/gravitational/trace"
-	"github.com/sirupsen/logrus"
 )
 
 // FromCluster collects cluster status information.
@@ -66,13 +65,13 @@ func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, o
 
 	status.Cluster.ServerVersion, err = operator.GetVersion(ctx)
 	if err != nil {
-		logrus.WithError(err).Warn("Failed to query server version information.")
+		log.WithError(err).Warn("Failed to query server version information.")
 	}
 
 	// Collect application endpoints.
 	endpoints, err := operator.GetApplicationEndpoints(cluster.Key())
 	if err != nil {
-		logrus.WithError(err).Warn("Failed to fetch application endpoints.")
+		log.WithError(err).Warn("Failed to fetch application endpoints.")
 		status.Endpoints.Applications.Error = err
 	}
 	if len(endpoints) != 0 {
@@ -182,6 +181,23 @@ func (r Status) IsDegraded() bool {
 		r.Cluster.State == ops.SiteStateDegraded ||
 		r.Agent == nil ||
 		r.Agent.GetSystemStatus() != pb.SystemStatus_Running)
+}
+
+// String returns the status string representation.
+func (r Status) String() string {
+	var cluster string
+	if r.Cluster != nil {
+		cluster = fmt.Sprintf("Cluster(%v)", *r.Cluster)
+	} else {
+		cluster = "Cluster(nil)"
+	}
+	var agent string
+	if r.Agent != nil {
+		agent = fmt.Sprintf("Agent(%v)", *r.Agent)
+	} else {
+		agent = "Agent(nil)"
+	}
+	return fmt.Sprintf("Status(%v, %v)", cluster, agent)
 }
 
 // Status describes the status of the cluster as a whole
@@ -513,7 +529,7 @@ func probeErrorDetail(p pb.Probe) string {
 		if err == nil {
 			return detail
 		}
-		logrus.Warnf(trace.DebugReport(err))
+		log.Warnf(trace.DebugReport(err))
 	}
 	detail := p.Detail
 	if p.Detail == "" {
