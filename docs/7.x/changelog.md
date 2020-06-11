@@ -32,7 +32,7 @@ extend updates past EOL through customer agreements if required.
 | 5.6.8         | No  | September 18th, 2019 | July 17th, 2019      | 1.14.7             | 3.0.6-gravity    |
 | 5.4.10        | No  | March 26th, 2019     | March 8th, 2019      | 1.13.5             | 2.4.10           |
 | 5.3.9         | No  | March 7th, 2019      | December 14, 2018    | 1.12.3             | 2.4.7            |
-| 5.2.16        | Yes | October 11th, 2019   | October 15th, 2019   | 1.11.9             | 2.4.10           |
+| 5.2.17        | Yes | June 11th, 2020      | October 15th, 2019   | 1.11.9             | 2.4.10           |
 | 5.0.36        | Yes | June 8th, 2020       | April 13th, 2019     | 1.9.13-gravitational | 2.4.10         |
 | 4.68.0        | Yes | January 17th, 2019   | November 16th, 2018  | 1.7.18-gravitational | 2.3.5          |
 | 3.64.0        | Yes | December 21st, 2017  | June 2nd, 2018       | 1.5.7              | 2.0.6            |
@@ -1179,6 +1179,11 @@ to learn how to gain insight into how the cluster status changes over time.
 
 * Add ability to override peer connect timeout when joining a cluster ([#777](https://github.com/gravitational/gravity/pull/777)).
 
+### 5.2.17 LTS (June 11th, 2020)
+
+#### Improvements
+
+* Increase disk check high watermark to 90% ([#1679](https://github.com/gravitational/gravity/pull/1679), [planet#675](https://github.com/gravitational/planet/pull/675)).
 
 ### 5.2.16 LTS (October 11th, 2019)
 
