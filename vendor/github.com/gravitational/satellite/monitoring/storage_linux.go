@@ -39,11 +39,15 @@ import (
 
 // NewStorageChecker creates a new instance of the volume checker
 // using the specified checker as configuration
-func NewStorageChecker(config StorageConfig) health.Checker {
+func NewStorageChecker(config StorageConfig) (health.Checker, error) {
+	if err := config.CheckAndSetDefaults(); err != nil {
+		return nil, trace.Wrap(err)
+	}
+
 	return &storageChecker{
 		StorageConfig: config,
 		osInterface:   &realOS{},
-	}
+	}, nil
 }
 
 // storageChecker verifies volume requirements
@@ -84,7 +88,7 @@ func (c *storageChecker) check(ctx context.Context, reporter health.Reporter) er
 
 	return trace.NewAggregate(c.checkFsType(ctx, reporter),
 		c.checkCapacity(ctx, reporter),
-		c.checkHighWatermark(ctx, reporter),
+		c.checkDiskUsage(ctx, reporter),
 		c.checkWriteSpeed(ctx, reporter))
 }
 
@@ -143,7 +147,9 @@ func (c *storageChecker) checkFsType(ctx context.Context, reporter health.Report
 	return nil
 }
 
-func (c *storageChecker) checkHighWatermark(ctx context.Context, reporter health.Reporter) error {
+// checkDiskUsage checks the disk usage. A warning or critical probe will be
+// reported if the usage percentage is above the set thresholds.
+func (c *storageChecker) checkDiskUsage(ctx context.Context, reporter health.Reporter) error {
 	if c.HighWatermark == 0 {
 		return nil
 	}
@@ -155,6 +161,7 @@ func (c *storageChecker) checkHighWatermark(ctx context.Context, reporter health
 		return trace.BadParameter("disk capacity at %v is 0", c.path)
 	}
 	checkerData := HighWatermarkCheckerData{
+		LowWatermark:   c.LowWatermark,
 		HighWatermark:  c.HighWatermark,
 		Path:           c.Path,
 		TotalBytes:     totalBytes,
@@ -164,21 +171,38 @@ func (c *storageChecker) checkHighWatermark(ctx context.Context, reporter health
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	if float64(totalBytes-availableBytes)/float64(totalBytes)*100 > float64(c.HighWatermark) {
+
+	diskUsagePercent := float64(totalBytes-availableBytes) / float64(totalBytes) * 100
+
+	if diskUsagePercent > float64(checkerData.HighWatermark) {
 		reporter.Add(&pb.Probe{
 			Checker:     DiskSpaceCheckerID,
-			Detail:      checkerData.FailureMessage(),
+			Detail:      checkerData.CriticalMessage(),
 			CheckerData: checkerDataBytes,
 			Status:      pb.Probe_Failed,
+			Severity:    pb.Probe_Critical,
 		})
-	} else {
+		return nil
+	}
+
+	if diskUsagePercent > float64(checkerData.LowWatermark) {
 		reporter.Add(&pb.Probe{
 			Checker:     DiskSpaceCheckerID,
-			Detail:      checkerData.SuccessMessage(),
+			Detail:      checkerData.WarningMessage(),
 			CheckerData: checkerDataBytes,
-			Status:      pb.Probe_Running,
+			Status:      pb.Probe_Failed,
+			Severity:    pb.Probe_Warning,
 		})
+		return nil
 	}
+
+	reporter.Add(&pb.Probe{
+		Checker:     DiskSpaceCheckerID,
+		Detail:      checkerData.SuccessMessage(),
+		CheckerData: checkerDataBytes,
+		Status:      pb.Probe_Running,
+	})
+
 	return nil
 }
 
