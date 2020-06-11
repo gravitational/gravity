@@ -18,6 +18,7 @@ package kubernetes
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/gravitational/gravity/lib/defaults"
@@ -30,6 +31,8 @@ import (
 	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/client-go/kubernetes"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
@@ -41,7 +44,7 @@ func Drain(ctx context.Context, client *kubernetes.Clientset, nodeName string) e
 		return trace.Wrap(err)
 	}
 
-	d := drain{
+	d := drainer{
 		client:             client,
 		nodeName:           nodeName,
 		gracePeriodSeconds: defaults.ResourceGracePeriod,
@@ -135,16 +138,32 @@ func GetNode(client *kubernetes.Clientset, server storage.Server) (*v1.Node, err
 	return &nodes.Items[0], nil
 }
 
-// setUnschedulable sets node unschedulable status on the node given with nodeName
+// setUnschedulable sets unschedulable status on the node given with nodeName
 func setUnschedulable(client corev1.NodeInterface, nodeName string, unschedulable bool) error {
 	node, err := client.Get(nodeName, metav1.GetOptions{})
 	if err != nil {
-		return trace.Wrap(err)
+		return rigging.ConvertError(err)
+	}
+
+	oldData, err := json.Marshal(node)
+	if err != nil {
+		return rigging.ConvertError(err)
 	}
 
 	node.Spec.Unschedulable = unschedulable
 
-	_, err = client.Update(node)
+	newData, err := json.Marshal(node)
+	if err != nil {
+		return rigging.ConvertError(err)
+	}
+
+	patchBytes, patchErr := strategicpatch.CreateTwoWayMergePatch(oldData, newData, node)
+	if patchErr == nil {
+		_, err = client.Patch(node.Name, types.StrategicMergePatchType, patchBytes)
+	} else {
+		log.WithError(err).Warn("Failed to patch node object.")
+		_, err = client.Update(node)
+	}
 	return rigging.ConvertError(err)
 }
 
