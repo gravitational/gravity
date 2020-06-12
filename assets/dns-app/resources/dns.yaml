@@ -94,7 +94,7 @@ spec:
         scheduler.alpha.kubernetes.io/critical-pod: ''
     spec:
       serviceAccountName: coredns
-      priorityClassName: dns-high-priority
+      priorityClassName: system-cluster-critical
       tolerations:
         - operator: "Exists"
       nodeSelector:
@@ -274,11 +274,3 @@ spec:
   - name: dns-tcp
     port: 53
     protocol: TCP
----
-apiVersion: scheduling.k8s.io/v1beta1
-kind: PriorityClass
-metadata:
-  name: dns-high-priority
-value: 1000000
-globalDefault: false
-description: "This priority class for DNS application."
