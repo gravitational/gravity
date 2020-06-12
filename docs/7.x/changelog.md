@@ -190,7 +190,8 @@ to learn how to gain insight into how the cluster status changes over time.
 
 #### Bugfixes
 
-* Fixes an issue with upgrading from releases containing etcd `v3.2.20` ([#1694](https://github.com/gravitational/gravity/pull/1694), [#679](https://github.com/gravitational/planet/pull/679)).
+* Fix an issue with upgrading from releases containing etcd `v3.2.20` ([#1694](https://github.com/gravitational/gravity/pull/1694), [#679](https://github.com/gravitational/planet/pull/679)).
+* Fix an issue with nethealth checker not removing metrics for removed nodes ([#1621](https://github.com/gravitational/gravity/pull/1621), [#638](https://github.com/gravitational/planet/pull/638), [monitoring-app#167](https://github.com/gravitational/monitoring-app/pull/167)).
 
 ### 6.1.28 (June 1st, 2020)
 
