@@ -7,7 +7,7 @@ readonly UPGRADE_FROM_DIR=${1:-$(pwd)/../upgrade_from}
 declare -A UPGRADE_MAP
 
 # latest patch release on this branch, keep this up to date
-UPGRADE_MAP[6.1.24]="ubuntu:16"
+UPGRADE_MAP[6.1.25]="ubuntu:16"
 
 # latest patch release on previous compatible LTS, keep this up to date
 UPGRADE_MAP[5.5.41]="ubuntu:16"
