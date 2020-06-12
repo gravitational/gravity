@@ -90,14 +90,16 @@ type HighWatermarkCheckerData struct {
 
 // WarningMessage returns warning watermark check message
 func (d HighWatermarkCheckerData) WarningMessage() string {
-	return fmt.Sprintf("disk utilization on %s exceeds %v%% (%s is available out of %s), cluster will degrade if usage exceeds %v%%, see https://gravitational.com/gravity/docs/cluster/#garbage-collection",
-		d.Path, d.LowWatermark, humanize.Bytes(d.AvailableBytes), humanize.Bytes(d.TotalBytes), d.HighWatermark)
+	diskUsage := float64(d.TotalBytes-d.AvailableBytes) / float64(d.TotalBytes) * 100
+	return fmt.Sprintf("disk utilization on %s exceeds %v%%, currently at %v%% (%s is available out of %s), cluster will degrade if usage exceeds %v%%, see https://gravitational.com/gravity/docs/cluster/#garbage-collection",
+		d.Path, d.LowWatermark, diskUsage, humanize.Bytes(d.AvailableBytes), humanize.Bytes(d.TotalBytes), d.HighWatermark)
 }
 
 // CriticalMessage returns critical watermark check message
 func (d HighWatermarkCheckerData) CriticalMessage() string {
-	return fmt.Sprintf("disk utilization on %s exceeds %v%% (%s is available out of %s), see https://gravitational.com/gravity/docs/cluster/#garbage-collection",
-		d.Path, d.HighWatermark, humanize.Bytes(d.AvailableBytes), humanize.Bytes(d.TotalBytes))
+	diskUsage := float64(d.TotalBytes-d.AvailableBytes) / float64(d.TotalBytes) * 100
+	return fmt.Sprintf("disk utilization on %s exceeds %v%%, currently at %v%% (%s is available out of %s), see https://gravitational.com/gravity/docs/cluster/#garbage-collection",
+		d.Path, d.HighWatermark, diskUsage, humanize.Bytes(d.AvailableBytes), humanize.Bytes(d.TotalBytes))
 }
 
 // SuccessMessage returns success watermark check message

@@ -1027,8 +1027,7 @@
   version = "v1.0.0"
 
 [[projects]]
-  branch = "bernard/7.0.x/disk-check"
-  digest = "1:0f4ec63bb4dc7bce8e4a42ea3c2020a029d964502f1f57035ddc43869d4aa3e3"
+  digest = "1:087883bb24bf27a7e4fedbec9f88eca7e15460666d88358dbad169fbc6c481fd"
   name = "github.com/gravitational/satellite"
   packages = [
     "agent",
@@ -1045,7 +1044,8 @@
     "utils",
   ]
   pruneopts = "UT"
-  revision = "6871261912d2cd3b29c978df497c2b50b187196b"
+  revision = "bcf5cf9b9e3a05a7f557e7cad0526175434912c9"
+  version = "7.0.13"
 
 [[projects]]
   digest = "1:49f6abbce9ade5f43508429e4af1adcce55d27adcd62719fea049decc766a7c9"
