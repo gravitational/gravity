@@ -876,13 +876,15 @@
   revision = "2e451040dbe9def043beba737d92a6b773bbd3f2"
 
 [[projects]]
-  digest = "1:a1406a8ca13fb6bad37fe44663562c3be73bd26a4578d3672cf03b2aad497476"
+  digest = "1:9c894f02ad5369a49c7ceb3d50d7d90ffe9f8112267b507d78385cacf74ca51e"
   name = "github.com/gravitational/satellite"
   packages = [
     "agent",
     "agent/cache",
     "agent/health",
     "agent/proto/agentpb",
+    "agent/proto/debug",
+    "lib/ctxgroup",
     "lib/history",
     "lib/history/sqlite",
     "lib/kubernetes",
@@ -893,8 +895,8 @@
     "utils",
   ]
   pruneopts = "UT"
-  revision = "649873d24de588dba4ea0098b66fc8f6b5d94c24"
-  version = "5.5.14"
+  revision = "d8d2853ec49f580e14fa5fe62f98cddf49709875"
+  version = "5.5.18"
 
 [[projects]]
   digest = "1:49f6abbce9ade5f43508429e4af1adcce55d27adcd62719fea049decc766a7c9"
@@ -1963,6 +1965,13 @@
   revision = "c57b0facaced709681d9f90397429b9430a74754"
 
 [[projects]]
+  digest = "1:b521f10a2d8fa85c04a8ef4e62f2d1e14d303599a55d64dabf9f5a02f84d35eb"
+  name = "golang.org/x/sync"
+  packages = ["errgroup"]
+  pruneopts = "UT"
+  revision = "43a5402ce75a95522677f77c619865d66b8c57ab"
+
+[[projects]]
   branch = "master"
   digest = "1:d2605ed96ca0244a457fa8e6c37d5c370ce98ea09dcc21e5e07d967bfcb78878"
   name = "golang.org/x/sys"
@@ -2611,6 +2620,9 @@
     "github.com/docker/distribution/registry/api/errcode",
     "github.com/docker/distribution/registry/auth",
     "github.com/docker/distribution/registry/client",
+    "github.com/docker/distribution/registry/client/auth",
+    "github.com/docker/distribution/registry/client/auth/challenge",
+    "github.com/docker/distribution/registry/client/transport",
     "github.com/docker/distribution/registry/handlers",
     "github.com/docker/distribution/registry/listener",
     "github.com/docker/distribution/registry/storage",

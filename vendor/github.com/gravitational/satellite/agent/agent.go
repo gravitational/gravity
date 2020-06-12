@@ -20,7 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"net/http"
+	"os"
 	"path"
 	"runtime/debug"
 	"sync"
@@ -29,16 +29,17 @@ import (
 	"github.com/gravitational/satellite/agent/cache"
 	"github.com/gravitational/satellite/agent/health"
 	pb "github.com/gravitational/satellite/agent/proto/agentpb"
+	"github.com/gravitational/satellite/lib/ctxgroup"
 	"github.com/gravitational/satellite/lib/history"
 	"github.com/gravitational/satellite/lib/history/sqlite"
 	"github.com/gravitational/satellite/lib/membership"
 	"github.com/gravitational/satellite/lib/rpc/client"
+	"github.com/gravitational/satellite/utils"
 
 	"github.com/gravitational/trace"
 	"github.com/gravitational/ttlmap"
 	serf "github.com/hashicorp/serf/client"
 	"github.com/jonboulle/clockwork"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -74,8 +75,11 @@ type Config struct {
 	// SerfConfig specifies serf client configuration.
 	SerfConfig serf.Config
 
-	// Address to listen on for web interface and telemetry for Prometheus metrics.
+	// MetricsAddr specifies the address to listen on for web interface and telemetry for Prometheus metrics.
 	MetricsAddr string
+
+	// DebugSocketPath specifies the location of the unix domain socket for debug endpoint
+	DebugSocketPath string
 
 	// Peers lists the nodes that are part of the initial serf cluster configuration.
 	// This is not a final cluster configuration and new nodes or node updates
@@ -116,20 +120,38 @@ func (r *Config) CheckAndSetDefaults() error {
 	if len(r.RPCAddrs) == 0 {
 		errors = append(errors, trace.BadParameter("at least one RPC address must be provided"))
 	}
+	if len(errors) != 0 {
+		return trace.NewAggregate(errors...)
+	}
 	if r.Tags == nil {
 		r.Tags = make(map[string]string)
 	}
 	if r.Clock == nil {
 		r.Clock = clockwork.NewRealClock()
 	}
-	return trace.NewAggregate(errors...)
+	return nil
 }
 
 type agent struct {
+	// Config is the agent configuration.
+	Config
+
+	// ClusterMembership provides access to cluster membership service.
+	ClusterMembership membership.ClusterMembership
+
+	// ClusterTimeline keeps track of all timeline events in the cluster. This
+	// timeline is only used by members that have the role 'master'.
+	ClusterTimeline history.Timeline
+
+	// LocalTimeline keeps track of local timeline events.
+	LocalTimeline history.Timeline
+
 	sync.Mutex
 	health.Checkers
 
 	metricsListener net.Listener
+	// debugListener is the unix domain socket listener for the debug endpoint
+	debugListener net.Listener
 
 	// RPC server used by agent for client communication as well as
 	// status sync with other agents.
@@ -138,9 +160,6 @@ type agent struct {
 	// dialRPC is a factory function to create clients to other agents.
 	// If future, agent address discovery will happen through serf.
 	dialRPC client.DialRPC
-
-	// done is a channel used for cleanup.
-	done chan struct{}
 
 	// localStatus is the last obtained local node status.
 	localStatus *pb.NodeStatus
@@ -156,18 +175,11 @@ type agent struct {
 	// filter out events that have already been recorded by this agent.
 	lastSeen *ttlmap.TTLMap
 
-	// Config is the agent configuration.
-	Config
-
-	// ClusterMembership provides access to cluster membership service.
-	ClusterMembership membership.ClusterMembership
-
-	// ClusterTimeline keeps track of all timeline events in the cluster. This
-	// timeline is only used by members that have the role 'master'.
-	ClusterTimeline history.Timeline
-
-	// LocalTimeline keeps track of local timeline events.
-	LocalTimeline history.Timeline
+	// cancel is used to cancel the internal processes
+	// running as part of g
+	cancel context.CancelFunc
+	// g manages the internal agent's processes
+	g ctxgroup.Group
 }
 
 // New creates an instance of an agent based on configuration options given in config.
@@ -181,11 +193,20 @@ func New(config *Config) (*agent, error) {
 		return nil, trace.Wrap(err, "failed to initialize serf client")
 	}
 
-	// TODO: do we need to initialize metrics listener in constructor?
-	// Move to Start?
 	metricsListener, err := net.Listen("tcp", config.MetricsAddr)
 	if err != nil {
-		return nil, trace.Wrap(err, "failed to serve prometheus metrics")
+		return nil, trace.Wrap(err, "failed to bind on %v to serve metrics", config.MetricsAddr)
+	}
+
+	var debugListener net.Listener
+	if config.DebugSocketPath != "" {
+		if err := os.Remove(config.DebugSocketPath); err != nil && !os.IsNotExist(err) {
+			return nil, trace.ConvertSystemError(err)
+		}
+		debugListener, err = net.Listen("unix", config.DebugSocketPath)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
 	}
 
 	localTimeline, err := initTimeline(config.TimelineConfig, "local.db")
@@ -208,17 +229,21 @@ func New(config *Config) (*agent, error) {
 		}
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
+	g := ctxgroup.WithContext(ctx)
 	agent := &agent{
-		dialRPC:                 client.DefaultDialRPC(config.CAFile, config.CertFile, config.KeyFile),
-		statusQueryReplyTimeout: statusQueryReplyTimeout,
-		localStatus:             emptyNodeStatus(config.Name),
-		metricsListener:         metricsListener,
-		lastSeen:                lastSeen,
-		done:                    make(chan struct{}),
 		Config:                  *config,
 		ClusterMembership:       serfClient,
 		ClusterTimeline:         clusterTimeline,
 		LocalTimeline:           localTimeline,
+		dialRPC:                 client.DefaultDialRPC(config.CAFile, config.CertFile, config.KeyFile),
+		statusQueryReplyTimeout: statusQueryReplyTimeout,
+		localStatus:             emptyNodeStatus(config.Name),
+		metricsListener:         metricsListener,
+		debugListener:           debugListener,
+		lastSeen:                lastSeen,
+		cancel:                  cancel,
+		g:                       g,
 	}
 
 	agent.rpc, err = newRPCServer(agent, config.CAFile, config.CertFile, config.KeyFile, config.RPCAddrs)
@@ -241,7 +266,7 @@ func initSerfClient(config serf.Config, tags map[string]string) (*membership.Ret
 	return client, nil
 }
 
-// initTimeline initializes a new sqlite timeline. dbName specifies the
+// initTimeline initializes a new sqlite timeline. fileName specifies the
 // SQLite database file name.
 func initTimeline(config sqlite.Config, fileName string) (history.Timeline, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timelineInitTimeout)
@@ -255,43 +280,25 @@ func (r *agent) GetConfig() Config {
 	return r.Config
 }
 
-// Start starts the agent's background tasks.
-func (r *agent) Start() error {
-	// TODO: Modify Start to accept a context.
-	ctx, cancel := context.WithCancel(context.TODO())
-	go r.recycleLoop(ctx)
-	go r.statusUpdateLoop(ctx)
-	go r.serveMetrics()
-
-	go func() {
-		<-r.done
-		cancel()
-	}()
-	return nil
+// Run starts the agent and blocks until it finishes.
+// Returns the error (if any) the agent exited with
+func (r *agent) Run() (err error) {
+	r.Start()
+	return trace.Wrap(r.g.Wait())
 }
 
-// serveMetrics registers the prometheus metrics handler and starts accepting
-// connections on the metrics listener.
-func (r *agent) serveMetrics() {
-	if r.metricsListener == nil {
-		return
-	}
-
-	http.Handle("/metrics", promhttp.Handler())
-	err := http.Serve(r.metricsListener, nil)
-	if err == http.ErrServerClosed {
-		log.WithError(err).Debug("Metrics listener has been shutdown/closed.")
-	}
-	if err != nil {
-		log.WithError(err).Errorf("Failed to server metrics.")
-	}
+// Start starts the agent's background tasks.
+func (r *agent) Start() error {
+	r.g.GoCtx(r.recycleLoop)
+	r.g.GoCtx(r.statusUpdateLoop)
+	return nil
 }
 
 // IsMember returns true if this agent is a member of the serf cluster
 func (r *agent) IsMember() bool {
 	members, err := r.ClusterMembership.Members()
 	if err != nil {
-		log.Errorf("failed to retrieve members: %v", trace.DebugReport(err))
+		log.WithError(err).Warn("Failed to retrieve members.")
 		return false
 	}
 	// if we're the only one, consider that we're not in the cluster yet
@@ -315,32 +322,22 @@ func (r *agent) Join(peers []string) error {
 		return trace.Wrap(err)
 	}
 
-	log.Infof("joined %d nodes", numJoined)
+	log.Infof("Joined %d nodes.", numJoined)
 	return nil
 }
 
 // Close stops all background activity and releases the agent's resources.
 func (r *agent) Close() (err error) {
-	var errors []error
-	if r.metricsListener != nil {
-		err = r.metricsListener.Close()
-		if err != nil {
-			errors = append(errors, trace.Wrap(err))
-		}
-	}
-
 	r.rpc.Stop()
-	close(r.done)
-
-	err = r.ClusterMembership.Close()
-	if err != nil {
-		errors = append(errors, trace.Wrap(err))
+	r.cancel()
+	var errors []error
+	if err := r.g.Wait(); err != nil && !utils.IsContextCanceledError(err) {
+		errors = append(errors, err)
 	}
-
-	if len(errors) > 0 {
-		return trace.NewAggregate(errors...)
+	if err := r.ClusterMembership.Close(); err != nil {
+		errors = append(errors, err)
 	}
-	return nil
+	return trace.NewAggregate(errors...)
 }
 
 // Time reports the current server time.
@@ -513,19 +510,20 @@ func runChecker(ctx context.Context, checker health.Checker, probeCh chan<- heal
 }
 
 // recycleLoop periodically recycles the cache.
-func (r *agent) recycleLoop(ctx context.Context) {
+func (r *agent) recycleLoop(ctx context.Context) error {
 	ticker := r.Clock.NewTicker(recycleTimeout)
 	defer ticker.Stop()
 
 	for {
 		select {
-		case <-ctx.Done():
-			log.Info("Recycle loop is stopping.")
-			return
 		case <-ticker.Chan():
 			if err := r.Cache.Recycle(); err != nil {
 				log.WithError(err).Warn("Error recycling status.")
 			}
+
+		case <-ctx.Done():
+			log.Info("Recycle loop is stopping.")
+			return nil
 		}
 	}
 }
@@ -533,19 +531,20 @@ func (r *agent) recycleLoop(ctx context.Context) {
 // statusUpdateLoop is a long running background process that periodically
 // updates the health status of the cluster by querying status of other active
 // cluster members.
-func (r *agent) statusUpdateLoop(ctx context.Context) {
+func (r *agent) statusUpdateLoop(ctx context.Context) error {
 	ticker := r.Clock.NewTicker(StatusUpdateTimeout)
 	defer ticker.Stop()
 
 	for {
 		select {
-		case <-ctx.Done():
-			log.Info("Status update loop is stopping.")
-			return
 		case <-ticker.Chan():
 			if err := r.updateStatus(ctx); err != nil {
 				log.WithError(err).Warn("Failed to updates status.")
 			}
+
+		case <-ctx.Done():
+			log.Info("Status update loop is stopping.")
+			return nil
 		}
 	}
 }
@@ -638,7 +637,7 @@ func (r *agent) collectLocalStatus(ctx context.Context) (status *pb.NodeStatus, 
 	r.localStatus = status
 	r.Unlock()
 
-	/// TODO: handle recording of timeline outside of collection.
+	// TODO: handle recording of timeline outside of collection.
 	if err := r.LocalTimeline.RecordEvents(ctx, changes); err != nil {
 		return status, trace.Wrap(err, "failed to record local timeline events")
 	}
@@ -667,7 +666,7 @@ func (r *agent) getLocalStatus(ctx context.Context, respc chan<- *statusResponse
 	}
 	select {
 	case respc <- resp:
-	case <-r.done:
+	case <-ctx.Done():
 	}
 }
 
@@ -739,7 +738,7 @@ func (r *agent) getStatusFrom(ctx context.Context, member membership.ClusterMemb
 	}
 	select {
 	case respc <- resp:
-	case <-r.done:
+	case <-ctx.Done():
 	}
 }
 

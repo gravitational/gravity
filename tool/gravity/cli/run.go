@@ -355,8 +355,10 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 		return updateTrigger(localEnv,
 			updateEnv,
 			*g.UpdateTriggerCmd.App,
+			*g.UpdateTriggerCmd.DockerDevice,
 			*g.UpdateTriggerCmd.Manual,
 			*g.UpdateTriggerCmd.SkipVersionCheck,
+			*g.UpdateTriggerCmd.Force,
 		)
 	case g.UpdatePlanInitCmd.FullCommand():
 		updateEnv, err := g.NewUpdateEnv()
@@ -386,8 +388,10 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 		return updateTrigger(localEnv,
 			updateEnv,
 			*g.UpgradeCmd.App,
+			*g.UpgradeCmd.DockerDevice,
 			*g.UpgradeCmd.Manual,
 			*g.UpgradeCmd.SkipVersionCheck,
+			*g.UpgradeCmd.Force,
 		)
 	case g.PlanExecuteCmd.FullCommand():
 		return executePhase(localEnv, g,

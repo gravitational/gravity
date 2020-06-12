@@ -44,7 +44,7 @@ RELEASE_OUT ?=
 TELEPORT_TAG = 3.0.5
 # TELEPORT_REPOTAG adapts TELEPORT_TAG to the teleport tagging scheme
 TELEPORT_REPOTAG := v$(TELEPORT_TAG)
-PLANET_TAG := 5.5.49-$(K8S_VER_SUFFIX)
+PLANET_TAG := 5.5.50-$(K8S_VER_SUFFIX)
 PLANET_BRANCH := $(PLANET_TAG)
 K8S_APP_TAG := $(GRAVITY_TAG)
 TELEKUBE_APP_TAG := $(GRAVITY_TAG)
@@ -65,7 +65,7 @@ OS := $(shell uname | tr '[:upper:]' '[:lower:]')
 ARCH := $(shell uname -m)
 
 # Image Vulnerability Scanning
-# The following variables are used to copy all docker images from a cluster image to a docker repository 
+# The following variables are used to copy all docker images from a cluster image to a docker repository
 # that is able to scan and report on those images
 TELE_COPY_TO_REGISTRY ?= quay.io/gravitational
 TELE_COPY_TO_REPOSITORY ?= gravitational/gravity-scan

@@ -53,6 +53,17 @@ func GetDevices() (devices []storage.Device, err error) {
 	return devices, err
 }
 
+// StatDevice returns nil if the specified device exists and an error otherwise.
+func StatDevice(path string) error {
+	out, err := exec.Command("lsblk", path).Output()
+	if exitErr, ok := err.(*exec.ExitError); ok {
+		return trace.Wrap(err, "lsblk error=%v, stderr=%q, out=%q", exitErr, exitErr.Stderr, out)
+	} else if err != nil {
+		return trace.Wrap(err, "failed to describe block device: error=%v, output=%s", err, out)
+	}
+	return nil
+}
+
 // Source: https://www.kernel.org/doc/Documentation/devices.txt
 const (
 	// deviceNumberSCSI identifies SCSI block devices

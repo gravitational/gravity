@@ -174,6 +174,8 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.UpdateTriggerCmd.App = g.UpdateTriggerCmd.Arg("app", "Application version to update to, in the 'name:version' or 'name' (for latest version) format. If unspecified, currently installed application is updated").String()
 	g.UpdateTriggerCmd.Manual = g.UpdateTriggerCmd.Flag("manual", "Manual operation. Do not trigger automatic update").Short('m').Bool()
 	g.UpdateTriggerCmd.SkipVersionCheck = g.UpdateTriggerCmd.Flag("skip-version-check", "Bypass version compatibility check").Hidden().Bool()
+	g.UpdateTriggerCmd.Force = g.UpdateTriggerCmd.Flag("force", "Force allows to start upgrade bypassing certain precondition checks (such as active warnings)").Hidden().Bool()
+	g.UpdateTriggerCmd.DockerDevice = g.UpdateTriggerCmd.Flag("docker-device", "Update Docker device in cluster state to the one specified").Hidden().String()
 
 	g.UpdatePlanInitCmd.CmdClause = g.UpdateCmd.Command("init-plan", "Initialize operation plan").Hidden()
 
@@ -183,9 +185,10 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.UpgradeCmd.Manual = g.UpgradeCmd.Flag("manual", "Manual upgrade mode").Short('m').Bool()
 	g.UpgradeCmd.Phase = g.UpgradeCmd.Flag("phase", "Operation phase to execute").String()
 	g.UpgradeCmd.Timeout = g.UpgradeCmd.Flag("timeout", "Phase execution timeout").Default(defaults.PhaseTimeout).Hidden().Duration()
-	g.UpgradeCmd.Force = g.UpgradeCmd.Flag("force", "Force phase execution even if pre-conditions are not satisfied").Bool()
+	g.UpgradeCmd.Force = g.UpgradeCmd.Flag("force", "Force allows to start upgrade or execute a phase bypassing certain precondition checks (such as active warnings)").Bool()
 	g.UpgradeCmd.Resume = g.UpgradeCmd.Flag("resume", "Resume upgrade from the last failed step").Bool()
 	g.UpgradeCmd.SkipVersionCheck = g.UpgradeCmd.Flag("skip-version-check", "Bypass version compatibility check").Hidden().Bool()
+	g.UpgradeCmd.DockerDevice = g.UpgradeCmd.Flag("docker-device", "Update Docker device in cluster state to the one specified").Hidden().String()
 
 	g.UpdateUploadCmd.CmdClause = g.UpdateCmd.Command("upload", "Upload update package to locally running site").Hidden()
 	g.UpdateUploadCmd.OpsCenterURL = g.UpdateUploadCmd.Flag("ops-url", "Optional OpsCenter URL to upload new packages to (defaults to local gravity site)").Default(defaults.GravityServiceURL).String()

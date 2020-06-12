@@ -124,6 +124,7 @@ func (r *remote) Validate(ctx context.Context, addr string, config ValidateConfi
 		Profile:  config.Profile,
 		Docker: &proto.Docker{
 			StorageDriver: config.Docker.StorageDriver,
+			Device:        config.Docker.Device,
 		},
 	}
 	failed, err := clt.Validate(ctx, &req)

@@ -137,10 +137,12 @@ func (s *PlanSuite) TestPlanWithRuntimeAppsUpdate(c *check.C) {
 				installed: "1.0.0",
 				update:    "2.0.0",
 			},
-			servers:     updates,
-			gravity:     gravityPackage,
-			changesetID: "id",
+			servers:      updates,
+			gravity:      gravityPackage,
+			changesetID:  "id",
+			dockerDevice: "/dev/xvdb",
 		}),
+		dockerDevice: "/dev/xvdb",
 	}
 	builder := newBuilder(c, params)
 
@@ -531,6 +533,7 @@ func newBuilder(c *check.C, params params) phaseBuilder {
 		appUpdates:          params.appUpdates,
 		steps:               params.steps,
 		targetStep:          params.targetStep,
+		dockerDevice:        params.dockerDevice,
 	}
 	gravityPackage, err := builder.updateRuntimeApp.Manifest.Dependencies.ByName(
 		constants.GravityPackage)
@@ -616,6 +619,9 @@ func (r *params) checks(requires ...string) storage.OperationPhase {
 		Data: &storage.OperationPhaseData{
 			Package:          &r.updateApp.Package,
 			InstalledPackage: &r.installedApp.Package,
+			Update: &storage.UpdateOperationData{
+				DockerDevice: r.dockerDevice,
+			},
 		},
 	}
 }
@@ -679,27 +685,37 @@ func (r *params) dockerPhase(node storage.UpdateServer) storage.OperationPhase {
 		}
 		return fmt.Sprintf(format, "nodes", node.Hostname)
 	}
+	dockerDevice := r.dockerDevice
+	if dockerDevice == "" {
+		dockerDevice = node.GetDockerDevice()
+	}
 	return storage.OperationPhase{
 		ID: t("/%v/%v/docker"),
 		Description: fmt.Sprintf("Repurpose devicemapper device %v for overlay data",
-			node.GetDockerDevice()),
+			dockerDevice),
 		Requires: []string{t("/%v/%v/system-upgrade")},
 		Phases: []storage.OperationPhase{
 			{
 				ID:       t("/%v/%v/docker/devicemapper"),
 				Executor: dockerDevicemapper,
 				Description: fmt.Sprintf("Remove devicemapper environment from %v",
-					node.GetDockerDevice()),
+					dockerDevice),
 				Data: &storage.OperationPhaseData{
 					Server: &node.Server,
+					Update: &storage.UpdateOperationData{
+						DockerDevice: dockerDevice,
+					},
 				},
 			},
 			{
 				ID:          t("/%v/%v/docker/format"),
 				Executor:    dockerFormat,
-				Description: fmt.Sprintf("Format %v", node.GetDockerDevice()),
+				Description: fmt.Sprintf("Format %v", dockerDevice),
 				Data: &storage.OperationPhaseData{
 					Server: &node.Server,
+					Update: &storage.UpdateOperationData{
+						DockerDevice: dockerDevice,
+					},
 				},
 				Requires: []string{t("/%v/%v/docker/devicemapper")},
 			},
@@ -707,9 +723,12 @@ func (r *params) dockerPhase(node storage.UpdateServer) storage.OperationPhase {
 				ID:       t("/%v/%v/docker/mount"),
 				Executor: dockerMount,
 				Description: fmt.Sprintf("Create mount for %v",
-					node.GetDockerDevice()),
+					dockerDevice),
 				Data: &storage.OperationPhaseData{
 					Server: &node.Server,
+					Update: &storage.UpdateOperationData{
+						DockerDevice: dockerDevice,
+					},
 				},
 				Requires: []string{t("/%v/%v/docker/format")},
 			},
@@ -1385,6 +1404,7 @@ type params struct {
 	servers                  []storage.Server
 	steps                    []intermediateUpdateStep
 	targetStep               targetUpdateStep
+	dockerDevice             string
 }
 
 func (r testRotator) RotateSecrets(ops.RotateSecretsRequest) (*ops.RotatePackageResponse, error) {

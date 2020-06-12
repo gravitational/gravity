@@ -41,6 +41,8 @@ type CheckerConfig struct {
 	UpgradePackage loc.Locator
 	// Agents is the agent service interface (agents must be already deployed).
 	Agents rpc.AgentRepository
+	// DockerDevice is a device path to check.
+	DockerDevice string
 }
 
 // NewChecker creates a checker for validating requirements of the
@@ -64,6 +66,7 @@ func NewChecker(ctx context.Context, config CheckerConfig) (checks.Checker, erro
 	}
 	dockerConfig := storage.DockerConfig{
 		StorageDriver: cluster.ClusterState.Docker.StorageDriver,
+		Device:        config.DockerDevice,
 	}
 	if upgrade.Manifest.SystemDocker().StorageDriver != "" {
 		dockerConfig.StorageDriver = upgrade.Manifest.SystemDocker().StorageDriver
