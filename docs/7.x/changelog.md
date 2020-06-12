@@ -5,7 +5,7 @@
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
 | 7.0.7         | No  | June 9th, 2020       | 7.1 is released      | 1.17.6             | 3.2.13           |
-| 6.1.28        | Yes | June 1st, 2020       | November 10th, 2021  | 1.15.12            | 3.2.12           |
+| 6.1.29        | Yes | June 12th, 2020      | November 10th, 2021  | 1.15.12            | 3.2.12           |
 | 5.5.47        | Yes | May 29th, 2020       | March 7th, 2021      | 1.13.11            | 3.0.6-gravity    |
 
 Gravity offers one Long Term Support (LTS) release for every 2nd Kubernetes
@@ -185,6 +185,12 @@ to learn how to gain insight into how the cluster status changes over time.
 !!! warning
     This release fixes a security vulnerability in CNI. Please see
     [Kubernetes Announcement](https://groups.google.com/forum/#!topic/kubernetes-announce/wGuDMGdnW9M) for more information.
+
+### 6.1.29 (June 12th, 2020)
+
+#### Bugfixes
+
+* Fixes an issue with upgrading from releases containing etcd `v3.2.20` ([#1694](https://github.com/gravitational/gravity/pull/1694), [#679](https://github.com/gravitational/planet/pull/679)).
 
 ### 6.1.28 (June 1st, 2020)
 
