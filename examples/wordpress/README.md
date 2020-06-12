@@ -29,7 +29,6 @@ $ ls -l
 -rw-r--r-- 1 user user     11357 Apr 22 11:43 LICENSE
 -rw-r--r-- 1 user user      2880 Apr 22 11:43 README.md
 -rwxr-xr-x 1 user user  84764672 Apr 22 11:43 tele
--rwxr-xr-x 1 user user  57863592 Apr 22 11:43 terraform-provider-gravity
 -rwxr-xr-x 1 user user  32488888 Apr 22 11:43 tsh
 -rw-r--r-- 1 user user         6 Apr 22 11:43 VERSION
 ```

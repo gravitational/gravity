@@ -35,7 +35,3 @@ files:
     config:
       white-list-internal:
         - "requirements.md#br_netfilter-module"
-  - path: "./terraform.md"
-    config:
-      white-list-internal:
-        - "config.md#configuring-users-tokens"
