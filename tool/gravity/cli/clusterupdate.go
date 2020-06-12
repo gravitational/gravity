@@ -178,7 +178,12 @@ func checkStatus(ctx context.Context, env *localenv.LocalEnvironment, ignoreWarn
 		return trace.BadParameter("failed to start upgrade operation")
 	}
 
-	if !ignoreWarnings && len(warningProbes) > 0 {
+	if len(warningProbes) > 0 {
+		if ignoreWarnings {
+			log.WithField("nodes", status.Agent).Info("Upgrade forced with active warnings.")
+			return nil
+		}
+
 		fmt.Println("Some cluster nodes have active warnings:")
 		printAgentStatus(*status.Agent, w)
 		if err := w.Flush(); err != nil {
