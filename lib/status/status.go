@@ -529,7 +529,7 @@ func probeErrorDetail(p pb.Probe) string {
 		if err == nil {
 			return detail
 		}
-		log.Warnf(trace.DebugReport(err))
+		log.WithError(err).Warn("Failed to compose disk space probe error.")
 	}
 	detail := p.Detail
 	if p.Detail == "" {
