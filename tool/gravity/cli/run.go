@@ -125,6 +125,7 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.UpdateTriggerCmd.FullCommand(),
 		g.UpdatePlanInitCmd.FullCommand(),
 		g.UpgradeCmd.FullCommand(),
+		g.UpdateUploadCmd.FullCommand(),
 		g.RPCAgentRunCmd.FullCommand(),
 		g.LeaveCmd.FullCommand(),
 		g.RemoveCmd.FullCommand(),
@@ -461,7 +462,9 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 	case g.StatusHistoryCmd.FullCommand():
 		return statusHistory()
 	case g.UpdateUploadCmd.FullCommand():
-		return uploadUpdate(localEnv, *g.UpdateUploadCmd.OpsCenterURL, *g.UpdateUploadCmd.DataDir)
+		return uploadUpdate(context.Background(), localEnv,
+			*g.UpdateUploadCmd.OpsCenterURL,
+			*g.UpdateUploadCmd.DataDir)
 	case g.AppPackageCmd.FullCommand():
 		return appPackage(localEnv)
 		// app commands
