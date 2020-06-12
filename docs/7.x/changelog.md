@@ -186,14 +186,14 @@ to learn how to gain insight into how the cluster status changes over time.
     This release fixes a security vulnerability in CNI. Please see
     [Kubernetes Announcement](https://groups.google.com/forum/#!topic/kubernetes-announce/wGuDMGdnW9M) for more information.
 
-### 6.1.29 (June 12th, 2020)
+### 6.1.29 LTS (June 12th, 2020)
 
 #### Bugfixes
 
 * Fix an issue with upgrading from releases containing etcd `v3.2.20` ([#1694](https://github.com/gravitational/gravity/pull/1694), [#679](https://github.com/gravitational/planet/pull/679)).
 * Fix an issue with nethealth checker not removing metrics for removed nodes ([#1621](https://github.com/gravitational/gravity/pull/1621), [#638](https://github.com/gravitational/planet/pull/638), [monitoring-app#167](https://github.com/gravitational/monitoring-app/pull/167)).
 
-### 6.1.28 (June 1st, 2020)
+### 6.1.28 LTS (June 1st, 2020)
 
 #### Improvements
 
