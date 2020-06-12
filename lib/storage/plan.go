@@ -154,7 +154,7 @@ type OperationPhaseData struct {
 	// GarbageCollect specifies configuration specific to garbage collect operation
 	GarbageCollect *GarbageCollectOperationData `json:"garbage_collect,omitempty" yaml:"garbage_collect,omitempty"`
 	// Update specifies configuration specific to update operations
-	Update *UpdateOperationData `json:"update,omitempty" yaml:"garbage_collect,omitempty"`
+	Update *UpdateOperationData `json:"update,omitempty" yaml:"update,omitempty"`
 	// Install specifies configuration specific to install operation
 	Install *InstallOperationData `json:"install,omitempty" yaml:"install,omitempty"`
 }
@@ -188,6 +188,8 @@ type UpdateOperationData struct {
 	RuntimeAppVersion string `json:"version,omitempty"`
 	// GravityPackage specifies the optional gravity package for this phase
 	GravityPackage *loc.Locator `json:"gravity_package,omitempty"`
+	// DockerDevice is a Docker device path to use for devicemapper migration
+	DockerDevice string `json:"docker_device,omitempty"`
 }
 
 // String returns the text description of this server update value

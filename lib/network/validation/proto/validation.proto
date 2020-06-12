@@ -106,4 +106,6 @@ message ValidateOptions {
 message Docker {
     // StorageDriver specifies the Docker storage driver
     string storage_driver = 1;
+    // Device is the device used for devicemapper
+    string device = 2;
 }

@@ -49,7 +49,7 @@ func (_ *S) TestFetchesFilesystem(c *C) {
 		{
 			lsblk:      testRunner(""),
 			filesystem: "",
-			err:        "no filesystem found for /dev/foo",
+			err:        "failed to determine filesystem type on /dev/foo\n\tcommand \"lsblk -no FSTYPE /dev/foo\" didn't return output",
 			comment:    "missing filesystem on device",
 		},
 		{
@@ -63,7 +63,7 @@ xfs
 		},
 		{
 			lsblk:   failingRunner{trace.Errorf("error")},
-			err:     "failed to determine filesystem type on /dev/foo: error\n\terror",
+			err:     "failed to determine filesystem type on /dev/foo\n\tcommand \"lsblk -no FSTYPE /dev/foo\" failed: error\n\t\terror",
 			comment: "lsblk fails",
 		},
 	}

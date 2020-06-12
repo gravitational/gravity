@@ -18,6 +18,7 @@ package phases
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -54,7 +55,7 @@ func NewDockerDevicemapper(p fsm.ExecutorParams, remote fsm.Remote, log logrus.F
 	return &dockerDevicemapper{
 		FieldLogger: log,
 		Node:        node,
-		Device:      node.Docker.Device.Path(),
+		Device:      getDockerDevice(p.Phase.Data),
 		Remote:      remote,
 	}, nil
 }
@@ -121,7 +122,7 @@ func NewDockerFormat(p fsm.ExecutorParams, remote fsm.Remote, log logrus.FieldLo
 	return &dockerFormat{
 		FieldLogger: log,
 		Node:        node,
-		Device:      node.Docker.Device.Path(),
+		Device:      getDockerDevice(p.Phase.Data),
 		Remote:      remote,
 	}, nil
 }
@@ -180,7 +181,7 @@ func NewDockerMount(p fsm.ExecutorParams, remote fsm.Remote, log logrus.FieldLog
 	return &dockerMount{
 		FieldLogger: log,
 		Node:        node,
-		Device:      node.Docker.Device.Path(),
+		Device:      getDockerDevice(p.Phase.Data),
 		Remote:      remote,
 	}, nil
 }
@@ -195,8 +196,12 @@ func (d *dockerMount) Execute(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	uuid, err := system.GetFilesystemUUID(ctx, d.Device, utils.Runner)
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	config := mount.ServiceConfig{
-		What:       storage.DeviceName(d.Device),
+		What:       storage.DeviceName(fmt.Sprintf("/dev/disk/by-uuid/%v", uuid)),
 		Where:      filepath.Join(stateDir, defaults.PlanetDir, defaults.DockerDir),
 		Filesystem: filesystem,
 		Options:    []string{"defaults"},
@@ -235,3 +240,11 @@ func (d *dockerMount) PreCheck(ctx context.Context) error {
 
 // PostCheck is no-op.
 func (*dockerMount) PostCheck(context.Context) error { return nil }
+
+// getDockerDevice extracts Docker device path from the operation phase data.
+func getDockerDevice(data *storage.OperationPhaseData) string {
+	if data.Update != nil && data.Update.DockerDevice != "" {
+		return data.Update.DockerDevice
+	}
+	return data.Server.Docker.Device.Path()
+}

@@ -1719,6 +1719,11 @@ func (r Device) String() string {
 		r.Name, r.Type, humanize.Bytes(r.SizeMB*1000000))
 }
 
+// IsNVMe returns true if this is an NVMe device.
+func (r Device) IsNVMe() bool {
+	return strings.HasPrefix(r.Path(), "/dev/nvme")
+}
+
 // DeviceType defines a device type
 type DeviceType string
 
@@ -1844,6 +1849,8 @@ type DockerConfig struct {
 	StorageDriver string `json:"storage_driver,omitempty"`
 	// Args specifies additional options to the docker daemon
 	Args []string `json:"args,omitempty"`
+	// Device indicates a device to use
+	Device string `json:"device,omitempty"`
 }
 
 // Check makes sure the docker config is correct

@@ -18,9 +18,11 @@ package validation
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/gravitational/gravity/lib/checks"
+	"github.com/gravitational/gravity/lib/devicemapper"
 	pb "github.com/gravitational/gravity/lib/network/validation/proto"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/state"
@@ -142,12 +144,13 @@ func (_ *Server) Validate(ctx context.Context, req *pb.ValidateRequest) (resp *p
 	var failedProbes []*agentpb.Probe
 	dockerConfig := storage.DockerConfig{
 		StorageDriver: req.Docker.StorageDriver,
+		Device:        req.Docker.Device,
 	}
 	if req.FullRequirements {
 		failedProbes, err = checks.ValidateManifest(manifest, *profile, dockerConfig, stateDir)
 		failedProbes = append(failedProbes, checks.RunBasicChecks(ctx, req.Options)...)
 	} else {
-		failedProbes, err = validateManifest(*profile, manifest, stateDir)
+		failedProbes, err = validateManifest(*profile, manifest, dockerConfig, stateDir)
 		failedProbes = append(failedProbes, runLocalChecks(ctx)...)
 	}
 
@@ -190,7 +193,7 @@ func computeDiff(expected []*pb.Addr, actual []*pb.ServerResult) (diff []*pb.Add
 // validateManifest validates the node against the specified profile.
 // The profile requirements are skipped as these are only meaningful during
 // installation.
-func validateManifest(profile schema.NodeProfile, manifest schema.Manifest, stateDir string) (failedProbes []*agentpb.Probe, err error) {
+func validateManifest(profile schema.NodeProfile, manifest schema.Manifest, docker storage.DockerConfig, stateDir string) (failedProbes []*agentpb.Probe, err error) {
 	var errors []error
 	failed, err := schema.ValidateDocker(manifest.SystemDocker(), stateDir)
 	if err != nil {
@@ -199,8 +202,23 @@ func validateManifest(profile schema.NodeProfile, manifest schema.Manifest, stat
 	}
 	failedProbes = append(failedProbes, failed...)
 
+	if docker.Device != "" {
+		failedProbes = append(failedProbes, validateDockerDevice(docker.Device)...)
+	}
+
 	failedProbes = append(failedProbes, schema.ValidateKubelet(profile, manifest)...)
 	return failedProbes, trace.NewAggregate(errors...)
+}
+
+func validateDockerDevice(device string) (failed []*agentpb.Probe) {
+	if err := devicemapper.StatDevice(device); err != nil {
+		failed = append(failed, &agentpb.Probe{
+			Detail: fmt.Sprintf("failed to validate docker device %v", device),
+			Error:  trace.UserMessage(err),
+			Status: agentpb.Probe_Failed,
+		})
+	}
+	return failed
 }
 
 func runLocalChecks(ctx context.Context) (failed []*agentpb.Probe) {

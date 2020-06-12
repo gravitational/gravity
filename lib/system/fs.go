@@ -31,12 +31,31 @@ import (
 )
 
 // GetFilesystem detects the filesystem on device specified with path
-func GetFilesystem(ctx context.Context, path string, runner utils.CommandRunner) (filesystem string, err error) {
-	var stdout, stderr bytes.Buffer
-	err = runner.RunStream(ctx, &stdout, &stderr, "lsblk", "--noheading", "--output", "FSTYPE", path)
+func GetFilesystem(ctx context.Context, path string, runner utils.CommandRunner) (string, error) {
+	filesystem, err := getCommandOutput(ctx, runner, "lsblk", "-no", "FSTYPE", path)
 	if err != nil {
-		return "", trace.Wrap(err, "failed to determine filesystem type on %v: %s",
-			path, stderr.String())
+		return "", trace.Wrap(err, "failed to determine filesystem type on %v", path)
+	}
+	return filesystem, nil
+}
+
+// GetFilesystemUUID detects filesystem UUID on the specified device
+func GetFilesystemUUID(ctx context.Context, path string, runner utils.CommandRunner) (string, error) {
+	uuid, err := getCommandOutput(ctx, runner, "lsblk", "-no", "UUID", path)
+	if err != nil {
+		return "", trace.Wrap(err, "failed to determine filesystem UUID on %v", path)
+	}
+	if uuid == "" {
+		return "", trace.NotFound("no filesystem UUID found for %v", path)
+	}
+	return uuid, nil
+}
+
+func getCommandOutput(ctx context.Context, runner utils.CommandRunner, command ...string) (output string, err error) {
+	var stdout, stderr bytes.Buffer
+	err = runner.RunStream(ctx, &stdout, &stderr, command...)
+	if err != nil {
+		return "", trace.Wrap(err, "command %q failed: %s", strings.Join(command, " "), stderr.String())
 	}
 
 	s := bufio.NewScanner(&stdout)
@@ -50,7 +69,7 @@ func GetFilesystem(ctx context.Context, path string, runner utils.CommandRunner)
 		return "", trace.Wrap(err)
 	}
 
-	return "", trace.NotFound("no filesystem found for %v", path)
+	return "", trace.NotFound("command %q didn't return output", strings.Join(command, " "))
 }
 
 // RemoveFilesystem erases filesystem from the provided device/partition.

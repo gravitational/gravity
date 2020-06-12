@@ -48,6 +48,9 @@ func (r phaseBuilder) checksPhase() *builder.Phase {
 		Data: &storage.OperationPhaseData{
 			Package:          &r.updateApp.Package,
 			InstalledPackage: &r.installedApp.Package,
+			Update: &storage.UpdateOperationData{
+				DockerDevice: r.dockerDevice,
+			},
 		},
 	})
 }
@@ -233,6 +236,8 @@ type phaseBuilder struct {
 	steps []intermediateUpdateStep
 	// targetStep defines the final runtime update step
 	targetStep targetUpdateStep
+	// dockerDevice is Docker device to use for devicemapper migration
+	dockerDevice string
 }
 
 // setLeaderElection creates a phase that will change the leader election state in the cluster
