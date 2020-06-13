@@ -1,0 +1,168 @@
+## Global Docker image parameters
+## Please, note that this will override the image parameters, including dependencies, configured to use the global value
+## Current available global Docker image parameters: imageRegistry and imagePullSecrets
+##
+# global:
+#   imageRegistry: myRegistryName
+#   imagePullSecrets:
+#     - myRegistryKeySecretName
+tensorNamespace: default
+hpaCPUThreshold: 50m
+
+## TensorFlow Serving server image version
+## ref: https://hub.docker.com/r/bitnami/tensorflow-serving/tags/
+##
+server:
+  image:
+    registry: docker.io
+    repository: bitnami/tensorflow-serving
+    tag: 2.1.0-debian-10-r75
+    ## Specify a imagePullPolicy
+    ## Defaults to 'Always' if image tag is 'latest', else set to 'IfNotPresent'
+    ## ref: http://kubernetes.io/docs/user-guide/images/#pre-pulling-images
+    ##
+    pullPolicy: IfNotPresent
+    ## Optionally specify an array of imagePullSecrets.
+    ## Secrets must be manually created in the namespace.
+    ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
+    ##
+    # pullSecrets:
+    #   - myRegistryKeySecretName
+
+## TensorFlow ResNet image version
+## ref: https://hub.docker.com/r/bitnami/tensorflow-resnet/tags/
+##
+client:
+  image:
+    registry: docker.io
+    repository: bitnami/tensorflow-resnet
+    tag: 2.1.0-debian-10-r82
+    ## Specify a imagePullPolicy
+    ## Defaults to 'Always' if image tag is 'latest', else set to 'IfNotPresent'
+    ## ref: http://kubernetes.io/docs/user-guide/images/#pre-pulling-images
+    ##
+    pullPolicy: IfNotPresent
+    ## Optionally specify an array of imagePullSecrets.
+    ## Secrets must be manually created in the namespace.
+    ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
+    ##
+    # pullSecrets:
+    #   - myRegistryKeySecretName
+
+
+# Model to retrieve and local file to apply
+model:
+  modelUrl: http://download.tensorflow.org/models/official/20181001_resnet/savedmodels/resnet_v2_fp32_savedmodel_NHWC_jpg.tar.gz
+  localFile: /seed/resnet_v2_fp32_savedmodel_NHWC_jpg.tar.gz
+
+
+## String to partially override tensorflow-resnet.fullname template (will maintain the release name)
+##
+# nameOverride:
+
+## String to fully override tensorflow-resnet.fullname template
+##
+# fullnameOverride:
+
+## Container ports
+##
+containerPorts:
+  server: 8500
+  restApi: 8501
+
+## Number of replicas
+##
+replicaCount: 3
+
+## Pod annotations
+## ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
+##
+podAnnotations: {}
+
+## Affinity for pod assignment
+## Ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
+##
+affinity: {}
+
+## Node labels for pod assignment. Evaluated as a template.
+## Ref: https://kubernetes.io/docs/user-guide/node-selection/
+##
+nodeSelector: {}
+
+## Tolerations for pod assignment
+## Ref: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
+##
+tolerations: []
+
+## Containers' resource requests and limits
+## ref: http://kubernetes.io/docs/user-guide/compute-resources/
+##
+resources:
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  limits: {}
+  #   cpu: 500m
+  #   memory: 1Gi
+  requests: {}
+  #   cpu: 250m
+  #   memory: 256Mi
+
+## Containers' liveness and readiness probes
+## ref: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#container-probes
+##
+livenessProbe:
+  enabled: true
+  initialDelaySeconds: 30
+  periodSeconds: 5
+  timeoutSeconds: 5
+  failureThreshold: 6
+  successThreshold: 1
+readinessProbe:
+  enabled: true
+  initialDelaySeconds: 15
+  periodSeconds: 5
+  timeoutSeconds: 5
+  failureThreshold: 6
+  successThreshold: 1
+
+## Service for the scheduler node
+##
+service:
+  ## Kubernetes service type
+  ##
+  type: NodePort
+  ## TensorFlow server port
+  ##
+  port: 8500
+  ## REST API port
+  ##
+  restApiPort: 8501
+  ## Specify the nodePort(s) value(s) for the LoadBalancer and NodePort service types.
+  ## ref: https://kubernetes.io/docs/concepts/services-networking/service/#type-nodeport
+  ##
+  nodePorts:
+    server: "30090"
+    restApi: "30091"
+  ## Set the LoadBalancer service type to internal only.
+  ## ref: https://kubernetes.io/docs/concepts/services-networking/service/#internal-load-balancer
+  ##
+  # loadBalancerIP:
+  ## Provide any additional annotations which may be required. This can be used to
+  ## set the LoadBalancer service type to internal only.
+  ## ref: https://kubernetes.io/docs/concepts/services-networking/service/#internal-load-balancer
+  ##
+  annotations: {}
+
+## TensorFlow Serving Prometheus exporter configuration
+##
+metrics:
+  enabled: true
+  ## Prometheus exporter pod annotations
+  ## ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
+  ##
+  podAnnotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/path: "/monitoring/prometheus/metrics"
+    prometheus.io/port: "{{ .Values.containerPorts.restApi }}"
