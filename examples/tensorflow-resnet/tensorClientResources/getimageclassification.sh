@@ -33,18 +33,10 @@ fi
 
 for var in "$@"
 do
+echo "Tensor result id retrieve: $var"
 imageId=$(($var-1))
-echo "Image id checking: $imageId"
 classificationName=$( echo "cat $RES_CLASSIFICATION | jq -c '.[\"$imageId\"] | .[1] '" | bash | sed "s,\",,g" )
 echo "Classification name: $classificationName"
  
 done
-
-
-
-
-
-
-
-
 
