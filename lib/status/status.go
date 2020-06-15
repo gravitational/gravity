@@ -143,6 +143,9 @@ func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, o
 	}
 
 	status.State = cluster.State
+	if status.IsDegraded() {
+		status.State = ops.SiteStateDegraded
+	}
 	return status, nil
 }
 
