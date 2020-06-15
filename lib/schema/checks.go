@@ -131,13 +131,19 @@ func ValidateRequirements(reqs Requirements, stateDir string) (failed []*pb.Prob
 			log.Debugf("Skip check for %v -> %v mount.", vol.Path, vol.TargetPath)
 			continue
 		}
-		checkers = append(checkers, monitoring.NewStorageChecker(monitoring.StorageConfig{
-			Path:              vol.Path,
-			MinBytesPerSecond: vol.MinTransferRate.BytesPerSecond(),
-			WillBeCreated:     utils.BoolValue(vol.CreateIfMissing),
-			Filesystems:       vol.Filesystems,
-			MinFreeBytes:      vol.Capacity.Bytes(),
-		}))
+		storageChecker, err := monitoring.NewStorageChecker(
+			monitoring.StorageConfig{
+				Path:              vol.Path,
+				MinBytesPerSecond: vol.MinTransferRate.BytesPerSecond(),
+				WillBeCreated:     utils.BoolValue(vol.CreateIfMissing),
+				Filesystems:       vol.Filesystems,
+				MinFreeBytes:      vol.Capacity.Bytes(),
+			},
+		)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		checkers = append(checkers, storageChecker)
 	}
 
 	for _, check := range reqs.CustomChecks {
