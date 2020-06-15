@@ -169,13 +169,13 @@ Please see [Announcing Gravity 7.0](https://gravitational.com/blog/announcing-gr
 blog post for more details and refer to the following resources to find information
 about the major new features:
 
-* [Application Catalog](https://gravitational.com/gravity/docs/catalog/) documentation
+* [Application Catalog](catalog.md) documentation
 and a [blog post](https://gravitational.com/blog/deploying-applications-to-a-kubernetes-cluster-to-which-you-dont-have-access/)
 to learn how to package Helm charts into self-contained application images and deliver
 them to any Kubernetes cluster.
-* [Persistent Storage](https://gravitational.com/gravity/docs/storage/) to learn how to take advantage of the built-in OpenEBS integration.
-* [SELinux](https://gravitational.com/gravity/docs/selinux/) to learn about installing on systems with SELinux enabled.
-* [Cluster Status History](https://gravitational.com/gravity/docs/cluster/#cluster-status-history)
+* [Persistent Storage](storage.md) to learn how to take advantage of the built-in OpenEBS integration.
+* [SELinux](selinux.md) to learn about installing on systems with SELinux enabled.
+* [Cluster Status History](cluster.md#cluster-status-history)
 to learn how to gain insight into how the cluster status changes over time.
 
 ## 6.x Releases
@@ -1103,7 +1103,7 @@ to learn how to gain insight into how the cluster status changes over time.
 
 #### Improvements
 
-* Add ability to view [cluster status history](https://gravitational.com/gravity/docs/cluster/#cluster-status-history) using `gravity status history` command. ([#1116](https://github.com/gravitational/gravity/pull/1116))
+* Add ability to view [cluster status history](cluster.md#cluster-status-history) using `gravity status history` command. ([#1116](https://github.com/gravitational/gravity/pull/1116))
 * Add RHEL 8 to the list of supported distros. ([#1144](https://github.com/gravitational/gravity/pull/1144))
 * Add client/server version information to `gravity status`. ([#1164](https://github.com/gravitational/gravity/pull/1164))
 * Make upgrade agents deployment more tolerant to networking issues. ([#1174](https://github.com/gravitational/gravity/pull/1174))
@@ -2950,7 +2950,7 @@ transient error
 #### Improvements
 
 * Add support for `uid`, `gid` and `mode` properties in application manifest `Volume`
-  [section](http://gravitational.com/docsconfig.md#application-manifest)
+  [section](pack.md#image-manifest)
 
 ### 4.29.0
 
@@ -2989,7 +2989,6 @@ transient error
 #### Improvements
 
 * New `tele create` command creates clusters via the OpsCenter.
-  See [Creating Remote Clusters](https://gravitational.com/gravity/docs/ver/4.x/manage/#creating-telekube-clusters) for details.
 
 ### 4.20.0
 
@@ -3317,8 +3316,8 @@ It contains a number of improvements and bugfixes.
 #### Features
 
 * Add ability to specify pod/service network CIDR range via UI and CLI
-* Add AWS IAM policy to the [docs](https://gravitational.com/gravity/docs/ver/5.x/config#aws-iam-policy)
-* Add runbook to recover the cluster after node failure [docs](https://gravitational.com/gravity/docs/ver/5.xcluster.md#recovering-a-node)
+* Add AWS IAM policy to the [docs](requirements.md#aws-iam-policy)
+* Add runbook to recover the cluster after node failure [docs](cluster.md#recovering-a-node)
 
 ### 3.36.0
 

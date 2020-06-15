@@ -112,7 +112,7 @@ By default Gravity clusters are configured to use the following network subnets:
 | 10.244.0.0/16   | Pod IPv4 addresses        |
 | 10.100.0.0/16   | Services IPv4 addresses   |
 
-Both subnets are customizable via installer flags as explained in the [Installation guide](https://gravitational.com/gravity/docs/installation/)
+Both subnets are customizable via installer flags as explained in the [Installation guide](installation.md)
 
 ### Cluster Ports
 

@@ -7,7 +7,7 @@
 ### Hub
 
 - [ ] Install Hub in CLI mode.
-  - [ ] Verify can configure [OIDC connector](https://gravitational.com/gravity/docs/ver/6.x/config.md#example-google-oidc-connector), for example:
+  - [ ] Verify can configure [OIDC connector](https://gravitational.com/gravity/docs/ver/6.x/config/#example-google-oidc-connector), for example:
 ```yaml
 kind: oidc
 version: v2
@@ -23,7 +23,7 @@ spec:
     - {claim: "hd", value: "gravitational.com", roles: ["@teleadmin"]}
 ```
   - [ ] Verify can log into the Hub UI.
-  - [ ] Verify can update TLS certificate via [resource](https://gravitational.com/gravity/docs/ver/6.x/config.md#tls-key-pair) or UI.
+  - [ ] Verify can update TLS certificate via [resource](https://gravitational.com/gravity/docs/ver/6.x/config/#tls-key-pair) or UI.
   - [ ] Verify can log in with `tele login`.
   - [ ] Verify can push Telekube cluster image into the Hub.
   - [ ] Verify can invite user to the Hub using CLI.
@@ -40,7 +40,7 @@ spec:
 #### CLI mode
 
 - [ ] Install Telekube cluster image in standalone CLI mode.
-  - [ ] Verify can create [local user](https://gravitational.com/gravity/docs/ver/6.x/config.md#example-provisioning-a-cluster-admin-user), for example:
+  - [ ] Verify can create [local user](https://gravitational.com/gravity/docs/ver/6.x/config/#example-provisioning-a-cluster-admin-user), for example:
 ```yaml
 kind: user
 version: v2
@@ -87,7 +87,7 @@ spec:
   - [ ] Verify `tsh status`, `tsh ls` and `tsh ssh` commands work.
   - [ ] Verify `kubectl` was configured to talk to the cluster, e.g. `kubectl get nodes`, `kubectl get pods --all-namespaces`.
 
-- [ ] Connect the cluster to the Hub via a [trusted cluster](https://gravitational.com/gravity/docs/ver/6.x/config.md#trusted-clusters-enterprise) resource.
+- [ ] Connect the cluster to the Hub via a [trusted cluster](https://gravitational.com/gravity/docs/ver/6.x/config/#trusted-clusters-enterprise) resource.
   - [ ] Verify cluster appears as online in the Hub UI and the cluster's UI can be accessed.
   - [ ] Verify can SSH into a cluster node using web terminal in the Hub UI.
 
@@ -235,7 +235,7 @@ $ docker pull example.gravitational.io:32009/alpine:3.3
 
 - [ ] Install a cluster.
 
-- [ ] Connect the cluster to a Hub using [Trusted Cluster](https://gravitational.com/gravity/docs/config.md#trusted-clusters-enterprise) resource.
+- [ ] Connect the cluster to a Hub using [Trusted Cluster](https://gravitational.com/gravity/docs/config/#trusted-clusters-enterprise) resource.
 
 - [ ] Verify the application can be searched for in the connected Hub.
 ```bash

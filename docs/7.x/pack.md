@@ -28,7 +28,7 @@ You can optionally use Helm charts for your application(s).
 ## Getting the Tools
 
 Any Linux machine can be used to package a Kubernetes applications into a Cluster
-Image. To get started, you need to [download Gravity](https://gravitational.com/gravity/download/releases/).
+Image. To get started, you need to [download Gravity](https://gravitational.com/gravity/download/).
 
 !!! tip "Gravity Versions"
     For new users who are just exploring Gravity, we recommend the latest "pre-release" build. Make sure to select "Show pre-releases" selector. Production users must use the latest stable release.
