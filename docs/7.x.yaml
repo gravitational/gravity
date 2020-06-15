@@ -52,5 +52,4 @@ nav:
       - Releases: changelog.md
       - FAQ: faq.md
       - Guides: guides.md
-      - Terraform: terraform.md
       - SELinux: selinux.md

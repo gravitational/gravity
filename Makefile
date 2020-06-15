@@ -46,7 +46,7 @@ RELEASE_OUT ?=
 TELEPORT_TAG = 3.2.14
 # TELEPORT_REPOTAG adapts TELEPORT_TAG to the teleport tagging scheme
 TELEPORT_REPOTAG := v$(TELEPORT_TAG)
-PLANET_TAG := 7.1.3-$(K8S_VER_SUFFIX)
+PLANET_TAG := 7.1.4-$(K8S_VER_SUFFIX)
 PLANET_BRANCH := $(PLANET_TAG)
 K8S_APP_TAG := $(GRAVITY_TAG)
 TELEKUBE_APP_TAG := $(GRAVITY_TAG)
@@ -69,7 +69,7 @@ OS := $(shell uname | tr '[:upper:]' '[:lower:]')
 ARCH := $(shell uname -m)
 
 # Image Vulnerability Scanning
-# The following variables are used to copy all docker images from a cluster image to a docker repository 
+# The following variables are used to copy all docker images from a cluster image to a docker repository
 # that is able to scan and report on those images
 TELE_COPY_TO_REGISTRY ?= quay.io/gravitational
 TELE_COPY_TO_REPOSITORY ?= gravitational/gravity-scan
@@ -89,8 +89,6 @@ endif
 
 TELEKUBE_GRAVITY_PKG := gravitational.io/gravity_$(OS)_$(ARCH):$(GRAVITY_TAG)
 TELEKUBE_TELE_PKG := gravitational.io/tele_$(OS)_$(ARCH):$(GRAVITY_TAG)
-TF_PROVIDER_GRAVITY_PKG := gravitational.io/terraform-provider-gravity_$(OS)_$(ARCH):$(GRAVITY_TAG)
-TF_PROVIDER_GRAVITYENTERPRISE_PKG := gravitational.io/terraform-provider-gravityenterprise_$(OS)_$(ARCH):$(GRAVITY_TAG)
 
 TELEPORT_PKG := gravitational.io/teleport:$(TELEPORT_TAG)
 PLANET_PKG := gravitational.io/planet:$(PLANET_TAG)
@@ -127,7 +125,6 @@ PLANET_BINDIR := $(PLANET_BUILDDIR)/bin
 TELEPORT_BUILDDIR := $(BUILDDIR)/teleport
 TELEPORT_SRCDIR := $(TELEPORT_BUILDDIR)/src
 TELEPORT_BINDIR := $(TELEPORT_BUILDDIR)/bin/$(TELEPORT_TAG)
-TF_PROVIDER_DIR := $(HOME)/.terraform.d/plugins
 FIO_BUILDDIR := $(BUILDDIR)/fio-$(FIO_VER)
 HACK_DIR := $(TOP)/hack
 GENERATED_DIR := $(TOP)/lib/client
@@ -165,8 +162,6 @@ RBAC_APP_OUT := $(GRAVITY_BUILDDIR)/rbac-app.tar.gz
 TELEKUBE_APP_OUT := $(GRAVITY_BUILDDIR)/telekube-app.tar.gz
 TILLER_APP_OUT := $(GRAVITY_BUILDDIR)/tiller-app.tar.gz
 TELEKUBE_OUT := $(GRAVITY_BUILDDIR)/telekube.tar
-TF_PROVIDER_GRAVITY_OUT := $(GRAVITY_BUILDDIR)/terraform-provider-gravity
-TF_PROVIDER_GRAVITYENTERPRISE_OUT := $(GRAVITY_BUILDDIR)/terraform-provider-gravityenterprise
 SELINUX_ASSETSDIR := $(TOP)/lib/system/selinux/internal/policy/assets/centos
 SELINUX_ASSETS := $(SELINUX_ASSETSDIR)/gravity.pp.bz2 \
 		$(SELINUX_ASSETSDIR)/container.pp.bz2 \
@@ -220,8 +215,7 @@ PROTOC_PLATFORM := linux-x86_64
 GOGO_PROTO_TAG ?= v1.3.0
 GRPC_GATEWAY_TAG ?= v1.11.3
 
-BINARIES ?= tele gravity terraform-provider-gravity
-TF_PROVIDERS ?= terraform-provider-gravity
+BINARIES ?= tele gravity
 
 export
 
@@ -630,25 +624,15 @@ tele-mac: flags
 # goinstall builds and installs gravity locally
 #
 .PHONY: goinstall
-goinstall: remove-temp-files compile | $(TF_PROVIDER_DIR) $(GRAVITY_BUILDDIR)
+goinstall: remove-temp-files compile | $(GRAVITY_BUILDDIR)
 	for bin in ${BINARIES} ; do \
 		cp $(GOPATH)/bin/$${bin} $(GRAVITY_BUILDDIR)/$${bin} ; \
-	done
-	for provider in ${TF_PROVIDERS} ; do \
-		echo $${provider} ; \
-		if [ -f $(GOPATH)/bin/$${provider} ]; then \
-			cp $(GOPATH)/bin/$${provider} $(GRAVITY_BUILDDIR)/$${provider} ; \
-			cp $(GOPATH)/bin/$${provider} $(TF_PROVIDER_DIR)/$${provider} ; \
-		fi; \
 	done
 	$(GRAVITY) package delete $(GRAVITY_PKG) $(DELETE_OPTS) && \
 		$(GRAVITY) package import $(GRAVITY_OUT) $(GRAVITY_PKG)
 	$(MAKE) binary-packages
 
 $(GRAVITY_BUILDDIR):
-	mkdir -p $@
-
-$(TF_PROVIDER_DIR):
 	mkdir -p $@
 
 .PHONY: $(BINARIES)
