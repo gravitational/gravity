@@ -15,8 +15,8 @@ Gravity supports the following Linux distributions:
 | Debian                   | 8-9              | `devicemapper`*, `overlay`, `overlay2` |
 | Ubuntu                   | 16.04, 18.04     | `devicemapper`*, `overlay`, `overlay2` |
 | Ubuntu-Core              | 16.04            | `devicemapper`*, `overlay`, `overlay2` |
-| openSuse                 | 12 SP2 - 12 SP3  | `overlay`, `overlay2`                 |
-| Suse Linux Enterprise    | 12 SP2 - 12 SP3  | `overlay`, `overlay2`                 |
+| openSuse                 | 12-SP2 to 12-SP5 | `overlay`, `overlay2`                  |
+| Suse Linux Enterprise    | 12-SP2 to 12-SP5 | `overlay`, `overlay2`                  |
 | Amazon Linux             | 2                | `overlay`, `overlay2`                 |
 
 !!! note
@@ -40,11 +40,11 @@ specified in the manifest:
 | Debian                   | debian                     | 8-9              |
 | Ubuntu                   | ubuntu                     | 16.04, 18.04     |
 | Ubuntu-Core              | ubuntu                     | 16.04            |
-| openSuse                 | suse, opensuse, opensuse-* | 12-SP2, 12-SP3   |
-| Suse Linux Enterprise    | sles, sles_sap             | 12-SP2, 12-SP3   |
+| openSuse                 | suse, opensuse, opensuse-* | 12-SP2 to 12-SP5 |
+| Suse Linux Enterprise    | sles, sles_sap             | 12-SP2 to 12-SP5 |
 | Amazon Linux             | amz                        | 2                |
 
-For example, to specify openSUSE as a dependency and support both services packs:
+For example, to specify openSUSE as a dependency and support all services packs:
 
 ```yaml
 nodeProfiles:
@@ -52,10 +52,10 @@ nodeProfiles:
    requirements:
      os:
       - name: suse # openSUSE
-        versions: ["12-SP2", "12-SP3"]
+        versions: ["12-SP2", "12-SP3", "12-SP4", "12-SP5"]
      os:
       - name: opensuse-tumbleweed # specific openSUSE distribution
-        versions: ["12-SP2", "12-SP3"]
+        versions: ["12-SP2", "12-SP3", "12-SP4", "12-SP5"]
 ```
 
 !!! note
