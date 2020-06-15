@@ -114,6 +114,7 @@ spec:
     metadata:
       labels:
         app: gravity-site
+        gravitational.io/critical-pod: ''
       annotations:
         scheduler.alpha.kubernetes.io/critical-pod: ''
         seccomp.security.alpha.kubernetes.io/pod: docker/default
