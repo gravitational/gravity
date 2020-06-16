@@ -513,6 +513,8 @@ func (r *Reason) Description() string {
 		return "application status check failed"
 	case ReasonClusterDegraded:
 		return "one or more of cluster nodes are not healthy"
+	case "":
+		return ""
 	default:
 		return "unknown reason"
 	}
