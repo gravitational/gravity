@@ -40,7 +40,6 @@ import (
 	pb "github.com/gravitational/satellite/agent/proto/agentpb"
 	"github.com/gravitational/satellite/monitoring"
 	"github.com/gravitational/trace"
-	"github.com/sirupsen/logrus"
 )
 
 // FromCluster collects cluster status information.
@@ -60,16 +59,16 @@ func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, o
 
 	status.Agent, err = FromPlanetAgent(ctx, cluster.ClusterState.Servers)
 	if err != nil {
-		logrus.WithError(err).Warn("Failed to collect system status from agents.")
+		log.WithError(err).Warn("Failed to collect system status from agents.")
 	}
 
 	if err := updateClusterNodes(cluster.Key(), operator, status); err != nil {
-		logrus.WithError(err).Warn("Failed to query cluster nodes.")
+		log.WithError(err).Warn("Failed to query cluster nodes.")
 	}
 
 	token, err := operator.GetExpandToken(cluster.Key())
 	if err != nil && !trace.IsNotFound(err) {
-		logrus.WithError(err).Warn("Failed to fetch expand token.")
+		log.WithError(err).Warn("Failed to fetch expand token.")
 	}
 	if token != nil {
 		status.Token = *token
@@ -77,13 +76,13 @@ func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, o
 
 	status.Cluster.ServerVersion, err = operator.GetVersion(ctx)
 	if err != nil {
-		logrus.WithError(err).Warn("Failed to query server version information.")
+		log.WithError(err).Warn("Failed to query server version information.")
 	}
 
 	// Collect application endpoints.
 	appEndpoints, err := operator.GetApplicationEndpoints(cluster.Key())
 	if err != nil {
-		logrus.WithError(err).Warn("Failed to fetch application endpoints.")
+		log.WithError(err).Warn("Failed to fetch application endpoints.")
 		status.Endpoints.Applications.Error = err
 	}
 	if len(appEndpoints) != 0 {
@@ -99,7 +98,7 @@ func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, o
 	// Fetch cluster endpoints.
 	clusterEndpoints, err := ops.GetClusterEndpoints(operator, cluster.Key())
 	if err != nil {
-		logrus.WithError(err).Warn("Failed to fetch cluster endpoints.")
+		log.WithError(err).Warn("Failed to fetch cluster endpoints.")
 	}
 	if clusterEndpoints != nil {
 		status.Endpoints.Cluster.AuthGateway = clusterEndpoints.AuthGateways()
@@ -108,15 +107,15 @@ func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, o
 
 	// FIXME: have status extension accept the operator/environment
 	if err := status.Cluster.Extension.Collect(); err != nil {
-		logrus.WithError(err).Warn("Failed to query extension metadata.")
+		log.WithError(err).Warn("Failed to query extension metadata.")
 	}
 
 	if err := collectActiveOperations(cluster.Key(), operator, status); err != nil {
-		logrus.WithError(err).Warn("Failed to query active operations.")
+		log.WithError(err).Warn("Failed to query active operations.")
 	}
 
 	if err := fetchOperationByID(cluster.Key(), operationID, operator, status); err != nil {
-		logrus.WithError(err).WithField("operation-id", operationID).Warn("Failed to query operation.")
+		log.WithError(err).WithField("operation-id", operationID).Warn("Failed to query operation.")
 	}
 
 	status.State = cluster.State
@@ -178,6 +177,23 @@ func (r Status) IsDegraded() bool {
 		r.Cluster.State == ops.SiteStateDegraded ||
 		r.Agent == nil ||
 		r.Agent.GetSystemStatus() != pb.SystemStatus_Running)
+}
+
+// String returns the status string representation.
+func (r Status) String() string {
+	var cluster string
+	if r.Cluster != nil {
+		cluster = fmt.Sprintf("Cluster(%v)", *r.Cluster)
+	} else {
+		cluster = "Cluster(nil)"
+	}
+	var agent string
+	if r.Agent != nil {
+		agent = fmt.Sprintf("Agent(%v)", *r.Agent)
+	} else {
+		agent = "Agent(nil)"
+	}
+	return fmt.Sprintf("Status(%v, %v)", cluster, agent)
 }
 
 // Status describes the status of the cluster as a whole
@@ -638,7 +654,7 @@ func probeErrorDetail(p pb.Probe) string {
 		if err == nil {
 			return detail
 		}
-		logrus.WithError(err).Warn("Failed to compose disk space probe error.")
+		log.WithError(err).Warn("Failed to compose disk space probe error.")
 	}
 	detail := p.Detail
 	if p.Detail == "" {
