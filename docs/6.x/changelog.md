@@ -554,7 +554,7 @@ LTS starts with `3.51.0` with minor backwards compatible changes added over time
 
 #### Improvements
 
-* Add ability to view [cluster status history](https://gravitational.com/gravity/docs/cluster/#cluster-status-history) using `gravity status history` command. ([#1116](https://github.com/gravitational/gravity/pull/1116))
+* Add ability to view [cluster status history](cluster.md#cluster-status-history) using `gravity status history` command. ([#1116](https://github.com/gravitational/gravity/pull/1116))
 * Add RHEL 8 to the list of supported distros. ([#1144](https://github.com/gravitational/gravity/pull/1144))
 * Add client/server version information to `gravity status`. ([#1164](https://github.com/gravitational/gravity/pull/1164))
 * Make upgrade agents deployment more tolerant to networking issues. ([#1174](https://github.com/gravitational/gravity/pull/1174))
@@ -2379,7 +2379,7 @@ transient error
 #### Improvements
 
 * Add support for `uid`, `gid` and `mode` properties in application manifest `Volume`
-  [section](http://gravitational.com/docsconfig.md#application-manifest)
+  [section](pack.md#image-manifest-format)
 
 ### 4.29.0
 
@@ -2418,7 +2418,6 @@ transient error
 #### Improvements
 
 * New `tele create` command creates clusters via the OpsCenter.
-  See [Creating Remote Clusters](https://gravitational.com/gravity/docs/ver/4.x/manage/#creating-telekube-clusters) for details.
 
 ### 4.20.0
 
@@ -2746,8 +2745,8 @@ It contains a number of improvements and bugfixes.
 #### Features
 
 * Add ability to specify pod/service network CIDR range via UI and CLI
-* Add AWS IAM policy to the [docs](https://gravitational.com/gravity/docs/ver/5.x/config#aws-iam-policy)
-* Add runbook to recover the cluster after node failure [docs](https://gravitational.com/gravity/docs/ver/5.xcluster.md#recovering-a-node)
+* Add AWS IAM policy to the [docs](requirements.md#aws-iam-policy)
+* Add runbook to recover the cluster after node failure [docs](cluster.md#recovering-a-node)
 
 ### 3.36.0
 

@@ -339,7 +339,7 @@ the Gravity update process works:
    update, all data has already been saved locally and disruptions to external
    services, like Docker registries, will not affect the update process.
 
-2. Gravity uses the Kubernetes [rolling update](http://kubernetes.io/docs/user-guide/rolling-updates/)
+2. Gravity uses the Kubernetes [rolling update](https://kubernetes.io/docs/tasks/manage-daemon/update-daemon-set/)
    mechanism to perform the update.
 
 3. Custom update hooks can be used to perform application specific

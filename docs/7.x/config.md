@@ -846,7 +846,7 @@ Let's go over the resource fields:
    host:port. Typically it is exposed on port `3024`.
 * `spec.web_proxy_addr`: The address which Gravity Hub serves its Web
    API on. It is the same address specified via the `--hub-advertise-addr` parameter
-   when [installing Gravity Hub](http://localhost:6600/hub/#installing-gravity-hub).
+   when [installing Gravity Hub](hub.md#installing-gravity-hub).
 * `spec.role_map`: Role mapping between the Hub and the Cluster. A user that has a
    matching "remote" role assigned in the Hub, will assume all corresponding "local"
    roles on the Cluster.
