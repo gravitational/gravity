@@ -382,7 +382,6 @@ const (
 func collectActiveOperations(clusterKey ops.SiteKey, operator ops.Operator, status *Status) error {
 	activeOperations, err := ops.GetActiveOperations(clusterKey, operator)
 	if err != nil && !trace.IsNotFound(err) {
-		// log.WithError(err).Warn("Failed to query active operations.")
 		return trace.Wrap(err, "failed to query active operations")
 	}
 	for _, op := range activeOperations {
