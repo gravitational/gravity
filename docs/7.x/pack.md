@@ -816,7 +816,7 @@ local Docker registry so that when Helm renders resource templates, they contain
 correct image references.
 
 !!! tip
-    There is a sample application available on [GitHub](https://github.com/gravitational/gravity/tree/master/examples/wordpresshttps://github.com/gravitational/gravity/tree/master/examples/wordpress)
+    There is a sample application available on [GitHub](https://github.com/gravitational/gravity/tree/master/examples/wordpress)
     that demonstrates this workflow.
 
 ### Customizing Helm values
