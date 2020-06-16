@@ -145,7 +145,7 @@ func (s *site) createUpdateConfigOperation(req ops.CreateUpdateConfigOperationRe
 			Config:     req.Config,
 		},
 	}
-	key, err := s.getOperationGroup().createSiteOperation(op)
+	key, err := s.getOperationGroup().createSiteOperation(op, false)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

@@ -100,7 +100,7 @@ func (s *site) createShrinkOperation(req ops.CreateSiteShrinkOperationRequest) (
 		}
 	}
 
-	key, err := s.getOperationGroup().createSiteOperation(*op)
+	key, err := s.getOperationGroup().createSiteOperation(*op, req.Force)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

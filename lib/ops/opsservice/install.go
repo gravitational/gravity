@@ -190,7 +190,7 @@ func (s *site) createInstallExpandOperation(operationType, operationInitialState
 	op.InstallExpand.Subnets = *subnets
 	ctx.Debugf("selected subnets: %v", subnets)
 
-	key, err := s.getOperationGroup().createSiteOperation(*op)
+	key, err := s.getOperationGroup().createSiteOperation(*op, false)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

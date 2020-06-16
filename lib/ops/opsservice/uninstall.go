@@ -116,7 +116,7 @@ func (s *site) createUninstallOperation(req ops.CreateSiteUninstallOperationRequ
 		}
 	}
 
-	key, err := s.getOperationGroup().createSiteOperation(*op)
+	key, err := s.getOperationGroup().createSiteOperation(*op, req.Force)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

@@ -40,7 +40,7 @@ func (s *site) createGarbageCollectOperation(req ops.CreateClusterGarbageCollect
 		State:      ops.OperationGarbageCollectInProgress,
 	}
 
-	key, err := s.getOperationGroup().createSiteOperation(op)
+	key, err := s.getOperationGroup().createSiteOperation(op, false)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

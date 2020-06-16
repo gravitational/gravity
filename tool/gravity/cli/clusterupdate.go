@@ -273,12 +273,10 @@ func (r *clusterInitializer) validatePreconditions(localEnv *localenv.LocalEnvir
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = checkCanUpdate(cluster, operator, updateApp.Manifest)
-	if err != nil {
+	if err := checkCanUpdate(cluster, operator, updateApp.Manifest); err != nil {
 		return trace.Wrap(err)
 	}
-	err = r.checkDockerDevice(cluster, operator)
-	if err != nil {
+	if err := r.checkDockerDevice(cluster, operator); err != nil {
 		return trace.Wrap(err)
 	}
 	r.updateLoc = updateApp.Package
@@ -357,6 +355,7 @@ func (r clusterInitializer) newOperation(operator ops.Operator, cluster ops.Site
 		AccountID:  cluster.AccountID,
 		SiteDomain: cluster.Domain,
 		App:        r.updateLoc.String(),
+		Force:      r.force,
 	})
 }
 

@@ -20,6 +20,7 @@ import (
 	"sync"
 
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
@@ -62,11 +63,11 @@ func (s swap) Check() error {
 }
 
 // createSiteOperation creates the provided operation if the checks allow it to be created
-func (g *operationGroup) createSiteOperation(operation ops.SiteOperation) (*ops.SiteOperationKey, error) {
+func (g *operationGroup) createSiteOperation(operation ops.SiteOperation, force bool) (*ops.SiteOperationKey, error) {
 	g.Lock()
 	defer g.Unlock()
 
-	err := g.canCreateOperation(operation)
+	err := g.canCreateOperation(operation, force)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -99,7 +100,7 @@ func (g *operationGroup) createSiteOperation(operation ops.SiteOperation) (*ops.
 //
 // In case of failed checks returns trace.CompareFailed error to indicate that
 // the cluster is not in the appropriate state.
-func (g *operationGroup) canCreateOperation(operation ops.SiteOperation) error {
+func (g *operationGroup) canCreateOperation(operation ops.SiteOperation, force bool) error {
 	cluster, err := g.operator.GetSite(g.siteKey)
 	if err != nil {
 		return trace.Wrap(err)
@@ -111,6 +112,11 @@ func (g *operationGroup) canCreateOperation(operation ops.SiteOperation) error {
 	case ops.OperationExpand:
 		// expand has to undergo some checks
 		err := g.canCreateExpandOperation(*cluster, operation)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	case ops.OperationUpdate:
+		err := g.canCreateUpgradeOperation(*cluster, operation, force)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -130,6 +136,70 @@ func (g *operationGroup) canCreateOperation(operation ops.SiteOperation) error {
 		}
 	}
 
+	return nil
+}
+
+func (g *operationGroup) canCreateUpgradeOperation(cluster ops.Site, operation ops.SiteOperation, force bool) error {
+	// Upgrade is only allowed for active and healthy clusters.
+	if cluster.State != ops.SiteStateActive {
+		return trace.CompareFailed(
+			`Upgrade operation can only be triggered for active clusters. This cluster is currently %v.
+Use gravity status to see the cluster status and make sure that the cluster is active and healthy before retrying.`, cluster.State)
+	}
+	// Even if the cluster is active, run a few checks on the last upgrade
+	// operation to make sure it was completed/rolled back properly, to
+	// protect against cases when cluster state is force-reset midway.
+	lastUpgrade, err := ops.GetLastUpgradeOperation(cluster.Key(), g.operator)
+	if err != nil && !trace.IsNotFound(err) {
+		return trace.Wrap(err)
+	}
+	if trace.IsNotFound(err) {
+		return nil
+	}
+	err = g.checkLastOperation(*lastUpgrade)
+	if err != nil {
+		if force { // Last operation checks didn't pass but force flag was provided.
+			log.WithError(err).Warn("Force-creating upgrade operation.")
+			return nil
+		}
+		return trace.Wrap(err)
+	}
+	// All last operation checks passed.
+	return nil
+}
+
+func (g *operationGroup) checkLastOperation(operation ops.SiteOperation) error {
+	// Check if the operation is in a terminal state.
+	if !operation.IsFinished() {
+		return trace.CompareFailed(
+			`The last %v operation (%v) is still in progress.
+Use gravity plan to view the operation plan, and either resume or rollback it before attempting to start another operation.
+You can provide --force flag to override this check.`,
+			operation.Type,
+			operation.ID)
+	}
+	// Last upgrade completed fine.
+	if operation.IsCompleted() {
+		return nil
+	}
+	// Otherwise the operation is failed - check its plan and make sure it was
+	// fully rolled back.
+	plan, err := g.operator.GetOperationPlan(operation.Key())
+	if err != nil && !trace.IsNotFound(err) {
+		return trace.Wrap(err)
+	}
+	if trace.IsNotFound(err) {
+		return nil
+	}
+	if !fsm.IsRolledBack(plan) {
+		return trace.CompareFailed(
+			`The last %v operation (%v) is in a %v state but its operation plan isn't fully rolled back.
+Use gravity plan to view the operation plan, and either resume or rollback it before attempting to start another operation.
+You can provide --force flag to override this check.`,
+			operation.Type,
+			operation.ID,
+			operation.State)
+	}
 	return nil
 }
 
