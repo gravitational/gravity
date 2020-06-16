@@ -102,7 +102,7 @@ Two example invocations are shown here.  First invoking a local image with a vol
 
 ### Image Classification from Local File
 
-Example local image client invocation on myserver1 with nodeport 30090. Substitute `myserver1` with the IP or reachable hostname.
+Example local image client invocation on myserver1 with nodeport 30090. Substitute `myserver1` with the address or hostname of your server.
 
 ```bash
 $ docker run -v $(pwd)/sampleImages/:/sampleImages/  --rm -it bitnami/tensorflow-resnet bash -c "resnet_client_cc --server_port=myserver1:30090 --image_file=/sampleImages/ostrich.jpg"
