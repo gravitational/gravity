@@ -1696,10 +1696,18 @@ func (m *Handler) getSiteEndpoints(w http.ResponseWriter, r *http.Request, p htt
 //
 //   report.tar
 func (m *Handler) getSiteReport(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *AuthContext) (interface{}, error) {
+	var since time.Duration
+	if keys, ok := r.URL.Query()["since"]; ok && len(keys[0]) > 0 {
+		var err error
+		if since, err = time.ParseDuration(keys[0]); err != nil {
+			return nil, trace.Wrap(err)
+		}
+	}
+
 	reader, err := context.Operator.GetSiteReport(ops.SiteKey{
 		AccountID:  context.User.GetAccountID(),
 		SiteDomain: p.ByName("domain"),
-	})
+	}, since)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

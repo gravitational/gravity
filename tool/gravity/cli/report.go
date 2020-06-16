@@ -20,6 +20,7 @@ import (
 	"context"
 	"io"
 	"os"
+	"time"
 
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/report"
@@ -29,7 +30,8 @@ import (
 // systemReport collects system diagnostics and outputs them as a (optionally compressed) tarball
 // to the specified writer w.
 // filters defines the specific diagnostics to collect, if unspecified - all diagnostics will be collected.
-func systemReport(env *localenv.LocalEnvironment, filters []string, compressed bool, outputPath string) error {
+func systemReport(env *localenv.LocalEnvironment, filters []string, compressed bool, outputPath string,
+	since time.Duration) error {
 	var w io.Writer = os.Stdout
 	if outputPath != "" {
 		f, err := os.Create(outputPath)
@@ -43,6 +45,7 @@ func systemReport(env *localenv.LocalEnvironment, filters []string, compressed b
 		Filters:    filters,
 		Compressed: compressed,
 		Packages:   env.Packages,
+		Since:      since,
 	}
 	return report.Collect(context.TODO(), config, w)
 }

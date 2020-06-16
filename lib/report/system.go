@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
+	"time"
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/utils"
@@ -28,7 +29,7 @@ import (
 )
 
 // NewSystemCollector returns a list of collectors to fetch system information
-func NewSystemCollector() Collectors {
+func NewSystemCollector(since time.Duration) Collectors {
 	var collectors Collectors
 	add := func(additional ...Collector) {
 		collectors = append(collectors, additional...)
@@ -36,7 +37,7 @@ func NewSystemCollector() Collectors {
 
 	add(basicSystemInfo()...)
 	add(systemStatus()...)
-	add(syslogExportLogs())
+	add(syslogExportLogs(since))
 	add(systemFileLogs()...)
 	add(planetLogs()...)
 
@@ -99,10 +100,14 @@ func systemStatus() Collectors {
 }
 
 // syslogExportLogs fetches host journal logs
-func syslogExportLogs() Collector {
-	const script = `
+func syslogExportLogs(since time.Duration) Collector {
+	var script = `
 #!/bin/bash
-/bin/journalctl --no-pager --output=export | /bin/gzip -f`
+/bin/journalctl --no-pager --output=export `
+	if since != time.Duration(0) {
+		script = script + fmt.Sprintf(`--since="%s" `, time.Now().Add(-since).Format(JournalDateFormat))
+	}
+	script = script + "| /bin/gzip -f"
 	return Script("gravity-system.log.gz", script)
 }
 

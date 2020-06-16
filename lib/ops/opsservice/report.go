@@ -26,6 +26,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/archive"
@@ -41,7 +42,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func (s *site) getClusterReport() (io.ReadCloser, error) {
+func (s *site) getClusterReport(since time.Duration) (io.ReadCloser, error) {
 	op, err := storage.GetLastOperationForCluster(s.backend(), s.domainName)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -50,13 +51,13 @@ func (s *site) getClusterReport() (io.ReadCloser, error) {
 	s.WithField("op", op).Info("Capture debug report for operation.")
 	switch {
 	case isActiveInstallOperation((ops.SiteOperation)(*op)):
-		return s.getClusterInstallReport((ops.SiteOperation)(*op))
+		return s.getClusterInstallReport((ops.SiteOperation)(*op), since)
 	default:
-		return s.getClusterGenericReport()
+		return s.getClusterGenericReport(since)
 	}
 }
 
-func (s *site) getClusterInstallReport(op ops.SiteOperation) (io.ReadCloser, error) {
+func (s *site) getClusterInstallReport(op ops.SiteOperation, since time.Duration) (io.ReadCloser, error) {
 	ctx, err := s.newOperationContext(op)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -78,10 +79,10 @@ func (s *site) getClusterInstallReport(op ops.SiteOperation) (io.ReadCloser, err
 	}
 
 	runner := s.agentRunner(ctx)
-	return s.getReport(runner, remoteServers, master)
+	return s.getReport(runner, remoteServers, master, since)
 }
 
-func (s *site) getClusterGenericReport() (io.ReadCloser, error) {
+func (s *site) getClusterGenericReport(since time.Duration) (io.ReadCloser, error) {
 	const noRetry = 1
 	servers, err := s.getTeleportServersWithTimeout(
 		nil,
@@ -112,10 +113,11 @@ func (s *site) getClusterGenericReport() (io.ReadCloser, error) {
 		remoteServers = append(remoteServers, teleportServer)
 	}
 
-	return s.getReport(teleportRunner, remoteServers, master)
+	return s.getReport(teleportRunner, remoteServers, master, since)
 }
 
-func (s *site) getReport(runner remoteRunner, servers []remoteServer, master remoteServer) (io.ReadCloser, error) {
+func (s *site) getReport(runner remoteRunner, servers []remoteServer, master remoteServer,
+	since time.Duration) (io.ReadCloser, error) {
 	dir, err := ioutil.TempDir("", "report")
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -142,13 +144,13 @@ func (s *site) getReport(runner remoteRunner, servers []remoteServer, master rem
 		serverRunner := &serverRunner{server: server, runner: runner}
 		reportWriter := getReportWriterForServer(dir, server)
 		logger := log.WithField("server", server.Address())
-		if err := s.collectKubernetesInfo(reportWriter, serverRunner); err != nil {
+		if err := s.collectKubernetesInfo(reportWriter, serverRunner, since); err != nil {
 			logger.WithError(err).Error("Failed to collect Kubernetes info.")
 		}
 		if err := s.collectEtcdBackup(reportWriter, serverRunner); err != nil {
 			logger.WithError(err).Error("Failed to collect etcd backup.")
 		}
-		if err := s.collectDebugInfoFromServers(dir, servers, runner); err != nil {
+		if err := s.collectDebugInfoFromServers(dir, servers, runner, since); err != nil {
 			log.WithError(err).Error("Failed to collect diagnostics from some nodes.")
 		}
 		if err := s.collectStatusTimeline(reportWriter, serverRunner); err != nil {
@@ -181,7 +183,8 @@ func (s *site) getReport(runner remoteRunner, servers []remoteServer, master rem
 //
 //   <server-name>-<resource>
 //
-func (s *site) collectDebugInfoFromServers(dir string, servers []remoteServer, runner remoteRunner) error {
+func (s *site) collectDebugInfoFromServers(dir string, servers []remoteServer, runner remoteRunner,
+	since time.Duration) error {
 	err := s.executeOnServers(context.TODO(), servers, func(c context.Context, server remoteServer) error {
 		log.Debugf("collectDebugInfo for %v", server)
 		r := &serverRunner{
@@ -189,7 +192,7 @@ func (s *site) collectDebugInfoFromServers(dir string, servers []remoteServer, r
 			runner: runner,
 		}
 		reportWriter := getReportWriterForServer(dir, server)
-		err := s.collectDebugInfo(reportWriter, r)
+		err := s.collectDebugInfo(reportWriter, r, since)
 		return trace.Wrap(err)
 	})
 	if err != nil {
@@ -198,7 +201,7 @@ func (s *site) collectDebugInfoFromServers(dir string, servers []remoteServer, r
 	return nil
 }
 
-func (s *site) collectDebugInfo(reportWriter report.FileWriter, runner *serverRunner) error {
+func (s *site) collectDebugInfo(reportWriter report.FileWriter, runner *serverRunner, since time.Duration) error {
 	w, err := reportWriter.NewWriter("debug-logs.tar.gz")
 	if err != nil {
 		return trace.Wrap(err)
@@ -208,14 +211,15 @@ func (s *site) collectDebugInfo(reportWriter report.FileWriter, runner *serverRu
 	var stderr bytes.Buffer
 	err = runner.RunStream(w, &stderr, s.gravityCommand("system", "report",
 		fmt.Sprintf("--filter=%v", report.FilterSystem),
-		"--compressed")...)
+		"--compressed",
+		fmt.Sprintf(`--since="%v"`, since.String()))...)
 	if err != nil {
 		return trace.Wrap(err, "failed to collect diagnostics: %s", stderr.String())
 	}
 	return nil
 }
 
-func (s *site) collectKubernetesInfo(reportWriter report.FileWriter, runner *serverRunner) error {
+func (s *site) collectKubernetesInfo(reportWriter report.FileWriter, runner *serverRunner, since time.Duration) error {
 	w, err := reportWriter.NewWriter("k8s-logs.tar.gz")
 	if err != nil {
 		return trace.Wrap(err)
@@ -224,7 +228,9 @@ func (s *site) collectKubernetesInfo(reportWriter report.FileWriter, runner *ser
 
 	var stderr bytes.Buffer
 	err = runner.RunStream(w, &stderr, s.gravityCommand("system", "report",
-		fmt.Sprintf("--filter=%v", report.FilterKubernetes), "--compressed")...)
+		fmt.Sprintf("--filter=%v", report.FilterKubernetes),
+		"--compressed",
+		fmt.Sprintf(`--since="%v"`, since.String()))...)
 	if err != nil {
 		return trace.Wrap(err, "failed to collect kubernetes diagnostics: %s", stderr.String())
 	}

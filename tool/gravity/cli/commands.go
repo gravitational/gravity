@@ -1272,6 +1272,10 @@ type ReportCmd struct {
 	*kingpin.CmdClause
 	// FilePath is the report tarball path
 	FilePath *string
+	// Since is the duration before now that specifies the start of the time
+	// filter. Only log entries from the start of the time filter until now will
+	// be included in the report.
+	Since *time.Duration
 }
 
 // SiteCmd combines cluster related subcommands
@@ -1565,6 +1569,10 @@ type SystemReportCmd struct {
 	// File optionally specifies the output file.
 	// If unspecified, stdout is used
 	File *string
+	// Since is the duration before now that specifies the start of the time
+	// filter. Only log entries from the start of the time filter until now will
+	// be included in the report.
+	Since *time.Duration
 }
 
 // SystemStateDirCmd shows local state directory

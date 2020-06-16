@@ -950,7 +950,15 @@ func (h *WebHandler) activateSite(w http.ResponseWriter, r *http.Request, p http
    GET /portal/v1/accounts/:account_id/sites/:site_domain/report
 */
 func (h *WebHandler) getSiteReport(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
-	report, err := context.Operator.GetSiteReport(siteKey(p))
+	var since time.Duration
+	if keys, ok := r.URL.Query()["since"]; ok && len(keys[0]) > 0 {
+		var err error
+		if since, err = time.ParseDuration(keys[0]); err != nil {
+			return trace.Wrap(err)
+		}
+	}
+
+	report, err := context.Operator.GetSiteReport(siteKey(p), since)
 	if err != nil {
 		return trace.Wrap(err)
 	}

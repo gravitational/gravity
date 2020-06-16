@@ -22,6 +22,7 @@ import (
 	"encoding/pem"
 	"io"
 	"net/url"
+	"time"
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
@@ -571,11 +572,11 @@ func (o *OperatorACL) GetSiteOperationCrashReport(key SiteOperationKey) (io.Read
 	return o.operator.GetSiteOperationCrashReport(key)
 }
 
-func (o *OperatorACL) GetSiteReport(key SiteKey) (io.ReadCloser, error) {
+func (o *OperatorACL) GetSiteReport(key SiteKey, since time.Duration) (io.ReadCloser, error) {
 	if err := o.ClusterAction(key.SiteDomain, storage.KindCluster, teleservices.VerbRead); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return o.operator.GetSiteReport(key)
+	return o.operator.GetSiteReport(key, since)
 }
 
 func (o *OperatorACL) ValidateDomainName(domainName string) error {

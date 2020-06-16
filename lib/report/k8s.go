@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
@@ -31,7 +32,7 @@ import (
 
 // NewKubernetesCollector returns a list of collectors to fetch kubernetes-specific
 // diagnostics.
-func NewKubernetesCollector(ctx context.Context, runner utils.CommandRunner) Collectors {
+func NewKubernetesCollector(ctx context.Context, runner utils.CommandRunner, since time.Duration) Collectors {
 	runner = planetContextRunner{runner}
 	// general kubernetes info
 	commands := Collectors{
@@ -54,10 +55,11 @@ func NewKubernetesCollector(ctx context.Context, runner utils.CommandRunner) Col
 	if err != nil || len(namespaces) == 0 {
 		namespaces = defaults.UsedNamespaces
 	}
-	return append(commands, capturePreviousContainerLogs(ctx, namespaces, runner)...)
+	return append(commands, capturePreviousContainerLogs(ctx, namespaces, runner, since)...)
 }
 
-func capturePreviousContainerLogs(ctx context.Context, namespaces []string, runner utils.CommandRunner) (collectors Collectors) {
+func capturePreviousContainerLogs(ctx context.Context, namespaces []string, runner utils.CommandRunner,
+	since time.Duration) (collectors Collectors) {
 	for _, namespace := range namespaces {
 		logger := log.WithField("namespace", namespace)
 		pods, err := kubectl.GetPods(ctx, namespace, runner)
@@ -78,7 +80,7 @@ func capturePreviousContainerLogs(ctx context.Context, namespaces []string, runn
 				// Collect logs for the previous instance of the container if there's any.
 				name := fmt.Sprintf("k8s-logs-%v-%v-%v-prev", namespace, pod, container)
 				collectors = append(collectors, Cmd(name, kubectl.Command("logs", pod,
-					"--namespace", namespace, "-p",
+					"--namespace", namespace, "-p", "--since", since.String(),
 					fmt.Sprintf("-c=%v", container)).Args()...))
 			}
 		}
