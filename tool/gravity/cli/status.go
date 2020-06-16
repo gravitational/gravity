@@ -271,7 +271,7 @@ func printStatusText(cluster clusterStatus) {
 			if cluster.Reason != "" {
 				fmt.Fprintf(w, "Cluster status:\t%v (%v)\n",
 					color.RedString(cluster.State),
-					color.RedString(string(cluster.Reason)))
+					color.RedString(string(cluster.Reason.Description())))
 			} else {
 				fmt.Fprintf(w, "Cluster status:\t%v\n", color.RedString(cluster.State))
 			}
