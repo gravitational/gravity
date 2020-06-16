@@ -25,7 +25,7 @@ readonly ROBOTEST_SCRIPT=$(mktemp -d)/runsuite.sh
 
 # number of environment variables are expected to be set
 # see https://github.com/gravitational/robotest/blob/master/suite/README.md
-export ROBOTEST_VERSION=${ROBOTEST_VERSION:-2.0.0-rc.1}
+export ROBOTEST_VERSION=${ROBOTEST_VERSION:-2.0.0}
 export ROBOTEST_REPO=quay.io/gravitational/robotest-suite:$ROBOTEST_VERSION
 export WAIT_FOR_INSTALLER=true
 export INSTALLER_URL=$GRAVITY_BUILDDIR/telekube.tar
