@@ -48,7 +48,6 @@ tele build -o tensorflowresnet.tar tensorflow-resnet/resources/charts/tensorflow
 ```
 
 ## Deployment Configuration
-The Tensorflow-ResNet application runs in the default configuration with two ports, 8500, 8501.  The 8500 port is used for client image classification requests and configured available on a NodePort of 30090 by default.  
 
 After deploying you will see the following Pod status of initalizing while the model is loaded.
 
@@ -93,16 +92,16 @@ receive the number 5 tensor result which is number 4 below.
   }
 ```
 
-A convience script is provided to provide the English name of the classification number.  See the example below.
+A convenience script is provided to map the classification number to an English description  See the example below.
 
 
 ## Invoking classificaton
 
-Two example invocations are shown here.  First invoking a local image with a volume mount and the second a image from a public URL.
+Two example invocations are shown here.  First invoking a local image with a volume mount and the second is with an image from a public URL.
 
-### Sample Image Example
+### Image Classification from Local File
 
-Example local image client invocation on myserver1 with nodeport 30090. Substitute myserver1 with the IP or reachable hostname.
+Example local image client invocation on myserver1 with nodeport 30090. Substitute `myserver1` with the IP or reachable hostname.
 
 ```bash
 $ docker run -v $(pwd)/sampleImages/:/sampleImages/  --rm -it bitnami/tensorflow-resnet bash -c "resnet_client_cc --server_port=myserver1:30090 --image_file=/sampleImages/ostrich.jpg"
@@ -142,9 +141,10 @@ Tensor result id retrieve: 10
 Classification name: ostrich
 ```
 
-## Get Classification Name
 
-Invoking a public URL on  myserver1 with nodeport 30090. Substitute myserver1 with the IP or reachable hostname.
+### Image Classification from Public URL
+
+Invoking a public URL on  myserver1 with nodeport 30090. Substitute `myserver1` with the IP or reachable hostname.
 
 ![Cat](https://tensorflow.org/images/blogs/serving/cat.jpg)
 
