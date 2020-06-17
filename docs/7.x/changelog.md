@@ -4,7 +4,7 @@
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 7.0.8         | No  | June 15th, 2020      | 7.1 is released      | 1.17.6             | 3.2.13           |
+| 7.0.9         | No  | June 16th, 2020      | 7.1 is released      | 1.17.6             | 3.2.13           |
 | 6.1.29        | Yes | June 12th, 2020      | November 10th, 2021  | 1.15.12            | 3.2.12           |
 | 5.5.48        | Yes | June 15th, 2020      | March 7th, 2021      | 1.13.11            | 3.0.6-gravity    |
 
@@ -41,6 +41,13 @@ extend updates past EOL through customer agreements if required.
 # Release Notes
 
 ## 7.x Releases
+
+### 7.0.9 (June 16th, 2020)
+
+#### Improvements
+
+* Add backoff after new cluster image upload to make sure cluster is healthy ([#1711](https://github.com/gravitational/gravity/pull/1711)).
+* Set apiserver flags to enable service account token volume projection ([#1715](https://github.com/gravitational/gravity/pull/1715), [planet#683](https://github.com/gravitational/planet/pull/683)).
 
 ### 7.0.8 (June 15th, 2020)
 
