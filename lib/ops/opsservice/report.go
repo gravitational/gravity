@@ -212,7 +212,7 @@ func (s *site) collectDebugInfo(reportWriter report.FileWriter, runner *serverRu
 	err = runner.RunStream(w, &stderr, s.gravityCommand("system", "report",
 		fmt.Sprintf("--filter=%v", report.FilterSystem),
 		"--compressed",
-		fmt.Sprintf(`--since="%v"`, since.String()))...)
+		"--since", since.String())...)
 	if err != nil {
 		return trace.Wrap(err, "failed to collect diagnostics: %s", stderr.String())
 	}
@@ -230,7 +230,7 @@ func (s *site) collectKubernetesInfo(reportWriter report.FileWriter, runner *ser
 	err = runner.RunStream(w, &stderr, s.gravityCommand("system", "report",
 		fmt.Sprintf("--filter=%v", report.FilterKubernetes),
 		"--compressed",
-		fmt.Sprintf(`--since="%v"`, since.String()))...)
+		"--since", since.String())...)
 	if err != nil {
 		return trace.Wrap(err, "failed to collect kubernetes diagnostics: %s", stderr.String())
 	}
