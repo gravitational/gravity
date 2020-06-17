@@ -958,7 +958,10 @@ func (h *WebHandler) getSiteReport(w http.ResponseWriter, r *http.Request, p htt
 		}
 	}
 
-	report, err := context.Operator.GetSiteReport(siteKey(p), since)
+	report, err := context.Operator.GetSiteReport(ops.GetSiteReportRequest{
+		SiteKey: siteKey(p),
+		Since:   since,
+	})
 	if err != nil {
 		return trace.Wrap(err)
 	}

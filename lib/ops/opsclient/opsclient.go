@@ -676,11 +676,11 @@ func (c *Client) GetSiteOperationCrashReport(key ops.SiteOperationKey) (io.ReadC
 	return file.Body(), nil
 }
 
-func (c *Client) GetSiteReport(key ops.SiteKey, since time.Duration) (io.ReadCloser, error) {
+func (c *Client) GetSiteReport(req ops.GetSiteReportRequest) (io.ReadCloser, error) {
 	params := url.Values{
-		"since": []string{since.String()},
+		"since": []string{req.Since.String()},
 	}
-	file, err := c.GetFile(c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "report"), params)
+	file, err := c.GetFile(c.Endpoint("accounts", req.AccountID, "sites", req.SiteDomain, "report"), params)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

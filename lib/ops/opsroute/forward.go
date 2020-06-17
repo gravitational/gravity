@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"io"
 	"net/url"
-	"time"
 
 	"github.com/gravitational/gravity/lib/clients"
 	"github.com/gravitational/gravity/lib/constants"
@@ -418,12 +417,12 @@ func (r *Router) GetSiteOperationCrashReport(key ops.SiteOperationKey) (io.ReadC
 	return client.GetSiteOperationCrashReport(key)
 }
 
-func (r *Router) GetSiteReport(key ops.SiteKey, since time.Duration) (io.ReadCloser, error) {
-	client, err := r.PickClient(key.SiteDomain)
+func (r *Router) GetSiteReport(req ops.GetSiteReportRequest) (io.ReadCloser, error) {
+	client, err := r.PickClient(req.SiteDomain)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return client.GetSiteReport(key, since)
+	return client.GetSiteReport(req)
 }
 
 // ValidateServers runs pre-installation checks
