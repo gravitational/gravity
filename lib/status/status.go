@@ -41,7 +41,6 @@ import (
 	"github.com/gravitational/satellite/monitoring"
 	"github.com/gravitational/trace"
 	"github.com/prometheus/alertmanager/api/v2/models"
-	"github.com/sirupsen/logrus"
 )
 
 // FromCluster collects cluster status information.
@@ -69,13 +68,13 @@ func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, o
 
 	status.Cluster.ServerVersion, err = operator.GetVersion(ctx)
 	if err != nil {
-		logrus.WithError(err).Warn("Failed to query server version information.")
+		log.WithError(err).Warn("Failed to query server version information.")
 	}
 
 	// Collect application endpoints.
 	appEndpoints, err := operator.GetApplicationEndpoints(cluster.Key())
 	if err != nil {
-		logrus.WithError(err).Warn("Failed to fetch application endpoints.")
+		log.WithError(err).Warn("Failed to fetch application endpoints.")
 		status.Endpoints.Applications.Error = err
 	}
 	if len(appEndpoints) != 0 {
@@ -91,7 +90,7 @@ func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, o
 	// Fetch cluster endpoints.
 	clusterEndpoints, err := ops.GetClusterEndpoints(operator, cluster.Key())
 	if err != nil {
-		logrus.WithError(err).Warn("Failed to fetch cluster endpoints.")
+		log.WithError(err).Warn("Failed to fetch cluster endpoints.")
 	}
 	if clusterEndpoints != nil {
 		status.Endpoints.Cluster.AuthGateway = clusterEndpoints.AuthGateways()
@@ -158,7 +157,7 @@ func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, o
 	// Collect information from alertmanager
 	status.Alerts, err = FromAlertManager(ctx, cluster)
 	if err != nil {
-		logrus.WithError(err).Warn("Failed to collect alerts from Alertmanager.")
+		log.WithError(err).Warn("Failed to collect alerts from Alertmanager.")
 	}
 
 	return status, nil
@@ -235,6 +234,23 @@ func (r Status) IsDegraded() bool {
 		r.Cluster.State == ops.SiteStateDegraded ||
 		r.Agent == nil ||
 		r.Agent.GetSystemStatus() != pb.SystemStatus_Running)
+}
+
+// String returns the status string representation.
+func (r Status) String() string {
+	var cluster string
+	if r.Cluster != nil {
+		cluster = fmt.Sprintf("Cluster(%v)", *r.Cluster)
+	} else {
+		cluster = "Cluster(nil)"
+	}
+	var agent string
+	if r.Agent != nil {
+		agent = fmt.Sprintf("Agent(%v)", *r.Agent)
+	} else {
+		agent = "Agent(nil)"
+	}
+	return fmt.Sprintf("Status(%v, %v)", cluster, agent)
 }
 
 // Status describes the status of the cluster as a whole
@@ -578,7 +594,7 @@ func probeErrorDetail(p pb.Probe) string {
 		if err == nil {
 			return detail
 		}
-		logrus.Warnf(trace.DebugReport(err))
+		log.WithError(err).Warn("Failed to compose disk space probe error.")
 	}
 	detail := p.Detail
 	if p.Detail == "" {
