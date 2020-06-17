@@ -534,8 +534,8 @@ func RegisterCommands(app *kingpin.Application) *Application {
 
 	// get cluster diagnostics report
 	g.ReportCmd.CmdClause = g.Command("report", "Generate cluster diagnostics report")
-	g.ReportCmd.FilePath = g.ReportCmd.Flag("file", "target report file name").Default("report.tar.gz").String()
-	g.ReportCmd.Since = g.ReportCmd.Flag("since", "only return logs newer than a relative duration like 5s, 2m, or 3h").Duration()
+	g.ReportCmd.FilePath = g.ReportCmd.Flag("file", "Target report file name").Default("report.tar.gz").String()
+	g.ReportCmd.Since = g.ReportCmd.Flag("since", "Only return logs newer than a relative duration like 5s, 2m, or 3h").Duration()
 
 	// operations on sites
 	g.SiteCmd.CmdClause = g.Command("site", "operations on gravity sites")

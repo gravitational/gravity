@@ -106,9 +106,6 @@ type Config struct {
 	// Since specifies the start of the time filter. A value of 1h will report
 	// log entries starting from one ago up till the end of the time filter.
 	Since time.Duration
-	// Until specifies the end of the time filter. A value of 1h will report
-	// log entries from the start of the time filter up till one hour ago.
-	Until time.Duration
 }
 
 const (
