@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 IMAGE_ID=$1
 errorValue=0
 
@@ -17,9 +18,7 @@ if [[ "$#" -lt 1 ]]; then
    errorValue=1
 fi
 
-if [ -z "$RES_CLASSIFICATION" ]; then
-   RES_CLASSIFICATION="./class.json"
-fi
+RES_CLASSIFICATION=${RES_CLASSIFICATION:-./class.json}
 
 if [ ! -f "$RES_CLASSIFICATION" ]; then
    echo "Classification file: $RES_CLASSIFICATION not available"
@@ -27,15 +26,15 @@ if [ ! -f "$RES_CLASSIFICATION" ]; then
 fi
 
 if [ "$errorValue" -eq "1" ]; then
-   exit 0 
+   exit 1 
 fi
 
 
 for var in "$@"
 do
-echo "Tensor result id retrieve: $var"
+echo "Tensor result id retrieved: $var"
 imageId=$(($var-1))
-classificationName=$( echo "cat $RES_CLASSIFICATION | jq -c '.[\"$imageId\"] | .[1] '" | bash | sed "s,\",,g" )
+classificationName=$(cat $RES_CLASSIFICATION | jq -c ".[\"${imageId}\"] | .[1]" | sed 's,\",,g')
 echo "Classification name: $classificationName"
  
 done
