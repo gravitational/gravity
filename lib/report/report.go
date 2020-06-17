@@ -49,6 +49,7 @@ func Collect(ctx context.Context, config Config, w io.Writer) error {
 			collectors = append(collectors, NewKubernetesCollector(ctx, utils.Runner, config.Since)...)
 		case FilterEtcd:
 			collectors = append(collectors, etcdBackup()...)
+			collectors = append(collectors, etcdMetrics()...)
 		case FilterTimeline:
 			collectors = append(collectors, NewTimelineCollector())
 		}

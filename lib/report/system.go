@@ -76,6 +76,8 @@ func basicSystemInfo() Collectors {
 		Cmd("host-system-failed", "/bin/systemctl", "--failed", "--full"),
 		Cmd("host-system-jobs", "/bin/systemctl", "list-jobs", "--full"),
 		Cmd("dmesg", "/bin/dmesg", "--raw"),
+		Cmd("reboot-history", "last", "-x"),
+		Cmd("uname", "uname", "-a"),
 		// Fetch world-readable parts of /etc/
 		fetchEtc("etc-logs.tar.gz"),
 		// memory
@@ -83,6 +85,7 @@ func basicSystemInfo() Collectors {
 		Cmd("slabtop", "slabtop", "--once"),
 		Cmd("vmstat", "vmstat", "--stats"),
 		Cmd("slabinfo", "cat", "/proc/slabinfo"),
+		Cmd("swapon", "swapon", "-s"),
 	}
 }
 
@@ -96,6 +99,8 @@ func systemStatus() Collectors {
 		Cmd("planet-system-status", utils.PlanetCommandArgs("/bin/systemctl", "status", "--full")...),
 		Cmd("planet-system-failed", utils.PlanetCommandArgs("/bin/systemctl", "--failed", "--full")...),
 		Cmd("planet-system-jobs", utils.PlanetCommandArgs("/bin/systemctl", "list-jobs", "--full")...),
+		// serf status
+		Cmd("serf-members", utils.PlanetCommandArgs(defaults.SerfBin, "members")...),
 	}
 }
 
@@ -143,6 +148,17 @@ func etcdBackup() Collectors {
 		Cmd("etcd-backup.json", utils.PlanetCommandArgs(defaults.PlanetBin, "etcd", "backup",
 			"--prefix", defaults.EtcdPlanetPrefix,
 			"--prefix", defaults.EtcdGravityPrefix)...),
+	}
+}
+
+// etcdMetrics fetches etcd metrics
+func etcdMetrics() Collectors {
+	return Collectors{
+		Cmd("etcd-metrics.json", utils.PlanetCommandArgs("/usr/bin/curl", "-s", "--insecure", "--tlsv1.2",
+			"--cacert", filepath.Join(defaults.PlanetStateDir, defaults.RootCertFilename),
+			"--cert", filepath.Join(defaults.PlanetStateDir, defaults.EtcdCertFilename),
+			"--key", filepath.Join(defaults.PlanetStateDir, defaults.EtcdKeyFilename),
+			filepath.Join(defaults.EtcdLocalMetricsAddr, "metrics"))...),
 	}
 }
 
