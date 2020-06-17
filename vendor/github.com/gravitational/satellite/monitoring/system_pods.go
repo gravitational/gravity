@@ -185,12 +185,11 @@ func verifyContainers(containerStatuses []corev1.ContainerStatus) error {
 		if status.State.Waiting != nil {
 			reason := status.State.Waiting.Reason
 			if reason == errImagePullBackOff || reason == errCrashLoopBackOff || reason == errImagePull {
-				return trace.BadParameter("%v waiting: %v", status.Name, status.State.Waiting.Reason)
+				return trace.BadParameter("%v waiting: %v", status.Name, reason)
 			}
 		}
 		if status.State.Terminated != nil {
-			reason := status.State.Terminated.Reason
-			if reason == containerError {
+			if status.State.Terminated.ExitCode != 0 {
 				return trace.BadParameter("%v terminated: %v", status.Name, status.State.Terminated.Reason)
 			}
 		}
