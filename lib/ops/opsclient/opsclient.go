@@ -676,7 +676,7 @@ func (c *Client) GetSiteOperationCrashReport(key ops.SiteOperationKey) (io.ReadC
 	return file.Body(), nil
 }
 
-func (c *Client) GetSiteReport(req ops.GetSiteReportRequest) (io.ReadCloser, error) {
+func (c *Client) GetSiteReport(req ops.GetClusterReportRequest) (io.ReadCloser, error) {
 	params := url.Values{
 		"since": []string{req.Since.String()},
 	}

@@ -303,7 +303,7 @@ type Sites interface {
 	CompleteFinalInstallStep(CompleteFinalInstallStepRequest) error
 
 	// GetSiteReport returns a tarball that contains all debugging information gathered for the site
-	GetSiteReport(GetSiteReportRequest) (io.ReadCloser, error)
+	GetSiteReport(GetClusterReportRequest) (io.ReadCloser, error)
 
 	// SignTLSKey signs X509 Public Key with X509 certificate authority of this site
 	SignTLSKey(TLSSignRequest) (*TLSSignResponse, error)
@@ -1904,10 +1904,10 @@ type Identity interface {
 	GetAuthGateway(SiteKey) (storage.AuthGateway, error)
 }
 
-// GetSiteReportRequest specifies the request to get the site report
-type GetSiteReportRequest struct {
+// GetClusterReportRequest specifies the request to get the cluster report
+type GetClusterReportRequest struct {
 	// SiteKey is a key used to identify site
 	SiteKey
-	// Since is used to filter the collected report by time
-	Since time.Duration `json:"since"`
+	// Since is used to filter collected logs by time
+	Since time.Duration `json:"since,omitempty"`
 }

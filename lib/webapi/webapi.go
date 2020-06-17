@@ -1704,7 +1704,7 @@ func (m *Handler) getSiteReport(w http.ResponseWriter, r *http.Request, p httpro
 		}
 	}
 
-	reader, err := context.Operator.GetSiteReport(ops.GetSiteReportRequest{
+	reader, err := context.Operator.GetSiteReport(ops.GetClusterReportRequest{
 		SiteKey: ops.SiteKey{
 			AccountID:  context.User.GetAccountID(),
 			SiteDomain: p.ByName("domain"),

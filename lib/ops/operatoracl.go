@@ -571,7 +571,7 @@ func (o *OperatorACL) GetSiteOperationCrashReport(key SiteOperationKey) (io.Read
 	return o.operator.GetSiteOperationCrashReport(key)
 }
 
-func (o *OperatorACL) GetSiteReport(req GetSiteReportRequest) (io.ReadCloser, error) {
+func (o *OperatorACL) GetSiteReport(req GetClusterReportRequest) (io.ReadCloser, error) {
 	if err := o.ClusterAction(req.SiteDomain, storage.KindCluster, teleservices.VerbRead); err != nil {
 		return nil, trace.Wrap(err)
 	}

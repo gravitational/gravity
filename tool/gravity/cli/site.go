@@ -139,7 +139,7 @@ func getClusterReport(env *localenv.LocalEnvironment, targetFile string, since t
 		return trace.Wrap(err)
 	}
 
-	report, err := operator.GetSiteReport(ops.GetSiteReportRequest{
+	report, err := operator.GetSiteReport(ops.GetClusterReportRequest{
 		SiteKey: ops.SiteKey{
 			AccountID:  site.AccountID,
 			SiteDomain: site.Domain,

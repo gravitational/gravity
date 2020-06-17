@@ -417,7 +417,7 @@ func (r *Router) GetSiteOperationCrashReport(key ops.SiteOperationKey) (io.ReadC
 	return client.GetSiteOperationCrashReport(key)
 }
 
-func (r *Router) GetSiteReport(req ops.GetSiteReportRequest) (io.ReadCloser, error) {
+func (r *Router) GetSiteReport(req ops.GetClusterReportRequest) (io.ReadCloser, error) {
 	client, err := r.PickClient(req.SiteDomain)
 	if err != nil {
 		return nil, trace.Wrap(err)
