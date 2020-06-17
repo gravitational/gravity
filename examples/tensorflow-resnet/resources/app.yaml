@@ -54,8 +54,7 @@ installer:
 
 
 # This section allows to define what flavors of servers are required for
-# this cluster. This example uses a single flavor called "node" but you
-# can have flavors like "database" or "gpu", etc.
+# this cluster. 
 #
 #
 nodeProfiles:
@@ -95,15 +94,10 @@ nodeProfiles:
       ram:
         min: "2GB"
 
-
-
-
 # This section allows you to specify Kubernetes jobs that will be executed
 # inside the cluster when certain cluster lifecycle events happen
 hooks:
   install:
     job: file://install.yaml
-#As new versions of app are realized this upgrade hook will make s
   update:
     job: file://upgrade.yaml
-
