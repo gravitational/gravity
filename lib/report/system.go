@@ -104,7 +104,7 @@ func syslogExportLogs(since time.Duration) Collector {
 	var script = `
 #!/bin/bash
 /bin/journalctl --no-pager --output=export `
-	if since != time.Duration(0) {
+	if since != 0 {
 		script = script + fmt.Sprintf(`--since="%s" `, time.Now().Add(-since).Format(JournalDateFormat))
 	}
 	script = script + "| /bin/gzip -f"

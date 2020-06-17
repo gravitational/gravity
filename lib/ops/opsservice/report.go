@@ -208,11 +208,13 @@ func (s *site) collectDebugInfo(reportWriter report.FileWriter, runner *serverRu
 	}
 	defer w.Close()
 
+	args := []string{"system", "report", "--filter", report.FilterSystem, "--compressed"}
+	if since != 0 {
+		args = append(args, "--since", since.String())
+	}
+
 	var stderr bytes.Buffer
-	err = runner.RunStream(w, &stderr, s.gravityCommand("system", "report",
-		fmt.Sprintf("--filter=%v", report.FilterSystem),
-		"--compressed",
-		"--since", since.String())...)
+	err = runner.RunStream(w, &stderr, s.gravityCommand(args...)...)
 	if err != nil {
 		return trace.Wrap(err, "failed to collect diagnostics: %s", stderr.String())
 	}
@@ -226,11 +228,13 @@ func (s *site) collectKubernetesInfo(reportWriter report.FileWriter, runner *ser
 	}
 	defer w.Close()
 
+	args := []string{"system", "report", "--filter", report.FilterKubernetes, "--compressed"}
+	if since != 0 {
+		args = append(args, "--since", since.String())
+	}
+
 	var stderr bytes.Buffer
-	err = runner.RunStream(w, &stderr, s.gravityCommand("system", "report",
-		fmt.Sprintf("--filter=%v", report.FilterKubernetes),
-		"--compressed",
-		"--since", since.String())...)
+	err = runner.RunStream(w, &stderr, s.gravityCommand(args...)...)
 	if err != nil {
 		return trace.Wrap(err, "failed to collect kubernetes diagnostics: %s", stderr.String())
 	}

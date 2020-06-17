@@ -59,7 +59,7 @@ func NewKubernetesCollector(ctx context.Context, runner utils.CommandRunner, sin
 	commands = append(commands, capturePreviousContainerLogs(ctx, namespaces, runner, since)...)
 
 	// collect current container logs
-	if since == time.Duration(0) {
+	if since == 0 {
 		return append(commands, Cmd("k8s-cluster-info-dump.tgz", constants.GravityBin, "system", "cluster-info"))
 	}
 	// kubectl cluster-info dump does not provide a --since flag, so collect
