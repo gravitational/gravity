@@ -1697,9 +1697,9 @@ func (m *Handler) getSiteEndpoints(w http.ResponseWriter, r *http.Request, p htt
 //   report.tar
 func (m *Handler) getSiteReport(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *AuthContext) (interface{}, error) {
 	var since time.Duration
-	if keys, ok := r.URL.Query()["since"]; ok && len(keys[0]) > 0 {
+	if val := r.URL.Query().Get("since"); val != "" {
 		var err error
-		if since, err = time.ParseDuration(keys[0]); err != nil {
+		if since, err = time.ParseDuration(val); err != nil {
 			return nil, trace.Wrap(err)
 		}
 	}

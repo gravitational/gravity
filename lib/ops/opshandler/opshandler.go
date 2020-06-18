@@ -951,9 +951,9 @@ func (h *WebHandler) activateSite(w http.ResponseWriter, r *http.Request, p http
 */
 func (h *WebHandler) getSiteReport(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
 	var since time.Duration
-	if keys, ok := r.URL.Query()["since"]; ok && len(keys[0]) > 0 {
+	if val := r.URL.Query().Get("since"); val != "" {
 		var err error
-		if since, err = time.ParseDuration(keys[0]); err != nil {
+		if since, err = time.ParseDuration(val); err != nil {
 			return trace.Wrap(err)
 		}
 	}
