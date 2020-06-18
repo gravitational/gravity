@@ -1,0 +1,103 @@
+# Sample application manifest for Tensorflow resnet
+
+apiVersion: cluster.gravitational.io/v2
+kind: Cluster
+metadata:
+  name: tensorflow-resnet
+  resourceVersion: "2.0.13"
+
+# The logo can be used to white label Gravity web interface for Kubernetes/Tensorflow
+# management
+
+#logo: https://github.com/gravitational/gravity/blob/master/examples/tensorflow-resnet/images/tensorflow.png
+
+# This section allows to customize the graphical (web UI) installer
+# for the cluster.
+installer:
+
+  # if 'flavors' section is present, the installer will ask the end user what
+  # type of Kubernetes cluster to create. We are offering either a small
+  # single node, 2 nodes, 3 nodes or a high availability (3 master node, 3 worker node) configuration.
+  flavors:
+    prompt: "What size install do you want (single, double, triple, or high availability)?"
+    # The default flavor
+    default: single
+    # List of flavors:
+    items:
+    - name: "single"
+      description: "Single node install"
+      nodes:
+      - profile: general
+        count: 1
+    - name: "double"
+      description: "Double node install"
+      nodes:
+      - profile: master
+        count: 1
+      - profile: worker
+        count: 1
+    - name: "triple"
+      description: "Triple node install"
+      nodes:
+      - profile: master
+        count: 1
+      - profile: worker
+        count: 2
+    - name: "highavailable"
+      description: "High Availability"
+      nodes:
+      - profile: master
+        count: 3
+      - profile: worker
+        count: 3
+
+
+
+# This section allows to define what flavors of servers are required for
+# this cluster. 
+#
+#
+nodeProfiles:
+  - name: general
+    description: "full node"
+    labels:
+      front: "true"
+      db: "true"
+    # gravity will validate that the nodes have the requested amounts
+    # of RAM/CPU
+    requirements:
+      cpu:
+        min: 2
+      ram:
+        min: "2GB"
+  - name: master
+    description: "master node"
+    labels:
+      node-role.kubernetes.io/master: "true"
+    # gravity will validate that the nodes have the requested amounts
+    # of RAM/CPU
+    requirements:
+      cpu:
+        min: 2
+      ram:
+        min: "2GB"
+  - name: worker
+    description: "worker node"
+    labels:
+      front: "true"
+      node-role.kubernetes.io/node: "true"
+    # gravity will validate that the nodes have the requested amounts
+    # of RAM/CPU
+    requirements:
+      cpu:
+        min: 2
+      ram:
+        min: "2GB"
+
+# This section allows you to specify Kubernetes jobs that will be executed
+# inside the cluster when certain cluster lifecycle events happen
+hooks:
+  install:
+    job: file://install.yaml
+  update:
+    job: file://upgrade.yaml
