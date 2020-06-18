@@ -113,7 +113,7 @@ func syslogExportLogs(since time.Duration) Collector {
 		script = script + fmt.Sprintf(`--since="%s" `, time.Now().Add(-since).Format(JournalDateFormat))
 	}
 	script = script + "| /bin/gzip -f"
-	return Script("gravity-system.log.gz", script)
+	return Script("gravity-journal.log.gz", script)
 }
 
 // systemFileLogs fetches gravity platform-related logs
