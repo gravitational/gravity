@@ -96,7 +96,7 @@ receive the number 5 tensor result which is number 4 below.
 A convenience script is provided to map the classification number to an English description  See the example below.
 
 
-## Invoking classificaton
+## Invoking classification
 
 Two example invocations are shown here.  First invoking a local image with a volume mount and the second is with an image from a public URL.
 
