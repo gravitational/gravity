@@ -49,7 +49,7 @@ tele build -o tensorflowresnet.tar tensorflow-resnet/resources/charts/tensorflow
 
 ## Deployment Configuration
 
-The Tensorflow-ResNet application uses the container port 8500 which is available as NodePort of 30090 by default. 
+The TensorFlow-ResNet application uses the container port 8500 which is available as NodePort of 30090 by default. 
 The port is used for client image classification requests. After deploying you will see the following Pod status of initializing while the model is loaded.
 
 ```bash
