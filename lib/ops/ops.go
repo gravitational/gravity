@@ -716,6 +716,8 @@ type Node struct {
 	PublicIP string `json:"public_ip"`
 	// Profile is the node profile
 	Profile string `json:"profile"`
+	// Role is the node service role
+	Role string `json:"role"`
 	// InstanceType is the node instance type
 	InstanceType string `json:"instance_type"`
 }

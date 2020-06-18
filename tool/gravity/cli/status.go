@@ -56,7 +56,7 @@ func status(env *localenv.LocalEnvironment, printOptions printOptions) error {
 		clusterOperator: clusterOperator,
 	}
 
-	ctx, cancel := context.WithTimeout(context.TODO(), defaults.StatusCollectionTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), defaults.StatusCollectionTimeout)
 	defer cancel()
 	status, err := statusOnce(ctx, operator, printOptions.operationID, env)
 	if err == nil {
@@ -76,7 +76,7 @@ func status(env *localenv.LocalEnvironment, printOptions printOptions) error {
 		}
 	}
 	if status.Agent == nil {
-		ctx, cancel := context.WithTimeout(context.TODO(), defaults.StatusCollectionTimeout)
+		ctx, cancel := context.WithTimeout(context.Background(), defaults.StatusCollectionTimeout)
 		defer cancel()
 		status.Agent, err = statusapi.FromPlanetAgent(ctx, nil)
 		if err != nil {
@@ -87,7 +87,7 @@ func status(env *localenv.LocalEnvironment, printOptions printOptions) error {
 	var failed []*pb.Probe
 	if status.Agent == nil {
 		// Run local checks when planet agent is inaccessible
-		ctx, cancel := context.WithTimeout(context.TODO(), defaults.HumanReasonableTimeout)
+		ctx, cancel := context.WithTimeout(context.Background(), defaults.HumanReasonableTimeout)
 		defer cancel()
 
 		if printOptions.format == constants.EncodingText {
@@ -184,7 +184,7 @@ func printStatus(operator ops.Operator, status clusterStatus, printOptions print
 			fmt.Println("there is no operation in progress")
 			return nil
 		}
-		fmt.Printf("%v\n", status.Operation.State)
+		fmt.Println(status.Operation.State)
 
 	case printOptions.token:
 		fmt.Print(status.Token.Token)
@@ -266,7 +266,13 @@ func printStatusText(out io.Writer, cluster clusterStatus) error {
 	if cluster.Cluster != nil {
 		fmt.Fprintf(w, "Cluster name:\t%v\n", unknownFallback(cluster.Cluster.Domain))
 		if cluster.Status.IsDegraded() {
-			fmt.Fprintf(w, "Cluster status:\t%v\n", color.RedString("degraded"))
+			if cluster.Reason != "" {
+				fmt.Fprintf(w, "Cluster status:\t%v (%v)\n",
+					color.RedString(cluster.State),
+					color.RedString(string(cluster.Reason.Description())))
+			} else {
+				fmt.Fprintf(w, "Cluster status:\t%v\n", color.RedString(cluster.State))
+			}
 		} else {
 			fmt.Fprintf(w, "Cluster status:\t%v\n", color.GreenString(cluster.State))
 		}

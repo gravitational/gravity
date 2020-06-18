@@ -1411,6 +1411,7 @@ func (o *Operator) GetClusterNodes(key ops.SiteKey) ([]ops.Node, error) {
 			PublicIP:     labels[defaults.TeleportPublicIPv4Label],
 			Profile:      labels[ops.AppRole],
 			InstanceType: labels[ops.InstanceType],
+			Role:         labels[schema.ServiceLabelRole],
 		})
 	}
 	return result, nil
