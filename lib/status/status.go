@@ -41,6 +41,7 @@ import (
 	"github.com/gravitational/satellite/monitoring"
 	"github.com/gravitational/trace"
 	"github.com/prometheus/alertmanager/api/v2/models"
+	"github.com/sirupsen/logrus"
 )
 
 // FromCluster collects cluster status information.
