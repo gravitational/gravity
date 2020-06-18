@@ -6,7 +6,7 @@ and can be configured to other models.  See the [TensorFlow](https://www.tensorf
 
 # Example input and output
 
-The TensorFlow ResNet model has 1000 classifications for living creatures and objects.  Here is an example Ostrich graphic image the model will process and provide a tensor classification.
+The TensorFlow ResNet model has 1000 classifications for living creatures and objects.  Here is an example Ostrich graphic image the model will process and provide a tensor classification for.
 
 ![Ostrich](./sampleImages/ostrich.jpg)
 
@@ -50,7 +50,7 @@ tele build -o tensorflowresnet.tar tensorflow-resnet/resources/charts/tensorflow
 ## Deployment Configuration
 
 The Tensorflow-ResNet application uses the container port 8500 which is available as NodePort of 30090 by default. 
-The port is used for client image classification requests. After deploying you will see the following Pod status of initalizing while the model is loaded.
+The port is used for client image classification requests. After deploying you will see the following Pod status of initializing while the model is loaded.
 
 ```bash
 $ kubectl get po
@@ -76,7 +76,7 @@ tensorflow-resnet   3/3     3            3           10m
 
 # Image classification
 
-Image classification requests should be done on a machine with Docker installed. Take note of one of the server's available IPs and confirm the available NodePort.  By default it should be 30090. After invoking you will recieve a result tensor.  
+Image classification requests should be done on a machine with Docker installed. Take note of one of the server's available IPs and confirm the available NodePort.  By default it should be 30090. After invoking you will receive a result tensor.  
 The [./tensorClientResources/class.json](./tensorClientResources/class.json) has an array with the names of the results. Note that the classification in the JSON file is one number less then the result.  For example if you gave an image of a hammerhead shark you would
 receive the number 5 tensor result which is number 4 below.
 
