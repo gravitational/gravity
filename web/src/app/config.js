@@ -171,7 +171,7 @@ let cfg = {
         },
         monitoring: {
           enabled: true,
-          grafanaDefaultDashboardUrl: 'dashboard/db/cluster'
+          grafanaDefaultDashboardUrl: 'd/default/cluster'
         }
       }
     },
