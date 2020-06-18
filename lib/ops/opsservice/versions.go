@@ -69,10 +69,10 @@ var (
 	// used as an intermediate step when upgrading to the current version.
 	//
 	// Specified versions are treated as described above.
-	//
-	// This version does not currently support upgrades via intermediate
-	// runtimes.
-	UpgradeViaVersions = map[*semver.Version]Versions{}
+	UpgradeViaVersions = map[*semver.Version]Versions{
+		// Upgrades from 5.5.x are possible via a 6.1.x release.
+		semver.New("5.5.0"): Versions{semver.New("6.1.0")},
+	}
 )
 
 // checkRuntimeUpgradePathRequest is a request to validate upgrade path between runtimes.

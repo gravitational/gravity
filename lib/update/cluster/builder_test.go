@@ -18,20 +18,23 @@ package cluster
 
 import (
 	"fmt"
+	"path"
+	"sort"
 	"strconv"
 
 	"github.com/gravitational/gravity/lib/app"
 	apptest "github.com/gravitational/gravity/lib/app/service/test"
 	"github.com/gravitational/gravity/lib/archive"
 	"github.com/gravitational/gravity/lib/constants"
+	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/opsservice"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
-	"github.com/gravitational/gravity/lib/update"
 
+	"github.com/coreos/go-semver/semver"
 	teleservices "github.com/gravitational/teleport/lib/services"
 	"gopkg.in/check.v1"
 )

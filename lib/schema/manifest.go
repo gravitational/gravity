@@ -166,6 +166,13 @@ func (m *Manifest) SetBase(locator loc.Locator) {
 	}
 }
 
+// WithBase returns a copy of this manifest with the specified base application
+func (m *Manifest) WithBase(locator loc.Locator) Manifest {
+	result := *m
+	result.SetBase(locator)
+	return result
+}
+
 // FindFlavor returns a flavor by the provided name
 func (m Manifest) FindFlavor(name string) *Flavor {
 	if m.Installer != nil {
@@ -506,9 +513,19 @@ func (d Dependencies) ByName(names ...string) (*loc.Locator, error) {
 	return nil, trace.NotFound("dependencies %q are not defined in the manifest", names)
 }
 
+// Has returns true if dependencies have the specified package
+func (d Dependencies) Has(loc loc.Locator) (*loc.Locator, error) {
+	for _, dep := range append(d.Packages, d.Apps...) {
+		if dep.Locator.IsEqualTo(loc) {
+			return &dep.Locator, nil
+		}
+	}
+	return nil, trace.NotFound("dependency %v is not defined in the manifest", loc)
+}
+
 // GetPackages returns a list of all package dependencies
 func (d Dependencies) GetPackages() []loc.Locator {
-	packages := make([]loc.Locator, 0, len(d.Apps))
+	packages := make([]loc.Locator, 0, len(d.Packages)+1)
 	for _, dep := range d.Packages {
 		packages = append(packages, dep.Locator)
 	}

@@ -173,12 +173,8 @@ func (l Locator) String() string {
 }
 
 // WithVersion returns a copy of this locator with version set to the specified one
-func (l Locator) WithVersion(version *semver.Version) Locator {
-	return Locator{
-		Repository: l.Repository,
-		Name:       l.Name,
-		Version:    version.String(),
-	}
+func (l Locator) WithVersion(version semver.Version) Locator {
+	return l.WithLiteralVersion(version.String())
 }
 
 // WithLiteralVersion returns a copy of this locator with version set to the specified one

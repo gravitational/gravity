@@ -19,7 +19,7 @@ package phases
 import (
 	"context"
 
-	"github.com/gravitational/gravity/lib/app/service"
+	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/localenv"
@@ -74,12 +74,12 @@ func (p *clusterPackagesExecutor) Execute(ctx context.Context) error {
 		return trace.Wrap(err)
 	}
 	caPackage := opsservice.PlanetCertAuthorityPackage(p.Plan.ClusterName)
-	_, err = service.PullPackage(service.PackagePullRequest{
+	puller := app.Puller{
 		SrcPack: p.LocalPackages,
 		DstPack: clusterPackages,
-		Package: caPackage,
 		Upsert:  true,
-	})
+	}
+	err = puller.PullPackage(ctx, caPackage)
 	if err != nil {
 		return trace.Wrap(err)
 	}

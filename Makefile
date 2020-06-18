@@ -39,6 +39,8 @@ CURRENT_TAG := $(shell ./version.sh)
 GRAVITY_TAG := $(CURRENT_TAG)
 # Abbreviated gravity version to use as a build ID
 GRAVITY_VERSION := $(CURRENT_TAG)
+# Release of the gravity runtime application to builder installer with intermediate steps
+GRAVITY_INTERMEDIATE_RELEASE ?= 5.5.47
 
 RELEASE_TARBALL_NAME ?=
 RELEASE_OUT ?=
@@ -521,12 +523,18 @@ scan-artifacts: telekube
 telekube: GRAVITY=$(GRAVITY_OUT) --state-dir=$(PACKAGES_DIR)
 telekube: $(GRAVITY_BUILDDIR)/telekube.tar
 
+.PHONY: telekube-intermediate-upgrade
+telekube-intermediate-upgrade: GRAVITY=$(GRAVITY_OUT) --state-dir=$(PACKAGES_DIR)
+telekube-intermediate-upgrade: GRAVITY_INSTALLER_OPTIONS=--upgrade-via=$(GRAVITY_INTERMEDIATE_RELEASE)
+telekube-intermediate-upgrade: $(GRAVITY_BUILDDIR)/telekube.tar
+
 $(GRAVITY_BUILDDIR)/telekube.tar: packages
 	GRAVITY_K8S_VERSION=$(K8S_VER) $(GRAVITY_BUILDDIR)/tele build \
 		$(ASSETSDIR)/telekube/resources/app.yaml -f \
 		--version=$(TELEKUBE_APP_TAG) \
 		--state-dir=$(PACKAGES_DIR) \
 		--skip-version-check \
+		$(GRAVITY_INSTALLER_OPTIONS) \
 		-o $(GRAVITY_BUILDDIR)/telekube.tar
 
 #

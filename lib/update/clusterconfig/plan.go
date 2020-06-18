@@ -22,6 +22,7 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 	"github.com/gravitational/gravity/lib/update"
+	libbuilder "github.com/gravitational/gravity/lib/update/internal/builder"
 	"github.com/gravitational/gravity/lib/update/internal/rollingupdate"
 
 	"github.com/gravitational/trace"
@@ -83,16 +84,16 @@ func newOperationPlan(
 	if !shouldUpdateNodes {
 		updateServers = masters
 	}
-	config := *builder.Config("Update runtime configuration", updateServers)
-	updateMasters := *builder.Masters(
+	config := builder.Config("Update runtime configuration", updateServers)
+	updateMasters := builder.Masters(
 		masters,
 		"Update cluster configuration",
 		"Update configuration on node %q",
 	).Require(config)
-	phases := update.Phases{config, updateMasters}
+	phases := []*libbuilder.Phase{config, updateMasters}
 
 	if shouldUpdateNodes {
-		updateNodes := *builder.Nodes(
+		updateNodes := builder.Nodes(
 			nodes, masters[0].Server,
 			"Update cluster configuration",
 			"Update configuration on node %q",
@@ -100,18 +101,14 @@ func newOperationPlan(
 		phases = append(phases, updateNodes)
 	}
 
-	plan := &storage.OperationPlan{
+	return libbuilder.Resolve(phases, storage.OperationPlan{
 		OperationID:   operation.ID,
 		OperationType: operation.Type,
 		AccountID:     operation.AccountID,
 		ClusterName:   operation.SiteDomain,
-		Phases:        phases.AsPhases(),
 		Servers:       servers,
 		DNSConfig:     dnsConfig,
-	}
-	update.ResolvePlan(plan)
-
-	return plan, nil
+	}), nil
 }
 
 func shouldUpdateNodes(clusterConfig clusterconfig.Interface, numWorkerNodes int) bool {

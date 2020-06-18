@@ -28,12 +28,17 @@ import (
 )
 
 const (
-	// updateInit is the phase to initialize the update operation
+	// updateInit is the phase to initialize the update operation on a server
 	updateInit = "update_init"
+	// updateInitLeader is the phase to initialize the update operation on the lead master node
+	updateInitLeader = "update_init_leader"
 	// updateChecks is the phase to run preflight checks
 	updateChecks = "update_checks"
 	// updateBootstrap is the phase to bootstrap cluster update operation
 	updateBootstrap = "update_bootstrap"
+	// updateBootstrapLeader is the phase to bootstrap cluster update operation on the
+	// lead master node
+	updateBootstrapLeader = "update_bootstrap_leader"
 	// updateBootstrapSELinux is the phase to configure SELinux on nodes
 	updateBootstrapSELinux = "bootstrap_selinux"
 	// updateSystem is the phase to update system software on nodes
@@ -108,14 +113,22 @@ func fsmSpec(c Config) fsm.FSMSpecFunc {
 		}
 
 		switch p.Phase.Executor {
+		case updateInitLeader:
+			return libphase.NewUpdatePhaseInitLeader(p, c.Operator, c.Apps,
+				c.Backend, c.LocalBackend, c.ClusterPackages, c.HostLocalPackages, c.Users,
+				logger)
 		case updateInit:
-			return libphase.NewUpdatePhaseInit(p, c.Operator, c.Apps,
-				c.Backend, c.LocalBackend, c.ClusterPackages, c.Users,
-				c.Client, logger)
+			return libphase.NewUpdatePhaseInitServer(p, c.HostLocalPackages, p.Plan.ClusterName,
+				logger)
 		case updateChecks:
 			return libphase.NewUpdatePhaseChecks(p, c.Operator, c.Apps, c.Runner, logger)
 		case updateBootstrap:
-			return libphase.NewUpdatePhaseBootstrap(p, c.Operator,
+			return libphase.NewUpdatePhaseBootstrap(p, c.Operator, c.Apps,
+				c.Backend, c.LocalBackend, c.HostLocalBackend,
+				c.HostLocalPackages, c.ClusterPackages,
+				remote, logger)
+		case updateBootstrapLeader:
+			return libphase.NewUpdatePhaseBootstrapLeader(p, c.Operator, c.Apps,
 				c.Backend, c.LocalBackend, c.HostLocalBackend,
 				c.HostLocalPackages, c.ClusterPackages,
 				remote, logger)

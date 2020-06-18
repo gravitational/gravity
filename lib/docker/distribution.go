@@ -114,8 +114,9 @@ func alive(path string, handler http.Handler) http.Handler {
 			w.WriteHeader(http.StatusOK)
 			return
 		}
-
-		handler.ServeHTTP(w, r)
+		ctx, cancel := defaultContext()
+		defer cancel()
+		handler.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 
@@ -144,16 +145,16 @@ func defaultContext() (context.Context, context.CancelFunc) {
 }
 
 func newLogger() registrycontext.Logger {
-	logger := log.New()
-	logger.SetLevel(log.WarnLevel)
-	logger.SetHooks(make(log.LevelHooks))
+	logger := log.New().WithField("source", "local-docker-registry")
+	logger.Logger.SetLevel(log.WarnLevel)
+	logger.Logger.SetHooks(make(log.LevelHooks))
 	hook, err := sysloghook.NewSyslogHook("", "", syslog.LOG_WARNING, "")
 	if err != nil {
-		logger.Out = os.Stderr
+		logger.Logger.Out = os.Stderr
 	} else {
-		logger.AddHook(hook)
-		logger.Out = ioutil.Discard
+		logger.Logger.AddHook(hook)
+		logger.Logger.Out = ioutil.Discard
 	}
 	// distribution expects an instance of log.Entry
-	return logger.WithField("source", "local-docker-registry")
+	return logger
 }
