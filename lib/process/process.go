@@ -1262,8 +1262,7 @@ func (p *Process) initService(ctx context.Context) (err error) {
 		readBackend, err := keyval.NewBolt(keyval.BoltConfig{
 			Path:     filepath.Join(p.cfg.Pack.ReadDir, defaults.GravityDBFile),
 			Readonly: true,
-			// FIXME: check 6.3.x
-			// Multi:    true,
+			Multi:    true,
 		})
 		if err != nil {
 			return trace.Wrap(err)
