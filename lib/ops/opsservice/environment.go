@@ -151,7 +151,7 @@ func (s *site) createUpdateEnvarsOperation(req ops.CreateUpdateEnvarsOperationRe
 			Env:     req.Env,
 		},
 	}
-	key, err := s.getOperationGroup().createSiteOperation(op, false)
+	key, err := s.getOperationGroup().createSiteOperation(op)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

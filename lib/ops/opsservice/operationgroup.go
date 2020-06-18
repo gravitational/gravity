@@ -63,11 +63,19 @@ func (s swap) Check() error {
 }
 
 // createSiteOperation creates the provided operation if the checks allow it to be created
-func (g *operationGroup) createSiteOperation(operation ops.SiteOperation, force bool) (*ops.SiteOperationKey, error) {
+func (g *operationGroup) createSiteOperation(operation ops.SiteOperation) (*ops.SiteOperationKey, error) {
+	return g.createSiteOperationWithOptions(operation, createOperationOptions{})
+}
+
+type createOperationOptions struct {
+	force bool
+}
+
+func (g *operationGroup) createSiteOperationWithOptions(operation ops.SiteOperation, options createOperationOptions) (*ops.SiteOperationKey, error) {
 	g.Lock()
 	defer g.Unlock()
 
-	err := g.canCreateOperation(operation, force)
+	err := g.canCreateOperation(operation, options.force)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -144,7 +152,7 @@ func (g *operationGroup) canCreateUpgradeOperation(cluster ops.Site, operation o
 	if cluster.State != ops.SiteStateActive {
 		return trace.CompareFailed(
 			`Upgrade operation can only be triggered for active clusters. This cluster is currently %v.
-Use gravity status to see the cluster status and make sure that the cluster is active and healthy before retrying.`, cluster.State)
+Use "gravity status" to see the cluster status and make sure that the cluster is active and healthy before retrying.`, cluster.State)
 	}
 	// Even if the cluster is active, run a few checks on the last upgrade
 	// operation to make sure it was completed/rolled back properly, to
@@ -173,9 +181,9 @@ func (g *operationGroup) checkLastOperation(operation ops.SiteOperation) error {
 	if !operation.IsFinished() {
 		return trace.CompareFailed(
 			`The last %v operation (%v) is still in progress.
-Use gravity plan to view the operation plan, and either resume or rollback it before attempting to start another operation.
+Use "gravity plan" to view the operation plan, and either resume or rollback it before attempting to start another operation.
 You can provide --force flag to override this check.`,
-			operation.Type,
+			operation.TypeString(),
 			operation.ID)
 	}
 	// Last upgrade completed fine.
@@ -194,9 +202,9 @@ You can provide --force flag to override this check.`,
 	if !fsm.IsRolledBack(plan) {
 		return trace.CompareFailed(
 			`The last %v operation (%v) is in a %v state but its operation plan isn't fully rolled back.
-Use gravity plan to view the operation plan, and either resume or rollback it before attempting to start another operation.
+Use "gravity plan" to view the operation plan, and either resume it or roll it back before attempting to start another operation.
 You can provide --force flag to override this check.`,
-			operation.Type,
+			operation.TypeString(),
 			operation.ID,
 			operation.State)
 	}

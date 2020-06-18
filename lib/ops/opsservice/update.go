@@ -372,7 +372,8 @@ func (s *site) createUpdateOperation(req ops.CreateSiteAppUpdateOperationRequest
 	}
 	defer ctx.Close()
 
-	key, err := s.getOperationGroup().createSiteOperation(op, req.Force)
+	key, err := s.getOperationGroup().createSiteOperationWithOptions(op,
+		createOperationOptions{req.Force})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

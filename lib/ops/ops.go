@@ -1235,7 +1235,7 @@ type CreateSiteAppUpdateOperationRequest struct {
 	App string `json:"package"`
 	// StartAgents specifies whether the operation will automatically start the update agents
 	StartAgents bool `json:"start_agents"`
-	// Force allows to override certain prechecks
+	// Force allows to override the otherwise failed preconditions
 	Force bool `json:"force"`
 }
 
