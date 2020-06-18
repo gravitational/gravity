@@ -14,8 +14,8 @@ Gravity officially supports the following Linux distributions:
 | Debian                   | 8-9              | `overlay`, `overlay2`                 |
 | Ubuntu                   | 16.04, 18.04     | `overlay`, `overlay2`                 |
 | Ubuntu-Core              | 16.04            | `overlay`, `overlay2`                 |
-| openSuse                 | 12 SP2 - 12 SP3  | `overlay`, `overlay2`                 |
-| Suse Linux Enterprise    | 12 SP2 - 12 SP3  | `overlay`, `overlay2`                 |
+| openSuse                 | 12-SP2 to 12-SP5 | `overlay`, `overlay2`                 |
+| Suse Linux Enterprise    | 12-SP2 to 12-SP5 | `overlay`, `overlay2`                 |
 | Amazon Linux             | 2                | `overlay`, `overlay2`                 |
 
 ### Identifying OS Distributions In Manifest
@@ -36,11 +36,11 @@ specified in the manifest:
 | Debian                   | debian                     | 8-9              |
 | Ubuntu                   | ubuntu                     | 16.04, 18.04     |
 | Ubuntu-Core              | ubuntu                     | 16.04            |
-| openSuse                 | suse, opensuse, opensuse-* | 12-SP2, 12-SP3   |
-| Suse Linux Enterprise    | sles, sles_sap             | 12-SP2, 12-SP3   |
+| openSuse                 | suse, opensuse, opensuse-* | 12-SP2 to 12-SP5 |
+| Suse Linux Enterprise    | sles, sles_sap             | 12-SP2 to 12-SP5 |
 | Amazon Linux             | amz                        | 2                |
 
-For example, to specify openSUSE as a dependency and support both services packs:
+For example, to specify openSUSE as a dependency and support all services packs:
 
 ```yaml
 nodeProfiles:
@@ -48,10 +48,10 @@ nodeProfiles:
    requirements:
      os:
       - name: suse # openSUSE
-        versions: ["12-SP2", "12-SP3"]
+        versions: ["12-SP2", "12-SP3", "12-SP4", "12-SP5"]
      os:
       - name: opensuse-tumbleweed # specific openSUSE distribution
-        versions: ["12-SP2", "12-SP3"]
+        versions: ["12-SP2", "12-SP3", "12-SP4", "12-SP5"]
 ```
 
 !!! note
@@ -108,7 +108,7 @@ By default Gravity clusters are configured to use the following network subnets:
 | 10.244.0.0/16   | Pod IPv4 addresses        |
 | 10.100.0.0/16   | Services IPv4 addresses   |
 
-Both subnets are customizable via installer flags as explained in the [Installation guide](https://gravitational.com/gravity/docs/installation/)
+Both subnets are customizable via installer flags as explained in the [Installation guide](installation.md)
 
 ### Cluster Ports
 
@@ -258,7 +258,7 @@ Gravity requires that these modules are loaded prior to installation.
 | Debian | 8-9 | br_netfilter, ebtable_filter, iptables, overlay |
 | Ubuntu | 16.04 | br_netfilter, ebtable_filter, iptables, overlay |
 | Ubuntu-Core | 16.04 | br_netfilter, ebtable_filter, iptables, overlay |
-| Suse Linux (openSUSE and Enterprise) | 12 SP2, 12 SP3 | br_netfilter, ebtable_filter, iptables, overlay |
+| Suse Linux (openSUSE and Enterprise) | 12-SP2 to 12-SP5 | br_netfilter, ebtable_filter, iptables, overlay |
 
 ### Inotify watches
 

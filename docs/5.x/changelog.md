@@ -1666,7 +1666,7 @@ transient error
 #### Improvements
 
 * Add support for `uid`, `gid` and `mode` properties in application manifest `Volume`
-  [section](http://gravitational.com/docs/pack/#application-manifest)
+  [section](pack.md#application-manifest)
 
 ### 4.29.0
 

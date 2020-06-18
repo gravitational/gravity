@@ -56,7 +56,7 @@ data:
 ```
 
 Dashboard ConfigMap may contain multiple keys with dashboards and key names are not relevant. The monitoring
-application source on GitHub has an [example](https://github.com/gravitational/monitoring-app/blob/master/resources/resources.yaml#L413)
+application source on GitHub has an [example](https://github.com/gravitational/monitoring-app/blob/3.0.0/resources/resources.yaml#L194-L404)
 of a dashboard ConfigMap.
 
 Since the embedded Grafana runs in read-only mode, a separate Grafana instance is required to

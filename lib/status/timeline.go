@@ -27,7 +27,6 @@ import (
 	"github.com/fatih/color"
 	pb "github.com/gravitational/satellite/agent/proto/agentpb"
 	"github.com/gravitational/trace"
-	log "github.com/sirupsen/logrus"
 )
 
 // Timeline queries the currently stored cluster timeline.
