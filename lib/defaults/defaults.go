@@ -854,8 +854,6 @@ const (
 
 	// EtcdLocalAddr is the local etcd address
 	EtcdLocalAddr = "https://127.0.0.1:2379"
-	// EtcdLocalMetricsAddr is address where etcd metrics are exposed
-	EtcdLocalMetricsAddr = "https://127.0.0.1:4001"
 	// EtcdKey is the key under which gravity data is stored in etcd
 	EtcdKey = "/gravity/local"
 	// EtcdKeyFilename is the etcd private key filename
