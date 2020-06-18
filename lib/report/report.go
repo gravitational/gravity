@@ -105,7 +105,7 @@ type Config struct {
 	// diagnostics collector
 	Packages pack.PackageService
 	// Since specifies the start of the time filter. A value of 1h will report
-	// log entries starting from one ago up till the end of the time filter.
+	// log entries starting from one hour ago up till the end of the time filter.
 	Since time.Duration
 }
 
