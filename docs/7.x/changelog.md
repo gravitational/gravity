@@ -4,9 +4,9 @@
 
 | Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
 | --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 7.0.7         | No  | June 9th, 2020       | 7.1 is released      | 1.17.6             | 3.2.13           |
-| 6.1.28        | Yes | June 1st, 2020       | November 10th, 2021  | 1.15.12            | 3.2.12           |
-| 5.5.47        | Yes | May 29th, 2020       | March 7th, 2021      | 1.13.11            | 3.0.6-gravity    |
+| 7.0.9         | No  | June 16th, 2020      | 7.1 is released      | 1.17.6             | 3.2.13           |
+| 6.1.29        | Yes | June 12th, 2020      | November 10th, 2021  | 1.15.12            | 3.2.12           |
+| 5.5.48        | Yes | June 15th, 2020      | March 7th, 2021      | 1.13.11            | 3.0.6-gravity    |
 
 Gravity offers one Long Term Support (LTS) release for every 2nd Kubernetes
 minor version, allowing for seamless upgrades per Kubernetes
@@ -32,7 +32,7 @@ extend updates past EOL through customer agreements if required.
 | 5.6.8         | No  | September 18th, 2019 | July 17th, 2019      | 1.14.7             | 3.0.6-gravity    |
 | 5.4.10        | No  | March 26th, 2019     | March 8th, 2019      | 1.13.5             | 2.4.10           |
 | 5.3.9         | No  | March 7th, 2019      | December 14, 2018    | 1.12.3             | 2.4.7            |
-| 5.2.16        | Yes | October 11th, 2019   | October 15th, 2019   | 1.11.9             | 2.4.10           |
+| 5.2.17        | Yes | June 11th, 2020      | October 15th, 2019   | 1.11.9             | 2.4.10           |
 | 5.0.36        | Yes | June 8th, 2020       | April 13th, 2019     | 1.9.13-gravitational | 2.4.10         |
 | 4.68.0        | Yes | January 17th, 2019   | November 16th, 2018  | 1.7.18-gravitational | 2.3.5          |
 | 3.64.0        | Yes | December 21st, 2017  | June 2nd, 2018       | 1.5.7              | 2.0.6            |
@@ -41,6 +41,24 @@ extend updates past EOL through customer agreements if required.
 # Release Notes
 
 ## 7.x Releases
+
+### 7.0.9 (June 16th, 2020)
+
+#### Improvements
+
+* Add backoff after new cluster image upload to make sure cluster is healthy ([#1711](https://github.com/gravitational/gravity/pull/1711)).
+* Set apiserver flags to enable service account token volume projection ([#1715](https://github.com/gravitational/gravity/pull/1715), [planet#683](https://github.com/gravitational/planet/pull/683)).
+
+### 7.0.8 (June 15th, 2020)
+
+#### Improvements
+
+* Implement a better default kube-apiserver audit policy ([#1693](https://github.com/gravitational/gravity/pull/1693), [planet#676](https://github.com/gravitational/planet/pull/676)).
+* Disk space check will now trigger a warning on soft limit (80%) and degrade the node on hard limit (90%) ([#1693](https://github.com/gravitational/gravity/pull/1693), [planet#680](https://github.com/gravitational/planet/pull/680), [#229](https://github.com/gravitational/satellite/pull/229)).
+
+#### Bugfixes
+
+* Fix empty data on some default Grafana dashboards ([#1675](https://github.com/gravitational/gravity/pull/1675), [#171](https://github.com/gravitational/monitoring-app/pull/171)).
 
 ### 7.0.7 (June 9th, 2020)
 
@@ -158,13 +176,13 @@ Please see [Announcing Gravity 7.0](https://gravitational.com/blog/announcing-gr
 blog post for more details and refer to the following resources to find information
 about the major new features:
 
-* [Application Catalog](https://gravitational.com/gravity/docs/catalog/) documentation
+* [Application Catalog](catalog.md) documentation
 and a [blog post](https://gravitational.com/blog/deploying-applications-to-a-kubernetes-cluster-to-which-you-dont-have-access/)
 to learn how to package Helm charts into self-contained application images and deliver
 them to any Kubernetes cluster.
-* [Persistent Storage](https://gravitational.com/gravity/docs/storage/) to learn how to take advantage of the built-in OpenEBS integration.
-* [SELinux](https://gravitational.com/gravity/docs/selinux/) to learn about installing on systems with SELinux enabled.
-* [Cluster Status History](https://gravitational.com/gravity/docs/cluster/#cluster-status-history)
+* [Persistent Storage](storage.md) to learn how to take advantage of the built-in OpenEBS integration.
+* [SELinux](selinux.md) to learn about installing on systems with SELinux enabled.
+* [Cluster Status History](cluster.md#cluster-status-history)
 to learn how to gain insight into how the cluster status changes over time.
 
 ## 6.x Releases
@@ -186,7 +204,14 @@ to learn how to gain insight into how the cluster status changes over time.
     This release fixes a security vulnerability in CNI. Please see
     [Kubernetes Announcement](https://groups.google.com/forum/#!topic/kubernetes-announce/wGuDMGdnW9M) for more information.
 
-### 6.1.28 (June 1st, 2020)
+### 6.1.29 LTS (June 12th, 2020)
+
+#### Bugfixes
+
+* Fix an issue with upgrading from releases containing etcd `v3.3.20` ([#1694](https://github.com/gravitational/gravity/pull/1694), [#679](https://github.com/gravitational/planet/pull/679)).
+* Fix an issue with nethealth checker not removing metrics for removed nodes ([#1621](https://github.com/gravitational/gravity/pull/1621), [#638](https://github.com/gravitational/planet/pull/638), [monitoring-app#167](https://github.com/gravitational/monitoring-app/pull/167)).
+
+### 6.1.28 LTS (June 1st, 2020)
 
 #### Improvements
 
@@ -953,6 +978,22 @@ to learn how to gain insight into how the cluster status changes over time.
 
 ## 5.x Releases
 
+### 5.5.48 LTS (June 15th, 2020)
+
+#### Improvements
+
+* Disk space check will now trigger a warning on soft limit (80%) and degrade the node on hard limit (90%) ([#1664](https://github.com/gravitational/gravity/pull/1664), [planet#672](https://github.com/gravitational/planet/pull/672), [satellite#225](https://github.com/gravitational/satellite/pull/225)).
+* Add ability to update Docker device using `--docker-device` flag when upgrading from older Gravity version ([#1680](https://github.com/gravitational/gravity/pull/1680)).
+* Add backoff after new cluster image upload to make sure cluster is healthy ([#1687](https://github.com/gravitational/gravity/pull/1687)).
+* Move Grafana dashboards from config maps into container to avoid issues with large requests ([#1685](https://github.com/gravitational/gravity/pull/1685), [monitoring-app#173](https://github.com/gravitational/monitoring-app/pull/173)).
+
+#### Bugfixes
+
+* Update time drift, network health and ping checkers to not report failures during cluster modifications ([#1660](https://github.com/gravitational/gravity/pull/1660), [planet#652](https://github.com/gravitational/planet/pull/652), [satellite#214](https://github.com/gravitational/satellite/pull/214)).
+* Fix an issue with calculating port differences when upgrading to a new version ([#1656](https://github.com/gravitational/gravity/pull/1656)).
+* Fix an issue with not being able to determine Teleport node configuration package when upgrading from older versions ([#1677](https://github.com/gravitational/gravity/pull/1677)).
+* Fix an issue with old Teleport service not being uninstalled properly when upgrading from 5.0 to 5.5 ([#1683](https://github.com/gravitational/gravity/pull/1683)).
+
 ### 5.5.47 LTS (May 29th, 2020)
 
 #### Improvements
@@ -1069,7 +1110,7 @@ to learn how to gain insight into how the cluster status changes over time.
 
 #### Improvements
 
-* Add ability to view [cluster status history](https://gravitational.com/gravity/docs/cluster/#cluster-status-history) using `gravity status history` command. ([#1116](https://github.com/gravitational/gravity/pull/1116))
+* Add ability to view [cluster status history](cluster.md#cluster-status-history) using `gravity status history` command. ([#1116](https://github.com/gravitational/gravity/pull/1116))
 * Add RHEL 8 to the list of supported distros. ([#1144](https://github.com/gravitational/gravity/pull/1144))
 * Add client/server version information to `gravity status`. ([#1164](https://github.com/gravitational/gravity/pull/1164))
 * Make upgrade agents deployment more tolerant to networking issues. ([#1174](https://github.com/gravitational/gravity/pull/1174))
@@ -1179,6 +1220,11 @@ to learn how to gain insight into how the cluster status changes over time.
 
 * Add ability to override peer connect timeout when joining a cluster ([#777](https://github.com/gravitational/gravity/pull/777)).
 
+### 5.2.17 LTS (June 11th, 2020)
+
+#### Improvements
+
+* Increase disk check high watermark to 90% ([#1679](https://github.com/gravitational/gravity/pull/1679), [planet#675](https://github.com/gravitational/planet/pull/675)).
 
 ### 5.2.16 LTS (October 11th, 2019)
 
@@ -2911,7 +2957,7 @@ transient error
 #### Improvements
 
 * Add support for `uid`, `gid` and `mode` properties in application manifest `Volume`
-  [section](http://gravitational.com/docsconfig.md#application-manifest)
+  [section](pack.md#image-manifest)
 
 ### 4.29.0
 
@@ -2950,7 +2996,6 @@ transient error
 #### Improvements
 
 * New `tele create` command creates clusters via the OpsCenter.
-  See [Creating Remote Clusters](https://gravitational.com/gravity/docs/ver/4.x/manage/#creating-telekube-clusters) for details.
 
 ### 4.20.0
 
@@ -3278,8 +3323,8 @@ It contains a number of improvements and bugfixes.
 #### Features
 
 * Add ability to specify pod/service network CIDR range via UI and CLI
-* Add AWS IAM policy to the [docs](https://gravitational.com/gravity/docs/ver/5.x/config#aws-iam-policy)
-* Add runbook to recover the cluster after node failure [docs](https://gravitational.com/gravity/docs/ver/5.xcluster.md#recovering-a-node)
+* Add AWS IAM policy to the [docs](requirements.md#aws-iam-policy)
+* Add runbook to recover the cluster after node failure [docs](cluster.md#recovering-a-node)
 
 ### 3.36.0
 

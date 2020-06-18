@@ -582,7 +582,7 @@ and instead of re-executing the command, uses cached value instead. This helps t
 
 Docker images are composed of layers:
 
-![images](https://docs.docker.com/engine/userguide/storagedriver/images/image-layers.jpg)
+![images](https://docs.docker.com/storage/storagedriver/images/sharing-layers.jpg)
 
 Every layer is the result of execution of a command in the Dockerfile.
 
@@ -810,7 +810,7 @@ $ curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.12.2/min
 ```
 
 Also, you can install drivers for various VM providers to optimize your minikube VM performance.
-Instructions can be found here: https://github.com/kubernetes/minikube/blob/master/DRIVERS.md.
+Instructions can be found here: https://github.com/kubernetes/minikube/blob/v0.18.0/DRIVERS.md.
 
 To run a cluster:
 
@@ -1930,7 +1930,7 @@ For Linux:
         && chmod +x minikube && sudo mv minikube /usr/local/bin/
 
 Also, you can install drivers for various VM providers to optimize your minikube VM performance.
-Instructions can be found here: https://github.com/kubernetes/minikube/blob/master/DRIVERS.md.
+Instructions can be found here: https://github.com/kubernetes/minikube/blob/v0.18.0/DRIVERS.md.
 
 To run a cluster:
 

@@ -59,9 +59,18 @@ func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, o
 		},
 	}
 
+	status.Agent, err = FromPlanetAgent(ctx, cluster.ClusterState.Servers)
+	if err != nil {
+		logrus.WithError(err).Warn("Failed to collect system status from agents.")
+	}
+
+	if err := updateClusterNodes(cluster.Key(), operator, status); err != nil {
+		logrus.WithError(err).Warn("Failed to query cluster nodes.")
+	}
+
 	token, err := operator.GetExpandToken(cluster.Key())
 	if err != nil && !trace.IsNotFound(err) {
-		return status, trace.Wrap(err)
+		logrus.WithError(err).Warn("Failed to fetch expand token.")
 	}
 	if token != nil {
 		status.Token = *token
@@ -69,13 +78,13 @@ func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, o
 
 	status.Cluster.ServerVersion, err = operator.GetVersion(ctx)
 	if err != nil {
-		logrus.WithError(err).Warn("Failed to query server version information.")
+		log.WithError(err).Warn("Failed to query server version information.")
 	}
 
 	// Collect application endpoints.
 	appEndpoints, err := operator.GetApplicationEndpoints(cluster.Key())
 	if err != nil {
-		logrus.WithError(err).Warn("Failed to fetch application endpoints.")
+		log.WithError(err).Warn("Failed to fetch application endpoints.")
 		status.Endpoints.Applications.Error = err
 	}
 	if len(appEndpoints) != 0 {
@@ -91,7 +100,7 @@ func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, o
 	// Fetch cluster endpoints.
 	clusterEndpoints, err := ops.GetClusterEndpoints(operator, cluster.Key())
 	if err != nil {
-		logrus.WithError(err).Warn("Failed to fetch cluster endpoints.")
+		log.WithError(err).Warn("Failed to fetch cluster endpoints.")
 	}
 	if clusterEndpoints != nil {
 		status.Endpoints.Cluster.AuthGateway = clusterEndpoints.AuthGateways()
@@ -99,68 +108,28 @@ func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, o
 	}
 
 	// FIXME: have status extension accept the operator/environment
-	err = status.Cluster.Extension.Collect()
-	if err != nil {
-		return status, trace.Wrap(err)
+	if err := status.Cluster.Extension.Collect(); err != nil {
+		logrus.WithError(err).Warn("Failed to query extension metadata.")
 	}
 
-	activeOperations, err := ops.GetActiveOperations(cluster.Key(), operator)
-	if err != nil && !trace.IsNotFound(err) {
-		return status, trace.Wrap(err)
-	}
-	for _, op := range activeOperations {
-		progress, err := operator.GetSiteOperationProgress(op.Key())
-		if err != nil {
-			return status, trace.Wrap(err)
-		}
-		operation, err := fromOperationAndProgress(op, *progress)
-		if err != nil {
-			return status, trace.Wrap(err)
-		}
-		status.ActiveOperations = append(status.ActiveOperations, operation)
+	if err := collectActiveOperations(cluster.Key(), operator, status); err != nil {
+		logrus.WithError(err).Warn("Failed to query active operations.")
 	}
 
-	var operation *ops.SiteOperation
-	var progress *ops.ProgressEntry
-	// if operation ID is provided, get info for that operation, otherwise
-	// get info for the most recent operation
-	if operationID != "" {
-		operation, progress, err = ops.GetOperationWithProgress(
-			cluster.OperationKey(operationID), operator)
-	} else {
-		operation, progress, err = ops.GetLastCompletedOperation(
-			cluster.Key(), operator)
-	}
-	if err != nil {
-		return status, trace.Wrap(err)
-	}
-	status.Operation, err = fromOperationAndProgress(*operation, *progress)
-	if err != nil {
-		return status, trace.Wrap(err)
-	}
-
-	status.Agent, err = FromPlanetAgent(ctx, cluster.ClusterState.Servers)
-	if err != nil {
-		return status, trace.Wrap(err, "failed to collect system status from agents")
-	}
-
-	// Collect registered Teleport nodes.
-	teleportNodes, err := operator.GetClusterNodes(cluster.Key())
-	if err != nil {
-		return status, trace.Wrap(err, "failed to query teleport nodes")
-	}
-	for i, server := range status.Agent.Nodes {
-		status.Agent.Nodes[i].TeleportNode = ops.Nodes(teleportNodes).FindByIP(server.AdvertiseIP)
+	if err := fetchOperationByID(cluster.Key(), operationID, operator, status); err != nil {
+		logrus.WithError(err).WithField("operation-id", operationID).Warn("Failed to query operation.")
 	}
 
 	status.State = cluster.State
+	if status.IsDegraded() {
+		status.State = ops.SiteStateDegraded
+	}
 
 	// Collect information from alertmanager
 	status.Alerts, err = FromAlertManager(ctx, cluster)
 	if err != nil {
-		logrus.WithError(err).Warn("Failed to collect alerts from Alertmanager.")
+		log.WithError(err).Warn("Failed to collect alerts from Alertmanager.")
 	}
-
 	return status, nil
 }
 
@@ -172,25 +141,6 @@ func FromPlanetAgent(ctx context.Context, servers []storage.Server) (*Agent, err
 // FromLocalPlanetAgent collects the node status from the local planet agent
 func FromLocalPlanetAgent(ctx context.Context) (*Agent, error) {
 	return fromPlanetAgent(ctx, true, nil)
-}
-
-func fromPlanetAgent(ctx context.Context, local bool, servers []storage.Server) (*Agent, error) {
-	status, err := planetAgentStatus(ctx, local)
-	if err != nil {
-		return nil, trace.Wrap(err, "failed to query cluster status from agent")
-	}
-
-	var nodes []ClusterServer
-	if len(servers) != 0 {
-		nodes = fromClusterState(*status, servers)
-	} else {
-		nodes = fromSystemStatus(*status)
-	}
-
-	return &Agent{
-		SystemStatus: SystemStatus(status.Status),
-		Nodes:        nodes,
-	}, nil
 }
 
 // WaitForAgent blocks until able to retrieve status from planet-agent on local node (ignoring the result)
@@ -235,6 +185,23 @@ func (r Status) IsDegraded() bool {
 		r.Cluster.State == ops.SiteStateDegraded ||
 		r.Agent == nil ||
 		r.Agent.GetSystemStatus() != pb.SystemStatus_Running)
+}
+
+// String returns the status string representation.
+func (r Status) String() string {
+	var cluster string
+	if r.Cluster != nil {
+		cluster = fmt.Sprintf("Cluster(%v)", *r.Cluster)
+	} else {
+		cluster = "Cluster(nil)"
+	}
+	var agent string
+	if r.Agent != nil {
+		agent = fmt.Sprintf("Agent(%v)", *r.Agent)
+	} else {
+		agent = "Agent(nil)"
+	}
+	return fmt.Sprintf("Status(%v, %v)", cluster, agent)
 }
 
 // Status describes the status of the cluster as a whole
@@ -346,15 +313,6 @@ func (e ApplicationsEndpoints) WriteTo(w io.Writer) (n int64, err error) {
 	return n, trace.NewAggregate(errors...)
 }
 
-func fprintf(n *int64, w io.Writer, format string, a ...interface{}) error {
-	written, err := fmt.Fprintf(w, format, a...)
-	if err != nil {
-		return trace.ConvertSystemError(err)
-	}
-	*n += int64(written)
-	return nil
-}
-
 // Key returns key structure that identifies this operation
 func (r ClusterOperation) Key() ops.SiteOperationKey {
 	return ops.SiteOperationKey{
@@ -436,6 +394,137 @@ type ClusterServer struct {
 
 func (r ClusterOperation) isFailed() bool {
 	return r.State == ops.OperationStateFailed
+}
+
+// String returns a textual representation of this system status
+func (r SystemStatus) String() string {
+	switch pb.SystemStatus_Type(r) {
+	case pb.SystemStatus_Running:
+		return "running"
+	case pb.SystemStatus_Degraded:
+		return "degraded"
+	case pb.SystemStatus_Unknown:
+		return "unknown"
+	default:
+		return "unknown"
+	}
+}
+
+// GoString returns a textual representation of this system status
+func (r SystemStatus) GoString() string {
+	return r.String()
+}
+
+// SystemStatus is an alias for system status type
+type SystemStatus pb.SystemStatus_Type
+
+const (
+	// NodeHealthy is the status of a healthy node
+	NodeHealthy = "healthy"
+	// NodeOffline is the status of an unreachable/unavailable node
+	NodeOffline = "offline"
+	// NodeDegraged is the status of a node with failed probes
+	NodeDegraded = "degraded"
+
+	// publicIPAddrTag is the name of the tag containing node IP
+	publicIPAddrTag = "publicip"
+	// roleTag is the name of the tag containing node role
+	roleTag = "role"
+)
+
+func collectActiveOperations(clusterKey ops.SiteKey, operator ops.Operator, status *Status) error {
+	activeOperations, err := ops.GetActiveOperations(clusterKey, operator)
+	if err != nil && !trace.IsNotFound(err) {
+		return trace.Wrap(err, "failed to query active operations")
+	}
+	for _, op := range activeOperations {
+		progress, err := operator.GetSiteOperationProgress(op.Key())
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		operation, err := fromOperationAndProgress(op, *progress)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		status.ActiveOperations = append(status.ActiveOperations, operation)
+	}
+	return nil
+}
+
+func fetchOperationByID(clusterKey ops.SiteKey, operationID string, operator ops.Operator, status *Status) error {
+	var (
+		operation *ops.SiteOperation
+		progress  *ops.ProgressEntry
+		err       error
+	)
+	// if operation ID is provided, get info for that operation, otherwise
+	// get info for the most recent operation
+	if operationID != "" {
+		opKey := ops.SiteOperationKey{
+			AccountID:   clusterKey.AccountID,
+			SiteDomain:  clusterKey.SiteDomain,
+			OperationID: operationID,
+		}
+		operation, progress, err = ops.GetOperationWithProgress(opKey, operator)
+	} else {
+		operation, progress, err = ops.GetLastCompletedOperation(clusterKey, operator)
+	}
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	status.Operation, err = fromOperationAndProgress(*operation, *progress)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+func updateClusterNodes(clusterKey ops.SiteKey, operator ops.Operator, status *Status) error {
+	// Collect registered Teleport nodes.
+	teleportNodes, err := operator.GetClusterNodes(clusterKey)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if status.Agent != nil {
+		for i, server := range status.Agent.Nodes {
+			status.Agent.Nodes[i].TeleportNode = ops.Nodes(teleportNodes).FindByIP(server.AdvertiseIP)
+		}
+		return nil
+	}
+	status.Agent = &Agent{
+		Nodes: make([]ClusterServer, 0, len(teleportNodes)),
+	}
+	// Recreate server state from teleport node metadata
+	for i, server := range teleportNodes {
+		status.Agent.Nodes = append(status.Agent.Nodes, ClusterServer{
+			Status:       NodeOffline,
+			Hostname:     server.Hostname,
+			AdvertiseIP:  server.AdvertiseIP,
+			Role:         server.Role,
+			Profile:      server.Profile,
+			TeleportNode: &teleportNodes[i],
+		})
+	}
+	return nil
+}
+
+func fromPlanetAgent(ctx context.Context, local bool, servers []storage.Server) (*Agent, error) {
+	status, err := planetAgentStatus(ctx, local)
+	if err != nil {
+		return nil, trace.Wrap(err, "failed to query cluster status from agent")
+	}
+
+	var nodes []ClusterServer
+	if len(servers) != 0 {
+		nodes = fromClusterState(*status, servers)
+	} else {
+		nodes = fromSystemStatus(*status)
+	}
+
+	return &Agent{
+		SystemStatus: SystemStatus(status.Status),
+		Nodes:        nodes,
+	}, nil
 }
 
 func fromOperationAndProgress(operation ops.SiteOperation, progress ops.ProgressEntry) (*ClusterOperation, error) {
@@ -578,7 +667,7 @@ func probeErrorDetail(p pb.Probe) string {
 		if err == nil {
 			return detail
 		}
-		logrus.Warnf(trace.DebugReport(err))
+		log.WithError(err).Warn("Failed to compose disk space probe error.")
 	}
 	detail := p.Detail
 	if p.Detail == "" {
@@ -618,38 +707,11 @@ func diskSpaceProbeErrorDetail(p pb.Probe) (string, error) {
 	return data.FailureMessage(), nil
 }
 
-// String returns a textual representation of this system status
-func (r SystemStatus) String() string {
-	switch pb.SystemStatus_Type(r) {
-	case pb.SystemStatus_Running:
-		return "running"
-	case pb.SystemStatus_Degraded:
-		return "degraded"
-	case pb.SystemStatus_Unknown:
-		return "unknown"
-	default:
-		return "unknown"
+func fprintf(n *int64, w io.Writer, format string, a ...interface{}) error {
+	written, err := fmt.Fprintf(w, format, a...)
+	if err != nil {
+		return trace.ConvertSystemError(err)
 	}
+	*n += int64(written)
+	return nil
 }
-
-// GoString returns a textual representation of this system status
-func (r SystemStatus) GoString() string {
-	return r.String()
-}
-
-// SystemStatus is an alias for system status type
-type SystemStatus pb.SystemStatus_Type
-
-const (
-	// NodeHealthy is the status of a healthy node
-	NodeHealthy = "healthy"
-	// NodeOffline is the status of an unreachable/unavailable node
-	NodeOffline = "offline"
-	// NodeDegraged is the status of a node with failed probes
-	NodeDegraded = "degraded"
-
-	// publicIPAddrTag is the name of the tag containing node IP
-	publicIPAddrTag = "publicip"
-	// roleTag is the name of the tag containing node role
-	roleTag = "role"
-)

@@ -300,7 +300,7 @@ Cluster endpoints:
 ```
 Navigate to `http://<node ip>:30080` to access the application.
 
-**Note** that this is a single node deployment example.  You have the option of [joining](https://gravitational.com/gravity/docs/cluster/#adding-a-node) or installing with a different flavor.  The default flavor for this Cluster Manifest is small (1 node).  Other flavors include medium (3 nodes) and large (5 nodes).
+**Note** that this is a single node deployment example.  You have the option of [joining](cluster.md#adding-a-node) or installing with a different flavor.  The default flavor for this Cluster Manifest is small (1 node).  Other flavors include medium (3 nodes) and large (5 nodes).
 ```
 #Ex:
 

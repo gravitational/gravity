@@ -28,7 +28,7 @@ You can optionally use Helm charts for your application(s).
 ## Getting the Tools
 
 Any Linux machine can be used to package a Kubernetes applications into a Cluster
-Image. To get started, you need to [download Gravity](https://gravitational.com/gravity/download/releases/).
+Image. To get started, you need to [download Gravity](https://gravitational.com/gravity/download/).
 
 !!! tip "Gravity Versions"
     For new users who are just exploring Gravity, we recommend the latest "pre-release" build. Make sure to select "Show pre-releases" selector. Production users must use the latest stable release.
@@ -53,15 +53,16 @@ After an Image Manifest is created, execute the `tele build` command to build
 a Cluster Image.
 
 ```bsh
-tele build [options] [cluster-manifest.yaml]
+tele build [options] [app.yaml]
 
 Options:
   -o           The name of the produced tarball, for example "-o cluster-image.tar".
                By default the name of the current directory will be used.
-  --state-dir  Hello
+  --state-dir  The build cache directory to speed up subsequent builds. Defaults to ~/.gravity.
+
 ```
 
-The `build` command will read the `manifest.yaml` file and will make sure that
+The `build` command will read the `app.yaml` file and will make sure that
 all of the dependencies are available locally on the build machine. If the
 dependencies are not available locally, it will download them from the external
 sources.
@@ -183,7 +184,7 @@ spec:
 ## Image Manifest
 
 The Image Manifest is a YAML file that is passed as an input to `tele build`
-command.
+command.  Image Manifest files are required to be named `app.yaml`.
 
 The manifest concept was partially inspired by Dockerfiles and one can think of
 Image Manifest as a "dockerfile" for an entire Kubernetes Cluster, and the
@@ -272,7 +273,7 @@ metadata:
 # The base image to use. To see the list of available base images, execute:
 # $ tele ls --all
 # If not specified, the latest version of Kubernetes will be used.
-baseImage: "gravity:6.0.0"
+baseImage: "gravity:7.0.8"
 
 # Release notes is a freestyle HTML field which will be shown as part of the
 # install/upgrade of the Cluster.
@@ -816,7 +817,7 @@ local Docker registry so that when Helm renders resource templates, they contain
 correct image references.
 
 !!! tip
-    There is a sample application available on [GitHub](https://github.com/gravitational/quickstart/tree/master/mattermost)
+    There is a sample application available on [GitHub](https://github.com/gravitational/gravity/tree/6048f1e994a14fb9b1b7fad16fdf56db96eef212/examples/wordpress)
     that demonstrates this workflow.
 
 ### Customizing Helm values
