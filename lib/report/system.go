@@ -154,7 +154,7 @@ func etcdBackup() Collectors {
 // etcdMetrics fetches etcd metrics
 func etcdMetrics() Collectors {
 	return Collectors{
-		Cmd("etcd-metrics.json", utils.PlanetCommandArgs("/usr/bin/curl", "-s", "--insecure", "--tlsv1.2",
+		Cmd("etcd-metrics", utils.PlanetCommandArgs("/usr/bin/curl", "-s", "--insecure", "--tlsv1.2",
 			"--cacert", filepath.Join(defaults.PlanetStateDir, defaults.RootCertFilename),
 			"--cert", filepath.Join(defaults.PlanetStateDir, defaults.EtcdCertFilename),
 			"--key", filepath.Join(defaults.PlanetStateDir, defaults.EtcdKeyFilename),

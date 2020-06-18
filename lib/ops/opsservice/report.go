@@ -242,7 +242,7 @@ func (s *site) collectKubernetesInfo(reportWriter report.FileWriter, runner *ser
 }
 
 func (s *site) collectEtcdBackup(reportWriter report.FileWriter, runner *serverRunner) error {
-	w, err := reportWriter.NewWriter("etcd-backup.json.tar.gz")
+	w, err := reportWriter.NewWriter("etcd.tar.gz")
 	if err != nil {
 		return trace.Wrap(err)
 	}
