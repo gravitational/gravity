@@ -595,6 +595,7 @@ func (s *site) getPlanetMasterSecretsPackage(ctx *operationContext, p planetMast
 		return nil, trace.Wrap(err)
 	}
 
+	// FIXME (dmitri): validate the use of service CIDR
 	serviceSubnet, err := configure.ParseCIDR(p.serviceSubnetCIDR)
 	if err != nil {
 		return nil, trace.Wrap(err)

@@ -24,6 +24,7 @@ import (
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
+	v1 "k8s.io/api/core/v1"
 )
 
 // OperationPlan represents a plan of an operation as a collection of phases
@@ -179,6 +180,20 @@ type UpdateOperationData struct {
 	// The list might be a subset of all cluster servers in case
 	// the operation only operates on a specific part
 	Servers []UpdateServer `json:"updates,omitempty"`
+	// ClusterConfig optionally specifies data specific to cluster configuration operation
+	ClusterConfig *ClusterConfigData `json:"updates,omitempty"`
+}
+
+type ClusterConfigData struct {
+	// DNSServiceName specifies the name of the DNS service with a ClusterIP
+	// from a new service subnet when updating cluster service CIDR
+	DNSServiceName string `json:"dns_service_name,omitempty"`
+	// DNSWorkerServiceName specifies the name of the DNS worker service with a ClusterIP
+	// from a new service subnet when updating cluster service CIDR
+	DNSWorkerServiceName string `json:"dns_worker_service_name,omitempty"`
+	// Services lists original service definitions as captured
+	// prior to update
+	Services []v1.Service
 }
 
 // UpdateServer describes an intent to update runtime/teleport configuration

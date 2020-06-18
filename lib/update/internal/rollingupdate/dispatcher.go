@@ -51,6 +51,10 @@ func (r *dispatcher) Dispatch(config Config, params fsm.ExecutorParams, remote f
 		return libphase.NewUncordon(params, config.Client, logger)
 	case libphase.Endpoints:
 		return libphase.NewEndpoints(params, config.Client, logger)
+	case libphase.Custom:
+		// Custom phase is not defined by default. It can be optionally provided
+		// by custom implementations of the loop
+		return nil, nil
 	default:
 		return nil, trace.BadParameter("unknown executor %v for phase %q",
 			params.Phase.Executor, params.Phase.ID)

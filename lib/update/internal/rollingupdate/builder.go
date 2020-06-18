@@ -86,11 +86,7 @@ func (r Builder) Masters(servers []storage.UpdateServer, rootText, nodeTextForma
 		node.AddSequential(setLeaderElection(enable(), disable(first), first,
 			"stepdown", "Step down %q as Kubernetes leader"))
 	}
-	node.AddSequential(r.common(first, nil)...)
-	if len(others) != 0 {
-		node.AddSequential(setLeaderElection(enable(first), disable(others...), first,
-			"elect", "Make node %q Kubernetes leader"))
-	}
+	node.AddSequential(r.commonFirstMaster(first, others...)...)
 	root.AddSequential(node)
 	for i, server := range others {
 		node := r.node(server.Hostname, nodeTextFormat, server.Hostname)
@@ -114,6 +110,24 @@ func (r Builder) Nodes(servers []storage.UpdateServer, master storage.Server, ro
 		root.AddSequential(node)
 	}
 	return &root
+}
+
+func (r Builder) commonFirstMaster(server storage.UpdateServer, others ...storage.UpdateServer) (phases []update.Phase) {
+	phases = []update.Phase{
+		r.drain(&server.Server, nil),
+		r.restart(server),
+	}
+	if len(others) != 0 {
+		phases = append(phases, setLeaderElection(enable(server), disable(others...), server,
+			"elect", "Make node %q Kubernetes leader"))
+	}
+	return append(phases,
+		r.taint(&server.Server, nil),
+		r.custom(&server.Server, nil),
+		r.uncordon(&server.Server, nil),
+		r.endpoints(&server.Server, nil),
+		r.untaint(&server.Server, nil),
+	)
 }
 
 func (r Builder) common(server storage.UpdateServer, master *storage.Server) (phases []update.Phase) {
@@ -149,6 +163,16 @@ func (r Builder) taint(server, execer *storage.Server) update.Phase {
 	}
 	if execer != nil {
 		node.Data.ExecServer = execer
+	}
+	return node
+}
+
+func (r Builder) custom(server, execer *storage.Server) update.Phase {
+	node := r.node("custom", "Custom task on node %q", server.Hostname)
+	node.Executor = libphase.Custom
+	node.Data = &storage.OperationPhaseData{
+		Server: server,
+		Update: r.CustomUpdate,
 	}
 	return node
 }
@@ -212,6 +236,9 @@ func (r Builder) node(id, format string, args ...interface{}) update.Phase {
 type Builder struct {
 	// App specifies the cluster application
 	App loc.Locator
+	// CustomUpdate optionally specifies the phase data
+	// for the custom phase
+	CustomUpdate *storage.UpdateOperationData
 }
 
 // setLeaderElection creates a phase that will change the leader election state in the cluster

@@ -220,7 +220,10 @@ func (r configInitializer) newOperationPlan(
 	clusterEnv *localenv.ClusterEnvironment,
 	leader *storage.Server,
 ) (*storage.OperationPlan, error) {
-	plan, err := clusterconfig.NewOperationPlan(operator, clusterEnv.Apps, operation, r.config, cluster.ClusterState.Servers)
+	plan, err := clusterconfig.NewOperationPlan(
+		operator, clusterEnv.Apps, clusterEnv.Client,
+		operation, r.config, cluster.ClusterState.Servers,
+	)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

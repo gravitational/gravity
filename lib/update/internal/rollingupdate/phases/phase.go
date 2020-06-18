@@ -32,6 +32,9 @@ const (
 	Elections = "elections"
 	// Taint defines the phase to add a taint to a node
 	Taint = "taint"
+	// Custom defines the phase that runs custom tasks before the node accepts
+	// generic workloads during upgrade
+	Custom = "custom"
 	// Untaint defines the phase to remove the previously added taint from a node
 	Untaint = "untaint"
 	// Drain defines the phase to drain a node
