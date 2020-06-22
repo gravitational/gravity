@@ -73,7 +73,7 @@ func (s *ClusterSinglePeer) SetUpTest(c *C) {
 	})
 	c.Assert(err, IsNil)
 
-	local, err := fs.New(s.dir)
+	local, err := fs.New(fs.Config{Path: s.dir})
 	c.Assert(err, IsNil)
 
 	obj, err := New(Config{
@@ -151,7 +151,7 @@ func (s *ClusterMultiPeers) SetUpTest(c *C) {
 	}
 
 	for i := 0; i < peersCount; i++ {
-		local, err := fs.New(c.MkDir())
+		local, err := fs.New(fs.Config{Path: c.MkDir()})
 		c.Assert(err, IsNil)
 		peers[i] = local
 		obj, err := New(Config{
@@ -249,7 +249,7 @@ func (s *RPCSuite) SetUpTest(c *C) {
 	fakeClock := clockwork.NewFakeClockAt(time.Now().UTC())
 
 	for i := 0; i < 3; i++ {
-		local, err := fs.New(c.MkDir())
+		local, err := fs.New(fs.Config{Path: c.MkDir()})
 		c.Assert(err, IsNil)
 		peers[i] = local
 

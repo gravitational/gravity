@@ -165,7 +165,7 @@ func setupServices(c *C) (storage.Backend, pack.PackageService, *applications) {
 	})
 	c.Assert(err, IsNil)
 
-	objects, err := fs.New(dir)
+	objects, err := fs.New(fs.Config{Path: dir})
 	c.Assert(err, IsNil)
 
 	packService, err := localpack.New(localpack.Config{

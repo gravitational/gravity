@@ -157,7 +157,7 @@ func (c *Cluster) periodically(name string, fn func() error) {
 	for {
 		select {
 		case <-c.close.Done():
-			c.Infof("Returning, cluster is closing.")
+			c.Info("Returning, cluster is closing.")
 			return
 		case <-ticker.C:
 			if err := fn(); err != nil {

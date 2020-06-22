@@ -122,7 +122,7 @@ func newAgent() (rpcserver.Server, error) {
 		return nil, trace.Wrap(err)
 	}
 
-	serverCreds, clientCreds, err := rpc.Credentials(secretsDir)
+	serverCreds, clientCreds, err := rpc.CredentialsFromDir(secretsDir)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -130,7 +130,7 @@ func newAgent() (rpcserver.Server, error) {
 	serverAddr := fmt.Sprintf(":%v", defaults.GravityRPCAgentPort)
 	listener, err := net.Listen("tcp4", serverAddr)
 	if err != nil {
-		return nil, trace.Wrap(err, "failed to bind to %v")
+		return nil, trace.Wrap(err, "failed to bind to %v", serverAddr)
 	}
 
 	config := rpcserver.Config{
@@ -144,7 +144,7 @@ func newAgent() (rpcserver.Server, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	log.Infof("Starting RPC agent on %v.", listener.Addr().String())
+	log.WithField("addr", listener.Addr().String()).Info("Starting RPC agent.")
 
 	return server, nil
 }

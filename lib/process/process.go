@@ -212,7 +212,9 @@ func New(ctx context.Context, cfg processconfig.Config, tcfg telecfg.FileConfig)
 		return nil, trace.Wrap(err)
 	}
 
-	objects, err := blobfs.New(filepath.Join(cfg.DataDir, defaults.PackagesDir))
+	objects, err := blobfs.New(blobfs.Config{
+		Path: filepath.Join(cfg.DataDir, defaults.PackagesDir),
+	})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -492,7 +494,7 @@ func (p *Process) ImportState(importDir string) (err error) {
 
 // InitRPCCredentials initializes the package with RPC secrets
 func (p *Process) InitRPCCredentials() error {
-	pkg, err := rpc.InitRPCCredentials(p.packages)
+	pkg, err := rpc.InitCredentials(p.packages)
 	if err != nil && !trace.IsAlreadyExists(err) {
 		return trace.Wrap(err, "failed to init RPC credentials")
 	}
@@ -1267,7 +1269,9 @@ func (p *Process) initService(ctx context.Context) (err error) {
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		objects, err := blobfs.New(filepath.Join(p.cfg.Pack.ReadDir, defaults.PackagesDir))
+		objects, err := blobfs.New(blobfs.Config{
+			Path: filepath.Join(p.cfg.Pack.ReadDir, defaults.PackagesDir),
+		})
 		if err != nil {
 			return trace.Wrap(err)
 		}
