@@ -548,7 +548,7 @@ $ tele build ... --upgrade-via=5.2.15
 The flag can be specified multiple times to add as many LTS versions as required.
 
 
-!!! tip "Embedding intermediate LTS releases"
+!!! note "Embedding intermediate LTS releases"
     The version specified with the `--upgrade-via` flag must be an LTS version.
     Check [Releases](changelog.md) page to see which LTS versions are available for embedding.
     The upgrade path from the existing version must contain all intermediate LTS releases to reach the target version but
