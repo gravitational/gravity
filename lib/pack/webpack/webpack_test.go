@@ -78,7 +78,7 @@ func (s *WebpackSuite) SetUpTest(c *C) {
 	s.backend, err = keyval.NewBolt(keyval.BoltConfig{Path: filepath.Join(s.dir, "bolt.db")})
 	c.Assert(err, IsNil)
 
-	objects, err := fs.New(s.dir)
+	objects, err := fs.New(fs.Config{Path: s.dir})
 	c.Assert(err, IsNil)
 
 	s.users, err = usersservice.New(

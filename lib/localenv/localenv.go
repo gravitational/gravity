@@ -189,7 +189,9 @@ func (env *LocalEnvironment) init() error {
 		env.DNS = DNSConfig(*dns)
 	}
 
-	env.Objects, err = fs.New(filepath.Join(env.StateDir, defaults.PackagesDir))
+	env.Objects, err = fs.New(fs.Config{
+		Path: filepath.Join(env.StateDir, defaults.PackagesDir),
+	})
 	if err != nil {
 		return trace.Wrap(err)
 	}

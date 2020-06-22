@@ -74,7 +74,7 @@ func SetupTestServices(c *check.C) TestServices {
 	backend, err := keyval.NewBolt(keyval.BoltConfig{Path: filepath.Join(dir, "bolt.db")})
 	c.Assert(err, check.IsNil)
 
-	objects, err := fs.New(dir)
+	objects, err := fs.New(fs.Config{Path: dir})
 	c.Assert(err, check.IsNil)
 
 	packService, err := localpack.New(localpack.Config{

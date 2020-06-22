@@ -92,7 +92,6 @@ func (r *applications) getClusterInstaller(
 //  * import {web-assets,gravity,dns,teleport,planet-master,planet-node,application}
 //    packages from application package service into local package service running
 //    in ./packages
-//
 func (r *applications) GetAppInstaller(req appservice.InstallerRequest) (installer io.ReadCloser, err error) {
 	if err := req.Check(); err != nil {
 		return nil, trace.Wrap(err)
@@ -118,7 +117,9 @@ func (r *applications) GetAppInstaller(req appservice.InstallerRequest) (install
 		return nil, trace.Wrap(err)
 	}
 
-	objects, err := fs.New(filepath.Join(tempDir, defaults.PackagesDir))
+	objects, err := fs.New(fs.Config{
+		Path: filepath.Join(tempDir, defaults.PackagesDir),
+	})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

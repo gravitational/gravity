@@ -216,7 +216,7 @@ func LoadRPCCredentials(ctx context.Context, packages pack.PackageService) (*rpc
 
 // ClientCredentials returns the contents of the default RPC credentials package
 func ClientCredentials(packages pack.PackageService) (credentials.TransportCredentials, error) {
-	clientCreds, err := rpc.ClientCredentialsFromPackage(packages, loc.RPCSecrets)
+	clientCreds, err := rpc.ClientCredentials(packages)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to fetch RPC credentials")
 	}

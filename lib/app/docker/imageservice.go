@@ -138,21 +138,26 @@ func newImageService(req RegistryConnectionRequest) (*imageService, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	// Strip the scheme prefix if specified in the address as we manipulate
+	// the registry address without the URL scheme when wrapping/unwrapping image references
+	registryPrefix := strings.TrimPrefix(req.RegistryAddress, "http://")
+	registryPrefix = strings.TrimPrefix(registryPrefix, "https://")
 	return &imageService{
 		RegistryConnectionRequest: req,
 		FieldLogger:               log.WithField("registry", req.RegistryAddress),
+		registryPrefix:            registryPrefix,
 	}, nil
 }
 
 // NewClusterImageService returns an in-cluster image service for the
 // specified registry address.
-func NewClusterImageService(registry string) (ImageService, error) {
+func NewClusterImageService(registryAddr string) (ImageService, error) {
 	stateDir, err := state.GetStateDir()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return NewImageService(RegistryConnectionRequest{
-		RegistryAddress: registry,
+		RegistryAddress: registryAddr,
 		CertName:        constants.DockerRegistry,
 		CACertPath:      state.Secret(stateDir, defaults.RootCertFilename),
 		ClientCertPath:  state.Secret(stateDir, "kubelet.cert"),
@@ -166,7 +171,8 @@ type imageService struct {
 	RegistryConnectionRequest
 	log.FieldLogger
 
-	remoteStore *remoteStore
+	remoteStore    *remoteStore
+	registryPrefix string
 }
 
 // Sync synchronizes the contents of the local directory specified with dir
@@ -278,7 +284,7 @@ func (r *imageService) Wrap(image string) string {
 	if err != nil {
 		return image
 	}
-	parsed.Registry = r.RegistryAddress
+	parsed.Registry = r.registryPrefix
 	return parsed.String()
 }
 
@@ -286,7 +292,7 @@ func (r *imageService) Wrap(image string) string {
 // Its function is the inverse of Wrap.
 func (r *imageService) Unwrap(image string) (unwrapped string) {
 	unwrapped = TagFromString(image).String()
-	return strings.TrimPrefix(unwrapped, fmt.Sprintf("%v/", r.RegistryAddress))
+	return strings.TrimPrefix(unwrapped, fmt.Sprintf("%v/", r.registryPrefix))
 }
 
 func (r *imageService) connect(ctx context.Context) (err error) {

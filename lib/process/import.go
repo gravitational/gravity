@@ -70,7 +70,9 @@ func newImporter(dir string) (*importer, error) {
 		}),
 	}
 	err = func() error {
-		objects, err := fs.New(filepath.Join(dir, defaults.PackagesDir))
+		objects, err := fs.New(fs.Config{
+			Path: filepath.Join(dir, defaults.PackagesDir),
+		})
 		if err != nil {
 			return trace.Wrap(err)
 		}

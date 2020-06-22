@@ -75,6 +75,8 @@ const (
 	remoteClustersP             = "remoteclusters"
 	systemP                     = "system"
 	dnsP                        = "dns"
+	nodeAddrP                   = "nodeaddress"
+	serviceUserP                = "serviceuser"
 	chartsP                     = "charts"
 	indexP                      = "index"
 
