@@ -708,8 +708,11 @@ func (c *Client) GetSiteOperationCrashReport(key ops.SiteOperationKey) (io.ReadC
 	return file.Body(), nil
 }
 
-func (c *Client) GetSiteReport(key ops.SiteKey) (io.ReadCloser, error) {
-	file, err := c.GetFile(c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "report"), url.Values{})
+func (c *Client) GetSiteReport(req ops.GetClusterReportRequest) (io.ReadCloser, error) {
+	params := url.Values{
+		"since": []string{req.Since.String()},
+	}
+	file, err := c.GetFile(c.Endpoint("accounts", req.AccountID, "sites", req.SiteDomain, "report"), params)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

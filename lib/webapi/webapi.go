@@ -1731,9 +1731,20 @@ func (m *Handler) getJoinToken(w http.ResponseWriter, r *http.Request, p httprou
 //
 //   report.tar
 func (m *Handler) getSiteReport(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *AuthContext) (interface{}, error) {
-	reader, err := context.Operator.GetSiteReport(ops.SiteKey{
-		AccountID:  context.User.GetAccountID(),
-		SiteDomain: p.ByName("domain"),
+	var since time.Duration
+	if val := r.URL.Query().Get("since"); val != "" {
+		var err error
+		if since, err = time.ParseDuration(val); err != nil {
+			return nil, trace.Wrap(err)
+		}
+	}
+
+	reader, err := context.Operator.GetSiteReport(ops.GetClusterReportRequest{
+		SiteKey: ops.SiteKey{
+			AccountID:  context.User.GetAccountID(),
+			SiteDomain: p.ByName("domain"),
+		},
+		Since: since,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
