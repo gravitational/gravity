@@ -1,5 +1,5 @@
 /*
-Copyright 2018-2019 Gravitational, Inc.
+Copyright 2018-2020 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -229,7 +229,8 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.StatusHistoryCmd.CmdClause = g.StatusCmd.Command("history", "Display cluster status history.")
 
 	// reset cluster state, for debugging/emergencies
-	g.StatusResetCmd.CmdClause = g.Command("status-reset", "Reset the cluster state to 'active'").Hidden()
+	g.StatusResetCmd.CmdClause = g.Command("status-reset", "Force-reset the cluster state to active. USE WITH CAUTION, the cluster may end up in an inconsistent state.").Hidden()
+	g.StatusResetCmd.Confirmed = g.StatusResetCmd.Flag("confirm", "Bypass confirmation prompt.").Bool()
 
 	// backup
 	g.BackupCmd.CmdClause = g.Command("backup", "Launch the cluster's backup hook.")

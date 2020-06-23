@@ -122,18 +122,16 @@ func GetLastCompletedOperation(key SiteKey, operator Operator) (*SiteOperation, 
 		key.SiteDomain)
 }
 
-// GetLastUpdateOperation returns the last update operation
-//
-// If there're no operations or the last operation is not of type 'update', returns NotFound error
-func GetLastUpdateOperation(siteKey SiteKey, operator Operator) (*SiteOperation, error) {
-	lastOperation, _, err := GetLastOperation(siteKey, operator)
+// GetLastUpgradeOperation returns the most recent upgrade operation or NotFound.
+func GetLastUpgradeOperation(key SiteKey, operator Operator) (*SiteOperation, error) {
+	op, _, err := MatchOperation(key, operator, MatchByType(OperationUpdate))
 	if err != nil {
+		if trace.IsNotFound(err) {
+			return nil, trace.NotFound("no upgrade operation for %v found", key)
+		}
 		return nil, trace.Wrap(err)
 	}
-	if lastOperation.Type != OperationUpdate {
-		return nil, trace.NotFound("the last operation is not update: %v", lastOperation)
-	}
-	return lastOperation, nil
+	return op, nil
 }
 
 // GetLastShrinkOperation returns the last shrink operation
