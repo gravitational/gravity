@@ -1027,7 +1027,8 @@
   version = "v1.0.0"
 
 [[projects]]
-  digest = "1:9612b74a482b437236e2eab76cb3efde253379fcd4f27418428b56cd0ea292bb"
+  branch = "bernard/7.0.x/skip-disk-usage"
+  digest = "1:b387935e5b40e6b0c3dee75333791f5ba7862b8cf180e37800f721152c21f74a"
   name = "github.com/gravitational/satellite"
   packages = [
     "agent",
@@ -1044,8 +1045,7 @@
     "utils",
   ]
   pruneopts = "UT"
-  revision = "26aeca5c391c72864fa8d503d403003d82787db3"
-  version = "7.0.14"
+  revision = "5ae50798aed30c1c8f2a0f03e08dbce8b12b30e1"
 
 [[projects]]
   digest = "1:49f6abbce9ade5f43508429e4af1adcce55d27adcd62719fea049decc766a7c9"

@@ -40,6 +40,8 @@ type StorageConfig struct {
 	LowWatermark uint
 	// HighWatermark is the disk occupancy percentage that will trigger a critical probe
 	HighWatermark uint
+	// SkipDiskUsage specifies checker to skip the disk usage check
+	SkipDiskUsage bool
 }
 
 // CheckAndSetDefaults validates this configuration object.
