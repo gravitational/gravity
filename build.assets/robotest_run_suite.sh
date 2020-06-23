@@ -3,17 +3,32 @@ set -eu -o pipefail
 
 readonly UPGRADE_FROM_DIR=${1:-$(pwd)/../upgrade_from}
 
+# decrement_patch returns x.y.(z-1) given valid x.y.z semver.
+decrement_patch() {
+    major=$(echo $1 | cut -d'.' -f1)
+    minor=$(echo $1 | cut -d'.' -f2)
+    patch=$(echo $1 | cut -d'.' -f3)
+    patch=$((patch - 1))
+    echo "${major}.${minor}.${patch}"
+}
+
+readonly GRAVITY_VERSION=${GRAVITY_VERSION:?Set GRAVITY_VERSION to the current SemVer}
+readonly THIS_RELEASE=$(echo $GRAVITY_VERSION | cut -f1 -d'+' | cut -f1 -d'-')
+readonly PREVIOUS_RELEASE=$(decrement_patch $THIS_RELEASE)
+unset -f decrement_patch THIS_RELEASE
+
 # UPGRADE_MAP maps gravity version -> list of OS releases to upgrade from
 declare -A UPGRADE_MAP
 
-# latest patch release on this branch, keep this up to date
-UPGRADE_MAP[7.0.5]="ubuntu:18"
+# latest patch release on this branch
+UPGRADE_MAP[$PREVIOUS_RELEASE]="ubuntu:18"
 
 # latest patch release on compatible LTS, keep this up to date
-UPGRADE_MAP[6.1.24]="ubuntu:18"
+UPGRADE_MAP[6.1.29]="ubuntu:18"
 
-# latest patch release on supported non-LTS version, keep this up to date
-UPGRADE_MAP[6.3.13]="ubuntu:18"
+# latest patch release on compatible non-LTS versions
+UPGRADE_MAP[6.3.18]="ubuntu:18"
+UPGRADE_MAP[6.2.5]="ubuntu:16"
 
 # important versions in the field, these are static
 UPGRADE_MAP[6.1.0]="ubuntu:16"
