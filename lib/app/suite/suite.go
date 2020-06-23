@@ -206,7 +206,7 @@ spec:
 	c.Assert(err, IsNil)
 
 	imageService, err := docker.NewImageService(docker.RegistryConnectionRequest{
-		RegistryAddress: dockerRegistryAddr,
+		RegistryAddress: defaults.DockerRegistry,
 	})
 	c.Assert(err, IsNil)
 
@@ -266,7 +266,7 @@ func (r *AppsSuite) ExportsApplication(c *C) {
 	defer registry.Close()
 
 	imageService, err := docker.NewImageService(docker.RegistryConnectionRequest{
-		RegistryAddress: dockerRegistryAddr,
+		RegistryAddress: defaults.DockerRegistry,
 	})
 	c.Assert(err, IsNil)
 	apps := r.NewService(c, dockerClient, imageService)
@@ -275,10 +275,9 @@ func (r *AppsSuite) ExportsApplication(c *C) {
 	c.Assert(err, IsNil)
 	application := r.importApplication(apps, vendorer, c)
 
-	registryAddr := fmt.Sprintf("http://%v", registry.Addr())
+	registryAddr := registryAddr(registry.Addr())
 	c.Assert(apps.ExportApp(app.ExportAppRequest{
-		Package: application.Package,
-		// For tests, registry runs in insecure mode
+		Package:         application.Package,
 		RegistryAddress: registryAddr,
 	}), IsNil)
 
@@ -621,7 +620,7 @@ func (r *AppsSuite) Charts(c *C) {
 	defer registry.Close()
 
 	imageService, err := docker.NewImageService(docker.RegistryConnectionRequest{
-		RegistryAddress: dockerRegistryAddr,
+		RegistryAddress: defaults.DockerRegistry,
 	})
 	c.Assert(err, IsNil)
 
@@ -686,7 +685,7 @@ registry:
 	c.Assert(files["resources/charts/mattermost/values.yaml"], Equals, valuesBytes)
 	c.Assert(files["resources/charts/mattermost/templates/pod.yaml"], Equals, templateBytes)
 
-	registryAddr := fmt.Sprintf("http://%v", registry.Addr())
+	registryAddr := registryAddr(registry.Addr())
 	// alpine was referenced as a part of helm template,
 	// but make sure helm template has captured it
 	// and added to the list of vendored apps
@@ -886,5 +885,6 @@ spec:
 	return importedApplication
 }
 
-// dockerRegistryAddr specifies the address of local registry for tests
-var dockerRegistryAddr = fmt.Sprintf("http://%v", constants.DockerRegistry)
+func registryAddr(addr string) string {
+	return fmt.Sprintf("http://%v", addr)
+}

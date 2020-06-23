@@ -345,11 +345,6 @@ func ServerCredentialsFromKeyPairs(keys, caKeys authority.TLSKeyPair) (credentia
 	return creds, nil
 }
 
-// DeleteCredentials deletes the package with RPC credentials from the specified package service
-func DeleteCredentials(packages pack.PackageService) error {
-	return packages.DeletePackage(loc.RPCSecrets)
-}
-
 // UpsertCredentials creates or updates RPC secrets package in the specified package service
 func UpsertCredentials(packages pack.PackageService) (*loc.Locator, error) {
 	longLivedClient := true

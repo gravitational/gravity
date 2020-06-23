@@ -138,14 +138,9 @@ func newImageService(req RegistryConnectionRequest) (*imageService, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	// Strip the scheme prefix if specified in the address as we manipulate
-	// the registry address without the URL scheme when wrapping/unwrapping image references
-	registryPrefix := strings.TrimPrefix(req.RegistryAddress, "http://")
-	registryPrefix = strings.TrimPrefix(registryPrefix, "https://")
 	return &imageService{
 		RegistryConnectionRequest: req,
 		FieldLogger:               log.WithField("registry", req.RegistryAddress),
-		registryPrefix:            registryPrefix,
 	}, nil
 }
 
@@ -171,8 +166,7 @@ type imageService struct {
 	RegistryConnectionRequest
 	log.FieldLogger
 
-	remoteStore    *remoteStore
-	registryPrefix string
+	remoteStore *remoteStore
 }
 
 // Sync synchronizes the contents of the local directory specified with dir
@@ -284,7 +278,7 @@ func (r *imageService) Wrap(image string) string {
 	if err != nil {
 		return image
 	}
-	parsed.Registry = r.registryPrefix
+	parsed.Registry = r.RegistryAddress
 	return parsed.String()
 }
 
@@ -292,7 +286,7 @@ func (r *imageService) Wrap(image string) string {
 // Its function is the inverse of Wrap.
 func (r *imageService) Unwrap(image string) (unwrapped string) {
 	unwrapped = TagFromString(image).String()
-	return strings.TrimPrefix(unwrapped, fmt.Sprintf("%v/", r.registryPrefix))
+	return strings.TrimPrefix(unwrapped, fmt.Sprintf("%v/", r.RegistryAddress))
 }
 
 func (r *imageService) connect(ctx context.Context) (err error) {
