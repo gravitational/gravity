@@ -722,6 +722,8 @@ type StatusHistoryCmd struct {
 // StatusResetCmd resets cluster to active state
 type StatusResetCmd struct {
 	*kingpin.CmdClause
+	// Confirmed suppresses confirmation prompt
+	Confirmed *bool
 }
 
 // RegistryCmd allows to interact with the cluster private registry

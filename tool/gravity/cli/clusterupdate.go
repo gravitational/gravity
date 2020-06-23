@@ -123,6 +123,7 @@ func newClusterUpdater(
 		updatePackage: config.upgradePackage,
 		unattended:    !config.manual,
 		values:        config.values,
+		force:         config.force,
 	}
 
 	if err := checkStatus(ctx, localEnv, config.force); err != nil {
@@ -325,8 +326,7 @@ func (r *clusterInitializer) validatePreconditions(localEnv *localenv.LocalEnvir
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = checkCanUpdate(cluster, operator, updateApp.Manifest)
-	if err != nil {
+	if err := checkCanUpdate(cluster, operator, updateApp.Manifest); err != nil {
 		return trace.Wrap(err)
 	}
 	r.updateLoc = updateApp.Package
@@ -341,6 +341,7 @@ func (r clusterInitializer) newOperation(operator ops.Operator, cluster ops.Site
 		Vars: storage.OperationVariables{
 			Values: r.values,
 		},
+		Force: r.force,
 	})
 }
 
@@ -401,6 +402,7 @@ type clusterInitializer struct {
 	updatePackage string
 	unattended    bool
 	values        []byte
+	force         bool
 }
 
 const (
