@@ -372,9 +372,10 @@ func (s *site) createUpdateOperation(req ops.CreateSiteAppUpdateOperationRequest
 	}
 	defer ctx.Close()
 
-	key, err := s.getOperationGroup().createSiteOperation(op)
+	key, err := s.getOperationGroup().createSiteOperationWithOptions(op,
+		createOperationOptions{req.Force})
 	if err != nil {
-		return nil, trace.Wrap(err, "failed to create update operation")
+		return nil, trace.Wrap(err)
 	}
 
 	resetClusterState := func() {

@@ -737,7 +737,8 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 	case g.SiteResetPasswordCmd.FullCommand():
 		return resetPassword(localEnv)
 	case g.StatusResetCmd.FullCommand():
-		return resetClusterState(localEnv)
+		return resetClusterState(localEnv,
+			*g.StatusResetCmd.Confirmed)
 	case g.LocalSiteCmd.FullCommand():
 		return getLocalSite(localEnv)
 	// system service commands

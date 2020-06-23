@@ -18,6 +18,7 @@ package opsservice
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/ops"
@@ -25,20 +26,27 @@ import (
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 
+	"github.com/gravitational/trace"
+	"github.com/jonboulle/clockwork"
+	"github.com/pborman/uuid"
 	"gopkg.in/check.v1"
 )
 
 type OperationGroupSuite struct {
 	operator *Operator
+	backend  storage.Backend
 	cluster  *ops.Site
+	clock    clockwork.Clock
 }
 
-var _ = check.Suite(&OperationGroupSuite{})
+var _ = check.Suite(&OperationGroupSuite{
+	clock: clockwork.NewFakeClock(),
+})
 
 func (s *OperationGroupSuite) SetUpTest(c *check.C) {
 	services := SetupTestServices(c)
 	s.operator = services.Operator
-
+	s.backend = services.Backend
 	suite := &suite.OpsSuite{}
 	app, err := suite.SetUpTestPackage(services.Apps, services.Packages, c)
 	c.Assert(err, check.IsNil)
@@ -285,6 +293,109 @@ func (s *OperationGroupSuite) TestClusterStateModifications(c *check.C) {
 	err = group.removeClusterStateServers([]string{"node-2"})
 	c.Assert(err, check.IsNil)
 	s.assertServerCount(c, 2)
+}
+
+func (s *OperationGroupSuite) TestCanCreateUpgradeOperation(c *check.C) {
+	// Can't create upgrade operation if cluster isn't active.
+	s.setClusterState(c, ops.SiteStateUpdating)
+	_, err := s.createUpgradeOperation(c, s.clock.Now(), false)
+	c.Assert(err, check.NotNil,
+		check.Commentf("Shouldn't be able to create upgrade operation for non-active cluster"))
+
+	// First upgrade operation should create fine.
+	s.setClusterState(c, ops.SiteStateActive)
+	key, err := s.createUpgradeOperation(c, s.clock.Now().Add(time.Second), false)
+	c.Assert(err, check.IsNil,
+		check.Commentf("Should be able to create first upgrade operation"))
+
+	// Reset the cluster state but the first operation is still in progress.
+	s.setClusterState(c, ops.SiteStateActive)
+	_, err = s.createUpgradeOperation(c, s.clock.Now().Add(2*time.Second), false)
+	c.Assert(err, check.NotNil,
+		check.Commentf("Shouldn't be able to create upgrade operation if another one in progress"))
+
+	// Simulate failed operation and force-reset cluster state.
+	s.setClusterState(c, ops.SiteStateActive)
+	s.setOperationState(c, *key, ops.OperationStateFailed)
+	_, err = s.backend.CreateOperationPlanChange(storage.PlanChange{
+		ID:          uuid.New(),
+		ClusterName: s.cluster.Domain,
+		OperationID: key.OperationID,
+		PhaseID:     "/init",
+		NewState:    storage.OperationPhaseStateFailed,
+		Created:     s.clock.Now(),
+	})
+	c.Assert(err, check.IsNil)
+	_, err = s.createUpgradeOperation(c, s.clock.Now().Add(3*time.Second), false)
+	c.Assert(err, check.NotNil,
+		check.Commentf("Shouldn't be able to create upgrade operation if last failed upgrade plan isn't rolled back"))
+
+	// Rollback the failed operation properly, should be able to create a new one then.
+	s.setOperationState(c, *key, ops.OperationStateFailed)
+	_, err = s.backend.CreateOperationPlanChange(storage.PlanChange{
+		ID:          uuid.New(),
+		ClusterName: s.cluster.Domain,
+		OperationID: key.OperationID,
+		PhaseID:     "/init",
+		NewState:    storage.OperationPhaseStateRolledBack,
+		Created:     s.clock.Now().Add(time.Second),
+	})
+	c.Assert(err, check.IsNil)
+	_, err = s.createUpgradeOperation(c, s.clock.Now().Add(4*time.Second), false)
+	c.Assert(err, check.IsNil,
+		check.Commentf("Should be able to create upgrade operation if last upgrade plan is fully rolled back"))
+
+	// Force flag should allow to create operation.
+	s.setClusterState(c, ops.SiteStateActive)
+	_, err = s.createUpgradeOperation(c, s.clock.Now().Add(5*time.Second), true)
+	c.Assert(err, check.IsNil,
+		check.Commentf("Should be able to create upgrade operation in force mode"))
+}
+
+func (s *OperationGroupSuite) setClusterState(c *check.C, state string) {
+	cluster, err := s.backend.GetSite(s.cluster.Domain)
+	c.Assert(err, check.IsNil)
+	cluster.State = state
+	_, err = s.backend.UpdateSite(*cluster)
+	c.Assert(err, check.IsNil)
+}
+
+func (s *OperationGroupSuite) setOperationState(c *check.C, key ops.SiteOperationKey, state string) {
+	op, err := s.backend.GetSiteOperation(key.SiteDomain, key.OperationID)
+	c.Assert(err, check.IsNil)
+	op.State = state
+	_, err = s.backend.UpdateSiteOperation(*op)
+	c.Assert(err, check.IsNil)
+}
+
+func (s *OperationGroupSuite) createUpgradeOperation(c *check.C, created time.Time, force bool) (*ops.SiteOperationKey, error) {
+	group := s.operator.getOperationGroup(s.cluster.Key())
+	key, err := group.createSiteOperationWithOptions(ops.SiteOperation{
+		AccountID:  s.cluster.AccountID,
+		SiteDomain: s.cluster.Domain,
+		Type:       ops.OperationUpdate,
+		State:      ops.OperationStateUpdateInProgress,
+		Created:    created,
+	}, createOperationOptions{force: force})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	_, err = s.backend.CreateOperationPlan(storage.OperationPlan{
+		OperationID:   key.OperationID,
+		OperationType: ops.OperationUpdate,
+		AccountID:     s.cluster.AccountID,
+		ClusterName:   s.cluster.Domain,
+		Phases: []storage.OperationPhase{
+			{
+				ID:    "/init",
+				State: storage.OperationPhaseStateUnstarted,
+			},
+		},
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return key, nil
 }
 
 func (s *OperationGroupSuite) assertClusterState(c *check.C, state string) {
