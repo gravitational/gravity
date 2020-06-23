@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
+	"time"
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/utils"
@@ -28,7 +29,7 @@ import (
 )
 
 // NewSystemCollector returns a list of collectors to fetch system information
-func NewSystemCollector() Collectors {
+func NewSystemCollector(since time.Duration) Collectors {
 	var collectors Collectors
 	add := func(additional ...Collector) {
 		collectors = append(collectors, additional...)
@@ -36,7 +37,7 @@ func NewSystemCollector() Collectors {
 
 	add(basicSystemInfo()...)
 	add(systemStatus()...)
-	add(syslogExportLogs())
+	add(syslogExportLogs(since))
 	add(systemFileLogs()...)
 	add(planetLogs()...)
 
@@ -75,6 +76,8 @@ func basicSystemInfo() Collectors {
 		Cmd("host-system-failed", "/bin/systemctl", "--failed", "--full"),
 		Cmd("host-system-jobs", "/bin/systemctl", "list-jobs", "--full"),
 		Cmd("dmesg", "/bin/dmesg", "--raw"),
+		Cmd("reboot-history", "last", "-x"),
+		Cmd("uname", "uname", "-a"),
 		// Fetch world-readable parts of /etc/
 		fetchEtc("etc-logs.tar.gz"),
 		// memory
@@ -82,6 +85,7 @@ func basicSystemInfo() Collectors {
 		Cmd("slabtop", "slabtop", "--once"),
 		Cmd("vmstat", "vmstat", "--stats"),
 		Cmd("slabinfo", "cat", "/proc/slabinfo"),
+		Cmd("swapon", "swapon", "-s"),
 	}
 }
 
@@ -95,15 +99,21 @@ func systemStatus() Collectors {
 		Cmd("planet-system-status", utils.PlanetCommandArgs("/bin/systemctl", "status", "--full")...),
 		Cmd("planet-system-failed", utils.PlanetCommandArgs("/bin/systemctl", "--failed", "--full")...),
 		Cmd("planet-system-jobs", utils.PlanetCommandArgs("/bin/systemctl", "list-jobs", "--full")...),
+		// serf status
+		Cmd("serf-members", utils.PlanetCommandArgs(defaults.SerfBin, "members")...),
 	}
 }
 
 // syslogExportLogs fetches host journal logs
-func syslogExportLogs() Collector {
-	const script = `
+func syslogExportLogs(since time.Duration) Collector {
+	var script = `
 #!/bin/bash
-/bin/journalctl --no-pager --output=export | /bin/gzip -f`
-	return Script("gravity-system.log.gz", script)
+/bin/journalctl --no-pager --output=export `
+	if since != 0 {
+		script = script + fmt.Sprintf(`--since="%s" `, time.Now().Add(-since).Format(JournalDateFormat))
+	}
+	script = script + "| /bin/gzip -f"
+	return Script("gravity-journal.log.gz", script)
 }
 
 // systemFileLogs fetches gravity platform-related logs
@@ -138,6 +148,17 @@ func etcdBackup() Collectors {
 		Cmd("etcd-backup.json", utils.PlanetCommandArgs(defaults.PlanetBin, "etcd", "backup",
 			"--prefix", defaults.EtcdPlanetPrefix,
 			"--prefix", defaults.EtcdGravityPrefix)...),
+	}
+}
+
+// etcdMetrics fetches etcd metrics
+func etcdMetrics() Collectors {
+	return Collectors{
+		Cmd("etcd-metrics", utils.PlanetCommandArgs("/usr/bin/curl", "-s", "--tlsv1.2",
+			"--cacert", filepath.Join(defaults.PlanetStateDir, defaults.RootCertFilename),
+			"--cert", filepath.Join(defaults.PlanetStateDir, defaults.EtcdCertFilename),
+			"--key", filepath.Join(defaults.PlanetStateDir, defaults.EtcdKeyFilename),
+			filepath.Join(defaults.EtcdLocalAddr, "metrics"))...),
 	}
 }
 

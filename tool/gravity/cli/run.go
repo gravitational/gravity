@@ -722,7 +722,9 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			*g.APIKeyDeleteCmd.Email,
 			*g.APIKeyDeleteCmd.Token)
 	case g.ReportCmd.FullCommand():
-		return getClusterReport(localEnv, *g.ReportCmd.FilePath)
+		return getClusterReport(localEnv,
+			*g.ReportCmd.FilePath,
+			*g.ReportCmd.Since)
 	// cluster commands
 	case g.SiteListCmd.FullCommand():
 		return listSites(localEnv, *g.SiteListCmd.OpsCenterURL)
@@ -842,7 +844,8 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 		return systemReport(localEnv,
 			*g.SystemReportCmd.Filter,
 			*g.SystemReportCmd.Compressed,
-			*g.SystemReportCmd.File)
+			*g.SystemReportCmd.File,
+			*g.SystemReportCmd.Since)
 	case g.SystemStateDirCmd.FullCommand():
 		return printStateDir()
 	case g.SystemExportRuntimeJournalCmd.FullCommand():

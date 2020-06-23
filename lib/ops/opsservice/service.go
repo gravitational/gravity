@@ -1085,16 +1085,19 @@ func (o *Operator) CreateLogEntry(key ops.SiteOperationKey, entry ops.LogEntry) 
 }
 
 func (o *Operator) GetSiteOperationCrashReport(key ops.SiteOperationKey) (io.ReadCloser, error) {
-	return o.GetSiteReport(key.SiteKey())
+	return o.GetSiteReport(ops.GetClusterReportRequest{
+		SiteKey: key.SiteKey(),
+		Since:   time.Duration(0),
+	})
 }
 
-func (o *Operator) GetSiteReport(key ops.SiteKey) (io.ReadCloser, error) {
-	cluster, err := o.openSite(key)
+func (o *Operator) GetSiteReport(req ops.GetClusterReportRequest) (io.ReadCloser, error) {
+	cluster, err := o.openSite(req.SiteKey)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	return cluster.getClusterReport()
+	return cluster.getClusterReport(req.Since)
 }
 
 func (o *Operator) GetSiteOperationProgress(key ops.SiteOperationKey) (*ops.ProgressEntry, error) {

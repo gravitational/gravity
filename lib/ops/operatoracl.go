@@ -571,11 +571,11 @@ func (o *OperatorACL) GetSiteOperationCrashReport(key SiteOperationKey) (io.Read
 	return o.operator.GetSiteOperationCrashReport(key)
 }
 
-func (o *OperatorACL) GetSiteReport(key SiteKey) (io.ReadCloser, error) {
-	if err := o.ClusterAction(key.SiteDomain, storage.KindCluster, teleservices.VerbRead); err != nil {
+func (o *OperatorACL) GetSiteReport(req GetClusterReportRequest) (io.ReadCloser, error) {
+	if err := o.ClusterAction(req.SiteDomain, storage.KindCluster, teleservices.VerbRead); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return o.operator.GetSiteReport(key)
+	return o.operator.GetSiteReport(req)
 }
 
 func (o *OperatorACL) ValidateDomainName(domainName string) error {
