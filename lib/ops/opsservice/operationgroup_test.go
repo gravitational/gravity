@@ -77,7 +77,7 @@ func (s *OperationGroupSuite) TestExpandNotInstalled(c *check.C) {
 		SiteDomain: s.cluster.Domain,
 		Type:       ops.OperationExpand,
 		State:      ops.OperationStateExpandInitiated,
-	}, false)
+	})
 	c.Assert(err, check.NotNil)
 }
 
@@ -91,7 +91,7 @@ func (s *OperationGroupSuite) TestExpandMaxConcurrency(c *check.C) {
 		SiteDomain: s.cluster.Domain,
 		Type:       ops.OperationInstall,
 		State:      ops.OperationStateInstallInitiated,
-	}, false)
+	})
 	c.Assert(err, check.IsNil)
 	c.Assert(key, check.NotNil)
 	s.assertClusterState(c, ops.SiteStateInstalling)
@@ -127,7 +127,7 @@ func (s *OperationGroupSuite) TestExpandMaxConcurrency(c *check.C) {
 				},
 			},
 			Servers: []storage.Server{{Hostname: fmt.Sprintf("node-%v", i), Role: "node"}},
-		}, false)
+		})
 		c.Assert(err, check.IsNil)
 		s.assertClusterState(c, ops.SiteStateExpanding)
 	}
@@ -146,7 +146,7 @@ func (s *OperationGroupSuite) TestExpandMaxConcurrency(c *check.C) {
 			},
 		},
 		Servers: []storage.Server{{Hostname: "node-fail", Role: "node"}},
-	}, false)
+	})
 	c.Assert(err, check.NotNil)
 	s.assertClusterState(c, ops.SiteStateExpanding)
 }
@@ -161,7 +161,7 @@ func (s *OperationGroupSuite) TestFailsToExpandShrinkingCluster(c *check.C) {
 		SiteDomain: s.cluster.Domain,
 		Type:       ops.OperationInstall,
 		State:      ops.OperationStateInstallInitiated,
-	}, false)
+	})
 	c.Assert(err, check.IsNil)
 	c.Assert(key, check.NotNil)
 	s.assertClusterState(c, ops.SiteStateInstalling)
@@ -180,7 +180,7 @@ func (s *OperationGroupSuite) TestFailsToExpandShrinkingCluster(c *check.C) {
 		SiteDomain: s.cluster.Domain,
 		Type:       ops.OperationShrink,
 		State:      ops.OperationStateShrinkInProgress,
-	}, false)
+	})
 	c.Assert(err, check.IsNil)
 	s.assertClusterState(c, ops.SiteStateShrinking)
 
@@ -190,7 +190,7 @@ func (s *OperationGroupSuite) TestFailsToExpandShrinkingCluster(c *check.C) {
 		SiteDomain: s.cluster.Domain,
 		Type:       ops.OperationExpand,
 		State:      ops.OperationStateExpandInitiated,
-	}, false)
+	})
 	c.Assert(err, check.NotNil)
 	s.assertClusterState(c, ops.SiteStateShrinking)
 }
@@ -205,7 +205,7 @@ func (s *OperationGroupSuite) TestMultiExpandClusterState(c *check.C) {
 		SiteDomain: s.cluster.Domain,
 		Type:       ops.OperationInstall,
 		State:      ops.OperationStateInstallInitiated,
-	}, false)
+	})
 	c.Assert(err, check.IsNil)
 	c.Assert(key, check.NotNil)
 	s.assertClusterState(c, ops.SiteStateInstalling)
@@ -242,7 +242,7 @@ func (s *OperationGroupSuite) TestMultiExpandClusterState(c *check.C) {
 				},
 			},
 			Servers: []storage.Server{{Hostname: fmt.Sprintf("node-%v", i), Role: "node"}},
-		}, false)
+		})
 		c.Assert(err, check.IsNil)
 		s.assertClusterState(c, ops.SiteStateExpanding)
 	}
@@ -370,13 +370,13 @@ func (s *OperationGroupSuite) setOperationState(c *check.C, key ops.SiteOperatio
 
 func (s *OperationGroupSuite) createUpgradeOperation(c *check.C, created time.Time, force bool) (*ops.SiteOperationKey, error) {
 	group := s.operator.getOperationGroup(s.cluster.Key())
-	key, err := group.createSiteOperation(ops.SiteOperation{
+	key, err := group.createSiteOperationWithOptions(ops.SiteOperation{
 		AccountID:  s.cluster.AccountID,
 		SiteDomain: s.cluster.Domain,
 		Type:       ops.OperationUpdate,
 		State:      ops.OperationStateUpdateInProgress,
 		Created:    created,
-	}, force)
+	}, createOperationOptions{force: force})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
