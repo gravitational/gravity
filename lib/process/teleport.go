@@ -119,7 +119,7 @@ func (p *Process) getTeleportAuthTokens() (result []services.ProvisionToken, err
 //
 // If it's not found, it's first initialized with default values.
 func (p *Process) getOrInitAuthGatewayConfig() (storage.AuthGateway, error) {
-	if !p.inKubernetes() {
+	if !inKubernetes() {
 		// We're not running inside Kubernetes, so this is likely an installer
 		// process which doesn't support auth gateway reconfiguration.
 		return nil, nil

@@ -519,6 +519,8 @@ func (r *Reason) Description() string {
 		return "application status check failed"
 	case ReasonClusterDegraded:
 		return "one or more of cluster nodes are not healthy"
+	case "":
+		return ""
 	default:
 		return "unknown reason"
 	}
@@ -1432,14 +1434,22 @@ type Links interface {
 	GetOpsCenterLinks(siteDomain string) ([]OpsCenterLink, error)
 }
 
+// Check validates this object
+func (r *RemoteAccessUser) Check() error {
+	if r.SiteDomain == "" {
+		return trace.BadParameter("Cluster name is required")
+	}
+	return nil
+}
+
 // RemoteAccessUser groups the attributes to identify or create a user to use
-// to connect a site to a remote OpsCenter
+// to connect a cluster to a remote OpsCenter
 type RemoteAccessUser struct {
 	// Email identifies the user
 	Email string `json:"email"`
 	// Token identifies the API key for this user
 	Token string `json:"token"`
-	// SiteDomain identifies the site this user represents
+	// SiteDomain identifies the cluster this user represents
 	SiteDomain string `json:"site_domain"`
 	// OpsCenter defines the OpsCenter on the other side
 	OpsCenter string `json:"ops_center"`
@@ -1620,6 +1630,11 @@ func (s *Server) KubeNodeID() string {
 	if s.Nodename != "" {
 		return s.Nodename
 	}
+	return s.AdvertiseIP
+}
+
+// ObjectPeerID returns the peer ID of this server
+func (s *Server) ObjectPeerID() string {
 	return s.AdvertiseIP
 }
 
