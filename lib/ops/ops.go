@@ -1377,6 +1377,8 @@ type CreateSiteAppUpdateOperationRequest struct {
 	StartAgents bool `json:"start_agents"`
 	// Vars are variables specific to this operation
 	Vars storage.OperationVariables `json:"vars"`
+	// Force allows to override the otherwise failed preconditions
+	Force bool `json:"force"`
 }
 
 // Check validates this request
