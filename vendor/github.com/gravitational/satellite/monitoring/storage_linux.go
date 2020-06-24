@@ -150,7 +150,7 @@ func (c *storageChecker) checkFsType(ctx context.Context, reporter health.Report
 // checkDiskUsage checks the disk usage. A warning or critical probe will be
 // reported if the usage percentage is above the set thresholds.
 func (c *storageChecker) checkDiskUsage(ctx context.Context, reporter health.Reporter) error {
-	if c.SkipDiskUsage {
+	if c.HighWatermark == 0 {
 		return nil
 	}
 	availableBytes, totalBytes, err := c.diskCapacity(c.path)
