@@ -93,6 +93,7 @@ spec:
     metadata:
       labels:
         k8s-app: kube-dns
+        gravitational.io/critical-pod: ''
       annotations:
         scheduler.alpha.kubernetes.io/critical-pod: ''
         seccomp.security.alpha.kubernetes.io/pod: docker/default
