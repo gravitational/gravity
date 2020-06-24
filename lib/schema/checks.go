@@ -138,7 +138,6 @@ func ValidateRequirements(reqs Requirements, stateDir string) (failed []*pb.Prob
 				WillBeCreated:     utils.BoolValue(vol.CreateIfMissing),
 				Filesystems:       vol.Filesystems,
 				MinFreeBytes:      vol.Capacity.Bytes(),
-				SkipDiskUsage:     true,
 			},
 		)
 		if err != nil {
