@@ -145,11 +145,14 @@ func newMount(m schema.Volume) storage.Mount {
 // chownExpr generates chown expression in the form used by chown command
 // based on uid and gid parameters
 func chownExpr(uid, gid *int) string {
+	// When both uid and gid are specified, the syntax is "chown <uid>:<gid> <dir>"
 	if uid != nil && gid != nil {
 		return fmt.Sprintf("%v:%v", *uid, *gid)
 	}
+	// When only uid is specified, the syntax is "chown <uid> <dir>"
 	if uid != nil {
-		return fmt.Sprintf("%v:", *uid)
+		return fmt.Sprintf("%v", *uid)
 	}
+	// When only gid is specified, the syntax is "chown :<gid> <dir>"
 	return fmt.Sprintf(":%v", *gid)
 }
