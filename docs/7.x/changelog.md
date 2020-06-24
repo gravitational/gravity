@@ -4,7 +4,7 @@
 
 | Branch | LTS | Latest Release | Latest Release Date | Initial Release Date | End of Support          | Kubernetes Version   | Teleport Version |
 | ------ | --- | -------------- | ------------------- | -------------------- | ----------------------- | -------------------- | ---------------- |
-| 7.0    | No  | 7.0.9          | June 16, 2020       | April 3, 2020        | 7.1 is released         | 1.17.6               | 3.2.13           |
+| 7.0    | No  | 7.0.10         | June 23, 2020       | April 3, 2020        | 7.1 is released         | 1.17.6               | 3.2.13           |
 | 6.1    | Yes | 6.1.29         | June 12, 2020       | August 2, 2019       | November 10, 2021       | 1.15.12              | 3.2.12           |
 | 5.5    | Yes | 5.5.48         | June 15, 2020       | March 8, 2019        | March 8, 2021           | 1.13.11              | 3.0.6-gravity    |
 
@@ -41,6 +41,20 @@ extend updates past End of Support through customer agreements if required.
 # Release Notes
 
 ## 7.x Releases
+
+### 7.0.10 (June 23rd, 2020)
+
+#### Improvements
+
+* Update `gravity status` to display a reason for degraded status ([#1722](https://github.com/gravitational/gravity/pull/1722)).
+
+#### Bugfixes
+
+* Fix a number of issues that could lead to blob synchronizer being stuck on removed peers ([#1648](https://github.com/gravitational/gravity/pull/1648)).
+* Fix an issue with browser-based installation timing out ([#1725](https://github.com/gravitational/gravity/pull/1725)).
+* Fix an issue with NFS mounts not working inside planet container ([#1743](https://github.com/gravitational/gravity/pull/1743), [planet#687](https://github.com/gravitational/planet/pull/687)).
+* Fix an issue with kube-apiserver sometimes entering failed state during failover ([#1743](https://github.com/gravitational/gravity/pull/1743), [planet#689](https://github.com/gravitational/planet/pull/689)).
+* Fix an issue with calculating port differences when upgrading to a new version ([#1746](https://github.com/gravitational/gravity/pull/1746)).
 
 ### 7.0.9 (June 16th, 2020)
 
