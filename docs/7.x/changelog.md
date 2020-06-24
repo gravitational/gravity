@@ -4,11 +4,11 @@ Find the latest Open Source Gravity releases at [Gravity Downloads](https://grav
 
 ## Supported Versions
 
-| Version | LTS | Release Date         | End of Support          | Kubernetes Version   | Teleport Version |
-| ------- | --- | -------------------- | ----------------------- | -------------------- | ---------------- |
-| 7.0     | No  | April 3, 2020        | 7.1 is released         | 1.17.6               | 3.2.13           |
-| 6.1     | Yes | August 2, 2019       | November 10, 2021       | 1.15.12              | 3.2.12           |
-| 5.5     | Yes | March 8, 2019        | March 8, 2021           | 1.13.11              | 3.0.6-gravity    |
+| Version             | LTS | Release Date         | End of Support          | Kubernetes Version   | Teleport Version |
+| ------------------- | --- | -------------------- | ----------------------- | -------------------- | ---------------- |
+| [7.0](#70-releases) | No  | April 3, 2020        | 7.1 is released         | 1.17.6               | 3.2.13           |
+| [6.1](#61-releases) | Yes | August 2, 2019       | November 10, 2021       | 1.15.12              | 3.2.12           |
+| [5.5](#55-releases) | Yes | March 8, 2019        | March 8, 2021           | 1.13.11              | 3.0.6-gravity    |
 
 Gravity offers one Long Term Support (LTS) version for every 2nd Kubernetes
 minor version, allowing for seamless upgrades per Kubernetes
@@ -26,19 +26,19 @@ These versions are past their End of Support date, and no longer receive securit
 and bug fixes. [Gravity customers](https://gravitational.com/gravity/demo/) can
 extend updates past End of Support through customer agreements if required.
 
-| Version | LTS | Release Date         | End of Support          | Kubernetes Version   | Teleport Version |
-| ------- | --- | -------------------- | ----------------------- |--------------------- |------------------|
-| 6.3     | No  | December 18, 2019    | April 3, 2020 (7.0)     | 1.17.6               | 3.2.13           |
-| 6.2     | No  | September 24, 2019   | December 18, 2019 (6.3) | 1.16.3               | 3.2.13           |
-| 6.0     | No  | July 17, 2019        | August 2, 2019 (6.1)    | 1.14.7               | 3.2.12           |
-| 5.6     | No  | April 19, 2019       | July 17, 2019 (6.0)     | 1.14.7               | 3.0.6-gravity    |
-| 5.4     | No  | December 14, 2018    | March 8, 2019 (5.5)     | 1.13.5               | 2.4.10           |
-| 5.3     | No  | October 19, 2018     | December 14, 2018 (5.4) | 1.12.3               | 2.4.7            |
-| 5.2     | Yes | October 15, 2018     | October 15, 2019        | 1.11.9               | 2.4.10           |
-| 5.0     | Yes | April 18, 2018       | April 13, 2019          | 1.9.13-gravitational | 2.4.10           |
-| 4.x     | Yes | June 1, 2017         | November 16, 2018       | 1.7.18-gravitational | 2.3.5            |
-| 3.x     | Yes | February 16, 2017    | June 2, 2018            | 1.5.7                | 2.0.6            |
-| 1.x     | Yes | November 2nd, 2016   | March 21, 2018          | 1.3.8                | 1.2.0            |
+| Version             | LTS | Release Date         | End of Support          | Kubernetes Version   | Teleport Version |
+| ------------------- | --- | -------------------- | ----------------------- | -------------------- | ---------------- |
+| [6.3](#63-releases) | No  | December 18, 2019    | April 3, 2020 (7.0)     | 1.17.6               | 3.2.13           |
+| [6.2](#62-releases) | No  | September 24, 2019   | December 18, 2019 (6.3) | 1.16.3               | 3.2.13           |
+| [6.0](#60-releases) | No  | July 17, 2019        | August 2, 2019 (6.1)    | 1.14.7               | 3.2.12           |
+| [5.6](#56-releases) | No  | April 19, 2019       | July 17, 2019 (6.0)     | 1.14.7               | 3.0.6-gravity    |
+| [5.4](#54-releases) | No  | December 14, 2018    | March 8, 2019 (5.5)     | 1.13.5               | 2.4.10           |
+| [5.3](#53-releases) | No  | October 19, 2018     | December 14, 2018 (5.4) | 1.12.3               | 2.4.7            |
+| [5.2](#52-releases) | Yes | October 15, 2018     | October 15, 2019        | 1.11.9               | 2.4.10           |
+| [5.0](#50-releases) | Yes | April 18, 2018       | April 13, 2019          | 1.9.13-gravitational | 2.4.10           |
+| [4.x](#4x-releases) | Yes | June 1, 2017         | November 16, 2018       | 1.7.18-gravitational | 2.3.5            |
+| [3.x](#3x-releases) | Yes | February 16, 2017    | June 2, 2018            | 1.5.7                | 2.0.6            |
+| [1.x](#1x-releases) | Yes | November 2nd, 2016   | March 21, 2018          | 1.3.8                | 1.2.0            |
 
 # Release Notes
 
