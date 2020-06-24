@@ -193,7 +193,7 @@ func (f *FSM) checkExecuteOnCoordinator(plan *storage.OperationPlan) error {
 
 	err := systeminfo.HasInterface(plan.OfflineCoordinator.AdvertiseIP)
 	if err != nil && trace.IsNotFound(err) {
-		return trace.BadParameter("Plan must be resumed on node %v", plan.OfflineCoordinator)
+		return trace.BadParameter("Plan must be resumed on node %v/%v", plan.OfflineCoordinator.Hostname, plan.OfflineCoordinator.AdvertiseIP)
 	}
 
 	return trace.Wrap(err)
