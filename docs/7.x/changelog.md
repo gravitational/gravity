@@ -2069,7 +2069,7 @@ for details.
 * Fix an issue with cluster expansion when applying taints via app.yaml.
 * Fix an issue with labeling of packages, which could prevent upgrades from completing.
 
-### Improvements
+#### Improvements
 
 * Improved error message when RPC agent fails to connect.
 
@@ -3293,7 +3293,7 @@ It contains a number of improvements and bugfixes.
 
 ### 3.45.0
 
-### Bugfixes
+#### Bugfixes
 
 * Use dns to access gravity-site when running non-kube-system hooks
 
@@ -3312,13 +3312,13 @@ It contains a number of improvements and bugfixes.
 
 ### 3.41.0
 
-### Features
+#### Features
 
 * Add lvm system directory to agent heartbeat to improve install experience.
 
 ### 3.40.0
 
-### Bugfixes
+#### Bugfixes
 
 * Use the container image implicitly referring to private docker registry to fix air-gapped installs.
 * Fix docker volume speed detection issue. Too small blocks caused incorrect disk speed assessment on Azure.
@@ -3474,7 +3474,7 @@ It contains a number of improvements and bugfixes.
 
 ### 3.12.0
 
-### Bugfixes
+#### Bugfixes
 
 * Remove / and /tmp prechecks blocking some installs
 
@@ -3559,20 +3559,20 @@ It contains a number of improvements and bugfixes.
 
 ### 1.26.0
 
-### Features
+#### Features
 
 * Add opscenter section to documentation
 
 ### 1.25.0
 
-### Bugfixes
+#### Bugfixes
 
 * Fix trusted authorities ACL method
 
 
 ### 1.22.0
 
-### Bugfixes
+#### Bugfixes
 
 * Delete tunnel after the install
 * Fix a channel test that would intermittently block
