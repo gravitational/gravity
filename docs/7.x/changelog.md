@@ -1,46 +1,60 @@
 # Releases
 
-## Supported Releases
+## Supported Branches
 
-| Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
-| --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 7.0.9         | No  | June 16th, 2020      | 7.1 is released      | 1.17.6             | 3.2.13           |
-| 6.1.29        | Yes | June 12th, 2020      | November 10th, 2021  | 1.15.12            | 3.2.12           |
-| 5.5.48        | Yes | June 15th, 2020      | March 7th, 2021      | 1.13.11            | 3.0.6-gravity    |
+| Branch | LTS | Latest Release | Latest Release Date | Initial Release Date | End of Support          | Kubernetes Version   | Teleport Version |
+| ------ | --- | -------------- | ------------------- | -------------------- | ----------------------- | -------------------- | ---------------- |
+| 7.0    | No  | 7.0.10         | June 23, 2020       | April 3, 2020        | 7.1 is released         | 1.17.6               | 3.2.13           |
+| 6.1    | Yes | 6.1.29         | June 12, 2020       | August 2, 2019       | November 10, 2021       | 1.15.12              | 3.2.12           |
+| 5.5    | Yes | 5.5.48         | June 15, 2020       | March 8, 2019        | March 8, 2021           | 1.13.11              | 3.0.6-gravity    |
 
-Gravity offers one Long Term Support (LTS) release for every 2nd Kubernetes
+Gravity offers one Long Term Support (LTS) branch for every 2nd Kubernetes
 minor version, allowing for seamless upgrades per Kubernetes
 [supported version skew policy](https://kubernetes.io/docs/setup/release/version-skew-policy/#supported-version-skew).
-LTS Gravity versions are supported with security and bug fixes for two years
-after the x.x.0 release date.
+Gravity LTS branches are supported with security and bug fixes for two years.
 
-Non-LTS (regular) versions of Gravity have the latest features and offer
-more current versions of Kubernetes. Regular versions of Gravity are supported
-with security and bug fixes until the subsequent Gravity release is published.
+Non-LTS (regular) branches of Gravity offer the latest features and include
+more current versions of Kubernetes. Regular branches of Gravity are supported
+with security and bug fixes until first release of the subsequent Gravity
+branch is published.
 
-## Unsupported Releases
+## Unsupported Branches
 
-These releases are past their End of Life date, and no longer receive security
+These branches are past their End of Support date, and no longer receive security
 and bug fixes. [Gravity customers](https://gravitational.com/gravity/demo/) can
-extend updates past EOL through customer agreements if required.
+extend updates past End of Support through customer agreements if required.
 
-| Release       | LTS | Release Date         | Supported Until      | Kubernetes Version | Teleport Version |
-| --------------|-----| -------------------- | -------------------- | ------------------ |------------------|
-| 6.3.18        | No  | June 1st, 2020       | April 3rd, 2020      | 1.17.6             | 3.2.13           |
-| 6.2.5         | No  | December 3rd, 2019   | December 18th, 2019  | 1.16.3             | 3.2.13           |
-| 6.0.10        | No  | October 17th, 2019   | August 2nd, 2019     | 1.14.7             | 3.2.12           |
-| 5.6.8         | No  | September 18th, 2019 | July 17th, 2019      | 1.14.7             | 3.0.6-gravity    |
-| 5.4.10        | No  | March 26th, 2019     | March 8th, 2019      | 1.13.5             | 2.4.10           |
-| 5.3.9         | No  | March 7th, 2019      | December 14, 2018    | 1.12.3             | 2.4.7            |
-| 5.2.17        | Yes | June 11th, 2020      | October 15th, 2019   | 1.11.9             | 2.4.10           |
-| 5.0.36        | Yes | June 8th, 2020       | April 13th, 2019     | 1.9.13-gravitational | 2.4.10         |
-| 4.68.0        | Yes | January 17th, 2019   | November 16th, 2018  | 1.7.18-gravitational | 2.3.5          |
-| 3.64.0        | Yes | December 21st, 2017  | June 2nd, 2018       | 1.5.7              | 2.0.6            |
-| 1.30.0        | Yes | March 21st, 2017     | March 21st, 2018     | 1.3.8              | 1.2.0            |
+| Branch | LTS | Latest Release | Latest Release Date | Initial Release Date | End of Support          | Kubernetes Version   | Teleport Version |
+| ------ | --- | -------------- | ------------------- | -------------------- | ----------------------- |--------------------- |------------------|
+| 6.3    | No  | 6.3.18         | June 1, 2020        | December 18, 2019    | April 3, 2020 (7.0)     | 1.17.6               | 3.2.13           |
+| 6.2    | No  | 6.2.5          | December 3, 2019    | September 24, 2019   | December 18, 2019 (6.3) | 1.16.3               | 3.2.13           |
+| 6.0    | No  | 6.0.10         | October 17, 2019    | July 17, 2019        | August 2, 2019 (6.1)    | 1.14.7               | 3.2.12           |
+| 5.6    | No  | 5.6.8          | September 18, 2019  | April 19, 2019       | July 17, 2019 (6.0)     | 1.14.7               | 3.0.6-gravity    |
+| 5.4    | No  | 5.4.10         | March 26, 2019      | December 14, 2018    | March 8, 2019 (5.5)     | 1.13.5               | 2.4.10           |
+| 5.3    | No  | 5.3.9          | March 7, 2019       | October 19, 2018     | December 14, 2018 (5.4) | 1.12.3               | 2.4.7            |
+| 5.2    | Yes | 5.2.17         | June 11, 2020       | October 15, 2018     | October 15, 2019        | 1.11.9               | 2.4.10           |
+| 5.0    | Yes | 5.0.36         | June 8, 2020        | April 18, 2018       | April 13, 2019          | 1.9.13-gravitational | 2.4.10           |
+| 4.x    | Yes | 4.68.0         | January 17, 2019    | June 1, 2017         | November 16, 2018       | 1.7.18-gravitational | 2.3.5            |
+| 3.x    | Yes | 3.64.0         | December 21, 2017   | February 16, 2017    | June 2, 2018            | 1.5.7                | 2.0.6            |
+| 1.x    | Yes | 1.30.0         | March 21, 2017      | November 2nd, 2016   | March 21, 2018          | 1.3.8                | 1.2.0            |
 
 # Release Notes
 
 ## 7.x Releases
+
+### 7.0.10 (June 23rd, 2020)
+
+#### Improvements
+
+* Update `gravity status` to display a reason for degraded status ([#1722](https://github.com/gravitational/gravity/pull/1722)).
+
+#### Bugfixes
+
+* Fix a number of issues that could lead to blob synchronizer being stuck on removed peers ([#1648](https://github.com/gravitational/gravity/pull/1648)).
+* Fix an issue with browser-based installation timing out ([#1725](https://github.com/gravitational/gravity/pull/1725)).
+* Fix an issue with NFS mounts not working inside planet container ([#1743](https://github.com/gravitational/gravity/pull/1743), [planet#687](https://github.com/gravitational/planet/pull/687)).
+* Fix an issue with kube-apiserver sometimes entering failed state during failover ([#1743](https://github.com/gravitational/gravity/pull/1743), [planet#689](https://github.com/gravitational/planet/pull/689)).
+* Fix an issue with calculating port differences when upgrading to a new version ([#1746](https://github.com/gravitational/gravity/pull/1746)).
 
 ### 7.0.9 (June 16th, 2020)
 
