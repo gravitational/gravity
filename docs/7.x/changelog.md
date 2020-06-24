@@ -42,7 +42,7 @@ extend updates past End of Support through customer agreements if required.
 
 # Release Notes
 
-## 7.x Releases
+## 7.0 Releases
 
 ### 7.0.10 (June 23rd, 2020)
 
@@ -201,7 +201,7 @@ them to any Kubernetes cluster.
 * [Cluster Status History](cluster.md#cluster-status-history)
 to learn how to gain insight into how the cluster status changes over time.
 
-## 6.x Releases
+## 6.3 Releases
 
 ### 6.3.18 (June 1st, 2020)
 
@@ -211,36 +211,6 @@ to learn how to gain insight into how the cluster status changes over time.
 * Prevent etcd portion of upgrades from taking excessive amount of time ([#1617](https://github.com/gravitational/gravity/pull/1487))
 * Update CNI plugins to 0.8.6 (CVE-2020-10749) ([#1617](https://github.com/gravitational/gravity/pull/1487))([planet#649](https://github.com/gravitational/planet/pull/649))
 * Fix several issues that prevented expand operations from being resumable ([#1594](https://github.com/gravitational/gravity/pull/1594))
-
-!!! warning
-    This release fixes a security vulnerability in kubernetes. Please see
-    [Kubernetes Announcement](https://groups.google.com/forum/#!topic/kubernetes-announce/BGG-uvklk7Y) for more information.
-
-!!! warning
-    This release fixes a security vulnerability in CNI. Please see
-    [Kubernetes Announcement](https://groups.google.com/forum/#!topic/kubernetes-announce/wGuDMGdnW9M) for more information.
-
-### 6.1.29 LTS (June 12th, 2020)
-
-#### Bugfixes
-
-* Fix an issue with upgrading from releases containing etcd `v3.3.20` ([#1694](https://github.com/gravitational/gravity/pull/1694), [#679](https://github.com/gravitational/planet/pull/679)).
-* Fix an issue with nethealth checker not removing metrics for removed nodes ([#1621](https://github.com/gravitational/gravity/pull/1621), [#638](https://github.com/gravitational/planet/pull/638), [monitoring-app#167](https://github.com/gravitational/monitoring-app/pull/167)).
-
-### 6.1.28 LTS (June 1st, 2020)
-
-#### Improvements
-
-* Add gravity rollback command ([#1620](https://github.com/gravitational/gravity/pull/1620))
-* Add planet election change events to `gravity status history` ([#1355](https://github.com/gravitational/gravity/pull/1355))
-
-#### Bugfixes
-* Update Kubernetes to 1.15.12 (CVE-2020-8555) ([#1627](https://github.com/gravitational/gravity/pull/1487))([planet#656](https://github.com/gravitational/planet/pull/656))
-* Bump etcd to v3.3.22 ([#1618](https://github.com/gravitational/gravity/pull/1487))([planet#648](https://github.com/gravitational/planet/pull/648))
-* Prevent etcd portion of upgrades from taking excessive amount of time ([#1618](https://github.com/gravitational/gravity/pull/1487))
-* Update CNI plugins to 0.8.6 (CVE-2020-10749) ([#1618](https://github.com/gravitational/gravity/pull/1487))([planet#648](https://github.com/gravitational/planet/pull/648))
-* Fix several issues that prevented expand operations from being resumable ([#1605](https://github.com/gravitational/gravity/pull/1605))
-* Use consistent naming to prevent issues with re-running phases ([#1601](https://github.com/gravitational/gravity/pull/1601))
 
 !!! warning
     This release fixes a security vulnerability in kubernetes. Please see
@@ -261,33 +231,6 @@ to learn how to gain insight into how the cluster status changes over time.
     This release addresses an issue with an insecure default that would map any remote role to the local admin role when connecting
     a cluster to a Hub using a trusted cluster without an explicitly configured role mapping. See [Trusted Clusters](config.md#trusted-clusters-enterprise)
     documentation for role mapping configuration details.
-
-### 6.1.27 LTS (May 13th, 2020)
-
-#### Bugfixes
-
-* Fix an issue with inability to set a `role_map` property when configuring a trusted cluster ([#1557](https://github.com/gravitational/gravity/pull/1557)).
-* Update default trusted cluster role mapping to only map remote admin role to local admin role ([#1557](https://github.com/gravitational/gravity/pull/1557)).
-* Fix an issue with wormhole CNI plugin installation ([#1565](https://github.com/gravitational/gravity/pull/1565)).
-
-!!! warning
-    This release addresses an issue with an insecure default that would map any remote role to the local admin role when connecting
-    a cluster to a Hub using a trusted cluster without an explicitly configured role mapping. See [Trusted Clusters](config.md#trusted-clusters-enterprise)
-    documentation for role mapping configuration details.
-
-### 6.1.26 LTS (May 13th, 2020)
-
-#### Improvements
-
-* Add ability to display warning probes in `gravity status` ([#1499](https://github.com/gravitational/gravity/pull/1499)).
-* Add Teleport nodes status to `gravity status` ([#1486](https://github.com/gravitational/gravity/pull/1486)).
-* Make the hook that installs the system DNS application idempotent ([#1513](https://github.com/gravitational/gravity/pull/1513)).
-
-#### Bugfixes
-
-* Make sure Teleport node has connected successfully when joining a new node ([#1486](https://github.com/gravitational/gravity/pull/1486)).
-* Loosen preflight check to allow variance in OS patch versions between cluster nodes ([#1551](https://github.com/gravitational/gravity/pull/1551)).
-* Fix an issue with wormhole failing to upgrade due to file permission errors ([#1562](https://github.com/gravitational/gravity/pull/1562)).
 
 ### 6.3.16 (May 7th, 2020)
 
@@ -341,6 +284,259 @@ to learn how to gain insight into how the cluster status changes over time.
 * Fix an issue with 6.3.10 gravity binary not being able to join to older 6.3 clusters ([#1383](https://github.com/gravitational/gravity/pull/1383)).
 * Fix a cosmetic issue with messages being improperly formatted when printing operations ([#1374](https://github.com/gravitational/gravity/pull/1374)).
 
+### 6.3.10 (April 13th, 2020)
+
+#### Improvements
+
+* Add overlay network checker to the in-cluster problem detector ([#1324](https://github.com/gravitational/gravity/pull/1324)).
+* Add ability to view cluster operations from CLI using `gravity resource get operations` command ([#1338](https://github.com/gravitational/gravity/pull/1338)).
+* Set apiserver flags to enable service account token volume projection ([#1359](https://github.com/gravitational/gravity/pull/1359)).
+
+#### Bugfixes
+
+* Disallow running certain commands inside planet container which could lead to unexpected results ([#1350](https://github.com/gravitational/gravity/pull/1350)).
+* Fix a number of issues that could lead to expand operation being stuck ([#1348](https://github.com/gravitational/gravity/pull/1348)).
+
+### 6.3.9 (April 3rd, 2020)
+
+#### Improvements
+
+* Add `--pull` flag to `tele build` to allow always pulling latest versions of images ([#1309](https://github.com/gravitational/gravity/pull/1309)).
+
+#### Bugfixes
+
+* Apply CPU and memory limits and requests on Logrange components ([#1287](https://github.com/gravitational/gravity/pull/1287), [logging-app#64](https://github.com/gravitational/logging-app/pull/64)).
+* Fix an issue with hub certificates missing SANs after expand ([#1318](https://github.com/gravitational/gravity/pull/1318)).
+* Fix an issue with displaying server version in `gravity status` ([#1309](https://github.com/gravitational/gravity/pull/1309)).
+* Fix a race condition that could lead to planet rootfs being reset during upgrade ([#1309](https://github.com/gravitational/gravity/pull/1309)).
+
+### 6.3.8 (March 23rd, 2020)
+
+#### Bugfixes
+
+* Fix an issue with missing helm symlink on reinstall ([#1103](https://github.com/gravitational/gravity/pull/1103)).
+* Fix an issue with dns configuration during upgrade when host DNS has a localhost resolver ([#1161](https://github.com/gravitational/gravity/pull/1161)).
+* Fix an issue where the main upgrade agent could begin upgrade steps before all node agents are available ([#1205](https://github.com/gravitational/gravity/pull/1205)).
+* Agent deployment will now retry on transient network errors ([#1205](https://github.com/gravitational/gravity/pull/1205)).
+* If the upgrade fails to initialize, shut down all upgrade agents ([#1205](https://github.com/gravitational/gravity/pull/1205)).
+* Fix an issue with uploading teleport session logs ([#1225](https://github.com/gravitational/gravity/pull/1225)).
+* Prevent grafana from attempting to contact analytics servers ([#1250](https://github.com/gravitational/gravity/pull/1250)).
+* Fix an issue with serf members not leaving the cluster ([#1260](https://github.com/gravitational/gravity/pull/1260)).
+* Upgrade Kubernetes to `v1.17.04` (CVE-2020-8551, CVE-2020-8552) ([#1271](https://github.com/gravitational/gravity/pull/1271)).
+
+#### Improvements
+
+* Implement `gravity status history` command to show status changes ([#1119](https://github.com/gravitational/gravity/pull/1119)).
+* `gravity status` now shows both the client and server version in the status output ([#1166](https://github.com/gravitational/gravity/pull/1166)).
+* The runtime will now properly check and prevent upgrades on unsupported upgrade paths ([#1237](https://github.com/gravitational/gravity/pull/1237)).
+* Add cgroup cleaner to planet to prevent leaking cgroups ([planet#576](https://github.com/gravitational/planet/pull/576)).
+
+!!! warning
+    This release fixes a security vulnerability in kubernetes. Please see
+    [Kubernetes Announcement](https://groups.google.com/forum/#!topic/kubernetes-announce/jPiyJ1KL_FI) for more information.
+
+### 6.3.7 (February 12th, 2020)
+
+#### Improvements
+
+* Update Kubernetes to `v1.17.2` ([#1080](https://github.com/gravitational/gravity/pull/1080)).
+
+#### Bugfixes
+
+* Fix an issue with merging `ClusterConfiguration` resource and validation checks ([#1093](https://github.com/gravitational/gravity/pull/1093)).
+* Update kernel module checker to support 5.0/5.1 Linux kernels ([#1094](https://github.com/gravitational/gravity/pull/1094)).
+
+### 6.3.6 (February 4th, 2020)
+
+#### Bugfixes
+
+* Fix an issue with flannel incorrectly recovering from a watch failure ([#1070](https://github.com/gravitational/gravity/pull/1070)).
+* Fix an issue with changes to pod CIDR within cluster configuration ([#1043](https://github.com/gravitational/gravity/pull/1043)).
+* Fix broken menu height and scrollbars ([#1042](https://github.com/gravitational/gravity/pull/1042)).
+* Fix a UI issue with null items returned by kubernetes API ([#1039](https://github.com/gravitational/gravity/pull/1039)).
+* Enable all kubernetes default admission controllers ([#1069](https://github.com/gravitational/gravity/pull/1069)).
+
+### 6.3.5 (January 16th, 2020)
+
+#### Bugfixes
+
+* Fix the issue with gravity-site sometimes failing to start with bad permissions error ([#1024](https://github.com/gravitational/gravity/pull/1024)).
+
+### 6.3.4 (January 14th, 2020)
+
+#### Improvements
+
+* Add Amazon Linux 2 to supported distros of the base Gravity image ([#1019](https://github.com/gravitational/gravity/pull/1019)).
+
+#### Bugfixes
+
+* Fix the issue with "role not found" error when trying to access remote clusters via Gravity Hub ([#1012](https://github.com/gravitational/gravity/pull/1012)).
+
+### 6.3.3 (January 8th, 2020)
+
+#### Bugfixes
+
+* Restore automatic node registration via kubelet ([#1001](https://github.com/gravitational/gravity/pull/1001), [planet#539](https://github.com/gravitational/planet/pull/539)).
+
+### 6.3.2 (December 20th, 2019)
+
+#### Bugfixes
+
+* Fix an issue with CoreDNS pods not being scheduled due to discrepancy between node selector and node labels ([#985](https://github.com/gravitational/gravity/pull/985)).
+
+### 6.3.1 (December 20th, 2019)
+
+#### Bugfixes
+
+* Fix a security issue where secrets are being reused for multiple certificates and secrets are not being rotated during certificate rotation [#979](https://github.com/gravitational/gravity/pull/979).
+
+!!! warning
+    This release fixes a security vulnerability in gravity.
+
+### 6.3.0 (December 18th, 2019)
+
+#### Improvements
+
+* Upgrade Kubernetes to `v1.17.0` ([#967](https://github.com/gravitational/gravity/pull/967), [planet#537](https://github.com/gravitational/planet/pull/537)).
+* Remove Docker bridge and promiscuous mode configurations ([#959](https://github.com/gravitational/gravity/pull/959), [planet#536](https://github.com/gravitational/planet/pull/536)).
+* Use relative binary path when displaying `gravity join` command hint ([#935](https://github.com/gravitational/gravity/pull/935)).
+
+#### Bugfixes
+
+* Fix the issue with kubelet failing to start with unsupported labels ([#953](https://github.com/gravitational/gravity/pull/953)).
+* Fix the issue with `gravity status` becoming slow when there are a lot of namespaces ([#956](https://github.com/gravitational/gravity/pull/956)).
+* Fix the issue with disconnecting clusters from the Hub ([#964](https://github.com/gravitational/gravity/pull/964)).
+
+## 6.2 Releases
+
+### 6.2.5 (December 3rd, 2019)
+
+#### Improvements
+
+* Add ability to pass Helm values to `tele build` ([#912](https://github.com/gravitational/gravity/pull/912)).
+
+#### Bugfixes
+
+* Expose Kubernetes proxy port in `gravity-public` service ([#916](https://github.com/gravitational/gravity/pull/916)).
+
+### 6.2.4 (November 20th, 2019)
+
+#### Improvements
+
+* Display cluster name on a separate line in `gravity status` ([#896](https://github.com/gravitational/gravity/pull/896)).
+
+#### Bugfixes
+
+* Fix the issue with `gravity leave --force` leaving the node in partially cleaned up state when run without `sudo` ([#896](https://github.com/gravitational/gravity/pull/896)).
+* Fix the issue with joining agent connecting to the ongoing installation instead of waiting for install to complete ([#893](https://github.com/gravitational/gravity/pull/893)).
+
+### 6.2.3 (November 13th, 2019)
+
+#### Improvements
+
+* Upgrade Kubernetes to `v1.16.3` ([#878](https://github.com/gravitational/gravity/pull/878), [planet#528](https://github.com/gravitational/planet/pull/528)).
+* Execute preflight checks during join operation ([#854](https://github.com/gravitational/gravity/pull/854)).
+* Update `gravity check` command to support upgrade preflight checks ([#871](https://github.com/gravitational/gravity/pull/871)).
+* Bump Helm/Tiller to `v2.14.3` ([#830](https://github.com/gravitational/gravity/pull/830)).
+
+#### Bugfixes
+
+* Fix the issue with accessing remote clusters via a Hub using `tsh` or web terminal ([#816](https://github.com/gravitational/gravity/pull/816)).
+* Fix the issue with the installer systemd unit failing due to long command when installing with a `--license` flag ([#831](https://github.com/gravitational/gravity/pull/831)).
+* Fix the issue with application-only (without runtime) upgrades ([#836](https://github.com/gravitational/gravity/pull/836)).
+
+### 6.2.2 (October 17th, 2019)
+
+#### Bugfixes
+
+* Upgrade Kubernetes to `v1.16.02` (CVE-2019-11253) ([#808](https://github.com/gravitational/gravity/pull/808)).
+
+!!! warning
+    This release fixes a security vulnerability in kubernetes. Please see
+    [Kubernetes Announcement](https://github.com/kubernetes/kubernetes/issues/83253) for more information.
+
+### 6.2.1 (October 11th, 2019)
+
+#### Improvements
+
+* Add support for discovering upstream DNS servers from systemd-resolved configuration ([#782](https://github.com/gravitational/gravity/pull/782)).
+* Improve `gravity report` to capture additional network configuration ([#769](https://github.com/gravitational/gravity/pull/769)).
+* Add ability to specify default cloud provider in cluster manifest ([#761](https://github.com/gravitational/gravity/pull/761)).
+* Add `ebtable_filter` to the list of required gravity kernel modules ([#724](https://github.com/gravitational/gravity/pull/724)).
+* Increase timeout on healthz check and allow optional configuration by environment variable ([#752](https://github.com/gravitational/gravity/pull/752)).
+
+#### Bugfixes
+
+* Fix the issue with join failing with "bad username or password" when using auto-scaling groups on AWS ([#789](https://github.com/gravitational/gravity/pull/789)).
+* Fix the issue with web UI installer displaying the login screen ([#793](https://github.com/gravitational/gravity/pull/793)).
+* Fix the issue with UI showing "user not found" error after choosing a password for a new user ([#793](https://github.com/gravitational/gravity/pull/793)).
+* Fix the issue with `gravity report` accessing journal files ([#732](https://github.com/gravitational/gravity/pull/732)).
+
+### 6.2.0 (September 24th, 2019)
+
+#### Improvements
+
+* Upgrade Kubernetes to `v1.16.0`.
+
+## 6.1 Releases
+
+### 6.1.29 LTS (June 12th, 2020)
+
+#### Bugfixes
+
+* Fix an issue with upgrading from releases containing etcd `v3.3.20` ([#1694](https://github.com/gravitational/gravity/pull/1694), [#679](https://github.com/gravitational/planet/pull/679)).
+* Fix an issue with nethealth checker not removing metrics for removed nodes ([#1621](https://github.com/gravitational/gravity/pull/1621), [#638](https://github.com/gravitational/planet/pull/638), [monitoring-app#167](https://github.com/gravitational/monitoring-app/pull/167)).
+
+### 6.1.28 LTS (June 1st, 2020)
+
+#### Improvements
+
+* Add gravity rollback command ([#1620](https://github.com/gravitational/gravity/pull/1620))
+* Add planet election change events to `gravity status history` ([#1355](https://github.com/gravitational/gravity/pull/1355))
+
+#### Bugfixes
+* Update Kubernetes to 1.15.12 (CVE-2020-8555) ([#1627](https://github.com/gravitational/gravity/pull/1487))([planet#656](https://github.com/gravitational/planet/pull/656))
+* Bump etcd to v3.3.22 ([#1618](https://github.com/gravitational/gravity/pull/1487))([planet#648](https://github.com/gravitational/planet/pull/648))
+* Prevent etcd portion of upgrades from taking excessive amount of time ([#1618](https://github.com/gravitational/gravity/pull/1487))
+* Update CNI plugins to 0.8.6 (CVE-2020-10749) ([#1618](https://github.com/gravitational/gravity/pull/1487))([planet#648](https://github.com/gravitational/planet/pull/648))
+* Fix several issues that prevented expand operations from being resumable ([#1605](https://github.com/gravitational/gravity/pull/1605))
+* Use consistent naming to prevent issues with re-running phases ([#1601](https://github.com/gravitational/gravity/pull/1601))
+
+!!! warning
+    This release fixes a security vulnerability in kubernetes. Please see
+    [Kubernetes Announcement](https://groups.google.com/forum/#!topic/kubernetes-announce/BGG-uvklk7Y) for more information.
+
+!!! warning
+    This release fixes a security vulnerability in CNI. Please see
+    [Kubernetes Announcement](https://groups.google.com/forum/#!topic/kubernetes-announce/wGuDMGdnW9M) for more information.
+
+### 6.1.27 LTS (May 13th, 2020)
+
+#### Bugfixes
+
+* Fix an issue with inability to set a `role_map` property when configuring a trusted cluster ([#1557](https://github.com/gravitational/gravity/pull/1557)).
+* Update default trusted cluster role mapping to only map remote admin role to local admin role ([#1557](https://github.com/gravitational/gravity/pull/1557)).
+* Fix an issue with wormhole CNI plugin installation ([#1565](https://github.com/gravitational/gravity/pull/1565)).
+
+!!! warning
+    This release addresses an issue with an insecure default that would map any remote role to the local admin role when connecting
+    a cluster to a Hub using a trusted cluster without an explicitly configured role mapping. See [Trusted Clusters](config.md#trusted-clusters-enterprise)
+    documentation for role mapping configuration details.
+
+### 6.1.26 LTS (May 13th, 2020)
+
+#### Improvements
+
+* Add ability to display warning probes in `gravity status` ([#1499](https://github.com/gravitational/gravity/pull/1499)).
+* Add Teleport nodes status to `gravity status` ([#1486](https://github.com/gravitational/gravity/pull/1486)).
+* Make the hook that installs the system DNS application idempotent ([#1513](https://github.com/gravitational/gravity/pull/1513)).
+
+#### Bugfixes
+
+* Make sure Teleport node has connected successfully when joining a new node ([#1486](https://github.com/gravitational/gravity/pull/1486)).
+* Loosen preflight check to allow variance in OS patch versions between cluster nodes ([#1551](https://github.com/gravitational/gravity/pull/1551)).
+* Fix an issue with wormhole failing to upgrade due to file permission errors ([#1562](https://github.com/gravitational/gravity/pull/1562)).
+
 ### 6.1.25 LTS (April 29th, 2020)
 
 #### Bugfixes
@@ -369,19 +565,6 @@ to learn how to gain insight into how the cluster status changes over time.
 * Fix an issue with custom dashboards watcher not being able to authenticate with Grafana ([#1364](https://github.com/gravitational/gravity/pull/1364)).
 * Fix an issue with wormhole CNI plugin installation ([#1371](https://github.com/gravitational/gravity/pull/1371)).
 
-### 6.3.10 (April 13th, 2020)
-
-#### Improvements
-
-* Add overlay network checker to the in-cluster problem detector ([#1324](https://github.com/gravitational/gravity/pull/1324)).
-* Add ability to view cluster operations from CLI using `gravity resource get operations` command ([#1338](https://github.com/gravitational/gravity/pull/1338)).
-* Set apiserver flags to enable service account token volume projection ([#1359](https://github.com/gravitational/gravity/pull/1359)).
-
-#### Bugfixes
-
-* Disallow running certain commands inside planet container which could lead to unexpected results ([#1350](https://github.com/gravitational/gravity/pull/1350)).
-* Fix a number of issues that could lead to expand operation being stuck ([#1348](https://github.com/gravitational/gravity/pull/1348)).
-
 ### 6.1.21 LTS (April 10th, 2020)
 
 #### Improvements
@@ -394,19 +577,6 @@ to learn how to gain insight into how the cluster status changes over time.
 
 * Disallow running certain commands inside planet container which could lead to unexpected results ([#1351](https://github.com/gravitational/gravity/pull/1351)).
 
-### 6.3.9 (April 3rd, 2020)
-
-#### Improvements
-
-* Add `--pull` flag to `tele build` to allow always pulling latest versions of images ([#1309](https://github.com/gravitational/gravity/pull/1309)).
-
-#### Bugfixes
-
-* Apply CPU and memory limits and requests on Logrange components ([#1287](https://github.com/gravitational/gravity/pull/1287), [logging-app#64](https://github.com/gravitational/logging-app/pull/64)).
-* Fix an issue with hub certificates missing SANs after expand ([#1318](https://github.com/gravitational/gravity/pull/1318)).
-* Fix an issue with displaying server version in `gravity status` ([#1309](https://github.com/gravitational/gravity/pull/1309)).
-* Fix a race condition that could lead to planet rootfs being reset during upgrade ([#1309](https://github.com/gravitational/gravity/pull/1309)).
-
 ### 6.1.20 LTS (March 31st, 2020)
 
 #### Improvements
@@ -418,31 +588,6 @@ to learn how to gain insight into how the cluster status changes over time.
 * Apply CPU and memory limits and requests on Logrange components ([#1286](https://github.com/gravitational/gravity/pull/1286), [logging-app#64](https://github.com/gravitational/logging-app/pull/64)).
 * Fix an issue with displaying server version in `gravity status` ([#1306](https://github.com/gravitational/gravity/pull/1306)).
 * Fix a race condition that could lead to planet rootfs being reset during upgrade ([#1306](https://github.com/gravitational/gravity/pull/1306)).
-
-### 6.3.8 (March 23rd, 2020)
-
-#### Bugfixes
-
-* Fix an issue with missing helm symlink on reinstall ([#1103](https://github.com/gravitational/gravity/pull/1103)).
-* Fix an issue with dns configuration during upgrade when host DNS has a localhost resolver ([#1161](https://github.com/gravitational/gravity/pull/1161)).
-* Fix an issue where the main upgrade agent could begin upgrade steps before all node agents are available ([#1205](https://github.com/gravitational/gravity/pull/1205)).
-* Agent deployment will now retry on transient network errors ([#1205](https://github.com/gravitational/gravity/pull/1205)).
-* If the upgrade fails to initialize, shut down all upgrade agents ([#1205](https://github.com/gravitational/gravity/pull/1205)).
-* Fix an issue with uploading teleport session logs ([#1225](https://github.com/gravitational/gravity/pull/1225)).
-* Prevent grafana from attempting to contact analytics servers ([#1250](https://github.com/gravitational/gravity/pull/1250)).
-* Fix an issue with serf members not leaving the cluster ([#1260](https://github.com/gravitational/gravity/pull/1260)).
-* Upgrade Kubernetes to `v1.17.04` (CVE-2020-8551, CVE-2020-8552) ([#1271](https://github.com/gravitational/gravity/pull/1271)).
-
-#### Improvements
-
-* Implement `gravity status history` command to show status changes ([#1119](https://github.com/gravitational/gravity/pull/1119)).
-* `gravity status` now shows both the client and server version in the status output ([#1166](https://github.com/gravitational/gravity/pull/1166)).
-* The runtime will now properly check and prevent upgrades on unsupported upgrade paths ([#1237](https://github.com/gravitational/gravity/pull/1237)).
-* Add cgroup cleaner to planet to prevent leaking cgroups ([planet#576](https://github.com/gravitational/planet/pull/576)).
-
-!!! warning
-    This release fixes a security vulnerability in kubernetes. Please see
-    [Kubernetes Announcement](https://groups.google.com/forum/#!topic/kubernetes-announce/jPiyJ1KL_FI) for more information.
 
 ### 6.1.19 LTS (March 23rd, 2020)
 
@@ -471,27 +616,6 @@ to learn how to gain insight into how the cluster status changes over time.
     This release fixes a security vulnerability in kubernetes. Please see
     [Kubernetes Announcement](https://groups.google.com/forum/#!topic/kubernetes-announce/jPiyJ1KL_FI) for more information.
 
-### 6.3.7 (February 12th, 2020)
-
-#### Improvements
-
-* Update Kubernetes to `v1.17.2` ([#1080](https://github.com/gravitational/gravity/pull/1080)).
-
-#### Bugfixes
-
-* Fix an issue with merging `ClusterConfiguration` resource and validation checks ([#1093](https://github.com/gravitational/gravity/pull/1093)).
-* Update kernel module checker to support 5.0/5.1 Linux kernels ([#1094](https://github.com/gravitational/gravity/pull/1094)).
-
-### 6.3.6 (February 4th, 2020)
-
-#### Bugfixes
-
-* Fix an issue with flannel incorrectly recovering from a watch failure ([#1070](https://github.com/gravitational/gravity/pull/1070)).
-* Fix an issue with changes to pod CIDR within cluster configuration ([#1043](https://github.com/gravitational/gravity/pull/1043)).
-* Fix broken menu height and scrollbars ([#1042](https://github.com/gravitational/gravity/pull/1042)).
-* Fix a UI issue with null items returned by kubernetes API ([#1039](https://github.com/gravitational/gravity/pull/1039)).
-* Enable all kubernetes default admission controllers ([#1069](https://github.com/gravitational/gravity/pull/1069)).
-
 ### 6.1.18 LTS (February 4th, 2020)
 
 #### Improvements
@@ -502,23 +626,6 @@ to learn how to gain insight into how the cluster status changes over time.
 
 * Fix an issue with flannel incorrectly recovering from a watch failure ([#1070](https://github.com/gravitational/gravity/pull/1070)).
 * Enable all kubernetes default admission controllers ([#1070](https://github.com/gravitational/gravity/pull/1070)).
-
-
-### 6.3.5 (January 16th, 2020)
-
-#### Bugfixes
-
-* Fix the issue with gravity-site sometimes failing to start with bad permissions error ([#1024](https://github.com/gravitational/gravity/pull/1024)).
-
-### 6.3.4 (January 14th, 2020)
-
-#### Improvements
-
-* Add Amazon Linux 2 to supported distros of the base Gravity image ([#1019](https://github.com/gravitational/gravity/pull/1019)).
-
-#### Bugfixes
-
-* Fix the issue with "role not found" error when trying to access remote clusters via Gravity Hub ([#1012](https://github.com/gravitational/gravity/pull/1012)).
 
 ### 6.1.16 LTS (January 14th, 2020)
 
@@ -532,32 +639,11 @@ to learn how to gain insight into how the cluster status changes over time.
 * Restore automatic node registration via kubelet ([#1014](https://github.com/gravitational/gravity/pull/1014), [planet#541](https://github.com/gravitational/planet/pull/541)).
 * Fix the issue with "role not found" error when trying to access remote clusters via Gravity Hub ([#1010](https://github.com/gravitational/gravity/pull/1010)).
 
-### 6.3.3 (January 8th, 2020)
-
-#### Bugfixes
-
-* Restore automatic node registration via kubelet ([#1001](https://github.com/gravitational/gravity/pull/1001), [planet#539](https://github.com/gravitational/planet/pull/539)).
-
-### 6.3.2 (December 20th, 2019)
-
-#### Bugfixes
-
-* Fix an issue with CoreDNS pods not being scheduled due to discrepancy between node selector and node labels ([#985](https://github.com/gravitational/gravity/pull/985)).
-
 ### 6.1.15 LTS (December 20th, 2019)
 
 #### Bugfixes
 
 * Fix an issue with CoreDNS pods not being scheduled due to discrepancy between node selector and node labels ([#986](https://github.com/gravitational/gravity/pull/986)).
-
-### 6.3.1 (December 20th, 2019)
-
-#### Bugfixes
-
-* Fix a security issue where secrets are being reused for multiple certificates and secrets are not being rotated during certificate rotation [#979](https://github.com/gravitational/gravity/pull/979).
-
-!!! warning
-    This release fixes a security vulnerability in gravity.
 
 ### 6.1.14 LTS (December 20th, 2019)
 
@@ -577,41 +663,6 @@ to learn how to gain insight into how the cluster status changes over time.
 !!! warning
     This release fixes a security vulnerability in gravity.
 
-### 6.3.0 (December 18th, 2019)
-
-#### Improvements
-
-* Upgrade Kubernetes to `v1.17.0` ([#967](https://github.com/gravitational/gravity/pull/967), [planet#537](https://github.com/gravitational/planet/pull/537)).
-* Remove Docker bridge and promiscuous mode configurations ([#959](https://github.com/gravitational/gravity/pull/959), [planet#536](https://github.com/gravitational/planet/pull/536)).
-* Use relative binary path when displaying `gravity join` command hint ([#935](https://github.com/gravitational/gravity/pull/935)).
-
-#### Bugfixes
-
-* Fix the issue with kubelet failing to start with unsupported labels ([#953](https://github.com/gravitational/gravity/pull/953)).
-* Fix the issue with `gravity status` becoming slow when there are a lot of namespaces ([#956](https://github.com/gravitational/gravity/pull/956)).
-* Fix the issue with disconnecting clusters from the Hub ([#964](https://github.com/gravitational/gravity/pull/964)).
-
-### 6.2.5 (December 3rd, 2019)
-
-#### Improvements
-
-* Add ability to pass Helm values to `tele build` ([#912](https://github.com/gravitational/gravity/pull/912)).
-
-#### Bugfixes
-
-* Expose Kubernetes proxy port in `gravity-public` service ([#916](https://github.com/gravitational/gravity/pull/916)).
-
-### 6.2.4 (November 20th, 2019)
-
-#### Improvements
-
-* Display cluster name on a separate line in `gravity status` ([#896](https://github.com/gravitational/gravity/pull/896)).
-
-#### Bugfixes
-
-* Fix the issue with `gravity leave --force` leaving the node in partially cleaned up state when run without `sudo` ([#896](https://github.com/gravitational/gravity/pull/896)).
-* Fix the issue with joining agent connecting to the ongoing installation instead of waiting for install to complete ([#893](https://github.com/gravitational/gravity/pull/893)).
-
 ### 6.1.13 LTS (November 20th, 2019)
 
 #### Improvements
@@ -622,21 +673,6 @@ to learn how to gain insight into how the cluster status changes over time.
 
 * Fix the issue with `gravity leave --force` leaving the node in partially cleaned up state when run without `sudo` ([#895](https://github.com/gravitational/gravity/pull/895)).
 * Fix the issue with joining agent connecting to the ongoing installation instead of waiting for install to complete ([#885](https://github.com/gravitational/gravity/pull/885)).
-
-### 6.2.3 (November 13th, 2019)
-
-#### Improvements
-
-* Upgrade Kubernetes to `v1.16.3` ([#878](https://github.com/gravitational/gravity/pull/878), [planet#528](https://github.com/gravitational/planet/pull/528)).
-* Execute preflight checks during join operation ([#854](https://github.com/gravitational/gravity/pull/854)).
-* Update `gravity check` command to support upgrade preflight checks ([#871](https://github.com/gravitational/gravity/pull/871)).
-* Bump Helm/Tiller to `v2.14.3` ([#830](https://github.com/gravitational/gravity/pull/830)).
-
-#### Bugfixes
-
-* Fix the issue with accessing remote clusters via a Hub using `tsh` or web terminal ([#816](https://github.com/gravitational/gravity/pull/816)).
-* Fix the issue with the installer systemd unit failing due to long command when installing with a `--license` flag ([#831](https://github.com/gravitational/gravity/pull/831)).
-* Fix the issue with application-only (without runtime) upgrades ([#836](https://github.com/gravitational/gravity/pull/836)).
 
 ### 6.1.12 LTS (November 11th, 2019)
 
@@ -666,16 +702,6 @@ to learn how to gain insight into how the cluster status changes over time.
 * Fix the issue with accessing remote clusters via a Hub using `tsh` or web terminal ([#814](https://github.com/gravitational/gravity/pull/814)).
 * Fix the issue with `tiller` server not being upgraded when upgrading from early 6.1 releases ([#818](https://github.com/gravitational/gravity/pull/818)).
 
-### 6.2.2 (October 17th, 2019)
-
-#### Bugfixes
-
-* Upgrade Kubernetes to `v1.16.02` (CVE-2019-11253) ([#808](https://github.com/gravitational/gravity/pull/808)).
-
-!!! warning
-    This release fixes a security vulnerability in kubernetes. Please see
-    [Kubernetes Announcement](https://github.com/kubernetes/kubernetes/issues/83253) for more information.
-
 ### 6.1.8 LTS (October 17th, 2019)
 
 #### Bugfixes
@@ -686,39 +712,6 @@ to learn how to gain insight into how the cluster status changes over time.
 !!! warning
     This release fixes a security vulnerability in kubernetes. Please see
     [Kubernetes Announcement](https://github.com/kubernetes/kubernetes/issues/83253) for more information.
-
-### 6.0.10 (October 17th, 2019)
-
-#### Improvements
-
-* Add support for discovering upstream DNS servers from systemd-resolved configuration ([#740](https://github.com/gravitational/gravity/pull/740)).
-* Improve `gravity report` to capture additional network configuration ([#769](https://github.com/gravitational/gravity/pull/769)).
-
-#### Bugfixes
-
-* Upgrade Kubernetes to `v1.14.08` (CVE-2019-11253) ([#810](https://github.com/gravitational/gravity/pull/810)).
-* Fix the issue with join failing with "bad username or password" when using auto-scaling groups on AWS ([#790](https://github.com/gravitational/gravity/pull/790)).
-
-!!! warning
-    This release fixes a security vulnerability in kubernetes. Please see
-    [Kubernetes Announcement](https://github.com/kubernetes/kubernetes/issues/83253) for more information.
-
-### 6.2.1 (October 11th, 2019)
-
-#### Improvements
-
-* Add support for discovering upstream DNS servers from systemd-resolved configuration ([#782](https://github.com/gravitational/gravity/pull/782)).
-* Improve `gravity report` to capture additional network configuration ([#769](https://github.com/gravitational/gravity/pull/769)).
-* Add ability to specify default cloud provider in cluster manifest ([#761](https://github.com/gravitational/gravity/pull/761)).
-* Add `ebtable_filter` to the list of required gravity kernel modules ([#724](https://github.com/gravitational/gravity/pull/724)).
-* Increase timeout on healthz check and allow optional configuration by environment variable ([#752](https://github.com/gravitational/gravity/pull/752)).
-
-#### Bugfixes
-
-* Fix the issue with join failing with "bad username or password" when using auto-scaling groups on AWS ([#789](https://github.com/gravitational/gravity/pull/789)).
-* Fix the issue with web UI installer displaying the login screen ([#793](https://github.com/gravitational/gravity/pull/793)).
-* Fix the issue with UI showing "user not found" error after choosing a password for a new user ([#793](https://github.com/gravitational/gravity/pull/793)).
-* Fix the issue with `gravity report` accessing journal files ([#732](https://github.com/gravitational/gravity/pull/732)).
 
 ### 6.1.7 LTS (October 11th, 2019)
 
@@ -745,12 +738,6 @@ to learn how to gain insight into how the cluster status changes over time.
 * Fixes a race condition within docker libraries used by gravity ([#778](https://github.com/gravitational/gravity/pull/778)).
 * Fix an issue with `gravity report` accessing journal files ([#733](https://github.com/gravitational/gravity/pull/733)).
 
-### 6.2.0 (September 24th, 2019)
-
-#### Improvements
-
-* Upgrade Kubernetes to `v1.16.0`.
-
 ### 6.1.5 LTS (September 18th, 2019)
 
 #### Bugfixes
@@ -767,6 +754,72 @@ to learn how to gain insight into how the cluster status changes over time.
 !!! warning
     This release fixes a security vulnerability in teleport. Please see
     [Teleport Announcement](https://github.com/gravitational/teleport/releases/tag/v4.0.5) for more information.
+
+### 6.1.4 LTS (September 10th, 2019)
+
+#### Bugfixes
+
+* Fix `allowPrivileged` flag placement in the manifest schema.
+
+### 6.1.3 LTS (September 9th, 2019)
+
+#### Improvements
+
+* Add ability to run privileged containers. See [Running Privileged Containers](faq.md#running-privileged-containers) for details.
+
+### 6.1.2 LTS (August 26th, 2019)
+
+#### Bugfixes
+
+* Upgrade golang to `v1.12.9` (CVE-2019-9512, CVE-2019-9514)
+* Upgrade Kubernetes to `v1.15.2` (CVE-2019-9512, CVE-2019-9514).
+
+!!! warning
+    This release fixes a security vulnerability in golang used by gravity and kubernetes. Please see
+    [Netflix Announcement](https://github.com/Netflix/security-bulletins/blob/master/advisories/third-party/2019-002.md) for more information.
+
+### 6.1.1 LTS (August 6th, 2019)
+
+#### Improvements
+
+* Improve reporting of time synchronization issues during join process.
+* Improve resiliency of node join process.
+* Improve removal of a node where the join process has been aborted.
+
+#### Bugfixes
+
+* Update etcd gateway configuration as masters are removed or added to the cluster.
+* Upgrade Kubernetes to `v1.15.2` (CVE-2019-11247, CVE-2019-11249).
+* Fix crash in `gravity license show`.
+* Fixes a couple issues with initializing the installer service.
+
+!!! warning
+    This release fixes a security vulnerability in kubernetes. Please see
+    [Kubernetes Announcement](https://groups.google.com/forum/#!topic/kubernetes-security-discuss/Vf31dXp0EJc) for more information.
+
+### 6.1.0 LTS (August 2nd, 2019)
+
+#### Improvements
+
+* Upgrade Kubernetes to `1.15.1`.
+
+## 6.0 Releases
+
+### 6.0.10 (October 17th, 2019)
+
+#### Improvements
+
+* Add support for discovering upstream DNS servers from systemd-resolved configuration ([#740](https://github.com/gravitational/gravity/pull/740)).
+* Improve `gravity report` to capture additional network configuration ([#769](https://github.com/gravitational/gravity/pull/769)).
+
+#### Bugfixes
+
+* Upgrade Kubernetes to `v1.14.08` (CVE-2019-11253) ([#810](https://github.com/gravitational/gravity/pull/810)).
+* Fix the issue with join failing with "bad username or password" when using auto-scaling groups on AWS ([#790](https://github.com/gravitational/gravity/pull/790)).
+
+!!! warning
+    This release fixes a security vulnerability in kubernetes. Please see
+    [Kubernetes Announcement](https://github.com/kubernetes/kubernetes/issues/83253) for more information.
 
 ### 6.0.9 (September 18th, 2019)
 
@@ -791,40 +844,17 @@ to learn how to gain insight into how the cluster status changes over time.
 
 * Update kubelet configuration to respect `allowPrivileged` flag.
 
-### 6.1.4 LTS (September 10th, 2019)
-
-#### Bugfixes
-
-* Fix `allowPrivileged` flag placement in the manifest schema.
-
 ### 6.0.7 LTS (September 10th, 2019)
 
 #### Bugfixes
 
 * Fix `allowPrivileged` flag placement in the manifest schema.
 
-### 6.1.3 LTS (September 9th, 2019)
-
-#### Improvements
-
-* Add ability to run privileged containers. See [Running Privileged Containers](faq.md#running-privileged-containers) for details.
-
 ### 6.0.6 (September 9th, 2019)
 
 #### Improvements
 
 * Add ability to run privileged containers. See [Running Privileged Containers](faq.md#running-privileged-containers) for details.
-
-### 6.1.2 LTS (August 26th, 2019)
-
-#### Bugfixes
-
-* Upgrade golang to `v1.12.9` (CVE-2019-9512, CVE-2019-9514)
-* Upgrade Kubernetes to `v1.15.2` (CVE-2019-9512, CVE-2019-9514).
-
-!!! warning
-    This release fixes a security vulnerability in golang used by gravity and kubernetes. Please see
-    [Netflix Announcement](https://github.com/Netflix/security-bulletins/blob/master/advisories/third-party/2019-002.md) for more information.
 
 ### 6.0.5 (August 26th, 2019)
 
@@ -850,25 +880,6 @@ to learn how to gain insight into how the cluster status changes over time.
 
 * Do not set auth gateway public addresses to the cluster name during installation.
 
-### 6.1.1 LTS (August 6th, 2019)
-
-#### Improvements
-
-* Improve reporting of time synchronization issues during join process.
-* Improve resiliency of node join process.
-* Improve removal of a node where the join process has been aborted.
-
-#### Bugfixes
-
-* Update etcd gateway configuration as masters are removed or added to the cluster.
-* Upgrade Kubernetes to `v1.15.2` (CVE-2019-11247, CVE-2019-11249).
-* Fix crash in `gravity license show`.
-* Fixes a couple issues with initializing the installer service.
-
-!!! warning
-    This release fixes a security vulnerability in kubernetes. Please see
-    [Kubernetes Announcement](https://groups.google.com/forum/#!topic/kubernetes-security-discuss/Vf31dXp0EJc) for more information.
-
 ### 6.0.2 (August 6th, 2019)
 
 #### Improvements
@@ -887,12 +898,6 @@ to learn how to gain insight into how the cluster status changes over time.
 !!! warning
     This release fixes a security vulnerability in kubernetes. Please see
     [Kubernetes Announcement](https://groups.google.com/forum/#!topic/kubernetes-security-discuss/Vf31dXp0EJc) for more information.
-
-### 6.1.0 LTS (August 2nd, 2019)
-
-#### Improvements
-
-* Upgrade Kubernetes to `1.15.1`.
 
 ### 6.0.1 (July 18th, 2019)
 
@@ -992,7 +997,97 @@ to learn how to gain insight into how the cluster status changes over time.
 * Upgrade Kubernetes to `1.14.1`.
 * Add support for using `helm` directly from host.
 
-## 5.x Releases
+## 5.6 Releases
+
+### 5.6.8 (September 18th, 2019)
+
+#### Bugfixes
+
+* Upgrade Kubernetes to `v1.14.7` (CVE-2019-11251).
+* Upgrade Teleport to `3.0.6-gravity`.
+* Address several issues with cluster stability after etcd upgrades.
+* Fix a vulnerability in the decompression of application bundles.
+
+!!! warning
+    This release fixes a security vulnerability in kubernetes. Please see
+    [Kubernetes Announcement](https://groups.google.com/forum/#!msg/kubernetes-announce/YYtEFdFimZ4/nZnOezZuBgAJ) for more information.
+
+!!! warning
+    This release fixes a security vulnerability in teleport. Please see
+    [Teleport Announcement](https://github.com/gravitational/teleport/releases/tag/v4.0.5) for more information.
+
+### 5.6.7 (August 26th, 2019)
+
+#### Bugfixes
+
+* Upgrade golang to `v1.12.9` (CVE-2019-9512, CVE-2019-9514)
+* Upgrade Kubernetes to `v1.14.6` (CVE-2019-9512, CVE-2019-9514).
+
+!!! warning
+    This release fixes a security vulnerability in golang used by gravity and kubernetes. Please see
+    [Netflix Announcement](https://github.com/Netflix/security-bulletins/blob/master/advisories/third-party/2019-002.md) for more information.
+
+### 5.6.6 (August 6th, 2019)
+
+#### Bugfixes
+
+* Update etcd gateway configuration as masters are removed or added to the cluster.
+* Upgrade Kubernetes to `v1.14.5` (CVE-2019-11247, CVE-2019-11249).
+
+!!! warning
+    This release fixes a security vulnerability in kubernetes. Please see
+    [Kubernetes Announcement](https://groups.google.com/forum/#!topic/kubernetes-security-discuss/Vf31dXp0EJc) for more information.
+
+### 5.6.5 (July 18th, 2019)
+
+#### Bugfixes
+
+* Workaround for installation failures when populating the docker registry.
+
+### 5.6.4
+
+#### Bugfixes
+
+* Fix a security issue with insecure decompression of application bundles.
+* Fix a security issue that allowed remote code execution in the tele cli tool.
+* Fix a security issue with missing ACLs in internal API.
+* Fix a security issue with install scripts command injection.
+* Fix a security issue that allowed for two factor authentication to be bypassed.
+* Fix a security issue that allowed for cross-site scripting in Internet Explorer.
+
+!!! warning
+    This release fixes security vulnerabilities within Gravity. Please see
+    [Gravity Enterprise Announcement](https://gravitational.zendesk.com/hc/en-us/articles/360025697553-Gravity-Enterprise-6-0-0-rc-4-5-6-4-5-5-12-5-2-13-Security-Update) for more information.
+
+### 5.6.3
+
+#### Improvements
+
+* Upgrade Kubernetes to `v1.14.2` (CVE-2019-1002101)
+
+!!! warning
+    This release fixes a security vulnerability in kubernetes. Please see
+    [Kubernetes Announcement](https://groups.google.com/forum/#!topic/kubernetes-security-discuss/zqklrWzeA2c) for more information.
+
+### 5.6.2
+
+#### Improvements
+
+* Add support for using `helm` directly from host.
+
+### 5.6.1
+
+#### Improvements
+
+* Upgrade Docker to `18.09.5`.
+
+### 5.6.0
+
+#### Improvements
+
+* Upgrade Kubernetes to `v1.14.0`.
+
+## 5.5 Releases
 
 ### 5.5.48 LTS (June 15th, 2020)
 
@@ -1168,7 +1263,6 @@ to learn how to gain insight into how the cluster status changes over time.
 * Fix an issue with flannel incorrectly recovering from a watch failure ([#1071](https://github.com/gravitational/gravity/pull/1071))
 * Fix an issue with merging ClusterConfiguration resource and validation checks ([#1061](https://github.com/gravitational/gravity/pull/1061))
 
-
 ### 5.5.34 LTS (January 28th, 2020)
 
 #### Bugfixes
@@ -1196,7 +1290,6 @@ to learn how to gain insight into how the cluster status changes over time.
 
 !!! warning
     This release fixes a security vulnerability in gravity.
-
 
 ### 5.5.28 LTS (November 4th, 2019)
 
@@ -1236,24 +1329,6 @@ to learn how to gain insight into how the cluster status changes over time.
 
 * Add ability to override peer connect timeout when joining a cluster ([#777](https://github.com/gravitational/gravity/pull/777)).
 
-### 5.2.17 LTS (June 11th, 2020)
-
-#### Improvements
-
-* Increase disk check high watermark to 90% ([#1679](https://github.com/gravitational/gravity/pull/1679), [planet#675](https://github.com/gravitational/planet/pull/675)).
-
-### 5.2.16 LTS (October 11th, 2019)
-
-#### Improvements
-
-* Improves `gravity report` to capture additional network configuration ([#773](https://github.com/gravitational/gravity/pull/773)).
-* Increase timeout on healthz check and allow optional configuration by environment variable ([#737](https://github.com/gravitational/gravity/pull/737)).
-
-#### Bugfixes
-
-* Skip missing mount points when checking filesystem usage ([#786](https://github.com/gravitational/gravity/pull/786)).
-
-
 ### 5.5.23 LTS (October 11th, 2019)
 
 #### Improvements
@@ -1265,7 +1340,6 @@ to learn how to gain insight into how the cluster status changes over time.
 * Fix an issue in 'tele build' not correctly marking intermediate packages ([#775](https://github.com/gravitational/gravity/pull/775)).
 * Skip missing mount points when checking filesystem usage ([#779](https://github.com/gravitational/gravity/pull/779)).
 
-
 ### 5.5.22 LTS (October 8th, 2019)
 
 #### Bugfixes
@@ -1274,23 +1348,6 @@ to learn how to gain insight into how the cluster status changes over time.
 * Fix an issue with CoreDNS sometimes missing upstream resolvers ([#742](https://github.com/gravitational/gravity/pull/742)).
 * Fix an issue with incorrectly counting nodes when validating license ([#751](https://github.com/gravitational/gravity/pull/751)).
 * Fix an issue with system information collector failing to parse `/etc/system-release` if it contained comments ([#731](https://github.com/gravitational/gravity/pull/731)).
-
-### 5.6.8 (September 18th, 2019)
-
-#### Bugfixes
-
-* Upgrade Kubernetes to `v1.14.7` (CVE-2019-11251).
-* Upgrade Teleport to `3.0.6-gravity`.
-* Address several issues with cluster stability after etcd upgrades.
-* Fix a vulnerability in the decompression of application bundles.
-
-!!! warning
-    This release fixes a security vulnerability in kubernetes. Please see
-    [Kubernetes Announcement](https://groups.google.com/forum/#!msg/kubernetes-announce/YYtEFdFimZ4/nZnOezZuBgAJ) for more information.
-
-!!! warning
-    This release fixes a security vulnerability in teleport. Please see
-    [Teleport Announcement](https://github.com/gravitational/teleport/releases/tag/v4.0.5) for more information.
 
 ### 5.5.21 LTS (September 26th, 2019)
 
@@ -1310,17 +1367,6 @@ to learn how to gain insight into how the cluster status changes over time.
 * Fix an issue with `gravity report` not capturing planet journal logs ([#684](https://github.com/gravitational/gravity/pull/684)).
 * Fix a package ordering issue in `tele build` ([#712](https://github.com/gravitational/gravity/pull/712)).
 * Fix an issue with the time drift checker ([#710](https://github.com/gravitational/gravity/pull/710)).
-
-### 5.2.15 LTS (September 19th, 2019)
-
-#### Improvements
-
-* Update github.com/gravitational/monitoring-app to 5.2.5 ([#642](https://github.com/gravitational/gravity/pull/642)).
-* Add support for intermediate upgrades ([#711](https://github.com/gravitational/gravity/pull/711), [#709](https://github.com/gravitational/gravity/pull/709), [#612](https://github.com/gravitational/gravity/pull/612)).
-
-#### Bugfixes
-
-* Improve OS metadata parsing in agents ([#721](https://github.com/gravitational/gravity/pull/721)).
 
 ### 5.5.20 LTS (September 18th, 2019)
 
@@ -1352,35 +1398,6 @@ to learn how to gain insight into how the cluster status changes over time.
 * Wait for `kube-system` namespace to be created during the installation.
 * Update `tele push` to treat existing applications and their dependencies gracefully.
 
-### 5.0.36 LTS (June 8th, 2020)
-
-#### Bugfixes
-
-* Fix an issue where `--docker-device` wasn't able to follow symlinks to block devices ([gravity.e#4301](https://github.com/gravitational/gravity.e/pull/4301)).
-
-### 5.0.35 (September 2nd, 2019)
-
-#### Bugfixes
-
-* Upgrade golang to `v1.11.13` (CVE-2019-9512, CVE-2019-9514)
-* Upgrade Kubernetes to `v1.9.13-gravitational` (CVE-2019-9512, CVE-2019-9514).
-
-!!! warning
-    Gravitational has backported the fix for CVE-2019-9512 and CVE-2019-9514 to kubernetes version 1.9.13-gravitational.
-    This release fixes a security vulnerability in golang used by gravity and kubernetes. Please see
-    [Netflix Announcement](https://github.com/Netflix/security-bulletins/blob/master/advisories/third-party/2019-002.md) for more information.
-
-### 5.6.7 (August 26th, 2019)
-
-#### Bugfixes
-
-* Upgrade golang to `v1.12.9` (CVE-2019-9512, CVE-2019-9514)
-* Upgrade Kubernetes to `v1.14.6` (CVE-2019-9512, CVE-2019-9514).
-
-!!! warning
-    This release fixes a security vulnerability in golang used by gravity and kubernetes. Please see
-    [Netflix Announcement](https://github.com/Netflix/security-bulletins/blob/master/advisories/third-party/2019-002.md) for more information.
-
 ### 5.5.18 LTS (August 28th, 2019)
 
 #### Bugfixes
@@ -1398,17 +1415,6 @@ to learn how to gain insight into how the cluster status changes over time.
     This release fixes a security vulnerability in golang used by gravity and kubernetes. Please see
     [Netflix Announcement](https://github.com/Netflix/security-bulletins/blob/master/advisories/third-party/2019-002.md) for more information.
 
-### 5.6.6 (August 6th, 2019)
-
-#### Bugfixes
-
-* Update etcd gateway configuration as masters are removed or added to the cluster.
-* Upgrade Kubernetes to `v1.14.5` (CVE-2019-11247, CVE-2019-11249).
-
-!!! warning
-    This release fixes a security vulnerability in kubernetes. Please see
-    [Kubernetes Announcement](https://groups.google.com/forum/#!topic/kubernetes-security-discuss/Vf31dXp0EJc) for more information.
-
 ### 5.5.15 LTS (August 6th, 2019)
 
 #### Bugfixes
@@ -1420,24 +1426,11 @@ to learn how to gain insight into how the cluster status changes over time.
     This release fixes a security vulnerability in kubernetes. Please see
     [Kubernetes Announcement](https://groups.google.com/forum/#!topic/kubernetes-security-discuss/Vf31dXp0EJc) for more information.
 
-### 5.2.14 LTS (July 30th, 2019)
-
-#### Improvements
-
-* Remove dependency on system user/group being present in local `/etc/passwd` and `/etc/group` databases.
-* Generate credentials for InfluxDB, Telegraf and Grafana during installation and update.
-
 ### 5.5.14 LTS (July 24th, 2019)
 
 #### Bugfixes
 
 * Fix an issue with managing monitoring resources via `gravity resource` command.
-
-### 5.6.5 (July 18th, 2019)
-
-#### Bugfixes
-
-* Workaround for installation failures when populating the docker registry.
 
 ### 5.5.13 LTS (July 18th, 2019)
 
@@ -1449,21 +1442,6 @@ to learn how to gain insight into how the cluster status changes over time.
 #### Improvements
 
 * Installations that previously used a dedicated devicemapper volume will now be reformatted and reused after upgrade.
-
-### 5.6.4
-
-#### Bugfixes
-
-* Fix a security issue with insecure decompression of application bundles.
-* Fix a security issue that allowed remote code execution in the tele cli tool.
-* Fix a security issue with missing ACLs in internal API.
-* Fix a security issue with install scripts command injection.
-* Fix a security issue that allowed for two factor authentication to be bypassed.
-* Fix a security issue that allowed for cross-site scripting in Internet Explorer.
-
-!!! warning
-    This release fixes security vulnerabilities within Gravity. Please see
-    [Gravity Enterprise Announcement](https://gravitational.zendesk.com/hc/en-us/articles/360025697553-Gravity-Enterprise-6-0-0-rc-4-5-6-4-5-5-12-5-2-13-Security-Update) for more information.
 
 ### 5.5.12
 
@@ -1480,31 +1458,6 @@ to learn how to gain insight into how the cluster status changes over time.
     This release fixes security vulnerabilities within Gravity. Please see
     [Gravity Enterprise Announcement](https://gravitational.zendesk.com/hc/en-us/articles/360025697553-Gravity-Enterprise-6-0-0-rc-4-5-6-4-5-5-12-5-2-13-Security-Update) for more information.
 
-### 5.2.13
-
-#### Bugfixes
-
-* Fix a security issue with insecure decompression of application bundles.
-* Fix a security issue that allowed remote code execution in the tele cli tool.
-* Fix a security issue with missing ACLs in internal API.
-* Fix a security issue with install scripts command injection.
-* Fix a security issue that allowed for two factor authentication to be bypassed.
-* Fix a security issue that allowed for cross-site scripting in Internet Explorer.
-
-!!! warning
-    This release fixes security vulnerabilities within Gravity. Please see
-    [Gravity Enterprise Announcement](https://gravitational.zendesk.com/hc/en-us/articles/360025697553-Gravity-Enterprise-6-0-0-rc-4-5-6-4-5-5-12-5-2-13-Security-Update) for more information.
-
-### 5.6.3
-
-#### Improvements
-
-* Upgrade Kubernetes to `v1.14.2` (CVE-2019-1002101)
-
-!!! warning
-    This release fixes a security vulnerability in kubernetes. Please see
-    [Kubernetes Announcement](https://groups.google.com/forum/#!topic/kubernetes-security-discuss/zqklrWzeA2c) for more information.
-
 ### 5.5.11
 
 #### Improvements
@@ -1514,12 +1467,6 @@ to learn how to gain insight into how the cluster status changes over time.
 !!! warning
     This release fixes a security vulnerability in kubernetes. Please see
     [Kubernetes Announcement](https://groups.google.com/forum/#!topic/kubernetes-security-discuss/zqklrWzeA2c) for more information.
-
-### 5.6.2
-
-#### Improvements
-
-* Add support for using `helm` directly from host.
 
 ### 5.5.10 LTS
 
@@ -1548,12 +1495,6 @@ to learn how to gain insight into how the cluster status changes over time.
 
 * Add support for using `helm` directly from host.
 
-### 5.6.1
-
-#### Improvements
-
-* Upgrade Docker to `18.09.5`.
-
 ### 5.5.7 LTS
 
 #### Bugfixes
@@ -1565,24 +1506,6 @@ to learn how to gain insight into how the cluster status changes over time.
 #### Bugfixes
 
 * Fix an issue with adjusting user volume permissions during upgrade.
-
-### 5.6.0
-
-#### Improvements
-
-* Upgrade Kubernetes to `v1.14.0`.
-
-### 5.0.33 LTS
-
-#### Bugfixes
-
-* Fix a regression with `gravity upgrade --complete`
-
-### 5.0.32 LTS
-
-#### Bugfixes
-
-* Fix an issue with upgrades for applications that were packaged with multiple versions of planet.
 
 ### 5.5.5 LTS
 
@@ -1614,33 +1537,6 @@ to learn how to gain insight into how the cluster status changes over time.
     This release fixes a security vulnerability in kubernetes. Please see
     [Kubernetes Announcement](https://discuss.kubernetes.io/t/announce-security-release-of-kubernetes-kubectl-potential-directory-traversal-releases-1-11-9-1-12-7-1-13-5-and-1-14-0-cve-2019-1002101/5712) for more information.
 
-
-### 5.4.10
-
-#### Improvements
-
-* Upgrade Kubernetes to `v1.13.5` (CVE-2019-1002101).
-
-!!! warning
-    This release fixes a security vulnerability in kubernetes. Please see
-    [Kubernetes Announcement](https://discuss.kubernetes.io/t/announce-security-release-of-kubernetes-kubectl-potential-directory-traversal-releases-1-11-9-1-12-7-1-13-5-and-1-14-0-cve-2019-1002101/5712) for more information.
-
-### 5.2.12 LTS
-
-#### Improvements
-
-* Upgrade Kubernetes to `v1.11.9` (CVE-2019-1002101).
-
-!!! warning
-    This release fixes a security vulnerability in kubernetes. Please see
-    [Kubernetes Announcement](https://discuss.kubernetes.io/t/announce-security-release-of-kubernetes-kubectl-potential-directory-traversal-releases-1-11-9-1-12-7-1-13-5-and-1-14-0-cve-2019-1002101/5712) for more information.
-
-### 5.0.30 LTS
-
-#### Improvements
-
-* Improve resiliency of the election install phase.
-
 ### 5.5.2 LTS
 
 #### Bugfixes
@@ -1660,12 +1556,6 @@ to learn how to gain insight into how the cluster status changes over time.
 
 * Fix an issue with `gravity report` sometimes producing unreadable tarball.
 
-### 5.4.9
-
-#### Improvements
-
-* Improve shrink operation behavior when using Auto-Scaling Groups on AWS.
-
 ### 5.5.0 LTS
 
 #### Improvements
@@ -1679,23 +1569,6 @@ to learn how to gain insight into how the cluster status changes over time.
 * Fix an issue with `gravity status` always displaying degraded status on regular nodes.
 * Fix an issue with shrink operation sometimes spawning on the leaving node.
 
-### 5.2.11 LTS
-
-#### Bugfixes
-
-* Fix an issue with manually completing rolled back upgrade plan.
-
-### 5.3.9
-
-#### Improvements
-
-* Use `overlay2` as default storage driver.
-* Enable aggregation layer on the Kubernetes API server.
-
-#### Bugfixes
-
-* Fix an issue with manually completing rolled back upgrade plan.
-
 ### 5.5.0-rc.1
 
 #### Improvements
@@ -1705,26 +1578,6 @@ to learn how to gain insight into how the cluster status changes over time.
 * Update 'gravity plan' to support all cluster operations.
 
 ### 5.5.0-beta.2
-
-#### Bugfixes
-
-* Update to Kubernetes 1.13.4 (CVE-2019-1002100).
-
-!!! warning
-    This release fixes a security vulnerability in kubernetes. Please see
-    [Kubernetes Announcement](https://discuss.kubernetes.io/t/kubernetes-security-announcement-v1-11-8-1-12-6-1-13-4-released-to-address-medium-severity-cve-2019-1002100/5147) for more information.
-
-### 5.4.7
-
-#### Bugfixes
-
-* Update to Kubernetes 1.13.4 (CVE-2019-1002100).
-
-!!! warning
-    This release fixes a security vulnerability in kubernetes. Please see
-    [Kubernetes Announcement](https://discuss.kubernetes.io/t/kubernetes-security-announcement-v1-11-8-1-12-6-1-13-4-released-to-address-medium-severity-cve-2019-1002100/5147) for more information.
-
-### 5.2.10 LTS
 
 #### Bugfixes
 
@@ -1776,52 +1629,6 @@ for details.
     This release fixes a security vulnerability in runc. Please see
     [Kubnernetes Blog](https://kubernetes.io/blog/2019/02/11/runc-and-cve-2019-5736/) for more information.
 
-### 5.4.6
-
-#### Bugfixes
-
-* Update to Docker 18.06.2 (cve-2019-5736).
-
-!!! warning
-    This release fixes a security vulnerability in runc. Please see
-    [Kubnernetes Blog](https://kubernetes.io/blog/2019/02/11/runc-and-cve-2019-5736/) for more information.
-
-### 5.2.9 LTS
-
-#### Bugfixes
-
-* Fix the issue with "gravity gc" failing to collect packages on regular nodes.
-
-
-### 5.2.8 LTS
-
-#### Bugfixes
-
-* Update docker-runc to avoid security vulnerability (cve-2019-5736).
-
-!!! warning
-    This release fixes a security vulnerability in runc. Please see
-    [Kubnernetes Blog](https://kubernetes.io/blog/2019/02/11/runc-and-cve-2019-5736/) for more information.
-
-### 5.0.29
-
-#### Bugfixes
-
-* Update docker-runc to avoid security vulnerability (cve-2019-5736).
-* Update xterm.js to avoid security vulnerability (CVE-2019-0542).
-* Restrict Teleport cipher suites.
-
-!!! warning
-    This release fixes a security vulnerability in runc. Please see
-    [Kubnernetes Blog](https://kubernetes.io/blog/2019/02/11/runc-and-cve-2019-5736/) for more information.
-
-### 5.2.7 LTS
-
-#### Bugfixes
-
-* Update teleport binaries to match embedded version.
-* Update gravity-site healthz endpoint to more reliably indicate failures.
-
 ### 5.5.0-alpha.7
 
 #### Improvements
@@ -1840,6 +1647,76 @@ for details.
 * Fix an issue with vendoring unrecognized resources.
 * Fix a potential connection leak.
 * Fix a potential panic in `gravity join` command.
+
+### 5.5.0-alpha.6
+
+#### Improvements
+
+* Adjust system resources limits for CoreDNS.
+
+### 5.5.0-alpha.5
+
+#### Bugfixes
+
+* Set advertise-address on kube-apiserver to fix binding on hosts with multiple network addresses.
+
+### 5.5.0-alpha.4
+
+#### Bugfixes
+
+* Revendor teleport to include security fix.
+
+!!! warning
+    Teleport 3.0.3 includes fixes for a security vulnerability. Please see
+    [Teleport Announcements](https://gravitational.zendesk.com/hc/en-us/articles/360015185614-Teleport-3-1-2-3-0-3-2-7-7-2-6-10) for more information.
+
+### 5.5.0-alpha.3
+
+#### Improvements
+
+* Add support for Wireguard encrypted overlay network. See [Wireguard Encrypted Networking](cluster.md#wireguard-encrypted-networking) for details.
+* Reduce writes to AWS SSM store when using AWS integrations.
+* Update tiller to 2.11.0
+* Add initial support for application catalog. See [Application Catalog](catalog.md) for details.
+* Update embedded teleport to 3.0.1
+
+## 5.4 Releases
+
+### 5.4.10
+
+#### Improvements
+
+* Upgrade Kubernetes to `v1.13.5` (CVE-2019-1002101).
+
+!!! warning
+    This release fixes a security vulnerability in kubernetes. Please see
+    [Kubernetes Announcement](https://discuss.kubernetes.io/t/announce-security-release-of-kubernetes-kubectl-potential-directory-traversal-releases-1-11-9-1-12-7-1-13-5-and-1-14-0-cve-2019-1002101/5712) for more information.
+
+### 5.4.9
+
+#### Improvements
+
+* Improve shrink operation behavior when using Auto-Scaling Groups on AWS.
+
+### 5.4.7
+
+#### Bugfixes
+
+* Update to Kubernetes 1.13.4 (CVE-2019-1002100).
+
+!!! warning
+    This release fixes a security vulnerability in kubernetes. Please see
+    [Kubernetes Announcement](https://discuss.kubernetes.io/t/kubernetes-security-announcement-v1-11-8-1-12-6-1-13-4-released-to-address-medium-severity-cve-2019-1002100/5147) for more information.
+
+### 5.4.6
+
+#### Bugfixes
+
+* Update to Docker 18.06.2 (cve-2019-5736).
+
+!!! warning
+    This release fixes a security vulnerability in runc. Please see
+    [Kubnernetes Blog](https://kubernetes.io/blog/2019/02/11/runc-and-cve-2019-5736/) for more information.
 
 ### 5.4.5
 
@@ -1868,28 +1745,6 @@ for details.
     Kubernetes 1.13.2 and etcd 3.3.11 fix a denial of service vulnerability. Please see
     [National Vulnerability Database](https://nvd.nist.gov/vuln/detail/CVE-2018-16875) for more information.
 
-### 5.5.0-alpha.6
-
-#### Improvements
-
-* Adjust system resources limits for CoreDNS.
-
-### 5.5.0-alpha.5
-
-#### Bugfixes
-
-* Set advertise-address on kube-apiserver to fix binding on hosts with multiple network addresses.
-
-### 5.5.0-alpha.4
-
-#### Bugfixes
-
-* Revendor teleport to include security fix.
-
-!!! warning
-    Teleport 3.0.3 includes fixes for a security vulnerability. Please see
-    [Teleport Announcements](https://gravitational.zendesk.com/hc/en-us/articles/360015185614-Teleport-3-1-2-3-0-3-2-7-7-2-6-10) for more information.
-
 ### 5.4.2
 
 #### Bugfixes
@@ -1899,6 +1754,31 @@ for details.
 !!! warning
     Teleport 2.4.10 includes fixes for a security vulnerability. Please see
     [Teleport Announcements](https://gravitational.zendesk.com/hc/en-us/articles/360015185614-Teleport-3-1-2-3-0-3-2-7-7-2-6-10) for more information.
+
+### 5.4.1
+
+#### Bugfixes
+
+* Fix an issue with certain node labels preventing successful installation.
+
+### 5.4.0
+
+#### Improvements
+
+* Upgrade to Kubernetes `v1.13.0`.
+
+## 5.3 Releases
+
+### 5.3.9
+
+#### Improvements
+
+* Use `overlay2` as default storage driver.
+* Enable aggregation layer on the Kubernetes API server.
+
+#### Bugfixes
+
+* Fix an issue with manually completing rolled back upgrade plan.
 
 ### 5.3.8
 
@@ -1922,76 +1802,6 @@ for details.
     Teleport 2.4.10 includes fixes for a security vulnerability. Please see
     [Teleport Announcements](https://gravitational.zendesk.com/hc/en-us/articles/360015185614-Teleport-3-1-2-3-0-3-2-7-7-2-6-10) for more information.
 
-### 5.2.6 LTS
-
-#### Bugfixes
-
-* Fix an issue with cluster expansion when applying taints via app.yaml.
-
-### 5.2.5 LTS
-
-#### Bugfixes
-
-* Revendor teleport to 2.4.10.
-
-!!! warning
-    Teleport 2.4.10 includes fixes for a security vulnerability. Please see
-    [Teleport Announcements](https://gravitational.zendesk.com/hc/en-us/articles/360015185614-Teleport-3-1-2-3-0-3-2-7-7-2-6-10) for more information.
-
-### 5.1.3
-
-#### Bugfixes
-
-* Revendor teleport to 2.4.10.
-
-!!! warning
-    Teleport 2.4.10 includes fixes for a security vulnerability. Please see
-    [Teleport Announcements](https://gravitational.zendesk.com/hc/en-us/articles/360015185614-Teleport-3-1-2-3-0-3-2-7-7-2-6-10) for more information.
-
-### 5.0.28
-
-#### Bugfixes
-
-* Revendor teleport to 2.4.10.
-
-!!! warning
-    Teleport 2.4.10 includes fixes for a security vulnerability. Please see
-    [Teleport Announcements](https://gravitational.zendesk.com/hc/en-us/articles/360015185614-Teleport-3-1-2-3-0-3-2-7-7-2-6-10) for more information.
-
-### 5.4.1
-
-#### Bugfixes
-
-* Fix an issue with certain node labels preventing successful installation.
-
-### 5.4.0
-
-#### Improvements
-
-* Upgrade to Kubernetes `v1.13.0`.
-
-### 5.0.27 LTS
-
-#### Bugfixes
-
-* Fix an issue with upgrade failure on clusters with non-master nodes.
-
-### 5.5.0-alpha.3
-
-#### Improvements
-
-* Add support for Wireguard encrypted overlay network. See [Wireguard Encrypted Networking](cluster.md#wireguard-encrypted-networking) for details.
-* Reduce writes to AWS SSM store when using AWS integrations.
-* Update tiller to 2.11.0
-* Add initial support for application catalog. See [Application Catalog](catalog.md) for details.
-* Update embedded teleport to 3.0.1
-
-### 5.0.26 LTS
-
-#### Bugfixes
-
-* Fix an issue with upgrade agents failing to start in some cases.
-
 ### 5.3.5
 
 #### Bugfixes
@@ -2000,36 +1810,6 @@ for details.
 
 !!! warning
     Kubernetes 1.12.3 includes fixes for CVE-2018-1002105. Please see
-    [Issue 71411](https://github.com/kubernetes/kubernetes/issues/71411) for more information.
-
-### 5.2.4 LTS
-
-#### Bugfixes
-
-* Update Kubernetes to version 1.11.5.
-
-!!! warning
-    Kubernetes 1.11.5 includes fixes for CVE-2018-1002105. Please see
-    [Issue 71411](https://github.com/kubernetes/kubernetes/issues/71411) for more information.
-
-### 5.1.2
-
-#### Bugfixes
-
-* Update Kubernetes to version 1.9.12-gravitational.
-
-!!! warning
-    Gravitational has backported the fix for CVE-2018-1002105 to kubernetes version 1.9.12-gravitational. Please see
-    [Issue 71411](https://github.com/kubernetes/kubernetes/issues/71411) for more information.
-
-### 5.0.25
-
-#### Bugfixes
-
-* Update Kubernetes to version 1.9.12-gravitational.
-
-!!! warning
-    Gravitational has backported the fix for CVE-2018-1002105 to kubernetes version 1.9.12-gravitational. Please see
     [Issue 71411](https://github.com/kubernetes/kubernetes/issues/71411) for more information.
 
 ### 5.3.4
@@ -2055,13 +1835,6 @@ for details.
 * Fix an issue with `tele build` ignoring `--repository` flag when `--state-dir` flag is provided.
 * Fix an issue with installer complaining about "missing DNS config" in some cases.
 
-### 5.2.3 LTS
-
-#### Improvements
-
-* Add support for recursive volume mounts. See [Image Manifest](pack.md#image-manifest) for details.
-* Disable `DenyEscalatingExec` admission controller to meet conformance.
-
 ### 5.3.2
 
 #### Bugfixes
@@ -2072,12 +1845,6 @@ for details.
 #### Improvements
 
 * Improved error message when RPC agent fails to connect.
-
-### 5.2.2 LTS
-
-#### Bugfixes
-
-* Strip original registry when tagging images to local registry when using Helm charts.
 
 ### 5.3.1
 
@@ -2092,6 +1859,146 @@ for details.
 * Upgrade to Kubernetes `1.12.1`.
 * Replace `kube-dns` with CoreDNS.
 * Remove dependency on system user/group being present in local `/etc/passwd` and `/etc/group` databases.
+
+## 5.2 Releases
+
+### 5.2.17 LTS (June 11th, 2020)
+
+#### Improvements
+
+* Increase disk check high watermark to 90% ([#1679](https://github.com/gravitational/gravity/pull/1679), [planet#675](https://github.com/gravitational/planet/pull/675)).
+
+### 5.2.16 LTS (October 11th, 2019)
+
+#### Improvements
+
+* Improves `gravity report` to capture additional network configuration ([#773](https://github.com/gravitational/gravity/pull/773)).
+* Increase timeout on healthz check and allow optional configuration by environment variable ([#737](https://github.com/gravitational/gravity/pull/737)).
+
+#### Bugfixes
+
+* Skip missing mount points when checking filesystem usage ([#786](https://github.com/gravitational/gravity/pull/786)).
+
+### 5.2.15 LTS (September 19th, 2019)
+
+#### Improvements
+
+* Update github.com/gravitational/monitoring-app to 5.2.5 ([#642](https://github.com/gravitational/gravity/pull/642)).
+* Add support for intermediate upgrades ([#711](https://github.com/gravitational/gravity/pull/711), [#709](https://github.com/gravitational/gravity/pull/709), [#612](https://github.com/gravitational/gravity/pull/612)).
+
+#### Bugfixes
+
+* Improve OS metadata parsing in agents ([#721](https://github.com/gravitational/gravity/pull/721)).
+
+### 5.2.14 LTS (July 30th, 2019)
+
+#### Improvements
+
+* Remove dependency on system user/group being present in local `/etc/passwd` and `/etc/group` databases.
+* Generate credentials for InfluxDB, Telegraf and Grafana during installation and update.
+
+### 5.2.13
+
+#### Bugfixes
+
+* Fix a security issue with insecure decompression of application bundles.
+* Fix a security issue that allowed remote code execution in the tele cli tool.
+* Fix a security issue with missing ACLs in internal API.
+* Fix a security issue with install scripts command injection.
+* Fix a security issue that allowed for two factor authentication to be bypassed.
+* Fix a security issue that allowed for cross-site scripting in Internet Explorer.
+
+!!! warning
+    This release fixes security vulnerabilities within Gravity. Please see
+    [Gravity Enterprise Announcement](https://gravitational.zendesk.com/hc/en-us/articles/360025697553-Gravity-Enterprise-6-0-0-rc-4-5-6-4-5-5-12-5-2-13-Security-Update) for more information.
+
+### 5.2.12 LTS
+
+#### Improvements
+
+* Upgrade Kubernetes to `v1.11.9` (CVE-2019-1002101).
+
+!!! warning
+    This release fixes a security vulnerability in kubernetes. Please see
+    [Kubernetes Announcement](https://discuss.kubernetes.io/t/announce-security-release-of-kubernetes-kubectl-potential-directory-traversal-releases-1-11-9-1-12-7-1-13-5-and-1-14-0-cve-2019-1002101/5712) for more information.
+
+### 5.2.11 LTS
+
+#### Bugfixes
+
+* Fix an issue with manually completing rolled back upgrade plan.
+
+### 5.2.10 LTS
+
+#### Bugfixes
+
+* Update to Kubernetes 1.13.4 (CVE-2019-1002100).
+
+!!! warning
+    This release fixes a security vulnerability in kubernetes. Please see
+    [Kubernetes Announcement](https://discuss.kubernetes.io/t/kubernetes-security-announcement-v1-11-8-1-12-6-1-13-4-released-to-address-medium-severity-cve-2019-1002100/5147) for more information.
+
+### 5.2.9 LTS
+
+#### Bugfixes
+
+* Fix the issue with "gravity gc" failing to collect packages on regular nodes.
+
+### 5.2.8 LTS
+
+#### Bugfixes
+
+* Update docker-runc to avoid security vulnerability (cve-2019-5736).
+
+!!! warning
+    This release fixes a security vulnerability in runc. Please see
+    [Kubnernetes Blog](https://kubernetes.io/blog/2019/02/11/runc-and-cve-2019-5736/) for more information.
+
+### 5.2.7 LTS
+
+#### Bugfixes
+
+* Update teleport binaries to match embedded version.
+* Update gravity-site healthz endpoint to more reliably indicate failures.
+
+### 5.2.6 LTS
+
+#### Bugfixes
+
+* Fix an issue with cluster expansion when applying taints via app.yaml.
+
+### 5.2.5 LTS
+
+#### Bugfixes
+
+* Revendor teleport to 2.4.10.
+
+!!! warning
+    Teleport 2.4.10 includes fixes for a security vulnerability. Please see
+    [Teleport Announcements](https://gravitational.zendesk.com/hc/en-us/articles/360015185614-Teleport-3-1-2-3-0-3-2-7-7-2-6-10) for more information.
+
+### 5.2.4 LTS
+
+#### Bugfixes
+
+* Update Kubernetes to version 1.11.5.
+
+!!! warning
+    Kubernetes 1.11.5 includes fixes for CVE-2018-1002105. Please see
+    [Issue 71411](https://github.com/kubernetes/kubernetes/issues/71411) for more information.
+
+### 5.2.3 LTS
+
+#### Improvements
+
+* Add support for recursive volume mounts. See [Image Manifest](pack.md#image-manifest) for details.
+* Disable `DenyEscalatingExec` admission controller to meet conformance.
+
+### 5.2.2 LTS
+
+#### Bugfixes
+
+* Strip original registry when tagging images to local registry when using Helm charts.
 
 ### 5.2.1 LTS
 
@@ -2125,18 +2032,6 @@ for details.
 
 * Fix `tele build` failure when encountering unrecognized resources.
 
-### 5.1.1
-
-#### Improvements
-
-* Speed up image vendoring during tele build.
-* Add cleanup phase to the upgrade operation.
-* Make new application upload more efficient.
-
-#### Bugfixes
-
-* Fix tele build failure when encountering unrecognized resources.
-
 ### 5.2.0-rc.1
 
 #### Improvements
@@ -2166,6 +2061,202 @@ for details.
 
 * Deprecate expanding cluster on AWS through UI.
 * Add support for overriding DNS listen address during install.
+
+### 5.2.0-alpha.1
+
+#### Improvements
+
+* Add `--dns-zone` flag to `gravity install` command to allow overriding upstreams
+for specific DNS zones within the cluster. See flag description in the
+[Installation](installation.md#cli-installation) section for details.
+
+## 5.1 Releases
+
+### 5.1.3
+
+#### Bugfixes
+
+* Revendor teleport to 2.4.10.
+
+!!! warning
+    Teleport 2.4.10 includes fixes for a security vulnerability. Please see
+    [Teleport Announcements](https://gravitational.zendesk.com/hc/en-us/articles/360015185614-Teleport-3-1-2-3-0-3-2-7-7-2-6-10) for more information.
+
+### 5.1.2
+
+#### Bugfixes
+
+* Update Kubernetes to version 1.9.12-gravitational.
+
+!!! warning
+    Gravitational has backported the fix for CVE-2018-1002105 to kubernetes version 1.9.12-gravitational. Please see
+    [Issue 71411](https://github.com/kubernetes/kubernetes/issues/71411) for more information.
+
+### 5.1.1
+
+#### Improvements
+
+* Speed up image vendoring during tele build.
+* Add cleanup phase to the upgrade operation.
+* Make new application upload more efficient.
+
+#### Bugfixes
+
+* Fix tele build failure when encountering unrecognized resources.
+
+### 5.1.0
+
+#### Improvements
+
+* Update `kube-dns` application to version 1.14.10.
+* Preflight checks are executed on expand.
+
+#### Bugfixes
+
+* Fix OS distribution detection for RedHat when lsb_release is installed.
+* Fix an issue when configured cloud provider was not propagated to agents.
+
+### 5.1.0-alpha.7
+
+#### Bugfixes
+
+* Fix translation of custom planet images to gravity packages when image reference
+is using domain/path components.
+
+### 5.1.0-alpha.6
+
+#### Improvements
+
+* Add `skipIfMissing` for describing optional mounts.
+* Add ability to define custom preflight checks.
+
+### 5.1.0-alpha.5
+
+#### Improvements
+
+* Add ability to mount host devices into the Gravity container. See
+[Image Manifest](pack.md#image-manifest) for more details.
+
+### 5.1.0-alpha.4
+
+#### Improvements
+
+* Introduce ability to use user-defined base images. See [User-Defined Base Image](pack.md#image-manifest)
+for details.
+
+### 5.1.0-alpha.3
+
+#### Improvements
+
+* Add ability to override node tags on GCE during installation.
+
+### 5.1.0-alpha.2
+
+#### Improvements
+
+* Add multizone support for GCE clusters.
+* Update preflight checks to check iptables modules. See [requirements](requirements.md#iptables-modules)
+for details.
+* Add timeout to preflight checks on remote nodes.
+
+#### Bugfixes
+
+* Fix an issue with using custom `--state-dir` when installing on more than a single node.
+
+### 5.1.0-alpha.1
+
+#### Improvements
+
+* Add support for GCE cloud provider. See [Installing on Google Compute Engine](installation.md#google-compute-engine)
+for details.
+
+#### Bugfixes
+
+* Fix an issue with `--force` flag not propagating correctly when resuming
+install/upgrade.
+* Add `NoExecute` taint toleration to hooks.
+
+## 5.0 Releases
+
+### 5.0.36 LTS (June 8th, 2020)
+
+#### Bugfixes
+
+* Fix an issue where `--docker-device` wasn't able to follow symlinks to block devices ([gravity.e#4301](https://github.com/gravitational/gravity.e/pull/4301)).
+
+### 5.0.35 (September 2nd, 2019)
+
+#### Bugfixes
+
+* Upgrade golang to `v1.11.13` (CVE-2019-9512, CVE-2019-9514)
+* Upgrade Kubernetes to `v1.9.13-gravitational` (CVE-2019-9512, CVE-2019-9514).
+
+!!! warning
+    Gravitational has backported the fix for CVE-2019-9512 and CVE-2019-9514 to kubernetes version 1.9.13-gravitational.
+    This release fixes a security vulnerability in golang used by gravity and kubernetes. Please see
+    [Netflix Announcement](https://github.com/Netflix/security-bulletins/blob/master/advisories/third-party/2019-002.md) for more information.
+
+### 5.0.33 LTS
+
+#### Bugfixes
+
+* Fix a regression with `gravity upgrade --complete`
+
+### 5.0.32 LTS
+
+#### Bugfixes
+
+* Fix an issue with upgrades for applications that were packaged with multiple versions of planet.
+
+### 5.0.30 LTS
+
+#### Improvements
+
+* Improve resiliency of the election install phase.
+
+### 5.0.29
+
+#### Bugfixes
+
+* Update docker-runc to avoid security vulnerability (cve-2019-5736).
+* Update xterm.js to avoid security vulnerability (CVE-2019-0542).
+* Restrict Teleport cipher suites.
+
+!!! warning
+    This release fixes a security vulnerability in runc. Please see
+    [Kubnernetes Blog](https://kubernetes.io/blog/2019/02/11/runc-and-cve-2019-5736/) for more information.
+
+### 5.0.28
+
+#### Bugfixes
+
+* Revendor teleport to 2.4.10.
+
+!!! warning
+    Teleport 2.4.10 includes fixes for a security vulnerability. Please see
+    [Teleport Announcements](https://gravitational.zendesk.com/hc/en-us/articles/360015185614-Teleport-3-1-2-3-0-3-2-7-7-2-6-10) for more information.
+
+### 5.0.27 LTS
+
+#### Bugfixes
+
+* Fix an issue with upgrade failure on clusters with non-master nodes.
+
+### 5.0.26 LTS
+
+#### Bugfixes
+
+* Fix an issue with upgrade agents failing to start in some cases.
+
+### 5.0.25
+
+#### Bugfixes
+
+* Update Kubernetes to version 1.9.12-gravitational.
+
+!!! warning
+    Gravitational has backported the fix for CVE-2018-1002105 to kubernetes version 1.9.12-gravitational. Please see
+    [Issue 71411](https://github.com/kubernetes/kubernetes/issues/71411) for more information.
 
 ### 5.0.24 LTS
 
@@ -2251,18 +2342,6 @@ for more info.
 for information on how to configure authentication and authorization via a SAML
 provider.
 
-### 5.1.0
-
-#### Improvements
-
-* Update `kube-dns` application to version 1.14.10.
-* Preflight checks are executed on expand.
-
-#### Bugfixes
-
-* Fix OS distribution detection for RedHat when lsb_release is installed.
-* Fix an issue when configured cloud provider was not propagated to agents.
-
 ### 5.0.12 LTS
 
 #### Bugfixes
@@ -2322,42 +2401,6 @@ provider.
 upgrade from older versions.
 * Fix an issue with Ops Center UI showing clusters a user doesn't have access to.
 
-### 5.1.0-alpha.7
-
-#### Bugfixes
-
-* Fix translation of custom planet images to gravity packages when image reference
-is using domain/path components.
-
-### 5.1.0-alpha.6
-
-#### Improvements
-
-* Add `skipIfMissing` for describing optional mounts.
-* Add ability to define custom preflight checks.
-
-### 5.1.0-alpha.5
-
-#### Improvements
-
-* Add ability to mount host devices into the Gravity container. See
-[Image Manifest](pack.md#image-manifest) for more details.
-
-### 5.1.0-alpha.4
-
-#### Improvements
-
-* Introduce ability to use user-defined base images. See [User-Defined Base Image](pack.md#image-manifest)
-for details.
-
-### 5.2.0-alpha.1
-
-#### Improvements
-
-* Add `--dns-zone` flag to `gravity install` command to allow overriding upstreams
-for specific DNS zones within the cluster. See flag description in the
-[Installation](installation.md#cli-installation) section for details.
-
 ### 5.0.4 LTS
 
 #### Bugfixes
@@ -2372,25 +2415,6 @@ install/upgrade.
 * Exclude Docker device test from upgrade preflight checks.
 * Fix an issue with `kubectl` not working from host.
 
-### 5.1.0-alpha.3
-
-#### Improvements
-
-* Add ability to override node tags on GCE during installation.
-
-### 5.1.0-alpha.2
-
-#### Improvements
-
-* Add multizone support for GCE clusters.
-* Update preflight checks to check iptables modules. See [requirements](requirements.md#iptables-modules)
-for details.
-* Add timeout to preflight checks on remote nodes.
-
-#### Bugfixes
-
-* Fix an issue with using custom `--state-dir` when installing on more than a single node.
-
 ### 5.0.2 LTS
 
 #### Bugfixes
@@ -2402,19 +2426,6 @@ for details.
 #### Bugfixes
 
 * Fix an issue with using custom `--state-dir` when installing on more than a single node.
-
-### 5.1.0-alpha.1
-
-#### Improvements
-
-* Add support for GCE cloud provider. See [Installing on Google Compute Engine](installation.md#google-compute-engine)
-for details.
-
-#### Bugfixes
-
-* Fix an issue with `--force` flag not propagating correctly when resuming
-install/upgrade.
-* Add `NoExecute` taint toleration to hooks.
 
 ### 5.0.0 LTS
 
@@ -2538,7 +2549,6 @@ install/upgrade.
     [Issue 60813](https://github.com/kubernetes/kubernetes/issues/60813) and [Issue 60814](https://github.com/kubernetes/kubernetes/issues/60814)
     for more information.
 
-
 ### 5.0.0-alpha.11
 
 #### Improvements
@@ -2635,39 +2645,6 @@ to invite users and reset user passwords from CLI.
 
 ## 4.x Releases
 
-### Instructions on upgrading to 4.23.0+
-
-Upgrading clusters to Gravity 4.23.0 works via the command line interface (CLI) only.
-To upgrade a cluster with an application packaged with the Gravity 4.23+
-follow the procedure below.
-
-First, the application must be published into the Ops Center. This allows
-all connected clusters to see that a new version is available.
-
-On a cluster side, download the new update by logging into one of the cluster nodes and
-executing the command below:
-
-```bash
-$ gravity update download
-```
-
-The next step is to download the latest version of the `gravity` binary.
-For example, if upgrading to 4.26.0:
-
-```bash
-$ curl https://get.gravitational.io/telekube/bin/4.26.0/linux/x86_64/gravity -o /tmp/gravity
-$ chmod +x /tmp/gravity
-```
-
-Finally, launch the update process:
-
-```bash
-$ /tmp/gravity upgrade
-```
-
-This will upgrade the cluster and the system instance of the `gravity` binary,
-so the temporary copy in `/tmp` can be discarded.
-
 ### 4.68.0 LTS
 
 #### Bugfixes
@@ -2737,7 +2714,6 @@ does not specify OS requirements.
 * Fix an issue with an invalid default service user configuration when installing from an Ops Center.
 * Fix a regression in hooks using the wrong absolute gravity binary path.
 
-
 ### 4.57.0 LTS
 
 #### Bugfixes
@@ -2761,7 +2737,6 @@ does not specify OS requirements.
 
 * Avoid sporadic block device deactivation on container shutdown for LVM.
 
-
 ### 4.54.0 LTS
 
 #### Improvements
@@ -2769,7 +2744,6 @@ does not specify OS requirements.
 * Ability to override the service user when installing. Read more [here](pack.md#service-user).
 * Additional preflight checks during installation and update.
 * Remove the 32 characters restriction on the syslog tag in the logging application.
-
 
 ### 4.53.0 LTS
 
@@ -3000,6 +2974,41 @@ transient error
 
 * Upgrade to Kubernetes 1.7.4.
 * Automatic upgrade procedure has been redesigned to take advantage of the new plan-based upgrade.
+
+!!! warning
+    Upgrading clusters to Gravity 4.23.0 works via the command line interface (CLI) only.
+    To upgrade a cluster with an application packaged with the Gravity 4.23+
+    follow the procedure below.
+
+#### Notes
+
+First, the application must be published into the Ops Center. This allows
+all connected clusters to see that a new version is available.
+
+On a cluster side, download the new update by logging into one of the cluster nodes and
+executing the command below:
+
+```bash
+$ gravity update download
+```
+
+The next step is to download the latest version of the `gravity` binary.
+For example, if upgrading to 4.26.0:
+
+```bash
+$ curl https://get.gravitational.io/telekube/bin/4.26.0/linux/x86_64/gravity -o /tmp/gravity
+$ chmod +x /tmp/gravity
+```
+
+Finally, launch the update process:
+
+```bash
+$ /tmp/gravity upgrade
+```
+
+This will upgrade the cluster and the system instance of the `gravity` binary,
+so the temporary copy in `/tmp` can be discarded.
+
 
 ### 4.22.0
 
@@ -3507,7 +3516,6 @@ It contains a number of improvements and bugfixes.
 
 * Backup/restore improvements
 
-
 ### 3.5.0
 
 #### Features
@@ -3543,7 +3551,6 @@ It contains a number of improvements and bugfixes.
 * give gravity-admin admin on default namespace
 * Remove name check for gravity binaries
 
-
 ## 1.x Releases
 
 ### 1.29.0
@@ -3555,7 +3562,6 @@ It contains a number of improvements and bugfixes.
 #### Bugfixes
 
 * Stop status check and other services when gravity loses leadership
-
 
 ### 1.26.0
 
@@ -3569,15 +3575,6 @@ It contains a number of improvements and bugfixes.
 
 * Fix trusted authorities ACL method
 
-
-### 1.22.0
-
-#### Bugfixes
-
-* Delete tunnel after the install
-* Fix a channel test that would intermittently block
-
-
 ### 1.24.0
 
 #### Features
@@ -3589,3 +3586,10 @@ It contains a number of improvements and bugfixes.
 #### Bugfixes
 
 * Remove ls/sh commands and their docs
+
+### 1.22.0
+
+#### Bugfixes
+
+* Delete tunnel after the install
+* Fix a channel test that would intermittently block
