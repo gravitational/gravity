@@ -43,6 +43,9 @@ type OperationPlan struct {
 	Phases []OperationPhase `json:"phases"`
 	// Servers is the list of all cluster servers
 	Servers []Server `json:"servers"`
+	// OfflineCoordinator is the server leading/coordinating the upgrade across the cluster, and will have a local copy
+	// of completed plan phases if the underlying state sync (etcd) is offline
+	OfflineCoordinator *Server `json:"lead_master"`
 	// GravityPackage is updated gravity package locator
 	GravityPackage loc.Locator `json:"gravity_package"`
 	// CreatedAt is the plan creation timestamp

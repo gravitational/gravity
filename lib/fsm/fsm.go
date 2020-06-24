@@ -24,6 +24,7 @@ import (
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/rpc"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/systeminfo"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
@@ -156,6 +157,12 @@ func (f *FSM) ExecutePlan(ctx context.Context, progress utils.Progress) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+
+	err = f.checkExecuteOnCoordinator(plan)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
 	for _, phase := range plan.Phases {
 		f.WithField("phase", phase.ID).Debug("Executing phase.")
 		err := f.ExecutePhase(ctx, Params{
@@ -168,6 +175,21 @@ func (f *FSM) ExecutePlan(ctx context.Context, progress utils.Progress) error {
 		}
 	}
 	return nil
+}
+
+// checkExecuteOnCoordinator ensures that resuming the plan is executed on the lead node for the particular plan.
+// This is mainly important for etcd upgrades, where state can only be kept in sync on the leadMaster node itself.
+func (f *FSM) checkExecuteOnCoordinator(plan *storage.OperationPlan) error {
+	if plan.OfflineCoordinator == nil {
+		return nil
+	}
+
+	err := systeminfo.HasInterface(plan.OfflineCoordinator.AdvertiseIP)
+	if err != nil && trace.IsNotFound(err) {
+		return trace.BadParameter("Plan must be resumed on node %v/%v", plan.OfflineCoordinator.Hostname, plan.OfflineCoordinator.AdvertiseIP)
+	}
+
+	return trace.Wrap(err)
 }
 
 // RollbackPlan rolls back all phases of the plan that have been attempted so
