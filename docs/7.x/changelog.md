@@ -627,6 +627,17 @@ to learn how to gain insight into how the cluster status changes over time.
 * Fix an issue with flannel incorrectly recovering from a watch failure ([#1070](https://github.com/gravitational/gravity/pull/1070)).
 * Enable all kubernetes default admission controllers ([#1070](https://github.com/gravitational/gravity/pull/1070)).
 
+### 6.1.17 LTS (January 27th, 2020)
+
+#### Improvements
+
+* Improve support for bootable configuration checker on newer kernels ([#1033](https://github.com/gravitational/gravity/pull/1033))
+
+#### Bugfixes
+
+* Fix an issue in the WebUI ([#1037](https://github.com/gravitational/gravity/pull/1037))
+* Fix a broken helm symlink ([#1033](https://github.com/gravitational/gravity/pull/1033))
+
 ### 6.1.16 LTS (January 14th, 2020)
 
 #### Improvements
