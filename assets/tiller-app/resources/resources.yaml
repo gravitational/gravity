@@ -32,6 +32,7 @@ spec:
       labels:
         app: helm
         name: tiller
+        gravitational.io/critical-pod: ''
       annotations:
         seccomp.security.alpha.kubernetes.io/pod: docker/default
     spec:
