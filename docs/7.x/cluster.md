@@ -547,6 +547,7 @@ $ tele build ... --upgrade-via=5.2.15
 
 The flag can be specified multiple times to add as many LTS versions as required.
 
+
 !!! note "Embedding intermediate LTS releases"
     The version specified with the `--upgrade-via` flag must be an LTS version.
     Check [Releases](changelog.md) page to see which LTS versions are available for embedding.
@@ -1206,7 +1207,7 @@ the following order:
 * Security Groups
 * VPC (will delete all associated resources like Internet Gateway, Subnet & Route Table as well)
 
-!!! tip "Resource Groups":
+!!! tip "Resource Groups"
     On AWS you can use `Resource Groups` to get a unified view of all resources matching
     a particular criteria. Create a resource group filtering by an appropriate
     `KubernetesCluster` tag so see all AWS resources for a Cluster.
@@ -1600,7 +1601,7 @@ $ sudo gravity start --advertise-addr=<new-ip>
 
 Gravity will regenerate all necessary configurations and cluster secrets and restart all the services.
 
-!!! note:
+!!! tip "Note" 
     As a part of the advertise address change operation, all pods previously present in the cluster are recreated which
     means that any pods not managed by controllers (deployments, daemon sets, etc.) will be deleted permanently, so
     make sure to not use pods directly and use controllers instead.
