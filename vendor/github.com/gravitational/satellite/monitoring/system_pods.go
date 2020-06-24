@@ -236,9 +236,6 @@ const (
 	errImagePull = "ErrImagePull"
 )
 
-// containerError state indicates that the container terminated with an error.
-const containerError = "Error"
-
 // systemPodsSelector defines a label selector used to query critical system pods.
 var systemPodsSelector = utils.MustLabelSelector(
 	metav1.LabelSelectorAsSelector(
