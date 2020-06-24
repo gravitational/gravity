@@ -384,6 +384,7 @@ func newOperationPlan(p planConfig) (*storage.OperationPlan, error) {
 		}
 
 		if updateEtcd {
+			p.plan.OfflineCoordinator = &p.leadMaster.Server
 			etcdPhase := *builder.etcdPlan(p.leadMaster.Server,
 				serversToStorage(otherMasters...),
 				serversToStorage(nodes...),

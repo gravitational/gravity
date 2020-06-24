@@ -24,7 +24,6 @@ require (
 	github.com/buger/goterm v0.0.0-20140416104154-af3f07dadc88
 	github.com/cenkalti/backoff v2.1.1+incompatible
 	github.com/chai2010/gettext-go v0.0.0-20170215093142-bf70f2a70fb1 // indirect
-	github.com/client9/misspell v0.3.4 // indirect
 	github.com/cloudflare/cfssl v0.0.0-20180726162950-56268a613adf
 	github.com/cloudfoundry/gosigar v0.0.0-20170815193638-f4030c18ce1a
 	github.com/codahale/hdrhistogram v0.0.0-20161010025455-3a0bb77429bd
@@ -140,7 +139,6 @@ require (
 	github.com/zclconf/go-cty v0.0.0-20180829180805-c2393a5d54f2 // indirect
 	github.com/ziutek/mymysql v1.5.4 // indirect
 	golang.org/x/crypto v0.0.0-20200220183623-bac4c82f6975
-	golang.org/x/lint v0.0.0-20190313153728-d0100b6bd8b3 // indirect
 	golang.org/x/net v0.0.0-20200602114024-627f9648deb9
 	golang.org/x/sys v0.0.0-20200323222414-85ca7c5b95cd
 	gonum.org/v1/gonum v0.6.1 // indirect
@@ -150,7 +148,6 @@ require (
 	gopkg.in/gorp.v1 v1.7.2 // indirect
 	gopkg.in/mgo.v2 v2.0.0-20160818020120-3f83fa500528 // indirect
 	gopkg.in/yaml.v2 v2.2.8
-	honnef.co/go/tools v0.0.0-20190523083050-ea95bdfd59fc // indirect
 	k8s.io/api v0.17.6
 	k8s.io/apiextensions-apiserver v0.0.0
 	k8s.io/apimachinery v0.17.6
