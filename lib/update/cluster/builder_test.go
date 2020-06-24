@@ -79,13 +79,14 @@ func (s *PlanSuite) TestPlanWithRuntimeUpdate(c *check.C) {
 
 	// verify
 	c.Assert(*obtainedPlan, check.DeepEquals, storage.OperationPlan{
-		OperationID:    config.operation.ID,
-		OperationType:  config.operation.Type,
-		AccountID:      config.operation.AccountID,
-		ClusterName:    config.operation.SiteDomain,
-		Servers:        servers,
-		DNSConfig:      storage.DefaultDNSConfig,
-		GravityPackage: gravityUpdateLoc,
+		OperationID:        config.operation.ID,
+		OperationType:      config.operation.Type,
+		AccountID:          config.operation.AccountID,
+		ClusterName:        config.operation.SiteDomain,
+		Servers:            servers,
+		DNSConfig:          storage.DefaultDNSConfig,
+		GravityPackage:     gravityUpdateLoc,
+		OfflineCoordinator: &params.leadMaster.Server,
 		Phases: []storage.OperationPhase{
 			params.init(),
 			params.checks(),
