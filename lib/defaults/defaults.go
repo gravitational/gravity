@@ -1006,7 +1006,9 @@ const (
 
 	// ElectionWaitTimeout specifies the maximum amount of time to wait to resume elections
 	// on a master node
-	ElectionWaitTimeout = 1 * time.Minute
+	ElectionWaitTimeout = 5 * time.Minute
+	// ElectionRetryInterval is the interval between resuming election attempts
+	ElectionRetryInterval = 10 * time.Second
 
 	// ImageRegistryVar is a local cluster registry variable that gets
 	// substituted in Helm templates.
