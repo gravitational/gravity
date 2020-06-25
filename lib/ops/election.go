@@ -38,6 +38,7 @@ func PauseLeaderElection(ctx context.Context, clusterName string, node storage.S
 
 func runLeaderCommandRetry(ctx context.Context, command string, clusterName string, node storage.Server, log logrus.FieldLogger) error {
 	b := backoff.NewExponentialBackOff()
+	b.MaxInterval = defaults.ElectionRetryMaxInterval
 	b.MaxElapsedTime = defaults.ElectionWaitTimeout
 	return utils.RetryTransient(ctx, b, func() error {
 		return runLeaderCommand(ctx, command, clusterName, node, log)
