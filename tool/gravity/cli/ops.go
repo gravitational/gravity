@@ -33,6 +33,7 @@ import (
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/pack/encryptedpack"
 	"github.com/gravitational/gravity/lib/state"
+	libstatus "github.com/gravitational/gravity/lib/status"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/users"
 	"github.com/gravitational/gravity/lib/utils"
@@ -86,7 +87,7 @@ func appPackage(env *localenv.LocalEnvironment) error {
 	return nil
 }
 
-func uploadUpdate(env *localenv.LocalEnvironment, opsURL string) error {
+func uploadUpdate(ctx context.Context, env *localenv.LocalEnvironment, opsURL string) error {
 	// create local environment with gravity state dir because the environment
 	// provided above has upgrade tarball as a state dir
 	localStateDir, err := localenv.LocalGravityDir()
@@ -170,7 +171,7 @@ func uploadUpdate(env *localenv.LocalEnvironment, opsURL string) error {
 
 	var registries []string
 	err = utils.Retry(defaults.RetryInterval, defaults.RetryLessAttempts, func() error {
-		registries, err = getRegistries(context.TODO(), defaultEnv, cluster.ClusterState.Servers)
+		registries, err = getRegistries(ctx, defaultEnv, cluster.ClusterState.Servers)
 		return trace.Wrap(err)
 	})
 	if err != nil {
@@ -196,7 +197,7 @@ func uploadUpdate(env *localenv.LocalEnvironment, opsURL string) error {
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		err = appservice.SyncApp(context.TODO(), appservice.SyncRequest{
+		err = appservice.SyncApp(ctx, appservice.SyncRequest{
 			PackService:  tarballPackages,
 			AppService:   tarballApps,
 			ImageService: imageService,
@@ -205,6 +206,24 @@ func uploadUpdate(env *localenv.LocalEnvironment, opsURL string) error {
 		if err != nil {
 			return trace.Wrap(err)
 		}
+	}
+
+	// Uploading new blobs to the cluster is known to cause stress on disk
+	// which can lead to the cluster's health checker experiencing momentary
+	// blips and potentially moving the cluster to degraded state, especially
+	// when running on a hardware with sub-par I/O performance.
+	//
+	// To accommodate this behavior and make sure upgrade (which normally
+	// follows upload right away) does not fail to launch due to the degraded
+	// state, give the cluster a few minutes to settle.
+	//
+	// See https://github.com/gravitational/gravity/issues/1659 for more info.
+	env.PrintStep("Verifying cluster health")
+	ctx, cancel := context.WithTimeout(ctx, defaults.NodeStatusTimeout)
+	defer cancel()
+	err = libstatus.WaitCluster(ctx, clusterOperator)
+	if err != nil {
+		return trace.Wrap(err)
 	}
 
 	env.PrintStep("Application has been uploaded")
