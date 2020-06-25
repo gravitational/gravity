@@ -24,10 +24,12 @@ import (
 	"os/exec"
 	"path/filepath"
 	"syscall"
+	"time"
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/pack"
+	"github.com/gravitational/gravity/lib/report"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/system"
 	"github.com/gravitational/gravity/lib/system/mount"
@@ -38,7 +40,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func exportRuntimeJournal(env *localenv.LocalEnvironment, outputFile string) error {
+func exportRuntimeJournal(env *localenv.LocalEnvironment, outputFile string, since time.Duration) error {
 	stateDir, err := state.GetStateDir()
 	if err != nil {
 		return trace.Wrap(err)
@@ -90,13 +92,15 @@ func exportRuntimeJournal(env *localenv.LocalEnvironment, outputFile string) err
 
 	zip := gzip.NewWriter(w)
 	defer zip.Close()
-	cmd := exec.CommandContext(ctx, utils.Exe.Path, "system", "stream-runtime-journal")
+	cmd := exec.CommandContext(ctx, utils.Exe.Path,
+		"system", "stream-runtime-journal",
+		"--since", since.String())
 	cmd.Stdout = zip
 	cmd.Stderr = zip
 	return trace.Wrap(cmd.Run())
 }
 
-func streamRuntimeJournal(env *localenv.LocalEnvironment) error {
+func streamRuntimeJournal(env *localenv.LocalEnvironment, since time.Duration) error {
 	runtimePackage, err := pack.FindRuntimePackage(env.Packages)
 	if err != nil {
 		return trace.Wrap(err)
@@ -122,6 +126,9 @@ func streamRuntimeJournal(env *localenv.LocalEnvironment) error {
 		cmd,
 		"--output", "export",
 		"-D", journalDir,
+	}
+	if since != 0 {
+		args = append(args, "--since", time.Now().Add(-since).Format(report.JournalDateFormat))
 	}
 	if err := syscall.Exec(cmd, args, nil); err != nil {
 		return trace.Wrap(trace.ConvertSystemError(err),

@@ -835,9 +835,11 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 	case g.SystemStateDirCmd.FullCommand():
 		return printStateDir()
 	case g.SystemExportRuntimeJournalCmd.FullCommand():
-		return exportRuntimeJournal(localEnv, *g.SystemExportRuntimeJournalCmd.OutputFile)
+		return exportRuntimeJournal(localEnv,
+			*g.SystemExportRuntimeJournalCmd.OutputFile,
+			*g.SystemExportRuntimeJournalCmd.Since)
 	case g.SystemStreamRuntimeJournalCmd.FullCommand():
-		return streamRuntimeJournal(localEnv)
+		return streamRuntimeJournal(localEnv, *g.SystemStreamRuntimeJournalCmd.Since)
 	case g.GarbageCollectCmd.FullCommand():
 		return garbageCollect(localEnv, *g.GarbageCollectCmd.Manual, *g.GarbageCollectCmd.Confirmed)
 	case g.SystemGCJournalCmd.FullCommand():
