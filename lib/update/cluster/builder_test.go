@@ -154,13 +154,14 @@ func (s *PlanSuite) TestPlanWithRuntimeAppsUpdate(c *check.C) {
 	leadMaster := updates[1]
 	rearrangedServers := []storage.UpdateServer{updates[1], updates[0], updates[2]}
 	c.Assert(*obtainedPlan, check.DeepEquals, storage.OperationPlan{
-		OperationID:    builder.operation.ID,
-		OperationType:  builder.operation.Type,
-		AccountID:      builder.operation.AccountID,
-		ClusterName:    builder.operation.SiteDomain,
-		Servers:        servers,
-		DNSConfig:      storage.DefaultDNSConfig,
-		GravityPackage: loc.MustParseLocator("gravitational.io/gravity:3.0.0"),
+		OperationID:        builder.operation.ID,
+		OperationType:      builder.operation.Type,
+		AccountID:          builder.operation.AccountID,
+		ClusterName:        builder.operation.SiteDomain,
+		Servers:            servers,
+		DNSConfig:          storage.DefaultDNSConfig,
+		GravityPackage:     loc.MustParseLocator("gravitational.io/gravity:3.0.0"),
+		OfflineCoordinator: &leadMaster.Server,
 		Phases: []storage.OperationPhase{
 			params.init(rearrangedServers),
 			params.checks("/init"),
@@ -372,13 +373,14 @@ func (s *PlanSuite) TestPlanWithIntermediateRuntimeUpdate(c *check.C) {
 	nodes := updates[2:]
 
 	c.Assert(*obtainedPlan, check.DeepEquals, storage.OperationPlan{
-		OperationID:    builder.operation.ID,
-		OperationType:  builder.operation.Type,
-		AccountID:      builder.operation.AccountID,
-		ClusterName:    builder.operation.SiteDomain,
-		Servers:        servers,
-		DNSConfig:      storage.DefaultDNSConfig,
-		GravityPackage: loc.MustParseLocator("gravitational.io/gravity:3.0.0"),
+		OperationID:        builder.operation.ID,
+		OperationType:      builder.operation.Type,
+		AccountID:          builder.operation.AccountID,
+		ClusterName:        builder.operation.SiteDomain,
+		Servers:            servers,
+		DNSConfig:          storage.DefaultDNSConfig,
+		GravityPackage:     loc.MustParseLocator("gravitational.io/gravity:3.0.0"),
+		OfflineCoordinator: &leadMaster.Server,
 		Phases: []storage.OperationPhase{
 			params.init(rearrangedIntermediateServers),
 			params.checks("/init"),

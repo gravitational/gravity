@@ -162,6 +162,8 @@ func (r phaseBuilder) newPlan() (*storage.OperationPlan, error) {
 
 	root.AddParallel(initPhase, checksPhase, preUpdatePhase)
 
+	r.planTemplate.OfflineCoordinator = &r.leadMaster
+
 	if len(r.steps) == 0 {
 		// Embed the target runtime step directly into root phase
 		r.targetStep.buildInline(&root, r.leadMaster, r.installedApp.Package, r.updateApp.Package,
