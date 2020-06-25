@@ -25,6 +25,7 @@ import (
 	"io/ioutil"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/gravitational/gravity/lib/app"
 	apptest "github.com/gravitational/gravity/lib/app/service/test"
@@ -153,7 +154,10 @@ func (s *OpsSuite) SitesCRUD(c *C) {
 	c.Assert(logStream.Close(), IsNil)
 
 	// download crashreport
-	reportStream, err := s.O.GetSiteReport(context.TODO(), opKey.SiteKey())
+	reportStream, err := s.O.GetSiteReport(context.TODO(), ops.GetClusterReportRequest{
+		SiteKey: opKey.SiteKey(),
+		Since:   time.Duration(0),
+	})
 	c.Assert(err, IsNil)
 	_, err = io.Copy(ioutil.Discard, reportStream)
 	c.Assert(err, IsNil)
