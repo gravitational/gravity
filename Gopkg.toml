@@ -66,7 +66,8 @@ ignored = [
 
 [[constraint]]
   name = "github.com/gravitational/satellite"
-  version = "=6.1.13"
+  # version = "=6.1.13"
+  branch = "bernard/6.1.x/watermark"
 
 [[constraint]]
   name = "github.com/miekg/dns"
