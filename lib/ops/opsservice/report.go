@@ -150,6 +150,9 @@ func (s *site) getReport(ctx context.Context, runner remoteRunner, servers []rem
 		if err := s.collectKubernetesInfo(reportWriter, serverRunner, since); err != nil {
 			logger.WithError(err).Error("Failed to collect Kubernetes info.")
 		}
+		if err := s.collectEtcdInfoFromMasters(ctx, dir, masters, runner); err != nil {
+			log.WithError(err).Error("Failed to collect etcd info.")
+		}
 		if err := s.collectDebugInfoFromServers(ctx, dir, servers, runner, since); err != nil {
 			log.WithError(err).Error("Failed to collect diagnostics from some nodes.")
 		}
@@ -231,6 +234,41 @@ func (s *site) collectKubernetesInfo(reportWriter report.FileWriter, runner *ser
 		"--since", since.String())...)
 	if err != nil {
 		return trace.Wrap(err, "failed to collect kubernetes diagnostics")
+	}
+	return nil
+}
+
+func (s *site) collectEtcdInfoFromMasters(ctx context.Context, dir string, masters []remoteServer,
+	runner remoteRunner) error {
+	err := s.executeOnServers(ctx, masters, func(c context.Context, master remoteServer) error {
+		log.Debugf("collectEtcdInfo for %v", master)
+		r := &serverRunner{
+			server: master,
+			runner: runner,
+		}
+		reportWriter := getReportWriterForServer(dir, master)
+		err := s.collectEtcdInfo(reportWriter, r)
+		return trace.Wrap(err)
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+// collectEtcdInfo collects etcd metrics.
+func (s *site) collectEtcdInfo(reportWriter report.FileWriter, runner *serverRunner) error {
+	w, err := reportWriter.NewWriter("etcd.tar.gz")
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer w.Close()
+
+	err = runner.RunStream(w, s.gravityCommand("system", "report",
+		"--filter", report.FilterEtcd,
+		"--compressed")...)
+	if err != nil {
+		return trace.Wrap(err, "failed to collect etcd info")
 	}
 	return nil
 }

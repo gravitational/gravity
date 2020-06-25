@@ -18,6 +18,7 @@ package report
 
 import (
 	"fmt"
+	"path/filepath"
 	"time"
 
 	"github.com/gravitational/gravity/lib/defaults"
@@ -136,5 +137,16 @@ func planetLogs() Collectors {
 		// $ cat ./node-1-planet-journal-export.log | /lib/systemd/systemd-journal-remote -o ./journal/system.journal -
 		Self("planet-journal-export.log.gz",
 			"system", "export-runtime-journal"),
+	}
+}
+
+// etcdMetrics fetches etcd metrics
+func etcdMetrics() Collectors {
+	return Collectors{
+		Cmd("etcd-metrics", utils.PlanetCommandArgs("/usr/bin/curl", "-s", "--tlsv1.2",
+			"--cacert", filepath.Join(defaults.PlanetStateDir, defaults.RootCertFilename),
+			"--cert", filepath.Join(defaults.PlanetStateDir, defaults.EtcdCertFilename),
+			"--key", filepath.Join(defaults.PlanetStateDir, defaults.EtcdKeyFilename),
+			filepath.Join(defaults.EtcdLocalAddr, "metrics"))...),
 	}
 }

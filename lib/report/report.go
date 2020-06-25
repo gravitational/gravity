@@ -47,6 +47,8 @@ func Collect(ctx context.Context, config Config, w io.Writer) error {
 			collectors = append(collectors, NewPackageCollector(config.Packages))
 		case FilterKubernetes:
 			collectors = append(collectors, NewKubernetesCollector(ctx, utils.Runner, config.Since)...)
+		case FilterEtcd:
+			collectors = append(collectors, etcdMetrics()...)
 		case FilterTimeline:
 			collectors = append(collectors, NewTimelineCollector())
 		}
@@ -115,6 +117,9 @@ const (
 
 	// FilterKubernetes defines a report collection filter to fetch kubernetes diagnostics
 	FilterKubernetes = "kubernetes"
+
+	// FilterEtcd defines a report collection filter to fetch etcd data
+	FilterEtcd = "etcd"
 
 	// FilterTimeline defines a report collection filter to fetch the status timeline
 	FilterTimeline = "timeline"
