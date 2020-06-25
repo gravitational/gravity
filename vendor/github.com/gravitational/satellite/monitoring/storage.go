@@ -38,7 +38,8 @@ type StorageConfig struct {
 	MinFreeBytes uint64
 	// LowWatermark is the disk occupancy percentage that will trigger a warning probe
 	LowWatermark uint
-	// HighWatermark is the disk occupancy percentage that will trigger a critical probe
+	// HighWatermark is the disk occupancy percentage that will trigger a critical probe.
+	// Disk usage check will be skipped if HighWatermark is unspecified or 0.
 	HighWatermark uint
 }
 
@@ -57,14 +58,6 @@ func (c *StorageConfig) CheckAndSetDefaults() error {
 
 	if c.HighWatermark > 100 {
 		errors = append(errors, trace.BadParameter("high watermark must be 0-100"))
-	}
-
-	if c.LowWatermark == 0 {
-		c.LowWatermark = DefaultLowWatermark
-	}
-
-	if c.HighWatermark == 0 {
-		c.HighWatermark = DefaultHighWatermark
 	}
 
 	if c.LowWatermark > c.HighWatermark {
@@ -108,9 +101,3 @@ func (d HighWatermarkCheckerData) SuccessMessage() string {
 
 // DiskSpaceCheckerID is the checker that checks disk space utilization
 const DiskSpaceCheckerID = "disk-space"
-
-// DefaultLowWatermark is the default low watermark percentage.
-const DefaultLowWatermark = 80
-
-// DefaultHighWatermark is the default high watermark percentage.
-const DefaultHighWatermark = 90
