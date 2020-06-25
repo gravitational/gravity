@@ -579,6 +579,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	// get cluster diagnostics report
 	g.ReportCmd.CmdClause = g.Command("report", "Collect tarball with cluster's diagnostic information.")
 	g.ReportCmd.FilePath = g.ReportCmd.Flag("file", "File name with collected diagnostic information.").Default("report.tar.gz").String()
+	g.ReportCmd.Since = g.ReportCmd.Flag("since", "Only return logs newer than a relative duration like 5s, 2m, or 3h. Default is 336h (14 days). Specify 0s to collect all logs.").Default("336h").Duration()
 
 	// operations on sites
 	g.SiteCmd.CmdClause = g.Command("site", "operations on gravity sites")
@@ -715,6 +716,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.SystemReportCmd.Filter = g.SystemReportCmd.Flag("filter", "collect only specific diagnostics ('system', 'kubernetes'). Collect everything if unspecified").Strings()
 	g.SystemReportCmd.Compressed = g.SystemReportCmd.Flag("compressed", "whether to compress the tarball").Default("true").Bool()
 	g.SystemReportCmd.Output = g.SystemReportCmd.Flag("output", "optional output file path").String()
+	g.SystemReportCmd.Since = g.SystemReportCmd.Flag("since", "only return logs newer than a relative duration like 5s, 2m, or 3h. Default is 336h (14 days). Specify 0s to collect all logs.").Default("336h").Duration()
 
 	g.SystemStateDirCmd.CmdClause = g.SystemCmd.Command("state-dir", "show where all gravity data is stored on the node").Hidden()
 
