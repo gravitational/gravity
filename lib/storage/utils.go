@@ -280,23 +280,37 @@ func DisableAccess(backend Backend, name string, delay time.Duration) error {
 		Type:       teleservices.UserCA,
 		DomainName: name,
 	}, true)
-	if err != nil {
+	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
 	}
-	ca.SetTTL(backend, delay)
-	if err := backend.UpsertCertAuthority(ca); err != nil {
-		return trace.Wrap(err)
+	// User authority may have already been deleted if one of the calls below
+	// failed and this is being retried.
+	if trace.IsNotFound(err) {
+		log.WithField("name", name).Warn("User authority not found.")
+	}
+	if ca != nil {
+		ca.SetTTL(backend, delay)
+		if err := backend.UpsertCertAuthority(ca); err != nil {
+			return trace.Wrap(err)
+		}
 	}
 	ca, err = backend.GetCertAuthority(teleservices.CertAuthID{
 		Type:       teleservices.HostCA,
 		DomainName: name,
 	}, true)
-	if err != nil {
+	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
 	}
-	ca.SetTTL(backend, delay)
-	if err := backend.UpsertCertAuthority(ca); err != nil {
-		return trace.Wrap(err)
+	// Host authority may have already been deleted if one of the calls below
+	// failed and this is being retried.
+	if trace.IsNotFound(err) {
+		log.WithField("name", name).Warn("Host authority not found.")
+	}
+	if ca != nil {
+		ca.SetTTL(backend, delay)
+		if err := backend.UpsertCertAuthority(ca); err != nil {
+			return trace.Wrap(err)
+		}
 	}
 	cluster, err := backend.GetTrustedCluster(name)
 	if err != nil {
