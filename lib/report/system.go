@@ -18,13 +18,14 @@ package report
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/utils"
 )
 
 // NewSystemCollector returns a list of collectors to fetch system information
-func NewSystemCollector() Collectors {
+func NewSystemCollector(since time.Duration) Collectors {
 	var collectors Collectors
 	add := func(additional ...Collector) {
 		collectors = append(collectors, additional...)
@@ -32,7 +33,7 @@ func NewSystemCollector() Collectors {
 
 	add(basicSystemInfo()...)
 	add(planetServices()...)
-	add(syslogExportLogs())
+	add(syslogExportLogs(since))
 	add(systemFileLogs()...)
 	add(planetLogs()...)
 
@@ -72,6 +73,8 @@ func basicSystemInfo() Collectors {
 		Cmd("host-system-failed", "/bin/systemctl", "--failed", "--full"),
 		Cmd("host-system-jobs", "/bin/systemctl", "list-jobs", "--full"),
 		Cmd("dmesg", "/bin/dmesg", "--raw"),
+		Cmd("reboot-history", "last", "-x"),
+		Cmd("uname", "uname", "-a"),
 		// Fetch world-readable parts of /etc/
 		Script("etc-logs.tar.gz", tarball("/etc/")),
 		// memory
@@ -79,6 +82,7 @@ func basicSystemInfo() Collectors {
 		Cmd("slabtop", "slabtop", "--once"),
 		Cmd("vmstat", "vmstat", "--stats"),
 		Cmd("slabinfo", "cat", "/proc/slabinfo"),
+		Cmd("swapon", "swapon", "-s"),
 	}
 }
 
@@ -92,15 +96,21 @@ func planetServices() Collectors {
 		Cmd("planet-system-status", utils.PlanetCommandArgs("/bin/systemctl", "status", "--full")...),
 		Cmd("planet-system-failed", utils.PlanetCommandArgs("/bin/systemctl", "--failed", "--full")...),
 		Cmd("planet-system-jobs", utils.PlanetCommandArgs("/bin/systemctl", "list-jobs", "--full")...),
+		// serf status
+		Cmd("serf-members", utils.PlanetCommandArgs(defaults.SerfBin, "members")...),
 	}
 }
 
 // syslogExportLogs fetches logs for gravity binary invocations
 // (including installation logs)
-func syslogExportLogs() Collector {
-	const script = `
+func syslogExportLogs(since time.Duration) Collector {
+	var script = `
 #!/bin/bash
-/bin/journalctl --no-pager --output=export | /bin/gzip -f`
+/bin/journalctl --no-pager --output=export`
+	if since != 0 {
+		script = fmt.Sprintf(`%s --since="%s" `, script, time.Now().Add(-since).Format(JournalDateFormat))
+	}
+	script = fmt.Sprintf("%s | /bin/gzip -f", script)
 	return Script("gravity-system.log.gz", script)
 }
 

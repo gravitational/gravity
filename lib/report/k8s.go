@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/utils"
@@ -30,7 +31,7 @@ import (
 
 // NewKubernetesCollector returns a list of collectors to fetch kubernetes-specific
 // diagnostics.
-func NewKubernetesCollector(ctx context.Context, runner utils.CommandRunner) Collectors {
+func NewKubernetesCollector(ctx context.Context, runner utils.CommandRunner, since time.Duration) Collectors {
 	runner = planetContextRunner{runner}
 	// general kubernetes info
 	commands := Collectors{
@@ -76,12 +77,14 @@ func NewKubernetesCollector(ctx context.Context, runner utils.CommandRunner) Col
 				name := fmt.Sprintf("k8s-logs-%v-%v-%v", namespace, pod, container)
 				commands = append(commands, Cmd(name, utils.PlanetCommand(kubectl.Command("logs", pod,
 					"--namespace", namespace,
+					"--since", since.String(),
 					fmt.Sprintf("-c=%v", container)))...))
 				// Also collect logs for the previous instance
 				// of the container if there's any.
 				name = fmt.Sprintf("%v-prev", name)
 				commands = append(commands, Cmd(name, utils.PlanetCommand(kubectl.Command("logs", pod,
 					"--namespace", namespace, "-p",
+					"--since", since.String(),
 					fmt.Sprintf("-c=%v", container)))...))
 			}
 		}

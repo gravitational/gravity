@@ -1144,13 +1144,13 @@ func (o *Operator) CreateLogEntry(key ops.SiteOperationKey, entry ops.LogEntry) 
 	return site.createLogEntry(key, entry)
 }
 
-func (o *Operator) GetSiteReport(ctx context.Context, key ops.SiteKey) (io.ReadCloser, error) {
-	cluster, err := o.openSite(key)
+func (o *Operator) GetSiteReport(ctx context.Context, req ops.GetClusterReportRequest) (io.ReadCloser, error) {
+	cluster, err := o.openSite(req.SiteKey)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	return cluster.getClusterReport(ctx)
+	return cluster.getClusterReport(ctx, req.Since)
 }
 
 func (o *Operator) GetSiteOperationProgress(key ops.SiteOperationKey) (*ops.ProgressEntry, error) {

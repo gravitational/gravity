@@ -22,6 +22,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"time"
 
 	"github.com/gravitational/gravity/lib/archive"
 	"github.com/gravitational/gravity/lib/pack"
@@ -42,10 +43,10 @@ func Collect(ctx context.Context, config Config, w io.Writer) error {
 	for _, filter := range teleutils.Deduplicate(config.Filters) {
 		switch filter {
 		case FilterSystem:
-			collectors = append(collectors, NewSystemCollector()...)
+			collectors = append(collectors, NewSystemCollector(config.Since)...)
 			collectors = append(collectors, NewPackageCollector(config.Packages))
 		case FilterKubernetes:
-			collectors = append(collectors, NewKubernetesCollector(ctx, utils.Runner)...)
+			collectors = append(collectors, NewKubernetesCollector(ctx, utils.Runner, config.Since)...)
 		case FilterTimeline:
 			collectors = append(collectors, NewTimelineCollector())
 		}
@@ -100,9 +101,15 @@ type Config struct {
 	// Packages specifies the package service for the package
 	// diagnostics collector
 	Packages pack.PackageService
+	// Since specifies the start of the time filter. A value of 1h will report
+	// log entries starting from one hour ago up till the end of the time filter.
+	Since time.Duration
 }
 
 const (
+	// JournalDateFormat defines the timestamp format for journalctl since flag
+	JournalDateFormat = "2006-01-02 15:04:05"
+
 	// FilterSystem defines a report collection filter to fetch system diagnostics
 	FilterSystem = "system"
 

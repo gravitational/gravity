@@ -188,6 +188,9 @@ const (
 	// GravityUpdateDir specifies the directory used by the update process
 	GravityUpdateDir = "/var/lib/gravity/site/update"
 
+	// PlanetStateDir specifies the planet state directory
+	PlanetStateDir = "/var/state"
+
 	// GravityRPCAgentPort defines which port RPC agent is listening on
 	GravityRPCAgentPort = 3012
 
