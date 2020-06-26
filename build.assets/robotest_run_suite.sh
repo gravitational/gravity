@@ -10,13 +10,12 @@ declare -A UPGRADE_MAP
 UPGRADE_MAP[7.0.10]="ubuntu:18"
 
 # latest patch release on compatible non-LTS versions
-UPGRADE_MAP[6.3.18]="ubuntu:18"
-UPGRADE_MAP[6.2.5]="ubuntu:18"
+# 6.2 and 6.3 ignored in PR builds per https://github.com/gravitational/gravity/pull/1760#pullrequestreview-437838773
+# UPGRADE_MAP[6.3.18]="ubuntu:18"
+# UPGRADE_MAP[6.2.5]="ubuntu:18"
 
 # important versions in the field, these are static
 UPGRADE_MAP[7.0.0]="ubuntu:16"
-# UPGRADE_MAP[6.3.0]="ubuntu:16"  # disabled due to https://github.com/gravitational/gravity/issues/1009
-# UPGRADE_MAP[6.2.0]="ubuntu:16"  # pretty close to 6.2.5, no need to test both
 
 readonly GET_GRAVITATIONAL_IO_APIKEY=${GET_GRAVITATIONAL_IO_APIKEY:?API key for distribution Ops Center required}
 readonly GRAVITY_BUILDDIR=${GRAVITY_BUILDDIR:?Set GRAVITY_BUILDDIR to the build directory}
