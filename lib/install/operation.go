@@ -268,7 +268,10 @@ func (i *Installer) generateDebugReport(ctx context.Context, clusterKey ops.Site
 			os.Remove(f.Name())
 		}
 	}()
-	rc, err := i.config.Operator.GetSiteReport(ctx, clusterKey)
+	rc, err := i.config.Operator.GetSiteReport(ctx, ops.GetClusterReportRequest{
+		SiteKey: clusterKey,
+		Since:   time.Duration(0),
+	})
 	if err != nil {
 		return trace.ConvertSystemError(err)
 	}

@@ -1132,7 +1132,7 @@ func InstallerGenerateLocalReport(env *localenv.LocalEnvironment) func(context.C
 				os.Remove(f.Name())
 			}
 		}()
-		err = systemReport(env, report.AllFilters, true, f)
+		err = systemReport(env, report.AllFilters, true, f, time.Duration(0))
 		if err != nil {
 			return trace.ConvertSystemError(err)
 		}
