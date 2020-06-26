@@ -67,6 +67,7 @@ func newUpgradeConfig(g *Application) (*upgradeConfig, error) {
 		upgradePackage:   *g.UpgradeCmd.App,
 		manual:           *g.UpgradeCmd.Manual,
 		skipVersionCheck: *g.UpgradeCmd.SkipVersionCheck,
+		force:            *g.UpgradeCmd.Force,
 		values:           values,
 	}, nil
 }
@@ -79,6 +80,8 @@ type upgradeConfig struct {
 	manual bool
 	// skipVersionCheck allows to bypass gravity version compatibility check.
 	skipVersionCheck bool
+	// force allows to skip otherwise failed preconditions.
+	force bool
 	// values are helm values in a marshaled yaml format.
 	values []byte
 }
