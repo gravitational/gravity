@@ -38,9 +38,9 @@ func NewSystemCollector(since time.Duration) Collectors {
 	}
 
 	add(basicSystemInfo()...)
-	add(planetServices()...)
+	add(systemStatus()...)
 	add(systemFileLogs()...)
-	add(planetLogs()...)
+	add(planetLogs(since)...)
 	add(syslogExportLogs(since))
 	add(auditLog())
 
@@ -77,6 +77,12 @@ func basicSystemInfo() Collectors {
 		Cmd("host-system-status", "/bin/systemctl", "status", "--full"),
 		Cmd("host-system-failed", "/bin/systemctl", "--failed", "--full"),
 		Cmd("host-system-jobs", "/bin/systemctl", "list-jobs", "--full"),
+		Command{
+			name:             "host-system-jobs",
+			cmd:              "/bin/systemctl",
+			args:             []string{"list-jobs", "--full"},
+			successExitCodes: []int{1},
+		},
 		Cmd("dmesg", "/bin/dmesg", "--raw"),
 		Cmd("reboot-history", "last", "-x"),
 		Cmd("uname", "uname", "-a"),
@@ -91,7 +97,8 @@ func basicSystemInfo() Collectors {
 	}
 }
 
-func planetServices() Collectors {
+func systemStatus() Collectors {
+	listJobArgs := utils.PlanetCommandArgs("/bin/systemctl", "list-jobs", "--full")
 	return Collectors{
 		Cmd("cluster-status", "/usr/bin/gravity", "status", "--output=json"),
 		// etcd cluster health
@@ -102,6 +109,12 @@ func planetServices() Collectors {
 		Cmd("planet-system-status", utils.PlanetCommandArgs("/bin/systemctl", "status", "--full")...),
 		Cmd("planet-system-failed", utils.PlanetCommandArgs("/bin/systemctl", "--failed", "--full")...),
 		Cmd("planet-system-jobs", utils.PlanetCommandArgs("/bin/systemctl", "list-jobs", "--full")...),
+		Command{
+			name:             "planet-system-jobs",
+			cmd:              listJobArgs[0],
+			args:             listJobArgs[1:],
+			successExitCodes: []int{1},
+		},
 		// serf status
 		Cmd("serf-members", utils.PlanetCommandArgs(defaults.SerfBin, "members")...),
 	}
@@ -135,14 +148,14 @@ cat %v 2> /dev/null || true`
 }
 
 // planetLogs fetches planet syslog messages as well as the fresh journal entries
-func planetLogs() Collectors {
+func planetLogs(since time.Duration) Collectors {
 	return Collectors{
 		// Fetch planet journal entries for the last two days
 		// The log can be imported as a journal with systemd-journal-remote:
 		//
 		// $ cat ./node-1-planet-journal-export.log | /lib/systemd/systemd-journal-remote -o ./journal/system.journal -
 		Self("planet-journal-export.log.gz",
-			"system", "export-runtime-journal"),
+			"system", "export-runtime-journal", "--since", since.String()),
 	}
 }
 
