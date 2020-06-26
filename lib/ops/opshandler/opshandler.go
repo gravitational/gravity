@@ -1840,17 +1840,7 @@ func (h *WebHandler) streamOperationLogs(w http.ResponseWriter, r *http.Request,
 
 */
 func (h *WebHandler) getSiteOperationCrashReport(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
-	var since time.Duration
-	if val := r.URL.Query().Get("since"); val != "" {
-		var err error
-		if since, err = time.ParseDuration(val); err != nil {
-			return trace.Wrap(err)
-		}
-	}
-	report, err := context.Operator.GetSiteReport(r.Context(), ops.GetClusterReportRequest{
-		SiteKey: siteKey(p),
-		Since:   since,
-	})
+	report, err := context.Operator.GetSiteReport(r.Context(), ops.GetClusterReportRequest{SiteKey: siteKey(p)})
 	if err != nil {
 		return trace.Wrap(err)
 	}

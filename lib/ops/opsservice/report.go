@@ -256,7 +256,7 @@ func (s *site) collectEtcdInfoFromMasters(ctx context.Context, dir string, maste
 	return nil
 }
 
-// collectEtcdInfo collects etcd metrics.
+// collectEtcdInfo collects etcd metrics and captures a snapshot of the data.
 func (s *site) collectEtcdInfo(reportWriter report.FileWriter, runner *serverRunner) error {
 	w, err := reportWriter.NewWriter("etcd.tar.gz")
 	if err != nil {
