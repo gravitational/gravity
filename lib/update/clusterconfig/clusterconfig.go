@@ -94,9 +94,11 @@ func (r *dispatcher) Dispatch(config rollingupdate.Config, params fsm.ExecutorPa
 			config.ClusterPackages, config.HostLocalPackages,
 			logger)
 	case libphase.Custom:
-		return phases.NewServices(params, logger)
+		return phases.NewServices(params, config.Client.CoreV1(), logger)
+	case phases.InitPhase:
+		return phases.NewInit(params, config.Client.CoreV1(), logger)
 	case phases.FiniPhase:
-		return phases.NewFini(params, logger)
+		return phases.NewFini(params, config.Client.CoreV1(), logger)
 	default:
 		return r.Dispatcher.Dispatch(config, params, remote, logger)
 	}

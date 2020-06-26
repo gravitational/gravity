@@ -28,6 +28,7 @@ import (
 
 	"github.com/gravitational/trace"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
@@ -49,11 +50,7 @@ func NewOperationPlan(
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to query installed application")
 	}
-	services, err := collectServices(client.CoreV1())
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	plan, err = newOperationPlan(*app, cluster.DNSConfig, operator, operation, clusterConfig, servers, services)
+	plan, err = newOperationPlan(*app, cluster.DNSConfig, operator, operation, clusterConfig, servers, client)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -78,9 +75,18 @@ func newOperationPlan(
 	operation ops.SiteOperation,
 	clusterConfig clusterconfig.Interface,
 	servers []storage.Server,
-	services []v1.Service,
-) (*storage.OperationPlan, error) {
-	builder := newBuilder(app.Package)
+	client *kubernetes.Clientset,
+) (plan *storage.OperationPlan, err error) {
+	updatesServiceCIDR := hasServiceCIDRUpdate(clusterConfig)
+	var builder *builder
+	if updatesServiceCIDR {
+		builder, err = newBuilderWithServices(app.Package, client.CoreV1())
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+	} else {
+		builder = newBuilder(app.Package)
+	}
 	updates, err := rollingupdate.RuntimeConfigUpdates(app.Manifest, operator, operation.Key(), servers)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -94,14 +100,13 @@ func newOperationPlan(
 	if !shouldUpdateNodes {
 		updateServers = masters
 	}
-	init := *builder.init("Initialize operation")
 	config := *builder.Config("Update runtime configuration", updateServers)
 	updateMasters := *builder.Masters(
 		masters,
 		"Update cluster configuration",
 		"Update configuration on node %q",
 	).Require(config)
-	phases := update.Phases{init, config, updateMasters}
+	phases := update.Phases{config, updateMasters}
 
 	if shouldUpdateNodes {
 		updateNodes := *builder.Nodes(
@@ -111,10 +116,13 @@ func newOperationPlan(
 		).Require(config, updateMasters)
 		phases = append(phases, updateNodes)
 	}
-	fini := *builder.fini("Finalize operation", init)
-	phases = append(phases, fini)
+	if updatesServiceCIDR {
+		init := builder.init("Init operation")
+		fini := builder.fini("Finalize operation")
+		phases = append([]update.Phase{init}, append(phases, fini)...)
+	}
 
-	plan := &storage.OperationPlan{
+	plan = &storage.OperationPlan{
 		OperationID:   operation.ID,
 		OperationType: operation.Type,
 		AccountID:     operation.AccountID,
@@ -134,13 +142,17 @@ func collectServices(client corev1.CoreV1Interface) (result []v1.Service, err er
 		return nil, rigging.ConvertError(err)
 	}
 	result = make([]v1.Service, 0, len(services.Items))
-	for _, service := range servces.Items {
-		if service.Spec.ServiceType != v1.ServiceTypeClusterIP {
+	for _, service := range services.Items {
+		if service.Spec.Type != v1.ServiceTypeClusterIP {
 			continue
 		}
 		result = append(result, service)
 	}
 	return result, nil
+}
+
+func hasServiceCIDRUpdate(clusterConfig clusterconfig.Interface) bool {
+	return len(clusterConfig.GetGlobalConfig().ServiceCIDR) != 0
 }
 
 func shouldUpdateNodes(clusterConfig clusterconfig.Interface, numWorkerNodes int) bool {

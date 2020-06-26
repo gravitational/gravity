@@ -121,9 +121,17 @@ func (r Builder) commonFirstMaster(server storage.UpdateServer, others ...storag
 		phases = append(phases, setLeaderElection(enable(server), disable(others...), server,
 			"elect", "Make node %q Kubernetes leader"))
 	}
+	if r.CustomUpdate != nil {
+		return append(phases,
+			r.taint(&server.Server, nil),
+			r.custom(&server.Server, nil),
+			r.uncordon(&server.Server, nil),
+			r.endpoints(&server.Server, nil),
+			r.untaint(&server.Server, nil),
+		)
+	}
 	return append(phases,
 		r.taint(&server.Server, nil),
-		r.custom(&server.Server, nil),
 		r.uncordon(&server.Server, nil),
 		r.endpoints(&server.Server, nil),
 		r.untaint(&server.Server, nil),
@@ -167,13 +175,10 @@ func (r Builder) taint(server, execer *storage.Server) update.Phase {
 	return node
 }
 
+// custom assumes r.CustomUpdate != nil
 func (r Builder) custom(server, execer *storage.Server) update.Phase {
-	node := r.node("custom", "Custom task on node %q", server.Hostname)
-	node.Executor = libphase.Custom
-	node.Data = &storage.OperationPhaseData{
-		Server: server,
-		Update: r.CustomUpdate,
-	}
+	node := *r.CustomUpdate
+	node.Data.Server = server
 	return node
 }
 
@@ -236,9 +241,8 @@ func (r Builder) node(id, format string, args ...interface{}) update.Phase {
 type Builder struct {
 	// App specifies the cluster application
 	App loc.Locator
-	// CustomUpdate optionally specifies the phase data
-	// for the custom phase
-	CustomUpdate *storage.UpdateOperationData
+	// CustomUpdate optionally specifies the custom phase
+	CustomUpdate *update.Phase
 }
 
 // setLeaderElection creates a phase that will change the leader election state in the cluster

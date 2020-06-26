@@ -184,6 +184,7 @@ type UpdateOperationData struct {
 	ClusterConfig *ClusterConfigData `json:"updates,omitempty"`
 }
 
+// ClusterConfigData describes the configuration specific to cluster configuration update operation
 type ClusterConfigData struct {
 	// DNSServiceName specifies the name of the DNS service with a ClusterIP
 	// from a new service subnet when updating cluster service CIDR
