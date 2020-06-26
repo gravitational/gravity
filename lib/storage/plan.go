@@ -155,7 +155,7 @@ type OperationPhaseData struct {
 	// GarbageCollect specifies configuration specific to garbage collect operation
 	GarbageCollect *GarbageCollectOperationData `json:"garbage_collect,omitempty" yaml:"garbage_collect,omitempty"`
 	// Update specifies configuration specific to update operations
-	Update *UpdateOperationData `json:"update,omitempty" yaml:"garbage_collect,omitempty"`
+	Update *UpdateOperationData `json:"update,omitempty" yaml:"update,omitempty"`
 	// Install specifies configuration specific to install operation
 	Install *InstallOperationData `json:"install,omitempty" yaml:"install,omitempty"`
 }
@@ -181,7 +181,7 @@ type UpdateOperationData struct {
 	// the operation only operates on a specific part
 	Servers []UpdateServer `json:"updates,omitempty"`
 	// ClusterConfig optionally specifies data specific to cluster configuration operation
-	ClusterConfig *ClusterConfigData `json:"updates,omitempty"`
+	ClusterConfig *ClusterConfigData `json:"cluster_config,omitempty"`
 }
 
 // ClusterConfigData describes the configuration specific to cluster configuration update operation
@@ -194,7 +194,7 @@ type ClusterConfigData struct {
 	DNSWorkerServiceName string `json:"dns_worker_service_name,omitempty"`
 	// Services lists original service definitions as captured
 	// prior to update
-	Services []v1.Service
+	Services []v1.Service `json:"services,omitempty"`
 }
 
 // UpdateServer describes an intent to update runtime/teleport configuration
