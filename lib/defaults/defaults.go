@@ -1156,6 +1156,9 @@ var (
 	// TeleportVersion specifies the version of the bundled teleport package as a semver
 	TeleportVersion = semver.New(TeleportVersionString)
 
+	// DockerRegistry is a default name for private docker registry
+	DockerRegistry = DockerRegistryAddr("leader.telekube.local")
+
 	// MetricsInterval is the default interval cluster metrics are displayed for.
 	MetricsInterval = time.Hour
 	// MetricsStep is the default interval b/w cluster metrics data points.

@@ -35,7 +35,12 @@ import (
 
 // exportLayers exports the layers of the specified set of images into
 // the specified local directory
-func exportLayers(ctx context.Context, dir string, images []string, dockerClient docker.DockerInterface, log log.FieldLogger,
+func exportLayers(
+	ctx context.Context,
+	dir string,
+	images []string,
+	dockerClient docker.DockerInterface,
+	log log.FieldLogger,
 	parallel int, progress utils.Progress) error {
 	layerExporter, err := newLayerExporter(dir, dockerClient, log, progress)
 	if err != nil {

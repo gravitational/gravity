@@ -154,11 +154,17 @@ func WithIdleConnTimeout(timeout time.Duration) ClientOption {
 
 // GetClient returns secure or insecure client based on settings
 func GetClient(insecure bool, options ...ClientOption) *http.Client {
+	if insecure {
+		options = append(options, WithInsecure())
+	}
+	return NewClient(options...)
+}
+
+// NewClient creates a new HTTP client with the specified list of configuration
+// options
+func NewClient(options ...ClientOption) *http.Client {
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{},
-	}
-	if insecure {
-		transport.TLSClientConfig.InsecureSkipVerify = true
 	}
 	client := &http.Client{Transport: transport}
 	for _, o := range options {
@@ -212,7 +218,11 @@ type Dialer func(ctx context.Context, network, addr string) (net.Conn, error)
 // using local resolver prior to dialing
 func DialFromEnviron(dnsAddr string) func(ctx context.Context, network, addr string) (net.Conn, error) {
 	return func(ctx context.Context, network, addr string) (conn net.Conn, err error) {
-		log.Debugf("dialing %v", addr)
+		logger := log.WithFields(log.Fields{
+			"addr":    addr,
+			"network": network,
+		})
+		logger.Debug("Dial.")
 
 		if isInsidePod() {
 			return Dial(ctx, network, addr)
@@ -224,7 +234,7 @@ func DialFromEnviron(dnsAddr string) func(ctx context.Context, network, addr str
 		}
 
 		// Dial with a kubernetes service resolver
-		log.Warnf("Failed to dial with local resolver: %v.", trace.DebugReport(err))
+		logger.WithError(err).Warn("Failed to dial with local resolver.")
 		return DialWithServiceResolver(ctx, network, addr)
 
 	}
@@ -250,7 +260,7 @@ func DialWithLocalResolver(ctx context.Context, dnsAddr, network, addr string) (
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to resolve %v", addr)
 	}
-	log.Debugf("dialing %v", hostPort)
+	log.WithField("host-port", hostPort).Debug("Dial.")
 	var d net.Dialer
 	return d.DialContext(ctx, network, hostPort)
 }

@@ -48,7 +48,7 @@ func NewHook(p fsm.ExecutorParams, operator ops.Operator, apps app.Applications,
 		return nil, trace.BadParameter("service user is required")
 	}
 
-	serviceUser, err := userFromOSUser(*p.Phase.Data.ServiceUser)
+	serviceUser, err := systeminfo.FromOSUser(*p.Phase.Data.ServiceUser)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

@@ -27,6 +27,7 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/install"
+	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/rpc"
@@ -170,7 +171,7 @@ func (p *updatePhaseInit) PostCheck(context.Context) error {
 func (p *updatePhaseInit) Execute(context.Context) error {
 	err := removeLegacyUpdateDirectory(p.FieldLogger)
 	if err != nil {
-		return trace.Wrap(err, "failed to remove legacy update directory")
+		p.WithError(err).Warn("Failed to remove legacy update directory.")
 	}
 	if err := p.createAdminAgent(); err != nil {
 		return trace.Wrap(err, "failed to create cluster admin agent")
@@ -178,7 +179,7 @@ func (p *updatePhaseInit) Execute(context.Context) error {
 	if err := p.upsertServiceUser(); err != nil {
 		return trace.Wrap(err, "failed to upsert service user")
 	}
-	if err := p.initRPCCredentials(); err != nil {
+	if err := p.updateRPCCredentials(); err != nil {
 		return trace.Wrap(err, "failed to update RPC credentials")
 	}
 	if err := p.updateClusterRoles(); err != nil {
@@ -211,28 +212,68 @@ func (p *updatePhaseInit) Execute(context.Context) error {
 	return nil
 }
 
-func (p *updatePhaseInit) initRPCCredentials() error {
-	// FIXME: the secrets package is currently only generated once.
-	// Even though the package is generated with some time buffer in advance,
-	// we need to make sure if the existing package needs to be rotated (i.e.
-	// as expiring soon).
-	// This will ether need to generate a new package version and then the
-	// problem becomes how the agents will know the name of the package.
-	// Or, the package version is recycled and then we need to make sure
-	// to restart the cluster controller (gravity-site) to make sure it has
-	// reloaded its copy of the credentials.
-	// See: https://github.com/gravitational/gravity/issues/3607.
-	pkg, err := rpc.InitRPCCredentials(p.Packages)
-	if err != nil && !trace.IsAlreadyExists(err) {
+// Rollback rolls back the init phase
+func (p *updatePhaseInit) Rollback(ctx context.Context) error {
+	err := p.restoreRPCCredentials()
+	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
 	}
-
-	if trace.IsAlreadyExists(err) {
-		p.Info("RPC credentials already initialized.")
-	} else {
-		p.Infof("Initialized RPC credentials: %v.", pkg)
+	if err := p.removeConfiguredPackages(); err != nil {
+		return trace.Wrap(err)
 	}
+	return nil
+}
 
+// updateRPCCredentials rotates the RPC credentials used for install/expand/leave operations.
+func (p *updatePhaseInit) updateRPCCredentials() error {
+	// This assumes that the cluster controller Pods are eventually restarted
+	// by the upcoming phase for these changes to take effect.
+	//
+	// Currently the upgrade short-circuits the application-only upgrades by not
+	// including the init phase so this is safe.
+	//
+	// Keep it in mind for future changes.
+	// See https://github.com/gravitational/gravity/issues/3607 for more details when we had
+	// to be careful about it previously.
+	p.Info("Update RPC credentials")
+	err := p.backupRPCCredentials()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	loc, err := rpc.UpsertCredentials(p.Packages)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	p.WithField("package", loc.String()).Info("Update RPC credentials.")
+	return nil
+}
+
+func (p *updatePhaseInit) backupRPCCredentials() error {
+	p.Info("Backup RPC credentials")
+	env, rc, err := rpc.LoadCredentialsData(p.Packages)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer rc.Close()
+	_, err = p.Packages.UpsertPackage(rpcBackupPackage(p.Operation.SiteDomain), rc, pack.WithLabels(env.RuntimeLabels))
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+func (p *updatePhaseInit) restoreRPCCredentials() error {
+	p.Info("Restore RPC credentials from backup")
+	env, rc, err := p.Packages.ReadPackage(rpcBackupPackage(p.Operation.SiteDomain))
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer rc.Close()
+	delete(env.RuntimeLabels, pack.OperationIDLabel)
+	err = rpc.UpsertCredentialsFromData(p.Packages, rc, env.RuntimeLabels)
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	return nil
 }
 
@@ -438,6 +479,21 @@ func (p *updatePhaseInit) rotateTeleportConfig(server storage.UpdateServer) erro
 	return nil
 }
 
+// removeConfiguredPackages removes packages configured during init phase
+func (p *updatePhaseInit) removeConfiguredPackages() error {
+	// all packages created during this operation were marked
+	// with corresponding operation-id label
+	p.Info("Removing configured packages.")
+	return pack.ForeachPackageInRepo(p.Packages, p.Operation.SiteDomain,
+		func(e pack.PackageEnvelope) error {
+			if e.HasLabel(pack.OperationIDLabel, p.Operation.ID) {
+				p.Infof("Removing package %q.", e.Locator)
+				return p.Packages.DeletePackage(e.Locator)
+			}
+			return nil
+		})
+}
+
 func masterIPs(servers []storage.UpdateServer) (addrs []string) {
 	for _, server := range servers {
 		if server.IsMaster() {
@@ -469,25 +525,10 @@ func removeLegacyUpdateDirectory(log log.FieldLogger) error {
 	return trace.ConvertSystemError(err)
 }
 
-// Rollback rolls back the init phase
-func (p *updatePhaseInit) Rollback(context.Context) error {
-	if err := p.removeConfiguredPackages(); err != nil {
-		return trace.Wrap(err)
+func rpcBackupPackage(repository string) loc.Locator {
+	return loc.Locator{
+		Repository: repository,
+		Name:       "rpcagent-secrets-backup",
+		Version:    loc.FirstVersion,
 	}
-	return nil
-}
-
-// removeConfiguredPackages removes packages configured during init phase
-func (p *updatePhaseInit) removeConfiguredPackages() error {
-	// all packages created during this operation were marked
-	// with corresponding operation-id label
-	p.Info("Removing configured packages.")
-	return pack.ForeachPackageInRepo(p.Packages, p.Operation.SiteDomain,
-		func(e pack.PackageEnvelope) error {
-			if e.HasLabel(pack.OperationIDLabel, p.Operation.ID) {
-				p.Infof("Removing package %q.", e.Locator)
-				return p.Packages.DeletePackage(e.Locator)
-			}
-			return nil
-		})
 }

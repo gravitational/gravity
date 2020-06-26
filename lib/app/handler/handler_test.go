@@ -17,8 +17,6 @@ limitations under the License.
 package handler
 
 import (
-	"crypto/tls"
-	"net/http"
 	"net/http/httptest"
 	"path/filepath"
 	"testing"
@@ -72,7 +70,7 @@ func (r *HandlerSuite) SetUpTest(c *C) {
 	r.backend, err = keyval.NewBolt(keyval.BoltConfig{Path: filepath.Join(r.dir, "bolt.db")})
 	c.Assert(err, IsNil)
 
-	objects, err := fs.New(r.dir)
+	objects, err := fs.New(fs.Config{Path: r.dir})
 	c.Assert(err, IsNil)
 
 	clock := &timetools.FreezedTime{
@@ -133,16 +131,13 @@ func (r *HandlerSuite) SetUpTest(c *C) {
 		})
 		c.Assert(err, IsNil)
 
-		r.server = httptest.NewServer(handler)
+		// It is important that we launch TLS server as authentication
+		// middleware on the handler expects TLS connections.
+		r.server = httptest.NewTLSServer(handler)
 
 		apps, err := client.NewAuthenticatedClient(
 			r.server.URL, r.user.GetName(), "admin-password",
-			client.HTTPClient(&http.Client{
-				Transport: &http.Transport{
-					TLSClientConfig: &tls.Config{
-						InsecureSkipVerify: true,
-					}}}),
-		)
+			client.HTTPClient(r.server.Client()))
 		c.Assert(err, IsNil)
 		return apps
 	}
