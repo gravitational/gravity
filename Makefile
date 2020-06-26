@@ -464,7 +464,7 @@ publish-artifacts: opscenter telekube
 # scan-artifacts uploads a copy of all vendored containers to a docker registry for scanning and vulnerability reporting
 #
 .PHONY: scan-artifacts
-scan-artifacts:
+scan-artifacts: telekube
 	$(GRAVITY) app sync \
 		--registry=$(TELE_COPY_TO_REGISTRY) \
 		--registry-username=$(TELE_COPY_TO_USER) \
