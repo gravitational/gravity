@@ -67,6 +67,7 @@ func newUpgradeConfig(g *Application) (*upgradeConfig, error) {
 		upgradePackage:   *g.UpgradeCmd.App,
 		manual:           *g.UpgradeCmd.Manual,
 		skipVersionCheck: *g.UpgradeCmd.SkipVersionCheck,
+		force:            *g.UpgradeCmd.Force,
 		values:           values,
 	}, nil
 }
@@ -79,6 +80,8 @@ type upgradeConfig struct {
 	manual bool
 	// skipVersionCheck allows to bypass gravity version compatibility check.
 	skipVersionCheck bool
+	// force allows to skip otherwise failed preconditions.
+	force bool
 	// values are helm values in a marshaled yaml format.
 	values []byte
 }
@@ -116,6 +119,7 @@ func newClusterUpdater(
 		updatePackage: config.upgradePackage,
 		unattended:    !config.manual,
 		values:        config.values,
+		force:         config.force,
 	}
 	updater, err := newUpdater(ctx, localEnv, updateEnv, init)
 	if err != nil {
@@ -259,8 +263,7 @@ func (r *clusterInitializer) validatePreconditions(localEnv *localenv.LocalEnvir
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = checkCanUpdate(cluster, operator, updateApp.Manifest)
-	if err != nil {
+	if err := checkCanUpdate(cluster, operator, updateApp.Manifest); err != nil {
 		return trace.Wrap(err)
 	}
 	r.updateLoc = updateApp.Package
@@ -275,6 +278,7 @@ func (r clusterInitializer) newOperation(operator ops.Operator, cluster ops.Site
 		Vars: storage.OperationVariables{
 			Values: r.values,
 		},
+		Force: r.force,
 	})
 }
 
@@ -335,6 +339,7 @@ type clusterInitializer struct {
 	updatePackage string
 	unattended    bool
 	values        []byte
+	force         bool
 }
 
 const (

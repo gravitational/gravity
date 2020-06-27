@@ -245,7 +245,8 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.StatusHistoryCmd.CmdClause = g.StatusCmd.Command("history", "Display cluster status history.")
 
 	// reset cluster state, for debugging/emergencies
-	g.StatusResetCmd.CmdClause = g.Command("status-reset", "Reset the cluster state to 'active'").Hidden()
+	g.StatusResetCmd.CmdClause = g.Command("status-reset", "Force-reset the cluster state to active. USE WITH CAUTION, the cluster may end up in an inconsistent state.").Hidden()
+	g.StatusResetCmd.Confirmed = g.StatusResetCmd.Flag("confirm", "Bypass confirmation prompt.").Bool()
 
 	// interacting with in-cluster registry
 	g.RegistryCmd.CmdClause = g.Command("registry", "Interact with the cluster private Docker registry.")

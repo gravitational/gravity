@@ -787,7 +787,8 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 	case g.SiteResetPasswordCmd.FullCommand():
 		return resetPassword(localEnv)
 	case g.StatusResetCmd.FullCommand():
-		return resetClusterState(localEnv)
+		return resetClusterState(localEnv,
+			*g.StatusResetCmd.Confirmed)
 	case g.RegistryListCmd.FullCommand():
 		return listRegistryContents(context.Background(), localEnv, registryConnectionRequest{
 			address:  *g.RegistryListCmd.Registry,
