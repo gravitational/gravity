@@ -1,186 +1,113 @@
+/*
+Copyright 2017 Mailgun Technologies Inc
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
 package ttlmap
 
 import (
+	"fmt"
+	"sync"
 	"time"
 
-	"github.com/gravitational/trace"
 	"github.com/jonboulle/clockwork"
-	"github.com/mailgun/minheap"
 )
 
-// Option is a functional option argument to TTLMap
-type Option func(m *TTLMap) error
-
-// Clock sets the time provider clock, handy for testing
-func Clock(clock clockwork.Clock) Option {
-	return func(m *TTLMap) error {
-		m.Clock = clock
-		return nil
-	}
-}
-
-// Callback can be executed on the element once TTLMap
-// performs some action on the dictionary
-type Callback func(key string, el interface{})
-
-// CallOnExpire will call this callback on expiration of elements
-func CallOnExpire(cb Callback) Option {
-	return func(m *TTLMap) error {
-		m.onExpire = cb
-		return nil
-	}
-}
-
-// TTLMap is a map with expiring elements
 type TTLMap struct {
+	// Optionally specifies a callback function to be
+	// executed when an entry has expired
+	OnExpire func(key string, i interface{})
+
 	capacity    int
 	elements    map[string]*mapElement
-	expiryTimes *minheap.MinHeap
-	Clock       clockwork.Clock
-	// onExpire callback will be called when element is expired
-	onExpire Callback
+	expiryTimes *PriorityQueue
+	mutex       *sync.RWMutex
+	clock       clockwork.Clock
 }
 
 type mapElement struct {
 	key    string
 	value  interface{}
-	heapEl *minheap.Element
+	heapEl *PQItem
 }
 
-// New returns new instance of TTLMap
-func New(capacity int, opts ...Option) (*TTLMap, error) {
+func NewTTLMap(capacity int) *TTLMap {
 	if capacity <= 0 {
-		return nil, trace.BadParameter("capacity should be > 0")
+		capacity = 0
 	}
 
-	m := &TTLMap{
+	return &TTLMap{
 		capacity:    capacity,
 		elements:    make(map[string]*mapElement),
-		expiryTimes: minheap.NewMinHeap(),
+		expiryTimes: NewPriorityQueue(),
+		mutex:       &sync.RWMutex{},
+		clock:       clockwork.NewRealClock(),
 	}
-
-	for _, o := range opts {
-		if err := o(m); err != nil {
-			return nil, err
-		}
-	}
-
-	if m.Clock == nil {
-		m.Clock = clockwork.NewRealClock()
-	}
-
-	return m, nil
 }
 
-// Pop removes and returns the key and the value of the oldest element
-// from the TTL Map if there are no elements in the map, returns empty
-// string and false
-func (m *TTLMap) Pop() (string, interface{}, bool) {
-	if len(m.elements) == 0 {
-		return "", nil, false
-	}
-	heapEl := m.expiryTimes.PeekEl()
-	mapEl := heapEl.Value.(*mapElement)
-	m.Remove(mapEl.key)
-	return mapEl.key, mapEl.value, true
-}
-
-// Remove removes and returns element if it's found,
-// returns element, true if it's found
-// returns nil, false if element is not found
-func (m *TTLMap) Remove(key string) (interface{}, bool) {
-	mapEl, exists := m.elements[key]
-	if !exists {
-		return nil, false
-	}
-	delete(m.elements, mapEl.key)
-	m.expiryTimes.RemoveEl(mapEl.heapEl)
-	return mapEl.value, true
-}
-
-// Set sets the value of the element by key to value and sets time to expire
-// to TTL. Resolution is 1 second, min value is one second
-func (m *TTLMap) Set(key string, value interface{}, ttl time.Duration) error {
-	expiryTime, err := m.toEpochSeconds(ttl)
+func (m *TTLMap) Set(key string, value interface{}, ttlSeconds int) error {
+	expiryTime, err := m.toEpochSeconds(ttlSeconds)
 	if err != nil {
 		return err
 	}
-
-	mapEl, exists := m.elements[key]
-	if !exists {
-		if len(m.elements) >= m.capacity {
-			m.freeSpace(1)
-		}
-		heapEl := &minheap.Element{
-			Priority: expiryTime,
-		}
-		mapEl := &mapElement{
-			key:    key,
-			value:  value,
-			heapEl: heapEl,
-		}
-		heapEl.Value = mapEl
-		m.elements[key] = mapEl
-		m.expiryTimes.PushEl(heapEl)
-	} else {
-		mapEl.value = value
-		m.expiryTimes.UpdateEl(mapEl.heapEl, expiryTime)
-	}
-	return nil
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	return m.set(key, value, expiryTime)
 }
 
-func (m *TTLMap) toEpochSeconds(ttl time.Duration) (int, error) {
-	if ttl < time.Second {
-		return 0, trace.BadParameter("ttl should be >= time.Second, got %v", ttl)
-	}
-	return int(m.Clock.Now().UTC().Add(ttl).Unix()), nil
-}
-
-// Len returns amount of elements in the map
 func (m *TTLMap) Len() int {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
 	return len(m.elements)
 }
 
-// Get returns element value, does not update TTL
 func (m *TTLMap) Get(key string) (interface{}, bool) {
-	mapEl, exists := m.elements[key]
-	if !exists {
+	value, mapEl, expired := m.lockNGet(key)
+	if mapEl == nil {
 		return nil, false
 	}
-	if m.expireElement(mapEl) {
+	if expired {
+		m.lockNDel(mapEl)
 		return nil, false
 	}
-	return mapEl.value, true
+	return value, true
 }
 
-// Increment increment element's value and updates it's TTL
-func (m *TTLMap) Increment(key string, value int, ttl time.Duration) (int, error) {
-	expiryTime, err := m.toEpochSeconds(ttl)
+func (m *TTLMap) Increment(key string, value int, ttlSeconds int) (int, error) {
+	expiryTime, err := m.toEpochSeconds(ttlSeconds)
 	if err != nil {
 		return 0, err
 	}
 
-	mapEl, exists := m.elements[key]
-	if !exists {
-		m.Set(key, value, ttl)
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	mapEl, expired := m.get(key)
+	if mapEl == nil || expired {
+		m.set(key, value, expiryTime)
 		return value, nil
 	}
-	if m.expireElement(mapEl) {
-		m.Set(key, value, ttl)
-		return value, nil
-	}
+
 	currentValue, ok := mapEl.value.(int)
 	if !ok {
-		return 0, trace.BadParameter("expected existing value to be integer, got %T", mapEl.value)
+		return 0, fmt.Errorf("Expected existing value to be integer, got %T", mapEl.value)
 	}
-	currentValue += value
-	mapEl.value = currentValue
 
-	m.expiryTimes.UpdateEl(mapEl.heapEl, expiryTime)
+	currentValue += value
+	m.set(key, currentValue, expiryTime)
 	return currentValue, nil
 }
 
-// GetInt returns integer element value stored in map, does not update TTL
 func (m *TTLMap) GetInt(key string) (int, bool, error) {
 	valueI, exists := m.Get(key)
 	if !exists {
@@ -188,24 +115,78 @@ func (m *TTLMap) GetInt(key string) (int, bool, error) {
 	}
 	value, ok := valueI.(int)
 	if !ok {
-		return 0, false, trace.BadParameter("expected existing value to be integer, got %T", valueI)
+		return 0, false, fmt.Errorf("Expected existing value to be integer, got %T", valueI)
 	}
 	return value, true, nil
 }
 
-func (m *TTLMap) expireElement(mapEl *mapElement) bool {
-	now := int(m.Clock.Now().UTC().Unix())
-	if mapEl.heapEl.Priority > now {
-		return false
+func (m *TTLMap) set(key string, value interface{}, expiryTime int) error {
+	if mapEl, ok := m.elements[key]; ok {
+		mapEl.value = value
+		m.expiryTimes.Update(mapEl.heapEl, expiryTime)
+		return nil
 	}
 
-	if m.onExpire != nil {
-		m.onExpire(mapEl.key, mapEl.value)
+	if len(m.elements) >= m.capacity {
+		m.freeSpace(1)
+	}
+	heapEl := &PQItem{
+		Priority: expiryTime,
+	}
+	mapEl := &mapElement{
+		key:    key,
+		value:  value,
+		heapEl: heapEl,
+	}
+	heapEl.Value = mapEl
+	m.elements[key] = mapEl
+	m.expiryTimes.Push(heapEl)
+	return nil
+}
+
+func (m *TTLMap) lockNGet(key string) (value interface{}, mapEl *mapElement, expired bool) {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+
+	mapEl, expired = m.get(key)
+	value = nil
+	if mapEl != nil {
+		value = mapEl.value
+	}
+	return value, mapEl, expired
+}
+
+func (m *TTLMap) get(key string) (*mapElement, bool) {
+	mapEl, ok := m.elements[key]
+	if !ok {
+		return nil, false
+	}
+	now := int(m.clock.Now().Unix())
+	expired := mapEl.heapEl.Priority <= now
+	return mapEl, expired
+}
+
+func (m *TTLMap) lockNDel(mapEl *mapElement) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	// Map element could have been updated. Now that we have a lock
+	// retrieve it again and check if it is still expired.
+	var ok bool
+	if mapEl, ok = m.elements[mapEl.key]; !ok {
+		return
+	}
+	now := int(m.clock.Now().Unix())
+	if mapEl.heapEl.Priority > now {
+		return
+	}
+
+	if m.OnExpire != nil {
+		m.OnExpire(mapEl.key, mapEl.value)
 	}
 
 	delete(m.elements, mapEl.key)
-	m.expiryTimes.RemoveEl(mapEl.heapEl)
-	return true
+	m.expiryTimes.Remove(mapEl.heapEl)
 }
 
 func (m *TTLMap) freeSpace(count int) {
@@ -213,42 +194,42 @@ func (m *TTLMap) freeSpace(count int) {
 	if removed >= count {
 		return
 	}
-	m.removeLastUsed(count - removed)
+	m.RemoveLastUsed(count - removed)
 }
 
-// RemoveExpired makes a pass through map and removes expired elements
 func (m *TTLMap) RemoveExpired(iterations int) int {
 	removed := 0
-	now := int(m.Clock.Now().UTC().Unix())
-	for i := 0; i < iterations; i++ {
+	now := int(m.clock.Now().Unix())
+	for i := 0; i < iterations; i += 1 {
 		if len(m.elements) == 0 {
 			break
 		}
-		heapEl := m.expiryTimes.PeekEl()
+		heapEl := m.expiryTimes.Peek()
 		if heapEl.Priority > now {
 			break
 		}
-		m.expiryTimes.PopEl()
+		m.expiryTimes.Pop()
 		mapEl := heapEl.Value.(*mapElement)
-		if m.onExpire != nil {
-			m.onExpire(mapEl.key, mapEl.value)
-		}
 		delete(m.elements, mapEl.key)
-		removed++
+		removed += 1
 	}
 	return removed
 }
 
-func (m *TTLMap) removeLastUsed(iterations int) {
-	for i := 0; i < iterations; i++ {
+func (m *TTLMap) RemoveLastUsed(iterations int) {
+	for i := 0; i < iterations; i += 1 {
 		if len(m.elements) == 0 {
 			return
 		}
-		heapEl := m.expiryTimes.PopEl()
+		heapEl := m.expiryTimes.Pop()
 		mapEl := heapEl.Value.(*mapElement)
-		if m.onExpire != nil {
-			m.onExpire(mapEl.key, mapEl.value)
-		}
 		delete(m.elements, mapEl.key)
 	}
+}
+
+func (m *TTLMap) toEpochSeconds(ttlSeconds int) (int, error) {
+	if ttlSeconds <= 0 {
+		return 0, fmt.Errorf("ttlSeconds should be >= 0, got %d", ttlSeconds)
+	}
+	return int(m.clock.Now().Add(time.Second * time.Duration(ttlSeconds)).Unix()), nil
 }

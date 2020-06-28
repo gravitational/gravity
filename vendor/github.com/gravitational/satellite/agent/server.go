@@ -21,15 +21,20 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/gravitational/satellite/agent/health"
 	pb "github.com/gravitational/satellite/agent/proto/agentpb"
+	debugpb "github.com/gravitational/satellite/agent/proto/debug"
+	"github.com/gravitational/satellite/lib/rpc"
+	"github.com/gravitational/satellite/utils"
 
 	"github.com/gravitational/roundtrip"
 	"github.com/gravitational/trace"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -39,11 +44,14 @@ import (
 type RPCServer interface {
 	Status(context.Context, *pb.StatusRequest) (*pb.StatusResponse, error)
 	LocalStatus(context.Context, *pb.LocalStatusRequest) (*pb.LocalStatusResponse, error)
-	// LastSeen returns the last seen timestamp for a specified member.
+	// LastSeen returns the last seen timestamp for the specified member.
 	LastSeen(context.Context, *pb.LastSeenRequest) (*pb.LastSeenResponse, error)
 	Time(context.Context, *pb.TimeRequest) (*pb.TimeResponse, error)
 	Timeline(context.Context, *pb.TimelineRequest) (*pb.TimelineResponse, error)
+	// UpdateTimeline updates the cluster timeline with the provided events.
 	UpdateTimeline(context.Context, *pb.UpdateRequest) (*pb.UpdateResponse, error)
+	// UpdateLocalTimeline updates the local timeline with the provided events.
+	UpdateLocalTimeline(context.Context, *pb.UpdateRequest) (*pb.UpdateResponse, error)
 	Stop()
 }
 
@@ -59,7 +67,7 @@ type server struct {
 func (r *server) Status(ctx context.Context, req *pb.StatusRequest) (resp *pb.StatusResponse, err error) {
 	status, err := r.agent.Status()
 	if err != nil {
-		return nil, GRPCError(err)
+		return nil, utils.GRPCError(err)
 	}
 	return &pb.StatusResponse{Status: status}, nil
 }
@@ -75,7 +83,7 @@ func (r *server) LocalStatus(ctx context.Context, req *pb.LocalStatusRequest) (r
 func (r *server) LastSeen(ctx context.Context, req *pb.LastSeenRequest) (resp *pb.LastSeenResponse, err error) {
 	timestamp, err := r.agent.LastSeen(req.GetName())
 	if err != nil {
-		return nil, GRPCError(err)
+		return nil, utils.GRPCError(err)
 	}
 	return &pb.LastSeenResponse{
 		Timestamp: pb.NewTimeToProto(timestamp),
@@ -93,7 +101,7 @@ func (r *server) Time(ctx context.Context, req *pb.TimeRequest) (*pb.TimeRespons
 func (r *server) Timeline(ctx context.Context, req *pb.TimelineRequest) (*pb.TimelineResponse, error) {
 	events, err := r.agent.GetTimeline(ctx, req.GetParams())
 	if err != nil {
-		return nil, GRPCError(err)
+		return nil, utils.GRPCError(err)
 	}
 	return &pb.TimelineResponse{Events: events}, nil
 }
@@ -102,10 +110,19 @@ func (r *server) Timeline(ctx context.Context, req *pb.TimelineRequest) (*pb.Tim
 // Duplicate requests will have no effect.
 func (r *server) UpdateTimeline(ctx context.Context, req *pb.UpdateRequest) (*pb.UpdateResponse, error) {
 	if err := r.agent.RecordClusterEvents(ctx, []*pb.TimelineEvent{req.GetEvent()}); err != nil {
-		return nil, GRPCError(err)
+		return nil, utils.GRPCError(err)
 	}
 	if err := r.agent.RecordLastSeen(req.GetName(), req.GetEvent().GetTimestamp().ToTime()); err != nil {
-		return nil, GRPCError(err)
+		return nil, utils.GRPCError(err)
+	}
+	return &pb.UpdateResponse{}, nil
+}
+
+// UpdateLocalTimeline records a new event into the local timeline.
+// Duplicate requests will have no effect.
+func (r *server) UpdateLocalTimeline(ctx context.Context, req *pb.UpdateRequest) (*pb.UpdateResponse, error) {
+	if err := r.agent.RecordLocalEvents(ctx, []*pb.TimelineEvent{req.GetEvent()}); err != nil {
+		return nil, utils.GRPCError(err)
 	}
 	return &pb.UpdateResponse{}, nil
 }
@@ -130,11 +147,11 @@ func (r *server) stopHTTPServers(ctx context.Context) error {
 	for _, srv := range r.httpServers {
 		err := srv.Shutdown(ctx)
 		if err == http.ErrServerClosed {
-			log.WithError(err).Debug("Server has already been shutdown.")
+			log.WithField("server", srv.Addr).Debug("Server has already been shut down.")
 			continue
 		}
 		if err != nil {
-			errors = append(errors, trace.Wrap(err, "failed to shutdown server running on: %s", srv.Addr))
+			errors = append(errors, trace.Wrap(err, "failed to shut down server running on: %s", srv.Addr))
 			continue
 		}
 	}
@@ -143,6 +160,11 @@ func (r *server) stopHTTPServers(ctx context.Context) error {
 
 // newRPCServer creates an agent RPC endpoint for each provided listener.
 func newRPCServer(agent *agent, caFile, certFile, keyFile string, rpcAddrs []string) (*server, error) {
+	addrs, err := splitAddrs(rpcAddrs)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
 	creds, err := credentials.NewServerTLSFromFile(certFile, keyFile)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to read certificate/key from %v/%v", certFile, keyFile)
@@ -159,30 +181,44 @@ func newRPCServer(agent *agent, caFile, certFile, keyFile string, rpcAddrs []str
 	server := &server{agent: agent, Server: backend}
 	pb.RegisterAgentServer(backend, server)
 
-	healthzHandler := newHealthHandler(server)
-
-	// handler is a multiplexer for both gRPC and HTTPS queries.
+	// statusHandler is a convenience multiplexer for both gRPC and HTTPS queries.
 	// The HTTPS endpoint returns the cluster status as JSON
-	// TODO: why does server need to handle both gRPC and HTTPS queries?
-	handler := grpcHandlerFunc(server, healthzHandler)
+	statusHandler := grpcHandlerFunc(server, newHealthHandler(server))
 
-	for _, addr := range rpcAddrs {
-		srv := newHTTPServer(addr, newTLSConfig(caCertPool), handler)
+	for _, addr := range addrs {
+		srv := newHTTPServer(addr.String(), newTLSConfig(caCertPool), statusHandler)
 		server.httpServers = append(server.httpServers, srv)
 
 		// TODO: separate Start function to start listening.
-		go func(srv *http.Server) {
+		agent.g.Go(func() error {
 			err := srv.ListenAndServeTLS(certFile, keyFile)
 			if err == http.ErrServerClosed {
-				log.WithError(err).Debug("Server has been shutdown/closed.")
-				return
+				return nil
 			}
-			if err != nil {
-				log.WithError(err).Errorf("Failed to serve on %v.", srv.Addr)
-				return
-			}
-		}(srv)
+			return trace.Wrap(err, "failed to serve status on %v", srv.Addr)
+		})
 	}
+
+	if agent.debugListener != nil {
+		debugpb.RegisterDebugServer(backend, debugpb.NewServer())
+		agent.g.Go(func() error {
+			return backend.Serve(agent.debugListener)
+		})
+	}
+
+	if agent.metricsListener != nil {
+		agent.g.Go(func() error {
+			srv := &http.Server{Handler: promhttp.Handler()}
+			server.httpServers = append(server.httpServers, srv)
+			http.Handle("/metrics", srv.Handler)
+			err := srv.Serve(agent.metricsListener)
+			if err == http.ErrServerClosed {
+				return nil
+			}
+			return trace.Wrap(err, "failed to serve metrics: %v", err)
+		})
+	}
+
 	return server, nil
 }
 
@@ -219,66 +255,76 @@ func newHTTPServer(address string, tlsConfig *tls.Config, handler http.Handler) 
 	return server
 }
 
-// newHealthHandler creates a http.Handler that returns cluster status
+// newHealthHandler creates an http.Handler that returns cluster status
 // from an HTTPS endpoint listening on the same RPC port as the agent.
-func newHealthHandler(s *server) http.HandlerFunc {
+func newHealthHandler(s *server) http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", handleStatus(s))
+
+	localStatusHandler := handleLocalStatus(s)
+	mux.HandleFunc("/local", localStatusHandler)
+	mux.HandleFunc("/local/", localStatusHandler)
+
+	historyHandler := handleHistory(s)
+	mux.HandleFunc("/history", historyHandler)
+	mux.HandleFunc("/history/", historyHandler)
+	return mux
+}
+
+func handleLocalStatus(s *server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "GET" {
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			return
-		}
-
-		ctx := context.TODO()
-		if r.URL.Path == "/local" || r.URL.Path == "/local/" {
-			handleLocalStatus(ctx, s, w, r)
-			return
-		}
-
-		if r.URL.Path == "/history" || r.URL.Path == "/history/" {
-			handleHistory(ctx, s, w, r)
-			return
-		}
-
-		status, err := s.Status(ctx, nil)
+		status, err := s.LocalStatus(r.Context(), nil)
 		if err != nil {
 			roundtrip.ReplyJSON(w, http.StatusServiceUnavailable, map[string]string{"error": err.Error()})
 			return
 		}
-
 		httpStatus := http.StatusOK
-		if isDegraded(*status.GetStatus()) {
+		if isNodeDegraded(*status.GetStatus()) {
 			httpStatus = http.StatusServiceUnavailable
 		}
-
 		roundtrip.ReplyJSON(w, httpStatus, status.GetStatus())
 	}
 }
 
-func handleLocalStatus(ctx context.Context, s *server, w http.ResponseWriter, r *http.Request) {
-	status, err := s.LocalStatus(ctx, nil)
-	if err != nil {
-		roundtrip.ReplyJSON(w, http.StatusServiceUnavailable, map[string]string{"error": err.Error()})
-		return
+func handleStatus(s *server) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		status, err := s.Status(r.Context(), nil)
+		if err != nil {
+			roundtrip.ReplyJSON(w, http.StatusServiceUnavailable, map[string]string{"error": err.Error()})
+			return
+		}
+		httpStatus := http.StatusOK
+		if isDegraded(*status.GetStatus()) {
+			httpStatus = http.StatusServiceUnavailable
+		}
+		roundtrip.ReplyJSON(w, httpStatus, status.GetStatus())
 	}
-
-	httpStatus := http.StatusOK
-	if isNodeDegraded(*status.GetStatus()) {
-		httpStatus = http.StatusServiceUnavailable
-	}
-
-	roundtrip.ReplyJSON(w, httpStatus, status.GetStatus())
 }
 
 // handleHistory handles status history API call.
-func handleHistory(ctx context.Context, s *server, w http.ResponseWriter, r *http.Request) {
-	timeline, err := s.Timeline(ctx, nil)
-	if err != nil {
-		roundtrip.ReplyJSON(w, http.StatusServiceUnavailable, map[string]string{"error": err.Error()})
-		return
+func handleHistory(s *server) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		timeline, err := s.Timeline(r.Context(), nil)
+		if err != nil {
+			roundtrip.ReplyJSON(w, http.StatusServiceUnavailable, map[string]string{"error": err.Error()})
+			return
+		}
+		httpStatus := http.StatusOK
+		roundtrip.ReplyJSON(w, httpStatus, timeline)
 	}
+}
 
-	httpStatus := http.StatusOK
-	roundtrip.ReplyJSON(w, httpStatus, timeline)
+func splitAddrs(addrs []string) (result []net.TCPAddr, err error) {
+	result = make([]net.TCPAddr, 0, len(addrs))
+	for _, addr := range addrs {
+		tcpAddr, err := rpc.ParseTCPAddr(addr, rpc.Port)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		result = append(result, *tcpAddr)
+
+	}
+	return result, nil
 }
 
 // grpcHandlerFunc returns an http.Handler that delegates to

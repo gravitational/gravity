@@ -10,9 +10,9 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   set -e
 
 if [ ! -d "/usr/local/go" ]; then
-	cd /tmp && wget https://storage.googleapis.com/golang/go1.3.3.linux-amd64.tar.gz
+	cd /tmp && wget https://storage.googleapis.com/golang/go1.9.1.linux-amd64.tar.gz
 	cd /usr/local
-	tar xvzf /tmp/go1.3.3.linux-amd64.tar.gz
+	tar xvzf /tmp/go1.9.1.linux-amd64.tar.gz
 	echo 'export GOPATH=/home/vagrant/go; export PATH=/usr/local/go/bin:$PATH:$GOPATH/bin' >> /home/vagrant/.bashrc
 fi
 export GOPATH=/home/vagrant/go

@@ -26,6 +26,7 @@ import (
 	"io/ioutil"
 
 	pb "github.com/gravitational/satellite/agent/proto/agentpb"
+	debugpb "github.com/gravitational/satellite/agent/proto/debug"
 	"github.com/gravitational/satellite/lib/rpc"
 
 	"github.com/gravitational/trace"
@@ -81,12 +82,17 @@ type Client interface {
 	Timeline(context.Context, *pb.TimelineRequest) (*pb.TimelineResponse, error)
 	// UpdateTimeline requests that the timeline be updated with the specified event.
 	UpdateTimeline(context.Context, *pb.UpdateRequest) (*pb.UpdateResponse, error)
+	// UpdateLocalTimeline requests that the local timeline be updated with the specified event.
+	UpdateLocalTimeline(context.Context, *pb.UpdateRequest) (*pb.UpdateResponse, error)
+	// Profile streams the debug profile specified in req
+	Profile(ctx context.Context, req *debugpb.ProfileRequest) (debugpb.Debug_ProfileClient, error)
 	// Close closes the RPC client connection.
 	Close() error
 }
 
 type client struct {
 	pb.AgentClient
+	debugpb.DebugClient
 	conn        *grpc.ClientConn
 	callOptions []grpc.CallOption
 }
@@ -131,11 +137,9 @@ func NewClientWithCreds(ctx context.Context, addr string, creds credentials.Tran
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to dial")
 	}
-
-	c := pb.NewAgentClient(conn)
-
 	return &client{
-		AgentClient: c,
+		AgentClient: pb.NewAgentClient(conn),
+		DebugClient: debugpb.NewDebugClient(conn),
 		conn:        conn,
 		// TODO: provide option to initialize client with more call options.
 		callOptions: []grpc.CallOption{grpc.FailFast(false)},
@@ -188,9 +192,27 @@ func (r *client) Timeline(ctx context.Context, req *pb.TimelineRequest) (timelin
 	return resp, nil
 }
 
-// UpdateTimeline request the update the timeline with a new event.
+// UpdateTimeline requests to update the cluster timeline with a new event.
 func (r *client) UpdateTimeline(ctx context.Context, req *pb.UpdateRequest) (*pb.UpdateResponse, error) {
 	resp, err := r.AgentClient.UpdateTimeline(ctx, req, r.callOptions...)
+	if err != nil {
+		return nil, ConvertGRPCError(err)
+	}
+	return resp, nil
+}
+
+// UpdateLocalTimeline requests to update the local timeline with a new event.
+func (r *client) UpdateLocalTimeline(ctx context.Context, req *pb.UpdateRequest) (*pb.UpdateResponse, error) {
+	resp, err := r.AgentClient.UpdateLocalTimeline(ctx, req, r.callOptions...)
+	if err != nil {
+		return nil, ConvertGRPCError(err)
+	}
+	return resp, nil
+}
+
+// Profile streams the debug profile specified in req
+func (r *client) Profile(ctx context.Context, req *debugpb.ProfileRequest) (debugpb.Debug_ProfileClient, error) {
+	resp, err := r.DebugClient.Profile(ctx, req, r.callOptions...)
 	if err != nil {
 		return nil, ConvertGRPCError(err)
 	}
@@ -208,7 +230,6 @@ type DialRPC func(context.Context, *serf.Member) (Client, error)
 // DefaultDialRPC is a default RPC client factory function.
 // It creates a new client based on address details from the specific serf member.
 func DefaultDialRPC(caFile, certFile, keyFile string) DialRPC {
-
 	return func(ctx context.Context, member *serf.Member) (Client, error) {
 		config := Config{
 			Address:  fmt.Sprintf("%s:%d", member.Addr.String(), rpc.Port),

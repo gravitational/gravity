@@ -18,6 +18,7 @@ package monitoring
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -28,8 +29,8 @@ import (
 
 	"github.com/codahale/hdrhistogram"
 	"github.com/gravitational/trace"
+	"github.com/gravitational/ttlmap"
 	serf "github.com/hashicorp/serf/client"
-	"github.com/mailgun/holster"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -63,7 +64,7 @@ type pingChecker struct {
 	self           serf.Member
 	serfClient     agent.SerfClient
 	serfMemberName string
-	latencyStats   holster.TTLMap
+	latencyStats   ttlmap.TTLMap
 	mux            sync.Mutex
 	logger         log.FieldLogger
 }
@@ -99,7 +100,7 @@ func NewPingChecker(conf PingCheckerConfig) (c health.Checker, err error) {
 		return nil, trace.Wrap(err)
 	}
 
-	latencyTTLMap := holster.NewTTLMap(latencyStatsCapacity)
+	latencyTTLMap := ttlmap.NewTTLMap(latencyStatsCapacity)
 
 	client, err := conf.NewSerfClient(serf.Config{
 		Addr: conf.SerfRPCAddr,
@@ -132,44 +133,36 @@ func (c *pingChecker) Name() string {
 // desired threshold
 // Implements health.Checker
 func (c *pingChecker) Check(ctx context.Context, r health.Reporter) {
-	probeSeverity, err := c.check(ctx, r)
-
-	if err != nil {
-		c.logger.Error(err.Error())
-		r.Add(NewProbeFromErr(c.Name(), "", err))
+	if err := c.check(ctx, r); err != nil {
+		c.logger.WithError(err).Debug("Failed to verify ping latency.")
 		return
 	}
-	r.Add(&pb.Probe{
-		Checker:  c.Name(),
-		Status:   pb.Probe_Running,
-		Severity: probeSeverity,
-	})
+	if r.NumProbes() == 0 {
+		r.Add(NewSuccessProbe(c.Name()))
+	}
 }
 
 // check runs the actual system status verification code and returns an error
 // in case issues arise in the process
-func (c *pingChecker) check(ctx context.Context, r health.Reporter) (probeSeverity pb.Probe_Severity, err error) {
-
+func (c *pingChecker) check(_ context.Context, r health.Reporter) (err error) {
 	client := c.serfClient
 
 	nodes, err := client.Members()
 	if err != nil {
-		return pb.Probe_None, trace.Wrap(err)
+		return trace.Wrap(err)
 	}
 
-	probeSeverity, err = c.checkNodesRTT(nodes, client)
-	if err != nil {
-		return pb.Probe_None, trace.Wrap(err)
+	if err = c.checkNodesRTT(nodes, client, r); err != nil {
+		return trace.Wrap(err)
 	}
 
-	return probeSeverity, nil
+	return nil
 }
 
 // checkNodesRTT implements the bulk of the logic by checking the ping time
 // between this node (self) and the other Serf Cluster member nodes
-func (c *pingChecker) checkNodesRTT(nodes []serf.Member, client agent.SerfClient) (probeSeverity pb.Probe_Severity, err error) {
-	probeSeverity = pb.Probe_None
-
+func (c *pingChecker) checkNodesRTT(nodes []serf.Member, client agent.SerfClient,
+	reporter health.Reporter) (err error) {
 	// ping each other node and raise a warning in case the results are over
 	// a specified threshold
 	for _, node := range nodes {
@@ -187,39 +180,35 @@ func (c *pingChecker) checkNodesRTT(nodes []serf.Member, client agent.SerfClient
 
 		rttNanoSec, err := c.calculateRTT(client, c.self, node)
 		if err != nil {
-			return probeSeverity, trace.Wrap(err)
+			return trace.Wrap(err)
 		}
 
 		latencies, err := c.saveLatencyStats(rttNanoSec, node)
 		if err != nil {
-			return probeSeverity, trace.Wrap(err)
+			return trace.Wrap(err)
 		}
 
 		latencyHistogram, err := c.buildLatencyHistogram(node.Name, latencies)
 		if err != nil {
-			return probeSeverity, trace.Wrap(err)
+			return trace.Wrap(err)
 		}
 
-		c.logger.Debugf("%s <-ping-> %s = %dns [latest]", c.self.Name, node.Name, rttNanoSec)
-		c.logger.Debugf("%s <-ping-> %s = %dns [%.2f percentile]",
-			c.self.Name, node.Name,
-			latencyHistogram.ValueAtQuantile(latencyQuantile),
-			latencyQuantile)
+		latency95 := time.Duration(latencyHistogram.ValueAtQuantile(latencyQuantile))
 
-		latencyPercentile := latencyHistogram.ValueAtQuantile(latencyQuantile)
-		if latencyPercentile >= latencyThreshold.Nanoseconds() {
-			c.logger.Warningf("%s <-ping-> %s = slow ping detected. Value %dns over threshold %s (%dns)",
-				c.self.Name, node.Name, latencyPercentile,
-				latencyThreshold.String(), latencyThreshold.Nanoseconds())
-			probeSeverity = pb.Probe_Warning
+		c.logger.Debugf("%s <-ping-> %s = %s [latest]", c.self.Name, node.Name, time.Duration(rttNanoSec))
+		c.logger.Debugf("%s <-ping-> %s = %s [%.2f percentile]", c.self.Name, node.Name, latency95, latencyQuantile)
+
+		if latency95 >= latencyThreshold {
+			c.logger.Warningf("%s <-ping-> %s = slow ping detected. Value %s over threshold %s",
+				c.self.Name, node.Name, latency95, latencyThreshold)
+			reporter.Add(c.failureProbe(node.Name, latency95))
 		} else {
-			c.logger.Debugf("%s <-ping-> %s = ping okay. Value %dns within threshold %s (%dns)",
-				c.self.Name, node.Name, latencyPercentile,
-				latencyThreshold.String(), latencyThreshold.Nanoseconds())
+			c.logger.Debugf("%s <-ping-> %s = ping okay. Value %s within threshold %s",
+				c.self.Name, node.Name, latency95, latencyThreshold)
 		}
 	}
 
-	return probeSeverity, nil
+	return nil
 }
 
 // buildLatencyHistogram maps latencies to a HDRHistrogram
@@ -290,4 +279,17 @@ func (c *pingChecker) calculateRTT(serfClient agent.SerfClient, self, node serf.
 		latency,
 		otherNodeCoord.Vec, otherNodeCoord.Error, otherNodeCoord.Height, otherNodeCoord.Adjustment)
 	return latency, nil
+}
+
+// failureProbe constructs a new probe that represents a failed ping check
+// against the specified node.
+func (c *pingChecker) failureProbe(node string, latency time.Duration) *pb.Probe {
+	return &pb.Probe{
+		Checker: c.Name(),
+		Detail: fmt.Sprintf("ping between %s and %s is higher than the allowed threshold of %s",
+			c.self.Name, node, latencyThreshold),
+		Error:    fmt.Sprintf("ping latency at %s", latency),
+		Status:   pb.Probe_Failed,
+		Severity: pb.Probe_Warning,
+	}
 }

@@ -31,7 +31,6 @@ const (
 
 // createTableEvents is sql statement to create an `events` table.
 // Rows must be unique, excluding id.
-// TODO: might not need oldState/newState.
 const createTableEvents = `
 CREATE TABLE IF NOT EXISTS events (
 	id INTEGER PRIMARY KEY,
@@ -43,19 +42,6 @@ CREATE TABLE IF NOT EXISTS events (
 	newState TEXT DEFAULT '',
 	UNIQUE(timestamp, type, node, probe, oldState, newState)
 )
-`
-
-// insertIntoEvents is sql statement to insert entry into `events` table. Used for
-// batch insert statement.
-const insertIntoEvents = `
-INSERT INTO events (
-	timestamp,
-	type,
-	node,
-	probe,
-	oldState,
-	newState
-) VALUES (?,?,?,?,?,?)
 `
 
 // deleteOldFromEvents is sql statement to delete entries from `events` table.

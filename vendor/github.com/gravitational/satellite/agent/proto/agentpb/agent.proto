@@ -204,7 +204,10 @@ service Agent {
   rpc Time(TimeRequest) returns (TimeResponse) {}
   // Timeline collects the status timeline
   rpc Timeline(TimelineRequest) returns (TimelineResponse) {}
-  // UpdateTimeline requests a new event be added to the timeline.
+  // UpdateTimeline requests a new event be added to the cluster timeline.
   // This RPC is idempotent. Repeated calls with the same event will have no effect.
   rpc UpdateTimeline(UpdateRequest) returns (UpdateResponse) {}
+  // UpdateLocalTimeline requests a new event be added to the local timeline.
+  // This RPC is idempotent. Repeated calls with the same event will have no effect.
+  rpc UpdateLocalTimeline(UpdateRequest) returns (UpdateResponse) {}
 }
