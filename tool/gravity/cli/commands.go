@@ -1307,6 +1307,10 @@ type ReportCmd struct {
 	*kingpin.CmdClause
 	// FilePath is the report tarball path
 	FilePath *string
+	// Since is the duration before now that specifies the start of the time
+	// filter. Only log entries from the start of the time filter until now will
+	// be included in the report.
+	Since *time.Duration
 }
 
 // SiteCmd combines cluster related subcommands
@@ -1578,6 +1582,10 @@ type SystemReportCmd struct {
 	Filter *[]string
 	// Compressed allows to gzip the tarball
 	Compressed *bool
+	// Since is the duration before now that specifies the start of the time
+	// filter. Only log entries from the start of the time filter until now will
+	// be included in the report.
+	Since *time.Duration
 }
 
 // SystemStateDirCmd shows local state directory
@@ -1612,11 +1620,19 @@ type SystemExportRuntimeJournalCmd struct {
 	*kingpin.CmdClause
 	// OutputFile specifies the path of the resulting tarball
 	OutputFile *string
+	// Since is the duration before now that specifies the start of the time
+	// filter. Only log entries from the start of the time filter until now will
+	// be included in the report.
+	Since *time.Duration
 }
 
 // SystemStreamRuntimeJournalCmd streams contents of the runtime journal
 type SystemStreamRuntimeJournalCmd struct {
 	*kingpin.CmdClause
+	// Since is the duration before now that specifies the start of the time
+	// filter. Only log entries from the start of the time filter until now will
+	// be included in the report.
+	Since *time.Duration
 }
 
 // SystemGCJournalCmd manages cleanup of journal files

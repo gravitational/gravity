@@ -19,6 +19,7 @@ package cli
 import (
 	"context"
 	"io"
+	"time"
 
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/report"
@@ -30,11 +31,13 @@ import (
 // to the stdout.
 // filters define the specific diagnostics to collect ('system', 'kubernetes'),
 // if empty all diagnostics are collected.
-func systemReport(env *localenv.LocalEnvironment, filters []string, compressed bool, w io.Writer) error {
+func systemReport(env *localenv.LocalEnvironment, filters []string, compressed bool, w io.Writer,
+	since time.Duration) error {
 	config := report.Config{
 		Filters:    filters,
 		Compressed: compressed,
 		Packages:   env.Packages,
+		Since:      since,
 	}
 	err := report.Collect(context.TODO(), config, w)
 	return trace.Wrap(err)

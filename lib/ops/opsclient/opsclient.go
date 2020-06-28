@@ -685,8 +685,11 @@ func (c *Client) CreateProgressEntry(key ops.SiteOperationKey, entry ops.Progres
 	return nil
 }
 
-func (c *Client) GetSiteReport(ctx context.Context, key ops.SiteKey) (io.ReadCloser, error) {
-	file, err := c.GetFile(ctx, c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "report"), url.Values{})
+func (c *Client) GetSiteReport(ctx context.Context, req ops.GetClusterReportRequest) (io.ReadCloser, error) {
+	params := url.Values{
+		"since": []string{req.Since.String()},
+	}
+	file, err := c.GetFile(ctx, c.Endpoint("accounts", req.AccountID, "sites", req.SiteDomain, "report"), params)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

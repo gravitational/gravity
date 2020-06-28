@@ -717,7 +717,9 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			*g.APIKeyDeleteCmd.Email,
 			*g.APIKeyDeleteCmd.Token)
 	case g.ReportCmd.FullCommand():
-		return getClusterReport(localEnv, *g.ReportCmd.FilePath)
+		return getClusterReport(localEnv,
+			*g.ReportCmd.FilePath,
+			*g.ReportCmd.Since)
 	// cluster commands
 	case g.SiteListCmd.FullCommand():
 		return listSites(localEnv, *g.SiteListCmd.OpsCenterURL)
@@ -828,13 +830,16 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 		return systemReport(localEnv,
 			*g.SystemReportCmd.Filter,
 			*g.SystemReportCmd.Compressed,
-			os.Stdout)
+			os.Stdout,
+			*g.SystemReportCmd.Since)
 	case g.SystemStateDirCmd.FullCommand():
 		return printStateDir()
 	case g.SystemExportRuntimeJournalCmd.FullCommand():
-		return exportRuntimeJournal(localEnv, *g.SystemExportRuntimeJournalCmd.OutputFile)
+		return exportRuntimeJournal(localEnv,
+			*g.SystemExportRuntimeJournalCmd.OutputFile,
+			*g.SystemExportRuntimeJournalCmd.Since)
 	case g.SystemStreamRuntimeJournalCmd.FullCommand():
-		return streamRuntimeJournal(localEnv)
+		return streamRuntimeJournal(localEnv, *g.SystemStreamRuntimeJournalCmd.Since)
 	case g.GarbageCollectCmd.FullCommand():
 		return garbageCollect(localEnv, *g.GarbageCollectCmd.Manual, *g.GarbageCollectCmd.Confirmed)
 	case g.SystemGCJournalCmd.FullCommand():
