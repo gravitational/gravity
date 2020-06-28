@@ -122,7 +122,7 @@ func listSites(env *localenv.LocalEnvironment, opsCenterURL string) error {
 	return nil
 }
 
-func getClusterReport(env *localenv.LocalEnvironment, targetFile string) error {
+func getClusterReport(env *localenv.LocalEnvironment, targetFile string, since time.Duration) error {
 	f, err := os.Create(targetFile)
 	if err != nil {
 		return trace.Wrap(err)
@@ -140,10 +140,14 @@ func getClusterReport(env *localenv.LocalEnvironment, targetFile string) error {
 	}
 
 	// TODO(dmitri): see comments on defaults.GenerateDebugReportTimeout
-	report, err := operator.GetSiteReport(context.TODO(), ops.SiteKey{
-		AccountID:  site.AccountID,
-		SiteDomain: site.Domain,
-	})
+	report, err := operator.GetSiteReport(context.TODO(),
+		ops.GetClusterReportRequest{
+			SiteKey: ops.SiteKey{
+				AccountID:  site.AccountID,
+				SiteDomain: site.Domain,
+			},
+			Since: since,
+		})
 	if err != nil {
 		return trace.Wrap(err)
 	}

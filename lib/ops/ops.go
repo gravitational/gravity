@@ -417,7 +417,7 @@ type Sites interface {
 	CompleteFinalInstallStep(CompleteFinalInstallStepRequest) error
 
 	// GetSiteReport returns a tarball that contains all debugging information gathered for the site
-	GetSiteReport(context.Context, SiteKey) (io.ReadCloser, error)
+	GetSiteReport(context.Context, GetClusterReportRequest) (io.ReadCloser, error)
 
 	// SignTLSKey signs X509 Public Key with X509 certificate authority of this site
 	SignTLSKey(TLSSignRequest) (*TLSSignResponse, error)
@@ -2185,4 +2185,12 @@ func (r AuditEventRequest) String() string {
 type Audit interface {
 	// EmitAuditEvent saves the provided event in the audit log.
 	EmitAuditEvent(context.Context, AuditEventRequest) error
+}
+
+// GetClusterReportRequest specifies the request to get the cluster report
+type GetClusterReportRequest struct {
+	// SiteKey is a key used to identify site
+	SiteKey
+	// Since is used to filter collected logs by time
+	Since time.Duration `json:"since,omitempty"`
 }
