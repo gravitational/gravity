@@ -1616,21 +1616,28 @@ $ gravity report --help
 
 usage: gravity report [<flags>]
 
-get cluster diagnostics report
+Collect tarball with cluster's diagnostic information.
 
 Flags:
-  --help       Show help (also see --help-long and --help-man).
-  --debug      Enable debug mode
-  -q, --quiet  Suppress any extra output to stdout
-  --insecure   Skip TLS verification
-  --log-file="/var/log/telekube-install.log"
-               log file with diagnostic information
-  --file="report.tar.gz"
-               target report file name
+      --help                  Show context-sensitive help (also try --help-long and --help-man).
+      --debug                 Enable debug mode.
+  -q, --quiet                 Suppress any extra output to stdout.
+      --insecure              Skip TLS verification.
+      --state-dir=STATE-DIR   Gravity local state directory.
+      --log-file="/var/log/gravity-install.log"
+                              Path to the log file with diagnostic information.
+      --file="report.tar.gz"  File name with collected diagnostic information.
+      --since=336h            Only return logs newer than a relative duration like 5s, 2m, or 3h. Default is 336h (14 days). Specify 0s to collect all logs.
 
 Example:
+  # Running with defaults will collect logs written in the last 2 weeks and zipped into report.tar.gz
+  $ gravity report
 
-$ gravity report
+  # Collect all logs written in the last day
+  $ gravity report --since 24h
+
+  # Collect all logs
+  $ gravity report --since 0s
 ```
 
 This command will collect diagnostics from all Cluster nodes into the specified tarball that you can then submit for evaluation.
