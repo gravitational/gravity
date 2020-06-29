@@ -97,14 +97,12 @@ function build_install_suite {
     '"flavor":"three","nodes":3,"role":"node"' \
     '"flavor":"six","nodes":6,"role":"node"')
   for os in $test_os; do
-    for storage_driver in ${DOCKER_STORAGE_DRIVERS[@]}; do
-      for size in ${cluster_sizes[@]}; do
-        suite+=$(cat <<EOF
- install={${size},"os":"${os}","storage_driver":"${storage_driver}"}
+    for size in ${cluster_sizes[@]}; do
+      suite+=$(cat <<EOF
+ install={${size},"os":"${os}","storage_driver":"overlay2"}
 EOF
-        suite+=' '
 )
-      done
+      suite+=' '
     done
   done
   suite+=$(build_ops_install_suite)
