@@ -73,7 +73,7 @@ func InitOperationPlan(
 		return nil, trace.AlreadyExists("plan is already initialized")
 	}
 
-	cluster, err := clusterEnv.Operator.GetLocalSite()
+	cluster, err := clusterEnv.Operator.GetLocalSite(ctx)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

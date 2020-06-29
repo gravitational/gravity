@@ -180,12 +180,12 @@ func rpcAgentDeployHelper(ctx context.Context, localEnv *localenv.LocalEnvironme
 		return nil, trace.Wrap(err)
 	}
 
-	cluster, err := operator.GetLocalSite()
+	cluster, err := operator.GetLocalSite(ctx)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	teleportClient, err := localEnv.TeleportClient(constants.Localhost)
+	teleportClient, err := localEnv.TeleportClient(ctx, constants.Localhost)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to create a teleport client")
 	}

@@ -264,6 +264,9 @@ const (
 	// StatusCollectionTimeout specifies the timeout for collecting gravity status.
 	StatusCollectionTimeout = 1 * time.Minute
 
+	// AuditLogClientTimeout specifies the timeout for collecting audit logs.
+	AuditLogClientTimeout = 5 * time.Second
+
 	// SatelliteRPCAgentPort is port used by satellite agent to expose its status
 	SatelliteRPCAgentPort = 7575
 

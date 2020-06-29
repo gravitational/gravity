@@ -26,13 +26,7 @@ import (
 
 // rotateSecrets generates a new set of TLS keys for the given node
 // as a package that will be automatically downloaded during upgrade
-func (s *site) rotateSecrets(ctx *operationContext, secretsPackage loc.Locator, node *ProvisionedServer, installOp ops.SiteOperation) (*ops.RotatePackageResponse, error) {
-	subnets := installOp.InstallExpand.Subnets
-	if subnets.IsEmpty() {
-		// Subnets are empty when updating an older installation
-		subnets = storage.DefaultSubnets
-	}
-
+func (s *site) rotateSecrets(ctx *operationContext, secretsPackage loc.Locator, node *ProvisionedServer, serviceSubnet string) (*ops.RotatePackageResponse, error) {
 	if !node.IsMaster() {
 		resp, err := s.getPlanetNodeSecretsPackage(ctx, node, secretsPackage)
 		if err != nil {
@@ -42,9 +36,9 @@ func (s *site) rotateSecrets(ctx *operationContext, secretsPackage loc.Locator, 
 	}
 
 	masterParams := planetMasterParams{
-		master:            node,
-		secretsPackage:    &secretsPackage,
-		serviceSubnetCIDR: subnets.Service,
+		master:         node,
+		secretsPackage: &secretsPackage,
+		serviceSubnet:  serviceSubnet,
 	}
 	// if we have a connection to Ops Center set up, configure
 	// SNI host so Ops Center can dial in

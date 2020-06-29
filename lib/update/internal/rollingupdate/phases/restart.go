@@ -67,7 +67,7 @@ func (r *restart) Execute(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	updater, err := system.New(system.Config{
+	config := system.Config{
 		ChangesetID: r.operationID,
 		Backend:     r.backend,
 		Packages:    r.localPackages,
@@ -80,7 +80,13 @@ func (r *restart) Execute(ctx context.Context) error {
 				},
 			},
 		},
-	})
+	}
+	if r.update.Runtime.SecretsPackage != nil {
+		config.RuntimeSecrets = &storage.PackageUpdate{
+			To: *r.update.Runtime.SecretsPackage,
+		}
+	}
+	updater, err := system.New(config)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -115,6 +121,9 @@ func (*restart) PostCheck(context.Context) error {
 
 func (r *restart) pullUpdates() error {
 	updates := []loc.Locator{r.update.Runtime.Update.Package, r.update.Runtime.Update.ConfigPackage}
+	if r.update.Runtime.SecretsPackage != nil {
+		updates = append(updates, *r.update.Runtime.SecretsPackage)
+	}
 	for _, update := range updates {
 		r.Infof("Pulling package update: %v.", update)
 		_, err := libapp.PullPackage(libapp.PackagePullRequest{

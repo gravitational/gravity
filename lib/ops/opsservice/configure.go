@@ -231,9 +231,9 @@ func (s *site) configureExpandPackages(ctx context.Context, opCtx *operationCont
 			return trace.Wrap(err)
 		}
 		masterParams := planetMasterParams{
-			master:            provisionedServer,
-			secretsPackage:    &secretsPackage,
-			serviceSubnetCIDR: opCtx.operation.InstallExpand.Subnets.Service,
+			master:         provisionedServer,
+			secretsPackage: &secretsPackage,
+			serviceSubnet:  planetConfig.serviceSubnet(),
 		}
 		// if we have connection to an Ops Center set up, configure
 		// SNI host so it can dial in
@@ -336,16 +336,6 @@ func (s *site) configurePackages(ctx *operationContext, req ops.ConfigurePackage
 		secretsPackage := s.planetSecretsPackage(master, planetPackage.Version)
 		configPackage := s.planetConfigPackage(master, planetPackage.Version)
 
-		err = s.configurePlanetMasterSecrets(ctx, planetMasterParams{
-			master:            master,
-			secretsPackage:    &secretsPackage,
-			serviceSubnetCIDR: ctx.operation.InstallExpand.Subnets.Service,
-			sniHost:           s.service.cfg.SNIHost,
-		})
-		if err != nil && !trace.IsAlreadyExists(err) {
-			return trace.Wrap(err)
-		}
-
 		masterConfig := regularMasterConfig
 		masterConfig.addr = master.AdvertiseIP
 		if i > 0 {
@@ -373,6 +363,17 @@ func (s *site) configurePackages(ctx *operationContext, req ops.ConfigurePackage
 			env:           req.Env,
 			config:        clusterConfig,
 		}
+
+		err = s.configurePlanetMasterSecrets(ctx, planetMasterParams{
+			master:         master,
+			secretsPackage: &secretsPackage,
+			serviceSubnet:  config.serviceSubnet(),
+			sniHost:        s.service.cfg.SNIHost,
+		})
+		if err != nil && !trace.IsAlreadyExists(err) {
+			return trace.Wrap(err)
+		}
+
 		err = s.configurePlanetMaster(config, configPackage)
 		if err != nil && !trace.IsAlreadyExists(err) {
 			return trace.Wrap(err)
@@ -571,10 +572,10 @@ func (s *site) readCertAuthorityPackage() (utils.TLSArchive, error) {
 }
 
 type planetMasterParams struct {
-	master            *ProvisionedServer
-	secretsPackage    *loc.Locator
-	serviceSubnetCIDR string
-	sniHost           string
+	master         *ProvisionedServer
+	secretsPackage *loc.Locator
+	serviceSubnet  string
+	sniHost        string
 }
 
 func (s *site) getPlanetMasterSecretsPackage(ctx *operationContext, p planetMasterParams) (*ops.RotatePackageResponse, error) {
@@ -595,11 +596,13 @@ func (s *site) getPlanetMasterSecretsPackage(ctx *operationContext, p planetMast
 		return nil, trace.Wrap(err)
 	}
 
-	// FIXME (dmitri): validate the use of service CIDR
-	serviceSubnet, err := configure.ParseCIDR(p.serviceSubnetCIDR)
+	serviceSubnet, err := configure.ParseCIDR(p.serviceSubnet)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	// FIXME(dmitri): when letting kubernetes recreate the kubernetes service
+	// this might not hold anymore.
+	// Need to create the kubernetes service explicitly as the first available IP?
 	apiServerIP := serviceSubnet.FirstIP().String()
 
 	newArchive := make(utils.TLSArchive)
@@ -906,8 +909,8 @@ func (s *site) getPlanetConfig(config planetConfig) (args []string, err error) {
 		fmt.Sprintf("--service-uid=%v", s.uid()),
 	}
 	overrideArgs := map[string]string{
-		"service-subnet": config.installExpand.InstallExpand.Subnets.Service,
-		"pod-subnet":     config.installExpand.InstallExpand.Subnets.Overlay,
+		"service-subnet": config.serviceSubnet(),
+		"pod-subnet":     config.podSubnet(),
 	}
 
 	if config.master.electionEnabled {
@@ -1034,6 +1037,14 @@ func (s *site) configurePlanetServer(config planetConfig) error {
 		return trace.Wrap(err)
 	}
 	return nil
+}
+
+func (r planetConfig) podSubnet() string {
+	return podSubnet(r.installExpand.InstallExpand, r.config)
+}
+
+func (r planetConfig) serviceSubnet() string {
+	return serviceSubnet(r.installExpand.InstallExpand, r.config)
 }
 
 type planetConfig struct {
@@ -1452,6 +1463,28 @@ func configureDockerOptions(
 	}
 
 	return args, nil
+}
+
+func podSubnet(installExpand *storage.InstallExpandOperationState, config clusterconfig.Interface) string {
+	subnet := config.GetGlobalConfig().PodCIDR
+	if len(subnet) != 0 {
+		return subnet
+	}
+	if installExpand == nil || installExpand.Subnets.Overlay == "" {
+		return storage.DefaultSubnets.Overlay
+	}
+	return installExpand.Subnets.Overlay
+}
+
+func serviceSubnet(installExpand *storage.InstallExpandOperationState, config clusterconfig.Interface) string {
+	subnet := config.GetGlobalConfig().ServiceCIDR
+	if len(subnet) != 0 {
+		return subnet
+	}
+	if installExpand == nil || installExpand.Subnets.Service == "" {
+		return storage.DefaultSubnets.Service
+	}
+	return installExpand.Subnets.Service
 }
 
 // exportBackend defines a shim to export site information

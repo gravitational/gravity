@@ -67,7 +67,7 @@ func (p *checksExecutor) Execute(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	cluster, err := p.Operator.GetLocalSite()
+	cluster, err := p.Operator.GetLocalSite(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}

@@ -75,7 +75,12 @@ func (o *Operator) RotateSecrets(req ops.RotateSecretsRequest) (resp *ops.Rotate
 		return nil, trace.Wrap(err)
 	}
 
-	resp, err = cluster.rotateSecrets(ctx, secretsPackage, node, *op)
+	config, err := o.GetClusterConfiguration(req.Key)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	resp, err = cluster.rotateSecrets(ctx, secretsPackage, node, serviceSubnet(op.InstallExpand, config))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

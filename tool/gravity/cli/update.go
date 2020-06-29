@@ -38,7 +38,7 @@ import (
 )
 
 func newUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironment, init updateInitializer) (*update.Updater, error) {
-	teleportClient, err := localEnv.TeleportClient(constants.Localhost)
+	teleportClient, err := localEnv.TeleportClient(ctx, constants.Localhost)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to create a teleport client")
 	}
@@ -54,7 +54,7 @@ func newUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironm
 		return nil, trace.BadParameter("this operation can only be executed on one of the master nodes")
 	}
 	operator := clusterEnv.Operator
-	cluster, err := operator.GetLocalSite()
+	cluster, err := operator.GetLocalSite(ctx)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

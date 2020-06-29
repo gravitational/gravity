@@ -398,7 +398,7 @@ type Sites interface {
 	GetSite(SiteKey) (*Site, error)
 
 	// GetLocalSite returns local site for this ops center
-	GetLocalSite() (*Site, error)
+	GetLocalSite(context.Context) (*Site, error)
 
 	// GetSites sites lists all site records for account
 	GetSites(accountID string) ([]Site, error)

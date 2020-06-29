@@ -17,6 +17,8 @@ limitations under the License.
 package clusterconfig
 
 import (
+	"context"
+
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/ops"
@@ -42,7 +44,7 @@ func NewOperationPlan(
 	clusterConfig clusterconfig.Interface,
 	servers []storage.Server,
 ) (plan *storage.OperationPlan, err error) {
-	cluster, err := operator.GetLocalSite()
+	cluster, err := operator.GetLocalSite(context.TODO())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -77,19 +79,25 @@ func newOperationPlan(
 	servers []storage.Server,
 	client *kubernetes.Clientset,
 ) (plan *storage.OperationPlan, err error) {
-	updatesServiceCIDR := hasServiceCIDRUpdate(clusterConfig)
+	serviceSubnet := clusterConfig.GetGlobalConfig().ServiceCIDR
+	updatesServiceCIDR := serviceSubnet != ""
 	var builder *builder
+	var updates []storage.UpdateServer
 	if updatesServiceCIDR {
-		builder, err = newBuilderWithServices(app.Package, client.CoreV1())
+		builder, err = newBuilderWithServices(app.Package, client.CoreV1(), serviceSubnet)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		updates, err = rollingupdate.RuntimeConfigUpdatesWithSecrets(app.Manifest, operator, operation.Key(), servers)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
 	} else {
 		builder = newBuilder(app.Package)
-	}
-	updates, err := rollingupdate.RuntimeConfigUpdates(app.Manifest, operator, operation.Key(), servers)
-	if err != nil {
-		return nil, trace.Wrap(err)
+		updates, err = rollingupdate.RuntimeConfigUpdates(app.Manifest, operator, operation.Key(), servers)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
 	}
 	masters, nodes := update.SplitServers(updates)
 	if len(masters) == 0 {
@@ -143,11 +151,16 @@ func collectServices(client corev1.CoreV1Interface) (result []v1.Service, err er
 	}
 	result = make([]v1.Service, 0, len(services.Items))
 	for _, service := range services.Items {
-		if service.Spec.Type != v1.ServiceTypeClusterIP {
+		// This does not work exclusively on services of type v1.ServiceTypeClusterIP
+		// as at least gravity-site service uses v1.ServiceTypeLoadBalancer even for
+		// on-prem installs
+		if service.Spec.ClusterIP == "" {
 			continue
 		}
 		result = append(result, service)
 	}
+	// TODO: validate existing DNS services or keep these separately in operation data
+	// TODO: validate that this collects only services in the valid service range
 	return result, nil
 }
 

@@ -50,9 +50,58 @@ func RuntimeConfigUpdates(
 	return updates, nil
 }
 
+// RuntimeConfigUpdatesWithSecrets computes the runtime configuration updates for the specified list of servers.
+// The result includes updates for the secrets packages.
+func RuntimeConfigUpdatesWithSecrets(
+	manifest schema.Manifest,
+	operator ConfigPackageRotator,
+	operationKey ops.SiteOperationKey,
+	servers []storage.Server,
+) (updates []storage.UpdateServer, err error) {
+	updates = make([]storage.UpdateServer, 0, len(servers))
+	for _, server := range servers {
+		runtimePackage, err := manifest.RuntimePackageForProfile(server.Role)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		secretsUpdate, err := operator.RotateSecrets(ops.RotateSecretsRequest{
+			Key:            operationKey.SiteKey(),
+			Server:         server,
+			RuntimePackage: *runtimePackage,
+			DryRun:         true,
+		})
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		configUpdate, err := operator.RotatePlanetConfig(ops.RotatePlanetConfigRequest{
+			Key:            operationKey,
+			Server:         server,
+			Manifest:       manifest,
+			RuntimePackage: *runtimePackage,
+			DryRun:         true,
+		})
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		updates = append(updates, storage.UpdateServer{
+			Server: server,
+			Runtime: storage.RuntimePackage{
+				Installed:      *runtimePackage,
+				SecretsPackage: &secretsUpdate.Locator,
+				Update: &storage.RuntimeUpdate{
+					Package:       *runtimePackage,
+					ConfigPackage: configUpdate.Locator,
+				},
+			},
+		})
+	}
+	return updates, nil
+}
+
 // ConfigPackageRotator defines the subset of Operator for updating package configuration
 type ConfigPackageRotator interface {
 	RotatePlanetConfig(ops.RotatePlanetConfigRequest) (*ops.RotatePackageResponse, error)
+	RotateSecrets(ops.RotateSecretsRequest) (*ops.RotatePackageResponse, error)
 }
 
 // Config creates a new phase to update runtime container configuration
@@ -123,8 +172,8 @@ func (r Builder) commonFirstMaster(server storage.UpdateServer, others ...storag
 	}
 	if r.CustomUpdate != nil {
 		return append(phases,
-			r.taint(&server.Server, nil),
 			r.custom(&server.Server, nil),
+			r.taint(&server.Server, nil),
 			r.uncordon(&server.Server, nil),
 			r.endpoints(&server.Server, nil),
 			r.untaint(&server.Server, nil),

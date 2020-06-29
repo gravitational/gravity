@@ -46,7 +46,7 @@ func initUpdateOperationPlan(localEnv, updateEnv *localenv.LocalEnvironment) err
 	if clusterEnv.Client == nil {
 		return trace.BadParameter("this operation can only be executed on one of the master nodes")
 	}
-	cluster, err := clusterEnv.Operator.GetLocalSite()
+	cluster, err := clusterEnv.Operator.GetLocalSite(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}

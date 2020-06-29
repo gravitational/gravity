@@ -318,8 +318,8 @@ func (c *Client) GetCurrentUser() (storage.User, error) {
 	return storage.UnmarshalUser(out.Bytes())
 }
 
-func (c *Client) GetLocalSite() (*ops.Site, error) {
-	out, err := c.Get(c.Endpoint("localsite"), url.Values{})
+func (c *Client) GetLocalSite(ctx context.Context) (*ops.Site, error) {
+	out, err := c.GetWithContext(ctx, c.Endpoint("localsite"), url.Values{})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -1656,8 +1656,8 @@ func (c *Client) PostStream(endpoint string, reader io.Reader) (*roundtrip.Respo
 }
 
 // LocalClusterKey retrieves the SiteKey for the local cluster
-func (c *Client) LocalClusterKey() (ops.SiteKey, error) {
-	site, err := c.GetLocalSite()
+func (c *Client) LocalClusterKey(ctx context.Context) (ops.SiteKey, error) {
+	site, err := c.GetLocalSite(ctx)
 	if err != nil {
 		return ops.SiteKey{}, trace.Wrap(err)
 	}

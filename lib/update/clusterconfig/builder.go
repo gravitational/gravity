@@ -23,7 +23,7 @@ func newBuilder(app loc.Locator) *builder {
 	}
 }
 
-func newBuilderWithServices(app loc.Locator, client corev1.CoreV1Interface) (*builder, error) {
+func newBuilderWithServices(app loc.Locator, client corev1.CoreV1Interface, serviceSubnet string) (*builder, error) {
 	services, err := collectServices(client)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -42,6 +42,7 @@ func newBuilderWithServices(app loc.Locator, client corev1.CoreV1Interface) (*bu
 							DNSServiceName:       fmt.Sprintf("kube-dns-%v", suffix),
 							DNSWorkerServiceName: fmt.Sprintf("kube-dns-worker-%v", suffix),
 							Services:             services,
+							ServiceSubnet:        serviceSubnet,
 						},
 					},
 				},
@@ -55,15 +56,7 @@ func (r builder) init(desc string) update.Phase {
 		ID:          "init",
 		Executor:    phases.InitPhase,
 		Description: desc,
-		Data: &storage.OperationPhaseData{
-			Update: &storage.UpdateOperationData{
-				ClusterConfig: &storage.ClusterConfigData{
-					DNSServiceName:       r.Builder.CustomUpdate.Data.Update.ClusterConfig.DNSServiceName,
-					DNSWorkerServiceName: r.Builder.CustomUpdate.Data.Update.ClusterConfig.DNSWorkerServiceName,
-					Services:             r.Builder.CustomUpdate.Data.Update.ClusterConfig.Services,
-				},
-			},
-		},
+		Data:        r.Builder.CustomUpdate.Data,
 	}
 }
 
@@ -72,15 +65,7 @@ func (r builder) fini(desc string) update.Phase {
 		ID:          "fini",
 		Executor:    phases.FiniPhase,
 		Description: desc,
-		Data: &storage.OperationPhaseData{
-			Update: &storage.UpdateOperationData{
-				ClusterConfig: &storage.ClusterConfigData{
-					DNSServiceName:       r.Builder.CustomUpdate.Data.Update.ClusterConfig.DNSServiceName,
-					DNSWorkerServiceName: r.Builder.CustomUpdate.Data.Update.ClusterConfig.DNSWorkerServiceName,
-					Services:             r.Builder.CustomUpdate.Data.Update.ClusterConfig.Services,
-				},
-			},
-		},
+		Data:        r.Builder.CustomUpdate.Data,
 	}
 }
 

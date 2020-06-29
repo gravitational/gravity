@@ -34,7 +34,7 @@ var log = logrus.WithField(trace.Component, "status")
 func WaitCluster(ctx context.Context, operator ops.Operator) error {
 	b := utils.NewExponentialBackOff(defaults.NodeStatusTimeout)
 	return utils.RetryWithInterval(ctx, b, func() error {
-		cluster, err := operator.GetLocalSite()
+		cluster, err := operator.GetLocalSite(ctx)
 		if err != nil {
 			return trace.Wrap(err)
 		}

@@ -128,7 +128,7 @@ func runBackupRestore(env *localenv.LocalEnvironment, operation string,
 		return trace.Wrap(err)
 	}
 
-	cluster, err := operator.GetLocalSite()
+	cluster, err := operator.GetLocalSite(context.TODO())
 	if err != nil {
 		return trace.Wrap(err)
 	}

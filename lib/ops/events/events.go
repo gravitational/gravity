@@ -57,7 +57,7 @@ func EmitForOperation(ctx context.Context, operator ops.Operator, operation ops.
 }
 
 func emit(ctx context.Context, operator ops.Operator, event events.Event, fields Fields) error {
-	cluster, err := operator.GetLocalSite()
+	cluster, err := operator.GetLocalSite(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}

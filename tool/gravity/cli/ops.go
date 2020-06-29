@@ -107,7 +107,7 @@ func uploadUpdate(ctx context.Context, env *localenv.LocalEnvironment, opsURL st
 			"that the cluster DNS is working properly.")
 	}
 
-	cluster, err := clusterOperator.GetLocalSite()
+	cluster, err := clusterOperator.GetLocalSite(context.TODO())
 	if err != nil {
 		return trace.Wrap(err)
 	}

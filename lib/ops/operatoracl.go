@@ -349,8 +349,8 @@ func (o *OperatorACL) GetSites(accountID string) ([]Site, error) {
 	return clusters, nil
 }
 
-func (o *OperatorACL) GetLocalSite() (*Site, error) {
-	return o.operator.GetLocalSite()
+func (o *OperatorACL) GetLocalSite(ctx context.Context) (*Site, error) {
+	return o.operator.GetLocalSite(ctx)
 }
 
 func (o *OperatorACL) DeleteSite(siteKey SiteKey) error {

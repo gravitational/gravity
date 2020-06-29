@@ -149,7 +149,7 @@ func (a *Autoscaler) ensureInstanceTerminated(ctx context.Context, event HookEve
 }
 
 func (a *Autoscaler) removeInstance(ctx context.Context, operator Operator, event HookEvent) error {
-	cluster, err := operator.GetLocalSite()
+	cluster, err := operator.GetLocalSite(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}

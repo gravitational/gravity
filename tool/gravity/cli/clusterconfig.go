@@ -273,7 +273,7 @@ func validateClusterConfig(localEnv *localenv.LocalEnvironment, update libcluste
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	cluster, err := operator.GetLocalSite()
+	cluster, err := operator.GetLocalSite(context.TODO())
 	if err != nil {
 		return trace.Wrap(err)
 	}
