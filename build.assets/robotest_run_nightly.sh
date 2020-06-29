@@ -67,18 +67,26 @@ EOF
   echo $suite
 }
 
-function build_upgrade_suite {
+function build_upgrade_size_suite {
   local suite=''
   local cluster_sizes=( \
     '"flavor":"three","nodes":3,"role":"node"' \
     '"flavor":"six","nodes":6,"role":"node"' \
     '"flavor":"one","nodes":1,"role":"node"')
+  for size in ${cluster_sizes[@]}; do
+      suite+=$(build_upgrade_step "redhat:7" "$LAST_7_0_RELEASE" "overlay2" $size)
+    suite+=' '
+  done
+  echo $suite
+}
+
+function build_upgrade_version_suite {
+  local suite=''
+  local default_size='"flavor":"three","nodes":3,"role":"node"'
   for release in ${!UPGRADE_MAP[@]}; do
     for os in ${UPGRADE_MAP[$release]}; do
-      for size in ${cluster_sizes[@]}; do
-        suite+=$(build_upgrade_step $os $release "overlay2" $size)
-        suite+=' '
-      done
+      suite+=$(build_upgrade_step $os $release "overlay2" $default_size)
+      suite+=' '
     done
   done
   echo $suite
@@ -117,9 +125,10 @@ function build_volume_mounts {
 
 export EXTRA_VOLUME_MOUNTS=$(build_volume_mounts)
 
-suite=$(build_resize_suite)
-suite="$suite $(build_upgrade_suite)"
-suite="$suite $(build_install_suite)"
+suite="$(build_install_suite)"
+suite+=" $(build_resize_suite)"
+suite+=" $(build_upgrade_version_suite)"
+suite+=" $(build_upgrade_size_suite)"
 
 echo $suite
 
