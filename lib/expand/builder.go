@@ -394,9 +394,15 @@ func (p *Peer) getPlanBuilder(ctx operationContext) (*planBuilder, error) {
 // The UI currently only supports a fixed number of steps (specified by the
 // provided max number) so the plan's phase numbers will be calculated to
 // fit within the specified interval.
-func fillSteps(plan *storage.OperationPlan, maxStepNumber int) {
+func fillSteps(plan *storage.OperationPlan, maxSteps int) {
 	allPhases := fsm.FlattenPlan(plan)
 	for i, phase := range allPhases {
-		phase.Step = int(float64(maxStepNumber) / float64(len(allPhases)) * float64(i+1))
+		phase.Step = calcStep(maxSteps, len(allPhases), i)
 	}
+}
+
+// calcStep adjusts the provided step number so it does not exceed the specified
+// maximum number.
+func calcStep(maxSteps, actualSteps, stepNumber int) int {
+	return int(float64(maxSteps) / float64(actualSteps) * float64(stepNumber+1))
 }
