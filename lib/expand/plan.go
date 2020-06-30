@@ -118,6 +118,10 @@ func (p *Peer) getOperationPlan(ctx operationContext) (*storage.OperationPlan, e
 	// of the joining node
 	builder.AddElectPhase(plan)
 
-	fillSteps(plan)
+	fillSteps(plan, uiJoinStepsCount)
 	return plan, nil
 }
+
+// uiJoinStepsCount is the number of steps for the join operation that
+// currently can be displayed in the UI.
+const uiJoinStepsCount = 10
