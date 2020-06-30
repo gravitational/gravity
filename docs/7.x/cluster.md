@@ -1630,13 +1630,13 @@ Flags:
       --since=336h            Only return logs newer than a relative duration like 5s, 2m, or 3h. Default is 336h (14 days). Specify 0s to collect all logs.
 
 Example:
-  # Running with defaults will collect logs written in the last 2 weeks and zipped into report.tar.gz
+  # Running with defaults will collect logs written in the last 2 weeks and zipped into report.tar.gz.
   $ gravity report
 
-  # Collect all logs written in the last day
+  # Collect all logs written in the last day. The since flag accepts a Go duration.
   $ gravity report --since 24h
 
-  # Collect all logs
+  # Collect all logs.
   $ gravity report --since 0s
 ```
 
