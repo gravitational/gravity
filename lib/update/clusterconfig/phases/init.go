@@ -23,7 +23,7 @@ func NewInit(params fsm.ExecutorParams, client corev1.CoreV1Interface, logger lo
 		workerServiceName: params.Phase.Data.Update.ClusterConfig.DNSWorkerServiceName,
 	}
 	for _, service := range params.Phase.Data.Update.ClusterConfig.Services {
-		if !isDNSService(service) && !isKubernetesService(service) {
+		if !isDNSService(service) && isKubernetesService(service) {
 			logger.WithField("service", fmt.Sprintf("%#v", service)).Info("Found a generic service.")
 			step.services = append(step.services, service)
 			continue

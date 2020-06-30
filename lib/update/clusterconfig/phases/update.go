@@ -27,6 +27,7 @@ import (
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
@@ -52,6 +53,10 @@ func NewUpdateConfig(
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to query installed application")
 	}
+	config, err := clusterconfig.Unmarshal(operation.UpdateConfig.Config)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	return &updateConfig{
 		FieldLogger:  logger,
 		operator:     operator,
@@ -60,6 +65,7 @@ func NewUpdateConfig(
 		hostPackages: hostPackages,
 		servers:      params.Phase.Data.Update.Servers,
 		manifest:     app.Manifest,
+		config:       config,
 	}, nil
 }
 
@@ -119,6 +125,7 @@ type updateConfig struct {
 	hostPackages packageService
 	servers      []storage.UpdateServer
 	manifest     schema.Manifest
+	config       clusterconfig.Interface
 }
 
 func (r *updateConfig) rotateConfig(update storage.UpdateServer) error {
@@ -151,6 +158,7 @@ func (r *updateConfig) rotateSecrets(update storage.UpdateServer) error {
 		Package:        update.Runtime.SecretsPackage,
 		RuntimePackage: update.Runtime.Update.Package,
 		Server:         update.Server,
+		ServiceCIDR:    r.config.GetGlobalConfig().ServiceCIDR,
 	})
 	if err != nil {
 		return trace.Wrap(err)

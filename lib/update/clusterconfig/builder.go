@@ -23,7 +23,7 @@ func newBuilder(app loc.Locator) *builder {
 	}
 }
 
-func newBuilderWithServices(app loc.Locator, client corev1.CoreV1Interface, serviceSubnet string) (*builder, error) {
+func newBuilderWithServices(app loc.Locator, client corev1.CoreV1Interface) (*builder, error) {
 	services, err := collectServices(client)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -42,7 +42,6 @@ func newBuilderWithServices(app loc.Locator, client corev1.CoreV1Interface, serv
 							DNSServiceName:       fmt.Sprintf("kube-dns-%v", suffix),
 							DNSWorkerServiceName: fmt.Sprintf("kube-dns-worker-%v", suffix),
 							Services:             services,
-							ServiceSubnet:        serviceSubnet,
 						},
 					},
 				},

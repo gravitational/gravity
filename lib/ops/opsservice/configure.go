@@ -1040,11 +1040,11 @@ func (s *site) configurePlanetServer(config planetConfig) error {
 }
 
 func (r planetConfig) podSubnet() string {
-	return podSubnet(r.installExpand.InstallExpand, r.config)
+	return podSubnet(r.installExpand.InstallExpand, r.config.GetGlobalConfig().PodCIDR)
 }
 
 func (r planetConfig) serviceSubnet() string {
-	return serviceSubnet(r.installExpand.InstallExpand, r.config)
+	return serviceSubnet(r.installExpand.InstallExpand, r.config.GetGlobalConfig().ServiceCIDR)
 }
 
 type planetConfig struct {
@@ -1465,10 +1465,9 @@ func configureDockerOptions(
 	return args, nil
 }
 
-func podSubnet(installExpand *storage.InstallExpandOperationState, config clusterconfig.Interface) string {
-	subnet := config.GetGlobalConfig().PodCIDR
-	if len(subnet) != 0 {
-		return subnet
+func podSubnet(installExpand *storage.InstallExpandOperationState, override string) string {
+	if override != "" {
+		return override
 	}
 	if installExpand == nil || installExpand.Subnets.Overlay == "" {
 		return storage.DefaultSubnets.Overlay
@@ -1476,10 +1475,9 @@ func podSubnet(installExpand *storage.InstallExpandOperationState, config cluste
 	return installExpand.Subnets.Overlay
 }
 
-func serviceSubnet(installExpand *storage.InstallExpandOperationState, config clusterconfig.Interface) string {
-	subnet := config.GetGlobalConfig().ServiceCIDR
-	if len(subnet) != 0 {
-		return subnet
+func serviceSubnet(installExpand *storage.InstallExpandOperationState, override string) string {
+	if override != "" {
+		return override
 	}
 	if installExpand == nil || installExpand.Subnets.Service == "" {
 		return storage.DefaultSubnets.Service

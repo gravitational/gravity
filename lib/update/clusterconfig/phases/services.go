@@ -18,17 +18,9 @@ import (
 
 // NewServices returns a new services step implementation
 func NewServices(params fsm.ExecutorParams, client corev1.CoreV1Interface, logger log.FieldLogger) (*Services, error) {
-	serviceSubnet, err := configure.ParseCIDR(params.Phase.Data.Update.ClusterConfig.ServiceSubnet)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	// Kubernetes defaults to the first IP in service range for the kubernetes service
-	// See https://github.com/kubernetes/kubernetes/blob/v1.15.12/pkg/master/services.go#L41
-	apiServerServiceIP := serviceSubnet.FirstIP().String()
 	step := Services{
-		FieldLogger:        logger,
-		client:             client,
-		apiServerServiceIP: apiServerServiceIP,
+		FieldLogger: logger,
+		client:      client,
 	}
 	for _, service := range params.Phase.Data.Update.ClusterConfig.Services {
 		if !isDNSService(service) && !isKubernetesService(service) {
@@ -52,10 +44,7 @@ func (r *Services) Execute(ctx context.Context) error {
 
 // Rollback reverts the DNS/kubernetes services created in the new service subnet
 func (r *Services) Rollback(ctx context.Context) error {
-	if err := r.removeDNSServices(ctx); err != nil {
-		return trace.Wrap(err)
-	}
-	return trace.Wrap(r.removeKubernetesService(ctx))
+	return trace.Wrap(r.removeDNSServices(ctx))
 }
 
 // PreCheck is no-op for this phase
@@ -71,21 +60,10 @@ func (*Services) PostCheck(context.Context) error {
 // Services implements the services step for the cluster configuration upgrade operation
 type Services struct {
 	log.FieldLogger
-	client             corev1.CoreV1Interface
-	dnsWorkerService   v1.Service
-	services           []v1.Service
-	subnet             configure.CIDR
-	apiServerServiceIP string
-}
-
-func (r *Services) removeKubernetesService(ctx context.Context) error {
-	r.Info("Remove kubernetes service.")
-	err := removeService(ctx, kubernetesService, &metav1.DeleteOptions{},
-		r.client.Services(metav1.NamespaceDefault))
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	return nil
+	client           corev1.CoreV1Interface
+	dnsWorkerService v1.Service
+	services         []v1.Service
+	subnet           configure.CIDR
 }
 
 func (r *Services) removeDNSServices(ctx context.Context) error {
@@ -105,28 +83,19 @@ func (r *Services) resetServices(ctx context.Context) error {
 		services := r.client.Services(service.Namespace)
 		logger.Info("Remove service.")
 		err := removeService(ctx, service.Name, &metav1.DeleteOptions{}, services)
-		err = rigging.ConvertError(err)
 		if err != nil && !trace.IsNotFound(err) {
 			return trace.Wrap(err)
 		}
-		logger.Info("Recreate service with empty cluster IP.")
-		// Let Kubernetes allocate cluster IP
+		// Let kubernetes allocate the new IP
 		service.Spec.ClusterIP = ""
-		service.ResourceVersion = r.allocateServiceIP(service)
+		logger.WithField("cluster-ip", service.Spec.ClusterIP).Info("Recreate service with new cluster IP.")
+		service.ResourceVersion = "0"
 		_, err = services.Create(&service)
 		if err != nil {
 			return rigging.ConvertError(err)
 		}
 	}
 	return nil
-}
-
-func (r *Services) allocateServiceIP(service v1.Service) (addr string) {
-	if isKubernetesService(service) {
-		return r.apiServerServiceIP
-	}
-	// Let Kubernetes allocate the IP
-	return "0"
 }
 
 func isKubernetesService(service v1.Service) bool {

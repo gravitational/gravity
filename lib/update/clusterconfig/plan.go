@@ -79,12 +79,11 @@ func newOperationPlan(
 	servers []storage.Server,
 	client *kubernetes.Clientset,
 ) (plan *storage.OperationPlan, err error) {
-	serviceSubnet := clusterConfig.GetGlobalConfig().ServiceCIDR
-	updatesServiceCIDR := serviceSubnet != ""
+	updatesServiceCIDR := clusterConfig.GetGlobalConfig().ServiceCIDR != ""
 	var builder *builder
 	var updates []storage.UpdateServer
 	if updatesServiceCIDR {
-		builder, err = newBuilderWithServices(app.Package, client.CoreV1(), serviceSubnet)
+		builder, err = newBuilderWithServices(app.Package, client.CoreV1())
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}

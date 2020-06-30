@@ -233,9 +233,21 @@ func DialFromEnviron(dnsAddr string) func(ctx context.Context, network, addr str
 			return conn, nil
 		}
 
+		if !strings.HasSuffix(addr, defaults.ServiceAddrSuffix) {
+			return nil, trace.Wrap(err)
+		}
+
+		var port string
+		if strings.Contains(addr, ":") {
+			addr, port, err = net.SplitHostPort(addr)
+			if err != nil {
+				return nil, trace.Wrap(err, "invalid host:port address: %q", addr)
+			}
+		}
+
 		// Dial with a kubernetes service resolver
 		logger.WithError(err).Warn("Failed to dial with local resolver.")
-		return DialWithServiceResolver(ctx, network, addr)
+		return DialWithServiceResolver(ctx, network, addr, port)
 
 	}
 }
@@ -265,25 +277,13 @@ func DialWithLocalResolver(ctx context.Context, dnsAddr, network, addr string) (
 	return d.DialContext(ctx, network, hostPort)
 }
 
-// DialWithServiceResolver resolves the addr as a kubernetes service using its cluster IP
-func DialWithServiceResolver(ctx context.Context, network, addr string) (conn net.Conn, err error) {
-	var port string
-	if strings.Contains(addr, ":") {
-		addr, port, err = net.SplitHostPort(addr)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-	}
-
-	if !strings.HasSuffix(addr, defaults.ServiceAddrSuffix) {
-		return nil, trace.NotFound("cannot resolve non-cluster local address")
-	}
-
-	serviceNameNamespace := strings.TrimSuffix(addr, defaults.ServiceAddrSuffix)
+// DialWithServiceResolver resolves the host as a kubernetes service using its cluster IP
+func DialWithServiceResolver(ctx context.Context, network, host, port string) (conn net.Conn, err error) {
+	serviceNameNamespace := strings.TrimSuffix(host, defaults.ServiceAddrSuffix)
 	fields := strings.Split(serviceNameNamespace, ".")
 	if len(fields) != 2 {
 		return nil, trace.BadParameter("invalid address format: expected service-name.namespace.%v but got %q",
-			defaults.ServiceAddrSuffix, addr)
+			defaults.ServiceAddrSuffix, host)
 	}
 	serviceName, namespace := fields[0], fields[1]
 	log.Infof("Dialing service %v in namespace %v.", serviceName, namespace)
@@ -293,7 +293,7 @@ func DialWithServiceResolver(ctx context.Context, network, addr string) (conn ne
 		kubeconfigPath, err = getKubeconfigPath()
 		if err != nil {
 			return nil, trace.Wrap(err, "failed to resolve %v://%v using kubernetes service resolver",
-				network, addr)
+				network, host)
 		}
 	}
 

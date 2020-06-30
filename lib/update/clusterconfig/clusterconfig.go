@@ -34,9 +34,6 @@ import (
 
 // New returns new updater for the specified configuration
 func New(ctx context.Context, config Config) (*update.Updater, error) {
-	if err := config.check(); err != nil {
-		return nil, trace.Wrap(err)
-	}
 	dispatcher := &dispatcher{
 		Dispatcher: rollingupdate.NewDefaultDispatcher(),
 	}
@@ -69,14 +66,6 @@ type Config struct {
 	ClusterPackages pack.PackageService
 	// Client specifies the kubernetes client
 	Client *kubernetes.Clientset
-}
-
-// check verifies this configuration value
-func (r Config) check() error {
-	if r.Client == nil {
-		return trace.BadParameter("Cluster configuration requires kubernetes client")
-	}
-	return nil
 }
 
 // Dispatch returns the appropriate phase executor based on the provided parameters

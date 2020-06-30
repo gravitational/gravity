@@ -31,7 +31,7 @@ ETCD_VER := v2.3.7
 VERSION_TAG := 0.0.2
 
 # Current versions of the dependencies
-CURRENT_TAG := $(shell ./version.sh)
+CURRENT_TAG ?= $(shell ./version.sh)
 GRAVITY_TAG := $(CURRENT_TAG)
 # Abbreviated gravity version to use as a build ID
 GRAVITY_VERSION := $(CURRENT_TAG)
@@ -43,7 +43,7 @@ TELEPORT_TAG = 3.2.13
 # TELEPORT_REPOTAG adapts TELEPORT_TAG to the teleport tagging scheme
 TELEPORT_REPOTAG := v$(TELEPORT_TAG)
 #PLANET_TAG := 6.1.31-$(K8S_VER_SUFFIX)
-PLANET_TAG := 6.1.30-$(K8S_VER_SUFFIX)-3-gc195e37
+PLANET_TAG := 6.1.30-$(K8S_VER_SUFFIX)-5-geef2aa3
 PLANET_BRANCH := $(PLANET_TAG)
 K8S_APP_TAG := $(GRAVITY_TAG)
 TELEKUBE_APP_TAG := $(GRAVITY_TAG)
