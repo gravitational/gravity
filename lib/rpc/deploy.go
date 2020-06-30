@@ -146,7 +146,7 @@ func DeployAgents(ctx context.Context, req DeployAgentsRequest) error {
 					logger.WithError(err).Warn("Failed to deploy agent.")
 					return trace.Wrap(err)
 				}
-				req.Progress.Print(color.GreenString("Deployed agent on %v (%v)", server.Hostname, server.AdvertiseIP))
+				req.Progress.Print(color.GreenString("Deployed agent on %v (%v)", stateServer.Hostname, stateServer.AdvertiseIP))
 				logger.Info("Agent deployed.")
 				return nil
 			})
