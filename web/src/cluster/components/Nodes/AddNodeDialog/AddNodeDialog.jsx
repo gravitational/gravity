@@ -57,8 +57,8 @@ export class AddNodeDialog extends React.Component{
     const { onClose, advertiseIp, joinToken, gravityUrl } = this.props;
     const { selectedProfile, profileOptions, showCommands } = this.state;
     const role = selectedProfile.value;
-    const downloadCmd = `curl -k -H "Authorization: Bearer ${joinToken}" ${gravityUrl} -o gravity`;
-    const joinCmd = `gravity join ${advertiseIp} --token=${joinToken} --role=${role}`;
+    const downloadCmd = `curl -k -H "Authorization: Bearer ${joinToken}" ${gravityUrl} -o gravity && chmod +x gravity`;
+    const joinCmd = `./gravity join ${advertiseIp} --token=${joinToken} --role=${role}`;
 
     return (
       <Dialog
