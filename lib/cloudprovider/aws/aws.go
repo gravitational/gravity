@@ -82,6 +82,11 @@ func NewLocalInstance() (*Instance, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+
+	if len(zone) == 0 {
+		return nil, trace.NotFound("could not determine availability zone")
+	}
+
 	regionName := zone[:len(zone)-1]
 	ec2 := ec2.New(session, &aws.Config{
 		Region:      &regionName,
