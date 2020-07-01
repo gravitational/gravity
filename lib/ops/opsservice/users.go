@@ -18,6 +18,7 @@ package opsservice
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/events"
@@ -48,7 +49,11 @@ func (o *Operator) CreateUserInvite(ctx context.Context, req ops.CreateUserInvit
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	invite, err := o.users().CreateInviteToken(o.publicURL(), storage.UserInvite{
+	publicURL, err := o.getPublicURL(req.SiteKey)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	invite, err := o.users().CreateInviteToken(publicURL, storage.UserInvite{
 		Name:      req.Name,
 		CreatedBy: storage.UserFromContext(ctx),
 		Roles:     req.Roles,
@@ -70,11 +75,29 @@ func (o *Operator) CreateUserReset(ctx context.Context, req ops.CreateUserResetR
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	reset, err := o.users().CreateResetToken(o.publicURL(), req.Name, req.TTL)
+	publicURL, err := o.getPublicURL(req.SiteKey)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	reset, err := o.users().CreateResetToken(publicURL, req.Name, req.TTL)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return reset, nil
+}
+
+func (o *Operator) getPublicURL(key ops.SiteKey) (string, error) {
+	gateway, err := o.GetAuthGateway(key)
+	if err != nil && !trace.IsNotFound(err) {
+		return "", trace.Wrap(err)
+	}
+	if gateway != nil {
+		publicAddrs := gateway.GetWebPublicAddrs()
+		if len(publicAddrs) > 0 {
+			return fmt.Sprintf("https://" + publicAddrs[0]), nil
+		}
+	}
+	return fmt.Sprintf("https://" + o.cfg.PublicAddr.String()), nil
 }
 
 // GetUserInvites returns all active user invites.

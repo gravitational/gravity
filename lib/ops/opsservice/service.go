@@ -292,10 +292,6 @@ func (o *Operator) users() users.Identity {
 	return o.cfg.Users
 }
 
-func (o *Operator) publicURL() string {
-	return fmt.Sprintf("https://" + o.cfg.PublicAddr.String())
-}
-
 func (o *Operator) GetAccount(accountID string) (*ops.Account, error) {
 	out, err := o.backend().GetAccount(accountID)
 	if err != nil {

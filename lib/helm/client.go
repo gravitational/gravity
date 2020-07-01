@@ -77,8 +77,19 @@ type ClientConfig struct {
 	// TODO Add Helm TLS flags.
 }
 
+// CheckAndSetDefaults validates config and sets default values.
+func (c *ClientConfig) CheckAndSetDefaults() error {
+	if c.TillerNamespace == "" {
+		c.TillerNamespace = defaults.KubeSystemNamespace
+	}
+	return nil
+}
+
 // NewClient returns a new Helm client instance.
 func NewClient(conf ClientConfig) (Client, error) {
+	if err := conf.CheckAndSetDefaults(); err != nil {
+		return nil, trace.Wrap(err)
+	}
 	kubeClient, kubeConfig, err := getKubeClient(conf.DNSAddress)
 	if err != nil {
 		return nil, trace.Wrap(err)

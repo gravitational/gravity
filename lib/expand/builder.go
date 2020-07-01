@@ -388,9 +388,21 @@ func (p *Peer) getPlanBuilder(ctx operationContext) (*planBuilder, error) {
 	}, nil
 }
 
-// fillSteps sets each phase's step number to its index number in the plan
-func fillSteps(plan *storage.OperationPlan) {
-	for i, phase := range fsm.FlattenPlan(plan) {
-		phase.Step = i
+// fillSteps assigns each phase of the provided plan a step number that will
+// be used in the UI to display a progress bar.
+//
+// The UI currently only supports a fixed number of steps (specified by the
+// provided max number) so the plan's phase numbers will be calculated to
+// fit within the specified interval.
+func fillSteps(plan *storage.OperationPlan, maxSteps int) {
+	allPhases := fsm.FlattenPlan(plan)
+	for i, phase := range allPhases {
+		phase.Step = calcStep(maxSteps, len(allPhases), i)
 	}
+}
+
+// calcStep adjusts the provided step number so it does not exceed the specified
+// maximum number.
+func calcStep(maxSteps, actualSteps, stepNumber int) int {
+	return int(float64(maxSteps) / float64(actualSteps) * float64(stepNumber+1))
 }
