@@ -15,7 +15,6 @@ readonly ROBOTEST_SCRIPT=$(mktemp -d)/runsuite.sh
 # see https://github.com/gravitational/robotest/blob/v2.0.0/suite/README.md
 export ROBOTEST_VERSION=${ROBOTEST_VERSION:-2.0.0}
 export ROBOTEST_REPO=quay.io/gravitational/robotest-suite:$ROBOTEST_VERSION
-export WAIT_FOR_INSTALLER=true
 export INSTALLER_URL=$GRAVITY_BUILDDIR/telekube.tar
 export GRAVITY_URL=$GRAVITY_BUILDDIR/gravity
 export TAG=$(git rev-parse --short HEAD)
