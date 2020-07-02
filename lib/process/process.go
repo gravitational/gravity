@@ -523,7 +523,7 @@ func (p *Process) leaderStatus() (string, bool) {
 func (p *Process) startAutoscale(ctx context.Context) error {
 	_, err := cloudaws.NewLocalInstance()
 	if err != nil {
-		p.Info("Not on AWS, skip autoscaler start.")
+		p.WithError(err).Info("Not on AWS, skip autoscaler start.")
 		return nil
 	}
 	p.Info("Starting AWS autoscaler.")

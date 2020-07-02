@@ -431,3 +431,39 @@ func (s *PlanSuite) verifyElectPhase(c *check.C, phase storage.OperationPhase) {
 		Requires: []string{installphases.WaitPhase},
 	}, phase)
 }
+
+func (s *PlanSuite) TestFillSteps(c *check.C) {
+	tests := []struct {
+		phasesCount int
+		stepNumbers []int
+	}{
+		{
+			phasesCount: 0,
+			stepNumbers: nil,
+		},
+		{
+			phasesCount: 1,
+			stepNumbers: []int{10},
+		},
+		{
+			phasesCount: 2,
+			stepNumbers: []int{5, 10},
+		},
+		{
+			phasesCount: 13,
+			stepNumbers: []int{0, 1, 2, 3, 3, 4, 5, 6, 6, 7, 8, 9, 10},
+		},
+	}
+	for _, t := range tests {
+		var plan storage.OperationPlan
+		for i := 0; i < t.phasesCount; i++ {
+			plan.Phases = append(plan.Phases, storage.OperationPhase{})
+		}
+		fillSteps(&plan, 10)
+		var stepNumbers []int
+		for _, p := range plan.Phases {
+			stepNumbers = append(stepNumbers, p.Step)
+		}
+		c.Assert(stepNumbers, check.DeepEquals, t.stepNumbers)
+	}
+}
