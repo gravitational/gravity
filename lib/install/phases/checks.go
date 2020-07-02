@@ -19,11 +19,14 @@ package phases
 import (
 	"context"
 
+	"github.com/gravitational/gravity/lib/checks"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
 
+	"github.com/fatih/color"
+	"github.com/gravitational/satellite/agent/proto/agentpb"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 )
@@ -64,9 +67,24 @@ func (r *checksExecutor) Execute(ctx context.Context) error {
 		OperationID: r.key.OperationID,
 		Servers:     r.servers,
 	}
-	err := r.operator.ValidateServers(ctx, req)
+	resp, err := r.operator.ValidateServers(ctx, req)
 	if err != nil {
 		return trace.Wrap(err)
+	}
+	var failed, warnings []*agentpb.Probe
+	for _, probe := range resp.Probes {
+		if probe.Severity == agentpb.Probe_Warning {
+			warnings = append(warnings, probe)
+		} else {
+			failed = append(failed, probe)
+		}
+	}
+	for _, warn := range warnings {
+		r.Progress.NextStep(color.YellowString(warn.Detail))
+	}
+	if len(failed) > 0 {
+		return trace.BadParameter("The following pre-flight checks failed:\n%v",
+			checks.FormatFailedChecks(failed))
 	}
 	return nil
 }

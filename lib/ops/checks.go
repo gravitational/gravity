@@ -42,14 +42,14 @@ func CheckServers(ctx context.Context,
 	servers []storage.Server,
 	agentService AgentService,
 	manifest schema.Manifest,
-) error {
+) ([]*agentpb.Probe, error) {
 	nodes, err := mergeServers(infos, servers)
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 	requirements, err := checks.RequirementsFromManifest(manifest)
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 	c, err := checks.New(checks.Config{
 		Remote:       &remoteCommands{key: opKey, AgentService: agentService},
@@ -57,15 +57,15 @@ func CheckServers(ctx context.Context,
 		Servers:      nodes,
 		Requirements: requirements,
 		Features: checks.Features{
-			TestBandwidth:    true,
-			TestPorts:        true,
-			TestEtcdDisk:     true,
+			TestBandwidth: true,
+			TestPorts:     true,
+			TestEtcdDisk:  true,
 		},
 	})
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
-	return trace.Wrap(c.Run(ctx))
+	return c.Check(ctx), nil
 }
 
 // FormatValidationError formats validation error as a human-readable text
