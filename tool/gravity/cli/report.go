@@ -20,6 +20,7 @@ import (
 	"context"
 	"io"
 	"os"
+	"time"
 
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/report"
@@ -30,7 +31,8 @@ import (
 // to the stdout.
 // filters define the specific diagnostics to collect ('system', 'kubernetes'),
 // if empty all diagnostics are collected.
-func systemReport(env *localenv.LocalEnvironment, filters []string, compressed bool, output string) error {
+func systemReport(env *localenv.LocalEnvironment, filters []string, compressed bool, output string,
+	since time.Duration) error {
 	var w io.Writer = os.Stdout
 	if output != "" {
 		f, err := os.Create(output)
@@ -44,6 +46,7 @@ func systemReport(env *localenv.LocalEnvironment, filters []string, compressed b
 		Filters:    filters,
 		Compressed: compressed,
 		Packages:   env.Packages,
+		Since:      since,
 	}
 	return trace.Wrap(report.Collect(context.TODO(), config, w))
 }

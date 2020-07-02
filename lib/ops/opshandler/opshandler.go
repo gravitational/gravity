@@ -1064,7 +1064,18 @@ func (h *WebHandler) activateSite(w http.ResponseWriter, r *http.Request, p http
    GET /portal/v1/accounts/:account_id/sites/:site_domain/report
 */
 func (h *WebHandler) getSiteReport(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
-	report, err := context.Operator.GetSiteReport(siteKey(p))
+	var since time.Duration
+	if val := r.URL.Query().Get("since"); val != "" {
+		var err error
+		if since, err = time.ParseDuration(val); err != nil {
+			return trace.Wrap(err)
+		}
+	}
+
+	report, err := context.Operator.GetSiteReport(ops.GetClusterReportRequest{
+		SiteKey: siteKey(p),
+		Since:   since,
+	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -1866,7 +1877,7 @@ func (h *WebHandler) streamOperationLogs(w http.ResponseWriter, r *http.Request,
 
 */
 func (h *WebHandler) getSiteOperationCrashReport(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
-	report, err := context.Operator.GetSiteReport(siteKey(p))
+	report, err := context.Operator.GetSiteReport(ops.GetClusterReportRequest{SiteKey: siteKey(p)})
 	if err != nil {
 		return trace.Wrap(err)
 	}

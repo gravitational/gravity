@@ -422,12 +422,12 @@ func (r *Router) CreateProgressEntry(key ops.SiteOperationKey, entry ops.Progres
 	return client.CreateProgressEntry(key, entry)
 }
 
-func (r *Router) GetSiteReport(key ops.SiteKey) (io.ReadCloser, error) {
-	client, err := r.PickClient(key.SiteDomain)
+func (r *Router) GetSiteReport(req ops.GetClusterReportRequest) (io.ReadCloser, error) {
+	client, err := r.PickClient(req.SiteDomain)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return client.GetSiteReport(key)
+	return client.GetSiteReport(req)
 }
 
 // ValidateServers runs pre-installation checks
