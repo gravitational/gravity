@@ -645,6 +645,8 @@ type UpdateTriggerCmd struct {
 	Manual *bool
 	// SkipVersionCheck suppresses version mismatch errors
 	SkipVersionCheck *bool
+	// Force forces update
+	Force *bool
 }
 
 // UpdateUploadCmd uploads new app version to local cluster
