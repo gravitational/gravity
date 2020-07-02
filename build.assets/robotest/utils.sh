@@ -17,9 +17,7 @@ function date_of {
   git show -s --format=%ci $1
 }
 
-function latest_release {
-  # Pre-release tags are intentionally ignored.
-  # We don't presently care about validating upgrades to/from them. -- walt 2020-06
+function latest_regular_release_tag {
   readonly REGULAR_RELEASE_REGEX='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
   local ref=${1:?$FUNCNAME ref}
   tag=$(git describe --abbrev=0 $ref)
@@ -66,7 +64,7 @@ function recommended_upgrade_tag_between {
     # Go up one tag, as upgrading from a release to itself isn't supported.
     parallel_commit="$parallel_commit^"
   fi
-  local recommended=$(latest_release $parallel_commit)
+  local recommended=$(latest_regular_release_tag $parallel_commit)
   echo $recommended
 }
 

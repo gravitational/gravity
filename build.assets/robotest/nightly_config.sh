@@ -8,17 +8,17 @@ source $(dirname $0)/utils.sh
 # UPGRADE_MAP maps gravity version -> list of linux distros to upgrade from
 declare -A UPGRADE_MAP
 
-UPGRADE_MAP[$(latest_release $(branch 7.0.x))]="centos:7 debian:9 ubuntu:18" # compatible LTS version
+UPGRADE_MAP[$(recommended_upgrade_tag $(branch 7.0.x))]="centos:7 debian:9 ubuntu:18" # compatible LTS version
 UPGRADE_MAP[7.0.0]="ubuntu:16"
-UPGRADE_MAP[$(latest_release $(branch 6.3.x))]="redhat:7" # compatible non-LTS version
+UPGRADE_MAP[$(recommended_upgrade_tag $(branch 6.3.x))]="redhat:7" # compatible non-LTS version
 # UPGRADE_MAP[6.3.0]="ubuntu:16"  # disabled due to https://github.com/gravitational/gravity/issues/1009
-UPGRADE_MAP[$(latest_release $(branch 6.2.x))]="redhat:7" # compatible non-LTS version
+UPGRADE_MAP[$(recommended_upgrade_tag $(branch 6.2.x))]="redhat:7" # compatible non-LTS version
 UPGRADE_MAP[6.2.0]="ubuntu:16"
 
 UPGRADE_VERSIONS=${!UPGRADE_MAP[@]}
 
 function build_upgrade_size_suite {
-  local from_tarball=/$(semver_to_tarball $(latest_release $(branch 7.0.x)))
+  local from_tarball=/$(semver_to_tarball $(recommended_upgrade_tag $(branch 7.0.x)))
   local os="redhat:7"
   local cluster_sizes=( \
     '"flavor":"three","nodes":3,"role":"node"' \
