@@ -1,4 +1,4 @@
-module github.com/gravitational/ttlmap
+module github.com/gravitational/ttlmap/v2
 
 go 1.13
 

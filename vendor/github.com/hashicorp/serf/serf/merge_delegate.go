@@ -28,17 +28,12 @@ func (m *mergeDelegate) NotifyAlive(peer *memberlist.Node) error {
 }
 
 func (m *mergeDelegate) nodeToMember(n *memberlist.Node) *Member {
-	status := StatusNone
-	if n.State == memberlist.StateLeft {
-		status = StatusLeft
-	}
-
 	return &Member{
 		Name:        n.Name,
 		Addr:        net.IP(n.Addr),
 		Port:        n.Port,
 		Tags:        m.serf.decodeTags(n.Meta),
-		Status:      status,
+		Status:      StatusNone,
 		ProtocolMin: n.PMin,
 		ProtocolMax: n.PMax,
 		ProtocolCur: n.PCur,

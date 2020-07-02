@@ -90,8 +90,7 @@ type eventRequest struct {
 }
 
 type forceLeaveRequest struct {
-	Node  string
-	Prune bool
+	Node string
 }
 
 type joinRequest struct {

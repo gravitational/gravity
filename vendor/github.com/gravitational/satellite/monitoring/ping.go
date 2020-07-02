@@ -29,7 +29,7 @@ import (
 
 	"github.com/codahale/hdrhistogram"
 	"github.com/gravitational/trace"
-	"github.com/gravitational/ttlmap"
+	"github.com/gravitational/ttlmap/v2"
 	serf "github.com/hashicorp/serf/client"
 	log "github.com/sirupsen/logrus"
 )

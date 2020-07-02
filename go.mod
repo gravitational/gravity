@@ -9,7 +9,6 @@ require (
 	github.com/Masterminds/goutils v1.1.0 // indirect
 	github.com/Masterminds/semver v1.4.2 // indirect
 	github.com/Masterminds/sprig v2.22.0+incompatible // indirect
-	github.com/Microsoft/go-winio v0.4.11 // indirect
 	github.com/alecthomas/assert v0.0.0-20170929043011-405dbfeb8e38 // indirect
 	github.com/alecthomas/colour v0.1.0 // indirect
 	github.com/alecthomas/repr v0.0.0-20181024024818-d37bc2a10ba1 // indirect
@@ -30,7 +29,6 @@ require (
 	github.com/codahale/hdrhistogram v0.0.0-20161010025455-3a0bb77429bd
 	github.com/containerd/continuity v0.0.0-20200107194136-26c1120b8d41 // indirect
 	github.com/coreos/etcd v3.3.13+incompatible
-	github.com/coreos/go-oidc v0.0.0-20180117170138-065b426bd416 // indirect
 	github.com/coreos/go-semver v0.3.0
 	github.com/coreos/prometheus-operator v0.0.0-00010101000000-000000000000 // indirect
 	github.com/davecgh/go-spew v1.1.1
@@ -41,7 +39,7 @@ require (
 	github.com/docker/spdystream v0.0.0-20181023171402-6480d4af844c // indirect
 	github.com/dustin/go-humanize v1.0.0
 	github.com/emicklei/go-restful v2.11.0+incompatible // indirect
-	github.com/fatih/color v1.9.0
+	github.com/fatih/color v1.7.0
 	github.com/fsouza/go-dockerclient v1.0.0
 	github.com/garyburd/redigo v0.0.0-20151029235527-6ece6e0a09f2 // indirect
 	github.com/ghodss/yaml v1.0.1-0.20180820084758-c7ce16629ff4
@@ -58,7 +56,6 @@ require (
 	github.com/google/gops v0.3.8 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/gorilla/handlers v0.0.0-20151124211609-e96366d97736 // indirect
-	github.com/gorilla/mux v1.7.1 // indirect
 	github.com/gosimple/slug v1.9.0 // indirect
 	github.com/gravitational/bandwagon v0.0.0-20200215230242-8a67c7595376 // indirect
 	github.com/gravitational/configure v0.0.0-20191213111049-fce91dea0d0d
@@ -71,11 +68,11 @@ require (
 	github.com/gravitational/oxy v0.0.0-20180629203109-e4a7e35311e6 // indirect
 	github.com/gravitational/rigging v0.0.0-20191021212636-83b2e9505286
 	github.com/gravitational/roundtrip v1.0.0
-	github.com/gravitational/satellite v0.0.9-0.20200625204824-019d54acd6ab
+	github.com/gravitational/satellite v0.0.9-0.20200702164053-52ff9d5d7ad2
 	github.com/gravitational/tail v1.0.1
 	github.com/gravitational/teleport v3.2.15-0.20200309221853-bebf7a500543+incompatible
 	github.com/gravitational/trace v1.1.11
-	github.com/gravitational/ttlmap v0.0.0-20200608174355-7e347b203ef0
+	github.com/gravitational/ttlmap v0.0.0-20171116003245-91fd36b9004c
 	github.com/gravitational/version v0.0.2-0.20170324200323-95d33ece5ce1
 	github.com/gravitational/vfsgen v0.0.0-20181202132449-6a9ea43bcacd
 	github.com/hashicorp/go-getter v0.0.0-20180809191950-4bda8fa99001 // indirect
@@ -86,15 +83,15 @@ require (
 	github.com/hashicorp/go-safetemp v1.0.0 // indirect
 	github.com/hashicorp/hcl2 v0.0.0-20180822193130-ed8144cda141 // indirect
 	github.com/hashicorp/hil v0.0.0-20170627220502-fa9f258a9250 // indirect
+	github.com/hashicorp/serf v0.8.3 // indirect
 	github.com/hashicorp/terraform v0.11.7 // indirect
 	github.com/hashicorp/yamux v0.0.0-20180826203732-cc6d2ea263b2 // indirect
 	github.com/huandu/xstrings v1.2.0 // indirect
 	github.com/jmoiron/sqlx v1.2.0 // indirect
 	github.com/jonboulle/clockwork v0.1.1-0.20190114141812-62fb9bc030d1
-	github.com/json-iterator/go v1.1.6 // indirect
 	github.com/julienschmidt/httprouter v1.2.0
 	github.com/kardianos/osext v0.0.0-20170510131534-ae77be60afb1
-	github.com/kr/pty v1.1.5 // indirect
+	github.com/konsorten/go-windows-terminal-sequences v1.0.3 // indirect
 	github.com/kylelemons/godebug v0.0.0-20170820004349-d65d576e9348
 	github.com/lib/pq v1.2.0 // indirect
 	github.com/mailgun/holster v1.9.1-0.20191129074427-2296d2fb30b1 // indirect
@@ -118,6 +115,7 @@ require (
 	github.com/opencontainers/selinux v1.4.0
 	github.com/pborman/uuid v1.2.0
 	github.com/petar/GoLLRB v0.0.0-20130427215148-53be0d36a84c // indirect
+	github.com/posener/complete v1.1.2 // indirect
 	github.com/pquerna/otp v0.0.0-20160912161815-54653902c20e // indirect
 	github.com/prometheus/alertmanager v0.20.0
 	github.com/prometheus/client_golang v1.2.1
@@ -142,10 +140,9 @@ require (
 	github.com/zclconf/go-cty v0.0.0-20180829180805-c2393a5d54f2 // indirect
 	github.com/ziutek/mymysql v1.5.4 // indirect
 	go.etcd.io/bbolt v1.3.5 // indirect
-	golang.org/x/crypto v0.0.0-20200604202706-70a84ac30bf9
-	golang.org/x/net v0.0.0-20200602114024-627f9648deb9
-	golang.org/x/sys v0.0.0-20200602225109-6fdc65e7d980
-	golang.org/x/text v0.3.2 // indirect
+	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
+	golang.org/x/net v0.0.0-20200625001655-4c5254603344
+	golang.org/x/sys v0.0.0-20200625212154-ddb9806d33ae
 	gonum.org/v1/gonum v0.6.1 // indirect
 	google.golang.org/grpc v1.26.0
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6

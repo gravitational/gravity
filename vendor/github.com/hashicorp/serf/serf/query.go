@@ -9,8 +9,6 @@ import (
 	"regexp"
 	"sync"
 	"time"
-
-	"github.com/hashicorp/memberlist"
 )
 
 // QueryParam is provided to Query() to configure the parameters of the
@@ -245,12 +243,7 @@ func (s *Serf) shouldProcessQuery(filters [][]byte) bool {
 
 // relayResponse will relay a copy of the given response to up to relayFactor
 // other members.
-func (s *Serf) relayResponse(
-	relayFactor uint8,
-	addr net.UDPAddr,
-	nodeName string,
-	resp *messageQueryResponse,
-) error {
+func (s *Serf) relayResponse(relayFactor uint8, addr net.UDPAddr, resp *messageQueryResponse) error {
 	if relayFactor == 0 {
 		return nil
 	}
@@ -264,7 +257,7 @@ func (s *Serf) relayResponse(
 	}
 
 	// Prep the relay message, which is a wrapped version of the original.
-	raw, err := encodeRelayMessage(messageQueryResponseType, addr, nodeName, &resp)
+	raw, err := encodeRelayMessage(messageQueryResponseType, addr, &resp)
 	if err != nil {
 		return fmt.Errorf("failed to format relayed response: %v", err)
 	}
@@ -278,12 +271,8 @@ func (s *Serf) relayResponse(
 		return m.Status != StatusAlive || m.ProtocolMax < 5 || m.Name == localName
 	})
 	for _, m := range relayMembers {
-		udpAddr := net.UDPAddr{IP: m.Addr, Port: int(m.Port)}
-		relayAddr := memberlist.Address{
-			Addr: udpAddr.String(),
-			Name: m.Name,
-		}
-		if err := s.memberlist.SendToAddress(relayAddr, raw); err != nil {
+		relayAddr := net.UDPAddr{IP: m.Addr, Port: int(m.Port)}
+		if err := s.memberlist.SendTo(&relayAddr, raw); err != nil {
 			return fmt.Errorf("failed to send relay response: %v", err)
 		}
 	}
