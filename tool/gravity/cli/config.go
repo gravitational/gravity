@@ -1309,7 +1309,7 @@ func InstallerCleanup() error {
 // InstallerGenerateLocalReport creates a host-local debug report in the specified file
 func InstallerGenerateLocalReport(env *localenv.LocalEnvironment) func(context.Context, string) error {
 	return func(ctx context.Context, path string) error {
-		return systemReport(env, report.AllFilters, true, path)
+		return systemReport(env, report.AllFilters, true, path, time.Duration(0))
 	}
 }
 

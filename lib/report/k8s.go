@@ -20,6 +20,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strconv"
+	"time"
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/utils"
@@ -30,9 +32,9 @@ import (
 
 // NewKubernetesCollector returns a list of collectors to fetch kubernetes-specific
 // diagnostics.
-func NewKubernetesCollector(ctx context.Context, runner utils.CommandRunner) Collectors {
+func NewKubernetesCollector(ctx context.Context, runner utils.CommandRunner, since time.Duration) Collectors {
 	runner = planetContextRunner{runner}
-	// general kubernetes info
+	// collect general kubernetes info
 	commands := Collectors{
 		Cmd("k8s-nodes", utils.PlanetCommand(kubectl.Command("get", "nodes", "-o", "yaml"))...),
 		Cmd("k8s-nodes-describe", utils.PlanetCommand(kubectl.Command("describe", "nodes"))...),
@@ -42,8 +44,6 @@ func NewKubernetesCollector(ctx context.Context, runner utils.CommandRunner) Col
 			"get", "pods", "-o", "yaml", "--all-namespaces"))...),
 		Cmd("k8s-events", utils.PlanetCommand(kubectl.Command(
 			"get", "events", "--all-namespaces"))...),
-		Cmd("k8s-cluster-info-dump", utils.PlanetCommand(kubectl.Command(
-			"cluster-info", "dump", "--all-namespaces"))...),
 	}
 
 	namespaces, err := kubectl.GetNamespaces(ctx, runner)
@@ -51,10 +51,38 @@ func NewKubernetesCollector(ctx context.Context, runner utils.CommandRunner) Col
 		namespaces = defaults.UsedNamespaces
 	}
 
+	// collect previous container logs
+	commands = append(commands, capturePreviousContainerLogs(ctx, namespaces, runner, since)...)
+
+	// collect current container logs
+	if since == 0 {
+		return append(commands, Cmd("k8s-cluster-info-dump", utils.PlanetCommand(kubectl.Command("cluster-info", "dump", "--all-namespaces"))...))
+	}
+	// kubectl cluster-info dump does not provide a --since flag, so collect
+	// current container logs individually with kubectl logs.
+	return append(commands, captureCurrentContainerLogs(ctx, namespaces, runner, since)...)
+}
+
+// capturePreviousContainerLogs collects logs for previously running container
+// instances.
+func capturePreviousContainerLogs(ctx context.Context, namespaces []string, runner utils.CommandRunner,
+	since time.Duration) (collectors Collectors) {
+	return captureContainerLogs(ctx, namespaces, runner, since, true)
+}
+
+// captureCurrentContainerLogs collects logs for currently running container
+// instances.
+func captureCurrentContainerLogs(ctx context.Context, namespaces []string, runner utils.CommandRunner,
+	since time.Duration) (collectors Collectors) {
+	return captureContainerLogs(ctx, namespaces, runner, since, false)
+}
+
+func captureContainerLogs(ctx context.Context, namespaces []string, runner utils.CommandRunner,
+	since time.Duration, previous bool) (collectors Collectors) {
 	for _, namespace := range namespaces {
 		for _, resourceType := range defaults.KubernetesReportResourceTypes {
 			name := fmt.Sprintf("k8s-%s-%s", namespace, resourceType)
-			commands = append(commands, Cmd(name,
+			collectors = append(collectors, Cmd(name,
 				utils.PlanetCommand(kubectl.Command("describe", resourceType, "--namespace", namespace))...))
 		}
 
@@ -75,21 +103,27 @@ func NewKubernetesCollector(ctx context.Context, runner utils.CommandRunner) Col
 				continue
 			}
 			for _, container := range containers {
-				name := fmt.Sprintf("k8s-logs-%v-%v-%v", namespace, pod, container)
-				commands = append(commands, Cmd(name, utils.PlanetCommand(kubectl.Command("logs", pod,
-					"--namespace", namespace,
-					fmt.Sprintf("-c=%v", container)))...))
-				// Also collect logs for the previous instance
-				// of the container if there's any.
-				name = fmt.Sprintf("%v-prev", name)
-				commands = append(commands, Cmd(name, utils.PlanetCommand(kubectl.Command("logs", pod,
-					"--namespace", namespace, "-p",
-					fmt.Sprintf("-c=%v", container)))...))
+				collectors = append(collectors, containerLogCollector(namespace, pod, container, since, previous))
 			}
 		}
 	}
 
-	return commands
+	return collectors
+}
+
+// containerLogCollector returns a k8s log collector with the provided values
+// and configuration. If previous is true, only collect logs for previously
+// running instances of the container.
+func containerLogCollector(namespace, pod, container string, since time.Duration, previous bool) (cmd Command) {
+	name := fmt.Sprintf("k8s-logs-%v-%v-%v", namespace, pod, container)
+	if previous {
+		name += "-prev"
+	}
+	return Cmd(name, kubectl.Command("logs", pod,
+		"--namespace", namespace,
+		"--since", since.String(),
+		fmt.Sprintf("-p=%v", strconv.FormatBool(previous)),
+		fmt.Sprintf("-c=%v", container)).Args()...)
 }
 
 // RunStream executes the command specified with args in the context of the planet container

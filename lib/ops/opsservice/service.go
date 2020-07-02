@@ -292,10 +292,6 @@ func (o *Operator) users() users.Identity {
 	return o.cfg.Users
 }
 
-func (o *Operator) publicURL() string {
-	return fmt.Sprintf("https://" + o.cfg.PublicAddr.String())
-}
-
 func (o *Operator) GetAccount(accountID string) (*ops.Account, error) {
 	out, err := o.backend().GetAccount(accountID)
 	if err != nil {
@@ -1163,13 +1159,13 @@ func (o *Operator) CreateLogEntry(key ops.SiteOperationKey, entry ops.LogEntry) 
 	return site.createLogEntry(key, entry)
 }
 
-func (o *Operator) GetSiteReport(key ops.SiteKey) (io.ReadCloser, error) {
-	cluster, err := o.openSite(key)
+func (o *Operator) GetSiteReport(req ops.GetClusterReportRequest) (io.ReadCloser, error) {
+	cluster, err := o.openSite(req.SiteKey)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	return cluster.getClusterReport()
+	return cluster.getClusterReport(req.Since)
 }
 
 func (o *Operator) GetSiteOperationProgress(key ops.SiteOperationKey) (*ops.ProgressEntry, error) {
