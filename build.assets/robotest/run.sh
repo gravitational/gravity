@@ -38,7 +38,7 @@ esac
 
 function build_volume_mounts {
   for release in ${UPGRADE_VERSIONS[@]}; do
-      local tarball=$(semver_to_tarball ${release})
+      local tarball=$(tag_to_tarball ${release})
       echo "-v $UPGRADE_FROM_DIR/$tarball:/$tarball"
   done
 }

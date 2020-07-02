@@ -89,7 +89,7 @@ EOF
   echo $suite
 }
 
-function semver_to_tarball {
+function tag_to_tarball {
   local version=${1:?specify a version}
   echo "telekube_${version}.tar"
 }

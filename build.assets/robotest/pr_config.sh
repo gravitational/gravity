@@ -21,7 +21,7 @@ function build_upgrade_suite {
   local suite=''
   local cluster_size='"flavor":"three","nodes":3,"role":"node"'
   for release in ${!UPGRADE_MAP[@]}; do
-    local from_tarball=/$(semver_to_tarball $release)
+    local from_tarball=/$(tag_to_tarball $release)
     for os in ${UPGRADE_MAP[$release]}; do
       suite+=$(build_upgrade_step $from_tarball $os $cluster_size)
       suite+=' '

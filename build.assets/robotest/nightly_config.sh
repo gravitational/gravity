@@ -18,7 +18,7 @@ UPGRADE_MAP[6.2.0]="ubuntu:16"
 UPGRADE_VERSIONS=${!UPGRADE_MAP[@]}
 
 function build_upgrade_size_suite {
-  local from_tarball=/$(semver_to_tarball $(recommended_upgrade_tag $(branch 7.0.x)))
+  local from_tarball=/$(tag_to_tarball $(recommended_upgrade_tag $(branch 7.0.x)))
   local os="redhat:7"
   local cluster_sizes=( \
     '"flavor":"three","nodes":3,"role":"node"' \
@@ -36,7 +36,7 @@ function build_upgrade_to_release_under_test_suite {
   local cluster_size='"flavor":"three","nodes":3,"role":"node"'
   local suite=''
   for release in ${!UPGRADE_MAP[@]}; do
-    local from_tarball=/$(semver_to_tarball $release)
+    local from_tarball=/$(tag_to_tarball $release)
     for os in ${UPGRADE_MAP[$release]}; do
       suite+=$(build_upgrade_step $from_tarball $os $cluster_size)
       suite+=' '
