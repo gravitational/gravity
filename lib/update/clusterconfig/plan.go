@@ -83,7 +83,7 @@ func newOperationPlan(
 	var builder *builder
 	var updates []storage.UpdateServer
 	if updatesServiceCIDR {
-		builder, err = newBuilderWithServices(app.Package, client.CoreV1())
+		builder, err = newBuilderWithServices(app.Package, client.CoreV1(), clusterConfig.GetGlobalConfig().ServiceCIDR)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}

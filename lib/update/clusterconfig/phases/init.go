@@ -23,7 +23,7 @@ func NewInit(params fsm.ExecutorParams, client corev1.CoreV1Interface, logger lo
 		workerServiceName: params.Phase.Data.Update.ClusterConfig.DNSWorkerServiceName,
 	}
 	for _, service := range params.Phase.Data.Update.ClusterConfig.Services {
-		if !isDNSService(service) && isKubernetesService(service) {
+		if !isSpecialService(service) {
 			logger.WithField("service", fmt.Sprintf("%#v", service)).Info("Found a generic service.")
 			step.services = append(step.services, service)
 			continue
@@ -76,7 +76,6 @@ type Init struct {
 	dnsWorkerService v1.Service
 	// services lists all other cluster services except DNS and kuberentes services
 	services []v1.Service
-	// changeset rigging.Changeset
 }
 
 func (r *Init) renameDNSServices(ctx context.Context) error {
@@ -117,13 +116,8 @@ func (r *Init) removeDNSServices(ctx context.Context) error {
 	return nil
 }
 
-// TODO: use rigging to manage service state
 func (r *Init) recreateServices(ctx context.Context) error {
-	// TODO: r.changeset.Revert()
-	services := make([]v1.Service, 0, len(r.services)+2)
-	copy(services, r.services)
-	services = append(services, r.dnsService, r.dnsWorkerService)
-	for _, service := range services {
+	for _, service := range r.services {
 		services := r.client.Services(service.Namespace)
 		if err := r.recreateService(ctx, service.Name, service, services); err != nil {
 			return trace.Wrap(err)
@@ -138,7 +132,7 @@ func (r *Init) recreateService(ctx context.Context, name string, service v1.Serv
 		return trace.Wrap(err, "failed to delete service: %v/%v", service.Namespace, name)
 	}
 	service.ResourceVersion = "0"
-	if _, err := services.Create(&service); err != nil {
+	if err := createServiceFromTemplate(ctx, service, services, r.FieldLogger); err != nil {
 		return trace.Wrap(rigging.ConvertError(err),
 			"failed to create service: %v", formatMeta(service.ObjectMeta))
 	}

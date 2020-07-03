@@ -192,6 +192,8 @@ type ClusterConfigData struct {
 	// DNSWorkerServiceName specifies the name of the DNS worker service with a ClusterIP
 	// from a new service subnet when updating cluster service CIDR
 	DNSWorkerServiceName string `json:"dns_worker_service_name,omitempty"`
+	// ServiceCIDR specifies the service IP range
+	ServiceCIDR string `json:"service_cidr,omitempty"`
 	// Services lists original service definitions as captured
 	// prior to update
 	Services []v1.Service `json:"services,omitempty"`

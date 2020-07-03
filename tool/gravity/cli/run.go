@@ -130,6 +130,7 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.PlanResumeCmd.FullCommand(),
 		g.PlanExecuteCmd.FullCommand(),
 		g.PlanRollbackCmd.FullCommand(),
+		g.RollbackCmd.FullCommand(),
 		g.ResourceCreateCmd.FullCommand(),
 		g.ResourceRemoveCmd.FullCommand(),
 		g.OpsAgentCmd.FullCommand():

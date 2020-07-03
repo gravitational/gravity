@@ -3,12 +3,11 @@ package phases
 import (
 	"context"
 	"fmt"
+	"net"
 
 	"github.com/gravitational/gravity/lib/fsm"
-	"github.com/gravitational/gravity/lib/utils"
+	"github.com/gravitational/gravity/lib/network/ipallocator"
 
-	"github.com/gravitational/configure"
-	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
@@ -18,12 +17,18 @@ import (
 
 // NewServices returns a new services step implementation
 func NewServices(params fsm.ExecutorParams, client corev1.CoreV1Interface, logger log.FieldLogger) (*Services, error) {
+	serviceCIDR := params.Phase.Data.Update.ClusterConfig.ServiceCIDR
+	_, ipNet, err := net.ParseCIDR(serviceCIDR)
+	if err != nil {
+		return nil, trace.Wrap(err, "invalid service subnet: %q", serviceCIDR)
+	}
 	step := Services{
 		FieldLogger: logger,
 		client:      client,
+		alloc:       ipallocator.NewAllocatorCIDRRange(ipNet),
 	}
 	for _, service := range params.Phase.Data.Update.ClusterConfig.Services {
-		if !isDNSService(service) && !isKubernetesService(service) {
+		if !isSpecialService(service) {
 			logger.WithField("service", fmt.Sprintf("%#v", service)).Info("Found a generic service.")
 			step.services = append(step.services, service)
 			continue
@@ -63,7 +68,7 @@ type Services struct {
 	client           corev1.CoreV1Interface
 	dnsWorkerService v1.Service
 	services         []v1.Service
-	subnet           configure.CIDR
+	alloc            *ipallocator.Range
 }
 
 func (r *Services) removeDNSServices(ctx context.Context) error {
@@ -83,40 +88,12 @@ func (r *Services) resetServices(ctx context.Context) error {
 		services := r.client.Services(service.Namespace)
 		logger.Info("Remove service.")
 		err := removeService(ctx, service.Name, &metav1.DeleteOptions{}, services)
-		if err != nil && !trace.IsNotFound(err) {
+		if err != nil {
 			return trace.Wrap(err)
 		}
-		// Let kubernetes allocate the new IP
-		service.Spec.ClusterIP = ""
-		logger.WithField("cluster-ip", service.Spec.ClusterIP).Info("Recreate service with new cluster IP.")
-		service.ResourceVersion = "0"
-		_, err = services.Create(&service)
-		if err != nil {
-			return rigging.ConvertError(err)
+		if err := createServiceWithClusterIP(ctx, service, r.alloc, services, logger); err != nil {
+			return trace.Wrap(err)
 		}
 	}
 	return nil
 }
-
-func isKubernetesService(service v1.Service) bool {
-	return service.Name == kubernetesService && service.Namespace == metav1.NamespaceDefault
-}
-
-func isDNSService(service v1.Service) bool {
-	return utils.StringInSlice(dnsServices, service.Name) && service.Namespace == metav1.NamespaceSystem
-}
-
-func formatMeta(meta metav1.ObjectMeta) string {
-	return fmt.Sprintf("%v/%v", meta.Namespace, meta.Name)
-}
-
-var dnsServices = []string{
-	dnsServiceName,
-	dnsWorkerServiceName,
-}
-
-const (
-	dnsServiceName       = "kube-dns"
-	dnsWorkerServiceName = "kube-dns-worker"
-	kubernetesService    = "kubernetes"
-)

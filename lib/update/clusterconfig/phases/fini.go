@@ -5,7 +5,6 @@ import (
 
 	"github.com/gravitational/gravity/lib/fsm"
 
-	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -22,24 +21,25 @@ func NewFini(params fsm.ExecutorParams, client corev1.CoreV1Interface, logger lo
 	}, nil
 }
 
-// Execute renames the new dns services so they persist and removes the old services
-func (r *Fini) Execute(context.Context) error {
+// Execute renames the new DNS services so they persist and removes the old services
+func (r *Fini) Execute(ctx context.Context) error {
 	services := r.client.Services(metav1.NamespaceSystem)
-	err := services.Delete(r.serviceName, &metav1.DeleteOptions{})
-	err = rigging.ConvertError(err)
-	if err != nil && !trace.IsNotFound(err) {
-		return err
-	}
-	err = services.Delete(r.workerServiceName, &metav1.DeleteOptions{})
-	err = rigging.ConvertError(err)
-	if err != nil && !trace.IsNotFound(err) {
-		return err
+	for _, service := range []string{r.serviceName, r.workerServiceName} {
+		if err := removeService(ctx, service, &metav1.DeleteOptions{}, services); err != nil {
+			return trace.Wrap(err)
+		}
 	}
 	return nil
 }
 
-// Rollback is no-op for this phase
-func (r *Fini) Rollback(context.Context) error {
+// Rollback removes the DNS services so they will be reset by agents on their way back
+func (r *Fini) Rollback(ctx context.Context) error {
+	services := r.client.Services(metav1.NamespaceSystem)
+	for _, service := range []string{dnsServiceName, dnsWorkerServiceName} {
+		if err := removeService(ctx, service, &metav1.DeleteOptions{}, services); err != nil {
+			return trace.Wrap(err)
+		}
+	}
 	return nil
 }
 

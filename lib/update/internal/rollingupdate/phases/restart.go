@@ -105,7 +105,12 @@ func (r *restart) Rollback(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = updater.Rollback(ctx, true)
+	// Do not wait for the container to become healthy
+	// on the way back - it might not be possible (e.g. during
+	// rollback of the service CIDR upgrade when the agent would
+	// not be able to create the DNS services until all nodes have
+	// been rolled back)
+	err = updater.Rollback(ctx, false)
 	return trace.Wrap(err)
 }
 
