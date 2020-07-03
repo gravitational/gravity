@@ -29,6 +29,7 @@ import (
 	libphase "github.com/gravitational/gravity/lib/update/internal/rollingupdate/phases"
 
 	. "gopkg.in/check.v1"
+	v1 "k8s.io/api/core/v1"
 )
 
 func TestFSM(t *testing.T) { TestingT(t) }
@@ -65,8 +66,9 @@ func (S) TestSingleNodePlan(c *C) {
 		},
 	}
 	clusterConfig := clusterconfig.NewEmpty()
+	var services []v1.Service
 
-	plan, err := newOperationPlan(app, storage.DefaultDNSConfig, testOperator, operation, clusterConfig, servers)
+	plan, err := newOperationPlan(app, storage.DefaultDNSConfig, testOperator, operation, clusterConfig, servers, services)
 	c.Assert(err, IsNil)
 	c.Assert(plan, compare.DeepEquals, &storage.OperationPlan{
 		OperationID:   operation.ID,
@@ -217,8 +219,9 @@ func (S) TestMultiNodePlan(c *C) {
 		},
 	}
 	clusterConfig := clusterconfig.NewEmpty()
+	var services []v1.Service
 
-	plan, err := newOperationPlan(app, storage.DefaultDNSConfig, testOperator, operation, clusterConfig, servers)
+	plan, err := newOperationPlan(app, storage.DefaultDNSConfig, testOperator, operation, clusterConfig, servers, services)
 	c.Assert(err, IsNil)
 	c.Assert(plan, compare.DeepEquals, &storage.OperationPlan{
 		OperationID:   operation.ID,
@@ -313,13 +316,26 @@ func (S) TestMultiNodePlan(c *C) {
 								Requires: []string{"/masters/node-1/drain"},
 							},
 							{
+								ID:          "/masters/node-1/elect",
+								Executor:    libphase.Elections,
+								Description: `Make node "node-1" Kubernetes leader`,
+								Data: &storage.OperationPhaseData{
+									Server: &servers[0],
+									ElectionChange: &storage.ElectionChange{
+										EnableServers:  []storage.Server{servers[0]},
+										DisableServers: []storage.Server{servers[2]},
+									},
+								},
+								Requires: []string{"/masters/node-1/restart"},
+							},
+							{
 								ID:          "/masters/node-1/taint",
 								Executor:    libphase.Taint,
 								Description: `Taint node "node-1"`,
 								Data: &storage.OperationPhaseData{
 									Server: &servers[0],
 								},
-								Requires: []string{"/masters/node-1/restart"},
+								Requires: []string{"/masters/node-1/elect"},
 							},
 							{
 								ID:          "/masters/node-1/uncordon",
@@ -347,19 +363,6 @@ func (S) TestMultiNodePlan(c *C) {
 									Server: &servers[0],
 								},
 								Requires: []string{"/masters/node-1/endpoints"},
-							},
-							{
-								ID:          "/masters/node-1/elect",
-								Executor:    libphase.Elections,
-								Description: `Make node "node-1" Kubernetes leader`,
-								Data: &storage.OperationPhaseData{
-									Server: &servers[0],
-									ElectionChange: &storage.ElectionChange{
-										EnableServers:  []storage.Server{servers[0]},
-										DisableServers: []storage.Server{servers[2]},
-									},
-								},
-								Requires: []string{"/masters/node-1/untaint"},
 							},
 						},
 					},
@@ -495,8 +498,10 @@ func (S) TestBuildsPlanWithNodes(c *C) {
 kind: KubeletConfiguration
 address: "0.0.0.0"`),
 	}
+	// FIXME: populate services
+	var services []v1.Service
 
-	plan, err := newOperationPlan(app, storage.DefaultDNSConfig, testOperator, operation, clusterConfig, servers)
+	plan, err := newOperationPlan(app, storage.DefaultDNSConfig, testOperator, operation, clusterConfig, servers, services)
 	c.Assert(err, IsNil)
 	c.Assert(plan, compare.DeepEquals, &storage.OperationPlan{
 		OperationID:   operation.ID,
@@ -709,14 +714,28 @@ address: "0.0.0.0"`),
 	})
 }
 
+func (r testRotator) RotateSecrets(ops.RotateSecretsRequest) (*ops.RotatePackageResponse, error) {
+	return &ops.RotatePackageResponse{Locator: r.secretsPackage}, nil
+}
+
 func (r testRotator) RotatePlanetConfig(ops.RotatePlanetConfigRequest) (*ops.RotatePackageResponse, error) {
 	return &ops.RotatePackageResponse{Locator: r.runtimeConfigPackage}, nil
 }
 
 var testOperator = testRotator{
-	runtimeConfigPackage: loc.Locator{Repository: "gravitational.io", Name: "planet-config", Version: "0.0.1"},
+	secretsPackage: loc.Locator{
+		Repository: "gravitational.io",
+		Name:       "planet-secrets",
+		Version:    "0.0.1",
+	},
+	runtimeConfigPackage: loc.Locator{
+		Repository: "gravitational.io",
+		Name:       "planet-config",
+		Version:    "0.0.1",
+	},
 }
 
 type testRotator struct {
+	secretsPackage       loc.Locator
 	runtimeConfigPackage loc.Locator
 }

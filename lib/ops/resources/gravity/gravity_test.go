@@ -65,7 +65,7 @@ func (s *GravityResourcesSuite) SetUpSuite(c *check.C) {
 		Silent:   localenv.Silent(false),
 	})
 	c.Assert(err, check.IsNil)
-	s.cluster, err = client.GetLocalSite()
+	s.cluster, err = client.GetLocalSite(context.TODO())
 	c.Assert(err, check.IsNil)
 }
 

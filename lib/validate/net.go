@@ -22,9 +22,9 @@ import (
 	"github.com/gravitational/trace"
 )
 
-// KubernetesSubnetValues makes sure that the provided CIDR ranges are valid and can be used as
+// KubernetesSubnetsFromStrings makes sure that the provided CIDR ranges are valid and can be used as
 // pod/service Kubernetes subnets
-func KubernetesSubnetValues(podCIDR, serviceCIDR string) error {
+func KubernetesSubnetsFromStrings(podCIDR, serviceCIDR string) error {
 	var podNet, serviceNet *net.IPNet
 	var err error
 

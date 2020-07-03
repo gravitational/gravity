@@ -2,11 +2,11 @@ package phases
 
 import (
 	"context"
-	"fmt"
 	"net"
 
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/network/ipallocator"
+	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
@@ -29,17 +29,17 @@ func NewServices(params fsm.ExecutorParams, client corev1.CoreV1Interface, logge
 	}
 	for _, service := range params.Phase.Data.Update.ClusterConfig.Services {
 		if !isSpecialService(service) {
-			logger.WithField("service", fmt.Sprintf("%#v", service)).Info("Found a generic service.")
+			utils.WithService(service, logger).Debug("Found a service.")
 			step.services = append(step.services, service)
 			continue
 		}
 	}
-	logger.WithField("step", fmt.Sprintf("%#v", step)).Info("New services step.")
 	return &step, nil
 }
 
 // Execute resets the clusterIP for all the cluster services of type ClusterIP
-// except DNS services.
+// except services it does not need to handle/manage (eg kubernetes api server service
+// and DNS/headless services).
 // It renames the existing DNS services to keep them available for nodes that have not
 // been upgraded to the new service subnet so the Pods scheduled on these nodes can still
 // resolve cluster addresses using the old DNS service
@@ -47,7 +47,7 @@ func (r *Services) Execute(ctx context.Context) error {
 	return trace.Wrap(r.resetServices(ctx))
 }
 
-// Rollback reverts the DNS/kubernetes services created in the new service subnet
+// Rollback removes the temporary DNS services created in the new service subnet
 func (r *Services) Rollback(ctx context.Context) error {
 	return trace.Wrap(r.removeDNSServices(ctx))
 }
@@ -84,7 +84,7 @@ func (r *Services) removeDNSServices(ctx context.Context) error {
 
 func (r *Services) resetServices(ctx context.Context) error {
 	for _, service := range r.services {
-		logger := r.WithField("service", formatMeta(service.ObjectMeta))
+		logger := r.WithField("service", utils.FormatMeta(service.ObjectMeta))
 		services := r.client.Services(service.Namespace)
 		logger.Info("Remove service.")
 		err := removeService(ctx, service.Name, &metav1.DeleteOptions{}, services)

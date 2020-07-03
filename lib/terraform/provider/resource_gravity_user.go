@@ -57,7 +57,7 @@ func resourceGravityUser() *schema.Resource {
 
 func resourceGravityUserUpsert(d *schema.ResourceData, m interface{}) error {
 	client := m.(*opsclient.Client)
-	clusterKey, err := client.LocalClusterKey()
+	clusterKey, err := client.LocalClusterKey(context.TODO())
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -87,7 +87,7 @@ func resourceGravityUserUpsert(d *schema.ResourceData, m interface{}) error {
 
 func resourceGravityUserRead(d *schema.ResourceData, m interface{}) error {
 	client := m.(*opsclient.Client)
-	clusterKey, err := client.LocalClusterKey()
+	clusterKey, err := client.LocalClusterKey(context.TODO())
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -110,7 +110,7 @@ func resourceGravityUserRead(d *schema.ResourceData, m interface{}) error {
 
 func resourceGravityUserDelete(d *schema.ResourceData, m interface{}) error {
 	client := m.(*opsclient.Client)
-	clusterKey, err := client.LocalClusterKey()
+	clusterKey, err := client.LocalClusterKey(context.TODO())
 	if err != nil {
 		return trace.Wrap(err)
 	}

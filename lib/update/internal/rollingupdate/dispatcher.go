@@ -53,7 +53,7 @@ func (r *dispatcher) Dispatch(config Config, params fsm.ExecutorParams, remote f
 		return libphase.NewEndpoints(params, config.Client, logger)
 	case libphase.Custom:
 		// Custom phase is not defined by default. It can be optionally provided
-		// by custom implementations of the loop
+		// by custom dispatcher implementations
 		return nil, nil
 	default:
 		return nil, trace.BadParameter("unknown executor %v for phase %q",

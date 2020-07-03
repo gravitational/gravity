@@ -2,9 +2,9 @@ package phases
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/gravitational/gravity/lib/fsm"
+	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
@@ -24,7 +24,7 @@ func NewInit(params fsm.ExecutorParams, client corev1.CoreV1Interface, logger lo
 	}
 	for _, service := range params.Phase.Data.Update.ClusterConfig.Services {
 		if !isSpecialService(service) {
-			logger.WithField("service", fmt.Sprintf("%#v", service)).Info("Found a generic service.")
+			utils.WithService(service, logger).Debug("Found a service.")
 			step.services = append(step.services, service)
 			continue
 		}
@@ -34,7 +34,6 @@ func NewInit(params fsm.ExecutorParams, client corev1.CoreV1Interface, logger lo
 			step.dnsWorkerService = service
 		}
 	}
-	logger.WithField("step", fmt.Sprintf("%#v", step)).Info("New init step.")
 	return &step, nil
 }
 
@@ -89,18 +88,12 @@ func (r *Init) renameDNSServices(ctx context.Context) error {
 }
 
 func (r *Init) renameService(ctx context.Context, service v1.Service, newName string) error {
-	r.WithField("service", formatMeta(service.ObjectMeta)).Info("Rename service.")
+	r.WithField("service", utils.FormatMeta(service.ObjectMeta)).Info("Rename service.")
 	services := r.client.Services(service.Namespace)
-	err := removeService(ctx, service.Name, &metav1.DeleteOptions{}, services)
-	err = rigging.ConvertError(err)
-	if err != nil && !trace.IsNotFound(err) {
-		return trace.Wrap(err)
-	}
-	service.ResourceVersion = "0"
+	existingName := service.Name
 	service.Name = newName
-	_, err = services.Create(&service)
-	if err != nil {
-		return rigging.ConvertError(err)
+	if err := r.recreateService(ctx, existingName, service, services); err != nil {
+		return trace.Wrap(err)
 	}
 	return nil
 }
@@ -127,14 +120,18 @@ func (r *Init) recreateServices(ctx context.Context) error {
 }
 
 func (r *Init) recreateService(ctx context.Context, name string, service v1.Service, services corev1.ServiceInterface) error {
-	r.WithField("old-name", name).WithField("new-name", service.Name).Info("Recreate service.")
+	if name != service.Name {
+		r.WithField("old", name).WithField("new", service.Name).Info("Rename service.")
+	} else {
+		r.WithField("service", utils.FormatMeta(service.ObjectMeta)).Info("Recreate service.")
+	}
 	if err := removeService(ctx, name, &metav1.DeleteOptions{}, services); err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err, "failed to delete service: %v/%v", service.Namespace, name)
 	}
 	service.ResourceVersion = "0"
 	if err := createServiceFromTemplate(ctx, service, services, r.FieldLogger); err != nil {
 		return trace.Wrap(rigging.ConvertError(err),
-			"failed to create service: %v", formatMeta(service.ObjectMeta))
+			"failed to create service: %v", utils.FormatMeta(service.ObjectMeta))
 	}
 	return nil
 }

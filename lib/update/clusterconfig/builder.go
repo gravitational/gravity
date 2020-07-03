@@ -9,10 +9,9 @@ import (
 	"github.com/gravitational/gravity/lib/update/clusterconfig/phases"
 	"github.com/gravitational/gravity/lib/update/internal/rollingupdate"
 	libphase "github.com/gravitational/gravity/lib/update/internal/rollingupdate/phases"
-	"github.com/gravitational/trace"
 
+	v1 "k8s.io/api/core/v1"
 	utilrand "k8s.io/apimachinery/pkg/util/rand"
-	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
 func newBuilder(app loc.Locator) *builder {
@@ -23,11 +22,7 @@ func newBuilder(app loc.Locator) *builder {
 	}
 }
 
-func newBuilderWithServices(app loc.Locator, client corev1.CoreV1Interface, serviceCIDR string) (*builder, error) {
-	services, err := collectServices(client)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
+func newBuilderWithServices(app loc.Locator, services []v1.Service, serviceCIDR string) (*builder, error) {
 	suffix := utilrand.String(4)
 	return &builder{
 		Builder: rollingupdate.Builder{

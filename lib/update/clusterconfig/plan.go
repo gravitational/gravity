@@ -18,6 +18,7 @@ package clusterconfig
 
 import (
 	"context"
+	"net"
 
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
@@ -26,9 +27,11 @@ import (
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 	"github.com/gravitational/gravity/lib/update"
 	"github.com/gravitational/gravity/lib/update/internal/rollingupdate"
-	"github.com/gravitational/rigging"
+	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
+	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -52,7 +55,15 @@ func NewOperationPlan(
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to query installed application")
 	}
-	plan, err = newOperationPlan(*app, cluster.DNSConfig, operator, operation, clusterConfig, servers, client)
+	var services []v1.Service
+	updatesServiceCIDR := clusterConfig.GetGlobalConfig().ServiceCIDR != ""
+	if updatesServiceCIDR {
+		services, err = collectServices(client.CoreV1(), clusterConfig.GetGlobalConfig().ServiceCIDR)
+		if err != nil {
+			return nil, trace.Wrap(err, "failed to collect existing kubernetes services")
+		}
+	}
+	plan, err = newOperationPlan(*app, cluster.DNSConfig, operator, operation, clusterConfig, servers, services)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -77,13 +88,13 @@ func newOperationPlan(
 	operation ops.SiteOperation,
 	clusterConfig clusterconfig.Interface,
 	servers []storage.Server,
-	client *kubernetes.Clientset,
+	services []v1.Service,
 ) (plan *storage.OperationPlan, err error) {
 	updatesServiceCIDR := clusterConfig.GetGlobalConfig().ServiceCIDR != ""
 	var builder *builder
 	var updates []storage.UpdateServer
 	if updatesServiceCIDR {
-		builder, err = newBuilderWithServices(app.Package, client.CoreV1(), clusterConfig.GetGlobalConfig().ServiceCIDR)
+		builder, err = newBuilderWithServices(app.Package, services, clusterConfig.GetGlobalConfig().ServiceCIDR)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
@@ -143,28 +154,39 @@ func newOperationPlan(
 	return plan, nil
 }
 
-func collectServices(client corev1.CoreV1Interface) (result []v1.Service, err error) {
+func collectServices(client corev1.CoreV1Interface, serviceCIDR string) (result []v1.Service, err error) {
+	_, ipNet, err := net.ParseCIDR(serviceCIDR)
+	if err != nil {
+		return nil, trace.Wrap(err, "invalid service subnet: %v", serviceCIDR)
+	}
 	services, err := client.Services(constants.AllNamespaces).List(metav1.ListOptions{})
 	if err != nil {
 		return nil, rigging.ConvertError(err)
 	}
+	logger := logrus.WithField(trace.Component, "clusterconfig")
 	result = make([]v1.Service, 0, len(services.Items))
 	for _, service := range services.Items {
 		// This does not work exclusively on services of type v1.ServiceTypeClusterIP
 		// as at least gravity-site service uses v1.ServiceTypeLoadBalancer even for
 		// on-prem installs
-		if service.Spec.ClusterIP == "" {
+		if !shouldCollectService(service) {
+			continue
+		}
+		if ipNet.Contains(net.ParseIP(service.Spec.ClusterIP)) {
+			utils.WithService(service, logger).Warn("Service not from current network range - will skip.")
 			continue
 		}
 		result = append(result, service)
 	}
-	// TODO: validate existing DNS services or keep these separately in operation data
-	// TODO: validate that this collects only services in the valid service range
 	return result, nil
 }
 
 func hasServiceCIDRUpdate(clusterConfig clusterconfig.Interface) bool {
 	return len(clusterConfig.GetGlobalConfig().ServiceCIDR) != 0
+}
+
+func shouldCollectService(service v1.Service) bool {
+	return service.Spec.ClusterIP != "" && !utils.IsHeadlessService(service)
 }
 
 func shouldUpdateNodes(clusterConfig clusterconfig.Interface, numWorkerNodes int) bool {

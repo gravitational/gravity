@@ -55,7 +55,7 @@ func resourceGravityClusterAuthPreference() *schema.Resource {
 
 func resourceGravityClusterAuthPreferenceCreate(d *schema.ResourceData, m interface{}) error {
 	client := m.(*opsclient.Client)
-	clusterKey, err := client.LocalClusterKey()
+	clusterKey, err := client.LocalClusterKey(context.TODO())
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -90,7 +90,7 @@ func resourceGravityClusterAuthPreferenceCreate(d *schema.ResourceData, m interf
 
 func resourceGravityClusterAuthPreferenceRead(d *schema.ResourceData, m interface{}) error {
 	client := m.(*opsclient.Client)
-	clusterKey, err := client.LocalClusterKey()
+	clusterKey, err := client.LocalClusterKey(context.TODO())
 	if err != nil {
 		return trace.Wrap(err)
 	}

@@ -2,7 +2,6 @@ package phases
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"time"
 
@@ -30,14 +29,19 @@ func removeService(ctx context.Context, name string, opts *metav1.DeleteOptions,
 }
 
 func createServiceFromTemplate(ctx context.Context, service v1.Service, services corev1.ServiceInterface, logger log.FieldLogger) error {
-	logger.Info("Recreate service with original cluster IP.")
-	return utils.RetryTransient(ctx, newOperationBackoff(), func() error {
+	utils.WithService(service, logger).Debug("Recreate service with original cluster IP.")
+	return utils.RetryWithInterval(ctx, newOperationBackoff(), func() error {
 		service.ResourceVersion = "0"
 		_, err := services.Create(&service)
-		if err != nil && !errors.IsAlreadyExists(err) {
-			return rigging.ConvertError(err)
+		if err == nil || errors.IsAlreadyExists(err) {
+			return nil
 		}
-		return nil
+		switch {
+		case utils.IsTransientClusterError(err), isIPRangeMistmatchError(err):
+			return rigging.ConvertError(err)
+		default:
+			return &backoff.PermanentError{Err: err}
+		}
 	})
 }
 
@@ -54,7 +58,6 @@ func createServiceWithClusterIP(ctx context.Context, service v1.Service, alloc *
 		if err == nil || errors.IsAlreadyExists(err) {
 			return nil
 		}
-		logger.WithField("status-error", dumpStatusError(err)).Info("Service create error.")
 		switch {
 		case utils.IsTransientClusterError(err), isIPRangeMistmatchError(err):
 			// Fall-through
@@ -109,36 +112,16 @@ func statusHasCause(status metav1.Status, field, messagePattern string) bool {
 	return false
 }
 
-func dumpStatusError(err error) string {
-	switch err := err.(type) {
-	case *errors.StatusError:
-		return fmt.Sprintf("Error: %#v, Details: %#v", err, err.ErrStatus.Details)
-	}
-	return fmt.Sprintf("%#v", err)
-}
-
 func newOperationBackoff() backoff.BackOff {
 	return utils.NewExponentialBackOff(5 * time.Minute)
 }
 
 func isSpecialService(service v1.Service) bool {
-	return isHeadlessService(service) || isKubernetesService(service) || isDNSService(service)
-}
-
-func isHeadlessService(service v1.Service) bool {
-	return service.Spec.ClusterIP == headlessServiceClusterIP
-}
-
-func isKubernetesService(service v1.Service) bool {
-	return service.Name == kubernetesService && service.Namespace == metav1.NamespaceDefault
+	return utils.IsHeadlessService(service) || utils.IsAPIServerService(service) || isDNSService(service)
 }
 
 func isDNSService(service v1.Service) bool {
 	return utils.StringInSlice(dnsServices, service.Name) && service.Namespace == metav1.NamespaceSystem
-}
-
-func formatMeta(meta metav1.ObjectMeta) string {
-	return fmt.Sprintf("%v/%v", meta.Namespace, meta.Name)
 }
 
 var dnsServices = []string{
@@ -149,7 +132,4 @@ var dnsServices = []string{
 const (
 	dnsServiceName       = "kube-dns"
 	dnsWorkerServiceName = "kube-dns-worker"
-	kubernetesService    = "kubernetes"
-
-	headlessServiceClusterIP = "None"
 )

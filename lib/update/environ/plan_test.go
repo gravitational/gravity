@@ -331,7 +331,19 @@ func (S) TestMultiNodePlan(c *C) {
 								},
 								Requires: []string{"/masters/node-1/drain"},
 							},
-
+							{
+								ID:          "/masters/node-1/elect",
+								Executor:    libphase.Elections,
+								Description: `Make node "node-1" Kubernetes leader`,
+								Data: &storage.OperationPhaseData{
+									Server: &servers[0],
+									ElectionChange: &storage.ElectionChange{
+										EnableServers:  []storage.Server{servers[0]},
+										DisableServers: []storage.Server{servers[2]},
+									},
+								},
+								Requires: []string{"/masters/node-1/restart"},
+							},
 							{
 								ID:          "/masters/node-1/taint",
 								Executor:    libphase.Taint,
@@ -339,7 +351,7 @@ func (S) TestMultiNodePlan(c *C) {
 								Data: &storage.OperationPhaseData{
 									Server: &servers[0],
 								},
-								Requires: []string{"/masters/node-1/restart"},
+								Requires: []string{"/masters/node-1/elect"},
 							},
 							{
 								ID:          "/masters/node-1/uncordon",
@@ -367,19 +379,6 @@ func (S) TestMultiNodePlan(c *C) {
 									Server: &servers[0],
 								},
 								Requires: []string{"/masters/node-1/endpoints"},
-							},
-							{
-								ID:          "/masters/node-1/elect",
-								Executor:    libphase.Elections,
-								Description: `Make node "node-1" Kubernetes leader`,
-								Data: &storage.OperationPhaseData{
-									Server: &servers[0],
-									ElectionChange: &storage.ElectionChange{
-										EnableServers:  []storage.Server{servers[0]},
-										DisableServers: []storage.Server{servers[2]},
-									},
-								},
-								Requires: []string{"/masters/node-1/untaint"},
 							},
 						},
 					},
@@ -641,6 +640,11 @@ func (S) TestMultiNodePlan(c *C) {
 			},
 		},
 	})
+}
+
+func (r testRotator) RotateSecrets(ops.RotateSecretsRequest) (*ops.RotatePackageResponse, error) {
+	// No-op for this test
+	return nil, nil
 }
 
 func (r testRotator) RotatePlanetConfig(ops.RotatePlanetConfigRequest) (*ops.RotatePackageResponse, error) {
