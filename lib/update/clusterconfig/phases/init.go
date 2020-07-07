@@ -17,10 +17,9 @@ import (
 // NewInit returns a new init step implementation
 func NewInit(params fsm.ExecutorParams, client corev1.CoreV1Interface, logger log.FieldLogger) (*Init, error) {
 	step := Init{
-		FieldLogger:       logger,
-		client:            client,
-		serviceName:       params.Phase.Data.Update.ClusterConfig.DNSServiceName,
-		workerServiceName: params.Phase.Data.Update.ClusterConfig.DNSWorkerServiceName,
+		FieldLogger: logger,
+		client:      client,
+		suffix:      serviceSuffix(params.Phase.Data.Update.ClusterConfig.ServiceSuffix),
 	}
 	for _, service := range params.Phase.Data.Update.ClusterConfig.Services {
 		if !isSpecialService(service) {
@@ -65,10 +64,8 @@ func (*Init) PostCheck(context.Context) error {
 type Init struct {
 	log.FieldLogger
 	client corev1.CoreV1Interface
-	// serviceName specifies the temporary (operation-bound) DNS service name
-	serviceName string
-	// workerServiceName specifies the temporary (operation-bound) DNS worker service name
-	workerServiceName string
+	// suffix specifies the temporary (operation-bound) DNS service suffix
+	suffix serviceSuffix
 	// dnsService references the original DNS service
 	dnsService v1.Service
 	// dnsWorkerService references the original DNS worker service
@@ -78,10 +75,10 @@ type Init struct {
 }
 
 func (r *Init) renameDNSServices(ctx context.Context) error {
-	if err := r.renameService(ctx, r.dnsService, r.serviceName); err != nil {
+	if err := r.renameService(ctx, r.dnsService, r.suffix.serviceName()); err != nil {
 		return trace.Wrap(err)
 	}
-	if err := r.renameService(ctx, r.dnsWorkerService, r.workerServiceName); err != nil {
+	if err := r.renameService(ctx, r.dnsWorkerService, r.suffix.workerServiceName()); err != nil {
 		return trace.Wrap(err)
 	}
 	return nil
@@ -100,7 +97,7 @@ func (r *Init) renameService(ctx context.Context, service v1.Service, newName st
 
 func (r *Init) removeDNSServices(ctx context.Context) error {
 	services := r.client.Services(metav1.NamespaceSystem)
-	for _, service := range []string{r.serviceName, r.workerServiceName} {
+	for _, service := range []string{r.suffix.serviceName(), r.suffix.workerServiceName()} {
 		err := removeService(ctx, service, &metav1.DeleteOptions{}, services)
 		if err != nil && !trace.IsNotFound(err) {
 			return trace.Wrap(err)

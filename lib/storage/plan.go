@@ -186,12 +186,9 @@ type UpdateOperationData struct {
 
 // ClusterConfigData describes the configuration specific to cluster configuration update operation
 type ClusterConfigData struct {
-	// DNSServiceName specifies the name of the DNS service with a ClusterIP
+	// ServiceSuffix specifies the suffix of the temporary DNS services with a ClusterIP
 	// from a new service subnet when updating cluster service CIDR
-	DNSServiceName string `json:"dns_service_name,omitempty"`
-	// DNSWorkerServiceName specifies the name of the DNS worker service with a ClusterIP
-	// from a new service subnet when updating cluster service CIDR
-	DNSWorkerServiceName string `json:"dns_worker_service_name,omitempty"`
+	ServiceSuffix string `json:"service_suffix,omitempty"`
 	// ServiceCIDR specifies the service IP range
 	ServiceCIDR string `json:"service_cidr,omitempty"`
 	// Services lists original service definitions as captured

@@ -27,7 +27,7 @@ import (
 func (p *Phase) AddSequential(subs ...Phase) {
 	for i := range subs {
 		if len(p.Phases) != 0 {
-			subs[i].Require(Phase(p.Phases[len(p.Phases)-1]))
+			subs[i].RequireIDs(p.Phases[len(p.Phases)-1].ID)
 		}
 		p.Phases = append(p.Phases, storage.OperationPhase(subs[i]))
 	}
@@ -64,10 +64,18 @@ func (p *Phase) ChildLiteral(sub string) string {
 	return path.Join(p.ID, sub)
 }
 
-// Required adds the specified phases reqs as requirements for this phase
+// Require adds the specified phases reqs as requirements for this phase
 func (p *Phase) Require(reqs ...PhaseIder) *Phase {
 	for _, req := range reqs {
 		p.Requires = append(p.Requires, req.GetID())
+	}
+	return p
+}
+
+// RequireIDs adds the specified phase IDs as requirements for this phase
+func (p *Phase) RequireIDs(ids ...string) *Phase {
+	for _, id := range ids {
+		p.Requires = append(p.Requires, id)
 	}
 	return p
 }
@@ -124,6 +132,18 @@ func (r Phases) AsPhases() (result []storage.OperationPhase) {
 // Phases is a list of Phase
 type Phases []Phase
 
+// AsPhases converts this list to a slice of storate.OperationPhase
+func (r PhasePtrs) AsPhases() (result []storage.OperationPhase) {
+	result = make([]storage.OperationPhase, 0, len(r))
+	for _, phase := range r {
+		result = append(result, storage.OperationPhase(*phase))
+	}
+	return result
+}
+
+// PhasePtrs is a list of Phase
+type PhasePtrs []*Phase
+
 // DependencyForServer looks up a dependency in the list of sub-phases of the give phase
 // that references the specified server and returns a reference to it.
 // If no server has been found, it retruns the reference to the phase itself
@@ -140,7 +160,7 @@ func DependencyForServer(phase Phase, server storage.Server) PhaseRef {
 // and renders IDs as absolute in the specified plan
 func ResolvePlan(plan *storage.OperationPlan) {
 	resolveIDs(nil, plan.Phases)
-	resolveRequirements(nil, plan.Phases)
+	resolveRequirementIDs(nil, plan.Phases)
 }
 
 // resolveIDs travels the phase tree and turns relative IDs into absolute
@@ -153,8 +173,8 @@ func resolveIDs(parent *Phase, phases []storage.OperationPhase) {
 	}
 }
 
-// resolveRequirements travels the phase tree and resolves relative IDs in requirements into absolute
-func resolveRequirements(parent *Phase, phases []storage.OperationPhase) {
+// resolveRequirementIDs travels the phase tree and resolves relative IDs in requirements into absolute
+func resolveRequirementIDs(parent *Phase, phases []storage.OperationPhase) {
 	for i := range phases {
 		var requires []string
 		for _, req := range phases[i].Requires {
@@ -165,6 +185,6 @@ func resolveRequirements(parent *Phase, phases []storage.OperationPhase) {
 			}
 		}
 		phases[i].Requires = requires
-		resolveRequirements((*Phase)(&phases[i]), phases[i].Phases)
+		resolveRequirementIDs((*Phase)(&phases[i]), phases[i].Phases)
 	}
 }

@@ -2,6 +2,7 @@ package phases
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -123,6 +124,16 @@ func isSpecialService(service v1.Service) bool {
 func isDNSService(service v1.Service) bool {
 	return utils.StringInSlice(dnsServices, service.Name) && service.Namespace == metav1.NamespaceSystem
 }
+
+func (r serviceSuffix) serviceName() string {
+	return fmt.Sprint(dnsServiceName, "-", r)
+}
+
+func (r serviceSuffix) workerServiceName() string {
+	return fmt.Sprint(dnsWorkerServiceName, "-", r)
+}
+
+type serviceSuffix string
 
 var dnsServices = []string{
 	dnsServiceName,
