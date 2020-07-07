@@ -45,7 +45,7 @@ func newBuilderWithServices(config planConfig) (*builder, error) {
 					Update: &storage.UpdateOperationData{
 						ClusterConfig: &storage.ClusterConfigData{
 							ServiceSuffix: config.serviceSuffix,
-							ServiceCIDR:   config.serviceCIDR,
+							ServiceCIDR:   config.clusterConfig.GetGlobalConfig().ServiceCIDR,
 							Services:      config.services,
 						},
 					},

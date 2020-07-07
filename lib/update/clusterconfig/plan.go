@@ -218,6 +218,5 @@ type planConfig struct {
 	operation     ops.SiteOperation
 	servers       []storage.Server
 	services      []v1.Service
-	serviceCIDR   string
 	serviceSuffix string
 }
