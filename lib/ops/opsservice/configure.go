@@ -600,9 +600,6 @@ func (s *site) getPlanetMasterSecretsPackage(ctx *operationContext, p planetMast
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	// FIXME(dmitri): when letting kubernetes recreate the kubernetes service
-	// this might not hold anymore.
-	// Need to create the kubernetes service explicitly as the first available IP?
 	apiServerIP := serviceSubnet.FirstIP().String()
 
 	newArchive := make(utils.TLSArchive)

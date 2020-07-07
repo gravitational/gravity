@@ -87,7 +87,7 @@ func (r *dispatcher) Dispatch(config rollingupdate.Config, params fsm.ExecutorPa
 	case phases.InitPhase:
 		return phases.NewInit(params, config.Client.CoreV1(), logger)
 	case phases.FiniPhase:
-		return phases.NewFini(params, config.Client.CoreV1(), logger)
+		return phases.NewFinal(params, config.Client.CoreV1(), logger)
 	default:
 		return r.Dispatcher.Dispatch(config, params, remote, logger)
 	}

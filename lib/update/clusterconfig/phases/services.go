@@ -1,3 +1,19 @@
+/*
+Copyright 2020 Gravitational, Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package phases
 
 import (
@@ -28,8 +44,8 @@ func NewServices(params fsm.ExecutorParams, client corev1.CoreV1Interface, logge
 		alloc:       ipallocator.NewAllocatorCIDRRange(ipNet),
 	}
 	for _, service := range params.Phase.Data.Update.ClusterConfig.Services {
-		if !isSpecialService(service) {
-			utils.WithService(service, logger).Debug("Found a service.")
+		if !shouldManageService(service) {
+			utils.LoggerWithService(service, logger).Debug("Found a service.")
 			step.services = append(step.services, service)
 			continue
 		}
@@ -39,10 +55,7 @@ func NewServices(params fsm.ExecutorParams, client corev1.CoreV1Interface, logge
 
 // Execute resets the clusterIP for all the cluster services of type ClusterIP
 // except services it does not need to handle/manage (eg kubernetes api server service
-// and DNS/headless services).
-// It renames the existing DNS services to keep them available for nodes that have not
-// been upgraded to the new service subnet so the Pods scheduled on these nodes can still
-// resolve cluster addresses using the old DNS service
+// and DNS/headless services)
 func (r *Services) Execute(ctx context.Context) error {
 	return trace.Wrap(r.resetServices(ctx))
 }
@@ -62,13 +75,16 @@ func (*Services) PostCheck(context.Context) error {
 	return nil
 }
 
-// Services implements the services step for the cluster configuration upgrade operation
+// Services implements the services step for the cluster configuration upgrade operation.
+// On the happy path, its job is to recreate the services of type clusterIP with the address from
+// the new service CIDR.
+// During rollback, it will remove the temporary DNS services created as part of the configuration
+// update
 type Services struct {
 	log.FieldLogger
-	client           corev1.CoreV1Interface
-	dnsWorkerService v1.Service
-	services         []v1.Service
-	alloc            *ipallocator.Range
+	client   corev1.CoreV1Interface
+	services []v1.Service
+	alloc    *ipallocator.Range
 }
 
 func (r *Services) removeDNSServices(ctx context.Context) error {

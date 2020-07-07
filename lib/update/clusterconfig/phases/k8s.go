@@ -1,3 +1,19 @@
+/*
+Copyright 2020 Gravitational, Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package phases
 
 import (
@@ -30,7 +46,7 @@ func removeService(ctx context.Context, name string, opts *metav1.DeleteOptions,
 }
 
 func createServiceFromTemplate(ctx context.Context, service v1.Service, services corev1.ServiceInterface, logger log.FieldLogger) error {
-	utils.WithService(service, logger).Debug("Recreate service with original cluster IP.")
+	utils.LoggerWithService(service, logger).Debug("Recreate service with original cluster IP.")
 	return utils.RetryWithInterval(ctx, newOperationBackoff(), func() error {
 		service.ResourceVersion = "0"
 		_, err := services.Create(&service)
@@ -117,7 +133,12 @@ func newOperationBackoff() backoff.BackOff {
 	return utils.NewExponentialBackOff(5 * time.Minute)
 }
 
-func isSpecialService(service v1.Service) bool {
+// shouldManageService decides whether the configuration operation should
+// manage the given service.
+// The operation will manage a service, if it's of type clusterIP and is not a headless service
+// (i.e. has a valid IP address assigned from the service subnet). Additionally, DNS services
+// as well as the API server service are managed elsewhere and hence excluded
+func shouldManageService(service v1.Service) bool {
 	return utils.IsHeadlessService(service) || utils.IsAPIServerService(service) || isDNSService(service)
 }
 

@@ -233,8 +233,8 @@ func IsAPIServerService(service v1.Service) bool {
 	return service.Name == apiServerService && service.Namespace == metav1.NamespaceDefault
 }
 
-// WithService returns a new logger with service-relevant metadata
-func WithService(service v1.Service, logger log.FieldLogger) log.FieldLogger {
+// LoggerWithService returns a new logger with service-relevant metadata
+func LoggerWithService(service v1.Service, logger log.FieldLogger) log.FieldLogger {
 	return logger.WithFields(log.Fields{
 		"service":   FormatMeta(service.ObjectMeta),
 		"type":      service.Spec.Type,

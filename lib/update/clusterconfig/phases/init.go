@@ -1,3 +1,19 @@
+/*
+Copyright 2020 Gravitational, Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package phases
 
 import (
@@ -22,8 +38,8 @@ func NewInit(params fsm.ExecutorParams, client corev1.CoreV1Interface, logger lo
 		suffix:      serviceSuffix(params.Phase.Data.Update.ClusterConfig.ServiceSuffix),
 	}
 	for _, service := range params.Phase.Data.Update.ClusterConfig.Services {
-		if !isSpecialService(service) {
-			utils.WithService(service, logger).Debug("Found a service.")
+		if !shouldManageService(service) {
+			utils.LoggerWithService(service, logger).Debug("Found a service.")
 			step.services = append(step.services, service)
 			continue
 		}
@@ -36,15 +52,16 @@ func NewInit(params fsm.ExecutorParams, client corev1.CoreV1Interface, logger lo
 	return &step, nil
 }
 
-// Execute renames existing DNS services so that the planet agent
-// will be able to create and allocate new services from the new service subnet
+// Execute renames the existing DNS services to keep them available for nodes that have not
+// been upgraded to the new service subnet so the Pods scheduled on these nodes can still
+// resolve cluster addresses using the old DNS service
 func (r *Init) Execute(ctx context.Context) error {
 	return trace.Wrap(r.renameDNSServices(ctx))
 }
 
 // Rollback resets the services to their original values
 func (r *Init) Rollback(ctx context.Context) error {
-	if err := r.removeDNSServices(ctx); err != nil {
+	if err := r.resetDNSServices(ctx); err != nil {
 		return trace.Wrap(err)
 	}
 	return trace.Wrap(r.recreateServices(ctx))
@@ -95,13 +112,13 @@ func (r *Init) renameService(ctx context.Context, service v1.Service, newName st
 	return nil
 }
 
-func (r *Init) removeDNSServices(ctx context.Context) error {
-	services := r.client.Services(metav1.NamespaceSystem)
-	for _, service := range []string{r.suffix.serviceName(), r.suffix.workerServiceName()} {
-		err := removeService(ctx, service, &metav1.DeleteOptions{}, services)
-		if err != nil && !trace.IsNotFound(err) {
-			return trace.Wrap(err)
-		}
+// resetDNSServices will rename the old DNS services back to their original names
+func (r *Init) resetDNSServices(ctx context.Context) error {
+	if err := r.renameService(ctx, r.dnsService, dnsServiceName); err != nil {
+		return trace.Wrap(err)
+	}
+	if err := r.renameService(ctx, r.dnsWorkerService, dnsWorkerServiceName); err != nil {
+		return trace.Wrap(err)
 	}
 	return nil
 }

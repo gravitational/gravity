@@ -183,7 +183,7 @@ func collectServices(client corev1.CoreV1Interface, serviceCIDR string) (result 
 			continue
 		}
 		if ipNet.Contains(net.ParseIP(service.Spec.ClusterIP)) {
-			utils.WithService(service, logger).Warn("Service not from current network range - will skip.")
+			utils.LoggerWithService(service, logger).Warn("Service not from current network range - will skip.")
 			continue
 		}
 		result = append(result, service)
