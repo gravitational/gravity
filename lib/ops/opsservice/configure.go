@@ -590,7 +590,7 @@ func (s *site) getPlanetMasterSecretsPackage(ctx *operationContext, p planetMast
 	}
 
 	// Don't rotate apiserver secrets, as this secret is currently used to authenticate service account tokens
-	// TODO(securty) support rotation of apiserver / serviceaccount secrets
+	// TODO(security) support rotation of apiserver / serviceaccount secrets
 	apiserverKeyPair, err := archive.GetKeyPair(constants.APIServerKeyPair)
 	if err != nil {
 		return nil, trace.Wrap(err)
