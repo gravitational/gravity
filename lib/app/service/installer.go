@@ -511,5 +511,6 @@ var uploadScriptTemplate = template.Must(template.New("uploadScript").Parse(`#!/
 # with the License.  You may obtain a copy of the License at
 #
 #    http://www.apache.org/licenses/LICENSE-2.0
-./gravity --insecure update upload --state-dir=.
+scriptdir=$(dirname $(realpath $0))
+"$scriptdir/gravity" --insecure update upload --state-dir="$scriptdir"
 `))
