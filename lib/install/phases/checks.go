@@ -71,16 +71,14 @@ func (r *checksExecutor) Execute(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	var failed, warnings []*agentpb.Probe
+	var failed []*agentpb.Probe
 	for _, probe := range resp.Probes {
 		if probe.Severity == agentpb.Probe_Warning {
-			warnings = append(warnings, probe)
+			r.Progress.NextStep(color.YellowString(probe.Detail))
 		} else {
+			r.Progress.NextStep(color.RedString(probe.Detail))
 			failed = append(failed, probe)
 		}
-	}
-	for _, warn := range warnings {
-		r.Progress.NextStep(color.YellowString(warn.Detail))
 	}
 	if len(failed) > 0 {
 		return trace.BadParameter("The following pre-flight checks failed:\n%v",
