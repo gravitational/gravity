@@ -546,7 +546,6 @@ address: "0.0.0.0"`),
 		clusterConfig: clusterConfig,
 		servers:       servers,
 		services:      services,
-		serviceCIDR:   clusterConfig.Spec.Global.ServiceCIDR,
 		serviceSuffix: "test",
 	}
 	plan, err := newOperationPlan(config)

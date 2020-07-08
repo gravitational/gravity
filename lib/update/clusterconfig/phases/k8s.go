@@ -139,7 +139,7 @@ func newOperationBackoff() backoff.BackOff {
 // (i.e. has a valid IP address assigned from the service subnet). Additionally, DNS services
 // as well as the API server service are managed elsewhere and hence excluded
 func shouldManageService(service v1.Service) bool {
-	return utils.IsHeadlessService(service) || utils.IsAPIServerService(service) || isDNSService(service)
+	return !(utils.IsHeadlessService(service) || utils.IsAPIServerService(service) || isDNSService(service))
 }
 
 func isDNSService(service v1.Service) bool {

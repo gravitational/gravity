@@ -44,7 +44,7 @@ func NewServices(params fsm.ExecutorParams, client corev1.CoreV1Interface, logge
 		alloc:       ipallocator.NewAllocatorCIDRRange(ipNet),
 	}
 	for _, service := range params.Phase.Data.Update.ClusterConfig.Services {
-		if !shouldManageService(service) {
+		if shouldManageService(service) {
 			utils.LoggerWithService(service, logger).Debug("Found a service.")
 			step.services = append(step.services, service)
 			continue

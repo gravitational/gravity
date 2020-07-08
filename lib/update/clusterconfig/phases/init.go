@@ -38,7 +38,7 @@ func NewInit(params fsm.ExecutorParams, client corev1.CoreV1Interface, logger lo
 		suffix:      serviceSuffix(params.Phase.Data.Update.ClusterConfig.ServiceSuffix),
 	}
 	for _, service := range params.Phase.Data.Update.ClusterConfig.Services {
-		if !shouldManageService(service) {
+		if shouldManageService(service) {
 			utils.LoggerWithService(service, logger).Debug("Found a service.")
 			step.services = append(step.services, service)
 			continue
