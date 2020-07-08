@@ -99,8 +99,11 @@ func createServiceWithClusterIP(ctx context.Context, service v1.Service, alloc *
 func isIPRangeMistmatchError(err error) bool {
 	switch err := err.(type) {
 	case *errors.StatusError:
-		return err.ErrStatus.Status == "Failure" && statusHasCause(err.ErrStatus,
-			"spec.clusterIP", "provided range does not match the current range")
+		return err.ErrStatus.Status == "Failure" &&
+			statusHasCause(err.ErrStatus, "spec.clusterIP",
+				"provided range does not match the current range",
+				"provided IP is not in the valid range",
+			)
 	}
 	return false
 }
@@ -117,13 +120,15 @@ func isIPAlreadyAllocatedError(err error) bool {
 	return false
 }
 
-func statusHasCause(status metav1.Status, field, messagePattern string) bool {
+func statusHasCause(status metav1.Status, field string, messages ...string) bool {
 	if status.Details == nil {
 		return false
 	}
 	for _, cause := range status.Details.Causes {
-		if cause.Field == field && strings.Contains(cause.Message, messagePattern) {
-			return true
+		for _, message := range messages {
+			if cause.Field == field && strings.Contains(cause.Message, message) {
+				return true
+			}
 		}
 	}
 	return false

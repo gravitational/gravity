@@ -22,10 +22,12 @@ import (
 
 	"github.com/gravitational/gravity/lib/app"
 	libfsm "github.com/gravitational/gravity/lib/fsm"
+	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
+	"github.com/gravitational/gravity/lib/status"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 
@@ -66,6 +68,7 @@ func NewUpdateConfig(
 		servers:      params.Phase.Data.Update.Servers,
 		manifest:     app.Manifest,
 		config:       config,
+		dnsAddr:      params.Plan.DNSConfig.Addr(),
 	}, nil
 }
 
@@ -90,7 +93,11 @@ func (r *updateConfig) Execute(ctx context.Context) error {
 }
 
 // Rollback resets the cluster configuration to the previous value
-func (r *updateConfig) Rollback(context.Context) error {
+func (r *updateConfig) Rollback(ctx context.Context) error {
+	client := httplib.NewClient(httplib.WithInsecure(), httplib.WithLocalResolver(r.dnsAddr))
+	if err := status.WaitController(ctx, client); err != nil {
+		return trace.Wrap(err, "failed to connect to cluster controller")
+	}
 	for _, update := range r.servers {
 		for _, packages := range []packageService{r.packages, r.hostPackages} {
 			err := packages.DeletePackage(update.Runtime.Update.ConfigPackage)
@@ -126,6 +133,7 @@ type updateConfig struct {
 	servers      []storage.UpdateServer
 	manifest     schema.Manifest
 	config       clusterconfig.Interface
+	dnsAddr      string
 }
 
 func (r *updateConfig) rotateConfig(update storage.UpdateServer) error {
