@@ -142,6 +142,7 @@ const (
 	testFile = "fio.test"
 )
 
+// getEtcdMinIOPSSoft returns the soft limit for minimum number of IOPS.
 func getEtcdMinIOPSSoft() float64 {
 	value, err := utils.GetenvInt(EtcdMinIOPSSoftEnvVar)
 	if err == nil {
@@ -150,6 +151,7 @@ func getEtcdMinIOPSSoft() float64 {
 	return EtcdMinWriteIOPSSoft
 }
 
+// getEtcdMinIOPSHard returns the hard limit for minimum number of IOPS.
 func getEtcdMinIOPSHard() float64 {
 	value, err := utils.GetenvInt(EtcdMinIOPSHardEnvVar)
 	if err == nil {
@@ -158,6 +160,7 @@ func getEtcdMinIOPSHard() float64 {
 	return EtcdMinWriteIOPSHard
 }
 
+// getEtcdMaxLatencySoft returns the soft limit for maximum fsync latency.
 func getEtcdMaxLatencySoft() int64 {
 	value, err := utils.GetenvInt(EtcdMaxLatencySoftEnvVar)
 	if err == nil {
@@ -166,6 +169,7 @@ func getEtcdMaxLatencySoft() int64 {
 	return EtcdMaxFsyncLatencyMsSoft
 }
 
+// getEtcdMaxLatencyHard returns the hard limit for maximum fsync latency.
 func getEtcdMaxLatencyHard() int64 {
 	value, err := utils.GetenvInt(EtcdMaxLatencyHardEnvVar)
 	if err == nil {
@@ -175,9 +179,9 @@ func getEtcdMaxLatencyHard() int64 {
 }
 
 const (
-	// EtcdMinIOPSSoftEnvVar is the environment variable with soft iops limit.
+	// EtcdMinIOPSSoftEnvVar is the environment variable with soft IOPS limit.
 	EtcdMinIOPSSoftEnvVar = "GRAVITY_ETCD_MIN_IOPS_SOFT"
-	// EtcdMinIOPSHardEnvVar is the environment variable with hard iops limit.
+	// EtcdMinIOPSHardEnvVar is the environment variable with hard IOPS limit.
 	EtcdMinIOPSHardEnvVar = "GRAVITY_ETCD_MIN_IOPS_HARD"
 	// EtcdMaxLatencySoftEnvVar is the environment variable with soft fsync limit.
 	EtcdMaxLatencySoftEnvVar = "GRAVITY_ETCD_MAX_LATENCY_SOFT"

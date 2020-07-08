@@ -26,7 +26,6 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 
 	"github.com/fatih/color"
-	"github.com/gravitational/satellite/agent/proto/agentpb"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 )
@@ -67,22 +66,21 @@ func (r *checksExecutor) Execute(ctx context.Context) error {
 		OperationID: r.key.OperationID,
 		Servers:     r.servers,
 	}
-	resp, err := r.operator.ValidateServers(ctx, req)
+	response, err := r.operator.ValidateServers(ctx, req)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	var failed []*agentpb.Probe
-	for _, probe := range resp.Probes {
-		if probe.Severity == agentpb.Probe_Warning {
-			r.Progress.NextStep(color.YellowString(probe.Detail))
-		} else {
-			r.Progress.NextStep(color.RedString(probe.Detail))
-			failed = append(failed, probe)
-		}
+	// Make sure to display all received warnings and critical failures in
+	// the progress output right away.
+	for _, probe := range response.Warnings() {
+		r.Progress.NextStep(color.YellowString(probe.Detail))
 	}
-	if len(failed) > 0 {
+	for _, probe := range response.Failures() {
+		r.Progress.NextStep(color.RedString(probe.Detail))
+	}
+	if len(response.Failures()) > 0 {
 		return trace.BadParameter("The following pre-flight checks failed:\n%v",
-			checks.FormatFailedChecks(failed))
+			checks.FormatFailedChecks(response.Failures()))
 	}
 	return nil
 }

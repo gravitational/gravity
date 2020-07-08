@@ -399,6 +399,8 @@ func (r *checker) CheckNode(ctx context.Context, server Server) (failed []*agent
 		if err != nil {
 			log.WithError(err).Warn("Failed to validate etcd disk requirements.")
 		}
+		// The checker will only return probes if etcd disk test succeeded and
+		// some iops/latency requirements are not met.
 		failed = append(failed, probes...)
 	}
 

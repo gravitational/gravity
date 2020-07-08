@@ -27,7 +27,8 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-//
+// ValidateServers executes preflight checks and returns formatted error if
+// any of the checks fail.
 func ValidateServers(ctx context.Context, operator ops.Operator, req ops.ValidateServersRequest) error {
 	resp, err := operator.ValidateServers(ctx, req)
 	if err != nil {
@@ -46,7 +47,8 @@ func ValidateServers(ctx context.Context, operator ops.Operator, req ops.Validat
 	return nil
 }
 
-// ValidateServers runs preflight checks before the installation
+// ValidateServers runs preflight checks before the installation and returns
+// failed probes.
 func (o *Operator) ValidateServers(ctx context.Context, req ops.ValidateServersRequest) (*ops.ValidateServersResponse, error) {
 	log.Infof("Validating servers: %#v.", req)
 

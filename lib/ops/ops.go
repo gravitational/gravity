@@ -1898,6 +1898,26 @@ type ValidateServersResponse struct {
 	Probes []*agentpb.Probe
 }
 
+// Warnings returns all warning-level probes.
+func (r *ValidateServersResponse) Warnings() (probes []*agentpb.Probe) {
+	for _, probe := range r.Probes {
+		if probe.Severity == agentpb.Probe_Warning {
+			probes = append(probes, probe)
+		}
+	}
+	return probes
+}
+
+// Failures returns all failed probes.
+func (r *ValidateServersResponse) Failures() (probes []*agentpb.Probe) {
+	for _, probe := range r.Probes {
+		if probe.Severity != agentpb.Probe_Warning {
+			probes = append(probes, probe)
+		}
+	}
+	return probes
+}
+
 // Check validates this request
 func (r ValidateServersRequest) Check() error {
 	if r.AccountID == "" {
