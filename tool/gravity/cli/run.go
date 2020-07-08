@@ -20,6 +20,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"log/syslog"
 	"net/http"
 	"os"
 	"os/exec"
@@ -58,6 +59,10 @@ func ConfigureEnvironment() error {
 // Run parses CLI arguments and executes an appropriate gravity command
 func Run(g *Application) error {
 	log.Debugf("Executing: %v.", os.Args)
+	if err := utils.SyslogWrite(syslog.LOG_INFO, strings.Join(os.Args, " "), constants.GravityCLITag); err != nil {
+		log.WithError(err).Warn("Failed to write to system logs.")
+	}
+
 	err := ConfigureEnvironment()
 	if err != nil {
 		return trace.Wrap(err)
