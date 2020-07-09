@@ -7,7 +7,7 @@ source $(dirname $0)/utils.sh
 
 # UPGRADE_MAP maps gravity version -> list of linux distros to upgrade from
 declare -A UPGRADE_MAP
-UPGRADE_MAP[$(recommended_upgrade_tag $(branch 7.0.x))]="centos:7 debian:9 ubuntu:18" # compatible LTS version
+UPGRADE_MAP[$(recommended_upgrade_tag $(branch 7.0.x))]="ubuntu:18" # compatible LTS version
 UPGRADE_MAP[7.0.0]="ubuntu:16"
 # 6.2 and 6.3 ignored in PR builds per https://github.com/gravitational/gravity/pull/1760#pullrequestreview-437838773
 # UPGRADE_MAP[$(recommended_upgrade_tag $(branch 6.3.x))]="redhat:7" # compatible non-LTS version
