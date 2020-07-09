@@ -4,7 +4,7 @@ set -o nounset
 set -o pipefail
 
 function branch {
-  # GRAVITY_GIT_VERSION_BRANCH_PREFIX may defined to accommodate remote names other than"origin"
+  # GRAVITY_GIT_VERSION_BRANCH_PREFIX may be defined to accommodate remote names other than "origin"
   local branch_prefix=${GRAVITY_GIT_VERSION_BRANCH_PREFIX:-remotes/origin/version}
   echo $branch_prefix/$1
 }
