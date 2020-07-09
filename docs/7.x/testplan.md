@@ -297,7 +297,7 @@ only supported in the enterprise edition.
 
 - [ ] Generate test CA and private key:
 ```bash
-$ openssl req -newkey rsa:2048 -nodes -keyout domain.key -x509 -days 365 -out domain.crt
+$ openssl req -newkey rsa:2048 -nodes -keyout domain.key -x509 -days 365 -out domain.crt -subj "/C=US/ST=The Internet/L=0.0.0.0/O=Gravitational/OU=Hastily Generated Values Division/CN=Test"
 ```
 
 - [ ] Create test app manifest that requires license (`app.yaml`):
@@ -311,10 +311,12 @@ license:
     enabled: true
 ```
 
-- [ ] Generate a license with encryption key:
+- [ ] Generate two licenses:
 ```bash
-$ gravity license new --max-nodes=3 --valid-for=24h --ca-cert=domain.crt --ca-key=domain.key --encryption-key=qwe123 > license.pem
+$ gravity license new --max-nodes=3 --valid-for=24h --ca-cert=domain.crt --ca-key=domain.key --encryption-key=qwe123 --state-dir $(mktemp -d) > license.pem
+$ gravity license new --max-nodes=3 --valid-for=48h --ca-cert=domain.crt --ca-key=domain.key --encryption-key=qwe123 --state-dir $(mktemp -d) > license.new.pem
 ```
+ `--state-dir` may not be necessary. Check [#1852](https://github.com/gravitational/gravity/issues/1852)
 
 - [ ] Build an encrypted cluster image:
 ```bash
@@ -323,17 +325,30 @@ $ tele build app.yaml --ca-cert=domain.crt --encryption-key=qwe123
 
 - [ ] Verify can install in wizard UI mode.
   - [ ] Verify license prompt appears in the UI.
-  - [ ] Insert the generated license and verify the installation succeeds.
-  - [ ] Verify license can be updated via cluster UI after installation.
+  - [ ] Insert the contents of `license.pem` and verify the installation succeeds.
+  - [ ] Check the license expiration date.
+    - The License page is found in the dropdown after clicking on the username in the upper right corner of the UI.
+  - [ ] Verify the license can be updated. Use the contents of `license.new.pem` in the 'Update License" wizard.
+   After the update, check the expiry has changed.
+
+- [ ] Wipe the cluster.
+```bash
+$ sudo gravity leave --force --confirm
+```
 
 - [ ] Verify license is enforced in CLI mode:
 ```bash
 $ sudo ./gravity install # should return a license error
 ```
 
+- [ ] Preempt an expected failure before beginning the next install [#1853](https://github.com/gravitational/gravity/issues/1853)
+```bash
+$ sudo ./gravity leave --force
+```
+
 - [ ] Verify can install in CLI mode with license:
 ```bash
-$ sudo ./gravity install --license="$(cat /tmp/license)"
+$ sudo ./gravity install --license-file=license.pem"
 ```
 
 ### Runtime Environment Update
