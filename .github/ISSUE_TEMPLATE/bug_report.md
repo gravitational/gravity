@@ -1,32 +1,28 @@
 ---
-name: Bug report
-about: Create a report to help us improve
-title: "[BUG]"
-labels: ''
-assignees: ''
-
+name: Bug Report 🐛
+about: Something isn't working as expected? Here is the right place to report.
+labels: "type: kind/bug"
 ---
 
-<!--
-**Have a question or install problem?** Please use [Our Community Site](https://community.gravitational.com).
--->
-**Describe the bug**
-<!--A clear and concise description of what the bug is.-->
+### Description
 
-**To Reproduce**
-<!--Steps to reproduce the behavior:-->
+**What happened**:
 
-**Expected behavior**
-<!--A clear and concise description of what you expected to happen.-->
+**What you expected to happen**:
 
-**Logs**
-<!--If applicable, add logs to help explain your problem.-->
+**How to reproduce it (as minimally and precisely as possible)**:
 
-**Environment (please complete the following information):**
+### Environment
+
+ - Gravity version [e.g. 7.0.11]:
  - OS [e.g. Redhat 7.4]:
- - Gravity [e.g. 5.5.4]:
  - Platform [e.g. Vmware, AWS]:
 
+**Browser environment**
 
-**Additional context**
-<!--Add any other context about the problem here.-->
+- Browser Version (for UI-related issues):
+- Install tools:
+- Others:
+
+**Relevant Debug Logs If Applicable**
+
