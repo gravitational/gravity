@@ -80,7 +80,7 @@ func (r *InstallerStrategy) installSelfAsService() error {
 			WantedBy:         "multi-user.target",
 			WorkingDirectory: r.ApplicationDir,
 			// Propagate all gravity-related environment variables to the service.
-			Environment: utils.Getenvs(constants.GravityEnvVarPrefix),
+			Environment: utils.GetenvsByPrefix(constants.GravityEnvVarPrefix),
 		},
 		NoBlock: true,
 		Name:    r.ServicePath,

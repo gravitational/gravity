@@ -86,30 +86,42 @@ func fioEtcdJob(filename string) *proto.CheckDisksRequest {
 // performance test results.
 func formatEtcdProbes(server Server, testPath string, iops float64, latency int64) (probes []*agentpb.Probe) {
 	if iops < getEtcdMinIOPSHard() {
-		probes = append(probes, &agentpb.Probe{
-			Detail: fmt.Sprintf("Node %v sequential write IOPS on %v is lower than %v (%v)",
-				server.Hostname, filepath.Dir(testPath), getEtcdMinIOPSHard(), int(iops)),
-		})
+		probes = append(probes, newFailedProbe("",
+			fmt.Sprintf("Node %v sequential write IOPS on %v is lower than %v (%v)",
+				server.Hostname, filepath.Dir(testPath), getEtcdMinIOPSHard(), int(iops))))
 	} else if iops < getEtcdMinIOPSSoft() {
-		probes = append(probes, &agentpb.Probe{
-			Detail: fmt.Sprintf("Node %v sequential write IOPS on %v is lower than %v (%v) which may result in poor etcd performance",
-				server.Hostname, filepath.Dir(testPath), getEtcdMinIOPSSoft(), int(iops)),
-			Severity: agentpb.Probe_Warning,
-		})
+		probes = append(probes, newWarningProbe("",
+			fmt.Sprintf("Node %v sequential write IOPS on %v is lower than %v (%v) which may result in poor etcd performance",
+				server.Hostname, filepath.Dir(testPath), getEtcdMinIOPSSoft(), int(iops))))
 	}
 	if latency > getEtcdMaxLatencyHard() {
-		probes = append(probes, &agentpb.Probe{
-			Detail: fmt.Sprintf("Node %v fsync latency on %v is higher than %vms (%vms)",
-				server.Hostname, filepath.Dir(testPath), getEtcdMaxLatencyHard(), latency),
-		})
+		probes = append(probes, newFailedProbe("",
+			fmt.Sprintf("Node %v fsync latency on %v is higher than %vms (%vms)",
+				server.Hostname, filepath.Dir(testPath), getEtcdMaxLatencyHard(), latency)))
 	} else if latency > getEtcdMaxLatencySoft() {
-		probes = append(probes, &agentpb.Probe{
-			Detail: fmt.Sprintf("Node %v fsync latency on %v is higher than %vms (%vms) which may result in poor etcd performance",
-				server.Hostname, filepath.Dir(testPath), getEtcdMaxLatencySoft(), latency),
-			Severity: agentpb.Probe_Warning,
-		})
+		probes = append(probes, newWarningProbe("",
+			fmt.Sprintf("Node %v fsync latency on %v is higher than %vms (%vms) which may result in poor etcd performance",
+				server.Hostname, filepath.Dir(testPath), getEtcdMaxLatencySoft(), latency)))
 	}
 	return probes
+}
+
+func newFailedProbe(message, detail string) *agentpb.Probe {
+	return &agentpb.Probe{
+		Status:   agentpb.Probe_Failed,
+		Severity: agentpb.Probe_Critical,
+		Error:    message,
+		Detail:   detail,
+	}
+}
+
+func newWarningProbe(message, detail string) *agentpb.Probe {
+	return &agentpb.Probe{
+		Status:   agentpb.Probe_Failed,
+		Severity: agentpb.Probe_Warning,
+		Error:    message,
+		Detail:   detail,
+	}
 }
 
 const (

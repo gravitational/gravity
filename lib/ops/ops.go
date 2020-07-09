@@ -1901,7 +1901,7 @@ type ValidateServersResponse struct {
 // Warnings returns all warning-level probes.
 func (r *ValidateServersResponse) Warnings() (probes []*agentpb.Probe) {
 	for _, probe := range r.Probes {
-		if probe.Severity == agentpb.Probe_Warning {
+		if probe.Status == agentpb.Probe_Failed && probe.Severity == agentpb.Probe_Warning {
 			probes = append(probes, probe)
 		}
 	}
@@ -1911,7 +1911,7 @@ func (r *ValidateServersResponse) Warnings() (probes []*agentpb.Probe) {
 // Failures returns all failed probes.
 func (r *ValidateServersResponse) Failures() (probes []*agentpb.Probe) {
 	for _, probe := range r.Probes {
-		if probe.Severity != agentpb.Probe_Warning {
+		if probe.Status == agentpb.Probe_Failed && probe.Severity == agentpb.Probe_Critical {
 			probes = append(probes, probe)
 		}
 	}

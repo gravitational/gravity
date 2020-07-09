@@ -106,8 +106,8 @@ func GetenvWithDefault(name, defaultValue string) string {
 	return defaultValue
 }
 
-// Getenvs returns environment variables with names matching specified prefix.
-func Getenvs(prefix string) (environ map[string]string) {
+// GetenvsByPrefix returns environment variables with names matching specified prefix.
+func GetenvsByPrefix(prefix string) (environ map[string]string) {
 	environ = make(map[string]string)
 	for _, env := range os.Environ() {
 		name := strings.SplitN(env, "=", 2)[0]

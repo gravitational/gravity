@@ -370,28 +370,22 @@ func (r *checker) CheckNode(ctx context.Context, server Server) (failed []*agent
 	})
 	if err != nil {
 		log.WithError(err).Warn("Failed to validate remote node.")
-		failed = append(failed, &agentpb.Probe{
-			Detail: err.Error(),
-			Error:  fmt.Sprintf("failed to validate node %v", server),
-		})
+		failed = append(failed, newFailedProbe(
+			fmt.Sprintf("Failed to validate node %v", server), err.Error()))
 	}
 
 	err = checkServerProfile(server, requirements)
 	if err != nil {
 		log.WithError(err).Warn("Failed to validate profile requirements.")
-		failed = append(failed, &agentpb.Probe{
-			Detail: err.Error(),
-			Error:  "failed to validate profile requirements",
-		})
+		failed = append(failed, newFailedProbe(
+			"Failed to validate profile requirements", err.Error()))
 	}
 
 	err = r.checkTempDir(ctx, server)
 	if err != nil {
 		log.WithError(err).Warn("Failed to validate temporary directory.")
-		failed = append(failed, &agentpb.Probe{
-			Detail: err.Error(),
-			Error:  "failed to validate temporary directory",
-		})
+		failed = append(failed, newFailedProbe(
+			"Failed to validate temporary directory", err.Error()))
 	}
 
 	if server.IsMaster() && r.TestEtcdDisk {
@@ -407,10 +401,8 @@ func (r *checker) CheckNode(ctx context.Context, server Server) (failed []*agent
 	err = r.checkDisks(ctx, server)
 	if err != nil {
 		log.WithError(err).Warn("Failed to validate disk requirements.")
-		failed = append(failed, &agentpb.Probe{
-			Detail: err.Error(),
-			Error:  "failed to validate disk requirements",
-		})
+		failed = append(failed, newFailedProbe(
+			"Failed to validate disk requirements", err.Error()))
 	}
 
 	return failed
@@ -427,29 +419,23 @@ func (r *checker) CheckNodes(ctx context.Context, servers []Server) (failed []*a
 	err := checkSameOS(servers)
 	if err != nil {
 		log.WithError(err).Warn("Failed to validate same OS requirements.")
-		failed = append(failed, &agentpb.Probe{
-			Detail: err.Error(),
-			Error:  "failed to validate same OS requirement",
-		})
+		failed = append(failed, newFailedProbe(
+			"Failed to validate same OS requirement", err.Error()))
 	}
 
 	err = checkTime(time.Now().UTC(), servers)
 	if err != nil {
 		log.WithError(err).Warn("Failed to validate time drift requirements.")
-		failed = append(failed, &agentpb.Probe{
-			Detail: err.Error(),
-			Error:  "failed to validate time drift requirement",
-		})
+		failed = append(failed, newFailedProbe(
+			"Failed to validate time drift requirement", err.Error()))
 	}
 
 	if r.TestPorts {
 		err = r.checkPorts(ctx, servers)
 		if err != nil {
 			log.WithError(err).Warn("Failed to validate port requirements.")
-			failed = append(failed, &agentpb.Probe{
-				Detail: err.Error(),
-				Error:  "failed to validate port requirements",
-			})
+			failed = append(failed, newFailedProbe(
+				"Failed to validate port requirements", err.Error()))
 		}
 	}
 
@@ -457,10 +443,8 @@ func (r *checker) CheckNodes(ctx context.Context, servers []Server) (failed []*a
 		err = r.checkBandwidth(ctx, servers)
 		if err != nil {
 			log.WithError(err).Warn("Failed to validate bandwidth requirements.")
-			failed = append(failed, &agentpb.Probe{
-				Detail: err.Error(),
-				Error:  "failed to validate network bandwidth requirements",
-			})
+			failed = append(failed, newFailedProbe(
+				"Failed to validate network bandwidth requirements", err.Error()))
 		}
 	}
 

@@ -37,7 +37,7 @@ func (s *EnvSuite) TestEnv(c *C) {
 	c.Assert(readEnv, DeepEquals, env)
 }
 
-func (s *EnvSuite) TestGetenvs(c *C) {
+func (s *EnvSuite) TestGetenvsByPrefix(c *C) {
 	envs := map[string]string{
 		"TEST1_A": "v1",
 		"TEST1_B": "v2",
@@ -45,7 +45,7 @@ func (s *EnvSuite) TestGetenvs(c *C) {
 	for k, v := range envs {
 		os.Setenv(k, v)
 	}
-	c.Assert(Getenvs("TEST1_"), DeepEquals, envs)
+	c.Assert(GetenvsByPrefix("TEST1_"), DeepEquals, envs)
 }
 
 func (s *EnvSuite) TestGetenvInt(c *C) {
