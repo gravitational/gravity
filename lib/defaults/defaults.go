@@ -264,6 +264,9 @@ const (
 	// StatusCollectionTimeout specifies the timeout for collecting gravity status.
 	StatusCollectionTimeout = 1 * time.Minute
 
+	// AuditLogClientTimeout specifies the timeout for collecting audit logs.
+	AuditLogClientTimeout = 5 * time.Second
+
 	// SatelliteRPCAgentPort is port used by satellite agent to expose its status
 	SatelliteRPCAgentPort = 7575
 
@@ -584,6 +587,9 @@ const (
 
 	// SiteStatusCheckInterval is how often local gravity site will invoke app status hook
 	SiteStatusCheckInterval = 1 * time.Minute
+
+	// ClusterStatusTimeout specifies the time limit for cluster status check
+	ClusterStatusTimeout = 5 * time.Minute
 
 	// OfflineCheckInterval is how often OpsCenter checks whether its sites are online/offline
 	OfflineCheckInterval = 10 * time.Second

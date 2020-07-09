@@ -215,11 +215,7 @@ func RetryTransient(ctx context.Context, interval backoff.BackOff, fn func() err
 		}
 		switch {
 		case IsTransientClusterError(err):
-			// Retry on transient etcd errors
-			return trace.Wrap(err)
-		case IsKubeAuthError(err):
-			// Kubernetes replies with unauthorized for certain
-			// operations when etcd is down
+			// Retry on transient errors
 			return trace.Wrap(err)
 		default:
 			return &backoff.PermanentError{Err: err}

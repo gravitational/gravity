@@ -216,7 +216,7 @@ func (i *Installer) getClusterStatus() (*status.Status, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	cluster, err := clusterOperator.GetLocalSite()
+	cluster, err := clusterOperator.GetLocalSite(context.TODO())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

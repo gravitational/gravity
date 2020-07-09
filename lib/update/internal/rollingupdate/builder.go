@@ -50,9 +50,58 @@ func RuntimeConfigUpdates(
 	return updates, nil
 }
 
+// RuntimeConfigUpdatesWithSecrets computes the runtime configuration updates for the specified list of servers.
+// The result includes updates for the secrets packages.
+func RuntimeConfigUpdatesWithSecrets(
+	manifest schema.Manifest,
+	operator ConfigPackageRotator,
+	operationKey ops.SiteOperationKey,
+	servers []storage.Server,
+) (updates []storage.UpdateServer, err error) {
+	updates = make([]storage.UpdateServer, 0, len(servers))
+	for _, server := range servers {
+		runtimePackage, err := manifest.RuntimePackageForProfile(server.Role)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		secretsUpdate, err := operator.RotateSecrets(ops.RotateSecretsRequest{
+			Key:            operationKey.SiteKey(),
+			Server:         server,
+			RuntimePackage: *runtimePackage,
+			DryRun:         true,
+		})
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		configUpdate, err := operator.RotatePlanetConfig(ops.RotatePlanetConfigRequest{
+			Key:            operationKey,
+			Server:         server,
+			Manifest:       manifest,
+			RuntimePackage: *runtimePackage,
+			DryRun:         true,
+		})
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		updates = append(updates, storage.UpdateServer{
+			Server: server,
+			Runtime: storage.RuntimePackage{
+				Installed:      *runtimePackage,
+				SecretsPackage: &secretsUpdate.Locator,
+				Update: &storage.RuntimeUpdate{
+					Package:       *runtimePackage,
+					ConfigPackage: configUpdate.Locator,
+				},
+			},
+		})
+	}
+	return updates, nil
+}
+
 // ConfigPackageRotator defines the subset of Operator for updating package configuration
 type ConfigPackageRotator interface {
 	RotatePlanetConfig(ops.RotatePlanetConfigRequest) (*ops.RotatePackageResponse, error)
+	RotateSecrets(ops.RotateSecretsRequest) (*ops.RotatePackageResponse, error)
 }
 
 // Config creates a new phase to update runtime container configuration
@@ -86,11 +135,7 @@ func (r Builder) Masters(servers []storage.UpdateServer, rootText, nodeTextForma
 		node.AddSequential(setLeaderElection(enable(), disable(first), first,
 			"stepdown", "Step down %q as Kubernetes leader"))
 	}
-	node.AddSequential(r.common(first, nil)...)
-	if len(others) != 0 {
-		node.AddSequential(setLeaderElection(enable(first), disable(others...), first,
-			"elect", "Make node %q Kubernetes leader"))
-	}
+	node.AddSequential(r.commonFirstMaster(first, others...)...)
 	root.AddSequential(node)
 	for i, server := range others {
 		node := r.node(server.Hostname, nodeTextFormat, server.Hostname)
@@ -114,6 +159,32 @@ func (r Builder) Nodes(servers []storage.UpdateServer, master storage.Server, ro
 		root.AddSequential(node)
 	}
 	return &root
+}
+
+func (r Builder) commonFirstMaster(server storage.UpdateServer, others ...storage.UpdateServer) (phases []update.Phase) {
+	phases = []update.Phase{
+		r.drain(&server.Server, nil),
+		r.restart(server),
+	}
+	if len(others) != 0 {
+		phases = append(phases, setLeaderElection(enable(server), disable(others...), server,
+			"elect", "Make node %q Kubernetes leader"))
+	}
+	if r.CustomUpdate != nil {
+		return append(phases,
+			r.custom(&server.Server, nil),
+			r.taint(&server.Server, nil),
+			r.uncordon(&server.Server, nil),
+			r.endpoints(&server.Server, nil),
+			r.untaint(&server.Server, nil),
+		)
+	}
+	return append(phases,
+		r.taint(&server.Server, nil),
+		r.uncordon(&server.Server, nil),
+		r.endpoints(&server.Server, nil),
+		r.untaint(&server.Server, nil),
+	)
 }
 
 func (r Builder) common(server storage.UpdateServer, master *storage.Server) (phases []update.Phase) {
@@ -150,6 +221,13 @@ func (r Builder) taint(server, execer *storage.Server) update.Phase {
 	if execer != nil {
 		node.Data.ExecServer = execer
 	}
+	return node
+}
+
+// custom assumes r.CustomUpdate != nil
+func (r Builder) custom(server, execer *storage.Server) update.Phase {
+	node := *r.CustomUpdate
+	node.Data.Server = server
 	return node
 }
 
@@ -212,6 +290,8 @@ func (r Builder) node(id, format string, args ...interface{}) update.Phase {
 type Builder struct {
 	// App specifies the cluster application
 	App loc.Locator
+	// CustomUpdate optionally specifies the custom phase
+	CustomUpdate *update.Phase
 }
 
 // setLeaderElection creates a phase that will change the leader election state in the cluster

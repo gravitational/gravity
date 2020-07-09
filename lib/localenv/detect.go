@@ -17,6 +17,8 @@ limitations under the License.
 package localenv
 
 import (
+	"context"
+
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/ops"
 
@@ -30,9 +32,9 @@ import (
 //   - If the cluster is deployed/healthy, returns nil.
 //   - If the cluster is not deployed and the node's clean, returns NotFound.
 //   - If partial state is detected, returns a specific error.
-func DetectCluster(env *LocalEnvironment) error {
+func DetectCluster(ctx context.Context, env *LocalEnvironment) error {
 	// If the local cluster checks succeed, we have a cluster.
-	clusterErr := checkCluster(env)
+	clusterErr := checkCluster(ctx, env)
 	if clusterErr == nil {
 		return nil
 	}
@@ -62,14 +64,14 @@ Otherwise, run "gravity status" and troubleshoot the degraded cluster.`)
 // local cluster.
 //
 // Returns nil if the cluster is deployed and a specific error otherwise.
-func checkCluster(env *LocalEnvironment) error {
+func checkCluster(ctx context.Context, env *LocalEnvironment) error {
 	// 1. Try to get operator client for the local cluster.
 	clusterOperator, err := env.SiteOperator()
 	if err != nil {
 		return trace.Wrap(err, "failed to get local cluster operator")
 	}
 	// 2. Try to make a request to the cluster controller (gravity-site).
-	cluster, err := clusterOperator.GetLocalSite()
+	cluster, err := clusterOperator.GetLocalSite(ctx)
 	if err != nil {
 		return trace.Wrap(err, "failed to query local cluster")
 	}

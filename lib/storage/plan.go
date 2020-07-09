@@ -24,6 +24,7 @@ import (
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
+	v1 "k8s.io/api/core/v1"
 )
 
 // OperationPlan represents a plan of an operation as a collection of phases
@@ -154,7 +155,7 @@ type OperationPhaseData struct {
 	// GarbageCollect specifies configuration specific to garbage collect operation
 	GarbageCollect *GarbageCollectOperationData `json:"garbage_collect,omitempty" yaml:"garbage_collect,omitempty"`
 	// Update specifies configuration specific to update operations
-	Update *UpdateOperationData `json:"update,omitempty" yaml:"garbage_collect,omitempty"`
+	Update *UpdateOperationData `json:"update,omitempty" yaml:"update,omitempty"`
 	// Install specifies configuration specific to install operation
 	Install *InstallOperationData `json:"install,omitempty" yaml:"install,omitempty"`
 }
@@ -179,6 +180,20 @@ type UpdateOperationData struct {
 	// The list might be a subset of all cluster servers in case
 	// the operation only operates on a specific part
 	Servers []UpdateServer `json:"updates,omitempty"`
+	// ClusterConfig optionally specifies data specific to cluster configuration operation
+	ClusterConfig *ClusterConfigData `json:"cluster_config,omitempty"`
+}
+
+// ClusterConfigData describes the configuration specific to cluster configuration update operation
+type ClusterConfigData struct {
+	// ServiceSuffix specifies the suffix of the temporary DNS services with a ClusterIP
+	// from a new service subnet when updating cluster service CIDR
+	ServiceSuffix string `json:"service_suffix,omitempty"`
+	// ServiceCIDR specifies the service IP range
+	ServiceCIDR string `json:"service_cidr,omitempty"`
+	// Services lists original service definitions as captured
+	// prior to update
+	Services []v1.Service `json:"services,omitempty"`
 }
 
 // UpdateServer describes an intent to update runtime/teleport configuration

@@ -94,7 +94,7 @@ func parseTeamMapping(m map[string]interface{}) services.TeamMapping {
 func resourceGravityGithubCreateOrUpdate(d *schema.ResourceData, m interface{}) error {
 	client := m.(*opsclient.Client)
 
-	cluster, err := client.GetLocalSite()
+	cluster, err := client.GetLocalSite(context.TODO())
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -139,7 +139,7 @@ func resourceGravityGithubRead(d *schema.ResourceData, m interface{}) error {
 	client := m.(*opsclient.Client)
 	name := d.Get("name").(string)
 
-	cluster, err := client.GetLocalSite()
+	cluster, err := client.GetLocalSite(context.TODO())
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -176,7 +176,7 @@ func resourceGravityGithubRead(d *schema.ResourceData, m interface{}) error {
 func resourceGravityGithubDelete(d *schema.ResourceData, m interface{}) error {
 	client := m.(*opsclient.Client)
 
-	cluster, err := client.GetLocalSite()
+	cluster, err := client.GetLocalSite(context.TODO())
 	if err != nil {
 		return trace.Wrap(err)
 	}

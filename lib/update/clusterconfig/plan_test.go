@@ -26,9 +26,11 @@ import (
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
+	"github.com/gravitational/gravity/lib/update/clusterconfig/phases"
 	libphase "github.com/gravitational/gravity/lib/update/internal/rollingupdate/phases"
 
 	. "gopkg.in/check.v1"
+	v1 "k8s.io/api/core/v1"
 )
 
 func TestFSM(t *testing.T) { TestingT(t) }
@@ -65,8 +67,15 @@ func (S) TestSingleNodePlan(c *C) {
 		},
 	}
 	clusterConfig := clusterconfig.NewEmpty()
-
-	plan, err := newOperationPlan(app, storage.DefaultDNSConfig, testOperator, operation, clusterConfig, servers)
+	config := planConfig{
+		app:           app,
+		dnsConfig:     storage.DefaultDNSConfig,
+		operator:      testOperator,
+		operation:     operation,
+		clusterConfig: clusterConfig,
+		servers:       servers,
+	}
+	plan, err := newOperationPlan(config)
 	c.Assert(err, IsNil)
 	c.Assert(plan, compare.DeepEquals, &storage.OperationPlan{
 		OperationID:   operation.ID,
@@ -217,8 +226,15 @@ func (S) TestMultiNodePlan(c *C) {
 		},
 	}
 	clusterConfig := clusterconfig.NewEmpty()
-
-	plan, err := newOperationPlan(app, storage.DefaultDNSConfig, testOperator, operation, clusterConfig, servers)
+	config := planConfig{
+		app:           app,
+		dnsConfig:     storage.DefaultDNSConfig,
+		operator:      testOperator,
+		operation:     operation,
+		clusterConfig: clusterConfig,
+		servers:       servers,
+	}
+	plan, err := newOperationPlan(config)
 	c.Assert(err, IsNil)
 	c.Assert(plan, compare.DeepEquals, &storage.OperationPlan{
 		OperationID:   operation.ID,
@@ -313,13 +329,26 @@ func (S) TestMultiNodePlan(c *C) {
 								Requires: []string{"/masters/node-1/drain"},
 							},
 							{
+								ID:          "/masters/node-1/elect",
+								Executor:    libphase.Elections,
+								Description: `Make node "node-1" Kubernetes leader`,
+								Data: &storage.OperationPhaseData{
+									Server: &servers[0],
+									ElectionChange: &storage.ElectionChange{
+										EnableServers:  []storage.Server{servers[0]},
+										DisableServers: []storage.Server{servers[2]},
+									},
+								},
+								Requires: []string{"/masters/node-1/restart"},
+							},
+							{
 								ID:          "/masters/node-1/taint",
 								Executor:    libphase.Taint,
 								Description: `Taint node "node-1"`,
 								Data: &storage.OperationPhaseData{
 									Server: &servers[0],
 								},
-								Requires: []string{"/masters/node-1/restart"},
+								Requires: []string{"/masters/node-1/elect"},
 							},
 							{
 								ID:          "/masters/node-1/uncordon",
@@ -347,19 +376,6 @@ func (S) TestMultiNodePlan(c *C) {
 									Server: &servers[0],
 								},
 								Requires: []string{"/masters/node-1/endpoints"},
-							},
-							{
-								ID:          "/masters/node-1/elect",
-								Executor:    libphase.Elections,
-								Description: `Make node "node-1" Kubernetes leader`,
-								Data: &storage.OperationPhaseData{
-									Server: &servers[0],
-									ElectionChange: &storage.ElectionChange{
-										EnableServers:  []storage.Server{servers[0]},
-										DisableServers: []storage.Server{servers[2]},
-									},
-								},
-								Requires: []string{"/masters/node-1/untaint"},
 							},
 						},
 					},
@@ -468,7 +484,7 @@ func (S) TestBuildsPlanWithNodes(c *C) {
 		{Hostname: "node-1", Role: "node", ClusterRole: string(schema.ServiceRoleMaster)},
 		{Hostname: "node-2", Role: "knode", ClusterRole: string(schema.ServiceRoleNode)},
 	}
-	runtimeLoc := loc.Locator{Repository: "foo", Name: "runtime", Version: "0.0.1"}
+	runtimeLoc := loc.Locator{Repository: "test", Name: "runtime", Version: "0.0.1"}
 	app := app.Application{
 		Package: loc.MustParseLocator("gravitational.io/app:0.0.1"),
 		Manifest: schema.Manifest{
@@ -495,8 +511,44 @@ func (S) TestBuildsPlanWithNodes(c *C) {
 kind: KubeletConfiguration
 address: "0.0.0.0"`),
 	}
-
-	plan, err := newOperationPlan(app, storage.DefaultDNSConfig, testOperator, operation, clusterConfig, servers)
+	clusterConfig.Spec.Global.ServiceCIDR = "10.200.0.0/16"
+	services := []v1.Service{
+		v1.Service{
+			Spec: v1.ServiceSpec{
+				Ports: []v1.ServicePort{
+					{
+						Protocol: v1.ProtocolTCP,
+						Port:     443,
+					},
+				},
+				ClusterIP: "10.100.0.1",
+				Type:      v1.ServiceTypeClusterIP,
+			},
+		},
+		v1.Service{
+			Spec: v1.ServiceSpec{
+				Ports: []v1.ServicePort{
+					{
+						Protocol: v1.ProtocolTCP,
+						Port:     8080,
+					},
+				},
+				ClusterIP: "10.100.20.10",
+				Type:      v1.ServiceTypeClusterIP,
+			},
+		},
+	}
+	config := planConfig{
+		app:           app,
+		dnsConfig:     storage.DefaultDNSConfig,
+		operator:      testOperator,
+		operation:     operation,
+		clusterConfig: clusterConfig,
+		servers:       servers,
+		services:      services,
+		serviceSuffix: "test",
+	}
+	plan, err := newOperationPlan(config)
 	c.Assert(err, IsNil)
 	c.Assert(plan, compare.DeepEquals, &storage.OperationPlan{
 		OperationID:   operation.ID,
@@ -506,6 +558,21 @@ address: "0.0.0.0"`),
 		Servers:       servers,
 		DNSConfig:     storage.DefaultDNSConfig,
 		Phases: []storage.OperationPhase{
+			{
+				ID:          "/init",
+				Executor:    phases.InitPhase,
+				Description: `Init operation`,
+				Data: &storage.OperationPhaseData{
+					Server: &servers[0],
+					Update: &storage.UpdateOperationData{
+						ClusterConfig: &storage.ClusterConfigData{
+							ServiceSuffix: "test",
+							ServiceCIDR:   "10.200.0.0/16",
+							Services:      services,
+						},
+					},
+				},
+			},
 			{
 				ID:          "/update-config",
 				Executor:    libphase.UpdateConfig,
@@ -517,7 +584,8 @@ address: "0.0.0.0"`),
 							{
 								Server: servers[0],
 								Runtime: storage.RuntimePackage{
-									Installed: runtimeLoc,
+									Installed:      runtimeLoc,
+									SecretsPackage: &testOperator.secretsPackage,
 									Update: &storage.RuntimeUpdate{
 										Package:       runtimeLoc,
 										ConfigPackage: testOperator.runtimeConfigPackage,
@@ -527,7 +595,8 @@ address: "0.0.0.0"`),
 							{
 								Server: servers[1],
 								Runtime: storage.RuntimePackage{
-									Installed: runtimeLoc,
+									Installed:      runtimeLoc,
+									SecretsPackage: &testOperator.secretsPackage,
 									Update: &storage.RuntimeUpdate{
 										Package:       runtimeLoc,
 										ConfigPackage: testOperator.runtimeConfigPackage,
@@ -537,6 +606,7 @@ address: "0.0.0.0"`),
 						},
 					},
 				},
+				Requires: []string{"/init"},
 			},
 			{
 				ID:          "/masters",
@@ -566,7 +636,8 @@ address: "0.0.0.0"`),
 											{
 												Server: servers[0],
 												Runtime: storage.RuntimePackage{
-													Installed: runtimeLoc,
+													Installed:      runtimeLoc,
+													SecretsPackage: &testOperator.secretsPackage,
 													Update: &storage.RuntimeUpdate{
 														Package:       runtimeLoc,
 														ConfigPackage: testOperator.runtimeConfigPackage,
@@ -579,13 +650,29 @@ address: "0.0.0.0"`),
 								Requires: []string{"/masters/node-1/drain"},
 							},
 							{
+								ID:          "/masters/node-1/services",
+								Executor:    libphase.Custom,
+								Description: "Reset services",
+								Data: &storage.OperationPhaseData{
+									Server: &servers[0],
+									Update: &storage.UpdateOperationData{
+										ClusterConfig: &storage.ClusterConfigData{
+											ServiceSuffix: "test",
+											ServiceCIDR:   "10.200.0.0/16",
+											Services:      services,
+										},
+									},
+								},
+								Requires: []string{"/masters/node-1/restart"},
+							},
+							{
 								ID:          "/masters/node-1/taint",
 								Executor:    libphase.Taint,
 								Description: `Taint node "node-1"`,
 								Data: &storage.OperationPhaseData{
 									Server: &servers[0],
 								},
-								Requires: []string{"/masters/node-1/restart"},
+								Requires: []string{"/masters/node-1/services"},
 							},
 							{
 								ID:          "/masters/node-1/uncordon",
@@ -648,7 +735,8 @@ address: "0.0.0.0"`),
 											{
 												Server: servers[1],
 												Runtime: storage.RuntimePackage{
-													Installed: runtimeLoc,
+													Installed:      runtimeLoc,
+													SecretsPackage: &testOperator.secretsPackage,
 													Update: &storage.RuntimeUpdate{
 														Package:       runtimeLoc,
 														ConfigPackage: testOperator.runtimeConfigPackage,
@@ -705,8 +793,28 @@ address: "0.0.0.0"`),
 				},
 				Requires: []string{"/update-config", "/masters"},
 			},
+			{
+				ID:          "/fini",
+				Executor:    phases.FiniPhase,
+				Description: `Finalize operation`,
+				Data: &storage.OperationPhaseData{
+					Server: &servers[0],
+					Update: &storage.UpdateOperationData{
+						ClusterConfig: &storage.ClusterConfigData{
+							ServiceSuffix: "test",
+							ServiceCIDR:   "10.200.0.0/16",
+							Services:      services,
+						},
+					},
+				},
+				Requires: []string{"/nodes"},
+			},
 		},
 	})
+}
+
+func (r testRotator) RotateSecrets(ops.RotateSecretsRequest) (*ops.RotatePackageResponse, error) {
+	return &ops.RotatePackageResponse{Locator: r.secretsPackage}, nil
 }
 
 func (r testRotator) RotatePlanetConfig(ops.RotatePlanetConfigRequest) (*ops.RotatePackageResponse, error) {
@@ -714,9 +822,19 @@ func (r testRotator) RotatePlanetConfig(ops.RotatePlanetConfigRequest) (*ops.Rot
 }
 
 var testOperator = testRotator{
-	runtimeConfigPackage: loc.Locator{Repository: "gravitational.io", Name: "planet-config", Version: "0.0.1"},
+	secretsPackage: loc.Locator{
+		Repository: "gravitational.io",
+		Name:       "planet-secrets",
+		Version:    "0.0.1",
+	},
+	runtimeConfigPackage: loc.Locator{
+		Repository: "gravitational.io",
+		Name:       "planet-config",
+		Version:    "0.0.1",
+	},
 }
 
 type testRotator struct {
+	secretsPackage       loc.Locator
 	runtimeConfigPackage loc.Locator
 }

@@ -226,26 +226,26 @@ func (s *site) selectSubnets(operation ops.SiteOperation) (*storage.Subnets, err
 	}
 
 	// machines on AWS will receive IPs from this subnet
-	subnet := operation.GetVars().AWS.VPCCIDR
-	if subnet == "" {
+	serviceSubnet := operation.GetVars().AWS.VPCCIDR
+	if serviceSubnet == "" {
 		return nil, trace.BadParameter("no subnet CIDR in operation vars: %v", operation)
 	}
 
 	// select the overlay subnet non-overlapping with the machines subnet
-	overlay, err := utils.SelectSubnet([]string{subnet})
+	overlaySubnet, err := utils.SelectSubnet([]string{serviceSubnet})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
 	// and select the service subnet non-overlapping with the pod/machine subnets
-	service, err := utils.SelectSubnet([]string{subnet, overlay})
+	serviceSubnet, err = utils.SelectSubnet([]string{serviceSubnet, overlaySubnet})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
 	return &storage.Subnets{
-		Overlay: overlay,
-		Service: service,
+		Overlay: overlaySubnet,
+		Service: serviceSubnet,
 	}, nil
 }
 

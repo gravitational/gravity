@@ -36,7 +36,7 @@ func (o *Operator) UpsertAuthGateway(ctx context.Context, key ops.SiteKey, gw st
 	// Updating auth gateway configuration may trigger gravity-site
 	// restart so allow to create it only on active clusters (to avoid
 	// interrupting an operation for example).
-	cluster, err := o.GetLocalSite()
+	cluster, err := o.GetLocalSite(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}

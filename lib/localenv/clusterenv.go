@@ -26,6 +26,7 @@ import (
 	"github.com/gravitational/gravity/lib/blob"
 	libcluster "github.com/gravitational/gravity/lib/blob/cluster"
 	"github.com/gravitational/gravity/lib/blob/fs"
+	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/ops/opsservice"
 	"github.com/gravitational/gravity/lib/pack"
@@ -63,7 +64,9 @@ func (r *LocalEnvironment) NewClusterEnvironment(opts ...ClusterEnvironmentOptio
 	if err != nil && !trace.IsNotFound(err) {
 		return nil, trace.Wrap(err)
 	}
-	auditLog, err := r.AuditLog(context.TODO())
+	ctx, cancel := context.WithTimeout(context.Background(), defaults.AuditLogClientTimeout)
+	defer cancel()
+	auditLog, err := r.AuditLog(ctx)
 	if err != nil {
 		log.WithError(err).Warn("Failed to create audit log.")
 	}

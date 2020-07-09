@@ -395,7 +395,7 @@ func (h *WebHandler) getApps(w http.ResponseWriter, r *http.Request, p httproute
    GET /portal/v1/gravity
 */
 func (h *WebHandler) getGravityBinary(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
-	cluster, err := context.Operator.GetLocalSite()
+	cluster, err := context.Operator.GetLocalSite(r.Context())
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -905,7 +905,7 @@ Success response:
    }
 */
 func (h *WebHandler) getLocalSite(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
-	site, err := context.Operator.GetLocalSite()
+	site, err := context.Operator.GetLocalSite(r.Context())
 	if err != nil {
 		return trace.Wrap(err)
 	}
