@@ -6,8 +6,9 @@ suites of robotest integration tests.
 * `run.sh` provides the glue between the top level Makefile, what robotest expects,
 and the dynamically generated configurations.
 * `*_config.sh` contain branch specific suite configurations.
-* `utils.sh` contains functions common to both pull requst (pr) and nightly
+* `utils.sh` contains functions common to both pull request (pr) and nightly
 configurations.
+* `test.sh` contains unit tests for the interesting logic in `utils.sh`
 
 The files are structured this way for two major reasons:
 
