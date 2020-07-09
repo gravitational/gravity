@@ -14,7 +14,7 @@ labels: "type: kind/bug"
 
 ### Environment
 
- - Gravity version [e.g. 5.5.4]:
+ - Gravity version [e.g. 7.0.11]:
  - OS [e.g. Redhat 7.4]:
  - Platform [e.g. Vmware, AWS]:
 
