@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2018-2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -47,9 +47,8 @@ import (
 	"github.com/gravitational/gravity/lib/users"
 	"github.com/gravitational/gravity/lib/utils"
 
-	"github.com/cloudflare/cfssl/signer"
 	"github.com/gravitational/configure/cstrings"
-	"github.com/gravitational/license/authority"
+	"github.com/gravitational/teleport/lib/auth"
 	teleevents "github.com/gravitational/teleport/lib/events"
 	"github.com/gravitational/teleport/lib/reversetunnel"
 	teleservices "github.com/gravitational/teleport/lib/services"
@@ -86,6 +85,9 @@ type Config struct {
 
 	// TeleportProxyService is a teleport proxy service
 	TeleportProxy ops.TeleportProxyService
+
+	// AuthClient is teleport auth server client.
+	AuthClient *auth.Client
 
 	// Tunnel is a reverse tunnel server providing access to remote sites
 	Tunnel reversetunnel.Server
@@ -218,6 +220,9 @@ func (cfg *Config) CheckAndSetDefaults() error {
 	}
 	if cfg.Proxy == nil {
 		return trace.BadParameter("missing Proxy")
+	}
+	if cfg.AuthClient == nil {
+		return trace.BadParameter("missing AuthClient")
 	}
 	if cfg.ProcessID == "" {
 		return trace.BadParameter("missing ProcessID")
@@ -856,35 +861,23 @@ func (o *Operator) SignSSHKey(req ops.SSHSignRequest) (*ops.SSHSignResponse, err
 	if req.TTL <= 0 || req.TTL > constants.MaxInteractiveSessionTTL {
 		req.TTL = constants.MaxInteractiveSessionTTL
 	}
-	proxy := o.cfg.TeleportProxy
-	cert, err := proxy.GenerateUserCert(req.PublicKey, req.User, req.TTL)
+	sshCert, tlsCert, err := o.cfg.AuthClient.GenerateUserCerts(req.PublicKey, req.User, req.TTL, "")
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	// TODO(klizhentas) filter out proxies this user does not have access to
-	authorities, err := proxy.GetCertAuthorities(teleservices.HostCA)
+	authorities, err := o.cfg.AuthClient.GetCertAuthorities(teleservices.HostCA, false)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	authorityDomain, err := o.users().GetClusterName()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	ca, err := proxy.GetCertAuthority(teleservices.CertAuthID{
+	ca, err := o.cfg.TeleportProxy.GetCertAuthority(teleservices.CertAuthID{
 		Type:       teleservices.HostCA,
-		DomainName: authorityDomain.GetClusterName(),
-	}, true)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	tlsCert, err := authority.ProcessCSR(signer.SignRequest{
-		Request: string(req.CSR),
-	}, req.TTL, ca)
+		DomainName: o.cfg.TeleportProxy.GetLocalAuthorityDomain(),
+	}, false)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return &ops.SSHSignResponse{
-		Cert:                   cert,
+		Cert:                   sshCert,
 		TrustedHostAuthorities: authorities,
 		TLSCert:                tlsCert,
 		CACert:                 ca.CertPEM,
