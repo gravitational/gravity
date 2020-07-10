@@ -24,6 +24,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/system/auditlog"
 	"github.com/gravitational/gravity/lib/utils"
@@ -43,6 +44,7 @@ func NewSystemCollector(since time.Duration) Collectors {
 	add(planetLogs(since)...)
 	add(syslogExportLogs(since))
 	add(auditLog())
+	add(gravityCLILog(since))
 
 	return collectors
 }
@@ -220,4 +222,16 @@ func auditLog() Collector {
 { %v } | /bin/gzip -f`,
 		strings.Join(subjects, " "))
 	return Script("audit.log.gz", script)
+}
+
+// gravityCLILog fetches gravity cli log.
+func gravityCLILog(since time.Duration) Collector {
+	var script = fmt.Sprintf(`
+#!/bin/bash
+/bin/journalctl --no-pager -t %s`, constants.GravityCLITag)
+	if since != 0 {
+		script = fmt.Sprintf(`%s --since="%s"`, script, time.Now().Add(-since).Format(JournalDateFormat))
+	}
+	script = fmt.Sprintf("%s | /bin/gzip -f", script)
+	return Script("gravity-cli.log.gz", script)
 }

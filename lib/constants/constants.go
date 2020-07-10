@@ -718,6 +718,10 @@ const (
 	// GravitySystemContainerType specifies the SELinux domain for the system containers.
 	// For instance, application hook init containers run as system containers
 	GravitySystemContainerType = "gravity_container_system_t"
+
+	// GravityCLITag is used to tag gravity cli command log entries in the
+	// system journal.
+	GravityCLITag = "gravity-cli"
 )
 
 var (
