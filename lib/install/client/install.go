@@ -79,11 +79,12 @@ func (r *InstallerStrategy) installSelfAsService() error {
 			Timeout:          int(time.Duration(defaults.ServiceConnectTimeout).Seconds()),
 			WantedBy:         "multi-user.target",
 			WorkingDirectory: r.ApplicationDir,
+			// Propagate all gravity-related environment variables to the service.
+			Environment: utils.GetenvsByPrefix(constants.GravityEnvVarPrefix),
 		},
 		NoBlock: true,
 		Name:    r.ServicePath,
 	}
-	req.ServiceSpec.Environment = utils.Getenv(constants.PreflightChecksOffEnvVar)
 	r.WithField("req", fmt.Sprintf("%+v", req)).Info("Install service.")
 	return trace.Wrap(service.Reinstall(req))
 }

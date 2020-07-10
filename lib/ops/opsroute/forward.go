@@ -431,10 +431,10 @@ func (r *Router) GetSiteReport(ctx context.Context, req ops.GetClusterReportRequ
 }
 
 // ValidateServers runs pre-installation checks
-func (r *Router) ValidateServers(ctx context.Context, req ops.ValidateServersRequest) error {
+func (r *Router) ValidateServers(ctx context.Context, req ops.ValidateServersRequest) (*ops.ValidateServersResponse, error) {
 	client, err := r.WizardClient(req.SiteDomain)
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 	return client.ValidateServers(ctx, req)
 }
