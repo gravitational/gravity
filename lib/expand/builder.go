@@ -39,6 +39,8 @@ type planBuilder struct {
 	Application app.Application
 	// Runtime is the Runtime of the app being installed
 	Runtime app.Application
+	// GravityPackage is the gravity package to install
+	GravityPackage loc.Locator
 	// TeleportPackage is the teleport package to install
 	TeleportPackage loc.Locator
 	// PlanetPackage is the planet package to install
@@ -144,6 +146,11 @@ func (b *planBuilder) AddPullPhase(plan *storage.OperationPlan) {
 			ExecServer:  &b.JoiningNode,
 			Package:     &b.Application.Package,
 			ServiceUser: &b.ServiceUser,
+			Packages: []loc.Locator{
+				b.GravityPackage,
+				b.TeleportPackage,
+				b.PlanetPackage,
+			},
 		},
 		Requires: []string{installphases.ConfigurePhase, installphases.BootstrapPhase},
 	})
@@ -340,6 +347,11 @@ func (p *Peer) getPlanBuilder(ctx operationContext) (*planBuilder, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	gravityPackage, err := application.Manifest.Dependencies.ByName(
+		constants.GravityPackage)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	teleportPackage, err := application.Manifest.Dependencies.ByName(
 		constants.TeleportPackage)
 	if err != nil {
@@ -375,6 +387,7 @@ func (p *Peer) getPlanBuilder(ctx operationContext) (*planBuilder, error) {
 	return &planBuilder{
 		Application:     *application,
 		Runtime:         *runtime,
+		GravityPackage:  *gravityPackage,
 		TeleportPackage: *teleportPackage,
 		PlanetPackage:   *planetPackage,
 		JoiningNode:     operation.Servers[0],

@@ -132,6 +132,8 @@ type OperationPhaseData struct {
 	Master *Server `json:"master,omitempty" yaml:"master,omitempty"`
 	// Package is the package locator for the phase, e.g. update package
 	Package *loc.Locator `json:"package,omitempty" yaml:"package,omitempty"`
+	// Packages contains a list of packages for the phase, e.g. packages to pull
+	Packages []loc.Locator `json:"packages,omitempty" yaml:"packages,omitempty"`
 	// Labels can optionally identify the package
 	Labels map[string]string `json:"labels,omitempty" yaml:"labels,omitempty"`
 	// InstalledPackage references the installed application package

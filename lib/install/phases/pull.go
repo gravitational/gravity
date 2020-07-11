@@ -107,11 +107,21 @@ type pullExecutor struct {
 
 // Execute executes the pull phase
 func (p *pullExecutor) Execute(ctx context.Context) error {
-	err := p.pullUserApplication()
-	if err != nil {
-		return trace.Wrap(err)
+	// If the list of packages to pull was explicitly provided, pull only those
+	// (e.g. during join), otherwise pull the entire user application (e.g.
+	// during initial installation).
+	if len(p.Phase.Data.Packages) == 0 {
+		err := p.pullUserApplication()
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	} else {
+		err := p.pullPackages(p.Phase.Data.Packages)
+		if err != nil {
+			return trace.Wrap(err)
+		}
 	}
-	err = p.pullConfiguredPackages()
+	err := p.pullConfiguredPackages()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -133,6 +143,23 @@ func (p *pullExecutor) Execute(ctx context.Context) error {
 		p.ServiceUser.UID, p.ServiceUser.GID)
 	if err != nil {
 		return trace.Wrap(err)
+	}
+	return nil
+}
+
+func (p *pullExecutor) pullPackages(locators []loc.Locator) error {
+	p.Progress.NextStep("Pulling packages from cluster")
+	p.Info("Pulling packages from cluster.")
+	for _, locator := range locators {
+		_, err := service.PullPackage(service.PackagePullRequest{
+			FieldLogger: p.FieldLogger,
+			SrcPack:     p.WizardPackages,
+			DstPack:     p.LocalPackages,
+			Package:     locator,
+		})
+		if err != nil && !trace.IsAlreadyExists(err) { // Make sure it's re-entrable.
+			return trace.Wrap(err)
+		}
 	}
 	return nil
 }

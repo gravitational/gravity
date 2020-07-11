@@ -24,7 +24,9 @@ import (
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/rpc"
+	"github.com/gravitational/satellite/agent/proto/agentpb"
 
+	"github.com/fatih/color"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
 )
@@ -88,8 +90,22 @@ func (p *checksExecutor) Execute(ctx context.Context) error {
 	// For multi-node checks, use one of master nodes as an "anchor" so
 	// the joining node will be compared against that master (e.g. for
 	// the OS check, time drift check, etc).
-	failed := checker.CheckNode(ctx, *node)
-	failed = append(failed, checker.CheckNodes(ctx, []checks.Server{*master, *node})...)
+	probes := checker.CheckNode(ctx, *node)
+	probes = append(probes, checker.CheckNodes(ctx, []checks.Server{*master, *node})...)
+	// Sort probes out into warnings and real failures.
+	var failed []*agentpb.Probe
+	for _, probe := range probes {
+		if probe.Status != agentpb.Probe_Failed {
+			continue
+		}
+		if probe.Severity == agentpb.Probe_Warning {
+			p.Progress.NextStep(color.YellowString(probe.Detail))
+		}
+		if probe.Severity == agentpb.Probe_Critical {
+			p.Progress.NextStep(color.RedString(probe.Detail))
+			failed = append(failed, probe)
+		}
+	}
 	if len(failed) != 0 {
 		return trace.BadParameter("The following checks failed:\n%v",
 			checks.FormatFailedChecks(failed))
