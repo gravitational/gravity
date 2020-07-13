@@ -59,10 +59,20 @@ func ConfigureEnvironment() error {
 // Run parses CLI arguments and executes an appropriate gravity command
 func Run(g *Application) error {
 	log.Debugf("Executing: %v.", os.Args)
+	if runErr := run(g); runErr != nil {
+		msg := fmt.Sprintf("Failed to exec [%s]: %s", strings.Join(os.Args, " "), trace.UserMessage(runErr))
+		if logErr := utils.SyslogWrite(syslog.LOG_INFO, msg, constants.GravityCLITag); logErr != nil {
+			log.WithError(logErr).Warn("Failed to write to system logs.")
+		}
+		return runErr
+	}
 	if err := utils.SyslogWrite(syslog.LOG_INFO, strings.Join(os.Args, " "), constants.GravityCLITag); err != nil {
 		log.WithError(err).Warn("Failed to write to system logs.")
 	}
+	return nil
+}
 
+func run(g *Application) error {
 	err := ConfigureEnvironment()
 	if err != nil {
 		return trace.Wrap(err)
