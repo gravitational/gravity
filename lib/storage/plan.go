@@ -132,8 +132,6 @@ type OperationPhaseData struct {
 	Master *Server `json:"master,omitempty" yaml:"master,omitempty"`
 	// Package is the package locator for the phase, e.g. update package
 	Package *loc.Locator `json:"package,omitempty" yaml:"package,omitempty"`
-	// Packages contains a list of packages for the phase, e.g. packages to pull
-	Packages []loc.Locator `json:"packages,omitempty" yaml:"packages,omitempty"`
 	// Labels can optionally identify the package
 	Labels map[string]string `json:"labels,omitempty" yaml:"labels,omitempty"`
 	// InstalledPackage references the installed application package
@@ -157,12 +155,22 @@ type OperationPhaseData struct {
 	ServiceUser *OSUser `json:"service_user,omitempty" yaml:"service_user,omitempty"`
 	// Data is arbitrary text data to provide to a phase executor
 	Data string `json:"data,omitempty" yaml:"data,omitempty"`
+	// Pull contains applications and packages that should be pulled
+	Pull *PullData `json:"pull,omitempty" yaml:"pull,omitempty"`
 	// GarbageCollect specifies configuration specific to garbage collect operation
 	GarbageCollect *GarbageCollectOperationData `json:"garbage_collect,omitempty" yaml:"garbage_collect,omitempty"`
 	// Update specifies configuration specific to update operations
 	Update *UpdateOperationData `json:"update,omitempty" yaml:"update,omitempty"`
 	// Install specifies configuration specific to install operation
 	Install *InstallOperationData `json:"install,omitempty" yaml:"install,omitempty"`
+}
+
+// PullData contains applications and packages to pull
+type PullData struct {
+	// Packages is a list of packages to pull
+	Packages []loc.Locator `json:"packages,omitempty" yaml:"packages,omitempty"`
+	// Apps is a list of applications to pull
+	Apps []loc.Locator `json:"apps,omitempty" yaml:"apps,omitempty"`
 }
 
 // ElectionChange describes changes to make to cluster elections
