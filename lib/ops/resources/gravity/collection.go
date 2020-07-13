@@ -664,13 +664,11 @@ func (r configCollection) WriteText(w io.Writer) error {
 		fmt.Fprintf(t, "%v\n", string(config.Config))
 	}
 	config := r.GetGlobalConfig()
-	displayCloudConfig := config.CloudProvider != "" || config.CloudConfig != ""
-	if displayCloudConfig {
-		common.PrintCustomTableHeader(t, []string{"Cloud"}, "-")
-		if len(config.CloudProvider) != 0 {
-			fmt.Fprintf(t, "Provider:\t%v\n", config.CloudProvider)
-		}
-		formatCloudConfig(t, config.CloudConfig)
+	if len(config.PodCIDR) != 0 {
+		fmt.Fprintf(t, "Pod IP Range:\t%v\n", config.PodCIDR)
+	}
+	if len(config.ServiceCIDR) != 0 {
+		fmt.Fprintf(t, "Service IP Range:\t%v\n", config.ServiceCIDR)
 	}
 	if len(config.ServiceNodePortRange) != 0 {
 		fmt.Fprintf(t, "Service Node Port Range:\t%v\n", config.ServiceNodePortRange)
@@ -680,6 +678,14 @@ func (r configCollection) WriteText(w io.Writer) error {
 	}
 	if len(config.FeatureGates) != 0 {
 		fmt.Fprintf(t, "Feature Gates:\t%v\n", formatFeatureGates(config.FeatureGates))
+	}
+	displayCloudConfig := config.CloudProvider != "" || config.CloudConfig != ""
+	if displayCloudConfig {
+		common.PrintCustomTableHeader(t, []string{"Cloud"}, "-")
+		if len(config.CloudProvider) != 0 {
+			fmt.Fprintf(t, "Provider:\t%v\n", config.CloudProvider)
+		}
+		formatCloudConfig(t, config.CloudConfig)
 	}
 	_, err := io.WriteString(w, t.String())
 	return trace.Wrap(err)

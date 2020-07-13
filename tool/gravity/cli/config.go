@@ -374,6 +374,13 @@ func (i *InstallConfig) NewInstallerConfig(
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	if !i.Remote {
+		// Compute the cloud provider before updating the cluster configuration
+		// so it reflects the autodetected value as well
+		if err := i.validateCloudConfig(app.Manifest); err != nil {
+			return nil, trace.Wrap(err)
+		}
+	}
 	gravityResources, err = i.updateClusterConfig(gravityResources)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -386,11 +393,7 @@ func (i *InstallConfig) NewInstallerConfig(
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	if !i.Remote {
-		if err := i.validateCloudConfig(app.Manifest); err != nil {
-			return nil, trace.Wrap(err)
-		}
-	}
+
 	token, err := generateInstallToken(wizard.Operator, i.Token)
 	if err != nil && !trace.IsAlreadyExists(err) {
 		return nil, trace.Wrap(err)
@@ -588,10 +591,6 @@ func (i *InstallConfig) updateClusterConfig(resources []storage.UnknownResource)
 			continue
 		}
 		updated = append(updated, res)
-	}
-	if clusterConfig == nil && i.CloudProvider == "" {
-		// Return the resources unchanged
-		return resources, nil
 	}
 	var config clusterconfig.Interface
 	if clusterConfig == nil {
