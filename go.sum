@@ -550,6 +550,8 @@ github.com/gravitational/satellite v0.0.9-0.20200413193155-d7a2a93a8ed5 h1:F4Ogp
 github.com/gravitational/satellite v0.0.9-0.20200413193155-d7a2a93a8ed5/go.mod h1:RiHX/L4H5HoTN/DeWses6RP9PqYujezJOlVmU8WcLwY=
 github.com/gravitational/satellite v0.0.9-0.20200702164053-52ff9d5d7ad2 h1:voUhnEi7uzHi0NRI71Qf2ewPJPhMhOQFVF8CBIPXCU4=
 github.com/gravitational/satellite v0.0.9-0.20200702164053-52ff9d5d7ad2/go.mod h1:gqyBdtaefi/t7Mw//N/eoC4c3YriZZssmOiZ6NPvuek=
+github.com/gravitational/satellite v0.0.9-0.20200710191154-f54615042732 h1:NperDAO9Xrdl3rDy6URHdIkhUdTif4Zb+fkaLufHJ1I=
+github.com/gravitational/satellite v0.0.9-0.20200710191154-f54615042732/go.mod h1:gqyBdtaefi/t7Mw//N/eoC4c3YriZZssmOiZ6NPvuek=
 github.com/gravitational/tail v1.0.1 h1:Yv5nh+zV0yHQ9D9kXGEOFpUoA+Ti5uXHwOGioKSIeng=
 github.com/gravitational/tail v1.0.1/go.mod h1:3aRU+xPwNCaXykBn4jhiXsSJXX7jalcZtvCYGckNbPw=
 github.com/gravitational/teleport v3.2.15-0.20200110233851-f4445fa60013+incompatible h1:zXwIbEof+bTDqbYW97fZe7BWEuHa7ccrNe2PcMt8kYU=
@@ -686,6 +688,8 @@ github.com/jonboulle/clockwork v0.0.0-20141017032234-72f9bd7c4e0c/go.mod h1:Ii8D
 github.com/jonboulle/clockwork v0.1.0/go.mod h1:Ii8DK3G1RaLaWxj9trq07+26W01tbo22gdxWY5EU2bo=
 github.com/jonboulle/clockwork v0.1.1-0.20190114141812-62fb9bc030d1 h1:qBCV/RLV02TSfQa7tFmxTihnG+u+7JXByOkhlkR5rmQ=
 github.com/jonboulle/clockwork v0.1.1-0.20190114141812-62fb9bc030d1/go.mod h1:Ii8DK3G1RaLaWxj9trq07+26W01tbo22gdxWY5EU2bo=
+github.com/jonboulle/clockwork v0.2.0 h1:J2SLSdy7HgElq8ekSl2Mxh6vrRNFxqbXGenYH2I02Vs=
+github.com/jonboulle/clockwork v0.2.0/go.mod h1:Pkfl5aHPm1nk2H9h0bjmnJD/BcgbGXUBGnn1kMkgxc8=
 github.com/json-iterator/go v1.1.5 h1:gL2yXlmiIo4+t+y32d4WGwOjKGYcGOuyrg46vadswDE=
 github.com/json-iterator/go v1.1.5/go.mod h1:+SdeFBvtyEkXs7REEP0seUULqWtbJapLOCVDaaPEHmU=
 github.com/jsonnet-bundler/jsonnet-bundler v0.1.0/go.mod h1:YKsSFc9VFhhLITkJS3X2PrRqWG9u2Jq99udTdDjQLfM=
@@ -750,6 +754,8 @@ github.com/lucas-clemente/quic-go v0.10.2/go.mod h1:hvaRS9IHjFLMq76puFJeWNfmn+H7
 github.com/lucas-clemente/quic-go-certificates v0.0.0-20160823095156-d2f86524cced/go.mod h1:NCcRLrOTZbzhZvixZLlERbJtDtYsmMw8Jc4vS8Z0g58=
 github.com/magefile/mage v1.9.0 h1:t3AU2wNwehMCW97vuqQLtw6puppWXHO+O2MHo5a50XE=
 github.com/magefile/mage v1.9.0/go.mod h1:z5UZb/iS3GoOSn0JgWuiw7dxlurVYTu+/jHXqQg881A=
+github.com/magefile/mage v1.10.0 h1:3HiXzCUY12kh9bIuyXShaVe529fJfyqoVM42o/uom2g=
+github.com/magefile/mage v1.10.0/go.mod h1:z5UZb/iS3GoOSn0JgWuiw7dxlurVYTu+/jHXqQg881A=
 github.com/magiconair/properties v0.0.0-20160816085511-61b492c03cf4/go.mod h1:PppfXfuXeibc/6YijjN8zIbojt8czPbwD3XqdrwzmxQ=
 github.com/magiconair/properties v1.7.6/go.mod h1:PppfXfuXeibc/6YijjN8zIbojt8czPbwD3XqdrwzmxQ=
 github.com/magiconair/properties v1.8.0/go.mod h1:PppfXfuXeibc/6YijjN8zIbojt8czPbwD3XqdrwzmxQ=
@@ -1187,6 +1193,8 @@ golang.org/x/net v0.0.0-20200602114024-627f9648deb9 h1:pNX+40auqi2JqRfOP1akLGtYc
 golang.org/x/net v0.0.0-20200602114024-627f9648deb9/go.mod h1:qpuaurCH72eLCgpAm/N6yyVIVM9cpaDIP3A8BGJEC5A=
 golang.org/x/net v0.0.0-20200625001655-4c5254603344 h1:vGXIOMxbNfDTk/aXCmfdLgkrSV+Z2tcbze+pEc3v5W4=
 golang.org/x/net v0.0.0-20200625001655-4c5254603344/go.mod h1:/O7V0waA8r7cgGh81Ro3o1hOxt32SMVPicZroKQ2sZA=
+golang.org/x/net v0.0.0-20200707034311-ab3426394381 h1:VXak5I6aEWmAXeQjA+QSZzlgNrpq9mjcfDemuexIKsU=
+golang.org/x/net v0.0.0-20200707034311-ab3426394381/go.mod h1:/O7V0waA8r7cgGh81Ro3o1hOxt32SMVPicZroKQ2sZA=
 golang.org/x/oauth2 v0.0.0-20181003184128-c57b0facaced h1:4oqSq7eft7MdPKBGQK11X9WYUxmj6ZLgGTqYIbY1kyw=
 golang.org/x/oauth2 v0.0.0-20181003184128-c57b0facaced/go.mod h1:N/0e6XlmueqKjAGxoOufVs8QHGRruUQn6yWY3a++T0U=
 golang.org/x/perf v0.0.0-20180704124530-6e6d33e29852/go.mod h1:JLpeXjPJfIyPr5TlbXLkXWLhP8nz10XfvxElABhCtcw=

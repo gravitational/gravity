@@ -106,24 +106,25 @@ type KernelConstraintFunc func(KernelVersion) bool
 // the actual version
 func KernelVersionLessThan(version KernelVersion) KernelConstraintFunc {
 	return func(testVersion KernelVersion) bool {
-		return testVersion.Release < version.Release ||
-			(testVersion.Release == version.Release &&
-				testVersion.Major < version.Major) ||
-			(testVersion.Major == version.Major &&
-				testVersion.Minor < version.Minor)
+		release := testVersion.Release <= version.Release
+		major := testVersion.Major <= version.Major
+		minor := testVersion.Minor <= version.Minor
+		patch := testVersion.Patch < version.Patch
+
+		return release && major && minor && patch
 	}
 }
 
 // KernelVersion describes an abbreviated version of a Linux kernel.
-// It contains only the kernel version (including major/minor components)
-// skips irrelevant details like patch or build number.
+// It contains only the kernel version (including major/minor components) and
+// patch number.
 //
 // Example:
 //  $ uname -r
 //  $ 4.4.9-112-generic
 //
 // The result will be:
-//  KernelVersion{Release: 4, Major: 4, Minor: 9}
+//  KernelVersion{Release: 4, Major: 4, Minor: 9, Patch: 112}
 type KernelVersion struct {
 	// Release specifies the release of the kernel
 	Release int
@@ -131,6 +132,13 @@ type KernelVersion struct {
 	Major int
 	// Minor specifies the minor version component
 	Minor int
+	// Patch specifies the patch or build number
+	Patch int
+}
+
+// String returns the kernel version formatted as Release.Major.Minor-Patch.
+func (r *KernelVersion) String() string {
+	return fmt.Sprintf("%d.%d.%d-%d", r.Release, r.Major, r.Minor, r.Patch)
 }
 
 // check verifies boot configuration on host.
@@ -229,34 +237,44 @@ type kernelVersionReader func() (version string, err error)
 // based on the specified kernel release version
 type bootConfigReader func(release string) (io.ReadCloser, error)
 
+// parseKernelVersion parses the input string into a KernelVersion struct. The
+// input is expected to be a valid Linux kernel version in the format
+// Release.Major.Minor-Patch... trailing components will be ignored.
+//
+// Example:
+//  4.4.9-112-generic
+//
+// The result will be:
+//  KernelVersion{Release: 4, Major: 4, Minor: 9, Patch: 112}
 func parseKernelVersion(input string) (*KernelVersion, error) {
-	parts := strings.Split(input, "-")
-	parts = strings.Split(parts[0], ".")
-	if len(parts) != 3 {
+	parts := strings.FieldsFunc(input, func(r rune) bool {
+		return r == '.' || r == '-'
+	})
+	if len(parts) < 4 {
 		return nil, trace.BadParameter("invalid kernel version input: %q", input)
 	}
 	version, err := strconv.Atoi(parts[0])
 	if err != nil {
-		return nil, trace.BadParameter(
-			"invalid kernel version: %v, expected a number",
-			parts[0])
+		return nil, trace.BadParameter("invalid kernel version release: %v, expected a number", input)
 	}
 	major, err := strconv.Atoi(parts[1])
 	if err != nil {
-		return nil, trace.BadParameter(
-			"invalid kernel version major: %v, expected a number",
-			parts[1])
+		return nil, trace.BadParameter("invalid kernel version major: %v, expected a number", input)
 	}
 	minor, err := strconv.Atoi(parts[2])
 	if err != nil {
-		return nil, trace.BadParameter(
-			"invalid kernel version minor: %v, expected a number",
-			parts[2])
+		return nil, trace.BadParameter("invalid kernel version minor: %v, expected a number", input)
 	}
+	patch, err := strconv.Atoi(parts[3])
+	if err != nil {
+		return nil, trace.BadParameter("invalid kernel version patch: %v, expected a number", input)
+	}
+
 	return &KernelVersion{
 		Release: version,
 		Major:   major,
 		Minor:   minor,
+		Patch:   patch,
 	}, nil
 }
 

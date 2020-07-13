@@ -68,7 +68,7 @@ require (
 	github.com/gravitational/oxy v0.0.0-20180629203109-e4a7e35311e6 // indirect
 	github.com/gravitational/rigging v0.0.0-20191021212636-83b2e9505286
 	github.com/gravitational/roundtrip v1.0.0
-	github.com/gravitational/satellite v0.0.9-0.20200702164053-52ff9d5d7ad2
+	github.com/gravitational/satellite v0.0.9-0.20200710191154-f54615042732
 	github.com/gravitational/tail v1.0.1
 	github.com/gravitational/teleport v3.2.15-0.20200309221853-bebf7a500543+incompatible
 	github.com/gravitational/trace v1.1.11
@@ -88,12 +88,13 @@ require (
 	github.com/hashicorp/yamux v0.0.0-20180826203732-cc6d2ea263b2 // indirect
 	github.com/huandu/xstrings v1.2.0 // indirect
 	github.com/jmoiron/sqlx v1.2.0 // indirect
-	github.com/jonboulle/clockwork v0.1.1-0.20190114141812-62fb9bc030d1
+	github.com/jonboulle/clockwork v0.2.0
 	github.com/julienschmidt/httprouter v1.2.0
 	github.com/kardianos/osext v0.0.0-20170510131534-ae77be60afb1
 	github.com/konsorten/go-windows-terminal-sequences v1.0.3 // indirect
 	github.com/kylelemons/godebug v0.0.0-20170820004349-d65d576e9348
 	github.com/lib/pq v1.2.0 // indirect
+	github.com/magefile/mage v1.10.0 // indirect
 	github.com/mailgun/holster v1.9.1-0.20191129074427-2296d2fb30b1 // indirect
 	github.com/mailgun/lemma v0.0.0-20160211003854-e8b0cd607f58
 	github.com/mailgun/metrics v0.0.0-20150124003306-2b3c4565aafd // indirect
@@ -140,8 +141,8 @@ require (
 	github.com/zclconf/go-cty v0.0.0-20180829180805-c2393a5d54f2 // indirect
 	github.com/ziutek/mymysql v1.5.4 // indirect
 	go.etcd.io/bbolt v1.3.5 // indirect
-	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
-	golang.org/x/net v0.0.0-20200625001655-4c5254603344
+	golang.org/x/crypto v0.0.0-20200709230013-948cd5f35899
+	golang.org/x/net v0.0.0-20200707034311-ab3426394381
 	golang.org/x/sys v0.0.0-20200625212154-ddb9806d33ae
 	gonum.org/v1/gonum v0.6.1 // indirect
 	google.golang.org/grpc v1.26.0

@@ -387,7 +387,7 @@ github.com/gravitational/oxy/utils
 github.com/gravitational/rigging
 # github.com/gravitational/roundtrip v1.0.0
 github.com/gravitational/roundtrip
-# github.com/gravitational/satellite v0.0.9-0.20200702164053-52ff9d5d7ad2
+# github.com/gravitational/satellite v0.0.9-0.20200710191154-f54615042732
 github.com/gravitational/satellite/agent
 github.com/gravitational/satellite/agent/cache
 github.com/gravitational/satellite/agent/health
@@ -430,6 +430,7 @@ github.com/gravitational/teleport/lib/events/s3sessions
 github.com/gravitational/teleport/lib/fixtures
 github.com/gravitational/teleport/lib/httplib
 github.com/gravitational/teleport/lib/httplib/csrf
+github.com/gravitational/teleport/lib/kube/client
 github.com/gravitational/teleport/lib/kube/proxy
 github.com/gravitational/teleport/lib/kube/utils
 github.com/gravitational/teleport/lib/limiter
@@ -506,7 +507,7 @@ github.com/jmespath/go-jmespath
 # github.com/jmoiron/sqlx v1.2.0
 github.com/jmoiron/sqlx
 github.com/jmoiron/sqlx/reflectx
-# github.com/jonboulle/clockwork v0.1.1-0.20190114141812-62fb9bc030d1
+# github.com/jonboulle/clockwork v0.2.0
 github.com/jonboulle/clockwork
 # github.com/json-iterator/go v1.1.6 => github.com/json-iterator/go v1.1.5
 github.com/json-iterator/go
@@ -690,7 +691,7 @@ go.mongodb.org/mongo-driver/bson/bsonrw
 go.mongodb.org/mongo-driver/bson/bsontype
 go.mongodb.org/mongo-driver/bson/primitive
 go.mongodb.org/mongo-driver/x/bsonx/bsoncore
-# golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9 => golang.org/x/crypto v0.0.0-20181025213731-e84da0312774
+# golang.org/x/crypto v0.0.0-20200709230013-948cd5f35899 => golang.org/x/crypto v0.0.0-20181025213731-e84da0312774
 golang.org/x/crypto/bcrypt
 golang.org/x/crypto/blowfish
 golang.org/x/crypto/cast5
@@ -716,7 +717,7 @@ golang.org/x/crypto/scrypt
 golang.org/x/crypto/ssh
 golang.org/x/crypto/ssh/agent
 golang.org/x/crypto/ssh/terminal
-# golang.org/x/net v0.0.0-20200625001655-4c5254603344
+# golang.org/x/net v0.0.0-20200707034311-ab3426394381
 golang.org/x/net/bpf
 golang.org/x/net/context
 golang.org/x/net/context/ctxhttp
