@@ -58,7 +58,7 @@ import (
 
 func startInstall(env *localenv.LocalEnvironment, config InstallConfig) error {
 	env.PrintStep("Starting installer")
-	if err := config.CheckAndSetDefaults(); err != nil {
+	if err := config.CheckAndSetDefaults(resources.ValidateFunc(gravity.Validate)); err != nil {
 		return trace.Wrap(err)
 	}
 	if config.FromService {
@@ -141,7 +141,7 @@ func newInstallerConfig(ctx context.Context, env *localenv.LocalEnvironment, con
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	installerConfig, err := config.NewInstallerConfig(env, wizard, process, resources.ValidateFunc(gravity.Validate))
+	installerConfig, err := config.NewInstallerConfig(env, wizard, process)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

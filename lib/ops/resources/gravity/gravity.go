@@ -25,6 +25,7 @@ import (
 	"github.com/gravitational/gravity/lib/ops/resources"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
+	"github.com/gravitational/gravity/lib/validate"
 
 	"github.com/fatih/color"
 	teleservices "github.com/gravitational/teleport/lib/services"
@@ -559,7 +560,12 @@ func Validate(resource storage.UnknownResource) (err error) {
 	case storage.KindRuntimeEnvironment:
 		_, err = storage.UnmarshalEnvironmentVariables(resource.Raw)
 	case storage.KindClusterConfiguration:
-		_, err = clusterconfig.Unmarshal(resource.Raw)
+		config, err := clusterconfig.Unmarshal(resource.Raw)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		globalConfig := config.GetGlobalConfig()
+		return validate.KubernetesSubnetsFromStrings(globalConfig.PodCIDR, globalConfig.ServiceCIDR)
 	default:
 		return trace.NotImplemented("unsupported resource %q, supported are: %v",
 			resource.Kind, modules.GetResources().SupportedResources())

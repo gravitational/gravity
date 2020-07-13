@@ -86,7 +86,7 @@ type Config struct {
 	// SiteDomain is the name of the cluster
 	SiteDomain string
 	// Flavor is installation flavor
-	Flavor *schema.Flavor
+	Flavor schema.Flavor
 	// Role is server role
 	Role string
 	// App is the application being installed
@@ -103,10 +103,6 @@ type Config struct {
 	Mounts map[string]string
 	// DNSOverrides contains installer node DNS overrides
 	DNSOverrides storage.DNSOverrides
-	// PodCIDR is a pod network CIDR
-	PodCIDR string
-	// ServiceCIDR is a service network CIDR
-	ServiceCIDR string
 	// VxlanPort is the overlay network port
 	VxlanPort int
 	// DNSConfig overrides the local cluster DNS configuration
