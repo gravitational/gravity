@@ -165,7 +165,7 @@ type InstallConfig struct {
 	// of the operation
 	writeStateDir string
 	// app is the application being installed
-	app *app.Application
+	app app.Application
 	// kubernetesResources lists additional Kubernetes resources supplied on command line
 	kubernetesResources []runtime.Object
 	// gravityResources lists additional Gravity resources supplied on command line
@@ -308,10 +308,11 @@ func (i *InstallConfig) CheckAndSetDefaults(validator resources.Validator) (err 
 	if i.DNSConfig.IsEmpty() {
 		i.DNSConfig = storage.DefaultDNSConfig
 	}
-	i.app, err = i.getApp()
+	app, err := i.getApp()
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	i.app = *app
 	err = i.checkEULA()
 	if err != nil {
 		return trace.Wrap(err)

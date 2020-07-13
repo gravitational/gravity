@@ -90,7 +90,7 @@ type Config struct {
 	// Role is server role
 	Role string
 	// App is the application being installed
-	App *app.Application
+	App app.Application
 	// RuntimeResources specifies optional Kubernetes resources to create
 	RuntimeResources []runtime.Object
 	// ClusterResources specifies optional cluster resources to create
@@ -165,7 +165,7 @@ func (c *Config) checkAndSetDefaults() (err error) {
 	if c.LocalBackend == nil {
 		return trace.BadParameter("missing LocalBackend")
 	}
-	if c.App == nil {
+	if c.App.Package.IsEmpty() {
 		return trace.BadParameter("missing App")
 	}
 	if c.DNSConfig.IsEmpty() {
