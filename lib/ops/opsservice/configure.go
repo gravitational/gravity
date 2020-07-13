@@ -317,15 +317,15 @@ func (s *site) configurePackages(ctx *operationContext, req ops.ConfigurePackage
 
 	etcdConfig := s.prepareEtcdConfig(ctx)
 
-	var clusterConfig clusterconfig.Interface
+	clusterConfig := clusterconfig.NewEmpty()
 	if len(req.Config) != 0 {
 		clusterConfig, err = clusterconfig.Unmarshal(req.Config)
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		if s.cloudProviderName() != "" {
-			clusterConfig.SetCloudProvider(s.cloudProviderName())
-		}
+	}
+	if s.cloudProviderName() != "" {
+		clusterConfig.SetCloudProvider(s.cloudProviderName())
 	}
 
 	for i, master := range masters {
@@ -1037,11 +1037,19 @@ func (s *site) configurePlanetServer(config planetConfig) error {
 }
 
 func (r planetConfig) podSubnet() string {
-	return podSubnet(r.installExpand.InstallExpand, r.config.GetGlobalConfig().PodCIDR)
+	var override string
+	if r.config != nil {
+		override = r.config.GetGlobalConfig().PodCIDR
+	}
+	return podSubnet(r.installExpand.InstallExpand, override)
 }
 
 func (r planetConfig) serviceSubnet() string {
-	return serviceSubnet(r.installExpand.InstallExpand, r.config.GetGlobalConfig().ServiceCIDR)
+	var override string
+	if r.config != nil {
+		override = r.config.GetGlobalConfig().ServiceCIDR
+	}
+	return serviceSubnet(r.installExpand.InstallExpand, override)
 }
 
 type planetConfig struct {

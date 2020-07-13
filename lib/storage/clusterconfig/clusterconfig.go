@@ -41,6 +41,8 @@ type Interface interface {
 	GetKubeletConfig() *Kubelet
 	// GetGlobalConfig returns the global configuration
 	GetGlobalConfig() Global
+	// SetGlobalConfig sets the new global configuration
+	SetGlobalConfig(Global)
 	// SetCloudProvider sets the cloud provider for this configuration
 	SetCloudProvider(provider string)
 }
@@ -109,6 +111,11 @@ func (r *Resource) GetKubeletConfig() *Kubelet {
 // GetGlobalConfig returns the global configuration
 func (r *Resource) GetGlobalConfig() Global {
 	return r.Spec.Global
+}
+
+// SetGlobalConfig sets the new global configuration
+func (r *Resource) SetGlobalConfig(config Global) {
+	r.Spec.Global = config
 }
 
 // SetCloudProvider sets the cloud provider for this configuration

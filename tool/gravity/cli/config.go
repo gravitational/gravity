@@ -61,6 +61,7 @@ import (
 	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/users"
 	"github.com/gravitational/gravity/lib/utils"
+	"github.com/gravitational/gravity/lib/validate"
 
 	gcemeta "cloud.google.com/go/compute/metadata"
 	"github.com/docker/docker/pkg/namesgenerator"
@@ -157,9 +158,22 @@ type InstallConfig struct {
 	FromService bool
 	// AcceptEULA allows to auto-accept end-user license agreement.
 	AcceptEULA bool
+
+	// Computed values
+	//
 	// writeStateDir is the directory where installer stores state for the duration
 	// of the operation
 	writeStateDir string
+	// app is the application being installed
+	app app.Application
+	// kubernetesResources lists additional Kubernetes resources supplied on command line
+	kubernetesResources []runtime.Object
+	// gravityResources lists additional Gravity resources supplied on command line
+	gravityResources []storage.UnknownResource
+	// dnsOverrides lists additional cluster DNS host/zone overrides
+	dnsOverrides storage.DNSOverrides
+	// flavor specifies the selected application flavor
+	flavor schema.Flavor
 }
 
 // NewInstallConfig creates install config from the passed CLI args and flags
@@ -211,7 +225,7 @@ func NewInstallConfig(env *localenv.LocalEnvironment, g *Application) InstallCon
 }
 
 // CheckAndSetDefaults validates the configuration object and populates default values
-func (i *InstallConfig) CheckAndSetDefaults() (err error) {
+func (i *InstallConfig) CheckAndSetDefaults(validator resources.Validator) (err error) {
 	if i.FieldLogger == nil {
 		i.FieldLogger = log.WithField(trace.Component, "installer")
 	}
@@ -294,7 +308,44 @@ func (i *InstallConfig) CheckAndSetDefaults() (err error) {
 	if i.DNSConfig.IsEmpty() {
 		i.DNSConfig = storage.DefaultDNSConfig
 	}
+	app, err := i.getApp()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	i.app = *app
 	err = i.checkEULA()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = validate.KubernetesSubnetsFromStrings(i.PodCIDR, i.ServiceCIDR)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	flavor, err := getFlavor(i.Flavor, i.app.Manifest, i.FieldLogger)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	i.flavor = *flavor
+	i.Role, err = validateRole(i.Role, i.flavor, i.app.Manifest.NodeProfiles, i.FieldLogger)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if !i.Remote {
+		// Compute the cloud provider before updating the cluster configuration
+		// so it reflects the autodetected value as well
+		if err := i.validateCloudConfig(i.app.Manifest); err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	dnsOverrides, err := i.getDNSOverrides()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	i.dnsOverrides = *dnsOverrides
+	if i.SiteDomain == "" {
+		i.SiteDomain = generateClusterName()
+	}
+	err = i.validateResources(validator)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -307,11 +358,7 @@ func (i *InstallConfig) checkEULA() error {
 	if i.Mode != constants.InstallModeCLI || i.FromService {
 		return nil
 	}
-	app, err := i.getApp()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	eula := app.Manifest.EULA()
+	eula := i.app.Manifest.EULA()
 	if eula == "" {
 		return nil
 	}
@@ -355,51 +402,13 @@ func (i *InstallConfig) NewInstallerConfig(
 	env *localenv.LocalEnvironment,
 	wizard *localenv.RemoteEnvironment,
 	process process.GravityProcess,
-	validator resources.Validator,
 ) (*install.Config, error) {
-	var kubernetesResources []runtime.Object
-	var gravityResources []storage.UnknownResource
-	if i.ResourcesPath != "" {
-		var err error
-		kubernetesResources, gravityResources, err = i.splitResources(validator)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-	}
-	app, err := i.getApp()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	dnsOverrides, err := i.getDNSOverrides()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	gravityResources, err = i.updateClusterConfig(gravityResources)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	flavor, err := getFlavor(i.Flavor, app.Manifest, i.FieldLogger)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	i.Role, err = validateRole(i.Role, *flavor, app.Manifest.NodeProfiles, i.FieldLogger)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	if !i.Remote {
-		if err := i.validateCloudConfig(app.Manifest); err != nil {
-			return nil, trace.Wrap(err)
-		}
-	}
 	token, err := generateInstallToken(wizard.Operator, i.Token)
 	if err != nil && !trace.IsAlreadyExists(err) {
 		return nil, trace.Wrap(err)
 	}
 	if err := upsertSystemAccount(wizard.Operator); err != nil {
 		return nil, trace.Wrap(err)
-	}
-	if i.SiteDomain == "" {
-		i.SiteDomain = generateClusterName()
 	}
 	return &install.Config{
 		FieldLogger:        i.FieldLogger,
@@ -417,8 +426,6 @@ func (i *InstallConfig) NewInstallerConfig(
 		SystemDevice:       i.SystemDevice,
 		Mounts:             i.Mounts,
 		DNSConfig:          i.DNSConfig,
-		PodCIDR:            i.PodCIDR,
-		ServiceCIDR:        i.ServiceCIDR,
 		VxlanPort:          i.VxlanPort,
 		Docker:             i.Docker,
 		Insecure:           i.Insecure,
@@ -426,11 +433,11 @@ func (i *InstallConfig) NewInstallerConfig(
 		Role:               i.Role,
 		ServiceUser:        *i.ServiceUser,
 		Token:              *token,
-		App:                app,
-		Flavor:             flavor,
-		DNSOverrides:       *dnsOverrides,
-		RuntimeResources:   kubernetesResources,
-		ClusterResources:   gravityResources,
+		App:                i.app,
+		Flavor:             i.flavor,
+		DNSOverrides:       i.dnsOverrides,
+		RuntimeResources:   i.kubernetesResources,
+		ClusterResources:   i.gravityResources,
 		Process:            process,
 		Apps:               wizard.Apps,
 		Packages:           wizard.Packages,
@@ -554,6 +561,22 @@ func (i *InstallConfig) getDNSOverrides() (*storage.DNSOverrides, error) {
 	return overrides, nil
 }
 
+func (i *InstallConfig) validateResources(validator resources.Validator) (err error) {
+	var gravityResources []storage.UnknownResource
+	if i.ResourcesPath != "" {
+		var err error
+		i.kubernetesResources, gravityResources, err = i.splitResources(validator)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	i.gravityResources, err = i.updateClusterConfig(gravityResources)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
 // splitResources validates the resources specified in ResourcePath
 // using the given validator and splits them into Kubernetes and Gravity-specific
 func (i *InstallConfig) splitResources(validator resources.Validator) (runtimeResources []runtime.Object, clusterResources []storage.UnknownResource, err error) {
@@ -589,14 +612,14 @@ func (i *InstallConfig) updateClusterConfig(resources []storage.UnknownResource)
 		}
 		updated = append(updated, res)
 	}
-	if clusterConfig == nil && i.CloudProvider == "" {
-		// Return the resources unchanged
-		return resources, nil
-	}
 	var config clusterconfig.Interface
 	if clusterConfig == nil {
 		config = clusterconfig.New(clusterconfig.Spec{
-			Global: clusterconfig.Global{CloudProvider: i.CloudProvider},
+			Global: clusterconfig.Global{
+				CloudProvider: i.CloudProvider,
+				ServiceCIDR:   i.ServiceCIDR,
+				PodCIDR:       i.PodCIDR,
+			},
 		})
 	} else {
 		config, err = clusterconfig.Unmarshal(clusterConfig.Raw)
@@ -608,6 +631,21 @@ func (i *InstallConfig) updateClusterConfig(resources []storage.UnknownResource)
 	if globalConfig.CloudProvider != "" {
 		i.CloudProvider = globalConfig.CloudProvider
 	}
+	if i.ServiceCIDR != "" && globalConfig.ServiceCIDR == "" {
+		globalConfig.ServiceCIDR = i.ServiceCIDR
+	}
+	if i.PodCIDR != "" && globalConfig.PodCIDR == "" {
+		globalConfig.PodCIDR = i.PodCIDR
+	}
+	globalConfig.PodCIDR, err = validate.NormalizeSubnet(globalConfig.PodCIDR)
+	if err != nil {
+		return nil, trace.Wrap(err, "invalid pod subnet: %v", globalConfig.PodCIDR)
+	}
+	globalConfig.ServiceCIDR, err = validate.NormalizeSubnet(globalConfig.ServiceCIDR)
+	if err != nil {
+		return nil, trace.Wrap(err, "invalid service subnet: %v", globalConfig.ServiceCIDR)
+	}
+	config.SetGlobalConfig(globalConfig)
 	// Serialize the cluster configuration and add to resources
 	configResource, err := clusterconfig.ToUnknown(config)
 	if err != nil {

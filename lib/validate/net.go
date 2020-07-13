@@ -72,3 +72,13 @@ func KubernetesSubnets(podNet, serviceNet *net.IPNet) (err error) {
 	}
 	return nil
 }
+
+// NormalizeSubnet returns the text representation of the given subnet
+// as the IP masked with the network mask
+func NormalizeSubnet(subnet string) (string, error) {
+	_, ipNet, err := net.ParseCIDR(subnet)
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+	return ipNet.String(), nil
+}

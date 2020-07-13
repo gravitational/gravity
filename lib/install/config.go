@@ -86,11 +86,11 @@ type Config struct {
 	// SiteDomain is the name of the cluster
 	SiteDomain string
 	// Flavor is installation flavor
-	Flavor *schema.Flavor
+	Flavor schema.Flavor
 	// Role is server role
 	Role string
 	// App is the application being installed
-	App *app.Application
+	App app.Application
 	// RuntimeResources specifies optional Kubernetes resources to create
 	RuntimeResources []runtime.Object
 	// ClusterResources specifies optional cluster resources to create
@@ -103,10 +103,6 @@ type Config struct {
 	Mounts map[string]string
 	// DNSOverrides contains installer node DNS overrides
 	DNSOverrides storage.DNSOverrides
-	// PodCIDR is a pod network CIDR
-	PodCIDR string
-	// ServiceCIDR is a service network CIDR
-	ServiceCIDR string
 	// VxlanPort is the overlay network port
 	VxlanPort int
 	// DNSConfig overrides the local cluster DNS configuration
@@ -169,7 +165,7 @@ func (c *Config) checkAndSetDefaults() (err error) {
 	if c.LocalBackend == nil {
 		return trace.BadParameter("missing LocalBackend")
 	}
-	if c.App == nil {
+	if c.App.Package.IsEmpty() {
 		return trace.BadParameter("missing App")
 	}
 	if c.DNSConfig.IsEmpty() {
