@@ -695,18 +695,17 @@ robotest-publish-gravity:
 		$(ROBO_GRAVITY_BUCKET)/ \
 		--metadata version=$(GRAVITY_VERSION)
 
-
 #
 # number of environment variables are expected to be set
 # see https://github.com/gravitational/robotest/blob/master/suite/README.md
 #
 .PHONY: robotest-run-suite
 robotest-run-suite:
-	./build.assets/robotest_run_suite.sh $(shell pwd)/upgrade_from
+	./build.assets/robotest/run.sh pr $(shell pwd)/upgrade_from
 
 .PHONY: robotest-run-nightly
 robotest-run-nightly:
-	./build.assets/robotest_run_nightly.sh $(shell pwd)/upgrade_from
+	./build.assets/robotest/run.sh nightly $(shell pwd)/upgrade_from
 
 .PHONY: robotest-installer-ready
 robotest-installer-ready:

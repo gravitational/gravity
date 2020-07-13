@@ -355,7 +355,8 @@ $ sudo ./gravity install --license-file=license.pem"
 
 This scenario updates the runtime environment of the planet container with new environment variables.
 
-Prerequisites: multi-node cluster with at least 1 regular node. Regular node is necessary to test both master and regular node update paths.
+Prerequisites: multi-node cluster with at least 1 node `--role=knode` and 1 `--role=node|master`.
+Having both `knode` and `node|master` is necessary to test both master and regular node update paths.
 
 [environ.yaml]
 ```yaml
@@ -379,7 +380,8 @@ root$ gravity resource create environ.yaml --confirm
 
 This scenario updates the cluster configuration.
 
-Prerequisites: multi-node cluster with at least 1 regular node. Regular node is necessary to test both master and regular node update paths.
+Prerequisites: multi-node cluster with at least 1 node `--role=knode` and 1 `--role=node|master`.
+Having both `knode` and `node|master` is necessary to test both master and regular node update paths.
 
 [config.yaml]
 ```yaml
@@ -444,17 +446,44 @@ root$ gravity resource create cloud-config.yaml --confirm -m
 
 This scenario tests garbage collection on a cluster.
 
-Prerequisites: multi-node cluster with at least 1 regular node. Regular node is necessary to test both master and regular node update paths.
+Prerequisites: multi-node cluster with at least 1 node `--role=knode` and 1 `--role=node|master`.
+Having both `knode` and `node|master` is necessary to test both master and regular node update paths.
 
-Install a previous LTS version, upgrade to the latest version.
+Install a previous LTS version.
 
-After upgrade execute `gravity gc` on the cluster.
+- [ ] Gather baseline pre-upgrade state:
+  - `sudo du -sh /var/lib/gravity/{local/packages,site/packages,planet/registry}`
+  - `sudo gravity package list | cut -f1-3 -d ' '`
+  - `sudo gravity exec gravity package list --ops-url=https://gravity-site.kube-system.svc.cluster.local:3009 --insecure | cut -f1-3 -d ' '`
 
-- [ ] Verify the operation completes successfully.
- - [ ] Verify that packages from the previous installation have been removed locally.
- - [ ] Verify that packages from the previous installation have been removed from cluster package storage.
- - [ ] Verify that packages from the current installation are still present.
- - [ ] Tentative: Verify that application packages from remote clusters are still present.
+Upgrade to the release under test.
+
+- [ ] Verify journal logs have been pruned [gravity.e#3429](https://github.com/gravitational/gravity.e/issues/3429)
+  - `sudo du -h /var/lib/gravity/planet/log/journal` should show only one subdir.
+
+- [ ] Gather pre-garbage-collection state.
+  - `sudo du -sh /var/lib/gravity/{local/packages,site/packages,planet/registry}`
+  - `sudo gravity package list | cut -f1-3 -d ' '`
+  - `sudo gravity exec gravity package list --ops-url=https://gravity-site.kube-system.svc.cluster.local:3009 --insecure | cut -f1-3 -d ' '`
+  - `sudo find /var/lib/gravity/planet/registry/ -path '*tags/*' -type d | egrep 'tags/[^/]+$' | sort`
+  - `sudo gravity system gc package --dry-run`
+
+
+Execute `gravity gc`.
+
+- [ ] Verify the gc operation completes successfully.
+  - `sudo gravity plan` (`--operation-id` may be looked up from `gravity status` or `gravity resource get operations`)
+- [ ] Verify packages from the previous installation have been removed locally.
+  - `sudo gravity package list | cut -f1-3 -d ' '` Diff with output from before upgrade.
+  - `sudo du -sh /var/lib/gravity/local/packages` should show substantially lower usage (similar to baseline).
+- [ ] Verify packages from the previous installation have been removed from cluster package storage.
+  - `sudo gravity exec gravity package list --ops-url=https://gravity-site.kube-system.svc.cluster.local:3009 --insecure | cut -f1-3 -d ' '`
+  - `sudo du -sh /var/lib/gravity/site/packages` should show substantially lower usage (similar to baseline).
+- [ ] Verify packages from the current installation are still present.
+  - `sudo gravity package list | cut -f1-3 -d ' '` Diff with output from before garbage collection.
+  - `sudo gravity status` should be 'active' without any warnings.
+- [ ] Verify old tags are no longer present in the registry.
+  - `sudo find /var/lib/gravity/planet/registry/ -path '*tags/*' -type d | egrep 'tags/[^/]+$' | sort` Diff with output from before garbage collection.
 
 ## WEB UI
 
