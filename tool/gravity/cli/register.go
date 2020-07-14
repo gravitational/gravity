@@ -633,6 +633,8 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.RPCAgentRunCmd.CmdClause = g.RPCAgentCmd.Command("run", "run RPC agent").Hidden()
 	g.RPCAgentRunCmd.Args = g.RPCAgentRunCmd.Arg("arg", "additional arguments").Strings()
 
+	g.RPCAgentStatusCmd.CmdClause = g.RPCAgentCmd.Command("status", "collect and display RPC agent statuses")
+
 	g.SystemCmd.CmdClause = g.Command("system", "operations on system components")
 
 	g.SystemTeleportCmd.CmdClause = g.SystemCmd.Command("teleport", "System level operations on Teleport service").Hidden()

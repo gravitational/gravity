@@ -24,6 +24,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"text/tabwriter"
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
@@ -385,6 +386,30 @@ func rpcAgentShutdown(env *localenv.LocalEnvironment) error {
 	}
 	runner := fsm.NewAgentRunner(creds)
 	err = clusterupdate.ShutdownClusterAgents(context.TODO(), runner)
+	return trace.Wrap(err)
+}
+
+// rpcAgentStatus requests and writes the gravity agent statuses to stdout.
+func rpcAgentStatus(env *localenv.LocalEnvironment) error {
+	env.PrintStep("Collecting RPC agent status")
+	creds, err := fsm.GetClientCredentials()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	runner := fsm.NewAgentRunner(creds)
+	statusList, err := clusterupdate.AgentStatus(context.TODO(), runner)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', tabwriter.Debug)
+	fmt.Fprintln(w, "Node\tIP\tStatus\tVersion")
+	fmt.Fprintln(w, "----\t--\t------\t-------")
+	for _, status := range statusList {
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", status.Node, status.IP, status.Status, status.Version)
+	}
+	w.Flush()
+
 	return trace.Wrap(err)
 }
 

@@ -1020,6 +1020,8 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 		defer updateEnv.Close()
 		return rpcAgentRun(localEnv, updateEnv,
 			*g.RPCAgentRunCmd.Args)
+	case g.RPCAgentStatusCmd.FullCommand():
+		return rpcAgentStatus(localEnv)
 	case g.RPCAgentShutdownCmd.FullCommand():
 		return rpcAgentShutdown(localEnv)
 	case g.CheckCmd.FullCommand():

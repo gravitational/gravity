@@ -230,6 +230,12 @@ const (
 	// OneshotService is a service that executes one time
 	OneshotService = "oneshot"
 
+	// SimpleService is a simple service that is recommended for long running processes
+	SimpleService = "simple"
+
+	// RestartOnFailure defines the restart on-failure rule for a service
+	RestartOnFailure = "on-failure"
+
 	// RootUID is the root user ID
 	RootUID = 0
 
@@ -724,6 +730,12 @@ const (
 
 	// Redacted is used as a replacement string for sensitive data.
 	Redacted = "*****"
+
+	// GravityAgentOffline indicates the gravity-agent service is offline.
+	GravityAgentOffline = "Offline"
+
+	// GravityAgentDeployed indicates the gravity-agent service has been deployed.
+	GravityAgentDeployed = "Deployed"
 )
 
 var (

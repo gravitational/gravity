@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/modules"
 	validationpb "github.com/gravitational/gravity/lib/network/validation/proto"
 	"github.com/gravitational/gravity/lib/rpc/client"
 	pb "github.com/gravitational/gravity/lib/rpc/proto"
@@ -253,6 +254,10 @@ func (r errorPeer) GetRuntimeConfig(context.Context) (*pb.RuntimeConfig, error) 
 
 func (r errorPeer) GetCurrentTime(context.Context) (*time.Time, error) {
 	return nil, trace.Wrap(r.error)
+}
+
+func (r errorPeer) GetVersion(context.Context) (modules.Version, error) {
+	return modules.Version{}, trace.Wrap(r.error)
 }
 
 func (r errorPeer) CheckPorts(context.Context, *validationpb.CheckPortsRequest) (*validationpb.CheckPortsResponse, error) {
