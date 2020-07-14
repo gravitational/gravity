@@ -380,7 +380,13 @@ root$ gravity resource create environ.yaml --confirm
 
 This scenario updates the cluster configuration.
 
-Prerequisites: multi-node cluster with at least 1 node `--role=knode` and 1 `--role=node|master`.
+Prerequisites:
+* 3+ node cluster running in AWS or GCP, with cloud provider integration configured
+  * [AWS](https://gravitational.com/gravity/docs/installation/#aws) [IAM config](https://gravitational.com/gravity/docs/requirements/#aws-iam-policy)
+  * [GCP](https://gravitational.com/gravity/docs/installation/#google-compute-engine)
+* At least two masters (`--role=node|master`)
+* At least one regular node (`--role=knode`)
+
 Having both `knode` and `node|master` is necessary to test both master and regular node update paths.
 
 [config.yaml]
@@ -407,7 +413,7 @@ spec:
 ```
 
 ```bash
-root$ gravity resource create config.yaml --confirm
+$ sudo gravity resource create config.yaml --confirm
 ```
 
 - [ ] Verify the operation completes successfully.
@@ -421,6 +427,7 @@ kind: ClusterConfiguration
 version: v1
 spec:
   global:
+    cloudProvider: aws
     cloudConfig: |
       [global]
       # Update node tags
@@ -428,19 +435,20 @@ spec:
       node-tags=test-cluster
 ```
 
+Note: `cloudProvider:`'s value depends on which provider the cluster is provisioned on.
+
 Now, create the operation in manual mode:
 
 ```bash
-root$ gravity resource create cloud-config.yaml --confirm -m
+$ sudo gravity resource create cloud-config.yaml --confirm --manual
 ```
 
 - [ ] Verify that the operation plan only contains update steps for master nodes as only cloud configuration is being updated.
-- [ ] Verify can complete the operation successfully with `gravity plan resume`.
-  - [ ] Verify cloud configuration file has been written in `/etc/kubernetes/cloud-config.conf` with the following contents:
-  ```
-  [global]
-  node-tags=test-cluster
-  ```
+- [ ] Verify the operation successfully completes upon `gravity plan resume`.
+
+- [ ] Verify cloud configuration has changed:
+  - `sudo gravity exec cat /etc/kubernetes/cloud-config.conf` should show updated `node-tags`
+  - `sudo gravity resource get clusterconfig`
 
 ### Collecting Garbage
 
