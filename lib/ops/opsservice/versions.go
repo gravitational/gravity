@@ -254,3 +254,12 @@ const (
 This cluster image does not contain required intermediate runtimes.
 Please rebuild it as described in https://gravitational.com/gravity/docs/cluster/#direct-upgrades-from-older-lts-versions.`
 )
+
+var (
+	// TeleportTokenVersion is version of the release affected by the issue
+	// with Teleport using incorrect auth token on joined nodes.
+	//
+	// Github issue: https://github.com/gravitational/gravity/issues/1445.
+	// KB: https://community.gravitational.com/t/recover-teleport-nodes-failing-to-join-due-to-bad-token/649.
+	TeleportTokenVersion = semver.New("5.5.40")
+)
