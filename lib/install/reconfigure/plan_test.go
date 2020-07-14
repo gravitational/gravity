@@ -259,6 +259,11 @@ func (s *ReconfiguratorSuite) verifyPullPhase(c *check.C, phase storage.Operatio
 					ExecServer:  &master,
 					Package:     s.suite.Package(),
 					ServiceUser: &s.suite.Cluster().ServiceUser,
+					Pull: &storage.PullData{
+						Apps: []loc.Locator{
+							*(s.suite.Package()),
+						},
+					},
 				},
 				Requires: []string{installphases.ConfigurePhase},
 			},

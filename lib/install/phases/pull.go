@@ -30,6 +30,7 @@ import (
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/state"
+	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/systeminfo"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -44,6 +45,9 @@ func NewPull(p fsm.ExecutorParams, operator ops.Operator, wizardPack, localPack 
 	wizardApps, localApps app.Applications, remote fsm.Remote) (*pullExecutor, error) {
 	if p.Phase.Data == nil || p.Phase.Data.ServiceUser == nil {
 		return nil, trace.BadParameter("service user is required")
+	}
+	if p.Phase.Data.Pull == nil {
+		return nil, trace.BadParameter("phase does not contain pull data")
 	}
 
 	serviceUser, err := systeminfo.UserFromOSUser(*p.Phase.Data.ServiceUser)
@@ -79,6 +83,7 @@ func NewPull(p fsm.ExecutorParams, operator ops.Operator, wizardPack, localPack 
 		LocalApps:      localApps,
 		ExecutorParams: p,
 		ServiceUser:    *serviceUser,
+		Pull:           *p.Phase.Data.Pull,
 		runtimePackage: *runtimePackage,
 		remote:         remote,
 	}, nil
@@ -97,6 +102,8 @@ type pullExecutor struct {
 	LocalApps app.Applications
 	// ServiceUser is the user used for services and system storage
 	ServiceUser systeminfo.User
+	// Pull contains applications and packages to pull
+	Pull storage.PullData
 	// ExecutorParams is common executor params
 	fsm.ExecutorParams
 	// remote specifies the server remote control interface
@@ -107,11 +114,19 @@ type pullExecutor struct {
 
 // Execute executes the pull phase
 func (p *pullExecutor) Execute(ctx context.Context) error {
-	err := p.pullUserApplication()
-	if err != nil {
-		return trace.Wrap(err)
+	if len(p.Pull.Packages) != 0 {
+		err := p.pullPackages(p.Pull.Packages)
+		if err != nil {
+			return trace.Wrap(err)
+		}
 	}
-	err = p.pullConfiguredPackages()
+	if len(p.Pull.Apps) != 0 {
+		err := p.pullApps(p.Pull.Apps)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	err := p.pullConfiguredPackages()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -137,22 +152,40 @@ func (p *pullExecutor) Execute(ctx context.Context) error {
 	return nil
 }
 
-func (p *pullExecutor) pullUserApplication() error {
-	p.Progress.NextStep("Pulling user application")
-	p.Info("Pulling user application.")
-	// TODO do not pull user app on regular nodes
-	// FIXME: use context to promptly abort the pull
-	_, err := service.PullApp(service.AppPullRequest{
-		FieldLogger: p.FieldLogger,
-		SrcPack:     p.WizardPackages,
-		DstPack:     p.LocalPackages,
-		SrcApp:      p.WizardApps,
-		DstApp:      p.LocalApps,
-		Package:     *p.Phase.Data.Package,
-	})
-	// Ignore already exists as the steps need to be re-entrant
-	if err != nil && !trace.IsAlreadyExists(err) {
-		return trace.Wrap(err)
+func (p *pullExecutor) pullPackages(locators []loc.Locator) error {
+	p.Progress.NextStep("Pulling packages")
+	p.Infof("Pulling packages: %v.", locators)
+	for _, locator := range locators {
+		p.Progress.NextStep("Pulling package %v:%v", locator.Name, locator.Version)
+		_, err := service.PullPackage(service.PackagePullRequest{
+			FieldLogger: p.FieldLogger,
+			SrcPack:     p.WizardPackages,
+			DstPack:     p.LocalPackages,
+			Package:     locator,
+		})
+		if err != nil && !trace.IsAlreadyExists(err) { // Must be re-entrant.
+			return trace.Wrap(err)
+		}
+	}
+	return nil
+}
+
+func (p *pullExecutor) pullApps(locators []loc.Locator) error {
+	p.Progress.NextStep("Pulling applications")
+	p.Infof("Pulling applications: %v.", locators)
+	for _, locator := range locators {
+		p.Progress.NextStep("Pulling application %v:%v", locator.Name, locator.Version)
+		_, err := service.PullApp(service.AppPullRequest{
+			FieldLogger: p.FieldLogger,
+			SrcPack:     p.WizardPackages,
+			DstPack:     p.LocalPackages,
+			SrcApp:      p.WizardApps,
+			DstApp:      p.LocalApps,
+			Package:     locator,
+		})
+		if err != nil && !trace.IsAlreadyExists(err) { // Must be re-entrant.
+			return trace.Wrap(err)
+		}
 	}
 	return nil
 }
