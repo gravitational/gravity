@@ -83,6 +83,7 @@ func NewPull(p fsm.ExecutorParams, operator ops.Operator, wizardPack, localPack 
 		LocalApps:      localApps,
 		ExecutorParams: p,
 		ServiceUser:    *serviceUser,
+		Pull:           *p.Phase.Data.Pull,
 		runtimePackage: *runtimePackage,
 		remote:         remote,
 	}, nil
@@ -113,16 +114,14 @@ type pullExecutor struct {
 
 // Execute executes the pull phase
 func (p *pullExecutor) Execute(ctx context.Context) error {
-	// If the list of packages to pull was explicitly provided, pull only those
-	// (e.g. during join), otherwise pull the entire user application (e.g.
-	// during initial installation).
-	if len(p.Phase.Data.Packages) == 0 {
-		err := p.pullUserApplication()
+	if len(p.Pull.Packages) != 0 {
+		err := p.pullPackages(p.Pull.Packages)
 		if err != nil {
 			return trace.Wrap(err)
 		}
-	} else {
-		err := p.pullPackages(p.Phase.Data.Packages)
+	}
+	if len(p.Pull.Apps) != 0 {
+		err := p.pullApps(p.Pull.Apps)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -154,38 +153,39 @@ func (p *pullExecutor) Execute(ctx context.Context) error {
 }
 
 func (p *pullExecutor) pullPackages(locators []loc.Locator) error {
-	p.Progress.NextStep("Pulling packages from cluster")
-	p.Info("Pulling packages from cluster.")
+	p.Progress.NextStep("Pulling packages")
+	p.Infof("Pulling packages: %v.", locators)
 	for _, locator := range locators {
+		p.Progress.NextStep("Pulling package %v:%v", locator.Name, locator.Version)
 		_, err := service.PullPackage(service.PackagePullRequest{
 			FieldLogger: p.FieldLogger,
 			SrcPack:     p.WizardPackages,
 			DstPack:     p.LocalPackages,
 			Package:     locator,
 		})
-		if err != nil && !trace.IsAlreadyExists(err) { // Make sure it's re-entrable.
+		if err != nil && !trace.IsAlreadyExists(err) { // Must be re-entrant.
 			return trace.Wrap(err)
 		}
 	}
 	return nil
 }
 
-func (p *pullExecutor) pullUserApplication() error {
-	p.Progress.NextStep("Pulling user application")
-	p.Info("Pulling user application.")
-	// TODO do not pull user app on regular nodes
-	// FIXME: use context to promptly abort the pull
-	_, err := service.PullApp(service.AppPullRequest{
-		FieldLogger: p.FieldLogger,
-		SrcPack:     p.WizardPackages,
-		DstPack:     p.LocalPackages,
-		SrcApp:      p.WizardApps,
-		DstApp:      p.LocalApps,
-		Package:     *p.Phase.Data.Package,
-	})
-	// Ignore already exists as the steps need to be re-entrant
-	if err != nil && !trace.IsAlreadyExists(err) {
-		return trace.Wrap(err)
+func (p *pullExecutor) pullApps(locators []loc.Locator) error {
+	p.Progress.NextStep("Pulling applications")
+	p.Infof("Pulling applications: %v.", locators)
+	for _, locator := range locators {
+		p.Progress.NextStep("Pulling application %v:%v", locator.Name, locator.Version)
+		_, err := service.PullApp(service.AppPullRequest{
+			FieldLogger: p.FieldLogger,
+			SrcPack:     p.WizardPackages,
+			DstPack:     p.LocalPackages,
+			SrcApp:      p.WizardApps,
+			DstApp:      p.LocalApps,
+			Package:     locator,
+		})
+		if err != nil && !trace.IsAlreadyExists(err) { // Must be re-entrant.
+			return trace.Wrap(err)
+		}
 	}
 	return nil
 }

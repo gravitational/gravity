@@ -146,10 +146,12 @@ func (b *planBuilder) AddPullPhase(plan *storage.OperationPlan) {
 			ExecServer:  &b.JoiningNode,
 			Package:     &b.Application.Package,
 			ServiceUser: &b.ServiceUser,
-			Packages: []loc.Locator{
-				b.GravityPackage,
-				b.TeleportPackage,
-				b.PlanetPackage,
+			Pull: &storage.PullData{
+				Packages: []loc.Locator{
+					b.GravityPackage,
+					b.TeleportPackage,
+					b.PlanetPackage,
+				},
 			},
 		},
 		Requires: []string{installphases.ConfigurePhase, installphases.BootstrapPhase},
