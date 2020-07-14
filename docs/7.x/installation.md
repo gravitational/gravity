@@ -267,48 +267,57 @@ Flag      | Description
 `--manual` | Launch operation in manual mode.
 
 
-## AWS
-
-AWS is the most frequently used infrastructure for Gravity Clusters, that's why
-AWS is natively supported, i.e. the behavior of `gravity` CLI command will
-change when it detects that it's running on a AWS instance.
-
-In practice, this means that Kubernetes networking will be configured with the AWS
-native network features.
-
 ## Generic Linux Hosts
 
 In order to reliably run in any environment, Gravity aims to be infrastructure
 and cloud-agnostic. Gravity makes no assumption about the nature of the network
 or either the hosts are virtualized or bare metal.
 
+## AWS
+
+The default behavior of `gravity install` CLI command will change when
+it detects that it's running on a AWS instance. Kubernetes networking will
+be configured with AWS native network features. For more information see
+[Kubernetes AWS Cloud Provider Documentation](https://kubernetes.io/docs/concepts/cluster-administration/cloud-providers/#aws).
+
+Before installation make sure that AWS instances intended to run Gravity
+satisfy all of Gravity [system requirements](requirements.md). In addition to these
+generic requirements, AWS instances also must be configured in the following way to
+ensure proper AWS integration:
+
+* Instances must have an [IAM role with sufficient permissions](requirements.md#aws-iam-policy).
+
+Once the AWS instances have been properly provisioned, launch Gravity installation as
+[described above](#cli-installation).  Either omit the `--cloud-provider` flag or
+specify `--cloud-provider=aws` to enable AWS integration. AWS integration can be
+disabled by specifying the `--cloud-provider=generic` flag.
+
 ## Azure
 
-Gravity can be successfully deployed into an Azure environment using the same,
-generic approach as with any Generic Linux Hosts.
+Gravity can be successfully deployed into an Azure environment using the same
+approach as [Generic Linux Hosts](#generic-linux-hosts).
 
 ## Google Compute Engine
 
-Before installation make sure that GCE instances used for installation
+The default behavior of `gravity install` CLI command will change when
+it detects that it's running on a GCE instance. Kubernetes networking will
+be configured with GCP native network features. For more information see
+[Kubernetes GCE Cloud Provider Documentation](https://kubernetes.io/docs/concepts/cluster-administration/cloud-providers/#gce).
+
+Before installation make sure that GCE instances intended to run Gravity
 satisfy all of Gravity [system requirements](requirements.md). In addition to these
-generic requirements, GCE nodes also must be configured in the following way to
+generic requirements, GCE instances also must be configured in the following way to
 ensure proper cloud provider integration:
 
-* Network interface must have IP forwarding turned on. It is required for the
-overlay network to work properly.
+* Network interface must have IP forwarding turned on. This is required for the
+overlay network to work properly. See [Google Cloud's Documentation](https://cloud.google.com/vpc/docs/using-routes#canipforward)
 * Instances must be assigned a [network tag](https://cloud.google.com/vpc/docs/add-remove-network-tags)
-matching the name of the Cluster. It is required to ensure that created load
+matching the name of the Cluster. This is required to ensure that created load
 balancers discover proper instances.
-* Cloud API access scopes must include read/write permissions for Compute Engine.
+* Instance Cloud API access scopes must include read/write permissions for Compute Engine.
+This is required to create routes between nodes.
 
-Once the nodes have been properly configured, copy the installer tarball and
-launch installation as described above:
-
-```bsh
-node1$ sudo ./gravity install --advertise-addr=<addr> --token=<token> --cluster=<cluster> --cloud-provider=gce
-node2$ sudo ./gravity join <installer-addr> --advertise-addr=<addr> --token=<token> --cloud-provider=gce
-```
-
-Note that the `--cloud-provider` flag is optional and, if unspecified, will be
-auto-detected if install/join process is running on a GCE instance.
-
+Once the GCE instances have been properly provisioned, launch Gravity installation as
+[described above](#cli-installation).  Either omit the `--cloud-provider` flag or
+specify `--cloud-provider=gce` to enable GCE integration. GCE integration can be
+disabled by specifying the `--cloud-provider=generic` flag.

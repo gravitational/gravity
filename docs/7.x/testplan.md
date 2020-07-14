@@ -435,7 +435,7 @@ spec:
       node-tags=test-cluster
 ```
 
-Note: `cloudProvider:`'s value depends on which provider the cluster is provisioned on.
+Note: `cloudProvider`'s value depends on which provider the cluster is provisioned on.
 
 Now, create the operation in manual mode:
 
