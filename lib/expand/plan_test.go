@@ -51,6 +51,7 @@ type PlanSuite struct {
 	regularAgent    *storage.LoginEntry
 	teleportPackage *loc.Locator
 	planetPackage   *loc.Locator
+	gravityPackage  *loc.Locator
 	appPackage      loc.Locator
 	serviceUser     storage.OSUser
 	cluster         *ops.Site
@@ -76,6 +77,8 @@ func (s *PlanSuite) SetUpSuite(c *check.C) {
 	app, err := s.services.Apps.GetApp(s.appPackage)
 	c.Assert(err, check.IsNil)
 	s.teleportPackage, err = app.Manifest.Dependencies.ByName(constants.TeleportPackage)
+	c.Assert(err, check.IsNil)
+	s.gravityPackage, err = app.Manifest.Dependencies.ByName(constants.GravityPackage)
 	c.Assert(err, check.IsNil)
 	s.dnsConfig = storage.DNSConfig{
 		Addrs: []string{"127.0.0.3"},
@@ -281,6 +284,13 @@ func (s *PlanSuite) verifyPullPhase(c *check.C, phase storage.OperationPhase) {
 			ExecServer:  &s.joiningNode,
 			Package:     &s.appPackage,
 			ServiceUser: &s.serviceUser,
+			Pull: &storage.PullData{
+				Packages: []loc.Locator{
+					*s.gravityPackage,
+					*s.teleportPackage,
+					*s.planetPackage,
+				},
+			},
 		},
 		Requires: []string{installphases.ConfigurePhase, installphases.BootstrapPhase},
 	}, phase)

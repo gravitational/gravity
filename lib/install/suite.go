@@ -58,6 +58,7 @@ type PlanSuite struct {
 	adminAgent         *storage.LoginEntry
 	regularAgent       *storage.LoginEntry
 	teleportPackage    *loc.Locator
+	gravityPackage     *loc.Locator
 	runtimePackage     loc.Locator
 	rbacPackage        *loc.Locator
 	runtimeApplication *loc.Locator
@@ -116,6 +117,8 @@ func (s *PlanSuite) SetUpSuite(c *check.C) {
 	app, err := s.services.Apps.GetApp(appPackage)
 	c.Assert(err, check.IsNil)
 	s.teleportPackage, err = app.Manifest.Dependencies.ByName(constants.TeleportPackage)
+	c.Assert(err, check.IsNil)
+	s.gravityPackage, err = app.Manifest.Dependencies.ByName(constants.GravityPackage)
 	c.Assert(err, check.IsNil)
 	runtimePackage, err := app.Manifest.DefaultRuntimePackage()
 	c.Assert(err, check.IsNil)
@@ -362,6 +365,11 @@ func (s *PlanSuite) VerifyPullPhase(c *check.C, phase storage.OperationPhase) {
 					ExecServer:  &s.masterNode,
 					Package:     &s.installer.config.App.Package,
 					ServiceUser: serviceUser,
+					Pull: &storage.PullData{
+						Apps: []loc.Locator{
+							s.installer.config.App.Package,
+						},
+					},
 				},
 				Requires: []string{phases.ConfigurePhase, phases.BootstrapPhase},
 			},
@@ -372,6 +380,13 @@ func (s *PlanSuite) VerifyPullPhase(c *check.C, phase storage.OperationPhase) {
 					ExecServer:  &s.regularNode,
 					Package:     &s.installer.config.App.Package,
 					ServiceUser: serviceUser,
+					Pull: &storage.PullData{
+						Packages: []loc.Locator{
+							*s.gravityPackage,
+							*s.teleportPackage,
+							s.runtimePackage,
+						},
+					},
 				},
 				Requires: []string{phases.ConfigurePhase, phases.BootstrapPhase},
 			},
