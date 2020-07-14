@@ -53,3 +53,4 @@ nav:
       - FAQ: faq.md
       - Guides: guides.md
       - SELinux: selinux.md
+      - Ingress: ingress.md
