@@ -561,6 +561,7 @@ The flag can be specified multiple times to add as many LTS versions as required
     Newer Gravity versions will receive support for direct upgrades in the near future.
 
 ## Managing Operations
+<!-- This section header is linked from gravity binaries. Exercise care if editing. -->
 
 Some operations in a Gravity Cluster require cooperation from all Cluster nodes.
 Examples are installs, upgrades and garbage collection.

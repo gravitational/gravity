@@ -324,5 +324,5 @@ The operation might take a few minutes to complete.
 "Are you sure?`
 	updateConfigManualOperationBanner = `The operation has been created in manual mode.
 
-See https://gravitational.com/gravity/docs/cluster/#managing-an-ongoing-operation for details on working with operation plan.`
+See https://gravitational.com/gravity/docs/cluster/#managing-operations for details on working with operation plan.`
 )
