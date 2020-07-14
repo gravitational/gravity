@@ -3,7 +3,12 @@ set -e
 
 echo "Assuming changeset from the environment: $RIG_CHANGESET"
 if [ $1 = "update" ]; then
-    echo "Updating resources"
+    echo "Deleting old resources"
+    rig delete ds/kube-dns-v18 --resource-namespace=kube-system --force --debug
+    rig delete ds/kube-dns --resource-namespace=kube-system --force --debug
+    rig delete serviceaccount/kube-dns --resource-namespace=kube-system --force --debug
+
+    echo "Creating new resources"
     rig upsert -f /var/lib/gravity/resources/dns.yaml
 
     echo "Checking status"

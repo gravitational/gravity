@@ -672,6 +672,10 @@ const (
 	AnnotationLogo = "gravitational.io/logo"
 	// AnnotationSize contains image size in bytes.
 	AnnotationSize = "gravitational.io/size"
+
+	// GravityCLITag is used to tag gravity cli command log entries in the
+	// system journal.
+	GravityCLITag = "gravity-cli"
 )
 
 var (
