@@ -64,7 +64,7 @@ func (*phaseGC) PostCheck(context.Context) error {
 }
 
 func trimJournalFiles(remote fsm.Remote, logger log.FieldLogger) error {
-	logger.Info("Gabrage collect obsolete journal files.")
+	logger.Info("Garbage collect obsolete journal files.")
 	commands := [][]string{
 		// Force flush journal buffers and rotate files
 		utils.PlanetCommandArgs(defaults.JournalctlBin, "--flush", "--rotate"),
