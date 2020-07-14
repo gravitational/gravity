@@ -24,9 +24,9 @@ import (
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/rpc"
-	"github.com/gravitational/satellite/agent/proto/agentpb"
 
 	"github.com/fatih/color"
+	"github.com/gravitational/satellite/agent/proto/agentpb"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
 )
