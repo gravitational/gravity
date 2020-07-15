@@ -460,6 +460,8 @@ const (
 
 	// KubeSystemNamespace is a k8s namespace
 	KubeSystemNamespace = "kube-system"
+	// AllNamespaces is the filter to search across all namespaces
+	AllNamespaces = ""
 
 	// GrafanaContextCookie hold the name of the cluster used in
 	// certain web handlers to determine the currently selected domain without including it
