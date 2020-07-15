@@ -914,7 +914,7 @@ agent by issuing 'gravity resume' command.
 
 If the installation fails, use 'gravity plan' to inspect the state and
 'gravity resume' to continue the operation.
-See https://gravitational.com/gravity/docs/cluster/#managing-an-ongoing-operation for details.
+See https://gravitational.com/gravity/docs/cluster/#managing-operations for details.
 `))
 }
 
@@ -925,7 +925,7 @@ press Ctrl+C two times in a row.
 
 If you get disconnected from the terminal, you can reconnect to the installer
 agent by issuing 'gravity resume' command.
-See https://gravitational.com/gravity/docs/cluster/#managing-an-ongoing-operation for details.
+See https://gravitational.com/gravity/docs/cluster/#managing-operations for details.
 `))
 }
 

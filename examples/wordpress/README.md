@@ -191,7 +191,7 @@ agent by issuing 'gravity resume' command.
 
 If the installation fails, use 'gravity plan' to inspect the state and
 'gravity resume' to continue the operation.
-See https://gravitational.com/gravity/docs/cluster/#managing-an-ongoing-operation for details.
+See https://gravitational.com/gravity/docs/cluster/#managing-operations for details.
 
 Sun Apr 26 23:55:11 UTC Connecting to installer
 Sun Apr 26 23:55:32 UTC Connected to installer

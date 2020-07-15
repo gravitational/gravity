@@ -560,6 +560,8 @@ The flag can be specified multiple times to add as many LTS versions as required
     Direct upgrades support is available since Gravity version `5.5.21`.
     Newer Gravity versions will receive support for direct upgrades in the near future.
 
+<!-- The "managing operations" header is linked from gravity binaries. Exercise care if editing. -->
+<div id="managing-an-ongoing-operation" ></div>
 ## Managing Operations
 
 Some operations in a Gravity Cluster require cooperation from all Cluster nodes.
