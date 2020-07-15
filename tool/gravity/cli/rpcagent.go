@@ -215,7 +215,7 @@ func verifyCluster(ctx context.Context, req deployAgentsRequest) (servers []rpc.
 	}
 	if len(missing) != 0 {
 		base := req.cluster.App.Manifest.Base()
-		if base != nil && base.Version == opsservice.TeleportTokenVersion.String() {
+		if base != nil && base.Version == opsservice.TeleportBrokenJoinTokenVersion.String() {
 			return nil, trace.NotFound(teleportTokenMessage,
 				strings.Join(missing, ", "), base.Version)
 		}
