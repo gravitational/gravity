@@ -20,11 +20,11 @@ import (
 	"context"
 	"fmt"
 	"path"
+	"time"
 
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/rpc"
 	"github.com/gravitational/gravity/lib/storage"
-	"github.com/gravitational/gravity/lib/systeminfo"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
@@ -158,7 +158,8 @@ func (f *FSM) ExecutePlan(ctx context.Context, progress utils.Progress) error {
 		return trace.Wrap(err)
 	}
 
-	err = f.checkExecuteOnCoordinator(plan)
+	// Make sure the plan is being executed/resumed on the correct node.
+	err = CheckPlanCoordinator(plan)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -175,21 +176,6 @@ func (f *FSM) ExecutePlan(ctx context.Context, progress utils.Progress) error {
 		}
 	}
 	return nil
-}
-
-// checkExecuteOnCoordinator ensures that resuming the plan is executed on the lead node for the particular plan.
-// This is mainly important for etcd upgrades, where state can only be kept in sync on the leadMaster node itself.
-func (f *FSM) checkExecuteOnCoordinator(plan *storage.OperationPlan) error {
-	if plan.OfflineCoordinator == nil {
-		return nil
-	}
-
-	err := systeminfo.HasInterface(plan.OfflineCoordinator.AdvertiseIP)
-	if err != nil && trace.IsNotFound(err) {
-		return trace.BadParameter("Plan must be resumed on node %v/%v", plan.OfflineCoordinator.Hostname, plan.OfflineCoordinator.AdvertiseIP)
-	}
-
-	return trace.Wrap(err)
 }
 
 // RollbackPlan rolls back all phases of the plan that have been attempted so
@@ -620,6 +606,8 @@ type StateChange struct {
 	State string
 	// Error is the error that happened during phase execution
 	Error trace.Error
+	// created overrides the time for the state change, only used in tests.
+	created time.Time
 }
 
 // String returns a textual representation of this state change

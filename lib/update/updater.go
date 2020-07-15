@@ -99,6 +99,23 @@ func (r *Updater) RunPhase(ctx context.Context, phase string, phaseTimeout time.
 	}))
 }
 
+// Check validates the provided FSM parameters.
+func (r *Updater) Check(params fsm.Params) error {
+	if params.PhaseID != fsm.RootPhase {
+		return nil
+	}
+	// Make sure resume is launched from the correct node.
+	plan, err := r.GetPlan()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = fsm.CheckPlanCoordinator(plan)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
 // RollbackPhase rolls back the specified phase.
 func (r *Updater) RollbackPhase(ctx context.Context, params fsm.Params, phaseTimeout time.Duration) error {
 	if params.PhaseID == fsm.RootPhase {

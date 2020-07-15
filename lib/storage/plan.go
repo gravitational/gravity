@@ -97,6 +97,11 @@ func getLeafPhases(phase OperationPhase) (result []OperationPhase) {
 	return result
 }
 
+// Len returns the number of leaf phases the plan consists of.
+func (p *OperationPlan) Len() int {
+	return len(p.GetLeafPhases())
+}
+
 // OperationPhase represents a single operation plan phase
 type OperationPhase struct {
 	// ID is the ID of the phase within operation
@@ -361,6 +366,8 @@ type PlanChange struct {
 	OperationID string `json:"operation_id"`
 	// PhaseID is the ID of the phase the change refers to
 	PhaseID string `json:"phase_id"`
+	// PhaseIndex is an optional index number of the phase in the plan
+	PhaseIndex int `json:"phase_index,omitempty"`
 	// NewState is the state the phase moved into
 	NewState string `json:"new_state"`
 	// Created is the change timestamp

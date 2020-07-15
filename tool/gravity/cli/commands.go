@@ -494,6 +494,8 @@ type PlanDisplayCmd struct {
 	*kingpin.CmdClause
 	// Output is output format
 	Output *constants.Format
+	// Follow allows to follow the operation plan progress
+	Follow *bool
 }
 
 // PlanExecuteCmd executes a phase of an active operation
@@ -523,6 +525,8 @@ type PlanResumeCmd struct {
 	*kingpin.CmdClause
 	// PhaseTimeout is the phase timeout
 	PhaseTimeout *time.Duration
+	// Block indicates whether the command should run in foreground or as a systemd unit
+	Block *bool
 }
 
 // PlanCompleteCmd completes the operation plan
@@ -650,6 +654,8 @@ type UpgradeCmd struct {
 	SkipVersionCheck *bool
 	// DockerDevice updates Docker device in the cluster state to the provided one
 	DockerDevice *string
+	// Block indicates whether the command should run in foreground or as a systemd unit
+	Block *bool
 }
 
 // StatusCmd combines subcommands for displaying status information

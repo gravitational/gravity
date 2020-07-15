@@ -95,8 +95,7 @@ func executeConfigPhaseForOperation(env *localenv.LocalEnvironment, environ Loca
 		return trace.Wrap(err)
 	}
 	defer updater.Close()
-	err = updater.RunPhase(context.TODO(), params.PhaseID, params.Timeout, params.Force)
-	return trace.Wrap(err)
+	return executeOrForkPhase(env, updater, params, operation)
 }
 
 func rollbackConfigPhaseForOperation(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params PhaseParams, operation ops.SiteOperation) error {

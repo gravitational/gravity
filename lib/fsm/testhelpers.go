@@ -30,16 +30,16 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func newTestEngine(plan storage.OperationPlan) *testEngine {
+func newTestEngine(getPlan func() storage.OperationPlan) *testEngine {
 	return &testEngine{
-		plan:  plan,
-		clock: clockwork.NewFakeClock(),
+		getPlan: getPlan,
+		clock:   clockwork.NewFakeClock(),
 	}
 }
 
 // testEngine is fsm engine used in tests. Keeps its changelog in memory.
 type testEngine struct {
-	plan      storage.OperationPlan
+	getPlan   func() storage.OperationPlan
 	changelog storage.PlanChangelog
 	clock     clockwork.Clock
 }
@@ -59,7 +59,10 @@ func (t *testEngine) GetExecutor(p ExecutorParams, r Remote) (PhaseExecutor, err
 // ChangePhaseState records the provided phase state change in the test engine.
 func (t *testEngine) ChangePhaseState(ctx context.Context, ch StateChange) error {
 	// Make sure that new changelog entries get the most recent timestamp.
-	timestamp := t.clock.Now().Add(time.Duration(len(t.changelog)) * time.Minute)
+	timestamp := ch.created
+	if timestamp.IsZero() {
+		timestamp = t.clock.Now().Add(time.Duration(len(t.changelog)) * time.Minute)
+	}
 	t.changelog = append(t.changelog, storage.PlanChange{
 		PhaseID:  ch.Phase,
 		NewState: ch.State,
@@ -70,7 +73,7 @@ func (t *testEngine) ChangePhaseState(ctx context.Context, ch StateChange) error
 
 // GetPlan returns the test plan with the changelog applied.
 func (t *testEngine) GetPlan() (*storage.OperationPlan, error) {
-	return ResolvePlan(t.plan, t.changelog), nil
+	return ResolvePlan(t.getPlan(), t.changelog), nil
 }
 
 // RunCommand is not implemented by the test engine.

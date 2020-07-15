@@ -101,8 +101,7 @@ func (i *Installer) completeFinalInstallStep() error {
 // OnPlanComplete is called when the operation plan finishes execution
 func (i *Installer) OnPlanComplete(fsm *fsm.FSM, fsmErr error) {
 	if err := fsm.Complete(fsmErr); err != nil {
-		i.Errorf("Failed to complete operation: %v.",
-			trace.DebugReport(err))
+		i.WithError(err).Error("Failed to complete operation.")
 	}
 }
 

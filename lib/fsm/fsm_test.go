@@ -24,6 +24,7 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/jonboulle/clockwork"
 	"gopkg.in/check.v1"
 )
 
@@ -31,30 +32,33 @@ func TestFSM(t *testing.T) { check.TestingT(t) }
 
 type FSMSuite struct {
 	planner *testPlanner
+	clock   clockwork.Clock
 }
 
 var _ = check.Suite(&FSMSuite{
 	planner: &testPlanner{},
+	clock:   clockwork.NewFakeClock(),
 })
 
 // TestExecutePlan executes an unstarted plan and makes sure all phases have
 // been executed in correct order.
 func (s *FSMSuite) TestExecutePlan(c *check.C) {
-	plan := s.planner.newPlan(
-		s.planner.initPhase(storage.OperationPhaseStateUnstarted),
-		s.planner.bootstrapPhase(
-			s.planner.bootstrapSubPhase("node-1", storage.OperationPhaseStateUnstarted),
-			s.planner.bootstrapSubPhase("node-2", storage.OperationPhaseStateUnstarted)),
-		s.planner.upgradePhase(storage.OperationPhaseStateUnstarted))
+	engine := newTestEngine(func() storage.OperationPlan {
+		return *(s.planner.newPlan(
+			s.planner.initPhase(storage.OperationPhaseStateUnstarted),
+			s.planner.bootstrapPhase(
+				s.planner.bootstrapSubPhase("node-1", storage.OperationPhaseStateUnstarted),
+				s.planner.bootstrapSubPhase("node-2", storage.OperationPhaseStateUnstarted)),
+			s.planner.upgradePhase(storage.OperationPhaseStateUnstarted)))
+	})
 
-	engine := newTestEngine(*plan)
 	fsm, err := New(Config{Engine: engine})
 	c.Assert(err, check.IsNil)
 
 	err = fsm.ExecutePlan(context.TODO(), utils.NewNopProgress())
 	c.Assert(err, check.IsNil)
 
-	plan, err = fsm.GetPlan()
+	plan, err := fsm.GetPlan()
 	c.Assert(err, check.IsNil)
 	// Make sure plan is completed now.
 	c.Assert(IsCompleted(plan), check.Equals, true)
@@ -74,21 +78,22 @@ func (s *FSMSuite) TestExecutePlan(c *check.C) {
 // TestRollbackPlan rolls back a failed plan and makes sure all phases have been
 // rolled back in correct order.
 func (s *FSMSuite) TestRollbackPlan(c *check.C) {
-	plan := s.planner.newPlan(
-		s.planner.initPhase(storage.OperationPhaseStateCompleted),
-		s.planner.bootstrapPhase(
-			s.planner.bootstrapSubPhase("node-1", storage.OperationPhaseStateCompleted),
-			s.planner.bootstrapSubPhase("node-2", storage.OperationPhaseStateCompleted)),
-		s.planner.upgradePhase(storage.OperationPhaseStateFailed))
+	engine := newTestEngine(func() storage.OperationPlan {
+		return *(s.planner.newPlan(
+			s.planner.initPhase(storage.OperationPhaseStateCompleted),
+			s.planner.bootstrapPhase(
+				s.planner.bootstrapSubPhase("node-1", storage.OperationPhaseStateCompleted),
+				s.planner.bootstrapSubPhase("node-2", storage.OperationPhaseStateCompleted)),
+			s.planner.upgradePhase(storage.OperationPhaseStateFailed)))
+	})
 
-	engine := newTestEngine(*plan)
 	fsm, err := New(Config{Engine: engine})
 	c.Assert(err, check.IsNil)
 
 	err = fsm.RollbackPlan(context.TODO(), utils.NewNopProgress(), false)
 	c.Assert(err, check.IsNil)
 
-	plan, err = fsm.GetPlan()
+	plan, err := fsm.GetPlan()
 	c.Assert(err, check.IsNil)
 	// Make sure plan is rolled back now.
 	c.Assert(IsRolledBack(plan), check.Equals, true)
@@ -108,21 +113,22 @@ func (s *FSMSuite) TestRollbackPlan(c *check.C) {
 // TestRollbackPlanSkip rolls back a plan with some rolled back / unstarted phases
 // and makes sure such phases are being skipped during rollback.
 func (s *FSMSuite) TestRollbackPlanSkip(c *check.C) {
-	plan := s.planner.newPlan(
-		s.planner.initPhase(storage.OperationPhaseStateCompleted),
-		s.planner.bootstrapPhase(
-			s.planner.bootstrapSubPhase("node-1", storage.OperationPhaseStateRolledBack),
-			s.planner.bootstrapSubPhase("node-2", storage.OperationPhaseStateCompleted)),
-		s.planner.upgradePhase(storage.OperationPhaseStateUnstarted))
+	engine := newTestEngine(func() storage.OperationPlan {
+		return *(s.planner.newPlan(
+			s.planner.initPhase(storage.OperationPhaseStateCompleted),
+			s.planner.bootstrapPhase(
+				s.planner.bootstrapSubPhase("node-1", storage.OperationPhaseStateRolledBack),
+				s.planner.bootstrapSubPhase("node-2", storage.OperationPhaseStateCompleted)),
+			s.planner.upgradePhase(storage.OperationPhaseStateUnstarted)))
+	})
 
-	engine := newTestEngine(*plan)
 	fsm, err := New(Config{Engine: engine})
 	c.Assert(err, check.IsNil)
 
 	err = fsm.RollbackPlan(context.TODO(), utils.NewNopProgress(), false)
 	c.Assert(err, check.IsNil)
 
-	plan, err = fsm.GetPlan()
+	plan, err := fsm.GetPlan()
 	c.Assert(err, check.IsNil)
 	// Make sure plan is rolled back now.
 	c.Assert(IsRolledBack(plan), check.Equals, true)
@@ -138,21 +144,22 @@ func (s *FSMSuite) TestRollbackPlanSkip(c *check.C) {
 // TestRollbackPlanDryRun make sure that rollback in dry-run mode does not
 // rollback any of the phases.
 func (s *FSMSuite) TestRollbackPlanDryRun(c *check.C) {
-	plan := s.planner.newPlan(
-		s.planner.initPhase(storage.OperationPhaseStateCompleted),
-		s.planner.bootstrapPhase(
-			s.planner.bootstrapSubPhase("node-1", storage.OperationPhaseStateCompleted),
-			s.planner.bootstrapSubPhase("node-2", storage.OperationPhaseStateCompleted)),
-		s.planner.upgradePhase(storage.OperationPhaseStateUnstarted))
+	engine := newTestEngine(func() storage.OperationPlan {
+		return *(s.planner.newPlan(
+			s.planner.initPhase(storage.OperationPhaseStateCompleted),
+			s.planner.bootstrapPhase(
+				s.planner.bootstrapSubPhase("node-1", storage.OperationPhaseStateCompleted),
+				s.planner.bootstrapSubPhase("node-2", storage.OperationPhaseStateCompleted)),
+			s.planner.upgradePhase(storage.OperationPhaseStateUnstarted)))
+	})
 
-	engine := newTestEngine(*plan)
 	fsm, err := New(Config{Engine: engine})
 	c.Assert(err, check.IsNil)
 
 	err = fsm.RollbackPlan(context.TODO(), utils.NewNopProgress(), true)
 	c.Assert(err, check.IsNil)
 
-	plan, err = fsm.GetPlan()
+	plan, err := fsm.GetPlan()
 	c.Assert(err, check.IsNil)
 	// Make sure plan is still not rolled back.
 	c.Assert(IsRolledBack(plan), check.Equals, false)
