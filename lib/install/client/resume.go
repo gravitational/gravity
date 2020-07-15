@@ -40,9 +40,9 @@ func (r *ResumeStrategy) connect(ctx context.Context) (installpb.AgentClient, er
 	defer cancel()
 	serviceName := serviceNameFromPath(r.ServicePath)
 	client, err := installpb.NewClient(ctx, installpb.ClientConfig{
-		FieldLogger:     r.FieldLogger,
-		SocketPath:      r.SocketPath,
-		IsServiceFailed: isServiceFailed(serviceName),
+		FieldLogger:            r.FieldLogger,
+		SocketPath:             r.SocketPath,
+		ShouldReconnectService: shouldReconnectService(serviceName),
 	})
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to connect to the installer service.\n"+

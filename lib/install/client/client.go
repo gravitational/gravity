@@ -257,9 +257,6 @@ func (r *Client) complete(ctx context.Context) error {
 
 func (r *Client) shutdown(ctx context.Context) error {
 	_, err := r.client.Shutdown(ctx, &installpb.ShutdownRequest{})
-	if err := r.waitForServiceStopped(ctx); err != nil {
-		log.WithError(err).Warn("Failed to wait for installer service to shut down.")
-	}
 	return trace.Wrap(err)
 }
 
@@ -267,8 +264,10 @@ func (r *Client) shutdownWithExitCode(ctx context.Context, code int) error {
 	_, err := r.client.Shutdown(ctx, &installpb.ShutdownRequest{
 		ExitCode: int32(code),
 	})
-	if err := r.waitForServiceStopped(ctx); err != nil {
-		log.WithError(err).Warn("Failed to wait for installer service to shut down.")
+	if isNoRestartExitCode(code) {
+		if err := r.waitForServiceStopped(ctx); err != nil {
+			log.WithError(err).Warn("Failed to wait for installer service to shut down.")
+		}
 	}
 	return trace.Wrap(err)
 }

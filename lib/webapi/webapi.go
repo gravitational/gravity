@@ -1739,13 +1739,14 @@ func (m *Handler) getSiteReport(w http.ResponseWriter, r *http.Request, p httpro
 		}
 	}
 
-	reader, err := context.Operator.GetSiteReport(r.Context(), ops.GetClusterReportRequest{
-		SiteKey: ops.SiteKey{
-			AccountID:  context.User.GetAccountID(),
-			SiteDomain: p.ByName("domain"),
-		},
-		Since: since,
-	})
+	reader, err := context.Operator.GetSiteReport(r.Context(),
+		ops.GetClusterReportRequest{
+			SiteKey: ops.SiteKey{
+				AccountID:  context.User.GetAccountID(),
+				SiteDomain: p.ByName("domain"),
+			},
+			Since: since,
+		})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

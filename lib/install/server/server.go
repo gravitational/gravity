@@ -202,21 +202,22 @@ type Server struct {
 }
 
 func (r *Server) done(ctx context.Context, err error) {
-	r.errC <- r.executor.HandleStopped(ctx)
+	if err := r.executor.HandleStopped(ctx); err != nil {
+		r.WithError(err).Warn("Stop handler failed.")
+	}
+	r.errC <- err
 }
 
 func (r *Server) aborted(ctx context.Context) {
-	err := installpb.ErrAborted
-	if errAbort := r.executor.HandleAborted(ctx); errAbort != nil {
-		err = errAbort
+	if err := r.executor.HandleAborted(ctx); err != nil {
+		r.WithError(err).Warn("Abort handler failed.")
 	}
-	r.errC <- err
+	r.errC <- installpb.ErrAborted
 }
 
 func (r *Server) complete(ctx context.Context) {
-	err := installpb.ErrCompleted
-	if errComplete := r.executor.HandleCompleted(ctx); errComplete != nil {
-		err = errComplete
+	if err := r.executor.HandleCompleted(ctx); err != nil {
+		r.WithError(err).Warn("Completion handler failed.")
 	}
-	r.errC <- err
+	r.errC <- installpb.ErrCompleted
 }

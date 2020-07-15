@@ -887,7 +887,12 @@ func (s *site) newProvisioningToken(operation ops.SiteOperation) (token string, 
 		UserEmail:   agentUser.GetName(),
 	}
 	if operation.Type == ops.OperationExpand {
-		tokenRequest.Expires = s.clock().UtcNow().Add(defaults.ExpandTokenTTL)
+		// TODO(r0mant): Due to current implementation this TTL is required to
+		// make sure that when a new node joins, it doesn't select this token
+		// for Teleport since it picks non-expiring tokens. Otherwise, Teleport
+		// node won't be authenticate with existing auth servers that initialize
+		// their tokens upon startup: https://github.com/gravitational/gravity/issues/1445.
+		tokenRequest.Expires = s.clock().UtcNow().Add(24 * time.Hour)
 	}
 	_, err = s.users().CreateProvisioningToken(tokenRequest)
 	if err != nil && !trace.IsAlreadyExists(err) {

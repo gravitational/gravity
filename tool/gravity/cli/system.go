@@ -76,7 +76,7 @@ func systemClusterInfo(env *localenv.LocalEnvironment) error {
 	go func() {
 		err := libarchive.CompressDirectory(dir, gzWriter)
 		gzWriter.Close()
-		writer.CloseWithError(err)
+		_ = writer.CloseWithError(err)
 	}()
 
 	_, err = io.Copy(os.Stdout, reader)

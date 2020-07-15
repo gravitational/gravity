@@ -379,7 +379,7 @@ func (r *AgentPeerStore) NewPeer(ctx context.Context, req pb.PeerJoinRequest, pe
 	}
 
 	if req.Config.KeyValues[ops.AgentMode] != ops.AgentModeShrink {
-		errCheck := r.validatePeer(ctx, group, info, req, token.SiteDomain)
+		errCheck := r.validatePeer(ctx, group, info, req, *token)
 		if errCheck != nil {
 			return errCheck
 		}
@@ -442,47 +442,34 @@ func (r *AgentPeerStore) authenticatePeer(token string) (*storage.ProvisioningTo
 }
 
 func (r *AgentPeerStore) validatePeer(ctx context.Context, group *agentGroup, info storage.System,
-	req pb.PeerJoinRequest, clusterName string) error {
+	req pb.PeerJoinRequest, token storage.ProvisioningToken) error {
 	if group.hasPeer(req.Addr, info.GetHostname()) {
 		return nil
 	}
 
-	if err := r.checkHostname(ctx, group, req.Addr, info.GetHostname(), clusterName); err != nil {
+	if err := r.checkHostname(ctx, group, req.Addr, info.GetHostname(), token); err != nil {
 		return trace.Wrap(err)
 	}
 
-	if err := r.checkLicense(ctx, int(group.NumPeers()), clusterName, info); err != nil {
+	if err := r.checkLicense(ctx, int(group.NumPeers()), token.SiteDomain, info); err != nil {
 		return trace.Wrap(err)
 	}
 
 	return nil
 }
 
-func (r *AgentPeerStore) checkHostname(ctx context.Context, group *agentGroup, addr, hostname, clusterName string) error {
-	// collect hostnames from existing servers (for expand)
-	servers, err := r.teleport.GetServers(ctx, clusterName, nil)
-	if err != nil && !trace.IsNotFound(err) {
-		return trace.Wrap(err)
-	}
-
-	var existingServers []string
-	for _, server := range servers {
-		hostname := server.GetLabels()[ops.Hostname]
-		if hostname == "" {
-			log.Warnf("Server hostname is empty: %+v.", server)
-			continue
+func (r *AgentPeerStore) checkHostname(ctx context.Context, group *agentGroup, addr, hostname string, token storage.ProvisioningToken) error {
+	if err := r.isPartOfActiveOperation(addr, token); err != nil {
+		if !trace.IsNotFound(err) && !trace.IsCompareFailed(err) {
+			r.Warnf("Failed to check whether the server is part of the active operation: %v.", err)
 		}
-		existingServers = append(existingServers, hostname)
+		if err := r.isExistingServer(ctx, hostname, token.SiteDomain); err != nil {
+			return trace.Wrap(err)
+		}
 	}
-
-	if utils.StringInSlice(existingServers, hostname) {
-		return trace.AccessDenied("One of existing servers already has hostname %q: %q.", hostname, existingServers)
-	}
-
 	if group.hasConflictingPeer(addr, hostname) {
 		return trace.AccessDenied("One of existing peers already has hostname %q.", hostname)
 	}
-
 	r.Debugf("Verified hostname %q.", hostname)
 	return nil
 }
@@ -579,6 +566,52 @@ func (r *AgentPeerStore) addGroup(key ops.SiteOperationKey) (*agentGroup, error)
 	r.WithField("key", key).Debug("Added group.")
 	r.groups[key] = agentGroup
 	return agentGroup, nil
+}
+
+func (r *AgentPeerStore) isPartOfActiveOperation(addr string, token storage.ProvisioningToken) error {
+	op, err := r.backend.GetSiteOperation(token.SiteDomain, token.OperationID)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if op.Type != ops.OperationInstall && op.Type != ops.OperationExpand {
+		// Only relevant for install/expand operation
+		return nil
+	}
+	operation := (ops.SiteOperation)(*op)
+	logger := r.WithField("operation", operation.String())
+	if operation.Type == ops.OperationExpand && operation.IsCompleted() {
+		// Always fall-through for install as we cannot reliably say if it's completed
+		logger.Warn("Operation is already completed.")
+		return trace.CompareFailed("operation is already completed")
+	}
+	serverAddr := utils.ExtractHost(addr)
+	if op.Servers.FindByIP(serverAddr) == nil {
+		r.WithField("server-addr", serverAddr).Warn("Server is not part of the active operation.")
+		return trace.NotFound("server is not part of the active operation")
+	}
+	return nil
+}
+
+func (r *AgentPeerStore) isExistingServer(ctx context.Context, hostname, clusterName string) error {
+	// collect hostnames from existing servers (for expand)
+	servers, err := r.teleport.GetServers(ctx, clusterName, nil)
+	if err != nil && !trace.IsNotFound(err) {
+		return trace.Wrap(err)
+	}
+	var existingServers []string
+	for _, server := range servers {
+		hostname := server.GetLabels()[ops.Hostname]
+		if hostname == "" {
+			log.WithField("server", server).Warn("Server hostname is empty, will ignore.")
+			continue
+		}
+		existingServers = append(existingServers, hostname)
+	}
+	if utils.StringInSlice(existingServers, hostname) {
+		return trace.AccessDenied("One of existing servers already has hostname %q: %q.",
+			hostname, existingServers)
+	}
+	return nil
 }
 
 // AgentPeerStore manages groups of agents based on operation context.

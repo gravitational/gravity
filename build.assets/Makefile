@@ -183,7 +183,7 @@ endef
 #
 ifeq ($(OS),darwin)
 .PHONY: build
-build: grpc build-on-host
+build: build-on-host
 	ln -sf $(GRAVITY_BUILDDIR) $(GRAVITY_CURRENT_BUILDDIR)
 else
 .PHONY: build
@@ -198,7 +198,7 @@ endif
 grpc: buildbox $(GRPC_PROTO_OUTPUTS)
 
 $(GRPC_PROTO_OUTPUTS): $(GRPC_PROTOS)
-	docker run --rm $(NOROOT) \
+	docker run --rm=true $(NOROOT) \
 		   -v $(TOP):$(SRCDIR) \
 		   $(BBOX) \
 		   dumb-init make -C $(subst $(TOP),$(SRCDIR),$(@D))

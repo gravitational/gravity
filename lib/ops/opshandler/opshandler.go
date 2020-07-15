@@ -1072,10 +1072,11 @@ func (h *WebHandler) getSiteReport(w http.ResponseWriter, r *http.Request, p htt
 		}
 	}
 
-	report, err := context.Operator.GetSiteReport(r.Context(), ops.GetClusterReportRequest{
-		SiteKey: siteKey(p),
-		Since:   since,
-	})
+	report, err := context.Operator.GetSiteReport(r.Context(),
+		ops.GetClusterReportRequest{
+			SiteKey: siteKey(p),
+			Since:   since,
+		})
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -1877,7 +1878,9 @@ func (h *WebHandler) streamOperationLogs(w http.ResponseWriter, r *http.Request,
 
 */
 func (h *WebHandler) getSiteOperationCrashReport(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
-	report, err := context.Operator.GetSiteReport(r.Context(), ops.GetClusterReportRequest{SiteKey: siteKey(p)})
+	report, err := context.Operator.GetSiteReport(r.Context(), ops.GetClusterReportRequest{
+		SiteKey: siteKey(p),
+	})
 	if err != nil {
 		return trace.Wrap(err)
 	}

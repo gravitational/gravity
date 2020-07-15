@@ -34,6 +34,7 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/cenkalti/backoff"
 	etcd "github.com/coreos/etcd/client"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
@@ -78,6 +79,7 @@ func NewEtcd(p fsm.ExecutorParams, operator ops.Operator, runner rpc.AgentReposi
 		Runner:         runner,
 		Master:         *p.Phase.Data.Master,
 		ExecutorParams: p,
+		etcdPeerURL:    p.Phase.Data.Server.EtcdPeerURL(),
 	}, nil
 }
 
@@ -92,12 +94,14 @@ type etcdExecutor struct {
 	Master storage.Server
 	// ExecutorParams is common executor params
 	fsm.ExecutorParams
+	// etcdPeerURL specifies this node's etcd peer URL
+	etcdPeerURL string
 }
 
 // Execute adds the joining node to the cluster's etcd cluster
 func (p *etcdExecutor) Execute(ctx context.Context) error {
 	p.Progress.NextStep("Adding etcd member")
-	member, err := p.Etcd.Add(ctx, p.Phase.Data.Server.EtcdPeerURL())
+	member, err := p.addEtcdMember(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -135,6 +139,38 @@ func (p *etcdExecutor) Rollback(ctx context.Context) error {
 	}
 	p.Infof("Restored etcd data from %v.", backupPath)
 	return nil
+}
+
+func (p *etcdExecutor) addEtcdMember(ctx context.Context) (member *etcd.Member, err error) {
+	boff := backoff.NewExponentialBackOff()
+	boff.MaxElapsedTime = defaults.TransientErrorTimeout
+	err = utils.RetryTransient(ctx, boff, func() error {
+		peers, err := p.Etcd.List(ctx)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		if p.hasSelfAsMember(peers) {
+			p.WithField("peerURL", p.etcdPeerURL).Info("Node is already etcd peer.")
+			return nil
+		}
+		member, err = p.Etcd.Add(ctx, p.etcdPeerURL)
+		return trace.Wrap(err)
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return member, nil
+}
+
+func (p *etcdExecutor) hasSelfAsMember(peers []etcd.Member) bool {
+	for _, peer := range peers {
+		for _, peerURL := range peer.PeerURLs {
+			if peerURL == p.etcdPeerURL {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (p *etcdExecutor) checkBackup(ctx context.Context, agent rpcclient.Client, backupPath string) error {

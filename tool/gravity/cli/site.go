@@ -140,13 +140,14 @@ func getClusterReport(env *localenv.LocalEnvironment, targetFile string, since t
 	}
 
 	// TODO(dmitri): see comments on defaults.GenerateDebugReportTimeout
-	report, err := operator.GetSiteReport(context.TODO(), ops.GetClusterReportRequest{
-		SiteKey: ops.SiteKey{
-			AccountID:  site.AccountID,
-			SiteDomain: site.Domain,
-		},
-		Since: since,
-	})
+	report, err := operator.GetSiteReport(context.TODO(),
+		ops.GetClusterReportRequest{
+			SiteKey: ops.SiteKey{
+				AccountID:  site.AccountID,
+				SiteDomain: site.Domain,
+			},
+			Since: since,
+		})
 	if err != nil {
 		return trace.Wrap(err)
 	}

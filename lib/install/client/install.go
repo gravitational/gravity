@@ -52,9 +52,9 @@ func (r *InstallerStrategy) connect(ctx context.Context) (installpb.AgentClient,
 	ctx, cancel = context.WithTimeout(ctx, r.ConnectTimeout)
 	defer cancel()
 	client, err := installpb.NewClient(ctx, installpb.ClientConfig{
-		FieldLogger:     r.FieldLogger,
-		SocketPath:      r.SocketPath,
-		IsServiceFailed: isServiceFailed(serviceName(r.ServicePath)),
+		FieldLogger:            r.FieldLogger,
+		SocketPath:             r.SocketPath,
+		ShouldReconnectService: shouldReconnectService(serviceName(r.ServicePath)),
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -72,8 +72,8 @@ func (r *InstallerStrategy) installSelfAsService() error {
 		ServiceSpec: systemservice.ServiceSpec{
 			StartCommand:             strings.Join(r.Args, " "),
 			User:                     constants.RootUIDString,
-			SuccessExitStatus:        successExitStatuses,
-			RestartPreventExitStatus: noRestartExitStatuses,
+			SuccessExitStatus:        successExitStatusList,
+			RestartPreventExitStatus: noRestartExitStatusList,
 			// Enable automatic restart of the service
 			Restart:          "always",
 			Timeout:          int(time.Duration(defaults.ServiceConnectTimeout).Seconds()),
@@ -147,32 +147,53 @@ type InstallerStrategy struct {
 	ConnectTimeout time.Duration
 }
 
-// isServiceFailed returns an error if the service has failed.
-func isServiceFailed(serviceName string) func() error {
+// shouldReconnectService returns a function that determines whether the client should continue
+// reconnecting to the service given with serviceName
+func shouldReconnectService(serviceName string) func() error {
 	return func() error {
-		err := service.IsFailed(serviceName)
+		err := service.IsStatus(serviceName,
+			systemservice.ServiceStatusFailed)
 		if err == nil {
 			return trace.Errorf("service %q has failed. Check journal log for details.",
 				serviceName)
 		}
 		if !trace.IsCompareFailed(err) {
-			return trace.Wrap(err)
+			// Continue reconnecting if unable to query service status
+			log.Warnf("Failed to query service status: %v.", err)
 		}
 		return nil
 	}
 }
 
+func isNoRestartExitCode(code int) bool {
+	for _, s := range noRestartExitStatuses {
+		if code == s {
+			return true
+		}
+	}
+	return false
+}
+
+func toWhitespaceSeparated(vs ...int) string {
+	result := make([]string, 0, len(vs))
+	for _, v := range vs {
+		result = append(result, strconv.Itoa(v))
+	}
+	return strings.Join(result, " ")
+}
+
 var (
-	// successExitStatuses lists exit statuses considered a successful exit for the service
-	successExitStatuses = strings.Join([]string{
-		strconv.Itoa(defaults.AbortedOperationExitCode),
-		strconv.Itoa(defaults.CompletedOperationExitCode),
-	}, " ")
-	// noRestartExitStatuses lists exit statuses that prevent service from getting automatically
+	noRestartExitStatuses = []int{
+		defaults.AbortedOperationExitCode,
+		defaults.CompletedOperationExitCode,
+		defaults.FailedPreconditionExitCode,
+	}
+	// successExitStatusList lists exit statuses considered a successful exit for the service
+	successExitStatusList = toWhitespaceSeparated([]int{
+		defaults.AbortedOperationExitCode,
+		defaults.CompletedOperationExitCode,
+	}...)
+	// noRestartExitStatusList lists exit statuses that prevent service from getting automatically
 	// restarted by systemd
-	noRestartExitStatuses = strings.Join([]string{
-		strconv.Itoa(defaults.AbortedOperationExitCode),
-		strconv.Itoa(defaults.CompletedOperationExitCode),
-		strconv.Itoa(defaults.FailedPreconditionExitCode),
-	}, " ")
+	noRestartExitStatusList = toWhitespaceSeparated(noRestartExitStatuses...)
 )

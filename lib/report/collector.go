@@ -172,6 +172,11 @@ func (r Command) isExitCodeFailed(err error) bool {
 	return *exitCode != 0 && !exitCodeOneOf(*exitCode, r.successExitCodes...)
 }
 
+// String returns a text representation of this command
+func (r Command) String() string {
+	return fmt.Sprintf("%v(cmd=%v, args=%v)", r.name, r.cmd, r.args)
+}
+
 // Script creates a new script collector
 func Script(name, script string) ScriptCollector {
 	return ScriptCollector{name: name, script: script}

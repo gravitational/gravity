@@ -666,6 +666,8 @@ func RegisterCommands(app *kingpin.Application) *Application {
 
 	g.SystemHistoryCmd.CmdClause = g.SystemCmd.Command("history", "list system update history").Hidden()
 
+	g.SystemClusterInfoCmd.CmdClause = g.SystemCmd.Command("cluster-info", "dump kubernetes cluster info suitable for debugging").Hidden()
+
 	// ask the current active master to step down
 	g.SystemStepDownCmd.CmdClause = g.SystemCmd.Command("step-down", "Ask the active master to step down").Hidden()
 

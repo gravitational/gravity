@@ -845,6 +845,8 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			*g.SystemReinstallCmd.ClusterRole)
 	case g.SystemHistoryCmd.FullCommand():
 		return systemHistory(localEnv)
+	case g.SystemClusterInfoCmd.FullCommand():
+		return systemClusterInfo(localEnv)
 	case g.SystemPullUpdatesCmd.FullCommand():
 		return systemPullUpdates(localEnv,
 			*g.SystemPullUpdatesCmd.OpsCenterURL,

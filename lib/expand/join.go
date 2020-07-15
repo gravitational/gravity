@@ -76,15 +76,14 @@ func NewPeer(config PeerConfig) (*Peer, error) {
 		server:     server,
 		dispatcher: dispatcher,
 		// Account for agent exit or agent reconnect failure
-		errC:      make(chan error, 3),
-		exitC:     make(chan error, 1),
-		execC:     make(chan *installpb.ExecuteRequest),
-		execDoneC: make(chan install.ExecResult, 1),
-		closeC:    make(chan closeResponse),
-		connectC:  make(chan connectResult, 1),
+		errC:        make(chan error, 3),
+		exitC:       make(chan error, 1),
+		execC:       make(chan *installpb.ExecuteRequest),
+		execDoneC:   make(chan install.ExecResult, 1),
+		closeC:      make(chan closeResponse),
+		connectC:    make(chan connectResult, 1),
+		connectingC: make(chan struct{}),
 	}
-	peer.startConnectLoop()
-	peer.startStatusLoop()
 	peer.startExecuteLoop()
 	peer.startReconnectWatchLoop()
 	return peer, nil
@@ -97,13 +96,10 @@ type Peer struct {
 	ctx context.Context
 	// cancel cancels internal operation
 	cancel context.CancelFunc
-	// errC is signaled when either the service or agent is aborted
+	// errC is signaled when agent aborts or exits
 	errC chan error
 	// exitC is signaled when the service exits
 	exitC chan error
-	// connectC receives the results of connecting to either wizard
-	// or cluster controller
-	connectC chan connectResult
 	// server is the gRPC installer server
 	server     *server.Server
 	dispatcher dispatcher.EventDispatcher
@@ -116,6 +112,14 @@ type Peer struct {
 	execDoneC chan install.ExecResult
 	// wg is a wait group used to ensure completion of internal processes
 	wg sync.WaitGroup
+	// connectC receives the results of connecting to either wizard
+	// or cluster controller
+	connectC chan connectResult
+	// connectingC is closed once the connect loop starts running
+	connectingC chan struct{}
+	// connectOnce enables the execute loop to start the connect loop
+	// only on the first execute request
+	connectOnce sync.Once
 }
 
 // Run runs the peer operation
@@ -129,17 +133,22 @@ func (p *Peer) Run(listener net.Listener) error {
 	case err = <-errC:
 	case err = <-p.exitC:
 	}
+	if err != nil {
+		p.sendClientErrorResponse(err)
+	}
 	// Stopping is on best-effort basis, the client will be trying to stop the service
 	// if notified
+	p.WithField("exit-error", err).Info("Exit with error.")
 	p.stop()
-	if installpb.IsAbortedError(err) {
-		if err := p.leave(); err != nil {
-			p.WithError(err).Warn("Failed to leave cluster.")
-		}
-	}
-	if err != nil && !installpb.IsCompletedError(err) {
-		if err2 := p.fail(err.Error()); err2 != nil {
-			p.WithError(err2).Warn("Failed to mark operation as failed.")
+	if err != nil {
+		if installpb.IsAbortedError(err) {
+			if err := p.leave(); err != nil {
+				p.WithError(err).Warn("Failed to leave cluster.")
+			}
+		} else if !installpb.IsCompletedError(err) {
+			if err := p.fail(err.Error()); err != nil {
+				p.WithError(err).Warn("Failed to mark operation as failed.")
+			}
 		}
 	}
 	return installpb.WrapServiceError(err)
@@ -183,7 +192,7 @@ func (p *Peer) Execute(req *installpb.ExecuteRequest, stream installpb.Agent_Exe
 			if result.CompletionEvent != nil {
 				err := stream.Send(result.CompletionEvent.AsProgressResponse())
 				if err != nil {
-					return trace.Wrap(err)
+					return err
 				}
 			}
 			return nil
@@ -227,7 +236,7 @@ func (p *Peer) Complete(ctx context.Context, opKey ops.SiteOperationKey) error {
 // Implements server.Completer
 func (p *Peer) HandleCompleted(ctx context.Context) error {
 	p.Debug("Completion signaled.")
-	if p.sendCloseResponse(installpb.CompleteEvent) {
+	if p.sendClientCloseResponse(installpb.CompleteEvent) {
 		p.Debug("Client notified about completion.")
 	}
 	p.exitWithError(installpb.ErrCompleted)
@@ -238,7 +247,7 @@ func (p *Peer) HandleCompleted(ctx context.Context) error {
 // Implements server.Completer
 func (p *Peer) HandleAborted(ctx context.Context) error {
 	p.Debug("Abort signaled.")
-	if p.sendCloseResponse(installpb.AbortEvent) {
+	if p.sendClientCloseResponse(installpb.AbortEvent) {
 		p.Debug("Client notified about abort.")
 	}
 	p.exitWithError(installpb.ErrAborted)
@@ -333,27 +342,30 @@ func (c *PeerConfig) CheckAndSetDefaults() (err error) {
 }
 
 func (p *Peer) startConnectLoop() {
-	p.wg.Add(1)
-	go func() {
-		defer p.wg.Done()
-		ctx, err := p.connectLoop()
-		if err == nil {
-			ctx.agent, err = p.init(*ctx)
-		}
-		if err != nil {
-			// Consider failure to connect/init a terminal error.
-			// This will prevent the service from automatically restarting.
-			// It can be restarted manually though (i.e. after correcting the configuration)
-			err = status.Error(codes.FailedPrecondition, trace.UserMessage(err))
-		}
-		select {
-		case p.connectC <- connectResult{
-			operationContext: ctx,
-			err:              err,
-		}:
-		case <-p.ctx.Done():
-		}
-	}()
+	p.connectOnce.Do(func() {
+		close(p.connectingC)
+		p.wg.Add(1)
+		go func() {
+			defer p.wg.Done()
+			ctx, err := p.connectLoop()
+			if err == nil {
+				ctx.agent, err = p.init(*ctx)
+			}
+			if err != nil {
+				// Consider failure to connect/init a terminal error.
+				// This will prevent the service from automatically restarting.
+				// It can be restarted manually though (i.e. after correcting the configuration)
+				err = status.Error(codes.FailedPrecondition, trace.UserMessage(err))
+			}
+			select {
+			case p.connectC <- connectResult{
+				operationContext: ctx,
+				err:              err,
+			}:
+			case <-p.ctx.Done():
+			}
+		}()
+	})
 }
 
 // startExecuteLoop starts a loop that services the channel to handle
@@ -381,7 +393,7 @@ func (p *Peer) startExecuteLoop() {
 					}).Warn("Failed to execute.")
 					p.execDoneC <- install.ExecResult{Error: err}
 					if installpb.IsFailedPreconditionError(err) {
-						p.errC <- err
+						p.exitWithError(err)
 						return
 					}
 				} else {
@@ -408,23 +420,6 @@ func (p *Peer) startReconnectWatchLoop() {
 	go func() {
 		watchReconnects(p.ctx, p.errC, p.WatchCh, p.FieldLogger)
 		p.wg.Done()
-	}()
-}
-
-func (p *Peer) startStatusLoop() {
-	p.wg.Add(1)
-	go func() {
-		defer p.wg.Done()
-		for {
-			select {
-			case err := <-p.errC:
-				p.sendErrorResponse(err)
-				p.exitWithError(err)
-				return
-			case <-p.ctx.Done():
-				return
-			}
-		}
 	}()
 }
 
@@ -462,6 +457,7 @@ func (p *Peer) submit(req *installpb.ExecuteRequest) bool {
 // execute executes either the complete operation or a single phase specified with req
 func (p *Peer) execute(req *installpb.ExecuteRequest) (dispatcher.Status, error) {
 	p.WithField("req", req).Info("Execute.")
+	p.startConnectLoop()
 	opCtx, err := p.operationContext(p.ctx)
 	if err != nil {
 		return dispatcher.StatusUnknown, trace.Wrap(err)
@@ -806,11 +802,11 @@ func (p *Peer) stop() {
 }
 
 func (p *Peer) shutdownAgent(ctx context.Context) error {
-	opCtx, err := p.operationContext(ctx)
+	opCtx, err := p.maybeOperationContext(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	if opCtx.agent == nil {
+	if opCtx == nil || opCtx.agent == nil {
 		return nil
 	}
 	p.Info("Stop peer agent.")
@@ -1010,9 +1006,13 @@ func (p *Peer) fail(message string) error {
 }
 
 func (p *Peer) failOperation(ctx context.Context, message string) error {
-	opCtx, err := p.operationContext(ctx)
+	opCtx, err := p.maybeOperationContext(ctx)
 	if err != nil {
 		return trace.Wrap(err)
+	}
+	if opCtx == nil {
+		// No operation to fail
+		return nil
 	}
 	return ops.FailOperation(ctx, opCtx.Operation.Key(), opCtx.Operator, message)
 }
@@ -1026,6 +1026,10 @@ func (p *Peer) createShrinkOperation(ctx context.Context) error {
 	operation, err := opCtx.Operator.GetSiteOperation(opCtx.Operation.Key())
 	if err != nil {
 		return trace.Wrap(err)
+	}
+	if len(operation.Servers) == 0 {
+		p.WithField("operation", operation.String()).Warn("Failed to create shrink operation - no servers in state.")
+		return nil
 	}
 	_, err = opCtx.Operator.CreateSiteShrinkOperation(ctx,
 		ops.CreateSiteShrinkOperationRequest{
@@ -1099,6 +1103,15 @@ func (p *Peer) emitAuditEvent(ctx operationContext) error {
 	events.Emit(p.ctx, ctx.Operator, events.OperationExpandStart,
 		events.FieldsForOperation(*operation))
 	return nil
+}
+
+func (p *Peer) maybeOperationContext(ctx context.Context) (*operationContext, error) {
+	select {
+	case <-p.connectingC:
+		return p.operationContext(ctx)
+	default:
+		return nil, nil
+	}
 }
 
 func (p *Peer) operationContext(ctx context.Context) (*operationContext, error) {
@@ -1215,18 +1228,18 @@ func (p *Peer) newCompletionEvent() *dispatcher.Event {
 	}
 }
 
-func (p *Peer) sendErrorResponse(err error) bool {
+func (p *Peer) sendClientErrorResponse(err error) bool {
 	message := err.Error()
 	s, ok := status.FromError(trace.Unwrap(err))
 	if ok {
 		message = s.Message()
 	}
-	return p.sendCloseResponse(&installpb.ProgressResponse{
+	return p.sendClientCloseResponse(&installpb.ProgressResponse{
 		Error: &installpb.Error{Message: message},
 	})
 }
 
-func (p *Peer) sendCloseResponse(resp *installpb.ProgressResponse) bool {
+func (p *Peer) sendClientCloseResponse(resp *installpb.ProgressResponse) bool {
 	doneC := make(chan struct{})
 	select {
 	case p.closeC <- closeResponse{doneC: doneC, resp: resp}:
@@ -1234,7 +1247,7 @@ func (p *Peer) sendCloseResponse(resp *installpb.ProgressResponse) bool {
 		<-doneC
 		return true
 	default:
-		// Do not block if otherwise
+		// Do not block otherwise
 		return false
 	}
 }
