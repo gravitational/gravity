@@ -161,7 +161,7 @@ var (
 
 	appDNSVersion = magnet.E(magnet.EnvVar{
 		Key:     "DNS_APP_VERSION",
-		Default: "0.4.1",
+		Default: "0.4.2",
 		Short:   "DNS application - version to assign to internal application",
 	})
 	appRBACVersion = magnet.E(magnet.EnvVar{

@@ -77,6 +77,9 @@ var (
 		version:    planetVersion,
 		gitBranch:  planetBranch,
 		gitRepo:    "https://github.com/gravitational/planet",
+		env: map[string]string{
+			"PLANET_BUILD_TAG": planetVersion,
+		},
 	}
 
 	pkgWebAssets = gravityPackage{
@@ -607,6 +610,18 @@ func (Package) Rbac() (err error) {
 }
 
 func (Package) DNS() (err error) {
+	m := root.Clone("package:dns")
+	defer func() { m.Complete(false, err) }()
+
+	err = m.DockerBuild().
+		SetBuildArg("CHANGESET", fmt.Sprint("dns-app-", pkgDNSApp.version)).
+		SetPull(true).
+		AddTag(fmt.Sprint("dns-app-hooks:", pkgDNSApp.version)).
+		Build(context.TODO(), "assets/dns-app/hooks")
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
 	return trace.Wrap(pkgDNSApp.BuildApp())
 }
 
@@ -680,6 +695,7 @@ func (p gravityPackage) BuildApp() (err error) {
 	m.Println("  gitRepo: ", p.gitRepo)
 	m.Println("  gitBranch: ", p.gitBranch)
 	m.Println("  cachePath: ", p.DefaultCachePath())
+	m.Println("  env: ", p.env)
 
 	if p.gitRepo != "" {
 		err = p.buildGit(m)
@@ -862,13 +878,18 @@ func (p gravityPackage) buildGit(m *magnet.Magnet) error {
 		target = "production"
 	}
 
-	_, err = m.Exec().SetWD(srcDir).SetEnvs(map[string]string{
+	envs := map[string]string{
 		"GRAVITY":  fmt.Sprint(filepath.Join(wd, consistentGravityBin()), " --state-dir ", stateDir),
 		"VERSION":  p.version,
 		"OPS_URL":  "",
 		"BUILDDIR": stateDir,
 		"USER":     "jenkins",
-	}).Run(context.TODO(), "make", target)
+	}
+	for k, v := range p.env {
+		envs[k] = v
+	}
+
+	_, err = m.Exec().SetWD(srcDir).SetEnvs(envs).Run(context.TODO(), "make", target)
 	if err != nil {
 		return trace.Wrap(err)
 	}
