@@ -138,11 +138,6 @@ func (u *UsersService) CreateProvisioningToken(t storage.ProvisioningToken) (*st
 	return u.backend.CreateProvisioningToken(t)
 }
 
-// DeleteProvisioningToken deletes the specified provisioning token
-func (u *UsersService) DeleteProvisioningToken(t storage.ProvisioningToken) error {
-	return u.backend.DeleteProvisioningToken(t.Token)
-}
-
 func (u *UsersService) GetSiteProvisioningTokens(siteDomain string) ([]storage.ProvisioningToken, error) {
 	return u.backend.GetSiteProvisioningTokens(siteDomain)
 }

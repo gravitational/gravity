@@ -113,7 +113,6 @@ func (s *site) getClusterGenericReport(ctx context.Context, since time.Duration)
 		}
 		remoteServers = append(remoteServers, teleportServer)
 	}
-
 	return s.getReport(ctx, teleportRunner, remoteServers, masterServers, since)
 }
 

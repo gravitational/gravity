@@ -64,7 +64,6 @@ func NewKubernetesCollector(ctx context.Context, runner utils.CommandRunner, sin
 	// kubectl cluster-info dump does not provide a --since flag, so collect
 	// current container logs individually with kubectl logs.
 	return append(commands, captureCurrentContainerLogs(ctx, namespaces, runner, since)...)
-
 }
 
 // capturePreviousContainerLogs collects logs for previously running container

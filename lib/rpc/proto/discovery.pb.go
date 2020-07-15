@@ -10,6 +10,8 @@ import (
 	proto "github.com/gogo/protobuf/proto"
 	types "github.com/gogo/protobuf/types"
 	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	math "math"
 )
 
@@ -22,7 +24,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
 // SystemInfo groups attributes that describe a system
 type SystemInfo struct {
@@ -447,6 +449,20 @@ type DiscoveryServer interface {
 	GetSystemInfo(context.Context, *types.Empty) (*SystemInfo, error)
 	// GetCurrentTime returns the node's current time as UTC timestamp
 	GetCurrentTime(context.Context, *types.Empty) (*types.Timestamp, error)
+}
+
+// UnimplementedDiscoveryServer can be embedded to have forward compatible implementations.
+type UnimplementedDiscoveryServer struct {
+}
+
+func (*UnimplementedDiscoveryServer) GetRuntimeConfig(ctx context.Context, req *types.Empty) (*RuntimeConfig, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetRuntimeConfig not implemented")
+}
+func (*UnimplementedDiscoveryServer) GetSystemInfo(ctx context.Context, req *types.Empty) (*SystemInfo, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetSystemInfo not implemented")
+}
+func (*UnimplementedDiscoveryServer) GetCurrentTime(ctx context.Context, req *types.Empty) (*types.Timestamp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetCurrentTime not implemented")
 }
 
 func RegisterDiscoveryServer(s *grpc.Server, srv DiscoveryServer) {

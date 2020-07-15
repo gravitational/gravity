@@ -86,9 +86,6 @@ type Users interface {
 	// CreateProvisioningToken creates a provisioning token from the specified template
 	CreateProvisioningToken(storage.ProvisioningToken) (*storage.ProvisioningToken, error)
 
-	// DeleteProvisioningToken deletes the specified provisioning token
-	DeleteProvisioningToken(storage.ProvisioningToken) error
-
 	// CreateInstallToken creates a new one-time installation token
 	CreateInstallToken(storage.InstallToken) (*storage.InstallToken, error)
 

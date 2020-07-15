@@ -1239,7 +1239,7 @@ func (s SiteOperationKey) Check() error {
 	return nil
 }
 
-// String returns a text presentation of this operation key
+// String returns a text representation of this operation key
 func (s SiteOperationKey) String() string {
 	return fmt.Sprintf("operation(id=%v)", s.OperationID)
 }

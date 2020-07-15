@@ -152,7 +152,7 @@ func (r *AgentGroup) Add(p Peer) {
 	r.peers.add(peer{Peer: p})
 }
 
-// Remove shuts down the specified peer and removes it from the group
+// Remove removes the specified peer from the group
 func (r *AgentGroup) Remove(ctx context.Context, p Peer) error {
 	r.peers.delete(peer{Peer: p})
 	return nil

@@ -316,14 +316,6 @@ func (i *IdentityACL) CreateProvisioningToken(t storage.ProvisioningToken) (*sto
 	return i.identity.CreateProvisioningToken(t)
 }
 
-// DeleteProvisioningToken deletes the specified provisioning token
-func (i *IdentityACL) DeleteProvisioningToken(t storage.ProvisioningToken) error {
-	if err := i.clusterAction(t.SiteDomain, teleservices.VerbDelete); err != nil {
-		return trace.Wrap(err)
-	}
-	return i.identity.DeleteProvisioningToken(t)
-}
-
 func (i *IdentityACL) GetSiteProvisioningTokens(siteDomain string) ([]storage.ProvisioningToken, error) {
 	if err := i.clusterAction(siteDomain, teleservices.VerbRead); err != nil {
 		return nil, trace.Wrap(err)
