@@ -92,11 +92,10 @@ func (r *RuntimeConfig) String() string {
 	for _, m := range r.Mounts {
 		mounts = append(mounts, m.String())
 	}
-	return fmt.Sprintf("RuntimeConfig(role=%v, addr=%v, docker-dev=%q, system-dev=%q, "+
+	return fmt.Sprintf("RuntimeConfig(role=%v, addr=%v, system-dev=%q, "+
 		"state-dir=%v, temp-dir=%v, token=%v, key-values=%v, mounts=%v, cloud=%v)",
 		r.Role,
 		r.AdvertiseAddr,
-		r.DockerDevice,
 		r.SystemDevice,
 		r.StateDir,
 		r.TempDir,

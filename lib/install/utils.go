@@ -316,7 +316,7 @@ func ExecuteOperation(ctx context.Context, machine *fsm.FSM, progress utils.Prog
 	if planErr != nil {
 		logger.WithError(planErr).Warn("Failed to execute plan.")
 	}
-	err := machine.Complete(planErr)
+	err := machine.Complete(ctx, planErr)
 	if err != nil {
 		logger.WithError(err).Warn("Failed to complete operation.")
 	}

@@ -128,11 +128,11 @@ func (r *Updater) RollbackPhase(ctx context.Context, params fsm.Params, phaseTim
 }
 
 // Complete completes the active operation
-func (r *Updater) Complete(fsmErr error) error {
+func (r *Updater) Complete(ctx context.Context, fsmErr error) error {
 	if fsmErr == nil {
 		fsmErr = trace.Errorf("completed manually")
 	}
-	if err := r.machine.Complete(fsmErr); err != nil {
+	if err := r.machine.Complete(ctx, fsmErr); err != nil {
 		return trace.Wrap(err)
 	}
 	if err := r.emitAuditEvent(context.TODO()); err != nil {
@@ -184,7 +184,7 @@ func (r *Updater) rollbackPlan(ctx context.Context, dryRun bool) error {
 	}
 
 	if !dryRun {
-		if err := r.machine.Complete(trace.BadParameter("rolled back")); err != nil {
+		if err := r.machine.Complete(ctx, trace.BadParameter("rolled back")); err != nil {
 			return trace.Wrap(err)
 		}
 	}
@@ -201,7 +201,7 @@ func (r *Updater) executePlan(ctx context.Context) error {
 		r.WithError(planErr).Warn("Failed to execute plan.")
 	}
 
-	err := r.machine.Complete(planErr)
+	err := r.machine.Complete(ctx, planErr)
 	if err == nil {
 		err = planErr
 	}

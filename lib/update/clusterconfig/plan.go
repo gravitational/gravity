@@ -114,10 +114,13 @@ func newOperationPlan(
 	return plan, nil
 }
 
-func shouldUpdateNodes(clusterConfig clusterconfig.Interface, numNodes int) bool {
-	var hasComponentUpdate bool
-	if config := clusterConfig.GetGlobalConfig(); config != nil && len(config.FeatureGates) != 0 {
-		hasComponentUpdate = true
+func shouldUpdateNodes(clusterConfig clusterconfig.Interface, numWorkerNodes int) bool {
+	if numWorkerNodes == 0 {
+		return false
 	}
-	return (clusterConfig.GetKubeletConfig() != nil || hasComponentUpdate) && numNodes != 0
+	var hasComponentUpdate, hasCIDRUpdate bool
+	config := clusterConfig.GetGlobalConfig()
+	hasComponentUpdate = len(config.FeatureGates) != 0
+	hasCIDRUpdate = len(config.PodCIDR) != 0 || len(config.ServiceCIDR) != 0
+	return !clusterConfig.GetKubeletConfig().IsEmpty() || hasComponentUpdate || hasCIDRUpdate
 }

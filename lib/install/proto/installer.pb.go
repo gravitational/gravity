@@ -10,8 +10,6 @@ import (
 	proto "github.com/gogo/protobuf/proto"
 	types "github.com/gogo/protobuf/types"
 	grpc "google.golang.org/grpc"
-	codes "google.golang.org/grpc/codes"
-	status "google.golang.org/grpc/status"
 	math "math"
 )
 
@@ -24,7 +22,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
+const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
 // Status defines the status of this progress message.
 // If the status is one of (StatusCompleted, StatusCompletedPending, StatusAborted), this response is the last response sent
@@ -734,29 +732,6 @@ type AgentServer interface {
 	Shutdown(context.Context, *ShutdownRequest) (*types.Empty, error)
 	// GenerateDebugReport requests the installer to generate a debug report
 	GenerateDebugReport(context.Context, *DebugReportRequest) (*types.Empty, error)
-}
-
-// UnimplementedAgentServer can be embedded to have forward compatible implementations.
-type UnimplementedAgentServer struct {
-}
-
-func (*UnimplementedAgentServer) Execute(req *ExecuteRequest, srv Agent_ExecuteServer) error {
-	return status.Errorf(codes.Unimplemented, "method Execute not implemented")
-}
-func (*UnimplementedAgentServer) Complete(ctx context.Context, req *CompleteRequest) (*types.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Complete not implemented")
-}
-func (*UnimplementedAgentServer) SetState(ctx context.Context, req *SetStateRequest) (*types.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SetState not implemented")
-}
-func (*UnimplementedAgentServer) Abort(ctx context.Context, req *AbortRequest) (*types.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Abort not implemented")
-}
-func (*UnimplementedAgentServer) Shutdown(ctx context.Context, req *ShutdownRequest) (*types.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Shutdown not implemented")
-}
-func (*UnimplementedAgentServer) GenerateDebugReport(ctx context.Context, req *DebugReportRequest) (*types.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GenerateDebugReport not implemented")
 }
 
 func RegisterAgentServer(s *grpc.Server, srv AgentServer) {

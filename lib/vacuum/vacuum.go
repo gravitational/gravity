@@ -156,7 +156,7 @@ func (r *Collector) executePlan(ctx context.Context, machine *libfsm.FSM) error 
 		r.Warnf("Failed to execute plan: %v.", trace.DebugReport(planErr))
 	}
 
-	err := machine.Complete(planErr)
+	err := machine.Complete(ctx, planErr)
 	if err == nil {
 		err = planErr
 	}

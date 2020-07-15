@@ -17,7 +17,9 @@ limitations under the License.
 package report
 
 import (
+	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -80,6 +82,7 @@ type pendingWriter struct {
 
 // FileWriter is a factory for creating named file writers
 type FileWriter interface {
+	// NewWriter creates a new report writer with the specified name.
 	NewWriter(name string) (io.WriteCloser, error)
 }
 
@@ -152,10 +155,11 @@ func (r Command) Collect(ctx context.Context, reportWriter FileWriter, runner ut
 	}
 	defer w.Close()
 
+	var stderr bytes.Buffer
 	args := []string{r.cmd}
 	args = append(args, r.args...)
-	if err := runner.RunStream(ctx, w, args...); err != nil && r.isExitCodeFailed(err) {
-		return trace.Wrap(err, "failed to execute %v", r)
+	if err := runner.RunStream(ctx, w, &stderr, args...); err != nil && r.isExitCodeFailed(err) {
+		return trace.Wrap(err, "failed to execute %v: %s", r, stderr.String())
 	}
 	return nil
 }
@@ -182,7 +186,16 @@ func (r ScriptCollector) Collect(ctx context.Context, reportWriter FileWriter, r
 	}
 	defer w.Close()
 
-	return runner.RunStream(ctx, w, args...)
+	var stderr bytes.Buffer
+	if err := runner.RunStream(ctx, w, &stderr, args...); err != nil {
+		return trace.Wrap(err, "failed to execute script %v: %s", r, stderr.String())
+	}
+	return nil
+}
+
+// String returns a text representation of this script
+func (r ScriptCollector) String() string {
+	return fmt.Sprintf("script(%v)", r.name)
 }
 
 // ScriptCollector is a convenience Collector to execute bash scripts

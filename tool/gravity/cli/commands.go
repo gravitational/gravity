@@ -294,14 +294,6 @@ type Application struct {
 	SystemReportCmd SystemReportCmd
 	// SystemStateDirCmd shows local state directory
 	SystemStateDirCmd SystemStateDirCmd
-	// SystemDevicemapperCmd combines devicemapper related subcommands
-	SystemDevicemapperCmd SystemDevicemapperCmd
-	// SystemDevicemapperMountCmd configures devicemapper environment
-	SystemDevicemapperMountCmd SystemDevicemapperMountCmd
-	// SystemDevicemapperUnmountCmd removes devicemapper environment
-	SystemDevicemapperUnmountCmd SystemDevicemapperUnmountCmd
-	// SystemDevicemapperSystemDirCmd show LVM system directory
-	SystemDevicemapperSystemDirCmd SystemDevicemapperSystemDirCmd
 	// SystemExportRuntimeJournalCmd exports runtime journal to a file
 	SystemExportRuntimeJournalCmd SystemExportRuntimeJournalCmd
 	// SystemStreamRuntimeJournalCmd streams contents of the runtime journal to a file
@@ -1683,28 +1675,6 @@ type SystemReportCmd struct {
 
 // SystemStateDirCmd shows local state directory
 type SystemStateDirCmd struct {
-	*kingpin.CmdClause
-}
-
-// SystemDevicemapperCmd combines devicemapper related subcommands
-type SystemDevicemapperCmd struct {
-	*kingpin.CmdClause
-}
-
-// SystemDevicemapperMountCmd configures devicemapper environment
-type SystemDevicemapperMountCmd struct {
-	*kingpin.CmdClause
-	// Disk is devicemapper device
-	Disk *string
-}
-
-// SystemDevicemapperUnmountCmd removes devicemapper environment
-type SystemDevicemapperUnmountCmd struct {
-	*kingpin.CmdClause
-}
-
-// SystemDevicemapperSystemDirCmd show LVM system directory
-type SystemDevicemapperSystemDirCmd struct {
 	*kingpin.CmdClause
 }
 

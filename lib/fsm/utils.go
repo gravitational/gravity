@@ -17,11 +17,15 @@ limitations under the License.
 package fsm
 
 import (
+	"context"
+
+	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 
 	"github.com/gravitational/trace"
+	"github.com/sirupsen/logrus"
 )
 
 // CanRollback checks if specified phase can be rolled back
@@ -187,8 +191,8 @@ func RequireIfPresent(plan *storage.OperationPlan, phaseIDs ...string) []string 
 // OperationStateSetter returns the handler to set operation state both in the given operator
 // as well as the specified backend
 func OperationStateSetter(key ops.SiteOperationKey, operator ops.Operator, backend storage.Backend) ops.OperationStateFunc {
-	return func(key ops.SiteOperationKey, req ops.SetOperationStateRequest) error {
-		err := operator.SetOperationState(key, req)
+	return func(ctx context.Context, key ops.SiteOperationKey, req ops.SetOperationStateRequest) error {
+		err := operator.SetOperationState(ctx, key, req)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -216,6 +220,25 @@ func OperationKey(plan storage.OperationPlan) ops.SiteOperationKey {
 		SiteDomain:  plan.ClusterName,
 		OperationID: plan.OperationID,
 	}
+}
+
+// CompleteOrFailOperation completes or fails the operation given by the plan in the specified operator.
+// planErr optionally specifies the error to record in the failed message and record operation failure
+func CompleteOrFailOperation(ctx context.Context, plan *storage.OperationPlan, operator ops.Operator, planErr string) (err error) {
+	key := OperationKey(*plan)
+	if IsCompleted(plan) {
+		err = ops.CompleteOperation(ctx, key, operator)
+	} else {
+		err = ops.FailOperation(ctx, key, operator, planErr)
+	}
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	logrus.WithFields(logrus.Fields{
+		constants.FieldSuccess: IsCompleted(plan),
+		constants.FieldError:   planErr,
+	}).Debug("Marked operation complete.")
+	return nil
 }
 
 func addPhases(phase *storage.OperationPhase, result *[]*storage.OperationPhase) {

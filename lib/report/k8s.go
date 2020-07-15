@@ -36,31 +36,35 @@ func NewKubernetesCollector(ctx context.Context, runner utils.CommandRunner, sin
 	runner = planetContextRunner{runner}
 	// collect general kubernetes info
 	commands := Collectors{
-		Cmd("k8s-nodes", utils.PlanetCommand(kubectl.Command("get", "nodes", "-o", "yaml"))...),
-		Cmd("k8s-nodes-describe", utils.PlanetCommand(kubectl.Command("describe", "nodes"))...),
-		Cmd("k8s-podlist", utils.PlanetCommand(kubectl.Command(
-			"get", "pods", "--all-namespaces", "--output", "wide"))...),
-		Cmd("k8s-pod-yaml", utils.PlanetCommand(kubectl.Command(
-			"get", "pods", "-o", "yaml", "--all-namespaces"))...),
-		Cmd("k8s-events", utils.PlanetCommand(kubectl.Command(
-			"get", "events", "--all-namespaces"))...),
+		Cmd("k8s-nodes", utils.PlanetCommand(kubectl.Command("get", "nodes", "--output", "wide"))...),
+		Cmd("k8s-describe-nodes", utils.PlanetCommand(kubectl.Command("describe", "nodes"))...),
+	}
+	for _, resourceType := range defaults.KubernetesReportResourceTypes {
+		commands = append(commands,
+			Cmd(fmt.Sprintf("k8s-describe-%s", resourceType),
+				utils.PlanetCommand(kubectl.Command(
+					"describe", resourceType, "--all-namespaces"))...),
+			Cmd(fmt.Sprintf("k8s-%s", resourceType),
+				utils.PlanetCommand(kubectl.Command(
+					"get", resourceType, "--all-namespaces", "--output", "wide"))...),
+		)
 	}
 
+	// collect previous container logs
 	namespaces, err := kubectl.GetNamespaces(ctx, runner)
 	if err != nil || len(namespaces) == 0 {
 		namespaces = defaults.UsedNamespaces
 	}
-
-	// collect previous container logs
 	commands = append(commands, capturePreviousContainerLogs(ctx, namespaces, runner, since)...)
 
 	// collect current container logs
 	if since == 0 {
-		return append(commands, Cmd("k8s-cluster-info-dump", utils.PlanetCommand(kubectl.Command("cluster-info", "dump", "--all-namespaces"))...))
+		return append(commands, Cmd("k8s-cluster-info-dump.tgz", utils.Exe.Path, "system", "cluster-info"))
 	}
 	// kubectl cluster-info dump does not provide a --since flag, so collect
 	// current container logs individually with kubectl logs.
 	return append(commands, captureCurrentContainerLogs(ctx, namespaces, runner, since)...)
+
 }
 
 // capturePreviousContainerLogs collects logs for previously running container
@@ -80,14 +84,7 @@ func captureCurrentContainerLogs(ctx context.Context, namespaces []string, runne
 func captureContainerLogs(ctx context.Context, namespaces []string, runner utils.CommandRunner,
 	since time.Duration, previous bool) (collectors Collectors) {
 	for _, namespace := range namespaces {
-		for _, resourceType := range defaults.KubernetesReportResourceTypes {
-			name := fmt.Sprintf("k8s-%s-%s", namespace, resourceType)
-			collectors = append(collectors, Cmd(name,
-				utils.PlanetCommand(kubectl.Command("describe", resourceType, "--namespace", namespace))...))
-		}
-
 		logger := log.WithField("namespace", namespace)
-		// fetch pod logs
 		pods, err := kubectl.GetPods(ctx, namespace, runner)
 		if err != nil {
 			logger.WithError(err).Warn("Failed to query pods.")
@@ -107,7 +104,6 @@ func captureContainerLogs(ctx context.Context, namespaces []string, runner utils
 			}
 		}
 	}
-
 	return collectors
 }
 
@@ -128,8 +124,8 @@ func containerLogCollector(namespace, pod, container string, since time.Duration
 
 // RunStream executes the command specified with args in the context of the planet container
 // Implements utils.CommandRunner
-func (r planetContextRunner) RunStream(ctx context.Context, w io.Writer, args ...string) error {
-	return r.CommandRunner.RunStream(ctx, w, utils.PlanetCommandSlice(args)...)
+func (r planetContextRunner) RunStream(ctx context.Context, stdout, stderr io.Writer, args ...string) error {
+	return r.CommandRunner.RunStream(ctx, stdout, stderr, utils.PlanetCommandSlice(args)...)
 }
 
 type planetContextRunner struct {

@@ -11,8 +11,6 @@ import (
 	types "github.com/gogo/protobuf/types"
 	agentpb "github.com/gravitational/satellite/agent/proto/agentpb"
 	grpc "google.golang.org/grpc"
-	codes "google.golang.org/grpc/codes"
-	status "google.golang.org/grpc/status"
 	math "math"
 )
 
@@ -25,7 +23,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
+const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
 // CheckPortsRequest describes a ports network test request
 type CheckPortsRequest struct {
@@ -1147,23 +1145,6 @@ type ValidationServer interface {
 	// Validate validatest this node against the requirements
 	// from a manifest.
 	Validate(context.Context, *ValidateRequest) (*ValidateResponse, error)
-}
-
-// UnimplementedValidationServer can be embedded to have forward compatible implementations.
-type UnimplementedValidationServer struct {
-}
-
-func (*UnimplementedValidationServer) CheckPorts(ctx context.Context, req *CheckPortsRequest) (*CheckPortsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CheckPorts not implemented")
-}
-func (*UnimplementedValidationServer) CheckBandwidth(ctx context.Context, req *CheckBandwidthRequest) (*CheckBandwidthResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CheckBandwidth not implemented")
-}
-func (*UnimplementedValidationServer) CheckDisks(ctx context.Context, req *CheckDisksRequest) (*CheckDisksResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CheckDisks not implemented")
-}
-func (*UnimplementedValidationServer) Validate(ctx context.Context, req *ValidateRequest) (*ValidateResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Validate not implemented")
 }
 
 func RegisterValidationServer(s *grpc.Server, srv ValidationServer) {

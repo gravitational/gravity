@@ -397,7 +397,7 @@ func (s *site) shrinkOperationStart(ctx *operationContext) (err error) {
 		return trace.Wrap(err)
 	}
 
-	_, err = s.compareAndSwapOperationState(swap{
+	_, err = s.compareAndSwapOperationState(context.TODO(), swap{
 		key:            opKey,
 		expectedStates: []string{ops.OperationStateShrinkInProgress},
 		newOpState:     ops.OperationStateCompleted,

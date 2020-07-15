@@ -153,13 +153,13 @@ type agentStopExecutor struct {
 	fsm.ExecutorParams
 }
 
-// Execute starts an RPC agent on a node
+// Execute stops an RPC agent on a node
 func (p *agentStopExecutor) Execute(ctx context.Context) error {
 	err := rpc.ShutdownAgents(ctx, []string{p.Master.AdvertiseIP},
 		p.FieldLogger, p.AgentClient)
 	if err != nil {
-		p.Errorf("Failed to stop agent on master node %v: %v.",
-			p.Master.AdvertiseIP, trace.DebugReport(err))
+		p.WithError(err).Errorf("Failed to stop agent on master node %v.",
+			p.Master.AdvertiseIP)
 	} else {
 		p.Infof("Stopped agent on master node %v.", p.Master.AdvertiseIP)
 	}

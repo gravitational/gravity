@@ -30,6 +30,7 @@ import (
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/systeminfo"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
@@ -67,7 +68,7 @@ type updatePhaseBootstrap struct {
 	// Server specifies the bootstrap target
 	Server storage.UpdateServer
 	// ServiceUser is the user used for services and system storage
-	ServiceUser storage.OSUser
+	ServiceUser systeminfo.User
 	// FieldLogger is used for logging
 	log.FieldLogger
 	// ExecutorParams stores the phase parameters
@@ -95,6 +96,10 @@ func NewUpdatePhaseBootstrap(
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	serviceUser, err := systeminfo.UserFromOSUser(cluster.ServiceUser)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	operation, err := operator.GetSiteOperation(fsm.OperationKey(p.Plan))
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -114,7 +119,7 @@ func NewUpdatePhaseBootstrap(
 		Operation:        *operation,
 		GravityPath:      gravityPath,
 		GravityPackage:   p.Plan.GravityPackage,
-		ServiceUser:      cluster.ServiceUser,
+		ServiceUser:      *serviceUser,
 		FieldLogger:      logger,
 		ExecutorParams:   p,
 		remote:           remote,
@@ -189,10 +194,14 @@ func (p *updatePhaseBootstrap) configureNode() error {
 
 func (p *updatePhaseBootstrap) exportGravity(ctx context.Context) error {
 	p.Infof("Export gravity binary to %v.", p.GravityPath)
-	err := utils.CopyWithRetries(ctx, p.GravityPath, func() (io.ReadCloser, error) {
-		_, rc, err := p.Packages.ReadPackage(p.Plan.GravityPackage)
-		return rc, trace.Wrap(err)
-	}, defaults.SharedExecutableMask)
+	err := utils.CopyWithRetries(ctx, p.GravityPath,
+		func() (io.ReadCloser, error) {
+			_, rc, err := p.Packages.ReadPackage(p.Plan.GravityPackage)
+			return rc, trace.Wrap(err)
+		},
+		utils.PermOption(defaults.SharedExecutableMask),
+		utils.OwnerOption(p.ServiceUser.UID, p.ServiceUser.GID),
+	)
 	return trace.Wrap(err)
 }
 

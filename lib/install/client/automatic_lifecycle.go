@@ -120,11 +120,13 @@ func (r *AutomaticLifecycle) checkAndSetDefaults() error {
 }
 
 func (r *AutomaticLifecycle) generateDebugReport(ctx context.Context, c *Client) error {
+	clusterCtx, cancel := context.WithTimeout(ctx, defaults.GenerateDebugReportTimeout)
+	defer cancel()
 	if r.DebugReportPath == "" {
 		return nil
 	}
 	c.PrintStep("Saving debug report to %v", r.DebugReportPath)
-	err := c.generateDebugReport(ctx, r.DebugReportPath)
+	err := c.generateDebugReport(clusterCtx, r.DebugReportPath)
 	if err != nil {
 		if r.LocalDebugReporter != nil {
 			err = r.LocalDebugReporter(ctx, r.DebugReportPath)

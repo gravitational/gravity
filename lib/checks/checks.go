@@ -494,7 +494,7 @@ func (r *checker) checkServerDisk(ctx context.Context, server storage.Server, ta
 	defer func() {
 		// testfile was created only on real filesystem
 		if !strings.HasPrefix(target, "/dev") {
-			err := r.Remote.Exec(ctx, server.AdvertiseIP, []string{"rm", target}, &out)
+			err := r.Remote.Exec(ctx, server.AdvertiseIP, []string{"rm", target}, nil, &out)
 			if err != nil {
 				log.WithField("output", out.String()).Warn("Failed to remove test file.")
 			}
@@ -503,7 +503,7 @@ func (r *checker) checkServerDisk(ctx context.Context, server storage.Server, ta
 
 	err := r.Remote.Exec(ctx, server.AdvertiseIP, []string{
 		"dd", "if=/dev/zero", fmt.Sprintf("of=%v", target),
-		"bs=100K", "count=1024", "conv=fdatasync"}, &out)
+		"bs=100K", "count=1024", "conv=fdatasync"}, &out, &out)
 	if err != nil {
 		log.WithFields(logrus.Fields{
 			"server-ip": server.AdvertiseIP,
@@ -526,7 +526,7 @@ func (r *checker) checkTempDir(ctx context.Context, server Server) error {
 	filename := filepath.Join(server.TempDir, fmt.Sprintf("tmpcheck.%v", uuid.New()))
 	var out bytes.Buffer
 
-	err := r.Remote.Exec(ctx, server.AdvertiseIP, []string{"touch", filename}, &out)
+	err := r.Remote.Exec(ctx, server.AdvertiseIP, []string{"touch", filename}, nil, &out)
 	if err != nil {
 		log.WithFields(logrus.Fields{
 			"filename":  filename,
@@ -537,7 +537,7 @@ func (r *checker) checkTempDir(ctx context.Context, server Server) error {
 			filepath.Join(server.TempDir, filename), server.ServerInfo.GetHostname(), out.String())
 	}
 
-	err = r.Remote.Exec(ctx, server.AdvertiseIP, []string{"rm", filename}, &out)
+	err = r.Remote.Exec(ctx, server.AdvertiseIP, []string{"rm", filename}, nil, &out)
 	if err != nil {
 		log.WithFields(logrus.Fields{
 			"path":      filename,
@@ -986,8 +986,8 @@ func ifTestsDisabled() bool {
 
 // RunStream executes the specified command on r.server.
 // Implements utils.CommandRunner
-func (r *serverRemote) RunStream(ctx context.Context, w io.Writer, args ...string) error {
-	return trace.Wrap(r.remote.Exec(ctx, r.server.AdvertiseIP, args, w))
+func (r *serverRemote) RunStream(ctx context.Context, stdout, stderr io.Writer, args ...string) error {
+	return trace.Wrap(r.remote.Exec(ctx, r.server.AdvertiseIP, args, stdout, stderr))
 }
 
 type serverRemote struct {

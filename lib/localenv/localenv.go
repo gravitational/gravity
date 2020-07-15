@@ -440,7 +440,6 @@ func (env *LocalEnvironment) AppServiceLocal(config AppConfig) (service appbase.
 		DockerClient: dockerClient,
 		ImageService: imageService,
 		StateDir:     filepath.Join(env.StateDir, "import"),
-		Devmode:      env.Debug,
 		UnpackedDir:  filepath.Join(env.StateDir, defaults.PackagesDir, defaults.UnpackedDir),
 		GetClient:    env.getKubeClient,
 	})

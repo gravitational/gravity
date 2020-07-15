@@ -350,7 +350,7 @@ func (s *site) updateOperationState(op *ops.SiteOperation, req ops.OperationUpda
 		return trace.BadParameter("unexpected operation type %v", op.Type)
 	}
 
-	op, err = s.compareAndSwapOperationState(swap{
+	op, err = s.compareAndSwapOperationState(context.TODO(), swap{
 		key:            op.Key(),
 		expectedStates: oldStates,
 		newOpState:     newState,
@@ -366,7 +366,7 @@ func (s *site) updateOperationState(op *ops.SiteOperation, req ops.OperationUpda
 	// if prechecks fail, reset the operation state back to "initiated"
 	defer func() {
 		if err != nil {
-			_, casErr := s.compareAndSwapOperationState(swap{
+			_, casErr := s.compareAndSwapOperationState(context.TODO(), swap{
 				key:            op.Key(),
 				expectedStates: []string{newState},
 				newOpState:     oldStates[0],
@@ -729,14 +729,14 @@ func (s *site) waitForInstaller(ctx *operationContext) (ops.Operator, error) {
 // process using its provided operator and returns when the report contains
 // sufficient number of nodes for the installation
 func (s *site) waitForNodes(ctx *operationContext, installer ops.Operator) error {
-	localCtx, cancel := defaults.WithTimeout(context.TODO())
+	localCtx, cancel := defaults.WithTimeout(context.Background())
 	defer cancel()
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
-			report, err := installer.GetSiteInstallOperationAgentReport(ctx.key())
+			report, err := installer.GetSiteInstallOperationAgentReport(localCtx, ctx.key())
 			if err != nil {
 				ctx.Warnf("Failed to get agent report: %v.", err)
 				continue
@@ -786,7 +786,7 @@ func (s *site) waitForOperation(ctx *operationContext) error {
 // installOperationStart kicks off actual installation process:
 // resource provisioning, package configuration and deployment
 func (s *site) installOperationStart(ctx *operationContext) error {
-	op, err := s.compareAndSwapOperationState(swap{
+	op, err := s.compareAndSwapOperationState(context.TODO(), swap{
 		key: ctx.key(),
 		expectedStates: []string{
 			ops.OperationStateInstallInitiated,
@@ -833,7 +833,7 @@ func (s *site) installOperationStart(ctx *operationContext) error {
 		Message: "All servers are up",
 	})
 
-	_, err = s.compareAndSwapOperationState(swap{
+	_, err = s.compareAndSwapOperationState(context.TODO(), swap{
 		key:            ctx.key(),
 		expectedStates: []string{ops.OperationStateInstallProvisioning},
 		newOpState:     ops.OperationStateInstallDeploying,
@@ -843,7 +843,7 @@ func (s *site) installOperationStart(ctx *operationContext) error {
 	}
 
 	// give the installer a green light
-	err = installer.SetOperationState(ctx.key(),
+	err = installer.SetOperationState(context.TODO(), ctx.key(),
 		ops.SetOperationStateRequest{
 			State: ops.OperationStateReady,
 		})
@@ -890,8 +890,9 @@ func (s *site) newProvisioningToken(operation ops.SiteOperation) (token string, 
 		tokenRequest.Expires = s.clock().UtcNow().Add(defaults.ExpandTokenTTL)
 	}
 	_, err = s.users().CreateProvisioningToken(tokenRequest)
-	if err != nil {
-		return token, trace.Wrap(err)
+	if err != nil && !trace.IsAlreadyExists(err) {
+		log.WithError(err).Warn("Failed to create provisioning token.")
+		return "", trace.Wrap(err)
 	}
 	return token, nil
 }

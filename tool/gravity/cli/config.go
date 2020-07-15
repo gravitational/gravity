@@ -65,16 +65,16 @@ import (
 	"github.com/gravitational/gravity/lib/users"
 	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/gravity/lib/utils/helm"
-	"github.com/gravitational/satellite/monitoring"
-	"github.com/opencontainers/selinux/go-selinux"
 
 	gcemeta "cloud.google.com/go/compute/metadata"
 	"github.com/cenkalti/backoff"
 	"github.com/docker/docker/pkg/namesgenerator"
 	"github.com/fatih/color"
 	"github.com/gravitational/configure"
+	"github.com/gravitational/satellite/monitoring"
 	teledefaults "github.com/gravitational/teleport/lib/defaults"
 	"github.com/gravitational/trace"
+	"github.com/opencontainers/selinux/go-selinux"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -675,7 +675,7 @@ func (i *InstallConfig) updateClusterConfig(resources []storage.UnknownResource)
 	var config clusterconfig.Interface
 	if clusterConfig == nil {
 		config = clusterconfig.New(clusterconfig.Spec{
-			Global: &clusterconfig.Global{CloudProvider: i.CloudProvider},
+			Global: clusterconfig.Global{CloudProvider: i.CloudProvider},
 		})
 	} else {
 		config, err = clusterconfig.Unmarshal(clusterConfig.Raw)
@@ -683,10 +683,9 @@ func (i *InstallConfig) updateClusterConfig(resources []storage.UnknownResource)
 			return nil, trace.Wrap(err)
 		}
 	}
-	if config := config.GetGlobalConfig(); config != nil {
-		if config.CloudProvider != "" {
-			i.CloudProvider = config.CloudProvider
-		}
+	globalConfig := config.GetGlobalConfig()
+	if globalConfig.CloudProvider != "" {
+		i.CloudProvider = globalConfig.CloudProvider
 	}
 	// Serialize the cluster configuration and add to resources
 	configResource, err := clusterconfig.ToUnknown(config)

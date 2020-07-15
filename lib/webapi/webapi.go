@@ -869,9 +869,9 @@ func (m *Handler) agentReport(w http.ResponseWriter, r *http.Request, p httprout
 	var agentReport *ops.AgentReport
 	switch op.Type {
 	case ops.OperationInstall:
-		agentReport, err = context.Operator.GetSiteInstallOperationAgentReport(opKey)
+		agentReport, err = context.Operator.GetSiteInstallOperationAgentReport(r.Context(), opKey)
 	case ops.OperationExpand:
-		agentReport, err = context.Operator.GetSiteExpandOperationAgentReport(opKey)
+		agentReport, err = context.Operator.GetSiteExpandOperationAgentReport(r.Context(), opKey)
 	}
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -1739,7 +1739,7 @@ func (m *Handler) getSiteReport(w http.ResponseWriter, r *http.Request, p httpro
 		}
 	}
 
-	reader, err := context.Operator.GetSiteReport(ops.GetClusterReportRequest{
+	reader, err := context.Operator.GetSiteReport(r.Context(), ops.GetClusterReportRequest{
 		SiteKey: ops.SiteKey{
 			AccountID:  context.User.GetAccountID(),
 			SiteDomain: p.ByName("domain"),

@@ -47,7 +47,7 @@ type Engine interface {
 	// the operation plan.
 	// The optional error can be used to specify the reason for failure and
 	// defines the final operation failure
-	Complete(error) error
+	Complete(context.Context, error) error
 }
 
 // ExecutorParams combines parameters needed for creating a new executor

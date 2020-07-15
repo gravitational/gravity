@@ -473,11 +473,11 @@ func (o *OperatorACL) CreateSiteAppUpdateOperation(ctx context.Context, req Crea
 	return o.operator.CreateSiteAppUpdateOperation(ctx, req)
 }
 
-func (o *OperatorACL) GetSiteInstallOperationAgentReport(key SiteOperationKey) (*AgentReport, error) {
+func (o *OperatorACL) GetSiteInstallOperationAgentReport(ctx context.Context, key SiteOperationKey) (*AgentReport, error) {
 	if err := o.ClusterAction(key.SiteDomain, storage.KindCluster, teleservices.VerbRead); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return o.operator.GetSiteInstallOperationAgentReport(key)
+	return o.operator.GetSiteInstallOperationAgentReport(ctx, key)
 }
 
 func (o *OperatorACL) SiteInstallOperationStart(key SiteOperationKey) error {
@@ -549,11 +549,11 @@ func (o *OperatorACL) StreamOperationLogs(key SiteOperationKey, reader io.Reader
 	return o.operator.StreamOperationLogs(key, reader)
 }
 
-func (o *OperatorACL) GetSiteExpandOperationAgentReport(key SiteOperationKey) (*AgentReport, error) {
+func (o *OperatorACL) GetSiteExpandOperationAgentReport(ctx context.Context, key SiteOperationKey) (*AgentReport, error) {
 	if err := o.ClusterAction(key.SiteDomain, storage.KindCluster, teleservices.VerbRead); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return o.operator.GetSiteExpandOperationAgentReport(key)
+	return o.operator.GetSiteExpandOperationAgentReport(ctx, key)
 }
 
 func (o *OperatorACL) SiteExpandOperationStart(key SiteOperationKey) error {
@@ -577,11 +577,11 @@ func (o *OperatorACL) CreateProgressEntry(key SiteOperationKey, entry ProgressEn
 	return o.operator.CreateProgressEntry(key, entry)
 }
 
-func (o *OperatorACL) GetSiteReport(req GetClusterReportRequest) (io.ReadCloser, error) {
+func (o *OperatorACL) GetSiteReport(ctx context.Context, req GetClusterReportRequest) (io.ReadCloser, error) {
 	if err := o.ClusterAction(req.SiteDomain, storage.KindCluster, teleservices.VerbRead); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return o.operator.GetSiteReport(req)
+	return o.operator.GetSiteReport(ctx, req)
 }
 
 func (o *OperatorACL) ValidateDomainName(domainName string) error {
@@ -624,11 +624,11 @@ func (o *OperatorACL) DeleteSiteOperation(key SiteOperationKey) error {
 	return o.operator.DeleteSiteOperation(key)
 }
 
-func (o *OperatorACL) SetOperationState(key SiteOperationKey, req SetOperationStateRequest) error {
+func (o *OperatorACL) SetOperationState(ctx context.Context, key SiteOperationKey, req SetOperationStateRequest) error {
 	if err := o.ClusterAction(key.SiteDomain, storage.KindCluster, teleservices.VerbUpdate); err != nil {
 		return trace.Wrap(err)
 	}
-	return o.operator.SetOperationState(key, req)
+	return o.operator.SetOperationState(ctx, key, req)
 }
 
 // CreateOperationPlan saves the provided operation plan

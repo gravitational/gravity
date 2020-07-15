@@ -10,8 +10,6 @@ import (
 	proto "github.com/gogo/protobuf/proto"
 	types "github.com/gogo/protobuf/types"
 	grpc "google.golang.org/grpc"
-	codes "google.golang.org/grpc/codes"
-	status "google.golang.org/grpc/status"
 	math "math"
 )
 
@@ -24,7 +22,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
+const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
 type ExecOutput_FD int32
 
@@ -288,15 +286,135 @@ func (m *Message) GetError() *Error {
 	return nil
 }
 
-// XXX_OneofWrappers is for the internal use of the proto package.
-func (*Message) XXX_OneofWrappers() []interface{} {
-	return []interface{}{
+// XXX_OneofFuncs is for the internal use of the proto package.
+func (*Message) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
+	return _Message_OneofMarshaler, _Message_OneofUnmarshaler, _Message_OneofSizer, []interface{}{
 		(*Message_ExecStarted)(nil),
 		(*Message_ExecCompleted)(nil),
 		(*Message_ExecOutput)(nil),
 		(*Message_LogEntry)(nil),
 		(*Message_Error)(nil),
 	}
+}
+
+func _Message_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*Message)
+	// element
+	switch x := m.Element.(type) {
+	case *Message_ExecStarted:
+		_ = b.EncodeVarint(1<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.ExecStarted); err != nil {
+			return err
+		}
+	case *Message_ExecCompleted:
+		_ = b.EncodeVarint(2<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.ExecCompleted); err != nil {
+			return err
+		}
+	case *Message_ExecOutput:
+		_ = b.EncodeVarint(3<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.ExecOutput); err != nil {
+			return err
+		}
+	case *Message_LogEntry:
+		_ = b.EncodeVarint(4<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.LogEntry); err != nil {
+			return err
+		}
+	case *Message_Error:
+		_ = b.EncodeVarint(5<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Error); err != nil {
+			return err
+		}
+	case nil:
+	default:
+		return fmt.Errorf("Message.Element has unexpected type %T", x)
+	}
+	return nil
+}
+
+func _Message_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*Message)
+	switch tag {
+	case 1: // element.exec_started
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(ExecStarted)
+		err := b.DecodeMessage(msg)
+		m.Element = &Message_ExecStarted{msg}
+		return true, err
+	case 2: // element.exec_completed
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(ExecCompleted)
+		err := b.DecodeMessage(msg)
+		m.Element = &Message_ExecCompleted{msg}
+		return true, err
+	case 3: // element.exec_output
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(ExecOutput)
+		err := b.DecodeMessage(msg)
+		m.Element = &Message_ExecOutput{msg}
+		return true, err
+	case 4: // element.log_entry
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(LogEntry)
+		err := b.DecodeMessage(msg)
+		m.Element = &Message_LogEntry{msg}
+		return true, err
+	case 5: // element.error
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(Error)
+		err := b.DecodeMessage(msg)
+		m.Element = &Message_Error{msg}
+		return true, err
+	default:
+		return false, nil
+	}
+}
+
+func _Message_OneofSizer(msg proto.Message) (n int) {
+	m := msg.(*Message)
+	// element
+	switch x := m.Element.(type) {
+	case *Message_ExecStarted:
+		s := proto.Size(x.ExecStarted)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *Message_ExecCompleted:
+		s := proto.Size(x.ExecCompleted)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *Message_ExecOutput:
+		s := proto.Size(x.ExecOutput)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *Message_LogEntry:
+		s := proto.Size(x.LogEntry)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *Message_Error:
+		s := proto.Size(x.Error)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case nil:
+	default:
+		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
+	}
+	return n
 }
 
 // ExecStarted is sent when local command starts to execute
@@ -918,26 +1036,6 @@ type AgentServer interface {
 	PeerJoin(context.Context, *PeerJoinRequest) (*types.Empty, error)
 	// PeerLeave receives a "leave" request from a peer and initiates its shutdown
 	PeerLeave(context.Context, *PeerLeaveRequest) (*types.Empty, error)
-}
-
-// UnimplementedAgentServer can be embedded to have forward compatible implementations.
-type UnimplementedAgentServer struct {
-}
-
-func (*UnimplementedAgentServer) Shutdown(ctx context.Context, req *ShutdownRequest) (*types.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Shutdown not implemented")
-}
-func (*UnimplementedAgentServer) Abort(ctx context.Context, req *types.Empty) (*types.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Abort not implemented")
-}
-func (*UnimplementedAgentServer) Command(req *CommandArgs, srv Agent_CommandServer) error {
-	return status.Errorf(codes.Unimplemented, "method Command not implemented")
-}
-func (*UnimplementedAgentServer) PeerJoin(ctx context.Context, req *PeerJoinRequest) (*types.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method PeerJoin not implemented")
-}
-func (*UnimplementedAgentServer) PeerLeave(ctx context.Context, req *PeerLeaveRequest) (*types.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method PeerLeave not implemented")
 }
 
 func RegisterAgentServer(s *grpc.Server, srv AgentServer) {

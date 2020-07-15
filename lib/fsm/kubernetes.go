@@ -106,7 +106,7 @@ func GetUpsertBootstrapResourceFunc(client *kubernetes.Clientset) resources.Reso
 			log.Debugf("Updated PodSecurityPolicy %q.", resource.Name)
 		default:
 			log.Warnf("Unsupported bootstrap resource: %#v.", resource)
-			return trace.BadParameter("Unsupported bootstrap resource: %#v.", resource.GetObjectKind().GroupVersionKind())
+			return trace.BadParameter("unsupported bootstrap resource: %#v.", resource.GetObjectKind().GroupVersionKind())
 		}
 		return nil
 	}

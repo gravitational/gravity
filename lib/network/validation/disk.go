@@ -57,16 +57,16 @@ func (r *Server) checkDisks(ctx context.Context, fioPath string, spec *proto.Fio
 		return nil, trace.Wrap(err)
 	}
 	defer os.Remove(spec.Filename)
-	var out bytes.Buffer
+	var stdout, stderr bytes.Buffer
 	cmd := append([]string{fioPath, "--output-format=json"}, spec.Flags()...)
 	r.Infof("Running disk check: %v.", cmd)
-	if err := utils.RunStream(ctx, &out, cmd...); err != nil {
-		return nil, trace.Wrap(err, "failed to execute fio test: %v", out.String())
+	if err := utils.RunStream(ctx, &stdout, &stderr, cmd...); err != nil {
+		return nil, trace.Wrap(err, "failed to execute fio test: %v", stderr.String())
 	}
-	r.Debugf("Disk check output: %v.", out.String())
+	r.Debugf("Disk check output: %v.", stdout.String())
 	var res fioResult
-	if err := json.Unmarshal(out.Bytes(), &res); err != nil {
-		return nil, trace.Wrap(err, "failed to unmarshal fio result: %v", out.String())
+	if err := json.Unmarshal(stdout.Bytes(), &res); err != nil {
+		return nil, trace.Wrap(err, "failed to unmarshal fio result: %v", stdout.String())
 	}
 	return res.Jobs, nil
 }

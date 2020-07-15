@@ -81,7 +81,7 @@ func (b *backend) GetOperationProvisioningToken(clusterName, operationID string)
 			return t, nil
 		}
 	}
-	return nil, trace.Wrap(err)
+	return nil, trace.NotFound("no provisioning token for cluster %v and operation %v", clusterName, operationID)
 }
 
 // GetSiteProvisioningTokens returns install token for site

@@ -18,7 +18,6 @@ package phases
 
 import (
 	"context"
-	"fmt"
 	"path/filepath"
 
 	"github.com/gravitational/gravity/lib/app"
@@ -51,7 +50,7 @@ func NewPull(p fsm.ExecutorParams, operator ops.Operator, wizardPack, localPack 
 		return nil, trace.BadParameter("phase does not contain pull data")
 	}
 
-	serviceUser, err := userFromOSUser(*p.Phase.Data.ServiceUser)
+	serviceUser, err := systeminfo.UserFromOSUser(*p.Phase.Data.ServiceUser)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -146,8 +145,7 @@ func (p *pullExecutor) Execute(ctx context.Context) error {
 		return trace.Wrap(err)
 	}
 	err = utils.Chown(filepath.Join(stateDir, defaults.LocalDir),
-		fmt.Sprintf("%v", p.ServiceUser.UID),
-		fmt.Sprintf("%v", p.ServiceUser.GID))
+		p.ServiceUser.UID, p.ServiceUser.GID)
 	if err != nil {
 		return trace.Wrap(err)
 	}

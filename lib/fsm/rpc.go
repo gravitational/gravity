@@ -119,8 +119,9 @@ func (r *agentRunner) Run(ctx context.Context, server storage.Server, args ...st
 				args, serverName(server))
 		}
 		logger.Debug("Executing remotely: ", args)
-		err = agent.GravityCommand(ctx, logger, nil, args...)
-		return trace.Wrap(err)
+		var stderr bytes.Buffer
+		err = agent.GravityCommand(ctx, logger, nil, &stderr, args...)
+		return trace.Wrap(err, "failed to execute command %v: %s", args, stderr.String())
 	default:
 		return trace.Errorf("internal error, canExecute=%v", canRun)
 	}

@@ -38,6 +38,7 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 	"github.com/gravitational/gravity/lib/utils"
+	"github.com/gravitational/gravity/lib/validate"
 
 	"github.com/cloudflare/cfssl/csr"
 	"github.com/cloudflare/cfssl/signer"
@@ -84,7 +85,7 @@ type TeleportProxyService interface {
 
 	// ExecuteCommand executes a command on a remote node addrress
 	// for a given site domain
-	ExecuteCommand(ctx context.Context, domainName, nodeAddr, command string, out io.Writer) error
+	ExecuteCommand(ctx context.Context, domainName, nodeAddr, command string, stdout, stderr io.Writer) error
 
 	// GetClient returns admin client to local proxy
 	GetClient() teleauth.ClientI
@@ -416,7 +417,7 @@ type Sites interface {
 	CompleteFinalInstallStep(CompleteFinalInstallStepRequest) error
 
 	// GetSiteReport returns a tarball that contains all debugging information gathered for the site
-	GetSiteReport(GetClusterReportRequest) (io.ReadCloser, error)
+	GetSiteReport(context.Context, GetClusterReportRequest) (io.ReadCloser, error)
 
 	// SignTLSKey signs X509 Public Key with X509 certificate authority of this site
 	SignTLSKey(TLSSignRequest) (*TLSSignResponse, error)
@@ -758,7 +759,7 @@ type Operations interface {
 	//
 	// 2. This method is called as a second step to get information
 	// about servers participating in the operations
-	GetSiteInstallOperationAgentReport(SiteOperationKey) (*AgentReport, error)
+	GetSiteInstallOperationAgentReport(context.Context, SiteOperationKey) (*AgentReport, error)
 
 	// SiteInstallOperationStart begins actuall install using
 	// the Operation plan configured as a previous step
@@ -812,7 +813,7 @@ type Operations interface {
 	//
 	// 2. This method is called as a second step to get information
 	// about servers participating in the operations
-	GetSiteExpandOperationAgentReport(SiteOperationKey) (*AgentReport, error)
+	GetSiteExpandOperationAgentReport(context.Context, SiteOperationKey) (*AgentReport, error)
 
 	// SiteExpandOperationStart begins actuall expand using
 	// the Operation plan configured as a previous step
@@ -842,7 +843,7 @@ type Operations interface {
 	DeleteSiteOperation(SiteOperationKey) error
 
 	// SetOperationState moves operation into specified state
-	SetOperationState(key SiteOperationKey, req SetOperationStateRequest) error
+	SetOperationState(ctx context.Context, key SiteOperationKey, req SetOperationStateRequest) error
 
 	// CreateOperationPlan saves the provided operation plan
 	CreateOperationPlan(SiteOperationKey, storage.OperationPlan) error
@@ -1238,6 +1239,11 @@ func (s SiteOperationKey) Check() error {
 	return nil
 }
 
+// String returns a text presentation of this operation key
+func (s SiteOperationKey) String() string {
+	return fmt.Sprintf("operation(id=%v)", s.OperationID)
+}
+
 // CreateSiteInstallOperationRequest is a request to create
 // install operation - the operation that provisions servers, gravity software
 // and sets up everything
@@ -1269,7 +1275,7 @@ func (r *CreateSiteInstallOperationRequest) CheckAndSetDefaults() error {
 	if r.Provisioner == schema.ProvisionerAWSTerraform {
 		r.Variables.AWS.SetDefaults()
 	}
-	err := utils.ValidateKubernetesSubnets(r.Variables.OnPrem.PodCIDR, r.Variables.OnPrem.ServiceCIDR)
+	err := validate.KubernetesSubnets(r.Variables.OnPrem.PodCIDR, r.Variables.OnPrem.ServiceCIDR)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -1480,12 +1486,12 @@ type AgentService interface {
 
 	// Exec executes the command specified with args on a remote server given with addr.
 	// It streams the process's output to the given writer out.
-	Exec(ctx context.Context, opKey SiteOperationKey, addr string, args []string, out io.Writer) error
+	Exec(ctx context.Context, opKey SiteOperationKey, addr string, args []string, stdout, stderr io.Writer) error
 
 	// ExecNoLog executes the command specified with args on a remote server given with addr.
 	// It streams the process's output to the given writer out.
 	// Underlying remote call output is not logged
-	ExecNoLog(ctx context.Context, opKey SiteOperationKey, addr string, args []string, out io.Writer) error
+	ExecNoLog(ctx context.Context, opKey SiteOperationKey, addr string, args []string, stdout, stderr io.Writer) error
 
 	// Validate executes preflight checks on the node specified with addr
 	// against the specified manifest and profile.

@@ -38,7 +38,7 @@ func (r *ResumeStrategy) connect(ctx context.Context) (installpb.AgentClient, er
 	r.Info("Connect to running service.")
 	ctx, cancel := context.WithTimeout(ctx, r.ConnectTimeout)
 	defer cancel()
-	serviceName := serviceName(r.ServicePath)
+	serviceName := serviceNameFromPath(r.ServicePath)
 	client, err := installpb.NewClient(ctx, installpb.ClientConfig{
 		FieldLogger:     r.FieldLogger,
 		SocketPath:      r.SocketPath,
@@ -82,13 +82,13 @@ func (r *ResumeStrategy) checkAndSetDefaults() (err error) {
 	return nil
 }
 
-// restartService starts the installer's systemd unit unless it's already active
-func (r *ResumeStrategy) restartService() error {
-	return trace.Wrap(service.Start(r.serviceName()))
+func (r *ResumeStrategy) serviceName() string {
+	return serviceNameFromPath(r.ServicePath)
 }
 
-func (r *ResumeStrategy) serviceName() (name string) {
-	return service.Name(r.ServicePath)
+// restartService starts the installer's systemd unit unless it's already active
+func (r *ResumeStrategy) restartService() error {
+	return trace.Wrap(service.Start(serviceNameFromPath(r.ServicePath)))
 }
 
 // ResumeStrategy implements the strategy to connect to the existing installer service

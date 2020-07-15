@@ -79,7 +79,7 @@ func (t *testEngine) RunCommand(ctx context.Context, r rpc.RemoteRunner, s stora
 }
 
 // Complete is not implemented by the test engine.
-func (t *testEngine) Complete(err error) error {
+func (t *testEngine) Complete(ctx context.Context, err error) error {
 	return trace.NotImplemented("test engine cannot complete operations")
 }
 

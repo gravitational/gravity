@@ -19,8 +19,6 @@ package utils
 import (
 	"os"
 	"path/filepath"
-	"reflect"
-	"sort"
 	"strings"
 )
 
@@ -44,13 +42,20 @@ func StringsInSlice(haystack []string, needles ...string) bool {
 	return false
 }
 
-func CompareStringSlices(a, b []string) bool {
+// StringSlicesEqual determines whether the two slices are equal.
+// The slices are treated as immutable.
+// If the slices contain the same set of values in different order, the slices
+// must be sorted prior to calling this to correctly determine whether they are the same
+func StringSlicesEqual(a, b []string) bool {
 	if len(a) != len(b) {
 		return false
 	}
-	sort.Strings(a)
-	sort.Strings(b)
-	return reflect.DeepEqual(a, b)
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 // FlattenStringSlice takes a slice of strings like ["one,two", "three"] and returns
