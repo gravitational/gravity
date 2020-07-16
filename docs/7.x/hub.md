@@ -185,8 +185,8 @@ gravity-public   LoadBalancer   10.100.20.71   <pending>     443:31033/TCP,3024:
     On cloud installations that support Kubernetes integration such as AWS, a
     load balancer will be created automatically, so you will only need to
     configure DNS to point the advertised hostname (`ops.example.com` in this
-    example) to it. For onprem installations, an ingress should be configured
-    for the appropriate NodePort of the service (`31033` in this example).
+    example) to it. For onprem installations, an [ingress](ingress.md) should
+    be configured for the appropriate NodePort of the service (`31033` in this example).
 
 #### Same hostname, different port
 

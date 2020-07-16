@@ -142,7 +142,7 @@ documentation.
 
 The installation process is implemented as a state machine split into multiple steps (phases).
 Every time a step fails, the install pauses and allows one to inspect and correct the cause of the failure.
-See [Managing an ongoing operation](https://gravitational.com/gravity/docs/cluster/#managing-an-ongoing-operation) section for details
+See [Managing an ongoing operation](cluster.md#managing-an-ongoing-operation) section for details
 on working with the operation plan.
 
 If the installation has failed, the installer will print a warning and generate a debug report:
