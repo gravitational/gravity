@@ -501,10 +501,8 @@ publish-artifacts: opscenter telekube
 	if [ -z "$(TELE_KEY)" ] || [ -z "$(DISTRIBUTION_OPSCENTER)" ]; then \
 	   echo "TELE_KEY or DISTRIBUTION_OPSCENTER are not set"; exit 1; \
 	fi;
-	$(GRAVITY_BUILDDIR)/tele logout
-	$(GRAVITY_BUILDDIR)/tele login -o $(DISTRIBUTION_OPSCENTER) --token=$(TELE_KEY)
-	$(GRAVITY_BUILDDIR)/tele push $(GRAVITY_BUILDDIR)/telekube.tar
-	$(GRAVITY_BUILDDIR)/tele push $(GRAVITY_BUILDDIR)/opscenter.tar
+	$(GRAVITY_BUILDDIR)/tele push $(GRAVITY_BUILDDIR)/telekube.tar  --hub=$(DISTRIBUTION_OPSCENTER) --token=$(TELE_KEY)
+	$(GRAVITY_BUILDDIR)/tele push $(GRAVITY_BUILDDIR)/opscenter.tar --hub=$(DISTRIBUTION_OPSCENTER) --token=$(TELE_KEY)
 
 #
 # scan-artifacts uploads a copy of all vendored containers to a docker registry for scanning and vulnerability reporting
