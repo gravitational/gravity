@@ -57,7 +57,7 @@ extend updates past End of Support through customer agreements if required.
 * Update Kubernetes to 1.17.9 (CVE-2020-8557, CVE-2020-8559) ([#1886](https://github.com/gravitational/gravity/pull/1886), [planet#703](https://github.com/gravitational/planet/pull/703)).
 
 !!! warning
-    This release fixes a security vulnerability in kubernetes. Please see
+    This release fixes a security vulnerability in Kubernetes. Please see
     [Kubernetes Announcement for CVE-2020-8557](https://groups.google.com/g/kubernetes-announce/c/YCBo2a3wCtU) and [Kubernetes Announcement for CVE-2020-8559](https://groups.google.com/g/kubernetes-announce/c/44da1m3evoU) for more information.
 
 
