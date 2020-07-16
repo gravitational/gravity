@@ -1869,7 +1869,7 @@ type Validation interface {
 	// ValidateDomainName validates that the chosen domain name is unique
 	ValidateDomainName(domainName string) error
 	// ValidateServers runs pre-installation checks
-	ValidateServers(context.Context, ValidateServersRequest) error
+	ValidateServers(context.Context, ValidateServersRequest) (*ValidateServersResponse, error)
 	// ValidateRemoteAccess verifies that the cluster nodes are accessible remotely
 	ValidateRemoteAccess(ValidateRemoteAccessRequest) (*ValidateRemoteAccessResponse, error)
 }
@@ -1884,6 +1884,32 @@ type ValidateServersRequest struct {
 	Servers []storage.Server `json:"servers"`
 	// OperationID identifies the operation
 	OperationID string `json:"operation_id"`
+}
+
+// ValidateServersResponse contains servers validation results.
+type ValidateServersResponse struct {
+	// Probes is a list of failed probes.
+	Probes []*agentpb.Probe
+}
+
+// Warnings returns all warning-level probes.
+func (r *ValidateServersResponse) Warnings() (probes []*agentpb.Probe) {
+	for _, probe := range r.Probes {
+		if probe.Status == agentpb.Probe_Failed && probe.Severity == agentpb.Probe_Warning {
+			probes = append(probes, probe)
+		}
+	}
+	return probes
+}
+
+// Failures returns all failed probes.
+func (r *ValidateServersResponse) Failures() (probes []*agentpb.Probe) {
+	for _, probe := range r.Probes {
+		if probe.Status == agentpb.Probe_Failed && probe.Severity == agentpb.Probe_Critical {
+			probes = append(probes, probe)
+		}
+	}
+	return probes
 }
 
 // Check validates this request

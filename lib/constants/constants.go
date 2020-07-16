@@ -208,6 +208,9 @@ const (
 	// If not empty, turns the preflight checks off
 	PreflightChecksOffEnvVar = "GRAVITY_CHECKS_OFF"
 
+	// GravityEnvVarPrefix is the prefix for gravity-specific environment variables.
+	GravityEnvVarPrefix = "GRAVITY_"
+
 	// Localhost is local host
 	Localhost = "127.0.0.1"
 

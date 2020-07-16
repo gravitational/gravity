@@ -55,6 +55,8 @@ type PlanBuilder struct {
 	RBACPackage loc.Locator
 	// GravitySitePackage is the gravity-site app package
 	GravitySitePackage loc.Locator
+	// GravityPackage is the gravity binary package
+	GravityPackage loc.Locator
 	// DNSAppPackage is the dns-app app package
 	DNSAppPackage loc.Locator
 	// Masters is the list of master nodes
@@ -205,7 +207,7 @@ func (b *PlanBuilder) AddBootstrapPhase(plan *storage.OperationPlan) {
 }
 
 // AddPullPhase appends package download phase to the provided plan
-func (b *PlanBuilder) AddPullPhase(plan *storage.OperationPlan) {
+func (b *PlanBuilder) AddPullPhase(plan *storage.OperationPlan) error {
 	var pullPhases []storage.OperationPhase
 	allNodes := append(b.Masters, b.Nodes...)
 	for i, node := range allNodes {
@@ -215,6 +217,10 @@ func (b *PlanBuilder) AddPullPhase(plan *storage.OperationPlan) {
 		} else {
 			description = "Pull packages on node %v"
 		}
+		pullData, err := b.getPullData(node)
+		if err != nil {
+			return trace.Wrap(err)
+		}
 		pullPhases = append(pullPhases, storage.OperationPhase{
 			ID:          fmt.Sprintf("%v/%v", phases.PullPhase, node.Hostname),
 			Description: fmt.Sprintf(description, node.Hostname),
@@ -223,6 +229,7 @@ func (b *PlanBuilder) AddPullPhase(plan *storage.OperationPlan) {
 				ExecServer:  &allNodes[i],
 				Package:     &b.Application.Package,
 				ServiceUser: &b.ServiceUser,
+				Pull:        pullData,
 			},
 			Requires: fsm.RequireIfPresent(plan, phases.ConfigurePhase, phases.BootstrapPhase),
 			Step:     3,
@@ -236,6 +243,34 @@ func (b *PlanBuilder) AddPullPhase(plan *storage.OperationPlan) {
 		Parallel:    true,
 		Step:        3,
 	})
+	return nil
+}
+
+// getPullData returns package and application locators that should be pulled
+// during the operation on the provided node.
+func (b *PlanBuilder) getPullData(node storage.Server) (*storage.PullData, error) {
+	// Master nodes pull the entire application to be able to invoke an
+	// install hook from any master node local state.
+	if node.ClusterRole == string(schema.ServiceRoleMaster) {
+		return &storage.PullData{
+			Apps: []loc.Locator{
+				b.Application.Package,
+			},
+		}, nil
+	}
+	// Regular nodes pull only packages required for runtime such as planet
+	// or teleport. The planet package also depends on the node role.
+	planetPackage, err := b.Application.Manifest.RuntimePackageForProfile(node.Role)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &storage.PullData{
+		Packages: []loc.Locator{
+			b.GravityPackage,
+			b.TeleportPackage,
+			*planetPackage,
+		},
+	}, nil
 }
 
 // AddMastersPhase appends master nodes system installation phase to the provided plan
@@ -667,6 +702,11 @@ func (c *Config) GetPlanBuilder(operator ops.Operator, cluster ops.Site, op ops.
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	gravityPackage, err := cluster.App.Manifest.Dependencies.ByName(
+		constants.GravityPackage)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	dnsAppPackage, err := cluster.App.Manifest.Dependencies.ByName(
 		constants.DNSAppPackage)
 	if err != nil {
@@ -704,6 +744,7 @@ func (c *Config) GetPlanBuilder(operator ops.Operator, cluster ops.Site, op ops.
 		TeleportPackage:    *teleportPackage,
 		RBACPackage:        *rbacPackage,
 		GravitySitePackage: *gravitySitePackage,
+		GravityPackage:     *gravityPackage,
 		DNSAppPackage:      *dnsAppPackage,
 		Masters:            masters,
 		Nodes:              nodes,

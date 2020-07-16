@@ -1256,11 +1256,11 @@ func (h *WebHandler) validateServers(w http.ResponseWriter, r *http.Request, p h
 	if err := d.Decode(&req); err != nil {
 		return trace.BadParameter(err.Error())
 	}
-	err := context.Operator.ValidateServers(context.Context, req)
+	resp, err := context.Operator.ValidateServers(context.Context, req)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	roundtrip.ReplyJSON(w, http.StatusOK, statusOK("ok"))
+	roundtrip.ReplyJSON(w, http.StatusOK, resp)
 	return nil
 }
 

@@ -1,8 +1,8 @@
 # Installation
 
-This section will cover the process of creating a running Cluster or Cluster 
-Instance from a Cluster Image.  Just like a virtual machine (VM) image or AWS AMI 
-can be used to create machine instances, Gravity Cluster Images can 
+This section will cover the process of creating a running Cluster or Cluster
+Instance from a Cluster Image.  Just like a virtual machine (VM) image or AWS AMI
+can be used to create machine instances, Gravity Cluster Images can
 be used to create Cluster Instances.
 
 #### Deployment Methods
@@ -15,20 +15,20 @@ in a web browser, assisting users in Cluster creation.
 
 Both installation methods allow users to create a new Cluster from a
 Cluster Image on Linux hosts. Because a Cluster Image has no external
-dependencies, both installation methods will work behind firewalls or even in 
+dependencies, both installation methods will work behind firewalls or even in
 air-gapped server rooms.
 
 #### Prerequisites
 
-Every Cluster Image created with Gravity contains everything you need to 
+Every Cluster Image created with Gravity contains everything you need to
 create a production-ready Cluster but there are still some pre-requisites
 to be met:
 
-* You need a valid Cluster Image, i.e. a `.tar` file. See the 
+* You need a valid Cluster Image, i.e. a `.tar` file. See the
   [Building Cluster Images](pack.md) section for information on how to build one.
 * One or more Linux hosts with a compatible kernel. They can be bare metal hosts,
-  compute instances on any cloud provider, virtual machines on a private cloud, 
-  etc. Consult with the [System Requirements](requirements.md) to determine if your 
+  compute instances on any cloud provider, virtual machines on a private cloud,
+  etc. Consult with the [System Requirements](requirements.md) to determine if your
   Linux hosts are compatible with Gravity.
 * The hosts should be clean without Docker or any container
   orchestrator running on them.
@@ -77,7 +77,7 @@ $ sudo ./gravity install --advertise-addr=10.1.10.1 --token=XXX --flavor="triple
 * You have to select an arbitrary, hard to guess secret for `--token` and remember this
   value. It will be used to securely add additional nodes to the Cluster.
 * Other nodes must be able to connect to the master node via `10.1.10.1`. Make sure
-  the installer ports are not blocked, see "Installer Ports" section in the 
+  the installer ports are not blocked, see "Installer Ports" section in the
   [System Requirements](requirements.md#network) chapter.
 
 Next, start adding remaining nodes to the Cluster:
@@ -141,7 +141,7 @@ Flag               | Description
 
 Some aspects of the installation can be configured with the use of environment variables.
 
-#### GRAVITY_CHECKS_OFF
+#### `GRAVITY_CHECKS_OFF`
 
 This environment variable controls whether the installer/join agent executes the preflight checks.
 It accepts values `1`, `t`, `T`, `TRUE`, `true`, `True`, `0`, `f`, `F`, `FALSE`, `false`, `False`
@@ -150,15 +150,34 @@ It accepts values `1`, `t`, `T`, `TRUE`, `true`, `True`, `0`, `f`, `F`, `FALSE`,
 !!! warning "Scope"
     Currently it is not possible to selectively turn checks off.
 
-#### GRAVITY_PEER_CONNECT_TIMEOUT
+#### `GRAVITY_PEER_CONNECT_TIMEOUT`
 
 This environment variable controls the initial connection validation timeout for the joining agent.
 It accepts values in Go duration format, for example `1m` (one minute) or `20s` (twenty seconds).
 The default value is `10s`.
 
-!!! note 
+!!! note
     Only configurable for Gravity versions `5.5.x` starting `5.5.24`.
 
+#### `GRAVITY_ETCD_MIN_IOPS_SOFT` / `GRAVITY_ETCD_MIN_IOPS_HARD`
+
+These environment variables allow to override the default soft/hard limits for
+the minimum number of sequential write IOPS used by Gravity during etcd data
+disk performance preflight check.
+
+The variable accepts an integer number indicating a number of IOPS. The default
+soft limit (triggers a warning) is `50` IOPS and the default hard limit (triggers
+a failure) is `10` IOPS.
+
+#### `GRAVITY_ETCD_MAX_LATENCY_SOFT` / `GRAVITY_ETCD_MAX_LATENCY_HARD`
+
+These environment variables allow to override the default soft/hard limits for
+the maximum fsync latency in milliseconds used by Gravity during etcd data disk
+performance preflight check.
+
+The variable accepts an integer number indicating a number of milliseconds. The
+default soft limit (triggers a warning) is `50` ms and the default hard limit
+(triggers a failure) is `150` ms.
 
 ## Web-based Installation
 

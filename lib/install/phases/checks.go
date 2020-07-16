@@ -19,11 +19,13 @@ package phases
 import (
 	"context"
 
+	"github.com/gravitational/gravity/lib/checks"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
 
+	"github.com/fatih/color"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 )
@@ -64,9 +66,21 @@ func (r *checksExecutor) Execute(ctx context.Context) error {
 		OperationID: r.key.OperationID,
 		Servers:     r.servers,
 	}
-	err := r.operator.ValidateServers(ctx, req)
+	response, err := r.operator.ValidateServers(ctx, req)
 	if err != nil {
 		return trace.Wrap(err)
+	}
+	// Make sure to display all received warnings and critical failures in
+	// the progress output right away.
+	for _, probe := range response.Warnings() {
+		r.Progress.NextStep(color.YellowString(probe.Detail))
+	}
+	for _, probe := range response.Failures() {
+		r.Progress.NextStep(color.RedString(probe.Detail))
+	}
+	if len(response.Failures()) > 0 {
+		return trace.BadParameter("The following pre-flight checks failed:\n%v",
+			checks.FormatFailedChecks(response.Failures()))
 	}
 	return nil
 }

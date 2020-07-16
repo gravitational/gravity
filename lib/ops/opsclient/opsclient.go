@@ -1255,13 +1255,17 @@ func (c *Client) GetApplicationEndpoints(key ops.SiteKey) ([]ops.Endpoint, error
 }
 
 // ValidateServers runs pre-installation checks
-func (c *Client) ValidateServers(ctx context.Context, req ops.ValidateServersRequest) error {
-	_, err := c.PostJSONWithContext(ctx, c.Endpoint(
+func (c *Client) ValidateServers(ctx context.Context, req ops.ValidateServersRequest) (*ops.ValidateServersResponse, error) {
+	out, err := c.PostJSONWithContext(ctx, c.Endpoint(
 		"accounts", req.AccountID, "sites", req.SiteDomain, "prechecks"), req)
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
-	return nil
+	var resp ops.ValidateServersResponse
+	if err = json.Unmarshal(out.Bytes(), &resp); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &resp, nil
 }
 
 func (c *Client) GetAppInstaller(req ops.AppInstallerRequest) (io.ReadCloser, error) {
