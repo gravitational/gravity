@@ -82,6 +82,7 @@ func Run(g *Application) (err error) {
 		return trace.Wrap(err)
 	}
 	cmdString := strings.Join(sanitizedCmd, " ")
+	cmdString = fmt.Sprintf("%s -- %s", cmdString, strings.Join(extraArgs, " "))
 
 	LogCLIRunning(cmdString)
 	defer func() {
