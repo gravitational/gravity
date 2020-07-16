@@ -6,7 +6,7 @@ Find the latest Open Source Gravity releases at [Gravity Downloads](https://grav
 
 | Version             | Latest Patch | LTS | Release Date         | End of Support *        | Kubernetes Version   | Teleport Version |
 | ------------------- | ------------ | --- | -------------------- | ----------------------- | -------------------- | ---------------- |
-| [7.0](#70-releases) | 7.0.12       | Yes | April 3, 2020        | July 9, 2022            | 1.17.6               | 3.2.13           |
+| [7.0](#70-releases) | 7.0.13       | Yes | April 3, 2020        | July 9, 2022            | 1.17.9               | 3.2.13           |
 | [6.1](#61-releases) | 6.1.31       | Yes | August 2, 2019       | November 10, 2021       | 1.15.12              | 3.2.12           |
 | [5.5](#55-releases) | 5.5.49       | Yes | March 8, 2019        | March 8, 2021           | 1.13.11              | 3.0.6-gravity    |
 
@@ -45,6 +45,22 @@ extend updates past End of Support through customer agreements if required.
 # Release Notes
 
 ## 7.0 Releases
+
+### 7.0.13 LTS (July 15th, 2020)
+
+#### Improvements
+
+* Pull only required packages during join ([#1862](https://github.com/gravitational/gravity/pull/1862)).
+
+#### Bugfixes
+
+* Update Kubernetes to 1.17.9 (CVE-2020-8557, CVE-2020-8559) ([#1886](https://github.com/gravitational/gravity/pull/1886), [planet#703](https://github.com/gravitational/planet/pull/703)).
+
+!!! warning
+    This release fixes a security vulnerability in Kubernetes. Please see
+    [Kubernetes Announcement for CVE-2020-8557](https://groups.google.com/g/kubernetes-announce/c/YCBo2a3wCtU) and [Kubernetes Announcement for CVE-2020-8559](https://groups.google.com/g/kubernetes-announce/c/44da1m3evoU) for more information.
+
+
 
 ### 7.0.12 LTS (July 10th, 2020)
 
