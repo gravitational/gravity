@@ -56,9 +56,9 @@ func ConfigureEnvironment() error {
 }
 
 // Run parses CLI arguments and executes an appropriate gravity command
-func Run(g *Application) error {
+func Run(g *Application) (err error) {
 	log.Debugf("Executing: %v.", os.Args)
-	err := ConfigureEnvironment()
+	err = ConfigureEnvironment()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -77,14 +77,23 @@ func Run(g *Application) error {
 		return trace.Wrap(err)
 	}
 
-	cmdString := fmt.Sprintf("gravity %s", strings.Join(os.Args[1:], " "))
-	cmdString = SanitizeCmd(g, cmd, cmdString)
+	sanitizedCmd, err := RedactCmd(args...)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	cmdString := strings.Join(sanitizedCmd, " ")
 
 	LogCLIRunning(cmdString)
+	defer func() {
+		if r := recover(); r != nil {
+			LogCLICompleted(cmdString, fmt.Sprintf("PANIC: %v", r))
+			return
+		}
+		LogCLICompleted(cmdString, trace.UserMessage(err))
+	}()
 	err = Execute(g, cmd, extraArgs)
-	LogCLICompleted(cmdString, err)
 
-	return err
+	return trace.Wrap(err)
 }
 
 // InitAndCheck initializes the CLI application according to the provided

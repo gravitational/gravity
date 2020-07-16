@@ -32,6 +32,9 @@ type CommandArgs struct {
 	Parser ArgsParser
 	// FlagsToAdd is a list of additional flags to add to resulting command.
 	FlagsToAdd []Flag
+	// FlagsToReplace is a list of flags to replace in the command.
+	// A flag is only replaced if it has been provided.
+	FlagsToReplace []Flag
 	// FlagsToRemove is a list of flags to omit from the resulting command.
 	FlagsToRemove []string
 }
@@ -75,6 +78,10 @@ func (r *CommandArgs) addRemoveFlags(ctx *kingpin.ParseContext) (flags []Flag) {
 				continue
 			}
 			seen[c.Model().Name] = struct{}{}
+			if flagInFlags(r.FlagsToReplace, c.Model().Name) {
+				// Skip the flag after it's been marked as seen
+				continue
+			}
 			if _, ok := c.Model().Value.(boolCmdlineFlag); ok {
 				flags = append(flags, newBoolFlag(c.Model().Name, *el.Value))
 			} else {
@@ -93,8 +100,22 @@ func (r *CommandArgs) addRemoveFlags(ctx *kingpin.ParseContext) (flags []Flag) {
 			flags = append(flags, flag)
 		}
 	}
+	for _, flag := range r.FlagsToReplace {
+		if _, exists := seen[flag.Name()]; exists {
+			flags = append(flags, flag)
+		}
+	}
 	// Return the new command line with positional arguments following non-positional flags
 	return append(flags, args...)
+}
+
+func flagInFlags(flags []Flag, flag string) bool {
+	for _, f := range flags {
+		if f.Name() == flag {
+			return true
+		}
+	}
+	return false
 }
 
 // NewArg creates a new positional argument

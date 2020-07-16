@@ -19,10 +19,10 @@ package cli
 import (
 	"fmt"
 	"log/syslog"
-	"strings"
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/utils"
+	"github.com/gravitational/gravity/lib/utils/cli"
 
 	"github.com/gravitational/trace"
 )
@@ -39,10 +39,10 @@ func LogCLIRunning(cmd string) {
 // LogCLICompleted writes the completed cmd as a log entry into the system journal
 // with the gravity-cli tag. Failed commands will be logged with the returned
 // error.
-func LogCLICompleted(cmd string, err error) {
+func LogCLICompleted(cmd, err string) {
 	var entry string
-	if err != nil {
-		entry = fmt.Sprintf("[FAILURE]: %s: [ERROR]: %s", cmd, trace.UserMessage(err))
+	if err != "" {
+		entry = fmt.Sprintf("[FAILURE]: %s: [ERROR]: %s", cmd, err)
 	} else {
 		entry = fmt.Sprintf("[SUCCESS]: %s", cmd)
 	}
@@ -51,59 +51,24 @@ func LogCLICompleted(cmd string, err error) {
 	}
 }
 
-// SanitizeCmd removes potentially sensitive data from the cmdString.
-func SanitizeCmd(g *Application, cmd, cmdString string) string {
-	switch cmd {
-	case g.InstallCmd.FullCommand():
-		if *g.InstallCmd.Token != "" {
-			cmdString = Redact(cmdString, *g.InstallCmd.Token)
-		}
-	case g.JoinCmd.FullCommand():
-		if *g.JoinCmd.Token != "" {
-			cmdString = Redact(cmdString, *g.JoinCmd.Token)
-		}
-	case g.AutoJoinCmd.FullCommand():
-		if *g.AutoJoinCmd.Token != "" {
-			cmdString = Redact(cmdString, *g.AutoJoinCmd.Token)
-		}
-	case g.WizardCmd.FullCommand():
-		if *g.WizardCmd.Token != "" {
-			cmdString = Redact(cmdString, *g.WizardCmd.Token)
-		}
-	case g.OpsAgentCmd.FullCommand():
-		if *g.OpsAgentCmd.Token != "" {
-			cmdString = Redact(cmdString, *g.OpsAgentCmd.Token)
-		}
-	case g.APIKeyDeleteCmd.FullCommand():
-		if *g.APIKeyDeleteCmd.Token != "" {
-			cmdString = Redact(cmdString, *g.APIKeyDeleteCmd.Token)
-		}
-	case g.AppInstallCmd.FullCommand():
-		if *g.AppInstallCmd.RegistryPassword != "" {
-			cmdString = Redact(cmdString, *g.AppInstallCmd.RegistryPassword)
-		}
-	case g.AppUpgradeCmd.FullCommand():
-		if *g.AppUpgradeCmd.RegistryPassword != "" {
-			cmdString = Redact(cmdString, *g.AppUpgradeCmd.RegistryPassword)
-		}
-	case g.AppSyncCmd.FullCommand():
-		if *g.AppSyncCmd.RegistryPassword != "" {
-			cmdString = Redact(cmdString, *g.AppSyncCmd.RegistryPassword)
-		}
-	case g.OpsConnectCmd.FullCommand():
-		if *g.OpsConnectCmd.Password != "" {
-			cmdString = Redact(cmdString, *g.OpsConnectCmd.Password)
-		}
-	case g.UserCreateCmd.FullCommand():
-		if *g.UserCreateCmd.Password != "" {
-			cmdString = Redact(cmdString, *g.UserCreateCmd.Password)
-		}
+// RedactCmd removes potentially sensitive data from the args and returns the
+// sanitized cmd as a list of strings.
+func RedactCmd(args ...string) (cmd []string, err error) {
+	commandArgs := cli.CommandArgs{
+		Parser: cli.ArgsParserFunc(parseArgs),
+		FlagsToReplace: []cli.Flag{
+			cli.NewFlag("token", constants.Redacted),
+			cli.NewFlag("registry-password", constants.Redacted),
+			cli.NewFlag("password", constants.Redacted),
+			cli.NewFlag("license", constants.Redacted),
+			cli.NewFlag("ops-token", constants.Redacted),
+			cli.NewFlag("ops-tunnel-token", constants.Redacted),
+			cli.NewFlag("encryption-key", constants.Redacted),
+		},
 	}
-
-	return cmdString
-}
-
-// Redact replaces any instances of value found in cmd with the redacted string.
-func Redact(cmd, value string) string {
-	return strings.ReplaceAll(cmd, value, constants.Redacted)
+	args, err = commandArgs.Update(args)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return append([]string{utils.Exe.Path}, args...), nil
 }
