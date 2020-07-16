@@ -172,7 +172,7 @@ func newCollector(env *localenv.LocalEnvironment) (*vacuum.Collector, error) {
 	ctx := context.TODO()
 	req := deployAgentsRequest{
 		clusterState: cluster.ClusterState,
-		clusterName:  cluster.Domain,
+		cluster:      *cluster,
 		clusterEnv:   clusterEnv,
 		proxy:        proxy,
 	}

@@ -31,10 +31,12 @@ import (
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/ops/opsservice"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/rpc"
 	pb "github.com/gravitational/gravity/lib/rpc/proto"
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
+	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/update"
 	clusterupdate "github.com/gravitational/gravity/lib/update/cluster"
@@ -171,7 +173,7 @@ func rpcAgentDeployHelper(ctx context.Context, localEnv *localenv.LocalEnvironme
 
 	req := deployAgentsRequest{
 		clusterState: cluster.ClusterState,
-		clusterName:  cluster.Domain,
+		cluster:      *cluster,
 		clusterEnv:   clusterEnv,
 		proxy:        proxy,
 		leaderParams: leaderParams,
@@ -191,21 +193,18 @@ func rpcAgentDeployHelper(ctx context.Context, localEnv *localenv.LocalEnvironme
 	return deployAgents(localCtx, localEnv, req)
 }
 
-func verifyCluster(ctx context.Context,
-	clusterState storage.ClusterState,
-	proxy *teleclient.ProxyClient,
-) (servers []rpc.DeployServer, err error) {
+func verifyCluster(ctx context.Context, req deployAgentsRequest) (servers []rpc.DeployServer, err error) {
 	var missing []string
 	servers = make([]rpc.DeployServer, 0, len(servers))
 
-	for _, server := range clusterState.Servers {
+	for _, server := range req.clusterState.Servers {
 		deployServer := rpc.NewDeployServer(server)
 		// do a quick check to make sure we can connect to the teleport node
-		client, err := proxy.ConnectToNode(ctx, deployServer.NodeAddr,
+		client, err := req.proxy.ConnectToNode(ctx, deployServer.NodeAddr,
 			defaults.SSHUser, false)
 		if err != nil {
-			log.Errorf("Failed to connect to teleport on node %v: %v.",
-				deployServer, trace.DebugReport(err))
+			log.WithError(err).Errorf("Failed to connect to teleport on node %v.",
+				deployServer)
 			missing = append(missing, server.Hostname)
 		} else {
 			client.Close()
@@ -215,15 +214,62 @@ func verifyCluster(ctx context.Context,
 		}
 	}
 	if len(missing) != 0 {
-		return nil, trace.NotFound(
-			"Teleport is unavailable "+
-				"on the following cluster nodes: %s. Please "+
-				"make sure that the Teleport service is running "+
-				"and try again.", strings.Join(missing, ", "))
+		base := req.cluster.App.Manifest.Base()
+		if base != nil && base.Version == opsservice.TeleportBrokenJoinTokenVersion.String() {
+			return nil, trace.NotFound(teleportTokenMessage,
+				strings.Join(missing, ", "), base.Version)
+		}
+		return nil, trace.NotFound(teleportUnavailableMessage,
+			strings.Join(missing, ", "), getTeleportVersion(req.cluster.App.Manifest))
 	}
 
 	return servers, nil
 }
+
+func getTeleportVersion(manifest schema.Manifest) string {
+	teleportPackage, err := manifest.Dependencies.ByName(constants.TeleportPackage)
+	if err == nil {
+		return teleportPackage.Version
+	}
+	return "<version>"
+}
+
+const (
+	// teleportTokenMessage is displayed when some Teleport nodes are
+	// unavailable during agents deployment due to the issue with incorrect
+	// Teleport join token.
+	teleportTokenMessage = `Teleport is unavailable on the following cluster nodes: %[1]s.
+
+Gravity version %[2]v you're currently running has a known issue with Teleport
+using an incorrect auth token on the joined nodes preventing Teleport nodes from
+joining.
+
+This cluster may be affected by this issue if new nodes were joined to it after
+upgrade to %[2]v. See the following KB article for remediation actions:
+
+https://community.gravitational.com/t/recover-teleport-nodes-failing-to-join-due-to-bad-token/649
+
+After fixing the issue, "./gravity status" can be used to confirm the status of
+Teleport on each node using "remote access" field.
+
+Once all Teleport nodes have joined successfully, launch the upgrade again.
+`
+	// teleportUnavailableMessage is displayed when some Teleport nodes are
+	// unavailable during agents deployment.
+	teleportUnavailableMessage = `Teleport is unavailable on the following cluster nodes: %[1]s.
+
+Please check the status and logs of Teleport systemd service on the specified
+nodes and make sure it's running:
+
+systemctl status gravity__gravitational.io__teleport__%[2]v
+journalctl -u gravity__gravitational.io__teleport__%[2]v --no-pager
+
+After fixing the issue, "./gravity status" can be used to confirm the status of
+Teleport on each node using "remote access" field.
+
+Once all Teleport nodes are running, launch the upgrade again.
+`
+)
 
 func upsertRPCCredentialsPackage(
 	servers []rpc.DeployServer,
@@ -269,18 +315,18 @@ func deployAgents(ctx context.Context, env *localenv.LocalEnvironment, req deplo
 
 // newDeployAgentsRequest creates a new request to deploy agents on the local cluster
 func newDeployAgentsRequest(ctx context.Context, env *localenv.LocalEnvironment, req deployAgentsRequest) (*rpc.DeployAgentsRequest, error) {
-	servers, err := verifyCluster(ctx, req.clusterState, req.proxy)
+	servers, err := verifyCluster(ctx, req)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
 	gravityPackage := getGravityPackage()
 	secretsPackageTemplate := loc.Locator{
-		Repository: req.clusterName,
+		Repository: req.cluster.Domain,
 		Version:    gravityPackage.Version,
 	}
 	secretsPackage, err := upsertRPCCredentialsPackage(
-		servers, req.clusterEnv.ClusterPackages, req.clusterName, secretsPackageTemplate)
+		servers, req.clusterEnv.ClusterPackages, req.cluster.Domain, secretsPackageTemplate)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -374,7 +420,7 @@ func getGravityPackage() loc.Locator {
 type deployAgentsRequest struct {
 	clusterEnv   *localenv.ClusterEnvironment
 	clusterState storage.ClusterState
-	clusterName  string
+	cluster      ops.Site
 	proxy        *teleclient.ProxyClient
 	leaderParams string
 	leader       *storage.Server
