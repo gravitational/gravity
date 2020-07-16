@@ -374,3 +374,20 @@ make sure it's mounted upon machine startup:
 ```
 /dev/xvdf  /var/lib/gravity/planet/etcd  ext4  defaults   0  2
 ```
+
+### Etcd Disk Performance Requirements
+
+Prior to installation, Gravity will perform a preflight check to assess performance
+characteristics of the disk used for etcd data on each master node.
+
+The check uses `fio` tool and looks at the following benchmarks:
+
+* Sequential write IOPS:
+    * If the detected IOPS is below `50`, a warning is triggered.
+    * If the detected IOPS is below `10`, a failure is triggered
+* Fsync latency:
+    * If the detected latency is higher than `50ms`, a warning is triggered.
+    * If the detected latency is higher than `150ms`, a failure is triggered.
+
+If necessary, these thresholds can be overridden at install/join time using
+[environment variables](installation.md#environment-variables).
