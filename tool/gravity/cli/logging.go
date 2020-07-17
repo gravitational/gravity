@@ -50,7 +50,10 @@ func (r *CmdExecer) Execute() (err error) {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	cmdString := fmt.Sprintf("%s -- %s", strings.Join(sanitizedCmd, " "), strings.Join(r.ExtraArgs, " "))
+	cmdString := strings.Join(sanitizedCmd, " ")
+	if len(r.ExtraArgs) > 0 {
+		cmdString = fmt.Sprintf("%s -- %s", cmdString, strings.Join(r.ExtraArgs, " "))
+	}
 
 	logEntry(fmt.Sprintf("[RUNNING]: %s", cmdString))
 	defer func() {
