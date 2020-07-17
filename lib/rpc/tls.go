@@ -20,6 +20,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"path/filepath"
 	"strconv"
@@ -35,11 +36,22 @@ import (
 	"github.com/gravitational/license/authority"
 	"github.com/gravitational/teleport/lib/tlsca"
 	"github.com/gravitational/trace"
+	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/credentials"
 )
 
-// InitRPCCredentials creates a package with RPC secrets in the specified package service
-func InitRPCCredentials(packages pack.PackageService) (*loc.Locator, error) {
+// LoadCredentialsData returns an io.Reader into the credentials package.
+// Caller is responsible for closing the returned reader
+func LoadCredentialsData(packages pack.PackageService) (env *pack.PackageEnvelope, rc io.ReadCloser, err error) {
+	env, rc, err = packages.ReadPackage(loc.RPCSecrets)
+	if err != nil {
+		return nil, nil, trace.Wrap(err)
+	}
+	return env, rc, nil
+}
+
+// InitCredentials creates a package with RPC secrets in the specified package service
+func InitCredentials(packages pack.PackageService) (*loc.Locator, error) {
 	longLivedClient := true
 	keys, err := GenerateAgentCredentials(nil, defaults.SystemAccountOrg, longLivedClient)
 	if err != nil {
@@ -87,8 +99,11 @@ func CredentialsFromPackage(packages pack.PackageService, secretsPackage loc.Loc
 
 // GenerateAgentCredentialsPackage creates or updates a package in packages with client/server credentials.
 // pkgTemplate specifies the naming template for the resulting package
-func GenerateAgentCredentialsPackage(packages pack.PackageService, pkgTemplate loc.Locator,
-	archive utils.TLSArchive) (secretsLocator *loc.Locator, err error) {
+func GenerateAgentCredentialsPackage(
+	packages pack.PackageService,
+	pkgTemplate loc.Locator,
+	archive utils.TLSArchive,
+) (secretsLocator *loc.Locator, err error) {
 	secretsLocator, err = loc.NewLocator(
 		pkgTemplate.Repository,
 		defaults.RPCAgentSecretsPackage,
@@ -100,7 +115,6 @@ func GenerateAgentCredentialsPackage(packages pack.PackageService, pkgTemplate l
 	if err != nil {
 		return secretsLocator, trace.Wrap(err)
 	}
-
 	return secretsLocator, nil
 }
 
@@ -159,22 +173,47 @@ func GenerateAgentCredentials(hosts []string, commonName string, longLivedClient
 	return archive, nil
 }
 
-// Credentials returns both server and client credentials read from the
-// specified directory
-func Credentials(secretsDir string) (server credentials.TransportCredentials, client credentials.TransportCredentials, err error) {
-	server, err = ServerCredentials(secretsDir)
+// CredentialsFromDir returns both server and client credentials read from the
+// specified secrets dir
+func CredentialsFromDir(secretsDir string) (server credentials.TransportCredentials, client credentials.TransportCredentials, err error) {
+	server, err = ServerCredentialsFromDir(secretsDir)
 	if err != nil {
 		return nil, nil, trace.Wrap(err)
 	}
-	client, err = ClientCredentials(secretsDir)
+	client, err = ClientCredentialsFromDir(secretsDir)
 	if err != nil {
 		return nil, nil, trace.Wrap(err)
 	}
 	return server, client, nil
 }
 
-// ClientCredentials loads the client agent credentials from the specified location
-func ClientCredentials(secretsDir string) (credentials.TransportCredentials, error) {
+// Credentials returns both server and client credentials read from the
+// specified package service
+func Credentials(packages pack.PackageService) (server credentials.TransportCredentials, client credentials.TransportCredentials, err error) {
+	_, reader, err := packages.ReadPackage(loc.RPCSecrets)
+	if err != nil {
+		return nil, nil, trace.Wrap(err)
+	}
+	defer reader.Close()
+	tlsArchive, err := utils.ReadTLSArchive(reader)
+	if err != nil {
+		return nil, nil, trace.Wrap(err)
+	}
+	server, err = ServerCredentialsFromKeyPairs(*tlsArchive[pb.Server],
+		*tlsArchive[pb.CA])
+	if err != nil {
+		return nil, nil, trace.Wrap(err)
+	}
+	client, err = ClientCredentialsFromKeyPairs(*tlsArchive[pb.Client],
+		*tlsArchive[pb.CA])
+	if err != nil {
+		return nil, nil, trace.Wrap(err)
+	}
+	return server, client, nil
+}
+
+// ClientCredentialsFromDir loads the client agent credentials from the specified location
+func ClientCredentialsFromDir(secretsDir string) (credentials.TransportCredentials, error) {
 	clientCertPath := filepath.Join(secretsDir, fmt.Sprintf("%s.%s", pb.Client, pb.Cert))
 	clientKeyPath := filepath.Join(secretsDir, fmt.Sprintf("%s.%s", pb.Client, pb.Key))
 	caPath := filepath.Join(secretsDir, fmt.Sprintf("%s.%s", pb.CA, pb.Cert))
@@ -202,9 +241,9 @@ func ClientCredentials(secretsDir string) (credentials.TransportCredentials, err
 	return creds, nil
 }
 
-// ClientCredentialsFromPackage reads client credentials from the specified package
-func ClientCredentialsFromPackage(packages pack.PackageService, secretsPackage loc.Locator) (credentials.TransportCredentials, error) {
-	_, reader, err := packages.ReadPackage(secretsPackage)
+// ClientCredentials reads client credentials from specified package service
+func ClientCredentials(packages pack.PackageService) (credentials.TransportCredentials, error) {
+	_, reader, err := packages.ReadPackage(loc.RPCSecrets)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -238,8 +277,8 @@ func ClientCredentialsFromKeyPairs(keys, caKeys authority.TLSKeyPair) (credentia
 	return creds, nil
 }
 
-// ServerCredentials loads server agent credentials from the specified location
-func ServerCredentials(secretsDir string) (credentials.TransportCredentials, error) {
+// ServerCredentialsFromDir loads server agent credentials from the specified location
+func ServerCredentialsFromDir(secretsDir string) (credentials.TransportCredentials, error) {
 	serverCertPath := filepath.Join(secretsDir, fmt.Sprintf("%s.%s", pb.Server, pb.Cert))
 	serverKeyPath := filepath.Join(secretsDir, fmt.Sprintf("%s.%s", pb.Server, pb.Key))
 	caPath := filepath.Join(secretsDir, fmt.Sprintf("%s.%s", pb.CA, pb.Cert))
@@ -269,9 +308,9 @@ func ServerCredentials(secretsDir string) (credentials.TransportCredentials, err
 	return creds, nil
 }
 
-// ServerCredentialsFromPackage reads server credentials from the specified package
-func ServerCredentialsFromPackage(packages pack.PackageService, secretsPackage loc.Locator) (credentials.TransportCredentials, error) {
-	_, reader, err := packages.ReadPackage(secretsPackage)
+// ServerCredentials reads server credentials from the specified package service
+func ServerCredentials(packages pack.PackageService) (credentials.TransportCredentials, error) {
+	_, reader, err := packages.ReadPackage(loc.RPCSecrets)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -306,6 +345,36 @@ func ServerCredentialsFromKeyPairs(keys, caKeys authority.TLSKeyPair) (credentia
 	return creds, nil
 }
 
+// UpsertCredentials creates or updates RPC secrets package in the specified package service
+func UpsertCredentials(packages pack.PackageService) (*loc.Locator, error) {
+	longLivedClient := true
+	keys, err := GenerateAgentCredentials(nil, defaults.SystemAccountOrg, longLivedClient)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	err = upsertPackage(packages, loc.RPCSecrets, keys)
+	if err != nil {
+		return &loc.RPCSecrets, trace.Wrap(err)
+	}
+
+	return &loc.RPCSecrets, nil
+}
+
+// UpsertCredentialsFromData creates or updates RPC credentials from the specified data
+func UpsertCredentialsFromData(packages pack.PackageService, r io.Reader, labels map[string]string) error {
+	err := packages.UpsertRepository(defaults.SystemAccountOrg, time.Time{})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	essential := map[string]string{
+		pack.PurposeLabel: pack.PurposeRPCCredentials,
+	}
+	runtimeLabels := utils.CombineLabels(essential, labels)
+	_, err = packages.UpsertPackage(loc.RPCSecrets, r, pack.WithLabels(runtimeLabels))
+	return trace.Wrap(err)
+}
+
 // AgentAddr returns a complete agent address for specified address addr.
 // If addr already contains a port, the address is returned unaltered,
 // otherwise, a default RPC agent port is added
@@ -321,7 +390,6 @@ func createPackage(packages pack.PackageService, pkg loc.Locator, archive utils.
 		return trace.Wrap(err)
 	}
 	defer reader.Close()
-
 	err = packages.UpsertRepository(pkg.Repository, time.Time{})
 	if err != nil {
 		return trace.Wrap(err)
@@ -355,21 +423,23 @@ func upsertPackage(packages pack.PackageService, pkg loc.Locator, archive utils.
 }
 
 func validateCertificateExpiration(pemBytes []byte, now time.Time) error {
-	const tolerance = 30 * time.Second
 	cert, err := tlsca.ParseCertificatePEM(pemBytes)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	if now.Add(-tolerance).Before(cert.NotBefore) {
-		// return newCertError("certificate is valid in the future")
+	logrus.WithFields(logrus.Fields{
+		"now":        now,
+		"not-before": cert.NotBefore.String(),
+		"not-after":  cert.NotAfter.String(),
+	}).Info("Validate certificate.")
+	if now.Before(cert.NotBefore) {
 		return trace.BadParameter("certificate is valid in the future").
 			AddFields(trace.Fields{
 				"now":        now,
 				"not-before": cert.NotBefore,
 			})
 	}
-	if now.Add(tolerance).After(cert.NotAfter) {
-		// return newCertError("certificate is valid in the past")
+	if now.After(cert.NotAfter) {
 		return trace.BadParameter("certificate is valid in the past").
 			AddFields(trace.Fields{
 				"now":       now,

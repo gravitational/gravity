@@ -404,7 +404,7 @@ func (b *Builder) initServices() (err error) {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	objects, err := blobfs.New(filepath.Join(b.Dir, defaults.PackagesDir))
+	objects, err := blobfs.New(blobfs.Config{Path: filepath.Join(b.Dir, defaults.PackagesDir)})
 	if err != nil {
 		return trace.Wrap(err)
 	}

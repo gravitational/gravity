@@ -84,13 +84,16 @@ func New(config Config) (*Cluster, error) {
 }
 
 func (r *Config) checkAndSetDefaults() error {
+	if r.WriteFactor < 1 {
+		r.WriteFactor = defaults.WriteFactor
+	}
 	if r.Local == nil {
 		return trace.BadParameter("missing parameter Local")
 	}
 	if r.Backend == nil {
 		return trace.BadParameter("missing parameter Backend")
 	}
-	if r.GetPeer == nil {
+	if r.GetPeer == nil && r.WriteFactor != 1 {
 		return trace.BadParameter("missing parameter GetPeer")
 	}
 	if r.ID == "" {
@@ -98,9 +101,6 @@ func (r *Config) checkAndSetDefaults() error {
 	}
 	if r.AdvertiseAddr == "" {
 		return trace.BadParameter("missing parameter AdvertiseAddr")
-	}
-	if r.WriteFactor < 1 {
-		r.WriteFactor = defaults.WriteFactor
 	}
 	if r.Clock == nil {
 		r.Clock = clockwork.NewRealClock()
@@ -157,7 +157,7 @@ func (c *Cluster) periodically(name string, fn func() error) {
 	for {
 		select {
 		case <-c.close.Done():
-			c.Infof("Returning, cluster is closing.")
+			c.Info("Returning, cluster is closing.")
 			return
 		case <-ticker.C:
 			if err := fn(); err != nil {

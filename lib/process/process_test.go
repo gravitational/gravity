@@ -295,7 +295,7 @@ func (s *importerSuite) SetUpTest(c *check.C) {
 	})
 	c.Assert(err, check.IsNil)
 
-	objects, err := fs.New(s.dir)
+	objects, err := fs.New(fs.Config{Path: s.dir})
 	c.Assert(err, check.IsNil)
 
 	s.pack, err = localpack.New(localpack.Config{

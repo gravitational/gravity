@@ -27,17 +27,19 @@ import (
 
 	"github.com/gravitational/gravity/lib/blob"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/systeminfo"
 
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 )
 
-func New(path string) (blob.Objects, error) {
-	if path == "" {
-		return nil, trace.BadParameter("missing Path parameter")
+// New creates a new instance of the local fs blob service
+func New(config Config) (blob.Objects, error) {
+	if err := config.checkAndSetDefaults(); err != nil {
+		return nil, trace.Wrap(err)
 	}
-	o := &objects{dir: path}
-	for _, d := range []string{o.tempDir(), o.blobDir()} {
+	o := &objects{config: config}
+	for _, d := range []string{config.tempDir(), config.blobDir()} {
 		if err := os.MkdirAll(d, defaults.SharedDirMask); err != nil {
 			return nil, trace.ConvertSystemError(err)
 		}
@@ -45,16 +47,31 @@ func New(path string) (blob.Objects, error) {
 	return o, nil
 }
 
+// Config defines the blob service configuration
+type Config struct {
+	// Path specifies the directory for blobs
+	Path string
+	// User optionally specifies the user context for file operations
+	User *systeminfo.User
+}
+
+func (r *Config) checkAndSetDefaults() error {
+	if r.Path == "" {
+		return trace.BadParameter("missing Path parameter")
+	}
+	return nil
+}
+
+func (r Config) tempDir() string {
+	return filepath.Join(r.Path, "tmp")
+}
+
+func (r Config) blobDir() string {
+	return filepath.Join(r.Path, "blobs")
+}
+
 type objects struct {
-	dir string
-}
-
-func (o *objects) tempDir() string {
-	return filepath.Join(o.dir, "tmp")
-}
-
-func (o *objects) blobDir() string {
-	return filepath.Join(o.dir, "blobs")
+	config Config
 }
 
 // hashDir helps us to organize the blobs in the folder -
@@ -63,7 +80,7 @@ func (o *objects) blobDir() string {
 // of the sha512 hash - this will allow to scale in cases
 // when there are too many files in one directory
 func (o *objects) hashDir(h string) string {
-	return filepath.Join(o.blobDir(), h[0:3])
+	return filepath.Join(o.config.blobDir(), h[0:3])
 }
 
 func (o *objects) Close() error {
@@ -73,7 +90,7 @@ func (o *objects) Close() error {
 // GetBLOBs returns a list of BLOBs in the storage
 func (o *objects) GetBLOBs() ([]string, error) {
 	var out []string
-	blobDir := o.blobDir()
+	blobDir := o.config.blobDir()
 	err := filepath.Walk(blobDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			log.Warningf("error while traversing %v: %v", blobDir, err)
@@ -97,12 +114,14 @@ func (o *objects) GetBLOBs() ([]string, error) {
 func (o *objects) WriteBLOB(data io.Reader) (*blob.Envelope, error) {
 	// step1 : write data and compute it's hash to the temporary file,
 	// then move it to the proper location based on it's hash
-	f, err := ioutil.TempFile(o.tempDir(), "blob")
+	f, err := ioutil.TempFile(o.config.tempDir(), "blob")
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	defer f.Close()
 
+	// if true, sets proper directory/file ownership.
+	hasUser := o.config.User != nil && os.Geteuid() != o.config.User.UID
 	hasher := sha512.New()
 	w := io.MultiWriter(f, hasher)
 	size, err := io.Copy(w, data)
@@ -119,14 +138,28 @@ func (o *objects) WriteBLOB(data io.Reader) (*blob.Envelope, error) {
 	hash := fmt.Sprintf("%x", hasher.Sum(nil)[:sha512.Size/2])
 	targetDir := o.hashDir(hash)
 	if err := os.MkdirAll(targetDir, defaults.SharedDirMask); err != nil {
+		// This will fail as expected if the command is not run as root or
+		// under a different user context
 		defer os.Remove(f.Name())
 		return nil, trace.ConvertSystemError(err)
+	}
+	if hasUser {
+		if err := os.Chown(targetDir, o.config.User.UID, o.config.User.GID); err != nil {
+			return nil, trace.Wrap(err)
+		}
 	}
 	// now place it to the right place in the filesystem
 	targetPath := filepath.Join(targetDir, hash)
 	if err := os.Rename(f.Name(), targetPath); err != nil {
 		defer os.Remove(f.Name())
 		return nil, trace.Wrap(err)
+	}
+	if hasUser {
+		// This will fail as expected if the command is not run as root or
+		// under a different user context
+		if err := os.Chown(targetPath, o.config.User.UID, o.config.User.GID); err != nil {
+			return nil, trace.Wrap(err)
+		}
 	}
 	fileInfo, err := os.Stat(targetPath)
 	if err != nil {

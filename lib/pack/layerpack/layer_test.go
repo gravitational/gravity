@@ -63,9 +63,9 @@ func (s *LayerSuite) SetUpTest(c *C) {
 	s.outerBackend, err = keyval.NewBolt(keyval.BoltConfig{Path: filepath.Join(outerDir, "storage.db")})
 	c.Assert(err, IsNil)
 
-	innerObjects, err := fs.New(innerDir)
+	innerObjects, err := fs.New(fs.Config{Path: innerDir})
 	c.Assert(err, IsNil)
-	outerObjects, err := fs.New(outerDir)
+	outerObjects, err := fs.New(fs.Config{Path: outerDir})
 	c.Assert(err, IsNil)
 
 	inner, err := localpack.New(localpack.Config{

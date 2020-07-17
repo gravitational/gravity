@@ -50,3 +50,33 @@ func (b *backend) GetSELinux() (enabled bool, err error) {
 func (b *backend) SetSELinux(enabled bool) error {
 	return b.upsertVal(b.key(systemP, seLinuxP), &enabled, forever)
 }
+
+// GetNodeAddr returns the current node advertise IP
+func (b *backend) GetNodeAddr() (addr string, err error) {
+	var nodeAddr string
+	err = b.getVal(b.key(systemP, nodeAddrP), &nodeAddr)
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+	return nodeAddr, nil
+}
+
+// SetNodeAddr sets current node advertise IP
+func (b *backend) SetNodeAddr(addr string) error {
+	return b.upsertVal(b.key(systemP, nodeAddrP), addr, forever)
+}
+
+// GetServiceUser returns the current serviceo user
+func (b *backend) GetServiceUser() (*storage.OSUser, error) {
+	var user storage.OSUser
+	err := b.getVal(b.key(systemP, serviceUserP), &user)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &user, nil
+}
+
+// SetServiceUser sets current service user
+func (b *backend) SetServiceUser(user storage.OSUser) error {
+	return b.upsertVal(b.key(systemP, serviceUserP), &user, forever)
+}
