@@ -46,7 +46,7 @@ type CmdExecer struct {
 // Execute executes the gravity command while logging the start and completion
 // of the command.
 func (r *CmdExecer) Execute() (err error) {
-	sanitizedCmd, err := r.redactCmd()
+	sanitizedCmd, err := r.getRedactedCmd()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -68,9 +68,9 @@ func (r *CmdExecer) Execute() (err error) {
 	return trace.Wrap(err)
 }
 
-// redactCmd removes potentially sensitive data from the args and returns the
-// sanitized cmd as a list of strings.
-func (r *CmdExecer) redactCmd() (cmd []string, err error) {
+// getRedactedCmd removes potentially sensitive data from the args and returns
+// the sanitized cmd as a list of strings.
+func (r *CmdExecer) getRedactedCmd() (cmd []string, err error) {
 	commandArgs := cli.CommandArgs{
 		Parser: r.Parser,
 		FlagsToReplace: []cli.Flag{
@@ -83,11 +83,11 @@ func (r *CmdExecer) redactCmd() (cmd []string, err error) {
 			cli.NewFlag("encryption-key", constants.Redacted),
 		},
 	}
-	r.Args, err = commandArgs.Update(r.Args)
+	args, err := commandArgs.Update(r.Args)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return append([]string{utils.Exe.Path}, r.Args...), nil
+	return append([]string{utils.Exe.Path}, args...), nil
 }
 
 // logEntry writes the provided entry into the system journal with the
