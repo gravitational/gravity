@@ -17,8 +17,11 @@ limitations under the License.
 package cli
 
 import (
+	"fmt"
 	"os"
 	"testing"
+
+	"github.com/gravitational/gravity/lib/constants"
 
 	"github.com/sirupsen/logrus"
 	"gopkg.in/alecthomas/kingpin.v2"
@@ -38,11 +41,12 @@ func (*S) SetUpSuite(c *check.C) {
 
 func (*S) TestUpdatesCommandLine(c *check.C) {
 	var testCases = []struct {
-		comment     string
-		inputArgs   []string
-		flags       []Flag
-		removeFlags []string
-		outputArgs  []string
+		comment      string
+		inputArgs    []string
+		flags        []Flag
+		replaceFlags []Flag
+		removeFlags  []string
+		outputArgs   []string
 	}{
 		{
 			comment:   "Does not overwrite existing flags",
@@ -80,14 +84,23 @@ func (*S) TestUpdatesCommandLine(c *check.C) {
 			},
 			removeFlags: []string{"selinux"},
 		},
+		{
+			comment:    "Redact flags",
+			inputArgs:  []string{"install", `--token=token`, "--debug"},
+			outputArgs: []string{"install", "--token", fmt.Sprintf(`"%s"`, constants.Redacted), "--debug"},
+			replaceFlags: []Flag{
+				NewFlag("token", constants.Redacted),
+			},
+		},
 	}
 
 	for _, testCase := range testCases {
 		comment := check.Commentf(testCase.comment)
 		commandArgs := CommandArgs{
-			Parser:        ArgsParserFunc(parseArgs),
-			FlagsToAdd:    testCase.flags,
-			FlagsToRemove: testCase.removeFlags,
+			Parser:         ArgsParserFunc(parseArgs),
+			FlagsToAdd:     testCase.flags,
+			FlagsToRemove:  testCase.removeFlags,
+			FlagsToReplace: testCase.replaceFlags,
 		}
 		args, err := commandArgs.Update(testCase.inputArgs)
 		c.Assert(err, check.IsNil)
