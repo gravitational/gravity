@@ -85,11 +85,35 @@ func (*S) TestUpdatesCommandLine(c *check.C) {
 			removeFlags: []string{"selinux"},
 		},
 		{
-			comment:    "Redact flags",
+			comment:    "Redact install token",
 			inputArgs:  []string{"install", `--token=token`, "--debug"},
 			outputArgs: []string{"install", "--token", fmt.Sprintf(`"%s"`, constants.Redacted), "--debug"},
 			replaceFlags: []Flag{
 				NewFlag("token", constants.Redacted),
+			},
+		},
+		{
+			comment:   "Redact user create password",
+			inputArgs: []string{"user", "create", `--email=email`, `--password=password`},
+			outputArgs: []string{"user create",
+				"--email", `"email"`,
+				"--password", fmt.Sprintf(`"%s"`, constants.Redacted),
+			},
+			replaceFlags: []Flag{
+				NewFlag("password", constants.Redacted),
+			},
+		},
+		{
+			comment:   "Redact multiple flags",
+			inputArgs: []string{"test", `--secret1`, `secret1`, `--secret2`, `secret2`, `test`},
+			outputArgs: []string{"test",
+				"--secret1", fmt.Sprintf(`"%s"`, constants.Redacted),
+				"--secret2", fmt.Sprintf(`"%s"`, constants.Redacted),
+				`"test"`,
+			},
+			replaceFlags: []Flag{
+				NewFlag("secret1", constants.Redacted),
+				NewFlag("secret2", constants.Redacted),
 			},
 		},
 	}
@@ -111,11 +135,23 @@ func (*S) TestUpdatesCommandLine(c *check.C) {
 func parseArgs(args []string) (*kingpin.ParseContext, error) {
 	app := kingpin.New("test", "")
 	app.Flag("debug", "").Bool()
-	cmd := app.Command("install", "")
-	cmd.Arg("path", "").String()
-	cmd.Flag("token", "").String()
-	cmd.Flag("selinux", "").Default("true").Bool()
-	cmd.Flag("advertise-addr", "").String()
-	cmd.Flag("cloud-provider", "").String()
+
+	installCmd := app.Command("install", "")
+	installCmd.Arg("path", "").String()
+	installCmd.Flag("token", "").String()
+	installCmd.Flag("selinux", "").Default("true").Bool()
+	installCmd.Flag("advertise-addr", "").String()
+	installCmd.Flag("cloud-provider", "").String()
+
+	userCmd := app.Command("user", "")
+	userCreateCmd := userCmd.Command("create", "")
+	userCreateCmd.Flag("password", "").String()
+	userCreateCmd.Flag("email", "").String()
+
+	testCmd := app.Command("test", "")
+	testCmd.Arg("arg", "").String()
+	testCmd.Flag("secret1", "").String()
+	testCmd.Flag("secret2", "").String()
+
 	return app.ParseContext(args)
 }
