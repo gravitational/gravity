@@ -38,6 +38,7 @@ import (
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/utils"
+	"github.com/gravitational/gravity/lib/utils/cli"
 
 	"github.com/gravitational/configure/cstrings"
 	teleutils "github.com/gravitational/teleport/lib/utils"
@@ -77,24 +78,13 @@ func Run(g *Application) (err error) {
 		return trace.Wrap(err)
 	}
 
-	sanitizedCmd, err := RedactCmd(args...)
-	if err != nil {
-		return trace.Wrap(err)
+	execer := CmdExecer{
+		Exe:       getExec(g, cmd, extraArgs),
+		Parser:    cli.ArgsParserFunc(parseArgs),
+		Args:      args,
+		ExtraArgs: extraArgs,
 	}
-	cmdString := strings.Join(sanitizedCmd, " ")
-	cmdString = fmt.Sprintf("%s -- %s", cmdString, strings.Join(extraArgs, " "))
-
-	LogCLIRunning(cmdString)
-	defer func() {
-		if r := recover(); r != nil {
-			LogCLICompleted(cmdString, fmt.Sprintf("PANIC: %v", r))
-			return
-		}
-		LogCLICompleted(cmdString, trace.UserMessage(err))
-	}()
-	err = Execute(g, cmd, extraArgs)
-
-	return trace.Wrap(err)
+	return execer.Execute()
 }
 
 // InitAndCheck initializes the CLI application according to the provided
@@ -262,6 +252,13 @@ func InitAndCheck(g *Application, cmd string) error {
 	}
 
 	return nil
+}
+
+// getExec returns the Executable function to execute the specified gravity cmd.
+func getExec(g *Application, cmd string, extraArgs []string) Executable {
+	return func() error {
+		return Execute(g, cmd, extraArgs)
+	}
 }
 
 // Execute executes the gravity command given with cmd

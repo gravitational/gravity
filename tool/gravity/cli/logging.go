@@ -19,6 +19,7 @@ package cli
 import (
 	"fmt"
 	"log/syslog"
+	"strings"
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/utils"
@@ -27,35 +28,48 @@ import (
 	"github.com/gravitational/trace"
 )
 
-// LogCLIRunning writes the running cmd as a log entry into the system journal
-// with the gravity-cli tag.
-func LogCLIRunning(cmd string) {
-	entry := fmt.Sprintf("[RUNNING]: %s", cmd)
-	if err := utils.SyslogWrite(syslog.LOG_INFO, entry, constants.GravityCLITag); err != nil {
-		log.WithError(err).Warn("Failed to write to system logs.")
-	}
+// Executable executes a gravity command.
+type Executable func() error
+
+// CmdExecer handles execution of a gravity command.
+type CmdExecer struct {
+	// Exe specifies an executable gravity command.
+	Exe Executable
+	// Parser specifies the gravity arguments parser function.
+	Parser cli.ArgsParserFunc
+	// Args specifies the provided gravity command arguments.
+	Args []string
+	// ExtraArgs specifies the provided extra arguments.
+	ExtraArgs []string
 }
 
-// LogCLICompleted writes the completed cmd as a log entry into the system journal
-// with the gravity-cli tag. Failed commands will be logged with the returned
-// error.
-func LogCLICompleted(cmd, err string) {
-	var entry string
-	if err != "" {
-		entry = fmt.Sprintf("[FAILURE]: %s: [ERROR]: %s", cmd, err)
-	} else {
-		entry = fmt.Sprintf("[SUCCESS]: %s", cmd)
+// Execute executes the gravity command while logging the start and completion
+// of the command.
+func (r *CmdExecer) Execute() (err error) {
+	sanitizedCmd, err := r.redactCmd()
+	if err != nil {
+		return trace.Wrap(err)
 	}
-	if err := utils.SyslogWrite(syslog.LOG_INFO, entry, constants.GravityCLITag); err != nil {
-		log.WithError(err).Warn("Failed to write to system logs.")
-	}
+	cmdString := fmt.Sprintf("%s -- %s", strings.Join(sanitizedCmd, " "), strings.Join(r.ExtraArgs, " "))
+
+	logEntry(fmt.Sprintf("[RUNNING]: %s", cmdString))
+	defer func() {
+		if r := recover(); r != nil {
+			logEntry(fmt.Sprintf("[FAILURE]: %s: [PANIC]: %v", cmdString, r))
+			return
+		}
+		logEntry(fmt.Sprintf("[FAILURE]: %s: [ERROR]: %s", cmdString, trace.UserMessage(err)))
+	}()
+
+	err = r.Exe()
+	return trace.Wrap(err)
 }
 
-// RedactCmd removes potentially sensitive data from the args and returns the
+// redactCmd removes potentially sensitive data from the args and returns the
 // sanitized cmd as a list of strings.
-func RedactCmd(args ...string) (cmd []string, err error) {
+func (r *CmdExecer) redactCmd() (cmd []string, err error) {
 	commandArgs := cli.CommandArgs{
-		Parser: cli.ArgsParserFunc(parseArgs),
+		Parser: r.Parser,
 		FlagsToReplace: []cli.Flag{
 			cli.NewFlag("token", constants.Redacted),
 			cli.NewFlag("registry-password", constants.Redacted),
@@ -66,9 +80,17 @@ func RedactCmd(args ...string) (cmd []string, err error) {
 			cli.NewFlag("encryption-key", constants.Redacted),
 		},
 	}
-	args, err = commandArgs.Update(args)
+	r.Args, err = commandArgs.Update(r.Args)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return append([]string{utils.Exe.Path}, args...), nil
+	return append([]string{utils.Exe.Path}, r.Args...), nil
+}
+
+// logEntry writes the provided entry into the system journal with the
+// gravity-cli tag.
+func logEntry(entry string) {
+	if err := utils.SyslogWrite(syslog.LOG_INFO, entry, constants.GravityCLITag); err != nil {
+		log.WithError(err).Warn("Failed to write to system logs.")
+	}
 }
