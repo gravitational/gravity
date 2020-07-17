@@ -56,7 +56,7 @@ func (r *CmdExecer) Execute() (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			logEntry(fmt.Sprintf("[FAILURE]: %s: [PANIC]: %v", cmdString, r))
-			return
+			panic(r)
 		}
 		logEntry(fmt.Sprintf("[FAILURE]: %s: [ERROR]: %s", cmdString, trace.UserMessage(err)))
 	}()
