@@ -772,7 +772,7 @@ func checkSameOS(servers []Server) error {
 		return trace.BadParameter("servers have different OS distributions: %v", formatKeysAsList(distros))
 	}
 	// Version verification is purposely simple and will compare the prefixes
-	// up to to either the first '.' or end of line
+	// up to either the first '.' or end of line
 	for _, versions := range distros {
 		if !verifyCommonVersionPrefix(versions...) {
 			return trace.BadParameter("servers have different OS versions: %v", formatAsList(distros))

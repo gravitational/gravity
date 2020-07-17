@@ -150,7 +150,7 @@ func (s *site) getReport(ctx context.Context, runner remoteRunner, servers []rem
 			logger.WithError(err).Error("Failed to collect Kubernetes info.")
 		}
 		if err := s.collectEtcdInfoFromMasters(dir, masters, runner); err != nil {
-			logger.WithError(err).Error("Failed to collect etcd info.")
+			log.WithError(err).Error("Failed to collect etcd info.")
 		}
 		if err := s.collectDebugInfoFromServers(ctx, dir, servers, runner, since); err != nil {
 			log.WithError(err).Error("Failed to collect diagnostics from some nodes.")
@@ -258,7 +258,7 @@ func (s *site) collectEtcdInfoFromMasters(dir string, masters []remoteServer, ru
 
 // collectEtcdInfo collects etcd metrics and captures a snapshot of the data.
 func (s *site) collectEtcdInfo(reportWriter report.FileWriter, runner *serverRunner) error {
-	w, err := reportWriter.NewWriter("etcd.json.tar.gz")
+	w, err := reportWriter.NewWriter("etcd.tar.gz")
 	if err != nil {
 		return trace.Wrap(err)
 	}
