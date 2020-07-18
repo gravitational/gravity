@@ -70,7 +70,7 @@ func (r *HandlerSuite) SetUpTest(c *C) {
 	r.backend, err = keyval.NewBolt(keyval.BoltConfig{Path: filepath.Join(r.dir, "bolt.db")})
 	c.Assert(err, IsNil)
 
-	objects, err := fs.New(r.dir)
+	objects, err := fs.New(fs.Config{Path: r.dir})
 	c.Assert(err, IsNil)
 
 	clock := &timetools.FreezedTime{

@@ -62,7 +62,7 @@ func (s *LocalSuite) SetUpTest(c *C) {
 	})
 	c.Assert(err, IsNil)
 
-	objects, err := fs.New(s.dir)
+	objects, err := fs.New(fs.Config{Path: s.dir})
 	c.Assert(err, IsNil)
 
 	s.server, err = New(Config{
