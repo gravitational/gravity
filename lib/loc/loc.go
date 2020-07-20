@@ -234,6 +234,24 @@ func Deduplicate(ls []Locator) (result []Locator) {
 	return result
 }
 
+// GetUpdatedDependencies compares installedDeps against the updateDeps
+// and returns only locators from updateDeps that are updates of those given with installedDeps
+func GetUpdatedDependencies(installedDeps, updateDeps []Locator) ([]Locator, error) {
+	var updates []Locator
+	for _, dep := range updateDeps {
+		isUpdate, err := IsUpdate(dep, installedDeps)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		if !isUpdate {
+			continue
+		}
+		updates = append(updates, dep)
+	}
+
+	return updates, nil
+}
+
 var (
 	// OpsCenterCertificateAuthority is locator for the package containing certificate and private
 	// key for the OpsCenter

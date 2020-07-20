@@ -116,7 +116,7 @@ func fsmSpec(c Config) fsm.FSMSpecFunc {
 		case updateInitLeader:
 			return libphase.NewUpdatePhaseInitLeader(p, c.Operator, c.Apps,
 				c.Backend, c.LocalBackend, c.ClusterPackages, c.HostLocalPackages, c.Users,
-				logger)
+				c.Client, logger)
 		case updateInit:
 			return libphase.NewUpdatePhaseInitServer(p, c.HostLocalPackages, p.Plan.ClusterName,
 				logger)

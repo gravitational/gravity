@@ -100,7 +100,7 @@ func InitOperationPlan(
 		Operation: operation,
 		Leader:    leader,
 		// FIXME: was this added for a reason in 5.5?
-		Cluster:      *cluster,
+		Cluster: *cluster,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -198,7 +198,15 @@ func NewOperationPlan(ctx context.Context, config PlanConfig) (*storage.Operatio
 		return nil, trace.Wrap(err)
 	}
 
-	appUpdates, err := app.GetUpdatedDependencies(*installedApp, *updateApp)
+	installedDeps, err := app.GetDirectApplicationDependencies(*installedApp)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	updateDeps, err := app.GetDirectApplicationDependencies(*updateApp)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	appUpdates, err := loc.GetUpdatedDependencies(installedDeps, updateDeps)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -230,7 +238,6 @@ func NewOperationPlan(ctx context.Context, config PlanConfig) (*storage.Operatio
 		updateRuntimeAppVersion:    *updateRuntimeAppVersion,
 		installedTeleport:          *installedTeleport,
 		updateTeleport:             *updateTeleport,
-		installedDocker:            *installedDocker,
 		serviceUser:                config.Cluster.ServiceUser,
 	}
 
@@ -284,7 +291,7 @@ type PlanConfig struct {
 	// DNSConfig specifies the cluster DNS configuration
 	DNSConfig storage.DNSConfig
 	// Operation specifies the operation to generate the plan for
-	Operation *ops.SiteOperation
+	Operation *storage.SiteOperation
 	// Client specifies the kubernetes client
 	Client *kubernetes.Clientset
 	// Leader specifies the server to execute the upgrade operation on
@@ -541,16 +548,19 @@ func reorderServers(servers []storage.UpdateServer, server storage.Server) (resu
 }
 
 func runtimeUpdates(installedRuntime, updateRuntime, updateApp app.Application) ([]loc.Locator, error) {
-	allRuntimeUpdates, err := app.GetUpdatedDependencies(installedRuntime, updateRuntime)
-	if err != nil && !trace.IsNotFound(err) {
+	installedDeps, err := app.GetDirectApplicationDependencies(installedRuntime)
+	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	// some system apps may need to be skipped depending on the manifest settings
-	runtimeUpdates := allRuntimeUpdates[:0]
-	for _, locator := range allRuntimeUpdates {
-		if !schema.ShouldSkipApp(updateApp.Manifest, locator) {
-			runtimeUpdates = append(runtimeUpdates, locator)
-		}
+	installedDeps = updateApp.Manifest.FilterDisabledDependencies(installedDeps)
+	updateDeps, err := app.GetDirectApplicationDependencies(updateRuntime)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	updateDeps = updateApp.Manifest.FilterDisabledDependencies(updateDeps)
+	runtimeUpdates, err := loc.GetUpdatedDependencies(installedDeps, updateDeps)
+	if err != nil && !trace.IsNotFound(err) {
+		return nil, trace.Wrap(err)
 	}
 	sort.Slice(runtimeUpdates, func(i, j int) bool {
 		// Push RBAC package update to front

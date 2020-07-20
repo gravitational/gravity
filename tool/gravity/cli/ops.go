@@ -20,20 +20,23 @@ import (
 	"context"
 	"fmt"
 	_ "net/http/pprof"
+	"runtime"
 
-	appservice "github.com/gravitational/gravity/lib/app/service"
+	libapp "github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/docker"
 	"github.com/gravitational/gravity/lib/install"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/state"
 	libstatus "github.com/gravitational/gravity/lib/status"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/gravity/tool/common"
 
+	"github.com/coreos/go-semver/semver"
 	"github.com/gravitational/trace"
 )
 
@@ -92,6 +95,11 @@ func uploadUpdate(ctx context.Context, tarballEnv *localenv.TarballEnvironment, 
 		return trace.BadParameter("failed to determine version of base image")
 	}
 	installedRuntimeVersion, err := installedRuntime.SemVer()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	app, err := tarballEnv.Apps.GetApp(*appPackage)
 	if err != nil {
 		return trace.Wrap(err)
 	}

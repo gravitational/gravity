@@ -21,7 +21,6 @@ import (
 
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/loc"
-	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/update/cluster/internal/intermediate"
@@ -53,40 +52,12 @@ func (r phaseBuilder) checksPhase() *builder.Phase {
 }
 
 func (r phaseBuilder) hasSELinuxPhase() bool {
-	for _, server := range r.servers {
+	for _, server := range r.planTemplate.Servers {
 		if server.SELinux {
 			return true
 		}
 	}
 	return false
-}
-
-// FIXME: move this to intermediate steps?
-func (r phaseBuilder) bootstrapSELinux() *update.Phase {
-	root := update.RootPhase(update.Phase{
-		ID:          "selinux-bootstrap",
-		Description: "Configure SELinux on nodes",
-	})
-
-	for i, server := range r.servers {
-		if !server.SELinux {
-			continue
-		}
-		root.AddParallel(update.Phase{
-			ID:          root.ChildLiteral(server.Hostname),
-			Executor:    updateBootstrapSELinux,
-			Description: fmt.Sprintf("Configure SELinux on node %q", server.Hostname),
-			Data: &storage.OperationPhaseData{
-				ExecServer:       &r.servers[i].Server,
-				Package:          &r.updateApp.Package,
-				InstalledPackage: &r.installedApp.Package,
-				Update: &storage.UpdateOperationData{
-					Servers: []storage.UpdateServer{server},
-				},
-			},
-		})
-	}
-	return &root
 }
 
 func (r phaseBuilder) preUpdatePhase() *builder.Phase {
@@ -244,7 +215,7 @@ type phaseBuilder struct {
 	// planTemplate specifies the plan to bootstrap the resulting operation plan
 	planTemplate storage.OperationPlan
 	// operation is the operation to generate the plan for
-	operation ops.SiteOperation
+	operation storage.SiteOperation
 	// leadMaster refers to the master server running the update operation
 	leadMaster storage.Server
 	// installedTeleport specifies the version of the currently installed teleport
@@ -292,8 +263,8 @@ type phaseBuilder struct {
 // server - The server the phase should be executed on, and used to name the phase
 // key - is the identifier of the phase (combined with server.Hostname)
 // msg - is a format string used to describe the phase
-func setLeaderElection(electionChanges electionChanges, server storage.Server) storage.OperationPhase {
-	return storage.OperationPhase{
+func setLeaderElection(electionChanges electionChanges, server storage.Server) *builder.Phase {
+	return builder.NewPhase(storage.OperationPhase{
 		ID:          electionChanges.ID(),
 		Executor:    electionStatus,
 		Description: electionChanges.description,
@@ -304,7 +275,7 @@ func setLeaderElection(electionChanges electionChanges, server storage.Server) s
 				DisableServers: electionChanges.disable,
 			},
 		},
-	}
+	})
 }
 
 func serversToStorage(updates ...storage.UpdateServer) (result []storage.Server) {

@@ -70,21 +70,6 @@ func (r *LocalEnvironment) NewClusterEnvironment(opts ...ClusterEnvironmentOptio
 	if err != nil && !trace.IsNotFound(err) {
 		log.WithError(err).Warn("Failed to create audit log.")
 	}
-	user, err := r.Backend.GetServiceUser()
-	if err != nil && !trace.IsNotFound(err) {
-		return nil, trace.Wrap(err)
-	}
-	var serviceUser *systeminfo.User
-	if user != nil {
-		serviceUser, err = systeminfo.UserFromOSUser(*user)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-	}
-	nodeAddr, err := r.Backend.GetNodeAddr()
-	if err != nil && !trace.IsNotFound(err) {
-		return nil, trace.Wrap(err)
-	}
 	config := clusterEnvironmentConfig{
 		client:      client,
 		auditLog:    auditLog,

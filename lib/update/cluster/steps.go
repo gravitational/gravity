@@ -24,7 +24,6 @@ import (
 	"strconv"
 
 	libapp "github.com/gravitational/gravity/lib/app"
-	"github.com/gravitational/gravity/lib/checks"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
@@ -79,7 +78,6 @@ func (r *phaseBuilder) initSteps(ctx context.Context) error {
 		etcd:           etcd,
 		gravity:        r.planTemplate.GravityPackage,
 		supportsTaints: supportsTaints(r.updateRuntimeAppVersion),
-		dockerDevice:   r.dockerDevice,
 	})
 	return nil
 }
@@ -119,7 +117,7 @@ func (r phaseBuilder) buildIntermediateSteps(ctx context.Context) (updates []int
 			r.installedApp.Manifest,
 			prevRuntimeFunc, update.runtime,
 			prevTeleport, &update.teleport,
-			r.installedDocker, operator)
+			operator)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
@@ -129,7 +127,6 @@ func (r phaseBuilder) buildIntermediateSteps(ctx context.Context) (updates []int
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
-		update.dockerDevice = r.dockerDevice
 		updates = append(updates, update)
 		prevRuntimeApp = update.runtimeApp
 		prevTeleport = update.teleport
@@ -173,7 +170,6 @@ func (r phaseBuilder) intermediateConfigUpdates(
 	installed schema.Manifest,
 	installedRuntimeFunc runtimePackageGetterFunc, updateRuntime loc.Locator,
 	installedTeleport loc.Locator, updateTeleport *loc.Locator,
-	installedDocker storage.DockerConfig,
 	operator intermediate.PackageRotator,
 ) (updates []storage.UpdateServer, err error) {
 	for _, server := range r.planTemplate.Servers {
@@ -199,13 +195,9 @@ func (r phaseBuilder) intermediateConfigUpdates(
 			Teleport: storage.TeleportPackage{
 				Installed: installedTeleport,
 			},
-			Docker: storage.DockerUpdate{
-				Installed: r.installedDocker,
-				Update:    installedDocker,
-			},
 		}
 		configUpdate, err := operator.RotatePlanetConfig(ops.RotatePlanetConfigRequest{
-			Key:            r.operation.Key(),
+			Key:            (ops.SiteOperation)(r.operation).Key(),
 			Server:         server,
 			Manifest:       installed,
 			RuntimePackage: updateRuntime,
@@ -220,7 +212,7 @@ func (r phaseBuilder) intermediateConfigUpdates(
 		}
 		if updateTeleport != nil {
 			_, nodeConfig, err := operator.RotateTeleportConfig(ops.RotateTeleportConfigRequest{
-				Key:             r.operation.Key(),
+				Key:             (ops.SiteOperation)(r.operation).Key(),
 				Server:          server,
 				TeleportPackage: *updateTeleport,
 				DryRun:          true,
@@ -258,11 +250,6 @@ func (r phaseBuilder) configUpdates(
 			Teleport: storage.TeleportPackage{
 				Installed: installedTeleport,
 			},
-			Docker: storage.DockerUpdate{
-				Installed: r.installedDocker,
-				Update: checks.DockerConfigFromSchemaValue(
-					r.updateApp.Manifest.SystemDocker()),
-			},
 		}
 		needsPlanetUpdate, needsTeleportUpdate, err := systemNeedsUpdate(
 			server.Role, server.ClusterRole,
@@ -277,7 +264,7 @@ func (r phaseBuilder) configUpdates(
 				return nil, trace.Wrap(err)
 			}
 			secretsUpdate, err := r.operator.RotateSecrets(ops.RotateSecretsRequest{
-				Key:            r.operation.ClusterKey(),
+				Key:            (ops.SiteOperation)(r.operation).ClusterKey(),
 				Server:         server,
 				RuntimePackage: *updateRuntime,
 				DryRun:         true,
@@ -286,7 +273,7 @@ func (r phaseBuilder) configUpdates(
 				return nil, trace.Wrap(err)
 			}
 			configUpdate, err := r.operator.RotatePlanetConfig(ops.RotatePlanetConfigRequest{
-				Key:            r.operation.Key(),
+				Key:            (ops.SiteOperation)(r.operation).Key(),
 				Server:         server,
 				Manifest:       r.updateApp.Manifest,
 				RuntimePackage: *updateRuntime,
@@ -303,7 +290,7 @@ func (r phaseBuilder) configUpdates(
 		}
 		if needsTeleportUpdate {
 			_, nodeConfig, err := r.operator.RotateTeleportConfig(ops.RotateTeleportConfigRequest{
-				Key:             r.operation.Key(),
+				Key:             (ops.SiteOperation)(r.operation).Key(),
 				Server:          server,
 				TeleportPackage: r.updateTeleport,
 				DryRun:          true,
@@ -458,8 +445,12 @@ func (r targetUpdateStep) build(leadMaster storage.Server, installedApp, updateA
 	return root
 }
 
-func (r targetUpdateStep) buildInline(root *builder.Phase, leadMaster storage.Server, installedApp, updateApp loc.Locator,
-	depends ...*builder.Phase) {
+func (r targetUpdateStep) buildInline(
+	root *builder.Phase,
+	leadMaster storage.Server,
+	installedApp, updateApp loc.Locator,
+	depends ...*builder.Phase,
+) {
 	servers := reorderServers(r.servers, leadMaster)
 	masters, nodes := libupdate.SplitServers(servers)
 	root.AddParallel(r.bootstrapPhase(servers, installedApp, updateApp).Require(depends...))
@@ -504,6 +495,33 @@ func (r targetUpdateStep) bootstrapPhase(servers []storage.UpdateServer, install
 				Update: &storage.UpdateOperationData{
 					Servers:        []storage.UpdateServer{server},
 					GravityPackage: &r.gravity,
+				},
+			},
+		})
+	}
+	return root
+}
+
+// FIXME: wire me
+func (r targetUpdateStep) bootstrapSELinux(servers []storage.UpdateServer, installedApp, updateApp loc.Locator) *builder.Phase {
+	root := builder.NewPhase(storage.OperationPhase{
+		ID:          "selinux-bootstrap",
+		Description: "Configure SELinux on nodes",
+	})
+	for i, server := range servers {
+		if !server.SELinux {
+			continue
+		}
+		root.AddParallelRaw(storage.OperationPhase{
+			ID:          server.Hostname,
+			Executor:    updateBootstrapSELinux,
+			Description: fmt.Sprintf("Configure SELinux on node %q", server.Hostname),
+			Data: &storage.OperationPhaseData{
+				ExecServer:       &servers[i].Server,
+				Package:          &updateApp,
+				InstalledPackage: &installedApp,
+				Update: &storage.UpdateOperationData{
+					Servers: []storage.UpdateServer{server},
 				},
 			},
 		})
@@ -741,75 +759,6 @@ func (r updateStep) etcdRestartPhase(server, master storage.Server) *builder.Pha
 	})
 }
 
-// dockerDevicePhase builds a phase that takes care of repurposing device used
-// by Docker devicemapper driver for overlay data.
-func (r updateStep) dockerDevicePhase(node storage.UpdateServer) *builder.Phase {
-	dockerDevice := r.dockerDevice
-	if dockerDevice == "" {
-		dockerDevice = node.GetDockerDevice()
-	}
-	root := builder.NewPhase(storage.OperationPhase{
-		ID: "docker",
-		Description: fmt.Sprintf("Repurpose devicemapper device %v for overlay data",
-			dockerDevice),
-	})
-	phases := []storage.OperationPhase{
-		// Remove devicemapper environment (pv, vg, lv) from
-		// the devicemapper device.
-		{
-			ID:       "devicemapper",
-			Executor: dockerDevicemapper,
-			Description: fmt.Sprintf("Remove devicemapper environment from %v",
-				dockerDevice),
-			Data: &storage.OperationPhaseData{
-				Server: &node.Server,
-				Update: &storage.UpdateOperationData{
-					DockerDevice: dockerDevice,
-				},
-			},
-		},
-		// Re-format the device to xfs or ext4.
-		{
-			ID:          "format",
-			Executor:    dockerFormat,
-			Description: fmt.Sprintf("Format %v", dockerDevice),
-			Data: &storage.OperationPhaseData{
-				Server: &node.Server,
-				Update: &storage.UpdateOperationData{
-					DockerDevice: dockerDevice,
-				},
-			},
-		},
-		// Mount the device under Docker data directory.
-		{
-			ID:       "mount",
-			Executor: dockerMount,
-			Description: fmt.Sprintf("Create mount for %v",
-				dockerDevice),
-			Data: &storage.OperationPhaseData{
-				Server: &node.Server,
-				Update: &storage.UpdateOperationData{
-					DockerDevice: dockerDevice,
-				},
-			},
-		},
-		// Start the Planet unit and wait till it's up.
-		{
-			ID:          "planet",
-			Executor:    planetStart,
-			Description: "Start the new Planet container",
-			Data: &storage.OperationPhaseData{
-				Server: &node.Server,
-				Update: &storage.UpdateOperationData{
-					Servers: []storage.UpdateServer{node},
-				},
-			},
-		},
-	}
-	root.AddSequentialRaw(phases...)
-	return root
-}
-
 func newUpdateStep(step updateStep) updateStep {
 	if step.changesetID == "" {
 		step.changesetID = uuid.New()
@@ -835,14 +784,14 @@ func (r updateStep) mastersPhase(leadMaster storage.UpdateServer, otherMasters [
 			},
 		})
 		// election - stepdown first node we will upgrade
-		node.AddSequentialRaw(setLeaderElection(
+		node.AddSequential(setLeaderElection(
 			electionChanges{
 				id:          "stepdown",
 				description: fmt.Sprintf("Step down %q as Kubernetes leader", leadMaster.Hostname),
 				disable:     serversToStorage(leadMaster),
 			},
 			leadMaster.Server,
-		)
+		))
 		// election - force failover to first upgraded master
 		electionChanges := electionChanges{
 			description: fmt.Sprintf("Make node %q Kubernetes leader", leadMaster.Hostname),
@@ -922,14 +871,14 @@ func (r updateStep) commonNode(
 			),
 		)
 	}
-	phases = append(phases, update.Phase{
+	phases = append(phases, builder.NewPhase(storage.OperationPhase{
 		ID:          "health",
 		Executor:    nodeHealth,
 		Description: fmt.Sprintf("Health check node %q", server.Hostname),
 		Data: &storage.OperationPhaseData{
 			Server: &server.Server,
 		},
-	})
+	}))
 	if r.supportsTaints {
 		phases = append(phases, builder.NewPhase(storage.OperationPhase{
 			ID:          "taint",
@@ -1016,8 +965,6 @@ type updateStep struct {
 	runtimeUpdates []loc.Locator
 	// supportsTaints specifies whether this runtime version supports node taints
 	supportsTaints bool
-	// dockerDevice is used for devicemapper migration to overlay
-	dockerDevice string
 }
 
 type etcdVersion struct {

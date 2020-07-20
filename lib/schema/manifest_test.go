@@ -27,7 +27,7 @@ import (
 
 	"github.com/gravitational/trace"
 	. "gopkg.in/check.v1"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -637,7 +637,7 @@ extensions:
 		},
 	}
 	for _, tc := range testCases {
-		c.Assert(ShouldSkipApp(*m, loc.Locator{Name: tc.name}), Equals, tc.skip,
+		c.Assert(ShouldSkipApp(*m, tc.name), Equals, tc.skip,
 			Commentf("Test case %v failed", tc))
 	}
 }

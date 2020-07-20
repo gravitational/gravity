@@ -19,7 +19,6 @@ package phases
 import (
 	"context"
 	"path/filepath"
-	"strconv"
 
 	libapp "github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
@@ -165,16 +164,9 @@ func (p *updatePhaseBootstrapLeader) PostCheck(context.Context) error {
 
 func (p *updatePhaseBootstrapLeader) exportGravity(ctx context.Context) error {
 	p.Infof("Export gravity binary to %v.", p.GravityPath)
-	uid, err := strconv.Atoi(p.bootstrap.ServiceUser.UID)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	gid, err := strconv.Atoi(p.bootstrap.ServiceUser.GID)
-	if err != nil {
-		return trace.Wrap(err)
-	}
 	return intermediate.ExportGravityBinary(ctx, p.bootstrap.GravityPackage,
-		uid, gid, p.GravityPath, p.bootstrap.Packages)
+		p.bootstrap.ServiceUser.UID, p.bootstrap.ServiceUser.GID,
+		p.GravityPath, p.bootstrap.Packages)
 }
 
 func (p *updatePhaseBootstrapLeader) rotateConfigAndSecrets() error {
@@ -457,7 +449,7 @@ func (p *updatePhaseBootstrap) updateNodeAddr() error {
 // updateServiceUser persists the service user in the local state database
 func (p *updatePhaseBootstrap) updateServiceUser() error {
 	p.Infof("Update service user as %v.", p.ServiceUser)
-	return p.HostLocalBackend.SetServiceUser(p.ServiceUser)
+	return p.HostLocalBackend.SetServiceUser(p.ServiceUser.OSUser())
 }
 
 func (p *updatePhaseBootstrap) pullSystemUpdates(ctx context.Context) error {
