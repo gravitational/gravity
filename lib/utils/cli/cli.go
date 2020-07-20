@@ -32,6 +32,9 @@ type CommandArgs struct {
 	Parser ArgsParser
 	// FlagsToAdd is a list of additional flags to add to resulting command.
 	FlagsToAdd []Flag
+	// FlagsToReplace is a list of flags to replace in the command.
+	// A flag is only replaced if it has been provided.
+	FlagsToReplace []Flag
 	// FlagsToRemove is a list of flags to omit from the resulting command.
 	FlagsToRemove []string
 }
@@ -60,6 +63,13 @@ func (r *CommandArgs) Update(command []string) (args []string, err error) {
 func (r *CommandArgs) addRemoveFlags(ctx *kingpin.ParseContext) (flags []Flag) {
 	var args []Flag
 	seen := make(map[string]struct{})
+
+	// replace is an index to easily look up flags that need to be replaced
+	replace := make(map[string]Flag)
+	for _, flag := range r.FlagsToReplace {
+		replace[flag.Name()] = flag
+	}
+
 	for _, el := range ctx.Elements {
 		switch c := el.Clause.(type) {
 		case *kingpin.ArgClause:
@@ -75,6 +85,12 @@ func (r *CommandArgs) addRemoveFlags(ctx *kingpin.ParseContext) (flags []Flag) {
 				continue
 			}
 			seen[c.Model().Name] = struct{}{}
+
+			if flag, exists := replace[c.Model().Name]; exists {
+				flags = append(flags, flag)
+				continue
+			}
+
 			if _, ok := c.Model().Value.(boolCmdlineFlag); ok {
 				flags = append(flags, newBoolFlag(c.Model().Name, *el.Value))
 			} else {
