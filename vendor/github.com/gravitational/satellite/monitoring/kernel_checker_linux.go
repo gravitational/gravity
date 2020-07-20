@@ -36,11 +36,16 @@ const (
 type kernelChecker struct {
 	// MinKernelVersion specifies the minimum supported kernel version.
 	MinKernelVersion KernelVersion
+	// kernelVersionReader specifies the kernel version reader function.
+	kernelVersionReader
 }
 
 // NewKernelChecker returns a new instance of kernel checker.
-func NewKernelChecker(version KernelVersion) *kernelChecker {
-	return &kernelChecker{MinKernelVersion: version}
+func NewKernelChecker(version KernelVersion) health.Checker {
+	return &kernelChecker{
+		MinKernelVersion:    version,
+		kernelVersionReader: realKernelVersionReader,
+	}
 }
 
 // Name returns the checker name.
@@ -59,7 +64,7 @@ func (r *kernelChecker) Check(ctx context.Context, reporter health.Reporter) {
 }
 
 func (r *kernelChecker) check(_ context.Context, reporter health.Reporter) error {
-	release, err := realKernelVersionReader()
+	release, err := r.kernelVersionReader()
 	if err != nil {
 		return trace.Wrap(err, "failed to read kernel version")
 	}
