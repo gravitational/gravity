@@ -329,7 +329,7 @@ type TeleportUpdate struct {
 	// NodeConfigPackage identifies the new host teleport configuration package.
 	// If nil, no changes to configuration package required
 	NodeConfigPackage *loc.Locator `json:"node_config_package,omitempty"`
-	// FIXME:
+	// FIXME(dmitri): need to take this into account?
 	// // MasterConfigPackage identifies the new cluster teleport configuration package.
 	// // If nil, no changes to configuration package required
 	// MasterConfigPackage *loc.Locator `json:"master_config_package,omitempty"`

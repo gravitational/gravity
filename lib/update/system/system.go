@@ -552,8 +552,6 @@ func (r *PackageUpdater) reinstallService(update storage.PackageUpdate, environ 
 	manifest.Service.Package = update.To
 	manifest.Service.ConfigPackage = configPackage
 	manifest.Service.GravityPath = gravityPath
-	// FIXME: is this only required in 5.5?
-	// manifest.Service.NoStart = update.NoStart
 	if manifest.Service.Environment == nil {
 		manifest.Service.Environment = make(map[string]string)
 	}

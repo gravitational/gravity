@@ -77,7 +77,7 @@ type updatePhaseInit struct {
 	// installedApp references the installed application instance
 	installedApp app.Application
 	// existingDocker describes the existing Docker configuration
-	existingDocker        storage.DockerConfig
+	existingDocker storage.DockerConfig
 	// existingDNS is the existing DNS configuration
 	existingDNS storage.DNSConfig
 	// init specifies the optional server-specific initialization
@@ -136,20 +136,20 @@ func NewUpdatePhaseInitLeader(
 	}
 
 	return &updatePhaseInit{
-		Backend:               backend,
-		LocalBackend:          localBackend,
-		Operator:              operator,
-		Packages:              packages,
-		Users:                 users,
-		Client:                client,
-		Cluster:               *cluster,
-		Operation:             *operation,
-		Servers:               p.Plan.Servers,
-		FieldLogger:           logger,
-		updateManifest:        app.Manifest,
-		installedApp:          *installedApp,
-		existingDocker:        existingDocker,
-		existingDNS:           p.Plan.DNSConfig,
+		Backend:        backend,
+		LocalBackend:   localBackend,
+		Operator:       operator,
+		Packages:       packages,
+		Users:          users,
+		Client:         client,
+		Cluster:        *cluster,
+		Operation:      *operation,
+		Servers:        p.Plan.Servers,
+		FieldLogger:    logger,
+		updateManifest: app.Manifest,
+		installedApp:   *installedApp,
+		existingDocker: existingDocker,
+		existingDNS:    p.Plan.DNSConfig,
 		init:           init,
 	}, nil
 }
@@ -448,21 +448,6 @@ func (p *updatePhaseInitServer) updateExistingPackageLabels() error {
 		Locator: installedRuntime,
 		Add:     utils.CombineLabels(pack.RuntimePackageLabels, pack.InstalledLabels),
 	})
-	// FIXME: remove legacy package handling as 5.5 being the minimum does not have them
-	if loc.IsLegacyRuntimePackage(installedRuntime) {
-		var runtimePackageToClear loc.Locator
-		switch installedRuntime.Name {
-		case loc.LegacyPlanetMaster.Name:
-			runtimePackageToClear = loc.LegacyPlanetNode.WithLiteralVersion(installedRuntime.Version)
-		case loc.LegacyPlanetNode.Name:
-			runtimePackageToClear = loc.LegacyPlanetMaster.WithLiteralVersion(installedRuntime.Version)
-		}
-		updates = append(updates, pack.LabelUpdate{
-			Locator: runtimePackageToClear,
-			Add:     pack.RuntimePackageLabels,
-			Remove:  []string{pack.InstalledLabel},
-		})
-	}
 	for _, update := range updates {
 		p.Info(update.String())
 		err := p.localPackages.UpdatePackageLabels(update.Locator, update.Add, update.Remove)
