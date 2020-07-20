@@ -61,7 +61,11 @@ func (r *CmdExecer) Execute() (err error) {
 			logEntry(fmt.Sprintf("[FAILURE]: %s: [PANIC]: %v", cmdString, r))
 			panic(r)
 		}
-		logEntry(fmt.Sprintf("[FAILURE]: %s: [ERROR]: %s", cmdString, trace.UserMessage(err)))
+		if err != nil {
+			logEntry(fmt.Sprintf("[FAILURE]: %s: [ERROR]: %s", cmdString, trace.UserMessage(err)))
+			return
+		}
+		logEntry(fmt.Sprintf("[SUCCESS]: %s", cmdString))
 	}()
 
 	err = r.Exe()
