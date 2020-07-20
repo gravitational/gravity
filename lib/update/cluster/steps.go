@@ -112,12 +112,13 @@ func (r phaseBuilder) buildIntermediateSteps(ctx context.Context) (updates []int
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
-		operator := intermediate.NewPackageRotatorForPath(r.packages, path, r.operation.ID)
+		// FIXME: temporarily generate configuration packages/secrets using the current operator
+		// operator := intermediate.NewPackageRotatorForPath(r.packages, path, r.operation.ID)
 		serverUpdates, err := r.intermediateConfigUpdates(
 			r.installedApp.Manifest,
 			prevRuntimeFunc, update.runtime,
 			prevTeleport, &update.teleport,
-			operator)
+			r.operator) // FIXME: temporarily use current operator
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
