@@ -17,8 +17,11 @@ limitations under the License.
 package cli
 
 import (
+	"fmt"
 	"os"
 	"testing"
+
+	"github.com/gravitational/gravity/lib/constants"
 
 	"github.com/sirupsen/logrus"
 	"gopkg.in/alecthomas/kingpin.v2"
@@ -38,11 +41,12 @@ func (*S) SetUpSuite(c *check.C) {
 
 func (*S) TestUpdatesCommandLine(c *check.C) {
 	var testCases = []struct {
-		comment     string
-		inputArgs   []string
-		flags       []Flag
-		removeFlags []string
-		outputArgs  []string
+		comment      string
+		inputArgs    []string
+		flags        []Flag
+		replaceFlags []Flag
+		removeFlags  []string
+		outputArgs   []string
 	}{
 		{
 			comment:   "Does not overwrite existing flags",
@@ -102,14 +106,47 @@ func (*S) TestUpdatesCommandLine(c *check.C) {
 			},
 			removeFlags: []string{"path"},
 		},
+		{
+			comment:    "Redact install token",
+			inputArgs:  []string{"install", `--token=token`, "--debug"},
+			outputArgs: []string{"install", "--token", fmt.Sprintf(`"%s"`, constants.Redacted), "--debug"},
+			replaceFlags: []Flag{
+				NewFlag("token", constants.Redacted),
+			},
+		},
+		{
+			comment:   "Redact user create password",
+			inputArgs: []string{"user", "create", `--email=email`, `--password=password`},
+			outputArgs: []string{"user create",
+				"--email", `"email"`,
+				"--password", fmt.Sprintf(`"%s"`, constants.Redacted),
+			},
+			replaceFlags: []Flag{
+				NewFlag("password", constants.Redacted),
+			},
+		},
+		{
+			comment:   "Redact multiple flags",
+			inputArgs: []string{"test", `--secret1`, `secret1`, `--secret2`, `secret2`, `test`},
+			outputArgs: []string{"test",
+				"--secret1", fmt.Sprintf(`"%s"`, constants.Redacted),
+				"--secret2", fmt.Sprintf(`"%s"`, constants.Redacted),
+				`"test"`,
+			},
+			replaceFlags: []Flag{
+				NewFlag("secret1", constants.Redacted),
+				NewFlag("secret2", constants.Redacted),
+			},
+		},
 	}
 
 	for _, testCase := range testCases {
 		comment := check.Commentf(testCase.comment)
 		commandArgs := CommandArgs{
-			Parser:        ArgsParserFunc(parseArgs),
-			FlagsToAdd:    testCase.flags,
-			FlagsToRemove: testCase.removeFlags,
+			Parser:         ArgsParserFunc(parseArgs),
+			FlagsToAdd:     testCase.flags,
+			FlagsToRemove:  testCase.removeFlags,
+			FlagsToReplace: testCase.replaceFlags,
 		}
 		args, err := commandArgs.Update(testCase.inputArgs)
 		c.Assert(err, check.IsNil)
@@ -120,10 +157,22 @@ func (*S) TestUpdatesCommandLine(c *check.C) {
 func parseArgs(args []string) (*kingpin.ParseContext, error) {
 	app := kingpin.New("test", "")
 	app.Flag("debug", "").Bool()
-	cmd := app.Command("install", "")
-	cmd.Arg("path", "").String()
-	cmd.Flag("token", "").String()
-	cmd.Flag("advertise-addr", "").String()
-	cmd.Flag("cloud-provider", "").String()
+
+	installCmd := app.Command("install", "")
+	installCmd.Arg("path", "").String()
+	installCmd.Flag("token", "").String()
+	installCmd.Flag("advertise-addr", "").String()
+	installCmd.Flag("cloud-provider", "").String()
+
+	userCmd := app.Command("user", "")
+	userCreateCmd := userCmd.Command("create", "")
+	userCreateCmd.Flag("password", "").String()
+	userCreateCmd.Flag("email", "").String()
+
+	testCmd := app.Command("test", "")
+	testCmd.Arg("arg", "").String()
+	testCmd.Flag("secret1", "").String()
+	testCmd.Flag("secret2", "").String()
+
 	return app.ParseContext(args)
 }
