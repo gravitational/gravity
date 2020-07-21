@@ -98,8 +98,6 @@ func NewUpdatePhaseBootstrapLeader(
 		packageRotator: operator,
 		updateManifest: app.Manifest,
 	}
-
-	// FIXME: temporarily use current operator to generate configuration/secret packages
 	executor.GravityPath, err = getGravityPath()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -118,38 +116,6 @@ func NewUpdatePhaseBootstrapLeader(
 	}
 	executor.existingClusterConfig = configBytes
 	executor.existingEnviron = env.GetKeyValues()
-
-	/*
-		if p.Phase.Data.Update.RuntimeAppVersion == "" {
-			executor.GravityPath, err = getGravityPath()
-			if err != nil {
-				return nil, trace.Wrap(err)
-			}
-			// TODO(dmitri): come up with a better way to differentiate between bootstrap
-			// steps for intermediate updates and the target step
-			env, err := operator.GetClusterEnvironmentVariables(operation.ClusterKey())
-			if err != nil {
-				return nil, trace.Wrap(err)
-			}
-			clusterConfig, err := operator.GetClusterConfiguration(operation.ClusterKey())
-			if err != nil {
-				return nil, trace.Wrap(err)
-			}
-			configBytes, err := clusterconfig.Marshal(clusterConfig)
-			if err != nil {
-				return nil, trace.Wrap(err)
-			}
-			executor.existingClusterConfig = configBytes
-			executor.existingEnviron = env.GetKeyValues()
-		} else {
-			executor.GravityPath, err = intermediate.GravityPathForVersion(p.Phase.Data.Update.RuntimeAppVersion)
-			if err != nil {
-				return nil, trace.Wrap(err)
-			}
-			executor.packageRotator = intermediate.NewPackageRotatorForPath(
-				packages, executor.GravityPath, p.Plan.OperationID)
-		}
-	*/
 	return &executor, nil
 }
 

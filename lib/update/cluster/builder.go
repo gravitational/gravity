@@ -51,15 +51,6 @@ func (r phaseBuilder) checksPhase() *builder.Phase {
 	})
 }
 
-func (r phaseBuilder) hasSELinuxPhase() bool {
-	for _, server := range r.planTemplate.Servers {
-		if server.SELinux {
-			return true
-		}
-	}
-	return false
-}
-
 func (r phaseBuilder) preUpdatePhase() *builder.Phase {
 	return builder.NewPhase(storage.OperationPhase{
 		ID:          "pre-update",
@@ -131,18 +122,6 @@ func (r phaseBuilder) migrationPhase() *builder.Phase {
 	}
 	root.AddParallelRaw(subphases...)
 	return root
-}
-
-// openEBS returns phase that creates OpenEBS configuration in the cluster.
-func (r phaseBuilder) openEBS(leadMaster storage.UpdateServer) *builder.Phase {
-	return builder.NewPhase(storage.OperationPhase{
-		ID:          "openebs",
-		Executor:    openebs,
-		Description: "Create OpenEBS configuration",
-		Data: &storage.OperationPhaseData{
-			ExecServer: &leadMaster.Server,
-		},
-	})
 }
 
 func (r phaseBuilder) cleanupPhase() *builder.Phase {

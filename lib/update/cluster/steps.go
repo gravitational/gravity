@@ -72,12 +72,15 @@ func (r *phaseBuilder) initSteps(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	// check if OpenEBS itegration has been enabled in the new application
+	openEBSEnabled := !r.installedApp.Manifest.OpenEBSEnabled() && r.updateApp.Manifest.OpenEBSEnabled()
 	r.targetStep = newTargetUpdateStep(updateStep{
 		servers:        serverUpdates,
 		runtimeUpdates: runtimeAppUpdates,
 		etcd:           etcd,
 		gravity:        r.planTemplate.GravityPackage,
 		supportsTaints: supportsTaints(r.updateRuntimeAppVersion),
+		openEBSEnabled: openEBSEnabled,
 	})
 	return nil
 }
@@ -112,13 +115,11 @@ func (r phaseBuilder) buildIntermediateSteps(ctx context.Context) (updates []int
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
-		// FIXME: temporarily generate configuration packages/secrets using the current operator
-		// operator := intermediate.NewPackageRotatorForPath(r.packages, path, r.operation.ID)
 		serverUpdates, err := r.intermediateConfigUpdates(
 			r.installedApp.Manifest,
 			prevRuntimeFunc, update.runtime,
 			prevTeleport, &update.teleport,
-			r.operator) // FIXME: temporarily use current operator
+			r.operator)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
@@ -313,8 +314,8 @@ func (r phaseBuilder) configUpdates(
 
 func newIntermediateUpdateStep(version semver.Version) intermediateUpdateStep {
 	return intermediateUpdateStep{
-		updateStep: newUpdateStep(updateStep{}),
-		version:    version,
+		updateStep:        newUpdateStep(updateStep{}),
+		runtimeAppVersion: version,
 	}
 }
 
@@ -350,8 +351,8 @@ func (r *intermediateUpdateStep) fromPackage(env pack.PackageEnvelope, apps liba
 func (r intermediateUpdateStep) build(leadMaster storage.Server, installedApp, updateApp loc.Locator) *builder.Phase {
 	servers := reorderServers(r.servers, leadMaster)
 	masters, nodes := libupdate.SplitServers(servers)
-	root := newRoot(r.version.String())
-	root.AddSequential(r.bootstrap(servers, installedApp, updateApp))
+	root := newRoot(r.runtimeAppVersion.String())
+	root.AddSequential(r.bootstrapPhase(servers, installedApp, updateApp))
 	r.updateStep.addTo(root, masters, nodes)
 	return root
 }
@@ -360,7 +361,7 @@ func (r intermediateUpdateStep) initPhase(leadMaster storage.Server, installedAp
 	return initPhase(leadMaster, r.servers, installedApp, updateApp)
 }
 
-func (r intermediateUpdateStep) bootstrap(servers []storage.UpdateServer, installedApp, updateApp loc.Locator) *builder.Phase {
+func (r intermediateUpdateStep) bootstrapPhase(servers []storage.UpdateServer, installedApp, updateApp loc.Locator) *builder.Phase {
 	root := builder.NewPhase(storage.OperationPhase{
 		ID:          "bootstrap",
 		Description: "Bootstrap update operation on nodes",
@@ -376,7 +377,7 @@ func (r intermediateUpdateStep) bootstrap(servers []storage.UpdateServer, instal
 			InstalledPackage: &installedApp,
 			Update: &storage.UpdateOperationData{
 				Servers:           servers,
-				RuntimeAppVersion: r.version.String(),
+				RuntimeAppVersion: r.runtimeAppVersion.String(),
 				GravityPackage:    &r.gravity,
 			},
 		},
@@ -393,7 +394,7 @@ func (r intermediateUpdateStep) bootstrap(servers []storage.UpdateServer, instal
 				InstalledPackage: &installedApp,
 				Update: &storage.UpdateOperationData{
 					Servers:           []storage.UpdateServer{server},
-					RuntimeAppVersion: r.version.String(),
+					RuntimeAppVersion: r.runtimeAppVersion.String(),
 					GravityPackage:    &r.gravity,
 				},
 			},
@@ -405,16 +406,16 @@ func (r intermediateUpdateStep) bootstrap(servers []storage.UpdateServer, instal
 func (r intermediateUpdateStep) validate() error {
 	var errors []error
 	if r.runtime.IsEmpty() {
-		errors = append(errors, trace.NotFound("planet package for version %v not found", r.version))
+		errors = append(errors, trace.NotFound("planet package for version %v not found", r.runtimeAppVersion))
 	}
 	if r.teleport.IsEmpty() {
-		errors = append(errors, trace.NotFound("teleport package for version %v not found", r.version))
+		errors = append(errors, trace.NotFound("teleport package for version %v not found", r.runtimeAppVersion))
 	}
 	if r.gravity.IsEmpty() {
-		errors = append(errors, trace.NotFound("gravity package for version %v not found", r.version))
+		errors = append(errors, trace.NotFound("gravity package for version %v not found", r.runtimeAppVersion))
 	}
 	if r.runtimeApp.Package.IsEmpty() {
-		errors = append(errors, trace.NotFound("runtime application package for version %v not found", r.version))
+		errors = append(errors, trace.NotFound("runtime application package for version %v not found", r.runtimeAppVersion))
 	}
 	return trace.NewAggregate(errors...)
 }
@@ -422,7 +423,7 @@ func (r intermediateUpdateStep) validate() error {
 func (r intermediateUpdateStep) String() string {
 	var buf bytes.Buffer
 	fmt.Fprint(&buf, "intermediateUpdateStep(")
-	fmt.Fprintf(&buf, "version=%v,", r.version)
+	fmt.Fprintf(&buf, "runtimeAppVersion=%v,", r.runtimeAppVersion)
 	fmt.Fprintf(&buf, "gravity=%v,", r.gravity)
 	fmt.Fprintf(&buf, "updateStep=%v,", r.updateStep)
 	fmt.Fprint(&buf, ")")
@@ -432,8 +433,8 @@ func (r intermediateUpdateStep) String() string {
 // intermediateUpdateStep describes an intermediate update step
 type intermediateUpdateStep struct {
 	updateStep
-	// version defines the runtime application version
-	version semver.Version
+	// runtimeAppVersion defines the runtime application runtimeAppVersion
+	runtimeAppVersion semver.Version
 }
 
 func newTargetUpdateStep(step updateStep) targetUpdateStep {
@@ -455,6 +456,9 @@ func (r targetUpdateStep) buildInline(
 	servers := reorderServers(r.servers, leadMaster)
 	masters, nodes := libupdate.SplitServers(servers)
 	root.AddParallel(r.bootstrapPhase(servers, installedApp, updateApp).Require(depends...))
+	if shouldUpdateSELinux(servers) {
+		root.AddSequential(r.bootstrapSELinuxPhase(servers, installedApp, updateApp))
+	}
 	root.AddSequential(corednsPhase(leadMaster))
 	r.updateStep.addTo(root, masters, nodes)
 }
@@ -503,16 +507,17 @@ func (r targetUpdateStep) bootstrapPhase(servers []storage.UpdateServer, install
 	return root
 }
 
-// FIXME: wire me
-func (r targetUpdateStep) bootstrapSELinux(servers []storage.UpdateServer, installedApp, updateApp loc.Locator) *builder.Phase {
+func (r targetUpdateStep) bootstrapSELinuxPhase(servers []storage.UpdateServer, installedApp, updateApp loc.Locator) *builder.Phase {
 	root := builder.NewPhase(storage.OperationPhase{
 		ID:          "selinux-bootstrap",
 		Description: "Configure SELinux on nodes",
 	})
+
 	for i, server := range servers {
 		if !server.SELinux {
 			continue
 		}
+		server := server
 		root.AddParallelRaw(storage.OperationPhase{
 			ID:          server.Hostname,
 			Executor:    updateBootstrapSELinux,
@@ -553,15 +558,31 @@ func (r updateStep) addTo(root *builder.Phase, masters, nodes []storage.UpdateSe
 			serversToStorage(nodes...)),
 		)
 	}
-	// The "config" phase pulls new teleport master config packages used
-	// by gravity-sites on master nodes: it needs to run *after* system
-	// upgrade phase to make sure that old gravity-sites start up fine
-	// in case new configuration is incompatible, but *before* runtime
-	// phase so new gravity-sites can find it after they start
-	root.AddSequential(
+	phases := []*builder.Phase{
+		// The "config" phase pulls new teleport master config packages used
+		// by gravity-sites on master nodes: it needs to run *after* system
+		// upgrade phase to make sure that old gravity-sites start up fine
+		// in case new configuration is incompatible, but *before* runtime
+		// phase so new gravity-sites can find it after they start
 		r.configPhase(serversToStorage(masters...)),
-		r.runtimePhase(),
-	)
+	}
+	if r.openEBSEnabled {
+		phases = append(phases, r.openEBS(leadMaster.Server))
+	}
+	phases = append(phases, r.runtimePhase())
+	root.AddSequential(phases...)
+}
+
+// openEBS returns phase that creates OpenEBS configuration in the cluster.
+func (r updateStep) openEBS(leadMaster storage.Server) *builder.Phase {
+	return builder.NewPhase(storage.OperationPhase{
+		ID:          "openebs",
+		Executor:    openebs,
+		Description: "Create OpenEBS configuration",
+		Data: &storage.OperationPhaseData{
+			ExecServer: &leadMaster,
+		},
+	})
 }
 
 func (r updateStep) runtimePhase() *builder.Phase {
@@ -966,6 +987,8 @@ type updateStep struct {
 	runtimeUpdates []loc.Locator
 	// supportsTaints specifies whether this runtime version supports node taints
 	supportsTaints bool
+	// openEBSEnabled specifies whether openEBS application is enabled and should be updated
+	openEBSEnabled bool
 }
 
 type etcdVersion struct {
@@ -1075,8 +1098,19 @@ func supportsTaints(runtimeAppVersion semver.Version) (supports bool) {
 	return defaults.BaseTaintsVersion.Compare(runtimeAppVersion) <= 0
 }
 
-func (r updatesByVersion) Len() int           { return len(r) }
-func (r updatesByVersion) Swap(i, j int)      { r[i], r[j] = r[j], r[i] }
-func (r updatesByVersion) Less(i, j int) bool { return r[i].version.Compare(r[j].version) < 0 }
+func (r updatesByVersion) Len() int      { return len(r) }
+func (r updatesByVersion) Swap(i, j int) { r[i], r[j] = r[j], r[i] }
+func (r updatesByVersion) Less(i, j int) bool {
+	return r[i].runtimeAppVersion.Compare(r[j].runtimeAppVersion) < 0
+}
 
 type updatesByVersion []intermediateUpdateStep
+
+func shouldUpdateSELinux(servers []storage.UpdateServer) bool {
+	for _, server := range servers {
+		if server.SELinux {
+			return true
+		}
+	}
+	return false
+}

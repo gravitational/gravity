@@ -91,16 +91,15 @@ func InitOperationPlan(
 	}
 
 	plan, err = NewOperationPlan(ctx, PlanConfig{
-		Backend:   clusterEnv.Backend,
-		Apps:      clusterEnv.Apps,
-		Packages:  clusterEnv.ClusterPackages,
-		Client:    clusterEnv.Client,
-		DNSConfig: dnsConfig,
-		Operator:  clusterEnv.Operator,
-		Operation: operation,
-		Leader:    leader,
-		// FIXME: was this added for a reason in 5.5?
-		Cluster: *cluster,
+		Backend:     clusterEnv.Backend,
+		Apps:        clusterEnv.Apps,
+		Packages:    clusterEnv.ClusterPackages,
+		Client:      clusterEnv.Client,
+		DNSConfig:   dnsConfig,
+		Operator:    clusterEnv.Operator,
+		Operation:   operation,
+		Leader:      leader,
+		ServiceUser: &cluster.ServiceUser,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -238,7 +237,7 @@ func NewOperationPlan(ctx context.Context, config PlanConfig) (*storage.Operatio
 		updateRuntimeAppVersion:    *updateRuntimeAppVersion,
 		installedTeleport:          *installedTeleport,
 		updateTeleport:             *updateTeleport,
-		serviceUser:                config.Cluster.ServiceUser,
+		serviceUser:                *config.ServiceUser,
 	}
 
 	err = builder.initSteps(ctx)
@@ -275,6 +274,9 @@ func (r *PlanConfig) checkAndSetDefaults() error {
 	if r.Leader == nil {
 		return trace.BadParameter("operation leader node is required")
 	}
+	if r.ServiceUser == nil {
+		return trace.BadParameter("cluster service user is required")
+	}
 	return nil
 }
 
@@ -296,8 +298,8 @@ type PlanConfig struct {
 	Client *kubernetes.Clientset
 	// Leader specifies the server to execute the upgrade operation on
 	Leader *storage.Server
-	// Cluster describes the installed cluster
-	Cluster ops.Site
+	// ServiceUser specifies the cluster's service user
+	ServiceUser *storage.OSUser
 }
 
 func checkAndSetServerDefaults(servers []storage.Server, client corev1.NodeInterface) ([]storage.Server, error) {
