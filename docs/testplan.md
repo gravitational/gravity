@@ -548,6 +548,7 @@ Execute `gravity gc`.
 
   Log forwarder settings
   - [ ] Verify that Creating/Deleting/Editing a log forwarder works.
+  - [ ] Verify that after creating a log forwarder resource, it survive upgrades.
 
 #### Audit Logs
 - [ ] Verify that Audit events of different types are shown.
