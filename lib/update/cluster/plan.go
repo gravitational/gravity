@@ -212,13 +212,14 @@ func NewOperationPlan(ctx context.Context, config PlanConfig) (*storage.Operatio
 
 	builder := phaseBuilder{
 		planTemplate: storage.OperationPlan{
-			OperationID:    config.Operation.ID,
-			OperationType:  config.Operation.Type,
-			AccountID:      config.Operation.AccountID,
-			ClusterName:    config.Operation.SiteDomain,
-			Servers:        servers,
-			DNSConfig:      config.DNSConfig,
-			GravityPackage: *gravityPackage,
+			OperationID:        config.Operation.ID,
+			OperationType:      config.Operation.Type,
+			AccountID:          config.Operation.AccountID,
+			ClusterName:        config.Operation.SiteDomain,
+			Servers:            servers,
+			DNSConfig:          config.DNSConfig,
+			GravityPackage:     *gravityPackage,
+			OfflineCoordinator: config.Leader,
 		},
 		operator:                   config.Operator,
 		operation:                  *config.Operation,
