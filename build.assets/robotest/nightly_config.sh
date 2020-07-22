@@ -9,7 +9,8 @@ source $(dirname $0)/utils.sh
 declare -A UPGRADE_MAP
 
 UPGRADE_MAP[$(recommended_upgrade_tag $(branch 7.0.x))]="centos:7 debian:9 ubuntu:18" # this branch
-UPGRADE_MAP[7.0.0]="ubuntu:16"
+UPGRADE_MAP[7.0.12]="ubuntu:16"  # 7.0.12 is the first LTS 7.0 release
+UPGRADE_MAP[7.0.0]="ubuntu:16"  # 7.0.0 is prone to upgrade failure without https://github.com/gravitational/planet/pull/671
 UPGRADE_MAP[$(recommended_upgrade_tag $(branch 6.1.x))]="redhat:7" # compatible LTS version
 UPGRADE_MAP[6.1.0]="centos:7"
 UPGRADE_MAP[$(recommended_upgrade_tag $(branch 6.3.x))]="debian:9" # compatible non-LTS version
