@@ -134,6 +134,7 @@ spec:
 
 - [ ] Install a 1-node cluster of previous LTS version.
 - [ ] Upgrade the cluster to the current version.
+  - [ ] Verify that after customizing the log forwarder resource, changes survive the upgrade.
 - [ ] Join another node to the cluster.
   - [ ] Verify the node joined successfully.
 
@@ -548,7 +549,6 @@ Execute `gravity gc`.
 
   Log forwarder settings
   - [ ] Verify that Creating/Deleting/Editing a log forwarder works.
-  - [ ] Verify that after creating a log forwarder resource, it survive upgrades.
 
 #### Audit Logs
 - [ ] Verify that Audit events of different types are shown.
