@@ -23,11 +23,15 @@ import (
 	"github.com/gravitational/gravity/lib/compare"
 	"github.com/gravitational/gravity/lib/storage"
 
+	"github.com/gravitational/trace"
 	"gopkg.in/check.v1"
 )
 
+// TestFollowOperationPlan verifies the operation plan watcher receives proper
+// plan update events.
 func (s *FSMSuite) TestFollowOperationPlan(c *check.C) {
-	ctx, cancel := context.WithTimeout(context.TODO(), 10*time.Second)
+	// Make sure to cap the test execution in case something's not working.
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	engine := newTestEngine(func() storage.OperationPlan {
@@ -40,35 +44,31 @@ func (s *FSMSuite) TestFollowOperationPlan(c *check.C) {
 
 	// Emit a couple of plan changes prior to starting the watch.
 	tsInit := s.clock.Now()
-	engine.ChangePhaseState(ctx, StateChange{
-		Phase:   "/init",
-		State:   storage.OperationPhaseStateCompleted,
-		created: tsInit,
-	})
+	engine.changePhaseStateWithTimestamp(ctx, StateChange{
+		Phase: "/init",
+		State: storage.OperationPhaseStateCompleted,
+	}, tsInit)
 	tsBootstrap := s.clock.Now().Add(time.Minute)
-	engine.ChangePhaseState(ctx, StateChange{
-		Phase:   "/bootstrap/node-1",
-		State:   storage.OperationPhaseStateCompleted,
-		created: tsBootstrap,
-	})
+	engine.changePhaseStateWithTimestamp(ctx, StateChange{
+		Phase: "/bootstrap/node-1",
+		State: storage.OperationPhaseStateCompleted,
+	}, tsBootstrap)
 
 	// Save the initial plan state (before watch) for comparison later.
 	planAfterBootstrap, err := engine.GetPlan()
 	c.Assert(err, check.IsNil)
 
 	// Launch the plan watcher.
-	eventsCh, err := FollowOperationPlan(ctx, func() (*storage.OperationPlan, error) {
+	eventsCh := FollowOperationPlan(ctx, func() (*storage.OperationPlan, error) {
 		return engine.GetPlan()
 	})
-	c.Assert(err, check.IsNil)
 
 	// Change a phase state after the watch has been established as well.
 	tsUpgrade := s.clock.Now().Add(2 * time.Minute)
-	engine.ChangePhaseState(ctx, StateChange{
-		Phase:   "/upgrade",
-		State:   storage.OperationPhaseStateCompleted,
-		created: tsUpgrade,
-	})
+	engine.changePhaseStateWithTimestamp(ctx, StateChange{
+		Phase: "/upgrade",
+		State: storage.OperationPhaseStateCompleted,
+	}, tsUpgrade)
 
 	planAfterUpgrade, err := engine.GetPlan()
 	c.Assert(err, check.IsNil)
@@ -81,7 +81,7 @@ L:
 		select {
 		case event := <-eventsCh:
 			events = append(events, event)
-			if _, isFinished := event.(*PlanFinished); isFinished {
+			if _, isFinished := event.(*PlanFinishEvent); isFinished {
 				break L
 			}
 		case <-ctx.Done():
@@ -90,7 +90,7 @@ L:
 	}
 
 	c.Assert([]PlanEvent{
-		&PlanChanged{
+		&PlanChangeEvent{
 			Plan: *planAfterBootstrap,
 			Change: storage.PlanChange{
 				PhaseID:    "/init",
@@ -99,7 +99,7 @@ L:
 				Created:    tsInit,
 			},
 		},
-		&PlanChanged{
+		&PlanChangeEvent{
 			Plan: *planAfterBootstrap,
 			Change: storage.PlanChange{
 				PhaseID:    "/bootstrap/node-1",
@@ -108,7 +108,7 @@ L:
 				Created:    tsBootstrap,
 			},
 		},
-		&PlanChanged{
+		&PlanChangeEvent{
 			Plan: *planAfterUpgrade,
 			Change: storage.PlanChange{
 				PhaseID:    "/upgrade",
@@ -117,7 +117,71 @@ L:
 				Created:    tsUpgrade,
 			},
 		},
-		&PlanFinished{
+		&PlanFinishEvent{
+			Plan: *planAfterUpgrade,
+		},
+	}, compare.DeepEquals, events)
+}
+
+// TestFollowOperationPlanFailure makes sure the operation plan watcher
+// retries in case of failures.
+func (s *FSMSuite) TestFollowOperationPlanFailure(c *check.C) {
+	// Make sure to cap the test execution in case something's not working.
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Generate a very simple single-phase plan and complete it.
+	engine := newTestEngine(func() storage.OperationPlan {
+		return *(s.planner.newPlan(
+			s.planner.upgradePhase(storage.OperationPhaseStateUnstarted)))
+	})
+
+	tsUpgrade := s.clock.Now()
+	engine.changePhaseStateWithTimestamp(ctx, StateChange{
+		Phase: "/upgrade",
+		State: storage.OperationPhaseStateCompleted,
+	}, tsUpgrade)
+
+	planAfterUpgrade, err := engine.GetPlan()
+	c.Assert(err, check.IsNil)
+
+	// Launch the plan watcher, make sure getPlan returns error first couple of times.
+	counter := 0
+	eventsCh := FollowOperationPlan(ctx, func() (*storage.OperationPlan, error) {
+		if counter < 2 {
+			counter += 1
+			return nil, trace.BadParameter("plan reload test failure")
+		}
+		return engine.GetPlan()
+	})
+
+	// Make sure the watch finishes and events are received.
+	var events []PlanEvent
+
+L:
+	for {
+		select {
+		case event := <-eventsCh:
+			events = append(events, event)
+			if _, isFinished := event.(*PlanFinishEvent); isFinished {
+				break L
+			}
+		case <-ctx.Done():
+			c.Fatalf("Timeout following operation plan")
+		}
+	}
+
+	c.Assert([]PlanEvent{
+		&PlanChangeEvent{
+			Plan: *planAfterUpgrade,
+			Change: storage.PlanChange{
+				PhaseID:    "/upgrade",
+				PhaseIndex: 0,
+				NewState:   storage.OperationPhaseStateCompleted,
+				Created:    tsUpgrade,
+			},
+		},
+		&PlanFinishEvent{
 			Plan: *planAfterUpgrade,
 		},
 	}, compare.DeepEquals, events)

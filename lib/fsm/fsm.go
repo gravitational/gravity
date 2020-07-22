@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"path"
-	"time"
 
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/rpc"
@@ -606,8 +605,6 @@ type StateChange struct {
 	State string
 	// Error is the error that happened during phase execution
 	Error trace.Error
-	// created overrides the time for the state change, only used in tests.
-	created time.Time
 }
 
 // String returns a textual representation of this state change

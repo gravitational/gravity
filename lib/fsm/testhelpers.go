@@ -58,15 +58,22 @@ func (t *testEngine) GetExecutor(p ExecutorParams, r Remote) (PhaseExecutor, err
 
 // ChangePhaseState records the provided phase state change in the test engine.
 func (t *testEngine) ChangePhaseState(ctx context.Context, ch StateChange) error {
-	// Make sure that new changelog entries get the most recent timestamp.
-	timestamp := ch.created
-	if timestamp.IsZero() {
-		timestamp = t.clock.Now().Add(time.Duration(len(t.changelog)) * time.Minute)
-	}
 	t.changelog = append(t.changelog, storage.PlanChange{
 		PhaseID:  ch.Phase,
 		NewState: ch.State,
-		Created:  timestamp,
+		// Make sure that new changelog entries get the most recent timestamp.
+		Created: t.clock.Now().Add(time.Duration(len(t.changelog)) * time.Minute),
+	})
+	return nil
+}
+
+// changePhaseStateWithTimestamp records the provided phase state change in the
+// test engine with the specified timestamp.
+func (t *testEngine) changePhaseStateWithTimestamp(ctx context.Context, ch StateChange, created time.Time) error {
+	t.changelog = append(t.changelog, storage.PlanChange{
+		PhaseID:  ch.Phase,
+		NewState: ch.State,
+		Created:  created,
 	})
 	return nil
 }

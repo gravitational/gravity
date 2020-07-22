@@ -204,15 +204,11 @@ func outputOrFollowPlan(localEnv *localenv.LocalEnvironment, getPlan fsm.GetPlan
 func followPlan(localEnv *localenv.LocalEnvironment, getPlan fsm.GetPlanFunc) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	eventsCh, err := fsm.FollowOperationPlan(ctx, getPlan)
-	if err != nil {
-		return trace.Wrap(err)
-	}
 	// Iterate over updates received from the watcher. There are 2 stop
 	// conditions for the watch:
 	//  * Phase failed -> exit with error.
 	//  * Plan fully completed or rolled back -> exit without error.
-	for eventI := range eventsCh {
+	for eventI := range fsm.FollowOperationPlan(ctx, getPlan) {
 		switch event := eventI.(type) {
 		case *fsm.PlanChanged:
 			localEnv.Printf("%v\t[%3v/%3v] Phase %v is %v\n",

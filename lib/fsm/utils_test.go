@@ -99,7 +99,36 @@ func (s *FSMUtilsSuite) TestDiffPlan(c *check.C) {
 			s.planner.bootstrapSubPhase("node-2", storage.OperationPhaseStateFailed)),
 		s.planner.upgradePhase(storage.OperationPhaseStateUnstarted))
 
-	diff, err := DiffPlan(*prevPlan, *nextPlan)
+	diff, err := DiffPlan(prevPlan, *nextPlan)
+	c.Assert(err, check.IsNil)
+	c.Assert(diff, compare.DeepEquals, []storage.PlanChange{
+		{
+			PhaseID:    "/init",
+			PhaseIndex: 0,
+			NewState:   storage.OperationPhaseStateCompleted,
+		},
+		{
+			PhaseID:    "/bootstrap/node-1",
+			PhaseIndex: 1,
+			NewState:   storage.OperationPhaseStateCompleted,
+		},
+		{
+			PhaseID:    "/bootstrap/node-2",
+			PhaseIndex: 2,
+			NewState:   storage.OperationPhaseStateFailed,
+		},
+	})
+}
+
+func (s *FSMUtilsSuite) TestDiffPlanNoPrevious(c *check.C) {
+	nextPlan := s.planner.newPlan(
+		s.planner.initPhase(storage.OperationPhaseStateCompleted),
+		s.planner.bootstrapPhase(
+			s.planner.bootstrapSubPhase("node-1", storage.OperationPhaseStateCompleted),
+			s.planner.bootstrapSubPhase("node-2", storage.OperationPhaseStateFailed)),
+		s.planner.upgradePhase(storage.OperationPhaseStateUnstarted))
+
+	diff, err := DiffPlan(nil, *nextPlan)
 	c.Assert(err, check.IsNil)
 	c.Assert(diff, compare.DeepEquals, []storage.PlanChange{
 		{

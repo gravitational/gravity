@@ -140,9 +140,14 @@ func ResolvePlan(plan storage.OperationPlan, changelog storage.PlanChangelog) *s
 	return &plan
 }
 
-// DiffPlan returns the difference between the next and previous plans in the
+// DiffPlan returns the difference between the previous and the next plans in the
 // form of a changelog.
-func DiffPlan(prevPlan, nextPlan storage.OperationPlan) (diff []storage.PlanChange, err error) {
+func DiffPlan(prevPlan *storage.OperationPlan, nextPlan storage.OperationPlan) (diff []storage.PlanChange, err error) {
+	// If the current plan is not provided, the diff is all attempted phases
+	// from the next plan.
+	if prevPlan == nil {
+		return GetPlanProgress(nextPlan), nil
+	}
 	// Quick sanity check that this is the same plan.
 	if prevPlan.OperationID != nextPlan.OperationID {
 		return nil, trace.BadParameter("can't diff different plans: %v %v", prevPlan, nextPlan)
