@@ -676,6 +676,9 @@ const (
 	// GravityCLITag is used to tag gravity cli command log entries in the
 	// system journal.
 	GravityCLITag = "gravity-cli"
+
+	// Redacted is used as a replacement string for sensitive data.
+	Redacted = "*****"
 )
 
 var (

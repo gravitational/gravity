@@ -17,6 +17,7 @@ limitations under the License.
 package cli
 
 import (
+	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -28,6 +29,7 @@ import (
 	"github.com/gravitational/gravity/tool/common"
 
 	"github.com/gravitational/trace"
+	"gopkg.in/alecthomas/kingpin.v2"
 )
 
 // LocalEnvironmentFactory defines an interface for creating operation-specific environments
@@ -160,4 +162,11 @@ func uninstallExistingAgentService() error {
 		return trace.Wrap(err)
 	}
 	return svm.UninstallService(defaults.GravityRPCAgentServiceName)
+}
+
+func parseArgs(args []string) (*kingpin.ParseContext, error) {
+	app := kingpin.New("gravity", "")
+	app.Terminate(func(int) {})
+	app.Writer(ioutil.Discard)
+	return RegisterCommands(app).ParseContext(args)
 }
