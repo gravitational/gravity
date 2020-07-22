@@ -31,32 +31,37 @@ type GetPlanFunc func() (*storage.OperationPlan, error)
 
 // PlanEvent represents an operation plan event.
 type PlanEvent interface {
-	// IsPlanEvent returns true for events representing plan changes.
-	IsPlanEvent() bool
+	// isTerminalEvent returns true for terminal plan events, such as if
+	// a plan was completed or fully rolled back.
+	isTerminalEvent() bool
 }
 
-// PlanChangeEvent is sent when plan phases change states.
-type PlanChangeEvent struct {
+// PlanChangedEvent is sent when plan phases change states.
+type PlanChangedEvent struct {
 	// Change is a plan phase change.
 	Change storage.PlanChange
-	// Plan is the resolved operation plan.
-	Plan storage.OperationPlan
 }
 
-// IsPlanEvent is for satisfying PlanEvent interface.
-func (e *PlanChangeEvent) IsPlanEvent() bool { return true }
+// isTerminalEvent returns false for the plan change event.
+func (e *PlanChangedEvent) isTerminalEvent() bool { return false }
 
-// PlanFinishEvent is sent when the plan is fully completed or rolled back.
-type PlanFinishEvent struct {
-	// Plan is the resolved operation plan.
-	Plan storage.OperationPlan
-}
+// PlanCompletedEvent is sent when the plan is fully completed.
+type PlanCompletedEvent struct{}
 
-// IsPlanEvent is for satisfying PlanEvent interface.
-func (e *PlanFinishEvent) IsPlanEvent() bool { return true }
+// isTerminalEvent returns true for the completed plan event.
+func (e *PlanCompletedEvent) isTerminalEvent() bool { return true }
 
-// FollowOperationPlan returns a channel that receives phase updates for the
-// specified plan.
+// PlanRolledBackEvent is sent when the plan is fully rolled back.
+type PlanRolledBackEvent struct{}
+
+// isTerminalEvent returns true for the rolled back plan event.
+func (e *PlanRolledBackEvent) isTerminalEvent() bool { return true }
+
+// FollowOperationPlan returns a channel that will be receiving phase updates
+// for the specified plan.
+//
+// The watch will stop upon entering one of the terminal operation states, for
+// example if the obtained plan is completed or fully rolled back.
 func FollowOperationPlan(ctx context.Context, getPlan GetPlanFunc) <-chan PlanEvent {
 	ch := make(chan PlanEvent, 100)
 	// Send an initial batch of events from the initial state of the plan.
@@ -65,22 +70,19 @@ func FollowOperationPlan(ctx context.Context, getPlan GetPlanFunc) <-chan PlanEv
 		logrus.WithError(err).Error("Failed to load plan.")
 	}
 	if plan != nil {
-		for _, change := range GetPlanProgress(*plan) {
-			ch <- &PlanChangeEvent{Change: change, Plan: *plan}
-		}
-		if IsCompleted(plan) || IsRolledBack(plan) {
-			ch <- &PlanFinishEvent{Plan: *plan}
-			return ch
+		for _, event := range getPlanEvents(GetPlanProgress(*plan), *plan) {
+			ch <- event
+			if event.isTerminalEvent() {
+				return ch
+			}
 		}
 	}
 	// Then launch a goroutine that will be monitoring the progress.
 	go func() {
 		tickerBackoff := getFollowBackoffPolicy()
 		ticker := backoff.NewTicker(tickerBackoff)
-		defer func() {
-			ticker.Stop()
-			logrus.Info("Operation plan watcher done.")
-		}()
+		defer ticker.Stop()
+		defer logrus.Info("Operation plan watcher done.")
 		for {
 			select {
 			case <-ticker.C:
@@ -94,12 +96,11 @@ func FollowOperationPlan(ctx context.Context, getPlan GetPlanFunc) <-chan PlanEv
 					logrus.WithError(err).Error("Failed to diff plans.")
 					continue
 				}
-				for _, change := range changes {
-					ch <- &PlanChangeEvent{Change: change, Plan: *nextPlan}
-				}
-				if IsCompleted(nextPlan) || IsRolledBack(nextPlan) {
-					ch <- &PlanFinishEvent{Plan: *nextPlan}
-					return
+				for _, event := range getPlanEvents(changes, *nextPlan) {
+					ch <- event
+					if event.isTerminalEvent() {
+						return
+					}
 				}
 				// Update the current plan for comparison on the next cycle and
 				// reset the backoff so the ticker keeps ticking every second
@@ -112,6 +113,20 @@ func FollowOperationPlan(ctx context.Context, getPlan GetPlanFunc) <-chan PlanEv
 		}
 	}()
 	return ch
+}
+
+// getPlanEvents returns a list of plan events from the provided list of
+// changes and the current state of the plan.
+func getPlanEvents(changes []storage.PlanChange, plan storage.OperationPlan) (events []PlanEvent) {
+	for _, change := range changes {
+		events = append(events, &PlanChangedEvent{Change: change})
+	}
+	if IsCompleted(&plan) {
+		events = append(events, &PlanCompletedEvent{})
+	} else if IsRolledBack(&plan) {
+		events = append(events, &PlanRolledBackEvent{})
+	}
+	return events
 }
 
 // getFollowBackoffPolicy returns retry/backoff policy for the plan follower.

@@ -202,6 +202,10 @@ func outputOrFollowPlan(localEnv *localenv.LocalEnvironment, getPlan fsm.GetPlan
 }
 
 func followPlan(localEnv *localenv.LocalEnvironment, getPlan fsm.GetPlanFunc) error {
+	plan, err := getPlan()
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	// Iterate over updates received from the watcher. There are 2 stop
@@ -210,26 +214,25 @@ func followPlan(localEnv *localenv.LocalEnvironment, getPlan fsm.GetPlanFunc) er
 	//  * Plan fully completed or rolled back -> exit without error.
 	for eventI := range fsm.FollowOperationPlan(ctx, getPlan) {
 		switch event := eventI.(type) {
-		case *fsm.PlanChangeEvent:
+		case *fsm.PlanChangedEvent:
 			localEnv.Printf("%v\t[%3v/%3v] Phase %v is %v\n",
 				color.BlueString(event.Change.Created.Format(constants.HumanDateFormatSeconds)),
 				event.Change.PhaseIndex+1,
-				event.Plan.Len(),
+				plan.Len(),
 				event.Change.PhaseID,
 				event.Change.NewState)
 			if event.Change.NewState == storage.OperationPhaseStateFailed {
 				return trace.Errorf(string(event.Change.Error.Err))
 			}
-		case *fsm.PlanFinishEvent:
-			if fsm.IsCompleted(&event.Plan) {
-				localEnv.Printf("%v\t%v\n",
-					color.BlueString(time.Now().Format(constants.HumanDateFormatSeconds)),
-					color.GreenString("Operation plan is completed"))
-			} else if fsm.IsRolledBack(&event.Plan) {
-				localEnv.Printf("%v\t%v\n",
-					color.BlueString(time.Now().Format(constants.HumanDateFormatSeconds)),
-					color.GreenString("Operation plan is rolled back"))
-			}
+		case *fsm.PlanCompletedEvent:
+			localEnv.Printf("%v\t%v\n",
+				color.BlueString(time.Now().Format(constants.HumanDateFormatSeconds)),
+				color.GreenString("Operation plan is completed"))
+			return nil
+		case *fsm.PlanRolledBackEvent:
+			localEnv.Printf("%v\t%v\n",
+				color.BlueString(time.Now().Format(constants.HumanDateFormatSeconds)),
+				color.GreenString("Operation plan is rolled back"))
 			return nil
 		}
 	}

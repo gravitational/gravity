@@ -54,10 +54,6 @@ func (s *FSMSuite) TestFollowOperationPlan(c *check.C) {
 		State: storage.OperationPhaseStateCompleted,
 	}, tsBootstrap)
 
-	// Save the initial plan state (before watch) for comparison later.
-	planAfterBootstrap, err := engine.GetPlan()
-	c.Assert(err, check.IsNil)
-
 	// Launch the plan watcher.
 	eventsCh := FollowOperationPlan(ctx, func() (*storage.OperationPlan, error) {
 		return engine.GetPlan()
@@ -70,9 +66,6 @@ func (s *FSMSuite) TestFollowOperationPlan(c *check.C) {
 		State: storage.OperationPhaseStateCompleted,
 	}, tsUpgrade)
 
-	planAfterUpgrade, err := engine.GetPlan()
-	c.Assert(err, check.IsNil)
-
 	// All received plan events will be collected here after the watch stops.
 	var events []PlanEvent
 
@@ -81,7 +74,7 @@ L:
 		select {
 		case event := <-eventsCh:
 			events = append(events, event)
-			if _, isFinished := event.(*PlanFinishEvent); isFinished {
+			if event.isTerminalEvent() {
 				break L
 			}
 		case <-ctx.Done():
@@ -89,9 +82,8 @@ L:
 		}
 	}
 
-	c.Assert([]PlanEvent{
-		&PlanChangeEvent{
-			Plan: *planAfterBootstrap,
+	c.Assert(events, compare.DeepEquals, []PlanEvent{
+		&PlanChangedEvent{
 			Change: storage.PlanChange{
 				PhaseID:    "/init",
 				PhaseIndex: 0,
@@ -99,8 +91,7 @@ L:
 				Created:    tsInit,
 			},
 		},
-		&PlanChangeEvent{
-			Plan: *planAfterBootstrap,
+		&PlanChangedEvent{
 			Change: storage.PlanChange{
 				PhaseID:    "/bootstrap/node-1",
 				PhaseIndex: 1,
@@ -108,8 +99,7 @@ L:
 				Created:    tsBootstrap,
 			},
 		},
-		&PlanChangeEvent{
-			Plan: *planAfterUpgrade,
+		&PlanChangedEvent{
 			Change: storage.PlanChange{
 				PhaseID:    "/upgrade",
 				PhaseIndex: 2,
@@ -117,10 +107,8 @@ L:
 				Created:    tsUpgrade,
 			},
 		},
-		&PlanFinishEvent{
-			Plan: *planAfterUpgrade,
-		},
-	}, compare.DeepEquals, events)
+		&PlanCompletedEvent{},
+	})
 }
 
 // TestFollowOperationPlanFailure makes sure the operation plan watcher
@@ -142,9 +130,6 @@ func (s *FSMSuite) TestFollowOperationPlanFailure(c *check.C) {
 		State: storage.OperationPhaseStateCompleted,
 	}, tsUpgrade)
 
-	planAfterUpgrade, err := engine.GetPlan()
-	c.Assert(err, check.IsNil)
-
 	// Launch the plan watcher, make sure getPlan returns error first couple of times.
 	counter := 0
 	eventsCh := FollowOperationPlan(ctx, func() (*storage.OperationPlan, error) {
@@ -163,7 +148,7 @@ L:
 		select {
 		case event := <-eventsCh:
 			events = append(events, event)
-			if _, isFinished := event.(*PlanFinishEvent); isFinished {
+			if event.isTerminalEvent() {
 				break L
 			}
 		case <-ctx.Done():
@@ -171,9 +156,8 @@ L:
 		}
 	}
 
-	c.Assert([]PlanEvent{
-		&PlanChangeEvent{
-			Plan: *planAfterUpgrade,
+	c.Assert(events, compare.DeepEquals, []PlanEvent{
+		&PlanChangedEvent{
 			Change: storage.PlanChange{
 				PhaseID:    "/upgrade",
 				PhaseIndex: 0,
@@ -181,8 +165,6 @@ L:
 				Created:    tsUpgrade,
 			},
 		},
-		&PlanFinishEvent{
-			Plan: *planAfterUpgrade,
-		},
-	}, compare.DeepEquals, events)
+		&PlanCompletedEvent{},
+	})
 }
