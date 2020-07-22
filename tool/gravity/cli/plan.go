@@ -210,7 +210,7 @@ func followPlan(localEnv *localenv.LocalEnvironment, getPlan fsm.GetPlanFunc) er
 	//  * Plan fully completed or rolled back -> exit without error.
 	for eventI := range fsm.FollowOperationPlan(ctx, getPlan) {
 		switch event := eventI.(type) {
-		case *fsm.PlanChanged:
+		case *fsm.PlanChangeEvent:
 			localEnv.Printf("%v\t[%3v/%3v] Phase %v is %v\n",
 				color.BlueString(event.Change.Created.Format(constants.HumanDateFormatSeconds)),
 				event.Change.PhaseIndex+1,
@@ -220,7 +220,7 @@ func followPlan(localEnv *localenv.LocalEnvironment, getPlan fsm.GetPlanFunc) er
 			if event.Change.NewState == storage.OperationPhaseStateFailed {
 				return trace.Errorf(string(event.Change.Error.Err))
 			}
-		case *fsm.PlanFinished:
+		case *fsm.PlanFinishEvent:
 			if fsm.IsCompleted(&event.Plan) {
 				localEnv.Printf("%v\t%v\n",
 					color.BlueString(time.Now().Format(constants.HumanDateFormatSeconds)),
