@@ -38,6 +38,7 @@ import (
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/utils"
+	"github.com/gravitational/gravity/lib/utils/cli"
 
 	"github.com/gravitational/configure/cstrings"
 	teleutils "github.com/gravitational/teleport/lib/utils"
@@ -56,9 +57,9 @@ func ConfigureEnvironment() error {
 }
 
 // Run parses CLI arguments and executes an appropriate gravity command
-func Run(g *Application) error {
+func Run(g *Application) (err error) {
 	log.Debugf("Executing: %v.", os.Args)
-	err := ConfigureEnvironment()
+	err = ConfigureEnvironment()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -82,7 +83,14 @@ func Run(g *Application) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return Execute(g, cmd, extraArgs)
+
+	execer := CmdExecer{
+		Exe:       getExec(g, cmd, extraArgs),
+		Parser:    cli.ArgsParserFunc(parseArgs),
+		Args:      args,
+		ExtraArgs: extraArgs,
+	}
+	return execer.Execute()
 }
 
 // InitAndCheck initializes the CLI application according to the provided
@@ -251,6 +259,13 @@ func InitAndCheck(g *Application, cmd string) error {
 	}
 
 	return nil
+}
+
+// getExec returns the Executable function to execute the specified gravity cmd.
+func getExec(g *Application, cmd string, extraArgs []string) Executable {
+	return func() error {
+		return Execute(g, cmd, extraArgs)
+	}
 }
 
 // Execute executes the gravity command given with cmd
