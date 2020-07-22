@@ -33,7 +33,7 @@ import (
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 	libupdate "github.com/gravitational/gravity/lib/update"
-	"github.com/gravitational/gravity/lib/update/cluster/internal/intermediate"
+	libphase "github.com/gravitational/gravity/lib/update/cluster/phases"
 	"github.com/gravitational/gravity/lib/update/internal/builder"
 
 	"github.com/coreos/go-semver/semver"
@@ -89,7 +89,7 @@ func (r phaseBuilder) hasRuntimeUpdates() bool {
 	return len(r.steps) != 0 || len(r.targetStep.runtimeUpdates) != 0
 }
 
-func (r phaseBuilder) buildIntermediateSteps(ctx context.Context) (updates []intermediateUpdateStep, err error) {
+func (r phaseBuilder) buildIntermediateSteps(context.Context) (updates []intermediateUpdateStep, err error) {
 	result, err := r.collectIntermediateSteps()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -107,14 +107,6 @@ func (r phaseBuilder) buildIntermediateSteps(ctx context.Context) (updates []int
 			return nil, trace.Wrap(err)
 		}
 		result[version] = update
-		path, err := intermediate.GravityPathForVersion(version)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-		err = r.exportGravityBinary(ctx, update.gravity, path)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
 		serverUpdates, err := r.intermediateConfigUpdates(
 			r.installedApp.Manifest,
 			prevRuntimeFunc, update.runtime,
@@ -172,7 +164,7 @@ func (r phaseBuilder) intermediateConfigUpdates(
 	installed schema.Manifest,
 	installedRuntimeFunc runtimePackageGetterFunc, updateRuntime loc.Locator,
 	installedTeleport loc.Locator, updateTeleport *loc.Locator,
-	operator intermediate.PackageRotator,
+	operator libphase.PackageRotator,
 ) (updates []storage.UpdateServer, err error) {
 	for _, server := range r.planTemplate.Servers {
 		installedRuntime, err := installedRuntimeFunc(server)
@@ -1014,18 +1006,6 @@ func getRuntimePackageStatic(runtimePackage loc.Locator) runtimePackageGetterFun
 
 // runtimePackageGetterFunc returns the runtime package for the specified server
 type runtimePackageGetterFunc func(storage.Server) (*loc.Locator, error)
-
-func (r phaseBuilder) exportGravityBinary(ctx context.Context, loc loc.Locator, path string) error {
-	uid, err := strconv.Atoi(r.serviceUser.UID)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	gid, err := strconv.Atoi(r.serviceUser.GID)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	return intermediate.ExportGravityBinary(ctx, loc, uid, gid, path, r.packages)
-}
 
 func (r phaseBuilder) shouldSkipIntermediateUpdate(v semver.Version) bool {
 	// Skip the update if it's older than the installed cluster's

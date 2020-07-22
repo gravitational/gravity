@@ -23,7 +23,6 @@ import (
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/storage"
-	"github.com/gravitational/gravity/lib/update/cluster/internal/intermediate"
 	libphase "github.com/gravitational/gravity/lib/update/cluster/phases"
 	"github.com/gravitational/gravity/lib/update/internal/builder"
 	libbuilder "github.com/gravitational/gravity/lib/update/internal/builder"
@@ -190,7 +189,7 @@ func (r phaseBuilder) newPlanFrom(root *builder.Phase) *storage.OperationPlan {
 
 type phaseBuilder struct {
 	// operator specifies the cluster operator
-	operator intermediate.PackageRotator
+	operator libphase.PackageRotator
 	// planTemplate specifies the plan to bootstrap the resulting operation plan
 	planTemplate storage.OperationPlan
 	// operation is the operation to generate the plan for

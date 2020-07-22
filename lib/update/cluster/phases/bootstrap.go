@@ -32,7 +32,6 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 	"github.com/gravitational/gravity/lib/systeminfo"
-	"github.com/gravitational/gravity/lib/update/cluster/internal/intermediate"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
@@ -98,10 +97,6 @@ func NewUpdatePhaseBootstrapLeader(
 		packageRotator: operator,
 		updateManifest: app.Manifest,
 	}
-	executor.GravityPath, err = getGravityPath()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
 	env, err := operator.GetClusterEnvironmentVariables(operation.ClusterKey())
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -123,13 +118,7 @@ func NewUpdatePhaseBootstrapLeader(
 // binary, creates new secrets/config packages in the local backend and
 // initializes local operation state
 func (p *updatePhaseBootstrapLeader) Execute(ctx context.Context) error {
-	exportCtx, cancel := context.WithTimeout(ctx, defaults.TransientErrorTimeout)
-	defer cancel()
-	err := p.exportGravity(exportCtx)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	err = p.rotateConfigAndSecrets()
+	err := p.rotateConfigAndSecrets()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -149,13 +138,6 @@ func (p *updatePhaseBootstrapLeader) PreCheck(ctx context.Context) error {
 // PostCheck is no-op for bootstrap phase
 func (p *updatePhaseBootstrapLeader) PostCheck(context.Context) error {
 	return nil
-}
-
-func (p *updatePhaseBootstrapLeader) exportGravity(ctx context.Context) error {
-	p.Infof("Export gravity binary to %v.", p.GravityPath)
-	return intermediate.ExportGravityBinary(ctx, p.bootstrap.GravityPackage,
-		p.bootstrap.ServiceUser.UID, p.bootstrap.ServiceUser.GID,
-		p.GravityPath, p.bootstrap.Packages)
 }
 
 func (p *updatePhaseBootstrapLeader) rotateConfigAndSecrets() error {
@@ -251,14 +233,12 @@ type updatePhaseBootstrapLeader struct {
 	// FieldLogger is used for logging
 	log.FieldLogger
 	bootstrap updatePhaseBootstrap
-	// GravityPath is the path to the new gravity binary
-	GravityPath string
 	// servers lists cluster server configuration updates
 	servers []storage.UpdateServer
 	// masterIPs lists addresses of all master nodes in the cluster
 	masterIPs []string
 	// packageRotator specifies the configuration package rotator
-	packageRotator        intermediate.PackageRotator
+	packageRotator        PackageRotator
 	existingEnviron       map[string]string
 	existingClusterConfig []byte
 	// updateManifest specifies the manifest of the update application
