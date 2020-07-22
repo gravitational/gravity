@@ -116,7 +116,7 @@ func newUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironm
 		// Use server list from the operation plan to always have a consistent
 		// view of the cluster (i.e. with servers correctly reflecting cluster roles)
 		clusterState: clusterStateFromPlan(*plan),
-		clusterName:  cluster.Domain,
+		cluster:      *cluster,
 		clusterEnv:   clusterEnv,
 		proxy:        proxy,
 		leader:       leader,
