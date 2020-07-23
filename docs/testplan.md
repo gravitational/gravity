@@ -62,12 +62,13 @@ spec:
   - [ ] Verify can log into local cluster UI using the user created above.
   - [ ] Verify can join a node using CLI (`gravity join`).
   - [ ] Verify can remove a node using CLI (`gravity leave`).
-
+  - [ ] Verify can create a log forwarder resource via CLI
 #### UI mode
 
 - [ ] Install Telekube cluster image in standalone UI wizard mode.
   - [ ] Verify can complete bandwagon through wizard UI.
   - [ ] Verify can log into local cluster UI with the user created in bandwagon.
+  - [ ] Verify can create a log forwarder resource via WEB UI
 
 #### With Cluster Image Downloaded From The Hub
 
@@ -134,6 +135,7 @@ spec:
 
 - [ ] Install a 1-node cluster of previous LTS version.
 - [ ] Upgrade the cluster to the current version.
+  - [ ] Verify that after customizing the log forwarder resource, changes survive the upgrade.
 - [ ] Join another node to the cluster.
   - [ ] Verify the node joined successfully.
 
@@ -845,3 +847,4 @@ app.manifest.extensions.logs.disabled: true
 ```
   - [ ] Verify that K8s tab is displayed.
   - [ ] Verify that Nodes screen displays K8s labels.
+i
