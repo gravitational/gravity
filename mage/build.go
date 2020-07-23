@@ -37,9 +37,8 @@ func buildBoxName() string {
 func (Build) Go() (err error) {
 	mg.Deps(Build.BuildContainer, Build.Selinux)
 
-	m := root.Clone("build:go")
-
-	defer func() { m.Complete(false, err) }()
+	m := root.Target("build:go")
+	defer func() { m.Complete(err) }()
 
 	err = m.GolangBuild().
 		SetGOOS("linux").
@@ -56,15 +55,10 @@ func (Build) Go() (err error) {
 	return trace.Wrap(err)
 }
 
-func (Build) Selinux() (err error) {
-	return
-}
-
 // Darwin builds go binaries on darwin platform (doesn't support cross compile).
 func (Build) Darwin() (err error) {
-	m := root.Clone("build:darwin")
-
-	defer func() { m.Complete(false, err) }()
+	m := root.Target("build:darwin")
+	defer func() { m.Complete(err) }()
 
 	if runtime.GOOS != "darwin" {
 		return trace.BadParameter("Cross-compile not currently supported, darwin builds need to be run on darwin OS")
@@ -83,9 +77,8 @@ func (Build) Darwin() (err error) {
 
 // BuildContainer creates a docker container as a consistent golang environment to use for software builds.
 func (Build) BuildContainer() (err error) {
-	m := root.Clone("build:buildContainer")
-
-	defer func() { m.Complete(false, err) }()
+	m := root.Target("build:buildContainer")
+	defer func() { m.Complete(err) }()
 
 	err = m.DockerBuild().
 		AddTag(buildBoxName()).
@@ -101,5 +94,18 @@ func (Build) BuildContainer() (err error) {
 		SetDockerfile("build.assets/Dockerfile").
 		Build(context.TODO(), "./build.assets")
 
+	return trace.Wrap(err)
+}
+
+// Selinux builds internal selinux code
+func (Build) Selinux() (err error) {
+	if runtime.GOOS != "linux" {
+		return
+	}
+
+	m := root.Target("build:selinux")
+	defer func() { m.Complete(err) }()
+
+	_, err = m.Exec().Run(context.TODO(), "make", "selinux")
 	return trace.Wrap(err)
 }

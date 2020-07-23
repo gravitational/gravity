@@ -9,6 +9,7 @@ require (
 	github.com/Masterminds/goutils v1.1.0 // indirect
 	github.com/Masterminds/semver v1.4.2 // indirect
 	github.com/Masterminds/sprig v2.22.0+incompatible // indirect
+	github.com/Microsoft/go-winio v0.4.11 // indirect
 	github.com/alecthomas/assert v0.0.0-20170929043011-405dbfeb8e38 // indirect
 	github.com/alecthomas/colour v0.1.0 // indirect
 	github.com/alecthomas/repr v0.0.0-20181024024818-d37bc2a10ba1 // indirect
@@ -16,7 +17,7 @@ require (
 	github.com/aokoli/goutils v1.0.1 // indirect
 	github.com/apparentlymart/go-cidr v1.0.0 // indirect
 	github.com/armon/go-radix v1.0.0 // indirect
-	github.com/aws/aws-sdk-go v1.16.26
+	github.com/aws/aws-sdk-go v1.25.41
 	github.com/beevik/etree v0.0.0-20170418002358-cda1c0026246 // indirect
 	github.com/bgentry/go-netrc v0.0.0-20140422174119-9fd32a8b3d3d // indirect
 	github.com/boltdb/bolt v1.3.1
@@ -25,14 +26,17 @@ require (
 	github.com/cenkalti/backoff v2.1.1+incompatible
 	github.com/chai2010/gettext-go v0.0.0-20170215093142-bf70f2a70fb1 // indirect
 	github.com/cloudflare/cfssl v0.0.0-20180726162950-56268a613adf
-	github.com/cloudfoundry/gosigar v0.0.0-20170815193638-f4030c18ce1a
+	github.com/cloudfoundry/gosigar v1.1.1-0.20180406153506-1375283248c3
 	github.com/codahale/hdrhistogram v0.0.0-20161010025455-3a0bb77429bd
+	github.com/containerd/continuity v0.0.0-20200107194136-26c1120b8d41 // indirect
 	github.com/coreos/etcd v3.3.13+incompatible
+	github.com/coreos/go-oidc v0.0.0-20180117170138-065b426bd416 // indirect
 	github.com/coreos/go-semver v0.3.0
 	github.com/coreos/prometheus-operator v0.0.0-00010101000000-000000000000 // indirect
+	github.com/cyphar/filepath-securejoin v0.0.0-20170720062807-ae69057f2299 // indirect
 	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/distribution v2.7.1+incompatible
-	github.com/docker/docker v1.13.1
+	github.com/docker/docker v1.4.2-0.20190327010347-be7ac8be2ae0
 	github.com/docker/go-metrics v0.0.1 // indirect
 	github.com/docker/libtrust v0.0.0-20150526203908-9cbd2a1374f4
 	github.com/docker/spdystream v0.0.0-20181023171402-6480d4af844c // indirect
@@ -48,12 +52,14 @@ require (
 	github.com/gobuffalo/packr v1.30.1 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/godbus/dbus v4.0.0+incompatible // indirect
-	github.com/gogo/protobuf v1.3.1
+	github.com/gogo/protobuf v1.3.0
 	github.com/gokyle/hotp v0.0.0-20160218004637-c180d57d286b
-	github.com/golang/protobuf v1.4.2
+	github.com/golang/protobuf v1.3.2
+	github.com/google/go-cmp v0.3.1 // indirect
 	github.com/google/gops v0.3.8 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/gorilla/handlers v0.0.0-20151124211609-e96366d97736 // indirect
+	github.com/gorilla/mux v1.7.1 // indirect
 	github.com/gosimple/slug v1.9.0 // indirect
 	github.com/gravitational/bandwagon v0.0.0-20200215230242-8a67c7595376 // indirect
 	github.com/gravitational/configure v0.0.0-20191213111049-fce91dea0d0d
@@ -63,16 +69,16 @@ require (
 	github.com/gravitational/kingpin v2.1.11-0.20160205192003-785686550a08+incompatible // indirect
 	github.com/gravitational/license v0.0.0-20171013193735-f3111b1818ce
 	github.com/gravitational/log v0.0.0-20200127200505-fdffa14162b0 // indirect
-	github.com/gravitational/magnet v0.1.1-0.20200702001307-29f9b23f0ac2
+	github.com/gravitational/magnet v0.2.1
 	github.com/gravitational/oxy v0.0.0-20180629203109-e4a7e35311e6 // indirect
 	github.com/gravitational/rigging v0.0.0-20191021212636-83b2e9505286
 	github.com/gravitational/roundtrip v1.0.0
-	github.com/gravitational/satellite v0.0.9-0.20200413193155-d7a2a93a8ed5
+	github.com/gravitational/satellite v0.0.9-0.20200720191657-4877c91ae81f
 	github.com/gravitational/tail v1.0.1
 	github.com/gravitational/teleport v3.2.15-0.20200309221853-bebf7a500543+incompatible
 	github.com/gravitational/trace v1.1.11
 	github.com/gravitational/ttlmap v0.0.0-20171116003245-91fd36b9004c
-	github.com/gravitational/version v0.0.0-20160322215120-ffae935cafba
+	github.com/gravitational/version v0.0.2-0.20170324200323-95d33ece5ce1
 	github.com/gravitational/vfsgen v0.0.0-20181202132449-6a9ea43bcacd
 	github.com/hashicorp/go-getter v0.0.0-20180809191950-4bda8fa99001 // indirect
 	github.com/hashicorp/go-hclog v0.0.0-20180828044259-75ecd6e6d645 // indirect
@@ -87,12 +93,15 @@ require (
 	github.com/hashicorp/yamux v0.0.0-20180826203732-cc6d2ea263b2 // indirect
 	github.com/huandu/xstrings v1.2.0 // indirect
 	github.com/jmoiron/sqlx v1.2.0 // indirect
-	github.com/jonboulle/clockwork v0.1.1-0.20190114141812-62fb9bc030d1
+	github.com/jonboulle/clockwork v0.2.0
+	github.com/json-iterator/go v1.1.6 // indirect
 	github.com/julienschmidt/httprouter v1.2.0
 	github.com/kardianos/osext v0.0.0-20170510131534-ae77be60afb1
+	github.com/konsorten/go-windows-terminal-sequences v1.0.3 // indirect
+	github.com/kr/pty v1.1.5 // indirect
 	github.com/kylelemons/godebug v0.0.0-20170820004349-d65d576e9348
 	github.com/lib/pq v1.2.0 // indirect
-	github.com/magefile/mage v1.9.0
+	github.com/magefile/mage v1.10.0
 	github.com/mailgun/holster v1.9.1-0.20191129074427-2296d2fb30b1 // indirect
 	github.com/mailgun/lemma v0.0.0-20160211003854-e8b0cd607f58
 	github.com/mailgun/metrics v0.0.0-20150124003306-2b3c4565aafd // indirect
@@ -102,7 +111,7 @@ require (
 	github.com/maruel/panicparse v1.1.2-0.20180806203336-f20d4c4d746f // indirect
 	github.com/mattn/go-sqlite3 v1.13.0 // indirect
 	github.com/mdp/rsc v0.0.0-20160131164516-90f07065088d // indirect
-	github.com/miekg/dns v1.1.8
+	github.com/miekg/dns v1.1.26
 	github.com/mitchellh/copystructure v1.0.0 // indirect
 	github.com/mitchellh/go-ps v1.0.0
 	github.com/mitchellh/hashstructure v1.0.0 // indirect
@@ -118,29 +127,35 @@ require (
 	github.com/pquerna/otp v0.0.0-20160912161815-54653902c20e // indirect
 	github.com/prometheus/alertmanager v0.20.0
 	github.com/prometheus/client_golang v1.2.1
-	github.com/prometheus/common v0.4.1
+	github.com/prometheus/common v0.6.0
 	github.com/rubenv/sql-migrate v0.0.0-20190902133344-8926f37f0bc1 // indirect
 	github.com/russellhaering/gosaml2 v0.0.0-20170515204909-8908227c114a // indirect
 	github.com/russellhaering/goxmldsig v0.0.0-20170515183101-605161228693 // indirect
 	github.com/santhosh-tekuri/jsonschema v1.2.2
+	github.com/shurcooL/sanitized_anchor_name v0.0.0-20170918181015-86672fcb3f95 // indirect
 	github.com/sirupsen/logrus v1.6.0
 	github.com/stevvooe/resumable v0.0.0-20150521211217-51ad44105773 // indirect
-	github.com/stretchr/testify v1.5.1
+	github.com/stretchr/testify v1.6.1
 	github.com/tstranex/u2f v0.0.0-20160508205855-eb799ce68da4
 	github.com/ugorji/go v1.1.7 // indirect
 	github.com/ulikunitz/xz v0.5.4 // indirect
 	github.com/vulcand/oxy v0.0.0-20160623194703-40720199a16c
 	github.com/vulcand/predicate v1.1.0
+	github.com/xeipuuv/gojsonpointer v0.0.0-20151027082146-e0fe6f683076 // indirect
+	github.com/xeipuuv/gojsonreference v0.0.0-20150808065054-e02fc20de94c // indirect
+	github.com/xeipuuv/gojsonschema v0.0.0-20151204154511-3988ac14d6f6 // indirect
 	github.com/xtgo/set v1.0.0
 	github.com/zclconf/go-cty v0.0.0-20180829180805-c2393a5d54f2 // indirect
 	github.com/ziutek/mymysql v1.5.4 // indirect
-	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
-	golang.org/x/net v0.0.0-20200625001655-4c5254603344
+	go.etcd.io/bbolt v1.3.5 // indirect
+	golang.org/x/crypto v0.0.0-20200709230013-948cd5f35899
+	golang.org/x/net v0.0.0-20200707034311-ab3426394381
 	golang.org/x/sys v0.0.0-20200625212154-ddb9806d33ae
+	golang.org/x/text v0.3.2 // indirect
 	gonum.org/v1/gonum v0.6.1 // indirect
-	google.golang.org/grpc v1.30.0
+	google.golang.org/grpc v1.26.0
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
-	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127
+	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15
 	gopkg.in/gorp.v1 v1.7.2 // indirect
 	gopkg.in/mgo.v2 v2.0.0-20160818020120-3f83fa500528 // indirect
 	gopkg.in/yaml.v2 v2.2.8
@@ -160,9 +175,10 @@ require (
 )
 
 replace (
+	github.com/jaguilar/vt100 => github.com/tonistiigi/vt100 v0.0.0-20190402012908-ad4c4a574305
 	cloud.google.com/go => cloud.google.com/go v0.21.0
 	github.com/Azure/go-autorest => github.com/Azure/go-autorest v11.1.0+incompatible
-	github.com/Microsoft/go-winio => github.com/Microsoft/go-winio v0.4.14
+	github.com/Microsoft/go-winio => github.com/Microsoft/go-winio v0.4.9
 	github.com/PuerkitoBio/purell => github.com/PuerkitoBio/purell v1.1.0
 	github.com/alecthomas/template => github.com/alecthomas/template v0.0.0-20150530000104-b867cc6ab45c
 	github.com/apparentlymart/go-textseg => github.com/apparentlymart/go-textseg v1.0.0
@@ -172,7 +188,6 @@ replace (
 	github.com/beorn7/perks => github.com/beorn7/perks v0.0.0-20150223135152-b965b613227f
 	github.com/boltdb/bolt => github.com/gravitational/bolt v1.3.2-gravitational
 	github.com/cloudflare/cfssl => github.com/gravitational/cfssl v0.0.0-20180619163912-4b8305b36ad0
-	github.com/containerd/containerd => github.com/containerd/containerd v1.3.1-0.20200512144102-f13ba8f2f2fd
 	github.com/coreos/etcd => github.com/coreos/etcd v3.3.10+incompatible
 	github.com/coreos/go-oidc => github.com/gravitational/go-oidc v0.0.1
 	github.com/coreos/go-semver => github.com/coreos/go-semver v0.2.0
@@ -200,12 +215,11 @@ replace (
 	github.com/hashicorp/hcl => github.com/hashicorp/hcl v1.0.0
 	github.com/hashicorp/memberlist => github.com/hashicorp/memberlist v0.1.4
 	github.com/imdario/mergo => github.com/imdario/mergo v0.0.0-20160517064435-50d4dbd4eb0e
-	github.com/jaguilar/vt100 => github.com/tonistiigi/vt100 v0.0.0-20190402012908-ad4c4a574305
 	github.com/json-iterator/go => github.com/json-iterator/go v1.1.5
 	github.com/julienschmidt/httprouter => github.com/julienschmidt/httprouter v1.1.0
 	github.com/kr/pty => github.com/kr/pty v1.0.0
 	github.com/kylelemons/godebug => github.com/kylelemons/godebug v0.0.0-20160406211939-eadb3ce320cb
-	github.com/magefile/mage => github.com/knisbet/mage v1.9.1-0.20200605172709-673a9fe9b093
+	github.com/magefile/mage => github.com/knisbet/mage v1.9.1-0.20200719045837-eabe8cda6d46
 	github.com/mattn/go-isatty => github.com/mattn/go-isatty v0.0.3
 	github.com/mattn/go-runewidth => github.com/mattn/go-runewidth v0.0.2-0.20161012013512-737072b4e32b
 	github.com/matttproud/golang_protobuf_extensions => github.com/matttproud/golang_protobuf_extensions v0.0.0-20151011102529-d0c3fe89de86
@@ -213,7 +227,6 @@ replace (
 	github.com/mitchellh/go-homedir => github.com/mitchellh/go-homedir v1.0.0
 	github.com/mitchellh/mapstructure => github.com/mitchellh/mapstructure v1.0.0
 	github.com/modern-go/reflect2 => github.com/modern-go/reflect2 v0.0.0-20180701023420-4b7aa43c6742
-	github.com/olekukonko/tablewriter => github.com/olekukonko/tablewriter v0.0.4
 	github.com/pborman/uuid => github.com/pborman/uuid v0.0.0-20170612153648-e790cca94e6c
 	github.com/prometheus/alertmanager => github.com/prometheus/alertmanager v0.18.0
 	github.com/prometheus/client_golang => github.com/prometheus/client_golang v0.9.2
@@ -233,7 +246,6 @@ replace (
 	golang.org/x/time => golang.org/x/time v0.0.0-20180412165947-fbb02b2291d2
 	google.golang.org/appengine => google.golang.org/appengine v1.2.0
 	google.golang.org/genproto => google.golang.org/genproto v0.0.0-20170818010345-ee236bd376b0
-	google.golang.org/grpc => google.golang.org/grpc v1.26.0
 	gopkg.in/alecthomas/kingpin.v2 => github.com/gravitational/kingpin v2.1.11-0.20180808090833-85085db9f49b+incompatible
 	gopkg.in/inf.v0 => gopkg.in/inf.v0 v0.9.0
 	gopkg.in/yaml.v2 => gopkg.in/yaml.v2 v2.2.2

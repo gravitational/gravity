@@ -8,8 +8,8 @@ package cmp
 
 import "reflect"
 
-const supportExporters = false
+const supportAllowUnexported = false
 
-func retrieveUnexportedField(reflect.Value, reflect.StructField, bool) reflect.Value {
-	panic("no support for forcibly accessing unexported fields")
+func retrieveUnexportedField(reflect.Value, reflect.StructField) reflect.Value {
+	panic("retrieveUnexportedField is not implemented")
 }

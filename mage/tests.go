@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 
+	"github.com/gravitational/magnet"
 	"github.com/gravitational/trace"
 	"github.com/magefile/mage/mg"
 )
@@ -21,22 +21,32 @@ func (Test) All() {
 func (Test) Lint() (err error) {
 	mg.Deps(Build.BuildContainer)
 
-	m := root.Clone("test:lint")
-	defer func() { m.Complete(false, err) }()
+	m := root.Target("test:lint")
+	defer func() { m.Complete(err) }()
 
 	m.Printlnf("Running golangci-lint")
 
 	wd, _ := os.Getwd()
-	localCacheDir := filepath.Join(wd, "build/cache")
 
 	err = m.DockerRun().
 		SetRemove(true).
 		SetUID(fmt.Sprint(os.Getuid())).
 		SetGID(fmt.Sprint(os.Getgid())).
-		AddVolume(fmt.Sprint(wd, ":/gopath/src/github.com/gravitational/gravity:ro,cached")).
-		AddVolume(fmt.Sprint(localCacheDir, ":/gopath/src/github.com/gravitational/gravity/build/cache:cached")).
-		SetEnv("XDG_CACHE_HOME", "/gopath/src/github.com/gravitational/gravity/build/cache").
-		SetEnv("GOCACHE", "/gopath/src/github.com/gravitational/gravity/build/cache/go").
+		//AddVolume(fmt.Sprint(wd, ":/gopath/src/github.com/gravitational/gravity:ro,cached")).
+		//AddVolume(fmt.Sprint(localCacheDir, ":/gopath/src/github.com/gravitational/gravity/build/cache:cached")).
+		AddVolume(magnet.DockerBindMount{
+			Source:      wd,
+			Destination: "/gopath/src/github.com/gravitational/gravity",
+			Readonly:    true,
+			Consistency: "cached",
+		}).
+		AddVolume(magnet.DockerBindMount{
+			Source:      magnet.AbsCacheDir(),
+			Destination: "/cache",
+			Consistency: "cached",
+		}).
+		SetEnv("XDG_CACHE_HOME", "/cache").
+		SetEnv("GOCACHE", "/cache/go").
 		Run(context.TODO(), buildBoxName(),
 			"bash",
 			"-c",
@@ -51,8 +61,8 @@ func (Test) Lint() (err error) {
 func (Test) Unit() (err error) {
 	mg.Deps(Build.BuildContainer)
 
-	m := root.Clone("test:unit")
-	defer func() { m.Complete(false, err) }()
+	m := root.Target("test:unit")
+	defer func() { m.Complete(err) }()
 
 	m.Println("Running unit tests")
 

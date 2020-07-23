@@ -69,11 +69,16 @@ func GetStorageDriverBootConfigParams(drv string) health.Checker {
 
 // NewStorageChecker creates a new instance of the volume checker
 // using the specified checker as configuration
-func NewStorageChecker(config StorageConfig) health.Checker {
-	return noopChecker{}
+func NewStorageChecker(config StorageConfig) (health.Checker, error) {
+	return noopChecker{}, nil
 }
 
 // NewDNSChecker sends some default queries to monitor DNS / service discovery health
 func NewDNSChecker(questionA []string, nameservers ...string) health.Checker {
+	return noopChecker{}
+}
+
+// NewKernelChecker returns a new instance of kernel checker.
+func NewKernelChecker(version KernelVersion) health.Checker {
 	return noopChecker{}
 }

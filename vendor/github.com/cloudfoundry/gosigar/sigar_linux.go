@@ -1,5 +1,3 @@
-// Copyright (c) 2012 VMware, Inc.
-
 package sigar
 
 import (
@@ -12,6 +10,8 @@ import (
 	"strings"
 	"syscall"
 )
+
+const MaxUint64 = ^uint64(0)
 
 var system struct {
 	ticks uint64
@@ -63,22 +63,28 @@ func (self *Uptime) Get() error {
 }
 
 func (self *Mem) Get() error {
+	var available uint64 = MaxUint64
 	var buffers, cached uint64
 	table := map[string]*uint64{
-		"MemTotal": &self.Total,
-		"MemFree":  &self.Free,
-		"Buffers":  &buffers,
-		"Cached":   &cached,
+		"MemTotal":     &self.Total,
+		"MemFree":      &self.Free,
+		"MemAvailable": &available,
+		"Buffers":      &buffers,
+		"Cached":       &cached,
 	}
 
 	if err := parseMeminfo(table); err != nil {
 		return err
 	}
 
+	if available == MaxUint64 {
+		self.ActualFree = self.Free + buffers + cached
+	} else {
+		self.ActualFree = available
+	}
+
 	self.Used = self.Total - self.Free
-	kern := buffers + cached
-	self.ActualFree = self.Free + kern
-	self.ActualUsed = self.Used - kern
+	self.ActualUsed = self.Total - self.ActualFree
 
 	return nil
 }

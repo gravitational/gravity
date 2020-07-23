@@ -21,7 +21,10 @@ import (
 	"github.com/gravitational/trace"
 )
 
-var root = magnet.Root()
+var root = magnet.Root(magnet.Config{
+	Version:     buildVersion,
+	PrintConfig: true,
+})
 
 var (
 
@@ -52,7 +55,7 @@ var (
 	// BuildVersion
 	buildVersion = magnet.E(magnet.EnvVar{
 		Key:     "BUILD_VERSION",
-		Default: magnet.Version(),
+		Default: magnet.DefaultVersion(),
 		Short:   "The version to assign when building artifacts",
 	})
 

@@ -206,11 +206,8 @@ var (
 func (Package) Telekube() (err error) {
 	mg.Deps(Build.Go, Package.K8s)
 
-	var cached bool
-
-	m := root.Clone("package:telekube")
-
-	defer func() { m.Complete(cached, err) }()
+	m := root.Target("package:telekube")
+	defer func() { m.Complete(err) }()
 
 	return trace.Wrap(pkgTelekube.localAppImport(m, consistentStateDir()))
 }
@@ -220,9 +217,8 @@ func (Package) K8s() (err error) {
 		Package.Site, Package.Monitoring, Package.Logging, Package.Ingress, Package.Storage, Package.Tiller,
 		Package.Rbac, Package.DNS, Package.Bandwagon)
 
-	m := root.Clone("package:k8s")
-
-	defer func() { m.Complete(false, err) }()
+	m := root.Target("package:k8s")
+	defer func() { m.Complete(err) }()
 
 	return trace.Wrap(pkgKubernetes.localAppImport(m, consistentStateDir()))
 }
@@ -230,9 +226,8 @@ func (Package) K8s() (err error) {
 func (Package) GravityPackage() (err error) {
 	mg.Deps(Build.Go)
 
-	m := root.Clone("package:gravity-package")
-
-	defer func() { m.Complete(false, err) }()
+	m := root.Target("package:gravity-package")
+	defer func() { m.Complete(err) }()
 
 	// the gravity package operates directly on the version state directory, so use the shared lock
 	sharedStateMutex.Lock()
@@ -270,16 +265,14 @@ func (Package) GravityPackage() (err error) {
 func (Package) Teleport() (err error) {
 	mg.Deps(Build.Go)
 
-	var cached bool
-
-	m := root.Clone("package:teleport")
-	defer func() { m.Complete(cached, err) }()
+	m := root.Target("package:teleport")
+	defer func() { m.Complete(err) }()
 
 	cachePath := filepath.Join("build/apps", fmt.Sprint("teleport.", pkgTeleport.version, ".tar.gz"))
 
 	_, err = os.Stat(cachePath)
 	if !os.IsNotExist(err) {
-		cached = true
+		m.SetCached(true)
 		return trace.Wrap(pkgTeleport.ImportPackage(m, cachePath))
 	}
 
@@ -359,8 +352,8 @@ func (Package) Teleport() (err error) {
 func (Package) Fio() (err error) {
 	mg.Deps(Build.BuildContainer, Build.Go)
 
-	m := root.Clone("package:fio")
-	defer func() { m.Complete(false, err) }()
+	m := root.Target("package:fio")
+	defer func() { m.Complete(err) }()
 
 	fioImage := fmt.Sprint("fio:", fioTag)
 
@@ -378,7 +371,11 @@ func (Package) Fio() (err error) {
 
 	err = m.DockerRun().
 		SetRemove(true).
-		AddVolume(fmt.Sprint(filepath.Join(wd, "build/"), ":/local")).
+		//AddVolume(fmt.Sprint(filepath.Join(wd, "build/"), ":/local")).
+		AddVolume(magnet.DockerBindMount{
+			Source:      filepath.Join(wd, "build/"),
+			Destination: "/local",
+		}).
 		Run(context.TODO(), fioImage, "cp", "/gopath/native/fio/fio", filepath.Join("/local", "fio"))
 	if err != nil {
 		return trace.Wrap(err)
@@ -392,16 +389,14 @@ func (Package) Fio() (err error) {
 func (Package) Selinux() (err error) {
 	mg.Deps(Build.BuildContainer, Build.Go)
 
-	var cached bool
-
-	m := root.Clone("package:selinux")
-	defer func() { m.Complete(cached, err) }()
+	m := root.Target("package:selinux")
+	defer func() { m.Complete(err) }()
 
 	cachePath := filepath.Join("build/apps", fmt.Sprint("selinux.", pkgSelinux.version, ".tar.gz"))
 
 	_, err = os.Stat(cachePath)
 	if !os.IsNotExist(err) {
-		cached = true
+		m.SetCached(true)
 		return trace.Wrap(pkgSelinux.ImportPackage(m, cachePath))
 	}
 
@@ -460,46 +455,13 @@ func (Package) Selinux() (err error) {
 	}
 
 	return trace.Wrap(pkgFio.ImportPackage(m, cachePath))
-
-	/*
-
-
-		fioImage := fmt.Sprint("fio:", fioTag)
-
-		err = m.DockerBuild().
-			SetBuildArg("BUILD_BOX", buildBoxName()).
-			SetBuildArg("FIO_BRANCH", fioTag).
-			SetPull(false).
-			AddTag(fioImage).
-			Build(context.TODO(), "assets/fio")
-		if err != nil {
-			return trace.Wrap(err)
-		}
-
-		wd, _ := os.Getwd()
-
-		err = m.DockerRun().
-			SetRemove(true).
-			AddVolume(fmt.Sprint(filepath.Join(wd, "build/"), ":/local")).
-			Run(context.TODO(), fioImage, "cp", "/gopath/native/fio/fio", filepath.Join("/local", "fio"))
-		if err != nil {
-			return trace.Wrap(err)
-		}
-
-		defer os.Remove("build/fio")
-
-		return trace.Wrap(pkgFio.ImportPackage(m, "build/fio"))
-	*/
-	return nil
 }
 
 func (Package) Planet() (err error) {
 	mg.Deps(Build.Go)
 
-	var cached bool
-
-	m := root.Clone("package:planet")
-	defer func() { m.Complete(cached, err) }()
+	m := root.Target("package:planet")
+	defer func() { m.Complete(err) }()
 
 	packageList, err := magnet.Output(context.TODO(),
 		consistentGravityBin(),
@@ -512,7 +474,7 @@ func (Package) Planet() (err error) {
 	}
 
 	if strings.Contains(packageList, pkgPlanet.Locator()) {
-		cached = true
+		m.SetCached(true)
 		return nil
 	}
 
@@ -527,8 +489,8 @@ func (Package) Planet() (err error) {
 func (Package) Web() (err error) {
 	mg.Deps(Build.Go)
 
-	m := root.Clone("package:web-assets")
-	defer func() { m.Complete(false, err) }()
+	m := root.Target("package:web-assets")
+	defer func() { m.Complete(err) }()
 
 	webImage := fmt.Sprint("telekube-oss-web:", pkgWebAssets.version)
 
@@ -543,7 +505,11 @@ func (Package) Web() (err error) {
 		SetRemove(true).
 		SetUID(fmt.Sprint(os.Getuid())).
 		SetGID(fmt.Sprint(os.Getgid())).
-		AddVolume(fmt.Sprint(filepath.Join(wd, "build"), ":/local")).
+		//AddVolume(fmt.Sprint(filepath.Join(wd, "build"), ":/local")).
+		AddVolume(magnet.DockerBindMount{
+			Source:      filepath.Join(wd, "build"),
+			Destination: "/local",
+		}).
 		Run(context.TODO(), webImage, "cp", "-r", "/web-assets.tar.gz", "/local/")
 	if err != nil {
 		return trace.Wrap(err)
@@ -557,10 +523,8 @@ func (Package) Web() (err error) {
 func (Package) Site() (err error) {
 	mg.Deps(Build.Go)
 
-	var cached bool
-
-	m := root.Clone("package:site")
-	defer func() { m.Complete(cached, err) }()
+	m := root.Target("package:site")
+	defer func() { m.Complete(err) }()
 
 	err = m.DockerBuild().
 		SetBuildArg("CHANGESET", fmt.Sprint("site-", buildVersion)).
@@ -610,8 +574,8 @@ func (Package) Rbac() (err error) {
 }
 
 func (Package) DNS() (err error) {
-	m := root.Clone("package:dns:containers")
-	defer func() { m.Complete(false, err) }()
+	m := root.Target("package:dns:containers")
+	defer func() { m.Complete(err) }()
 
 	err = m.DockerBuild().
 		SetBuildArg("CHANGESET", fmt.Sprint("dns-app-", pkgDNSApp.version)).
@@ -630,7 +594,7 @@ func (Package) Bandwagon() (err error) {
 }
 
 func consistentStateDir() string {
-	path := filepath.Join("build", magnet.Version(), "state")
+	path := filepath.Join("build", root.Version, "state")
 
 	err := os.MkdirAll(path, 0755)
 	if err != nil {
@@ -641,7 +605,7 @@ func consistentStateDir() string {
 }
 
 func consistentBinDir() string {
-	path := filepath.Join("build", magnet.Version(), "bin")
+	path := filepath.Join("build", root.Version, "bin")
 
 	err := os.MkdirAll(path, 0755)
 	if err != nil {
@@ -652,7 +616,7 @@ func consistentBinDir() string {
 }
 
 func consistentBuildDir() string {
-	path := filepath.Join("build", magnet.Version())
+	path := filepath.Join("build", root.Version)
 	err := os.MkdirAll(path, 0755)
 	if err != nil {
 		panic(trace.DebugReport(err))
@@ -662,7 +626,7 @@ func consistentBuildDir() string {
 }
 
 func consistentGravityBin() string {
-	return filepath.Join("build", magnet.Version(), "bin/gravity")
+	return filepath.Join("build", root.Version, "bin/gravity")
 }
 
 func (p gravityPackage) Locator() string {
@@ -672,14 +636,17 @@ func (p gravityPackage) Locator() string {
 func (p gravityPackage) BuildApp() (err error) {
 	mg.Deps(Build.Go)
 
-	var cached bool
-
-	m := root.Clone(fmt.Sprint("package:", p.name, ":app"))
-	defer func() { m.Complete(cached, err) }()
+	m := root.Target(fmt.Sprint("package:", p.name, ":app"))
+	defer func() { m.Complete(err) }()
 
 	if !p.force {
+		var cached bool
 		cached, err = p.IsAppCachedAndSync(m, "")
-		if err != nil || cached {
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		if cached {
+			m.SetCached(true)
 			return
 		}
 	}

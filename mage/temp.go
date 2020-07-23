@@ -26,7 +26,7 @@ import (
 
 func buildFlags() []string {
 	return []string{
-		fmt.Sprint(`-X github.com/gravitational/version.gitCommit=`, magnet.Hash()),
+		fmt.Sprint(`-X github.com/gravitational/version.gitCommit=`, magnet.DefaultHash()),
 		fmt.Sprint(`-X github.com/gravitational/version.version=`, buildVersion),
 		fmt.Sprint(`-X github.com/gravitational/gravity/lib/defaults.WormholeImg=`, wormholeImage),
 		fmt.Sprint(`-X github.com/gravitational/gravity/lib/defaults.TeleportVersionString=`, teleportTag),
@@ -36,8 +36,8 @@ func buildFlags() []string {
 
 // Clean cleans up the build directory and caches.
 func Clean() (err error) {
-	m := root.Clone("build:buildContainer")
-	defer func() { m.Complete(false, err) }()
+	m := root.Target("build:buildContainer")
+	defer func() { m.Complete(err) }()
 
 	return trace.Wrap(os.RemoveAll("build"))
 }
@@ -48,8 +48,8 @@ type Cluster mg.Namespace
 func (Cluster) Gravity() (err error) {
 	mg.Deps(Build.Go, Package.Telekube)
 
-	m := root.Clone("cluster:gravity")
-	defer func() { m.Complete(false, err) }()
+	m := root.Target("cluster:gravity")
+	defer func() { m.Complete(err) }()
 
 	_, err = m.Exec().SetEnv("GRAVITY_K8S_VERSION", k8sVersion).Run(context.TODO(),
 		filepath.Join(consistentBinDir(), "tele"),
