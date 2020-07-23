@@ -31,7 +31,6 @@ import (
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
-	"github.com/gravitational/gravity/lib/ops/opsservice"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/rpc"
 	pb "github.com/gravitational/gravity/lib/rpc/proto"
@@ -240,11 +239,6 @@ func verifyCluster(ctx context.Context, req deployAgentsRequest) (servers []rpc.
 		}
 	}
 	if len(missing) != 0 {
-		base := req.cluster.App.Manifest.Base()
-		if base != nil && base.Version == opsservice.TeleportBrokenJoinTokenVersion.String() {
-			return nil, trace.NotFound(teleportTokenMessage,
-				strings.Join(missing, ", "), base.Version)
-		}
 		return nil, trace.NotFound(teleportUnavailableMessage,
 			strings.Join(missing, ", "), getTeleportVersion(req.cluster.App.Manifest))
 	}
@@ -261,25 +255,6 @@ func getTeleportVersion(manifest schema.Manifest) string {
 }
 
 const (
-	// teleportTokenMessage is displayed when some Teleport nodes are
-	// unavailable during agents deployment due to the issue with incorrect
-	// Teleport join token.
-	teleportTokenMessage = `Teleport is unavailable on the following cluster nodes: %[1]s.
-
-Gravity version %[2]v you're currently running has a known issue with Teleport
-using an incorrect auth token on the joined nodes preventing Teleport nodes from
-joining.
-
-This cluster may be affected by this issue if new nodes were joined to it after
-upgrade to %[2]v. See the following KB article for remediation actions:
-
-https://community.gravitational.com/t/recover-teleport-nodes-failing-to-join-due-to-bad-token/649
-
-After fixing the issue, "./gravity status" can be used to confirm the status of
-Teleport on each node using "remote access" field.
-
-Once all Teleport nodes have joined successfully, launch the upgrade again.
-`
 	// teleportUnavailableMessage is displayed when some Teleport nodes are
 	// unavailable during agents deployment.
 	teleportUnavailableMessage = `Teleport is unavailable on the following cluster nodes: %[1]s.
