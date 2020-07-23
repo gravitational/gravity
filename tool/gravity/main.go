@@ -20,7 +20,7 @@ import (
 	stdlog "log"
 	"os"
 
-	"github.com/gravitational/gravity/lib/install/proto"
+	installer "github.com/gravitational/gravity/lib/install/proto"
 	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/gravity/tool/common"
 	"github.com/gravitational/gravity/tool/gravity/cli"
@@ -34,7 +34,7 @@ import (
 func main() {
 	teleutils.InitLogger(teleutils.LoggingForCLI, log.InfoLevel)
 	stdlog.SetOutput(log.StandardLogger().Writer())
-
+	stdlog.Println("hello world11")
 	// configure the process to avoid common proxy related installation problems
 	cli.ConfigureNoProxy()
 

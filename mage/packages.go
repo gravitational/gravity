@@ -610,7 +610,7 @@ func (Package) Rbac() (err error) {
 }
 
 func (Package) DNS() (err error) {
-	m := root.Clone("package:dns")
+	m := root.Clone("package:dns:containers")
 	defer func() { m.Complete(false, err) }()
 
 	err = m.DockerBuild().
