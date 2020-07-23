@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/gravitational/gravity/lib/app"
@@ -35,6 +36,7 @@ import (
 	"github.com/gravitational/gravity/lib/schema"
 	statusapi "github.com/gravitational/gravity/lib/status"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/update"
 	clusterupdate "github.com/gravitational/gravity/lib/update/cluster"
 	"github.com/gravitational/version"
@@ -181,8 +183,86 @@ func executeUpdatePhaseForOperation(env *localenv.LocalEnvironment, environ Loca
 		return trace.Wrap(err)
 	}
 	defer updater.Close()
-	err = updater.RunPhase(context.TODO(), params.PhaseID, params.Timeout, params.Force)
-	return trace.Wrap(err)
+	return executeOrForkPhase(env, updater, params, operation)
+}
+
+// gravityResumeServiceName is the name of systemd service that executes
+// the gravity resume command.
+const gravityResumeServiceName = "gravity-resume.service"
+
+// executeOrForkPhase either directly executes the specified operation phase,
+// or launches a one-shot systemd service that executes it in the background.
+func executeOrForkPhase(env *localenv.LocalEnvironment, updater updater, params PhaseParams, operation ops.SiteOperation) error {
+	// If given the --block flag, we're running as a systemd unit (or a user
+	// requested the command to execute in foreground), so proceed to perform
+	// the command (resume or single phase) directly.
+	if params.Block {
+		return updater.RunPhase(context.TODO(),
+			params.PhaseID,
+			params.Timeout,
+			params.Force)
+	}
+	// Before launching the service, perform a few prechecks, for example to
+	// make sure that the operation is being resumed from the correct node.
+	//
+	// TODO(r0mant): Also, make sure agents are running on the cluster nodes:
+	// https://github.com/gravitational/gravity/issues/1667
+	if err := updater.Check(params.toFSM()); err != nil {
+		return trace.Wrap(err)
+	}
+	// Make sure to launch the unit command with the --block flag.
+	args := append(os.Args[1:], "--debug", "--block")
+	env.PrintStep("Starting %v service", gravityResumeServiceName)
+	if err := launchOneshotService(gravityResumeServiceName, args); err != nil {
+		return trace.Wrap(err)
+	}
+	env.PrintStep(`Service %[1]v has been launched.
+
+To monitor the operation progress:
+
+  sudo gravity plan --operation-id=%[2]v --tail
+
+To monitor the service logs:
+
+  sudo journalctl -u %[1]v -f
+`, gravityResumeServiceName, operation.ID)
+	return nil
+}
+
+// launchOneshotService launches the specified command as a one-shot systemd
+// service with the specified name.
+func launchOneshotService(name string, args []string) error {
+	systemd, err := systemservice.New()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	// See if the service is already running.
+	status, err := systemd.StatusService(name)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	// Since we're using a one-shot service, it will be in "activating" state
+	// for the duration of the command execution. In fact, one-shot services
+	// never reach "active" state, but we're checking it too just in case.
+	switch status {
+	case systemservice.ServiceStatusActivating, systemservice.ServiceStatusActive:
+		return trace.AlreadyExists("service %v is already running", name)
+	}
+	// Launch the systemd unit that runs the specified command using same binary.
+	gravityPath, err := os.Executable()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	command := strings.Join(append([]string{gravityPath}, args...), " ")
+	return systemd.InstallService(systemservice.NewServiceRequest{
+		Name:    name,
+		NoBlock: true,
+		ServiceSpec: systemservice.ServiceSpec{
+			User:         constants.RootUIDString,
+			Type:         constants.OneshotService,
+			StartCommand: command,
+		},
+	})
 }
 
 func rollbackUpdatePhaseForOperation(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params PhaseParams, operation ops.SiteOperation) error {
