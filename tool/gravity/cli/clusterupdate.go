@@ -28,6 +28,7 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	libfsm "github.com/gravitational/gravity/lib/fsm"
+	"github.com/gravitational/gravity/lib/helm"
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
@@ -44,6 +45,7 @@ import (
 
 	"github.com/buger/goterm"
 	"github.com/coreos/go-semver/semver"
+	"github.com/fatih/color"
 	"github.com/gravitational/trace"
 	"github.com/gravitational/version"
 )
@@ -359,7 +361,37 @@ func (r *clusterInitializer) validatePreconditions(localEnv *localenv.LocalEnvir
 	if err := r.checkDockerDevice(cluster, operator); err != nil {
 		return trace.Wrap(err)
 	}
+	if err := r.checkTiller(localEnv, updateApp.Manifest); err != nil {
+		return trace.Wrap(err)
+	}
 	r.updateLoc = updateApp.Package
+	return nil
+}
+
+// checkTiller verifies tiller server health before kicking off upgrade.
+func (r *clusterInitializer) checkTiller(env *localenv.LocalEnvironment, manifest schema.Manifest) error {
+	if manifest.CatalogDisabled() {
+		log.Info("Tiller server is disabled, not checking its health.")
+		return nil
+	}
+	err := helm.Ping(env.DNS.Addr())
+	if err != nil {
+		log.WithError(err).Error("Failed to ping tiller pod.")
+		if r.force {
+			env.PrintStep(color.YellowString(`Tiller server health check failed, "helm upgrade" may not work!`))
+			return nil
+		}
+		return trace.BadParameter(`Tiller server health check failed with the following error:
+
+    %q
+
+This means that "helm upgrade" and other Helm commands may not work correctly. If
+the application upgrade requires Helm, make sure that Tiller pod is up, running
+and reachable before retrying the upgrade.
+
+This warning can be bypassed by providing a --force flag to the upgrade command.`, err)
+	}
+	log.Info("Tiller server ping success.")
 	return nil
 }
 

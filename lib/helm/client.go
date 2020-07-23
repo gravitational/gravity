@@ -228,10 +228,24 @@ func (c *Client) Revisions(name string) ([]Release, error) {
 	return releases, nil
 }
 
+// Ping pings the Tiller pod and ensures it's up and running.
+func (c *Client) Ping() error {
+	return c.client.PingTiller()
+}
+
 // Close closes the Helm client.
 func (c *Client) Close() error {
 	c.tunnel.Close()
 	return nil
+}
+
+// Ping pings the cluster's Tiller pod and ensures it's up and running.
+func Ping(dnsAddress string) error {
+	client, err := NewClient(ClientConfig{DNSAddress: dnsAddress})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return client.Ping()
 }
 
 // getKubeClient returns a cluster's Kubernetes client and its config.
