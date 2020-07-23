@@ -648,48 +648,6 @@ wizard-gen:
 	gravity ops create-wizard --ops-url=$(LOCAL_OPS_URL) gravitational.io/telekube:0.0.0+latest /tmp/telekube
 
 #
-# robotest-installer builds an installer tarball for use in robotest
-# Resulting installer URL is written to a properies file specified with BUILDPROPS
-#
-.PHONY: robotest-installer
-robotest-installer: TMPDIR := $(shell mktemp -d)
-robotest-installer: BUILDPROPS ?= build.properties
-robotest-installer: LOCAL_STATE_DIR := $(TMPDIR)/state
-robotest-installer: EXPORT_DIR := $(LOCAL_STATE_DIR)/export
-robotest-installer: EXPORT_APP_TARBALL := $(EXPORT_DIR)/app.tar.gz
-robotest-installer: ROBOTEST_APP_PACKAGE ?= $(TELEKUBE_APP_PKG)
-robotest-installer: ROBOTEST_APP_PACKAGE_SRCDIR ?= $(TOP)/assets/telekube
-robotest-installer: ROBO_BUCKET_URL = s3://builds.gravitational.io/robotest
-robotest-installer: ROBO_GRAVITY_BUCKET := $(ROBO_BUCKET_URL)/gravity/$(GRAVITY_VERSION)
-robotest-installer: INSTALLER_FILE := $(subst /,-,$(subst :,-,$(ROBOTEST_APP_PACKAGE)))-$(GRAVITY_VERSION)-installer.tar.gz
-robotest-installer: INSTALLER_URL := $(ROBO_BUCKET_URL)/$(INSTALLER_FILE)
-robotest-installer: robotest-publish-gravity
-robotest-installer:
-	# Reset properties file
-	@> $(BUILDPROPS)
-	@mkdir -p $(TMPDIR)/state/export
-	@$(MAKE) packages LOCAL_STATE_DIR=$(LOCAL_STATE_DIR)
-	@$(GRAVITY_BUILDDIR)/gravity package export \
-		--state-dir=$(LOCAL_STATE_DIR) \
-		$(ROBOTEST_APP_PACKAGE) \
-		$(EXPORT_APP_TARBALL)
-	@tar xvf $(EXPORT_APP_TARBALL) -C $(EXPORT_DIR)/ --strip-components=1 resources/app.yaml
-	@$(GRAVITY_BUILDDIR)/tele --debug build \
-		--state-dir=$(LOCAL_STATE_DIR) \
-		$(EXPORT_DIR)/app.yaml -o $(INSTALLER_FILE)
-	aws s3 cp --region us-east-1 $(INSTALLER_FILE) $(INSTALLER_URL)
-	# Jenkins: downstream job configuration
-	echo "ROBO_INSTALLER_URL=$(INSTALLER_URL)" >> $(BUILDPROPS)
-	echo "GRAVITY_VERSION=$(GRAVITY_VERSION)" >> $(BUILDPROPS)
-	@rm -rf $(TMPDIR)
-
-.PHONY: robotest-publish-gravity
-robotest-publish-gravity:
-	aws s3 cp --region us-east-1 $(GRAVITY_BUILDDIR)/gravity \
-		$(ROBO_GRAVITY_BUCKET)/ \
-		--metadata version=$(GRAVITY_VERSION)
-
-#
 # number of environment variables are expected to be set
 # see https://github.com/gravitational/robotest/blob/master/suite/README.md
 #
@@ -700,10 +658,6 @@ robotest-run-suite:
 .PHONY: robotest-run-nightly
 robotest-run-nightly:
 	./build.assets/robotest/run.sh nightly $(shell pwd)/upgrade_from
-
-.PHONY: robotest-installer-ready
-robotest-installer-ready:
-	mv $(GRAVITY_BUILDDIR)/telekube.tar $(GRAVITY_BUILDDIR)/telekube_ready.tar
 
 .PHONY: dev
 dev: goinstall
