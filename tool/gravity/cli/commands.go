@@ -532,6 +532,8 @@ type PlanDisplayCmd struct {
 	Output *constants.Format
 	// Short is a shorthand for short output format
 	Short *bool
+	// Follow allows to follow the operation plan progress
+	Follow *bool
 }
 
 // PlanExecuteCmd executes a phase of an active operation
@@ -572,6 +574,8 @@ type PlanResumeCmd struct {
 	Force *bool
 	// PhaseTimeout is the rollback timeout
 	PhaseTimeout *time.Duration
+	// Block indicates whether the command should run in foreground or as a systemd unit
+	Block *bool
 }
 
 // PlanCompleteCmd completes the operation plan
@@ -696,6 +700,8 @@ type UpgradeCmd struct {
 	Set *[]string
 	// Values is a list of YAML files with Helm chart values.
 	Values *[]string
+	// Block indicates whether the command should run in foreground or as a systemd unit
+	Block *bool
 }
 
 // StatusCmd combines subcommands for displaying status information
