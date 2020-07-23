@@ -133,6 +133,7 @@ func newEngine(ctx context.Context, config Config, logger logrus.FieldLogger) (*
 		plan.ClusterName, plan.OperationID,
 		logger)
 	reconciledPlan, err := reconciler.ReconcilePlan(ctx, *plan)
+	logger.WithError(err).Info("Reconcile operation plan.")
 	if err != nil {
 		// This is not critical and will be retried during the operation
 		logger.WithError(err).Warn("Failed to reconcile operation plan.")

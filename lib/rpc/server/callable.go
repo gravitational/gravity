@@ -22,6 +22,7 @@ import (
 	"syscall"
 
 	pb "github.com/gravitational/gravity/lib/rpc/proto"
+	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
