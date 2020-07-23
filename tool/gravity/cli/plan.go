@@ -19,7 +19,6 @@ package cli
 import (
 	"context"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/gravitational/gravity/lib/constants"
@@ -71,7 +70,12 @@ func initUpdateOperationPlan(localEnv, updateEnv *localenv.LocalEnvironment) err
 	return trace.Wrap(err)
 }
 
-func displayOperationPlan(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operationID string, format constants.Format) error {
+type displayPlanOptions struct {
+	format constants.Format
+	follow bool
+}
+
+func displayOperationPlan(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operationID string, opts displayPlanOptions) error {
 	op, err := getLastOperation(localEnv, environ, operationID)
 	if err != nil {
 		if trace.IsNotFound(err) {
@@ -87,101 +91,169 @@ func displayOperationPlan(localEnv *localenv.LocalEnvironment, environ LocalEnvi
 		return trace.BadParameter(invalidOperationBanner, op.String(), op.ID)
 	}
 	if op.IsCompleted() && op.hasPlan {
-		return displayClusterOperationPlan(localEnv, op.Key(), format)
+		return displayClusterOperationPlan(localEnv, op.Key(), opts)
 	}
 	switch op.Type {
 	case ops.OperationInstall:
-		err = displayInstallOperationPlan(op.Key(), format)
+		err = displayInstallOperationPlan(localEnv, op.Key(), opts)
 	case ops.OperationExpand:
-		err = displayExpandOperationPlan(environ, op.Key(), format)
+		err = displayExpandOperationPlan(localEnv, environ, op.Key(), opts)
 	case ops.OperationUpdate:
-		err = displayUpdateOperationPlan(localEnv, environ, op.Key(), format)
+		err = displayUpdateOperationPlan(localEnv, environ, op.Key(), opts)
 	case ops.OperationUpdateRuntimeEnviron:
-		err = displayUpdateOperationPlan(localEnv, environ, op.Key(), format)
+		err = displayUpdateOperationPlan(localEnv, environ, op.Key(), opts)
 	case ops.OperationUpdateConfig:
-		err = displayUpdateOperationPlan(localEnv, environ, op.Key(), format)
+		err = displayUpdateOperationPlan(localEnv, environ, op.Key(), opts)
 	case ops.OperationGarbageCollect:
-		err = displayClusterOperationPlan(localEnv, op.Key(), format)
+		err = displayClusterOperationPlan(localEnv, op.Key(), opts)
 	default:
 		return trace.BadParameter("cannot display plan for %q operation as it does not support plans", op.TypeString())
 	}
 	if err != nil && trace.IsNotFound(err) {
 		// Fallback to cluster plan
-		return displayClusterOperationPlan(localEnv, op.Key(), format)
+		return displayClusterOperationPlan(localEnv, op.Key(), opts)
 	}
 	return trace.Wrap(err)
 }
 
-func displayClusterOperationPlan(env *localenv.LocalEnvironment, opKey ops.SiteOperationKey, format constants.Format) error {
-	clusterEnv, err := env.NewClusterEnvironment()
-	if err != nil {
-		return trace.Wrap(err)
+func getClusterOperationPlanFunc(localEnv *localenv.LocalEnvironment, opKey ops.SiteOperationKey) fsm.GetPlanFunc {
+	return func() (*storage.OperationPlan, error) {
+		clusterEnv, err := localEnv.NewClusterEnvironment()
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		plan, err := clusterEnv.Operator.GetOperationPlan(opKey)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		return plan, nil
 	}
-	plan, err := clusterEnv.Operator.GetOperationPlan(opKey)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	err = outputPlan(*plan, format)
-	return trace.Wrap(err)
 }
 
-func displayUpdateOperationPlan(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, opKey ops.SiteOperationKey, format constants.Format) error {
-	updateEnv, err := environ.NewUpdateEnv()
+func displayClusterOperationPlan(localEnv *localenv.LocalEnvironment, opKey ops.SiteOperationKey, opts displayPlanOptions) error {
+	return outputOrFollowPlan(localEnv, getClusterOperationPlanFunc(localEnv, opKey), opts)
+}
+
+func getUpdateOperationPlanFunc(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, opKey ops.SiteOperationKey) fsm.GetPlanFunc {
+	return func() (*storage.OperationPlan, error) {
+		updateEnv, err := environ.NewUpdateEnv()
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		plan, err := fsm.GetOperationPlan(updateEnv.Backend, opKey.SiteDomain, opKey.OperationID)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		reconciledPlan, err := tryReconcilePlan(context.TODO(), localEnv, updateEnv, *plan)
+		if err != nil {
+			logrus.WithError(err).Warn("Failed to reconcile plan.")
+		} else {
+			plan = reconciledPlan
+		}
+		return plan, nil
+	}
+}
+
+func displayUpdateOperationPlan(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, opKey ops.SiteOperationKey, opts displayPlanOptions) error {
+	return outputOrFollowPlan(localEnv, getUpdateOperationPlanFunc(localEnv, environ, opKey), opts)
+}
+
+func getInstallOperationPlanFunc(opKey ops.SiteOperationKey) fsm.GetPlanFunc {
+	return func() (*storage.OperationPlan, error) {
+		plan, err := getPlanFromWizard(opKey)
+		if err == nil {
+			log.Debug("Showing install operation plan retrieved from wizard process.")
+			return plan, nil
+		}
+		return nil, trace.NotFound("could not retrieve plan from wizard process")
+	}
+}
+
+func displayInstallOperationPlan(localEnv *localenv.LocalEnvironment, opKey ops.SiteOperationKey, opts displayPlanOptions) error {
+	return outputOrFollowPlan(localEnv, getInstallOperationPlanFunc(opKey), opts)
+}
+
+func getExpandOperationPlanFunc(environ LocalEnvironmentFactory, opKey ops.SiteOperationKey) fsm.GetPlanFunc {
+	return func() (*storage.OperationPlan, error) {
+		joinEnv, err := environ.NewJoinEnv()
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		defer joinEnv.Close()
+		plan, err := fsm.GetOperationPlan(joinEnv.Backend, opKey.SiteDomain, opKey.OperationID)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		log.Debug("Showing join operation plan retrieved from local join backend.")
+		return plan, nil
+	}
+}
+
+// displayExpandOperationPlan shows plan of the join operation from the local join backend
+func displayExpandOperationPlan(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, opKey ops.SiteOperationKey, opts displayPlanOptions) error {
+	return outputOrFollowPlan(localEnv, getExpandOperationPlanFunc(environ, opKey), opts)
+}
+
+func outputOrFollowPlan(localEnv *localenv.LocalEnvironment, getPlan fsm.GetPlanFunc, opts displayPlanOptions) error {
+	if !opts.follow {
+		return outputPlan(localEnv, getPlan, opts.format)
+	}
+	return followPlan(localEnv, getPlan)
+}
+
+func followPlan(localEnv *localenv.LocalEnvironment, getPlan fsm.GetPlanFunc) error {
+	plan, err := getPlan()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	plan, err := fsm.GetOperationPlan(updateEnv.Backend, opKey.SiteDomain, opKey.OperationID)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	reconciledPlan, err := tryReconcilePlan(context.TODO(), localEnv, updateEnv, *plan)
-	if err != nil {
-		logrus.WithError(err).Warn("Failed to reconcile plan.")
-	} else {
-		plan = reconciledPlan
-	}
-	err = outputPlan(*plan, format)
-	if err != nil {
-		return trace.Wrap(err)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	// Iterate over updates received from the watcher. There are 2 stop
+	// conditions for the watch:
+	//  * Phase failed -> exit with error.
+	//  * Plan fully completed or rolled back -> exit without error.
+	for eventI := range fsm.FollowOperationPlan(ctx, getPlan) {
+		switch event := eventI.(type) {
+		case *fsm.PlanChangedEvent:
+			localEnv.Printf("%v\t[%3v/%3v] Phase %v is %v\n",
+				color.BlueString(event.Change.Created.Format(constants.HumanDateFormatSeconds)),
+				event.Change.PhaseIndex+1,
+				plan.Len(),
+				event.Change.PhaseID,
+				event.Change.NewState)
+			if event.Change.NewState == storage.OperationPhaseStateFailed {
+				return trace.Errorf(string(event.Change.Error.Err))
+			}
+		case *fsm.PlanCompletedEvent:
+			localEnv.Printf("%v\t%v\n",
+				color.BlueString(time.Now().Format(constants.HumanDateFormatSeconds)),
+				color.GreenString("Operation plan is completed"))
+			return nil
+		case *fsm.PlanRolledBackEvent:
+			localEnv.Printf("%v\t%v\n",
+				color.BlueString(time.Now().Format(constants.HumanDateFormatSeconds)),
+				color.GreenString("Operation plan is rolled back"))
+			return nil
+		}
 	}
 	return nil
 }
 
-func displayInstallOperationPlan(opKey ops.SiteOperationKey, format constants.Format) error {
-	plan, err := getPlanFromWizard(opKey)
-	if err == nil {
-		log.Debug("Showing install operation plan retrieved from wizard process.")
-		return trace.Wrap(outputPlan(*plan, format))
-	}
-	return trace.Wrap(outputPlan(*plan, format))
-}
-
-// displayExpandOperationPlan shows plan of the join operation from the local join backend
-func displayExpandOperationPlan(environ LocalEnvironmentFactory, opKey ops.SiteOperationKey, format constants.Format) error {
-	joinEnv, err := environ.NewJoinEnv()
+func outputPlan(localEnv *localenv.LocalEnvironment, getPlan fsm.GetPlanFunc, format constants.Format) (err error) {
+	plan, err := getPlan()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	defer joinEnv.Close()
-	plan, err := fsm.GetOperationPlan(joinEnv.Backend, opKey.SiteDomain, opKey.OperationID)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	log.Debug("Showing join operation plan retrieved from local join backend.")
-	return outputPlan(*plan, format)
-}
-
-func outputPlan(plan storage.OperationPlan, format constants.Format) (err error) {
 	switch format {
 	case constants.EncodingYAML:
-		err = fsm.FormatOperationPlanYAML(os.Stdout, plan)
+		err = fsm.FormatOperationPlanYAML(localEnv, *plan)
 	case constants.EncodingJSON:
-		err = fsm.FormatOperationPlanJSON(os.Stdout, plan)
+		err = fsm.FormatOperationPlanJSON(localEnv, *plan)
 	case constants.EncodingText:
-		fsm.FormatOperationPlanText(os.Stdout, plan)
+		fsm.FormatOperationPlanText(localEnv, *plan)
 		err = explainPlan(plan.Phases)
 	case constants.EncodingShort:
-		fsm.FormatOperationPlanShort(os.Stdout, plan)
+		fsm.FormatOperationPlanShort(localEnv, *plan)
 		err = explainPlan(plan.Phases)
 	default:
 		return trace.BadParameter("unknown output format %q", format)

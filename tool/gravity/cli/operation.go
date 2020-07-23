@@ -50,6 +50,16 @@ type PhaseParams struct {
 	SkipVersionCheck bool
 	// DryRun allows to only print execute/rollback phases
 	DryRun bool
+	// Block indicates whether the command should be run in foreground or as a systemd unit
+	Block bool
+}
+
+func (p PhaseParams) toFSM() fsm.Params {
+	return fsm.Params{
+		PhaseID: p.PhaseID,
+		Force:   p.Force,
+		DryRun:  p.DryRun,
+	}
 }
 
 func executePhase(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params PhaseParams) error {
