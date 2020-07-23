@@ -103,6 +103,8 @@ func DescribeOperation(o storage.Operation) string {
 		return "Runtime environment update"
 	case OperationUpdateConfig:
 		return "Runtime configuration update"
+	case OperationGarbageCollect:
+		return "Garbage collection"
 	case OperationReconfigure:
 		return fmt.Sprintf("Advertise address change to %v",
 			o.GetReconfigure().IP)

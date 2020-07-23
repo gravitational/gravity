@@ -411,9 +411,9 @@ func (o *OperatorACL) CheckSiteStatus(ctx context.Context, key SiteKey) error {
 }
 
 // ValidateServers runs pre-installation checks
-func (o *OperatorACL) ValidateServers(ctx context.Context, req ValidateServersRequest) error {
+func (o *OperatorACL) ValidateServers(ctx context.Context, req ValidateServersRequest) (*ValidateServersResponse, error) {
 	if err := o.ClusterAction(req.SiteDomain, storage.KindCluster, teleservices.VerbRead); err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 	return o.operator.ValidateServers(ctx, req)
 }
@@ -577,11 +577,11 @@ func (o *OperatorACL) CreateProgressEntry(key SiteOperationKey, entry ProgressEn
 	return o.operator.CreateProgressEntry(key, entry)
 }
 
-func (o *OperatorACL) GetSiteReport(key SiteKey) (io.ReadCloser, error) {
-	if err := o.ClusterAction(key.SiteDomain, storage.KindCluster, teleservices.VerbRead); err != nil {
+func (o *OperatorACL) GetSiteReport(req GetClusterReportRequest) (io.ReadCloser, error) {
+	if err := o.ClusterAction(req.SiteDomain, storage.KindCluster, teleservices.VerbRead); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return o.operator.GetSiteReport(key)
+	return o.operator.GetSiteReport(req)
 }
 
 func (o *OperatorACL) ValidateDomainName(domainName string) error {

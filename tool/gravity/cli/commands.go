@@ -645,6 +645,8 @@ type UpdateTriggerCmd struct {
 	Manual *bool
 	// SkipVersionCheck suppresses version mismatch errors
 	SkipVersionCheck *bool
+	// Force forces update
+	Force *bool
 }
 
 // UpdateUploadCmd uploads new app version to local cluster
@@ -730,6 +732,8 @@ type StatusHistoryCmd struct {
 // StatusResetCmd resets cluster to active state
 type StatusResetCmd struct {
 	*kingpin.CmdClause
+	// Confirmed suppresses confirmation prompt
+	Confirmed *bool
 }
 
 // RegistryCmd allows to interact with the cluster private registry
@@ -1362,6 +1366,10 @@ type ReportCmd struct {
 	*kingpin.CmdClause
 	// FilePath is the report tarball path
 	FilePath *string
+	// Since is the duration before now that specifies the start of the time
+	// filter. Only log entries from the start of the time filter until now will
+	// be included in the report.
+	Since *time.Duration
 }
 
 // SiteCmd combines cluster related subcommands
@@ -1667,6 +1675,10 @@ type SystemReportCmd struct {
 	Compressed *bool
 	// Output optionally specifies output file path
 	Output *string
+	// Since is the duration before now that specifies the start of the time
+	// filter. Only log entries from the start of the time filter until now will
+	// be included in the report.
+	Since *time.Duration
 }
 
 // SystemStateDirCmd shows local state directory
@@ -1701,11 +1713,19 @@ type SystemExportRuntimeJournalCmd struct {
 	*kingpin.CmdClause
 	// OutputFile specifies the path of the resulting tarball
 	OutputFile *string
+	// Since is the duration before now that specifies the start of the time
+	// filter. Only log entries from the start of the time filter until now will
+	// be included in the report.
+	Since *time.Duration
 }
 
 // SystemStreamRuntimeJournalCmd streams contents of the runtime journal
 type SystemStreamRuntimeJournalCmd struct {
 	*kingpin.CmdClause
+	// Since is the duration before now that specifies the start of the time
+	// filter. Only log entries from the start of the time filter until now will
+	// be included in the report.
+	Since *time.Duration
 }
 
 // SystemSelinuxBootstrapCmd configures SELinux file contexts and ports on the node

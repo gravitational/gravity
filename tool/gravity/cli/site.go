@@ -27,6 +27,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/fatih/color"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/localenv"
@@ -121,7 +122,7 @@ func listSites(env *localenv.LocalEnvironment, opsCenterURL string) error {
 	return nil
 }
 
-func getClusterReport(env *localenv.LocalEnvironment, targetFile string) error {
+func getClusterReport(env *localenv.LocalEnvironment, targetFile string, since time.Duration) error {
 	f, err := os.Create(targetFile)
 	if err != nil {
 		return trace.Wrap(err)
@@ -138,9 +139,12 @@ func getClusterReport(env *localenv.LocalEnvironment, targetFile string) error {
 		return trace.Wrap(err)
 	}
 
-	report, err := operator.GetSiteReport(ops.SiteKey{
-		AccountID:  site.AccountID,
-		SiteDomain: site.Domain,
+	report, err := operator.GetSiteReport(ops.GetClusterReportRequest{
+		SiteKey: ops.SiteKey{
+			AccountID:  site.AccountID,
+			SiteDomain: site.Domain,
+		},
+		Since: since,
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -290,8 +294,32 @@ func getLocalSite(env *localenv.LocalEnvironment) error {
 	return nil
 }
 
-func resetClusterState(app *localenv.LocalEnvironment) error {
-	operator, err := app.SiteOperator()
+const stateResetWarning = `WARNING! This operation will force-set the cluster state to active without any
+extra checks.
+
+If used improperly, it may lead to inconsistent cluster state which may affect
+future operations, so only proceed if you're certain of what you're doing.
+
+Before resetting the cluster state consider doing the following:
+
+ * Inspect "gravity status" to understand which state the cluster is in.
+
+ * If there're unfinished operations, use "gravity plan" commands to properly
+   complete or roll them back.
+
+ * Refer to https://gravitational.com/gravity/docs/cluster/#managing-operations
+   for more information about operation management.
+`
+
+func resetClusterState(env *localenv.LocalEnvironment, confirmed bool) error {
+	if !confirmed {
+		env.Println(color.YellowString(stateResetWarning))
+		if err := enforceConfirmation("Proceed?"); err != nil {
+			return trace.Wrap(err)
+		}
+	}
+
+	operator, err := env.SiteOperator()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -309,7 +337,7 @@ func resetClusterState(app *localenv.LocalEnvironment) error {
 		return trace.Wrap(err)
 	}
 
-	app.Printf("cluster %s state has been set to active\n", site.Domain)
+	env.Printf("Cluster %s state has been set to active\n", site.Domain)
 	return nil
 }
 

@@ -4,11 +4,11 @@ Find the latest Open Source Gravity releases at [Gravity Downloads](https://grav
 
 ## Supported Versions
 
-| Version             | LTS | Release Date         | End of Support          | Kubernetes Version   | Teleport Version |
-| ------------------- | --- | -------------------- | ----------------------- | -------------------- | ---------------- |
-| [7.0](#70-releases) | No  | April 3, 2020        | 7.1 is released         | 1.17.6               | 3.2.13           |
-| [6.1](#61-releases) | Yes | August 2, 2019       | November 10, 2021       | 1.15.12              | 3.2.12           |
-| [5.5](#55-releases) | Yes | March 8, 2019        | March 8, 2021           | 1.13.11              | 3.0.6-gravity    |
+| Version             | Latest Patch | LTS | Release Date         | End of Support *        | Kubernetes Version   | Teleport Version |
+| ------------------- | ------------ | --- | -------------------- | ----------------------- | -------------------- | ---------------- |
+| [7.0](#70-releases) | 7.0.13       | Yes | April 3, 2020        | July 9, 2022            | 1.17.9               | 3.2.13           |
+| [6.1](#61-releases) | 6.1.31       | Yes | August 2, 2019       | November 10, 2021       | 1.15.12              | 3.2.12           |
+| [5.5](#55-releases) | 5.5.49       | Yes | March 8, 2019        | March 8, 2021           | 1.13.11              | 3.0.6-gravity    |
 
 Gravity offers one Long Term Support (LTS) version for every 2nd Kubernetes
 minor version, allowing for seamless upgrades per Kubernetes
@@ -20,29 +20,78 @@ more current versions of Kubernetes. Regular branches of Gravity are supported
 with security and bug fixes until first release of the subsequent Gravity
 branch is published.
 
+_* Unless extended through customer agreement._
+
 ## Unsupported Versions
 
 These versions are past their End of Support date, and no longer receive security
 and bug fixes. [Gravity customers](https://gravitational.com/gravity/demo/) can
 extend updates past End of Support through customer agreements if required.
 
-| Version             | LTS | Release Date         | End of Support          | Kubernetes Version   | Teleport Version |
-| ------------------- | --- | -------------------- | ----------------------- | -------------------- | ---------------- |
-| [6.3](#63-releases) | No  | December 18, 2019    | April 3, 2020 (7.0)     | 1.17.6               | 3.2.13           |
-| [6.2](#62-releases) | No  | September 24, 2019   | December 18, 2019 (6.3) | 1.16.3               | 3.2.13           |
-| [6.0](#60-releases) | No  | July 17, 2019        | August 2, 2019 (6.1)    | 1.14.7               | 3.2.12           |
-| [5.6](#56-releases) | No  | April 19, 2019       | July 17, 2019 (6.0)     | 1.14.7               | 3.0.6-gravity    |
-| [5.4](#54-releases) | No  | December 14, 2018    | March 8, 2019 (5.5)     | 1.13.5               | 2.4.10           |
-| [5.3](#53-releases) | No  | October 19, 2018     | December 14, 2018 (5.4) | 1.12.3               | 2.4.7            |
-| [5.2](#52-releases) | Yes | October 15, 2018     | October 15, 2019        | 1.11.9               | 2.4.10           |
-| [5.0](#50-releases) | Yes | April 18, 2018       | April 13, 2019          | 1.9.13-gravitational | 2.4.10           |
-| [4.x](#4x-releases) | Yes | June 1, 2017         | November 16, 2018       | 1.7.18-gravitational | 2.3.5            |
-| [3.x](#3x-releases) | Yes | February 16, 2017    | June 2, 2018            | 1.5.7                | 2.0.6            |
-| [1.x](#1x-releases) | Yes | November 2nd, 2016   | March 21, 2018          | 1.3.8                | 1.2.0            |
+| Version             | Latest Patch | LTS | Release Date         | End of Support          | Kubernetes Version   | Teleport Version |
+| ------------------- | ------------ | --- | -------------------- | ----------------------- | -------------------- | ---------------- |
+| [6.3](#63-releases) | 6.3.18       | No  | December 18, 2019    | April 3, 2020 (7.0)     | 1.17.6               | 3.2.13           |
+| [6.2](#62-releases) | 6.2.5        | No  | September 24, 2019   | December 18, 2019 (6.3) | 1.16.3               | 3.2.13           |
+| [6.0](#60-releases) | 6.0.10       | No  | July 17, 2019        | August 2, 2019 (6.1)    | 1.14.7               | 3.2.12           |
+| [5.6](#56-releases) | 5.6.8        | No  | April 19, 2019       | July 17, 2019 (6.0)     | 1.14.7               | 3.0.6-gravity    |
+| [5.4](#54-releases) | 5.4.10       | No  | December 14, 2018    | March 8, 2019 (5.5)     | 1.13.5               | 2.4.10           |
+| [5.3](#53-releases) | 5.3.9        | No  | October 19, 2018     | December 14, 2018 (5.4) | 1.12.3               | 2.4.7            |
+| [5.2](#52-releases) | 5.2.17       | Yes | October 15, 2018     | October 15, 2019        | 1.11.9               | 2.4.10           |
+| [5.0](#50-releases) | 5.0.36       | Yes | April 18, 2018       | April 13, 2019          | 1.9.13-gravitational | 2.4.10           |
+| [4.x](#4x-releases) | 4.68.0       | Yes | June 1, 2017         | November 16, 2018       | 1.7.18-gravitational | 2.3.5            |
+| [3.x](#3x-releases) | 3.64.0       | Yes | February 16, 2017    | June 2, 2018            | 1.5.7                | 2.0.6            |
+| [1.x](#1x-releases) | 1.29.0       | Yes | November 2nd, 2016   | March 21, 2018          | 1.3.8                | 1.2.0            |
 
 # Release Notes
 
 ## 7.0 Releases
+
+### 7.0.13 LTS (July 15th, 2020)
+
+#### Improvements
+
+* Pull only required packages during join ([#1862](https://github.com/gravitational/gravity/pull/1862)).
+
+#### Bugfixes
+
+* Update Kubernetes to 1.17.9 (CVE-2020-8557, CVE-2020-8559) ([#1886](https://github.com/gravitational/gravity/pull/1886), [planet#703](https://github.com/gravitational/planet/pull/703)).
+
+!!! warning
+    This release fixes a security vulnerability in Kubernetes. Please see
+    [Kubernetes Announcement for CVE-2020-8557](https://groups.google.com/g/kubernetes-announce/c/YCBo2a3wCtU) and [Kubernetes Announcement for CVE-2020-8559](https://groups.google.com/g/kubernetes-announce/c/44da1m3evoU) for more information.
+
+
+
+### 7.0.12 LTS (July 10th, 2020)
+
+#### Improvements
+
+* Update `gravity status` to display unhealthy critical system pods ([#1753](https://github.com/gravitational/gravity/pull/1753), [planet#691](https://github.com/gravitational/planet/pull/691), [satellite#236](https://github.com/gravitational/satellite/pull/236)).
+* Add `--since` flag to `gravity report` command to allow filtering collected logs by time ([#1806](https://github.com/gravitational/gravity/pull/1806)).
+* Add more system information collectors to `gravity report` ([#1806](https://github.com/gravitational/gravity/pull/1806)).
+* Set priority classes on critical system pods ([#1814](https://github.com/gravitational/gravity/pull/1814), [logging#66](https://github.com/gravitational/logging-app/pull/66), [monitoring#181](https://github.com/gravitational/monitoring-app/pull/181)).
+* Update etcd disk check to produce a warning on soft limits (`50ms` latency, `50` IOPS) and a critical failure on hard limits (`150ms` latency, `10` IOPS) ([#1847](https://github.com/gravitational/gravity/pull/1847)).
+
+#### Bugfixes
+
+* Make sure upgrade is resumed on the correct node to avoid issues with plan inconsistency ([#1794](https://github.com/gravitational/gravity/pull/1794)).
+* Make sure upgrade can't be launched if the previous upgrade wasn't completed or fully rolled back ([#1803](https://github.com/gravitational/gravity/pull/1803)).
+* Fix an issue with upgrade failing to adjust volume permissions if only uid is specified ([#1803](https://github.com/gravitational/gravity/pull/1803)).
+* Fix an issue with some tabs not working when accessed through wizard installer user interface ([#1815](https://github.com/gravitational/gravity/pull/1815)).
+* Fix an issue with installation failing on Vultr ([#1815](https://github.com/gravitational/gravity/pull/1815)).
+* Fix an issue with installed Helm releases not displayed on the dashboard ([#1815](https://github.com/gravitational/gravity/pull/1815)).
+* Fix an issue with signup/reset links not honoring configured public address ([#1815](https://github.com/gravitational/gravity/pull/1815)).
+* Fix an issue with `tsh` sometimes producing access denied errors ([#1836](https://github.com/gravitational/gravity/pull/1836)).
+
+### 7.0.11 (June 24th, 2020)
+
+#### Improvements
+
+* Upgrade Grafana to `v6.7.4` ([#1763](https://github.com/gravitational/gravity/pull/1763), [monitoring-app#178](https://github.com/gravitational/monitoring-app/pull/178)).
+
+#### Bugfixes
+
+* Fix a regression with Gravity trying to execute disk space check for volumes that don't specify disk space requirements ([#1758](https://github.com/gravitational/gravity/pull/1758), [planet#692](https://github.com/gravitational/gravity/pull/1758), [satellite#237](https://github.com/gravitational/satellite/pull/237)).
 
 ### 7.0.10 (June 23rd, 2020)
 
@@ -479,6 +528,35 @@ to learn how to gain insight into how the cluster status changes over time.
 * Upgrade Kubernetes to `v1.16.0`.
 
 ## 6.1 Releases
+
+### 6.1.31 LTS (July 13th, 2020)
+
+#### Bugfixes
+
+* Fix a regression in `6.1.30` that led to installation crashing in bare-metal mode during package configuration phase ([#1864](https://github.com/gravitational/gravity/pull/1864)).
+
+### 6.1.30 LTS (July 10th, 2020)
+
+#### Improvements
+
+* Disk space check will now trigger a warning on soft limit (80%) and degrade the node on hard limit (90%) ([#1690](https://github.com/gravitational/gravity/pull/1690), [planet#678](https://github.com/gravitational/planet/pull/678), [#228](https://github.com/gravitational/satellite/pull/228)).
+* Add backoff after new cluster image upload to make sure cluster is healthy ([#1709](https://github.com/gravitational/gravity/pull/1709)).
+* Display a more detailed reason for degraded status in `gravity status` ([#1723](https://github.com/gravitational/gravity/pull/1723)).
+* Update `gravity status` to display unhealthy critical system pods ([#1752](https://github.com/gravitational/gravity/pull/1752), [planet#690](https://github.com/gravitational/planet/pull/690), [satellite#235](https://github.com/gravitational/satellite/pull/235)).
+* Upgrade Grafana to `v6.7.4` ([#1754](https://github.com/gravitational/gravity/pull/1754), [monitoring#177](https://github.com/gravitational/monitoring-app/pull/177)).
+* Add `--since` flag to `gravity report` command to allow filtering collected logs by time ([#1800](https://github.com/gravitational/gravity/pull/1800)).
+* Add more system information collectors to `gravity report` ([#1800](https://github.com/gravitational/gravity/pull/1800)).
+* Update `ClusterConfiguration` resource to support service CIDR changes ([#1839](https://github.com/gravitational/gravity/pull/1839)).
+
+#### Bugfixes
+
+* Fix an issue with monitoring app upgrade sometimes failing with "request too large" ([#1697](https://github.com/gravitational/gravity/pull/1697), [monitoring#174](https://github.com/gravitational/monitoring-app/pull/174)).
+* Fix an issue with `kube-apiserver` sometimes entering failed state during failover ([#1742](https://github.com/gravitational/gravity/pull/1742), [planet#685](https://github.com/gravitational/planet/pull/685)).
+* Fix an issue with calculating port differences when upgrading to a new version ([#1745](https://github.com/gravitational/gravity/pull/1745)).
+* Fix an issue with RPC agent credentials not being rotated during upgrade ([#1747](https://github.com/gravitational/gravity/pull/1747)).
+* Make sure upgrade is resumed on the correct node to avoid issues with plan inconsistency ([#1793](https://github.com/gravitational/gravity/pull/1793)).
+* Make sure upgrade can't be launched if the previous upgrade wasn't completed or fully rolled back ([#1802](https://github.com/gravitational/gravity/pull/1802)).
+* Fix an issue with upgrade failing to adjust volume permissions if only uid is specified ([#1802](https://github.com/gravitational/gravity/pull/1802)).
 
 ### 6.1.29 LTS (June 12th, 2020)
 
@@ -1099,6 +1177,27 @@ to learn how to gain insight into how the cluster status changes over time.
 * Upgrade Kubernetes to `v1.14.0`.
 
 ## 5.5 Releases
+
+### 5.5.49 LTS (June 25th, 2020)
+
+#### Improvements
+
+* Set priority classes on critical system pods ([#1692](https://github.com/gravitational/gravity/pull/1692), [planet#681](https://github.com/gravitational/planet/pull/681), [logging#65](https://github.com/gravitational/logging-app/pull/65), [monitoring#175](https://github.com/gravitational/monitoring-app/pull/175)).
+* Update `gravity status` to display unhealthy critical system pods ([#1702](https://github.com/gravitational/gravity/pull/1702), [planet#682](https://github.com/gravitational/planet/pull/682), [satellite#233](https://github.com/gravitational/satellite/pull/233)).
+* Display a more detailed reason for degraded status in `gravity status` ([#1707](https://github.com/gravitational/gravity/pull/1707)).
+* Add `--since` flag to `gravity report` command to allow filtering collected logs by time ([#1719](https://github.com/gravitational/gravity/pull/1719)).
+* Add more system information collectors to `gravity report` ([#1719](https://github.com/gravitational/gravity/pull/1719)).
+* Upgrade Grafana to `v6.7.4` ([#1730](https://github.com/gravitational/gravity/pull/1730), [monitoring#176](https://github.com/gravitational/monitoring-app/pull/176)).
+* Add pre-upgrade check that makes sure previous upgrade operation was fully completed or rolled back ([#1731](https://github.com/gravitational/gravity/pull/1731)).
+* Increase timeout for tolerating temporary etcd issues when enabling leader elections during install and join operations ([#1797](https://github.com/gravitational/gravity/pull/1797)).
+
+#### Bugfixes
+
+* Fix an issue with `kube-apiserver` sometimes entering failed state during failover ([#1727](https://github.com/gravitational/gravity/pull/1727), [planet#686](https://github.com/gravitational/planet/pull/686)).
+* Fix an issue with monitoring tab displaying "Dashboard not found" error ([#1730](https://github.com/gravitational/gravity/pull/1730), [monitoring#176](https://github.com/gravitational/monitoring-app/pull/176)).
+* Fix an issue with upgrade failing to adjust volume permissions if only uid is specified ([#1789](https://github.com/gravitational/gravity/pull/1789)).
+* Make sure upgrade is resumed on the correct node to avoid issues with plan inconsistency ([#1790](https://github.com/gravitational/gravity/pull/1790)).
+* Fix an issue with disk space check executing for volumes that don't have disk requirements specified ([#1795](https://github.com/gravitational/gravity/pull/1795)).
 
 ### 5.5.48 LTS (June 15th, 2020)
 

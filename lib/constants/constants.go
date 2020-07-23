@@ -208,6 +208,9 @@ const (
 	// If not empty, turns the preflight checks off
 	PreflightChecksOffEnvVar = "GRAVITY_CHECKS_OFF"
 
+	// GravityEnvVarPrefix is the prefix for gravity-specific environment variables.
+	GravityEnvVarPrefix = "GRAVITY_"
+
 	// Localhost is local host
 	Localhost = "127.0.0.1"
 
@@ -714,6 +717,13 @@ const (
 	// GravitySystemContainerType specifies the SELinux domain for the system containers.
 	// For instance, application hook init containers run as system containers
 	GravitySystemContainerType = "gravity_container_system_t"
+
+	// GravityCLITag is used to tag gravity cli command log entries in the
+	// system journal.
+	GravityCLITag = "gravity-cli"
+
+	// Redacted is used as a replacement string for sensitive data.
+	Redacted = "*****"
 )
 
 var (

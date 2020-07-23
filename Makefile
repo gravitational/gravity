@@ -19,7 +19,7 @@ ASSETSDIR=$(TOP)/assets
 BINDIR ?= /usr/bin
 
 # Current Kubernetes version
-K8S_VER := 1.17.6
+K8S_VER := 1.17.9
 # Kubernetes version suffix for the planet package, constructed by concatenating
 # major + minor padded to 2 chars with 0 + patch also padded to 2 chars, e.g.
 # 1.13.5 -> 11305, 1.13.12 -> 11312, 2.0.0 -> 20000 and so on
@@ -46,15 +46,15 @@ RELEASE_OUT ?=
 TELEPORT_TAG = 3.2.14
 # TELEPORT_REPOTAG adapts TELEPORT_TAG to the teleport tagging scheme
 TELEPORT_REPOTAG := v$(TELEPORT_TAG)
-PLANET_TAG := 7.1.4-$(K8S_VER_SUFFIX)
+PLANET_TAG := 7.1.8-$(K8S_VER_SUFFIX)
 PLANET_BRANCH := $(PLANET_TAG)
 K8S_APP_TAG := $(GRAVITY_TAG)
 TELEKUBE_APP_TAG := $(GRAVITY_TAG)
 WORMHOLE_APP_TAG := $(GRAVITY_TAG)
 INGRESS_APP_TAG ?= 0.0.1
 STORAGE_APP_TAG ?= 0.0.3
-LOGGING_APP_TAG ?= 6.0.4
-MONITORING_APP_TAG ?= 7.0.1
+LOGGING_APP_TAG ?= 6.0.5
+MONITORING_APP_TAG ?= 7.0.2
 DNS_APP_TAG = 0.4.1
 BANDWAGON_TAG ?= 6.0.1
 RBAC_APP_TAG := $(GRAVITY_TAG)
@@ -501,10 +501,8 @@ publish-artifacts: opscenter telekube
 	if [ -z "$(TELE_KEY)" ] || [ -z "$(DISTRIBUTION_OPSCENTER)" ]; then \
 	   echo "TELE_KEY or DISTRIBUTION_OPSCENTER are not set"; exit 1; \
 	fi;
-	$(GRAVITY_BUILDDIR)/tele logout
-	$(GRAVITY_BUILDDIR)/tele login -o $(DISTRIBUTION_OPSCENTER) --token=$(TELE_KEY)
-	$(GRAVITY_BUILDDIR)/tele push $(GRAVITY_BUILDDIR)/telekube.tar
-	$(GRAVITY_BUILDDIR)/tele push $(GRAVITY_BUILDDIR)/opscenter.tar
+	$(GRAVITY_BUILDDIR)/tele push $(GRAVITY_BUILDDIR)/telekube.tar  --hub=$(DISTRIBUTION_OPSCENTER) --token=$(TELE_KEY)
+	$(GRAVITY_BUILDDIR)/tele push $(GRAVITY_BUILDDIR)/opscenter.tar --hub=$(DISTRIBUTION_OPSCENTER) --token=$(TELE_KEY)
 
 #
 # scan-artifacts uploads a copy of all vendored containers to a docker registry for scanning and vulnerability reporting
@@ -695,18 +693,17 @@ robotest-publish-gravity:
 		$(ROBO_GRAVITY_BUCKET)/ \
 		--metadata version=$(GRAVITY_VERSION)
 
-
 #
 # number of environment variables are expected to be set
 # see https://github.com/gravitational/robotest/blob/master/suite/README.md
 #
 .PHONY: robotest-run-suite
 robotest-run-suite:
-	./build.assets/robotest_run_suite.sh $(shell pwd)/upgrade_from
+	./build.assets/robotest/run.sh pr $(shell pwd)/upgrade_from
 
 .PHONY: robotest-run-nightly
 robotest-run-nightly:
-	./build.assets/robotest_run_nightly.sh $(shell pwd)/upgrade_from
+	./build.assets/robotest/run.sh nightly $(shell pwd)/upgrade_from
 
 .PHONY: robotest-installer-ready
 robotest-installer-ready:

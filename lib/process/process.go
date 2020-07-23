@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2018-2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -519,7 +519,7 @@ func (p *Process) leaderStatus() (string, bool) {
 func (p *Process) startAutoscale(ctx context.Context) error {
 	_, err := cloudaws.NewLocalInstance()
 	if err != nil {
-		p.Info("Not on AWS, skip autoscaler start.")
+		p.WithError(err).Info("Not on AWS, skip autoscaler start.")
 		return nil
 	}
 	p.Info("Starting AWS autoscaler.")
@@ -1413,6 +1413,7 @@ func (p *Process) initService(ctx context.Context) (err error) {
 		Apps:            applications,
 		Users:           p.identity,
 		TeleportProxy:   teleportProxy,
+		AuthClient:      authClient,
 		Tunnel:          reverseTunnel,
 		Metrics:         metrics,
 		Local:           p.mode == constants.ComponentSite,

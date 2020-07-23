@@ -21,6 +21,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/ops/opsservice"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/trace"
 	"github.com/julienschmidt/httprouter"
@@ -121,7 +122,7 @@ func (m *Handler) validateServers(w http.ResponseWriter, r *http.Request, p http
 	log.Infof("validateServers: %v", req)
 
 	clusterName, operationID := p.ByName("domain"), p.ByName("operation_id")
-	err = ctx.Operator.ValidateServers(ctx.Context, ops.ValidateServersRequest{
+	err = opsservice.ValidateServers(ctx.Context, ctx.Operator, ops.ValidateServersRequest{
 		AccountID:   ctx.User.GetAccountID(),
 		SiteDomain:  clusterName,
 		OperationID: operationID,

@@ -268,5 +268,5 @@ The operation might take several minutes to complete depending on the cluster si
 "Are you sure?`
 	updateEnvironManualOperationBanner = `The operation has been created in manual mode.
 
-See https://gravitational.com/gravity/docs/cluster/#managing-an-ongoing-operation for details on working with operation plan.`
+See https://gravitational.com/gravity/docs/cluster/#managing-operations for details on working with operation plan.`
 )

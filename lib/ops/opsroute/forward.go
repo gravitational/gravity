@@ -422,19 +422,19 @@ func (r *Router) CreateProgressEntry(key ops.SiteOperationKey, entry ops.Progres
 	return client.CreateProgressEntry(key, entry)
 }
 
-func (r *Router) GetSiteReport(key ops.SiteKey) (io.ReadCloser, error) {
-	client, err := r.PickClient(key.SiteDomain)
+func (r *Router) GetSiteReport(req ops.GetClusterReportRequest) (io.ReadCloser, error) {
+	client, err := r.PickClient(req.SiteDomain)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return client.GetSiteReport(key)
+	return client.GetSiteReport(req)
 }
 
 // ValidateServers runs pre-installation checks
-func (r *Router) ValidateServers(ctx context.Context, req ops.ValidateServersRequest) error {
+func (r *Router) ValidateServers(ctx context.Context, req ops.ValidateServersRequest) (*ops.ValidateServersResponse, error) {
 	client, err := r.WizardClient(req.SiteDomain)
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 	return client.ValidateServers(ctx, req)
 }

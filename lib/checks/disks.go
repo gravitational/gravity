@@ -20,36 +20,38 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
-	"strings"
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/network/validation/proto"
 	"github.com/gravitational/gravity/lib/state"
+	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/gravitational/satellite/agent/proto/agentpb"
 	"github.com/gravitational/trace"
 )
 
 // checkEtcdDisk makes sure that the disk used for etcd wal satisfies
 // performance requirements.
-func (r *checker) checkEtcdDisk(ctx context.Context, server Server) error {
+func (r *checker) checkEtcdDisk(ctx context.Context, server Server) ([]*agentpb.Probe, error) {
 	// Test file should reside where etcd data will be.
 	testPath := state.InEtcdDir(server.ServerInfo.StateDir, testFile)
 	res, err := r.Remote.CheckDisks(ctx, server.AdvertiseIP, fioEtcdJob(testPath))
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 	log.Debugf("Server %v disk test results: %s.", server.Hostname, res.String())
 	if len(res.Jobs) != 1 {
-		return trace.BadParameter("expected 1 job result: %v", res)
+		return nil, trace.BadParameter("expected 1 job result: %v", res)
 	}
 	iops := res.Jobs[0].GetWriteIOPS()
 	latency := res.Jobs[0].GetFsyncLatency()
-	if iops < EtcdMinWriteIOPS || latency > EtcdMaxFsyncLatencyMs {
-		return formatEtcdErrors(server, testPath, iops, latency)
+	probes := formatEtcdProbes(server, testPath, iops, latency)
+	if len(probes) > 0 {
+		return probes, nil
 	}
 	log.Infof("Server %v passed etcd disk check, has %v sequential write iops and %vms fsync latency.",
 		server.Hostname, iops, latency)
-	return nil
+	return nil, nil
 }
 
 // fioEtcdJob constructs a request to check etcd disk performance.
@@ -80,55 +82,121 @@ func fioEtcdJob(filename string) *proto.CheckDisksRequest {
 	}
 }
 
-// formatEtcdErrors returns appropritate formatted error messages based
-// on the etcd disk performance test results.
-func formatEtcdErrors(server Server, testPath string, iops float64, latency int64) error {
-	err := &fioTestError{}
-	if iops < EtcdMinWriteIOPS {
-		err.messages = append(err.messages, fmt.Sprintf("server %v has low sequential write IOPS of %v on %v (required minimum is %v)",
-			server.Hostname, iops, filepath.Dir(testPath), EtcdMinWriteIOPS))
+// formatEtcdProbes returns appropritate probes based on the etcd disk
+// performance test results.
+func formatEtcdProbes(server Server, testPath string, iops float64, latency int64) (probes []*agentpb.Probe) {
+	if iops < getEtcdMinIOPSHard() {
+		probes = append(probes, newFailedProbe("",
+			fmt.Sprintf("Node %v sequential write IOPS on %v is lower than %v (%v)",
+				server.Hostname, filepath.Dir(testPath), getEtcdMinIOPSHard(), int(iops))))
+	} else if iops < getEtcdMinIOPSSoft() {
+		probes = append(probes, newWarningProbe("",
+			fmt.Sprintf("Node %v sequential write IOPS on %v is lower than %v (%v) which may result in poor etcd performance",
+				server.Hostname, filepath.Dir(testPath), getEtcdMinIOPSSoft(), int(iops))))
 	}
-	if latency > EtcdMaxFsyncLatencyMs {
-		err.messages = append(err.messages, fmt.Sprintf("server %v has high fsync latency of %vms on %v (required maximum is %vms)",
-			server.Hostname, latency, filepath.Dir(testPath), EtcdMaxFsyncLatencyMs))
+	if latency > getEtcdMaxLatencyHard() {
+		probes = append(probes, newFailedProbe("",
+			fmt.Sprintf("Node %v fsync latency on %v is higher than %vms (%vms)",
+				server.Hostname, filepath.Dir(testPath), getEtcdMaxLatencyHard(), latency)))
+	} else if latency > getEtcdMaxLatencySoft() {
+		probes = append(probes, newWarningProbe("",
+			fmt.Sprintf("Node %v fsync latency on %v is higher than %vms (%vms) which may result in poor etcd performance",
+				server.Hostname, filepath.Dir(testPath), getEtcdMaxLatencySoft(), latency)))
 	}
-	return err
+	return probes
 }
 
-// fioTestError is returned when fio disk test fails to validate requirements.
-type fioTestError struct {
-	messages []string
+func newFailedProbe(message, detail string) *agentpb.Probe {
+	return &agentpb.Probe{
+		Status:   agentpb.Probe_Failed,
+		Severity: agentpb.Probe_Critical,
+		Error:    message,
+		Detail:   detail,
+	}
 }
 
-// Error returns all errors encountered during fio disk test.
-func (e *fioTestError) Error() string {
-	return strings.Join(e.messages, ", ")
-}
-
-// isFioTestError returns true if the provided error is the fio disk test error.
-func isFioTestError(err error) bool {
-	_, ok := trace.Unwrap(err).(*fioTestError)
-	return ok
+func newWarningProbe(message, detail string) *agentpb.Probe {
+	return &agentpb.Probe{
+		Status:   agentpb.Probe_Failed,
+		Severity: agentpb.Probe_Warning,
+		Error:    message,
+		Detail:   detail,
+	}
 }
 
 const (
-	// EtcdMinWriteIOPS defines the minimum number of sequential write iops
-	// required for etcd to perform effectively.
+	// EtcdMinWriteIOPSSoft defines the soft threshold for a minimum number of
+	// sequential write iops required for etcd to perform effectively.
 	//
 	// The number is recommended by etcd documentation:
 	// https://github.com/etcd-io/etcd/blob/master/Documentation/op-guide/hardware.md#disks
 	//
-	EtcdMinWriteIOPS = 50
+	// The soft threshold will generate a warning.
+	EtcdMinWriteIOPSSoft = 50
+	// EtcdMinWriteIOPSHard is the lowest number of IOPS Gravity will tolerate
+	// before generating a critical probe failure.
+	EtcdMinWriteIOPSHard = 10
 
-	// EtcdMaxFsyncLatencyMs defines the maximum fsync latency required for
-	// etcd to perform effectively, in milliseconds.
+	// EtcdMaxFsyncLatencyMsSoft defines the soft threshold for a maximum fsync
+	// latency required for etcd to perform effectively, in milliseconds.
 	//
 	// Etcd documentation recommends 10ms for optimal performance but we're
 	// being conservative here to ensure better dev/test experience:
 	// https://github.com/etcd-io/etcd/blob/master/Documentation/faq.md#what-does-the-etcd-warning-failed-to-send-out-heartbeat-on-time-mean
 	//
-	EtcdMaxFsyncLatencyMs = 50
+	// The soft threshold will generate a warning.
+	EtcdMaxFsyncLatencyMsSoft = 50
+	// EtcdMaxFsyncLatencyMsHard is the highest fsync latency Gravity prechecks
+	// will tolerate before generating a critical probe failure.
+	EtcdMaxFsyncLatencyMsHard = 150
 
 	// testFile is the name of the disk performance test file.
 	testFile = "fio.test"
+)
+
+// getEtcdMinIOPSSoft returns the soft limit for minimum number of IOPS.
+func getEtcdMinIOPSSoft() float64 {
+	value, err := utils.GetenvInt(EtcdMinIOPSSoftEnvVar)
+	if err == nil {
+		return float64(value)
+	}
+	return EtcdMinWriteIOPSSoft
+}
+
+// getEtcdMinIOPSHard returns the hard limit for minimum number of IOPS.
+func getEtcdMinIOPSHard() float64 {
+	value, err := utils.GetenvInt(EtcdMinIOPSHardEnvVar)
+	if err == nil {
+		return float64(value)
+	}
+	return EtcdMinWriteIOPSHard
+}
+
+// getEtcdMaxLatencySoft returns the soft limit for maximum fsync latency.
+func getEtcdMaxLatencySoft() int64 {
+	value, err := utils.GetenvInt(EtcdMaxLatencySoftEnvVar)
+	if err == nil {
+		return int64(value)
+	}
+	return EtcdMaxFsyncLatencyMsSoft
+}
+
+// getEtcdMaxLatencyHard returns the hard limit for maximum fsync latency.
+func getEtcdMaxLatencyHard() int64 {
+	value, err := utils.GetenvInt(EtcdMaxLatencyHardEnvVar)
+	if err == nil {
+		return int64(value)
+	}
+	return EtcdMaxFsyncLatencyMsHard
+}
+
+const (
+	// EtcdMinIOPSSoftEnvVar is the environment variable with soft IOPS limit.
+	EtcdMinIOPSSoftEnvVar = "GRAVITY_ETCD_MIN_IOPS_SOFT"
+	// EtcdMinIOPSHardEnvVar is the environment variable with hard IOPS limit.
+	EtcdMinIOPSHardEnvVar = "GRAVITY_ETCD_MIN_IOPS_HARD"
+	// EtcdMaxLatencySoftEnvVar is the environment variable with soft fsync limit.
+	EtcdMaxLatencySoftEnvVar = "GRAVITY_ETCD_MAX_LATENCY_SOFT"
+	// EtcdMaxLatencyHardEnvVar is the environment variable with hard fsync limit.
+	EtcdMaxLatencyHardEnvVar = "GRAVITY_ETCD_MAX_LATENCY_HARD"
 )

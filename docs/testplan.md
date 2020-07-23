@@ -297,7 +297,7 @@ only supported in the enterprise edition.
 
 - [ ] Generate test CA and private key:
 ```bash
-$ openssl req -newkey rsa:2048 -nodes -keyout domain.key -x509 -days 365 -out domain.crt
+$ openssl req -newkey rsa:2048 -nodes -keyout domain.key -x509 -days 365 -out domain.crt -subj "/C=US/ST=The Internet/L=0.0.0.0/O=Gravitational/OU=Hastily Generated Values Division/CN=Test"
 ```
 
 - [ ] Create test app manifest that requires license (`app.yaml`):
@@ -311,10 +311,12 @@ license:
     enabled: true
 ```
 
-- [ ] Generate a license with encryption key:
+- [ ] Generate two licenses:
 ```bash
-$ gravity license new --max-nodes=3 --valid-for=24h --ca-cert=domain.crt --ca-key=domain.key --encryption-key=qwe123 > license.pem
+$ gravity license new --max-nodes=3 --valid-for=24h --ca-cert=domain.crt --ca-key=domain.key --encryption-key=qwe123 --state-dir $(mktemp -d) > license.pem
+$ gravity license new --max-nodes=3 --valid-for=48h --ca-cert=domain.crt --ca-key=domain.key --encryption-key=qwe123 --state-dir $(mktemp -d) > license.new.pem
 ```
+ `--state-dir` may not be necessary. Check [#1852](https://github.com/gravitational/gravity/issues/1852)
 
 - [ ] Build an encrypted cluster image:
 ```bash
@@ -323,24 +325,38 @@ $ tele build app.yaml --ca-cert=domain.crt --encryption-key=qwe123
 
 - [ ] Verify can install in wizard UI mode.
   - [ ] Verify license prompt appears in the UI.
-  - [ ] Insert the generated license and verify the installation succeeds.
-  - [ ] Verify license can be updated via cluster UI after installation.
+  - [ ] Insert the contents of `license.pem` and verify the installation succeeds.
+  - [ ] Check the license expiration date.
+    - The License page is found in the dropdown after clicking on the username in the upper right corner of the UI.
+  - [ ] Verify the license can be updated. Use the contents of `license.new.pem` in the 'Update License" wizard.
+   After the update, check the expiry has changed.
+
+- [ ] Wipe the cluster.
+```bash
+$ sudo gravity leave --force --confirm
+```
 
 - [ ] Verify license is enforced in CLI mode:
 ```bash
 $ sudo ./gravity install # should return a license error
 ```
 
+- [ ] Preempt an expected failure before beginning the next install [#1853](https://github.com/gravitational/gravity/issues/1853)
+```bash
+$ sudo ./gravity leave --force
+```
+
 - [ ] Verify can install in CLI mode with license:
 ```bash
-$ sudo ./gravity install --license="$(cat /tmp/license)"
+$ sudo ./gravity install --license-file=license.pem"
 ```
 
 ### Runtime Environment Update
 
 This scenario updates the runtime environment of the planet container with new environment variables.
 
-Prerequisites: multi-node cluster with at least 1 regular node. Regular node is necessary to test both master and regular node update paths.
+Prerequisites: multi-node cluster with at least 1 node `--role=knode` and 1 `--role=node|master`.
+Having both `knode` and `node|master` is necessary to test both master and regular node update paths.
 
 [environ.yaml]
 ```yaml
@@ -364,7 +380,14 @@ root$ gravity resource create environ.yaml --confirm
 
 This scenario updates the cluster configuration.
 
-Prerequisites: multi-node cluster with at least 1 regular node. Regular node is necessary to test both master and regular node update paths.
+Prerequisites:
+* 3+ node cluster running in AWS or GCP, with cloud provider integration configured
+  * [AWS](https://gravitational.com/gravity/docs/installation/#aws) [IAM config](https://gravitational.com/gravity/docs/requirements/#aws-iam-policy)
+  * [GCP](https://gravitational.com/gravity/docs/installation/#google-compute-engine)
+* At least two masters (`--role=node|master`)
+* At least one regular node (`--role=knode`)
+
+Having both `knode` and `node|master` is necessary to test both master and regular node update paths.
 
 [config.yaml]
 ```yaml
@@ -390,7 +413,7 @@ spec:
 ```
 
 ```bash
-root$ gravity resource create config.yaml --confirm
+$ sudo gravity resource create config.yaml --confirm
 ```
 
 - [ ] Verify the operation completes successfully.
@@ -404,6 +427,7 @@ kind: ClusterConfiguration
 version: v1
 spec:
   global:
+    cloudProvider: aws
     cloudConfig: |
       [global]
       # Update node tags
@@ -411,35 +435,63 @@ spec:
       node-tags=test-cluster
 ```
 
+Note: `cloudProvider`'s value depends on which provider the cluster is provisioned on.
+
 Now, create the operation in manual mode:
 
 ```bash
-root$ gravity resource create cloud-config.yaml --confirm -m
+$ sudo gravity resource create cloud-config.yaml --confirm --manual
 ```
 
 - [ ] Verify that the operation plan only contains update steps for master nodes as only cloud configuration is being updated.
-- [ ] Verify can complete the operation successfully with `gravity plan resume`.
-  - [ ] Verify cloud configuration file has been written in `/etc/kubernetes/cloud-config.conf` with the following contents:
-  ```
-  [global]
-  node-tags=test-cluster
-  ```
+- [ ] Verify the operation successfully completes upon `gravity plan resume`.
+
+- [ ] Verify cloud configuration has changed:
+  - `sudo gravity exec cat /etc/kubernetes/cloud-config.conf` should show updated `node-tags`
+  - `sudo gravity resource get clusterconfig`
 
 ### Collecting Garbage
 
 This scenario tests garbage collection on a cluster.
 
-Prerequisites: multi-node cluster with at least 1 regular node. Regular node is necessary to test both master and regular node update paths.
+Prerequisites: multi-node cluster with at least 1 node `--role=knode` and 1 `--role=node|master`.
+Having both `knode` and `node|master` is necessary to test both master and regular node update paths.
 
-Install a previous LTS version, upgrade to the latest version.
+Install a previous LTS version.
 
-After upgrade execute `gravity gc` on the cluster.
+- [ ] Gather baseline pre-upgrade state:
+  - `sudo du -sh /var/lib/gravity/{local/packages,site/packages,planet/registry}`
+  - `sudo gravity package list | cut -f1-3 -d ' '`
+  - `sudo gravity exec gravity package list --ops-url=https://gravity-site.kube-system.svc.cluster.local:3009 --insecure | cut -f1-3 -d ' '`
 
-- [ ] Verify the operation completes successfully.
- - [ ] Verify that packages from the previous installation have been removed locally.
- - [ ] Verify that packages from the previous installation have been removed from cluster package storage.
- - [ ] Verify that packages from the current installation are still present.
- - [ ] Tentative: Verify that application packages from remote clusters are still present.
+Upgrade to the release under test.
+
+- [ ] Verify journal logs have been pruned [gravity.e#3429](https://github.com/gravitational/gravity.e/issues/3429)
+  - `sudo du -h /var/lib/gravity/planet/log/journal` should show only one subdir.
+
+- [ ] Gather pre-garbage-collection state.
+  - `sudo du -sh /var/lib/gravity/{local/packages,site/packages,planet/registry}`
+  - `sudo gravity package list | cut -f1-3 -d ' '`
+  - `sudo gravity exec gravity package list --ops-url=https://gravity-site.kube-system.svc.cluster.local:3009 --insecure | cut -f1-3 -d ' '`
+  - `sudo find /var/lib/gravity/planet/registry/ -path '*tags/*' -type d | egrep 'tags/[^/]+$' | sort`
+  - `sudo gravity system gc package --dry-run`
+
+
+Execute `gravity gc`.
+
+- [ ] Verify the gc operation completes successfully.
+  - `sudo gravity plan` (`--operation-id` may be looked up from `gravity status` or `gravity resource get operations`)
+- [ ] Verify packages from the previous installation have been removed locally.
+  - `sudo gravity package list | cut -f1-3 -d ' '` Diff with output from before upgrade.
+  - `sudo du -sh /var/lib/gravity/local/packages` should show substantially lower usage (similar to baseline).
+- [ ] Verify packages from the previous installation have been removed from cluster package storage.
+  - `sudo gravity exec gravity package list --ops-url=https://gravity-site.kube-system.svc.cluster.local:3009 --insecure | cut -f1-3 -d ' '`
+  - `sudo du -sh /var/lib/gravity/site/packages` should show substantially lower usage (similar to baseline).
+- [ ] Verify packages from the current installation are still present.
+  - `sudo gravity package list | cut -f1-3 -d ' '` Diff with output from before garbage collection.
+  - `sudo gravity status` should be 'active' without any warnings.
+- [ ] Verify old tags are no longer present in the registry.
+  - `sudo find /var/lib/gravity/planet/registry/ -path '*tags/*' -type d | egrep 'tags/[^/]+$' | sort` Diff with output from before garbage collection.
 
 ## WEB UI
 

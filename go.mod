@@ -175,7 +175,6 @@ require (
 )
 
 replace (
-	github.com/jaguilar/vt100 => github.com/tonistiigi/vt100 v0.0.0-20190402012908-ad4c4a574305
 	cloud.google.com/go => cloud.google.com/go v0.21.0
 	github.com/Azure/go-autorest => github.com/Azure/go-autorest v11.1.0+incompatible
 	github.com/Microsoft/go-winio => github.com/Microsoft/go-winio v0.4.9
@@ -215,6 +214,7 @@ replace (
 	github.com/hashicorp/hcl => github.com/hashicorp/hcl v1.0.0
 	github.com/hashicorp/memberlist => github.com/hashicorp/memberlist v0.1.4
 	github.com/imdario/mergo => github.com/imdario/mergo v0.0.0-20160517064435-50d4dbd4eb0e
+	github.com/jaguilar/vt100 => github.com/tonistiigi/vt100 v0.0.0-20190402012908-ad4c4a574305
 	github.com/json-iterator/go => github.com/json-iterator/go v1.1.5
 	github.com/julienschmidt/httprouter => github.com/julienschmidt/httprouter v1.1.0
 	github.com/kr/pty => github.com/kr/pty v1.0.0

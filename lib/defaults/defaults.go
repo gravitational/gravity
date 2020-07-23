@@ -191,6 +191,9 @@ const (
 	// GravityUpdateDir specifies the directory used by the update process
 	GravityUpdateDir = "/var/lib/gravity/site/update"
 
+	// PlanetCredDir specifies the planet certs and keys directory
+	PlanetCredDir = "/var/state"
+
 	// GravityRPCAgentPort defines which port RPC agent is listening on
 	GravityRPCAgentPort = 3012
 
@@ -1169,6 +1172,9 @@ const (
 
 	// GravityFileLabel specifies the file label for the gravity binary
 	GravityFileLabel = "system_u:object_r:gravity_exec_t:s0"
+
+	// HookPriorityClassName specifies the default priority class for hooks
+	HookPriorityClassName = "system-cluster-critical"
 )
 
 var (

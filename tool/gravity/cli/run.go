@@ -38,6 +38,7 @@ import (
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/utils"
+	"github.com/gravitational/gravity/lib/utils/cli"
 
 	"github.com/gravitational/configure/cstrings"
 	teleutils "github.com/gravitational/teleport/lib/utils"
@@ -56,9 +57,9 @@ func ConfigureEnvironment() error {
 }
 
 // Run parses CLI arguments and executes an appropriate gravity command
-func Run(g *Application) error {
+func Run(g *Application) (err error) {
 	log.Debugf("Executing: %v.", os.Args)
-	err := ConfigureEnvironment()
+	err = ConfigureEnvironment()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -76,7 +77,14 @@ func Run(g *Application) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return Execute(g, cmd, extraArgs)
+
+	execer := CmdExecer{
+		Exe:       getExec(g, cmd, extraArgs),
+		Parser:    cli.ArgsParserFunc(parseArgs),
+		Args:      args,
+		ExtraArgs: extraArgs,
+	}
+	return execer.Execute()
 }
 
 // InitAndCheck initializes the CLI application according to the provided
@@ -246,6 +254,13 @@ func InitAndCheck(g *Application, cmd string) error {
 	return nil
 }
 
+// getExec returns the Executable function to execute the specified gravity cmd.
+func getExec(g *Application, cmd string, extraArgs []string) Executable {
+	return func() error {
+		return Execute(g, cmd, extraArgs)
+	}
+}
+
 // Execute executes the gravity command given with cmd
 func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 	switch cmd {
@@ -377,6 +392,7 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			upgradePackage:   *g.UpdateTriggerCmd.App,
 			manual:           *g.UpdateTriggerCmd.Manual,
 			skipVersionCheck: *g.UpdateTriggerCmd.SkipVersionCheck,
+			force:            *g.UpdateTriggerCmd.Force,
 		})
 	case g.UpdatePlanInitCmd.FullCommand():
 		updateEnv, err := g.NewUpdateEnv()
@@ -774,7 +790,9 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			*g.APIKeyDeleteCmd.Email,
 			*g.APIKeyDeleteCmd.Token)
 	case g.ReportCmd.FullCommand():
-		return getClusterReport(localEnv, *g.ReportCmd.FilePath)
+		return getClusterReport(localEnv,
+			*g.ReportCmd.FilePath,
+			*g.ReportCmd.Since)
 	// cluster commands
 	case g.SiteListCmd.FullCommand():
 		return listSites(localEnv, *g.SiteListCmd.OpsCenterURL)
@@ -787,7 +805,8 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 	case g.SiteResetPasswordCmd.FullCommand():
 		return resetPassword(localEnv)
 	case g.StatusResetCmd.FullCommand():
-		return resetClusterState(localEnv)
+		return resetClusterState(localEnv,
+			*g.StatusResetCmd.Confirmed)
 	case g.RegistryListCmd.FullCommand():
 		return listRegistryContents(context.Background(), localEnv, registryConnectionRequest{
 			address:  *g.RegistryListCmd.Registry,
@@ -895,13 +914,17 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 		return systemReport(localEnv,
 			*g.SystemReportCmd.Filter,
 			*g.SystemReportCmd.Compressed,
-			*g.SystemReportCmd.Output)
+			*g.SystemReportCmd.Output,
+			*g.SystemReportCmd.Since)
 	case g.SystemStateDirCmd.FullCommand():
 		return printStateDir()
 	case g.SystemExportRuntimeJournalCmd.FullCommand():
-		return exportRuntimeJournal(localEnv, *g.SystemExportRuntimeJournalCmd.OutputFile)
+		return exportRuntimeJournal(localEnv,
+			*g.SystemExportRuntimeJournalCmd.OutputFile,
+			*g.SystemExportRuntimeJournalCmd.Since)
 	case g.SystemStreamRuntimeJournalCmd.FullCommand():
-		return streamRuntimeJournal(localEnv)
+		return streamRuntimeJournal(localEnv,
+			*g.SystemStreamRuntimeJournalCmd.Since)
 	case g.SystemSelinuxBootstrapCmd.FullCommand():
 		return bootstrapSELinux(localEnv,
 			*g.SystemSelinuxBootstrapCmd.Path,

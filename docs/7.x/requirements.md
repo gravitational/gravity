@@ -67,10 +67,10 @@ Hardware requirements are specific to the workload running in the cluster but
 the following guidelines are recommended to support bare Gravity cluster
 installations.
 
-| Role   | CPU    | RAM | Disk                                               |
-|--------|--------|-----|----------------------------------------------------|
-| master | 2 vCPU | 4GB | 100GB SSD for Gravity data, 20GB SSD for etcd data |
-| node   | 1 vCPU | 2GB | 100GB SSD for Gravity data                         |
+| Role   | CPU    | RAM  | Disk                                                 |
+|--------|--------|------|------------------------------------------------------|
+| master | 2 vCPU | 4GiB | 100GiB SSD for Gravity data, 50GiB SSD for etcd data |
+| node   | 1 vCPU | 2GiB | 100GiB SSD for Gravity data                          |
 
 ## Network
 
@@ -134,10 +134,10 @@ These ports are used for Cluster operation and should be open between cluster no
 | 3012                    | TCP                | HTTPS                | all         | all         | Gravity RPC agent                        |
 
 !!! note "Source/Destination Legend"
-  * all - Any node which is a member of the cluster
-  * ext - Any source outside the cluster
-  * localhost - The port is only used within the host where the request started
-  * controllers - Nodes which are designated "controller" (aka "master") role
+    * all - Any node which is a member of the cluster
+    * ext - Any source outside the cluster
+    * localhost - The port is only used within the host where the request started
+    * controllers - Nodes which are designated "controller" (aka "master") role
 
 !!! note "Custom vxlan port"
     If the default overlay network port (`8472`) was changed by supplying
@@ -362,8 +362,8 @@ the application's own bookkeeping with respect to e.g. deployed clusters' health
 and reachability. As a result, it is helpful to have a reliable, performance
 isolated disk.
 
-To achieve this, by default, Gravity looks for a disk mounted at
-`/var/lib/gravity/planet/etcd`. We recommend you mount a dedicated disk there,
+To achieve this, by default Gravity master nodes look for a disk mounted at
+`/var/lib/gravity/planet/etcd`. We recommend each master mounts a dedicated disk there,
 `ext4` formatted with at least 50GiB of free space. A reasonably high performance
 SSD is preferred. On AWS, we recommend an `io1` class EBS volume with at least
 1500 provisioned IOPS.
@@ -374,3 +374,20 @@ make sure it's mounted upon machine startup:
 ```
 /dev/xvdf  /var/lib/gravity/planet/etcd  ext4  defaults   0  2
 ```
+
+### Etcd Disk Performance Requirements
+
+Prior to installation, Gravity will perform a preflight check to assess performance
+characteristics of the disk used for etcd data on each master node.
+
+The check uses `fio` tool and looks at the following benchmarks:
+
+* Sequential write IOPS:
+    * If the detected IOPS is below `50`, a warning is triggered.
+    * If the detected IOPS is below `10`, a failure is triggered
+* Fsync latency:
+    * If the detected latency is higher than `50ms`, a warning is triggered.
+    * If the detected latency is higher than `150ms`, a failure is triggered.
+
+If necessary, these thresholds can be overridden at install/join time using
+[environment variables](installation.md#environment-variables).

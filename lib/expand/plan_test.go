@@ -51,6 +51,7 @@ type PlanSuite struct {
 	regularAgent    *storage.LoginEntry
 	teleportPackage *loc.Locator
 	planetPackage   *loc.Locator
+	gravityPackage  *loc.Locator
 	appPackage      loc.Locator
 	serviceUser     storage.OSUser
 	cluster         *ops.Site
@@ -76,6 +77,8 @@ func (s *PlanSuite) SetUpSuite(c *check.C) {
 	app, err := s.services.Apps.GetApp(s.appPackage)
 	c.Assert(err, check.IsNil)
 	s.teleportPackage, err = app.Manifest.Dependencies.ByName(constants.TeleportPackage)
+	c.Assert(err, check.IsNil)
+	s.gravityPackage, err = app.Manifest.Dependencies.ByName(constants.GravityPackage)
 	c.Assert(err, check.IsNil)
 	s.dnsConfig = storage.DNSConfig{
 		Addrs: []string{"127.0.0.3"},
@@ -281,6 +284,13 @@ func (s *PlanSuite) verifyPullPhase(c *check.C, phase storage.OperationPhase) {
 			ExecServer:  &s.joiningNode,
 			Package:     &s.appPackage,
 			ServiceUser: &s.serviceUser,
+			Pull: &storage.PullData{
+				Packages: []loc.Locator{
+					*s.gravityPackage,
+					*s.teleportPackage,
+					*s.planetPackage,
+				},
+			},
 		},
 		Requires: []string{installphases.ConfigurePhase, installphases.BootstrapPhase},
 	}, phase)
@@ -429,4 +439,40 @@ func (s *PlanSuite) verifyElectPhase(c *check.C, phase storage.OperationPhase) {
 		},
 		Requires: []string{installphases.WaitPhase},
 	}, phase)
+}
+
+func (s *PlanSuite) TestFillSteps(c *check.C) {
+	tests := []struct {
+		phasesCount int
+		stepNumbers []int
+	}{
+		{
+			phasesCount: 0,
+			stepNumbers: nil,
+		},
+		{
+			phasesCount: 1,
+			stepNumbers: []int{10},
+		},
+		{
+			phasesCount: 2,
+			stepNumbers: []int{5, 10},
+		},
+		{
+			phasesCount: 13,
+			stepNumbers: []int{0, 1, 2, 3, 3, 4, 5, 6, 6, 7, 8, 9, 10},
+		},
+	}
+	for _, t := range tests {
+		var plan storage.OperationPlan
+		for i := 0; i < t.phasesCount; i++ {
+			plan.Phases = append(plan.Phases, storage.OperationPhase{})
+		}
+		fillSteps(&plan, 10)
+		var stepNumbers []int
+		for _, p := range plan.Phases {
+			stepNumbers = append(stepNumbers, p.Step)
+		}
+		c.Assert(stepNumbers, check.DeepEquals, t.stepNumbers)
+	}
 }

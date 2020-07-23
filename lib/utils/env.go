@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -103,6 +104,31 @@ func GetenvWithDefault(name, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+// GetenvsByPrefix returns environment variables with names matching specified prefix.
+func GetenvsByPrefix(prefix string) (environ map[string]string) {
+	environ = make(map[string]string)
+	for _, env := range os.Environ() {
+		name := strings.SplitN(env, "=", 2)[0]
+		if strings.HasPrefix(name, prefix) {
+			environ[name] = os.Getenv(name)
+		}
+	}
+	return environ
+}
+
+// GetenvInt returns the specified environment variable value parsed as an integer.
+func GetenvInt(name string) (int, error) {
+	valueS, ok := os.LookupEnv(name)
+	if !ok {
+		return 0, trace.NotFound("environment variable %v not set", name)
+	}
+	valueI, err := strconv.Atoi(valueS)
+	if err != nil {
+		return 0, trace.Wrap(err)
+	}
+	return valueI, nil
 }
 
 // runningInsideContainer specifies if this process is executing inside

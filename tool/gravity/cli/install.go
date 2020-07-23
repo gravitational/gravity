@@ -758,21 +758,27 @@ var InterruptSignals = signals.WithSignals(
 	os.Interrupt,
 	syscall.SIGTERM,
 	syscall.SIGQUIT,
+	syscall.SIGHUP,
 )
 
 // NewInstallerConnectStrategy returns default installer service connect strategy
 func NewInstallerConnectStrategy(env *localenv.LocalEnvironment, config InstallConfig, commandArgs cli.CommandArgs) (strategy installerclient.ConnectStrategy, err error) {
 	commandArgs.FlagsToAdd = append(commandArgs.FlagsToAdd,
 		cli.NewFlag("token", config.Token),
-		cli.NewBoolFlag("selinux", config.SELinux),
+		cli.NewBoolFlag("from-service", true),
+		cli.NewArg("path", config.StateDir),
 	)
-	commandArgs.FlagsToRemove = append(commandArgs.FlagsToRemove, "selinux")
+	if config.Mode != constants.InstallModeInteractive {
+		commandArgs.FlagsToAdd = append(commandArgs.FlagsToAdd,
+			cli.NewBoolFlag("selinux", config.SELinux),
+		)
+	}
+	commandArgs.FlagsToRemove = append(commandArgs.FlagsToRemove, "token", "selinux", "path", "from-service")
 	args, err := commandArgs.Update(os.Args[1:])
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	args = append([]string{utils.Exe.Path}, args...)
-	args = append(args, "--from-service", utils.Exe.WorkingDir)
 	servicePath, err := state.GravityInstallDir(defaults.GravityRPCInstallerServiceName)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -787,13 +793,20 @@ func NewInstallerConnectStrategy(env *localenv.LocalEnvironment, config InstallC
 
 // newReconfiguratorConnectStrategy returns a new service connect strategy
 // for the agent executing the cluster reconfiguration operation.
-func newReconfiguratorConnectStrategy(env *localenv.LocalEnvironment, config InstallConfig, commandArgs cli.CommandArgs) (strategy installerclient.ConnectStrategy, err error) {
+func newReconfiguratorConnectStrategy(
+	env *localenv.LocalEnvironment,
+	config InstallConfig,
+	commandArgs cli.CommandArgs,
+) (strategy installerclient.ConnectStrategy, err error) {
+	commandArgs.FlagsToAdd = append(commandArgs.FlagsToAdd,
+		cli.NewBoolFlag("from-service", true),
+	)
+	commandArgs.FlagsToRemove = append(commandArgs.FlagsToRemove, "from-service")
 	args, err := commandArgs.Update(os.Args[1:])
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	args = append([]string{utils.Exe.Path}, args...)
-	args = append(args, "--from-service")
 	servicePath, err := state.GravityInstallDir(defaults.GravityRPCInstallerServiceName)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -815,17 +828,19 @@ func newAutoAgentConnectStrategy(env *localenv.LocalEnvironment, config JoinConf
 		Parser: cli.ArgsParserFunc(parseArgs),
 		// Pass additional configuration to service if not explicitly specified.
 		FlagsToAdd: []cli.Flag{
+			cli.NewBoolFlag("from-service", true),
 			cli.NewFlag("token", config.Token),
 			cli.NewFlag("advertise-addr", config.AdvertiseAddr),
 			cli.NewFlag("service-addr", config.PeerAddrs),
 		},
+		// Avoid duplicates on command line
+		FlagsToRemove: []string{"token", "advertise-addr", "service-addr", "from-service"},
 	}
 	args, err := commandArgs.Update(os.Args[1:])
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	args = append([]string{utils.Exe.Path}, args...)
-	args = append(args, "--from-service")
 	servicePath, err := state.GravityInstallDir(defaults.GravityRPCAgentServiceName)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -840,11 +855,25 @@ func newAutoAgentConnectStrategy(env *localenv.LocalEnvironment, config JoinConf
 
 // newAgentConnectStrategy returns default service connect strategy for a joining agent
 func newAgentConnectStrategy(env *localenv.LocalEnvironment, config JoinConfig) (strategy installerclient.ConnectStrategy, err error) {
-	args := append([]string{utils.Exe.Path}, os.Args[1:]...)
-	args = append(args, "--from-service")
-	if !config.SELinux {
-		args = append(args, "--no-selinux")
+	// TODO: accept command line parser as argument if the join command
+	// is to be extended on enterprise side
+	commandArgs := cli.CommandArgs{
+		Parser: cli.ArgsParserFunc(parseArgs),
+		// Pass additional configuration to service if not explicitly specified.
+		FlagsToAdd: []cli.Flag{
+			cli.NewBoolFlag("from-service", true),
+			cli.NewFlag("token", config.Token),
+			cli.NewFlag("advertise-addr", config.AdvertiseAddr),
+			cli.NewBoolFlag("selinux", config.SELinux),
+		},
+		// Avoid duplicates on command line
+		FlagsToRemove: []string{"token", "advertise-addr", "selinux", "from-service"},
 	}
+	args, err := commandArgs.Update(os.Args[1:])
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	args = append([]string{utils.Exe.Path}, args...)
 	servicePath, err := state.GravityInstallDir(defaults.GravityRPCAgentServiceName)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -885,7 +914,7 @@ agent by issuing 'gravity resume' command.
 
 If the installation fails, use 'gravity plan' to inspect the state and
 'gravity resume' to continue the operation.
-See https://gravitational.com/gravity/docs/cluster/#managing-an-ongoing-operation for details.
+See https://gravitational.com/gravity/docs/cluster/#managing-operations for details.
 `))
 }
 
@@ -896,7 +925,7 @@ press Ctrl+C two times in a row.
 
 If you get disconnected from the terminal, you can reconnect to the installer
 agent by issuing 'gravity resume' command.
-See https://gravitational.com/gravity/docs/cluster/#managing-an-ongoing-operation for details.
+See https://gravitational.com/gravity/docs/cluster/#managing-operations for details.
 `))
 }
 

@@ -201,6 +201,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.UpdateTriggerCmd.App = g.UpdateTriggerCmd.Arg("image", "Cluster image version to upgrade to in the 'name:version' or 'name' (for latest version) format.").String()
 	g.UpdateTriggerCmd.Manual = g.UpdateTriggerCmd.Flag("manual", "Manual operation. Do not trigger automatic update.").Short('m').Bool()
 	g.UpdateTriggerCmd.SkipVersionCheck = g.UpdateTriggerCmd.Flag("skip-version-check", "Bypass version compatibility check.").Hidden().Bool()
+	g.UpdateTriggerCmd.Force = g.UpdateTriggerCmd.Flag("force", "Force update operation even if some nodes have active warnings.").Bool()
 
 	g.UpdatePlanInitCmd.CmdClause = g.UpdateCmd.Command("init-plan", "Initialize operation plan.").Hidden()
 
@@ -210,7 +211,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.UpgradeCmd.Manual = g.UpgradeCmd.Flag("manual", "Manual upgrade mode.").Short('m').Bool()
 	g.UpgradeCmd.Phase = g.UpgradeCmd.Flag("phase", "Operation phase to execute.").String()
 	g.UpgradeCmd.Timeout = g.UpgradeCmd.Flag("timeout", "Phase execution timeout.").Default(defaults.PhaseTimeout).Hidden().Duration()
-	g.UpgradeCmd.Force = g.UpgradeCmd.Flag("force", "Force phase execution even if pre-conditions are not satisfied.").Bool()
+	g.UpgradeCmd.Force = g.UpgradeCmd.Flag("force", "Force phase execution even if pre-conditions are not satisfied. This flag can also be used to force an upgrade even if some nodes have active warnings.").Bool()
 	g.UpgradeCmd.Resume = g.UpgradeCmd.Flag("resume", "Resume upgrade from the last failed step.").Bool()
 	g.UpgradeCmd.SkipVersionCheck = g.UpgradeCmd.Flag("skip-version-check", "Bypass version compatibility check.").Hidden().Bool()
 	g.UpgradeCmd.Set = g.UpgradeCmd.Flag("set", "Set Helm chart values on the command line. Can be specified multiple times and/or as comma-separated values: key1=val1,key2=val2.").Strings()
@@ -245,7 +246,8 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.StatusHistoryCmd.CmdClause = g.StatusCmd.Command("history", "Display cluster status history.")
 
 	// reset cluster state, for debugging/emergencies
-	g.StatusResetCmd.CmdClause = g.Command("status-reset", "Reset the cluster state to 'active'").Hidden()
+	g.StatusResetCmd.CmdClause = g.Command("status-reset", "Force-reset the cluster state to active. USE WITH CAUTION, the cluster may end up in an inconsistent state.").Hidden()
+	g.StatusResetCmd.Confirmed = g.StatusResetCmd.Flag("confirm", "Bypass confirmation prompt.").Bool()
 
 	// interacting with in-cluster registry
 	g.RegistryCmd.CmdClause = g.Command("registry", "Interact with the cluster private Docker registry.")
@@ -577,6 +579,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	// get cluster diagnostics report
 	g.ReportCmd.CmdClause = g.Command("report", "Collect tarball with cluster's diagnostic information.")
 	g.ReportCmd.FilePath = g.ReportCmd.Flag("file", "File name with collected diagnostic information.").Default("report.tar.gz").String()
+	g.ReportCmd.Since = g.ReportCmd.Flag("since", "Only return logs newer than a relative duration like 5s, 2m, or 3h. Default is 336h (14 days). Specify 0s to collect all logs.").Default("336h").Duration()
 
 	// operations on sites
 	g.SiteCmd.CmdClause = g.Command("site", "operations on gravity sites")
@@ -715,14 +718,17 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.SystemReportCmd.Filter = g.SystemReportCmd.Flag("filter", "collect only specific diagnostics ('system', 'kubernetes'). Collect everything if unspecified").Strings()
 	g.SystemReportCmd.Compressed = g.SystemReportCmd.Flag("compressed", "whether to compress the tarball").Default("true").Bool()
 	g.SystemReportCmd.Output = g.SystemReportCmd.Flag("output", "optional output file path").String()
+	g.SystemReportCmd.Since = g.SystemReportCmd.Flag("since", "only return logs newer than a relative duration like 5s, 2m, or 3h. Default is 336h (14 days). Specify 0s to collect all logs.").Default("336h").Duration()
 
 	g.SystemStateDirCmd.CmdClause = g.SystemCmd.Command("state-dir", "show where all gravity data is stored on the node").Hidden()
 
 	// journal helpers
 	g.SystemExportRuntimeJournalCmd.CmdClause = g.SystemCmd.Command("export-runtime-journal", "Export runtime journal logs to a file").Hidden()
 	g.SystemExportRuntimeJournalCmd.OutputFile = g.SystemExportRuntimeJournalCmd.Flag("output", "Name of resulting tarball. Output to stdout if unspecified").String()
+	g.SystemExportRuntimeJournalCmd.Since = g.SystemExportRuntimeJournalCmd.Flag("since", "Only return logs newer than a relative duration like 5s, 2m, or 3h. Default is 336h (14 days). Specify 0s to collect all logs.").Default("336h").Duration()
 
 	g.SystemStreamRuntimeJournalCmd.CmdClause = g.SystemCmd.Command("stream-runtime-journal", "Stream runtime journal to stdout").Hidden()
+	g.SystemStreamRuntimeJournalCmd.Since = g.SystemStreamRuntimeJournalCmd.Flag("since", "Only return logs newer than a relative duration like 5s, 2m, or 3h. Default is 336h (14 days). Specify 0s to collect all logs.").Default("336h").Duration()
 
 	g.SystemSelinuxBootstrapCmd.CmdClause = g.SystemCmd.Command("selinux-bootstrap", "Configure SELinux file contexts and ports on the node")
 	g.SystemSelinuxBootstrapCmd.Path = g.SystemSelinuxBootstrapCmd.Flag("output", "Path to output file for bootstrap script").String()

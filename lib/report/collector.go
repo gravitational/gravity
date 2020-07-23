@@ -138,9 +138,10 @@ func Self(name string, args ...string) Command {
 
 // Command defines a generic command with a name and a list of arguments
 type Command struct {
-	name string
-	cmd  string
-	args []string
+	name             string
+	cmd              string
+	args             []string
+	successExitCodes []int
 }
 
 // Collect implements Collector for this Command
@@ -153,7 +154,18 @@ func (r Command) Collect(ctx context.Context, reportWriter FileWriter, runner ut
 
 	args := []string{r.cmd}
 	args = append(args, r.args...)
-	return runner.RunStream(ctx, w, args...)
+	if err := runner.RunStream(ctx, w, args...); err != nil && r.isExitCodeFailed(err) {
+		return trace.Wrap(err, "failed to execute %v", r)
+	}
+	return nil
+}
+
+func (r Command) isExitCodeFailed(err error) bool {
+	exitCode := utils.ExitStatusFromError(err)
+	if exitCode == nil {
+		return false
+	}
+	return *exitCode != 0 && !exitCodeOneOf(*exitCode, r.successExitCodes...)
 }
 
 // Script creates a new script collector
@@ -177,4 +189,16 @@ func (r ScriptCollector) Collect(ctx context.Context, reportWriter FileWriter, r
 type ScriptCollector struct {
 	name   string
 	script string
+}
+
+func exitCodeOneOf(exitCode int, exitCodes ...int) bool {
+	if len(exitCodes) == 0 {
+		return false
+	}
+	for _, code := range exitCodes {
+		if code == exitCode {
+			return true
+		}
+	}
+	return false
 }

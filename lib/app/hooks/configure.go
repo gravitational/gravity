@@ -129,6 +129,11 @@ func configureMetadata(job *batchv1.Job, p Params) error {
 		job.Spec.Template.Spec.SecurityContext = defaults.HookSecurityContext()
 	}
 
+	// if priorityClassName is not specified, set the default one
+	if job.Spec.Template.Spec.PriorityClassName == "" {
+		job.Spec.Template.Spec.PriorityClassName = defaults.HookPriorityClassName
+	}
+
 	return nil
 }
 

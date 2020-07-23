@@ -35,6 +35,7 @@ import (
 	"github.com/gravitational/gravity/lib/users"
 	"github.com/gravitational/gravity/lib/users/usersservice"
 
+	"github.com/gravitational/teleport/lib/auth"
 	"github.com/jonboulle/clockwork"
 	"github.com/mailgun/timetools"
 	log "github.com/sirupsen/logrus"
@@ -127,6 +128,7 @@ func SetupTestServices(c *check.C) TestServices {
 		Agents:        agentService,
 		Packages:      packService,
 		TeleportProxy: proxy,
+		AuthClient:    &auth.Client{},
 		Proxy:         &suite.TestOpsProxy{},
 		Users:         usersService,
 		Apps:          appService,
