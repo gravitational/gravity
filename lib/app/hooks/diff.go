@@ -21,7 +21,8 @@ import (
 	"fmt"
 
 	batchv1 "k8s.io/api/batch/v1"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // diffPodSets returns a difference in Pods between existing and new.
@@ -126,14 +127,15 @@ func (p *podDiff) String() string {
 	return out.String()
 }
 
-func describe(v interface{}) string {
-	switch val := v.(type) {
+func describe(obj runtime.Object) string {
+	switch obj := obj.(type) {
 	case *v1.Pod:
-		return fmt.Sprintf("Pod %q in namespace %q", val.Name, val.Namespace)
+		return fmt.Sprintf("Pod %q in namespace %q", obj.Name, obj.Namespace)
 	case *batchv1.Job:
-		return fmt.Sprintf("Job %q in namespace %q", val.Name, val.Namespace)
+		return fmt.Sprintf("Job %q in namespace %q", obj.Name, obj.Namespace)
+	default:
+		return fmt.Sprintf("<unknown>")
 	}
-	return "<unknown>"
 }
 
 type phaseDiff struct {

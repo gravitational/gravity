@@ -22,6 +22,7 @@ import (
 	"syscall"
 
 	pb "github.com/gravitational/gravity/lib/rpc/proto"
+	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
@@ -48,7 +49,7 @@ func (c *osCommand) exec(ctx context.Context, stream pb.OutgoingMessageStream, a
 
 	err := cmd.Start()
 	if err != nil {
-		return trace.Wrap(err, "failed to start %v", cmd.Path)
+		return trace.Wrap(err, "failed to start").AddField("path", cmd.Path)
 	}
 
 	err = stream.Send(&pb.Message{Element: &pb.Message_ExecStarted{ExecStarted: &pb.ExecStarted{
@@ -56,12 +57,20 @@ func (c *osCommand) exec(ctx context.Context, stream pb.OutgoingMessageStream, a
 		Seq:  seq,
 	}}})
 	if err != nil {
-		// Do not wrap gRPC-specific error
-		return err
+		log.WithError(err).Warn("Failed to notify stream of command start.")
 	}
 	err = cmd.Wait()
 	if err == nil {
-		return stream.Send(&pb.Message{Element: &pb.Message_ExecCompleted{ExecCompleted: &pb.ExecCompleted{Seq: seq}}})
+		if err := stream.Send(&pb.Message{
+			Element: &pb.Message_ExecCompleted{
+				ExecCompleted: &pb.ExecCompleted{
+					Seq: seq,
+				},
+			},
+		}); err != nil {
+			log.WithError(err).Warn("Failed to notify stream of command completion.")
+		}
+		return nil
 	}
 
 	exitCode := ExitCodeUndefined
@@ -71,11 +80,14 @@ func (c *osCommand) exec(ctx context.Context, stream pb.OutgoingMessageStream, a
 		}
 	}
 
-	return stream.Send(&pb.Message{Element: &pb.Message_ExecCompleted{ExecCompleted: &pb.ExecCompleted{
+	if err := stream.Send(&pb.Message{Element: &pb.Message_ExecCompleted{ExecCompleted: &pb.ExecCompleted{
 		Seq:      seq,
 		ExitCode: int32(exitCode),
 		Error:    pb.EncodeError(trace.Wrap(err)),
-	}}})
+	}}}); err != nil {
+		log.WithError(err).Warn("Failed to notify stream of command completion with error.")
+	}
+	return utils.NewExitCodeError(exitCode)
 }
 
 type osCommand struct {
