@@ -85,14 +85,14 @@ func RunCommand(cmd *Cmd, options ...optionSetter) ([]byte, error) {
 // GetNamespaces fetches the names of all namespaces
 func GetNamespaces(ctx context.Context, runner utils.CommandRunner) ([]string, error) {
 	cmd := Command("get", "namespaces", "--output", "jsonpath={.items..metadata.name}")
-	var buf bytes.Buffer
+	var stdout, stderr bytes.Buffer
 
-	err := runner.RunStream(ctx, &buf, cmd.Args()...)
+	err := runner.RunStream(ctx, &stdout, &stderr, cmd.Args()...)
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return nil, trace.Wrap(err, "failed to query namespaces: %s", stderr.String())
 	}
 
-	namespaces := strings.Fields(strings.TrimSpace(buf.String()))
+	namespaces := strings.Fields(strings.TrimSpace(stdout.String()))
 
 	return namespaces, nil
 }
@@ -102,14 +102,14 @@ func GetPods(ctx context.Context, namespace string, runner utils.CommandRunner) 
 	cmd := Command("get", "pods",
 		"--namespace", namespace,
 		"--output", "jsonpath={.items..metadata.name}")
-	var buf bytes.Buffer
+	var stdout, stderr bytes.Buffer
 
-	err := runner.RunStream(ctx, &buf, cmd.Args()...)
+	err := runner.RunStream(ctx, &stdout, &stderr, cmd.Args()...)
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return nil, trace.Wrap(err, "failed to query pods: %s", stderr.String())
 	}
 
-	trimmed := strings.TrimSpace(string(buf.String()))
+	trimmed := strings.TrimSpace(string(stdout.String()))
 	if strings.HasPrefix(trimmed, noResourcesPrefix) {
 		return nil, nil
 	}
@@ -125,14 +125,15 @@ func GetPodContainers(ctx context.Context, namespace, pod string, runner utils.C
 	cmd := Command("get", "pod", pod,
 		"--namespace", namespace,
 		"--output", "jsonpath={.status.containerStatuses..name}")
-	var buf bytes.Buffer
+	var stdout, stderr bytes.Buffer
 
-	err := runner.RunStream(ctx, &buf, cmd.Args()...)
+	err := runner.RunStream(ctx, &stdout, &stderr, cmd.Args()...)
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return nil, trace.Wrap(err, "failed to query containers for pod %v/%v: %s",
+			namespace, pod, stderr.String())
 	}
 
-	containers := strings.Fields(strings.TrimSpace(buf.String()))
+	containers := strings.Fields(strings.TrimSpace(stdout.String()))
 
 	return containers, nil
 }

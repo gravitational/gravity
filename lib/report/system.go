@@ -102,6 +102,7 @@ func basicSystemInfo() Collectors {
 func systemStatus() Collectors {
 	listJobArgs := utils.PlanetCommandArgs("/bin/systemctl", "list-jobs", "--full")
 	return Collectors{
+		Cmd("cluster-status", "/usr/bin/gravity", "status", "--output=json"),
 		// etcd cluster health
 		Cmd("etcd-status", utils.PlanetCommandArgs("/usr/bin/etcdctl", "cluster-health")...),
 		Cmd("etcd3-status", utils.PlanetCommandArgs("/usr/bin/etcdctl3", "endpoint", "health", "--cluster")...),

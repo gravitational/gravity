@@ -17,6 +17,7 @@ limitations under the License.
 package opsservice
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -96,7 +97,7 @@ func (s *OperationGroupSuite) TestExpandMaxConcurrency(c *check.C) {
 	c.Assert(key, check.NotNil)
 	s.assertClusterState(c, ops.SiteStateInstalling)
 
-	_, err = group.compareAndSwapOperationState(swap{
+	_, err = group.compareAndSwapOperationState(context.TODO(), swap{
 		key:            *key,
 		expectedStates: []string{ops.OperationStateInstallInitiated},
 		newOpState:     ops.OperationStateCompleted,
@@ -166,7 +167,7 @@ func (s *OperationGroupSuite) TestFailsToExpandShrinkingCluster(c *check.C) {
 	c.Assert(key, check.NotNil)
 	s.assertClusterState(c, ops.SiteStateInstalling)
 
-	_, err = group.compareAndSwapOperationState(swap{
+	_, err = group.compareAndSwapOperationState(context.TODO(), swap{
 		key:            *key,
 		expectedStates: []string{ops.OperationStateInstallInitiated},
 		newOpState:     ops.OperationStateCompleted,
@@ -210,7 +211,7 @@ func (s *OperationGroupSuite) TestMultiExpandClusterState(c *check.C) {
 	c.Assert(key, check.NotNil)
 	s.assertClusterState(c, ops.SiteStateInstalling)
 
-	_, err = group.compareAndSwapOperationState(swap{
+	_, err = group.compareAndSwapOperationState(context.TODO(), swap{
 		key:            *key,
 		expectedStates: []string{ops.OperationStateInstallInitiated},
 		newOpState:     ops.OperationStateCompleted,
@@ -248,7 +249,7 @@ func (s *OperationGroupSuite) TestMultiExpandClusterState(c *check.C) {
 	}
 
 	// finish one of expands and make sure the cluster is still expanding
-	_, err = group.compareAndSwapOperationState(swap{
+	_, err = group.compareAndSwapOperationState(context.TODO(), swap{
 		key:            *keys[0],
 		expectedStates: []string{ops.OperationStateExpandInitiated},
 		newOpState:     ops.OperationStateCompleted,
@@ -257,7 +258,7 @@ func (s *OperationGroupSuite) TestMultiExpandClusterState(c *check.C) {
 	s.assertClusterState(c, ops.SiteStateExpanding)
 
 	// finish the second one and make sure the cluster became active
-	_, err = group.compareAndSwapOperationState(swap{
+	_, err = group.compareAndSwapOperationState(context.TODO(), swap{
 		key:            *keys[1],
 		expectedStates: []string{ops.OperationStateExpandInitiated},
 		newOpState:     ops.OperationStateCompleted,

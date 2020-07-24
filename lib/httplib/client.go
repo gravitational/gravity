@@ -396,7 +396,7 @@ func getKubeClient(dnsAddr string, tlsConfig rest.TLSClientConfig, options ...Ku
 	}
 	client, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		return nil, nil, trace.Wrap(err)
+		return nil, nil, trace.ConvertSystemError(err)
 	}
 	return client, config, nil
 }

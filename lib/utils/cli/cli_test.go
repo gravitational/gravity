@@ -40,6 +40,14 @@ func (*S) SetUpSuite(c *check.C) {
 }
 
 func (*S) TestUpdatesCommandLine(c *check.C) {
+	// redactFlags is a common set of all flags to redact
+	// across a series of commands
+	var redactFlags = []Flag{
+		NewFlag("password", constants.Redacted),
+		NewFlag("token", constants.Redacted),
+		NewFlag("secret1", constants.Redacted),
+		NewFlag("secret2", constants.Redacted),
+	}
 	var testCases = []struct {
 		comment      string
 		inputArgs    []string
@@ -85,12 +93,10 @@ func (*S) TestUpdatesCommandLine(c *check.C) {
 			removeFlags: []string{"selinux"},
 		},
 		{
-			comment:    "Redact install token",
-			inputArgs:  []string{"install", `--token=token`, "--debug"},
-			outputArgs: []string{"install", "--token", fmt.Sprintf(`"%s"`, constants.Redacted), "--debug"},
-			replaceFlags: []Flag{
-				NewFlag("token", constants.Redacted),
-			},
+			comment:      "Redact install token",
+			inputArgs:    []string{"install", `--token=token`, "--debug"},
+			outputArgs:   []string{"install", "--token", fmt.Sprintf(`"%s"`, constants.Redacted), "--debug"},
+			replaceFlags: redactFlags,
 		},
 		{
 			comment:   "Redact user create password",
@@ -99,9 +105,7 @@ func (*S) TestUpdatesCommandLine(c *check.C) {
 				"--email", `"email"`,
 				"--password", fmt.Sprintf(`"%s"`, constants.Redacted),
 			},
-			replaceFlags: []Flag{
-				NewFlag("password", constants.Redacted),
-			},
+			replaceFlags: redactFlags,
 		},
 		{
 			comment:   "Redact multiple flags",
@@ -111,10 +115,29 @@ func (*S) TestUpdatesCommandLine(c *check.C) {
 				"--secret2", fmt.Sprintf(`"%s"`, constants.Redacted),
 				`"test"`,
 			},
-			replaceFlags: []Flag{
-				NewFlag("secret1", constants.Redacted),
-				NewFlag("secret2", constants.Redacted),
+			replaceFlags: redactFlags,
+		},
+		{
+			comment:   "Can update existing positional argument",
+			inputArgs: []string{"install", "/path/to/data"},
+			outputArgs: []string{
+				"install", `"/path/to/data"`,
 			},
+			flags: []Flag{
+				NewArg("path", "/path/to/data"),
+			},
+			removeFlags: []string{"path"},
+		},
+		{
+			comment:   "Adds implicit positional argument",
+			inputArgs: []string{"install"},
+			outputArgs: []string{
+				"install", `"/path/to/data"`,
+			},
+			flags: []Flag{
+				NewArg("path", "/path/to/data"),
+			},
+			removeFlags: []string{"path"},
 		},
 	}
 

@@ -388,7 +388,7 @@ func (s *site) createUpdateOperation(context context.Context, req ops.CreateSite
 		// Fail the operation and reset cluster state.
 		// It is important to complete the operation as subsequent same type operations
 		// will not be able to complete if there's an existing incomplete one
-		if errReset := ops.FailOperationAndResetCluster(*key, s.service, err.Error()); errReset != nil {
+		if errReset := ops.FailOperationAndResetCluster(context, *key, s.service, err.Error()); errReset != nil {
 			logger.WithFields(log.Fields{
 				log.ErrorKey: errReset,
 				"operation":  key,

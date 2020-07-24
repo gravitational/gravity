@@ -325,7 +325,7 @@ func (p *updatePhaseInit) updateClusterInfoMap() error {
 	_, err := p.Client.CoreV1().ConfigMaps(constants.KubeSystemNamespace).Get(
 		constants.ClusterInfoMap, metav1.GetOptions{})
 	if err == nil {
-		p.Info("Config map %v already exists.", constants.ClusterInfoMap)
+		p.Infof("Config map %v already exists.", constants.ClusterInfoMap)
 		return nil
 	}
 	err = rigging.ConvertError(err)

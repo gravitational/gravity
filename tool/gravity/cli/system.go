@@ -18,14 +18,18 @@ package cli
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"strings"
 	"syscall"
 
 	appservice "github.com/gravitational/gravity/lib/app/service"
+	libarchive "github.com/gravitational/gravity/lib/archive"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
@@ -46,6 +50,38 @@ import (
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
 )
+
+func systemClusterInfo(env *localenv.LocalEnvironment) error {
+	dir, err := ioutil.TempDir("", "cluster-info")
+	if err != nil {
+		return trace.ConvertSystemError(err)
+	}
+	defer os.RemoveAll(dir)
+
+	var buf bytes.Buffer
+	cmd := exec.Command("kubectl", "cluster-info", "dump",
+		"--all-namespaces",
+		"--output-directory", dir,
+		"--output", "yaml",
+	)
+	cmd.Stderr = &buf
+	if err := cmd.Run(); err != nil {
+		return trace.Wrap(err, "failed to dump kubernetes cluster info: %s", buf.String())
+	}
+
+	reader, writer := io.Pipe()
+	defer reader.Close()
+	gzWriter := gzip.NewWriter(writer)
+
+	go func() {
+		err := libarchive.CompressDirectory(dir, gzWriter)
+		gzWriter.Close()
+		_ = writer.CloseWithError(err)
+	}()
+
+	_, err = io.Copy(os.Stdout, reader)
+	return trace.ConvertSystemError(err)
+}
 
 // systemPullUpdates pulls new packages from remote Ops Center
 func systemPullUpdates(env *localenv.LocalEnvironment, opsCenterURL string, runtimePackage loc.Locator) error {

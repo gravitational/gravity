@@ -24,6 +24,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/report"
+
 	"github.com/gravitational/trace"
 )
 

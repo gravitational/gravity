@@ -73,14 +73,11 @@ func (p *clusterPackagesExecutor) Execute(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	caPackage, err := opsservice.PlanetCertAuthorityPackage(p.Plan.ClusterName)
-	if err != nil {
-		return trace.Wrap(err)
-	}
+	caPackage := opsservice.PlanetCertAuthorityPackage(p.Plan.ClusterName)
 	_, err = service.PullPackage(service.PackagePullRequest{
 		SrcPack: p.LocalPackages,
 		DstPack: clusterPackages,
-		Package: *caPackage,
+		Package: caPackage,
 		Upsert:  true,
 	})
 	if err != nil {

@@ -68,7 +68,6 @@ require (
 	github.com/gravitational/go-vhost v0.0.0-20171024163855-94d0c42e3263
 	github.com/gravitational/kingpin v2.1.11-0.20160205192003-785686550a08+incompatible // indirect
 	github.com/gravitational/license v0.0.0-20171013193735-f3111b1818ce
-	github.com/gravitational/log v0.0.0-20200127200505-fdffa14162b0 // indirect
 	github.com/gravitational/oxy v0.0.0-20180629203109-e4a7e35311e6 // indirect
 	github.com/gravitational/rigging v0.0.0-20191021212636-83b2e9505286
 	github.com/gravitational/roundtrip v1.0.0
@@ -81,13 +80,10 @@ require (
 	github.com/gravitational/vfsgen v0.0.0-20181202132449-6a9ea43bcacd
 	github.com/hashicorp/go-getter v0.0.0-20180809191950-4bda8fa99001 // indirect
 	github.com/hashicorp/go-hclog v0.0.0-20180828044259-75ecd6e6d645 // indirect
-	github.com/hashicorp/go-immutable-radix v1.1.0 // indirect
-	github.com/hashicorp/go-msgpack v0.5.5 // indirect
 	github.com/hashicorp/go-plugin v0.0.0-20180814222501-a4620f9913d1 // indirect
 	github.com/hashicorp/go-safetemp v1.0.0 // indirect
 	github.com/hashicorp/hcl2 v0.0.0-20180822193130-ed8144cda141 // indirect
 	github.com/hashicorp/hil v0.0.0-20170627220502-fa9f258a9250 // indirect
-	github.com/hashicorp/serf v0.8.3 // indirect
 	github.com/hashicorp/terraform v0.11.7 // indirect
 	github.com/hashicorp/yamux v0.0.0-20180826203732-cc6d2ea263b2 // indirect
 	github.com/huandu/xstrings v1.2.0 // indirect
@@ -108,7 +104,6 @@ require (
 	github.com/mailgun/timetools v0.0.0-20150505213551-fd192d755b00
 	github.com/mailgun/ttlmap v0.0.0-20150816203249-16b258d86efc // indirect
 	github.com/maruel/panicparse v1.1.2-0.20180806203336-f20d4c4d746f // indirect
-	github.com/mattn/go-sqlite3 v1.13.0 // indirect
 	github.com/mdp/rsc v0.0.0-20160131164516-90f07065088d // indirect
 	github.com/miekg/dns v1.1.26
 	github.com/mitchellh/copystructure v1.0.0 // indirect

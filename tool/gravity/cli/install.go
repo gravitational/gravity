@@ -30,6 +30,7 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/expand"
+	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/install"
 	installerclient "github.com/gravitational/gravity/lib/install/client"
@@ -559,8 +560,35 @@ func rollbackJoinPhaseForOperation(env *localenv.LocalEnvironment, params PhaseP
 }
 
 func completeJoinPlanForOperation(env *localenv.LocalEnvironment, operation ops.SiteOperation) error {
-	return trace.Wrap(completePlanFromService(
-		env, operation, "Connecting to agent", "Connected to agent"))
+	err := completePlanFromService(
+		env, operation, "Connecting to agent", "Connected to agent")
+	if err == nil {
+		return nil
+	}
+	if !trace.IsNotFound(err) {
+		log.WithError(err).Warn("Failed to complete operation from service.")
+	}
+	return completeJoinPlanFromExistingNode(env, operation)
+}
+
+// completeJoinPlanFromExistingNode completes the specifies expand operation
+// from a existing cluster node in case the joining node (and its state) is not
+// available to perform the operation.
+func completeJoinPlanFromExistingNode(localEnv *localenv.LocalEnvironment, operation ops.SiteOperation) error {
+	clusterEnv, err := localEnv.NewClusterEnvironment()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	const manualCompletedError = "completed manually"
+	plan, err := clusterEnv.Operator.GetOperationPlan(operation.Key())
+	if err != nil && !trace.IsNotFound(err) {
+		return trace.Wrap(err)
+	}
+	if plan != nil {
+		return fsm.CompleteOrFailOperation(context.TODO(), plan, clusterEnv.Operator, manualCompletedError)
+	}
+	// No operation plan created for the operation - fail the operation directly
+	return ops.FailOperation(context.TODO(), operation.Key(), clusterEnv.Operator, manualCompletedError)
 }
 
 func setPhaseFromService(env *localenv.LocalEnvironment, params SetPhaseParams, operation ops.SiteOperation) error {

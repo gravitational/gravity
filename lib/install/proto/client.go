@@ -41,8 +41,8 @@ func NewClient(ctx context.Context, config ClientConfig) (AgentClient, error) {
 		grpc.WithBlock(),
 		grpc.FailOnNonTempDialError(true),
 		grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
-			if err := config.IsServiceFailed(); err != nil {
-				// Fast path: service has failed
+			if err := config.ShouldReconnectService(); err != nil {
+				// Fast path: service has failed or has been uninstalled
 				// Note, the error is not trace.Wrapped on purpose - it needs
 				// to retain the fact that it's terminal
 				return nil, serviceError(trace.UserMessage(err))
@@ -77,8 +77,9 @@ func (r *ClientConfig) checkAndSetDefaults() error {
 	if r.FieldLogger == nil {
 		r.FieldLogger = log.WithField(trace.Component, "proto:client")
 	}
-	if r.IsServiceFailed == nil {
-		r.IsServiceFailed = func() error { return nil }
+	if r.ShouldReconnectService == nil {
+		// Reconnect always by default
+		r.ShouldReconnectService = func() error { return nil }
 	}
 	return nil
 }
@@ -89,8 +90,9 @@ type ClientConfig struct {
 	log.FieldLogger
 	// SocketPath specifies the path to the service's socket file
 	SocketPath string
-	// IsServiceFailed returns an error if the service has failed
-	IsServiceFailed func() error
+	// ShouldReconnectService determines if the service should be reconnected.
+	// If this returns an error, the internal dialer will cancel all attempts to reconnect
+	ShouldReconnectService func() error
 	// DialOptions specifies additional gRPC dial options
 	DialOptions []grpc.DialOption
 }

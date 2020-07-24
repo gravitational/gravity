@@ -57,17 +57,28 @@ func Start(serviceName string) error {
 	return trace.Wrap(services.StartService(serviceName, noBlock))
 }
 
-// IsFailed determines if the specified service has failed
-func IsFailed(serviceName string) (ok bool, err error) {
+// IsFailed determines if the specified service has failed.
+// Returns nil error if the service has failed and an error otherwise
+func IsFailed(serviceName string) error {
+	return IsStatus(serviceName, systemservice.ServiceStatusFailed)
+}
+
+// IsStatus checks whether the specified service has the given active status
+func IsStatus(serviceName string, statuses ...string) error {
 	services, err := systemservice.New()
 	if err != nil {
-		return false, trace.Wrap(err)
+		return trace.Wrap(err)
 	}
-	status, err := services.StatusService(serviceName)
+	activeStatus, err := services.StatusService(serviceName)
 	if err != nil {
-		return false, trace.Wrap(err)
+		return trace.Wrap(err)
 	}
-	return status == systemservice.ServiceStatusFailed, nil
+	for _, status := range statuses {
+		if activeStatus == status {
+			return nil
+		}
+	}
+	return trace.CompareFailed("unexpected status %v", activeStatus)
 }
 
 // Reinstall installs a systemd service specified with req.

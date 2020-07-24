@@ -138,7 +138,7 @@ func exportPackage(env *localenv.LocalEnvironment, loc loc.Locator, opsCenterURL
 	err = utils.CopyWithRetries(ctx, targetPath, func() (io.ReadCloser, error) {
 		_, rc, err := packageService.ReadPackage(loc)
 		return rc, trace.Wrap(err)
-	}, mode)
+	}, utils.PermOption(mode))
 	if err != nil {
 		return trace.Wrap(err)
 	}

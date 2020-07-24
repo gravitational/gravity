@@ -139,13 +139,15 @@ func getClusterReport(env *localenv.LocalEnvironment, targetFile string, since t
 		return trace.Wrap(err)
 	}
 
-	report, err := operator.GetSiteReport(ops.GetClusterReportRequest{
-		SiteKey: ops.SiteKey{
-			AccountID:  site.AccountID,
-			SiteDomain: site.Domain,
-		},
-		Since: since,
-	})
+	// TODO(dmitri): see comments on defaults.GenerateDebugReportTimeout
+	report, err := operator.GetSiteReport(context.TODO(),
+		ops.GetClusterReportRequest{
+			SiteKey: ops.SiteKey{
+				AccountID:  site.AccountID,
+				SiteDomain: site.Domain,
+			},
+			Since: since,
+		})
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -155,7 +157,7 @@ func getClusterReport(env *localenv.LocalEnvironment, targetFile string, since t
 		return trace.Wrap(err)
 	}
 
-	fmt.Printf("report for %v exported to %v\n", site, targetFile)
+	env.Printf("report for %v exported to %v\n", site, targetFile)
 	return nil
 }
 

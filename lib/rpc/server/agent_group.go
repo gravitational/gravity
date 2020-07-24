@@ -152,17 +152,8 @@ func (r *AgentGroup) Add(p Peer) {
 	r.peers.add(peer{Peer: p})
 }
 
-// Remove shuts down the specified peer and removes it from the group
+// Remove removes the specified peer from the group
 func (r *AgentGroup) Remove(ctx context.Context, p Peer) error {
-	err := r.peers.iterate(func(peer peer) error {
-		if p.Addr() == peer.Addr() {
-			return trace.Wrap(peer.Shutdown(ctx, &pb.ShutdownRequest{}))
-		}
-		return nil
-	})
-	if err != nil {
-		return trace.Wrap(err)
-	}
 	r.peers.delete(peer{Peer: p})
 	return nil
 }
@@ -240,11 +231,11 @@ func (r *AgentGroup) updateLoop() {
 	}
 }
 
-func (r errorPeer) Command(context.Context, log.FieldLogger, io.Writer, ...string) error {
+func (r errorPeer) Command(ctx context.Context, log log.FieldLogger, stdout, stderr io.Writer, args ...string) error {
 	return trace.Wrap(r.error)
 }
 
-func (r errorPeer) GravityCommand(context.Context, log.FieldLogger, io.Writer, ...string) error {
+func (r errorPeer) GravityCommand(ctx context.Context, log log.FieldLogger, stdout, stderr io.Writer, args ...string) error {
 	return trace.Wrap(r.error)
 }
 

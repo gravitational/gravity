@@ -32,8 +32,9 @@ message RuntimeConfig {
     // AdvertiseAddr specifies the address the agent is listening on
     string advertise_addr = 2;
     // DockerDevice defines the device to use to setup devicemapper docker storage backend
-    // in direct-lvm mode
-    string docker_device = 3;
+    // in direct-lvm mode.
+    // Deprecated
+    reserved 3;
     // SystemDevice defines the device to use to setup telekube state directory
     string system_device = 4;
     // Mounts lists mount overrides

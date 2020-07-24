@@ -248,9 +248,10 @@ func completeOperationPlanForOperation(localEnv *localenv.LocalEnvironment, envi
 	case ops.OperationUpdateConfig:
 		err = completeConfigPlanForOperation(localEnv, environ, op)
 	default:
-		return trace.BadParameter("operation type %q does not support plan completion", op.Type)
+		return completeClusterOperationPlan(localEnv, op)
 	}
-	if trace.IsNotFound(err) {
+	if op.Type != ops.OperationInstall && trace.IsNotFound(err) {
+		log.WithError(err).Warn("Failed to complete operation from service.")
 		return completeClusterOperationPlan(localEnv, op)
 	}
 	return trace.Wrap(err)
@@ -262,13 +263,13 @@ func completeClusterOperationPlan(localEnv *localenv.LocalEnvironment, operation
 		return trace.Wrap(err)
 	}
 	plan, err := fsm.GetOperationPlan(clusterEnv.Backend, operation.Key())
-	if err != nil {
+	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
 	}
-	if fsm.IsCompleted(plan) {
-		return ops.CompleteOperation(operation.Key(), clusterEnv.Operator)
+	if err == nil && fsm.IsCompleted(plan) {
+		return ops.CompleteOperation(context.TODO(), operation.Key(), clusterEnv.Operator)
 	}
-	return ops.FailOperation(operation.Key(), clusterEnv.Operator, "completed manually")
+	return ops.FailOperation(context.TODO(), operation.Key(), clusterEnv.Operator, "completed manually")
 }
 
 // getLastOperation returns the last operation found across the specified backends.
@@ -305,7 +306,7 @@ func getBackendOperations(localEnv *localenv.LocalEnvironment, environ LocalEnvi
 	b := newBackendOperations()
 	b.List(localEnv, environ)
 	for _, op := range b.operations {
-		if (operationID == "" || operationID == op.ID) && op.hasPlan {
+		if operationID == "" || operationID == op.ID {
 			result = append(result, op)
 		}
 	}
@@ -346,7 +347,7 @@ func (r *backendOperations) List(localEnv *localenv.LocalEnvironment, environ Lo
 	// Only fetch operation from remote (install) environment if the install operation is ongoing
 	// or we failed to fetch the operation details from the cluster
 	if r.isActiveInstallOperation() {
-		if r.listInstallOperation(); err != nil {
+		if err := r.listInstallOperation(); err != nil {
 			log.WithError(err).Warn("Failed to list install operation.")
 		}
 	}
@@ -361,23 +362,14 @@ func (r *backendOperations) init(clusterBackend storage.Backend) error {
 		return nil
 	}
 	// Initialize the operation state from the list of existing cluster operations.
-	// operationsByType groups the operations by type to avoid looking at multiple operations
-	// of the same type as we are only interested in the latest operation
-	operationsByType := make(map[string]clusterOperation)
 	for _, op := range clusterOperations {
-		if _, exists := operationsByType[op.Type]; exists {
-			continue
-		}
 		clusterOperation := clusterOperation{
 			SiteOperation: (ops.SiteOperation)(op),
 		}
 		if _, err := clusterBackend.GetOperationPlan(op.SiteDomain, op.ID); err == nil {
 			clusterOperation.hasPlan = true
 		}
-		operationsByType[op.Type] = clusterOperation
-	}
-	for _, op := range operationsByType {
-		r.operations[op.ID] = op
+		r.operations[op.ID] = clusterOperation
 	}
 	latestOperation := r.operations[clusterOperations[0].ID]
 	r.clusterOperation = &latestOperation
@@ -477,6 +469,15 @@ type backendOperations struct {
 	operations map[string]clusterOperation
 	// clusterOperation stores the first operation found in cluster state store (if any)
 	clusterOperation *clusterOperation
+}
+
+func isInvalidOperation(op clusterOperation) bool {
+	switch op.Type {
+	case ops.OperationShrink:
+		return false
+	default:
+		return !op.hasPlan
+	}
 }
 
 // formatTable formats this operation list as a table

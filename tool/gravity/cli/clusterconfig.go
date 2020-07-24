@@ -28,6 +28,7 @@ import (
 	libclusterconfig "github.com/gravitational/gravity/lib/storage/clusterconfig"
 	"github.com/gravitational/gravity/lib/update"
 	"github.com/gravitational/gravity/lib/update/clusterconfig"
+	"github.com/gravitational/gravity/lib/validate"
 
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
@@ -40,7 +41,7 @@ func resetConfig(ctx context.Context, localEnv, updateEnv *localenv.LocalEnviron
 }
 
 func updateConfig(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironment, config libclusterconfig.Interface, manual, confirmed bool) error {
-	if err := validateCloudConfig(localEnv, config); err != nil {
+	if err := validateClusterConfig(localEnv, config); err != nil {
 		return trace.Wrap(err)
 	}
 	if !confirmed {
@@ -142,7 +143,7 @@ func completeConfigPlanForOperation(env *localenv.LocalEnvironment, environ Loca
 		return trace.Wrap(err)
 	}
 	defer updater.Close()
-	if err := updater.Complete(nil); err != nil {
+	if err := updater.Complete(context.TODO(), nil); err != nil {
 		return trace.Wrap(err)
 	}
 	if err := updater.Activate(); err != nil {
@@ -264,15 +265,7 @@ type configInitializer struct {
 	config   libclusterconfig.Interface
 }
 
-func validateCloudConfig(localEnv *localenv.LocalEnvironment, config libclusterconfig.Interface) error {
-	if newGlobalConfig := config.GetGlobalConfig(); !isCloudConfigEmpty(newGlobalConfig) {
-		// TODO(dmitri): require cloud provider if cloud-config is being updated
-		// This is more a sanity check than a hard requirement so users are explicit about changes
-		// in the cloud configuration
-		if newGlobalConfig.CloudConfig != "" && newGlobalConfig.CloudProvider == "" {
-			return trace.BadParameter("cloud provider is required when updating cloud configuration")
-		}
-	}
+func validateClusterConfig(localEnv *localenv.LocalEnvironment, update libclusterconfig.Interface) error {
 	operator, err := localEnv.SiteOperator()
 	if err != nil {
 		return trace.Wrap(err)
@@ -281,32 +274,11 @@ func validateCloudConfig(localEnv *localenv.LocalEnvironment, config libclusterc
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	clusterConfig, err := operator.GetClusterConfiguration(cluster.Key())
+	existing, err := operator.GetClusterConfiguration(cluster.Key())
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	globalConfig := clusterConfig.GetGlobalConfig()
-	if isCloudConfigEmpty(globalConfig) {
-		if newGlobalConfig := config.GetGlobalConfig(); !isCloudConfigEmpty(newGlobalConfig) {
-			return trace.BadParameter("cannot change cloud configuration: cluster does not have cloud provider configured")
-		}
-	}
-	if globalConfig != nil {
-		if newGlobalConfig := config.GetGlobalConfig(); newGlobalConfig != nil {
-			if newGlobalConfig.CloudProvider != "" && globalConfig.CloudProvider != newGlobalConfig.CloudProvider {
-				return trace.BadParameter("changing cloud provider is not supported (%q -> %q)",
-					newGlobalConfig.CloudProvider, globalConfig.CloudProvider)
-			}
-			if globalConfig.CloudProvider == "" && newGlobalConfig.CloudConfig != "" {
-				return trace.BadParameter("cannot set cloud configuration: cluster does not have cloud provider configured")
-			}
-		}
-	}
-	return nil
-}
-
-func isCloudConfigEmpty(global *libclusterconfig.Global) bool {
-	return global == nil || (global.CloudProvider == "" && global.CloudConfig == "")
+	return validate.ClusterConfiguration(existing, update)
 }
 
 const (

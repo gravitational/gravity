@@ -90,7 +90,7 @@ spec:
 					Namespace: defaults.KubeSystemNamespace,
 				},
 				Spec: Spec{
-					Global: &Global{
+					Global: Global{
 						CloudProvider: "aws",
 						CloudConfig: `[Global]
 username=user
@@ -177,7 +177,7 @@ spec:
 					Namespace: defaults.KubeSystemNamespace,
 				},
 				Spec: Spec{
-					Global: &Global{
+					Global: Global{
 						FeatureGates: map[string]bool{
 							"FeatureA": true,
 							"FeatureB": false,
@@ -213,6 +213,154 @@ spec:
 		} else {
 			c.Assert(resource2, compare.DeepEquals, tc.resource, comment)
 		}
+	}
+}
+
+func (*S) TestMergesClusterConfiguration(c *C) {
+	var testCases = []struct {
+		existing Resource
+		update   Resource
+		expected Resource
+		comment  string
+	}{
+		{
+			update: Resource{
+				Spec: Spec{
+					ComponentConfigs: ComponentConfigs{
+						Kubelet: &Kubelet{
+							ExtraArgs: []string{"--node-labels=foo=bar"},
+						},
+					},
+					Global: Global{
+						PodCIDR:     "10.244.0.0/16",
+						ServiceCIDR: "100.10.0.0/16",
+						FeatureGates: map[string]bool{
+							"feature1": true,
+							"feature2": false,
+						},
+					},
+				},
+			},
+			expected: Resource{
+				Spec: Spec{
+					ComponentConfigs: ComponentConfigs{
+						Kubelet: &Kubelet{
+							ExtraArgs: []string{"--node-labels=foo=bar"},
+						},
+					},
+					Global: Global{
+						PodCIDR:     "10.244.0.0/16",
+						ServiceCIDR: "100.10.0.0/16",
+						FeatureGates: map[string]bool{
+							"feature1": true,
+							"feature2": false,
+						},
+					},
+				},
+			},
+			comment: "overrides source fields from non-empty fields in update",
+		},
+		{
+			existing: Resource{
+				Spec: Spec{
+					ComponentConfigs: ComponentConfigs{
+						Kubelet: &Kubelet{
+							ExtraArgs: []string{"--node-labels=foo=bar"},
+							Config: []byte(`
+kind: KubeletConfiguration
+apiVersion: kubelet.config.k8s.io/v1beta1
+address: 10.0.0.1
+`),
+						},
+					},
+					Global: Global{
+						PodCIDR:        "10.244.0.0/16",
+						ServiceCIDR:    "100.10.0.0/16",
+						ProxyPortRange: "8080-8081",
+						FeatureGates: map[string]bool{
+							"feature1": true,
+							"feature2": false,
+						},
+					},
+				},
+			},
+			update: Resource{
+				Spec: Spec{
+					ComponentConfigs: ComponentConfigs{
+						Kubelet: &Kubelet{
+							ExtraArgs: []string{
+								"--node-labels=baz=qux",
+								"--hostname-override=example.com",
+							},
+						},
+					},
+					Global: Global{
+						PodCIDR: "10.245.0.0/16",
+						FeatureGates: map[string]bool{
+							"feature1": true,
+							"feature3": true,
+						},
+					},
+				},
+			},
+			expected: Resource{
+				Spec: Spec{
+					ComponentConfigs: ComponentConfigs{
+						Kubelet: &Kubelet{
+							ExtraArgs: []string{
+								"--node-labels=baz=qux",
+								"--hostname-override=example.com",
+							},
+							Config: []byte(`
+kind: KubeletConfiguration
+apiVersion: kubelet.config.k8s.io/v1beta1
+address: 10.0.0.1
+`),
+						},
+					},
+					Global: Global{
+						PodCIDR:        "10.245.0.0/16",
+						ServiceCIDR:    "100.10.0.0/16",
+						ProxyPortRange: "8080-8081",
+						FeatureGates: map[string]bool{
+							"feature1": true,
+							"feature3": true,
+						},
+					},
+				},
+			},
+			comment: "does not override source field from empty update field",
+		},
+		{
+			existing: Resource{
+				Spec: Spec{
+
+					Global: Global{
+						CloudProvider: "generic",
+					},
+				},
+			},
+			update: Resource{
+				Spec: Spec{
+					Global: Global{
+						CloudProvider: "gce",
+					},
+				},
+			},
+			expected: Resource{
+				Spec: Spec{
+					Global: Global{
+						CloudProvider: "generic",
+					},
+				},
+			},
+			comment: "does not override cloud provider field",
+		},
+	}
+	for _, testCase := range testCases {
+		comment := Commentf(testCase.comment)
+		merged := testCase.existing.Merge(testCase.update)
+		c.Assert(merged, DeepEquals, testCase.expected, comment)
 	}
 }
 

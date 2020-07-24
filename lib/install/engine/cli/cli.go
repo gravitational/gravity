@@ -196,7 +196,7 @@ func (r *executor) waitForAgents(operation ops.SiteOperation) error {
 	b.MaxInterval = 5 * time.Second
 	var report *ops.AgentReport
 	err := utils.RetryWithInterval(ctx, b, func() error {
-		newReport, err := r.Operator.GetSiteInstallOperationAgentReport(operation.Key())
+		newReport, err := r.Operator.GetSiteInstallOperationAgentReport(ctx, operation.Key())
 		if err != nil {
 			return trace.Wrap(err, "failed to get agent report")
 		}

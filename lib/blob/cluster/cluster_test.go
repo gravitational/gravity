@@ -123,7 +123,7 @@ type ClusterMultiPeers struct {
 	suite        suite.BLOBSuite
 	clusterSuite clusterSuite
 	dir          string
-	objects      []*cluster
+	objects      []*Cluster
 }
 
 func (s *ClusterMultiPeers) SetUpTest(c *C) {
@@ -139,7 +139,7 @@ func (s *ClusterMultiPeers) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 
 	peers := make([]blob.Objects, peersCount)
-	objects := make([]*cluster, peersCount)
+	objects := make([]*Cluster, peersCount)
 	clients := make([]blob.Objects, peersCount)
 
 	getPeer := func(p storage.Peer) (blob.Objects, error) {
@@ -164,11 +164,10 @@ func (s *ClusterMultiPeers) SetUpTest(c *C) {
 			Clock:            fakeClock,
 			ID:               fmt.Sprintf("%v", i),
 			AdvertiseAddr:    "https://localhost",
-			TestMode:         true,
 			GracePeriod:      gracePeriod,
 		})
 		c.Assert(err, IsNil)
-		objects[i] = obj.(*cluster)
+		objects[i] = obj
 		c.Assert(objects[i].heartbeat(), IsNil)
 		clients[i] = obj
 	}
@@ -235,7 +234,7 @@ func (s *RPCSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 
 	peers := make([]blob.Objects, peersCount)
-	objects := make([]*cluster, peersCount)
+	objects := make([]*Cluster, peersCount)
 	clients := make([]blob.Objects, peersCount)
 	localClients := make([]blob.Objects, peersCount)
 
@@ -264,7 +263,6 @@ func (s *RPCSuite) SetUpTest(c *C) {
 			Clock:            fakeClock,
 			ID:               fmt.Sprintf("%v", i),
 			AdvertiseAddr:    "https://localhost",
-			TestMode:         true,
 			GracePeriod:      gracePeriod,
 		})
 		c.Assert(err, IsNil)
@@ -299,7 +297,7 @@ func (s *RPCSuite) SetUpTest(c *C) {
 		)
 
 		c.Assert(err, IsNil)
-		objects[i] = obj.(*cluster)
+		objects[i] = obj
 		c.Assert(objects[i].heartbeat(), IsNil)
 		clients[i] = clusterClient
 		localClients[i] = localClient
@@ -339,7 +337,7 @@ func (s *RPCSuite) TestCleanup(c *C) {
 }
 
 type clusterSuite struct {
-	objects []*cluster
+	objects []*Cluster
 	clients []blob.Objects
 	clock   clockwork.FakeClock
 }

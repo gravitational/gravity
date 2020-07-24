@@ -133,6 +133,7 @@ func (u *UsersService) DeleteAPIKey(userEmail, token string) error {
 	return trace.Wrap(u.backend.DeleteAPIKey(userEmail, token))
 }
 
+// CreateProvisioningToken creates a new token from the specified template t
 func (u *UsersService) CreateProvisioningToken(t storage.ProvisioningToken) (*storage.ProvisioningToken, error) {
 	return u.backend.CreateProvisioningToken(t)
 }

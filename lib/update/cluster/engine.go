@@ -191,7 +191,7 @@ func (f *engine) PreRollback(ctx context.Context, p fsm.Params) error {
 
 // Complete marks the provided update operation as completed or failed
 // and moves the cluster into active state
-func (f *engine) Complete(fsmErr error) error {
+func (f *engine) Complete(ctx context.Context, fsmErr error) error {
 	plan, err := f.GetPlan()
 	if err != nil {
 		return trace.Wrap(err)
@@ -206,9 +206,9 @@ func (f *engine) Complete(fsmErr error) error {
 	stateSetter := fsm.OperationStateSetter(opKey, f.Operator, f.LocalBackend)
 	completed := fsm.IsCompleted(plan)
 	if completed {
-		err = ops.CompleteOperation(opKey, stateSetter)
+		err = ops.CompleteOperation(ctx, opKey, stateSetter)
 	} else {
-		err = ops.FailOperation(opKey, stateSetter, trace.Unwrap(fsmErr).Error())
+		err = ops.FailOperation(ctx, opKey, stateSetter, trace.Unwrap(fsmErr).Error())
 	}
 	if err != nil {
 		return trace.Wrap(err)

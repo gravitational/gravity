@@ -110,32 +110,15 @@ func (r *Engine) UpdateProgress(ctx context.Context, params fsm.Params) error {
 
 // Complete marks the operation as either completed or failed based
 // on the state of the operation plan
-func (r *Engine) Complete(fsmErr error) error {
+func (r *Engine) Complete(ctx context.Context, fsmErr error) error {
 	plan, err := r.GetPlan()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	if fsm.IsCompleted(plan) {
-		err = ops.CompleteOperation(r.Operation.Key(), r.operator)
-	} else {
-		var msg string
-		if fsmErr != nil {
-			msg = trace.Unwrap(fsmErr).Error()
-		}
-		err = ops.FailOperation(r.Operation.Key(), r.operator, msg)
+	if fsmErr == nil {
+		fsmErr = trace.Errorf("completed manually")
 	}
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	err = r.operator.ActivateSite(ops.ActivateSiteRequest{
-		AccountID:  r.Operation.AccountID,
-		SiteDomain: r.Operation.SiteDomain,
-	})
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	r.WithField("operation", r.Operation).Debug("Marked operation complete.")
-	return nil
+	return fsm.CompleteOrFailOperation(ctx, plan, r.Operator, fsmErr.Error())
 }
 
 // ChangePhaseState creates a new changelog entry
@@ -209,6 +192,6 @@ type Dispatcher interface {
 // operator describes the subset of ops.Operator required for the FSM engine
 type operator interface {
 	CreateProgressEntry(ops.SiteOperationKey, ops.ProgressEntry) error
-	SetOperationState(ops.SiteOperationKey, ops.SetOperationStateRequest) error
+	SetOperationState(context.Context, ops.SiteOperationKey, ops.SetOperationStateRequest) error
 	ActivateSite(ops.ActivateSiteRequest) error
 }

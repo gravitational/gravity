@@ -132,7 +132,7 @@ func completeEnvironPlanForOperation(env *localenv.LocalEnvironment, environ Loc
 		return trace.Wrap(err)
 	}
 	defer updater.Close()
-	if err := updater.Complete(nil); err != nil {
+	if err := updater.Complete(context.TODO(), nil); err != nil {
 		return trace.Wrap(err)
 	}
 	if err := updater.Activate(); err != nil {

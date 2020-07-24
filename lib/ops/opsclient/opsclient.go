@@ -491,9 +491,13 @@ func (c *Client) ResumeShrink(key ops.SiteKey) (*ops.SiteOperationKey, error) {
 	return &opKey, trace.Wrap(err)
 }
 
-func (c *Client) GetSiteInstallOperationAgentReport(key ops.SiteOperationKey) (*ops.AgentReport, error) {
-	out, err := c.Get(context.TODO(), c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "operations", "install",
-		key.OperationID, "agent-report"), url.Values{})
+func (c *Client) GetSiteInstallOperationAgentReport(ctx context.Context, key ops.SiteOperationKey) (*ops.AgentReport, error) {
+	out, err := c.Get(ctx,
+		c.Endpoint("accounts", key.AccountID,
+			"sites", key.SiteDomain,
+			"operations", "install",
+			key.OperationID, "agent-report",
+		), url.Values{})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -519,8 +523,13 @@ func (c *Client) SiteInstallOperationStart(req ops.SiteOperationKey) error {
 	return nil
 }
 
-func (c *Client) GetSiteExpandOperationAgentReport(key ops.SiteOperationKey) (*ops.AgentReport, error) {
-	out, err := c.Get(context.TODO(), c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "operations", "expand", key.OperationID, "agent-report"), url.Values{})
+func (c *Client) GetSiteExpandOperationAgentReport(ctx context.Context, key ops.SiteOperationKey) (*ops.AgentReport, error) {
+	out, err := c.Get(ctx,
+		c.Endpoint("accounts", key.AccountID,
+			"sites", key.SiteDomain,
+			"operations", "expand",
+			key.OperationID, "agent-report",
+		), url.Values{})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -701,18 +710,18 @@ func (c *Client) CreateProgressEntry(key ops.SiteOperationKey, entry ops.Progres
 }
 
 func (c *Client) GetSiteOperationCrashReport(key ops.SiteOperationKey) (io.ReadCloser, error) {
-	file, err := c.GetFile(c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "operations", "common", key.OperationID, "crash-report"), url.Values{})
+	file, err := c.GetFile(context.TODO(), c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "operations", "common", key.OperationID, "crash-report"), url.Values{})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return file.Body(), nil
 }
 
-func (c *Client) GetSiteReport(req ops.GetClusterReportRequest) (io.ReadCloser, error) {
+func (c *Client) GetSiteReport(ctx context.Context, req ops.GetClusterReportRequest) (io.ReadCloser, error) {
 	params := url.Values{
 		"since": []string{req.Since.String()},
 	}
-	file, err := c.GetFile(c.Endpoint("accounts", req.AccountID, "sites", req.SiteDomain, "report"), params)
+	file, err := c.GetFile(ctx, c.Endpoint("accounts", req.AccountID, "sites", req.SiteDomain, "report"), params)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -871,9 +880,13 @@ func (c *Client) DeleteSiteOperation(key ops.SiteOperationKey) error {
 }
 
 // SetOperationState moves operation into specified state
-func (c *Client) SetOperationState(key ops.SiteOperationKey, req ops.SetOperationStateRequest) error {
-	_, err := c.PutJSON(c.Endpoint(
-		"accounts", key.AccountID, "sites", key.SiteDomain, "operations", "common", key.OperationID, "complete"), req)
+func (c *Client) SetOperationState(ctx context.Context, key ops.SiteOperationKey, req ops.SetOperationStateRequest) error {
+	_, err := c.PutJSONWithContext(ctx,
+		c.Endpoint("accounts", key.AccountID,
+			"sites", key.SiteDomain,
+			"operations", "common",
+			key.OperationID, "complete",
+		), req)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -1274,7 +1287,7 @@ func (c *Client) GetAppInstaller(req ops.AppInstallerRequest) (io.ReadCloser, er
 		return nil, trace.Wrap(err)
 	}
 	values := url.Values{"request": []string{string(bytes)}}
-	file, err := c.GetFile(c.Endpoint("accounts", req.AccountID, "apps",
+	file, err := c.GetFile(context.TODO(), c.Endpoint("accounts", req.AccountID, "apps",
 		req.Application.Repository, req.Application.Name, req.Application.Version, "installer"), values)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -1648,28 +1661,38 @@ func (c *Client) PutJSON(endpoint string, data interface{}) (*roundtrip.Response
 	return telehttplib.ConvertResponse(c.Client.PutJSON(context.TODO(), endpoint, data))
 }
 
+// PutJSONWithContext issues HTTP PUT request bound to the given context to the server with the provided JSON data
+func (c *Client) PutJSONWithContext(ctx context.Context, endpoint string, data interface{}) (*roundtrip.Response, error) {
+	return telehttplib.ConvertResponse(c.Client.PutJSON(ctx, endpoint, data))
+}
+
 // Get issues HTTP GET request to the server
 func (c *Client) Get(ctx context.Context, endpoint string, params url.Values) (*roundtrip.Response, error) {
 	return telehttplib.ConvertResponse(c.Client.Get(ctx, endpoint, params))
 }
 
+// GetWithContext issues HTTP GET request to the server bound to the specified context
+func (c *Client) GetWithContext(ctx context.Context, endpoint string, params url.Values) (*roundtrip.Response, error) {
+	return telehttplib.ConvertResponse(c.Client.Get(ctx, endpoint, params))
+}
+
 // GetFile issues HTTP GET request to the server to download a file
-func (c *Client) GetFile(endpoint string, params url.Values) (*roundtrip.FileResponse, error) {
-	re, err := c.Client.GetFile(context.TODO(), endpoint, params)
+func (c *Client) GetFile(ctx context.Context, endpoint string, params url.Values) (*roundtrip.FileResponse, error) {
+	resp, err := c.Client.GetFile(ctx, endpoint, params)
 	if err != nil {
 		if uerr, ok := err.(*url.Error); ok && uerr != nil && uerr.Err != nil {
 			return nil, trace.Wrap(uerr.Err)
 		}
 		return nil, trace.Wrap(err)
 	}
-	if re.Code() < 200 || re.Code() > 299 {
-		bytes, err := ioutil.ReadAll(re.Body())
+	if resp.Code() < 200 || resp.Code() > 299 {
+		bytes, err := ioutil.ReadAll(resp.Body())
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
-		return re, trace.ReadError(re.Code(), bytes)
+		return resp, trace.ReadError(resp.Code(), bytes)
 	}
-	return re, nil
+	return resp, nil
 }
 
 // Delete issues HTTP DELETE request to the server
