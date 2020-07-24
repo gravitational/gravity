@@ -340,6 +340,7 @@ func reinstallService(env *localenv.LocalEnvironment, serviceName string, cmd []
 			StartCommand:    strings.Join(cmd, " "),
 			RemainAfterExit: false,
 			Restart:         constants.RestartOnFailure,
+			WantedBy:        defaults.SystemServiceWantedBy,
 		},
 	})
 	return trace.Wrap(err)
