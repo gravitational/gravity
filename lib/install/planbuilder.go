@@ -637,22 +637,40 @@ func (c *Config) GetPlanBuilder(operator ops.Operator, cluster ops.Site, op ops.
 
 // splitServers splits the provided servers into masters and nodes
 func splitServers(servers []storage.Server, app app.Application) (masters []storage.Server, nodes []storage.Server, err error) {
-	count := 0
+	numMasters := 0
+
+	// count the number of servers designated as master by the node profile
+	for _, server := range servers {
+		profile, err := app.Manifest.NodeProfiles.ByName(server.Role)
+		if err != nil {
+			return nil, nil, trace.Wrap(err)
+		}
+
+		if profile.ServiceRole == schema.ServiceRoleMaster {
+			numMasters++
+		}
+	}
+
+	// assign the servers to their roles
 	for _, server := range servers {
 		profile, err := app.Manifest.NodeProfiles.ByName(server.Role)
 		if err != nil {
 			return nil, nil, trace.Wrap(err)
 		}
 		switch profile.ServiceRole {
-		case schema.ServiceRoleMaster, "":
-			if count < defaults.MaxMasterNodes {
+		case "":
+			if numMasters < defaults.MaxMasterNodes {
 				server.ClusterRole = string(schema.ServiceRoleMaster)
 				masters = append(masters, server)
-				count++
+				numMasters++
 			} else {
 				server.ClusterRole = string(schema.ServiceRoleNode)
 				nodes = append(nodes, server)
 			}
+		case schema.ServiceRoleMaster:
+			server.ClusterRole = string(schema.ServiceRoleMaster)
+			masters = append(masters, server)
+			// don't increment numMasters as this server has already been counted above
 		case schema.ServiceRoleNode:
 			server.ClusterRole = string(schema.ServiceRoleNode)
 			nodes = append(nodes, server)

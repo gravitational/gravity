@@ -908,22 +908,36 @@ func checkLicenseCPU(p licenseapi.Payload, numCPU uint) error {
 }
 
 // setClusterRoles assigns cluster roles to servers.
-// If a server has an explicit cluster role assigned, the function will make sure that
-// the maximum number of masters is not exceeded.
 func setClusterRoles(servers []storage.Server, app libapp.Application, masters int) error {
+	// count the number of servers designated as master by the node profile
+	for _, server := range servers {
+		profile, err := app.Manifest.NodeProfiles.ByName(server.Role)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+
+		if profile.ServiceRole == schema.ServiceRoleMaster {
+			masters++
+		}
+	}
+
+	// assign the servers to their roles
 	for i, server := range servers {
 		profile, err := app.Manifest.NodeProfiles.ByName(server.Role)
 		if err != nil {
 			return trace.Wrap(err)
 		}
 		switch profile.ServiceRole {
-		case schema.ServiceRoleMaster, "":
+		case "":
 			if masters < defaults.MaxMasterNodes {
 				servers[i].ClusterRole = string(schema.ServiceRoleMaster)
 				masters++
 			} else {
 				servers[i].ClusterRole = string(schema.ServiceRoleNode)
 			}
+		case schema.ServiceRoleMaster:
+			servers[i].ClusterRole = string(schema.ServiceRoleMaster)
+			// don't increment masters as this server has already been counted above
 		case schema.ServiceRoleNode:
 			servers[i].ClusterRole = string(schema.ServiceRoleNode)
 		default:
