@@ -70,7 +70,7 @@ func (c *osCommand) exec(ctx context.Context, stream pb.OutgoingMessageStream, a
 
 func notifyAndLogError(stream pb.OutgoingMessageStream, msg *pb.Message) {
 	if err := stream.Send(msg); err != nil {
-		log.WithError(err).Warn("Failed to notify stream.")
+		log.WithError(err).Warnf("Failed to notify stream: %v.", msg)
 	}
 }
 
