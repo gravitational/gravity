@@ -9,7 +9,7 @@
 # - make install  : build via `go install`. The output goes into GOPATH/bin/
 # - make clean    : remove the build output and artifacts
 #
-TOP := $(dir $(CURDIR)/$(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST)))
+TOP := $(realpath $(dir $(CURDIR)/$(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST))))
 
 OPS_URL ?=
 
