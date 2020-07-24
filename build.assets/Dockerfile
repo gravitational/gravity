@@ -22,9 +22,10 @@ RUN  groupadd jenkins --gid=$GID -o && \
 RUN curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh| sh -s -- -b $GOPATH/bin ${GOLANGCI_VER}
 
      # install development libraries used when compiling fio
-RUN --mount=type=cache,sharing=locked,id=gravity-aptlib,target=/var/lib/apt \
-    --mount=type=cache,sharing=locked,id=gravity-aptcache,target=/var/cache/apt \
-          DEBIAN_FRONTEND=noninteractive apt-get -q -y update --fix-missing && apt-get -q -y install libaio-dev zlib1g-dev
+# TODO: needs docker with buildkit support
+#RUN --mount=type=cache,sharing=locked,id=gravity-aptlib,target=/var/lib/apt \
+#    --mount=type=cache,sharing=locked,id=gravity-aptcache,target=/var/cache/apt \
+RUN DEBIAN_FRONTEND=noninteractive apt-get -q -y update --fix-missing && apt-get -q -y install libaio-dev zlib1g-dev
 
 RUN (mkdir -p /opt/protoc && \
      mkdir -p /.cache && \
