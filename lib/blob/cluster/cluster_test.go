@@ -298,7 +298,7 @@ func (s *RPCSuite) SetUpTest(c *C) {
 
 		c.Assert(err, IsNil)
 		objects[i] = obj
-		objects[i].heartbeat()
+		c.Assert(objects[i].heartbeat(), IsNil)
 		clients[i] = clusterClient
 		localClients[i] = localClient
 	}
