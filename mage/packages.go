@@ -463,6 +463,11 @@ func (Package) Planet() (err error) {
 		return nil
 	}
 
+	if _, err := os.Stat(pkgPlanet.DefaultCachePath()); !os.IsNotExist(err) {
+		m.SetCached(true)
+		return trace.Wrap(pkgPlanet.ImportPackage(m, pkgPlanet.DefaultCachePath()))
+	}
+
 	err = pkgPlanet.BuildApp()
 	if err != nil {
 		return trace.Wrap(err)
@@ -713,6 +718,7 @@ func (p gravityPackage) IsAppCachedAndSync(m *magnet.Magnet, path string) (bool,
 	}
 
 	// don't sync planet
+	//  unknown long flag '--labels'
 	if p.name == pkgPlanet.name {
 		return false, nil
 	}
