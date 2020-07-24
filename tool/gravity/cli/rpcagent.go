@@ -24,7 +24,6 @@ import (
 	"os"
 	"strings"
 	"sync"
-	"text/tabwriter"
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
@@ -41,7 +40,9 @@ import (
 	"github.com/gravitational/gravity/lib/update"
 	clusterupdate "github.com/gravitational/gravity/lib/update/cluster"
 	"github.com/gravitational/gravity/lib/utils"
+	"github.com/gravitational/gravity/tool/common"
 
+	"github.com/buger/goterm"
 	"github.com/cenkalti/backoff"
 	teleclient "github.com/gravitational/teleport/lib/client"
 	"github.com/gravitational/trace"
@@ -56,7 +57,7 @@ func rpcAgentInstall(env *localenv.LocalEnvironment, args []string) error {
 		return trace.Wrap(err, "failed to determine gravity executable path")
 	}
 
-	return trace.Wrap(reinstallOneshotService(env,
+	return trace.Wrap(reinstallService(env,
 		defaults.GravityRPCAgentServiceName,
 		append([]string{gravityPath, "--debug", "agent", "run"}, args...)))
 }
@@ -326,6 +327,7 @@ func newDeployAgentsRequest(ctx context.Context, env *localenv.LocalEnvironment,
 		Repository: req.cluster.Domain,
 		Version:    gravityPackage.Version,
 	}
+
 	secretsPackage, err := upsertRPCCredentialsPackage(
 		servers, req.clusterEnv.ClusterPackages, req.cluster.Domain, secretsPackageTemplate)
 	if err != nil {
@@ -389,26 +391,42 @@ func rpcAgentShutdown(env *localenv.LocalEnvironment) error {
 	return trace.Wrap(err)
 }
 
-// rpcAgentStatus requests and writes the gravity agent statuses to stdout.
+// rpcAgentStatus requests the gravity agent status from all members of the
+// cluster, then writes the information to stdout.
+// If an agent fails to return a status response, the agent will be considered
+// `Offline` and will display an empty version column.
 func rpcAgentStatus(env *localenv.LocalEnvironment) error {
 	env.PrintStep("Collecting RPC agent status")
-	creds, err := fsm.GetClientCredentials()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	runner := fsm.NewAgentRunner(creds)
-	statusList, err := clusterupdate.AgentStatus(context.TODO(), runner)
+
+	operator, err := env.SiteOperator()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', tabwriter.Debug)
-	fmt.Fprintln(w, "Node\tIP\tStatus\tVersion")
-	fmt.Fprintln(w, "----\t--\t------\t-------")
-	for _, status := range statusList {
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", status.Node, status.IP, status.Status, status.Version)
+	creds, err := fsm.GetClientCredentials()
+	if err != nil {
+		return trace.Wrap(err)
 	}
-	w.Flush()
+
+	cluster, err := operator.GetLocalSite()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), defaults.AgentStatusTimeout)
+	defer cancel()
+
+	statusList := rpc.CollectAgentStatus(ctx, cluster.ClusterState.Servers, fsm.NewAgentRunner(creds))
+
+	t := goterm.NewTable(0, 10, 5, ' ', 0)
+	common.PrintTableHeader(t, []string{"Hostname", "Address", "Status", "Version"})
+	for _, status := range statusList {
+		fmt.Fprintf(t, "%s\t%s\t%s\t%s\n", status.Hostname, status.Address, status.Status, status.Version)
+		if status.Error != nil {
+			log.WithError(err).Debugf("Failed to collect query agent version on %s.", status.Address)
+		}
+	}
+	fmt.Println(t.String())
 
 	return trace.Wrap(err)
 }

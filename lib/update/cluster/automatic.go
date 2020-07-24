@@ -132,14 +132,3 @@ func ShutdownClusterAgents(ctx context.Context, remote rpc.AgentRepository) erro
 	err = rpc.ShutdownAgents(ctx, nodes, log.StandardLogger(), remote)
 	return trace.Wrap(err)
 }
-
-// AgentStatus requests the statuses of all agents
-func AgentStatus(ctx context.Context, remote rpc.AgentRepository) ([]rpc.GravityAgentStatus, error) {
-	nodes, err := kubectl.GetNodesAddr(ctx)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	statuses, err := rpc.AgentStatus(ctx, nodes, log.StandardLogger(), remote)
-	return statuses, trace.Wrap(err)
-}

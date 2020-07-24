@@ -23,81 +23,59 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/storage"
-	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
-	log "github.com/sirupsen/logrus"
 )
 
-// GravityAgentStatus contains a gravity agent's status information.
-type GravityAgentStatus struct {
-	// Node specifies the name of the node running the agent.
-	Node string
-	// IP specifies the IP address of the node running the agent.
-	IP string
+// AgentStatus contains a gravity agent's status information.
+type AgentStatus struct {
+	// Hostname specifies the hostname of the node running the agent.
+	Hostname string
+	// Address specifies the IP address of the node running the agent.
+	Address string
 	// Status indiciates the current status of the agent. An agent is `Deployed`
 	// if the gravity-agent service is active. The agent is `Offline` if it
 	// fails to respond to the status request.
 	Status string
 	// Version describes gravity agent version.
 	Version string
+	// Error contains errors while collected while requesting agent status.
+	Error error
 }
 
-func AgentStatus(ctx context.Context, servers []string, logger log.FieldLogger, rpc AgentRepository) (
-	[]GravityAgentStatus, error) {
-	errs := make(chan error, len(servers))
-	statusCh := make(chan GravityAgentStatus, len(servers))
+// CollectAgentStatus collects the status from the specified agents.
+func CollectAgentStatus(ctx context.Context, servers storage.Servers, rpc AgentRepository) []AgentStatus {
+	statusCh := make(chan AgentStatus, len(servers))
 	for _, srv := range servers {
-		go func(host string) {
-			systemInfo, err := getSystemInfo(ctx, host, rpc)
-			if err != nil {
-				logger.WithError(err).Errorf("Failed to collect system info on %s.", host)
-			}
-
-			version, err := getVersion(ctx, host, rpc)
-			if err != nil {
-				logger.WithError(err).Errorf("Failed to collect version info on %s.", host)
-			}
-
-			status := GravityAgentStatus{
-				IP:      host,
-				Status:  constants.GravityAgentOffline,
-				Version: version.Version,
-			}
-
-			if systemInfo != nil {
-				status.Node = systemInfo.GetHostname()
-				status.Status = constants.GravityAgentDeployed
-			}
-
-			statusCh <- status
-			errs <- trace.Wrap(err)
+		go func(server storage.Server) {
+			statusCh <- getAgentStatus(ctx, server, rpc)
 		}(srv)
 	}
 
-	var statusList []GravityAgentStatus
+	var statusList []AgentStatus
 	for range servers {
 		statusList = append(statusList, <-statusCh)
 	}
 
-	return statusList, trace.Wrap(utils.CollectErrors(ctx, errs))
+	return statusList
 }
 
-func getSystemInfo(ctx context.Context, addr string, rpc AgentRepository) (storage.System, error) {
-	ctx, cancel := context.WithTimeout(ctx, defaults.DialTimeout)
-	defer cancel()
-
-	clt, err := rpc.GetClient(ctx, addr)
-	if err != nil {
-		return nil, trace.Wrap(err)
+func getAgentStatus(ctx context.Context, server storage.Server, rpc AgentRepository) AgentStatus {
+	agentStatus := AgentStatus{
+		Hostname: server.Hostname,
+		Address:  server.AdvertiseIP,
+		Status:   constants.GravityAgentOffline,
 	}
 
-	systemInfo, err := clt.GetSystemInfo(ctx)
+	version, err := getVersion(ctx, server.AdvertiseIP, rpc)
 	if err != nil {
-		return nil, trace.Wrap(err)
+		agentStatus.Error = err
+		return agentStatus
 	}
 
-	return systemInfo, nil
+	agentStatus.Version = version.Version
+	agentStatus.Status = constants.GravityAgentDeployed
+	return agentStatus
 }
 
 func getVersion(ctx context.Context, addr string, rpc AgentRepository) (version modules.Version, err error) {
