@@ -133,9 +133,8 @@ func describe(obj runtime.Object) string {
 		return fmt.Sprintf("Pod %q in namespace %q", obj.Name, obj.Namespace)
 	case *batchv1.Job:
 		return fmt.Sprintf("Job %q in namespace %q", obj.Name, obj.Namespace)
-	default:
-		return fmt.Sprintf("<unknown>")
 	}
+	return "<unknown>"
 }
 
 type phaseDiff struct {
