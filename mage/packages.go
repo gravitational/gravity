@@ -387,18 +387,10 @@ func (Package) Fio() (err error) {
 }
 
 func (Package) Selinux() (err error) {
-	mg.Deps(Build.BuildContainer, Build.Go)
+	mg.Deps(Build.Go)
 
 	m := root.Target("package:selinux")
 	defer func() { m.Complete(err) }()
-
-	cachePath := filepath.Join("build/apps", fmt.Sprint("selinux.", pkgSelinux.version, ".tar.gz"))
-
-	_, err = os.Stat(cachePath)
-	if !os.IsNotExist(err) {
-		m.SetCached(true)
-		return trace.Wrap(pkgSelinux.ImportPackage(m, cachePath))
-	}
 
 	tmpDir, err := ioutil.TempDir("", "build-selinux")
 	if err != nil {
@@ -406,14 +398,6 @@ func (Package) Selinux() (err error) {
 	}
 
 	defer os.RemoveAll(tmpDir)
-
-	m.Println("  tmpDir:", tmpDir)
-	m.Println()
-
-	err = os.MkdirAll(tmpDir, 0755)
-	if err != nil {
-		return trace.ConvertSystemError(err)
-	}
 
 	_, err = m.Exec().SetWD(tmpDir).Run(context.TODO(),
 		"git",
@@ -443,6 +427,8 @@ func (Package) Selinux() (err error) {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+
+	cachePath := filepath.Join("build/apps", fmt.Sprint("selinux.", pkgSelinux.version, ".tar.gz"))
 
 	_, err = m.Exec().SetWD(filepath.Join(tmpDir, "selinux/output")).
 		Run(context.TODO(),

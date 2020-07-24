@@ -69,7 +69,7 @@ require (
 	github.com/gravitational/kingpin v2.1.11-0.20160205192003-785686550a08+incompatible // indirect
 	github.com/gravitational/license v0.0.0-20171013193735-f3111b1818ce
 	github.com/gravitational/log v0.0.0-20200127200505-fdffa14162b0 // indirect
-	github.com/gravitational/magnet v0.2.1
+	github.com/gravitational/magnet v0.2.2
 	github.com/gravitational/oxy v0.0.0-20180629203109-e4a7e35311e6 // indirect
 	github.com/gravitational/rigging v0.0.0-20191021212636-83b2e9505286
 	github.com/gravitational/roundtrip v1.0.0

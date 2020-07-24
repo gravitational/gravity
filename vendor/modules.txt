@@ -380,7 +380,7 @@ github.com/gravitational/kingpin
 github.com/gravitational/license
 github.com/gravitational/license/authority
 github.com/gravitational/license/constants
-# github.com/gravitational/magnet v0.2.1
+# github.com/gravitational/magnet v0.2.2
 github.com/gravitational/magnet
 github.com/gravitational/magnet/common
 github.com/gravitational/magnet/pkg/cp
@@ -437,6 +437,7 @@ github.com/gravitational/teleport/lib/events/s3sessions
 github.com/gravitational/teleport/lib/fixtures
 github.com/gravitational/teleport/lib/httplib
 github.com/gravitational/teleport/lib/httplib/csrf
+github.com/gravitational/teleport/lib/kube/client
 github.com/gravitational/teleport/lib/kube/proxy
 github.com/gravitational/teleport/lib/kube/utils
 github.com/gravitational/teleport/lib/limiter

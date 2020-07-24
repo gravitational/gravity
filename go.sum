@@ -405,6 +405,8 @@ github.com/gravitational/logrus v1.4.3 h1:gdyMN/zLd4R/kATybKzG1I6gjrbCqNJOl1Xiix
 github.com/gravitational/logrus v1.4.3/go.mod h1:+F7Ogzej0PZc/94MaYx/nvG9jOFMD2osvC3s+Squfpo=
 github.com/gravitational/magnet v0.2.1 h1:qX89pN4oj7pS6ABeYe0McIM2NbhhjKN9ouJy079FTKg=
 github.com/gravitational/magnet v0.2.1/go.mod h1:xykEhHnhrsQ8UqF+GImQTZEuJsAxmknzi7l3Mp71dlI=
+github.com/gravitational/magnet v0.2.2 h1:DoqbcaokYGkOSZ8zgzHjXSL3E10O4NuxRaRzKeib/aw=
+github.com/gravitational/magnet v0.2.2/go.mod h1:xykEhHnhrsQ8UqF+GImQTZEuJsAxmknzi7l3Mp71dlI=
 github.com/gravitational/moby v1.4.2-0.20191008111026-2adf434ca696 h1:GI3Wyc/dLHL8snw18nLrSWTyKqMHF+pB8APFw0bQe3I=
 github.com/gravitational/moby v1.4.2-0.20191008111026-2adf434ca696/go.mod h1:bDzK0jA4s+TisyeqAiirQQULXKzSLYhmAd3NHeVgaHs=
 github.com/gravitational/oxy v0.0.0-20180629203109-e4a7e35311e6 h1:244Hc0XnOrqZxR0Fbwt9nwlvM5HnqKWJE+r5EdG6v4A=

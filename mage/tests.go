@@ -32,8 +32,6 @@ func (Test) Lint() (err error) {
 		SetRemove(true).
 		SetUID(fmt.Sprint(os.Getuid())).
 		SetGID(fmt.Sprint(os.Getgid())).
-		//AddVolume(fmt.Sprint(wd, ":/gopath/src/github.com/gravitational/gravity:ro,cached")).
-		//AddVolume(fmt.Sprint(localCacheDir, ":/gopath/src/github.com/gravitational/gravity/build/cache:cached")).
 		AddVolume(magnet.DockerBindMount{
 			Source:      wd,
 			Destination: "/gopath/src/github.com/gravitational/gravity",
@@ -69,6 +67,7 @@ func (Test) Unit() (err error) {
 	err = m.GolangTest().
 		SetRace(true).
 		SetBuildContainer(buildBoxName()).
+		SetEnv("GO111MODULE", "on").
 		SetMod("vendor").
 		Test(context.TODO(), "./...")
 	return

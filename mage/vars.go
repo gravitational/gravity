@@ -239,6 +239,12 @@ var (
 		Default: "https://get.gravitational.io",
 		Short:   "Address of OpsCenter used to publish gravity enterprise artifacts to",
 	})
+
+	// Enterprise builds
+	enterprise = magnet.E(magnet.EnvVar{
+		Key:   "ENTERPRISE",
+		Short: "Set to enable enterprise builds",
+	})
 )
 
 func k8sVersionToPlanetFormat(s string) string {
@@ -248,4 +254,14 @@ func k8sVersionToPlanetFormat(s string) string {
 	}
 
 	return fmt.Sprintf("%d%02d%02d", version.Major, version.Minor, version.Patch)
+}
+
+func buildFlags() []string {
+	return []string{
+		fmt.Sprint(`-X github.com/gravitational/version.gitCommit=`, magnet.DefaultHash()),
+		fmt.Sprint(`-X github.com/gravitational/version.version=`, buildVersion),
+		fmt.Sprint(`-X github.com/gravitational/gravity/lib/defaults.WormholeImg=`, wormholeImage),
+		fmt.Sprint(`-X github.com/gravitational/gravity/lib/defaults.TeleportVersionString=`, teleportTag),
+		"-s -w", // shrink the binary
+	}
 }

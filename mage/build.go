@@ -40,6 +40,15 @@ func (Build) Go() (err error) {
 	m := root.Target("build:go")
 	defer func() { m.Complete(err) }()
 
+	packages := []string{"github.com/gravitational/gravity/tool/gravity", "github.com/gravitational/gravity/tool/tele"}
+	if enterprise != "" {
+		if err = hasE(); err != nil {
+			return trace.Wrap(err)
+		}
+
+		packages = []string{"github.com/gravitational/gravity/e/tool/gravity", "github.com/gravitational/gravity/e/tool/tele"}
+	}
+
 	err = m.GolangBuild().
 		SetGOOS("linux").
 		SetGOARCH("amd64").
@@ -50,7 +59,7 @@ func (Build) Go() (err error) {
 		SetBuildContainer(fmt.Sprint("gravity-build:", buildVersion)).
 		SetOutputPath(consistentBinDir()).
 		AddLDFlags(buildFlags()).
-		Build(context.TODO(), "github.com/gravitational/gravity/tool/gravity", "github.com/gravitational/gravity/tool/tele")
+		Build(context.TODO(), packages...)
 
 	return trace.Wrap(err)
 }
