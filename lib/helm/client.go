@@ -35,6 +35,8 @@ import (
 
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 )
 
 // Client is the Helm client.
@@ -230,7 +232,18 @@ func (c *Client) Revisions(name string) ([]Release, error) {
 
 // Ping pings the Tiller pod and ensures it's up and running.
 func (c *Client) Ping() error {
-	return c.client.PingTiller()
+	err := c.client.PingTiller()
+	if err != nil {
+		// Not all Helm versions implement the ping endpoint, so fall back
+		// to getting the server version.
+		if grpc.Code(err) != codes.Unimplemented {
+			return trace.Wrap(err)
+		}
+		if _, err := c.client.GetVersion(); err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	return nil
 }
 
 // Close closes the Helm client.
