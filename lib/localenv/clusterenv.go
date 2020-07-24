@@ -67,7 +67,7 @@ func (r *LocalEnvironment) NewClusterEnvironment(opts ...ClusterEnvironmentOptio
 	ctx, cancel := context.WithTimeout(context.TODO(), defaults.AuditLogClientTimeout)
 	defer cancel()
 	auditLog, err := r.AuditLog(ctx)
-	if err != nil && !trace.IsNotFound(err) && !trace.IsAccessDenied(err) {
+	if err != nil && !trace.IsNotFound(err) {
 		log.WithError(err).Warn("Failed to create audit log.")
 	}
 	config := clusterEnvironmentConfig{
