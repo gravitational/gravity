@@ -29,14 +29,14 @@ import (
 
 	"github.com/gravitational/trace"
 	"github.com/jonboulle/clockwork"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 )
 
 // GetPeer returns a new client peer for Object storage
 type GetPeer func(peer storage.Peer) (blob.Objects, error)
 
-// Config is a cluster BLOB storage config
+// Config is a cluster BLOB storage configuration
 type Config struct {
 	// Local is a local BLOB storage managed by this peer
 	Local blob.Objects
@@ -44,8 +44,8 @@ type Config struct {
 	Backend storage.Backend
 	// GetPeer returns new peer client based on ID
 	GetPeer GetPeer
-	// WriteFactor defines how many ack peer writes should be acknowledged
-	// before write is considered successfull
+	// WriteFactor defines how many peer writes should be acknowledged
+	// before write is considered successful
 	WriteFactor int
 	// ID is a peer local ID
 	ID string
@@ -55,11 +55,9 @@ type Config struct {
 	Clock clockwork.Clock
 	// HeartbeatPeriod defines the period between heartbeats
 	HeartbeatPeriod time.Duration
-	// MissedHeartbeats is how mahy heartbeats the peer
+	// MissedHeartbeats is how many heartbeats the peer
 	// should miss before we consider it closed
 	MissedHeartbeats int
-	// TestMode turns off some goroutines
-	TestMode bool
 	// GracePeriod is a period for GC not to delete undetected files
 	// to prevent accidental deletion. Defaults to 1 hour
 	GracePeriod time.Duration
@@ -68,78 +66,89 @@ type Config struct {
 // New returns cluster BLOB storage that takes care of replication
 // of BLOBs across cluster of nodes. It is designed for small clusters O(10)
 // and small amount of objects managed O(100)
-func New(config Config) (blob.Objects, error) {
-	if config.Local == nil {
-		return nil, trace.BadParameter("missing parameter Local")
+func New(config Config) (*Cluster, error) {
+	if err := config.checkAndSetDefaults(); err != nil {
+		return nil, trace.Wrap(err)
 	}
-	if config.Backend == nil {
-		return nil, trace.BadParameter("missing parameter Backend")
-	}
-	if config.GetPeer == nil {
-		return nil, trace.BadParameter("missing parameter GetPeer")
-	}
-	if config.ID == "" {
-		return nil, trace.BadParameter("missing parameter ID")
-	}
-	if config.AdvertiseAddr == "" {
-		return nil, trace.BadParameter("missing parameter AdvertiseAddr")
-	}
-	if config.WriteFactor < 1 {
-		config.WriteFactor = defaults.WriteFactor
-	}
-	if config.Clock == nil {
-		config.Clock = clockwork.NewRealClock()
-	}
-	if config.HeartbeatPeriod == 0 {
-		config.HeartbeatPeriod = defaults.HeartbeatPeriod
-	}
-	if config.MissedHeartbeats == 0 {
-		config.MissedHeartbeats = defaults.MissedHeartbeats
-	}
-	if config.GracePeriod == 0 {
-		config.GracePeriod = defaults.GracePeriod
-	}
-
-	close, cancelFn := context.WithCancel(context.TODO())
-
-	entry := log.WithFields(log.Fields{
-		trace.Component: constants.ComponentBLOB,
-		"id":            config.ID,
-		"addr":          config.AdvertiseAddr,
-	})
-
-	c := &cluster{Config: config, close: close, cancelFn: cancelFn, Entry: entry}
-	if !c.TestMode {
-		go c.periodically("heartbeat", c.heartbeat)
-		go c.periodically("purgeDeleted", c.purgeDeletedObjects)
-		go c.periodically("fetchNew", c.fetchNewObjects)
-	}
-
-	return c, nil
+	ctx, cancel := context.WithCancel(context.Background())
+	return &Cluster{
+		Config:   config,
+		close:    ctx,
+		cancelFn: cancel,
+		FieldLogger: logrus.WithFields(logrus.Fields{
+			trace.Component: constants.ComponentBLOB,
+			"id":            config.ID,
+			"addr":          config.AdvertiseAddr,
+		}),
+	}, nil
 }
 
-type cluster struct {
-	*log.Entry
+func (r *Config) checkAndSetDefaults() error {
+	if r.Local == nil {
+		return trace.BadParameter("missing parameter Local")
+	}
+	if r.Backend == nil {
+		return trace.BadParameter("missing parameter Backend")
+	}
+	if r.GetPeer == nil {
+		return trace.BadParameter("missing parameter GetPeer")
+	}
+	if r.ID == "" {
+		return trace.BadParameter("missing parameter ID")
+	}
+	if r.AdvertiseAddr == "" {
+		return trace.BadParameter("missing parameter AdvertiseAddr")
+	}
+	if r.WriteFactor < 1 {
+		r.WriteFactor = defaults.WriteFactor
+	}
+	if r.Clock == nil {
+		r.Clock = clockwork.NewRealClock()
+	}
+	if r.HeartbeatPeriod == 0 {
+		r.HeartbeatPeriod = defaults.HeartbeatPeriod
+	}
+	if r.MissedHeartbeats == 0 {
+		r.MissedHeartbeats = defaults.MissedHeartbeats
+	}
+	if r.GracePeriod == 0 {
+		r.GracePeriod = defaults.GracePeriod
+	}
+	return nil
+}
+
+// Cluster is the distributed blob storage
+type Cluster struct {
+	logrus.FieldLogger
 	Config
 	close    context.Context
 	cancelFn context.CancelFunc
 }
 
-func (c *cluster) Close() error {
+// Start starts internal processes
+func (c *Cluster) Start() {
+	go c.periodically("heartbeat", c.heartbeat)
+	go c.periodically("purgeDeleted", c.purgeDeletedObjects)
+	go c.periodically("fetchNew", c.fetchNewObjects)
+}
+
+// Close stops internal processes
+func (c *Cluster) Close() error {
 	c.cancelFn()
 	return nil
 }
 
 // GetBLOBs returns a list of BLOBs in the storage
-func (c *cluster) GetBLOBs() ([]string, error) {
+func (c *Cluster) GetBLOBs() ([]string, error) {
 	return c.Backend.GetObjects()
 }
 
-func (c *cluster) GetBLOBEnvelope(hash string) (*blob.Envelope, error) {
+// GetBLOBEnvelope returns the blob envelope for the given hash
+func (c *Cluster) GetBLOBEnvelope(hash string) (*blob.Envelope, error) {
 	return c.Local.GetBLOBEnvelope(hash)
 }
 
-func (c *cluster) periodically(name string, fn func() error) {
+func (c *Cluster) periodically(name string, fn func() error) {
 	ticker := time.NewTicker(defaults.HeartbeatPeriod)
 	defer ticker.Stop()
 	if err := fn(); err != nil {
@@ -158,7 +167,7 @@ func (c *cluster) periodically(name string, fn func() error) {
 	}
 }
 
-func (c *cluster) localPeer() storage.Peer {
+func (c *Cluster) localPeer() storage.Peer {
 	return storage.Peer{
 		ID:            c.ID,
 		AdvertiseAddr: c.AdvertiseAddr,
@@ -166,17 +175,18 @@ func (c *cluster) localPeer() storage.Peer {
 	}
 }
 
-func (c *cluster) heartbeat() error {
+func (c *Cluster) heartbeat() error {
 	err := c.Backend.UpsertPeer(c.localPeer())
 	return trace.Wrap(err)
 }
 
-func (c *cluster) purgeDeletedObjects() error {
+func (c *Cluster) purgeDeletedObjects() error {
 	hashes, err := c.Local.GetBLOBs()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	for _, hash := range hashes {
+		logger := c.WithField("hash", hash)
 		_, err := c.Backend.GetObjectPeers(hash)
 		if err == nil {
 			continue
@@ -189,7 +199,7 @@ func (c *cluster) purgeDeletedObjects() error {
 			return trace.Wrap(err)
 		}
 		if envelope.Modified.IsZero() {
-			log.Warningf("%v has zero modified time!", envelope.Modified)
+			logger.WithField("package", envelope.String()).Warn("Blob envelope with zero modification, will ignore.")
 			continue
 		}
 		// prevent accidental deletion by using grace period -
@@ -198,17 +208,24 @@ func (c *cluster) purgeDeletedObjects() error {
 		if diff < c.GracePeriod {
 			continue
 		} else {
-			log.Infof("%v has exceeded grace period(%v) - current diff: %v, going to delete", hash, c.GracePeriod, diff)
+			logger.WithFields(logrus.Fields{
+				"grace-period": c.GracePeriod,
+				"diff":         diff,
+			}).Info("Object exceeded grace period - will delete.")
 		}
 		err = c.Local.DeleteBLOB(hash)
 		if err != nil {
-			c.Errorf("Failed to delete object %v, error: %v.", hash, trace.DebugReport(err))
+			logger.WithError(err).Warn("Failed to delete object.")
 		}
 	}
 	return nil
 }
 
-func (c *cluster) fetchNewObjects() error {
+// fetchNewObjects downloads the objects that have been recorded in the database
+// but not available locally.
+// It works on best-effort basis - pulling all missing objects before returning
+// whatever error(s) it has encountered
+func (c *Cluster) fetchNewObjects() error {
 	objects, err := c.Backend.GetObjects()
 	if err != nil {
 		return trace.Wrap(err)
@@ -222,23 +239,27 @@ func (c *cluster) fetchNewObjects() error {
 			missingObjects = append(missingObjects, hash)
 		}
 	}
+	var errors []error
 	for _, hash := range missingObjects {
 		c.Infof("Found missing object %v.", hash)
 		err = c.fetchObject(hash)
 		if err != nil {
-			c.Warningf("Failed to fetch object(%v) %v.", hash, trace.DebugReport(err))
-			return trace.Wrap(err)
+			c.WithFields(logrus.Fields{
+				logrus.ErrorKey: err,
+				"hash":          hash,
+			}).Warn("Failed to fetch object.")
+			errors = append(errors, err)
 		}
 	}
-	return nil
+	return trace.NewAggregate(errors...)
 }
 
-func (c *cluster) fetchObject(hash string) error {
+func (c *Cluster) fetchObject(hash string) error {
 	peerIDs, err := c.Backend.GetObjectPeers(hash)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	peers, err := c.getPeers(peerIDs)
+	peers, err := c.getPeers(peerIDs...)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -246,17 +267,19 @@ func (c *cluster) fetchObject(hash string) error {
 	if len(peers) == 0 {
 		return trace.NotFound("no active remote peers found for %v", hash)
 	}
+	logger := c.WithField("hash", hash)
 	var errors []error
 	for _, p := range peers {
+		logger := logger.WithField("peer", p.String())
 		objects, err := c.getObjects(p)
 		if err != nil {
-			c.Errorf("Failure to fetch %v from %v: %v.", hash, p, trace.DebugReport(err))
+			logger.WithError(err).Error("Failed to fetch object from peer.")
 			errors = append(errors, err)
 			continue
 		}
 		f, err := objects.OpenBLOB(hash)
 		if err != nil {
-			c.Errorf("Failure to fetch %v from %v: %v.", hash, p, trace.DebugReport(err))
+			logger.WithError(err).Error("Failed to fetch object from peer.")
 			errors = append(errors, err)
 			continue
 		}
@@ -266,11 +289,12 @@ func (c *cluster) fetchObject(hash string) error {
 			errors = append(errors, err)
 			continue
 		}
-		c.Infof("Successfully fetched %v from %v.", envelope, p)
+		logger.WithField("package", envelope).Debug("Successfully fetched object from peer.")
 		err = c.Backend.UpsertObjectPeers(hash, []string{c.ID}, 0)
 		if err != nil {
-			c.Errorf("Failed to upsert %v object peers: %v.", hash, err)
-			return trace.Wrap(err)
+			logger.WithError(err).Error("Failed to upsert peer to the object's list of peers.")
+			errors = append(errors, err)
+			continue
 		}
 		return nil
 	}
@@ -278,9 +302,8 @@ func (c *cluster) fetchObject(hash string) error {
 }
 
 // WriteBLOB writes object to the storage, returns object envelope
-func (c *cluster) WriteBLOB(data io.Reader) (*blob.Envelope, error) {
-	// get peers
-	peers, err := c.getPeers(nil)
+func (c *Cluster) WriteBLOB(data io.Reader) (*blob.Envelope, error) {
+	peers, err := c.getPeers()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -296,7 +319,10 @@ func (c *cluster) WriteBLOB(data io.Reader) (*blob.Envelope, error) {
 
 	successWrites := []string{c.ID}
 	if len(successWrites) >= c.WriteFactor {
-		c.Debugf("Got enough success writes for %v %v.", envelope.SHA512, successWrites)
+		c.WithFields(logrus.Fields{
+			"peers": successWrites,
+			"hash":  envelope.SHA512,
+		}).Debug("Got enough success writes.")
 		err := c.Backend.UpsertObjectPeers(envelope.SHA512, successWrites, 0)
 		if err != nil {
 			return nil, trace.Wrap(err, "failed to write object metadata %v", err)
@@ -311,6 +337,7 @@ func (c *cluster) WriteBLOB(data io.Reader) (*blob.Envelope, error) {
 
 	var errors []error
 	for _, p := range peers {
+		logger := c.WithField("peer", p.String())
 		if p.ID == c.ID {
 			continue
 		}
@@ -320,31 +347,39 @@ func (c *cluster) WriteBLOB(data io.Reader) (*blob.Envelope, error) {
 		}
 		peerClient, err := c.GetPeer(p)
 		if err != nil {
-			c.Infof("%v returned error: %v", p, err)
+			logger.WithError(err).Warn("Failed to create client to peer.")
 			errors = append(errors, err)
 			continue
 		}
 		_, err = peerClient.WriteBLOB(f)
 		if err != nil {
-			c.Infof("%v returned error: %v", p, err)
+			logger.WithError(err).Warn("Failed to write blob remotely.")
 			errors = append(errors, err)
 			continue
 		}
 		successWrites = append(successWrites, p.ID)
 		if len(successWrites) >= c.WriteFactor {
-			c.Debugf("Got enough success writes for %v %v.", envelope.SHA512, successWrites)
+			logger.WithFields(logrus.Fields{
+				"peers": successWrites,
+				"hash":  envelope.SHA512,
+			}).Debug("Got enough success writes.")
 			err := c.Backend.UpsertObjectPeers(envelope.SHA512, successWrites, 0)
 			if err != nil {
-				return nil, trace.Wrap(err, "failed to write object metadata %v", err)
+				return nil, trace.Wrap(err, "failed to write metadata for object %v: %v",
+					envelope.SHA512, err)
 			}
 			return envelope, nil
 		}
 	}
 
-	return nil, trace.Wrap(trace.NewAggregate(errors...), "not enough successfull writes")
+	if len(errors) == 0 {
+		return nil, trace.NotFound("not enough peers")
+	}
+	return nil, trace.Wrap(trace.NewAggregate(errors...), "not enough successful writes (want >= %v, got %v)",
+		c.WriteFactor, len(successWrites))
 }
 
-func (c *cluster) getObjects(p storage.Peer) (blob.Objects, error) {
+func (c *Cluster) getObjects(p storage.Peer) (blob.Objects, error) {
 	if p.ID == c.ID {
 		return c.Local, nil
 	}
@@ -352,12 +387,13 @@ func (c *cluster) getObjects(p storage.Peer) (blob.Objects, error) {
 }
 
 // OpenBLOB opens file identified by hash and returns reader
-func (c *cluster) OpenBLOB(hash string) (blob.ReadSeekCloser, error) {
+func (c *Cluster) OpenBLOB(hash string) (blob.ReadSeekCloser, error) {
+	logger := c.WithField("hash", hash)
 	ids, err := c.Backend.GetObjectPeers(hash)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	peers, err := c.getPeers(ids)
+	peers, err := c.getPeers(ids...)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -366,14 +402,15 @@ func (c *cluster) OpenBLOB(hash string) (blob.ReadSeekCloser, error) {
 	}
 	var reader blob.ReadSeekCloser
 	for _, p := range peers {
+		logger := logger.WithField("peer", p.String())
 		objects, err := c.getObjects(p)
 		if err != nil {
-			c.Warnf("%v returned %v", p, err)
+			logger.WithError(err).Warn("Failed to connect to the blob store.")
 			continue
 		}
 		reader, err = objects.OpenBLOB(hash)
 		if err != nil {
-			c.Warnf("%v returned %v", p, err)
+			logger.WithError(err).Warn("Failed to access blob.")
 			continue
 		}
 		return reader, nil
@@ -382,7 +419,7 @@ func (c *cluster) OpenBLOB(hash string) (blob.ReadSeekCloser, error) {
 }
 
 // DeleteBLOB deletes BLOB from the storage
-func (c *cluster) DeleteBLOB(hash string) error {
+func (c *Cluster) DeleteBLOB(hash string) error {
 	return trace.Wrap(c.Backend.DeleteObject(hash))
 }
 
@@ -395,7 +432,7 @@ func matchPeer(ids []string, id string) bool {
 	return utils.StringInSlice(ids, id)
 }
 
-func (c *cluster) withoutSelf(in []storage.Peer) []storage.Peer {
+func (c *Cluster) withoutSelf(in []storage.Peer) []storage.Peer {
 	out := make([]storage.Peer, 0, len(in))
 	for i := range in {
 		if in[i].ID == c.ID {
@@ -406,7 +443,7 @@ func (c *cluster) withoutSelf(in []storage.Peer) []storage.Peer {
 	return out
 }
 
-func (c *cluster) getPeers(ids []string) ([]storage.Peer, error) {
+func (c *Cluster) getPeers(ids ...string) ([]storage.Peer, error) {
 	in, err := c.Backend.GetPeers()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -423,9 +460,13 @@ func (c *cluster) getPeers(ids []string) ([]storage.Peer, error) {
 			if !matchPeer(ids, p.ID) {
 				continue
 			}
-			// if it's last heartbeat is older than the acceptance time frame
+			// if its last heartbeat is older than the acceptance time frame
 			if c.Clock.Now().UTC().Sub(p.LastHeartbeat) > missedWindow {
-				c.Infof("Excluding %v, missed heartbeat window %v, last heartbeat: %v.", p.ID, missedWindow, p.LastHeartbeat)
+				c.WithFields(logrus.Fields{
+					"peer":           p.String(),
+					"time-window":    missedWindow,
+					"last-heartbeat": p.LastHeartbeat,
+				}).Warn("Exclude stale peer.")
 				continue
 			}
 		}

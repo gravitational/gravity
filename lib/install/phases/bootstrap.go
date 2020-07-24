@@ -53,7 +53,7 @@ func NewBootstrap(p fsm.ExecutorParams, operator ops.Operator, apps app.Applicat
 		return nil, trace.BadParameter("application package is required: %#v", p.Phase.Data)
 	}
 
-	serviceUser, err := userFromOSUser(*p.Phase.Data.ServiceUser)
+	serviceUser, err := systeminfo.UserFromOSUser(*p.Phase.Data.ServiceUser)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -391,22 +391,4 @@ func opKey(plan storage.OperationPlan) ops.SiteOperationKey {
 		SiteDomain:  plan.ClusterName,
 		OperationID: plan.OperationID,
 	}
-}
-
-func userFromOSUser(user storage.OSUser) (*systeminfo.User, error) {
-	uid, err := strconv.Atoi(user.UID)
-	if err != nil {
-		return nil, trace.BadParameter("expected a numeric UID but got %v", user.UID)
-	}
-
-	gid, err := strconv.Atoi(user.GID)
-	if err != nil {
-		return nil, trace.BadParameter("expected a numeric GID but got %v", user.GID)
-	}
-
-	return &systeminfo.User{
-		Name: user.Name,
-		UID:  uid,
-		GID:  gid,
-	}, nil
 }

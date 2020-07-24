@@ -308,6 +308,7 @@ func (i *IdentityACL) UpsertLocalClusterName(clusterName string) error {
 	return i.identity.UpsertLocalClusterName(clusterName)
 }
 
+// CreateProvisioningToken creates a provisioning token from the specified template
 func (i *IdentityACL) CreateProvisioningToken(t storage.ProvisioningToken) (*storage.ProvisioningToken, error) {
 	if err := i.clusterAction(t.SiteDomain, teleservices.VerbCreate); err != nil {
 		return nil, trace.Wrap(err)

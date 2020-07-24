@@ -635,7 +635,7 @@ $(GRAVITY_BUILDDIR):
 	mkdir -p $@
 
 .PHONY: $(BINARIES)
-$(BINARIES): selinux
+$(BINARIES): selinux grpc
 	GO111MODULE=on go install -mod=vendor -ldflags $(GRAVITY_LINKFLAGS) -tags "$(GRAVITY_BUILDTAGS)" $(GRAVITY_PKG_PATH)/tool/$@
 
 .PHONY: wizard-publish

@@ -83,8 +83,8 @@ func FormatValidationError(err error) error {
 
 // Exec executes an arbitrary command on the remote node specified with addr.
 // The output is written into out
-func (r *remoteCommands) Exec(ctx context.Context, addr string, args []string, out io.Writer) error {
-	return trace.Wrap(r.AgentService.Exec(ctx, r.key, addr, args, out))
+func (r *remoteCommands) Exec(ctx context.Context, addr string, args []string, stdout, stderr io.Writer) error {
+	return trace.Wrap(r.AgentService.Exec(ctx, r.key, addr, args, stdout, stderr))
 }
 
 // CheckPorts validates the cluster port availability

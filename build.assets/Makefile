@@ -102,6 +102,13 @@ BASH ?= /bin/bash
 # packages to test
 TEST_PACKAGES ?= $(GRAVITY_PKG_PATH)/lib/... $(GRAVITY_PKG_PATH)/tool/...
 
+GRPC_PROTOS = \
+	$(TOP)/lib/install/proto/installer.proto \
+	$(TOP)/lib/rpc/proto/agent.proto \
+	$(TOP)/lib/rpc/proto/discovery.proto \
+	$(TOP)/lib/network/validation/proto/validation.proto
+GRPC_PROTO_OUTPUTS = $(GRPC_PROTOS:.proto=.pb.go)
+
 # Export variables for recursive make invocations
 export GRAVITY_PKG_PATH
 
@@ -181,7 +188,7 @@ build: build-on-host
 	ln -sf $(GRAVITY_BUILDDIR) $(GRAVITY_CURRENT_BUILDDIR)
 else
 .PHONY: build
-build: selinux build-in-container
+build: selinux grpc build-in-container
 	ln --symbolic --force --no-target-directory $(GRAVITY_BUILDDIR) $(GRAVITY_CURRENT_BUILDDIR)
 endif
 
@@ -189,28 +196,13 @@ endif
 # generate gRPC code
 #
 .PHONY: grpc
-grpc: buildbox grpc-agents grpc-validation grpc-installer
+grpc: buildbox $(GRPC_PROTO_OUTPUTS)
 
-.PHONY: grpc-installer
-grpc-installer:
+$(GRPC_PROTO_OUTPUTS): $(GRPC_PROTOS)
 	docker run --rm=true $(NOROOT) \
 		   -v $(TOP):$(SRCDIR) \
 		   $(BBOX) \
-		   dumb-init make -C $(SRCDIR)/lib/install/proto
-
-.PHONY: grpc-agents
-grpc-agents:
-	docker run --rm=true $(NOROOT) \
-		   -v $(TOP):$(SRCDIR) \
-		   $(BBOX) \
-		   dumb-init make -C $(SRCDIR)/lib/rpc/proto
-
-.PHONY: grpc-validation
-grpc-validation:
-	docker run --rm=true $(NOROOT) \
-		   -v $(TOP):$(SRCDIR) \
-		   $(BBOX) \
-		   dumb-init make -C $(SRCDIR)/lib/network/validation/proto
+		   dumb-init make -C $(subst $(TOP),$(SRCDIR),$(@D))
 
 #
 # this is a temporary target until we upgrade docker packages

@@ -659,28 +659,27 @@ func (r configCollection) WriteText(w io.Writer) error {
 		// Empty
 		return nil
 	}
-	if config := r.GetKubeletConfig(); config != nil {
+	if config := r.GetKubeletConfig(); config != nil && len(config.Config) != 0 {
 		common.PrintCustomTableHeader(t, []string{"Kubelet"}, "-")
 		fmt.Fprintf(t, "%v\n", string(config.Config))
 	}
-	if config := r.GetGlobalConfig(); config != nil {
-		displayCloudConfig := config.CloudProvider != "" || config.CloudConfig != ""
-		if displayCloudConfig {
-			common.PrintCustomTableHeader(t, []string{"Cloud"}, "-")
-			if len(config.CloudProvider) != 0 {
-				fmt.Fprintf(t, "Provider:\t%v\n", config.CloudProvider)
-			}
-			formatCloudConfig(t, config.CloudConfig)
+	config := r.GetGlobalConfig()
+	displayCloudConfig := config.CloudProvider != "" || config.CloudConfig != ""
+	if displayCloudConfig {
+		common.PrintCustomTableHeader(t, []string{"Cloud"}, "-")
+		if len(config.CloudProvider) != 0 {
+			fmt.Fprintf(t, "Provider:\t%v\n", config.CloudProvider)
 		}
-		if len(config.ServiceNodePortRange) != 0 {
-			fmt.Fprintf(t, "Service Node Port Range:\t%v\n", config.ServiceNodePortRange)
-		}
-		if len(config.ProxyPortRange) != 0 {
-			fmt.Fprintf(t, "Proxy Port Range:\t%v\n", config.ProxyPortRange)
-		}
-		if len(config.FeatureGates) != 0 {
-			fmt.Fprintf(t, "FeatureGates:\t%v\n", formatFeatureGates(config.FeatureGates))
-		}
+		formatCloudConfig(t, config.CloudConfig)
+	}
+	if len(config.ServiceNodePortRange) != 0 {
+		fmt.Fprintf(t, "Service Node Port Range:\t%v\n", config.ServiceNodePortRange)
+	}
+	if len(config.ProxyPortRange) != 0 {
+		fmt.Fprintf(t, "Proxy Port Range:\t%v\n", config.ProxyPortRange)
+	}
+	if len(config.FeatureGates) != 0 {
+		fmt.Fprintf(t, "Feature Gates:\t%v\n", formatFeatureGates(config.FeatureGates))
 	}
 	_, err := io.WriteString(w, t.String())
 	return trace.Wrap(err)

@@ -21,12 +21,10 @@ import (
 	"strconv"
 
 	"github.com/gravitational/gravity/lib/app"
-	"github.com/gravitational/gravity/lib/checks"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/install/engine"
-	validationpb "github.com/gravitational/gravity/lib/network/validation/proto"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/opsclient"
 	"github.com/gravitational/gravity/lib/pack"
@@ -61,21 +59,6 @@ func NewFSMConfig(operator ops.Operator, operationKey ops.SiteOperationKey, conf
 	}
 	fsmConfig.Spec = FSMSpec(fsmConfig)
 	return fsmConfig
-}
-
-// RunLocalChecks executes host-local preflight checks for this configuration
-func (c *Config) RunLocalChecks(ctx context.Context) error {
-	return trace.Wrap(checks.RunLocalChecks(ctx, checks.LocalChecksRequest{
-		Manifest: c.App.Manifest,
-		Role:     c.Role,
-		Docker:   c.Docker,
-		Options: &validationpb.ValidateOptions{
-			VxlanPort: int32(c.VxlanPort),
-			DnsAddrs:  c.DNSConfig.Addrs,
-			DnsPort:   int32(c.DNSConfig.Port),
-		},
-		AutoFix: true,
-	}))
 }
 
 // GetWizardAddr returns the advertise address of the wizard process

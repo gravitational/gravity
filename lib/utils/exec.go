@@ -95,7 +95,7 @@ func RunCommand(ctx context.Context, logger log.FieldLogger, args ...string) ([]
 		logger = log.WithField(trace.Component, "utils")
 	}
 	logger.WithField("args", args).Debug("Run command.")
-	if err := RunStream(ctx, &out, args...); err != nil {
+	if err := RunStream(ctx, &out, &out, args...); err != nil {
 		return out.Bytes(), trace.Wrap(err)
 	}
 	return out.Bytes(), nil
@@ -110,26 +110,26 @@ var Runner CommandRunner = CommandRunnerFunc(RunStream)
 type CommandRunner interface {
 	// RunStream executes a command specified with args and streams
 	// output to w using ctx for cancellation
-	RunStream(ctx context.Context, w io.Writer, args ...string) error
+	RunStream(ctx context.Context, stdout, stderr io.Writer, args ...string) error
 }
 
 // RunStream invokes r with the specified arguments.
 // Implements CommandRunner
-func (r CommandRunnerFunc) RunStream(ctx context.Context, w io.Writer, args ...string) error {
-	return r(ctx, w, args...)
+func (r CommandRunnerFunc) RunStream(ctx context.Context, stdout, stderr io.Writer, args ...string) error {
+	return r(ctx, stdout, stderr, args...)
 }
 
 // CommandRunnerFunc is the wrapper that allows standalone functions
 // to act as CommandRunners
-type CommandRunnerFunc func(ctx context.Context, w io.Writer, args ...string) error
+type CommandRunnerFunc func(ctx context.Context, stdout, stderr io.Writer, args ...string) error
 
 // RunStream executes a command specified with args and streams output to w
-func RunStream(ctx context.Context, w io.Writer, args ...string) error {
+func RunStream(ctx context.Context, stdout, stderr io.Writer, args ...string) error {
 	name := args[0]
 	args = args[1:]
 	cmd := exec.CommandContext(ctx, name, args...)
-	cmd.Stdout = w
-	cmd.Stderr = w
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
 	log.WithField("cmd", cmd.Args).Debug("Execute.")
 	if err := cmd.Start(); err != nil {
 		return trace.Wrap(err)

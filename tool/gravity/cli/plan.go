@@ -70,14 +70,17 @@ func displayOperationPlan(localEnv *localenv.LocalEnvironment, environ LocalEnvi
 	if err != nil {
 		if trace.IsNotFound(err) {
 			message := noOperationStateNoClusterStateBanner
-			if err2 := libenviron.ValidateNoPackageState(localEnv.Packages, localEnv.StateDir); err2 != nil {
+			if err := libenviron.ValidateNoPackageState(localEnv.Packages, localEnv.StateDir); err != nil {
 				message = NoOperationStateBanner
 			}
 			return trace.NotFound(message)
 		}
 		return trace.Wrap(err)
 	}
-	if op.IsCompleted() {
+	if isInvalidOperation(*op) {
+		return trace.BadParameter(invalidOperationBanner, op.String(), op.ID)
+	}
+	if op.IsCompleted() && op.hasPlan {
 		return displayClusterOperationPlan(localEnv, op.Key(), format)
 	}
 	switch op.Type {
@@ -94,7 +97,7 @@ func displayOperationPlan(localEnv *localenv.LocalEnvironment, environ LocalEnvi
 	case ops.OperationGarbageCollect:
 		err = displayClusterOperationPlan(localEnv, op.Key(), format)
 	default:
-		return trace.BadParameter("unknown operation type %q", op.Type)
+		return trace.BadParameter("cannot display plan for %q operation as it does not support plans", op.TypeString())
 	}
 	if err != nil && trace.IsNotFound(err) {
 		// Fallback to cluster plan
@@ -272,5 +275,9 @@ Clean up the node with 'gravity leave' and start the operation with either 'grav
 	noOperationStateNoClusterStateBanner = `no operation found.
 This usually means that the installation/join operation has failed to start or was not started.
 Start the operation with either 'gravity install' or 'gravity join'.
+`
+	invalidOperationBanner = `%v is invalid.
+This usually means that the operation has failed to initialize properly.
+You can mark this operation explicitly as failed with 'gravity plan complete --operation-id=%v' so it does not appear active and re-attempt it.
 `
 )

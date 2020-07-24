@@ -155,7 +155,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.StartCmd.Confirmed = g.StartCmd.Flag("confirm", "Suppress confirmation prompt.").Bool()
 
 	g.PlanCmd.CmdClause = g.Command("plan", "Manage operation plan.")
-	g.PlanCmd.OperationID = g.PlanCmd.Flag("operation-id", "ID of the active operation. If not specified, the last operation will be used.").Hidden().String()
+	g.PlanCmd.OperationID = g.PlanCmd.Flag("operation-id", "ID of the active operation. If not specified, the last operation will be used.").String()
 	g.PlanCmd.SkipVersionCheck = g.PlanCmd.Flag("skip-version-check", "Bypass version compatibility check.").Hidden().Bool()
 
 	g.PlanDisplayCmd.CmdClause = g.PlanCmd.Command("display", "Display a plan for an ongoing operation.").Default()
@@ -665,6 +665,8 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.SystemReinstallCmd.ClusterRole = g.SystemReinstallCmd.Flag("cluster-role", "optional cluster role of the current node").String()
 
 	g.SystemHistoryCmd.CmdClause = g.SystemCmd.Command("history", "list system update history").Hidden()
+
+	g.SystemClusterInfoCmd.CmdClause = g.SystemCmd.Command("cluster-info", "dump kubernetes cluster info suitable for debugging").Hidden()
 
 	// ask the current active master to step down
 	g.SystemStepDownCmd.CmdClause = g.SystemCmd.Command("step-down", "Ask the active master to step down").Hidden()

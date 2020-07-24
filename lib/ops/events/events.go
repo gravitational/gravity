@@ -41,8 +41,7 @@ func Emit(ctx context.Context, operator ops.Operator, event events.Event, fields
 	}
 	err := emit(ctx, operator, event, allFields)
 	if err != nil {
-		log.Errorf("Failed to emit audit event %v %v: %v.",
-			event, fields, trace.DebugReport(err))
+		log.WithError(err).Errorf("Failed to emit audit event %v %v.", event, fields)
 	}
 }
 

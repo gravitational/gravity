@@ -17,9 +17,18 @@ limitations under the License.
 package blob
 
 import (
+	"fmt"
 	"io"
 	"time"
+
+	"github.com/gravitational/gravity/lib/constants"
 )
+
+// String returns text representation of this blob envelope
+func (r Envelope) String() string {
+	return fmt.Sprintf("blob(size=%v, hash=%v, modified=%v)",
+		r.SizeBytes, r.SHA512, r.Modified.Format(constants.ShortDateFormat))
+}
 
 // Envelope specifies the metadata about BLOB - it's SHA512 hash and size
 type Envelope struct {

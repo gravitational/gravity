@@ -268,7 +268,7 @@ func (s *site) shrinkOperationStart(ctx *operationContext) (err error) {
 		if !force {
 			return trace.Wrap(err, "failed to unregister the node")
 		}
-		ctx.Warningf("failed to unregister the node, force continue: %v", trace.DebugReport(err))
+		ctx.WithError(err).Warn("Failed to unregister the node, force continue.")
 	}
 
 	if s.app.Manifest.HasHook(schema.HookNodeRemoving) {
@@ -282,7 +282,7 @@ func (s *site) shrinkOperationStart(ctx *operationContext) (err error) {
 			if !force {
 				return trace.Wrap(err, "failed to run %v hook", schema.HookNodeRemoving)
 			}
-			ctx.Warningf("failed to run %v hook, force continue: %v", schema.HookNodeRemoving, trace.DebugReport(err))
+			ctx.WithError(err).Warnf("Failed to run %v hook, force continue.", schema.HookNodeRemoving)
 		}
 	}
 
@@ -300,7 +300,7 @@ func (s *site) shrinkOperationStart(ctx *operationContext) (err error) {
 			if !force {
 				return trace.Wrap(err, "failed to remove the node from the serf cluster")
 			}
-			ctx.Warnf("Failed to remove node %q from serf cluster: %v.", serverName, trace.DebugReport(err))
+			ctx.WithError(err).Warnf("Failed to remove node %q from serf cluster.", serverName)
 		}
 	}
 
@@ -309,8 +309,8 @@ func (s *site) shrinkOperationStart(ctx *operationContext) (err error) {
 		if !force {
 			return trace.Wrap(err, "failed to remove the node from the cluster")
 		}
-		ctx.Warningf("Failed to remove node %q from the cluster, force continue: %v.",
-			serverName, trace.DebugReport(err))
+		ctx.WithError(err).Warnf("Failed to remove node %q from the cluster, force continue.",
+			serverName)
 	}
 
 	s.reportProgress(ctx, ops.ProgressEntry{
@@ -326,7 +326,7 @@ func (s *site) shrinkOperationStart(ctx *operationContext) (err error) {
 		if !force {
 			return trace.Wrap(err, "failed to remove the node from the database")
 		}
-		ctx.Warningf("failed to remove the node from the database, force continue: %v", trace.DebugReport(err))
+		ctx.WithError(err).Warn("Failed to remove the node from the database, force continue.")
 	}
 
 	if online {
@@ -337,7 +337,7 @@ func (s *site) shrinkOperationStart(ctx *operationContext) (err error) {
 		})
 
 		if err = s.uninstallSystem(ctx, agentRunner); err != nil {
-			ctx.Warningf("error uninstalling the system software: %v", trace.DebugReport(err))
+			ctx.WithError(err).Warn("Error uninstalling system software.")
 		}
 	}
 
@@ -365,7 +365,7 @@ func (s *site) shrinkOperationStart(ctx *operationContext) (err error) {
 			if !force {
 				return trace.Wrap(err, "failed to run %v hook", schema.HookNodeRemoved)
 			}
-			ctx.Warningf("failed to run %v hook, force continue: %v", schema.HookNodeRemoved, trace.DebugReport(err))
+			ctx.WithError(err).Warnf("Failed to run %v hook, force continue.", schema.HookNodeRemoved)
 		}
 	}
 
@@ -380,7 +380,7 @@ func (s *site) shrinkOperationStart(ctx *operationContext) (err error) {
 		if !force {
 			return trace.Wrap(err, "failed to clean up packages")
 		}
-		ctx.Warningf("failed to clean up packages, force continue: %v", trace.DebugReport(err))
+		ctx.WithError(err).Warn("Failed to clean up packages, force continue.")
 	}
 
 	s.reportProgress(ctx, ops.ProgressEntry{
@@ -390,14 +390,22 @@ func (s *site) shrinkOperationStart(ctx *operationContext) (err error) {
 	})
 
 	if err = s.waitForServerToDisappear(serverName); err != nil {
-		ctx.Warningf("failed to wait for server %v to disappear: %v", serverName, trace.DebugReport(err))
+		ctx.WithError(err).Warnf("Failed to wait for server %v to disappear.", serverName)
+	}
+
+	if err = s.removeObjectPeer(server.ObjectPeerID()); err != nil && !trace.IsNotFound(err) {
+		if !force {
+			return trace.Wrap(err, "failed to remove the object peer for the node")
+		}
+		ctx.WithError(err).Warnf("Failed to remove the object peer for the node %q, force continue.",
+			serverName)
 	}
 
 	if err = s.removeClusterStateServers([]string{server.Hostname}); err != nil {
 		return trace.Wrap(err)
 	}
 
-	_, err = s.compareAndSwapOperationState(swap{
+	_, err = s.compareAndSwapOperationState(context.TODO(), swap{
 		key:            opKey,
 		expectedStates: []string{ops.OperationStateShrinkInProgress},
 		newOpState:     ops.OperationStateCompleted,
@@ -623,6 +631,10 @@ func (s *site) unlabelNode(server storage.Server, runner *serverRunner) error {
 	})
 
 	return trace.Wrap(err)
+}
+
+func (s *site) removeObjectPeer(peerID string) error {
+	return trace.Wrap(s.backend().DeletePeer(peerID))
 }
 
 func (s *site) removeNodeFromCluster(server storage.Server, runner *serverRunner) (err error) {

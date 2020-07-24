@@ -70,6 +70,12 @@ func Run(g *Application) (err error) {
 		return trace.Wrap(err)
 	}
 
+	if *g.Debug {
+		utils.InitGRPCLoggerWithDefaults()
+	} else {
+		utils.InitGRPCLoggerFromEnvironment()
+	}
+
 	if *g.UID != -1 || *g.GID != -1 {
 		return SwitchPrivileges(*g.UID, *g.GID)
 	}
@@ -237,6 +243,7 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.PlanExecuteCmd.FullCommand(),
 		g.PlanRollbackCmd.FullCommand(),
 		g.PlanResumeCmd.FullCommand(),
+		g.LeaveCmd.FullCommand(),
 		g.EnterCmd.FullCommand():
 		if utils.CheckInPlanet() {
 			return trace.BadParameter("this command must be run outside of planet container")
@@ -838,6 +845,8 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			*g.SystemReinstallCmd.ClusterRole)
 	case g.SystemHistoryCmd.FullCommand():
 		return systemHistory(localEnv)
+	case g.SystemClusterInfoCmd.FullCommand():
+		return systemClusterInfo(localEnv)
 	case g.SystemPullUpdatesCmd.FullCommand():
 		return systemPullUpdates(localEnv,
 			*g.SystemPullUpdatesCmd.OpsCenterURL,

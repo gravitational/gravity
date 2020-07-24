@@ -81,7 +81,7 @@ func AutomaticUpgrade(ctx context.Context, localEnv, updateEnv *localenv.LocalEn
 		// fallthrough
 	}
 
-	err = fsm.Complete(fsmErr)
+	err = fsm.Complete(ctx, fsmErr)
 	if err != nil {
 		return trace.Wrap(err)
 	}

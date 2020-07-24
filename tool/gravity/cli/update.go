@@ -76,7 +76,7 @@ func newUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironm
 			if err != nil {
 				msg = err.Error()
 			}
-			if errReset := ops.FailOperationAndResetCluster(*key, operator, msg); errReset != nil {
+			if errReset := ops.FailOperationAndResetCluster(ctx, *key, operator, msg); errReset != nil {
 				logger.WithError(errReset).Warn("Failed to mark operation as failed.")
 			}
 			// Depending on where the operation initialization failed, some upgrade
@@ -171,7 +171,7 @@ type updater interface {
 	Run(ctx context.Context) error
 	RunPhase(ctx context.Context, phase string, phaseTimeout time.Duration, force bool) error
 	RollbackPhase(ctx context.Context, params fsm.Params, phaseTimeout time.Duration) error
-	Complete(error) error
+	Complete(context.Context, error) error
 }
 
 func clusterStateFromPlan(plan storage.OperationPlan) (result storage.ClusterState) {

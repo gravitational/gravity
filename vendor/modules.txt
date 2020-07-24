@@ -471,6 +471,7 @@ github.com/gravitational/teleport/lib/web/ui
 github.com/gravitational/teleport/lib/wrappers
 # github.com/gravitational/trace v1.1.11
 github.com/gravitational/trace
+github.com/gravitational/trace/trail
 # github.com/gravitational/ttlmap v0.0.0-20171116003245-91fd36b9004c
 github.com/gravitational/ttlmap
 # github.com/gravitational/ttlmap/v2 v2.0.0-20200702161230-1bbfd908876d

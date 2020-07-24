@@ -494,7 +494,7 @@ func (r *checker) checkServerDisk(ctx context.Context, server storage.Server, ta
 	defer func() {
 		// testfile was created only on real filesystem
 		if !strings.HasPrefix(target, "/dev") {
-			err := r.Remote.Exec(ctx, server.AdvertiseIP, []string{"rm", target}, &out)
+			err := r.Remote.Exec(ctx, server.AdvertiseIP, []string{"rm", target}, nil, &out)
 			if err != nil {
 				log.WithField("output", out.String()).Warn("Failed to remove test file.")
 			}
@@ -503,7 +503,7 @@ func (r *checker) checkServerDisk(ctx context.Context, server storage.Server, ta
 
 	err := r.Remote.Exec(ctx, server.AdvertiseIP, []string{
 		"dd", "if=/dev/zero", fmt.Sprintf("of=%v", target),
-		"bs=100K", "count=1024", "conv=fdatasync"}, &out)
+		"bs=100K", "count=1024", "conv=fdatasync"}, &out, &out)
 	if err != nil {
 		log.WithFields(logrus.Fields{
 			"server-ip": server.AdvertiseIP,
@@ -526,7 +526,7 @@ func (r *checker) checkTempDir(ctx context.Context, server Server) error {
 	filename := filepath.Join(server.TempDir, fmt.Sprintf("tmpcheck.%v", uuid.New()))
 	var out bytes.Buffer
 
-	err := r.Remote.Exec(ctx, server.AdvertiseIP, []string{"touch", filename}, &out)
+	err := r.Remote.Exec(ctx, server.AdvertiseIP, []string{"touch", filename}, nil, &out)
 	if err != nil {
 		log.WithFields(logrus.Fields{
 			"filename":  filename,
@@ -537,7 +537,7 @@ func (r *checker) checkTempDir(ctx context.Context, server Server) error {
 			filepath.Join(server.TempDir, filename), server.ServerInfo.GetHostname(), out.String())
 	}
 
-	err = r.Remote.Exec(ctx, server.AdvertiseIP, []string{"rm", filename}, &out)
+	err = r.Remote.Exec(ctx, server.AdvertiseIP, []string{"rm", filename}, nil, &out)
 	if err != nil {
 		log.WithFields(logrus.Fields{
 			"path":      filename,
@@ -758,28 +758,58 @@ func checkRAM(info ServerInfo, ram schema.RAM) error {
 	return nil
 }
 
-// checkSameOS makes sure all servers have the same OS/version
+// checkSameOS verifies the OS distribution requirement for the specified set of servers.
+// The check will pass if all nodes in the cluster are based on the same OS distribution and major version.
+// Variance in minor/patch versions is acceptable.
 func checkSameOS(servers []Server) error {
-	osToNodes := make(map[string][]string)
+	// distros maps distribution name to list of versions
+	distros := make(map[string][]string)
 	for _, server := range servers {
-		os := systeminfo.OS(server.GetOS()).Name()
-		osToNodes[os] = append(osToNodes[os], fmt.Sprintf("%v (%v)",
-			server.ServerInfo.GetHostname(), server.AdvertiseAddr))
+		info := server.GetOS()
+		distros[info.ID] = append(distros[info.ID], info.Version)
 	}
-
-	if len(osToNodes) > 1 {
-		var formatted []string
-		for os, nodes := range osToNodes {
-			formatted = append(formatted, fmt.Sprintf(
-				"%v: %v", os, strings.Join(nodes, ", ")))
+	if len(distros) != 1 {
+		return trace.BadParameter("servers have different OS distributions: %v", formatKeysAsList(distros))
+	}
+	// Version verification is purposely simple and will compare the prefixes
+	// up to either the first '.' or end of line
+	for _, versions := range distros {
+		if !verifyCommonVersionPrefix(versions...) {
+			return trace.BadParameter("servers have different OS versions: %v", formatAsList(distros))
 		}
-		return trace.BadParameter(
-			"servers have different OSes/versions:\n%v",
-			strings.Join(formatted, "\n"))
 	}
-
-	log.Infof("Servers passed check for the same OS: %v.", osToNodes)
+	log.Infof("Servers passed check for same OS: %v.", formatAsList(distros))
 	return nil
+}
+
+func verifyCommonVersionPrefix(versions ...string) bool {
+	if len(versions) <= 1 {
+		return true
+	}
+	for i := 0; i < len(versions)-1; i += 1 {
+		if !strings.EqualFold(
+			strings.Split(versions[i], ".")[0],
+			strings.Split(versions[i+1], ".")[0]) {
+			return false
+		}
+	}
+	return true
+}
+
+func formatAsList(m map[string][]string) (result []string) {
+	result = make([]string, 0, len(m))
+	for k, v := range m {
+		result = append(result, fmt.Sprintf("%v (%v)", k, v))
+	}
+	return result
+}
+
+func formatKeysAsList(m map[string][]string) (result []string) {
+	result = make([]string, 0, len(m))
+	for k := range m {
+		result = append(result, k)
+	}
+	return result
 }
 
 // checkTime checks if time it out of sync between servers
@@ -986,8 +1016,8 @@ func ifTestsDisabled() bool {
 
 // RunStream executes the specified command on r.server.
 // Implements utils.CommandRunner
-func (r *serverRemote) RunStream(ctx context.Context, w io.Writer, args ...string) error {
-	return trace.Wrap(r.remote.Exec(ctx, r.server.AdvertiseIP, args, w))
+func (r *serverRemote) RunStream(ctx context.Context, stdout, stderr io.Writer, args ...string) error {
+	return trace.Wrap(r.remote.Exec(ctx, r.server.AdvertiseIP, args, stdout, stderr))
 }
 
 type serverRemote struct {

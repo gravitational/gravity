@@ -294,6 +294,13 @@ func CopyExecutable(dst string, src io.Reader) error {
 // If the copy fails, CopyReaderWithPerms aborts and dst is preserved.
 // Adopted with modifications from https://go-review.googlesource.com/#/c/1591/9/src/io/ioutil/ioutil.go
 func CopyReaderWithPerms(dst string, src io.Reader, perm os.FileMode) error {
+	return CopyReaderWithOptions(dst, src, PermOption(perm))
+}
+
+// CopyReaderWithOptions copies the contents from src to dst atomically.
+// If dst does not exist, CopyReaderWithOptions creates it.
+// Callers choose the options to apply on the resulting file with options
+func CopyReaderWithOptions(dst string, src io.Reader, options ...FileOption) error {
 	tmp, err := ioutil.TempFile(filepath.Dir(dst), "")
 	if err != nil {
 		return trace.ConvertSystemError(err)
@@ -316,9 +323,11 @@ func CopyReaderWithPerms(dst string, src io.Reader, perm os.FileMode) error {
 		cleanup()
 		return trace.ConvertSystemError(err)
 	}
-	if err = os.Chmod(tmp.Name(), perm); err != nil {
-		cleanup()
-		return trace.ConvertSystemError(err)
+	for _, option := range options {
+		if err = option(tmp.Name()); err != nil {
+			cleanup()
+			return trace.ConvertSystemError(err)
+		}
 	}
 	err = os.Rename(tmp.Name(), dst)
 	if err != nil {
@@ -326,6 +335,25 @@ func CopyReaderWithPerms(dst string, src io.Reader, perm os.FileMode) error {
 		return trace.ConvertSystemError(err)
 	}
 	return nil
+}
+
+// FileOption defines a functional option to apply to specified path
+type FileOption func(path string) error
+
+// PermOption changes the file permissions on the specified file
+// to perm
+func PermOption(perm os.FileMode) FileOption {
+	return func(path string) error {
+		return os.Chmod(path, perm)
+	}
+}
+
+// OwnerOption changes the owner on the specified file
+// to (uid, gid)
+func OwnerOption(uid, gid int) FileOption {
+	return func(path string) error {
+		return os.Chown(path, uid, gid)
+	}
 }
 
 // CleanupReadCloser is an io.ReadCloser that tracks when the reading side is closed
@@ -425,17 +453,17 @@ func EnsureLineInFile(path, line string) error {
 }
 
 // Chown adjusts ownership of the specified directory and all its subdirectories
-func Chown(dir, uid, gid string) error {
-	out, err := exec.Command("chown", "-R", fmt.Sprintf("%v:%v", uid, gid), dir).CombinedOutput()
+func Chown(path string, uid, gid int) error {
+	out, err := exec.Command("chown", "-R", fmt.Sprintf("%v:%v", uid, gid), path).CombinedOutput()
 	if err != nil {
-		return trace.Wrap(err, "failed to chown %q to %v:%v: %s", dir, uid, gid, out)
+		return trace.Wrap(err, "failed to chown %q to %v:%v: %s", path, uid, gid, out)
 	}
 	return nil
 }
 
 // CopyWithRetries copies the contents of the reader obtained with open to targetPath
 // retrying on transient errors
-func CopyWithRetries(ctx context.Context, targetPath string, open func() (io.ReadCloser, error), mode os.FileMode) error {
+func CopyWithRetries(ctx context.Context, targetPath string, open func() (io.ReadCloser, error), options ...FileOption) error {
 	b := backoff.NewConstantBackOff(defaults.RetryInterval)
 	err := RetryTransient(ctx, b, func() error {
 		rc, err := open()
@@ -444,7 +472,7 @@ func CopyWithRetries(ctx context.Context, targetPath string, open func() (io.Rea
 		}
 		defer rc.Close()
 
-		err = CopyReaderWithPerms(targetPath, rc, mode)
+		err = CopyReaderWithOptions(targetPath, rc, options...)
 		return trace.Wrap(err)
 	})
 	return trace.Wrap(err)

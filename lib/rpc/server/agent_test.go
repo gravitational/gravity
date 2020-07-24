@@ -349,7 +349,7 @@ func (r *S) clientExecutesCommandsWithClient(c *C, clt client.Client, srv *agent
 	var buf bytes.Buffer
 	ctx, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
 	defer cancel()
-	err := clt.Command(ctx, clientLog, &buf, "test")
+	err := clt.Command(ctx, clientLog, &buf, &buf, "test")
 	c.Assert(err, IsNil)
 
 	err = clt.Shutdown(ctx, &pb.ShutdownRequest{})

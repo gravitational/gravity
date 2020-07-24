@@ -18,7 +18,6 @@ package server
 
 import (
 	"bytes"
-	"io/ioutil"
 	"time"
 
 	"github.com/gravitational/gravity/lib/rpc/internal/proxy"
@@ -107,7 +106,7 @@ func (r *S) TestAgentGroupExecutesCommandsRemotety(c *C) {
 	}
 
 	var buf bytes.Buffer
-	err = group.WithContext(ctx, p2.Addr().String()).Command(ctx, log, &buf, "test")
+	err = group.WithContext(ctx, p2.Addr().String()).Command(ctx, log, &buf, &buf, "test")
 	c.Assert(err, IsNil)
 	c.Assert(buf.String(), DeepEquals, "test output")
 }
@@ -197,7 +196,7 @@ func (r *S) TestAgentGroupReconnects(c *C) {
 	time.Sleep(checkTimeout)
 
 	ctx, cancel = context.WithTimeout(context.TODO(), 1*time.Second)
-	err = group.WithContext(ctx, proxyAddr).Command(ctx, log, ioutil.Discard, "test")
+	err = group.WithContext(ctx, proxyAddr).Command(ctx, log, nil, nil, "test")
 	cancel()
 	c.Assert(err, Not(IsNil))
 	errorCode := status.Code(trace.Unwrap(err))
@@ -226,7 +225,7 @@ func (r *S) TestAgentGroupReconnects(c *C) {
 
 	var buf bytes.Buffer
 	ctx, cancel = context.WithTimeout(context.TODO(), 1*time.Second)
-	err = group.WithContext(ctx, proxyAddr).Command(ctx, log, &buf, "test")
+	err = group.WithContext(ctx, proxyAddr).Command(ctx, log, &buf, &buf, "test")
 	cancel()
 	c.Assert(err, IsNil)
 	c.Assert(buf.String(), DeepEquals, "test output")

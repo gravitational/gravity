@@ -18,6 +18,7 @@ package opsservice
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 
@@ -39,7 +40,7 @@ func (s *ReportSuite) TestClusterInfo(c *check.C) {
 		License:   "license",
 	}
 	w := &bufferWriter{}
-	err := collectSiteInfo(cluster)(w, site{})
+	err := collectClusterInfo(cluster)(context.TODO(), w, site{})
 	c.Assert(err, check.IsNil)
 	var fromReport storage.Site
 	c.Assert(json.Unmarshal(w.Bytes(), &fromReport), check.IsNil)

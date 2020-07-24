@@ -84,6 +84,7 @@ func (i *Installer) Run(listener net.Listener) error {
 	}()
 	err := <-i.errC
 	i.stop()
+	i.WithField("exit-error", err).Info("Exit with error.")
 	return installpb.WrapServiceError(err)
 }
 
@@ -139,24 +140,24 @@ func (i *Installer) SetPhase(req *installpb.SetStateRequest) error {
 
 // Complete manually completes the operation given with key.
 // Implements server.Executor
-func (i *Installer) Complete(key ops.SiteOperationKey) error {
+func (i *Installer) Complete(ctx context.Context, key ops.SiteOperationKey) error {
 	i.WithField("key", key).Info("Complete.")
 	machine, err := i.config.FSMFactory.NewFSM(i.config.Operator, key)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return trace.Wrap(machine.Complete(trace.Errorf("completed manually")))
+	return trace.Wrap(machine.Complete(ctx, trace.Errorf("completed manually")))
 }
 
 // GenerateDebugReport captures the state of the operation to the file given with path.
 // Implements server.DebugReporter
-func (i *Installer) GenerateDebugReport(path string) error {
+func (i *Installer) GenerateDebugReport(ctx context.Context, path string) error {
 	i.WithField("path", path).Info("Generate debug report.")
 	op, err := ops.GetWizardOperation(i.config.Operator)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = i.generateDebugReport(op.ClusterKey(), path)
+	err = i.generateDebugReport(ctx, op.ClusterKey(), path)
 	if err != nil {
 		return trace.Wrap(err)
 	}

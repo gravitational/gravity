@@ -23,6 +23,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
+	"github.com/gravitational/gravity/lib/fsm"
 	libfsm "github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
@@ -149,27 +150,15 @@ func (r *engine) UpdateProgress(ctx context.Context, params libfsm.Params) error
 
 // Complete marks the operation as either completed or failed based
 // on the state of the operation plan
-func (r *engine) Complete(fsmErr error) error {
+func (r *engine) Complete(ctx context.Context, fsmErr error) error {
 	plan, err := r.GetPlan()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
-	if libfsm.IsCompleted(plan) {
-		err = ops.CompleteOperation(r.Operation.Key(), r.Operator)
-	} else {
-		var msg string
-		if fsmErr != nil {
-			msg = trace.Unwrap(fsmErr).Error()
-		}
-		err = ops.FailOperation(r.Operation.Key(), r.Operator, msg)
+	if fsmErr == nil {
+		fsmErr = trace.Errorf("completed manually")
 	}
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	r.WithField("operation", r.Operation).Debug("Marked operation complete.")
-	return nil
+	return fsm.CompleteOrFailOperation(ctx, plan, r.Operator, fsmErr.Error())
 }
 
 // ChangePhaseState creates an new changelog entry

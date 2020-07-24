@@ -17,6 +17,7 @@ limitations under the License.
 package ops
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -247,8 +248,8 @@ func GetWizardCluster(operator Operator) (*Site, error) {
 
 // FailOperationAndResetCluster completes the specified operation and resets
 // cluster state to active
-func FailOperationAndResetCluster(key SiteOperationKey, operator Operator, message string) error {
-	err := FailOperation(key, operator, message)
+func FailOperationAndResetCluster(ctx context.Context, key SiteOperationKey, operator Operator, message string) error {
+	err := FailOperation(ctx, key, operator, message)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -263,8 +264,8 @@ func FailOperationAndResetCluster(key SiteOperationKey, operator Operator, messa
 }
 
 // CompleteOperation marks the specified operation as completed
-func CompleteOperation(key SiteOperationKey, operator OperationStateSetter) error {
-	return operator.SetOperationState(key, SetOperationStateRequest{
+func CompleteOperation(ctx context.Context, key SiteOperationKey, operator OperationStateSetter) error {
+	return operator.SetOperationState(ctx, key, SetOperationStateRequest{
 		State: OperationStateCompleted,
 		Progress: &ProgressEntry{
 			SiteDomain:  key.SiteDomain,
@@ -279,13 +280,13 @@ func CompleteOperation(key SiteOperationKey, operator OperationStateSetter) erro
 }
 
 // FailOperation marks the specified operation as failed
-func FailOperation(key SiteOperationKey, operator OperationStateSetter, message string) error {
+func FailOperation(ctx context.Context, key SiteOperationKey, operator OperationStateSetter, message string) error {
 	if message != "" {
 		message = fmt.Sprintf("Operation failure: %v", message)
 	} else {
 		message = "Operation failure"
 	}
-	return operator.SetOperationState(key, SetOperationStateRequest{
+	return operator.SetOperationState(ctx, key, SetOperationStateRequest{
 		State: OperationStateFailed,
 		Progress: &ProgressEntry{
 			SiteDomain:  key.SiteDomain,
@@ -303,16 +304,16 @@ func FailOperation(key SiteOperationKey, operator OperationStateSetter, message 
 type OperationStateSetter interface {
 	// SetOperationState updates state of the operation
 	// specified with given operation key
-	SetOperationState(SiteOperationKey, SetOperationStateRequest) error
+	SetOperationState(context.Context, SiteOperationKey, SetOperationStateRequest) error
 }
 
 // SetOperationState implements the OperationStateSetter by invoking this handler
-func (r OperationStateFunc) SetOperationState(key SiteOperationKey, req SetOperationStateRequest) error {
-	return r(key, req)
+func (r OperationStateFunc) SetOperationState(ctx context.Context, key SiteOperationKey, req SetOperationStateRequest) error {
+	return r(ctx, key, req)
 }
 
 // OperationStateFunc is a function handler for setting the operation state
-type OperationStateFunc func(SiteOperationKey, SetOperationStateRequest) error
+type OperationStateFunc func(context.Context, SiteOperationKey, SetOperationStateRequest) error
 
 // VerifyLicense verifies the provided license
 func VerifyLicense(packages pack.PackageService, license string) error {
