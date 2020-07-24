@@ -258,6 +258,7 @@ func Ping(dnsAddress string) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	defer client.Close()
 	return client.Ping()
 }
 
