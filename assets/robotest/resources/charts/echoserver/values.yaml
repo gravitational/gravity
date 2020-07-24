@@ -1,0 +1,2 @@
+# echoserverRegistry is redefined to "leader.telekube.local:5000" in gravity hooks
+echoserverRegistry: "k8s.gcr.io"

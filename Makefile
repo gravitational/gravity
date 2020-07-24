@@ -133,7 +133,7 @@ LOCAL_BUILDDIR ?= /gopath/src/github.com/gravitational/gravity/build
 LOCAL_GRAVITY_BUILDDIR ?= /gopath/src/github.com/gravitational/gravity/build/$(GRAVITY_VERSION)
 
 # Directory used as a state dir with all packages when building an application
-# with tele build (e.g. opscenter or telekube)
+# with tele build (e.g. opscenter, robotest, telekube, or wormhole)
 PACKAGES_DIR ?= $(GRAVITY_BUILDDIR)/packages
 
 # Outputs
@@ -159,6 +159,7 @@ SITE_APP_OUT := $(GRAVITY_BUILDDIR)/site-app.tar.gz
 DNS_APP_OUT := $(GRAVITY_BUILDDIR)/dns-app.tar.gz
 K8S_APP_OUT := $(GRAVITY_BUILDDIR)/kubernetes-app.tar.gz
 RBAC_APP_OUT := $(GRAVITY_BUILDDIR)/rbac-app.tar.gz
+ROBOTEST_OUT := $(GRAVITY_BUILDDIR)/robotest.tar
 TELEKUBE_APP_OUT := $(GRAVITY_BUILDDIR)/telekube-app.tar.gz
 TILLER_APP_OUT := $(GRAVITY_BUILDDIR)/tiller-app.tar.gz
 TELEKUBE_OUT := $(GRAVITY_BUILDDIR)/telekube.tar
@@ -442,8 +443,11 @@ k8s-packages: fio-package web-assets
 	-$(GRAVITY) app delete $(K8S_APP_PKG) $(DELETE_OPTS)
 	$(GRAVITY) app import $(K8S_APP_OUT) --version=$(K8S_APP_TAG) $(VENDOR_OPTS)
 
+$(TELEKUBE_APP_OUT):
+	make -C build.assets telekube-app
+
 .PHONY: telekube-packages
-telekube-packages:
+telekube-packages: $(TELEKUBE_APP_OUT)
 	-$(GRAVITY) app delete $(TELEKUBE_APP_PKG) $(DELETE_OPTS)
 	$(GRAVITY) app import $(TELEKUBE_APP_OUT) --version=$(TELEKUBE_APP_TAG) $(VENDOR_OPTS)
 
@@ -526,6 +530,29 @@ $(TELEKUBE_OUT): packages
 		--skip-version-check \
 		-o $(TELEKUBE_OUT)
 
+$(GRAVITY_OUT):
+	$(MAKE) -C build.assets build BINARIES=gravity
+
+$(TELE_OUT):
+	$(MAKE) -C build.assets build BINARIES=tele
+
+#
+# builds robotest installer
+#
+.PHONY: robotest-image
+robotest-image: GRAVITY=$(GRAVITY_OUT) --state-dir=$(PACKAGES_DIR)
+robotest-image: $(ROBOTEST_OUT)
+
+ROBOTEST_TAR_SRC=$(shell find $(ASSETSDIR)/robotest/ -type f)
+
+$(ROBOTEST_OUT): TELE=$(TELE_OUT) --state-dir=$(PACKAGES_DIR)
+$(ROBOTEST_OUT): $(TELE_OUT) $(ROBOTEST_TAR_SRC) packages
+	GRAVITY_K8S_VERSION=$(K8S_VER) $(TELE) build \
+		$(ASSETSDIR)/robotest/resources/app.yaml -f \
+		--version=$(TELEKUBE_APP_TAG) \
+		--skip-version-check \
+		-o $(ROBOTEST_OUT)
+
 #
 # builds wormhole installer
 #
@@ -592,7 +619,7 @@ $(GRAVITY_BUILDDIR)/opscenter.tar: packages
 # opscenter-apps imports additional apps into deployed OpsCenter
 #
 .PHONY: opscenter-apps
-opscenter-apps:
+opscenter-apps: $(TELEKUBE_APP_OUT)
 	- $(GRAVITY_OUT) --state-dir=$(LOCAL_STATE_DIR) app delete $(TELEKUBE_APP_PKG) $(DELETE_OPTS) && \
 	  $(GRAVITY_OUT) --state-dir=$(LOCAL_STATE_DIR) app import $(TELEKUBE_APP_OUT) $(VENDOR_OPTS)
 
@@ -646,15 +673,15 @@ wizard-gen:
 	gravity ops create-wizard --ops-url=$(LOCAL_OPS_URL) gravitational.io/telekube:0.0.0+latest /tmp/telekube
 
 #
-# number of environment variables are expected to be set
+# a number of environment variables are expected to be set
 # see https://github.com/gravitational/robotest/blob/master/suite/README.md
 #
 .PHONY: robotest-run-suite
-robotest-run-suite:
+robotest-run-suite: $(ROBOTEST_OUT)
 	./build.assets/robotest/run.sh pr $(shell pwd)/upgrade_from
 
 .PHONY: robotest-run-nightly
-robotest-run-nightly:
+robotest-run-nightly: $(ROBOTEST_OUT)
 	./build.assets/robotest/run.sh nightly $(shell pwd)/upgrade_from
 
 .PHONY: dev

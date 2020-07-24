@@ -1,0 +1,163 @@
+apiVersion: bundle.gravitational.io/v2
+kind: Bundle
+metadata:
+  name: robotest
+  resourceVersion: "0.0.0"
+  description: |
+    Robotest cluster image with Gravity
+endpoints:
+  - name: "Gravity Control Panel"
+    description: |
+      Local administrative user interface of this Gravity cluster
+    selector:
+      app: gravity-site
+    protocol: https
+  - name: "Bandwagon"
+    hidden: true
+    serviceName: bandwagon
+installer:
+  setupEndpoints:
+    - "Bandwagon"
+  flavors:
+    prompt: "Select a flavor"
+    default: "one"
+    items:
+      - name: "one"
+        description: "1 node"
+        nodes:
+          - profile: node
+            count: 1
+      - name: "three"
+        description: "3 nodes"
+        nodes:
+          - profile: node
+            count: 3
+      - name: "six"
+        description: "6 nodes"
+        nodes:
+          - profile: node
+            count: 6
+nodeProfiles:
+  - name: node
+    description: "Robotest Auto Node"
+    requirements:
+      cpu:
+        min: 1
+      ram:
+        min: "2GB"
+      os:
+        - name: centos
+          versions: ["7", "8"]
+        - name: rhel
+          versions: ["7", "8"]
+        - name: ubuntu
+          versions: ["16.04", "18.04"]
+        - name: ubuntu-core
+          versions: ["16"]
+        - name: debian
+          versions: ["8", "9"]
+        - name: suse
+          versions: ["12"]
+        - name: sles  # Suse Linux Enterprise Server
+          versions: ["12"]
+        - name: amz
+          versions: ["2"]
+      volumes:
+        - path: /var/lib/gravity
+          capacity: "10GB"
+          filesystems: ["xfs", "ext4"]
+  - name: knode
+    description: "Robotest Node"
+    labels:
+      node-role.kubernetes.io/node: "true"
+    requirements:
+      cpu:
+        min: 1
+      ram:
+        min: "2GB"
+      os:
+        - name: centos
+          versions: ["7", "8"]
+        - name: rhel
+          versions: ["7", "8"]
+        - name: ubuntu
+          versions: ["16.04", "18.04"]
+        - name: ubuntu-core
+          versions: ["16"]
+        - name: debian
+          versions: ["8", "9"]
+        - name: suse
+          versions: ["12"]
+        - name: sles  # Suse Linux Enterprise Server
+          versions: ["12"]
+      volumes:
+        - path: /var/lib/gravity
+          capacity: "10GB"
+          filesystems: ["xfs", "ext4"]
+      volumes:
+        - path: /usr/local/nginx
+          capacity: "500MB"
+          filesystems: ["xfs", "ext4"]
+          createIfMissing: true
+          uid: 101
+          gid: 101
+          mode: "750"
+  - name: master
+    description: "Robotest Master"
+    taints:
+      - key: node-role.kubernetes.io/master
+        effect: NoSchedule
+    labels:
+      node-role.kubernetes.io/master: "true"
+    requirements:
+      cpu:
+        min: 1
+      ram:
+        min: "2GB"
+      os:
+        - name: centos
+          versions: ["7", "8"]
+        - name: rhel
+          versions: ["7", "8"]
+        - name: ubuntu
+          versions: ["16.04", "18.04"]
+        - name: ubuntu-core
+          versions: ["16"]
+        - name: debian
+          versions: ["8", "9"]
+        - name: suse
+          versions: ["12"]
+        - name: sles  # Suse Linux Enterprise Server
+          versions: ["12"]
+      volumes:
+        - path: /var/lib/gravity
+          capacity: "10GB"
+          filesystems: ["xfs", "ext4"]
+hooks:
+  install:
+    job: file://install.yaml
+  status:
+    job: file://status.yaml
+  postInstall:
+    job: file://status.yaml
+  preNodeAdd:
+    job: file://status.yaml
+  postNodeAdd:
+    job: file://status.yaml
+  preNodeRemove:
+    job: file://status.yaml
+  postNodeRemove:
+    job: file://status.yaml
+  postUpdate:
+    job: file://status.yaml
+# ingress:
+#   nginx:
+#     enabled: true
+storage:
+  openebs:
+    enabled: true
+systemOptions:
+  runtime:
+    version: "0.0.0+latest"
+  docker:
+    storageDriver: overlay2
