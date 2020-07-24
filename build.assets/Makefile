@@ -7,6 +7,7 @@
 #
 
 OPS_URL ?=
+GOLANG_VER ?=
 LOCALDIR := $(dir $(CURDIR)/$(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST)))
 LOCAL_BUILDDIR ?= /gopath/src/github.com/gravitational/gravity/build
 # Path to the local gravity build assets directory used inside the container
@@ -120,7 +121,7 @@ endif
 #
 .PHONY: test
 test: buildbox test-etcd
-	docker run --net=host --rm=true $(NOROOT) \
+	DOCKER_BUILDKIT=1 PROGRESS_NO_TRUNC=1 docker run --net=host --rm=true $(NOROOT) \
 		-v $(TOP):$(SRCDIR) \
 		-e "GRAVITY_PKG_PATH=$(GRAVITY_PKG_PATH)" \
 		-e "TEST_PACKAGES=$(TEST_PACKAGES)" \
@@ -716,12 +717,13 @@ $(SELINUX_OUT): | $(GRAVITY_BUILDDIR)
 #
 .PHONY: buildbox
 buildbox:
-	docker build \
+	DOCKER_BUILDKIT=1 PROGRESS_NO_TRUNC=1 docker build \
 		--build-arg PROTOC_VER=$(PROTOC_VER) \
 		--build-arg PROTOC_PLATFORM=$(PROTOC_PLATFORM) \
 		--build-arg GOGO_PROTO_TAG=$(GOGO_PROTO_TAG) \
 		--build-arg GRPC_GATEWAY_TAG=$(GRPC_GATEWAY_TAG) \
 		--build-arg VERSION_TAG=$(VERSION_TAG) \
+		--build-arg GOLANG_VER=$(GOLANG_VER) \
 		--build-arg UID=$(shell id -u) \
 		--build-arg GID=$(shell id -g) \
 		$(DOCKER_ARGS) --tag $(BBOX) .

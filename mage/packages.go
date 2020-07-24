@@ -371,7 +371,6 @@ func (Package) Fio() (err error) {
 
 	err = m.DockerRun().
 		SetRemove(true).
-		//AddVolume(fmt.Sprint(filepath.Join(wd, "build/"), ":/local")).
 		AddVolume(magnet.DockerBindMount{
 			Source:      filepath.Join(wd, "build/"),
 			Destination: "/local",
@@ -479,8 +478,40 @@ func (Package) Web() (err error) {
 	defer func() { m.Complete(err) }()
 
 	webImage := fmt.Sprint("telekube-oss-web:", pkgWebAssets.version)
+	contextPath := "web/"
+	if enterprise != "" {
+		webImage = fmt.Sprint("telekube-enterprise-web:", pkgWebAssets.version)
+		contextPath = "e/web/"
 
-	err = m.DockerBuild().AddTag(webImage).Build(context.TODO(), "web/")
+		err = os.RemoveAll("e/web/oss-src")
+		if err != nil && !trace.IsNotFound(err) {
+			return trace.Wrap(err)
+		}
+		err = os.RemoveAll("e/web/shared")
+		if err != nil && !trace.IsNotFound(err) {
+			return trace.Wrap(err)
+		}
+		err = os.MkdirAll("e/web/oss-src", 0700)
+		if err != nil && !trace.IsNotFound(err) {
+			return trace.Wrap(err)
+		}
+		err = os.MkdirAll("e/web/shared", 0700)
+		if err != nil && !trace.IsNotFound(err) {
+			return trace.Wrap(err)
+		}
+
+		_, err = m.Exec().Run(context.TODO(), "cp", "-R", "web/src/.", "e/web/oss-src/")
+		if err != nil {
+			return trace.Wrap(err)
+		}
+
+		_, err = m.Exec().Run(context.TODO(), "cp", "-R", "web/shared/.", "e/web/shared/")
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+
+	err = m.DockerBuild().AddTag(webImage).Build(context.TODO(), contextPath)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -491,7 +522,6 @@ func (Package) Web() (err error) {
 		SetRemove(true).
 		SetUID(fmt.Sprint(os.Getuid())).
 		SetGID(fmt.Sprint(os.Getgid())).
-		//AddVolume(fmt.Sprint(filepath.Join(wd, "build"), ":/local")).
 		AddVolume(magnet.DockerBindMount{
 			Source:      filepath.Join(wd, "build"),
 			Destination: "/local",

@@ -21,7 +21,7 @@ all: docker-build
 .PHONY:docker-build
 docker-build:
 	rm -rf $(HOST_DIR)/dist
-	docker build --force-rm=true -t $(IMAGE_NAME) .
+	DOCKER_BUILDKIT=1 PROGRESS_NO_TRUNC=1 docker build --force-rm=true -t $(IMAGE_NAME) .
 	docker create --name $(CONTAINER_NAME) -t $(IMAGE_NAME) && \
 	docker cp $(CONTAINER_NAME):$(CONTAINER_DIST_DIR) $(HOST_DIR)
 	docker rm $(CONTAINER_NAME) | true
