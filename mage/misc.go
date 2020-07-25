@@ -19,7 +19,7 @@ import (
 	"github.com/gravitational/trace"
 )
 
-// Clean cleans up the build directory and caches.
+// Clean cleans up the build directory.
 func Clean() (err error) {
 	m := root.Target("build:buildContainer")
 	defer func() { m.Complete(err) }()

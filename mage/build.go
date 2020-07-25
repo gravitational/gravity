@@ -97,7 +97,7 @@ func (Build) BuildContainer() (err error) {
 		SetBuildArg("PROTOC_PLATFORM", grpcProtocPlatform).
 		SetBuildArg("GOGO_PROTO_TAG", grpcGoGoTag).
 		SetBuildArg("GRPC_GATEWAY_TAG", grpcGatewayTag).
-		SetBuildArg("GOLANGI_VER", golangciVersion).
+		SetBuildArg("GOLANGCI_VER", golangciVersion).
 		SetBuildArg("UID", fmt.Sprint(os.Getuid())).
 		SetBuildArg("GID", fmt.Sprint(os.Getgid())).
 		SetDockerfile("build.assets/Dockerfile").

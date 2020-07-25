@@ -34,7 +34,6 @@ import (
 func main() {
 	teleutils.InitLogger(teleutils.LoggingForCLI, log.InfoLevel)
 	stdlog.SetOutput(log.StandardLogger().Writer())
-	stdlog.Println("hello world11")
 	// configure the process to avoid common proxy related installation problems
 	cli.ConfigureNoProxy()
 
