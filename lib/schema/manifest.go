@@ -385,6 +385,11 @@ func (m Manifest) FirstNodeProfileName() (string, error) {
 	return profile.Name, nil
 }
 
+// CatalogDisabled returns true if the application catalog feature is disabled.
+func (m Manifest) CatalogDisabled() bool {
+	return m.Extensions != nil && m.Extensions.Catalog != nil && m.Extensions.Catalog.Disabled
+}
+
 // Header is manifest header
 type Header struct {
 	metav1.TypeMeta
