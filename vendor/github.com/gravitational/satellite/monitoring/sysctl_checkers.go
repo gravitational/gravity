@@ -23,7 +23,7 @@ func NewIPForwardChecker() *SysctlChecker {
 		Param:           "net.ipv4.ip_forward",
 		Expected:        "1",
 		OnMissing:       "ipv4 forwarding status unknown",
-		OnValueMismatch: "ipv4 forwarding is off, see https://www.gravitational.com/docs/faq/#ipv4-forwarding",
+		OnValueMismatch: "ipv4 forwarding is off, see https://www.gravitational.com/gravity/docs/faq/#ipv4-forwarding",
 	}
 }
 
@@ -33,8 +33,8 @@ func NewBridgeNetfilterChecker() *SysctlChecker {
 		CheckerName:     NetfilterCheckerID,
 		Param:           "net.bridge.bridge-nf-call-iptables",
 		Expected:        "1",
-		OnMissing:       "br_netfilter module is either not loaded, or sysctl net.bridge.bridge-nf-call-iptables is not set, see https://www.gravitational.com/docs/faq/#bridge-driver",
-		OnValueMismatch: "kubernetes requires net.bridge.bridge-nf-call-iptables sysctl set to 1, https://www.gravitational.com/docs/faq/#bridge-driver",
+		OnMissing:       "br_netfilter module is either not loaded, or sysctl net.bridge.bridge-nf-call-iptables is not set, see https://www.gravitational.com/gravity/docs/faq/#bridge-driver",
+		OnValueMismatch: "kubernetes requires net.bridge.bridge-nf-call-iptables sysctl set to 1, https://www.gravitational.com/gravity/docs/faq/#bridge-driver",
 	}
 }
 
@@ -48,7 +48,7 @@ func NewMayDetachMountsChecker() *SysctlChecker {
 		CheckerName:     MountsCheckerID,
 		Param:           "fs.may_detach_mounts",
 		Expected:        "1",
-		OnValueMismatch: "fs.may_detach_mounts should be set to 1 or pods may get stuck in the Terminating state, see https://www.gravitational.com/docs/faq/#kubernetes-pods-stuck-in-terminating-state",
+		OnValueMismatch: "fs.may_detach_mounts should be set to 1 or pods may get stuck in the Terminating state, see https://www.gravitational.com/gravity/docs/faq/#kubernetes-pods-stuck-in-terminating-state",
 		SkipNotFound:    true, // It appears that this setting may not appear in non RHEL or older kernels, so don't fire the alert if we don't find the setting
 	}
 }
