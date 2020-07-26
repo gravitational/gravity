@@ -111,6 +111,11 @@ func (c *testClient) Close() error {
 	return nil
 }
 
+// Ping pings the Tiller pod and ensures it's up and running.
+func (c *testClient) Ping() error {
+	return nil
+}
+
 func newRelease(name string, revision int) storage.Release {
 	return &storage.ReleaseV1{
 		Kind:    storage.KindRelease,
