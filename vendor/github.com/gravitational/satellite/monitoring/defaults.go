@@ -77,3 +77,8 @@ func NewStorageChecker(config StorageConfig) (health.Checker, error) {
 func NewDNSChecker(questionA []string, nameservers ...string) health.Checker {
 	return noopChecker{}
 }
+
+// NewKernelChecker returns a new instance of kernel checker.
+func NewKernelChecker(version KernelVersion) health.Checker {
+	return noopChecker{}
+}
