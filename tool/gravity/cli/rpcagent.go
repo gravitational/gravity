@@ -31,7 +31,6 @@ import (
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
-	"github.com/gravitational/gravity/lib/ops/opsservice"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/rpc"
 	pb "github.com/gravitational/gravity/lib/rpc/proto"
@@ -269,7 +268,7 @@ func verifyCluster(ctx context.Context, req deployAgentsRequest) (servers []rpc.
 	}
 	if len(missing) != 0 {
 		base := req.cluster.App.Manifest.Base()
-		if base != nil && base.Version == opsservice.TeleportBrokenJoinTokenVersion.String() {
+		if base != nil && base.Version == ops.TeleportBrokenJoinTokenVersion.String() {
 			return nil, trace.NotFound(teleportTokenMessage,
 				strings.Join(missing, ", "), base.Version)
 		}

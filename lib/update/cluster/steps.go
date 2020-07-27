@@ -34,6 +34,7 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	libupdate "github.com/gravitational/gravity/lib/update"
 	libphase "github.com/gravitational/gravity/lib/update/cluster/phases"
+	"github.com/gravitational/gravity/lib/update/cluster/versions"
 	"github.com/gravitational/gravity/lib/update/internal/builder"
 
 	"github.com/coreos/go-semver/semver"
@@ -43,19 +44,21 @@ import (
 )
 
 func (r *phaseBuilder) initSteps(ctx context.Context) error {
-	steps, err := r.buildIntermediateSteps(ctx)
-	if err != nil {
-		return trace.Wrap(err)
+	if !r.isDirectUpgrade() {
+		steps, err := r.buildIntermediateSteps(ctx)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		r.steps = steps
 	}
-	r.steps = steps
 	installedRuntimeFunc := getRuntimePackageFromManifest(r.installedApp.Manifest)
 	updateRuntimeFunc := getRuntimePackageFromManifest(r.updateApp.Manifest)
 	installedTeleport := r.installedTeleport
 	installedRuntimeApp := r.installedRuntimeApp
-	if len(steps) != 0 {
-		installedTeleport = steps[len(steps)-1].teleport
-		installedRuntimeFunc = getRuntimePackageStatic(steps[len(steps)-1].runtime)
-		installedRuntimeApp = steps[len(steps)-1].runtimeApp
+	if len(r.steps) != 0 {
+		installedTeleport = r.steps[len(r.steps)-1].teleport
+		installedRuntimeFunc = getRuntimePackageStatic(r.steps[len(r.steps)-1].runtime)
+		installedRuntimeApp = r.steps[len(r.steps)-1].runtimeApp
 	}
 	serverUpdates, err := r.configUpdates(
 		installedTeleport,
@@ -1006,6 +1009,13 @@ func getRuntimePackageStatic(runtimePackage loc.Locator) runtimePackageGetterFun
 
 // runtimePackageGetterFunc returns the runtime package for the specified server
 type runtimePackageGetterFunc func(storage.Server) (*loc.Locator, error)
+
+func (r phaseBuilder) isDirectUpgrade() bool {
+	return versions.RuntimeUpgradePath{
+		From: &r.installedRuntimeAppVersion,
+		To:   &r.updateRuntimeAppVersion,
+	}.SupportsDirectUpgrade()
+}
 
 func (r phaseBuilder) shouldSkipIntermediateUpdate(v semver.Version) bool {
 	// Skip the update if it's older than the installed cluster's
