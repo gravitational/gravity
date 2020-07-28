@@ -21,7 +21,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
-	"github.com/gravitational/gravity/lib/modules"
+	"github.com/gravitational/gravity/lib/rpc/proto"
 	"github.com/gravitational/gravity/lib/storage"
 
 	"github.com/gravitational/trace"
@@ -33,13 +33,13 @@ type AgentStatus struct {
 	Hostname string
 	// Address specifies the IP address of the node running the agent.
 	Address string
-	// Status indiciates the current status of the agent. An agent is `Deployed`
+	// Status indicates the current status of the agent. An agent is `Deployed`
 	// if the gravity-agent service is active. The agent is `Offline` if it
 	// fails to respond to the status request.
 	Status string
 	// Version describes gravity agent version.
 	Version string
-	// Error contains errors while collected while requesting agent status.
+	// Error contains an error that might have occurred when requesting agent status.
 	Error error
 }
 
@@ -78,18 +78,22 @@ func getAgentStatus(ctx context.Context, server storage.Server, rpc AgentReposit
 	return agentStatus
 }
 
-func getVersion(ctx context.Context, addr string, rpc AgentRepository) (version modules.Version, err error) {
-	ctx, cancel := context.WithTimeout(ctx, defaults.DialTimeout)
-	defer cancel()
+func getVersion(ctx context.Context, addr string, rpc AgentRepository) (*proto.Version, error) {
+	ctxDial, cancelDial := context.WithTimeout(ctx, defaults.DialTimeout)
+	defer cancelDial()
 
-	clt, err := rpc.GetClient(ctx, addr)
+	clt, err := rpc.GetClient(ctxDial, addr)
 	if err != nil {
-		return version, trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
+	defer clt.Close()
 
-	version, err = clt.GetVersion(ctx)
+	ctxVersion, cancelVersion := context.WithTimeout(ctx, defaults.AgentRequestTimeout)
+	defer cancelVersion()
+
+	version, err := clt.GetVersion(ctxVersion)
 	if err != nil {
-		return version, trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 
 	return version, nil

@@ -21,10 +21,17 @@ service Discovery {
     rpc GetVersion(google.protobuf.Empty) returns (Version);
 }
 
-// Version describes an agent's version information
+// Version represents a gravity version
 message Version {
-    // Payload is the version information payload.
-    bytes payload = 1;
+    option (gogoproto.goproto_stringer) = false;
+    // Edition is the gravity edition, e.g. open-source
+    string edition = 1;
+    // Version is the gravity semantic version
+    string version = 2;
+    // GitCommit is the git commit hash
+    string git_commit = 3;
+    // Helm is the built-in Helm version
+    string helm = 4;
 }
 
 // SystemInfo groups attributes that describe a system

@@ -26,18 +26,23 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
-// Version describes an agent's version information
+// Version represents a gravity version
 type Version struct {
-	// Payload is the version information payload.
-	Payload              []byte   `protobuf:"bytes,1,opt,name=payload,proto3" json:"payload,omitempty"`
+	// Edition is the gravity edition, e.g. open-source
+	Edition string `protobuf:"bytes,1,opt,name=edition,proto3" json:"edition,omitempty"`
+	// Version is the gravity semantic version
+	Version string `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`
+	// GitCommit is the git commit hash
+	GitCommit string `protobuf:"bytes,3,opt,name=git_commit,json=gitCommit,proto3" json:"git_commit,omitempty"`
+	// Helm is the built-in Helm version
+	Helm                 string   `protobuf:"bytes,4,opt,name=helm,proto3" json:"helm,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *Version) Reset()         { *m = Version{} }
-func (m *Version) String() string { return proto.CompactTextString(m) }
-func (*Version) ProtoMessage()    {}
+func (m *Version) Reset()      { *m = Version{} }
+func (*Version) ProtoMessage() {}
 func (*Version) Descriptor() ([]byte, []int) {
 	return fileDescriptor_1e7ff60feb39c8d0, []int{0}
 }
@@ -59,11 +64,32 @@ func (m *Version) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_Version proto.InternalMessageInfo
 
-func (m *Version) GetPayload() []byte {
+func (m *Version) GetEdition() string {
 	if m != nil {
-		return m.Payload
+		return m.Edition
 	}
-	return nil
+	return ""
+}
+
+func (m *Version) GetVersion() string {
+	if m != nil {
+		return m.Version
+	}
+	return ""
+}
+
+func (m *Version) GetGitCommit() string {
+	if m != nil {
+		return m.GitCommit
+	}
+	return ""
+}
+
+func (m *Version) GetHelm() string {
+	if m != nil {
+		return m.Helm
+	}
+	return ""
 }
 
 // SystemInfo groups attributes that describe a system

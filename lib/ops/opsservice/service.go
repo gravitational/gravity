@@ -42,6 +42,7 @@ import (
 	"github.com/gravitational/gravity/lib/ops/monitoring"
 	"github.com/gravitational/gravity/lib/ops/opsclient"
 	"github.com/gravitational/gravity/lib/pack"
+	"github.com/gravitational/gravity/lib/rpc/proto"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/users"
@@ -1444,7 +1445,7 @@ func (o *Operator) EmitAuditEvent(ctx context.Context, req ops.AuditEventRequest
 }
 
 // GetVersion returns the gravity binary version information.
-func (o *Operator) GetVersion(ctx context.Context) (*modules.Version, error) {
+func (o *Operator) GetVersion(ctx context.Context) (*proto.Version, error) {
 	version := modules.Get().Version()
 	return &version, nil
 }

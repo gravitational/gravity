@@ -30,8 +30,8 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/localenv"
-	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/rpc/proto"
 	"github.com/gravitational/gravity/lib/schema"
 	statusapi "github.com/gravitational/gravity/lib/status"
 	"github.com/prometheus/alertmanager/api/v2/models"
@@ -294,7 +294,7 @@ func printStatusText(out io.Writer, cluster clusterStatus) error {
 	return clusterStatusError(cluster)
 }
 
-func formatVersion(version *modules.Version) string {
+func formatVersion(version *proto.Version) string {
 	if version != nil {
 		return version.Version
 	}
@@ -481,7 +481,7 @@ func (r statusOperator) GetApplicationEndpoints(clusterKey ops.SiteKey) ([]ops.E
 }
 
 // GetVersion returns version of Gravity running the operator service.
-func (r statusOperator) GetVersion(ctx context.Context) (*modules.Version, error) {
+func (r statusOperator) GetVersion(ctx context.Context) (*proto.Version, error) {
 	if r.clusterOperator != nil {
 		return r.clusterOperator.GetVersion(ctx)
 	}

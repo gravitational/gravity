@@ -17,7 +17,6 @@ limitations under the License.
 package server
 
 import (
-	"encoding/json"
 	"os"
 	"time"
 
@@ -135,12 +134,7 @@ func (srv *agentServer) GetCurrentTime(ctx context.Context, _ *types.Empty) (*ty
 // GetVersion queries the agent version information
 func (srv *agentServer) GetVersion(ctx context.Context, _ *types.Empty) (*pb.Version, error) {
 	ver := modules.Get().Version()
-	payload, err := json.Marshal(ver)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	return &pb.Version{Payload: payload}, nil
+	return &ver, nil
 }
 
 // Shutdown requests agent to shut down

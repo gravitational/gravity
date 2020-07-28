@@ -18,14 +18,12 @@ package client
 
 import (
 	"context"
-	"encoding/json"
 	"time"
 
-	"github.com/gravitational/gravity/lib/modules"
+	pb "github.com/gravitational/gravity/lib/rpc/proto"
 	"github.com/gravitational/gravity/lib/storage"
 
 	"github.com/gogo/protobuf/types"
-	pb "github.com/gravitational/gravity/lib/rpc/proto"
 	"github.com/gravitational/trace"
 )
 
@@ -70,15 +68,11 @@ func (c *client) GetCurrentTime(ctx context.Context) (*time.Time, error) {
 }
 
 // GetVersion returns agent's version information
-func (c *client) GetVersion(ctx context.Context) (version modules.Version, err error) {
-	resp, err := c.discovery.GetVersion(ctx, &types.Empty{})
+func (c *client) GetVersion(ctx context.Context) (*pb.Version, error) {
+	version, err := c.discovery.GetVersion(ctx, &types.Empty{})
 	if err != nil {
-		return version, trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
-
-	if err := json.Unmarshal(resp.Payload, &version); err != nil {
-		return version, trace.Wrap(err)
-	}
-
 	return version, nil
+
 }
