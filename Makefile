@@ -169,11 +169,9 @@ SELINUX_ASSETS := $(SELINUX_ASSETSDIR)/gravity.pp.bz2 \
 SELINUX_OUT := $(GRAVITY_BUILDDIR)/selinux-policy.tgz
 
 GRAVITY_DIR := /var/lib/gravity
-GRAVITY_ASSETS_DIR := /usr/local/share/gravity
 
 LOCAL_OPSCENTER_HOST ?= opscenter.localhost.localdomain
 LOCAL_OPSCENTER_DIR := $(GRAVITY_DIR)/opscenter
-LOCAL_ETCD_DIR := $(GRAVITY_DIR)/etcd
 LOCAL_OPS_URL := https://$(LOCAL_OPSCENTER_HOST):33009
 LOCAL_STATE_DIR ?= $(LOCAL_OPSCENTER_DIR)/read
 
@@ -187,8 +185,6 @@ GRAVITY_PUBLISH_TARGETS := $(GRAVITY_OUT) \
 	$(RBAC_APP_OUT) \
 	$(TELEKUBE_APP_OUT) \
 	$(TILLER_APP_OUT)
-
-TELEPORT_DIR = /var/lib/teleport
 
 GRAVITY_EXTRA_OPTIONS ?=
 
