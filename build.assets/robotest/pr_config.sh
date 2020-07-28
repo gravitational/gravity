@@ -7,8 +7,9 @@ source $(dirname $0)/utils.sh
 
 # UPGRADE_MAP maps gravity version -> list of linux distros to upgrade from
 declare -A UPGRADE_MAP
-UPGRADE_MAP[$(recommended_upgrade_tag $(branch 7.0.x))]="ubuntu:18" # compatible LTS version
-UPGRADE_MAP[7.0.12]="ubuntu:16"  # 7.0.12 is the first LTS 7.0 release
+UPGRADE_MAP[$(recommended_upgrade_tag $(branch 7.0.x))]="centos:7" # compatible LTS version
+UPGRADE_MAP[7.0.13]="centos:7" # 7.0.13 + centos is combination that is critical in the field -- 2020-07 walt
+UPGRADE_MAP[7.0.12]="ubuntu:18" # 7.0.12 is the first LTS 7.0 release
 UPGRADE_MAP[7.0.7]="ubuntu:16" # 7.0.7 is the first 7.0 with https://github.com/gravitational/planet/pull/671 included
 # UPGRADE_MAP[7.0.0]="ubuntu:16" # 7.0.0 is prone to upgrade failure without https://github.com/gravitational/planet/pull/671
 
@@ -17,6 +18,7 @@ UPGRADE_MAP[7.0.7]="ubuntu:16" # 7.0.7 is the first 7.0 with https://github.com/
 # UPGRADE_MAP[6.3.0]="ubuntu:16"  # disabled due to https://github.com/gravitational/gravity/issues/1009
 # UPGRADE_MAP[$(recommended_upgrade_tag $(branch 6.2.x))]="redhat:7" # compatible non-LTS version
 # UPGRADE_MAP[6.2.0]="ubuntu:16"
+
 
 UPGRADE_VERSIONS=${!UPGRADE_MAP[@]}
 
@@ -53,7 +55,7 @@ EOF
 
 function build_install_suite {
   local suite=''
-  local test_os="redhat:7"
+  local test_os="centos:7"
   local cluster_size='"flavor":"three","nodes":3,"role":"node"'
   suite+=$(cat <<EOF
  install={${cluster_size},"os":"${test_os}","storage_driver":"overlay2"}
