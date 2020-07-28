@@ -105,7 +105,7 @@ spec:
         gravitational.io/k8s-role: master
       containers:
       - name: coredns
-        image: coredns/coredns:1.2.6
+        image: coredns/coredns:1.7.0
         imagePullPolicy: IfNotPresent
         resources:
           limits:
