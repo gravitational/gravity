@@ -7,7 +7,7 @@ Find the latest Open Source Gravity releases at [Gravity Downloads](https://grav
 | Version             | Latest Patch | LTS | Release Date         | End of Support *        | Kubernetes Version   | Teleport Version |
 | ------------------- | ------------ | --- | -------------------- | ----------------------- | -------------------- | ---------------- |
 | [7.0](#70-releases) | 7.0.13       | Yes | April 3, 2020        | July 9, 2022            | 1.17.9               | 3.2.13           |
-| [6.1](#61-releases) | 6.1.31       | Yes | August 2, 2019       | November 10, 2021       | 1.15.12              | 3.2.12           |
+| [6.1](#61-releases) | 6.1.32       | Yes | August 2, 2019       | November 10, 2021       | 1.15.12              | 3.2.12           |
 | [5.5](#55-releases) | 5.5.49       | Yes | March 8, 2019        | March 8, 2021           | 1.13.11              | 3.0.6-gravity    |
 
 Gravity offers one Long Term Support (LTS) version for every 2nd Kubernetes
@@ -528,6 +528,20 @@ to learn how to gain insight into how the cluster status changes over time.
 * Upgrade Kubernetes to `v1.16.0`.
 
 ## 6.1 Releases
+
+### 6.1.32 LTS (July 28th, 2020)
+
+#### Improvements
+
+* Remove the hard limit of 3 master nodes. ([#1910](https://github.com/gravitational/gravity/pull/1910)).
+* Improved warnings when teleport nodes are using the wrong join token ([#1902](https://github.com/gravitational/gravity/pull/1902)).
+* Collect gravity cli history for debug reports ([#1860](https://github.com/gravitational/gravity/pull/1860)).
+
+#### Bugfixes
+
+* Update CoreDNS to 1.7.0 ([#1924](https://github.com/gravitational/gravity/pull/1924), [planet#702](https://github.com/gravitational/planet/pull/702)).
+* Update ContainerD to 1.2.10 ([#1924](https://github.com/gravitational/gravity/pull/1924), [planet#710](https://github.com/gravitational/planet/pull/710)).
+* Disable CSIMigration feature gate ([#1924](https://github.com/gravitational/gravity/pull/1924), [planet#709](https://github.com/gravitational/planet/pull/709)).
 
 ### 6.1.31 LTS (July 13th, 2020)
 
