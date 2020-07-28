@@ -427,6 +427,11 @@ func (b *Builder) initServices() (err error) {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	defer func() {
+		if err != nil {
+			os.RemoveAll(b.Dir)
+		}
+	}()
 	b.Backend, err = keyval.NewBolt(keyval.BoltConfig{
 		Path: filepath.Join(b.Dir, defaults.GravityDBFile),
 	})

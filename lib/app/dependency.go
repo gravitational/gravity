@@ -49,6 +49,7 @@ func GetDependencies(req GetDependenciesRequest) (result *Dependencies, err erro
 	if err = req.getDependencies(req.App, state); err != nil {
 		return nil, trace.Wrap(err)
 	}
+	state.finalize()
 	return &state.deps, nil
 }
 
@@ -116,9 +117,11 @@ func (r *GetDependenciesRequest) checkAndSetDefaults() error {
 }
 
 func (r GetDependenciesRequest) getDependencies(app Application, state *state) error {
-	r.WithField("app", app.Package).Info("Get dependencies.")
+	logger := r.WithField("app", app.Package)
+	logger.Info("Get dependencies.")
 	packageDeps := loc.Deduplicate(app.Manifest.Dependencies.GetPackages())
 	packageDeps = append(packageDeps, app.Manifest.NodeProfiles.RuntimePackages()...)
+	logger.WithField("pkgs", packageDeps).Debug("Package dependencies.")
 	for _, dependency := range packageDeps {
 		if state.hasPackage(dependency) {
 			continue
@@ -136,6 +139,7 @@ func (r GetDependenciesRequest) getDependencies(app Application, state *state) e
 		appDeps = append(appDeps, *baseApp)
 	}
 	appDeps = append(appDeps, app.Manifest.Dependencies.GetApps()...)
+	logger.WithField("apps", appDeps).Debug("App dependencies.")
 	for _, dependency := range appDeps {
 		if state.hasPackage(dependency) {
 			continue
@@ -155,7 +159,12 @@ func (r GetDependenciesRequest) getDependencies(app Application, state *state) e
 	// Ignore the error, since here we're only interested if a custom package
 	// has been defined
 	if runtimePackage, _ := app.Manifest.DefaultRuntimePackage(); runtimePackage != nil {
-		state.runtimePackage = runtimePackage
+		logger.WithField("pkg", runtimePackage.String()).Debug("Default runtime package.")
+		envelope, err := r.Pack.ReadPackageEnvelope(*runtimePackage)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		state.runtimePackage = envelope
 	}
 	return nil
 }
@@ -175,6 +184,12 @@ func (r *state) addApp(app Application) {
 	r.deps.Apps = append(r.deps.Apps, app)
 }
 
+func (r *state) finalize() {
+	if r.runtimePackage != nil {
+		r.deps.Packages = append(r.deps.Packages, *r.runtimePackage)
+	}
+}
+
 type state struct {
 	deps Dependencies
 	// visited lists already visited package dependencies
@@ -186,7 +201,7 @@ type state struct {
 	// from the runtime (base) application.
 	// If the global system options block specifies a custom docker image for the runtime
 	// package, the generated package will replace the one from the base application.
-	runtimePackage *loc.Locator
+	runtimePackage *pack.PackageEnvelope
 }
 
 type packagesByLocator []pack.PackageEnvelope
