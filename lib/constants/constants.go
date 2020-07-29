@@ -208,6 +208,9 @@ const (
 	// If not empty, turns the preflight checks off
 	PreflightChecksOffEnvVar = "GRAVITY_CHECKS_OFF"
 
+	// AgentStatusTimeoutEnvVar is the name of the environment variable that specifies the agent status timeout value
+	AgentStatusTimeoutEnvVar = "GRAVITY_AGENT_STATUS_TIMEOUT"
+
 	// GravityEnvVarPrefix is the prefix for gravity-specific environment variables.
 	GravityEnvVarPrefix = "GRAVITY_"
 
@@ -226,15 +229,6 @@ const (
 
 	// GravityServicePortName is the port name of the service
 	GravityServicePortName = "web"
-
-	// OneshotService is a service that executes one time
-	OneshotService = "oneshot"
-
-	// SimpleService is a simple service that is recommended for long running processes
-	SimpleService = "simple"
-
-	// RestartOnFailure defines the restart on-failure rule for a service
-	RestartOnFailure = "on-failure"
 
 	// RootUID is the root user ID
 	RootUID = 0
