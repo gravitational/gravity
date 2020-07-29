@@ -252,11 +252,7 @@ func (r Puller) pullAppWithRetries(ctx context.Context, loc loc.Locator) error {
 }
 
 func (r Puller) pullApp(loc loc.Locator) error {
-	app, err := r.SrcApp.GetApp(loc)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	app, err = r.DstApp.GetApp(loc)
+	app, err := r.DstApp.GetApp(loc)
 	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
 	}

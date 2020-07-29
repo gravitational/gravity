@@ -49,7 +49,9 @@ func GetDependencies(req GetDependenciesRequest) (result *Dependencies, err erro
 	if err = req.getDependencies(req.App, state); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	state.finalize()
+	if err := state.finalize(req.Pack); err != nil {
+		return nil, trace.Wrap(err)
+	}
 	return &state.deps, nil
 }
 
@@ -160,11 +162,7 @@ func (r GetDependenciesRequest) getDependencies(app Application, state *state) e
 	// has been defined
 	if runtimePackage, _ := app.Manifest.DefaultRuntimePackage(); runtimePackage != nil {
 		logger.WithField("pkg", runtimePackage.String()).Debug("Default runtime package.")
-		envelope, err := r.Pack.ReadPackageEnvelope(*runtimePackage)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		state.runtimePackage = envelope
+		state.runtimePackage = runtimePackage
 	}
 	return nil
 }
@@ -184,10 +182,16 @@ func (r *state) addApp(app Application) {
 	r.deps.Apps = append(r.deps.Apps, app)
 }
 
-func (r *state) finalize() {
-	if r.runtimePackage != nil {
-		r.deps.Packages = append(r.deps.Packages, *r.runtimePackage)
+func (r *state) finalize(pack pack.PackageService) error {
+	if r.runtimePackage == nil {
+		return nil
 	}
+	envelope, err := pack.ReadPackageEnvelope(*r.runtimePackage)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	r.deps.Packages = append(r.deps.Packages, *envelope)
+	return nil
 }
 
 type state struct {
@@ -201,7 +205,7 @@ type state struct {
 	// from the runtime (base) application.
 	// If the global system options block specifies a custom docker image for the runtime
 	// package, the generated package will replace the one from the base application.
-	runtimePackage *pack.PackageEnvelope
+	runtimePackage *loc.Locator
 }
 
 type packagesByLocator []pack.PackageEnvelope
