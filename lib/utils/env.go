@@ -132,7 +132,7 @@ func GetenvInt(name string) (int, error) {
 	return valueI, nil
 }
 
-//GetenvDuration returns the specified environment variable value parsed as a duration.
+// GetenvDuration returns the specified environment variable value parsed as a duration.
 func GetenvDuration(name string) (dur time.Duration, err error) {
 	valueS, ok := os.LookupEnv(name)
 	if !ok {

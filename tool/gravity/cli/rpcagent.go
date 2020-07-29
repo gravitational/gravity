@@ -334,12 +334,12 @@ func newDeployAgentsRequest(ctx context.Context, env *localenv.LocalEnvironment,
 	// If hostname is specified in the request, deploy agent only on specified node
 	var servers []rpc.DeployServer
 	if req.hostname != "" {
-		server, err := findServerByHostname(req.clusterState, req.hostname)
+		server, err := req.clusterState.FindServer(req.hostname)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
 
-		verifiedServer := rpc.NewDeployServer(server)
+		verifiedServer := rpc.NewDeployServer(*server)
 		if err := verifyNode(ctx, verifiedServer, req.proxy); err != nil {
 			return nil, trace.Wrap(err)
 		}
@@ -355,7 +355,7 @@ func newDeployAgentsRequest(ctx context.Context, env *localenv.LocalEnvironment,
 
 	// If version is not specified in the request, use the current build version
 	if req.version == "" {
-		req.version = strings.Split(version.Get().Version, "+")[0]
+		req.version = version.Get().Version
 	}
 
 	gravityPackage := loc.Locator{
@@ -366,7 +366,7 @@ func newDeployAgentsRequest(ctx context.Context, env *localenv.LocalEnvironment,
 
 	secretsPackageTemplate := loc.Locator{
 		Repository: req.cluster.Domain,
-		Version:    gravityPackage.Version,
+		Version:    req.version,
 	}
 
 	secretsPackage, err := upsertRPCCredentialsPackage(
@@ -387,17 +387,6 @@ func newDeployAgentsRequest(ctx context.Context, env *localenv.LocalEnvironment,
 		NodeParams:     req.nodeParams,
 		Progress:       utils.NewProgress(ctx, "", 0, bool(env.Silent)),
 	}, nil
-}
-
-// findServerByHostname returns the server with the matching hostname. Returns
-// a NotFound error if a server with a matching hostname does not exist.
-func findServerByHostname(clusterState storage.ClusterState, hostname string) (server storage.Server, err error) {
-	for _, srv := range clusterState.Servers {
-		if srv.Hostname == hostname {
-			return srv, nil
-		}
-	}
-	return server, trace.NotFound("Specified server not found: %s", hostname)
 }
 
 func getClientCredentials(ctx context.Context, packages pack.PackageService, secretsPackage loc.Locator) (credentials.TransportCredentials, error) {
@@ -480,12 +469,12 @@ func rpcAgentStatus(env *localenv.LocalEnvironment) error {
 	for _, status := range statusList {
 		fmt.Fprintf(t, "%s\t%s\t%s\t%s\n", status.Hostname, status.Address, status.Status, status.Version)
 		if status.Error != nil {
-			log.WithError(err).Debugf("Failed to collect query agent version on %s.", status.Address)
+			log.WithError(status.Error).Debugf("Failed to collect agent status on %s.", status.Address)
 		}
 	}
-	fmt.Println(t.String())
+	env.Println(t.String())
 
-	return trace.Wrap(err)
+	return nil
 }
 
 func executeAutomaticUpgrade(ctx context.Context, localEnv, upgradeEnv *localenv.LocalEnvironment, args []string) error {

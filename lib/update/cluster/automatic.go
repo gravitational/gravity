@@ -53,7 +53,8 @@ func AutomaticUpgrade(ctx context.Context, localEnv, updateEnv *localenv.LocalEn
 	// Check if the upgrade is already in progress, which would indicate an
 	// agent is already running. Return without creating a new agent.
 	for _, phase := range plan.Phases {
-		if phase.IsInProgress() {
+		if !phase.IsUnstarted() {
+			log.WithField("plan", plan.OperationID).Info("Upgrade is already in progress.")
 			return nil
 		}
 	}

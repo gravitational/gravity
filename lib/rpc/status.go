@@ -68,6 +68,11 @@ func getAgentStatus(ctx context.Context, server storage.Server, rpc AgentReposit
 	}
 
 	version, err := getVersion(ctx, server.AdvertiseIP, rpc)
+	if trace.IsNotImplemented(err) {
+		agentStatus.Version = "N/A"
+		agentStatus.Status = constants.GravityAgentDeployed
+		return agentStatus
+	}
 	if err != nil {
 		agentStatus.Error = err
 		return agentStatus
