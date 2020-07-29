@@ -37,7 +37,7 @@ func ReinstallSimpleService(serviceName string, cmd []string) error {
 
 	err = services.StopService(serviceName)
 	if err != nil {
-		logrus.Warnf("Error stopping service %v: %v.", serviceName, err)
+		logrus.WithError(err).Warnf("Error stopping service %v.", serviceName)
 	}
 
 	err = services.InstallService(systemservice.NewServiceRequest{

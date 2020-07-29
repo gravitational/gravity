@@ -211,6 +211,11 @@ func rpcAgentDeployHelper(ctx context.Context, localEnv *localenv.LocalEnvironme
 		return nil, trace.Wrap(err, "failed to connect to teleport proxy")
 	}
 
+	// If version is not specified in the request, use the current build version
+	if options.version == "" {
+		options.version = version.Get().Version
+	}
+
 	req := deployAgentsRequest{
 		clusterState: cluster.ClusterState,
 		cluster:      *cluster,
@@ -227,17 +232,9 @@ func rpcAgentDeployHelper(ctx context.Context, localEnv *localenv.LocalEnvironme
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
-		verifiedServer := rpc.NewDeployServer(*server)
-		if err := verifyNode(ctx, verifiedServer, req.proxy); err != nil {
-			return nil, trace.Wrap(err)
-		}
-		req.servers = append(req.servers, verifiedServer)
+		req.servers = append(req.servers, *server)
 	} else {
-		verifiedServers, err := verifyCluster(ctx, req)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-		req.servers = append(req.servers, verifiedServers...)
+		req.servers = cluster.ClusterState.Servers
 	}
 
 	// Force this node to be the operation leader
@@ -268,7 +265,7 @@ func verifyCluster(ctx context.Context, req deployAgentsRequest) (servers []rpc.
 	var missing []string
 	servers = make([]rpc.DeployServer, 0, len(servers))
 
-	for _, server := range req.clusterState.Servers {
+	for _, server := range req.servers {
 		deployServer := rpc.NewDeployServer(server)
 
 		// do a quick check to make sure we can connect to the teleport node
@@ -360,9 +357,9 @@ func deployAgents(ctx context.Context, env *localenv.LocalEnvironment, req deplo
 
 // newDeployAgentsRequest creates a new request to deploy agents on the local cluster
 func newDeployAgentsRequest(ctx context.Context, env *localenv.LocalEnvironment, req deployAgentsRequest) (*rpc.DeployAgentsRequest, error) {
-	// If version is not specified in the request, use the current build version
-	if req.version == "" {
-		req.version = version.Get().Version
+	servers, err := verifyCluster(ctx, req)
+	if err != nil {
+		return nil, trace.Wrap(err)
 	}
 
 	gravityPackage := loc.Locator{
@@ -377,7 +374,7 @@ func newDeployAgentsRequest(ctx context.Context, env *localenv.LocalEnvironment,
 	}
 
 	secretsPackage, err := upsertRPCCredentialsPackage(
-		req.servers, req.clusterEnv.ClusterPackages, req.cluster.Domain, secretsPackageTemplate)
+		servers, req.clusterEnv.ClusterPackages, req.cluster.Domain, secretsPackageTemplate)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -385,7 +382,7 @@ func newDeployAgentsRequest(ctx context.Context, env *localenv.LocalEnvironment,
 	return &rpc.DeployAgentsRequest{
 		Proxy:          req.proxy,
 		ClusterState:   req.clusterState,
-		Servers:        req.servers,
+		Servers:        servers,
 		SecretsPackage: *secretsPackage,
 		GravityPackage: gravityPackage,
 		FieldLogger:    logrus.WithField(trace.Component, "rpc:deploy"),
@@ -528,7 +525,7 @@ type deployAgentsRequest struct {
 	proxy        *teleclient.ProxyClient
 	leader       *storage.Server
 	// servers specifies the list of servers to deploy agents on
-	servers      []rpc.DeployServer
+	servers      storage.Servers
 	leaderParams string
 	nodeParams   string
 	// version specifies the version of the gravity agent to deploy
