@@ -486,7 +486,7 @@ func rpcAgentStatus(env *localenv.LocalEnvironment) error {
 
 	if len(errs) > 0 {
 		log.Warn("Some agents are offline.")
-		return trace.BadParameter("Some agents are offline.")
+		return trace.BadParameter("some agents are offline")
 	}
 
 	return nil
