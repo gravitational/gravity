@@ -25,6 +25,7 @@ import (
 
 	"github.com/gogo/protobuf/types"
 	"github.com/gravitational/trace"
+	"github.com/gravitational/trace/trail"
 )
 
 // GetSystemInfo queries remote system information
@@ -71,8 +72,7 @@ func (c *client) GetCurrentTime(ctx context.Context) (*time.Time, error) {
 func (c *client) GetVersion(ctx context.Context) (*pb.Version, error) {
 	version, err := c.discovery.GetVersion(ctx, &types.Empty{})
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return nil, trail.FromGRPC(err)
 	}
 	return version, nil
-
 }
