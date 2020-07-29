@@ -607,7 +607,7 @@ L:
 			log.Debugf("Retrieved status from %v: %v.", status.member, status.NodeStatus)
 			nodeStatus := status.NodeStatus
 			if status.err != nil {
-				log.Warnf("Failed to query node %s(%v) status: %v.",
+				log.Debugf("Failed to query node %s(%v) status: %v.",
 					status.member.Name(), status.member.Addr(), status.err)
 				nodeStatus = unknownNodeStatus(status.member)
 			}
@@ -691,7 +691,7 @@ func (r *agent) notifyMasters(ctx context.Context) error {
 			continue
 		}
 		if err := r.notifyMaster(ctx, member, events); err != nil {
-			log.WithError(err).Warnf("Failed to notify %s of new timeline events.", member.Name())
+			log.WithError(err).Debugf("Failed to notify %s of new timeline events.", member.Name())
 		}
 	}
 
