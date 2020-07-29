@@ -613,6 +613,12 @@ func generateManifestFromChart(manifestPath string) (*schema.Manifest, error) {
 	return generateManifest(chart)
 }
 
+// filterUpgradePackageDependencies returns the list of package dependencies
+// to include as additional dependencies when building an installer.
+// packages lists all package dependencies for a specific intermediate version.
+// The resulting list will only include the packages the upgrade will need
+// for each intermediate hop which includes the gravity binary, teleport and planet container packages.
+// All other packages are not necessary for an intermediate upgrade hop and will be omitted.
 func filterUpgradePackageDependencies(packages []pack.PackageEnvelope) (result []pack.PackageEnvelope) {
 	result = packages[:0]
 	for _, pkg := range packages {

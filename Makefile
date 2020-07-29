@@ -39,7 +39,8 @@ CURRENT_TAG := $(shell ./version.sh)
 GRAVITY_TAG := $(CURRENT_TAG)
 # Abbreviated gravity version to use as a build ID
 GRAVITY_VERSION := $(CURRENT_TAG)
-# Release of the gravity runtime application to builder installer with intermediate steps
+# Release of the gravity runtime application to builder installer with intermediate steps.
+# This release has been chosen arbitrarily and should generally point to a stable 6.1.x LTS release.
 GRAVITY_INTERMEDIATE_RELEASE ?= 6.1.31
 
 RELEASE_TARBALL_NAME ?=
