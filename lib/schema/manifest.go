@@ -423,6 +423,11 @@ func (m Manifest) PrivilegedEnabled() bool {
 	return m.SystemOptions != nil && m.SystemOptions.AllowPrivileged || m.OpenEBSEnabled()
 }
 
+// CatalogDisabled returns true if the application catalog feature is disabled.
+func (m Manifest) CatalogDisabled() bool {
+	return m.Extensions != nil && m.Extensions.Catalog != nil && m.Extensions.Catalog.Disabled
+}
+
 // Header is manifest header
 type Header struct {
 	metav1.TypeMeta
