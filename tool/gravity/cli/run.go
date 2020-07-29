@@ -1009,7 +1009,9 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 	case g.RPCAgentDeployCmd.FullCommand():
 		return rpcAgentDeploy(localEnv,
 			*g.RPCAgentDeployCmd.LeaderArgs,
-			*g.RPCAgentDeployCmd.NodeArgs)
+			*g.RPCAgentDeployCmd.NodeArgs,
+			*g.RPCAgentDeployCmd.Version,
+			*g.RPCAgentDeployCmd.Hostname)
 	case g.RPCAgentInstallCmd.FullCommand():
 		return rpcAgentInstall(localEnv, *g.RPCAgentInstallCmd.Args)
 	case g.RPCAgentRunCmd.FullCommand():

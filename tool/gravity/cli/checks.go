@@ -134,7 +134,7 @@ func checkUpgrade(ctx context.Context, env *localenv.LocalEnvironment, config pr
 		return trace.Wrap(err)
 	}
 	// Deploy RPC agents that will be used for running checks on the nodes.
-	credentials, err := rpcAgentDeployHelper(ctx, env, "", "")
+	credentials, err := rpcAgentDeployHelper(ctx, env, "", "", "", "")
 	if err != nil {
 		return trace.Wrap(err)
 	}

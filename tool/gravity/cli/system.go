@@ -310,37 +310,9 @@ func reinstallOneshotService(env *localenv.LocalEnvironment, serviceName string,
 		NoBlock: true,
 		ServiceSpec: systemservice.ServiceSpec{
 			User:            constants.RootUIDString,
-			Type:            constants.OneshotService,
+			Type:            service.OneshotService,
 			StartCommand:    strings.Join(cmd, " "),
 			RemainAfterExit: true,
-		},
-	})
-	return trace.Wrap(err)
-}
-
-// reinstallService stops and reinstalls the service specified by serviceName
-// as a simple service.
-func reinstallService(env *localenv.LocalEnvironment, serviceName string, cmd []string) error {
-	services, err := systemservice.New()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	err = services.StopService(serviceName)
-	if err != nil {
-		log.Warnf("Error stopping service %v: %v.", serviceName, err)
-	}
-
-	err = services.InstallService(systemservice.NewServiceRequest{
-		Name:    serviceName,
-		NoBlock: true,
-		ServiceSpec: systemservice.ServiceSpec{
-			User:            constants.RootUIDString,
-			Type:            constants.SimpleService,
-			StartCommand:    strings.Join(cmd, " "),
-			RemainAfterExit: false,
-			Restart:         constants.RestartOnFailure,
-			WantedBy:        defaults.SystemServiceWantedBy,
 		},
 	})
 	return trace.Wrap(err)

@@ -37,6 +37,7 @@ import (
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/system/service"
 	"github.com/gravitational/gravity/lib/update"
 	clusterupdate "github.com/gravitational/gravity/lib/update/cluster"
 	"github.com/gravitational/gravity/lib/utils"
@@ -57,7 +58,7 @@ func rpcAgentInstall(env *localenv.LocalEnvironment, args []string) error {
 		return trace.Wrap(err, "failed to determine gravity executable path")
 	}
 
-	return trace.Wrap(reinstallService(env,
+	return trace.Wrap(service.ReinstallSimpleService(
 		defaults.GravityRPCAgentServiceName,
 		append([]string{gravityPath, "--debug", "agent", "run"}, args...)))
 }
@@ -134,7 +135,7 @@ func newAgent() (rpcserver.Server, error) {
 	serverAddr := fmt.Sprintf(":%v", defaults.GravityRPCAgentPort)
 	listener, err := net.Listen("tcp4", serverAddr)
 	if err != nil {
-		return nil, trace.Wrap(err, "failed to bind to %v")
+		return nil, trace.Wrap(err, "failed to bind to %v", serverAddr)
 	}
 
 	config := rpcserver.Config{
@@ -144,6 +145,7 @@ func newAgent() (rpcserver.Server, error) {
 		},
 		Listener: listener,
 	}
+
 	server, err := rpcserver.New(config)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -160,17 +162,17 @@ var agentFunctions map[string]agentFunc = map[string]agentFunc{
 	constants.RPCAgentSyncPlanFunction: executeSyncOperationPlan,
 }
 
-func rpcAgentDeploy(localEnv *localenv.LocalEnvironment, leaderParams, nodeParams string) error {
+func rpcAgentDeploy(localEnv *localenv.LocalEnvironment, leaderParams, nodeParams, version, hostname string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), defaults.AgentDeployTimeout)
 	defer cancel()
-	_, err := rpcAgentDeployHelper(ctx, localEnv, leaderParams, nodeParams)
+	_, err := rpcAgentDeployHelper(ctx, localEnv, leaderParams, nodeParams, version, hostname)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	return nil
 }
 
-func rpcAgentDeployHelper(ctx context.Context, localEnv *localenv.LocalEnvironment, leaderParams, nodeParams string) (credentials.TransportCredentials, error) {
+func rpcAgentDeployHelper(ctx context.Context, localEnv *localenv.LocalEnvironment, leaderParams, nodeParams, version, hostname string) (credentials.TransportCredentials, error) {
 	localEnv.PrintStep("Deploying agents on the cluster nodes")
 
 	clusterEnv, err := localEnv.NewClusterEnvironment()
@@ -205,6 +207,8 @@ func rpcAgentDeployHelper(ctx context.Context, localEnv *localenv.LocalEnvironme
 		proxy:        proxy,
 		leaderParams: leaderParams,
 		nodeParams:   nodeParams,
+		version:      version,
+		hostname:     hostname,
 	}
 
 	// Force this node to be the operation leader
@@ -217,7 +221,18 @@ func rpcAgentDeployHelper(ctx context.Context, localEnv *localenv.LocalEnvironme
 
 	localCtx, cancel := context.WithTimeout(ctx, defaults.AgentDeployTimeout)
 	defer cancel()
+
 	return deployAgents(localCtx, localEnv, req)
+}
+
+// verifyNode verifies that we can connect to the teleport node
+func verifyNode(ctx context.Context, server rpc.DeployServer, proxy *teleclient.ProxyClient) error {
+	client, err := proxy.ConnectToNode(ctx, server.NodeAddr, defaults.SSHUser, false)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	client.Close()
+	return nil
 }
 
 func verifyCluster(ctx context.Context, req deployAgentsRequest) (servers []rpc.DeployServer, err error) {
@@ -226,19 +241,18 @@ func verifyCluster(ctx context.Context, req deployAgentsRequest) (servers []rpc.
 
 	for _, server := range req.clusterState.Servers {
 		deployServer := rpc.NewDeployServer(server)
+
 		// do a quick check to make sure we can connect to the teleport node
-		client, err := req.proxy.ConnectToNode(ctx, deployServer.NodeAddr,
-			defaults.SSHUser, false)
-		if err != nil {
+		if err := verifyNode(ctx, deployServer, req.proxy); err != nil {
 			log.WithError(err).Errorf("Failed to connect to teleport on node %v.",
 				deployServer)
 			missing = append(missing, server.Hostname)
-		} else {
-			client.Close()
-			log.Infof("Successfully connected to teleport on node %v (%v).",
-				server.Hostname, deployServer.NodeAddr)
-			servers = append(servers, deployServer)
+			continue
 		}
+
+		log.Infof("Successfully connected to teleport on node %v (%v).",
+			server.Hostname, deployServer.NodeAddr)
+		servers = append(servers, deployServer)
 	}
 	if len(missing) != 0 {
 		return nil, trace.NotFound(teleportUnavailableMessage,
@@ -317,12 +331,39 @@ func deployAgents(ctx context.Context, env *localenv.LocalEnvironment, req deplo
 
 // newDeployAgentsRequest creates a new request to deploy agents on the local cluster
 func newDeployAgentsRequest(ctx context.Context, env *localenv.LocalEnvironment, req deployAgentsRequest) (*rpc.DeployAgentsRequest, error) {
-	servers, err := verifyCluster(ctx, req)
-	if err != nil {
-		return nil, trace.Wrap(err)
+	// If hostname is specified in the request, deploy agent only on specified node
+	var servers []rpc.DeployServer
+	if req.hostname != "" {
+		server, err := findServerByHostname(req.clusterState, req.hostname)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+
+		verifiedServer := rpc.NewDeployServer(server)
+		if err := verifyNode(ctx, verifiedServer, req.proxy); err != nil {
+			return nil, trace.Wrap(err)
+		}
+
+		servers = append(servers, verifiedServer)
+	} else {
+		verifiedServers, err := verifyCluster(ctx, req)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		servers = append(servers, verifiedServers...)
 	}
 
-	gravityPackage := getGravityPackage()
+	// If version is not specified in the request, use the current build version
+	if req.version == "" {
+		req.version = strings.Split(version.Get().Version, "+")[0]
+	}
+
+	gravityPackage := loc.Locator{
+		Repository: defaults.SystemAccountOrg,
+		Name:       constants.GravityPackage,
+		Version:    req.version,
+	}
+
 	secretsPackageTemplate := loc.Locator{
 		Repository: req.cluster.Domain,
 		Version:    gravityPackage.Version,
@@ -346,6 +387,17 @@ func newDeployAgentsRequest(ctx context.Context, env *localenv.LocalEnvironment,
 		NodeParams:     req.nodeParams,
 		Progress:       utils.NewProgress(ctx, "", 0, bool(env.Silent)),
 	}, nil
+}
+
+// findServerByHostname returns the server with the matching hostname. Returns
+// a NotFound error if a server with a matching hostname does not exist.
+func findServerByHostname(clusterState storage.ClusterState, hostname string) (server storage.Server, err error) {
+	for _, srv := range clusterState.Servers {
+		if srv.Hostname == hostname {
+			return srv, nil
+		}
+	}
+	return server, trace.NotFound("Specified server not found: %s", hostname)
 }
 
 func getClientCredentials(ctx context.Context, packages pack.PackageService, secretsPackage loc.Locator) (credentials.TransportCredentials, error) {
@@ -413,7 +465,12 @@ func rpcAgentStatus(env *localenv.LocalEnvironment) error {
 		return trace.Wrap(err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), defaults.AgentStatusTimeout)
+	timeout, err := utils.GetenvDuration(constants.AgentStatusTimeoutEnvVar)
+	if err != nil {
+		timeout = defaults.AgentStatusTimeout
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	statusList := rpc.CollectAgentStatus(ctx, cluster.ClusterState.Servers, fsm.NewAgentRunner(creds))
@@ -468,4 +525,8 @@ type deployAgentsRequest struct {
 	leaderParams string
 	leader       *storage.Server
 	nodeParams   string
+	// version specifies the version of the gravity agent to deploy
+	version string
+	// hostname specifies the hostname of the node to deploy the agent on
+	hostname string
 }
