@@ -56,6 +56,7 @@ func CollectAgentStatus(ctx context.Context, servers storage.Servers, rpc AgentR
 	for range servers {
 		statusList = append(statusList, <-statusCh)
 	}
+	close(statusCh)
 
 	return statusList
 }
