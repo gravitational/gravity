@@ -63,7 +63,7 @@ func (e *PlanRolledBackEvent) isTerminalEvent() bool { return true }
 // The watch will stop upon entering one of the terminal operation states, for
 // example if the obtained plan is completed or fully rolled back.
 func FollowOperationPlan(ctx context.Context, getPlan GetPlanFunc) <-chan PlanEvent {
-	ch := make(chan PlanEvent, 100)
+	ch := make(chan PlanEvent, 1000)
 	// Send an initial batch of events from the initial state of the plan.
 	plan, err := getPlan()
 	if err != nil {
@@ -71,7 +71,11 @@ func FollowOperationPlan(ctx context.Context, getPlan GetPlanFunc) <-chan PlanEv
 	}
 	if plan != nil {
 		for _, event := range getPlanEvents(GetPlanProgress(*plan), *plan) {
-			ch <- event
+			select {
+			case ch <- event:
+			default:
+				logrus.WithField("event", event).Warn("Event channel is full.")
+			}
 			if event.isTerminalEvent() {
 				return ch
 			}
@@ -97,7 +101,11 @@ func FollowOperationPlan(ctx context.Context, getPlan GetPlanFunc) <-chan PlanEv
 					continue
 				}
 				for _, event := range getPlanEvents(changes, *nextPlan) {
-					ch <- event
+					select {
+					case ch <- event:
+					default:
+						logrus.WithField("event", event).Warn("Event channel is full.")
+					}
 					if event.isTerminalEvent() {
 						return
 					}
