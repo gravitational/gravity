@@ -20,16 +20,18 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"strconv"
 
-	"github.com/coreos/go-semver/semver"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/process"
+	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/teleport/lib/config"
 	"github.com/gravitational/teleport/lib/defaults"
 
+	"github.com/coreos/go-semver/semver"
 	"github.com/gravitational/trace"
 	"gopkg.in/yaml.v2"
 )
@@ -87,6 +89,27 @@ func updateTeleportNodeToken(env *localenv.LocalEnvironment, packageName, token 
 		return trace.Wrap(err)
 	}
 	fmt.Println("Teleport node auth token updated. Please restart Teleport service using 'sudo systemctl restart *teleport*'")
+	return nil
+}
+
+func updateTeleportNodeAuthServers(env *localenv.LocalEnvironment, packageName string, authServers []string) error {
+	locators, err := getTeleportLocators(env, packageName)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	fileConfig, err := readTeleportFileConfig(locators.configReader)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	for _, authServer := range authServers {
+		fileConfig.AuthServers = append(fileConfig.AuthServers,
+			utils.EnsurePort(authServer, strconv.Itoa(defaults.AuthListenPort)))
+	}
+	err = saveTeleportFileConfig(env.Packages, fileConfig, locators.teleportLocator, locators.configLocator, locators.configEnvelope.RuntimeLabels)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	fmt.Println("Teleport node auth servers updated. Please restart Teleport service using 'sudo systemctl restart *teleport*'")
 	return nil
 }
 

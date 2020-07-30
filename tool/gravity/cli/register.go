@@ -601,6 +601,9 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.SystemTeleportNodeTokenCmd.CmdClause = g.SystemTeleportCmd.Command("set-node-token", "Set auth token in Teleport node config")
 	g.SystemTeleportNodeTokenCmd.Package = g.SystemTeleportNodeTokenCmd.Flag("package", "Package with Teleport node config. Provide 'node' to try and auto-detect package").Required().String()
 	g.SystemTeleportNodeTokenCmd.Token = g.SystemTeleportNodeTokenCmd.Flag("token", "Auth token to set").Required().String()
+	g.SystemTeleportAuthServersCmd.CmdClause = g.SystemTeleportCmd.Command("set-auth-servers", "Set auth servers in Teleport node config")
+	g.SystemTeleportAuthServersCmd.Package = g.SystemTeleportAuthServersCmd.Flag("package", "Package with Teleport node config. Provide 'node' to try and auto-detect package").Default("node").String()
+	g.SystemTeleportAuthServersCmd.AuthServers = g.SystemTeleportAuthServersCmd.Flag("auth-server", "Auth servers to set").Required().Strings()
 
 	g.SystemRotateCertsCmd.CmdClause = g.SystemCmd.Command("rotate-certs", "Renew cluster certificates on a node").Hidden()
 	g.SystemRotateCertsCmd.ClusterName = g.SystemRotateCertsCmd.Arg("cluster-name", "Name of the local cluster").String()

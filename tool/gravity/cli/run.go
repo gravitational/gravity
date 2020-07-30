@@ -792,6 +792,10 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 		return updateTeleportNodeToken(localEnv,
 			*g.SystemTeleportNodeTokenCmd.Package,
 			*g.SystemTeleportNodeTokenCmd.Token)
+	case g.SystemTeleportAuthServersCmd.FullCommand():
+		return updateTeleportNodeAuthServers(localEnv,
+			*g.SystemTeleportAuthServersCmd.Package,
+			*g.SystemTeleportAuthServersCmd.AuthServers)
 	case g.SystemReinstallCmd.FullCommand():
 		return systemReinstall(localEnv,
 			*g.SystemReinstallCmd.Package,
