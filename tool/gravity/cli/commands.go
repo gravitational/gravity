@@ -248,6 +248,8 @@ type Application struct {
 	SystemTeleportMasterTokenCmd SystemTeleportMasterTokenCmd
 	// SystemTeleportNodeTokenCmd updates Teleport node auth token
 	SystemTeleportNodeTokenCmd SystemTeleportNodeTokenCmd
+	// SystemTeleportAuthServersCmd updates Teleport node auth servers
+	SystemTeleportAuthServersCmd SystemTeleportAuthServersCmd
 	// SystemRotateCertsCmd renews cluster certificates on local node
 	SystemRotateCertsCmd SystemRotateCertsCmd
 	// SystemRotateRPCCredsCmd renews cluster RPC credentials
@@ -1413,6 +1415,15 @@ type SystemTeleportNodeTokenCmd struct {
 	Package *string
 	// Token is the auth token to set
 	Token *string
+}
+
+// SystemTeleportAuthServersCmd updates Teleport node auth servers
+type SystemTeleportAuthServersCmd struct {
+	*kingpin.CmdClause
+	// Package is the Teleport node config package
+	Package *string
+	// AuthServers is a list of auth servers to set in the config
+	AuthServers *[]string
 }
 
 // SystemRotateCertsCmd renews cluster certificates on local node
