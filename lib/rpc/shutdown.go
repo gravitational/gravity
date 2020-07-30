@@ -63,7 +63,7 @@ func shutdownAgent(ctx context.Context, logger log.FieldLogger, addr string, rpc
 	var out bytes.Buffer
 	err = clt.Command(ctx, logger, &out, &out, defaults.SystemctlBin, "disable", defaults.GravityRPCAgentServiceName)
 	if err != nil {
-		log.WithError(err).Warn("Failed to disable agent on %s: %s.", addr, out.String())
+		logger.WithError(err).Warnf("Failed to disable agent on %s: %s.", addr, out.String())
 	}
 
 	return trace.Wrap(clt.Shutdown(ctx, &pb.ShutdownRequest{}))
