@@ -71,7 +71,11 @@ func FollowOperationPlan(ctx context.Context, getPlan GetPlanFunc) <-chan PlanEv
 	}
 	if plan != nil {
 		for _, event := range getPlanEvents(GetPlanProgress(*plan), *plan) {
-			ch <- event
+			select {
+			case ch <- event:
+			default:
+				logrus.WithField("event", event).Warn("Event channel is full.")
+			}
 			if event.isTerminalEvent() {
 				return ch
 			}
@@ -97,7 +101,11 @@ func FollowOperationPlan(ctx context.Context, getPlan GetPlanFunc) <-chan PlanEv
 					continue
 				}
 				for _, event := range getPlanEvents(changes, *nextPlan) {
-					ch <- event
+					select {
+					case ch <- event:
+					default:
+						logrus.WithField("event", event).Warn("Event channel is full.")
+					}
 					if event.isTerminalEvent() {
 						return
 					}
