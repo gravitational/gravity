@@ -46,9 +46,8 @@ export EXTRA_VOLUME_MOUNTS=$(build_volume_mounts)
 
 tele=$GRAVITY_BUILDDIR/tele
 mkdir -p $UPGRADE_FROM_DIR
-$tele logout
 for release in ${!UPGRADE_MAP[@]}; do
-  $tele pull telekube:$release --output=$UPGRADE_FROM_DIR/telekube_$release.tar
+  $tele pull telekube:$release --output=$UPGRADE_FROM_DIR/telekube_$release.tar --state-dir $GRAVITY_BUILDDIR/.robotest
 done
 
 docker pull $ROBOTEST_REPO
