@@ -75,7 +75,7 @@ func (r dtypeChecker) check(ctx context.Context, reporter health.Reporter) error
 	reporter.Add(&pb.Probe{
 		Checker: r.Name(),
 		Detail: fmt.Sprintf("filesystem on %v does not support d_type, "+
-			"see https://www.gravitational.com/docs/faq/#d_type-support-in-filesystem", string(r)),
+			"see https://www.gravitational.com/gravity/docs/faq/#d_type-support-in-filesystem", string(r)),
 		Status: pb.Probe_Failed,
 	})
 	return nil
