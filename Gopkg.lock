@@ -417,7 +417,8 @@
   revision = "1914e367e85eaf0c25d495b48e060dfe6190f8d0"
 
 [[projects]]
-  digest = "1:c39a5a9c4388d7354c18d416f973a90407c9977a1c8cfae4b7201f1ad9014de1"
+  branch = "release-0.35"
+  digest = "1:6c1c43bfcc3ebb83e94fd0246d5f7299c7ed108fa6c2fe81eef133d76a4a457b"
   name = "github.com/coreos/prometheus-operator"
   packages = [
     "pkg/apis/monitoring",
@@ -427,8 +428,8 @@
     "pkg/client/versioned/typed/monitoring/v1",
   ]
   pruneopts = "UT"
-  revision = "d6ba399c064c47fea536f08d438a572588b256da"
-  version = "v0.32.0"
+  revision = "d0b647911671779fcb1fb2ae9583b2f7e1e30bbc"
+  source = "github.com/gravitational/prometheus-operator"
 
 [[projects]]
   digest = "1:ec66ad050342a3573ed2f5a4337d51b4c6d5d2a717cc6c9ecf86b081235a5759"
@@ -1011,12 +1012,12 @@
   version = "1.0.2"
 
 [[projects]]
-  digest = "1:5d8705954232d913fa0e98934f21cbc879866d3a1e676f4e5334145807e47a84"
+  branch = "sergei/operator_70x"
+  digest = "1:fb8547713a81018d28a835c0801803969bbf78aff5f805b6ac89e95a9f0c6e8d"
   name = "github.com/gravitational/rigging"
   packages = ["."]
   pruneopts = "UT"
-  revision = "83b2e9505286305460e9174b2acfeb35d97936e9"
-  version = "7.0.1"
+  revision = "8223867b0a098d01e3c7e72606b86ab1cf1c3c0f"
 
 [[projects]]
   digest = "1:e025b0f4997273273c5dc46a17caddb27ab7dc8b8aa9ffb50d326e7aeb4059c7"
@@ -1063,7 +1064,7 @@
 
 [[projects]]
   branch = "branch/3.2-g"
-  digest = "1:356657bce2d5038c787e84dde4d220d634384090bb9c950a80e4fc40505526f6"
+  digest = "1:32fabc3fcc923985f60d20d975617976fefaa78290f1f9aeb7381ab4dcc37160"
   name = "github.com/gravitational/teleport"
   packages = [
     ".",

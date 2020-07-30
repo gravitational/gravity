@@ -102,6 +102,8 @@ func remoteDirectories(operation ops.SiteOperation, server *ProvisionedServer, m
 		server.InGravity("secrets"),
 		server.InGravity("backup"),
 		server.InGravity("logrange"),
+		server.InGravity("monitoring", "prometheus-db"),
+		server.InGravity("monitoring", "alertmanager-db"),
 	}
 
 	chownList := []string{
@@ -115,6 +117,7 @@ func remoteDirectories(operation ops.SiteOperation, server *ProvisionedServer, m
 		server.InGravity("site"),
 		server.InGravity("secrets"),
 		server.InGravity("backup"),
+		server.InGravity("monitoring"),
 	}
 
 	chmodList := []string{

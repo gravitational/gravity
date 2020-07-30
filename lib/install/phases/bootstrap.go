@@ -220,6 +220,8 @@ func (p *bootstrapExecutor) configureSystemDirectories(ctx context.Context) erro
 		filepath.Join(stateDir, "secrets"),
 		filepath.Join(stateDir, "backup"),
 		filepath.Join(stateDir, "logrange"),
+		filepath.Join(stateDir, "monitoring", "prometheus-db"),
+		filepath.Join(stateDir, "monitoring", "alertmanager-db"),
 	}
 	for _, dir := range mkdirList {
 		p.Infof("Creating system directory %v.", dir)
@@ -244,6 +246,7 @@ func (p *bootstrapExecutor) configureSystemDirectories(ctx context.Context) erro
 		filepath.Join(stateDir, "site"),
 		filepath.Join(stateDir, "secrets"),
 		filepath.Join(stateDir, "backup"),
+		filepath.Join(stateDir, "monitoring"),
 	}
 	for _, dir := range chownList {
 		p.Infof("Setting ownership on system directory %v to %v:%v.",
