@@ -172,6 +172,7 @@ type updater interface {
 	RunPhase(ctx context.Context, phase string, phaseTimeout time.Duration, force bool) error
 	RollbackPhase(ctx context.Context, params fsm.Params, phaseTimeout time.Duration) error
 	Complete(context.Context, error) error
+	Check(params fsm.Params) error
 }
 
 func clusterStateFromPlan(plan storage.OperationPlan) (result storage.ClusterState) {

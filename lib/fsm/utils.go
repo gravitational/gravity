@@ -23,6 +23,7 @@ import (
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/systeminfo"
 
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
@@ -158,6 +159,64 @@ func ResolvePlan(plan storage.OperationPlan, changelog storage.PlanChangelog) *s
 	return &plan
 }
 
+// DiffPlan returns the difference between the previous and the next plans in the
+// form of a changelog.
+func DiffPlan(prevPlan *storage.OperationPlan, nextPlan storage.OperationPlan) (diff []storage.PlanChange, err error) {
+	// If the current plan is not provided, the diff is all attempted phases
+	// from the next plan.
+	if prevPlan == nil {
+		return GetPlanProgress(nextPlan), nil
+	}
+	// Quick sanity check that this is the same plan.
+	if prevPlan.OperationID != nextPlan.OperationID {
+		return nil, trace.BadParameter("can't diff different plans: %v %v", prevPlan, nextPlan)
+	}
+	// Since this is the same plan, should be safe to assume they have the
+	// same phases with different states.
+	prevPhases := prevPlan.GetLeafPhases()
+	nextPhases := nextPlan.GetLeafPhases()
+	if len(prevPhases) != len(nextPhases) {
+		return nil, trace.BadParameter("plans have different lengths: %v %v", prevPlan, nextPlan)
+	}
+	for i, prevPhase := range prevPhases {
+		nextPhase := nextPhases[i]
+		if prevPhase.ID != nextPhase.ID {
+			return nil, trace.BadParameter("phase ids don't match: %v %v", prevPhase, nextPhase)
+		}
+		if prevPhase.State != nextPhase.State || prevPhase.Updated != nextPhase.Updated {
+			diff = append(diff, storage.PlanChange{
+				ClusterName: nextPlan.ClusterName,
+				OperationID: nextPlan.OperationID,
+				PhaseID:     nextPhase.ID,
+				PhaseIndex:  i,
+				NewState:    nextPhase.State,
+				Created:     nextPhase.Updated,
+				Error:       nextPhase.Error,
+			})
+		}
+	}
+	return diff, nil
+}
+
+// GetPlanProgress returns phases of the plan that have been executed so far
+// in the form of a changelog.
+func GetPlanProgress(plan storage.OperationPlan) (progress []storage.PlanChange) {
+	for i, phase := range plan.GetLeafPhases() {
+		if !phase.IsUnstarted() {
+			progress = append(progress, storage.PlanChange{
+				ClusterName: plan.ClusterName,
+				OperationID: plan.OperationID,
+				PhaseID:     phase.ID,
+				PhaseIndex:  i,
+				NewState:    phase.State,
+				Created:     phase.Updated,
+				Error:       phase.Error,
+			})
+		}
+	}
+	return progress
+}
+
 // DiffChangelog returns a list of changelog entries from "local" that are missing from "remote"
 func DiffChangelog(local, remote storage.PlanChangelog) []storage.PlanChange {
 	remoteEntries := make(map[string]struct{})
@@ -247,4 +306,22 @@ func addPhases(phase *storage.OperationPhase, result *[]*storage.OperationPhase)
 	for i := range phase.Phases {
 		addPhases(&phase.Phases[i], result)
 	}
+}
+
+// CheckPlanCoordinator ensures that the node this function is invoked on is the
+// coordinator node specified in the plan.
+//
+// This is mainly important for making sure the plan is executed on the lead
+// node for a particular plan - for example, for etcd upgrades, where state
+// can only be kept in sync on the lead master node itself.
+func CheckPlanCoordinator(p *storage.OperationPlan) error {
+	if p.OfflineCoordinator == nil {
+		return nil
+	}
+	err := systeminfo.HasInterface(p.OfflineCoordinator.AdvertiseIP)
+	if err != nil && trace.IsNotFound(err) {
+		return trace.BadParameter("Plan must be resumed on node %v/%v",
+			p.OfflineCoordinator.Hostname, p.OfflineCoordinator.AdvertiseIP)
+	}
+	return trace.Wrap(err)
 }
