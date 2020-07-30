@@ -25,8 +25,6 @@ import (
 	pb "github.com/gravitational/gravity/lib/rpc/proto"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
-	"github.com/gravitational/gravity/lib/system/service"
-	"github.com/gravitational/gravity/lib/systemservice"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/gravitational/trace"
@@ -154,11 +152,6 @@ func (srv *agentServer) Shutdown(ctx context.Context, req *pb.ShutdownRequest) (
 		}
 		cancel()
 	}()
-
-	// Disable agent service so it does not restart when node reboots.
-	err = service.Disable(systemservice.DisableServiceRequest{
-		Name: defaults.GravityRPCAgentServiceName,
-	})
 
 	return &types.Empty{}, trace.Wrap(err)
 }
