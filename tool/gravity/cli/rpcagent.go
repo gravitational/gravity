@@ -38,7 +38,6 @@ import (
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/system/service"
-	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/update"
 	clusterupdate "github.com/gravitational/gravity/lib/update/cluster"
 	"github.com/gravitational/gravity/lib/utils"
@@ -77,12 +76,7 @@ func rpcAgentRun(localEnv, updateEnv *localenv.LocalEnvironment, args []string) 
 	if !exists {
 		return trace.NotFound("no such function %q", args[0])
 	}
-	if err := runAgentFunction(localEnv, updateEnv, agent, agentFunc, args); err != nil {
-		return trace.Wrap(err)
-	}
-	return trace.Wrap(service.Disable(systemservice.DisableServiceRequest{
-		Name: defaults.GravityRPCAgentServiceName,
-	}))
+	return trace.Wrap(runAgentFunction(localEnv, updateEnv, agent, agentFunc, args))
 }
 
 func runAgentFunction(
