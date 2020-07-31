@@ -292,6 +292,8 @@ func systemBlockingReinstall(env *localenv.LocalEnvironment, update storage.Pack
 	return updater.Reinstall(context.TODO(), update)
 }
 
+// reinstallOneshotService stops and reinstalls the service specified by
+// serviceName as a oneshot service.
 func reinstallOneshotService(env *localenv.LocalEnvironment, serviceName string, cmd []string) error {
 	services, err := systemservice.New()
 	if err != nil {
@@ -308,7 +310,7 @@ func reinstallOneshotService(env *localenv.LocalEnvironment, serviceName string,
 		NoBlock: true,
 		ServiceSpec: systemservice.ServiceSpec{
 			User:            constants.RootUIDString,
-			Type:            constants.OneshotService,
+			Type:            service.OneshotService,
 			StartCommand:    strings.Join(cmd, " "),
 			RemainAfterExit: true,
 		},
