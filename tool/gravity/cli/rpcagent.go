@@ -170,8 +170,6 @@ type deployOptions struct {
 	nodeArgs string
 	// version specifies the version of the agent to be deployed
 	version string
-	// hostname specifies the hostname of the node to deploy the agent on
-	hostname string
 }
 
 func rpcAgentDeploy(localEnv *localenv.LocalEnvironment, options deployOptions) error {
@@ -227,17 +225,6 @@ func rpcAgentDeployHelper(ctx context.Context, localEnv *localenv.LocalEnvironme
 		version:      options.version,
 	}
 
-	// If hostname is specified in the options, deploy agent only on specified node
-	if options.hostname != "" {
-		server, err := req.clusterState.FindServer(options.hostname)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-		req.servers = append(req.servers, *server)
-	} else {
-		req.servers = cluster.ClusterState.Servers
-	}
-
 	// Force this node to be the operation leader
 	req.leader, err = findLocalServer(cluster.ClusterState.Servers)
 	if err != nil {
@@ -248,7 +235,6 @@ func rpcAgentDeployHelper(ctx context.Context, localEnv *localenv.LocalEnvironme
 
 	localCtx, cancel := context.WithTimeout(ctx, defaults.AgentDeployTimeout)
 	defer cancel()
-
 	return deployAgents(localCtx, localEnv, req)
 }
 
@@ -264,9 +250,9 @@ func verifyNode(ctx context.Context, server rpc.DeployServer, proxy *teleclient.
 
 func verifyCluster(ctx context.Context, req deployAgentsRequest) (servers []rpc.DeployServer, err error) {
 	var missing []string
-	servers = make([]rpc.DeployServer, 0, len(servers))
+	servers = make([]rpc.DeployServer, 0, len(req.clusterState.Servers))
 
-	for _, server := range req.servers {
+	for _, server := range req.clusterState.Servers {
 		deployServer := rpc.NewDeployServer(server)
 
 		// do a quick check to make sure we can connect to the teleport node
