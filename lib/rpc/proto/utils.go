@@ -153,3 +153,9 @@ func (r *CloudMetadata) String() string {
 	return fmt.Sprintf("CloudMetadata(node=%v, type=%v, id=%v)",
 		r.NodeName, r.InstanceType, r.InstanceId)
 }
+
+// String returns human-friendly version string
+func (v *Version) String() string {
+	return fmt.Sprintf("Edition:\t%v\nVersion:\t%v\nGit Commit:\t%v\nHelm Version:\t%v",
+		v.Edition, v.Version, v.GitCommit, v.Helm)
+}

@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/modules"
 	pb "github.com/gravitational/gravity/lib/rpc/proto"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
@@ -130,6 +131,12 @@ func (srv *agentServer) GetCurrentTime(ctx context.Context, _ *types.Empty) (*ty
 	return ts, nil
 }
 
+// GetVersion queries the agent version information
+func (srv *agentServer) GetVersion(ctx context.Context, _ *types.Empty) (*pb.Version, error) {
+	ver := modules.Get().Version()
+	return &ver, nil
+}
+
 // Shutdown requests agent to shut down
 func (srv *agentServer) Shutdown(ctx context.Context, req *pb.ShutdownRequest) (resp *types.Empty, err error) {
 	srv.WithField("req", req).Info("Shutdown.")
@@ -145,6 +152,7 @@ func (srv *agentServer) Shutdown(ctx context.Context, req *pb.ShutdownRequest) (
 		}
 		cancel()
 	}()
+
 	return &types.Empty{}, trace.Wrap(err)
 }
 
