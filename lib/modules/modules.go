@@ -22,6 +22,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/rpc/proto"
 	"github.com/gravitational/gravity/lib/storage"
 
 	"github.com/gravitational/teleport"
@@ -41,7 +42,7 @@ type Modules interface {
 	// SupportedConnectors returns a list of supported auth connector kinds
 	SupportedConnectors() []string
 	// Version returns the tool version
-	Version() Version
+	Version() proto.Version
 	// TeleRepository returns the default repository for tele package cache
 	TeleRepository() string
 }
@@ -127,9 +128,9 @@ func (m *defaultModules) SupportedConnectors() []string {
 }
 
 // Version returns the gravity version
-func (m *defaultModules) Version() Version {
+func (m *defaultModules) Version() proto.Version {
 	ver := version.Get()
-	return Version{
+	return proto.Version{
 		Edition:   "open-source",
 		Version:   ver.Version,
 		GitCommit: ver.GitCommit,
@@ -166,24 +167,6 @@ func (*defaultResources) SupportedResourcesToRemove() []string {
 // Returns an empty string if no canonical form exists
 func (*defaultResources) CanonicalKind(kind string) string {
 	return storage.CanonicalKind(kind)
-}
-
-// Version represents gravity version
-type Version struct {
-	// Edition is the gravity edition, e.g. open-source
-	Edition string `json:"edition"`
-	// Version is the gravity semantic version
-	Version string `json:"version"`
-	// GitCommit is the git commit hash
-	GitCommit string `json:"gitCommit"`
-	// Helm is the built-in Helm version
-	Helm string `json:"helm"`
-}
-
-// String returns human-friendly version string
-func (v Version) String() string {
-	return fmt.Sprintf("Edition:\t%v\nVersion:\t%v\nGit Commit:\t%v\nHelm Version:\t%v",
-		v.Edition, v.Version, v.GitCommit, v.Helm)
 }
 
 var (

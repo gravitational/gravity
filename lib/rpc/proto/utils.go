@@ -82,3 +82,9 @@ func (r *PeerJoinRequest) Describe() string {
 func (r *PeerLeaveRequest) Describe() string {
 	return fmt.Sprintf("PeerLeaveRequest(addr=%v, config=%v)", r.Addr, r.Config)
 }
+
+// String returns human-friendly version string
+func (v *Version) String() string {
+	return fmt.Sprintf("Edition:\t%v\nVersion:\t%v\nGit Commit:\t%v\nHelm Version:\t%v",
+		v.Edition, v.Version, v.GitCommit, v.Helm)
+}

@@ -973,12 +973,15 @@
   revision = "5b6732a298fb51593276ff4594390b5c800b767c"
 
 [[projects]]
-  digest = "1:5639168299375c369a68748214586e3b25bbc17e7ec9c64564f43f4635097bfc"
+  digest = "1:403af811cfc53bf78a655e601b01dc9a149aa154cbd63384784b25799cdbea8c"
   name = "github.com/gravitational/trace"
-  packages = ["."]
+  packages = [
+    ".",
+    "trail",
+  ]
   pruneopts = "UT"
   revision = "2d27a078e25b4e8f656d1354fddf37d316d1e9bf"
-  version = "1.1.11"
+  version = "v1.1.11"
 
 [[projects]]
   digest = "1:841d5835e94129658adabece66a4cc54d2cec9a40fa8b51743ea35d0519dd6c2"
@@ -2638,6 +2641,7 @@
     "github.com/fsouza/go-dockerclient",
     "github.com/fsouza/go-dockerclient/testing",
     "github.com/ghodss/yaml",
+    "github.com/gogo/protobuf/gogoproto",
     "github.com/gogo/protobuf/proto",
     "github.com/gogo/protobuf/types",
     "github.com/gokyle/hotp",
@@ -2683,6 +2687,7 @@
     "github.com/gravitational/teleport/lib/web",
     "github.com/gravitational/teleport/lib/web/ui",
     "github.com/gravitational/trace",
+    "github.com/gravitational/trace/trail",
     "github.com/gravitational/ttlmap",
     "github.com/gravitational/version",
     "github.com/hashicorp/terraform/helper/schema",

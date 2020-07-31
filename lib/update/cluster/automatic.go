@@ -43,6 +43,17 @@ func AutomaticUpgrade(ctx context.Context, localEnv, updateEnv *localenv.LocalEn
 	if err != nil {
 		return trace.Wrap(err)
 	}
+
+	plan, err := fsm.GetOperationPlan(updateEnv.Backend, operation.SiteDomain, operation.ID)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	if plan.IsStarted() {
+		log.WithField("plan", plan.OperationID).Info("Upgrade is already in progress.")
+		return nil
+	}
+
 	creds, err := fsm.GetClientCredentials()
 	if err != nil {
 		return trace.Wrap(err)

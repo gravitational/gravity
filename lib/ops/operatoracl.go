@@ -28,6 +28,7 @@ import (
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/ops/monitoring"
+	"github.com/gravitational/gravity/lib/rpc/proto"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 	"github.com/gravitational/gravity/lib/users"
@@ -1040,6 +1041,6 @@ func (o *OperatorACL) GetAuthGateway(key SiteKey) (storage.AuthGateway, error) {
 }
 
 // GetVersion returns the server version information.
-func (o *OperatorACL) GetVersion(ctx context.Context) (*modules.Version, error) {
+func (o *OperatorACL) GetVersion(ctx context.Context) (*proto.Version, error) {
 	return o.operator.GetVersion(ctx)
 }

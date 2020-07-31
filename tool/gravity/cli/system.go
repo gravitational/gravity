@@ -44,6 +44,7 @@ import (
 	"github.com/gravitational/gravity/lib/pack/localpack"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/system/service"
 	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/gravity/tool/common"
@@ -310,6 +311,8 @@ func systemReinstallPackage(env *localenv.LocalEnvironment, update storage.Packa
 	return nil, trace.BadParameter("unsupported package: %v", update.To)
 }
 
+// reinstallOneshotService stops and reinstalls the service specified by
+// serviceName as a oneshot service.
 func reinstallOneshotService(env *localenv.LocalEnvironment, serviceName string, cmd []string) error {
 	services, err := systemservice.New()
 	if err != nil {
@@ -326,7 +329,7 @@ func reinstallOneshotService(env *localenv.LocalEnvironment, serviceName string,
 		NoBlock: true,
 		ServiceSpec: systemservice.ServiceSpec{
 			User:            constants.RootUIDString,
-			Type:            constants.OneshotService,
+			Type:            service.OneshotService,
 			StartCommand:    strings.Join(cmd, " "),
 			RemainAfterExit: true,
 		},
@@ -377,7 +380,7 @@ func installOneshotServiceFromSpec(printer localenv.Printer, serviceName string,
 	if spec.User == "" {
 		spec.User = constants.RootUIDString
 	}
-	spec.Type = constants.OneshotService
+	spec.Type = service.OneshotService
 	spec.RemainAfterExit = true
 
 	err = services.InstallService(systemservice.NewServiceRequest{
