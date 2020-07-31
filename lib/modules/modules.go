@@ -17,6 +17,7 @@ limitations under the License.
 package modules
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/gravitational/gravity/lib/constants"

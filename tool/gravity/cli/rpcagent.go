@@ -465,7 +465,7 @@ func rpcAgentStatus(env *localenv.LocalEnvironment) error {
 		return trace.Wrap(err)
 	}
 
-	cluster, err := operator.GetLocalSite()
+	cluster, err := operator.GetLocalSite(context.TODO())
 	if err != nil {
 		return trace.Wrap(err)
 	}
