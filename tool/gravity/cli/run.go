@@ -953,7 +953,6 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 				leaderArgs: *g.RPCAgentDeployCmd.LeaderArgs,
 				nodeArgs:   *g.RPCAgentDeployCmd.NodeArgs,
 				version:    *g.RPCAgentDeployCmd.Version,
-				hostname:   *g.RPCAgentDeployCmd.Hostname,
 			})
 	case g.RPCAgentInstallCmd.FullCommand():
 		return rpcAgentInstall(localEnv, *g.RPCAgentInstallCmd.Args)

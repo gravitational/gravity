@@ -176,7 +176,6 @@ func newCollector(env *localenv.LocalEnvironment) (*vacuum.Collector, error) {
 		cluster:      *cluster,
 		clusterEnv:   clusterEnv,
 		proxy:        proxy,
-		servers:      cluster.ClusterState.Servers,
 		version:      version.Get().Version,
 	}
 	creds, err := deployAgents(ctx, env, req)

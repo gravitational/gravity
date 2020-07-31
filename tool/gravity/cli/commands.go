@@ -1365,8 +1365,6 @@ type RPCAgentDeployCmd struct {
 	NodeArgs *string
 	// Version specifies the version of the agent to be deployed
 	Version *string
-	// Hostname specifies the hostname of the node to deploy the agent on
-	Hostname *string
 }
 
 // RPCAgentShutdownCmd requests RPC agents to shut down

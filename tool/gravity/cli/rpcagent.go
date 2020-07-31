@@ -143,8 +143,6 @@ type deployOptions struct {
 	nodeArgs string
 	// version specifies the version of the agent to be deployed
 	version string
-	// hostname specifies the hostname of the node to deploy the agent on
-	hostname string
 }
 
 func rpcAgentDeploy(localEnv *localenv.LocalEnvironment, options deployOptions) error {
@@ -200,27 +198,16 @@ func rpcAgentDeployHelper(ctx context.Context, localEnv *localenv.LocalEnvironme
 		version:      options.version,
 	}
 
-	// If hostname is specified in the options, deploy agent only on specified node
-	if options.hostname != "" {
-		server, err := req.clusterState.FindServer(options.hostname)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-		req.servers = append(req.servers, *server)
-	} else {
-		req.servers = cluster.ClusterState.Servers
-		// Force this node to be the operation leader
-		req.leader, err = ops.FindLocalServer(cluster.ClusterState)
-		if err != nil {
-			log.WithError(err).Warn("Failed to determine local node.")
-			return nil, trace.Wrap(err, "failed to find local node in cluster state.\n"+
-				"Make sure you start the operation from one of the cluster master nodes.")
-		}
+	// Force this node to be the operation leader
+	req.leader, err = ops.FindLocalServer(cluster.ClusterState)
+	if err != nil {
+		log.WithError(err).Warn("Failed to determine local node.")
+		return nil, trace.Wrap(err, "failed to find local node in cluster state.\n"+
+			"Make sure you start the operation from one of the cluster master nodes.")
 	}
 
 	localCtx, cancel := context.WithTimeout(ctx, defaults.AgentDeployTimeout)
 	defer cancel()
-
 	return deployAgents(localCtx, localEnv, req)
 }
 
@@ -234,11 +221,11 @@ func verifyNode(ctx context.Context, server rpc.DeployServer, proxy *teleclient.
 	return nil
 }
 
-func verifyCluster(ctx context.Context, req deployAgentsRequest, servers storage.Servers) (verified []rpc.DeployServer, err error) {
+func verifyCluster(ctx context.Context, req deployAgentsRequest) (verified []rpc.DeployServer, err error) {
 	var missing []string
-	verified = make([]rpc.DeployServer, 0, len(servers))
+	verified = make([]rpc.DeployServer, 0, len(req.clusterState.Servers))
 
-	for _, server := range servers {
+	for _, server := range req.clusterState.Servers {
 		deployServer := rpc.NewDeployServer(server)
 
 		// do a quick check to make sure we can connect to the teleport node
@@ -311,24 +298,23 @@ Once all Teleport nodes are running, launch the upgrade again.
 `
 )
 
-func upsertRPCCredentialsPackage(ctx context.Context, packageTemplate loc.Locator, req deployAgentsRequest) (
-	secretsPackage *loc.Locator, err error) {
-	servers, err := verifyCluster(ctx, req, req.clusterState.Servers)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
+func upsertRPCCredentialsPackage(
+	servers []rpc.DeployServer,
+	packages pack.PackageService,
+	clusterName string,
+	packageTemplate loc.Locator,
+) (secretsPackage *loc.Locator, err error) {
 	hosts := make([]string, 0, len(servers))
 	for _, server := range servers {
 		hosts = append(hosts, strings.Split(server.NodeAddr, ":")[0])
 	}
 
-	archive, err := rpc.GenerateAgentCredentials(hosts, req.cluster.Domain, false)
+	archive, err := rpc.GenerateAgentCredentials(hosts, clusterName, false)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	secretsPackage, err = rpc.GenerateAgentCredentialsPackage(req.clusterEnv.ClusterPackages, packageTemplate, archive)
+	secretsPackage, err = rpc.GenerateAgentCredentialsPackage(packages, packageTemplate, archive)
 	if err != nil && !trace.IsAlreadyExists(err) {
 		return nil, trace.Wrap(err)
 	}
@@ -356,6 +342,11 @@ func deployAgents(ctx context.Context, env *localenv.LocalEnvironment, req deplo
 
 // newDeployAgentsRequest creates a new request to deploy agents on the local cluster
 func newDeployAgentsRequest(ctx context.Context, env *localenv.LocalEnvironment, req deployAgentsRequest) (*rpc.DeployAgentsRequest, error) {
+	servers, err := verifyCluster(ctx, req)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
 	gravityPackage := loc.Locator{
 		Repository: defaults.SystemAccountOrg,
 		Name:       constants.GravityPackage,
@@ -367,12 +358,8 @@ func newDeployAgentsRequest(ctx context.Context, env *localenv.LocalEnvironment,
 		Version:    req.version,
 	}
 
-	secretsPackage, err := upsertRPCCredentialsPackage(ctx, secretsPackageTemplate, req)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	serversToDeploy, err := verifyCluster(ctx, req, req.servers)
+	secretsPackage, err := upsertRPCCredentialsPackage(
+		servers, req.clusterEnv.ClusterPackages, req.cluster.Domain, secretsPackageTemplate)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -380,7 +367,7 @@ func newDeployAgentsRequest(ctx context.Context, env *localenv.LocalEnvironment,
 	return &rpc.DeployAgentsRequest{
 		Proxy:          req.proxy,
 		ClusterState:   req.clusterState,
-		Servers:        serversToDeploy,
+		Servers:        servers,
 		SecretsPackage: *secretsPackage,
 		GravityPackage: gravityPackage,
 		FieldLogger:    logrus.WithField(trace.Component, "rpc:deploy"),
@@ -522,8 +509,6 @@ type deployAgentsRequest struct {
 	cluster      ops.Site
 	proxy        *teleclient.ProxyClient
 	leader       *storage.Server
-	// servers specifies the list of servers to deploy agents on
-	servers      storage.Servers
 	leaderParams string
 	nodeParams   string
 	// version specifies the version of the gravity agent to deploy

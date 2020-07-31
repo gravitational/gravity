@@ -582,7 +582,6 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.RPCAgentDeployCmd.LeaderArgs = g.RPCAgentDeployCmd.Flag("leader", "Additional arguments to leader node agent").String()
 	g.RPCAgentDeployCmd.NodeArgs = g.RPCAgentDeployCmd.Flag("node", "Additional arguments to regular node agent").String()
 	g.RPCAgentDeployCmd.Version = g.RPCAgentDeployCmd.Flag("version", "Agent version to deploy").String()
-	g.RPCAgentDeployCmd.Hostname = g.RPCAgentDeployCmd.Arg("hostname", "Hostname of the node to deploy the agent on").String()
 
 	g.RPCAgentShutdownCmd.CmdClause = g.RPCAgentCmd.Command("shutdown", "Request agents to shut down")
 
