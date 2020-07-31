@@ -43,9 +43,8 @@ func AutomaticUpgrade(ctx context.Context, localEnv, updateEnv *localenv.LocalEn
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	siteOp := (*ops.SiteOperation)(operation)
 
-	plan, err := fsm.GetOperationPlan(updateEnv.Backend, siteOp.Key())
+	plan, err := fsm.GetOperationPlan(updateEnv.Backend, operation.SiteDomain, operation.ID)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -66,7 +65,7 @@ func AutomaticUpgrade(ctx context.Context, localEnv, updateEnv *localenv.LocalEn
 	}
 	config := Config{
 		Config: update.Config{
-			Operation:    siteOp,
+			Operation:    (*ops.SiteOperation)(operation),
 			Operator:     clusterEnv.Operator,
 			Backend:      clusterEnv.Backend,
 			LocalBackend: updateEnv.Backend,
