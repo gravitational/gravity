@@ -24,9 +24,9 @@ import (
 
 	"github.com/gravitational/gravity/lib/clients"
 	"github.com/gravitational/gravity/lib/constants"
-	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/opsservice"
+	"github.com/gravitational/gravity/lib/rpc/proto"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 
@@ -893,7 +893,7 @@ func (r *Router) EmitAuditEvent(ctx context.Context, req ops.AuditEventRequest) 
 }
 
 // GetVersion returns the gravity binary version information.
-func (r *Router) GetVersion(ctx context.Context) (*modules.Version, error) {
+func (r *Router) GetVersion(ctx context.Context) (*proto.Version, error) {
 	return r.Local.GetVersion(ctx)
 }
 

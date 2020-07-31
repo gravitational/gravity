@@ -17,6 +17,7 @@ limitations under the License.
 package rpc
 
 import (
+	"bytes"
 	"context"
 	"io"
 
@@ -36,7 +37,7 @@ func ShutdownAgents(ctx context.Context, servers []string, logger log.FieldLogge
 	errs := make(chan error, len(servers))
 	for _, srv := range servers {
 		go func(host string) {
-			err := shutdownAgent(ctx, host, rpc)
+			err := shutdownAgent(ctx, logger, host, rpc)
 			if err != nil {
 				logger.WithError(err).Errorf("Failed to shut down agent on %s.", host)
 			} else {
@@ -49,13 +50,20 @@ func ShutdownAgents(ctx context.Context, servers []string, logger log.FieldLogge
 	return trace.Wrap(utils.CollectErrors(ctx, errs))
 }
 
-func shutdownAgent(ctx context.Context, addr string, rpc AgentRepository) error {
+func shutdownAgent(ctx context.Context, logger log.FieldLogger, addr string, rpc AgentRepository) error {
 	ctx, cancel := context.WithTimeout(ctx, defaults.DialTimeout)
 	defer cancel()
 
 	clt, err := rpc.GetClient(ctx, addr)
 	if err != nil {
 		return trace.Wrap(err)
+	}
+	defer clt.Close()
+
+	var out bytes.Buffer
+	err = clt.Command(ctx, logger, &out, &out, defaults.SystemctlBin, "disable", defaults.GravityRPCAgentServiceName)
+	if err != nil {
+		logger.WithError(err).Warnf("Failed to disable agent on %s: %s.", addr, out.String())
 	}
 
 	return trace.Wrap(clt.Shutdown(ctx, &pb.ShutdownRequest{}))

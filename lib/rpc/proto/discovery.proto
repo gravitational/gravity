@@ -16,6 +16,22 @@ service Discovery {
     
     // GetCurrentTime returns the node's current time as UTC timestamp
     rpc GetCurrentTime(google.protobuf.Empty) returns (google.protobuf.Timestamp);
+
+    // GetVersion returns the agent's version information.
+    rpc GetVersion(google.protobuf.Empty) returns (Version);
+}
+
+// Version represents a gravity version
+message Version {
+    option (gogoproto.goproto_stringer) = false;
+    // Edition is the gravity edition, e.g. open-source
+    string edition = 1;
+    // Version is the gravity semantic version
+    string version = 2;
+    // GitCommit is the git commit hash
+    string git_commit = 3;
+    // Helm is the built-in Helm version
+    string helm = 4;
 }
 
 // SystemInfo groups attributes that describe a system

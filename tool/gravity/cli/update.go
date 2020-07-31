@@ -34,6 +34,7 @@ import (
 	"github.com/gravitational/gravity/lib/update"
 
 	"github.com/gravitational/trace"
+	"github.com/gravitational/version"
 	"github.com/sirupsen/logrus"
 )
 
@@ -112,15 +113,20 @@ func newUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironm
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+
+	clusterState := clusterStateFromPlan(*plan)
+
 	req := init.updateDeployRequest(deployAgentsRequest{
 		// Use server list from the operation plan to always have a consistent
 		// view of the cluster (i.e. with servers correctly reflecting cluster roles)
-		clusterState: clusterStateFromPlan(*plan),
+		clusterState: clusterState,
 		cluster:      *cluster,
 		clusterEnv:   clusterEnv,
 		proxy:        proxy,
 		leader:       leader,
+		servers:      clusterState.Servers,
 		nodeParams:   constants.RPCAgentSyncPlanFunction,
+		version:      version.Get().Version,
 	})
 	deployCtx, cancel := context.WithTimeout(ctx, defaults.AgentDeployTimeout)
 	defer cancel()

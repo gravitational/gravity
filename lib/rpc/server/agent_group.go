@@ -271,6 +271,10 @@ func (r errorPeer) GetCurrentTime(context.Context) (*time.Time, error) {
 	return nil, trace.Wrap(r.error)
 }
 
+func (r errorPeer) GetVersion(context.Context) (*pb.Version, error) {
+	return nil, trace.Wrap(r.error)
+}
+
 func (r errorPeer) CheckPorts(context.Context, *validationpb.CheckPortsRequest) (*validationpb.CheckPortsResponse, error) {
 	return nil, trace.Wrap(r.error)
 }
