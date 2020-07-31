@@ -686,26 +686,30 @@ func (r updateStep) etcdPhase(leadMaster storage.Server, otherMasters []storage.
 	}
 	root.AddParallel(upgradeServers)
 
-	// Restore kubernetes data
-	// migrate to etcd3 store
-	// clear kubernetes data from etcd2 store
-	restoreData := builder.NewPhase(storage.OperationPhase{
-		ID:          "restore",
-		Description: "Restore etcd data from backup",
-		Executor:    updateEtcdRestore,
+	// Copy member directory to the new version
+	migrateData := builder.NewPhase(storage.OperationPhase{
+		ID:          "migrate",
+		Description: "Migrate etcd data to new version",
+		Executor:    updateEtcdMigrate,
 		Data: &storage.OperationPhaseData{
 			Server: &leadMaster,
+			Update: &storage.UpdateOperationData{
+				Etcd: &storage.EtcdUpgrade{
+					From: r.etcd.installed,
+					To:   r.etcd.update,
+				},
+			},
 		},
 	})
-	root.AddSequential(restoreData)
+	root.AddSequential(migrateData)
 
 	// restart master servers
-	// Rolling restart of master servers to listen on normal ports. ETCD outage ends here
+	// Rolling restart of master servers. ETCD outage ends here
 	restartMasters := builder.NewPhase(storage.OperationPhase{
 		ID:          "restart",
 		Description: "Restart etcd servers",
 	})
-	restartMasters.AddWithDependency(restoreData, r.etcdRestartPhase(leadMaster, leadMaster))
+	restartMasters.AddWithDependency(migrateData, r.etcdRestartPhase(leadMaster, leadMaster))
 
 	for _, server := range otherMasters {
 		p := r.etcdRestartPhase(server, leadMaster)

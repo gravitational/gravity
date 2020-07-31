@@ -219,6 +219,8 @@ type UpdateOperationData struct {
 	RuntimeAppVersion string `json:"version,omitempty"`
 	// GravityPackage specifies the optional gravity package for this phase
 	GravityPackage *loc.Locator `json:"gravity_package,omitempty"`
+	// Etcd optionally specifies the etcd upgrade path
+	Etcd *EtcdUpgrade `json:"etcd_upgrade,omitempty"`
 }
 
 // String returns the text description of this server update value
@@ -329,6 +331,14 @@ type TeleportUpdate struct {
 	// NodeConfigPackage identifies the new host teleport configuration package.
 	// If nil, no changes to configuration package required
 	NodeConfigPackage *loc.Locator `json:"node_config_package,omitempty"`
+}
+
+// EtcdUpgrade describes the etcd upgrade step
+type EtcdUpgrade struct {
+	// From specificies the upgrade path to go from
+	From string `json:"from"`
+	// To specificies the upgrade path to go to
+	To string `json:"to"`
 }
 
 // InstallOperationData describes configuration for the install operation

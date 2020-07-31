@@ -35,7 +35,7 @@ FIO_TAG := fio-$(FIO_VER)
 FIO_PKG_TAG := $(FIO_VER).0
 
 # Current versions of the dependencies
-CURRENT_TAG := $(shell ./version.sh)
+CURRENT_TAG ?= $(shell ./version.sh)
 GRAVITY_TAG := $(CURRENT_TAG)
 # Abbreviated gravity version to use as a build ID
 GRAVITY_VERSION := $(CURRENT_TAG)
@@ -49,7 +49,7 @@ RELEASE_OUT ?=
 TELEPORT_TAG = 3.2.14
 # TELEPORT_REPOTAG adapts TELEPORT_TAG to the teleport tagging scheme
 TELEPORT_REPOTAG := v$(TELEPORT_TAG)
-PLANET_TAG := 7.0.37-$(K8S_VER_SUFFIX)
+PLANET_TAG := 7.0.37-$(K8S_VER_SUFFIX)-1-gdcf33f0
 PLANET_BRANCH := $(PLANET_TAG)
 K8S_APP_TAG := $(GRAVITY_TAG)
 TELEKUBE_APP_TAG := $(GRAVITY_TAG)

@@ -1036,11 +1036,17 @@ func (r params) etcd(leadMaster storage.Server, otherMasters, nodes []storage.Up
 				},
 			},
 			{
-				ID:          "/etcd/restore",
-				Description: "Restore etcd data from backup",
-				Executor:    updateEtcdRestore,
+				ID:          "/etcd/migrate",
+				Description: "Migrate etcd data to new version",
+				Executor:    updateEtcdMigrate,
 				Data: &storage.OperationPhaseData{
 					Server: &leadMaster,
+					Update: &storage.UpdateOperationData{
+						Etcd: &storage.EtcdUpgrade{
+							From: etcd.installed,
+							To:   etcd.update,
+						},
+					},
 				},
 				Requires: []string{"/etcd/upgrade"},
 			},
@@ -1128,7 +1134,7 @@ func (r params) etcdRestartLeaderNode(leadMaster storage.Server) storage.Operati
 		ID:          t("/etcd/restart/%v"),
 		Description: t("Restart etcd on node %q"),
 		Executor:    updateEtcdRestart,
-		Requires:    []string{"/etcd/restore"},
+		Requires:    []string{"/etcd/migrate"},
 		Data: &storage.OperationPhaseData{
 			Server: &leadMaster,
 			Master: &leadMaster,

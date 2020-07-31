@@ -79,10 +79,10 @@ const (
 	updateEtcdShutdown = "etcd_shutdown"
 	// updateEtcdMaster is the phase to upgrade the leader (first) etcd server
 	updateEtcdMaster = "etcd_upgrade"
-	// updateEtcdRestore is the phase to restore the etcd data to the new etcd instance
-	updateEtcdRestore = "etcd_restore"
 	// updateEtcdRestart is the phase that restarts etcd service to listen on regular ports
 	updateEtcdRestart = "etcd_restart"
+	// updateEtcdMigrate is the phase to migrate the etcd data on the leader
+	updateEtcdMigrate = "etcd_migrate"
 	// updateEtcdRestartGravity is the phase that restarts gravity-site
 	updateEtcdRestartGravity = "etcd_restart_gravity"
 	// cleanupNode is the phase to clean up a node after the upgrade
@@ -174,8 +174,8 @@ func fsmSpec(c Config) fsm.FSMSpecFunc {
 			return libphase.NewPhaseUpgradeEtcdShutdown(p.Phase, c.Client, logger)
 		case updateEtcdMaster:
 			return libphase.NewPhaseUpgradeEtcd(p.Phase, logger)
-		case updateEtcdRestore:
-			return libphase.NewPhaseUpgradeEtcdRestore(p.Phase, logger)
+		case updateEtcdMigrate:
+			return libphase.NewPhaseUpgradeEtcdMigrate(p.Phase, logger)
 		case updateEtcdRestart:
 			return libphase.NewPhaseUpgradeEtcdRestart(p.Phase, logger)
 		case updateEtcdRestartGravity:
