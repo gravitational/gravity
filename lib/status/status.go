@@ -30,6 +30,7 @@ import (
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/rpc/proto"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
@@ -187,9 +188,9 @@ type Cluster struct {
 	// Extension is a cluster status extension
 	Extension `json:",inline,omitempty"`
 	// ServerVersion is version of the server the operator is talking to.
-	ServerVersion *modules.Version `json:"server_version,omitempty"`
+	ServerVersion *proto.Version `json:"server_version,omitempty"`
 	// ClientVersion is version of the binary collecting the status.
-	ClientVersion modules.Version `json:"client_version"`
+	ClientVersion proto.Version `json:"client_version"`
 }
 
 // Endpoints contains information about cluster and application endpoints.

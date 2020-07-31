@@ -86,6 +86,16 @@ func (p *OperationPlan) GetLeafPhases() (result []OperationPhase) {
 	return result
 }
 
+// IsStarted returns true if the operation plan has already started.
+func (p *OperationPlan) IsStarted() bool {
+	for _, phase := range p.Phases {
+		if !phase.IsUnstarted() {
+			return true
+		}
+	}
+	return false
+}
+
 func getLeafPhases(phase OperationPhase) (result []OperationPhase) {
 	if len(phase.Phases) == 0 {
 		result = append(result, phase)

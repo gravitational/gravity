@@ -49,6 +49,8 @@ type Client interface {
 	GetRuntimeConfig(context.Context) (*pb.RuntimeConfig, error)
 	// GetCurrentTime returns agent's current time as UTC timestamp
 	GetCurrentTime(context.Context) (*time.Time, error)
+	// GetVersion returns agent's version information
+	GetVersion(context.Context) (*pb.Version, error)
 	// CheckPorts executes a network port test
 	CheckPorts(context.Context, *validationpb.CheckPortsRequest) (*validationpb.CheckPortsResponse, error)
 	// CheckBandwidth executes a network bandwidth test

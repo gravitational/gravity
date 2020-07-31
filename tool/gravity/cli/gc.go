@@ -35,6 +35,7 @@ import (
 	"github.com/gravitational/gravity/lib/vacuum/prune/registry"
 
 	"github.com/gravitational/trace"
+	"github.com/gravitational/version"
 	"github.com/sirupsen/logrus"
 )
 
@@ -175,6 +176,8 @@ func newCollector(env *localenv.LocalEnvironment) (*vacuum.Collector, error) {
 		cluster:      *cluster,
 		clusterEnv:   clusterEnv,
 		proxy:        proxy,
+		servers:      cluster.ClusterState.Servers,
+		version:      version.Get().Version,
 	}
 	creds, err := deployAgents(ctx, env, req)
 	if err != nil {

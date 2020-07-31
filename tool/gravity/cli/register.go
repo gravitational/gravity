@@ -576,19 +576,23 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.LocalSiteCmd.CmdClause = g.Command("local-site", "Prints the local cluster domain name to the console").Hidden()
 
 	// RPC agent
-	g.RPCAgentCmd.CmdClause = g.Command("agent", "RPC agent")
+	g.RPCAgentCmd.CmdClause = g.Command("agent", "Manage the deployment and operations of upgrade agents")
 
-	g.RPCAgentDeployCmd.CmdClause = g.RPCAgentCmd.Command("deploy", "deploy RPC agents across cluster nodes, and run specified execution function").Hidden()
-	g.RPCAgentDeployCmd.LeaderArgs = g.RPCAgentDeployCmd.Flag("leader", "additional arguments to leader node agent").String()
-	g.RPCAgentDeployCmd.NodeArgs = g.RPCAgentDeployCmd.Flag("node", "additional arguments to regular node agent").String()
+	g.RPCAgentDeployCmd.CmdClause = g.RPCAgentCmd.Command("deploy", "Deploy upgrade agents across cluster nodes, and run specified execution function")
+	g.RPCAgentDeployCmd.LeaderArgs = g.RPCAgentDeployCmd.Flag("leader", "Additional arguments to leader node agent").String()
+	g.RPCAgentDeployCmd.NodeArgs = g.RPCAgentDeployCmd.Flag("node", "Additional arguments to regular node agent").String()
+	g.RPCAgentDeployCmd.Version = g.RPCAgentDeployCmd.Flag("version", "Agent version to deploy").String()
+	g.RPCAgentDeployCmd.Hostname = g.RPCAgentDeployCmd.Arg("hostname", "Hostname of the node to deploy the agent on").String()
 
-	g.RPCAgentShutdownCmd.CmdClause = g.RPCAgentCmd.Command("shutdown", "request agents to shut down").Hidden()
+	g.RPCAgentShutdownCmd.CmdClause = g.RPCAgentCmd.Command("shutdown", "Request agents to shut down")
 
-	g.RPCAgentInstallCmd.CmdClause = g.RPCAgentCmd.Command("install", "install and launch local RPC agent service").Hidden()
-	g.RPCAgentInstallCmd.Args = g.RPCAgentInstallCmd.Arg("arg", "additional arguments").Strings()
+	g.RPCAgentInstallCmd.CmdClause = g.RPCAgentCmd.Command("install", "Install and launch local upgrade agent service")
+	g.RPCAgentInstallCmd.Args = g.RPCAgentInstallCmd.Arg("arg", "Additional arguments").Strings()
 
-	g.RPCAgentRunCmd.CmdClause = g.RPCAgentCmd.Command("run", "run RPC agent").Hidden()
-	g.RPCAgentRunCmd.Args = g.RPCAgentRunCmd.Arg("arg", "additional arguments").Strings()
+	g.RPCAgentRunCmd.CmdClause = g.RPCAgentCmd.Command("run", "Run upgrade agent")
+	g.RPCAgentRunCmd.Args = g.RPCAgentRunCmd.Arg("arg", "Additional arguments").Strings()
+
+	g.RPCAgentStatusCmd.CmdClause = g.RPCAgentCmd.Command("status", "Collect and display upgrade agent statuses")
 
 	g.SystemCmd.CmdClause = g.Command("system", "operations on system components")
 
