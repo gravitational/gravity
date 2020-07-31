@@ -209,14 +209,13 @@ func rpcAgentDeployHelper(ctx context.Context, localEnv *localenv.LocalEnvironme
 		req.servers = append(req.servers, *server)
 	} else {
 		req.servers = cluster.ClusterState.Servers
-	}
-
-	// Force this node to be the operation leader
-	req.leader, err = ops.FindLocalServer(cluster.ClusterState)
-	if err != nil {
-		log.WithError(err).Warn("Failed to determine local node.")
-		return nil, trace.Wrap(err, "failed to find local node in cluster state.\n"+
-			"Make sure you start the operation from one of the cluster master nodes.")
+		// Force this node to be the operation leader
+		req.leader, err = ops.FindLocalServer(cluster.ClusterState)
+		if err != nil {
+			log.WithError(err).Warn("Failed to determine local node.")
+			return nil, trace.Wrap(err, "failed to find local node in cluster state.\n"+
+				"Make sure you start the operation from one of the cluster master nodes.")
+		}
 	}
 
 	localCtx, cancel := context.WithTimeout(ctx, defaults.AgentDeployTimeout)
