@@ -77,7 +77,8 @@ ignored = [
 
 [[constraint]]
   name = "github.com/gravitational/satellite"
-  version = "=7.0.17"
+  # version = "=7.0.17"
+  branch = "bernard/7.0.x/kernel"
 
 [[constraint]]
   name = "github.com/gravitational/coordinate"
