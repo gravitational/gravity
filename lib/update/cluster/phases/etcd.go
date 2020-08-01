@@ -248,20 +248,12 @@ func NewPhaseUpgradeEtcdRestart(phase storage.OperationPhase, logger log.FieldLo
 	return &PhaseUpgradeEtcdRestart{
 		FieldLogger: logger,
 		Server:      *phase.Data.Server,
-		Master:      *phase.Data.Master,
 	}, nil
 }
 
 func (p *PhaseUpgradeEtcdRestart) Execute(ctx context.Context) error {
 	p.Info("Restart etcd after upgrade.")
-	if p.Server.IsEqualTo(p.Master) {
-		out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "enable")
-		if err != nil {
-			return trace.Wrap(err).AddField("output", string(out))
-		}
-		return nil
-	}
-	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "enable", "--join-master", fmt.Sprintf("https://%v:2379", p.Master.AdvertiseIP))
+	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "enable")
 	if err != nil {
 		return trace.Wrap(err).AddField("output", string(out))
 	}

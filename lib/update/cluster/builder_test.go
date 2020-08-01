@@ -1038,17 +1038,11 @@ func (r params) etcd(leadMaster storage.Server, otherMasters, nodes []storage.Up
 			{
 				ID:          "/etcd/migrate",
 				Description: "Migrate etcd data to new version",
-				Executor:    updateEtcdMigrate,
-				Data: &storage.OperationPhaseData{
-					Server: &leadMaster,
-					Update: &storage.UpdateOperationData{
-						Etcd: &storage.EtcdUpgrade{
-							From: etcd.installed,
-							To:   etcd.update,
-						},
-					},
+				Phases: []storage.OperationPhase{
+					r.etcdMigrateNode(leadMaster, etcd),
+					// FIXME: assumes len(otherMasters) == 1
+					r.etcdMigrateNode(otherMasters[0].Server, etcd),
 				},
-				Requires: []string{"/etcd/upgrade"},
 			},
 			{
 				ID:          "/etcd/restart",
@@ -1056,9 +1050,8 @@ func (r params) etcd(leadMaster storage.Server, otherMasters, nodes []storage.Up
 				Phases: []storage.OperationPhase{
 					r.etcdRestartLeaderNode(leadMaster),
 					// FIXME: assumes len(otherMasters) == 1
-					r.etcdRestartNode(otherMasters[0].Server, leadMaster),
-					// upgrade regular nodes
-					r.etcdRestartNode(nodes[0].Server, leadMaster),
+					r.etcdRestartNode(otherMasters[0].Server),
+					r.etcdRestartWorkerNode(nodes[0].Server),
 					r.etcdRestartGravity(leadMaster),
 				},
 			},
@@ -1126,6 +1119,28 @@ func (r params) etcdUpgradeNode(server storage.Server) storage.OperationPhase {
 	}
 }
 
+func (r params) etcdMigrateNode(server storage.Server, etcd etcdVersion) storage.OperationPhase {
+	t := func(format string) string {
+		return fmt.Sprintf(format, server.Hostname)
+	}
+	return storage.OperationPhase{
+		ID: t("/etcd/migrate/%v"),
+		Description: fmt.Sprintf("Migrate etcd data to version %v on node %q",
+			etcd.update, server.Hostname),
+		Executor: updateEtcdMigrate,
+		Requires: []string{t("/etcd/upgrade/%v")},
+		Data: &storage.OperationPhaseData{
+			Server: &server,
+			Update: &storage.UpdateOperationData{
+				Etcd: &storage.EtcdUpgrade{
+					From: etcd.installed,
+					To:   etcd.update,
+				},
+			},
+		},
+	}
+}
+
 func (r params) etcdRestartLeaderNode(leadMaster storage.Server) storage.OperationPhase {
 	t := func(format string) string {
 		return fmt.Sprintf(format, leadMaster.Hostname)
@@ -1134,15 +1149,29 @@ func (r params) etcdRestartLeaderNode(leadMaster storage.Server) storage.Operati
 		ID:          t("/etcd/restart/%v"),
 		Description: t("Restart etcd on node %q"),
 		Executor:    updateEtcdRestart,
-		Requires:    []string{"/etcd/migrate"},
+		Requires:    []string{t("/etcd/migrate/%v")},
 		Data: &storage.OperationPhaseData{
 			Server: &leadMaster,
-			Master: &leadMaster,
 		},
 	}
 }
 
-func (r params) etcdRestartNode(server, leadMaster storage.Server) storage.OperationPhase {
+func (r params) etcdRestartNode(server storage.Server) storage.OperationPhase {
+	t := func(format string) string {
+		return fmt.Sprintf(format, server.Hostname)
+	}
+	return storage.OperationPhase{
+		ID:          t("/etcd/restart/%v"),
+		Description: t("Restart etcd on node %q"),
+		Executor:    updateEtcdRestart,
+		Requires:    []string{t("/etcd/migrate/%v")},
+		Data: &storage.OperationPhaseData{
+			Server: &server,
+		},
+	}
+}
+
+func (r params) etcdRestartWorkerNode(server storage.Server) storage.OperationPhase {
 	t := func(format string) string {
 		return fmt.Sprintf(format, server.Hostname)
 	}
@@ -1153,7 +1182,6 @@ func (r params) etcdRestartNode(server, leadMaster storage.Server) storage.Opera
 		Requires:    []string{t("/etcd/upgrade/%v")},
 		Data: &storage.OperationPhaseData{
 			Server: &server,
-			Master: &leadMaster,
 		},
 	}
 }

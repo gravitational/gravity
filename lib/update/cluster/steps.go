@@ -690,18 +690,15 @@ func (r updateStep) etcdPhase(leadMaster storage.Server, otherMasters []storage.
 	migrateData := builder.NewPhase(storage.OperationPhase{
 		ID:          "migrate",
 		Description: "Migrate etcd data to new version",
-		Executor:    updateEtcdMigrate,
-		Data: &storage.OperationPhaseData{
-			Server: &leadMaster,
-			Update: &storage.UpdateOperationData{
-				Etcd: &storage.EtcdUpgrade{
-					From: r.etcd.installed,
-					To:   r.etcd.update,
-				},
-			},
-		},
 	})
-	root.AddSequential(migrateData)
+	migrateData.AddWithDependency(
+		builder.DependencyForServer(upgradeServers, leadMaster),
+		r.etcdMigratePhase(leadMaster))
+	for _, server := range otherMasters {
+		p := r.etcdMigratePhase(server)
+		migrateData.AddWithDependency(builder.DependencyForServer(upgradeServers, server), p)
+	}
+	root.AddParallel(migrateData)
 
 	// restart master servers
 	// Rolling restart of master servers. ETCD outage ends here
@@ -709,14 +706,16 @@ func (r updateStep) etcdPhase(leadMaster storage.Server, otherMasters []storage.
 		ID:          "restart",
 		Description: "Restart etcd servers",
 	})
-	restartMasters.AddWithDependency(migrateData, r.etcdRestartPhase(leadMaster, leadMaster))
+	restartMasters.AddWithDependency(
+		builder.DependencyForServer(migrateData, leadMaster),
+		r.etcdRestartPhase(leadMaster))
 
 	for _, server := range otherMasters {
-		p := r.etcdRestartPhase(server, leadMaster)
-		restartMasters.AddWithDependency(builder.DependencyForServer(upgradeServers, server), p)
+		p := r.etcdRestartPhase(server)
+		restartMasters.AddWithDependency(builder.DependencyForServer(migrateData, server), p)
 	}
 	for _, server := range workers {
-		p := r.etcdRestartPhase(server, leadMaster)
+		p := r.etcdRestartPhase(server)
 		restartMasters.AddWithDependency(builder.DependencyForServer(upgradeServers, server), p)
 	}
 
@@ -768,14 +767,31 @@ func (r updateStep) etcdUpgradePhase(server storage.Server) *builder.Phase {
 	})
 }
 
-func (r updateStep) etcdRestartPhase(server, master storage.Server) *builder.Phase {
+func (r updateStep) etcdMigratePhase(server storage.Server) *builder.Phase {
+	return builder.NewPhase(storage.OperationPhase{
+		ID: server.Hostname,
+		Description: fmt.Sprintf("Migrate etcd data to version %v on node %q",
+			r.etcd.update, server.Hostname),
+		Executor: updateEtcdMigrate,
+		Data: &storage.OperationPhaseData{
+			Server: &server,
+			Update: &storage.UpdateOperationData{
+				Etcd: &storage.EtcdUpgrade{
+					From: r.etcd.installed,
+					To:   r.etcd.update,
+				},
+			},
+		},
+	})
+}
+
+func (r updateStep) etcdRestartPhase(server storage.Server) *builder.Phase {
 	return builder.NewPhase(storage.OperationPhase{
 		ID:          server.Hostname,
 		Description: fmt.Sprintf("Restart etcd on node %q", server.Hostname),
 		Executor:    updateEtcdRestart,
 		Data: &storage.OperationPhaseData{
 			Server: &server,
-			Master: &master,
 		},
 	})
 }
