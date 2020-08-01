@@ -146,6 +146,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.PlanDisplayCmd.CmdClause = g.PlanCmd.Command("display", "Display a plan for an ongoing operation.").Default()
 	g.PlanDisplayCmd.Output = common.Format(g.PlanDisplayCmd.Flag("output", fmt.Sprintf("Output format: %v.", constants.OutputFormats)).Short('o').Default(string(constants.EncodingText)))
 	g.PlanDisplayCmd.Short = g.PlanDisplayCmd.Flag("short", "Short output format.").Bool()
+	g.PlanDisplayCmd.Follow = g.PlanDisplayCmd.Flag("tail", "Follow the operation plan progress until it finishes.").Short('f').Bool()
 
 	g.PlanExecuteCmd.CmdClause = g.PlanCmd.Command("execute", "Execute the specified operation phase.")
 	g.PlanExecuteCmd.Phase = g.PlanExecuteCmd.Flag("phase", "Phase ID to execute.").String()
@@ -164,6 +165,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.PlanResumeCmd.CmdClause = g.PlanCmd.Command("resume", "Resume the last aborted operation.")
 	g.PlanResumeCmd.Force = g.PlanResumeCmd.Flag("force", "Force execution of the specified phase.").Bool()
 	g.PlanResumeCmd.PhaseTimeout = g.PlanResumeCmd.Flag("timeout", "Phase execution timeout.").Default(defaults.PhaseTimeout).Hidden().Duration()
+	g.PlanResumeCmd.Block = g.PlanResumeCmd.Flag("block", "Launch plan resume in foreground instead of a systemd unit.").Bool()
 
 	g.PlanCompleteCmd.CmdClause = g.PlanCmd.Command("complete", "Mark the current operation as completed.")
 
@@ -199,6 +201,9 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.UpgradeCmd.Force = g.UpgradeCmd.Flag("force", "Force phase execution even if pre-conditions are not satisfied. This flag can also be used to force an upgrade even if some nodes have active warnings").Bool()
 	g.UpgradeCmd.Resume = g.UpgradeCmd.Flag("resume", "Resume upgrade from the last failed step.").Bool()
 	g.UpgradeCmd.SkipVersionCheck = g.UpgradeCmd.Flag("skip-version-check", "Bypass version compatibility check.").Hidden().Bool()
+	g.UpgradeCmd.Set = g.UpgradeCmd.Flag("set", "Set Helm chart values on the command line. Can be specified multiple times and/or as comma-separated values: key1=val1,key2=val2.").Strings()
+	g.UpgradeCmd.Values = g.UpgradeCmd.Flag("values", "Set Helm chart values from the provided YAML file. Can be specified multiple times.").Strings()
+	g.UpgradeCmd.Block = g.UpgradeCmd.Flag("block", "When resuming the upgrade plan, launch it in foreground instead of a systemd unit").Bool()
 
 	g.UpdateUploadCmd.CmdClause = g.UpdateCmd.Command("upload", "Upload update package to locally running site").Hidden()
 	g.UpdateUploadCmd.OpsCenterURL = g.UpdateUploadCmd.Flag("ops-url", "Optional Gravity Hub URL to upload new packages to (defaults to local gravity site)").Default(defaults.GravityServiceURL).String()

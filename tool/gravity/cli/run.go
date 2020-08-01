@@ -371,7 +371,12 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 		}
 		defer updateEnv.Close()
 		if *g.UpgradeCmd.Resume {
-			*g.UpgradeCmd.Phase = fsm.RootPhase
+			return executePhase(localEnv, g, PhaseParams{
+				PhaseID:          fsm.RootPhase,
+				Timeout:          *g.UpgradeCmd.Timeout,
+				SkipVersionCheck: *g.UpgradeCmd.SkipVersionCheck,
+				Block:            *g.UpgradeCmd.Block,
+			})
 		}
 		if *g.UpgradeCmd.Phase != "" {
 			return executePhase(localEnv, g,
@@ -380,6 +385,7 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 					Force:            *g.UpgradeCmd.Force,
 					Timeout:          *g.UpgradeCmd.Timeout,
 					SkipVersionCheck: *g.UpgradeCmd.SkipVersionCheck,
+					Block:            true, // Direct phase executions run in foreground.
 				})
 		}
 		return updateTrigger(localEnv, updateEnv,
@@ -404,6 +410,7 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 				Timeout:          *g.PlanExecuteCmd.PhaseTimeout,
 				SkipVersionCheck: *g.PlanCmd.SkipVersionCheck,
 				OperationID:      *g.PlanCmd.OperationID,
+				Block:            true, // Direct phase executions run in foreground.
 			})
 	case g.PlanSetCmd.FullCommand():
 		return setPhase(localEnv, g, SetPhaseParams{
@@ -418,6 +425,7 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 				Timeout:          *g.PlanResumeCmd.PhaseTimeout,
 				SkipVersionCheck: *g.PlanCmd.SkipVersionCheck,
 				OperationID:      *g.PlanCmd.OperationID,
+				Block:            *g.PlanResumeCmd.Block,
 			})
 	case g.PlanRollbackCmd.FullCommand():
 		return rollbackPhase(localEnv, g,
@@ -434,7 +442,10 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			outputFormat = constants.EncodingShort
 		}
 		return displayOperationPlan(localEnv, g,
-			*g.PlanCmd.OperationID, outputFormat)
+			*g.PlanCmd.OperationID, displayPlanOptions{
+				format: outputFormat,
+				follow: *g.PlanDisplayCmd.Follow,
+			})
 	case g.PlanCompleteCmd.FullCommand():
 		return completeOperationPlan(localEnv, g, *g.PlanCmd.OperationID)
 	case g.RollbackCmd.FullCommand():
