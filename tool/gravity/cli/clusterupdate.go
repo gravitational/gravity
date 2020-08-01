@@ -45,6 +45,7 @@ import (
 	"github.com/gravitational/gravity/lib/update"
 	clusterupdate "github.com/gravitational/gravity/lib/update/cluster"
 	"github.com/gravitational/gravity/lib/update/cluster/versions"
+	"github.com/gravitational/gravity/lib/utils/cli"
 	"github.com/gravitational/gravity/lib/utils/helm"
 
 	"github.com/coreos/go-semver/semver"
@@ -264,8 +265,19 @@ func executeOrForkPhase(env *localenv.LocalEnvironment, updater updater, params 
 	if err := updater.Check(params.toFSM()); err != nil {
 		return trace.Wrap(err)
 	}
-	// Make sure to launch the unit command with the --block flag.
-	args := append(os.Args[1:], "--debug", "--block")
+	commandArgs := cli.CommandArgs{
+		Parser: cli.ArgsParserFunc(parseArgs),
+		FlagsToAdd: []cli.Flag{
+			cli.NewBoolFlag("debug", true),
+			cli.NewBoolFlag("block", true),
+		},
+		// Avoid duplicates on command line
+		FlagsToRemove: []string{"debug"},
+	}
+	args, err := commandArgs.Update(os.Args[1:])
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	env.PrintStep("Starting %v service", gravityResumeServiceName)
 	if err := launchOneshotService(gravityResumeServiceName, args); err != nil {
 		return trace.Wrap(err)
