@@ -17,39 +17,12 @@ limitations under the License.
 package monitoring
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 	"syscall"
 
 	"github.com/gravitational/trace"
 )
-
-// KernelVersion describes an abbreviated version of a Linux kernel.
-// It contains the kernel version (including major/minor components) and
-// patch number
-//
-// Example:
-//  $ uname -r
-//  $ 4.4.9-112-generic
-//
-// The result will be:
-//  KernelVersion{Release: 4, Major: 4, Minor: 9, Patch: 112}
-type KernelVersion struct {
-	// Release specifies the release of the kernel
-	Release int
-	// Major specifies the major version component
-	Major int
-	// Minor specifies the minor version component
-	Minor int
-	// Patch specifies the patch or build number
-	Patch int
-}
-
-// String returns the kernel version formatted as Release.Major.Minor-Patch.
-func (r *KernelVersion) String() string {
-	return fmt.Sprintf("%d.%d.%d-%d", r.Release, r.Major, r.Minor, r.Patch)
-}
 
 // KernelConstraintFunc is a function to determine if the kernel version
 // satisfies a particular condition.

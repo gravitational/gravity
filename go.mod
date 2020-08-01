@@ -67,7 +67,7 @@ require (
 	github.com/gravitational/oxy v0.0.0-20180629203109-e4a7e35311e6 // indirect
 	github.com/gravitational/rigging v0.0.0-20191021212636-83b2e9505286
 	github.com/gravitational/roundtrip v1.0.0
-	github.com/gravitational/satellite v0.0.9-0.20200720191657-4877c91ae81f
+	github.com/gravitational/satellite v0.0.9-0.20200731235122-08cb2ae939a8
 	github.com/gravitational/tail v1.0.1
 	github.com/gravitational/teleport v3.2.15-0.20200309221853-bebf7a500543+incompatible
 	github.com/gravitational/trace v1.1.11
@@ -135,9 +135,9 @@ require (
 	github.com/zclconf/go-cty v0.0.0-20180829180805-c2393a5d54f2 // indirect
 	github.com/ziutek/mymysql v1.5.4 // indirect
 	go.etcd.io/bbolt v1.3.5 // indirect
-	golang.org/x/crypto v0.0.0-20200709230013-948cd5f35899
+	golang.org/x/crypto v0.0.0-20200728195943-123391ffb6de
 	golang.org/x/net v0.0.0-20200707034311-ab3426394381
-	golang.org/x/sys v0.0.0-20200625212154-ddb9806d33ae
+	golang.org/x/sys v0.0.0-20200728102440-3e129f6d46b1
 	gonum.org/v1/gonum v0.6.1 // indirect
 	google.golang.org/grpc v1.26.0
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
