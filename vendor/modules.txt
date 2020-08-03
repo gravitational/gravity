@@ -387,7 +387,7 @@ github.com/gravitational/oxy/utils
 github.com/gravitational/rigging
 # github.com/gravitational/roundtrip v1.0.0
 github.com/gravitational/roundtrip
-# github.com/gravitational/satellite v0.0.9-0.20200720191657-4877c91ae81f
+# github.com/gravitational/satellite v0.0.9-0.20200803211125-ffa83169a36c
 github.com/gravitational/satellite/agent
 github.com/gravitational/satellite/agent/cache
 github.com/gravitational/satellite/agent/health
@@ -464,6 +464,7 @@ github.com/gravitational/teleport/lib/web/ui
 github.com/gravitational/teleport/lib/wrappers
 # github.com/gravitational/trace v1.1.11
 github.com/gravitational/trace
+github.com/gravitational/trace/trail
 # github.com/gravitational/ttlmap v0.0.0-20171116003245-91fd36b9004c
 github.com/gravitational/ttlmap
 # github.com/gravitational/ttlmap/v2 v2.0.0-20200702161230-1bbfd908876d
@@ -691,7 +692,7 @@ go.mongodb.org/mongo-driver/bson/bsonrw
 go.mongodb.org/mongo-driver/bson/bsontype
 go.mongodb.org/mongo-driver/bson/primitive
 go.mongodb.org/mongo-driver/x/bsonx/bsoncore
-# golang.org/x/crypto v0.0.0-20200709230013-948cd5f35899 => golang.org/x/crypto v0.0.0-20181025213731-e84da0312774
+# golang.org/x/crypto v0.0.0-20200728195943-123391ffb6de => golang.org/x/crypto v0.0.0-20181025213731-e84da0312774
 golang.org/x/crypto/bcrypt
 golang.org/x/crypto/blowfish
 golang.org/x/crypto/cast5
@@ -741,7 +742,7 @@ golang.org/x/oauth2/jws
 golang.org/x/oauth2/jwt
 # golang.org/x/sync v0.0.0-20190423024810-112230192c58
 golang.org/x/sync/errgroup
-# golang.org/x/sys v0.0.0-20200625212154-ddb9806d33ae => golang.org/x/sys v0.0.0-20181026203630-95b1ffbd15a5
+# golang.org/x/sys v0.0.0-20200803150936-fd5f0c170ac3 => golang.org/x/sys v0.0.0-20181026203630-95b1ffbd15a5
 golang.org/x/sys/unix
 golang.org/x/sys/windows
 # golang.org/x/text v0.3.2 => golang.org/x/text v0.0.0-20161230201740-fd889fe3a20f
