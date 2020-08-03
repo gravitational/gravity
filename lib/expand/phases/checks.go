@@ -38,10 +38,20 @@ func NewChecks(p fsm.ExecutorParams, operator ops.Operator, runner rpc.AgentRepo
 		Key:         opKey(p.Plan),
 		Operator:    operator,
 	}
+	cluster, err := operator.GetLocalSite()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	reqs, err := checks.RequirementsFromManifest(cluster.App.Manifest)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	return &checksExecutor{
 		FieldLogger:    logger,
 		Runner:         runner,
 		Operator:       operator,
+		Cluster:        cluster,
+		Requirements:   reqs,
 		ExecutorParams: p,
 	}, nil
 }
@@ -53,46 +63,27 @@ type checksExecutor struct {
 	Runner rpc.AgentRepository
 	// Operator is the cluster operator service.
 	Operator ops.Operator
+	// Cluster is the local cluster.
+	Cluster *ops.Site
+	// Requirements is the validation requirements from cluster manifest.
+	Requirements map[string]checks.Requirements
 	// ExecutorParams is common executor params.
 	fsm.ExecutorParams
 }
 
 // Execute executes preflight checks on the joining node.
-func (p *checksExecutor) Execute(ctx context.Context) error {
-	master, err := checks.GetServer(ctx, p.Runner, *p.Phase.Data.Master)
+func (p *checksExecutor) Execute(ctx context.Context) (err error) {
+	var checker checks.Checker
+	if p.Phase.Data.Server.IsMaster() {
+		checker, err = p.getMasterChecker(ctx)
+	} else {
+		checker, err = p.getNodeChecker(ctx)
+	}
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	node, err := checks.GetServer(ctx, p.Runner, *p.Phase.Data.Server)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	cluster, err := p.Operator.GetLocalSite()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	reqs, err := checks.RequirementsFromManifest(cluster.App.Manifest)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	checker, err := checks.New(checks.Config{
-		Remote:       checks.NewRemote(p.Runner),
-		Servers:      []checks.Server{*master, *node},
-		Manifest:     cluster.App.Manifest,
-		Requirements: reqs,
-		Features: checks.Features{
-			TestEtcdDisk: true,
-		},
-	})
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	// For multi-node checks, use one of master nodes as an "anchor" so
-	// the joining node will be compared against that master (e.g. for
-	// the OS check, time drift check, etc).
-	probes := checker.CheckNode(ctx, *node)
-	probes = append(probes, checker.CheckNodes(ctx, []checks.Server{*master, *node})...)
-	// Sort probes out into warnings and real failures.
+	probes := checker.Check(ctx)
+	// Sort probes out into warnings and hard failures.
 	var failed []*agentpb.Probe
 	for _, probe := range probes {
 		if probe.Status != agentpb.Probe_Failed {
@@ -111,6 +102,48 @@ func (p *checksExecutor) Execute(ctx context.Context) error {
 			checks.FormatFailedChecks(failed))
 	}
 	return nil
+}
+
+// getMasterChecker returns a checker that performs checks when adding a master node.
+//
+// In addition to the local node checks, it also makes sure that there's no
+// time drift between this and other master which is important since it's
+// going to run a full etcd member.
+func (p *checksExecutor) getMasterChecker(ctx context.Context) (checks.Checker, error) {
+	master, err := checks.GetServer(ctx, p.Runner, *p.Phase.Data.Master)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	node, err := checks.GetServer(ctx, p.Runner, *p.Phase.Data.Server)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return checks.New(checks.Config{
+		Remote:       checks.NewRemote(p.Runner),
+		Servers:      []checks.Server{*master, *node},
+		Manifest:     p.Cluster.App.Manifest,
+		Requirements: p.Requirements,
+		Features: checks.Features{
+			TestEtcdDisk: true,
+		},
+	})
+}
+
+// getNodeChecker returns a checker that performs checks when adding a regular node.
+func (p *checksExecutor) getNodeChecker(ctx context.Context) (checks.Checker, error) {
+	node, err := checks.GetServer(ctx, p.Runner, *p.Phase.Data.Server)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return checks.New(checks.Config{
+		Remote:       checks.NewRemote(p.Runner),
+		Servers:      []checks.Server{*node},
+		Manifest:     p.Cluster.App.Manifest,
+		Requirements: p.Requirements,
+		Features: checks.Features{
+			TestEtcdDisk: true,
+		},
+	})
 }
 
 // Rollback is no-op for this phase.
