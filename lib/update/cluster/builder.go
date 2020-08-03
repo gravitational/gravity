@@ -33,7 +33,6 @@ import (
 	"github.com/coreos/go-semver/semver"
 	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
-	log "github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
@@ -638,20 +637,21 @@ func supportsTaints(gravityPackage loc.Locator) (supports bool, err error) {
 	return defaults.BaseTaintsVersion.Compare(*ver) <= 0, nil
 }
 
-func shouldUpdateEtcd(p planConfig) (updateEtcd bool, installedEtcdVersion string, updateEtcdVersion string, err error) {
+func shouldUpdateEtcd(installedRuntimePackage, updateRuntimePackage loc.Locator, packages pack.PackageService) (updateEtcd bool, installedEtcdVersion string, updateEtcdVersion string, err error) {
 	// TODO: should somehow maintain etcd version invariant across runtime packages
-	runtimePackage, err := p.installedRuntime.Manifest.DefaultRuntimePackage()
-	if err != nil && !trace.IsNotFound(err) {
-		return false, "", "", trace.Wrap(err)
-	}
-	if err != nil {
-		runtimePackage, err = p.installedRuntime.Manifest.Dependencies.ByName(loc.LegacyPlanetMaster.Name)
-		if err != nil {
-			log.Warnf("Failed to fetch the runtime package: %v.", err)
-			return false, "", "", trace.NotFound("runtime package not found")
-		}
-	}
-	installedVersion, err := getEtcdVersion("version-etcd", *runtimePackage, p.packageService)
+	// FIXME: getRuntimePackage(incl. legacy)
+	// runtimePackage, err := p.installedRuntime.Manifest.DefaultRuntimePackage()
+	// if err != nil && !trace.IsNotFound(err) {
+	// 	return false, "", "", trace.Wrap(err)
+	// }
+	// if err != nil {
+	// 	runtimePackage, err = p.installedRuntime.Manifest.Dependencies.ByName(loc.LegacyPlanetMaster.Name)
+	// 	if err != nil {
+	// 		log.Warnf("Failed to fetch the runtime package: %v.", err)
+	// 		return false, "", "", trace.NotFound("runtime package not found")
+	// 	}
+	// }
+	installedVersion, err := getEtcdVersion("version-etcd", installedRuntimePackage, packages)
 	if err != nil {
 		if !trace.IsNotFound(err) {
 			return false, "", "", trace.Wrap(err)
@@ -659,11 +659,11 @@ func shouldUpdateEtcd(p planConfig) (updateEtcd bool, installedEtcdVersion strin
 		// if the currently installed version doesn't have etcd version information, it needs to be upgraded
 		updateEtcd = true
 	}
-	runtimePackage, err = p.updateRuntime.Manifest.DefaultRuntimePackage()
-	if err != nil {
-		return false, "", "", trace.Wrap(err)
-	}
-	updateVersion, err := getEtcdVersion("version-etcd", *runtimePackage, p.packageService)
+	// runtimePackage, err = p.updateRuntime.Manifest.DefaultRuntimePackage()
+	// if err != nil {
+	// 	return false, "", "", trace.Wrap(err)
+	// }
+	updateVersion, err := getEtcdVersion("version-etcd", updateRuntimePackage, packages)
 	if err != nil {
 		return false, "", "", trace.Wrap(err)
 	}

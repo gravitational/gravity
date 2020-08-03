@@ -238,6 +238,11 @@ func Deduplicate(ls []Locator) (result []Locator) {
 	return result
 }
 
+// IsPlanetPackage returns if the specified package refers to a planet package
+func IsPlanetPackage(loc Locator) bool {
+	return Planet.IsEqualTo(loc.ZeroVersion())
+}
+
 var (
 	// OpsCenterCertificateAuthority is locator for the package containing certificate and private
 	// key for the OpsCenter
