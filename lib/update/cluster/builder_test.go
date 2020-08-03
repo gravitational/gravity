@@ -42,16 +42,22 @@ var _ = check.Suite(&PlanSuite{})
 
 func (s *PlanSuite) TestPlanWithRuntimeUpdate(c *check.C) {
 	// setup
-	runtimeLoc1 := loc.MustParseLocator("gravitational.io/runtime:1.0.0")
-	appLoc1 := loc.MustParseLocator("gravitational.io/app:1.0.0")
-	runtimeLoc2 := loc.MustParseLocator("gravitational.io/runtime:2.0.0")
-	appLoc2 := loc.MustParseLocator("gravitational.io/app:2.0.0")
+	runtimeApp := loc.MustParseLocator("gravitational.io/runtime:1.0.0")
+	installedApp := loc.MustParseLocator("gravitational.io/app:1.0.0")
+	updateRuntimeApp := loc.MustParseLocator("gravitational.io/runtime:2.0.0")
+	updateApp := loc.MustParseLocator("gravitational.io/app:2.0.0")
+	etcd := etcdVersion{
+		installed: "1.0.0",
+		update:    "2.0.0",
+	}
+	services := opsservice.SetupTestServices(c)
+	createRuntimePackages(runtimePackage, updateRuntimePackage.Update.Package, etcd, services.Packages, c)
 
 	params := params{
-		installedRuntime:         runtimeLoc1,
-		installedApp:             appLoc1,
-		updateRuntime:            runtimeLoc2,
-		updateApp:                appLoc2,
+		installedRuntime:         runtimeApp,
+		installedApp:             installedApp,
+		updateRuntime:            updateRuntimeApp,
+		updateApp:                updateApp,
 		installedRuntimeManifest: installedRuntimeManifest,
 		installedAppManifest:     installedAppManifest,
 		updateRuntimeManifest:    updateRuntimeManifest,
@@ -67,6 +73,7 @@ func (s *PlanSuite) TestPlanWithRuntimeUpdate(c *check.C) {
 			},
 		},
 		dnsConfig: storage.DefaultDNSConfig,
+		packages:  services.Packages,
 		// Use an alternative (other than first) master node as leader
 		leadMaster: updates[1],
 	}
@@ -107,21 +114,28 @@ func (s *PlanSuite) TestPlanWithRuntimeUpdate(c *check.C) {
 
 func (s *PlanSuite) TestPlanWithoutRuntimeUpdate(c *check.C) {
 	// setup
-	runtimeLoc1 := loc.MustParseLocator("gravitational.io/runtime:1.0.0")
-	appLoc1 := loc.MustParseLocator("gravitational.io/app:1.0.0")
-	appLoc2 := loc.MustParseLocator("gravitational.io/app:2.0.0")
+	runtimeApp := loc.MustParseLocator("gravitational.io/runtime:1.0.0")
+	installedApp := loc.MustParseLocator("gravitational.io/app:1.0.0")
+	updateApp := loc.MustParseLocator("gravitational.io/app:2.0.0")
+	etcd := etcdVersion{
+		installed: "1.0.0",
+		update:    "1.0.0",
+	}
+	services := opsservice.SetupTestServices(c)
+	createRuntimePackages(runtimePackage, runtimePackage, etcd, services.Packages, c)
 
 	params := params{
-		installedRuntime:         runtimeLoc1,
-		installedApp:             appLoc1,
-		updateRuntime:            runtimeLoc1, // same runtime on purpose
-		updateApp:                appLoc2,
+		installedRuntime:         runtimeApp,
+		installedApp:             installedApp,
+		updateRuntime:            runtimeApp, // same runtime on purpose
+		updateApp:                updateApp,
 		installedRuntimeManifest: installedRuntimeManifest,
 		installedAppManifest:     installedAppManifest,
 		updateRuntimeManifest:    installedRuntimeManifest, // same manifest on purpose
-		updateAppManifest:        updateAppManifest,
+		updateAppManifest:        updateAppManifestNoRuntimeUpdate,
 		dnsConfig:                storage.DefaultDNSConfig,
 		leadMaster:               updates[0],
+		packages:                 services.Packages,
 	}
 	config := newTestPlan(c, params)
 
@@ -151,110 +165,80 @@ func (s *PlanSuite) TestPlanWithoutRuntimeUpdate(c *check.C) {
 
 func (s *PlanSuite) TestUpdatesEtcdFromManifestWithoutLabels(c *check.C) {
 	services := opsservice.SetupTestServices(c)
-	files := []*archive.Item{
-		archive.ItemFromString("orbit.manifest.json", `{"version": "0.0.1"}`),
-	}
 	runtimePackage := loc.MustParseLocator("example.com/runtime:1.0.0")
-	apptest.CreateDummyPackageWithContents(
-		runtimePackage,
-		files,
-		services.Packages, c)
-	files = []*archive.Item{
-		archive.ItemFromString("orbit.manifest.json", `{
-	"version": "0.0.1",
-	"labels": [
-		{
-			"name": "version-etcd",
-			"value": "v3.3.3"
-		}
-	]
-}`),
-	}
 	updateRuntimePackage := loc.MustParseLocator("example.com/runtime:1.0.1")
-	apptest.CreateDummyPackageWithContents(
-		updateRuntimePackage,
-		files,
-		services.Packages, c)
-	p := planConfig{
-		packageService: services.Packages,
-		installedRuntime: app.Application{Manifest: schema.Manifest{
-			SystemOptions: &schema.SystemOptions{
-				Dependencies: schema.SystemDependencies{
-					Runtime: &schema.Dependency{Locator: runtimePackage},
-				},
-			},
-		}},
-		updateRuntime: app.Application{Manifest: schema.Manifest{
-			SystemOptions: &schema.SystemOptions{
-				Dependencies: schema.SystemDependencies{
-					Runtime: &schema.Dependency{Locator: updateRuntimePackage},
-				},
-			},
-		}},
-	}
-	update, installedVersion, updateVersion, err := shouldUpdateEtcd(p)
+	createRuntimePackagesWithAssumedEtcdVersion(runtimePackage, updateRuntimePackage,
+		etcdVersion{update: "3.3.3"}, services.Packages, c)
+	etcd, err := shouldUpdateEtcd(runtimePackage, updateRuntimePackage, services.Packages)
 	c.Assert(err, check.IsNil)
-	c.Assert(update, check.Equals, true)
-	c.Assert(installedVersion, check.Equals, "")
-	c.Assert(updateVersion, check.Equals, "3.3.3")
+	c.Assert(etcd, check.DeepEquals, &etcdVersion{
+		update: "3.3.3",
+	})
 }
 
 func (s *PlanSuite) TestCorrectlyDeterminesWhetherToUpdateEtcd(c *check.C) {
 	services := opsservice.SetupTestServices(c)
-	files := []*archive.Item{
-		archive.ItemFromString("orbit.manifest.json", `{
-	"version": "0.0.1",
-	"labels": [
-		{
-			"name": "version-etcd",
-			"value": "v3.3.2"
-		}
-	]
-}`),
-	}
 	runtimePackage := loc.MustParseLocator("example.com/runtime:1.0.0")
-	apptest.CreateDummyPackageWithContents(
-		runtimePackage,
-		files,
-		services.Packages, c)
+	updateRuntimePackage := loc.MustParseLocator("example.com/runtime:1.0.1")
+	createRuntimePackages(runtimePackage, updateRuntimePackage, etcdVersion{
+		installed: "3.3.2",
+		update:    "3.3.3",
+	}, services.Packages, c)
+	etcd, err := shouldUpdateEtcd(runtimePackage, updateRuntimePackage, services.Packages)
+	c.Assert(err, check.IsNil)
+	c.Assert(etcd, check.DeepEquals, &etcdVersion{
+		installed: "3.3.2",
+		update:    "3.3.3",
+	})
+}
+
+func createRuntimePackagesWithAssumedEtcdVersion(installedPackage, updatePackage loc.Locator, etcd etcdVersion, packages pack.PackageService, c *check.C) {
+	files := []*archive.Item{
+		archive.ItemFromString("orbit.manifest.json", `{"version": "0.0.1"}`),
+	}
+	apptest.CreateDummyPackageWithContents(installedPackage, files, packages, c)
 	files = []*archive.Item{
-		archive.ItemFromString("orbit.manifest.json", `{
+		archive.ItemFromString("orbit.manifest.json", fmt.Sprintf(`{
 	"version": "0.0.1",
 	"labels": [
 		{
 			"name": "version-etcd",
-			"value": "v3.3.3"
+			"value": "v%v"
 		}
 	]
-}`),
+}`, etcd.update)),
 	}
-	updateRuntimePackage := loc.MustParseLocator("example.com/runtime:1.0.1")
-	apptest.CreateDummyPackageWithContents(
-		updateRuntimePackage,
-		files,
-		services.Packages, c)
-	p := planConfig{
-		packageService: services.Packages,
-		installedRuntime: app.Application{Manifest: schema.Manifest{
-			SystemOptions: &schema.SystemOptions{
-				Dependencies: schema.SystemDependencies{
-					Runtime: &schema.Dependency{Locator: runtimePackage},
-				},
-			},
-		}},
-		updateRuntime: app.Application{Manifest: schema.Manifest{
-			SystemOptions: &schema.SystemOptions{
-				Dependencies: schema.SystemDependencies{
-					Runtime: &schema.Dependency{Locator: updateRuntimePackage},
-				},
-			},
-		}},
+	apptest.CreateDummyPackageWithContents(updatePackage, files, packages, c)
+}
+
+func createRuntimePackages(installedPackage, updatePackage loc.Locator, etcd etcdVersion, packages pack.PackageService, c *check.C) {
+	files := []*archive.Item{
+		archive.ItemFromString("orbit.manifest.json", fmt.Sprintf(`{
+	"version": "0.0.1",
+	"labels": [
+		{
+			"name": "version-etcd",
+			"value": "v%v"
+		}
+	]
+}`, etcd.installed)),
 	}
-	update, installedVersion, updateVersion, err := shouldUpdateEtcd(p)
-	c.Assert(err, check.IsNil)
-	c.Assert(update, check.Equals, true)
-	c.Assert(installedVersion, check.Equals, "3.3.2")
-	c.Assert(updateVersion, check.Equals, "3.3.3")
+	apptest.CreateDummyPackageWithContents(installedPackage, files, packages, c)
+	if updatePackage.IsEqualTo(installedPackage) {
+		return
+	}
+	files = []*archive.Item{
+		archive.ItemFromString("orbit.manifest.json", fmt.Sprintf(`{
+	"version": "0.0.1",
+	"labels": [
+		{
+			"name": "version-etcd",
+			"value": "v%v"
+		}
+	]
+}`, etcd.update)),
+	}
+	apptest.CreateDummyPackageWithContents(updatePackage, files, packages, c)
 }
 
 func newTestPlan(c *check.C, params params) planConfig {
@@ -290,11 +274,11 @@ func newTestPlan(c *check.C, params params) planConfig {
 				Manifest: []byte(params.updateAppManifest),
 			},
 		},
-		links:            params.links,
-		trustedClusters:  params.trustedClusters,
-		shouldUpdateEtcd: shouldUpdateEtcdTest,
-		updateCoreDNS:    params.updateCoreDNS,
-		leadMaster:       params.leadMaster,
+		links:           params.links,
+		trustedClusters: params.trustedClusters,
+		updateCoreDNS:   params.updateCoreDNS,
+		leadMaster:      params.leadMaster,
+		packageService:  params.packages,
 	}
 	gravityPackage, err := config.updateRuntime.Manifest.Dependencies.ByName(
 		constants.GravityPackage)
@@ -982,6 +966,7 @@ type params struct {
 	trustedClusters          []teleservices.TrustedCluster
 	leadMaster               storage.UpdateServer
 	dnsConfig                storage.DNSConfig
+	packages                 pack.PackageService
 }
 
 func shouldUpdateEtcdTest(planConfig) (bool, string, string, error) {
@@ -1016,57 +1001,59 @@ type testRotator struct {
 	teleportNodePackage   loc.Locator
 }
 
-var runtimePackage = storage.RuntimePackage{
-	Update: &storage.RuntimeUpdate{
-		Package: loc.MustParseLocator("gravitational.io/planet:2.0.0"),
-	},
-}
-var gravityInstalledLoc = loc.MustParseLocator("gravitational.io/gravity:1.0.0")
-var gravityUpdateLoc = loc.MustParseLocator("gravitational.io/gravity:2.0.0")
-var servers = []storage.Server{
-	{
-		AdvertiseIP: "192.168.0.1",
-		Hostname:    "node-1",
-		Role:        "node",
-		ClusterRole: string(schema.ServiceRoleMaster),
-	},
-	{
-		AdvertiseIP: "192.168.0.2",
-		Hostname:    "node-2",
-		Role:        "node",
-		ClusterRole: string(schema.ServiceRoleMaster),
-	},
-	{
-		AdvertiseIP: "192.168.0.3",
-		Hostname:    "node-3",
-		Role:        "node",
-		ClusterRole: string(schema.ServiceRoleNode),
-	},
-}
+var (
+	runtimePackage       = loc.MustParseLocator("gravitational.io/planet:1.0.0")
+	updateRuntimePackage = storage.RuntimePackage{
+		Update: &storage.RuntimeUpdate{
+			Package: loc.MustParseLocator("gravitational.io/planet:2.0.0"),
+		},
+	}
+	gravityInstalledLoc = loc.MustParseLocator("gravitational.io/gravity:1.0.0")
+	gravityUpdateLoc    = loc.MustParseLocator("gravitational.io/gravity:2.0.0")
+	servers             = []storage.Server{
+		{
+			AdvertiseIP: "192.168.0.1",
+			Hostname:    "node-1",
+			Role:        "node",
+			ClusterRole: string(schema.ServiceRoleMaster),
+		},
+		{
+			AdvertiseIP: "192.168.0.2",
+			Hostname:    "node-2",
+			Role:        "node",
+			ClusterRole: string(schema.ServiceRoleMaster),
+		},
+		{
+			AdvertiseIP: "192.168.0.3",
+			Hostname:    "node-3",
+			Role:        "node",
+			ClusterRole: string(schema.ServiceRoleNode),
+		},
+	}
+	updates = []storage.UpdateServer{
+		{
+			Server:  servers[0],
+			Runtime: updateRuntimePackage,
+		},
+		{
+			Server:  servers[1],
+			Runtime: updateRuntimePackage,
+		},
+		{
+			Server:  servers[2],
+			Runtime: updateRuntimePackage,
+		},
+	}
+	operation = storage.SiteOperation{
+		AccountID:  "000",
+		SiteDomain: "test",
+		ID:         "123",
+		Type:       ops.OperationUpdate,
+	}
+)
 
-var updates = []storage.UpdateServer{
-	{
-		Server:  servers[0],
-		Runtime: runtimePackage,
-	},
-	{
-		Server:  servers[1],
-		Runtime: runtimePackage,
-	},
-	{
-		Server:  servers[2],
-		Runtime: runtimePackage,
-	},
-}
-
-var operation = storage.SiteOperation{
-	AccountID:  "000",
-	SiteDomain: "test",
-	ID:         "123",
-	Type:       ops.OperationUpdate,
-}
-
-const installedRuntimeManifest = `apiVersion: bundle.gravitational.io/v2
+const (
+	installedRuntimeManifest = `apiVersion: bundle.gravitational.io/v2
 kind: Runtime
 metadata:
   name: runtime
@@ -1080,7 +1067,7 @@ dependencies:
     - gravitational.io/rbac-app:1.0.0
 `
 
-const installedAppManifest = `apiVersion: bundle.gravitational.io/v2
+	installedAppManifest = `apiVersion: bundle.gravitational.io/v2
 kind: Bundle
 metadata:
   name: app
@@ -1096,7 +1083,7 @@ systemOptions:
     runtimePackage: gravitational.io/planet:1.0.0
 `
 
-const updateRuntimeManifest = `apiVersion: bundle.gravitational.io/v2
+	updateRuntimeManifest = `apiVersion: bundle.gravitational.io/v2
 kind: Runtime
 metadata:
   name: runtime
@@ -1110,7 +1097,7 @@ dependencies:
     - gravitational.io/rbac-app:2.0.0
 `
 
-const updateAppManifest = `apiVersion: bundle.gravitational.io/v2
+	updateAppManifest = `apiVersion: bundle.gravitational.io/v2
 kind: Bundle
 metadata:
   name: app
@@ -1125,3 +1112,20 @@ systemOptions:
   dependencies:
     runtimePackage: gravitational.io/planet:2.0.0
 `
+
+	updateAppManifestNoRuntimeUpdate = `apiVersion: bundle.gravitational.io/v2
+kind: Bundle
+metadata:
+  name: app
+  resourceVersion: 2.0.0
+dependencies:
+  apps:
+    - gravitational.io/app-dep-1:1.0.0
+    - gravitational.io/app-dep-2:2.0.0
+nodeProfiles:
+  - name: node
+systemOptions:
+  dependencies:
+    runtimePackage: gravitational.io/planet:1.0.0
+`
+)

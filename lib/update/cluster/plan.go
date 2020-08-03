@@ -213,7 +213,6 @@ func NewOperationPlan(config PlanConfig) (*storage.OperationPlan, error) {
 		links:             links,
 		trustedClusters:   trustedClusters,
 		packageService:    config.Packages,
-		shouldUpdateEtcd:  shouldUpdateEtcd,
 		updateCoreDNS:     updateCoreDNS,
 		updateDNSAppEarly: updateDNSAppEarly,
 		roles:             roles,
@@ -287,8 +286,6 @@ type planConfig struct {
 	trustedClusters []teleservices.TrustedCluster
 	// packageService is a reference to the clusters package service
 	packageService pack.PackageService
-	// shouldUpdateEtcd returns whether we should update etcd and the versions of etcd in use
-	shouldUpdateEtcd func(planConfig) (bool, string, string, error)
 	// updateCoreDNS indicates whether we need to run coreDNS phase
 	updateCoreDNS bool
 	// updateDNSAppEarly indicates whether we need to update the DNS app earlier than normal
@@ -349,8 +346,18 @@ func newOperationPlan(p planConfig) (*storage.OperationPlan, error) {
 		return nil, trace.Wrap(err)
 	}
 
+	installedRuntimePackage, err := schema.GetDefaultRuntimePackage(p.installedApp.Manifest)
+	if err != nil {
+		return nil, trace.Wrap(err, "error fetching runtime package for %v", p.installedApp.Package)
+	}
+
+	updateRuntimePackage, err := schema.GetDefaultRuntimePackage(p.updateApp.Manifest)
+	if err != nil {
+		return nil, trace.Wrap(err, "error fetching runtime package for %v", p.updateApp.Package)
+	}
+
 	// check if etcd upgrade is required or not
-	updateEtcd, currentVersion, desiredVersion, err := p.shouldUpdateEtcd(p)
+	etcd, err := shouldUpdateEtcd(*installedRuntimePackage, *updateRuntimePackage, p.packageService)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -379,12 +386,12 @@ func newOperationPlan(p planConfig) (*storage.OperationPlan, error) {
 			root.Add(nodesPhase)
 		}
 
-		if updateEtcd {
+		if etcd != nil {
 			p.plan.OfflineCoordinator = &p.leadMaster.Server
 			etcdPhase := *builder.etcdPlan(p.leadMaster.Server,
 				serversToStorage(otherMasters...),
 				serversToStorage(nodes...),
-				currentVersion, desiredVersion)
+				etcd.installed, etcd.update)
 			// This does not depend on previous on purpose - when the etcd block is executed,
 			// remote agents might be able to sync the plan before the shutdown of etcd instances
 			// has begun

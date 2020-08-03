@@ -18,6 +18,7 @@ package service
 
 import (
 	"bytes"
+	"context"
 	"path/filepath"
 	"time"
 
@@ -63,25 +64,24 @@ func (s *PullerSuite) TestPullPackage(c *C) {
 	_, err := s.srcPack.CreatePackage(loc, bytes.NewBuffer([]byte("data")))
 	c.Assert(err, IsNil)
 
-	env, err := PullPackage(PackagePullRequest{
+	puller := app.Puller{
 		FieldLogger: logger,
 		SrcPack:     s.srcPack,
 		DstPack:     s.dstPack,
-		Package:     loc,
-	})
+	}
+	err = puller.PullPackage(context.TODO(), loc)
+	c.Assert(err, IsNil)
+
+	env, err := s.dstPack.ReadPackageEnvelope(loc)
 	c.Assert(err, IsNil)
 	c.Assert(env.Locator, Equals, loc)
 
-	env, err = s.dstPack.ReadPackageEnvelope(loc)
-	c.Assert(err, IsNil)
-	c.Assert(env.Locator, Equals, loc)
-
-	_, err = PullPackage(PackagePullRequest{
+	puller = app.Puller{
 		FieldLogger: logger,
 		SrcPack:     s.srcPack,
 		DstPack:     s.dstPack,
-		Package:     loc,
-	})
+	}
+	err = puller.PullPackage(context.TODO(), loc)
 	c.Assert(trace.IsAlreadyExists(err), Equals, true)
 }
 
@@ -122,16 +122,16 @@ dependencies:
 `
 	apptest.CreateDummyApplicationWithDependencies(s.srcApp, locator, dependencies, c)
 
-	pulled, err := PullApp(AppPullRequest{
+	puller := app.Puller{
 		SrcPack:  s.srcPack,
 		DstPack:  s.dstPack,
 		SrcApp:   s.srcApp,
 		DstApp:   s.dstApp,
-		Package:  locator,
+		Upsert:   true,
 		Parallel: parallel,
-	})
+	}
+	err := puller.PullApp(context.TODO(), locator)
 	c.Assert(err, IsNil)
-	c.Assert(pulled.Package, Equals, locator)
 
 	packages, err := s.dstPack.GetPackages("example.com")
 	c.Assert(err, IsNil)
@@ -146,14 +146,14 @@ dependencies:
 	c.Assert(err, IsNil)
 	c.Assert(local.Package, Equals, locator)
 
-	_, err = PullApp(AppPullRequest{
+	puller = app.Puller{
 		SrcPack:  s.srcPack,
 		DstPack:  s.dstPack,
 		SrcApp:   s.srcApp,
 		DstApp:   s.dstApp,
-		Package:  locator,
 		Parallel: parallel,
-	})
+	}
+	err = puller.PullApp(context.TODO(), locator)
 	c.Assert(trace.IsAlreadyExists(err), Equals, true)
 }
 

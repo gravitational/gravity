@@ -637,44 +637,38 @@ func supportsTaints(gravityPackage loc.Locator) (supports bool, err error) {
 	return defaults.BaseTaintsVersion.Compare(*ver) <= 0, nil
 }
 
-func shouldUpdateEtcd(installedRuntimePackage, updateRuntimePackage loc.Locator, packages pack.PackageService) (updateEtcd bool, installedEtcdVersion string, updateEtcdVersion string, err error) {
+func shouldUpdateEtcd(installedRuntimePackage, updateRuntimePackage loc.Locator, packages pack.PackageService) (etcd *etcdVersion, err error) {
 	// TODO: should somehow maintain etcd version invariant across runtime packages
-	// FIXME: getRuntimePackage(incl. legacy)
-	// runtimePackage, err := p.installedRuntime.Manifest.DefaultRuntimePackage()
-	// if err != nil && !trace.IsNotFound(err) {
-	// 	return false, "", "", trace.Wrap(err)
-	// }
-	// if err != nil {
-	// 	runtimePackage, err = p.installedRuntime.Manifest.Dependencies.ByName(loc.LegacyPlanetMaster.Name)
-	// 	if err != nil {
-	// 		log.Warnf("Failed to fetch the runtime package: %v.", err)
-	// 		return false, "", "", trace.NotFound("runtime package not found")
-	// 	}
-	// }
+	var updateEtcd bool
 	installedVersion, err := getEtcdVersion("version-etcd", installedRuntimePackage, packages)
 	if err != nil {
 		if !trace.IsNotFound(err) {
-			return false, "", "", trace.Wrap(err)
+			return nil, trace.Wrap(err)
 		}
 		// if the currently installed version doesn't have etcd version information, it needs to be upgraded
 		updateEtcd = true
 	}
-	// runtimePackage, err = p.updateRuntime.Manifest.DefaultRuntimePackage()
-	// if err != nil {
-	// 	return false, "", "", trace.Wrap(err)
-	// }
 	updateVersion, err := getEtcdVersion("version-etcd", updateRuntimePackage, packages)
 	if err != nil {
-		return false, "", "", trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 	if installedVersion == nil || installedVersion.Compare(*updateVersion) < 0 {
 		updateEtcd = true
 	}
-	if installedVersion != nil {
-		installedEtcdVersion = installedVersion.String()
+	if !updateEtcd {
+		return nil, nil
 	}
-	updateEtcdVersion = updateVersion.String()
-	return updateEtcd, installedEtcdVersion, updateEtcdVersion, nil
+	result := etcdVersion{
+		update: updateVersion.String(),
+	}
+	if installedVersion != nil {
+		result.installed = installedVersion.String()
+	}
+	return &result, nil
+}
+
+type etcdVersion struct {
+	installed, update string
 }
 
 func getEtcdVersion(searchLabel string, locator loc.Locator, packageService pack.PackageService) (*semver.Version, error) {

@@ -723,6 +723,13 @@ func IsPlanetConfigPackage(loc loc.Locator, labels map[string]string) bool {
 		loc.Repository != defaults.SystemAccountOrg
 }
 
+// IsMetadataPackage determines if the specified package is a metadata package.
+// A metadata package is a package that identifies a remote package but does not
+// carry any data
+func IsMetadataPackage(envelope PackageEnvelope) bool {
+	return envelope.RuntimeLabels[PurposeLabel] == PurposeMetadata
+}
+
 // LessFunc defines a version comparator
 type LessFunc func(a, b *semver.Version) bool
 

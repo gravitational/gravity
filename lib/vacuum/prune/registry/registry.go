@@ -22,7 +22,6 @@ import (
 
 	apps "github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/app/docker"
-	appservice "github.com/gravitational/gravity/lib/app/service"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/pack"
@@ -126,12 +125,12 @@ func (r *cleanup) Prune(ctx context.Context) (err error) {
 	if r.DryRun {
 		return nil
 	}
-	err = appservice.SyncApp(ctx, appservice.SyncRequest{
+	syncer := apps.Syncer{
 		PackService:  r.Packages,
 		AppService:   r.Apps,
 		ImageService: r.ImageService,
-		Package:      *r.App,
-	})
+	}
+	err = syncer.SyncApp(ctx, *r.App)
 	if err != nil {
 		return trace.Wrap(err)
 	}
