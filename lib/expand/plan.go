@@ -62,7 +62,9 @@ func (p *Peer) getOperationPlan(ctx operationContext) (*storage.OperationPlan, e
 	builder.AddInitPhase(plan)
 
 	// start RPC agent on one of the cluster's master nodes
-	builder.AddStartAgentPhase(plan)
+	if builder.JoiningNode.IsMaster() {
+		builder.AddStartAgentPhase(plan)
+	}
 
 	if builder.JoiningNode.SELinux {
 		builder.AddBootstrapSELinuxPhase(plan)
@@ -107,7 +109,9 @@ func (p *Peer) getOperationPlan(ctx operationContext) (*storage.OperationPlan, e
 	builder.AddWaitPhase(plan)
 
 	// RPC agent started in the beginning is no longer needed so shut it down
-	builder.AddStopAgentPhase(plan)
+	if builder.JoiningNode.IsMaster() {
+		builder.AddStopAgentPhase(plan)
+	}
 
 	// run post-join hook if the application has it
 	if builder.Application.Manifest.HasHook(schema.HookNodeAdded) {
