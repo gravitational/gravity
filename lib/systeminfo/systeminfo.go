@@ -29,6 +29,7 @@ import (
 	sigar "github.com/cloudfoundry/gosigar"
 	"github.com/gravitational/trace"
 	"github.com/mitchellh/go-ps"
+	log "github.com/sirupsen/logrus"
 )
 
 // New returns a new instance of system information
@@ -263,6 +264,7 @@ func collectFilesystemUsage(fs []storage.Filesystem) (result storage.FilesystemS
 		if !os.IsNotExist(err) {
 			return nil, trace.Wrap(err, "failed to get mount info on %v", mount.DirName)
 		}
+		log.WithField("path", mount.DirName).Warn("Directory for mountpoint not found - skipping.")
 	}
 	return result, nil
 }
