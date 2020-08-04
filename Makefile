@@ -518,15 +518,15 @@ scan-artifacts: telekube
 #
 .PHONY: telekube
 telekube: GRAVITY=$(GRAVITY_OUT) --state-dir=$(PACKAGES_DIR)
-telekube: $(GRAVITY_BUILDDIR)/telekube.tar
+telekube: $(TELEKUBE_OUT)
 
-$(GRAVITY_BUILDDIR)/telekube.tar: packages
+$(TELEKUBE_OUT): packages
 	GRAVITY_K8S_VERSION=$(K8S_VER) $(GRAVITY_BUILDDIR)/tele build \
 		$(ASSETSDIR)/telekube/resources/app.yaml -f \
 		--version=$(TELEKUBE_APP_TAG) \
 		--state-dir=$(PACKAGES_DIR) \
 		--skip-version-check \
-		-o $(GRAVITY_BUILDDIR)/telekube.tar
+		-o $(TELEKUBE_OUT)
 
 #
 # builds wormhole installer
