@@ -37,6 +37,7 @@ import (
 	"github.com/gravitational/gravity/lib/schema"
 	statusapi "github.com/gravitational/gravity/lib/status"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/system/service"
 	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/update"
 	clusterupdate "github.com/gravitational/gravity/lib/update/cluster"
@@ -261,7 +262,7 @@ func launchOneshotService(name string, args []string) error {
 		NoBlock: true,
 		ServiceSpec: systemservice.ServiceSpec{
 			User:         constants.RootUIDString,
-			Type:         constants.OneshotService,
+			Type:         service.OneshotService,
 			StartCommand: command,
 		},
 	})

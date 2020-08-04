@@ -208,6 +208,9 @@ const (
 	// BlockingOperationEnvVar specifies whether to wait for operation to complete
 	BlockingOperationEnvVar = "GRAVITY_BLOCKING_OPERATION"
 
+	// AgentStatusTimeoutEnvVar is the name of the environment variable that specifies the agent status timeout value
+	AgentStatusTimeoutEnvVar = "GRAVITY_AGENT_STATUS_TIMEOUT"
+
 	// DockerRegistry is a default name for private docker registry
 	DockerRegistry = "leader.telekube.local:5000"
 
@@ -232,9 +235,6 @@ const (
 
 	// GravityServicePortName is the port name of the service
 	GravityServicePortName = "web"
-
-	// OneshotService is a service that executes one time
-	OneshotService = "oneshot"
 
 	// RootUID is the root user ID
 	RootUID = 0
@@ -717,6 +717,12 @@ const (
 
 	// Redacted is used as a replacement string for sensitive data.
 	Redacted = "*****"
+
+	// GravityAgentOffline indicates the gravity-agent service is offline.
+	GravityAgentOffline = "Offline"
+
+	// GravityAgentDeployed indicates the gravity-agent service has been deployed.
+	GravityAgentDeployed = "Deployed"
 )
 
 var (

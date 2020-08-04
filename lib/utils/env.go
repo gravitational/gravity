@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/trace"
@@ -103,6 +104,19 @@ func GetenvWithDefault(name, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+// GetenvDuration returns the specified environment variable value parsed as a duration.
+func GetenvDuration(name string) (dur time.Duration, err error) {
+	valueS, ok := os.LookupEnv(name)
+	if !ok {
+		return dur, trace.NotFound("environment variable %v not set", name)
+	}
+	valueD, err := time.ParseDuration(valueS)
+	if err != nil {
+		return 0, trace.Wrap(err)
+	}
+	return valueD, nil
 }
 
 // runningInsideContainer specifies if this process is executing inside
