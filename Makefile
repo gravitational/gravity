@@ -150,12 +150,10 @@ TELEKUBE_OUT := $(GRAVITY_BUILDDIR)/telekube.tar
 TF_PROVIDER_GRAVITY_OUT := $(GRAVITY_BUILDDIR)/terraform-provider-gravity
 TF_PROVIDER_GRAVITYENTERPRISE_OUT := $(GRAVITY_BUILDDIR)/terraform-provider-gravityenterprise
 
-GRAVITY_DIR := /var/lib/gravity
-
 LOCAL_OPSCENTER_HOST ?= opscenter.localhost.localdomain
-LOCAL_OPSCENTER_DIR := $(GRAVITY_DIR)/opscenter
 LOCAL_OPS_URL := https://$(LOCAL_OPSCENTER_HOST):33009
-LOCAL_STATE_DIR ?= $(LOCAL_OPSCENTER_DIR)/read
+
+LOCAL_STATE_DIR ?= $(GRAVITY_BUILDDIR)/state
 
 # Build artifacts published to S3
 GRAVITY_PUBLISH_TARGETS := $(GRAVITY_OUT) \
