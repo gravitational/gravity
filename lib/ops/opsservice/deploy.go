@@ -102,6 +102,8 @@ func remoteDirectories(operation ops.SiteOperation, server *ProvisionedServer, m
 		server.InGravity("secrets"),
 		server.InGravity("backup"),
 		server.InGravity("logrange"),
+		// names prometheus-db/alertmanager-db are hardcoded subPath values
+		// in prometheus-operator
 		server.InGravity("monitoring", "prometheus-db"),
 		server.InGravity("monitoring", "alertmanager-db"),
 	}

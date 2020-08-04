@@ -220,6 +220,8 @@ func (p *bootstrapExecutor) configureSystemDirectories(ctx context.Context) erro
 		filepath.Join(stateDir, "secrets"),
 		filepath.Join(stateDir, "backup"),
 		filepath.Join(stateDir, "logrange"),
+		// names prometheus-db/alertmanager-db are hardcoded subPath values
+		// in prometheus-operator
 		filepath.Join(stateDir, "monitoring", "prometheus-db"),
 		filepath.Join(stateDir, "monitoring", "alertmanager-db"),
 	}
