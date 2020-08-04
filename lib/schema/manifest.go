@@ -513,16 +513,6 @@ func (d Dependencies) ByName(names ...string) (*loc.Locator, error) {
 	return nil, trace.NotFound("dependencies %q are not defined in the manifest", names)
 }
 
-// Has returns true if dependencies have the specified package
-func (d Dependencies) Has(loc loc.Locator) (*loc.Locator, error) {
-	for _, dep := range append(d.Packages, d.Apps...) {
-		if dep.Locator.IsEqualTo(loc) {
-			return &dep.Locator, nil
-		}
-	}
-	return nil, trace.NotFound("dependency %v is not defined in the manifest", loc)
-}
-
 // GetPackages returns a list of all package dependencies
 func (d Dependencies) GetPackages() []loc.Locator {
 	packages := make([]loc.Locator, 0, len(d.Packages)+1)

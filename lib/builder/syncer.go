@@ -23,6 +23,7 @@ import (
 
 	libapp "github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/archive"
+	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/hub"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
@@ -70,7 +71,7 @@ func newS3Syncer() (*s3Syncer, error) {
 // Sync makes sure that local cache has all required dependencies for the
 // selected runtime
 func (s *s3Syncer) Sync(ctx context.Context, builder *Builder, runtimeVersion semver.Version) error {
-	tarball, err := s.hub.Get(loc.Gravity.WithVersion(runtimeVersion))
+	tarball, err := s.hub.Get(application.WithVersion(runtimeVersion))
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -106,7 +107,7 @@ func (s *s3Syncer) Sync(ctx context.Context, builder *Builder, runtimeVersion se
 		DstPack:     builder.Env.Packages,
 		DstApp:      cacheApps,
 		Parallel:    builder.VendorReq.Parallel,
-		OnConflict:  libapp.GetDependencyConflictHandler(false),
+		Upsert:      true,
 	}
 	return puller.PullAppDeps(ctx, builder.appForRuntime(runtimeVersion))
 }
@@ -152,4 +153,10 @@ func (s *packSyncer) Sync(ctx context.Context, builder *Builder, runtimeVersion 
 		return trace.Wrap(err)
 	}
 	return nil
+}
+
+var application = loc.Locator{
+	Repository: defaults.SystemAccountOrg,
+	Name:       "telekube",
+	Version:    loc.ZeroVersion,
 }

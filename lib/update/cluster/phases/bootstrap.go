@@ -170,8 +170,8 @@ func (p *updatePhaseBootstrapLeader) rotateSecrets(server storage.UpdateServer) 
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	_, err = p.bootstrap.Packages.CreatePackage(resp.Locator, resp.Reader, pack.WithLabels(resp.Labels))
-	if err != nil && !trace.IsAlreadyExists(err) {
+	_, err = p.bootstrap.Packages.UpsertPackage(resp.Locator, resp.Reader, pack.WithLabels(resp.Labels))
+	if err != nil {
 		return trace.Wrap(err)
 	}
 	p.Debugf("Rotated secrets package for %v: %v.", server, resp.Locator)

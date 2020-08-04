@@ -62,7 +62,7 @@ func RegisterCommands(app *kingpin.Application) Application {
 	tele.ListCmd.CmdClause = app.Command("ls", "List cluster and application images published to Gravity Hub.")
 	tele.ListCmd.Runtimes = tele.ListCmd.Flag("runtimes", "Show only runtimes.").Short('r').Hidden().Bool()
 	tele.ListCmd.Format = common.Format(tele.ListCmd.Flag("format", fmt.Sprintf("Output format: %v.", constants.OutputFormats)).Default(string(constants.EncodingText)))
-	tele.ListCmd.All = tele.ListCmd.Flag("all", "Display all available versions.").Bool()
+	tele.ListCmd.All = tele.ListCmd.Flag("all", "Display all available versions.").Short('a').Bool()
 
 	tele.PullCmd.CmdClause = app.Command("pull", "Pull a cluster or application image from Gravity Hub.")
 	tele.PullCmd.App = tele.PullCmd.Arg("image", "Cluster or application image to download: <name>:<version> or just <name> to download the latest.").Required().String()
