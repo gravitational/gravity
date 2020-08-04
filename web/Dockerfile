@@ -1,11 +1,6 @@
-FROM node:8.11.2-slim
-
-# Fixes jessie repository
-RUN sed -i '/jessie-updates/d' /etc/apt/sources.list
+FROM node:12.18.3-stretch-slim
 
 RUN apt-get update && apt-get install git -y
-
-RUN npm i npm@6.4.1 -g
 
 # prepare to install only package.json dependencies
 RUN mkdir -p /app
