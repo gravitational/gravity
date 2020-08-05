@@ -19,8 +19,8 @@ package clusterconfig
 import (
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/storage"
-	"github.com/gravitational/gravity/lib/update"
 	"github.com/gravitational/gravity/lib/update/clusterconfig/phases"
+	libbuilder "github.com/gravitational/gravity/lib/update/internal/builder"
 	"github.com/gravitational/gravity/lib/update/internal/rollingupdate"
 	libphase "github.com/gravitational/gravity/lib/update/internal/rollingupdate/phases"
 )
@@ -37,7 +37,7 @@ func newBuilderWithServices(config planConfig) (*builder, error) {
 	return &builder{
 		Builder: rollingupdate.Builder{
 			App: config.app.Package,
-			CustomUpdate: &update.Phase{
+			CustomUpdate: &storage.OperationPhase{
 				ID:          "services",
 				Executor:    libphase.Custom,
 				Description: "Reset services",
@@ -55,22 +55,22 @@ func newBuilderWithServices(config planConfig) (*builder, error) {
 	}, nil
 }
 
-func (r builder) init(desc string) *update.Phase {
-	return &update.Phase{
+func (r builder) init(desc string) *libbuilder.Phase {
+	return libbuilder.NewPhase(storage.OperationPhase{
 		ID:          "init",
 		Executor:    phases.InitPhase,
 		Description: desc,
 		Data:        r.Builder.CustomUpdate.Data,
-	}
+	})
 }
 
-func (r builder) fini(desc string) *update.Phase {
-	return &update.Phase{
+func (r builder) fini(desc string) *libbuilder.Phase {
+	return libbuilder.NewPhase(storage.OperationPhase{
 		ID:          "fini",
 		Executor:    phases.FiniPhase,
 		Description: desc,
 		Data:        r.Builder.CustomUpdate.Data,
-	}
+	})
 }
 
 type builder struct {

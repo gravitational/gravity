@@ -42,6 +42,7 @@ import (
 
 // NewOperationPlan creates a new operation plan for the specified operation
 func NewOperationPlan(
+	ctx context.Context,
 	operator ops.Operator,
 	apps app.Applications,
 	client *kubernetes.Clientset,
@@ -49,7 +50,7 @@ func NewOperationPlan(
 	clusterConfig clusterconfig.Interface,
 	servers []storage.Server,
 ) (plan *storage.OperationPlan, err error) {
-	cluster, err := operator.GetLocalSite(context.TODO())
+	cluster, err := operator.GetLocalSite(ctx)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -128,10 +129,9 @@ func newOperationPlan(config planConfig) (plan *storage.OperationPlan, err error
 		"Update cluster configuration",
 		"Update configuration on node %q",
 	).Require(runtimeConfig)
-	phases := update.PhasePtrs{runtimeConfig, updateMasters}
+	phases := []*libbuilder.Phase{runtimeConfig, updateMasters}
 
-	// FIXME: builder moved to update/internal/builder
-	var updateNodes *update.Phase
+	var updateNodes *libbuilder.Phase
 	if shouldUpdateNodes {
 		updateNodes = builder.Nodes(
 			nodes, masters[0].Server,
@@ -149,7 +149,7 @@ func newOperationPlan(config planConfig) (plan *storage.OperationPlan, err error
 		} else {
 			fini.Require(updateMasters)
 		}
-		phases = append([]*update.Phase{init}, append(phases, fini)...)
+		phases = append([]*libbuilder.Phase{init}, append(phases, fini)...)
 	}
 
 	return libbuilder.Resolve(phases, storage.OperationPlan{

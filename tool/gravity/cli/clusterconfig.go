@@ -216,7 +216,7 @@ func (r configInitializer) newOperationPlan(
 	leader *storage.Server,
 ) (*storage.OperationPlan, error) {
 	plan, err := clusterconfig.NewOperationPlan(
-		operator, clusterEnv.Apps, clusterEnv.Client,
+		ctx, operator, clusterEnv.Apps, clusterEnv.Client,
 		operation, r.config, cluster.ClusterState.Servers,
 	)
 	if err != nil {

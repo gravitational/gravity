@@ -216,8 +216,7 @@ func (i *Installer) getClusterStatus() (*status.Status, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	// FIXME: accept context as parameter
-	cluster, err := clusterOperator.GetLocalSite(context.TODO())
+	cluster, err := clusterOperator.GetLocalSite(i.ctx)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

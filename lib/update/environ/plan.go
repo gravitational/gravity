@@ -31,12 +31,13 @@ import (
 
 // NewOperationPlan creates a new operation plan for the specified operation
 func NewOperationPlan(
+	ctx context.Context,
 	operator ops.Operator,
 	apps app.Applications,
 	operation ops.SiteOperation,
 	servers []storage.Server,
 ) (plan *storage.OperationPlan, err error) {
-	cluster, err := operator.GetLocalSite(context.TODO())
+	cluster, err := operator.GetLocalSite(ctx)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

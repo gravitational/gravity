@@ -38,7 +38,6 @@ func NewChecks(p fsm.ExecutorParams, operator ops.Operator, runner rpc.AgentRepo
 		Key:         opKey(p.Plan),
 		Operator:    operator,
 	}
-	// TODO(dmitri): accept context
 	cluster, err := operator.GetLocalSite(context.TODO())
 	if err != nil {
 		return nil, trace.Wrap(err)

@@ -187,7 +187,7 @@ func (r Builder) commonFirstMaster(server storage.UpdateServer, others ...storag
 	)
 }
 
-func (r Builder) common(server storage.UpdateServer, master *storage.Server) (phases []update.Phase) {
+func (r Builder) common(server storage.UpdateServer, master *storage.Server) (phases []*builder.Phase) {
 	return []*builder.Phase{
 		r.drain(&server.Server, master),
 		r.restart(server),
@@ -227,7 +227,7 @@ func (r Builder) taint(server, execer *storage.Server) *builder.Phase {
 func (r Builder) custom(server, execer *storage.Server) *builder.Phase {
 	node := *r.CustomUpdate
 	node.Data.Server = server
-	return &node
+	return builder.NewPhase(node)
 }
 
 func (r Builder) untaint(server, execer *storage.Server) *builder.Phase {
@@ -290,7 +290,7 @@ type Builder struct {
 	// App specifies the cluster application
 	App loc.Locator
 	// CustomUpdate optionally specifies the custom phase
-	CustomUpdate *builder.Phase
+	CustomUpdate *storage.OperationPhase
 }
 
 // setLeaderElection creates a phase that will change the leader election state in the cluster
