@@ -334,7 +334,8 @@ overlay network to work properly. See [Google Cloud's Documentation](https://clo
 matching the name of the Cluster. This is required to ensure that created load
 balancers discover proper instances.
 * Instance Cloud API access scopes must include read/write permissions for Compute Engine.
-This is required to create routes between nodes.
+This is required to create routes between nodes. For a more detailed list of required
+permissions see [GCE IAM Policy](requirements.md#gce-iam-policy) requirements.
 
 Once the GCE instances have been properly provisioned, launch Gravity installation as
 [described above](#cli-installation).  Either omit the `--cloud-provider` flag or
