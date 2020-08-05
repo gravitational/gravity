@@ -71,7 +71,7 @@ func Build(ctx context.Context, builder *Builder) error {
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		err = builder.SyncPackageCache(runtimeVersion)
+		err = builder.SyncPackageCache(ctx, runtimeVersion)
 		if err != nil {
 			if trace.IsNotFound(err) {
 				return trace.NotFound("base image version %v not found", runtimeVersion)

@@ -22,7 +22,6 @@ import (
 	"path/filepath"
 
 	"github.com/gravitational/gravity/lib/app"
-	"github.com/gravitational/gravity/lib/app/service"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
@@ -108,11 +107,11 @@ type pullExecutor struct {
 
 // Execute executes the pull phase
 func (p *pullExecutor) Execute(ctx context.Context) error {
-	err := p.pullUserApplication()
+	err := p.pullUserApplication(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = p.pullConfiguredPackages()
+	err = p.pullConfiguredPackages(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -139,19 +138,19 @@ func (p *pullExecutor) Execute(ctx context.Context) error {
 	return nil
 }
 
-func (p *pullExecutor) pullUserApplication() error {
+func (p *pullExecutor) pullUserApplication(ctx context.Context) error {
 	p.Progress.NextStep("Pulling user application")
 	p.Info("Pulling user application.")
 	// TODO do not pull user app on regular nodes
 	// FIXME: use context to promptly abort the pull
-	_, err := service.PullApp(service.AppPullRequest{
+	puller := app.Puller{
 		FieldLogger: p.FieldLogger,
 		SrcPack:     p.WizardPackages,
 		DstPack:     p.LocalPackages,
 		SrcApp:      p.WizardApps,
 		DstApp:      p.LocalApps,
-		Package:     *p.Phase.Data.Package,
-	})
+	}
+	err := puller.PullApp(ctx, *p.Phase.Data.Package)
 	// Ignore already exists as the steps need to be re-entrant
 	if err != nil && !trace.IsAlreadyExists(err) {
 		return trace.Wrap(err)
@@ -204,7 +203,7 @@ func (p *pullExecutor) applyPackageLabels() error {
 	return nil
 }
 
-func (p *pullExecutor) pullConfiguredPackages() (err error) {
+func (p *pullExecutor) pullConfiguredPackages(ctx context.Context) (err error) {
 	p.Progress.NextStep("Pulling configured packages")
 	p.Info("Pulling configured packages.")
 	var envelopes []pack.PackageEnvelope
@@ -217,12 +216,12 @@ func (p *pullExecutor) pullConfiguredPackages() (err error) {
 		return trace.Wrap(err)
 	}
 	for _, e := range envelopes {
-		_, err := service.PullPackage(service.PackagePullRequest{
+		puller := app.Puller{
 			SrcPack: p.WizardPackages,
 			DstPack: p.LocalPackages,
-			Package: e.Locator,
 			Labels:  e.RuntimeLabels,
-		})
+		}
+		err := puller.PullPackage(ctx, e.Locator)
 		// Ignore already exists as the steps need to be re-entrant
 		if err != nil && !trace.IsAlreadyExists(err) {
 			return trace.Wrap(err)

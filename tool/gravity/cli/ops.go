@@ -21,10 +21,11 @@ import (
 	"encoding/json"
 	"fmt"
 	_ "net/http/pprof"
+	"runtime"
 	"strings"
 
+	libapp "github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/app/docker"
-	appservice "github.com/gravitational/gravity/lib/app/service"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/install"
@@ -154,19 +155,38 @@ func uploadUpdate(ctx context.Context, env *localenv.LocalEnvironment, opsURL st
 		return trace.Wrap(err)
 	}
 
-	env.PrintStep("Importing application %v v%v", appPackage.Name, appPackage.Version)
-	_, err = appservice.PullApp(appservice.AppPullRequest{
-		SrcPack: tarballPackages,
-		SrcApp:  tarballApps,
-		DstPack: clusterPackages,
-		DstApp:  clusterApps,
-		Package: *appPackage,
+	app, err := tarballApps.GetApp(*appPackage)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	deps, err := libapp.GetDependencies(libapp.GetDependenciesRequest{
+		App:  *app,
+		Apps: tarballApps,
+		Pack: tarballPackages,
 	})
 	if err != nil {
-		if !trace.IsAlreadyExists(err) {
-			return trace.Wrap(err)
-		}
-		env.PrintStep("Application already exists in local cluster")
+		return trace.Wrap(err)
+	}
+
+	env.PrintStep("Importing application %v v%v", appPackage.Name, appPackage.Version)
+	puller := libapp.Puller{
+		SrcPack:  tarballPackages,
+		SrcApp:   tarballApps,
+		DstPack:  clusterPackages,
+		DstApp:   clusterApps,
+		Upsert:   true,
+		Parallel: runtime.NumCPU(),
+	}
+
+	err = puller.Pull(ctx, *deps)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	err = puller.PullAppNoDeps(ctx, *appPackage)
+	if err != nil {
+		return trace.Wrap(err)
 	}
 
 	var registries []string
@@ -197,12 +217,12 @@ func uploadUpdate(ctx context.Context, env *localenv.LocalEnvironment, opsURL st
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		err = appservice.SyncApp(ctx, appservice.SyncRequest{
+		syncer := libapp.Syncer{
 			PackService:  tarballPackages,
 			AppService:   tarballApps,
 			ImageService: imageService,
-			Package:      *appPackage,
-		})
+		}
+		err = syncer.SyncApp(ctx, *appPackage)
 		if err != nil {
 			return trace.Wrap(err)
 		}

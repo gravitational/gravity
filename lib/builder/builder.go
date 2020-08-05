@@ -251,14 +251,14 @@ func (b *Builder) SelectRuntime() (*semver.Version, error) {
 
 // SyncPackageCache ensures that all system dependencies are present in
 // the local cache directory
-func (b *Builder) SyncPackageCache(runtimeVersion *semver.Version) error {
+func (b *Builder) SyncPackageCache(ctx context.Context, runtimeVersion *semver.Version) error {
 	apps, err := b.Env.AppServiceLocal(localenv.AppConfig{})
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	// see if all required packages/apps are already present in the local cache
 	b.Manifest.SetBase(loc.Runtime.WithVersion(runtimeVersion))
-	err = app.VerifyDependencies(&app.Application{
+	err = app.VerifyDependencies(app.Application{
 		Manifest: b.Manifest,
 		Package:  b.Manifest.Locator(),
 	}, apps, b.Env.Packages)
@@ -280,7 +280,7 @@ func (b *Builder) SyncPackageCache(runtimeVersion *semver.Version) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return syncer.Sync(b, runtimeVersion)
+	return syncer.Sync(ctx, b, runtimeVersion)
 }
 
 // Vendor vendors the application images in the provided directory and
@@ -375,6 +375,11 @@ func (b *Builder) initServices() (err error) {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	defer func() {
+		if err != nil {
+			os.RemoveAll(b.Dir)
+		}
+	}()
 	b.Backend, err = keyval.NewBolt(keyval.BoltConfig{
 		Path: filepath.Join(b.Dir, defaults.GravityDBFile),
 	})
@@ -458,6 +463,13 @@ There are a few ways to resolve the issue:
 	b.Debugf("Version check passed; tele version: %v, runtime version: %v.",
 		teleVersion, runtimeVersion)
 	return nil
+}
+
+func (b Builder) app() app.Application {
+	return app.Application{
+		Package:  b.Manifest.Locator(),
+		Manifest: b.Manifest,
+	}
 }
 
 // versionsCompatible returns true if the provided tele and runtime versions

@@ -21,7 +21,7 @@ import (
 	"io"
 	"path/filepath"
 
-	appservice "github.com/gravitational/gravity/lib/app/service"
+	libapp "github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
@@ -252,13 +252,13 @@ func (p *updatePhaseBootstrap) pullSystemUpdates(ctx context.Context) error {
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		_, err = appservice.PullPackage(appservice.PackagePullRequest{
+		puller := libapp.Puller{
 			SrcPack: p.Packages,
 			DstPack: p.LocalPackages,
-			Package: update,
-			Upsert:  true,
 			Labels:  existingLabels,
-		})
+			Upsert:  true,
+		}
+		err = puller.PullPackage(ctx, update)
 		if err != nil {
 			return trace.Wrap(err)
 		}
