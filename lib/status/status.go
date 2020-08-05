@@ -108,7 +108,7 @@ func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, o
 	}
 
 	// FIXME: have status extension accept the operator/environment
-	if err := status.Cluster.Extension.Collect(); err != nil {
+	if err := status.Cluster.Extension.Collect(ctx); err != nil {
 		log.WithError(err).Warn("Failed to query extension metadata.")
 	}
 

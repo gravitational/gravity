@@ -306,15 +306,15 @@ func (s *site) configurePackages(ctx *operationContext, req ops.ConfigurePackage
 
 	etcdConfig := s.prepareEtcdConfig(ctx)
 
-	var clusterConfig clusterconfig.Interface
+	clusterConfig := clusterconfig.NewEmpty()
 	if len(req.Config) != 0 {
 		clusterConfig, err = clusterconfig.Unmarshal(req.Config)
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		if s.cloudProviderName() != "" {
-			clusterConfig.SetCloudProvider(s.cloudProviderName())
-		}
+	}
+	if s.cloudProviderName() != "" {
+		clusterConfig.SetCloudProvider(s.cloudProviderName())
 	}
 
 	for i, master := range masters {
