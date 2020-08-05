@@ -463,6 +463,9 @@ const (
 	// PlanetShareDir is the in-planet share directory
 	PlanetShareDir = "/ext/share"
 
+	// PlanetEtcdDir is the etcd data directory as mounted inside planet
+	PlanetEtcdDir = "/ext/etcd"
+
 	// SharedDirMask is a mask for shared directories
 	SharedDirMask = 0755
 

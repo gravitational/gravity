@@ -18,7 +18,6 @@ package phases
 
 import (
 	"context"
-	"fmt"
 	"path/filepath"
 
 	"github.com/gravitational/gravity/lib/constants"
@@ -208,10 +207,12 @@ func NewPhaseUpgradeEtcdMigrate(phase storage.OperationPhase, logger log.FieldLo
 // Execute moves the data from the old version to the new version
 func (p *PhaseUpgradeEtcdMigrate) Execute(ctx context.Context) error {
 	p.Info("Migrate etcd data.")
-	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger,
-		"etcd", "migrate",
-		"--from", etcdVersion(p.fromVersion),
-		"--to", etcdVersion(p.toVersion))
+	gravityPath := filepath.Join(defaults.GravityRPCAgentDir, constants.GravityBin)
+	out, err := utils.RunCommand(ctx, p.FieldLogger,
+		utils.PlanetCommandArgs(gravityPath,
+			"system", "etcd", "migrate",
+			"--from", p.fromVersion,
+			"--to", p.toVersion)...)
 	if err != nil {
 		return trace.Wrap(err).AddField("output", string(out))
 	}
@@ -328,10 +329,6 @@ func restartGravitySite(ctx context.Context, client *kubeapi.Clientset, logger l
 		return trace.Wrap(kubernetes.DeletePods(client, constants.KubeSystemNamespace, label))
 	}, defaults.DrainErrorTimeout)
 	return trace.Wrap(err)
-}
-
-func etcdVersion(version string) string {
-	return fmt.Sprint("v", version)
 }
 
 func backupFile() (string, error) {
