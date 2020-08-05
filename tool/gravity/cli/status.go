@@ -159,7 +159,7 @@ func statusPeriodic(env *localenv.LocalEnvironment, printOptions printOptions, s
 
 // statusOnce collects cluster status information
 func statusOnce(ctx context.Context, operator ops.Operator, operationID string, env *localenv.LocalEnvironment) (*statusapi.Status, error) {
-	cluster, err := operator.GetLocalSite()
+	cluster, err := operator.GetLocalSite(ctx)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

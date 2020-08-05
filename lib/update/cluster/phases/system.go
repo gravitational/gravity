@@ -224,7 +224,8 @@ func NewUpdatePhaseConfig(
 	remote fsm.Remote,
 	logger log.FieldLogger,
 ) (*updatePhaseConfig, error) {
-	cluster, err := operator.GetLocalSite()
+	// FIXME: accept from outside or pass context
+	cluster, err := operator.GetLocalSite(context.TODO())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

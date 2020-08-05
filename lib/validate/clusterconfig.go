@@ -17,6 +17,8 @@ limitations under the License.
 package validate
 
 import (
+	"net"
+
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 
 	"github.com/gravitational/trace"
@@ -49,29 +51,45 @@ func ClusterConfiguration(existing, update clusterconfig.Interface) error {
 	if globalConfig.CloudProvider == "" && newGlobalConfig.CloudConfig != "" {
 		return trace.BadParameter("cannot set cloud configuration: cluster does not have cloud provider configured")
 	}
-	if newGlobalConfig.PodCIDR == globalConfig.PodCIDR {
-		return trace.BadParameter("specified pod subnet (%v) is the same as existing pod subnet",
-			newGlobalConfig.PodCIDR)
-	}
-	if newGlobalConfig.ServiceCIDR == globalConfig.ServiceCIDR {
-		return trace.BadParameter("specified service subnet (%v) is the same as existing service subnet",
-			newGlobalConfig.ServiceCIDR)
-	}
 	if newGlobalConfig.PodCIDR != "" {
-		serviceCIDR := newGlobalConfig.ServiceCIDR
-		if serviceCIDR == "" {
-			serviceCIDR = globalConfig.ServiceCIDR
+		_, podCIDR, err := net.ParseCIDR(newGlobalConfig.PodCIDR)
+		if err != nil {
+			return trace.Wrap(err, "invalid pod subnet: %v", newGlobalConfig.PodCIDR)
 		}
-		if err := KubernetesSubnets(newGlobalConfig.PodCIDR, serviceCIDR); err != nil {
+		if podCIDR.String() == globalConfig.PodCIDR {
+			return trace.BadParameter("specified pod subnet (%v) is the same as existing pod subnet",
+				newGlobalConfig.PodCIDR)
+		}
+		serviceSubnet := newGlobalConfig.ServiceCIDR
+		if serviceSubnet == "" {
+			serviceSubnet = globalConfig.ServiceCIDR
+		}
+		_, serviceCIDR, err := net.ParseCIDR(serviceSubnet)
+		if err != nil {
+			return trace.Wrap(err, "invalid service subnet: %v", serviceSubnet)
+		}
+		if err := KubernetesSubnets(podCIDR, serviceCIDR); err != nil {
 			return trace.Wrap(err)
 		}
 	}
 	if newGlobalConfig.ServiceCIDR != "" {
-		podCIDR := newGlobalConfig.PodCIDR
-		if podCIDR == "" {
-			podCIDR = globalConfig.PodCIDR
+		_, serviceCIDR, err := net.ParseCIDR(newGlobalConfig.ServiceCIDR)
+		if err != nil {
+			return trace.Wrap(err, "invalid service subnet: %v", newGlobalConfig.ServiceCIDR)
 		}
-		if err := KubernetesSubnets(podCIDR, newGlobalConfig.ServiceCIDR); err != nil {
+		if serviceCIDR.String() == globalConfig.ServiceCIDR {
+			return trace.BadParameter("specified service subnet (%v) is the same as existing service subnet",
+				newGlobalConfig.ServiceCIDR)
+		}
+		podSubnet := newGlobalConfig.PodCIDR
+		if podSubnet == "" {
+			podSubnet = globalConfig.PodCIDR
+		}
+		_, podCIDR, err := net.ParseCIDR(podSubnet)
+		if err != nil {
+			return trace.Wrap(err, "invalid pod subnet: %v", podSubnet)
+		}
+		if err := KubernetesSubnets(podCIDR, serviceCIDR); err != nil {
 			return trace.Wrap(err)
 		}
 	}

@@ -101,7 +101,7 @@ func NewUpdatePhaseInitLeader(
 	if p.Phase.Data.InstalledPackage == nil {
 		return nil, trace.BadParameter("no installed application package specified for phase %v", p.Phase)
 	}
-	cluster, err := operator.GetLocalSite()
+	cluster, err := operator.GetLocalSite(context.TODO())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

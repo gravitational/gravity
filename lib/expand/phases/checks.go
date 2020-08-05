@@ -38,6 +38,7 @@ func NewChecks(p fsm.ExecutorParams, operator ops.Operator, runner rpc.AgentRepo
 		Key:         opKey(p.Plan),
 		Operator:    operator,
 	}
+	// FIXME: context
 	cluster, err := operator.GetLocalSite()
 	if err != nil {
 		return nil, trace.Wrap(err)

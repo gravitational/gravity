@@ -620,6 +620,9 @@ const (
 	// SiteStatusCheckInterval is how often local gravity site will invoke app status hook
 	SiteStatusCheckInterval = 1 * time.Minute
 
+	// ClusterStatusTimeout specifies the time limit for cluster status check
+	ClusterStatusTimeout = 5 * time.Minute
+
 	// OfflineCheckInterval is how often OpsCenter checks whether its sites are online/offline
 	OfflineCheckInterval = 10 * time.Second
 

@@ -303,7 +303,8 @@ func NewUpdatePhaseBootstrap(
 		return nil, trace.BadParameter("no gravity package specified for phase %q", p.Phase.ID)
 	}
 	server := p.Phase.Data.Update.Servers[0]
-	cluster, err := operator.GetLocalSite()
+	// FIXME: accept context or pass cluster from outside
+	cluster, err := operator.GetLocalSite(context.TODO())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

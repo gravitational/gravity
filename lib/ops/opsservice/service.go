@@ -756,7 +756,7 @@ func (o *Operator) GetClusterAgent(req ops.ClusterAgentRequest) (*storage.LoginE
 }
 
 // GetLocalSite returns local cluster record for this Ops Center
-func (o *Operator) GetLocalSite() (*ops.Site, error) {
+func (o *Operator) GetLocalSite(context.Context) (*ops.Site, error) {
 	record, err := o.backend().GetLocalSite(defaults.SystemAccountID)
 	if err != nil {
 		return nil, trace.Wrap(err)
