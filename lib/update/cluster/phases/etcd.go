@@ -89,9 +89,9 @@ func (p *PhaseUpgradeEtcdBackup) Execute(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	_, err = utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "backup", backupFile)
+	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "backup", backupFile)
 	if err != nil {
-		return trace.Wrap(err, "failed to backup etcd")
+		return trace.Wrap(err, "failed to backup etcd").AddField("output", string(out))
 	}
 	return nil
 }
@@ -132,7 +132,7 @@ func (p *PhaseUpgradeEtcdShutdown) Execute(ctx context.Context) error {
 	p.Info("Shutdown etcd.")
 	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "disable", "--stop-api")
 	if err != nil {
-		return trace.Wrap(err)
+		return trace.Wrap(err).AddField("output", string(out))
 	}
 	p.Info("command output: ", string(out))
 	return nil
@@ -142,7 +142,7 @@ func (p *PhaseUpgradeEtcdShutdown) Rollback(ctx context.Context) error {
 	p.Info("Enable etcd.")
 	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "enable")
 	if err != nil {
-		return trace.Wrap(err)
+		return trace.Wrap(err).AddField("output", string(out))
 	}
 	p.Info("command output: ", string(out))
 
@@ -181,7 +181,7 @@ func (p *PhaseUpgradeEtcd) Execute(ctx context.Context) error {
 	// TODO(knisbet) only wipe the etcd database when required
 	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "upgrade")
 	if err != nil {
-		return trace.Wrap(err)
+		return trace.Wrap(err).AddField("output", string(out))
 	}
 	p.Info("command output: ", string(out))
 
@@ -191,7 +191,7 @@ func (p *PhaseUpgradeEtcd) Execute(ctx context.Context) error {
 func (p *PhaseUpgradeEtcd) Rollback(ctx context.Context) error {
 	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "rollback")
 	if err != nil {
-		return trace.Wrap(err)
+		return trace.Wrap(err).AddField("output", string(out))
 	}
 	p.Info("command output: ", string(out))
 
@@ -228,11 +228,10 @@ func (p *PhaseUpgradeEtcdRestore) Execute(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	_, err = utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "restore", backupFile)
+	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "restore", backupFile)
 	if err != nil {
-		return trace.Wrap(err)
+		return trace.Wrap(err).AddField("output", string(out))
 	}
-
 	return nil
 }
 
@@ -245,7 +244,7 @@ func (p *PhaseUpgradeEtcdRestore) PreCheck(ctx context.Context) error {
 	out, err := utils.RunCommand(ctx, p.FieldLogger,
 		utils.PlanetCommandArgs(defaults.WaitForEtcdScript, "https://127.0.0.2:2379")...)
 	if err != nil {
-		return trace.Wrap(err)
+		return trace.Wrap(err).AddField("output", string(out))
 	}
 	p.Info("command output: ", string(out))
 	return nil
@@ -274,21 +273,20 @@ func (p *PhaseUpgradeEtcdRestart) Execute(ctx context.Context) error {
 	p.Info("Restart etcd after upgrade.")
 	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "disable", "--upgrade")
 	if err != nil {
-		return trace.Wrap(err).AddField("output", out)
+		return trace.Wrap(err).AddField("output", string(out))
 	}
 
 	if p.Server.IsEqualTo(p.Master) {
 		out, err = utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "enable")
 		if err != nil {
-			return trace.Wrap(err).AddField("output", out)
+			return trace.Wrap(err).AddField("output", string(out))
 		}
 	} else {
 		out, err = utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "enable", "--join-master", fmt.Sprintf("https://%v:2379", p.Master.AdvertiseIP))
 		if err != nil {
-			return trace.Wrap(err).AddField("output", out)
+			return trace.Wrap(err).AddField("output", string(out))
 		}
 	}
-
 	return nil
 }
 
@@ -296,7 +294,7 @@ func (p *PhaseUpgradeEtcdRestart) Rollback(ctx context.Context) error {
 	p.Info("Reenable etcd upgrade service.")
 	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "disable", "--stop-api")
 	if err != nil {
-		return trace.Wrap(err).AddField("output", out)
+		return trace.Wrap(err).AddField("output", string(out))
 	}
 
 	return nil
@@ -349,7 +347,7 @@ func restartGravitySite(ctx context.Context, client *kubeapi.Clientset, l log.Fi
 	// wait for etcd to form a cluster
 	out, err := utils.RunCommand(ctx, l, utils.PlanetCommandArgs(defaults.WaitForEtcdScript)...)
 	if err != nil {
-		return trace.Wrap(err)
+		return trace.Wrap(err).AddField("output", string(out))
 	}
 	l.Info("command output: ", string(out))
 
