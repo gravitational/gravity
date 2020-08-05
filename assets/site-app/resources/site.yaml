@@ -275,3 +275,17 @@ spec:
     nodePort: 32009
   selector:
     app: gravity-site
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gravity-site-auth
+  namespace: kube-system
+spec:
+  type: NodePort
+  ports:
+  - name: auth
+    port: 3025
+    nodePort: 32025
+  selector:
+    app: gravity-site
