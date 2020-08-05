@@ -250,6 +250,8 @@ type Application struct {
 	RPCAgentInstallCmd RPCAgentInstallCmd
 	// RPCAgentRunCmd runs RPC agent
 	RPCAgentRunCmd RPCAgentRunCmd
+	// RPCAgentStatusCmd requests RPC agent statuses
+	RPCAgentStatusCmd RPCAgentStatusCmd
 	// SystemCmd combines system subcommands
 	SystemCmd SystemCmd
 	// SystemRotateCertsCmd renews cluster certificates on local node
@@ -1441,6 +1443,8 @@ type RPCAgentDeployCmd struct {
 	LeaderArgs *string
 	// NodeArgs is additional arguments to the regular agent
 	NodeArgs *string
+	// Version specifies the version of the agent to be deployed
+	Version *string
 }
 
 // RPCAgentShutdownCmd requests RPC agents to shut down
@@ -1460,6 +1464,11 @@ type RPCAgentRunCmd struct {
 	*kingpin.CmdClause
 	// Args is additional arguments to the agent
 	Args *[]string
+}
+
+// RPCAgentStatusCmd requests RPC agent statuses
+type RPCAgentStatusCmd struct {
+	*kingpin.CmdClause
 }
 
 // SystemCmd combines system subcommands

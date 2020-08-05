@@ -30,10 +30,10 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
-	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/network/validation/proto"
 	"github.com/gravitational/gravity/lib/ops/monitoring"
 	"github.com/gravitational/gravity/lib/pack"
+	rpcproto "github.com/gravitational/gravity/lib/rpc/proto"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
@@ -703,7 +703,7 @@ type Status interface {
 	// GetClusterNodes returns a real-time information about cluster nodes
 	GetClusterNodes(SiteKey) ([]Node, error)
 	// GetVersion returns the gravity binary version information.
-	GetVersion(context.Context) (*modules.Version, error)
+	GetVersion(context.Context) (*rpcproto.Version, error)
 }
 
 // Node represents a cluster node information based on Teleport node
