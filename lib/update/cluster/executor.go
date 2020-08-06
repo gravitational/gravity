@@ -28,12 +28,17 @@ import (
 )
 
 const (
-	// updateInit is the phase to initialize the update operation
+	// updateInit is the phase to initialize the update operation on a server
 	updateInit = "update_init"
+	// updateInitLeader is the phase to initialize the update operation on the lead master node
+	updateInitLeader = "update_init_leader"
 	// updateChecks is the phase to run preflight checks
 	updateChecks = "update_checks"
 	// updateBootstrap is the phase to bootstrap cluster update operation
 	updateBootstrap = "update_bootstrap"
+	// updateBootstrapLeader is the phase to bootstrap cluster update operation on the
+	// lead master node
+	updateBootstrapLeader = "update_bootstrap_leader"
 	// updateBootstrapSELinux is the phase to configure SELinux on nodes
 	updateBootstrapSELinux = "bootstrap_selinux"
 	// updateSystem is the phase to update system software on nodes
@@ -74,10 +79,10 @@ const (
 	updateEtcdShutdown = "etcd_shutdown"
 	// updateEtcdMaster is the phase to upgrade the leader (first) etcd server
 	updateEtcdMaster = "etcd_upgrade"
-	// updateEtcdRestore is the phase to restore the etcd data to the new etcd instance
-	updateEtcdRestore = "etcd_restore"
 	// updateEtcdRestart is the phase that restarts etcd service to listen on regular ports
 	updateEtcdRestart = "etcd_restart"
+	// updateEtcdMigrate is the phase to migrate the etcd data on the leader
+	updateEtcdMigrate = "etcd_migrate"
 	// updateEtcdRestartGravity is the phase that restarts gravity-site
 	updateEtcdRestartGravity = "etcd_restart_gravity"
 	// cleanupNode is the phase to clean up a node after the upgrade
@@ -108,14 +113,22 @@ func fsmSpec(c Config) fsm.FSMSpecFunc {
 		}
 
 		switch p.Phase.Executor {
-		case updateInit:
-			return libphase.NewUpdatePhaseInit(p, c.Operator, c.Apps,
-				c.Backend, c.LocalBackend, c.ClusterPackages, c.Users,
+		case updateInitLeader:
+			return libphase.NewUpdatePhaseInitLeader(p, c.Operator, c.Apps,
+				c.Backend, c.LocalBackend, c.ClusterPackages, c.HostLocalPackages, c.Users,
 				c.Client, logger)
+		case updateInit:
+			return libphase.NewUpdatePhaseInitServer(p, c.HostLocalPackages, p.Plan.ClusterName,
+				logger)
 		case updateChecks:
 			return libphase.NewUpdatePhaseChecks(p, c.Operator, c.Apps, c.Runner, logger)
 		case updateBootstrap:
-			return libphase.NewUpdatePhaseBootstrap(p, c.Operator,
+			return libphase.NewUpdatePhaseBootstrap(p, c.Operator, c.Apps,
+				c.Backend, c.LocalBackend, c.HostLocalBackend,
+				c.HostLocalPackages, c.ClusterPackages,
+				remote, logger)
+		case updateBootstrapLeader:
+			return libphase.NewUpdatePhaseBootstrapLeader(p, c.Operator, c.Apps,
 				c.Backend, c.LocalBackend, c.HostLocalBackend,
 				c.HostLocalPackages, c.ClusterPackages,
 				remote, logger)
@@ -161,8 +174,8 @@ func fsmSpec(c Config) fsm.FSMSpecFunc {
 			return libphase.NewPhaseUpgradeEtcdShutdown(p.Phase, c.Client, logger)
 		case updateEtcdMaster:
 			return libphase.NewPhaseUpgradeEtcd(p.Phase, logger)
-		case updateEtcdRestore:
-			return libphase.NewPhaseUpgradeEtcdRestore(p.Phase, logger)
+		case updateEtcdMigrate:
+			return libphase.NewPhaseUpgradeEtcdMigrate(p.Phase, logger)
 		case updateEtcdRestart:
 			return libphase.NewPhaseUpgradeEtcdRestart(p.Phase, logger)
 		case updateEtcdRestartGravity:

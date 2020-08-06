@@ -44,6 +44,8 @@ type BuildParameters struct {
 	Verbose bool
 	// Insecure turns on insecure verify mode
 	Insecure bool
+	// UpgradeVia lists intermediate runtime versions to embed inside the installer
+	UpgradeVia []string
 }
 
 // Level returns level at which the progress should be reported based on the CLI parameters.
@@ -68,6 +70,7 @@ func build(ctx context.Context, params BuildParameters, req service.VendorReques
 		SkipVersionCheck: params.SkipVersionCheck,
 		VendorReq:        req,
 		Level:            params.Level(),
+		UpgradeVia:       params.UpgradeVia,
 	})
 	if err != nil {
 		return trace.Wrap(err)

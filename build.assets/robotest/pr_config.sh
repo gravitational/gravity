@@ -15,6 +15,9 @@ UPGRADE_MAP[7.0.7]="ubuntu:16" # 7.0.7 is the first 7.0 with https://github.com/
 UPGRADE_MAP[$(recommended_upgrade_tag $(branch 6.1.x))]="redhat:7" # compatible LTS version
 UPGRADE_MAP[6.1.0]="debian:9"
 UPGRADE_MAP[$(recommended_upgrade_tag $(branch 6.3.x))]="centos:7" # compatible non-LTS version
+# Upgrade path with an intermediate hop. The chosen version will exercise a double etcd upgrade from v3.3.11 to v3.3.22 to v3.4.9
+UPGRADE_MAP[5.5.10]="centos:7"
+
 # UPGRADE_MAP[6.3.0]="ubuntu:16"  # disabled due to https://github.com/gravitational/gravity/issues/1009
 # 6.2 ignored in PR builds per https://github.com/gravitational/gravity/pull/1760#pullrequestreview-437838773
 # UPGRADE_MAP[$(recommended_upgrade_tag $(branch 6.2.x))]="redhat:7" # compatible non-LTS version

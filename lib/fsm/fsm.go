@@ -403,7 +403,7 @@ func (f *FSM) executePhase(ctx context.Context, p Params, phase storage.Operatio
 	case CanRunRemotely:
 		err = trace.Wrap(f.executePhaseRemotely(ctx, p, phase, *execServer))
 		if err == nil {
-			// if the remote upgrade phase is successfull, we need to mark it in our local database
+			// if the remote upgrade phase is successful, we need to mark it in our local database
 			// because etcd might not be available to synchronize the changes back to us
 			err = f.ChangePhaseState(ctx, StateChange{
 				Phase: phase.ID,

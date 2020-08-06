@@ -19,6 +19,7 @@ package phases
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"strconv"
 
 	"github.com/gravitational/gravity/lib/app"
@@ -32,9 +33,10 @@ import (
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/rpc"
 	"github.com/gravitational/gravity/lib/schema"
+	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
-	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 	"github.com/gravitational/gravity/lib/users"
+	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
@@ -67,7 +69,7 @@ type updatePhaseInit struct {
 	// Operation is the current update operation
 	Operation ops.SiteOperation
 	// Servers is the list of local cluster servers
-	Servers []storage.UpdateServer
+	Servers []storage.Server
 	// FieldLogger is used for logging
 	log.FieldLogger
 	// updateManifest specifies the manifest of the update application
@@ -75,19 +77,20 @@ type updatePhaseInit struct {
 	// installedApp references the installed application instance
 	installedApp app.Application
 	// existingDocker describes the existing Docker configuration
-	existingDocker        storage.DockerConfig
-	existingDNS           storage.DNSConfig
-	existingEnviron       map[string]string
-	existingClusterConfig []byte
+	existingDocker storage.DockerConfig
+	// existingDNS is the existing DNS configuration
+	existingDNS storage.DNSConfig
+	// init specifies the optional server-specific initialization
+	init *updatePhaseInitServer
 }
 
-// NewUpdatePhaseInit creates a new update init phase executor
-func NewUpdatePhaseInit(
+// NewUpdatePhaseInitLeader creates a new update init phase executor
+func NewUpdatePhaseInitLeader(
 	p fsm.ExecutorParams,
 	operator ops.Operator,
 	apps app.Applications,
 	backend, localBackend storage.Backend,
-	packages pack.PackageService,
+	packages, localPackages pack.PackageService,
 	users users.Identity,
 	client *kubernetes.Clientset,
 	logger log.FieldLogger,
@@ -97,9 +100,6 @@ func NewUpdatePhaseInit(
 	}
 	if p.Phase.Data.InstalledPackage == nil {
 		return nil, trace.BadParameter("no installed application package specified for phase %v", p.Phase)
-	}
-	if p.Phase.Data.Update == nil || len(p.Phase.Data.Update.Servers) == 0 {
-		return nil, trace.BadParameter("no servers specified for phase %q", p.Phase.ID)
 	}
 	cluster, err := operator.GetLocalSite()
 	if err != nil {
@@ -121,39 +121,36 @@ func NewUpdatePhaseInit(
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to query installed application")
 	}
-	env, err := operator.GetClusterEnvironmentVariables(operation.ClusterKey())
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	clusterConfig, err := operator.GetClusterConfiguration(operation.ClusterKey())
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	configBytes, err := clusterconfig.Marshal(clusterConfig)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
 
 	existingDocker := checks.DockerConfigFromSchemaValue(installedApp.Manifest.SystemDocker())
 	checks.OverrideDockerConfig(&existingDocker, installOperation.InstallExpand.Vars.System.Docker)
 
+	var init *updatePhaseInitServer
+	if p.Phase.Data.Update != nil && len(p.Phase.Data.Update.Servers) != 0 {
+		init = &updatePhaseInitServer{
+			FieldLogger:   logger,
+			localPackages: localPackages,
+			clusterName:   cluster.Domain,
+			server:        p.Phase.Data.Update.Servers[0],
+		}
+	}
+
 	return &updatePhaseInit{
-		Backend:               backend,
-		LocalBackend:          localBackend,
-		Operator:              operator,
-		Packages:              packages,
-		Users:                 users,
-		Client:                client,
-		Cluster:               *cluster,
-		Operation:             *operation,
-		Servers:               p.Phase.Data.Update.Servers,
-		FieldLogger:           logger,
-		updateManifest:        app.Manifest,
-		installedApp:          *installedApp,
-		existingDocker:        existingDocker,
-		existingDNS:           p.Plan.DNSConfig,
-		existingClusterConfig: configBytes,
-		existingEnviron:       env.GetKeyValues(),
+		Backend:        backend,
+		LocalBackend:   localBackend,
+		Operator:       operator,
+		Packages:       packages,
+		Users:          users,
+		Client:         client,
+		Cluster:        *cluster,
+		Operation:      *operation,
+		Servers:        p.Plan.Servers,
+		FieldLogger:    logger,
+		updateManifest: app.Manifest,
+		installedApp:   *installedApp,
+		existingDocker: existingDocker,
+		existingDNS:    p.Plan.DNSConfig,
+		init:           init,
 	}, nil
 }
 
@@ -168,7 +165,7 @@ func (p *updatePhaseInit) PostCheck(context.Context) error {
 }
 
 // Execute prepares the update.
-func (p *updatePhaseInit) Execute(context.Context) error {
+func (p *updatePhaseInit) Execute(ctx context.Context) error {
 	err := removeLegacyUpdateDirectory(p.FieldLogger)
 	if err != nil {
 		p.WithError(err).Warn("Failed to remove legacy update directory.")
@@ -194,19 +191,9 @@ func (p *updatePhaseInit) Execute(context.Context) error {
 	if err := p.updateDockerConfig(); err != nil {
 		return trace.Wrap(err, "failed to update Docker configuration")
 	}
-	for _, server := range p.Servers {
-		if server.Runtime.Update != nil {
-			if err := p.rotateSecrets(server); err != nil {
-				return trace.Wrap(err, "failed to rotate secrets for %v", server)
-			}
-			if err := p.rotatePlanetConfig(server); err != nil {
-				return trace.Wrap(err, "failed to rotate planet configuration for %v", server)
-			}
-		}
-		if server.Teleport.Update != nil {
-			if err := p.rotateTeleportConfig(server); err != nil {
-				return trace.Wrap(err, "failed to rotate teleport configuration for %v", server)
-			}
+	if p.init != nil {
+		if err := p.init.Execute(ctx); err != nil {
+			return trace.Wrap(err)
 		}
 	}
 	return nil
@@ -214,6 +201,11 @@ func (p *updatePhaseInit) Execute(context.Context) error {
 
 // Rollback rolls back the init phase
 func (p *updatePhaseInit) Rollback(ctx context.Context) error {
+	if p.init != nil {
+		if err := p.init.Rollback(ctx); err != nil {
+			return trace.Wrap(err)
+		}
+	}
 	err := p.restoreRPCCredentials()
 	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
@@ -286,7 +278,7 @@ func (p *updatePhaseInit) updateClusterRoles() error {
 
 	state := make(map[string]storage.Server, len(p.Servers))
 	for _, server := range p.Servers {
-		state[server.AdvertiseIP] = server.Server
+		state[server.AdvertiseIP] = server
 	}
 
 	for i, server := range cluster.ClusterState.Servers {
@@ -411,72 +403,89 @@ func (p *updatePhaseInit) createAdminAgent() error {
 	return nil
 }
 
-func (p *updatePhaseInit) rotateSecrets(server storage.UpdateServer) error {
-	p.Infof("Generate new secrets configuration package for %v.", server)
-	resp, err := p.Operator.RotateSecrets(ops.RotateSecretsRequest{
-		Key:            p.Operation.ClusterKey(),
-		Package:        server.Runtime.SecretsPackage,
-		RuntimePackage: server.Runtime.Update.Package,
-		Server:         server.Server,
-	})
-	if err != nil {
-		return trace.Wrap(err)
+// NewUpdatePhaseInit creates a new update init phase executor
+func NewUpdatePhaseInitServer(
+	p fsm.ExecutorParams,
+	localPackages pack.PackageService,
+	clusterName string,
+	logger log.FieldLogger,
+) (*updatePhaseInitServer, error) {
+	if p.Phase.Data.Update == nil || len(p.Phase.Data.Update.Servers) == 0 {
+		return nil, trace.BadParameter("no server specified for phase %q", p.Phase.ID)
 	}
-	_, err = p.Packages.CreatePackage(resp.Locator, resp.Reader, pack.WithLabels(resp.Labels))
-	if err != nil && !trace.IsAlreadyExists(err) {
-		return trace.Wrap(err)
-	}
-	p.Debugf("Rotated secrets package for %v: %v.", server, resp.Locator)
-	return nil
+	return &updatePhaseInitServer{
+		FieldLogger:   logger,
+		localPackages: localPackages,
+		clusterName:   clusterName,
+		server:        p.Phase.Data.Update.Servers[0],
+	}, nil
 }
 
-func (p *updatePhaseInit) rotatePlanetConfig(server storage.UpdateServer) error {
-	p.Infof("Generate new runtime configuration package for %v.", server)
-	resp, err := p.Operator.RotatePlanetConfig(ops.RotatePlanetConfigRequest{
-		Key:            p.Operation.Key(),
-		Server:         server.Server,
-		Manifest:       p.updateManifest,
-		RuntimePackage: server.Runtime.Update.Package,
-		Package:        &server.Runtime.Update.ConfigPackage,
-		Config:         p.existingClusterConfig,
-		Env:            p.existingEnviron,
+// updateExistingPackageLabels updates labels on existing packages
+// so the system package pull step can find and pull correct package updates.
+//
+// For legacy runtime packages ('planet-master' and 'planet-node')
+// the sibling runtime package (i.e. 'planet-master' on a regular node
+// and vice versa), will be updated to _not_ include the installed label
+// to simplify the search
+func (p *updatePhaseInitServer) updateExistingPackageLabels() error {
+	installedRuntime := p.server.Runtime.Installed
+	runtimeConfigLabels, err := updateRuntimeConfigLabels(p.localPackages, installedRuntime)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	teleportConfigLabels, err := updateTeleportConfigLabels(p.localPackages, p.clusterName)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	secretLabels, err := updateRuntimeSecretLabels(p.localPackages)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	updates := append(runtimeConfigLabels, secretLabels...)
+	updates = append(updates, teleportConfigLabels...)
+	updates = append(updates, pack.LabelUpdate{
+		Locator: installedRuntime,
+		Add:     utils.CombineLabels(pack.RuntimePackageLabels, pack.InstalledLabels),
 	})
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	_, err = p.Packages.UpsertPackage(resp.Locator, resp.Reader,
-		pack.WithLabels(resp.Labels))
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	p.Infof("Generated new runtime configuration package for %v: %v.", server, resp.Locator)
-	return nil
-}
-
-func (p *updatePhaseInit) rotateTeleportConfig(server storage.UpdateServer) error {
-	masterConf, nodeConf, err := p.Operator.RotateTeleportConfig(ops.RotateTeleportConfigRequest{
-		Key:             p.Operation.Key(),
-		Server:          server.Server,
-		TeleportPackage: server.Teleport.Update.Package,
-		NodePackage:     server.Teleport.Update.NodeConfigPackage,
-		MasterIPs:       masterIPs(p.Servers),
-	})
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	if masterConf != nil {
-		_, err = p.Packages.UpsertPackage(masterConf.Locator, masterConf.Reader, pack.WithLabels(masterConf.Labels))
-		if err != nil {
+	for _, update := range updates {
+		p.Info(update.String())
+		err := p.localPackages.UpdatePackageLabels(update.Locator, update.Add, update.Remove)
+		if err != nil && !trace.IsNotFound(err) {
 			return trace.Wrap(err)
 		}
-		p.Debugf("Rotated teleport master config package for %v: %v.", server, masterConf.Locator)
 	}
-	_, err = p.Packages.UpsertPackage(nodeConf.Locator, nodeConf.Reader, pack.WithLabels(nodeConf.Labels))
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	p.Debugf("Rotated teleport node config package for %v: %v.", server, nodeConf.Locator)
 	return nil
+}
+
+// Execute prepares the update on the specified server.
+func (p *updatePhaseInitServer) Execute(context.Context) error {
+	if err := p.updateExistingPackageLabels(); err != nil {
+		return trace.Wrap(err, "failed to update existing package labels")
+	}
+	return nil
+}
+
+// Rollback is a no-op for this phase
+func (p *updatePhaseInitServer) Rollback(context.Context) error {
+	return nil
+}
+
+// PreCheck is a no-op for this phase
+func (p *updatePhaseInitServer) PreCheck(context.Context) error {
+	return nil
+}
+
+// PostCheck is no-op for the init phase
+func (p *updatePhaseInitServer) PostCheck(context.Context) error {
+	return nil
+}
+
+type updatePhaseInitServer struct {
+	log.FieldLogger
+	server        storage.UpdateServer
+	localPackages pack.PackageService
+	clusterName   string
 }
 
 // removeConfiguredPackages removes packages configured during init phase
@@ -494,35 +503,98 @@ func (p *updatePhaseInit) removeConfiguredPackages() error {
 		})
 }
 
-func masterIPs(servers []storage.UpdateServer) (addrs []string) {
-	for _, server := range servers {
-		if server.IsMaster() {
-			addrs = append(addrs, server.AdvertiseIP)
-		}
+func updateRuntimeConfigLabels(packages pack.PackageService, installedRuntime loc.Locator) ([]pack.LabelUpdate, error) {
+	runtimeConfig, err := pack.FindInstalledConfigPackage(packages, installedRuntime)
+	if err != nil && !trace.IsNotFound(err) {
+		return nil, trace.Wrap(err)
 	}
-	return addrs
+	if runtimeConfig != nil {
+		// No update necessary
+		return nil, nil
+	}
+	// Fall back to first configuration package
+	runtimeConfig, err = pack.FindConfigPackage(packages, installedRuntime)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	// Mark this configuration package as installed
+	return []pack.LabelUpdate{{
+		Locator: *runtimeConfig,
+		Add:     pack.InstalledLabels,
+	}}, nil
+}
+
+func updateTeleportConfigLabels(packages pack.PackageService, clusterName string) ([]pack.LabelUpdate, error) {
+	labels := map[string]string{
+		pack.PurposeLabel:   pack.PurposeTeleportNodeConfig,
+		pack.InstalledLabel: pack.InstalledLabel,
+	}
+	configEnv, err := pack.FindPackage(packages, func(e pack.PackageEnvelope) bool {
+		return e.HasLabels(labels)
+	})
+	if err != nil && !trace.IsNotFound(err) {
+		return nil, trace.Wrap(err)
+	}
+	if configEnv != nil {
+		// No update necessary
+		return nil, nil
+	}
+	// Fall back to latest available package
+	configPackage, err := pack.FindLatestPackageCustom(pack.FindLatestPackageRequest{
+		Packages:   packages,
+		Repository: clusterName,
+		Match: func(e pack.PackageEnvelope) bool {
+			return e.Locator.Name == constants.TeleportNodeConfigPackage
+		},
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	// Mark this configuration package as installed
+	return []pack.LabelUpdate{{
+		Locator: *configPackage,
+		Add:     labels,
+	}}, nil
+}
+
+func updateRuntimeSecretLabels(packages pack.PackageService) ([]pack.LabelUpdate, error) {
+	secretsPackage, err := pack.FindSecretsPackage(packages)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	_, err = pack.FindInstalledPackage(packages, *secretsPackage)
+	if err != nil && !trace.IsNotFound(err) {
+		return nil, trace.Wrap(err)
+	}
+	if err == nil {
+		// No update necessary
+		return nil, nil
+	}
+	// Mark this secrets package as installed
+	return []pack.LabelUpdate{{
+		Locator: *secretsPackage,
+		Add:     pack.InstalledLabels,
+	}}, nil
 }
 
 func removeLegacyUpdateDirectory(log log.FieldLogger) error {
-	const updateDir = "/var/lib/gravity/site/update/gravity"
-
-	fi, err := os.Stat(updateDir)
-	err = trace.ConvertSystemError(err)
-	if trace.IsNotFound(err) {
-		return nil
-	}
-
+	stateDir, err := state.GetStateDir()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
+	updateDir := filepath.Join(state.GravityUpdateDir(stateDir), "gravity")
+	fi, err := os.Stat(updateDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return trace.ConvertSystemError(err)
+	}
 	if !fi.IsDir() {
 		return nil
 	}
-
-	log.Debugf("Removing legacy update directory %v.", updateDir)
-	err = os.RemoveAll(updateDir)
-	return trace.ConvertSystemError(err)
+	log.WithField("dir", updateDir).Debug("Remove legacy update directory.")
+	return trace.ConvertSystemError(os.RemoveAll(updateDir))
 }
 
 func rpcBackupPackage(repository string) loc.Locator {

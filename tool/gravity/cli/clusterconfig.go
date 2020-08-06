@@ -188,10 +188,6 @@ func getConfigUpdater(localEnv, updateEnv *localenv.LocalEnvironment, operation 
 	return updater, nil
 }
 
-func (r configInitializer) validatePreconditions(*localenv.LocalEnvironment, ops.Operator, ops.Site) error {
-	return nil
-}
-
 func (r configInitializer) newOperation(operator ops.Operator, cluster ops.Site) (*ops.SiteOperationKey, error) {
 	key, err := operator.CreateUpdateConfigOperation(context.TODO(),
 		ops.CreateUpdateConfigOperationRequest{

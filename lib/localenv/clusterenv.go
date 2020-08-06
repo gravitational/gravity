@@ -49,13 +49,6 @@ func (r *LocalEnvironment) NewClusterEnvironment(opts ...ClusterEnvironmentOptio
 	if err != nil && !trace.IsNotFound(err) {
 		log.WithError(err).Warn("Failed to create Kubernetes client.")
 	}
-
-	ctx, cancel := context.WithTimeout(context.TODO(), defaults.AuditLogClientTimeout)
-	defer cancel()
-	auditLog, err := r.AuditLog(ctx)
-	if err != nil && !trace.IsNotFound(err) {
-		log.WithError(err).Warn("Failed to create audit log.")
-	}
 	user, err := r.Backend.GetServiceUser()
 	if err != nil && !trace.IsNotFound(err) {
 		return nil, trace.Wrap(err)
@@ -70,6 +63,12 @@ func (r *LocalEnvironment) NewClusterEnvironment(opts ...ClusterEnvironmentOptio
 	nodeAddr, err := r.Backend.GetNodeAddr()
 	if err != nil && !trace.IsNotFound(err) {
 		return nil, trace.Wrap(err)
+	}
+	ctx, cancel := context.WithTimeout(context.TODO(), defaults.AuditLogClientTimeout)
+	defer cancel()
+	auditLog, err := r.AuditLog(ctx)
+	if err != nil && !trace.IsNotFound(err) && !trace.IsAccessDenied(err) {
+		log.WithError(err).Warn("Failed to create audit log.")
 	}
 	config := clusterEnvironmentConfig{
 		client:      client,
@@ -113,6 +112,11 @@ func NewClusterEnvironment() (*ClusterEnvironment, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	defer func() {
+		if err != nil {
+			env.Close()
+		}
+	}()
 	user, err := env.Backend.GetServiceUser()
 	if err != nil && !trace.IsNotFound(err) {
 		return nil, trace.Wrap(err)
@@ -146,6 +150,20 @@ func WithClient(client *kubernetes.Clientset) ClusterEnvironmentOption {
 func WithEtcdTimeout(timeout time.Duration) ClusterEnvironmentOption {
 	return func(config *clusterEnvironmentConfig) {
 		config.etcdTimeout = timeout
+	}
+}
+
+// WithNodeAddr is an option to override this node address
+func WithNodeAddr(addr string) ClusterEnvironmentOption {
+	return func(config *clusterEnvironmentConfig) {
+		config.nodeAddr = addr
+	}
+}
+
+// WithServiceUser is an option to override the service user
+func WithServiceUser(serviceUser systeminfo.User) ClusterEnvironmentOption {
+	return func(config *clusterEnvironmentConfig) {
+		config.serviceUser = &serviceUser
 	}
 }
 

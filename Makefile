@@ -35,10 +35,13 @@ FIO_TAG := fio-$(FIO_VER)
 FIO_PKG_TAG := $(FIO_VER).0
 
 # Current versions of the dependencies
-CURRENT_TAG := $(shell ./version.sh)
+CURRENT_TAG ?= $(shell ./version.sh)
 GRAVITY_TAG := $(CURRENT_TAG)
 # Abbreviated gravity version to use as a build ID
 GRAVITY_VERSION := $(CURRENT_TAG)
+# Release of the gravity runtime application to build installer with intermediate steps.
+# This release has been chosen arbitrarily and should generally point to a stable 6.1.x LTS release.
+GRAVITY_INTERMEDIATE_RELEASE ?= 6.1.31
 
 RELEASE_TARBALL_NAME ?=
 RELEASE_OUT ?=
@@ -46,7 +49,7 @@ RELEASE_OUT ?=
 TELEPORT_TAG = 3.2.14
 # TELEPORT_REPOTAG adapts TELEPORT_TAG to the teleport tagging scheme
 TELEPORT_REPOTAG := v$(TELEPORT_TAG)
-PLANET_TAG := 7.0.37-$(K8S_VER_SUFFIX)
+PLANET_TAG := 7.0.38-$(K8S_VER_SUFFIX)
 PLANET_BRANCH := $(PLANET_TAG)
 K8S_APP_TAG := $(GRAVITY_TAG)
 TELEKUBE_APP_TAG := $(GRAVITY_TAG)
@@ -521,12 +524,18 @@ scan-artifacts: telekube
 telekube: GRAVITY=$(GRAVITY_OUT) --state-dir=$(PACKAGES_DIR)
 telekube: $(GRAVITY_BUILDDIR)/telekube.tar
 
+.PHONY: telekube-intermediate-upgrade
+telekube-intermediate-upgrade: GRAVITY=$(GRAVITY_OUT) --state-dir=$(PACKAGES_DIR)
+telekube-intermediate-upgrade: GRAVITY_INSTALLER_OPTIONS=--upgrade-via=$(GRAVITY_INTERMEDIATE_RELEASE)
+telekube-intermediate-upgrade: $(GRAVITY_BUILDDIR)/telekube.tar
+
 $(GRAVITY_BUILDDIR)/telekube.tar: packages
 	GRAVITY_K8S_VERSION=$(K8S_VER) $(GRAVITY_BUILDDIR)/tele build \
 		$(ASSETSDIR)/telekube/resources/app.yaml -f \
 		--version=$(TELEKUBE_APP_TAG) \
 		--state-dir=$(PACKAGES_DIR) \
 		--skip-version-check \
+		$(GRAVITY_INSTALLER_OPTIONS) \
 		-o $(GRAVITY_BUILDDIR)/telekube.tar
 
 #

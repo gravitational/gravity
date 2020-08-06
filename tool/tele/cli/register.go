@@ -56,12 +56,13 @@ func RegisterCommands(app *kingpin.Application) Application {
 	tele.BuildCmd.Verbose = tele.BuildCmd.Flag("verbose", "Produce more detailed build output, can be useful for troubleshooting.").Short('v').Bool()
 	tele.BuildCmd.Set = tele.BuildCmd.Flag("set", "Set Helm chart values on the command line. Can be specified multiple times and/or as comma-separated values: key1=val1,key2=val2.").Strings()
 	tele.BuildCmd.Values = tele.BuildCmd.Flag("values", "Set Helm chart values from the provided YAML file. Can be specified multiple times.").Strings()
+	tele.BuildCmd.UpgradeVia = tele.BuildCmd.Flag("upgrade-via", "Use runtime version as intermediate in upgrade. Can be specified multiple times.").Hidden().Strings()
 	tele.BuildCmd.Pull = tele.BuildCmd.Flag("pull", "Always attempt to pull newer versions of Docker images.").Bool()
 
 	tele.ListCmd.CmdClause = app.Command("ls", "List cluster and application images published to Gravity Hub.")
 	tele.ListCmd.Runtimes = tele.ListCmd.Flag("runtimes", "Show only runtimes.").Short('r').Hidden().Bool()
 	tele.ListCmd.Format = common.Format(tele.ListCmd.Flag("format", fmt.Sprintf("Output format: %v.", constants.OutputFormats)).Default(string(constants.EncodingText)))
-	tele.ListCmd.All = tele.ListCmd.Flag("all", "Display all available versions.").Bool()
+	tele.ListCmd.All = tele.ListCmd.Flag("all", "Display all available versions.").Short('a').Bool()
 
 	tele.PullCmd.CmdClause = app.Command("pull", "Pull a cluster or application image from Gravity Hub.")
 	tele.PullCmd.App = tele.PullCmd.Arg("image", "Cluster or application image to download: <name>:<version> or just <name> to download the latest.").Required().String()

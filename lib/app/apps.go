@@ -134,41 +134,9 @@ func DeleteAppHookJob(ctx context.Context, client *kubernetes.Clientset, req Del
 	})
 }
 
-// GetUpdatedDependencies compares dependencies of the "installed" and "update"
-// apps and returns locators of updated (or new) dependencies.
-//
-// Only direct dependencies are compared, without base app resolution.
-func GetUpdatedDependencies(installed, update Application, installedManifest, updateManifest schema.Manifest) ([]loc.Locator, error) {
-	installedDeps, err := GetDirectDeps(installed)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	installedDeps = installedManifest.FilterDependencies(installedDeps)
-
-	updateDeps, err := GetDirectDeps(update)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	updateDeps = updateManifest.FilterDependencies(updateDeps)
-
-	var updates []loc.Locator
-	for _, update := range updateDeps {
-		isUpdate, err := loc.IsUpdate(update, installedDeps)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-		if !isUpdate {
-			continue
-		}
-		updates = append(updates, update)
-	}
-
-	return updates, nil
-}
-
-// GetDirectDeps returns the direct application dependencies, without
+// GetDirectApplicationDependencies returns the direct application dependencies, without
 // base app resolution
-func GetDirectDeps(app Application) (deps []loc.Locator, err error) {
+func GetDirectApplicationDependencies(app Application) (deps []loc.Locator, err error) {
 	manifest, err := schema.ParseManifestYAMLNoValidate(app.PackageEnvelope.Manifest)
 	if err != nil {
 		return nil, trace.Wrap(err)

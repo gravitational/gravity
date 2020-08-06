@@ -59,9 +59,11 @@ func newUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironm
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	err = init.validatePreconditions(localEnv, operator, *cluster)
-	if err != nil {
-		return nil, trace.Wrap(err)
+	if validator, ok := init.(validator); ok {
+		err = validator.validate(localEnv, clusterEnv, *cluster)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
 	}
 	key, err := init.newOperation(operator, *cluster)
 	if err != nil {
@@ -148,7 +150,6 @@ func newUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironm
 }
 
 type updateInitializer interface {
-	validatePreconditions(localEnv *localenv.LocalEnvironment, operator ops.Operator, cluster ops.Site) error
 	newOperation(ops.Operator, ops.Site) (*ops.SiteOperationKey, error)
 	newOperationPlan(ctx context.Context,
 		operator ops.Operator,
@@ -166,6 +167,12 @@ type updateInitializer interface {
 		runner rpc.AgentRepository,
 	) (*update.Updater, error)
 	updateDeployRequest(deployAgentsRequest) deployAgentsRequest
+}
+
+// validator is an interface to execute pre-update validations.
+// can be optionally implemented by the initializer
+type validator interface {
+	validate(localEnv *localenv.LocalEnvironment, clusterEnv *localenv.ClusterEnvironment, cluster ops.Site) error
 }
 
 type updater interface {
