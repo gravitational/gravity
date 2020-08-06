@@ -1,5 +1,5 @@
-apiVersion: bundle.gravitational.io/v2
-kind: Bundle
+apiVersion: cluster.gravitational.io/v2
+kind: Cluster
 metadata:
   name: robotest
   resourceVersion: "0.0.0"
