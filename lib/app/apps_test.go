@@ -52,14 +52,20 @@ func (s *AppUtilsSuite) TestUpdatedDependencies(c *C) {
 		Manifest: *updateManifest,
 	}
 
-	updates, err := GetUpdatedDependencies(app, updateApp, *manifest, *updateManifest)
+	installedDeps, err := GetDirectApplicationDependencies(app)
+	c.Assert(err, IsNil)
+	installedDeps = manifest.FilterDisabledDependencies(installedDeps)
+	updateDeps, err := GetDirectApplicationDependencies(updateApp)
+	c.Assert(err, IsNil)
+	updateDeps = updateManifest.FilterDisabledDependencies(updateDeps)
+	updates, err := loc.GetUpdatedDependencies(installedDeps, updateDeps)
 	c.Assert(err, IsNil)
 	c.Assert(updates, DeepEquals, []loc.Locator{
 		loc.MustParseLocator("repo/dep-2:2.0.0"),
 		loc.MustParseLocator("repo/app:2.0.0"),
 	})
 
-	updates, err = GetUpdatedDependencies(app, app, *manifest, *manifest)
+	updates, err = loc.GetUpdatedDependencies(installedDeps, installedDeps)
 	c.Assert(err, IsNil)
 	c.Assert(updates, DeepEquals, []loc.Locator(nil))
 }

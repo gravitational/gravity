@@ -60,6 +60,7 @@ func Run(tele Application) error {
 			Silent:           *tele.BuildCmd.Quiet,
 			Verbose:          *tele.BuildCmd.Verbose,
 			Insecure:         *tele.Insecure,
+			UpgradeVia:       *tele.BuildCmd.UpgradeVia,
 		}, service.VendorRequest{
 			PackageName:            *tele.BuildCmd.Name,
 			PackageVersion:         *tele.BuildCmd.Version,

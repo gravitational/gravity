@@ -1106,16 +1106,7 @@ type SiteOperations []storage.SiteOperation
 
 // GetVars returns operation specific variables
 func (s *SiteOperation) GetVars() storage.OperationVariables {
-	if s.InstallExpand != nil {
-		return s.InstallExpand.Vars
-	}
-	if s.Shrink != nil {
-		return s.Shrink.Vars
-	}
-	if s.Uninstall != nil {
-		return s.Uninstall.Vars
-	}
-	return storage.OperationVariables{}
+	return (*storage.SiteOperation)(s).Vars()
 }
 
 // IsFailed returns whether operation is failed
@@ -1142,7 +1133,7 @@ func (s *SiteOperation) IsAWS() bool {
 }
 
 // Key returns key structure that can uniquely identify this operation
-func (s *SiteOperation) Key() SiteOperationKey {
+func (s SiteOperation) Key() SiteOperationKey {
 	return SiteOperationKey{
 		AccountID:   s.AccountID,
 		OperationID: s.ID,
@@ -1151,7 +1142,7 @@ func (s *SiteOperation) Key() SiteOperationKey {
 }
 
 // ClusterKey returns the cluster key for this operation
-func (s *SiteOperation) ClusterKey() SiteKey {
+func (s SiteOperation) ClusterKey() SiteKey {
 	return s.Key().SiteKey()
 }
 

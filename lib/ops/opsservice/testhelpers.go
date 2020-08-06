@@ -23,6 +23,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/app"
 	appservice "github.com/gravitational/gravity/lib/app/service"
+	"github.com/gravitational/gravity/lib/blob"
 	"github.com/gravitational/gravity/lib/blob/fs"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/helm"
@@ -70,13 +71,16 @@ type TestServices struct {
 // that can be used in tests
 func SetupTestServices(c *check.C) TestServices {
 	dir := c.MkDir()
-
 	backend, err := keyval.NewBolt(keyval.BoltConfig{Path: filepath.Join(dir, "bolt.db")})
 	c.Assert(err, check.IsNil)
-
 	objects, err := fs.New(fs.Config{Path: dir})
 	c.Assert(err, check.IsNil)
+	return SetupTestServicesInDirectory(dir, backend, objects, c)
+}
 
+// SetupTestServicesInDirectory initializes backend and package and application services
+// in the specified directory using given backend/objects values
+func SetupTestServicesInDirectory(dir string, backend storage.Backend, objects blob.Objects, c *check.C) TestServices {
 	packService, err := localpack.New(localpack.Config{
 		Backend:     backend,
 		UnpackedDir: filepath.Join(dir, defaults.UnpackedDir),

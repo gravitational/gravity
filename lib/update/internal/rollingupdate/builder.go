@@ -7,7 +7,7 @@ import (
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
-	"github.com/gravitational/gravity/lib/update"
+	"github.com/gravitational/gravity/lib/update/internal/builder"
 	libphase "github.com/gravitational/gravity/lib/update/internal/rollingupdate/phases"
 
 	"github.com/gravitational/trace"
@@ -56,32 +56,32 @@ type ConfigPackageRotator interface {
 }
 
 // Config creates a new phase to update runtime container configuration
-func (r Builder) Config(rootText string, servers []storage.UpdateServer) *update.Phase {
-	phase := update.RootPhase(update.Phase{
+func (r Builder) Config(rootText string, servers []storage.UpdateServer) *builder.Phase {
+	phase := storage.OperationPhase{
 		ID:          "update-config",
 		Executor:    libphase.UpdateConfig,
 		Description: rootText,
 		Data: &storage.OperationPhaseData{
 			Package: &r.App,
 		},
-	})
+	}
 	if len(servers) != 0 {
 		phase.Data.Update = &storage.UpdateOperationData{
 			Servers: servers,
 		}
 	}
-	return &phase
+	return builder.NewPhase(phase)
 }
 
 // Masters returns a new phase to execute a rolling update of the specified list of master servers
-func (r Builder) Masters(servers []storage.UpdateServer, rootText, nodeTextFormat string) *update.Phase {
-	root := update.RootPhase(update.Phase{
+func (r Builder) Masters(servers []storage.UpdateServer, rootText, nodeTextFormat string) *builder.Phase {
+	root := builder.NewPhase(storage.OperationPhase{
 		ID:          "masters",
 		Description: rootText,
 	})
 	first, others := servers[0], servers[1:]
 
-	node := r.node(first.Hostname, nodeTextFormat, first.Hostname)
+	node := builder.NewPhase(r.node(first.Hostname, nodeTextFormat, first.Hostname))
 	if len(others) != 0 {
 		node.AddSequential(setLeaderElection(enable(), disable(first), first,
 			"stepdown", "Step down %q as Kubernetes leader"))
@@ -93,42 +93,41 @@ func (r Builder) Masters(servers []storage.UpdateServer, rootText, nodeTextForma
 	}
 	root.AddSequential(node)
 	for i, server := range others {
-		node := r.node(server.Hostname, nodeTextFormat, server.Hostname)
+		node := builder.NewPhase(r.node(server.Hostname, nodeTextFormat, server.Hostname))
 		node.AddSequential(r.common(others[i], nil)...)
 		node.AddSequential(setLeaderElection(enable(server), disable(), server,
 			"enable-elections", "Enable leader election on node %q"))
 		root.AddSequential(node)
 	}
-	return &root
+	return root
 }
 
 // Nodes returns a new phase to execute a rolling update of the specified list of regular servers
-func (r Builder) Nodes(servers []storage.UpdateServer, master storage.Server, rootText, nodeTextFormat string) *update.Phase {
-	root := update.RootPhase(update.Phase{
+func (r Builder) Nodes(servers []storage.UpdateServer, master storage.Server, rootText, nodeTextFormat string) *builder.Phase {
+	root := builder.NewPhase(storage.OperationPhase{
 		ID:          "nodes",
 		Description: rootText,
 	})
 	for i, server := range servers {
-		node := r.node(server.Hostname, nodeTextFormat, server.Hostname)
+		node := builder.NewPhase(r.node(server.Hostname, nodeTextFormat, server.Hostname))
 		node.AddSequential(r.common(servers[i], &master)...)
 		root.AddSequential(node)
 	}
-	return &root
+	return root
 }
 
-func (r Builder) common(server storage.UpdateServer, master *storage.Server) (phases []update.Phase) {
-	phases = append(phases,
+func (r Builder) common(server storage.UpdateServer, master *storage.Server) []*builder.Phase {
+	return []*builder.Phase{
 		r.drain(&server.Server, master),
 		r.restart(server),
 		r.taint(&server.Server, master),
 		r.uncordon(&server.Server, master),
 		r.endpoints(&server.Server, master),
 		r.untaint(&server.Server, master),
-	)
-	return phases
+	}
 }
 
-func (r Builder) restart(server storage.UpdateServer) update.Phase {
+func (r Builder) restart(server storage.UpdateServer) *builder.Phase {
 	node := r.node("restart", "Restart container on node %q", server.Hostname)
 	node.Executor = libphase.RestartContainer
 	node.Data = &storage.OperationPhaseData{
@@ -138,10 +137,10 @@ func (r Builder) restart(server storage.UpdateServer) update.Phase {
 			Servers: []storage.UpdateServer{server},
 		},
 	}
-	return node
+	return builder.NewPhase(node)
 }
 
-func (r Builder) taint(server, execer *storage.Server) update.Phase {
+func (r Builder) taint(server, execer *storage.Server) *builder.Phase {
 	node := r.node("taint", "Taint node %q", server.Hostname)
 	node.Executor = libphase.Taint
 	node.Data = &storage.OperationPhaseData{
@@ -150,10 +149,10 @@ func (r Builder) taint(server, execer *storage.Server) update.Phase {
 	if execer != nil {
 		node.Data.ExecServer = execer
 	}
-	return node
+	return builder.NewPhase(node)
 }
 
-func (r Builder) untaint(server, execer *storage.Server) update.Phase {
+func (r Builder) untaint(server, execer *storage.Server) *builder.Phase {
 	node := r.node("untaint", "Remove taint from node %q", server.Hostname)
 	node.Executor = libphase.Untaint
 	node.Data = &storage.OperationPhaseData{
@@ -162,10 +161,10 @@ func (r Builder) untaint(server, execer *storage.Server) update.Phase {
 	if execer != nil {
 		node.Data.ExecServer = execer
 	}
-	return node
+	return builder.NewPhase(node)
 }
 
-func (r Builder) uncordon(server, execer *storage.Server) update.Phase {
+func (r Builder) uncordon(server, execer *storage.Server) *builder.Phase {
 	node := r.node("uncordon", "Uncordon node %q", server.Hostname)
 	node.Executor = libphase.Uncordon
 	node.Data = &storage.OperationPhaseData{
@@ -174,10 +173,10 @@ func (r Builder) uncordon(server, execer *storage.Server) update.Phase {
 	if execer != nil {
 		node.Data.ExecServer = execer
 	}
-	return node
+	return builder.NewPhase(node)
 }
 
-func (r Builder) endpoints(server, execer *storage.Server) update.Phase {
+func (r Builder) endpoints(server, execer *storage.Server) *builder.Phase {
 	node := r.node("endpoints", "Wait for endpoints on node %q", server.Hostname)
 	node.Executor = libphase.Endpoints
 	node.Data = &storage.OperationPhaseData{
@@ -186,10 +185,10 @@ func (r Builder) endpoints(server, execer *storage.Server) update.Phase {
 	if execer != nil {
 		node.Data.ExecServer = execer
 	}
-	return node
+	return builder.NewPhase(node)
 }
 
-func (r Builder) drain(server, execer *storage.Server) update.Phase {
+func (r Builder) drain(server, execer *storage.Server) *builder.Phase {
 	node := r.node("drain", "Drain node %q", server.Hostname)
 	node.Executor = libphase.Drain
 	node.Data = &storage.OperationPhaseData{
@@ -198,11 +197,11 @@ func (r Builder) drain(server, execer *storage.Server) update.Phase {
 	if execer != nil {
 		node.Data.ExecServer = execer
 	}
-	return node
+	return builder.NewPhase(node)
 }
 
-func (r Builder) node(id, format string, args ...interface{}) update.Phase {
-	return update.Phase{
+func (r Builder) node(id, format string, args ...interface{}) storage.OperationPhase {
+	return storage.OperationPhase{
 		ID:          id,
 		Description: fmt.Sprintf(format, args...),
 	}
@@ -220,8 +219,8 @@ type Builder struct {
 // server - The server the phase should be executed on, and used to name the phase
 // key - is the identifier of the phase (combined with server.Hostname)
 // msg - is a format string used to describe the phase
-func setLeaderElection(enable, disable []storage.Server, server storage.UpdateServer, id, format string) update.Phase {
-	return update.Phase{
+func setLeaderElection(enable, disable []storage.Server, server storage.UpdateServer, id, format string) *builder.Phase {
+	return builder.NewPhase(storage.OperationPhase{
 		ID:          id,
 		Executor:    libphase.Elections,
 		Description: fmt.Sprintf(format, server.Hostname),
@@ -232,7 +231,7 @@ func setLeaderElection(enable, disable []storage.Server, server storage.UpdateSe
 				DisableServers: disable,
 			},
 		},
-	}
+	})
 }
 
 func servers(updates ...storage.UpdateServer) (result []storage.Server) {

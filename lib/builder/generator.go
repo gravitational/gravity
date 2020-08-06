@@ -17,24 +17,21 @@ limitations under the License.
 package builder
 
 import (
-	"io"
-
 	"github.com/gravitational/gravity/lib/app"
 )
 
 // Generator defines a method for generating standalone installers
 type Generator interface {
-	// Generate generates an installer tarball for the specified application
-	// using the provided builder and returns its data as a stream
-	Generate(*Builder, app.Application) (io.ReadCloser, error)
+	// NewInstallerRequest returns a new request to generate an installer
+	// for the specified application
+	NewInstallerRequest(*Builder, app.Application) (*app.InstallerRequest, error)
 }
 
 type generator struct{}
 
-// Generate generates an installer tarball for the specified application
-// using the provided builder and returns its data as a stream
-func (g *generator) Generate(builder *Builder, application app.Application) (io.ReadCloser, error) {
-	return builder.Apps.GetAppInstaller(app.InstallerRequest{
+// NewInstallerRequest returns a request to build an installer for the specified application
+func (g *generator) NewInstallerRequest(builder *Builder, application app.Application) (*app.InstallerRequest, error) {
+	return &app.InstallerRequest{
 		Application: application.Package,
-	})
+	}, nil
 }

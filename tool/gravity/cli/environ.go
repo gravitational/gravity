@@ -177,10 +177,6 @@ func getEnvironUpdater(env, updateEnv *localenv.LocalEnvironment, operation ops.
 	return updater, nil
 }
 
-func (r environInitializer) validatePreconditions(*localenv.LocalEnvironment, ops.Operator, ops.Site) error {
-	return nil
-}
-
 func (r environInitializer) newOperation(operator ops.Operator, cluster ops.Site) (*ops.SiteOperationKey, error) {
 	key, err := operator.CreateUpdateEnvarsOperation(context.TODO(),
 		ops.CreateUpdateEnvarsOperationRequest{

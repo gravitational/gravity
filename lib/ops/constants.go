@@ -50,6 +50,8 @@ in_progress ->
 */
 package ops
 
+import "github.com/coreos/go-semver/semver"
+
 const (
 	SiteLabelName                 = "Name"
 	SystemRepository              = "gravitational.io"
@@ -241,4 +243,11 @@ var (
 		OperationUpdateConfig:         SiteStateUpdatingConfig,
 		OperationReconfigure:          SiteStateFailed,
 	}
+
+	// TeleportBrokenJoinTokenVersion is version of the release affected by
+	// the issue with Teleport using incorrect auth token on joined nodes.
+	//
+	// Github issue: https://github.com/gravitational/gravity/issues/1445.
+	// KB: https://community.gravitational.com/t/recover-teleport-nodes-failing-to-join-due-to-bad-token/649.
+	TeleportBrokenJoinTokenVersion = semver.New("5.5.40")
 )

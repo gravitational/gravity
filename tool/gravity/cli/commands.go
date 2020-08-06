@@ -306,6 +306,10 @@ type Application struct {
 	SystemGCPackageCmd SystemGCPackageCmd
 	// SystemGCRegistryCmd removes unused docker images
 	SystemGCRegistryCmd SystemGCRegistryCmd
+	// SystemEtcdCmd manipulates etcd cluster
+	SystemEtcdCmd SystemEtcdCmd
+	// SystemEtcdMigrateCmd migrates etcd data directories between versions
+	SystemEtcdMigrateCmd SystemEtcdMigrateCmd
 	// GarbageCollectCmd prunes unused resources (package/journal files/docker images)
 	// in the cluster
 	GarbageCollectCmd GarbageCollectCmd
@@ -1746,6 +1750,20 @@ type SystemGCRegistryCmd struct {
 	// DryRun displays the images to be removed
 	// without actually removing anything
 	DryRun *bool
+}
+
+// SystemEtcdCmd manipulates etcd cluster
+type SystemEtcdCmd struct {
+	*kingpin.CmdClause
+}
+
+// SystemEtcdMigrateCmd migrates etcd data directories between versions
+type SystemEtcdMigrateCmd struct {
+	*kingpin.CmdClause
+	// From specifies the source version, as a semver (without `v` prefix)
+	From *string
+	// To specifies the destination version, as a semver (without `v` prefix)
+	To *string
 }
 
 // GarbageCollectCmd prunes unused cluster resources

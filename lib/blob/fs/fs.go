@@ -116,7 +116,7 @@ func (o *objects) WriteBLOB(data io.Reader) (*blob.Envelope, error) {
 	// then move it to the proper location based on it's hash
 	f, err := ioutil.TempFile(o.config.tempDir(), "blob")
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return nil, trace.ConvertSystemError(err)
 	}
 	defer f.Close()
 
@@ -151,19 +151,19 @@ func (o *objects) WriteBLOB(data io.Reader) (*blob.Envelope, error) {
 	// now place it to the right place in the filesystem
 	targetPath := filepath.Join(targetDir, hash)
 	if err := os.Rename(f.Name(), targetPath); err != nil {
-		defer os.Remove(f.Name())
+		os.Remove(f.Name())
 		return nil, trace.Wrap(err)
 	}
 	if hasUser {
 		// This will fail as expected if the command is not run as root or
 		// under a different user context
 		if err := os.Chown(targetPath, o.config.User.UID, o.config.User.GID); err != nil {
-			return nil, trace.Wrap(err)
+			return nil, trace.ConvertSystemError(err)
 		}
 	}
 	fileInfo, err := os.Stat(targetPath)
 	if err != nil {
-		if err2 := os.Remove(targetPath); err2 != nil {
+		if err := os.Remove(targetPath); err != nil {
 			log.WithError(err).Errorf("Failed to remove %v.", targetPath)
 		}
 		return nil, trace.ConvertSystemError(err)
