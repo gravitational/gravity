@@ -43,6 +43,7 @@ import (
 
 	teleetcd "github.com/gravitational/teleport/lib/backend/etcdbk"
 	telecfg "github.com/gravitational/teleport/lib/config"
+	teledefaults "github.com/gravitational/teleport/lib/defaults"
 	teleservices "github.com/gravitational/teleport/lib/services"
 	teleutils "github.com/gravitational/teleport/lib/utils"
 
@@ -1190,9 +1191,17 @@ func (s *site) getTeleportNodeConfig(ctx *operationContext, masterIPs []string, 
 		fileConf.Logger.Severity = "info"
 	}
 
+	// Add all available master nodes as auth servers for the teleport node.
 	for _, masterIP := range masterIPs {
-		fileConf.AuthServers = append(fileConf.AuthServers, fmt.Sprintf("%v:3025", masterIP))
+		fileConf.AuthServers = append(fileConf.AuthServers,
+			fmt.Sprintf("%v:%v", masterIP, teledefaults.AuthListenPort))
 	}
+	// Teleport auth service is also exposed as a node port so add it as an
+	// auth service as well and it will be used if none of the masters
+	// present in the config are available.
+	fileConf.AuthServers = append(fileConf.AuthServers,
+		fmt.Sprintf("%v:%v", node.AdvertiseIP, defaults.GravitySiteAuthNodePort))
+
 	fileConf.AuthToken = joinToken.Token
 
 	fileConf.SSH.Labels = map[string]string{}
