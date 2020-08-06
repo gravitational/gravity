@@ -95,10 +95,9 @@ spec:
         k8s-app: kube-dns
         gravitational.io/critical-pod: ''
       annotations:
-        scheduler.alpha.kubernetes.io/critical-pod: ''
         seccomp.security.alpha.kubernetes.io/pod: docker/default
     spec:
-      priorityClassName: system-cluster-critical
+      priorityClassName: system-node-critical
       serviceAccountName: coredns
       tolerations:
         - operator: "Exists"
@@ -178,10 +177,9 @@ spec:
       labels:
         k8s-app: kube-dns-worker
       annotations:
-        scheduler.alpha.kubernetes.io/critical-pod: ''
         seccomp.security.alpha.kubernetes.io/pod: docker/default
     spec:
-      priorityClassName: system-cluster-critical
+      priorityClassName: system-node-critical
       serviceAccountName: coredns
       tolerations:
         - operator: "Exists"
