@@ -1012,12 +1012,12 @@
   version = "1.0.2"
 
 [[projects]]
-  branch = "sergei/operator_70x"
   digest = "1:fb8547713a81018d28a835c0801803969bbf78aff5f805b6ac89e95a9f0c6e8d"
   name = "github.com/gravitational/rigging"
   packages = ["."]
   pruneopts = "UT"
-  revision = "8223867b0a098d01e3c7e72606b86ab1cf1c3c0f"
+  revision = "2a0fba75cac56898736a9a2bc473b90ae02a8079"
+  version = "7.0.3"
 
 [[projects]]
   digest = "1:e025b0f4997273273c5dc46a17caddb27ab7dc8b8aa9ffb50d326e7aeb4059c7"
