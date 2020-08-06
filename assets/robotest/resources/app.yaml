@@ -66,6 +66,14 @@ nodeProfiles:
         - path: /var/lib/gravity
           capacity: "10GB"
           filesystems: ["xfs", "ext4"]
+      volumes:
+        - path: /usr/local/nginx
+          capacity: "500MB"
+          filesystems: ["xfs", "ext4"]
+          createIfMissing: true
+          uid: 101
+          gid: 101
+          mode: "750"
   - name: knode
     description: "Robotest Node"
     labels:
@@ -133,6 +141,14 @@ nodeProfiles:
         - path: /var/lib/gravity
           capacity: "10GB"
           filesystems: ["xfs", "ext4"]
+      volumes:
+        - path: /usr/local/nginx
+          capacity: "500MB"
+          filesystems: ["xfs", "ext4"]
+          createIfMissing: true
+          uid: 101
+          gid: 101
+          mode: "750"
 hooks:
   install:
     job: file://install.yaml
