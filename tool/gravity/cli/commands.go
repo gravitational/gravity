@@ -250,6 +250,8 @@ type Application struct {
 	RPCAgentInstallCmd RPCAgentInstallCmd
 	// RPCAgentRunCmd runs RPC agent
 	RPCAgentRunCmd RPCAgentRunCmd
+	// RPCAgentStatusCmd requests RPC agent statuses
+	RPCAgentStatusCmd RPCAgentStatusCmd
 	// SystemCmd combines system subcommands
 	SystemCmd SystemCmd
 	// SystemTeleportCmd combines internal Teleport commands
@@ -532,6 +534,8 @@ type PlanDisplayCmd struct {
 	Output *constants.Format
 	// Short is a shorthand for short output format
 	Short *bool
+	// Follow allows to follow the operation plan progress
+	Follow *bool
 }
 
 // PlanExecuteCmd executes a phase of an active operation
@@ -572,6 +576,8 @@ type PlanResumeCmd struct {
 	Force *bool
 	// PhaseTimeout is the rollback timeout
 	PhaseTimeout *time.Duration
+	// Block indicates whether the command should run in foreground or as a systemd unit
+	Block *bool
 }
 
 // PlanCompleteCmd completes the operation plan
@@ -696,6 +702,8 @@ type UpgradeCmd struct {
 	Set *[]string
 	// Values is a list of YAML files with Helm chart values.
 	Values *[]string
+	// Block indicates whether the command should run in foreground or as a systemd unit
+	Block *bool
 }
 
 // StatusCmd combines subcommands for displaying status information
@@ -1439,6 +1447,8 @@ type RPCAgentDeployCmd struct {
 	LeaderArgs *string
 	// NodeArgs is additional arguments to the regular agent
 	NodeArgs *string
+	// Version specifies the version of the agent to be deployed
+	Version *string
 }
 
 // RPCAgentShutdownCmd requests RPC agents to shut down
@@ -1458,6 +1468,11 @@ type RPCAgentRunCmd struct {
 	*kingpin.CmdClause
 	// Args is additional arguments to the agent
 	Args *[]string
+}
+
+// RPCAgentStatusCmd requests RPC agent statuses
+type RPCAgentStatusCmd struct {
+	*kingpin.CmdClause
 }
 
 // SystemCmd combines system subcommands

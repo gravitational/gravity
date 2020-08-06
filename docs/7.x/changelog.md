@@ -7,8 +7,8 @@ Find the latest Open Source Gravity releases at [Gravity Downloads](https://grav
 | Version             | Latest Patch | LTS | Release Date         | End of Support *        | Kubernetes Version   | Teleport Version |
 | ------------------- | ------------ | --- | -------------------- | ----------------------- | -------------------- | ---------------- |
 | [7.0](#70-releases) | 7.0.13       | Yes | April 3, 2020        | July 9, 2022            | 1.17.9               | 3.2.13           |
-| [6.1](#61-releases) | 6.1.31       | Yes | August 2, 2019       | November 10, 2021       | 1.15.12              | 3.2.12           |
-| [5.5](#55-releases) | 5.5.49       | Yes | March 8, 2019        | March 8, 2021           | 1.13.11              | 3.0.6-gravity    |
+| [6.1](#61-releases) | 6.1.33       | Yes | August 2, 2019       | November 10, 2021       | 1.15.12              | 3.2.12           |
+| [5.5](#55-releases) | 5.5.50       | Yes | March 8, 2019        | March 8, 2021           | 1.13.11              | 3.0.6-gravity    |
 
 Gravity offers one Long Term Support (LTS) version for every 2nd Kubernetes
 minor version, allowing for seamless upgrades per Kubernetes
@@ -528,6 +528,20 @@ to learn how to gain insight into how the cluster status changes over time.
 * Upgrade Kubernetes to `v1.16.0`.
 
 ## 6.1 Releases
+
+### 6.1.33 LTS (July 30th, 2020)
+
+#### Improvements
+
+* Remove the hard limit of 3 master nodes. ([#1910](https://github.com/gravitational/gravity/pull/1910)).
+* Improved warnings when teleport nodes are using the wrong join token ([#1902](https://github.com/gravitational/gravity/pull/1902)).
+* Collect gravity cli history for debug reports ([#1860](https://github.com/gravitational/gravity/pull/1860)).
+
+#### Bugfixes
+
+* Update CoreDNS to 1.7.0 ([#1924](https://github.com/gravitational/gravity/pull/1924), [planet#702](https://github.com/gravitational/planet/pull/702)).
+* Update ContainerD to 1.2.10 ([#1924](https://github.com/gravitational/gravity/pull/1924), [planet#710](https://github.com/gravitational/planet/pull/710)).
+* Disable CSIMigration feature gate ([#1924](https://github.com/gravitational/gravity/pull/1924), [planet#709](https://github.com/gravitational/planet/pull/709)).
 
 ### 6.1.31 LTS (July 13th, 2020)
 
@@ -1177,6 +1191,27 @@ to learn how to gain insight into how the cluster status changes over time.
 * Upgrade Kubernetes to `v1.14.0`.
 
 ## 5.5 Releases
+
+### 5.5.50 LTS (July 31st, 2020)
+
+#### Improvements
+
+* Gravity debug report will now include `gravity` CLI command history ([#1858](https://github.com/gravitational/gravity/pull/1858), [#1895](https://github.com/gravitational/gravity/pull/1895)).
+* Improve `gravity status` performance in case of many namespaces/services ([#1869](https://github.com/gravitational/gravity/pull/1869)).
+* Improve error messages when some Teleport nodes are unavailable prior to upgrade ([#1874](https://github.com/gravitational/gravity/pull/1874)).
+* Update `gravity plan resume` command to launch from a systemd service by default, `--block` flag is supported for old behavior ([#1899](https://github.com/gravitational/gravity/pull/1899)).
+* Add ability to follow operation plan using `gravity plan --tail` command ([#1899](https://github.com/gravitational/gravity/pull/1899)).
+* Gravity will now report a warning if installed kernel is older than the recommended `3.10.0-1127` version ([#1919](https://github.com/gravitational/gravity/pull/1919), [planet#708](https://github.com/gravitational/planet/pull/708), [satellite#249](https://github.com/gravitational/satellite/pull/249)).
+* Gravity will now check tiller server health prior to upgrade ([#1916](https://github.com/gravitational/gravity/pull/1916)).
+* Add ability to update Teleport auth servers using `gravity system teleport set-auth-servers` command ([#1944](https://github.com/gravitational/gravity/pull/1944)).
+* Upgrade agents will now restart automatically if nodes reboot during upgrade ([#1951](https://github.com/gravitational/gravity/pull/1951)).
+* Add ability to display deployed agent status using `gravity agent status` command ([#1951](https://github.com/gravitational/gravity/pull/1951)).
+
+#### Bugfixes
+
+* Fix an issue with InfluxDB continuous queries resulting in max series limit exhaustion ([#1838](https://github.com/gravitational/gravity/pull/1838)).
+* Fix an issue with kube-dns resources potentially remaining when upgrading from 5.2 ([#1865](https://github.com/gravitational/gravity/pull/1865)).
+* Fix an issue with creating custom rollups ([#1896](https://github.com/gravitational/gravity/pull/1896)).
 
 ### 5.5.49 LTS (June 25th, 2020)
 

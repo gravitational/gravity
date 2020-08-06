@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/gravitational/gravity/lib/app"
@@ -29,6 +30,7 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	libfsm "github.com/gravitational/gravity/lib/fsm"
+	helmclt "github.com/gravitational/gravity/lib/helm"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
@@ -38,12 +40,15 @@ import (
 	statusapi "github.com/gravitational/gravity/lib/status"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/system/selinux"
+	"github.com/gravitational/gravity/lib/system/service"
+	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/update"
 	clusterupdate "github.com/gravitational/gravity/lib/update/cluster"
 	"github.com/gravitational/gravity/lib/utils/helm"
 	"github.com/gravitational/version"
 
 	"github.com/coreos/go-semver/semver"
+	"github.com/fatih/color"
 	"github.com/gravitational/trace"
 )
 
@@ -222,8 +227,86 @@ func executeUpdatePhaseForOperation(env *localenv.LocalEnvironment, environ Loca
 		return trace.Wrap(err)
 	}
 	defer updater.Close()
-	err = updater.RunPhase(context.TODO(), params.PhaseID, params.Timeout, params.Force)
-	return trace.Wrap(err)
+	return executeOrForkPhase(env, updater, params, operation)
+}
+
+// gravityResumeServiceName is the name of systemd service that executes
+// the gravity resume command.
+const gravityResumeServiceName = "gravity-resume.service"
+
+// executeOrForkPhase either directly executes the specified operation phase,
+// or launches a one-shot systemd service that executes it in the background.
+func executeOrForkPhase(env *localenv.LocalEnvironment, updater updater, params PhaseParams, operation ops.SiteOperation) error {
+	// If given the --block flag, we're running as a systemd unit (or a user
+	// requested the command to execute in foreground), so proceed to perform
+	// the command (resume or single phase) directly.
+	if params.Block {
+		return updater.RunPhase(context.TODO(),
+			params.PhaseID,
+			params.Timeout,
+			params.Force)
+	}
+	// Before launching the service, perform a few prechecks, for example to
+	// make sure that the operation is being resumed from the correct node.
+	//
+	// TODO(r0mant): Also, make sure agents are running on the cluster nodes:
+	// https://github.com/gravitational/gravity/issues/1667
+	if err := updater.Check(params.toFSM()); err != nil {
+		return trace.Wrap(err)
+	}
+	// Make sure to launch the unit command with the --block flag.
+	args := append(os.Args[1:], "--debug", "--block")
+	env.PrintStep("Starting %v service", gravityResumeServiceName)
+	if err := launchOneshotService(gravityResumeServiceName, args); err != nil {
+		return trace.Wrap(err)
+	}
+	env.PrintStep(`Service %[1]v has been launched.
+
+To monitor the operation progress:
+
+  sudo gravity plan --operation-id=%[2]v --tail
+
+To monitor the service logs:
+
+  sudo journalctl -u %[1]v -f
+`, gravityResumeServiceName, operation.ID)
+	return nil
+}
+
+// launchOneshotService launches the specified command as a one-shot systemd
+// service with the specified name.
+func launchOneshotService(name string, args []string) error {
+	systemd, err := systemservice.New()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	// See if the service is already running.
+	status, err := systemd.StatusService(name)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	// Since we're using a one-shot service, it will be in "activating" state
+	// for the duration of the command execution. In fact, one-shot services
+	// never reach "active" state, but we're checking it too just in case.
+	switch status {
+	case systemservice.ServiceStatusActivating, systemservice.ServiceStatusActive:
+		return trace.AlreadyExists("service %v is already running", name)
+	}
+	// Launch the systemd unit that runs the specified command using same binary.
+	gravityPath, err := os.Executable()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	command := strings.Join(append([]string{gravityPath}, args...), " ")
+	return systemd.InstallService(systemservice.NewServiceRequest{
+		Name:    name,
+		NoBlock: true,
+		ServiceSpec: systemservice.ServiceSpec{
+			User:         constants.RootUIDString,
+			Type:         service.OneshotService,
+			StartCommand: command,
+		},
+	})
 }
 
 func rollbackUpdatePhaseForOperation(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params PhaseParams, operation ops.SiteOperation) error {
@@ -329,7 +412,37 @@ func (r *clusterInitializer) validatePreconditions(localEnv *localenv.LocalEnvir
 	if err := checkCanUpdate(cluster, operator, updateApp.Manifest); err != nil {
 		return trace.Wrap(err)
 	}
+	if err := r.checkTiller(localEnv, updateApp.Manifest); err != nil {
+		return trace.Wrap(err)
+	}
 	r.updateLoc = updateApp.Package
+	return nil
+}
+
+// checkTiller verifies tiller server health before kicking off upgrade.
+func (r *clusterInitializer) checkTiller(env *localenv.LocalEnvironment, manifest schema.Manifest) error {
+	if manifest.CatalogDisabled() {
+		log.Info("Tiller server is disabled, not checking its health.")
+		return nil
+	}
+	err := helmclt.Ping(env.DNS.Addr())
+	if err != nil {
+		log.WithError(err).Error("Failed to ping tiller pod.")
+		if r.force {
+			env.PrintStep(color.YellowString(`Tiller server health check failed, "helm upgrade" may not work!`))
+			return nil
+		}
+		return trace.BadParameter(`Tiller server health check failed with the following error:
+
+    %q
+
+This means that "helm upgrade" and other Helm commands may not work correctly. If
+the application upgrade requires Helm, make sure that Tiller pod is up, running
+and reachable before retrying the upgrade.
+
+This warning can be bypassed by providing a --force flag to the upgrade command.`, err)
+	}
+	log.Info("Tiller server ping success.")
 	return nil
 }
 

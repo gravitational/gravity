@@ -355,6 +355,49 @@ to be able to provision required infrastructure on your AWS account.
     using. The IAM policy shown above is an example for
     [gravitational/provisioner](https://github.com/gravitational/provisioner).
 
+## GCE IAM Policy
+
+When installing on Google Compute Engine instances with cloud integration enabled,
+the instances should be granted R/W access to Compute Engine API in order to be
+able to provision routes, load balancers, persistent volumes and use other cloud
+integration APIs.
+
+If instead of granting the full access to Compute Engine you'd like to set up a
+more limited access, create a [service account](https://cloud.google.com/iam/docs/service-accounts)
+with permissions listed below.
+
+!!! note
+    The list of permissions may be not exhaustive, the applications deployed in the
+    cluster may require a broader set of permissions.
+
+<details><summary>Click here to view required GCE permissions.</summary>
+```
+compute.addresses.*
+compute.disks.*
+compute.firewalls.*
+compute.forwardingRules.*
+compute.httpHealthChecks.*
+compute.instances.attachDisk
+compute.instances.detachDisk
+compute.instances.get
+compute.instances.list
+compute.instances.use
+compute.networks.*
+compute.routes.*
+compute.subnetworks.get
+compute.subnetworks.list
+compute.targetPools.*
+compute.zoneOperations.get
+compute.zoneOperations.list
+compute.zones.get
+compute.zones.list
+iam.serviceAccounts.actAs
+iam.serviceAccounts.get
+iam.serviceAccounts.list
+resourcemanager.projects.get
+```
+</details>
+
 ## Etcd Disk
 
 Gravity Clusters make high use of Etcd, both for the Kubernetes cluster and for

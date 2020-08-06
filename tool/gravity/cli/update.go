@@ -34,6 +34,7 @@ import (
 	"github.com/gravitational/gravity/lib/update"
 
 	"github.com/gravitational/trace"
+	"github.com/gravitational/version"
 	"github.com/sirupsen/logrus"
 )
 
@@ -121,6 +122,7 @@ func newUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironm
 		proxy:        proxy,
 		leader:       leader,
 		nodeParams:   constants.RPCAgentSyncPlanFunction,
+		version:      version.Get().Version,
 	})
 	deployCtx, cancel := context.WithTimeout(ctx, defaults.AgentDeployTimeout)
 	defer cancel()
@@ -172,6 +174,7 @@ type updater interface {
 	RunPhase(ctx context.Context, phase string, phaseTimeout time.Duration, force bool) error
 	RollbackPhase(ctx context.Context, params fsm.Params, phaseTimeout time.Duration) error
 	Complete(context.Context, error) error
+	Check(params fsm.Params) error
 }
 
 func clusterStateFromPlan(plan storage.OperationPlan) (result storage.ClusterState) {

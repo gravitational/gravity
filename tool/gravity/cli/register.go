@@ -161,6 +161,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.PlanDisplayCmd.CmdClause = g.PlanCmd.Command("display", "Display a plan for an ongoing operation.").Default()
 	g.PlanDisplayCmd.Output = common.Format(g.PlanDisplayCmd.Flag("output", fmt.Sprintf("Output format: %v.", constants.OutputFormats)).Short('o').Default(string(constants.EncodingText)))
 	g.PlanDisplayCmd.Short = g.PlanDisplayCmd.Flag("short", "Short output format.").Bool()
+	g.PlanDisplayCmd.Follow = g.PlanDisplayCmd.Flag("tail", "Follow the operation plan progress until it finishes.").Short('f').Bool()
 
 	g.PlanExecuteCmd.CmdClause = g.PlanCmd.Command("execute", "Execute the specified operation phase.")
 	g.PlanExecuteCmd.Phase = g.PlanExecuteCmd.Flag("phase", "Phase ID to execute.").String()
@@ -179,6 +180,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.PlanResumeCmd.CmdClause = g.PlanCmd.Command("resume", "Resume the last aborted operation.")
 	g.PlanResumeCmd.Force = g.PlanResumeCmd.Flag("force", "Force execution of the specified phase.").Bool()
 	g.PlanResumeCmd.PhaseTimeout = g.PlanResumeCmd.Flag("timeout", "Phase execution timeout.").Default(defaults.PhaseTimeout).Hidden().Duration()
+	g.PlanResumeCmd.Block = g.PlanResumeCmd.Flag("block", "Launch plan resume in foreground instead of a systemd unit.").Bool()
 
 	g.PlanCompleteCmd.CmdClause = g.PlanCmd.Command("complete", "Mark the current operation as completed.")
 
@@ -216,6 +218,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.UpgradeCmd.SkipVersionCheck = g.UpgradeCmd.Flag("skip-version-check", "Bypass version compatibility check.").Hidden().Bool()
 	g.UpgradeCmd.Set = g.UpgradeCmd.Flag("set", "Set Helm chart values on the command line. Can be specified multiple times and/or as comma-separated values: key1=val1,key2=val2.").Strings()
 	g.UpgradeCmd.Values = g.UpgradeCmd.Flag("values", "Set Helm chart values from the provided YAML file. Can be specified multiple times.").Strings()
+	g.UpgradeCmd.Block = g.UpgradeCmd.Flag("block", "When resuming the upgrade plan, launch it in foreground instead of a systemd unit").Bool()
 
 	g.UpdateUploadCmd.CmdClause = g.UpdateCmd.Command("upload", "Upload update package to locally running site").Hidden()
 	g.UpdateUploadCmd.OpsCenterURL = g.UpdateUploadCmd.Flag("ops-url", "Optional Gravity Hub URL to upload new packages to (defaults to local gravity site)").Default(defaults.GravityServiceURL).String()
@@ -616,19 +619,22 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.LocalSiteCmd.CmdClause = g.Command("local-site", "Prints the local cluster domain name to the console").Hidden()
 
 	// RPC agent
-	g.RPCAgentCmd.CmdClause = g.Command("agent", "RPC agent")
+	g.RPCAgentCmd.CmdClause = g.Command("agent", "Manage the deployment and operations of upgrade agents")
 
-	g.RPCAgentDeployCmd.CmdClause = g.RPCAgentCmd.Command("deploy", "deploy RPC agents across cluster nodes, and run specified execution function").Hidden()
-	g.RPCAgentDeployCmd.LeaderArgs = g.RPCAgentDeployCmd.Flag("leader", "additional arguments to leader node agent").String()
-	g.RPCAgentDeployCmd.NodeArgs = g.RPCAgentDeployCmd.Flag("node", "additional arguments to regular node agent").String()
+	g.RPCAgentDeployCmd.CmdClause = g.RPCAgentCmd.Command("deploy", "Deploy upgrade agents across cluster nodes, and run specified execution function")
+	g.RPCAgentDeployCmd.LeaderArgs = g.RPCAgentDeployCmd.Flag("leader", "Additional arguments to leader node agent").String()
+	g.RPCAgentDeployCmd.NodeArgs = g.RPCAgentDeployCmd.Flag("node", "Additional arguments to regular node agent").String()
+	g.RPCAgentDeployCmd.Version = g.RPCAgentDeployCmd.Flag("version", "Agent version to deploy").String()
 
-	g.RPCAgentShutdownCmd.CmdClause = g.RPCAgentCmd.Command("shutdown", "request agents to shut down").Hidden()
+	g.RPCAgentShutdownCmd.CmdClause = g.RPCAgentCmd.Command("shutdown", "Request agents to shut down")
 
-	g.RPCAgentInstallCmd.CmdClause = g.RPCAgentCmd.Command("install", "install and launch local RPC agent service").Hidden()
-	g.RPCAgentInstallCmd.Args = g.RPCAgentInstallCmd.Arg("arg", "additional arguments").Strings()
+	g.RPCAgentInstallCmd.CmdClause = g.RPCAgentCmd.Command("install", "Install and launch local upgrade agent service")
+	g.RPCAgentInstallCmd.Args = g.RPCAgentInstallCmd.Arg("arg", "Additional arguments").Strings()
 
-	g.RPCAgentRunCmd.CmdClause = g.RPCAgentCmd.Command("run", "run RPC agent").Hidden()
-	g.RPCAgentRunCmd.Args = g.RPCAgentRunCmd.Arg("arg", "additional arguments").Strings()
+	g.RPCAgentRunCmd.CmdClause = g.RPCAgentCmd.Command("run", "Run upgrade agent")
+	g.RPCAgentRunCmd.Args = g.RPCAgentRunCmd.Arg("arg", "Additional arguments").Strings()
+
+	g.RPCAgentStatusCmd.CmdClause = g.RPCAgentCmd.Command("status", "Collect and display upgrade agent statuses")
 
 	g.SystemCmd.CmdClause = g.Command("system", "operations on system components")
 

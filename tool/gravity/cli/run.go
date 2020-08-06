@@ -415,16 +415,21 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 		}
 		defer updateEnv.Close()
 		if *g.UpgradeCmd.Resume {
-			*g.UpgradeCmd.Phase = fsm.RootPhase
+			return executeUpdatePhase(localEnv, g, PhaseParams{
+				PhaseID:          fsm.RootPhase,
+				Timeout:          *g.UpgradeCmd.Timeout,
+				SkipVersionCheck: *g.UpgradeCmd.SkipVersionCheck,
+				Block:            *g.UpgradeCmd.Block,
+			})
 		}
 		if *g.UpgradeCmd.Phase != "" {
-			return executeUpdatePhase(localEnv, g,
-				PhaseParams{
-					PhaseID:          *g.UpgradeCmd.Phase,
-					Force:            *g.UpgradeCmd.Force,
-					Timeout:          *g.UpgradeCmd.Timeout,
-					SkipVersionCheck: *g.UpgradeCmd.SkipVersionCheck,
-				})
+			return executeUpdatePhase(localEnv, g, PhaseParams{
+				PhaseID:          *g.UpgradeCmd.Phase,
+				Force:            *g.UpgradeCmd.Force,
+				Timeout:          *g.UpgradeCmd.Timeout,
+				SkipVersionCheck: *g.UpgradeCmd.SkipVersionCheck,
+				Block:            true, // Direct phase executions run in foreground.
+			})
 		}
 		config, err := newUpgradeConfig(g)
 		if err != nil {
@@ -447,6 +452,7 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 				Timeout:          *g.PlanExecuteCmd.PhaseTimeout,
 				SkipVersionCheck: *g.PlanCmd.SkipVersionCheck,
 				OperationID:      *g.PlanCmd.OperationID,
+				Block:            true, // Direct phase executions run in foreground.
 			})
 	case g.PlanSetCmd.FullCommand():
 		return setPhase(localEnv, g, SetPhaseParams{
@@ -461,6 +467,7 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 				Timeout:          *g.PlanResumeCmd.PhaseTimeout,
 				SkipVersionCheck: *g.PlanCmd.SkipVersionCheck,
 				OperationID:      *g.PlanCmd.OperationID,
+				Block:            *g.PlanResumeCmd.Block,
 			})
 	case g.PlanRollbackCmd.FullCommand():
 		return rollbackPhase(localEnv, g,
@@ -477,7 +484,10 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			outputFormat = constants.EncodingShort
 		}
 		return displayOperationPlan(localEnv, g,
-			*g.PlanCmd.OperationID, outputFormat)
+			*g.PlanCmd.OperationID, displayPlanOptions{
+				format: outputFormat,
+				follow: *g.PlanDisplayCmd.Follow,
+			})
 	case g.PlanCompleteCmd.FullCommand():
 		return completeOperationPlan(localEnv, g, *g.PlanCmd.OperationID)
 	case g.RollbackCmd.FullCommand():
@@ -998,8 +1008,11 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			*g.ResourceGetCmd.User)
 	case g.RPCAgentDeployCmd.FullCommand():
 		return rpcAgentDeploy(localEnv,
-			*g.RPCAgentDeployCmd.LeaderArgs,
-			*g.RPCAgentDeployCmd.NodeArgs)
+			deployOptions{
+				leaderArgs: *g.RPCAgentDeployCmd.LeaderArgs,
+				nodeArgs:   *g.RPCAgentDeployCmd.NodeArgs,
+				version:    *g.RPCAgentDeployCmd.Version,
+			})
 	case g.RPCAgentInstallCmd.FullCommand():
 		return rpcAgentInstall(localEnv, *g.RPCAgentInstallCmd.Args)
 	case g.RPCAgentRunCmd.FullCommand():
@@ -1010,6 +1023,8 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 		defer updateEnv.Close()
 		return rpcAgentRun(localEnv, updateEnv,
 			*g.RPCAgentRunCmd.Args)
+	case g.RPCAgentStatusCmd.FullCommand():
+		return rpcAgentStatus(localEnv)
 	case g.RPCAgentShutdownCmd.FullCommand():
 		return rpcAgentShutdown(localEnv)
 	case g.CheckCmd.FullCommand():
