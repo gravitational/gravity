@@ -156,8 +156,3 @@ hooks:
 storage:
   openebs:
     enabled: true
-systemOptions:
-  runtime:
-    version: "0.0.0+latest"
-  docker:
-    storageDriver: overlay2
