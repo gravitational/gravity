@@ -9,7 +9,7 @@ RUN sed -i '/jessie-updates/d' /etc/apt/sources.list
 
 # RUN --mount=type=cache,sharing=locked,id=aptlib,target=/var/lib/apt \
 #    --mount=type=cache,sharing=locked,id=aptcache,target=/var/cache/apt \
-    apt-get update && apt-get install git -y
+RUN    apt-get update && apt-get install git -y
 
 RUN --mount=type=cache,sharing=locked,id=npm,target=/.cache/npm \
     npm i npm@6.4.1 -g

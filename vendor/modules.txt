@@ -380,7 +380,7 @@ github.com/gravitational/kingpin
 github.com/gravitational/license
 github.com/gravitational/license/authority
 github.com/gravitational/license/constants
-# github.com/gravitational/magnet v0.2.2
+# github.com/gravitational/magnet v0.2.4
 github.com/gravitational/magnet
 github.com/gravitational/magnet/common
 github.com/gravitational/magnet/pkg/cp

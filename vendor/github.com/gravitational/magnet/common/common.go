@@ -30,9 +30,14 @@ func (Help) Envs() error {
 
 	for key, value := range magnet.EnvVars {
 		if value.Secret {
-			result = append(result, []string{key, "<redacted>", value.Default, value.Short})
+			result = append(result, []string{key, "<redacted>", "", value.Short})
 		} else {
-			result = append(result, []string{key, value.Value, value.Default, value.Short})
+			d := value.Default
+			if d == "" {
+				d = magnet.ImportEnvVars[key]
+			}
+
+			result = append(result, []string{key, value.Value, d, value.Short})
 		}
 	}
 

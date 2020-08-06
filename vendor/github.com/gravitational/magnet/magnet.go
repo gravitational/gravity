@@ -106,11 +106,11 @@ func Shutdown() {
 func (m *Magnet) Target(name string) *Magnet {
 	InitOutput()
 
-	started := time.Now()
+	now := time.Now()
 	vertex := &progressui.Vertex{
 		Digest:  digest.FromString(name),
 		Name:    name,
-		Started: &started,
+		Started: &now,
 	}
 
 	// the root vertex doesn't get fully added to the progress ui. So only add a parent if we're not root

@@ -26,29 +26,51 @@ var root = magnet.Root(magnet.Config{
 	PrintConfig: true,
 })
 
+func init() {
+	fmt.Println("|", golangVersion, "|", len(golangVersion))
+}
+
 var (
 
 	// golangVersion
-	golangVersion = "1.13.12-stretch"
+	golangVersion = magnet.E(magnet.EnvVar{
+		Key:   "GOLANG_VER",
+		Short: "The golang version from golang container: quay.io/gravitational/debian-venti:go${GOLANG_VER}",
+	})
 
 	// golangciVersion is the version of golangci-lint to use for linting
 	// https://github.com/golangci/golangci-lint/releases
 	golangciVersion = "v1.27.0"
 
 	// FIO vars
-	fioVersion = "3.15"
-	fioTag     = fmt.Sprintf("fio-%v", fioVersion)
-	fioPkgTag  = fmt.Sprintf("%v.0", fioVersion)
+	fioVersion = magnet.E(magnet.EnvVar{
+		Key:   "FIO_VER",
+		Short: "The version of fio to include for volume IO testing",
+	})
+	fioTag    = fmt.Sprintf("fio-%v", fioVersion)
+	fioPkgTag = fmt.Sprintf("%v.0", fioVersion)
 
 	// Teleport
-	teleportTag     = "3.2.14"
+	teleportTag = magnet.E(magnet.EnvVar{
+		Key:   "TELEPORT_TAG",
+		Short: "The teleport tag to build and include with gravity",
+	})
 	teleportRepoTag = fmt.Sprintf("v%s", teleportTag) // Adapts teleportTag to the teleport tagging scheme
 
 	// Grpc
-	grpcProtocVersion  = "3.10.0"
+	grpcProtocVersion = magnet.E(magnet.EnvVar{
+		Key:   "GRPC_PROTOC_VER",
+		Short: "The protoc version to use",
+	})
 	grpcProtocPlatform = "linux-x86_64"
-	grpcGoGoTag        = "v1.3.0"
-	grpcGatewayTag     = "v1.11.3"
+	grpcGoGoTag        = magnet.E(magnet.EnvVar{
+		Key:   "GOGO_PROTO_TAG",
+		Short: "The grpc gogo version to use",
+	})
+	grpcGatewayTag = magnet.E(magnet.EnvVar{
+		Key:   "GRPC_GATEWAY_TAG",
+		Short: "The grpc gateway version to use",
+	})
 
 	// internal repos
 
@@ -62,15 +84,21 @@ var (
 	// Planet
 
 	// k8sVersion is the version of kubernetes we're shipping
-	k8sVersion = "1.17.6"
+	k8sVersion = magnet.E(magnet.EnvVar{
+		Key:   "K8S_VER",
+		Short: "The k8s version to use (and locate the planet tag)",
+	})
 
 	// planetTag is <planet version>-<encoded kubernetes version> as would be tagged in the planet repo
 	// TODO: We should consider a way to import planet directly from a docker image for OSS users customizing planet
 	// or add support for building off forks of the repo
-	planetTag    = fmt.Sprintf("7.1.4-%v", k8sVersionToPlanetFormat(k8sVersion))
+	//planetTag = fmt.Sprintf("7.1.4-%v", k8sVersionToPlanetFormat(k8sVersion))
+	planetTag = ""
+
 	planetBranch = magnet.E(magnet.EnvVar{
-		Key:     "PLANET_BRANCH",
-		Default: planetTag,
+		Key: "PLANET_BRANCH",
+		//Default: planetTag,
+		Default: planetVersion,
 		Short:   "Alternate branch to build planet",
 	})
 	planetVersion = magnet.E(magnet.EnvVar{
@@ -81,9 +109,8 @@ var (
 
 	// Gravity Internal Applications
 	appIngressVersion = magnet.E(magnet.EnvVar{
-		Key:     "INGRESS_APP_VERSION",
-		Default: "0.0.1",
-		Short:   "Ingress application - version to assign to internal application",
+		Key:   "INGRESS_APP_VERSION",
+		Short: "Ingress application - version to assign to internal application",
 	})
 	appIngressBranch = magnet.E(magnet.EnvVar{
 		Key:     "INGRESS_APP_BRANCH",
@@ -97,9 +124,8 @@ var (
 	})
 
 	appStorageVersion = magnet.E(magnet.EnvVar{
-		Key:     "STORAGE_APP_VERSION",
-		Default: "0.0.1",
-		Short:   "Storage application - version to assign to internal application",
+		Key:   "STORAGE_APP_VERSION",
+		Short: "Storage application - version to assign to internal application",
 	})
 	appStorageBranch = magnet.E(magnet.EnvVar{
 		Key:     "STORAGE_APP_BRANCH",
@@ -113,9 +139,8 @@ var (
 	})
 
 	appLoggingVersion = magnet.E(magnet.EnvVar{
-		Key:     "LOGGING_APP_VERSION",
-		Default: "6.0.4",
-		Short:   "Logging application - version to assign to internal application",
+		Key:   "LOGGING_APP_VERSION",
+		Short: "Logging application - version to assign to internal application",
 	})
 	appLoggingBranch = magnet.E(magnet.EnvVar{
 		Key:     "LOGGING_APP_BRANCH",
@@ -129,9 +154,8 @@ var (
 	})
 
 	appMonitoringVersion = magnet.E(magnet.EnvVar{
-		Key:     "MONITORING_APP_VERSION",
-		Default: "7.0.1",
-		Short:   "Monitoring application - version to assign to internal application",
+		Key:   "MONITORING_APP_VERSION",
+		Short: "Monitoring application - version to assign to internal application",
 	})
 	appMonitoringBranch = magnet.E(magnet.EnvVar{
 		Key:     "MONITORING_APP_BRANCH",
@@ -145,9 +169,8 @@ var (
 	})
 
 	appBandwagonVersion = magnet.E(magnet.EnvVar{
-		Key:     "BANDWAGON_APP_TAG",
-		Default: "6.0.1",
-		Short:   "Bandwagon application - version to assign to internal application",
+		Key:   "BANDWAGON_APP_TAG",
+		Short: "Bandwagon application - version to assign to internal application",
 	})
 	appBandwagonBranch = magnet.E(magnet.EnvVar{
 		Key:     "BANDWAGON_APP_BRANCH",
@@ -163,9 +186,8 @@ var (
 	// applications within the gravity master repository
 
 	appDNSVersion = magnet.E(magnet.EnvVar{
-		Key:     "DNS_APP_VERSION",
-		Default: "0.4.2",
-		Short:   "DNS application - version to assign to internal application",
+		Key:   "DNS_APP_VERSION",
+		Short: "DNS application - version to assign to internal application",
 	})
 	appRBACVersion = magnet.E(magnet.EnvVar{
 		Key:     "RBAC_APP_TAG",
@@ -173,21 +195,18 @@ var (
 		Short:   "Logging application tag/branch to build",
 	})
 	appTillerVersion = magnet.E(magnet.EnvVar{
-		Key:     "TILLER_APP_TAG",
-		Default: "7.0.0",
-		Short:   "Logging application tag/branch to build",
+		Key:   "TILLER_APP_TAG",
+		Short: "Logging application tag/branch to build",
 	})
 
 	// Dependency Versions
 	tillerVersion = magnet.E(magnet.EnvVar{
-		Key:     "TILLER_VERSION",
-		Default: "2.15.0",
-		Short:   "Tiller version to include",
+		Key:   "TILLER_VERSION",
+		Short: "Tiller version to include",
 	})
 	selinuxVersion = magnet.E(magnet.EnvVar{
-		Key:     "SELINUX_VERSION",
-		Default: "6.0.0",
-		Short:   "",
+		Key:   "SELINUX_VERSION",
+		Short: "",
 	})
 	selinuxBranch = magnet.E(magnet.EnvVar{
 		Key:     "SELINUX_BRANCH",
@@ -202,9 +221,8 @@ var (
 
 	// which container to include for builds using wormhole networking
 	wormholeImage = magnet.E(magnet.EnvVar{
-		Key:     "WORMHOLE_IMG",
-		Default: "quay.io/gravitational/wormhole:0.3.3",
-		Short:   "ImagePath to wormhole docker container",
+		Key:   "WORMHOLE_IMG",
+		Short: "ImagePath to wormhole docker container",
 	})
 
 	// Image Vulnerability Scanning on Publishing

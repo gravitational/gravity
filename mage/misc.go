@@ -14,8 +14,10 @@ limitations under the License.
 package mage
 
 import (
+	"fmt"
 	"os"
 
+	"github.com/gravitational/magnet"
 	"github.com/gravitational/trace"
 )
 
@@ -25,4 +27,13 @@ func Clean() (err error) {
 	defer func() { m.Complete(err) }()
 
 	return trace.Wrap(os.RemoveAll("build"))
+}
+
+// Env
+func Env() (err error) {
+	for k, v := range magnet.ImportEnvVars {
+		fmt.Println(k, ":", v)
+	}
+
+	return
 }
