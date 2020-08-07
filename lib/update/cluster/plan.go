@@ -425,14 +425,10 @@ func shouldUpdateCoreDNS(client *kubernetes.Clientset) (bool, error) {
 	return false, nil
 }
 
-func shouldUpdateEtcd(installedRuntimeApp, updateRuntimeApp app.Application, packages pack.PackageService) (*etcdVersion, error) {
+func shouldUpdateEtcd(installedRuntimePackage, updateRuntimePackage loc.Locator, packages pack.PackageService) (*etcdVersion, error) {
 	// TODO: should somehow maintain etcd version invariant across runtime packages
-	runtimePackage, err := schema.GetDefaultRuntimePackage(installedRuntimeApp.Manifest)
-	if err != nil {
-		return nil, trace.Wrap(err, "error fetching runtime package for %v", installedRuntimeApp.Package)
-	}
 	var updateEtcd bool
-	installedVersion, err := getEtcdVersion(*runtimePackage, packages)
+	installedVersion, err := getEtcdVersion(installedRuntimePackage, packages)
 	if err != nil {
 		if !trace.IsNotFound(err) {
 			return nil, trace.Wrap(err)
@@ -440,11 +436,7 @@ func shouldUpdateEtcd(installedRuntimeApp, updateRuntimeApp app.Application, pac
 		// if the currently installed version doesn't have etcd version information, it needs to be upgraded
 		updateEtcd = true
 	}
-	runtimePackage, err = schema.GetDefaultRuntimePackage(updateRuntimeApp.Manifest)
-	if err != nil {
-		return nil, trace.Wrap(err, "error fetching runtime package for %v", updateRuntimeApp.Package)
-	}
-	updateVersion, err := getEtcdVersion(*runtimePackage, packages)
+	updateVersion, err := getEtcdVersion(updateRuntimePackage, packages)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

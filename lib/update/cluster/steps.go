@@ -71,7 +71,15 @@ func (r *phaseBuilder) initSteps(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	etcd, err := shouldUpdateEtcd(installedRuntimeApp, r.updateRuntimeApp, r.packages)
+	installedRuntimePackage, err := schema.GetDefaultRuntimePackage(r.installedApp.Manifest)
+	if err != nil {
+		return trace.Wrap(err, "error fetching runtime package for %v", r.installedApp.Package)
+	}
+	updateRuntimePackage, err := schema.GetDefaultRuntimePackage(r.updateApp.Manifest)
+	if err != nil {
+		return trace.Wrap(err, "error fetching runtime package for %v", r.updateApp.Package)
+	}
+	etcd, err := shouldUpdateEtcd(*installedRuntimePackage, *updateRuntimePackage, r.packages)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -99,13 +107,21 @@ func (r phaseBuilder) buildIntermediateSteps(context.Context) (updates []interme
 	}
 	updates = make([]intermediateUpdateStep, 0, len(result))
 	prevRuntimeApp := r.installedRuntimeApp
+	prevRuntimePackage, err := schema.GetDefaultRuntimePackage(r.installedRuntimeApp.Manifest)
+	if err != nil {
+		return nil, trace.Wrap(err, "error fetching runtime package for %v", r.installedRuntimeApp.Package)
+	}
 	prevTeleport := r.installedTeleport
 	prevRuntimeFunc := getRuntimePackageFromManifest(r.installedApp.Manifest)
 	for version, update := range result {
 		if err := update.validate(); err != nil {
 			return nil, trace.Wrap(err)
 		}
-		update.etcd, err = shouldUpdateEtcd(prevRuntimeApp, update.runtimeApp, r.packages)
+		updateRuntimePackage, err := schema.GetDefaultRuntimePackage(update.runtimeApp.Manifest)
+		if err != nil {
+			return nil, trace.Wrap(err, "error fetching runtime package for %v", update.runtimeApp.Package)
+		}
+		update.etcd, err = shouldUpdateEtcd(*prevRuntimePackage, *updateRuntimePackage, r.packages)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
@@ -126,6 +142,7 @@ func (r phaseBuilder) buildIntermediateSteps(context.Context) (updates []interme
 		}
 		updates = append(updates, update)
 		prevRuntimeApp = update.runtimeApp
+		prevRuntimePackage = updateRuntimePackage
 		prevTeleport = update.teleport
 		prevRuntimeFunc = getRuntimePackageStatic(update.runtime)
 	}

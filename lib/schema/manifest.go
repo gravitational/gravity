@@ -513,10 +513,14 @@ func (d Dependencies) ByName(names ...string) (*loc.Locator, error) {
 	return nil, trace.NotFound("dependencies %q are not defined in the manifest", names)
 }
 
-// GetPackages returns a list of all package dependencies
+// GetPackages returns a list of all package dependencies except the runtime
+// package which is described in systemOptions
 func (d Dependencies) GetPackages() []loc.Locator {
-	packages := make([]loc.Locator, 0, len(d.Packages)+1)
+	packages := make([]loc.Locator, 0, len(d.Packages))
 	for _, dep := range d.Packages {
+		if loc.IsPlanetPackage(dep.Locator) {
+			continue
+		}
 		packages = append(packages, dep.Locator)
 	}
 	return packages

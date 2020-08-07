@@ -390,113 +390,50 @@ func (s *PlanSuite) TestPlanWithIntermediateRuntimeUpdate(c *check.C) {
 	})
 }
 
-func (s *PlanSuite) TestUpdatesEtcdFromManifestWithoutLabels(c *check.C) {
-	services := opsservice.SetupTestServices(c)
-	files := []*archive.Item{
-		archive.ItemFromString("orbit.manifest.json", `{"version": "0.0.1"}`),
-	}
-	runtimePackage := loc.MustParseLocator("example.com/runtime:1.0.0")
-	apptest.CreateDummyPackageWithContents(
-		runtimePackage,
-		files,
-		services.Packages, c)
-	files = []*archive.Item{
-		archive.ItemFromString("orbit.manifest.json", `{
-	"version": "0.0.1",
-	"labels": [
-		{
-			"name": "version-etcd",
-			"value": "v3.3.3"
-		}
-	]
-}`),
-	}
-	updateRuntimePackage := loc.MustParseLocator("example.com/runtime:1.0.1")
-	apptest.CreateDummyPackageWithContents(
-		updateRuntimePackage,
-		files,
-		services.Packages, c)
-	b := phaseBuilder{
-		packages: services.Packages,
-		installedRuntimeApp: app.Application{Manifest: schema.Manifest{
-			SystemOptions: &schema.SystemOptions{
-				Dependencies: schema.SystemDependencies{
-					Runtime: &schema.Dependency{Locator: runtimePackage},
-				},
-			},
-		}},
-		updateRuntimeApp: app.Application{Manifest: schema.Manifest{
-			SystemOptions: &schema.SystemOptions{
-				Dependencies: schema.SystemDependencies{
-					Runtime: &schema.Dependency{Locator: updateRuntimePackage},
-				},
-			},
-		}},
-	}
-	version, err := shouldUpdateEtcd(b.installedRuntimeApp, b.updateRuntimeApp, services.Packages)
-	c.Assert(err, check.IsNil)
-	c.Assert(version, check.DeepEquals, &etcdVersion{
-		update: "3.3.3",
-	})
-}
-
 func (s *PlanSuite) TestDeterminesWhetherToUpdateEtcd(c *check.C) {
 	services := opsservice.SetupTestServices(c)
-	files := []*archive.Item{
-		archive.ItemFromString("orbit.manifest.json", `{
-	"version": "0.0.1",
-	"labels": [
-		{
-			"name": "version-etcd",
-			"value": "v3.3.2"
-		}
-	]
-}`),
-	}
 	runtimePackage := loc.MustParseLocator("example.com/runtime:1.0.0")
-	apptest.CreateDummyPackageWithContents(
-		runtimePackage,
-		files,
-		services.Packages, c)
-	files = []*archive.Item{
-		archive.ItemFromString("orbit.manifest.json", `{
-	"version": "0.0.1",
-	"labels": [
-		{
-			"name": "version-etcd",
-			"value": "v3.3.3"
-		}
-	]
-}`),
-	}
 	updateRuntimePackage := loc.MustParseLocator("example.com/runtime:1.0.1")
-	apptest.CreateDummyPackageWithContents(
-		updateRuntimePackage,
-		files,
-		services.Packages, c)
-	b := phaseBuilder{
-		packages: services.Packages,
-		installedRuntimeApp: app.Application{Manifest: schema.Manifest{
-			SystemOptions: &schema.SystemOptions{
-				Dependencies: schema.SystemDependencies{
-					Runtime: &schema.Dependency{Locator: runtimePackage},
-				},
-			},
-		}},
-		updateRuntimeApp: app.Application{Manifest: schema.Manifest{
-			SystemOptions: &schema.SystemOptions{
-				Dependencies: schema.SystemDependencies{
-					Runtime: &schema.Dependency{Locator: updateRuntimePackage},
-				},
-			},
-		}},
-	}
-	version, err := shouldUpdateEtcd(b.installedRuntimeApp, b.updateRuntimeApp, b.packages)
+	createRuntimePackages(runtimePackage, updateRuntimePackage, etcdVersion{
+		installed: "3.3.2",
+		update:    "3.3.3",
+	}, services.Packages, c)
+	etcd, err := shouldUpdateEtcd(runtimePackage, updateRuntimePackage, services.Packages)
 	c.Assert(err, check.IsNil)
-	c.Assert(version, check.DeepEquals, &etcdVersion{
+	c.Assert(etcd, check.DeepEquals, &etcdVersion{
 		installed: "3.3.2",
 		update:    "3.3.3",
 	})
+}
+
+func createRuntimePackages(installedPackage, updatePackage loc.Locator, etcd etcdVersion, packages pack.PackageService, c *check.C) {
+	files := []*archive.Item{
+		archive.ItemFromString("orbit.manifest.json", fmt.Sprintf(`{
+	"version": "0.0.1",
+	"labels": [
+		{
+			"name": "version-etcd",
+"value": "v%v"
+		}
+	]
+}`, etcd.installed)),
+	}
+	apptest.CreateDummyPackageWithContents(installedPackage, files, packages, c)
+	if updatePackage.IsEqualTo(installedPackage) {
+		return
+	}
+	files = []*archive.Item{
+		archive.ItemFromString("orbit.manifest.json", fmt.Sprintf(`{
+	"version": "0.0.1",
+	"labels": [
+		{
+			"name": "version-etcd",
+"value": "v%v"
+		}
+	]
+}`, etcd.update)),
+	}
+	apptest.CreateDummyPackageWithContents(updatePackage, files, packages, c)
 }
 
 func newBuilder(c *check.C, params params) phaseBuilder {
