@@ -26,10 +26,6 @@ var root = magnet.Root(magnet.Config{
 	PrintConfig: true,
 })
 
-func init() {
-	fmt.Println("|", golangVersion, "|", len(golangVersion))
-}
-
 var (
 
 	// golangVersion
