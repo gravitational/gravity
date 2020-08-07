@@ -57,8 +57,7 @@ func NewUpdatePhaseBootstrapLeader(
 	if p.Phase.Data.Update.GravityPackage == nil {
 		return nil, trace.BadParameter("no gravity package specified for phase %q", p.Phase.ID)
 	}
-	server := p.Phase.Data.Update.Servers[0]
-	cluster, err := operator.GetLocalSite()
+	cluster, err := operator.GetLocalSite(context.TODO())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -74,29 +73,6 @@ func NewUpdatePhaseBootstrapLeader(
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	executor := updatePhaseBootstrapLeader{
-		FieldLogger: logger,
-		servers:     p.Phase.Data.Update.Servers,
-		bootstrap: updatePhaseBootstrap{
-			FieldLogger:      logger,
-			Operator:         operator,
-			Backend:          backend,
-			LocalBackend:     localBackend,
-			HostLocalBackend: hostLocalBackend,
-			LocalPackages:    localPackages,
-			Packages:         packages,
-			Server:           server,
-			Operation:        *operation,
-			GravityPackage:   *p.Phase.Data.Update.GravityPackage,
-			ServiceUser:      *serviceUser,
-			ExecutorParams:   p,
-			remote:           remote,
-			clusterDNSConfig: cluster.DNSConfig,
-		},
-		masterIPs:      storage.Servers(p.Plan.Servers).MasterIPs(),
-		packageRotator: operator,
-		updateManifest: app.Manifest,
-	}
 	env, err := operator.GetClusterEnvironmentVariables(operation.ClusterKey())
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -109,9 +85,32 @@ func NewUpdatePhaseBootstrapLeader(
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	executor.existingClusterConfig = configBytes
-	executor.existingEnviron = env.GetKeyValues()
-	return &executor, nil
+	return &updatePhaseBootstrapLeader{
+		FieldLogger: logger,
+		servers:     p.Phase.Data.Update.Servers,
+		bootstrap: updatePhaseBootstrap{
+			FieldLogger:      logger,
+			Operator:         operator,
+			Backend:          backend,
+			LocalBackend:     localBackend,
+			HostLocalBackend: hostLocalBackend,
+			LocalPackages:    localPackages,
+			Packages:         packages,
+			Server:           p.Phase.Data.Update.Servers[0],
+			Operation:        *operation,
+			GravityPackage:   *p.Phase.Data.Update.GravityPackage,
+			ServiceUser:      *serviceUser,
+			ExecutorParams:   p,
+			remote:           remote,
+			clusterDNSConfig: cluster.DNSConfig,
+		},
+		masterIPs:                  storage.Servers(p.Plan.Servers).MasterIPs(),
+		packageRotator:             operator,
+		updateManifest:             app.Manifest,
+		existingClusterConfigBytes: configBytes,
+		existingClusterConfig:      clusterConfig,
+		existingEnviron:            env.GetKeyValues(),
+	}, nil
 }
 
 // Execute executes the bootstrap phase locally, e.g. exports new gravity
@@ -166,6 +165,7 @@ func (p *updatePhaseBootstrapLeader) rotateSecrets(server storage.UpdateServer) 
 		Package:        server.Runtime.SecretsPackage,
 		RuntimePackage: server.Runtime.Update.Package,
 		Server:         server.Server,
+		ServiceCIDR:    p.existingClusterConfig.GetGlobalConfig().ServiceCIDR,
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -186,7 +186,7 @@ func (p *updatePhaseBootstrapLeader) rotatePlanetConfig(server storage.UpdateSer
 		Manifest:       p.updateManifest,
 		RuntimePackage: server.Runtime.Update.Package,
 		Package:        &server.Runtime.Update.ConfigPackage,
-		Config:         p.existingClusterConfig,
+		Config:         p.existingClusterConfigBytes,
 		Env:            p.existingEnviron,
 	})
 	if err != nil {
@@ -238,9 +238,10 @@ type updatePhaseBootstrapLeader struct {
 	// masterIPs lists addresses of all master nodes in the cluster
 	masterIPs []string
 	// packageRotator specifies the configuration package rotator
-	packageRotator        PackageRotator
-	existingEnviron       map[string]string
-	existingClusterConfig []byte
+	packageRotator             PackageRotator
+	existingEnviron            map[string]string
+	existingClusterConfigBytes []byte
+	existingClusterConfig      clusterconfig.Interface
 	// updateManifest specifies the manifest of the update application
 	updateManifest schema.Manifest
 }
@@ -302,8 +303,7 @@ func NewUpdatePhaseBootstrap(
 	if p.Phase.Data.Update.GravityPackage == nil {
 		return nil, trace.BadParameter("no gravity package specified for phase %q", p.Phase.ID)
 	}
-	server := p.Phase.Data.Update.Servers[0]
-	cluster, err := operator.GetLocalSite()
+	cluster, err := operator.GetLocalSite(context.TODO())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -322,7 +322,7 @@ func NewUpdatePhaseBootstrap(
 		HostLocalBackend: hostLocalBackend,
 		LocalPackages:    localPackages,
 		Packages:         packages,
-		Server:           server,
+		Server:           p.Phase.Data.Update.Servers[0],
 		Operation:        *operation,
 		GravityPackage:   *p.Phase.Data.Update.GravityPackage,
 		ServiceUser:      *serviceUser,

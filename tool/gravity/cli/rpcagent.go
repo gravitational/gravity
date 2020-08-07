@@ -194,12 +194,12 @@ func rpcAgentDeployHelper(ctx context.Context, localEnv *localenv.LocalEnvironme
 		return nil, trace.Wrap(err)
 	}
 
-	cluster, err := operator.GetLocalSite()
+	cluster, err := operator.GetLocalSite(ctx)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	teleportClient, err := localEnv.TeleportClient(constants.Localhost)
+	teleportClient, err := localEnv.TeleportClient(ctx, constants.Localhost)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to create a teleport client")
 	}
@@ -463,11 +463,6 @@ func rpcAgentStatus(env *localenv.LocalEnvironment) error {
 		return trace.Wrap(err)
 	}
 
-	cluster, err := operator.GetLocalSite()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
 	timeout, err := utils.GetenvDuration(constants.AgentStatusTimeoutEnvVar)
 	if err != nil {
 		timeout = defaults.AgentStatusTimeout
@@ -475,6 +470,11 @@ func rpcAgentStatus(env *localenv.LocalEnvironment) error {
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
+
+	cluster, err := operator.GetLocalSite(ctx)
+	if err != nil {
+		return trace.Wrap(err)
+	}
 
 	statusList := rpc.CollectAgentStatus(ctx, cluster.ClusterState.Servers, fsm.NewAgentRunner(creds))
 

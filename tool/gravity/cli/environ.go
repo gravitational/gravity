@@ -204,7 +204,7 @@ func (environInitializer) newOperationPlan(
 	clusterEnv *localenv.ClusterEnvironment,
 	leader *storage.Server,
 ) (*storage.OperationPlan, error) {
-	plan, err := environ.NewOperationPlan(operator, clusterEnv.Apps, operation, cluster.ClusterState.Servers)
+	plan, err := environ.NewOperationPlan(ctx, operator, clusterEnv.Apps, operation, cluster.ClusterState.Servers)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

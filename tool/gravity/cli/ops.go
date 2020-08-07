@@ -63,7 +63,7 @@ func uploadUpdate(ctx context.Context, tarballEnv *localenv.TarballEnvironment, 
 			"that the cluster DNS is working properly.")
 	}
 
-	cluster, err := clusterOperator.GetLocalSite()
+	cluster, err := clusterOperator.GetLocalSite(context.TODO())
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -247,7 +247,7 @@ func getTarballEnvironForUpgrade(env *localenv.LocalEnvironment, stateDir string
 			"Use 'gravity status' to check the cluster state and make sure "+
 			"that the cluster DNS is working properly.")
 	}
-	cluster, err := clusterOperator.GetLocalSite()
+	cluster, err := clusterOperator.GetLocalSite(context.TODO())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

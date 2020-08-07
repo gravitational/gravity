@@ -59,7 +59,7 @@ func (a *Autoscaler) PublishDiscovery(ctx context.Context, operator ops.Operator
 
 // syncDiscovery syncs cluster discovery information in the SSM
 func (a *Autoscaler) syncDiscovery(ctx context.Context, operator ops.Operator, force bool) error {
-	cluster, err := operator.GetLocalSite()
+	cluster, err := operator.GetLocalSite(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}

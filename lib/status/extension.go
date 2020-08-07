@@ -17,6 +17,7 @@ limitations under the License.
 package status
 
 import (
+	"context"
 	"io"
 	"sync"
 )
@@ -24,7 +25,7 @@ import (
 // Extension defines an interface for the cluster status extension
 type Extension interface {
 	// Collect collects extended cluster status information
-	Collect() error
+	Collect(context.Context) error
 	// WriterTo allows to write extended cluster status into provided writer
 	io.WriterTo
 }
@@ -57,7 +58,7 @@ var (
 type defaultExtension struct{}
 
 // Collect is no-op for the default extension
-func (*defaultExtension) Collect() error { return nil }
+func (*defaultExtension) Collect(context.Context) error { return nil }
 
 // WriteTo is no-op for the default extension
 func (*defaultExtension) WriteTo(io.Writer) (int64, error) { return 0, nil }

@@ -17,6 +17,8 @@ limitations under the License.
 package environ
 
 import (
+	"context"
+
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
@@ -29,12 +31,13 @@ import (
 
 // NewOperationPlan creates a new operation plan for the specified operation
 func NewOperationPlan(
+	ctx context.Context,
 	operator ops.Operator,
 	apps app.Applications,
 	operation ops.SiteOperation,
 	servers []storage.Server,
 ) (plan *storage.OperationPlan, err error) {
-	cluster, err := operator.GetLocalSite()
+	cluster, err := operator.GetLocalSite(ctx)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

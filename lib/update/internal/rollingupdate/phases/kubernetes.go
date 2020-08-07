@@ -31,7 +31,7 @@ import (
 	"github.com/cenkalti/backoff"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	kubeapi "k8s.io/client-go/kubernetes"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
@@ -107,17 +107,13 @@ func (p *drainer) Execute(ctx context.Context) error {
 	p.Infof("Drain %v.", p.Server)
 	ctx, cancel := context.WithTimeout(ctx, defaults.DrainTimeout)
 	defer cancel()
-	err := retry(ctx, func() error {
-		return trace.Wrap(drain(ctx, p.Client, p.Server.KubeNodeID()))
-	}, defaults.DrainErrorTimeout)
-	return trace.Wrap(err)
+	return trace.Wrap(drain(ctx, p.Client, p.Server.KubeNodeID()))
 }
 
 // Rollback reverts the effect of drain by uncordoning the node
 func (p *drainer) Rollback(ctx context.Context) error {
 	p.Infof("Uncordon %v.", p.Server)
-	err := uncordon(ctx, p.Client.CoreV1().Nodes(), p.Server.KubeNodeID())
-	return trace.Wrap(err)
+	return trace.Wrap(uncordon(ctx, p.Client.CoreV1().Nodes(), p.Server.KubeNodeID()))
 }
 
 // NewUncordon returns a new executor for uncordoning a node
@@ -135,8 +131,7 @@ func NewUncordon(params libfsm.ExecutorParams, client *kubeapi.Clientset, logger
 // This will block until cluster controller endpoints are populated
 func (p *uncordoner) Execute(ctx context.Context) error {
 	p.Infof("Uncordon %v.", p.Server)
-	err := uncordon(ctx, p.Client.CoreV1().Nodes(), p.Server.KubeNodeID())
-	return trace.Wrap(err)
+	return trace.Wrap(uncordon(ctx, p.Client.CoreV1().Nodes(), p.Server.KubeNodeID()))
 }
 
 // Rollback is a no-op for this phase
@@ -159,8 +154,7 @@ func NewEndpoints(params libfsm.ExecutorParams, client *kubeapi.Clientset, logge
 // Execute waits for endpoints
 func (p *endpoints) Execute(ctx context.Context) error {
 	p.Infof("Wait for endpoints on %v.", p.Server)
-	err := update.WaitForEndpoints(ctx, p.Client.CoreV1(), p.Server)
-	return trace.Wrap(err)
+	return trace.Wrap(update.WaitForEndpoints(ctx, p.Client.CoreV1(), p.Server))
 }
 
 // Rollback is a no-op for this phase
@@ -224,7 +218,9 @@ func taint(ctx context.Context, client corev1.NodeInterface, node string, add ad
 		taintsToRemove = append(taintsToRemove, taint)
 	}
 
-	err := kubernetes.UpdateTaints(ctx, client, node, taintsToAdd, taintsToRemove)
+	err := retry(ctx, func() error {
+		return trace.Wrap(kubernetes.UpdateTaints(ctx, client, node, taintsToAdd, taintsToRemove))
+	})
 	if err != nil {
 		if add {
 			return trace.Wrap(err, "failed to add taint %v to node %q", taint, node)
@@ -235,19 +231,26 @@ func taint(ctx context.Context, client corev1.NodeInterface, node string, add ad
 }
 
 func drain(ctx context.Context, client *kubeapi.Clientset, node string) error {
-	err := kubernetes.Drain(ctx, client, node)
-	return trace.Wrap(err)
+	return retryWithTimeout(ctx, func() error {
+		return trace.Wrap(kubernetes.Drain(ctx, client, node))
+	}, defaults.DrainErrorTimeout)
 }
 
 func uncordon(ctx context.Context, client corev1.NodeInterface, node string) error {
-	err := kubernetes.SetUnschedulable(ctx, client, node, false)
-	return trace.Wrap(err)
+	return retry(ctx, func() error {
+		return trace.Wrap(kubernetes.SetUnschedulable(ctx, client, node, false))
+	})
 }
 
-func retry(ctx context.Context, fn func() error, timeout time.Duration) error {
+func retry(ctx context.Context, fn func() error) error {
+	const retryTimeout = 5 * time.Minute
+	return retryWithTimeout(ctx, fn, retryTimeout)
+}
+
+func retryWithTimeout(ctx context.Context, fn func() error, timeout time.Duration) error {
 	b := backoff.NewExponentialBackOff()
 	b.MaxElapsedTime = timeout
-	return trace.Wrap(utils.RetryWithInterval(ctx, b, fn))
+	return trace.Wrap(utils.RetryTransient(ctx, b, fn))
 }
 
 // tainter defines the operation of adding a taint to the node

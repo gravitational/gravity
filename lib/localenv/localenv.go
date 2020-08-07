@@ -17,6 +17,7 @@ limitations under the License.
 package localenv
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -342,7 +343,7 @@ func (env *LocalEnvironment) LocalCluster() (*ops.Site, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	cluster, err := operator.GetLocalSite()
+	cluster, err := operator.GetLocalSite(context.TODO())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -613,7 +614,7 @@ func LocalCluster() (*ops.Site, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	cluster, err := clusterOperator.GetLocalSite()
+	cluster, err := clusterOperator.GetLocalSite(context.TODO())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

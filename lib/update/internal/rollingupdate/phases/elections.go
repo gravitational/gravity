@@ -146,5 +146,5 @@ type elections struct {
 // LocalClusterGetter fetches data on local cluster
 type LocalClusterGetter interface {
 	// GetLocalSite returns the data record for the local cluster
-	GetLocalSite() (*ops.Site, error)
+	GetLocalSite(context.Context) (*ops.Site, error)
 }

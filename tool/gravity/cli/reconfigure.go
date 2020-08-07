@@ -23,6 +23,8 @@ import (
 	"github.com/gravitational/gravity/lib/install/client"
 	"github.com/gravitational/gravity/lib/install/reconfigure"
 	"github.com/gravitational/gravity/lib/localenv"
+	"github.com/gravitational/gravity/lib/ops/resources"
+	"github.com/gravitational/gravity/lib/ops/resources/gravity"
 	"github.com/gravitational/gravity/lib/system/signals"
 	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/gravity/lib/utils/cli"
@@ -47,7 +49,7 @@ func reconfigureCluster(env *localenv.LocalEnvironment, config InstallConfig, co
 	}
 	log.Infof("Local cluster state: %#v.", localState)
 	config.Apply(localState.Cluster, localState.InstallOperation)
-	if err := config.CheckAndSetDefaults(); err != nil {
+	if err := config.CheckAndSetDefaults(resources.ValidateFunc(gravity.Validate)); err != nil {
 		return trace.Wrap(err)
 	}
 	log.Infof("Using config: %#v.", config)
@@ -147,7 +149,7 @@ func newReconfigurator(ctx context.Context, config *install.Config, state *local
 // as the cluster object and the original install operation.
 func validateReconfiguration(env *localenv.LocalEnvironment, config InstallConfig) (*localenv.LocalState, error) {
 	// The cluster should be installed but not running.
-	err := localenv.DetectCluster(env)
+	err := localenv.DetectCluster(context.TODO(), env)
 	if err != nil && trace.IsNotFound(err) {
 		return nil, trace.BadParameter("Gravity doesn't appear to be installed on this node.")
 	}

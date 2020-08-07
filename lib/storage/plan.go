@@ -26,6 +26,7 @@ import (
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
+	v1 "k8s.io/api/core/v1"
 )
 
 // OperationPlan represents a plan of an operation as a collection of phases
@@ -221,6 +222,20 @@ type UpdateOperationData struct {
 	GravityPackage *loc.Locator `json:"gravity_package,omitempty"`
 	// Etcd optionally specifies the etcd upgrade path
 	Etcd *EtcdUpgrade `json:"etcd_upgrade,omitempty"`
+	// ClusterConfig optionally specifies data specific to cluster configuration operation
+	ClusterConfig *ClusterConfigData `json:"cluster_config,omitempty"`
+}
+
+// ClusterConfigData describes the configuration specific to cluster configuration update operation
+type ClusterConfigData struct {
+	// ServiceSuffix specifies the suffix of the temporary DNS services with a ClusterIP
+	// from a new service subnet when updating cluster service CIDR
+	ServiceSuffix string `json:"service_suffix,omitempty"`
+	// ServiceCIDR specifies the service IP range
+	ServiceCIDR string `json:"service_cidr,omitempty"`
+	// Services lists original service definitions as captured
+	// prior to update
+	Services []v1.Service `json:"services,omitempty"`
 }
 
 // String returns the text description of this server update value

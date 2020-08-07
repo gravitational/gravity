@@ -42,7 +42,7 @@ func NewRestart(
 	packages pack.PackageService,
 	localPackages update.LocalPackageService,
 	logger log.FieldLogger,
-) (*restart, error) {
+) (*Restart, error) {
 	if params.Phase.Data == nil || params.Phase.Data.Package == nil {
 		return nil, trace.NotFound("no installed application package specified for phase %q",
 			params.Phase.ID)
@@ -51,23 +51,24 @@ func NewRestart(
 		return nil, trace.NotFound("no server specified for phase %q",
 			params.Phase.ID)
 	}
-	return &restart{
-		FieldLogger:   logger,
-		operationID:   operationID,
-		backend:       backend,
-		packages:      packages,
-		localPackages: localPackages,
-		update:        params.Phase.Data.Update.Servers[0],
+	return &Restart{
+		FieldLogger:          logger,
+		WaitStatusOnRollback: true,
+		operationID:          operationID,
+		backend:              backend,
+		packages:             packages,
+		localPackages:        localPackages,
+		update:               params.Phase.Data.Update.Servers[0],
 	}, nil
 }
 
 // Execute restarts the runtime container with the new configuration package
-func (r *restart) Execute(ctx context.Context) error {
+func (r *Restart) Execute(ctx context.Context) error {
 	err := r.pullUpdates(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	updater, err := system.New(system.Config{
+	config := system.Config{
 		ChangesetID: r.operationID,
 		Backend:     r.backend,
 		Packages:    r.localPackages,
@@ -80,7 +81,13 @@ func (r *restart) Execute(ctx context.Context) error {
 				},
 			},
 		},
-	})
+	}
+	if r.update.Runtime.SecretsPackage != nil {
+		config.RuntimeSecrets = &storage.PackageUpdate{
+			To: *r.update.Runtime.SecretsPackage,
+		}
+	}
+	updater, err := system.New(config)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -90,7 +97,7 @@ func (r *restart) Execute(ctx context.Context) error {
 
 // Rollback reverses the update and restarts the container with the old
 // configuration package
-func (r *restart) Rollback(ctx context.Context) error {
+func (r *Restart) Rollback(ctx context.Context) error {
 	updater, err := system.New(system.Config{
 		ChangesetID: r.operationID,
 		Backend:     r.backend,
@@ -99,22 +106,24 @@ func (r *restart) Rollback(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = updater.Rollback(ctx, true)
-	return trace.Wrap(err)
+	return trace.Wrap(updater.Rollback(ctx, r.WaitStatusOnRollback))
 }
 
 // PreCheck is a no-op
-func (*restart) PreCheck(context.Context) error {
+func (*Restart) PreCheck(context.Context) error {
 	return nil
 }
 
 // PostCheck is a no-op
-func (*restart) PostCheck(context.Context) error {
+func (*Restart) PostCheck(context.Context) error {
 	return nil
 }
 
-func (r *restart) pullUpdates(ctx context.Context) error {
+func (r *Restart) pullUpdates(ctx context.Context) error {
 	updates := []loc.Locator{r.update.Runtime.Update.Package, r.update.Runtime.Update.ConfigPackage}
+	if r.update.Runtime.SecretsPackage != nil {
+		updates = append(updates, *r.update.Runtime.SecretsPackage)
+	}
 	for _, update := range updates {
 		r.Infof("Pulling package update: %v.", update)
 		puller := libapp.Puller{
@@ -129,12 +138,15 @@ func (r *restart) pullUpdates(ctx context.Context) error {
 	return nil
 }
 
-type restart struct {
+type Restart struct {
 	// FieldLogger specifies the logger for the phase
 	log.FieldLogger
-	backend       storage.Backend
-	packages      pack.PackageService
-	localPackages update.LocalPackageService
-	update        storage.UpdateServer
-	operationID   string
+	// WaitStatusOnRollback specifies whether the step blocks waiting for healthy status
+	// when rolling back
+	WaitStatusOnRollback bool
+	backend              storage.Backend
+	packages             pack.PackageService
+	localPackages        update.LocalPackageService
+	update               storage.UpdateServer
+	operationID          string
 }

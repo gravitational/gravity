@@ -122,6 +122,10 @@ func IsTransientClusterError(err error) bool {
 		return true
 	case isKubernetesEtcdClusterError(err):
 		return true
+	case IsKubeAuthError(err):
+		// Kubernetes replies with unauthorized for certain
+		// operations when etcd is down
+		return true
 	default:
 		return false
 	}
