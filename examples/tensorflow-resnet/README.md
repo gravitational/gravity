@@ -145,24 +145,12 @@ Classification name: ostrich
 
 ### Image Classification from Public URL
 
-Invoking a public URL on  myserver1 with nodeport 30090. Substitute `myserver1` with the IP or reachable hostname.
+Invoking a public URL on  myserver1 with nodeport 30090. Substitute `myserver1`  in the `--server-port` argument with the IP or reachable hostname.
 
 ![Cat](https://tensorflow.org/images/blogs/serving/cat.jpg)
 
 ```bash
-docker run --rm -it bitnami/tensorflow-resnet bash -c "curl -Lo /tmp/cat.jpg https://tensorflow.org/images/blogs/serving/cat.jpg && resnet_client_cc --server_port=myserver1:30090 --image_file=/tmp/cat.jpg"
-Welcome to the Bitnami tensorflow-resnet container
-Subscribe to project updates by watching https://github.com/bitnami/bitnami-docker-tensorflow-resnet
-Submit issues and feature requests at https://github.com/bitnami/bitnami-docker-tensorflow-resnet/issues
-
-  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
-                                 Dload  Upload   Total   Spent    Left  Speed
-100   252  100   252    0     0   2333      0 --:--:-- --:--:-- --:--:--  2333
-100 63753  100 63753    0     0   268k      0 --:--:-- --:--:-- --:--:--  268k
-calling predict using file: /tmp/cat.jpg  ...
-gRPC call return code: 14: DNS resolution failed
-gRPC failed.
-ubuntu@gravsam8-cluster-node-2:~/currentWordpress/gravity/examples/tensorflow-resnet$ docker run --rm -it bitnami/tensorflow-resnet bash -c "curl -Lo /tmp/cat.jpg https://tensorflow.org/images/blogs/serving/cat.jpg && resnet_client_cc --server_port=35.245.202.120:30090 --image_file=/tmp/cat.jpg"
+$ docker run --rm -it bitnami/tensorflow-resnet bash -c "curl -Lo /tmp/cat.jpg https://tensorflow.org/images/blogs/serving/cat.jpg && resnet_client_cc --server_port=myserver1:30090 --image_file=/tmp/cat.jpg"
 
 Welcome to the Bitnami tensorflow-resnet container
 Subscribe to project updates by watching https://github.com/bitnami/bitnami-docker-tensorflow-resnet

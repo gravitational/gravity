@@ -416,14 +416,7 @@ func (r *checker) CheckNodes(ctx context.Context, servers []Server) (failed []*a
 		return nil
 	}
 
-	err := checkSameOS(servers)
-	if err != nil {
-		log.WithError(err).Warn("Failed to validate same OS requirements.")
-		failed = append(failed, newFailedProbe(
-			"Failed to validate same OS requirement", err.Error()))
-	}
-
-	err = checkTime(time.Now().UTC(), servers)
+	err := checkTime(time.Now().UTC(), servers)
 	if err != nil {
 		log.WithError(err).Warn("Failed to validate time drift requirements.")
 		failed = append(failed, newFailedProbe(
@@ -756,60 +749,6 @@ func checkRAM(info ServerInfo, ram schema.RAM) error {
 	log.Infof("Server %q passed RAM check: %v.", info.GetHostname(),
 		humanize.Bytes(info.GetMemory().Total))
 	return nil
-}
-
-// checkSameOS verifies the OS distribution requirement for the specified set of servers.
-// The check will pass if all nodes in the cluster are based on the same OS distribution and major version.
-// Variance in minor/patch versions is acceptable.
-func checkSameOS(servers []Server) error {
-	// distros maps distribution name to list of versions
-	distros := make(map[string][]string)
-	for _, server := range servers {
-		info := server.GetOS()
-		distros[info.ID] = append(distros[info.ID], info.Version)
-	}
-	if len(distros) != 1 {
-		return trace.BadParameter("servers have different OS distributions: %v", formatKeysAsList(distros))
-	}
-	// Version verification is purposely simple and will compare the prefixes
-	// up to either the first '.' or end of line
-	for _, versions := range distros {
-		if !verifyCommonVersionPrefix(versions...) {
-			return trace.BadParameter("servers have different OS versions: %v", formatAsList(distros))
-		}
-	}
-	log.Infof("Servers passed check for same OS: %v.", formatAsList(distros))
-	return nil
-}
-
-func verifyCommonVersionPrefix(versions ...string) bool {
-	if len(versions) <= 1 {
-		return true
-	}
-	for i := 0; i < len(versions)-1; i += 1 {
-		if !strings.EqualFold(
-			strings.Split(versions[i], ".")[0],
-			strings.Split(versions[i+1], ".")[0]) {
-			return false
-		}
-	}
-	return true
-}
-
-func formatAsList(m map[string][]string) (result []string) {
-	result = make([]string, 0, len(m))
-	for k, v := range m {
-		result = append(result, fmt.Sprintf("%v (%v)", k, v))
-	}
-	return result
-}
-
-func formatKeysAsList(m map[string][]string) (result []string) {
-	result = make([]string, 0, len(m))
-	for k := range m {
-		result = append(result, k)
-	}
-	return result
 }
 
 // checkTime checks if time it out of sync between servers
