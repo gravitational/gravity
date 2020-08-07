@@ -16,7 +16,7 @@ limitations under the License.
 */
 
 // package allocator manages allocation of resources.
-// Modified from https://github.com/kubernetes/kubernetes/blob/v1.15.12/pkg/registry/core/service/allocator/allocator.go
+// Modified from https://github.com/kubernetes/kubernetes/blob/v1.17.9/pkg/registry/core/service/allocator/bitmap.go
 package allocator
 
 import (

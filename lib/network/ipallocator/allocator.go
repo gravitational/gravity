@@ -16,7 +16,7 @@ limitations under the License.
 */
 
 // package ipallocator manages allocation of IP addresses from a network range.
-// Modified from https://github.com/kubernetes/kubernetes/blob/v1.15.12/pkg/registry/core/service/ipallocator/allocator.go
+// Modified from https://github.com/kubernetes/kubernetes/blob/v1.17.9/pkg/registry/core/service/ipallocator/allocator.go
 package ipallocator
 
 import (
@@ -25,7 +25,7 @@ import (
 	"math/big"
 	"net"
 
-	"github.com/gravitational/gravity/lib/allocator"
+	"github.com/gravitational/gravity/lib/storage/allocator"
 )
 
 var (
