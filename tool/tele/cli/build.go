@@ -18,9 +18,11 @@ package cli
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/gravitational/gravity/lib/app/service"
 	"github.com/gravitational/gravity/lib/builder"
+	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
@@ -48,14 +50,19 @@ type BuildParameters struct {
 	UpgradeVia []string
 }
 
-// Level returns level at which the progress should be reported based on the CLI parameters.
-func (p BuildParameters) Level() utils.ProgressLevel {
+// Progress creates the progress based on the CLI parameters.
+func (p BuildParameters) Progress(ctx context.Context) utils.Progress {
+	// Normal output.
+	level := utils.ProgressLevelInfo
 	if p.Silent { // No output.
-		return utils.ProgressLevelNone
+		level = utils.ProgressLevelNone
 	} else if p.Verbose { // Detailed output.
-		return utils.ProgressLevelDebug
+		level = utils.ProgressLevelDebug
 	}
-	return utils.ProgressLevelInfo // Normal output.
+	return utils.NewProgressWithConfig(ctx, "Build", utils.ProgressConfig{
+		Level:       level,
+		StepPrinter: utils.TimestampedStepPrinter,
+	})
 }
 
 // build builds an installer tarball according to the provided parameters
@@ -69,12 +76,18 @@ func build(ctx context.Context, params BuildParameters, req service.VendorReques
 		Overwrite:        params.Overwrite,
 		SkipVersionCheck: params.SkipVersionCheck,
 		VendorReq:        req,
-		Level:            params.Level(),
+		Progress:         params.Progress(ctx),
 		UpgradeVia:       params.UpgradeVia,
+		Repository:       getRepository(),
 	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	defer installerBuilder.Close()
-	return builder.Build(ctx, installerBuilder)
+	return installerBuilder.Build(ctx)
+}
+
+// getRepository returns the default package source repository
+func getRepository() string {
+	return fmt.Sprintf("s3://%v", defaults.HubBucket)
 }

@@ -18,7 +18,6 @@ package builder
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"net/url"
@@ -63,10 +62,6 @@ type Config struct {
 	Insecure bool
 	// ManifestPath holds the path to the application manifest
 	ManifestPath string
-	// manifestDir is the fully-qualified directory path where manifest file resides
-	manifestDir string
-	// manifestFilename is the name of the manifest file
-	manifestFilename string
 	// OutPath holds the path to the installer tarball to be output
 	OutPath string
 	// Overwrite indicates whether or not to overwrite an existing installer file
@@ -79,22 +74,21 @@ type Config struct {
 	VendorReq service.VendorRequest
 	// Generator is used to generate installer
 	Generator Generator
-	// NewSyncer is used to initialize package cache syncer for the builder
-	NewSyncer NewSyncerFunc
-	// GetRepository is a function that returns package source repository
-	GetRepository GetRepositoryFunc
-	// CredentialsService provides access to user credentials
-	CredentialsService credentials.Service
+	// Syncer specifies the package cache syncer for the builder
+	Syncer Syncer
 	// Credentials is the credentials set on the CLI
 	Credentials *credentials.Credentials
-	// Level is the level at which the progress should be reported
-	Level utils.ProgressLevel
 	// FieldLogger is used for logging
 	logrus.FieldLogger
 	// Progress allows builder to report build progress
 	utils.Progress
 	// UpgradeVia lists intermediate runtime versions to embed
 	UpgradeVia []string
+
+	// manifestDir is the fully-qualified directory path where manifest file resides
+	manifestDir string
+	// manifestFilename is the name of the manifest file
+	manifestFilename string
 }
 
 // CheckAndSetDefaults validates builder config and fills in defaults
@@ -126,29 +120,8 @@ func (c *Config) CheckAndSetDefaults() error {
 	if c.Generator == nil {
 		c.Generator = &generator{}
 	}
-	if c.NewSyncer == nil {
-		c.NewSyncer = NewSyncer
-	}
-	if c.GetRepository == nil {
-		c.GetRepository = getRepository
-	}
-	if c.CredentialsService == nil {
-		c.CredentialsService, err = credentials.New(credentials.Config{
-			LocalKeyStoreDir: c.StateDir,
-			Credentials:      c.Credentials,
-		})
-		if err != nil {
-			return trace.Wrap(err)
-		}
-	}
 	if c.FieldLogger == nil {
 		c.FieldLogger = logrus.WithField(trace.Component, "builder")
-	}
-	if c.Progress == nil {
-		c.Progress = utils.NewProgressWithConfig(c.Context, "Build", utils.ProgressConfig{
-			Level:       c.Level,
-			StepPrinter: utils.TimestampedStepPrinter,
-		})
 	}
 	return nil
 }
@@ -270,13 +243,9 @@ func (b *Builder) SyncPackageCache(ctx context.Context, runtimeVersion semver.Ve
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	syncer, err := b.NewSyncer(b)
-	if err != nil {
-		return trace.Wrap(err)
-	}
 	for _, runtimeVersion := range append([]semver.Version{runtimeVersion}, intermediateVersions...) {
 		b.NextStep("Syncing packages for %v", runtimeVersion)
-		if err := b.syncPackageCache(ctx, runtimeVersion, syncer, apps); err != nil {
+		if err := b.syncPackageCache(ctx, runtimeVersion, b.Syncer, apps); err != nil {
 			return trace.Wrap(err, "failed to sync packages for runtime version %v", runtimeVersion)
 		}
 	}
@@ -285,21 +254,23 @@ func (b *Builder) SyncPackageCache(ctx context.Context, runtimeVersion semver.Ve
 
 func (b *Builder) syncPackageCache(ctx context.Context, runtimeVersion semver.Version, syncer Syncer, apps libapp.Applications) error {
 	// see if all required packages/apps are already present in the local cache
-	err := libapp.VerifyDependencies(b.appForRuntime(runtimeVersion), apps, b.Env.Packages)
+	runtimeApp, err := apps.GetApp(RuntimeApp(runtimeVersion))
 	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
 	}
-	if err == nil {
-		b.Info("Local package cache is up-to-date.")
-		b.NextStep("Local package cache is up-to-date")
-		return nil
+	if runtimeApp != nil {
+		err = libapp.VerifyDependencies(*runtimeApp, apps, b.Env.Packages)
+		if err != nil && !trace.IsNotFound(err) {
+			return trace.Wrap(err)
+		}
+		if err == nil {
+			b.Info("Local package cache is up-to-date.")
+			b.NextStep("Local package cache is up-to-date")
+			return nil
+		}
 	}
-	repository, err := b.GetRepository(b)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	b.Infof("Synchronizing package cache with %v.", repository)
-	b.NextStep("Downloading dependencies from %v", repository)
+	b.Infof("Synchronizing package cache with %v.", b.Repository)
+	b.NextStep("Downloading dependencies from %v", b.Repository)
 	return syncer.Sync(ctx, b, runtimeVersion)
 }
 
@@ -475,11 +446,7 @@ func (b *Builder) makeBuildEnv() (*localenv.LocalEnvironment, error) {
 		})
 	}
 	// otherwise use default locations for cache / key store
-	repository, err := b.GetRepository(b)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	cacheDir, err := ensureCacheDir(repository)
+	cacheDir, err := ensureCacheDir(b.Repository)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -519,15 +486,6 @@ There are a few ways to resolve the issue:
 	return nil
 }
 
-// appForRuntime builds an application object with the specified runtime version
-// as the base to be able to collect dependencies of the specified base application.
-func (b *Builder) appForRuntime(runtimeVersion semver.Version) libapp.Application {
-	return libapp.Application{
-		Package:  b.Locator(),
-		Manifest: b.Manifest.WithBase(loc.Runtime.WithVersion(runtimeVersion)),
-	}
-}
-
 // collectUpgradeDependencies computes and returns a set of package dependencies for each
 // configured intermediate runtime version.
 // result contains combined dependencies marked with a label per runtime version.
@@ -559,6 +517,11 @@ func (b *Builder) collectUpgradeDependencies() (result *libapp.Dependencies, err
 	return result, nil
 }
 
+// RuntimeApp returns the locator of the runtime application with the specified version
+func RuntimeApp(version semver.Version) loc.Locator {
+	return loc.Runtime.WithVersion(version)
+}
+
 // versionsCompatible returns true if the provided tele and runtime versions
 // are compatible. Tele version is said to be compatible to the given runtime
 // version if the installer built with the specified combination will work as
@@ -586,14 +549,6 @@ func ensureCacheDir(opsURL string) (string, error) {
 		return "", trace.Wrap(err)
 	}
 	return dir, nil
-}
-
-// GetRepositoryFunc defines function that returns package source repository
-type GetRepositoryFunc func(*Builder) (string, error)
-
-// getRepository returns package source repository for the provided builder
-func getRepository(b *Builder) (string, error) {
-	return fmt.Sprintf("s3://%v", defaults.HubBucket), nil
 }
 
 func generateManifestFromChart(manifestPath string) (*schema.Manifest, error) {

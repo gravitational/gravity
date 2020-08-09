@@ -27,8 +27,6 @@ import (
 	"github.com/gravitational/gravity/lib/hub"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
-	"github.com/gravitational/gravity/lib/pack"
-	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/coreos/go-semver/semver"
 	"github.com/gravitational/trace"
@@ -39,16 +37,6 @@ type Syncer interface {
 	// Sync makes sure that local cache has all required dependencies for the
 	// selected runtime
 	Sync(ctx context.Context, builder *Builder, runtimeVersion semver.Version) error
-}
-
-// NewSyncerFunc defines function that creates syncer for a builder
-type NewSyncerFunc func(*Builder) (Syncer, error)
-
-// NewSyncer returns a new syncer instance for the provided builder
-//
-// Satisfies NewSyncerFunc type.
-func NewSyncer(b *Builder) (Syncer, error) {
-	return newS3Syncer()
 }
 
 // s3Syncer synchronizes local package cache with S3 bucket
@@ -71,92 +59,61 @@ func newS3Syncer() (*s3Syncer, error) {
 // Sync makes sure that local cache has all required dependencies for the
 // selected runtime
 func (s *s3Syncer) Sync(ctx context.Context, builder *Builder, runtimeVersion semver.Version) error {
+	unpackedDir, err := ioutil.TempDir("", "runtime-unpacked")
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer os.RemoveAll(unpackedDir)
+
+	err = s.download(unpackedDir, runtimeVersion)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	tarballEnv, err := localenv.NewTarballEnvironment(localenv.TarballEnvironmentArgs{
+		StateDir: unpackedDir,
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer tarballEnv.Close()
+
+	cacheApps, err := builder.Env.AppServiceLocal(localenv.AppConfig{})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	// sync packages between unpacked tarball directory and package cache
+	app, err := tarballEnv.Apps.GetApp(RuntimeApp(runtimeVersion))
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	puller := libapp.Puller{
+		FieldLogger: builder.FieldLogger,
+		SrcPack:     tarballEnv.Packages,
+		SrcApp:      tarballEnv.Apps,
+		DstPack:     builder.Env.Packages,
+		DstApp:      cacheApps,
+		Parallel:    builder.VendorReq.Parallel,
+		Upsert:      true,
+	}
+	return puller.PullAppDeps(ctx, *app)
+}
+
+func (s *s3Syncer) download(path string, runtimeVersion semver.Version) error {
+	var application = loc.Locator{
+		Repository: defaults.SystemAccountOrg,
+		Name:       "telekube",
+		Version:    loc.ZeroVersion,
+	}
 	tarball, err := s.hub.Get(application.WithVersion(runtimeVersion))
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	defer tarball.Close()
 	// unpack the downloaded tarball
-	unpackedDir, err := ioutil.TempDir("", "runtime-unpacked")
+	err = archive.Extract(tarball, path)
 	if err != nil {
-		return trace.Wrap(err)
-	}
-	defer os.RemoveAll(unpackedDir)
-	err = archive.Extract(tarball, unpackedDir)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	// sync packages between unpacked tarball directory and package cache
-	env, err := localenv.New(unpackedDir)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	defer env.Close()
-	cacheApps, err := builder.Env.AppServiceLocal(localenv.AppConfig{})
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	tarballApps, err := env.AppServiceLocal(localenv.AppConfig{})
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	puller := libapp.Puller{
-		FieldLogger: builder.FieldLogger,
-		SrcPack:     env.Packages,
-		SrcApp:      tarballApps,
-		DstPack:     builder.Env.Packages,
-		DstApp:      cacheApps,
-		Parallel:    builder.VendorReq.Parallel,
-		Upsert:      true,
-	}
-	return puller.PullAppDeps(ctx, builder.appForRuntime(runtimeVersion))
-}
-
-// packSyncer synchronizes local package cache with pack/apps services
-type packSyncer struct {
-	pack pack.PackageService
-	apps libapp.Applications
-	repo string
-}
-
-// NewPackSyncer creates a new syncer from provided pack and apps services
-func NewPackSyncer(pack pack.PackageService, apps libapp.Applications, repo string) *packSyncer {
-	return &packSyncer{
-		pack: pack,
-		apps: apps,
-		repo: repo,
-	}
-}
-
-// Sync pulls dependencies from the package/app service not available locally
-func (s *packSyncer) Sync(ctx context.Context, builder *Builder, runtimeVersion semver.Version) error {
-	cacheApps, err := builder.Env.AppServiceLocal(localenv.AppConfig{})
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	puller := libapp.Puller{
-		FieldLogger: builder.FieldLogger,
-		SrcPack:     s.pack,
-		SrcApp:      s.apps,
-		DstPack:     builder.Env.Packages,
-		DstApp:      cacheApps,
-		Parallel:    builder.VendorReq.Parallel,
-		OnConflict:  libapp.GetDependencyConflictHandler(false),
-	}
-	err = puller.PullAppDeps(ctx, builder.appForRuntime(runtimeVersion))
-	if err != nil {
-		if utils.IsNetworkError(err) || trace.IsEOF(err) {
-			return trace.ConnectionProblem(err, "failed to download "+
-				"application dependencies from %v - please make sure the "+
-				"repository is reachable: %v", s.repo, err)
-		}
 		return trace.Wrap(err)
 	}
 	return nil
-}
-
-var application = loc.Locator{
-	Repository: defaults.SystemAccountOrg,
-	Name:       "telekube",
-	Version:    loc.ZeroVersion,
 }
