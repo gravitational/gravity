@@ -90,12 +90,9 @@ spec:
     metadata:
       labels:
         k8s-app: kube-dns
-        gravitational.io/critical-pod: ''
-      annotations:
-        scheduler.alpha.kubernetes.io/critical-pod: ''
     spec:
       serviceAccountName: coredns
-      priorityClassName: system-cluster-critical
+      priorityClassName: system-node-critical
       tolerations:
         - operator: "Exists"
       nodeSelector:
@@ -170,10 +167,9 @@ spec:
     metadata:
       labels:
         k8s-app: kube-dns-worker
-      annotations:
-        scheduler.alpha.kubernetes.io/critical-pod: ''
     spec:
       serviceAccountName: coredns
+      priorityClassName: system-node-critical
       tolerations:
         - operator: "Exists"
       nodeSelector:
