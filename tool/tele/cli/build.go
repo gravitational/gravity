@@ -67,6 +67,10 @@ func (p BuildParameters) Progress(ctx context.Context) utils.Progress {
 
 // build builds an installer tarball according to the provided parameters
 func build(ctx context.Context, params BuildParameters, req service.VendorRequest) error {
+	syncer, err := builder.NewS3Syncer()
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	installerBuilder, err := builder.New(builder.Config{
 		Context:          ctx,
 		StateDir:         params.StateDir,
@@ -79,6 +83,7 @@ func build(ctx context.Context, params BuildParameters, req service.VendorReques
 		Progress:         params.Progress(ctx),
 		UpgradeVia:       params.UpgradeVia,
 		Repository:       getRepository(),
+		Syncer:           syncer,
 	})
 	if err != nil {
 		return trace.Wrap(err)

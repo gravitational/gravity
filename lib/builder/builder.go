@@ -93,6 +93,9 @@ type Config struct {
 
 // CheckAndSetDefaults validates builder config and fills in defaults
 func (c *Config) CheckAndSetDefaults() error {
+	if c.Syncer == nil {
+		return trace.BadParameter("package syncer is required")
+	}
 	if c.Context == nil {
 		c.Context = context.Background()
 	}

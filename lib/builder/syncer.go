@@ -40,32 +40,38 @@ type Syncer interface {
 }
 
 // s3Syncer synchronizes local package cache with S3 bucket
-type s3Syncer struct {
+type S3Syncer struct {
 	// hub provides access to runtimes stored in S3 bucket
 	hub hub.Hub
 }
 
-// newS3Syncer returns a syncer that syncs packages with S3 bucket
-func newS3Syncer() (*s3Syncer, error) {
+// NewS3Syncer returns a syncer that syncs packages from an S3 bucket
+func NewS3Syncer() (*S3Syncer, error) {
 	hub, err := hub.New(hub.Config{})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return &s3Syncer{
+	return &S3Syncer{
 		hub: hub,
 	}, nil
 }
 
 // Sync makes sure that local cache has all required dependencies for the
 // selected runtime
-func (s *s3Syncer) Sync(ctx context.Context, builder *Builder, runtimeVersion semver.Version) error {
+func (s *S3Syncer) Sync(ctx context.Context, builder *Builder, runtimeVersion semver.Version) error {
+	var application = loc.Locator{
+		Repository: defaults.SystemAccountOrg,
+		Name:       "telekube",
+		Version:    runtimeVersion.String(),
+	}
+
 	unpackedDir, err := ioutil.TempDir("", "runtime-unpacked")
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	defer os.RemoveAll(unpackedDir)
 
-	err = s.download(unpackedDir, runtimeVersion)
+	err = s.download(unpackedDir, application)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -96,16 +102,15 @@ func (s *s3Syncer) Sync(ctx context.Context, builder *Builder, runtimeVersion se
 		Parallel:    builder.VendorReq.Parallel,
 		Upsert:      true,
 	}
-	return puller.PullAppDeps(ctx, *app)
+	err = puller.PullAppDeps(ctx, *app)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return puller.PullAppPackage(ctx, app.Package)
 }
 
-func (s *s3Syncer) download(path string, runtimeVersion semver.Version) error {
-	var application = loc.Locator{
-		Repository: defaults.SystemAccountOrg,
-		Name:       "telekube",
-		Version:    loc.ZeroVersion,
-	}
-	tarball, err := s.hub.Get(application.WithVersion(runtimeVersion))
+func (s *S3Syncer) download(path string, loc loc.Locator) error {
+	tarball, err := s.hub.Get(loc)
 	if err != nil {
 		return trace.Wrap(err)
 	}
