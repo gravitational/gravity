@@ -31,7 +31,8 @@ STORAGE_APP_TAG ?= 0.0.1
 STORAGE_APP_BRANCH ?= $(STORAGE_APP_TAG)
 K8S_APP_TAG ?= 0.0.1
 TILLER_APP_TAG ?= 0.0.1
-SELINUX_BRANCH ?= distro/centos_rhel/7
+#SELINUX_BRANCH ?= distro/centos_rhel/7
+SELINUX_BRANCH ?= dmitri/7.0.x/environ
 
 GOLFLAGS ?= -w -s
 
