@@ -227,6 +227,8 @@ type Spec struct {
 type ComponentConfigs struct {
 	// Kubelet defines kubelet configuration
 	Kubelet *Kubelet `json:"kubelet,omitempty"`
+	// GravityControllerService defines gravity-site service configuration
+	GravityControllerService `json:"gravityControllerService,omitempty"`
 }
 
 // IsEmpty determines whether this kubelet configuration is empty.
@@ -245,6 +247,15 @@ type Kubelet struct {
 	// Config defines the kubelet configuration as a JSON-formatted
 	// payload
 	Config json.RawMessage `json:"config,omitempty"`
+}
+
+// GravityControllerService defines gravity-site service configuration
+type GravityControllerService struct {
+	// Type specifies the gravity-site service type.
+	Type string `json:"type,omitempty"`
+	// Annotations defines the set of key=value pairs to configure the internal
+	// load balancer.
+	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
 // ControlPlaneComponent defines configuration of a control plane component
@@ -288,6 +299,11 @@ type Global struct {
 }
 
 // specSchemaTemplate is JSON schema for the cluster configuration resource
+//
+// Formatted string arguments:
+// [1] metadata.name
+// [2] metadata.namespace
+// [3] gravityControllerService.type
 const specSchemaTemplate = `{
   "type": "object",
   "additionalProperties": false,
@@ -430,7 +446,23 @@ const specSchemaTemplate = `{
             },
             "extraArgs": {"type": "array", "items": {"type": "string"}}
           }
-        }
+		},
+		"gravityControllerService": {
+		  "default": {},
+		  "type": "object",
+		  "additionalProperties": false,
+		  "properties": {
+			"type": {
+				"type": "string",
+				"default": "%v"
+			},
+			"annotations": {
+				"type": "object",
+				"service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout": {"type": "string"},
+				"service.beta.kubernetes.io/aws-load-balancer-internal": {"type": "string"}
+			}
+		  }
+		}
       }
     }
   }
@@ -439,7 +471,7 @@ const specSchemaTemplate = `{
 // getSpecSchema returns the formatted JSON schema for the cluster configuration resource
 func getSpecSchema() string {
 	return fmt.Sprintf(specSchemaTemplate,
-		constants.ClusterConfigurationMap, defaults.KubeSystemNamespace)
+		constants.ClusterConfigurationMap, defaults.KubeSystemNamespace, LoadBalancer)
 }
 
 func newEmpty() *Resource {
@@ -452,3 +484,9 @@ func newEmpty() *Resource {
 		},
 	}
 }
+
+// LoadBalancer defines the LoadBalancer service type.
+const LoadBalancer = "LoadBalancer"
+
+// NodePort defines the NodePort service type.
+const NodePort = "NodePort"
