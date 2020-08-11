@@ -6,6 +6,7 @@ set -o pipefail
 readonly TARGET=${1:?Usage: $0 [pr|nightly] [upgrade_from_dir]}
 export UPGRADE_FROM_DIR=${2:-$(pwd)/../upgrade_from}
 
+readonly GET_GRAVITATIONAL_IO_APIKEY=${GET_GRAVITATIONAL_IO_APIKEY:?API key for distribution Ops Center required}
 readonly GRAVITY_BUILDDIR=${GRAVITY_BUILDDIR:?Set GRAVITY_BUILDDIR to the build directory}
 readonly ROBOTEST_SCRIPT=$(mktemp -d)/runsuite.sh
 
@@ -47,7 +48,7 @@ export EXTRA_VOLUME_MOUNTS=$(build_volume_mounts)
 tele=$GRAVITY_BUILDDIR/tele
 mkdir -p $UPGRADE_FROM_DIR
 for release in ${!UPGRADE_MAP[@]}; do
-  $tele pull telekube:$release --output=$UPGRADE_FROM_DIR/telekube_$release.tar --state-dir $GRAVITY_BUILDDIR/.robotest
+  $tele pull telekube:$release --output=$UPGRADE_FROM_DIR/telekube_$release.tar --state-dir $GRAVITY_BUILDDIR/.robotest --hub=https://get.gravitational.io:443 --token="$GET_GRAVITATIONAL_IO_APIKEY"
 done
 
 docker pull $ROBOTEST_REPO
