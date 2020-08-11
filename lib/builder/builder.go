@@ -248,14 +248,14 @@ func (b *Builder) SyncPackageCache(ctx context.Context, runtimeVersion semver.Ve
 	}
 	for _, runtimeVersion := range append([]semver.Version{runtimeVersion}, intermediateVersions...) {
 		b.NextStep("Syncing packages for %v", runtimeVersion)
-		if err := b.syncPackageCache(ctx, runtimeVersion, b.Syncer, apps); err != nil {
+		if err := b.syncPackageCache(ctx, runtimeVersion, apps); err != nil {
 			return trace.Wrap(err, "failed to sync packages for runtime version %v", runtimeVersion)
 		}
 	}
 	return nil
 }
 
-func (b *Builder) syncPackageCache(ctx context.Context, runtimeVersion semver.Version, syncer Syncer, apps libapp.Applications) error {
+func (b *Builder) syncPackageCache(ctx context.Context, runtimeVersion semver.Version, apps libapp.Applications) error {
 	// see if all required packages/apps are already present in the local cache
 	runtimeApp, err := apps.GetApp(RuntimeApp(runtimeVersion))
 	if err != nil && !trace.IsNotFound(err) {
@@ -274,7 +274,7 @@ func (b *Builder) syncPackageCache(ctx context.Context, runtimeVersion semver.Ve
 	}
 	b.Infof("Synchronizing package cache with %v.", b.Repository)
 	b.NextStep("Downloading dependencies from %v", b.Repository)
-	return syncer.Sync(ctx, b, runtimeVersion)
+	return b.Syncer.Sync(ctx, b, runtimeVersion)
 }
 
 // Vendor vendors the application images in the provided directory and

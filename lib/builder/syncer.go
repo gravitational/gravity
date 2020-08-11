@@ -39,13 +39,13 @@ type Syncer interface {
 	Sync(ctx context.Context, builder *Builder, runtimeVersion semver.Version) error
 }
 
-// s3Syncer synchronizes local package cache with S3 bucket
+// S3Syncer synchronizes local package cache with an S3 bucket
 type S3Syncer struct {
 	// hub provides access to runtimes stored in S3 bucket
 	hub hub.Hub
 }
 
-// NewS3Syncer returns a syncer that syncs packages from an S3 bucket
+// NewS3Syncer returns a syncer that syncs packages with an S3 bucket
 func NewS3Syncer() (*S3Syncer, error) {
 	hub, err := hub.New(hub.Config{})
 	if err != nil {
