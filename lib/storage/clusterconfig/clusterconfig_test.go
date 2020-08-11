@@ -70,7 +70,7 @@ spec: {}`,
 				},
 				Spec: Spec{
 					ComponentConfigs: ComponentConfigs{
-						GravityControllerService: GravityControllerService{
+						GravityControllerService: &GravityControllerService{
 							Type: LoadBalancer,
 						},
 					},
@@ -103,7 +103,7 @@ username=user
 password=pass`,
 					},
 					ComponentConfigs: ComponentConfigs{
-						GravityControllerService: GravityControllerService{
+						GravityControllerService: &GravityControllerService{
 							Type: LoadBalancer,
 						},
 					},
@@ -133,7 +133,7 @@ spec:
 						Kubelet: &Kubelet{
 							ExtraArgs: []string{"--foo", "--bar=baz"},
 						},
-						GravityControllerService: GravityControllerService{
+						GravityControllerService: &GravityControllerService{
 							Type: LoadBalancer,
 						},
 					},
@@ -169,7 +169,7 @@ spec:
 						Kubelet: &Kubelet{
 							ExtraArgs: []string{"--foo", "--bar=baz"},
 						},
-						GravityControllerService: GravityControllerService{
+						GravityControllerService: &GravityControllerService{
 							Type: LoadBalancer,
 						},
 					},
@@ -201,7 +201,7 @@ spec:
 						},
 					},
 					ComponentConfigs: ComponentConfigs{
-						GravityControllerService: GravityControllerService{
+						GravityControllerService: &GravityControllerService{
 							Type: LoadBalancer,
 						},
 					},
@@ -227,7 +227,7 @@ spec:
 				},
 				Spec: Spec{
 					ComponentConfigs: ComponentConfigs{
-						GravityControllerService: GravityControllerService{
+						GravityControllerService: &GravityControllerService{
 							Type: NodePort,
 							Annotations: map[string]string{
 								"service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout": "3600",

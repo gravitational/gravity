@@ -228,7 +228,7 @@ type ComponentConfigs struct {
 	// Kubelet defines kubelet configuration
 	Kubelet *Kubelet `json:"kubelet,omitempty"`
 	// GravityControllerService defines gravity-site service configuration
-	GravityControllerService `json:"gravityControllerService,omitempty"`
+	GravityControllerService *GravityControllerService `json:"gravityControllerService,omitempty"`
 }
 
 // IsEmpty determines whether this kubelet configuration is empty.
@@ -446,23 +446,23 @@ const specSchemaTemplate = `{
             },
             "extraArgs": {"type": "array", "items": {"type": "string"}}
           }
-		},
-		"gravityControllerService": {
-		  "default": {},
-		  "type": "object",
-		  "additionalProperties": false,
-		  "properties": {
-			"type": {
-				"type": "string",
-				"default": "%v"
-			},
-			"annotations": {
-				"type": "object",
-				"service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout": {"type": "string"},
-				"service.beta.kubernetes.io/aws-load-balancer-internal": {"type": "string"}
-			}
-		  }
-		}
+        },
+        "gravityControllerService": {
+          "default": {},
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "type": "string",
+              "default": "%v"
+            },
+            "annotations": {
+              "type": "object",
+              "service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout": {"type": "string"},
+              "service.beta.kubernetes.io/aws-load-balancer-internal": {"type": "string"}
+            }
+          }
+        }
       }
     }
   }
