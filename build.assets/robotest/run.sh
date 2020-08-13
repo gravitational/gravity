@@ -56,10 +56,10 @@ tele=$GRAVITY_BUILDDIR/tele
 mkdir -p $UPGRADE_FROM_DIR
 for release in ${!UPGRADE_MAP[@]}; do
   $tele pull telekube:$release \
-	--output=$UPGRADE_FROM_DIR/telekube_$release.tar \
-	--state-dir $GRAVITY_BUILDDIR/.robotest \
-	--hub=https://get.gravitational.io:443 \
-	--token="$GET_GRAVITATIONAL_IO_APIKEY"
+  --output=$UPGRADE_FROM_DIR/telekube_$release.tar \
+  --state-dir $GRAVITY_BUILDDIR/.robotest \
+  --hub=https://get.gravitational.io:443 \
+  --token="$GET_GRAVITATIONAL_IO_APIKEY"
 done
 
 docker pull $ROBOTEST_REPO
