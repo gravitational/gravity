@@ -17,6 +17,8 @@ limitations under the License.
 package server
 
 import (
+	"bytes"
+	"io"
 	"os/exec"
 	"sync/atomic"
 	"syscall"
@@ -39,26 +41,26 @@ func osExec(ctx context.Context, stream pb.OutgoingMessageStream, args []string,
 }
 
 // exec executes the command specified with args streaming stdout/stderr to stream
-// TODO: separate RPC failures (like failure to send messages to the stream) from command errors
-func (c *osCommand) exec(ctx context.Context, stream pb.OutgoingMessageStream, args []string, log log.FieldLogger) error {
+func (c *osCommand) exec(ctx context.Context, stream pb.OutgoingMessageStream, args []string, logger log.FieldLogger) error {
 	seq := atomic.AddInt32(&c.seq, 1)
+	var errOut bytes.Buffer
 	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
 	cmd.Stdout = &streamWriter{stream, pb.ExecOutput_STDOUT, seq}
-	cmd.Stderr = &streamWriter{stream, pb.ExecOutput_STDERR, seq}
+	cmd.Stderr = io.MultiWriter(
+		&streamWriter{stream, pb.ExecOutput_STDERR, seq},
+		&errOut,
+	)
 
 	err := cmd.Start()
 	if err != nil {
-		return trace.Wrap(err, "failed to start %v", cmd.Path)
+		return trace.Wrap(err, "failed to start").AddField("path", cmd.Path)
 	}
 
-	stream.Send(&pb.Message{Element: &pb.Message_ExecStarted{&pb.ExecStarted{
-		Args: args,
-		Seq:  seq,
-	}}})
+	notifyAndLogError(stream, newCommandStartedEvent(seq, args))
 	err = cmd.Wait()
 	if err == nil {
-		err = stream.Send(&pb.Message{Element: &pb.Message_ExecCompleted{&pb.ExecCompleted{Seq: seq}}})
-		return trace.Wrap(err)
+		notifyAndLogError(stream, newCommandCompletedEvent(seq))
+		return nil
 	}
 
 	exitCode := ExitCodeUndefined
@@ -68,15 +70,48 @@ func (c *osCommand) exec(ctx context.Context, stream pb.OutgoingMessageStream, a
 		}
 	}
 
-	errWrite := stream.Send(&pb.Message{Element: &pb.Message_ExecCompleted{&pb.ExecCompleted{
-		Seq:      seq,
-		ExitCode: int32(exitCode),
-		Error:    pb.EncodeError(trace.Wrap(err)),
-	}}})
-	if errWrite != nil {
-		log.WithError(errWrite).Warnf("Failed to send exec completed message: %v.", errWrite)
-	}
+	logger.WithField("output", errOut.String()).Warn("Command finished with error.")
+	notifyAndLogError(stream, newCommandCompletedWithErrorEvent(seq, int32(exitCode), err))
 	return trace.Wrap(err)
+}
+
+func notifyAndLogError(stream pb.OutgoingMessageStream, msg *pb.Message) {
+	if err := stream.Send(msg); err != nil {
+		log.WithError(err).Warnf("Failed to notify stream: %v.", msg)
+	}
+}
+
+func newCommandStartedEvent(seq int32, args []string) *pb.Message {
+	return &pb.Message{
+		Element: &pb.Message_ExecStarted{
+			ExecStarted: &pb.ExecStarted{
+				Args: args,
+				Seq:  seq,
+			},
+		},
+	}
+}
+
+func newCommandCompletedEvent(seq int32) *pb.Message {
+	return &pb.Message{
+		Element: &pb.Message_ExecCompleted{
+			ExecCompleted: &pb.ExecCompleted{
+				Seq: seq,
+			},
+		},
+	}
+}
+
+func newCommandCompletedWithErrorEvent(seq, exitCode int32, err error) *pb.Message {
+	return &pb.Message{
+		Element: &pb.Message_ExecCompleted{
+			ExecCompleted: &pb.ExecCompleted{
+				Seq:      seq,
+				ExitCode: exitCode,
+				Error:    pb.EncodeError(err),
+			},
+		},
+	}
 }
 
 type osCommand struct {
@@ -97,7 +132,7 @@ func (s *streamWriter) Write(p []byte) (n int, err error) {
 		Seq:  s.seq,
 	}
 
-	err = s.stream.Send(&pb.Message{Element: &pb.Message_ExecOutput{data}})
+	err = s.stream.Send(&pb.Message{Element: &pb.Message_ExecOutput{ExecOutput: data}})
 	if err != nil {
 		return 0, err
 	}
