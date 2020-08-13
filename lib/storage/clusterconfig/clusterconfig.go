@@ -39,6 +39,8 @@ type Interface interface {
 	teleservices.Resource
 	// GetKubeletConfig returns the configuration of the kubelet
 	GetKubeletConfig() *Kubelet
+	// GetGravityControllerServiceConfig returns the gravityControllerService configuration
+	GetGravityControllerServiceConfig() *GravityControllerService
 	// GetGlobalConfig returns the global configuration
 	GetGlobalConfig() Global
 	// SetCloudProvider sets the cloud provider for this configuration
@@ -104,6 +106,11 @@ func (r *Resource) SetTTL(clock clockwork.Clock, ttl time.Duration) {
 // GetKubeletConfig returns the configuration of the kubelet
 func (r *Resource) GetKubeletConfig() *Kubelet {
 	return r.Spec.ComponentConfigs.Kubelet
+}
+
+// GetGravityControllerServiceConfig returns the gravityControllerService config
+func (r *Resource) GetGravityControllerServiceConfig() *GravityControllerService {
+	return r.Spec.ComponentConfigs.GravityControllerService
 }
 
 // GetGlobalConfig returns the global configuration

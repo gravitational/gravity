@@ -663,6 +663,13 @@ func (r configCollection) WriteText(w io.Writer) error {
 		common.PrintCustomTableHeader(t, []string{"Kubelet"}, "-")
 		fmt.Fprintf(t, "%v\n", string(config.Config))
 	}
+	if config := r.GetGravityControllerServiceConfig(); config != nil {
+		common.PrintCustomTableHeader(t, []string{"GravityControllerService"}, "-")
+		fmt.Fprintf(t, "Type:\t%v\n", config.Type)
+		if len(config.Annotations) != 0 {
+			fmt.Fprintf(t, "Annotations:\t%v\n", formatAnnotations(config.Annotations))
+		}
+	}
 	config := r.GetGlobalConfig()
 	displayCloudConfig := config.CloudProvider != "" || config.CloudConfig != ""
 	if displayCloudConfig {
@@ -725,6 +732,13 @@ func formatFeatureGates(features map[string]bool) string {
 	result := make([]string, 0, len(features))
 	for feature, enabled := range features {
 		result = append(result, fmt.Sprintf("%v=%v", feature, enabled))
+	}
+	return strings.Join(result, ",")
+}
+func formatAnnotations(annotations map[string]string) string {
+	result := make([]string, 0, len(annotations))
+	for key, val := range annotations {
+		result = append(result, fmt.Sprintf("%v=%v", key, val))
 	}
 	return strings.Join(result, ",")
 }
