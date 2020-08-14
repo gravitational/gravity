@@ -297,7 +297,7 @@ func (r *Runner) monitorPods(ctx context.Context, eventsC <-chan watch.Event,
 	err := r.checkJob(ctx, &job, &jobControl, podSet, w)
 	diff := humanize.RelTime(start, time.Now(), "elapsed", "elapsed")
 	if err == nil {
-		fmt.Fprintf(w, "%v has completed, %v.\n", describe(job), diff)
+		fmt.Fprintf(w, "%v has completed, %v.\n", describe(&job), diff)
 		return nil
 	}
 	log.Debugf("%v: %v", diff, err)
@@ -313,7 +313,7 @@ func (r *Runner) monitorPods(ctx context.Context, eventsC <-chan watch.Event,
 			diff = humanize.RelTime(start, time.Now(), "elapsed", "elapsed")
 			err = r.checkJob(ctx, &job, &jobControl, podSet, w)
 			if err == nil {
-				fmt.Fprintf(w, "%v has completed, %v.\n", describe(job), diff)
+				fmt.Fprintf(w, "%v has completed, %v.\n", describe(&job), diff)
 				return nil
 			}
 			log.Debugf("%v: %v", diff, err)
