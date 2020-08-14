@@ -108,7 +108,7 @@ func (r *Resource) GetKubeletConfig() *Kubelet {
 	return r.Spec.ComponentConfigs.Kubelet
 }
 
-// GetGravityControllerServiceConfig returns the gravityControllerService config
+// GetGravityControllerServiceConfig returns the gravityControllerService configuration
 func (r *Resource) GetGravityControllerServiceConfig() *GravityControllerService {
 	return r.Spec.ComponentConfigs.GravityControllerService
 }
@@ -127,6 +127,7 @@ func (r *Resource) SetCloudProvider(provider string) {
 // Only non-empty fields in other different from those in r will be set in r.
 // Returns a copy of r with necessary modifications
 func (r Resource) Merge(other Resource) Resource {
+	// Update kubelet configurations
 	if updateKubelet := other.Spec.ComponentConfigs.Kubelet; updateKubelet != nil {
 		if r.Spec.ComponentConfigs.Kubelet == nil {
 			r.Spec.ComponentConfigs.Kubelet = &Kubelet{}
@@ -140,6 +141,23 @@ func (r Resource) Merge(other Resource) Resource {
 			r.Spec.ComponentConfigs.Kubelet.Config = other.Spec.ComponentConfigs.Kubelet.Config
 		}
 	}
+
+	// Update gravityControllerService configurations
+	if updateGravityService := other.Spec.GravityControllerService; updateGravityService != nil {
+		if r.Spec.GravityControllerService == nil {
+			r.Spec.GravityControllerService = &GravityControllerService{}
+		}
+		if updateGravityService.Type != "" {
+			r.Spec.GravityControllerService.Type = updateGravityService.Type
+		}
+		if len(updateGravityService.Annotations) != 0 {
+			r.Spec.GravityControllerService.Annotations = make(map[string]string, len(updateGravityService.Annotations))
+			for k, v := range updateGravityService.Annotations {
+				r.Spec.GravityControllerService.Annotations[k] = v
+			}
+		}
+	}
+
 	// Changing cloud provider is not supported
 	if other.Spec.Global.PodCIDR != "" {
 		r.Spec.Global.PodCIDR = other.Spec.Global.PodCIDR
