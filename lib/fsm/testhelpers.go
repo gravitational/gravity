@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gravitational/gravity/lib/rpc"
@@ -39,9 +40,10 @@ func newTestEngine(getPlan func() storage.OperationPlan) *testEngine {
 
 // testEngine is fsm engine used in tests. Keeps its changelog in memory.
 type testEngine struct {
-	getPlan   func() storage.OperationPlan
-	changelog storage.PlanChangelog
-	clock     clockwork.Clock
+	getPlan    func() storage.OperationPlan
+	clock      clockwork.Clock
+	sync.Mutex // guards following fields
+	changelog  storage.PlanChangelog
 }
 
 // GetExecutor returns one of the test executors depending on the specified phase.
@@ -58,28 +60,34 @@ func (t *testEngine) GetExecutor(p ExecutorParams, r Remote) (PhaseExecutor, err
 
 // ChangePhaseState records the provided phase state change in the test engine.
 func (t *testEngine) ChangePhaseState(ctx context.Context, ch StateChange) error {
+	t.Lock()
 	t.changelog = append(t.changelog, storage.PlanChange{
 		PhaseID:  ch.Phase,
 		NewState: ch.State,
 		// Make sure that new changelog entries get the most recent timestamp.
 		Created: t.clock.Now().Add(time.Duration(len(t.changelog)) * time.Minute),
 	})
+	t.Unlock()
 	return nil
 }
 
 // changePhaseStateWithTimestamp records the provided phase state change in the
 // test engine with the specified timestamp.
 func (t *testEngine) changePhaseStateWithTimestamp(ctx context.Context, ch StateChange, created time.Time) error {
+	t.Lock()
 	t.changelog = append(t.changelog, storage.PlanChange{
 		PhaseID:  ch.Phase,
 		NewState: ch.State,
 		Created:  created,
 	})
+	t.Unlock()
 	return nil
 }
 
 // GetPlan returns the test plan with the changelog applied.
 func (t *testEngine) GetPlan() (*storage.OperationPlan, error) {
+	t.Lock()
+	defer t.Unlock()
 	return ResolvePlan(t.getPlan(), t.changelog), nil
 }
 
