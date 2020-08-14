@@ -109,7 +109,6 @@ BANDWAGON_PKG := gravitational.io/bandwagon:$(BANDWAGON_TAG)
 RBAC_APP_PKG := gravitational.io/rbac-app:$(RBAC_APP_TAG)
 TILLER_APP_PKG := gravitational.io/tiller-app:$(TILLER_APP_TAG)
 FIO_PKG := gravitational.io/fio:$(FIO_PKG_TAG)
-SELINUX_POLICY_PKG := gravitational.io/selinux:$(SELINUX_VERSION)
 
 # Output directory that stores all of the build artifacts.
 # Artifacts from the gravity build (the binary and any internal packages)
@@ -485,11 +484,6 @@ dns-packages:
 web-assets:
 	$(GRAVITY) package delete $(WEB_ASSETS_PKG) $(DELETE_OPTS) && \
 	$(GRAVITY) package import $(WEB_ASSETS_OUT) $(WEB_ASSETS_PKG) --ops-url=$(OPS_URL)
-
-.PHONY: selinux-policy-package
-selinux-policy-package:
-	$(GRAVITY) package delete $(SELINUX_POLICY_PKG) $(DELETE_OPTS) && \
-	$(GRAVITY) package import $(SELINUX_OUT) $(SELINUX_POLICY_PKG) --ops-url=$(OPS_URL)
 
 #
 # publish-artifacts uploads build artifacts to the distribution Ops Center

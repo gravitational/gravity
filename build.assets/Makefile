@@ -31,8 +31,7 @@ STORAGE_APP_TAG ?= 0.0.1
 STORAGE_APP_BRANCH ?= $(STORAGE_APP_TAG)
 K8S_APP_TAG ?= 0.0.1
 TILLER_APP_TAG ?= 0.0.1
-#SELINUX_BRANCH ?= distro/centos_rhel/7
-SELINUX_BRANCH ?= dmitri/7.0.x/environ
+SELINUX_BRANCH ?= distro/centos_rhel/7
 
 GOLFLAGS ?= -w -s
 
@@ -659,11 +658,6 @@ push-storage-app: $(STORAGE_APP_OUT)
 .PHONY: enter
 enter:
 	docker run -ti --rm=true $(BBOX) /bin/bash
-
-.PHONY: selinux-policy-package
-selinux-policy-package: $(SELINUX_OUT)
-	$(GRAVITY) package delete $(SELINUX_POLICY_PKG) $(DELETE_OPTS) && \
-		$(GRAVITY) package import $(SELINUX_OUT) $(SELINUX_POLICY_PKG)
 
 .PHONY: selinux
 selinux: $(SELINUX_ASSETS)
