@@ -84,6 +84,7 @@ timestamps {
         robotest : {
           if (env.RUN_ROBOTEST == 'run') {
             withCredentials([
+                [$class: 'StringBinding', credentialsId: 'GET_GRAVITATIONAL_IO_APIKEY', variable: 'GET_GRAVITATIONAL_IO_APIKEY'],
                 [$class: 'FileBinding', credentialsId:'ROBOTEST_LOG_GOOGLE_APPLICATION_CREDENTIALS', variable: 'GOOGLE_APPLICATION_CREDENTIALS'],
                 [$class: 'FileBinding', credentialsId:'OPS_SSH_KEY', variable: 'SSH_KEY'],
                 [$class: 'FileBinding', credentialsId:'OPS_SSH_PUB', variable: 'SSH_PUB'],
