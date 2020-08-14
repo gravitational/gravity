@@ -381,7 +381,7 @@ ci:
 .PHONY: packages
 packages: planet-packages binary-packages teleport-package gravity-packages dns-packages\
 	rbac-app-package bandwagon-package tiller-package monitoring-package \
-	storage-package log-package k8s-packages telekube-packages selinux-policy-package
+	storage-package log-package k8s-packages telekube-packages
 
 .PHONY: teleport-package
 teleport-package:
