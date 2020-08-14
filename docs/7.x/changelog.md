@@ -542,7 +542,7 @@ to learn how to gain insight into how the cluster status changes over time.
 
 * Fixes an issue with upgrades when using alternate install location ([#2010](https://github.com/gravitational/gravity/pull/2010)).
 * Fix an issue with log forwarding configuration breaking during upgrade ([#1973](https://github.com/gravitational/gravity/pull/1973), [logging-app#68](https://github.com/gravitational/planet/pull/68)). 
-* Fix several issues with using custom planet containers ([#1962](https://github.com/gravitational/gravity/pull/1962))
+* Fix several issues with using custom planet containers ([#1962](https://github.com/gravitational/gravity/pull/1962)).
 
 ### 6.1.33 LTS (July 30th, 2020)
 
