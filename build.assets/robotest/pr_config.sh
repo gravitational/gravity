@@ -16,7 +16,9 @@ UPGRADE_MAP[$(recommended_upgrade_tag $(branch 6.1.x))]="redhat:7" # compatible 
 UPGRADE_MAP[6.1.0]="debian:9"
 UPGRADE_MAP[$(recommended_upgrade_tag $(branch 6.3.x))]="centos:7" # compatible non-LTS version
 # Upgrade path with an intermediate hop. The chosen version will exercise a double etcd upgrade from v3.3.11 to v3.3.22 to v3.4.9
-UPGRADE_MAP[5.5.10]="centos:7"
+# Disabled to an issue with etcd upgrades which needs further investigation.
+#UPGRADE_MAP[5.5.10]="centos:7"
+UPGRADE_MAP[5.5.49]="centos:7"
 
 # UPGRADE_MAP[6.3.0]="ubuntu:16"  # disabled due to https://github.com/gravitational/gravity/issues/1009
 # 6.2 ignored in PR builds per https://github.com/gravitational/gravity/pull/1760#pullrequestreview-437838773
