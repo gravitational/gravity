@@ -1,3 +1,8 @@
+---
+title: Persistent Storage for Kubernetes
+description: How to configure persistent storage for on-premise and air-gapped Kubernetes clusters with Gravity
+---
+
 # Persistent Storage
 
 Many applications deployed on Kubernetes require persistent storage. To provide

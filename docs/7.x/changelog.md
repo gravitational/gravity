@@ -1,3 +1,8 @@
+---
+title: Gravity Releases (Changelog)
+description: List of Gravity releases and changes between them. 
+---
+
 # Releases
 
 Find the latest Open Source Gravity releases at [Gravity Downloads](https://gravitational.com/gravity/download).

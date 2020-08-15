@@ -1,3 +1,8 @@
+---
+title: Managing a Kubernetes Cluster with Gravity
+description: How to manage the life cycle of an air-gapped or on-prem Kubernetes cluster with Gravity
+---
+
 # Cluster Management
 
 Every Cluster created from a Gravity Cluster Image is a fully featured

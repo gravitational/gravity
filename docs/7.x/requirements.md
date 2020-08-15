@@ -1,3 +1,8 @@
+---
+title: Gravity System Requirements
+description: Description of the system requirements for running Kubernetes in production
+---
+
 # System Requirements
 
 This chapter outlines the system requirements for Linux hosts to be able to run
