@@ -526,7 +526,7 @@ telekube: $(GRAVITY_BUILDDIR)/telekube.tar
 
 .PHONY: telekube-intermediate-upgrade
 telekube-intermediate-upgrade: GRAVITY=$(GRAVITY_OUT) --state-dir=$(PACKAGES_DIR)
-telekube-intermediate-upgrade: GRAVITY_INSTALLER_OPTIONS=--upgrade-via=$(GRAVITY_INTERMEDIATE_RELEASE)
+telekube-intermediate-upgrade: GRAVITY_INSTALLER_OPTIONS:=$(GRAVITY_INSTALLER_OPTIONS) --upgrade-via=$(GRAVITY_INTERMEDIATE_RELEASE)
 telekube-intermediate-upgrade: $(GRAVITY_BUILDDIR)/telekube.tar
 
 $(GRAVITY_BUILDDIR)/telekube.tar: packages

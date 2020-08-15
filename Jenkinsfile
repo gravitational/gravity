@@ -59,13 +59,9 @@ timestamps {
     }
     stage('build-gravity') {
       withCredentials([
-      [$class: 'SSHUserPrivateKeyBinding', credentialsId: '08267d86-0b3a-4101-841e-0036bf780b11', keyFileVariable: 'GITHUB_SSH_KEY'],
-      [
-        $class: 'UsernamePasswordMultiBinding',
-        credentialsId: 'jenkins-aws-s3',
-        usernameVariable: 'AWS_ACCESS_KEY_ID',
-        passwordVariable: 'AWS_SECRET_ACCESS_KEY',
-      ],
+      sshUserPrivateKey(credentialsId: '08267d86-0b3a-4101-841e-0036bf780b11', keyFileVariable: 'GITHUB_SSH_KEY'),
+      usernamePassword(credentialsId: 'jenkins-aws-s3', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY'),
+      string(credentialsId:'GET_GRAVITATIONAL_IO_APIKEY', variable: 'GET_GRAVITATIONAL_IO_APIKEY'),
       ]) {
         sh 'make -C e production telekube-intermediate-upgrade opscenter'
       }
@@ -77,17 +73,18 @@ timestamps {
         parallel (
         build : {
           withCredentials([
-          [$class: 'SSHUserPrivateKeyBinding', credentialsId: '08267d86-0b3a-4101-841e-0036bf780b11', keyFileVariable: 'GITHUB_SSH_KEY']]) {
+          sshUserPrivateKey(credentialsId: '08267d86-0b3a-4101-841e-0036bf780b11', keyFileVariable: 'GITHUB_SSH_KEY')
+          ]) {
             sh 'make test && make -C e test'
           }
         },
         robotest : {
           if (env.RUN_ROBOTEST == 'run') {
             withCredentials([
-                [$class: 'StringBinding', credentialsId: 'GET_GRAVITATIONAL_IO_APIKEY', variable: 'GET_GRAVITATIONAL_IO_APIKEY'],
-                [$class: 'FileBinding', credentialsId:'ROBOTEST_LOG_GOOGLE_APPLICATION_CREDENTIALS', variable: 'GOOGLE_APPLICATION_CREDENTIALS'],
-                [$class: 'FileBinding', credentialsId:'OPS_SSH_KEY', variable: 'SSH_KEY'],
-                [$class: 'FileBinding', credentialsId:'OPS_SSH_PUB', variable: 'SSH_PUB'],
+                string(credentialsId: 'GET_GRAVITATIONAL_IO_APIKEY', variable: 'GET_GRAVITATIONAL_IO_APIKEY'),
+                file(credentialsId:'ROBOTEST_LOG_GOOGLE_APPLICATION_CREDENTIALS', variable: 'GOOGLE_APPLICATION_CREDENTIALS'),
+                file(credentialsId:'OPS_SSH_KEY', variable: 'SSH_KEY'),
+                file(credentialsId:'OPS_SSH_PUB', variable: 'SSH_PUB'),
                 ]) {
                   sh 'make -C e robotest-run-suite'
             }
