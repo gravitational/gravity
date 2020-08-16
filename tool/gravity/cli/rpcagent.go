@@ -429,30 +429,10 @@ func rpcAgentShutdown(env *localenv.LocalEnvironment) error {
 func rpcAgentStatus(env *localenv.LocalEnvironment) error {
 	env.PrintStep("Collecting RPC agent status")
 
-	operator, err := env.SiteOperator()
+	statusList, err := collectAgentStatus(env)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
-	creds, err := fsm.GetClientCredentials()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	cluster, err := operator.GetLocalSite()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	timeout, err := utils.GetenvDuration(constants.AgentStatusTimeoutEnvVar)
-	if err != nil {
-		timeout = defaults.AgentStatusTimeout
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
-	statusList := rpc.CollectAgentStatus(ctx, cluster.ClusterState.Servers, fsm.NewAgentRunner(creds))
 
 	var errs []error
 
@@ -473,6 +453,52 @@ func rpcAgentStatus(env *localenv.LocalEnvironment) error {
 	}
 
 	return nil
+}
+
+// collectAgentStatus collects the gravity agent status from all members of the
+// cluster.
+func collectAgentStatus(env *localenv.LocalEnvironment) (statusList []rpc.AgentStatus, err error) {
+	operator, err := env.SiteOperator()
+	if err != nil {
+		return statusList, trace.Wrap(err)
+	}
+
+	creds, err := fsm.GetClientCredentials()
+	if err != nil {
+		return statusList, trace.Wrap(err)
+	}
+
+	cluster, err := operator.GetLocalSite()
+	if err != nil {
+		return statusList, trace.Wrap(err)
+	}
+
+	timeout, err := utils.GetenvDuration(constants.AgentStatusTimeoutEnvVar)
+	if err != nil {
+		timeout = defaults.AgentStatusTimeout
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	statusList = rpc.CollectAgentStatus(ctx, cluster.ClusterState.Servers, fsm.NewAgentRunner(creds))
+	return statusList, nil
+}
+
+// verifyActiveAgents returns true if all gravity agents are active.
+func verifyActiveAgents(env *localenv.LocalEnvironment) (bool, error) {
+	statusList, err := collectAgentStatus(env)
+	if err != nil {
+		return false, trace.Wrap(err)
+	}
+
+	for _, status := range statusList {
+		if status.Status == constants.GravityAgentOffline {
+			return false, nil
+		}
+	}
+
+	return true, nil
 }
 
 func executeAutomaticUpgrade(ctx context.Context, localEnv, upgradeEnv *localenv.LocalEnvironment, args []string) error {

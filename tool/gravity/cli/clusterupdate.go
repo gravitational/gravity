@@ -218,6 +218,14 @@ func executeUpdatePhase(env *localenv.LocalEnvironment, environ LocalEnvironment
 }
 
 func executeUpdatePhaseForOperation(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params PhaseParams, operation ops.SiteOperation) error {
+	allActive, err := verifyActiveAgents(env)
+	if err != nil {
+		return trace.Wrap(err, "failed to verify agent status")
+	}
+	if !allActive {
+		return trace.BadParameter("some agents are offline; ensure all agents are deployed with `gravity agent deploy`")
+	}
+
 	updateEnv, err := environ.NewUpdateEnv()
 	if err != nil {
 		return trace.Wrap(err)
