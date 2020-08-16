@@ -58,6 +58,16 @@ func (*S) TestParsesClusterConfiguration(c *C) {
 		{
 			in: `kind: clusterconfiguration
 version: v1
+spec:
+  gravityControllerService:
+    type: ClusterIP`,
+
+			error:   trace.BadParameter(`failed to validate: spec.gravityControllerService.type: spec.gravityControllerService.type must be one of the following: \"NodePort\", \"LoadBalancer\"`),
+			comment: "invalid gravity controller service type",
+		},
+		{
+			in: `kind: clusterconfiguration
+version: v1
 metadata:
   name: foo
 spec: {}`,
@@ -67,13 +77,6 @@ spec: {}`,
 				Metadata: teleservices.Metadata{
 					Name:      constants.ClusterConfigurationMap,
 					Namespace: defaults.KubeSystemNamespace,
-				},
-				Spec: Spec{
-					ComponentConfigs: ComponentConfigs{
-						GravityControllerService: &GravityControllerService{
-							Type: LoadBalancer,
-						},
-					},
 				},
 			},
 			comment: "overrides metadata.name and metadata.namespace",
@@ -102,11 +105,6 @@ spec:
 username=user
 password=pass`,
 					},
-					ComponentConfigs: ComponentConfigs{
-						GravityControllerService: &GravityControllerService{
-							Type: LoadBalancer,
-						},
-					},
 				},
 			},
 			comment: "correctly parses the spec",
@@ -132,9 +130,6 @@ spec:
 					ComponentConfigs: ComponentConfigs{
 						Kubelet: &Kubelet{
 							ExtraArgs: []string{"--foo", "--bar=baz"},
-						},
-						GravityControllerService: &GravityControllerService{
-							Type: LoadBalancer,
 						},
 					},
 				},
@@ -169,9 +164,6 @@ spec:
 						Kubelet: &Kubelet{
 							ExtraArgs: []string{"--foo", "--bar=baz"},
 						},
-						GravityControllerService: &GravityControllerService{
-							Type: LoadBalancer,
-						},
 					},
 				},
 			},
@@ -200,11 +192,6 @@ spec:
 							"FeatureB": false,
 						},
 					},
-					ComponentConfigs: ComponentConfigs{
-						GravityControllerService: &GravityControllerService{
-							Type: LoadBalancer,
-						},
-					},
 				},
 			},
 			comment: "consumes global configuration",
@@ -217,7 +204,8 @@ spec:
     type: NodePort
     annotations:
       service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout: "3600"
-      service.beta.kubernetes.io/aws-load-balancer-internal: "0.0.0.0/0"`,
+      service.beta.kubernetes.io/aws-load-balancer-internal: "0.0.0.0/0"
+      cloud.google.com/load-balancer-type: "Internal"`,
 			resource: &Resource{
 				Kind:    storage.KindClusterConfiguration,
 				Version: "v1",
@@ -232,6 +220,7 @@ spec:
 							Annotations: map[string]string{
 								"service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout": "3600",
 								"service.beta.kubernetes.io/aws-load-balancer-internal":                "0.0.0.0/0",
+								"cloud.google.com/load-balancer-type":                                  "Internal",
 							},
 						},
 					},
@@ -382,6 +371,45 @@ address: 10.0.0.1
 				},
 			},
 			comment: "does not override source field from empty update field",
+		},
+		{
+			existing: Resource{
+				Spec: Spec{
+					ComponentConfigs: ComponentConfigs{
+						GravityControllerService: &GravityControllerService{
+							Type: LoadBalancer,
+							Annotations: map[string]string{
+								"foo": "bar",
+							},
+						},
+					},
+				},
+			},
+			update: Resource{
+				Spec: Spec{
+					ComponentConfigs: ComponentConfigs{
+						GravityControllerService: &GravityControllerService{
+							Type: NodePort,
+							Annotations: map[string]string{
+								"foo": "baz",
+							},
+						},
+					},
+				},
+			},
+			expected: Resource{
+				Spec: Spec{
+					ComponentConfigs: ComponentConfigs{
+						GravityControllerService: &GravityControllerService{
+							Type: NodePort,
+							Annotations: map[string]string{
+								"foo": "baz",
+							},
+						},
+					},
+				},
+			},
+			comment: "update gravity controller service configuration",
 		},
 		{
 			existing: Resource{

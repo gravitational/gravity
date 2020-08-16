@@ -42,6 +42,7 @@ import (
 	"github.com/gravitational/trace"
 	"github.com/mailgun/timetools"
 	log "github.com/sirupsen/logrus"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -602,6 +603,49 @@ func (s *site) getClusterEnvironmentVariables() (env storage.EnvironmentVariable
 		return nil, trace.Wrap(err)
 	}
 	return env, nil
+}
+
+// updateServiceConfiguration updates the gravity-site service configuration if
+// the gravityControllerService configuration has been modified.
+func (s *site) updateServiceConfiguration() error {
+	resource, err := s.getClusterConfiguration()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	controllerConfig := resource.GetGravityControllerServiceConfig()
+	if controllerConfig.IsEmpty() {
+		return nil
+	}
+
+	client, err := s.service.GetKubeClient()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	services := client.CoreV1().Services(defaults.KubeSystemNamespace)
+
+	svc, err := services.Get("gravity-site", metav1.GetOptions{})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	svc.Spec.Type = v1.ServiceType(controllerConfig.Type)
+	svc.Annotations = controllerConfig.Annotations
+
+	// Set default load balancer idle timeout value if unspecified
+	if _, exists := svc.Annotations[clusterconfig.IdleTimeoutKey]; !exists {
+		svc.Annotations[clusterconfig.IdleTimeoutKey] = clusterconfig.LoadBalancerIdleTimeout
+	}
+
+	// Set default load balancer internal value if upspecified
+	if _, exists := svc.Annotations[clusterconfig.InternalKey]; !exists {
+		svc.Annotations[clusterconfig.InternalKey] = clusterconfig.LoadBalancerInternal
+	}
+
+	if _, err := services.Update(svc); err != nil {
+		return trace.Wrap(err)
+	}
+
+	return nil
 }
 
 func convertSite(in storage.Site, apps appservice.Applications) (*ops.Site, error) {

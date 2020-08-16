@@ -278,9 +278,16 @@ type Kubelet struct {
 type GravityControllerService struct {
 	// Type specifies the gravity-site service type.
 	Type string `json:"type,omitempty"`
-	// Annotations defines the set of key=value pairs to configure the internal
-	// load balancer.
+	// Annotations defines the set of key=value pairs to configure the service.
 	Annotations map[string]string `json:"annotations,omitempty"`
+}
+
+// IsEmpty determines whether this global configuration is empty.
+func (r *GravityControllerService) IsEmpty() bool {
+	if r == nil {
+		return true
+	}
+	return r.Type == "" && len(r.Annotations) == 0
 }
 
 // ControlPlaneComponent defines configuration of a control plane component
@@ -473,18 +480,18 @@ const specSchemaTemplate = `{
           }
         },
         "gravityControllerService": {
-          "default": {},
           "type": "object",
           "additionalProperties": false,
+          "required": ["type"],
           "properties": {
             "type": {
               "type": "string",
-              "default": "%v"
+              "default": "%v",
+              "enum": ["NodePort", "LoadBalancer"]
             },
             "annotations": {
               "type": "object",
-              "service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout": {"type": "string"},
-              "service.beta.kubernetes.io/aws-load-balancer-internal": {"type": "string"}
+              "properites": {"type": "string"}
             }
           }
         }
@@ -510,8 +517,22 @@ func newEmpty() *Resource {
 	}
 }
 
-// LoadBalancer defines the LoadBalancer service type.
-const LoadBalancer = "LoadBalancer"
+const (
+	// LoadBalancer defines the LoadBalancer service type.
+	LoadBalancer = "LoadBalancer"
 
-// NodePort defines the NodePort service type.
-const NodePort = "NodePort"
+	// NodePort defines the NodePort service type.
+	NodePort = "NodePort"
+
+	// IdleTimeoutKey defines the aws load balancer idle timeout property name
+	IdleTimeoutKey = "service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout"
+
+	// InternalKey defines the aws load balancer internal property name
+	InternalKey = "service.beta.kubernetes.op/aws-load-balancer-internal"
+
+	// LoadBalancerIdleTimeout defines the default aws load balancer idle timeout
+	LoadBalancerIdleTimeout = "3600"
+
+	// LoadBalancerInternal defines the default aws load balancer internal
+	LoadBalancerInternal = "0.0.0.0/0"
+)

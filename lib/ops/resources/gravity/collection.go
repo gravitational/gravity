@@ -735,6 +735,7 @@ func formatFeatureGates(features map[string]bool) string {
 	}
 	return strings.Join(result, ",")
 }
+
 func formatAnnotations(annotations map[string]string) string {
 	result := make([]string, 0, len(annotations))
 	for key, val := range annotations {
