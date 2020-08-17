@@ -188,7 +188,7 @@ func (s *credentialsService) For(clusterURL string) (*Credentials, error) {
 		}
 	}
 	// If haven't found anything, see if this is the default distribution hub.
-	if clusterURL == defaults.DistributionOpsCenter {
+	if url.hostname == defaults.DistributionOpsCenterName {
 		s.Debugf("Returning default credentials for %v.", clusterURL)
 		return defaultCredentials, nil
 	}
