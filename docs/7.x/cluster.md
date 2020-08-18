@@ -562,8 +562,8 @@ The flag can be specified multiple times to add as many LTS versions as required
     image must embed the LTS version `5.2.15`.
 
 !!! note "Direct Upgrades Support"
-    Direct upgrades support is available since Gravity version `5.5.21`.
-    Newer Gravity versions will receive support for direct upgrades in the near future.
+    Direct upgrades support is available in Gravity 5.5 releases since version `5.5.21` and in
+    Gravity 7.0 releases since version `7.0.14`.
 
 <!-- The "managing operations" header is linked from gravity binaries. Exercise care if editing. -->
 <div id="managing-an-ongoing-operation" ></div>

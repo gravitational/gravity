@@ -55,19 +55,19 @@ extend updates past End of Support through customer agreements if required.
 
 #### Improvements
 
-* Monitoring application has been updated to version 7.0.3 ([#1893](https://github.com/gravitational/gravity/pull/1893)), ([#183](https://github.com/gravitational/monitoring-app/pull/183)).
-* New command to collect gravity execution history ([#1861](https://github.com/gravitational/gravity/pull/1861)).
-* Add kernel version test to satellite ([#1926](https://github.com/gravitational/gravity/pull/1926)), ([#250](https://github.com/gravitational/satellite/pull/250)), ([#713](https://github.com/gravitational/planet/pull/713)).
+* Monitoring application has been updated to version `7.0.3` ([#1893](https://github.com/gravitational/gravity/pull/1893), [monitoring#183](https://github.com/gravitational/monitoring-app/pull/183)).
+* Gravity debug report will now include `gravity` CLI command history ([#1861](https://github.com/gravitational/gravity/pull/1861)).
+* Gravity will now report a warning if installed kernel is older than the recommended `3.10.0-1127` version ([#1926](https://github.com/gravitational/gravity/pull/1926), [satellite#250](https://github.com/gravitational/satellite/pull/250), [planet#713](https://github.com/gravitational/planet/pull/713)).
 * Update `gravity plan resume` command to launch from a systemd service by default, `--block` flag is supported for old behavior ([#1936](https://github.com/gravitational/gravity/pull/1936)).
-* New command to observe status of remote agents ([#1956](https://github.com/gravitational/gravity/pull/1956)).
-* Support for intermediate upgrades ([#1920](https://github.com/gravitational/gravity/pull/1920)), ([#714](https://github.com/gravitational/planet/pull/714)).
+* Add ability to display deployed agent status using `gravity agent status` command ([#1956](https://github.com/gravitational/gravity/pull/1956)).
+* Add support for multi-hop upgrades from 5.5 releases, see [Multi-Hop Upgrades](cluster.md#multi-hop-upgrades) for more details ([#1920](https://github.com/gravitational/gravity/pull/1920), [planet#714](https://github.com/gravitational/planet/pull/714)).
 
 #### Bugfixes
 
-* Rotate RPC credentials on cluster upgrade ([#1749])(https://github.com/gravitational/gravity/pull/1749)).
-* Allow execution of upload script from external directories ([#1892](https://github.com/gravitational/gravity/pull/1892)).
-* Fix an issue with installer failing when a directory for mountpoint does not exist ([#1958](https://github.com/gravitational/gravity/pull/1958)), ([#252](https://github.com/gravitational/satellite/pull/252)).
-* Update `ClusterConfiguration` resource to properly support service CIDR changes ([#1975](https://github.com/gravitational/gravity/pull/1975)), ([#722](https://github.com/gravitational/planet/pull/722)).
+* Rotate RPC credentials on cluster upgrade ([#1749](https://github.com/gravitational/gravity/pull/1749)).
+* Allow invocation of the upgrade's `upload` script from external directories ([#1892](https://github.com/gravitational/gravity/pull/1892)).
+* Fix an issue with installer failing when a directory for mountpoint does not exist ([#1958](https://github.com/gravitational/gravity/pull/1958), [satellite#252](https://github.com/gravitational/satellite/pull/252)).
+* Update `ClusterConfiguration` resource to properly support service CIDR changes ([#1975](https://github.com/gravitational/gravity/pull/1975), [planet#722](https://github.com/gravitational/planet/pull/722)).
 
 ### 7.0.13 LTS (July 15th, 2020)
 
