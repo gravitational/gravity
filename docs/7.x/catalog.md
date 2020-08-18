@@ -1,3 +1,8 @@
+---
+title: Catalog of Kubernetes Applications 
+description: How to build and manage a catalog of Kubernetes applications for on-premise deployments
+---
+
 # Application Catalog
 
 !!! note 

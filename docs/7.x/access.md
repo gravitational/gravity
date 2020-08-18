@@ -1,3 +1,7 @@
+---
+title: Remotely Accessing a Kubernetes Cluster
+description: How to remotely access and troubleshoot an air-gapped or on-prem Kubernetes cluster with Gravity
+---
 
 # Cluster Access
 

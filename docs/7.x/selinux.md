@@ -1,3 +1,8 @@
+---
+title: SELinux and Kubernetes
+description: How to run Kubernetes applications with SELinux in air-gapped and on-premise environments
+---
+
 # SELinux
 
 ## Host Preparation
