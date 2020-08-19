@@ -461,7 +461,7 @@ func collectAgentStatus(env *localenv.LocalEnvironment) (statusList rpc.StatusLi
 
 	timeout, err := utils.GetenvDuration(constants.AgentStatusTimeoutEnvVar)
 	if err != nil {
-		timeout = defaults.AgentStatusTimeout
+		timeout = defaults.AgentRequestTimeout
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
