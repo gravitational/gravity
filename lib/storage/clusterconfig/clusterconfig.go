@@ -524,15 +524,15 @@ const (
 	// NodePort defines the NodePort service type.
 	NodePort = "NodePort"
 
-	// IdleTimeoutKey defines the aws load balancer idle timeout property name
-	IdleTimeoutKey = "service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout"
+	// AWSIdleTimeoutKey defines the aws load balancer idle timeout property name
+	AWSIdleTimeoutKey = "service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout"
 
-	// InternalKey defines the aws load balancer internal property name
-	InternalKey = "service.beta.kubernetes.op/aws-load-balancer-internal"
+	// AWSInternalKey defines the aws load balancer internal property name
+	AWSInternalKey = "service.beta.kubernetes.op/aws-load-balancer-internal"
 
-	// LoadBalancerIdleTimeout defines the default aws load balancer idle timeout
-	LoadBalancerIdleTimeout = "3600"
+	// AWSLoadBalancerIdleTimeout defines the default aws load balancer idle timeout in seconds
+	AWSLoadBalancerIdleTimeout = "3600"
 
-	// LoadBalancerInternal defines the default aws load balancer internal
-	LoadBalancerInternal = "0.0.0.0/0"
+	// AWSLoadBalancerInternal defines the default aws load balancer internal
+	AWSLoadBalancerInternal = "0.0.0.0/0"
 )

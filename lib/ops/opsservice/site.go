@@ -18,6 +18,7 @@ package opsservice
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -27,6 +28,7 @@ import (
 	appservice "github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/kubernetes"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
@@ -605,6 +607,40 @@ func (s *site) getClusterEnvironmentVariables() (env storage.EnvironmentVariable
 	return env, nil
 }
 
+// updateClusterConfiguration updates the clusterconfiguration configmap.
+func (s *site) updateClusterConfiguration(req ops.UpdateClusterConfigRequest) error {
+	client, err := s.service.GetKubeClient()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	configmaps := client.CoreV1().ConfigMaps(defaults.KubeSystemNamespace)
+	configmap, err := getOrCreateClusterConfigMap(configmaps)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	var previousKeyValues []byte
+	if len(configmap.Data) != 0 {
+		var err error
+		previousKeyValues, err = json.Marshal(configmap.Data)
+		if err != nil {
+			return trace.Wrap(err, "failed to marshal previous key/values")
+		}
+		if configmap.Annotations == nil {
+			configmap.Annotations = make(map[string]string)
+		}
+		configmap.Annotations[constants.PreviousKeyValuesAnnotationKey] = string(previousKeyValues)
+	}
+	configmap.Data = map[string]string{
+		"spec": string(req.Config),
+	}
+	err = kubernetes.Retry(context.TODO(), func() error {
+		_, err := configmaps.Update(configmap)
+		return trace.Wrap(err)
+	})
+
+	return trace.Wrap(err)
+}
+
 // updateServiceConfiguration updates the gravity-site service configuration if
 // the gravityControllerService configuration has been modified.
 func (s *site) updateServiceConfiguration() error {
@@ -624,21 +660,41 @@ func (s *site) updateServiceConfiguration() error {
 	}
 	services := client.CoreV1().Services(defaults.KubeSystemNamespace)
 
-	svc, err := services.Get("gravity-site", metav1.GetOptions{})
+	svc, err := services.Get(constants.GravityServiceName, metav1.GetOptions{})
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	svc.Spec.Type = v1.ServiceType(controllerConfig.Type)
-	svc.Annotations = controllerConfig.Annotations
 
-	// Set default load balancer idle timeout value if unspecified
-	if _, exists := svc.Annotations[clusterconfig.IdleTimeoutKey]; !exists {
-		svc.Annotations[clusterconfig.IdleTimeoutKey] = clusterconfig.LoadBalancerIdleTimeout
+	// shouldUpdate indicates that a change has been made to the service
+	// configuration and should be updated.
+	var shouldUpdate bool
+
+	if svc.Spec.Type != v1.ServiceType(controllerConfig.Type) {
+		svc.Spec.Type = v1.ServiceType(controllerConfig.Type)
+		shouldUpdate = true
 	}
 
-	// Set default load balancer internal value if upspecified
-	if _, exists := svc.Annotations[clusterconfig.InternalKey]; !exists {
-		svc.Annotations[clusterconfig.InternalKey] = clusterconfig.LoadBalancerInternal
+	for key, updatedVal := range controllerConfig.Annotations {
+		existingVal, exists := svc.Annotations[key]
+		if !exists || existingVal != updatedVal {
+			svc.Annotations = controllerConfig.Annotations
+			shouldUpdate = true
+			break
+		}
+	}
+
+	if !shouldUpdate {
+		return nil
+	}
+
+	// Set default load balancer idle timeout value if unspecified
+	if _, exists := svc.Annotations[clusterconfig.AWSIdleTimeoutKey]; !exists {
+		svc.Annotations[clusterconfig.AWSIdleTimeoutKey] = clusterconfig.AWSLoadBalancerIdleTimeout
+	}
+
+	// Set default load balancer internal value if unspecified
+	if _, exists := svc.Annotations[clusterconfig.AWSInternalKey]; !exists {
+		svc.Annotations[clusterconfig.AWSInternalKey] = clusterconfig.AWSLoadBalancerInternal
 	}
 
 	if _, err := services.Update(svc); err != nil {

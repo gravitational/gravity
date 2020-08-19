@@ -17,12 +17,8 @@ limitations under the License.
 package opsservice
 
 import (
-	"context"
-	"encoding/json"
-
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
-	"github.com/gravitational/gravity/lib/kubernetes"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
@@ -93,36 +89,17 @@ func (o *Operator) UpdateGravityServiceConfiguration(key ops.SiteKey) error {
 // UpdateClusterConfiguration updates the cluster configuration to the value given
 // in the specified request
 func (o *Operator) UpdateClusterConfiguration(req ops.UpdateClusterConfigRequest) error {
-	client, err := o.GetKubeClient()
+	cluster, err := o.openSite(req.ClusterKey)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	configmaps := client.CoreV1().ConfigMaps(defaults.KubeSystemNamespace)
-	configmap, err := getOrCreateClusterConfigMap(configmaps)
-	if err != nil {
+	if err := cluster.updateClusterConfiguration(req); err != nil {
 		return trace.Wrap(err)
 	}
-	var previousKeyValues []byte
-	if len(configmap.Data) != 0 {
-		var err error
-		previousKeyValues, err = json.Marshal(configmap.Data)
-		if err != nil {
-			return trace.Wrap(err, "failed to marshal previous key/values")
-		}
-		if configmap.Annotations == nil {
-			configmap.Annotations = make(map[string]string)
-		}
-		configmap.Annotations[constants.PreviousKeyValuesAnnotationKey] = string(previousKeyValues)
-	}
-	configmap.Data = map[string]string{
-		"spec": string(req.Config),
-	}
-	err = kubernetes.Retry(context.TODO(), func() error {
-		_, err := configmaps.Update(configmap)
+	if err := cluster.updateServiceConfiguration(); err != nil {
 		return trace.Wrap(err)
-	})
-
-	return trace.Wrap(err)
+	}
+	return nil
 }
 
 // NewConfigurationConfigMap creates the backing ConfigMap to host cluster configuration
