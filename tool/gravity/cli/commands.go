@@ -254,6 +254,10 @@ type Application struct {
 	RPCAgentStatusCmd RPCAgentStatusCmd
 	// SystemCmd combines system subcommands
 	SystemCmd SystemCmd
+	// SystemTeleportCmd combines internal Teleport commands
+	SystemTeleportCmd SystemTeleportCmd
+	// SystemTeleportShowConfigCmd displays Teleport config
+	SystemTeleportShowConfigCmd SystemTeleportShowConfigCmd
 	// SystemRotateCertsCmd renews cluster certificates on local node
 	SystemRotateCertsCmd SystemRotateCertsCmd
 	// SystemExportCACmd exports cluster CA
@@ -1478,6 +1482,18 @@ type RPCAgentStatusCmd struct {
 // SystemCmd combines system subcommands
 type SystemCmd struct {
 	*kingpin.CmdClause
+}
+
+// SystemTeleportCmd combines internal Teleport commands
+type SystemTeleportCmd struct {
+	*kingpin.CmdClause
+}
+
+// SystemTeleportShowConfigCmd displays Teleport config from specified package
+type SystemTeleportShowConfigCmd struct {
+	*kingpin.CmdClause
+	// Package is the package to show config from
+	Package *string
 }
 
 // SystemRotateCertsCmd renews cluster certificates on local node
