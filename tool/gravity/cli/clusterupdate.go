@@ -214,18 +214,21 @@ func executeUpdatePhase(env *localenv.LocalEnvironment, environ LocalEnvironment
 	if operation.Type != ops.OperationUpdate {
 		return trace.NotFound("no active update operation found")
 	}
+
+	statusList, err := collectAgentStatus(env)
+	if err != nil {
+		return trace.Wrap(err, "failed to collect agent status")
+	}
+
+	if !statusList.AgentsActive() {
+		env.Println(statusList.String())
+		return trace.BadParameter("some agents are offline; ensure all agents are deployed with `gravity agent deploy`")
+	}
+
 	return executeUpdatePhaseForOperation(env, environ, params, operation.SiteOperation)
 }
 
 func executeUpdatePhaseForOperation(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params PhaseParams, operation ops.SiteOperation) error {
-	allActive, err := verifyActiveAgents(env)
-	if err != nil {
-		return trace.Wrap(err, "failed to verify agent status")
-	}
-	if !allActive {
-		return trace.BadParameter("some agents are offline; ensure all agents are deployed with `gravity agent deploy`")
-	}
-
 	updateEnv, err := environ.NewUpdateEnv()
 	if err != nil {
 		return trace.Wrap(err)

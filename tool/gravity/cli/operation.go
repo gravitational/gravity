@@ -182,6 +182,17 @@ func rollbackPlan(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentF
 	default:
 		return trace.BadParameter(unsupportedRollbackWarning, op.TypeString())
 	}
+
+	statusList, err := collectAgentStatus(localEnv)
+	if err != nil {
+		return trace.Wrap(err, "failed to collect agent status")
+	}
+
+	if !statusList.AgentsActive() {
+		localEnv.Println(statusList.String())
+		return trace.BadParameter("some agents are offline; ensure all agents are deployed with `gravity agent deploy`")
+	}
+
 	if !confirmed && !params.DryRun {
 		localEnv.Printf(planRollbackWarning, operationList([]clusterOperation{*operation}).formatTable())
 		if err := enforceConfirmation("Proceed?"); err != nil {

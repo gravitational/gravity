@@ -41,9 +41,7 @@ import (
 	"github.com/gravitational/gravity/lib/update"
 	clusterupdate "github.com/gravitational/gravity/lib/update/cluster"
 	"github.com/gravitational/gravity/lib/utils"
-	"github.com/gravitational/gravity/tool/common"
 
-	"github.com/buger/goterm"
 	"github.com/cenkalti/backoff"
 	teleclient "github.com/gravitational/teleport/lib/client"
 	"github.com/gravitational/trace"
@@ -434,21 +432,9 @@ func rpcAgentStatus(env *localenv.LocalEnvironment) error {
 		return trace.Wrap(err)
 	}
 
-	var errs []error
+	env.Println(statusList.String())
 
-	t := goterm.NewTable(0, 10, 5, ' ', 0)
-	common.PrintTableHeader(t, []string{"Hostname", "Address", "Status", "Version"})
-	for _, status := range statusList {
-		fmt.Fprintf(t, "%s\t%s\t%s\t%s\n", status.Hostname, status.Address, status.Status, status.Version)
-		if status.Error != nil {
-			log.WithError(status.Error).Debugf("Failed to collect agent status on %s.", status.Address)
-			errs = append(errs, status.Error)
-		}
-	}
-	env.Println(t.String())
-
-	if len(errs) > 0 {
-		log.Warn("Some agents are offline.")
+	if !statusList.AgentsActive() {
 		return trace.BadParameter("some agents are offline")
 	}
 
@@ -457,7 +443,7 @@ func rpcAgentStatus(env *localenv.LocalEnvironment) error {
 
 // collectAgentStatus collects the gravity agent status from all members of the
 // cluster.
-func collectAgentStatus(env *localenv.LocalEnvironment) (statusList []rpc.AgentStatus, err error) {
+func collectAgentStatus(env *localenv.LocalEnvironment) (statusList rpc.StatusList, err error) {
 	operator, err := env.SiteOperator()
 	if err != nil {
 		return statusList, trace.Wrap(err)
@@ -483,22 +469,6 @@ func collectAgentStatus(env *localenv.LocalEnvironment) (statusList []rpc.AgentS
 
 	statusList = rpc.CollectAgentStatus(ctx, cluster.ClusterState.Servers, fsm.NewAgentRunner(creds))
 	return statusList, nil
-}
-
-// verifyActiveAgents returns true if all gravity agents are active.
-func verifyActiveAgents(env *localenv.LocalEnvironment) (bool, error) {
-	statusList, err := collectAgentStatus(env)
-	if err != nil {
-		return false, trace.Wrap(err)
-	}
-
-	for _, status := range statusList {
-		if status.Status == constants.GravityAgentOffline {
-			return false, nil
-		}
-	}
-
-	return true, nil
 }
 
 func executeAutomaticUpgrade(ctx context.Context, localEnv, upgradeEnv *localenv.LocalEnvironment, args []string) error {
