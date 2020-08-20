@@ -556,7 +556,7 @@ to learn how to gain insight into how the cluster status changes over time.
 
 #### Bugfixes
 
-* Fix an issue with upgrading applications that use custom planet containers that container corrupted version metadata ([#2032](https://github.com/gravitational/gravity/pull/2032)).
+* Fix an issue with upgrading applications that use custom planet containers that contained corrupted version metadata ([#2032](https://github.com/gravitational/gravity/pull/2032)).
 * Fix an issue with upgrades if etcd is deployed within kubernetes and scheduled to a master ([#2024](https://github.com/gravitational/gravity/pull/2024), [planet#721](https://github.com/gravitational/planet/pull/721)).
 * Fix an issue with corrupted version metadata within custom planet containers ([#2024](https://github.com/gravitational/gravity/pull/2024), [planet#717](https://github.com/gravitational/planet/pull/717)).
 
