@@ -169,7 +169,7 @@ func (s *PlanSuite) TestUpdatesEtcdFromManifestWithoutLabels(c *check.C) {
 	updateRuntimePackage := loc.MustParseLocator("example.com/runtime:1.0.1")
 	createRuntimePackagesWithAssumedEtcdVersion(runtimePackage, updateRuntimePackage,
 		etcdVersion{update: "3.3.3"}, services.Packages, c)
-	etcd, err := shouldUpdateEtcd(runtimePackage, updateRuntimePackage, services.Packages)
+	etcd, err := shouldUpdateEtcd(runtimePackage, updateRuntimePackage, runtimePackage, services.Packages)
 	c.Assert(err, check.IsNil)
 	c.Assert(etcd, check.DeepEquals, &etcdVersion{
 		update: "3.3.3",
@@ -184,7 +184,7 @@ func (s *PlanSuite) TestCorrectlyDeterminesWhetherToUpdateEtcd(c *check.C) {
 		installed: "3.3.2",
 		update:    "3.3.3",
 	}, services.Packages, c)
-	etcd, err := shouldUpdateEtcd(runtimePackage, updateRuntimePackage, services.Packages)
+	etcd, err := shouldUpdateEtcd(runtimePackage, updateRuntimePackage, runtimePackage, services.Packages)
 	c.Assert(err, check.IsNil)
 	c.Assert(etcd, check.DeepEquals, &etcdVersion{
 		installed: "3.3.2",
