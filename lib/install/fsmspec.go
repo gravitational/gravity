@@ -29,9 +29,13 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
+type FSMSpecFunc func(FSMConfig) fsm.FSMSpecFunc
+
+var FSMSpec FSMSpecFunc = DefaultFSMSpec
+
 // FSMSpec returns a function that returns an appropriate phase executor
 // based on the provided params
-func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
+func DefaultFSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 	return func(p fsm.ExecutorParams, remote fsm.Remote) (fsm.PhaseExecutor, error) {
 		switch {
 		case strings.HasPrefix(p.Phase.ID, phases.InitPhase):

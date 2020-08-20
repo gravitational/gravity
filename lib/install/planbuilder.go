@@ -684,7 +684,7 @@ func (c *Config) GetPlanBuilder(operator ops.Operator, cluster ops.Site, op ops.
 	}
 	// pick one of master nodes for executing phases that need to
 	// be executed from any master node
-	master := masters[0]
+	master := masters[len(masters)-1]
 	// prepare information about application packages that will be required
 	// during plan generation
 	teleportPackage, err := cluster.App.Manifest.Dependencies.ByName(
