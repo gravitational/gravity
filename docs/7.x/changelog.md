@@ -12,7 +12,7 @@ Find the latest Open Source Gravity releases at [Gravity Downloads](https://grav
 | Version             | Latest Patch | LTS | Release Date         | End of Support *        | Kubernetes Version   | Teleport Version |
 | ------------------- | ------------ | --- | -------------------- | ----------------------- | -------------------- | ---------------- |
 | [7.0](#70-releases) | 7.0.14       | Yes | April 3, 2020        | July 9, 2022            | 1.17.9               | 3.2.13           |
-| [6.1](#61-releases) | 6.1.35       | Yes | August 2, 2019       | November 10, 2021       | 1.15.12              | 3.2.12           |
+| [6.1](#61-releases) | 6.1.36       | Yes | August 2, 2019       | November 10, 2021       | 1.15.12              | 3.2.12           |
 | [5.5](#55-releases) | 5.5.51       | Yes | March 8, 2019        | March 8, 2021           | 1.13.11              | 3.0.6-gravity    |
 
 Gravity offers one Long Term Support (LTS) version for every 2nd Kubernetes
@@ -551,6 +551,15 @@ to learn how to gain insight into how the cluster status changes over time.
 * Upgrade Kubernetes to `v1.16.0`.
 
 ## 6.1 Releases
+
+### 6.1.36 LTS (August 20th, 2020)
+
+#### Bugfixes
+
+* Fix an issue with upgrading applications that use custom planet containers that contained corrupted version metadata ([#2032](https://github.com/gravitational/gravity/pull/2032)).
+* Fix an issue with upgrades if etcd is deployed within kubernetes and scheduled to a master ([#2024](https://github.com/gravitational/gravity/pull/2024), [planet#721](https://github.com/gravitational/planet/pull/721)).
+* Fix an issue with corrupted version metadata within custom planet containers ([#2024](https://github.com/gravitational/gravity/pull/2024), [planet#717](https://github.com/gravitational/planet/pull/717)).
+
 
 ### 6.1.35 LTS (August 17th, 2020)
 
