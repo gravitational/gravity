@@ -68,6 +68,7 @@ function build_resize_suite {
   local suite=$(cat <<EOF
  resize={"to":3,"flavor":"one","nodes":1,"role":"node","state_dir":"/var/lib/telekube","os":"ubuntu:18","storage_driver":"overlay2"}
  resize={"to":6,"flavor":"three","nodes":3,"role":"node","state_dir":"/var/lib/telekube","os":"ubuntu:18","storage_driver":"overlay2"}
+ shrink={"nodes":3,"flavor":"three","role":"node","os":"redhat:7"}
 EOF
 )
   echo -n $suite
