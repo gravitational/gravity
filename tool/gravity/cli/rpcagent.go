@@ -471,6 +471,19 @@ func collectAgentStatus(env *localenv.LocalEnvironment) (statusList rpc.StatusLi
 	return statusList, nil
 }
 
+// verifyAgentsActive verifies that all agents are active.
+func verifyAgentsActive(env *localenv.LocalEnvironment) error {
+	statusList, err := collectAgentStatus(env)
+	if err != nil {
+		return trace.Wrap(err, "failed to collect agent status")
+	}
+	if !statusList.AgentsActive() {
+		env.Println(statusList.String())
+		return trace.BadParameter("some agents are offline; ensure all agents are deployed with `./gravity agent deploy`")
+	}
+	return nil
+}
+
 func executeAutomaticUpgrade(ctx context.Context, localEnv, upgradeEnv *localenv.LocalEnvironment, args []string) error {
 	return trace.Wrap(clusterupdate.AutomaticUpgrade(ctx, localEnv, upgradeEnv))
 }

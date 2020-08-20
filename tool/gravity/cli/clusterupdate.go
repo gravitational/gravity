@@ -215,16 +215,6 @@ func executeUpdatePhase(env *localenv.LocalEnvironment, environ LocalEnvironment
 		return trace.NotFound("no active update operation found")
 	}
 
-	statusList, err := collectAgentStatus(env)
-	if err != nil {
-		return trace.Wrap(err, "failed to collect agent status")
-	}
-
-	if !statusList.AgentsActive() {
-		env.Println(statusList.String())
-		return trace.BadParameter("some agents are offline; ensure all agents are deployed with `gravity agent deploy`")
-	}
-
 	return executeUpdatePhaseForOperation(env, environ, params, operation.SiteOperation)
 }
 
@@ -245,6 +235,13 @@ func executeUpdatePhaseForOperation(env *localenv.LocalEnvironment, environ Loca
 // executeOrForkPhase either directly executes the specified operation phase,
 // or launches a one-shot systemd service that executes it in the background.
 func executeOrForkPhase(env *localenv.LocalEnvironment, updater updater, params PhaseParams, operation ops.SiteOperation) error {
+	// "/" PhaseID indicates a resume operation. Verify all agents are active before resuming.
+	if params.PhaseID == "/" {
+		if err := verifyAgentsActive(env); err != nil {
+			return trace.Wrap(err)
+		}
+	}
+
 	// If given the --block flag, we're running as a systemd unit (or a user
 	// requested the command to execute in foreground), so proceed to perform
 	// the command (resume or single phase) directly.
