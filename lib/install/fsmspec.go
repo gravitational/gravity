@@ -29,12 +29,17 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
+// FSMSpecFunc defines a function that returns install FSM spec based on the config.
 type FSMSpecFunc func(FSMConfig) fsm.FSMSpecFunc
 
+// FSMSpec is the install FSM spec.
+//
+// It may be overriden by external implementations to support additional
+// install operation phases (e.g. by the enterprise version).
 var FSMSpec FSMSpecFunc = DefaultFSMSpec
 
-// FSMSpec returns a function that returns an appropriate phase executor
-// based on the provided params
+// DefaultFSMSpec returns a function that returns an the default install FSM
+// spec for the provided install FSM config.
 func DefaultFSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 	return func(p fsm.ExecutorParams, remote fsm.Remote) (fsm.PhaseExecutor, error) {
 		switch {
