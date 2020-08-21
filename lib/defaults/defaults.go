@@ -215,9 +215,6 @@ const (
 	// AgentConnectTimeout specifies the timeout for the initial connect
 	AgentConnectTimeout = 1 * time.Minute
 
-	// AgentStatusTimeout specifies the timeout for agent status query
-	AgentStatusTimeout = 5 * time.Second
-
 	// PeerConnectTimeout is the timeout of an RPC agent connecting to its peer
 	PeerConnectTimeout = 10 * time.Second
 

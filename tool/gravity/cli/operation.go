@@ -54,6 +54,11 @@ type PhaseParams struct {
 	Block bool
 }
 
+// IsResume returns true if the phase ID indicates a resume operation.
+func (p PhaseParams) IsResume() bool {
+	return p.PhaseID == "/"
+}
+
 func (p PhaseParams) toFSM() fsm.Params {
 	return fsm.Params{
 		PhaseID: p.PhaseID,
@@ -113,6 +118,11 @@ func rollbackPlan(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentF
 	default:
 		return trace.BadParameter(unsupportedRollbackWarning, op.TypeString())
 	}
+
+	if err := verifyAgentsActive(localEnv); err != nil {
+		return trace.Wrap(err)
+	}
+
 	if !confirmed && !params.DryRun {
 		localEnv.Printf(planRollbackWarning, operationList([]clusterOperation{*operation}).formatTable())
 		if err := enforceConfirmation("Proceed?"); err != nil {
