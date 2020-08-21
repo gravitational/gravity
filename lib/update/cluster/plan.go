@@ -351,13 +351,28 @@ func newOperationPlan(p planConfig) (*storage.OperationPlan, error) {
 		return nil, trace.Wrap(err, "error fetching runtime package for %v", p.installedApp.Package)
 	}
 
+	// https://github.com/gravitational/gravity/issues/2031
+	// Also attempt to load the default runtime package, incase the planet metadata is corrupt
+	// TODO(knisbet): no longer required after we no longer support upgrades from 7.0
+	altInstalledRuntimePackage, err := p.installedRuntime.Manifest.DefaultRuntimePackage()
+	if err != nil && !trace.IsNotFound(err) {
+		log.Warn("Failed to locate default runtime package: ", err)
+	}
+	if err != nil {
+		altInstalledRuntimePackage, err = p.installedRuntime.Manifest.Dependencies.ByName(loc.LegacyPlanetMaster.Name)
+		if err != nil {
+			log.Warn("Failed to locate legacy runtime package: ", err)
+			altInstalledRuntimePackage = &loc.Locator{}
+		}
+	}
+
 	updateRuntimePackage, err := schema.GetDefaultRuntimePackage(p.updateApp.Manifest)
 	if err != nil {
 		return nil, trace.Wrap(err, "error fetching runtime package for %v", p.updateApp.Package)
 	}
 
 	// check if etcd upgrade is required or not
-	etcd, err := shouldUpdateEtcd(*installedRuntimePackage, *updateRuntimePackage, p.packageService)
+	etcd, err := shouldUpdateEtcd(*installedRuntimePackage, *updateRuntimePackage, *altInstalledRuntimePackage, p.packageService)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

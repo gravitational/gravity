@@ -637,16 +637,22 @@ func supportsTaints(gravityPackage loc.Locator) (supports bool, err error) {
 	return defaults.BaseTaintsVersion.Compare(*ver) <= 0, nil
 }
 
-func shouldUpdateEtcd(installedRuntimePackage, updateRuntimePackage loc.Locator, packages pack.PackageService) (etcd *etcdVersion, err error) {
+func shouldUpdateEtcd(installedRuntimePackage, updateRuntimePackage, altInstalledRuntimePackage loc.Locator, packages pack.PackageService) (etcd *etcdVersion, err error) {
 	// TODO: should somehow maintain etcd version invariant across runtime packages
 	var updateEtcd bool
 	installedVersion, err := getEtcdVersion("version-etcd", installedRuntimePackage, packages)
 	if err != nil {
-		if !trace.IsNotFound(err) {
+		// Workaround for https://github.com/gravitational/gravity/issues/2031
+		// If we loaded a corrupted version of the planet version information, fallback to the default runtime package
+		// on versions where this was included.
+		// TODO(knisbet): Obsolete when no longer supporting upgrades from 7.0
+		if strings.Contains(err.Error(), "REPLACE_ETCD_LATEST_VERSION") && !altInstalledRuntimePackage.IsEmpty() {
+			installedVersion, err = getEtcdVersion("version-etcd", altInstalledRuntimePackage, packages)
+		}
+
+		if err != nil && !trace.IsNotFound(err) {
 			return nil, trace.Wrap(err)
 		}
-		// if the currently installed version doesn't have etcd version information, it needs to be upgraded
-		updateEtcd = true
 	}
 	updateVersion, err := getEtcdVersion("version-etcd", updateRuntimePackage, packages)
 	if err != nil {
