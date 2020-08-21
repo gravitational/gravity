@@ -39,6 +39,8 @@ type Interface interface {
 	teleservices.Resource
 	// GetKubeletConfig returns the configuration of the kubelet
 	GetKubeletConfig() *Kubelet
+	// GetGravityControllerServiceConfig returns the gravityControllerService configuration
+	GetGravityControllerServiceConfig() *GravityControllerService
 	// GetGlobalConfig returns the global configuration
 	GetGlobalConfig() Global
 	// SetCloudProvider sets the cloud provider for this configuration
@@ -106,6 +108,11 @@ func (r *Resource) GetKubeletConfig() *Kubelet {
 	return r.Spec.ComponentConfigs.Kubelet
 }
 
+// GetGravityControllerServiceConfig returns the gravityControllerService configuration
+func (r *Resource) GetGravityControllerServiceConfig() *GravityControllerService {
+	return r.Spec.ComponentConfigs.GravityControllerService
+}
+
 // GetGlobalConfig returns the global configuration
 func (r *Resource) GetGlobalConfig() Global {
 	return r.Spec.Global
@@ -120,6 +127,7 @@ func (r *Resource) SetCloudProvider(provider string) {
 // Only non-empty fields in other different from those in r will be set in r.
 // Returns a copy of r with necessary modifications
 func (r Resource) Merge(other Resource) Resource {
+	// Update kubelet configurations
 	if updateKubelet := other.Spec.ComponentConfigs.Kubelet; updateKubelet != nil {
 		if r.Spec.ComponentConfigs.Kubelet == nil {
 			r.Spec.ComponentConfigs.Kubelet = &Kubelet{}
@@ -133,6 +141,23 @@ func (r Resource) Merge(other Resource) Resource {
 			r.Spec.ComponentConfigs.Kubelet.Config = other.Spec.ComponentConfigs.Kubelet.Config
 		}
 	}
+
+	// Update gravityControllerService configurations
+	if updateGravityService := other.Spec.GravityControllerService; updateGravityService != nil {
+		if r.Spec.GravityControllerService == nil {
+			r.Spec.GravityControllerService = &GravityControllerService{}
+		}
+		if updateGravityService.Type != "" {
+			r.Spec.GravityControllerService.Type = updateGravityService.Type
+		}
+		if len(updateGravityService.Annotations) != 0 {
+			r.Spec.GravityControllerService.Annotations = make(map[string]string, len(updateGravityService.Annotations))
+			for k, v := range updateGravityService.Annotations {
+				r.Spec.GravityControllerService.Annotations[k] = v
+			}
+		}
+	}
+
 	// Changing cloud provider is not supported
 	if other.Spec.Global.PodCIDR != "" {
 		r.Spec.Global.PodCIDR = other.Spec.Global.PodCIDR
@@ -227,6 +252,8 @@ type Spec struct {
 type ComponentConfigs struct {
 	// Kubelet defines kubelet configuration
 	Kubelet *Kubelet `json:"kubelet,omitempty"`
+	// GravityControllerService defines gravity-site service configuration
+	GravityControllerService *GravityControllerService `json:"gravityControllerService,omitempty"`
 }
 
 // IsEmpty determines whether this kubelet configuration is empty.
@@ -245,6 +272,22 @@ type Kubelet struct {
 	// Config defines the kubelet configuration as a JSON-formatted
 	// payload
 	Config json.RawMessage `json:"config,omitempty"`
+}
+
+// GravityControllerService defines gravity-site service configuration
+type GravityControllerService struct {
+	// Type specifies the gravity-site service type.
+	Type string `json:"type,omitempty"`
+	// Annotations defines the set of key=value pairs to configure the service.
+	Annotations map[string]string `json:"annotations,omitempty"`
+}
+
+// IsEmpty determines whether this global configuration is empty.
+func (r *GravityControllerService) IsEmpty() bool {
+	if r == nil {
+		return true
+	}
+	return r.Type == "" && len(r.Annotations) == 0
 }
 
 // ControlPlaneComponent defines configuration of a control plane component
@@ -288,6 +331,11 @@ type Global struct {
 }
 
 // specSchemaTemplate is JSON schema for the cluster configuration resource
+//
+// Formatted string arguments:
+// [1] metadata.name
+// [2] metadata.namespace
+// [3] gravityControllerService.type
 const specSchemaTemplate = `{
   "type": "object",
   "additionalProperties": false,
@@ -430,6 +478,22 @@ const specSchemaTemplate = `{
             },
             "extraArgs": {"type": "array", "items": {"type": "string"}}
           }
+        },
+        "gravityControllerService": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type"],
+          "properties": {
+            "type": {
+              "type": "string",
+              "default": "%v",
+              "enum": ["NodePort", "LoadBalancer"]
+            },
+            "annotations": {
+              "type": "object",
+              "properites": {"type": "string"}
+            }
+          }
         }
       }
     }
@@ -438,8 +502,8 @@ const specSchemaTemplate = `{
 
 // getSpecSchema returns the formatted JSON schema for the cluster configuration resource
 func getSpecSchema() string {
-	return fmt.Sprintf(specSchemaTemplate,
-		constants.ClusterConfigurationMap, defaults.KubeSystemNamespace)
+	return fmt.Sprintf(specSchemaTemplate, constants.ClusterConfigurationMap,
+		defaults.KubeSystemNamespace, LoadBalancer)
 }
 
 func newEmpty() *Resource {
@@ -452,3 +516,23 @@ func newEmpty() *Resource {
 		},
 	}
 }
+
+const (
+	// LoadBalancer defines the LoadBalancer service type.
+	LoadBalancer = "LoadBalancer"
+
+	// NodePort defines the NodePort service type.
+	NodePort = "NodePort"
+
+	// AWSIdleTimeoutKey defines the aws load balancer idle timeout property name
+	AWSIdleTimeoutKey = "service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout"
+
+	// AWSInternalKey defines the aws load balancer internal property name
+	AWSInternalKey = "service.beta.kubernetes.op/aws-load-balancer-internal"
+
+	// AWSLoadBalancerIdleTimeout defines the default aws load balancer idle timeout in seconds
+	AWSLoadBalancerIdleTimeout = "3600"
+
+	// AWSLoadBalancerInternal defines the default aws load balancer internal
+	AWSLoadBalancerInternal = "0.0.0.0/0"
+)

@@ -1290,6 +1290,9 @@ func (p *Process) initService(ctx context.Context) (err error) {
 		if err := p.startApplicationsSynchronizer(p.context); err != nil {
 			return trace.Wrap(err)
 		}
+		if err := p.startServiceConfigWatch(p.context, client); err != nil {
+			return trace.Wrap(err)
+		}
 
 		if err := p.startAutoscale(p.context); err != nil {
 			return trace.Wrap(err)
