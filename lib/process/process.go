@@ -1487,6 +1487,7 @@ func (p *Process) initService(ctx context.Context) (err error) {
 			return trace.Wrap(err)
 		}
 
+		p.startService(p.runServiceConfigWatch(client))
 		p.startService(p.runCertificateWatch(client))
 		p.startService(p.runAuthGatewayWatch(client))
 		p.startService(p.runReloadEventsWatch(client))

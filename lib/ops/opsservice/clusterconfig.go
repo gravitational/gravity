@@ -77,17 +77,6 @@ func (o *Operator) GetClusterConfiguration(key ops.SiteKey) (config clusterconfi
 	return cluster.getClusterConfiguration()
 }
 
-// UpdateGravityServiceConfiguration updates the gravity-site service
-// configuration if the gravityControllerService configuration has been modified
-// in the cluster configuration.
-func (o *Operator) UpdateGravityServiceConfiguration(key ops.SiteKey) error {
-	cluster, err := o.openSite(key)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	return cluster.updateServiceConfiguration()
-}
-
 // UpdateClusterConfiguration updates the cluster configuration to the value given
 // in the specified request
 func (o *Operator) UpdateClusterConfiguration(req ops.UpdateClusterConfigRequest) error {
@@ -95,13 +84,7 @@ func (o *Operator) UpdateClusterConfiguration(req ops.UpdateClusterConfigRequest
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	if err := cluster.updateClusterConfiguration(req); err != nil {
-		return trace.Wrap(err)
-	}
-	if err := cluster.updateServiceConfiguration(); err != nil {
-		return trace.Wrap(err)
-	}
-	return nil
+	return trace.Wrap(cluster.updateClusterConfiguration(req))
 }
 
 // NewConfigurationConfigMap creates the backing ConfigMap to host cluster configuration

@@ -44,7 +44,6 @@ import (
 	"github.com/gravitational/trace"
 	"github.com/mailgun/timetools"
 	log "github.com/sirupsen/logrus"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -639,69 +638,6 @@ func (s *site) updateClusterConfiguration(req ops.UpdateClusterConfigRequest) er
 	})
 
 	return trace.Wrap(err)
-}
-
-// updateServiceConfiguration updates the gravity-site service configuration if
-// the gravityControllerService configuration has been modified.
-func (s *site) updateServiceConfiguration() error {
-	resource, err := s.getClusterConfiguration()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	controllerConfig := resource.GetGravityControllerServiceConfig()
-	if controllerConfig.IsEmpty() {
-		return nil
-	}
-
-	client, err := s.service.GetKubeClient()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	services := client.CoreV1().Services(defaults.KubeSystemNamespace)
-
-	svc, err := services.Get(constants.GravityServiceName, metav1.GetOptions{})
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	// shouldUpdate indicates that a change has been made to the service
-	// configuration and should be updated.
-	var shouldUpdate bool
-
-	if svc.Spec.Type != v1.ServiceType(controllerConfig.Type) {
-		svc.Spec.Type = v1.ServiceType(controllerConfig.Type)
-		shouldUpdate = true
-	}
-
-	for key, updatedVal := range controllerConfig.Annotations {
-		existingVal, exists := svc.Annotations[key]
-		if !exists || existingVal != updatedVal {
-			svc.Annotations = controllerConfig.Annotations
-			shouldUpdate = true
-			break
-		}
-	}
-
-	if !shouldUpdate {
-		return nil
-	}
-
-	// Set default load balancer idle timeout value if unspecified
-	if _, exists := svc.Annotations[clusterconfig.AWSIdleTimeoutKey]; !exists {
-		svc.Annotations[clusterconfig.AWSIdleTimeoutKey] = clusterconfig.AWSLoadBalancerIdleTimeout
-	}
-
-	// Set default load balancer internal value if unspecified
-	if _, exists := svc.Annotations[clusterconfig.AWSInternalKey]; !exists {
-		svc.Annotations[clusterconfig.AWSInternalKey] = clusterconfig.AWSLoadBalancerInternal
-	}
-
-	if _, err := services.Update(svc); err != nil {
-		return trace.Wrap(err)
-	}
-
-	return nil
 }
 
 func convertSite(in storage.Site, apps appservice.Applications) (*ops.Site, error) {
