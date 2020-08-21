@@ -163,6 +163,7 @@ func (s *PlanSuite) TestPlanWithRuntimeAppsUpdate(c *check.C) {
 		GravityPackage:     loc.MustParseLocator("gravitational.io/gravity:3.0.0"),
 		OfflineCoordinator: &leadMaster.Server,
 		Phases: []storage.OperationPhase{
+			params.flannel(rearrangedServers),
 			params.init(rearrangedServers),
 			params.checks("/init"),
 			params.preUpdate("/init", "/checks"),
@@ -382,6 +383,7 @@ func (s *PlanSuite) TestPlanWithIntermediateRuntimeUpdate(c *check.C) {
 		GravityPackage:     loc.MustParseLocator("gravitational.io/gravity:3.0.0"),
 		OfflineCoordinator: &leadMaster.Server,
 		Phases: []storage.OperationPhase{
+			params.flannel(rearrangedServers),
 			params.init(rearrangedIntermediateServers),
 			params.checks("/init"),
 			params.preUpdate("/init", "/checks"),
@@ -570,6 +572,39 @@ func parentize(parentID string, phases []storage.OperationPhase) {
 		if len(phase.Phases) != 0 {
 			parentize(parentID, phase.Phases)
 		}
+	}
+}
+
+func (r *params) flannel(servers []storage.UpdateServer) storage.OperationPhase {
+	return storage.OperationPhase{
+		ID:          "/flannel",
+		Description: "Restart flanneld",
+		Phases: []storage.OperationPhase{
+			{
+				ID:          "/flannel/node-1",
+				Executor:    flannelRestart,
+				Description: `Restart flanneld on node "node-1"`,
+				Data: &storage.OperationPhaseData{
+					Server: &r.servers[0],
+				},
+			},
+			{
+				ID:          "/flannel/node-2",
+				Executor:    flannelRestart,
+				Description: `Restart flanneld on node "node-2"`,
+				Data: &storage.OperationPhaseData{
+					Server: &r.servers[1],
+				},
+			},
+			{
+				ID:          "/flannel/node-3",
+				Executor:    flannelRestart,
+				Description: `Restart flanneld on node "node-3"`,
+				Data: &storage.OperationPhaseData{
+					Server: &r.servers[2],
+				},
+			},
+		},
 	}
 }
 

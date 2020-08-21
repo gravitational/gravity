@@ -262,4 +262,7 @@ var (
 	// Github issue: https://github.com/gravitational/gravity/issues/1445.
 	// KB: https://community.gravitational.com/t/recover-teleport-nodes-failing-to-join-due-to-bad-token/649.
 	TeleportBrokenJoinTokenVersion = semver.New("5.5.40")
+	// NethealthEnabledVersion is version of the first release with overlay
+	// network checker enabled in the cluster.
+	NethealthEnabledVersion = semver.New("5.5.46")
 )
