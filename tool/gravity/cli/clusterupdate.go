@@ -198,8 +198,7 @@ const gravityResumeServiceName = "gravity-resume.service"
 // executeOrForkPhase either directly executes the specified operation phase,
 // or launches a one-shot systemd service that executes it in the background.
 func executeOrForkPhase(env *localenv.LocalEnvironment, updater updater, params PhaseParams, operation ops.SiteOperation) error {
-	// "/" PhaseID indicates a resume operation. Verify all agents are active before resuming.
-	if params.PhaseID == "/" {
+	if params.IsResume() {
 		if err := verifyAgentsActive(env); err != nil {
 			return trace.Wrap(err)
 		}

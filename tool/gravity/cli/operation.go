@@ -54,6 +54,11 @@ type PhaseParams struct {
 	Block bool
 }
 
+// IsResume returns true if the phase ID indicates a resume operation.
+func (p PhaseParams) IsResume() bool {
+	return p.PhaseID == "/"
+}
+
 func (p PhaseParams) toFSM() fsm.Params {
 	return fsm.Params{
 		PhaseID: p.PhaseID,
