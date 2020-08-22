@@ -17,6 +17,8 @@ limitations under the License.
 package storage
 
 import (
+	"fmt"
+
 	"github.com/gravitational/gravity/lib/compare"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
@@ -29,6 +31,57 @@ import (
 type EnvS struct{}
 
 var _ = Suite(&EnvS{})
+
+func (*EnvS) TestCheckAndSetDefaults(c *C) {
+	testCases := []struct {
+		vars    string
+		error   bool
+		comment string
+	}{
+		{
+			vars:    `{"http_proxy": "proxy.example.com"}`,
+			error:   true,
+			comment: "http proxy missing scheme",
+		},
+		{
+			vars:    `{"http_proxy": "http://proxy.example.com", "https_proxy": "proxy2.example.com"}`,
+			error:   true,
+			comment: "https proxy missing scheme",
+		},
+		{
+			vars:    `{"https_proxy": "http://proxy2.example.com"}`,
+			error:   true,
+			comment: "https proxy has incorrect scheme",
+		},
+		{
+			vars:    `{"http_proxy": "http://proxy.example.com", "https_proxy": "https://proxy2.example.com"}`,
+			error:   false,
+			comment: "http and https proxies are ok",
+		},
+		{
+			vars:    `{"http_proxy": "", "https_proxy": ""}`,
+			error:   false,
+			comment: "empty http and https proxies are ok",
+		},
+		{
+			vars:    `{}`,
+			error:   false,
+			comment: "empty resource is ok",
+		},
+	}
+	for _, test := range testCases {
+		data := fmt.Sprintf(`{"kind": "runtimeenvironment", "metadata": {"name": "foo"}, "version": "v1", "spec": {"data": %v}}`, test.vars)
+		env, err := UnmarshalEnvironmentVariables([]byte(data))
+		c.Assert(err, IsNil)
+
+		err = env.CheckAndSetDefaults()
+		if test.error {
+			c.Assert(err, NotNil, Commentf(test.comment))
+		} else {
+			c.Assert(err, IsNil, Commentf(test.comment))
+		}
+	}
+}
 
 func (*EnvS) TestParsesEnvironment(c *C) {
 	testCases := []struct {

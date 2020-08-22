@@ -19,6 +19,8 @@ package storage
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/gravitational/gravity/lib/constants"
@@ -107,7 +109,58 @@ func (r *EnvironmentV1) GetKeyValues() map[string]string {
 
 // CheckAndSetDefaults validates this resource and sets defaults
 func (r *EnvironmentV1) CheckAndSetDefaults() error {
+	var errors []error
+	if err := r.checkHTTPProxy(); err != nil {
+		errors = append(errors, err)
+	}
+	if err := r.checkHTTPSProxy(); err != nil {
+		errors = append(errors, err)
+	}
+	return trace.NewAggregate(errors...)
+}
+
+// checkHTTPProxy verifies HTTP_PROXY (if present) is valid a URL and has http:// scheme.
+func (r *EnvironmentV1) checkHTTPProxy() error {
+	httpProxy := r.getVariable(constants.HTTPProxyEnvVar)
+	if httpProxy == "" {
+		return nil
+	}
+	parsed, err := url.Parse(httpProxy)
+	if err != nil {
+		return trace.Wrap(err, "HTTP_PROXY must be a valid URL: %q", httpProxy)
+	}
+	if parsed.Scheme != "http" {
+		return trace.BadParameter("HTTP_PROXY URL must include http:// scheme: %q", httpProxy)
+	}
 	return nil
+}
+
+// checkHTTPSProxy verifies HTTPS_PROXY (if present) is valid a URL and has https:// scheme.
+func (r *EnvironmentV1) checkHTTPSProxy() error {
+	httpsProxy := r.getVariable(constants.HTTPSProxyEnvVar)
+	if httpsProxy == "" {
+		return nil
+	}
+	parsed, err := url.Parse(httpsProxy)
+	if err != nil {
+		return trace.Wrap(err, "HTTPS_PROXY must be a valid URL: %q", httpsProxy)
+	}
+	if parsed.Scheme != "https" {
+		return trace.BadParameter("HTTPS_PROXY URL must include https:// scheme: %q", httpsProxy)
+	}
+	return nil
+}
+
+// getVariable returns value of the specified environment variable or an empty string.
+//
+// The variable name is treated as case-insensitive.
+func (r *EnvironmentV1) getVariable(key string) string {
+	for k, v := range r.GetKeyValues() {
+		if strings.ToLower(k) == strings.ToLower(key) {
+			return v
+		}
+	}
+	return ""
 }
 
 // UnmarshalEnvironmentVariables unmarshals the resource from YAML/JSON given with data
