@@ -744,6 +744,8 @@ const (
 
 	// GravitySiteNodePort is a default site NodePort load balancer port
 	GravitySiteNodePort = 32009
+	// GravitySiteAuthNodePort is the node port where gravity-site exposes teleport auth service
+	GravitySiteAuthNodePort = 32025
 
 	// OIDCConnectorID is a default OIDC connector to use
 	OIDCConnectorID = "google"
