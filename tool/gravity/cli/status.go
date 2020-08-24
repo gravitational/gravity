@@ -30,6 +30,7 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/ops/monitoring"
 	"github.com/gravitational/gravity/lib/rpc/proto"
 	"github.com/gravitational/gravity/lib/schema"
 	statusapi "github.com/gravitational/gravity/lib/status"
@@ -286,6 +287,11 @@ func printStatusText(cluster clusterStatus) {
 		printAgentStatus(*cluster.Agent, w)
 	}
 
+	if len(cluster.KapacitorAlerts) != 0 {
+		fmt.Fprintf(w, "Cluster alerts:\n")
+		printClusterAlerts(cluster.KapacitorAlerts, w)
+	}
+
 	w.Flush()
 
 	if len(cluster.FailedLocalProbes) != 0 {
@@ -298,6 +304,12 @@ func formatVersion(version *proto.Version) string {
 		return version.Version
 	}
 	return "n/a"
+}
+
+func printClusterAlerts(alerts []monitoring.StateResponse, w io.Writer) {
+	for _, alert := range alerts {
+		fmt.Fprintf(w, "\t* %s\n", alert.Format())
+	}
 }
 
 func printClusterStatus(cluster statusapi.Cluster, w io.Writer) {

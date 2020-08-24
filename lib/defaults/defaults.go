@@ -556,6 +556,9 @@ const (
 	// InfluxDBSecretName is the name of secret containing InfluxDB administrator credentials
 	InfluxDBSecretName = "influxdb"
 
+	// KapacitorService is the Kapacitor API service address.
+	KapacitorServiceAddr = "http://kapacitor.monitoring.svc.cluster.local:9092"
+
 	// WriteFactor is a default amount of acknowledged writes for object storage
 	// to be considered successfull
 	WriteFactor = 1

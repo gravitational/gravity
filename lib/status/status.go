@@ -30,6 +30,7 @@ import (
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/ops"
+	opsmonitoring "github.com/gravitational/gravity/lib/ops/monitoring"
 	"github.com/gravitational/gravity/lib/rpc/proto"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
@@ -116,6 +117,11 @@ func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, o
 		log.WithError(err).WithField("operation-id", operationID).Warn("Failed to query operation.")
 	}
 
+	status.KapacitorAlerts, err = fetchKapacitorAlerts(cluster)
+	if err != nil {
+		log.WithError(err).Warn("Failed to query Kapacitor alerts.")
+	}
+
 	status.State = cluster.State
 	if status.IsDegraded() {
 		status.State = ops.SiteStateDegraded
@@ -164,6 +170,8 @@ type Status struct {
 	*Cluster `json:",inline,omitempty"`
 	// Agent describes the status of the system and individual nodes
 	*Agent `json:",inline,omitempty"`
+	// KapacitorAlerts is a list of active alerts from Kapacitor.
+	KapacitorAlerts []opsmonitoring.StateResponse `json:"kapacitor_alerts,omitempty"`
 }
 
 // Cluster encapsulates collected cluster status information
@@ -419,6 +427,17 @@ func fetchOperationByID(clusterKey ops.SiteKey, operationID string, operator ops
 	}
 	status.Operation = fromOperationAndProgress(*operation, *progress)
 	return nil
+}
+
+func fetchKapacitorAlerts(cluster ops.Site) ([]opsmonitoring.StateResponse, error) {
+	// Very old clusters (5.0) do not have a DNS config defined so just skip
+	// them, it is only relevant when upgrading from 5.0 to 5.5.
+	if cluster.DNSConfig.IsEmpty() {
+		return nil, nil
+	}
+	return opsmonitoring.GetAlerts(httplib.NewClient(
+		httplib.WithLocalResolver(cluster.DNSConfig.Addr()),
+		httplib.WithTimeout(5*time.Second)))
 }
 
 func updateClusterNodes(clusterKey ops.SiteKey, operator ops.Operator, status *Status) error {
