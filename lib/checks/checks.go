@@ -433,16 +433,7 @@ func (r *checker) CheckNodes(ctx context.Context, servers []Server) (failed []*a
 		return nil
 	}
 
-	err := checkSameOS(servers)
-	if err != nil {
-		log.WithError(err).Warn("Failed to validate same OS requirements.")
-		failed = append(failed, &agentpb.Probe{
-			Detail: err.Error(),
-			Error:  "failed to validate same OS requirement",
-		})
-	}
-
-	err = checkTime(time.Now().UTC(), servers)
+	err := checkTime(time.Now().UTC(), servers)
 	if err != nil {
 		log.WithError(err).Warn("Failed to validate time drift requirements.")
 		failed = append(failed, &agentpb.Probe{
@@ -808,30 +799,6 @@ func checkDockerDevice(server Server, docker schema.Docker) error {
 	}
 
 	log.Infof("Server %q passed docker device check.", server.ServerInfo.GetHostname())
-	return nil
-}
-
-// checkSameOS makes sure all servers have the same OS/version
-func checkSameOS(servers []Server) error {
-	osToNodes := make(map[string][]string)
-	for _, server := range servers {
-		os := systeminfo.OS(server.GetOS()).Name()
-		osToNodes[os] = append(osToNodes[os], fmt.Sprintf("%v (%v)",
-			server.ServerInfo.GetHostname(), server.AdvertiseAddr))
-	}
-
-	if len(osToNodes) > 1 {
-		var formatted []string
-		for os, nodes := range osToNodes {
-			formatted = append(formatted, fmt.Sprintf(
-				"%v: %v", os, strings.Join(nodes, ", ")))
-		}
-		return trace.BadParameter(
-			"servers have different OSes/versions:\n%v",
-			strings.Join(formatted, "\n"))
-	}
-
-	log.Infof("Servers passed check for the same OS: %v.", osToNodes)
 	return nil
 }
 
