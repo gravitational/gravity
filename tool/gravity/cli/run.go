@@ -846,6 +846,9 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 		return exportCertificateAuthority(localEnv,
 			*g.SystemExportCACmd.ClusterName,
 			*g.SystemExportCACmd.CAPath)
+	case g.SystemTeleportShowConfigCmd.FullCommand():
+		return showTeleportConfig(localEnv,
+			*g.SystemTeleportShowConfigCmd.Package)
 	case g.SystemReinstallCmd.FullCommand():
 		return systemReinstall(localEnv,
 			*g.SystemReinstallCmd.Package,
