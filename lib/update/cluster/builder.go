@@ -22,6 +22,7 @@ import (
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/ops/opsservice"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/update/cluster/internal/intermediate"
@@ -53,6 +54,24 @@ func (r phaseBuilder) checksPhase() *builder.Phase {
 			},
 		},
 	})
+}
+
+func (r phaseBuilder) flannelRestartPhase() *builder.Phase {
+	root := builder.NewPhase(storage.OperationPhase{
+		ID:          "flannel",
+		Description: "Restart flanneld",
+	})
+	for i, node := range r.planTemplate.Servers {
+		root.AddParallelRaw(storage.OperationPhase{
+			ID:          node.Hostname,
+			Description: fmt.Sprintf("Restart flanneld on node %q", node.Hostname),
+			Executor:    flannelRestart,
+			Data: &storage.OperationPhaseData{
+				Server: &r.planTemplate.Servers[i],
+			},
+		})
+	}
+	return root
 }
 
 func (r phaseBuilder) preUpdatePhase() *builder.Phase {
@@ -154,6 +173,13 @@ func (r phaseBuilder) newPlan() (*storage.OperationPlan, error) {
 			r.appPhase(),
 			r.cleanupPhase())
 		return r.newPlanFrom(&root), nil
+	}
+
+	// When upgrading from an older version that doesn't have overlay checker
+	// enabled, restart flanneld on all nodes prior to the upgrade as as
+	// precaution to any potential overlay network issues.
+	if r.installedRuntimeAppVersion.LessThan(*opsservice.NethealthEnabledVersion) {
+		root.AddParallel(r.flannelRestartPhase())
 	}
 
 	initPhase := r.initPhase()

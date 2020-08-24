@@ -90,6 +90,8 @@ const (
 	dockerMount = "mount"
 	// planetStart is the phase that starts Planet systemd unit.
 	planetStart = "planet_start"
+	// flannelRestart is the phase that restarts flanneld.
+	flannelRestart = "flannel_restart"
 )
 
 // fsmSpec returns the function that returns an appropriate phase executor
@@ -187,6 +189,8 @@ func fsmSpec(c Config) fsm.FSMSpecFunc {
 			return libphase.NewDockerMount(p, remote, logger)
 		case planetStart:
 			return libphase.NewPlanetStart(p, remote, logger)
+		case flannelRestart:
+			return libphase.NewFlannelRestartPhase(p, logger)
 		default:
 			return nil, trace.BadParameter(
 				"phase %q requires executor %q (potential mismatch between upgrade versions)",
