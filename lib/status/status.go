@@ -436,7 +436,8 @@ func fetchKapacitorAlerts(cluster ops.Site) ([]opsmonitoring.StateResponse, erro
 		return nil, nil
 	}
 	return opsmonitoring.GetAlerts(httplib.NewClient(
-		httplib.WithLocalResolver(cluster.DNSConfig.Addr())))
+		httplib.WithLocalResolver(cluster.DNSConfig.Addr()),
+		httplib.WithTimeout(5*time.Second)))
 }
 
 func updateClusterNodes(clusterKey ops.SiteKey, operator ops.Operator, status *Status) error {

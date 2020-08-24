@@ -308,7 +308,7 @@ func formatVersion(version *proto.Version) string {
 
 func printClusterAlerts(alerts []monitoring.StateResponse, w io.Writer) {
 	for _, alert := range alerts {
-		fmt.Fprintf(w, "\t* %s\n", alert)
+		fmt.Fprintf(w, "\t* %s\n", alert.Format())
 	}
 }
 

@@ -32,7 +32,7 @@ import (
 
 // GetAlerts returns all active Kapacitor alerts of the level warning or higher.
 //
-// The provided HTTP client should be able to resolve K8s service names.
+// The provided HTTP client must be able to resolve K8s service names.
 func GetAlerts(httpClient *http.Client) ([]StateResponse, error) {
 	kapacitor, err := NewKapacitor(httpClient)
 	if err != nil {
@@ -131,8 +131,8 @@ type StateResponse struct {
 	Level string `json:"level"`
 }
 
-// String format the event so it can be printed to the console.
-func (r StateResponse) String() string {
+// Format formats the event so it can be printed to the console.
+func (r StateResponse) Format() string {
 	switch r.Level {
 	case levelWarning:
 		return color.YellowString("[%v] %v", r.Level, r.Message)
