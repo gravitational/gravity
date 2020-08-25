@@ -92,10 +92,15 @@ func (r *serviceControl) Update(config *GravityControllerService) error {
 
 	// Initialize new controller service if not found.
 	if trace.IsNotFound(err) {
-		_, err = services.Create(ControllerService())
+		newService := toService(config)
+		if newService == nil {
+			newService = ControllerService()
+		}
+		_, err = services.Create(newService)
 		if err = rigging.ConvertError(err); err != nil {
 			return trace.Wrap(err)
 		}
+		return nil
 	}
 
 	updatedService := toService(config)

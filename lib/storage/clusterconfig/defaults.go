@@ -62,7 +62,8 @@ func ControllerService() *v1.Service {
 			APIVersion: constants.ServiceAPIVersion,
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: constants.GravityServiceName,
+			Name:      constants.GravityServiceName,
+			Namespace: constants.KubeSystemNamespace,
 			Labels: map[string]string{
 				defaults.ApplicationLabel: constants.GravityServiceName,
 			},
