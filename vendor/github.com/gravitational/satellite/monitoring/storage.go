@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2018-2020 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -41,6 +41,10 @@ type StorageConfig struct {
 	// HighWatermark is the disk occupancy percentage that will trigger a critical probe.
 	// Disk usage check will be skipped if HighWatermark is unspecified or 0.
 	HighWatermark uint
+	// UID is the expected user owner of the path.
+	UID *uint32
+	// GID is the expected group owner of the path.
+	GID *uint32
 }
 
 // CheckAndSetDefaults validates this configuration object.
@@ -103,3 +107,49 @@ func (d HighWatermarkCheckerData) SuccessMessage() string {
 
 // DiskSpaceCheckerID is the checker that checks disk space utilization
 const DiskSpaceCheckerID = "disk-space"
+
+// PathUIDCheckerData is attached to path UID check results.
+type PathUIDCheckerData struct {
+	// ExpectedUID is the expected path UID.
+	ExpectedUID uint32 `json:"expected_uid"`
+	// ActualUID is the actual path UID.
+	ActualUID uint32 `json:"actual_uid"`
+	// Path is the path being checked.
+	Path string
+}
+
+// SuccessMessage returns success UID check message.
+func (d PathUIDCheckerData) SuccessMessage() string {
+	return fmt.Sprintf("path %s owner UID is %v", d.Path, d.ActualUID)
+}
+
+// FailureMessage return failure UID check message.
+func (d PathUIDCheckerData) FailureMessage() string {
+	return fmt.Sprintf("path %s owner UID is %v but is expected to be %v", d.Path, d.ActualUID, d.ExpectedUID)
+}
+
+// PathGIDCheckerData is attached to path GID check results.
+type PathGIDCheckerData struct {
+	// ExpectedGID is the expected path GID.
+	ExpectedGID uint32 `json:"expected_gid"`
+	// ActualGID is the actual path GID.
+	ActualGID uint32 `json:"actual_gid"`
+	// Path is the path being checked.
+	Path string
+}
+
+// SuccessMessage returns success GID check message.
+func (d PathGIDCheckerData) SuccessMessage() string {
+	return fmt.Sprintf("path %s owner GID is %v", d.Path, d.ActualGID)
+}
+
+// FailureMessage return failure GID check message.
+func (d PathGIDCheckerData) FailureMessage() string {
+	return fmt.Sprintf("path %s owner GID is %v but is expected to be %v", d.Path, d.ActualGID, d.ExpectedGID)
+}
+
+// PathUIDCheckerID is the checker that verifies path owner UID.
+const PathUIDCheckerID = "path-uid"
+
+// PathGIDCheckerID is the checker that verifies path owner GID.
+const PathGIDCheckerID = "path-gid"
