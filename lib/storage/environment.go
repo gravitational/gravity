@@ -110,35 +110,24 @@ func (r *EnvironmentV1) GetKeyValues() map[string]string {
 // CheckAndSetDefaults validates this resource and sets defaults
 func (r *EnvironmentV1) CheckAndSetDefaults() error {
 	var errors []error
-	if err := r.checkHTTPProxy(); err != nil {
+	if err := r.checkProxy(constants.HTTPProxyEnvVar); err != nil {
 		errors = append(errors, err)
 	}
-	if err := r.checkHTTPSProxy(); err != nil {
+	if err := r.checkProxy(constants.HTTPSProxyEnvVar); err != nil {
 		errors = append(errors, err)
 	}
 	return trace.NewAggregate(errors...)
 }
 
-// checkHTTPProxy verifies HTTP_PROXY (if present) is a valid proxy URL.
-func (r *EnvironmentV1) checkHTTPProxy() error {
-	httpProxy := r.getVariable(constants.HTTPProxyEnvVar)
+// checkProxy verifies the specified environment variable (HTTP_PROXY or
+// HTTPS_PROXY) is a valid proxy URL.
+func (r *EnvironmentV1) checkProxy(env string) error {
+	httpProxy := r.getVariable(env)
 	if httpProxy == "" {
 		return nil
 	}
 	if _, err := utils.ParseProxy(httpProxy); err != nil {
-		return trace.Wrap(err, "failed to parse HTTP_PROXY")
-	}
-	return nil
-}
-
-// checkHTTPSProxy verifies HTTPS_PROXY (if present) is a valid proxy URL.
-func (r *EnvironmentV1) checkHTTPSProxy() error {
-	httpsProxy := r.getVariable(constants.HTTPSProxyEnvVar)
-	if httpsProxy == "" {
-		return nil
-	}
-	if _, err := utils.ParseProxy(httpsProxy); err != nil {
-		return trace.Wrap(err, "failed to parse HTTPS_PROXY")
+		return trace.Wrap(err, "failed to parse %v", env)
 	}
 	return nil
 }

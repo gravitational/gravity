@@ -497,7 +497,7 @@ func ParseProxy(proxy string) (*url.URL, error) {
 		return nil, trace.Wrap(err, "failed to parse proxy address %q", proxy)
 	}
 	if !StringInSlice([]string{"http", "https", "socks5"}, proxyURL.Scheme) {
-		return nil, trace.BadParameter("proxy address %q must include a valid scheme (http, https or socks5)")
+		return nil, trace.BadParameter("proxy address %q must include a valid scheme (http, https or socks5)", proxy)
 	}
 	return proxyURL, nil
 }
