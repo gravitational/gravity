@@ -41,7 +41,7 @@ func resourceGravityTLSKeyPair() *schema.Resource {
 
 func resourceGravityTLSKeyPairCreate(d *schema.ResourceData, m interface{}) error {
 	client := m.(*opsclient.Client)
-	clusterKey, err := client.LocalClusterKey()
+	clusterKey, err := client.LocalClusterKey(context.TODO())
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -66,7 +66,7 @@ func resourceGravityTLSKeyPairCreate(d *schema.ResourceData, m interface{}) erro
 
 func resourceGravityTLSKeyPairRead(d *schema.ResourceData, m interface{}) error {
 	client := m.(*opsclient.Client)
-	clusterKey, err := client.LocalClusterKey()
+	clusterKey, err := client.LocalClusterKey(context.TODO())
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -85,7 +85,7 @@ func resourceGravityTLSKeyPairRead(d *schema.ResourceData, m interface{}) error 
 
 func resourceGravityTLSKeyPairDelete(d *schema.ResourceData, m interface{}) error {
 	client := m.(*opsclient.Client)
-	clusterKey, err := client.LocalClusterKey()
+	clusterKey, err := client.LocalClusterKey(context.TODO())
 	if err != nil {
 		return trace.Wrap(err)
 	}

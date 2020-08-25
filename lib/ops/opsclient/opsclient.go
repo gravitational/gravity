@@ -31,9 +31,9 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/loc"
-	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
+	"github.com/gravitational/gravity/lib/rpc/proto"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 
@@ -329,8 +329,8 @@ func (c *Client) GetCurrentUser() (storage.User, error) {
 	return storage.UnmarshalUser(out.Bytes())
 }
 
-func (c *Client) GetLocalSite() (*ops.Site, error) {
-	out, err := c.Get(context.TODO(), c.Endpoint("localsite"), url.Values{})
+func (c *Client) GetLocalSite(ctx context.Context) (*ops.Site, error) {
+	out, err := c.Get(ctx, c.Endpoint("localsite"), url.Values{})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -1633,12 +1633,12 @@ func (c *Client) EmitAuditEvent(ctx context.Context, req ops.AuditEventRequest) 
 }
 
 // GetVersion returns the server version information.
-func (c *Client) GetVersion(ctx context.Context) (*modules.Version, error) {
+func (c *Client) GetVersion(ctx context.Context) (*proto.Version, error) {
 	out, err := c.Get(ctx, c.Endpoint("version"), url.Values{})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	var version modules.Version
+	var version proto.Version
 	if err := json.Unmarshal(out.Bytes(), &version); err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -1721,8 +1721,8 @@ func (c *Client) PostStream(endpoint string, reader io.Reader) (*roundtrip.Respo
 }
 
 // LocalClusterKey retrieves the SiteKey for the local cluster
-func (c *Client) LocalClusterKey() (ops.SiteKey, error) {
-	site, err := c.GetLocalSite()
+func (c *Client) LocalClusterKey(ctx context.Context) (ops.SiteKey, error) {
+	site, err := c.GetLocalSite(ctx)
 	if err != nil {
 		return ops.SiteKey{}, trace.Wrap(err)
 	}

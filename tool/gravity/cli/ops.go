@@ -20,20 +20,23 @@ import (
 	"context"
 	"fmt"
 	_ "net/http/pprof"
+	"runtime"
 
-	appservice "github.com/gravitational/gravity/lib/app/service"
+	libapp "github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/docker"
 	"github.com/gravitational/gravity/lib/install"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/state"
 	libstatus "github.com/gravitational/gravity/lib/status"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/gravity/tool/common"
 
+	"github.com/coreos/go-semver/semver"
 	"github.com/gravitational/trace"
 )
 
@@ -60,7 +63,7 @@ func uploadUpdate(ctx context.Context, tarballEnv *localenv.TarballEnvironment, 
 			"that the cluster DNS is working properly.")
 	}
 
-	cluster, err := clusterOperator.GetLocalSite()
+	cluster, err := clusterOperator.GetLocalSite(context.TODO())
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -87,58 +90,52 @@ func uploadUpdate(ctx context.Context, tarballEnv *localenv.TarballEnvironment, 
 		return trace.Wrap(err)
 	}
 
+	installedRuntime := cluster.App.Manifest.Base()
+	if installedRuntime == nil {
+		return trace.BadParameter("failed to determine version of base image")
+	}
+	installedRuntimeVersion, err := installedRuntime.SemVer()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	app, err := tarballEnv.Apps.GetApp(*appPackage)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	deps, err := getUploadDependencies(tarballEnv, *app, *installedRuntimeVersion)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
 	env.PrintStep("Importing application %v v%v", appPackage.Name, appPackage.Version)
-	_, err = appservice.PullApp(appservice.AppPullRequest{
-		SrcPack: tarballEnv.Packages,
-		SrcApp:  tarballEnv.Apps,
-		DstPack: clusterPackages,
-		DstApp:  clusterApps,
-		Package: *appPackage,
-	})
-	if err != nil {
-		if !trace.IsAlreadyExists(err) {
-			return trace.Wrap(err)
-		}
-		env.PrintStep("Application already exists in local cluster")
+	puller := libapp.Puller{
+		FieldLogger: log.WithField(trace.Component, "pull"),
+		SrcPack:     tarballEnv.Packages,
+		SrcApp:      tarballEnv.Apps,
+		DstPack:     clusterPackages,
+		DstApp:      clusterApps,
+		Upsert:      true,
+		Parallel:    runtime.NumCPU(),
 	}
-
-	var registries []string
-	err = utils.Retry(defaults.RetryInterval, defaults.RetryLessAttempts, func() error {
-		registries, err = getRegistries(ctx, env, cluster.ClusterState.Servers)
+	err = puller.Pull(ctx, *deps)
+	if err != nil {
 		return trace.Wrap(err)
-	})
+	}
+	err = puller.PullAppPackage(ctx, *appPackage)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	stateDir, err := state.GetStateDir()
+	deps.Apps = append(deps.Apps, *app)
+	syncer := libapp.Syncer{
+		PackService: clusterPackages,
+		AppService:  clusterApps,
+	}
+	err = syncDependenciesWithCluster(ctx, env, *cluster, *deps, syncer)
 	if err != nil {
 		return trace.Wrap(err)
-	}
-
-	for _, registry := range registries {
-		env.PrintStep("Synchronizing application with Docker registry %v",
-			registry)
-
-		imageService, err := docker.NewImageService(docker.RegistryConnectionRequest{
-			RegistryAddress: registry,
-			CertName:        defaults.DockerRegistry,
-			CACertPath:      state.Secret(stateDir, defaults.RootCertFilename),
-			ClientCertPath:  state.Secret(stateDir, "kubelet.cert"),
-			ClientKeyPath:   state.Secret(stateDir, "kubelet.key"),
-		})
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		err = appservice.SyncApp(ctx, appservice.SyncRequest{
-			PackService:  tarballEnv.Packages,
-			AppService:   tarballEnv.Apps,
-			ImageService: imageService,
-			Package:      *appPackage,
-		})
-		if err != nil {
-			return trace.Wrap(err)
-		}
 	}
 
 	// Uploading new blobs to the cluster is known to cause stress on disk
@@ -163,6 +160,86 @@ func uploadUpdate(ctx context.Context, tarballEnv *localenv.TarballEnvironment, 
 	return nil
 }
 
+func getUploadDependencies(env *localenv.TarballEnvironment, app libapp.Application, installedRuntimeVersion semver.Version) (*libapp.Dependencies, error) {
+	deps, err := libapp.GetDependencies(libapp.GetDependenciesRequest{
+		Pack: env.Packages,
+		Apps: env.Apps,
+		App:  app,
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	err = collectUpgradeDependencies(env, installedRuntimeVersion, deps)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return deps, nil
+}
+
+func collectUpgradeDependencies(env *localenv.TarballEnvironment, installedRuntimeVersion semver.Version, deps *libapp.Dependencies) error {
+	return pack.ForeachPackage(env.Packages, func(pkg pack.PackageEnvelope) error {
+		version, ok := pkg.RuntimeLabels[pack.PurposeRuntimeUpgrade]
+		if !ok {
+			return nil
+		}
+		runtimeVersion, err := semver.NewVersion(version)
+		if err != nil {
+			return trace.Wrap(err, "invalid semver %q for upgrade package %v",
+				version, pkg)
+		}
+		if installedRuntimeVersion.Compare(*runtimeVersion) > 0 {
+			// Do not consider packages for runtime version lower than
+			// or equal to the installed one
+			return nil
+		}
+		if pkg.Type == "" {
+			deps.Packages = append(deps.Packages, pkg)
+			return nil
+		}
+		app, err := env.Apps.GetApp(pkg.Locator)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		deps.Apps = append(deps.Apps, *app)
+		return nil
+	})
+}
+
+func syncDependenciesWithCluster(ctx context.Context, env *localenv.LocalEnvironment, cluster ops.Site, deps libapp.Dependencies, syncer libapp.Syncer) error {
+	var registries []string
+	err := utils.Retry(defaults.RetryInterval, defaults.RetryLessAttempts, func() (err error) {
+		registries, err = getRegistries(ctx, env, cluster.ClusterState.Servers)
+		return trace.Wrap(err)
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	stateDir, err := state.GetStateDir()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	for _, registry := range registries {
+		env.PrintStep("Synchronizing application with Docker registry %v",
+			registry)
+		imageService, err := docker.NewImageService(docker.RegistryConnectionRequest{
+			RegistryAddress: registry,
+			CertName:        defaults.DockerRegistry,
+			CACertPath:      state.Secret(stateDir, defaults.RootCertFilename),
+			ClientCertPath:  state.Secret(stateDir, "kubelet.cert"),
+			ClientKeyPath:   state.Secret(stateDir, "kubelet.key"),
+		})
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		syncer.ImageService = imageService
+		err = syncer.Sync(ctx, deps)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	return nil
+}
+
 func getTarballEnvironForUpgrade(env *localenv.LocalEnvironment, stateDir string) (*localenv.TarballEnvironment, error) {
 	clusterOperator, err := env.SiteOperator()
 	if err != nil {
@@ -170,7 +247,7 @@ func getTarballEnvironForUpgrade(env *localenv.LocalEnvironment, stateDir string
 			"Use 'gravity status' to check the cluster state and make sure "+
 			"that the cluster DNS is working properly.")
 	}
-	cluster, err := clusterOperator.GetLocalSite()
+	cluster, err := clusterOperator.GetLocalSite(context.TODO())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

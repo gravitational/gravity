@@ -563,6 +563,16 @@ func (r Labels) HasPurpose(values ...string) bool {
 	return false
 }
 
+// HasAny returns true if these labels contain any of the specified keys
+func (r Labels) HasAny(keys ...string) bool {
+	for _, key := range keys {
+		if _, ok := r[key]; ok {
+			return true
+		}
+	}
+	return false
+}
+
 // FindAnyRuntimePackageWithConfig searches for the runtime package and the corresponding
 // configuration package in the specified package service.
 // It looks up both legacy packages and packages marked as runtime
@@ -636,6 +646,39 @@ func FindTeleportPackageWithConfig(packages PackageService) (teleportPackage, te
 		return nil, nil, trace.Wrap(err)
 	}
 	return teleportPackage, teleportConfig, nil
+}
+
+// FindAnyTeleportConfigPackage returns the teleport configuration package in the specified
+// package service for the given repository.
+// It will revert to heuristic search if it fails to find an installed configuration package
+func FindAnyTeleportConfigPackage(packages PackageService, repository string) (configPackage *loc.Locator, err error) {
+	labels := map[string]string{
+		PurposeLabel:   PurposeTeleportNodeConfig,
+		InstalledLabel: InstalledLabel,
+	}
+	configEnv, err := FindPackage(packages, func(e PackageEnvelope) bool {
+		return e.HasLabels(labels)
+	})
+	if err != nil && !trace.IsNotFound(err) {
+		return nil, trace.Wrap(err)
+	}
+	if configEnv != nil {
+		return &configEnv.Locator, nil
+	}
+	// Fall back to latest available package
+	configPackage, err = FindLatestPackageCustom(FindLatestPackageRequest{
+		Packages:   packages,
+		Repository: repository,
+		Match: func(e PackageEnvelope) bool {
+			return e.Locator.Name == constants.TeleportNodeConfigPackage &&
+				(e.HasLabels(TeleportNodeConfigPackageLabels) ||
+					e.HasLabels(TeleportLegacyNodeConfigPackageLabels))
+		},
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return configPackage, nil
 }
 
 // FindRuntimePackage locates the installed runtime package
@@ -742,6 +785,13 @@ func IsPlanetConfigPackage(loc loc.Locator, labels map[string]string) bool {
 	}
 	return strings.Contains(loc.Name, constants.PlanetConfigPackage) &&
 		loc.Repository != defaults.SystemAccountOrg
+}
+
+// IsMetadataPackage determines if the specified package is a metadata package.
+// A metadata package is a package that identifies a remote package but does not
+// carry any data
+func IsMetadataPackage(envelope PackageEnvelope) bool {
+	return envelope.RuntimeLabels[PurposeLabel] == PurposeMetadata
 }
 
 // LessFunc defines a version comparator

@@ -6,12 +6,13 @@ set -o pipefail
 readonly TARGET=${1:?Usage: $0 [pr|nightly] [upgrade_from_dir]}
 export UPGRADE_FROM_DIR=${2:-$(pwd)/../upgrade_from}
 
+readonly GET_GRAVITATIONAL_IO_APIKEY=${GET_GRAVITATIONAL_IO_APIKEY:?API key for distribution Ops Center required}
 readonly GRAVITY_BUILDDIR=${GRAVITY_BUILDDIR:?Set GRAVITY_BUILDDIR to the build directory}
 readonly ROBOTEST_SCRIPT=$(mktemp -d)/runsuite.sh
 
 # a number of environment variables are expected to be set
 # see https://github.com/gravitational/robotest/blob/v2.0.0/suite/README.md
-export ROBOTEST_VERSION=${ROBOTEST_VERSION:-2.0.0}
+export ROBOTEST_VERSION=${ROBOTEST_VERSION:-2.1.0}
 export ROBOTEST_REPO=quay.io/gravitational/robotest-suite:$ROBOTEST_VERSION
 export INSTALLER_URL=$GRAVITY_BUILDDIR/telekube.tar
 export GRAVITY_URL=$GRAVITY_BUILDDIR/gravity
@@ -47,7 +48,7 @@ export EXTRA_VOLUME_MOUNTS=$(build_volume_mounts)
 tele=$GRAVITY_BUILDDIR/tele
 mkdir -p $UPGRADE_FROM_DIR
 for release in ${!UPGRADE_MAP[@]}; do
-  $tele pull telekube:$release --output=$UPGRADE_FROM_DIR/telekube_$release.tar --state-dir $GRAVITY_BUILDDIR/.robotest
+  $tele pull telekube:$release --output=$UPGRADE_FROM_DIR/telekube_$release.tar --state-dir $GRAVITY_BUILDDIR/.robotest --hub=https://get.gravitational.io:443 --token="$GET_GRAVITATIONAL_IO_APIKEY"
 done
 
 docker pull $ROBOTEST_REPO

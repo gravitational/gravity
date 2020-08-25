@@ -216,6 +216,9 @@ const (
 	// AgentStopTimeout is amount of time agent gets to gracefully shut down
 	AgentStopTimeout = 10 * time.Second
 
+	// AgentStatusTimeout specifies the timeout for agent status query
+	AgentStatusTimeout = 5 * time.Second
+
 	// PeerConnectTimeout is the timeout of an RPC agent connecting to its peer
 	PeerConnectTimeout = 10 * time.Second
 
@@ -460,6 +463,9 @@ const (
 	// PlanetShareDir is the in-planet share directory
 	PlanetShareDir = "/ext/share"
 
+	// PlanetEtcdDir is the etcd data directory as mounted inside planet
+	PlanetEtcdDir = "/ext/etcd"
+
 	// SharedDirMask is a mask for shared directories
 	SharedDirMask = 0755
 
@@ -614,6 +620,9 @@ const (
 	// SiteStatusCheckInterval is how often local gravity site will invoke app status hook
 	SiteStatusCheckInterval = 1 * time.Minute
 
+	// ClusterStatusTimeout specifies the time limit for cluster status check
+	ClusterStatusTimeout = 5 * time.Minute
+
 	// OfflineCheckInterval is how often OpsCenter checks whether its sites are online/offline
 	OfflineCheckInterval = 10 * time.Second
 
@@ -738,6 +747,8 @@ const (
 
 	// GravitySiteNodePort is a default site NodePort load balancer port
 	GravitySiteNodePort = 32009
+	// GravitySiteAuthNodePort is the node port where gravity-site exposes teleport auth service
+	GravitySiteAuthNodePort = 32025
 
 	// OIDCConnectorID is a default OIDC connector to use
 	OIDCConnectorID = "google"
@@ -1327,10 +1338,6 @@ var ServiceAddr = fmt.Sprintf("%%v.%%v%v", ServiceAddrSuffix)
 // BaseTaintsVersion sets the minimum version with support
 // for node taints and tolerations in system applications
 var BaseTaintsVersion = semver.Must(semver.NewVersion("4.36.0"))
-
-// BaseUpdateVersion sets the minimum version that this binary
-// can update
-var BaseUpdateVersion = semver.Must(semver.NewVersion("3.51.0"))
 
 // DockerRegistryAddr returns the address of docker registry running on server
 func DockerRegistryAddr(server string) string {

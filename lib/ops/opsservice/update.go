@@ -31,6 +31,7 @@ import (
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
+	"github.com/gravitational/gravity/lib/update/cluster/versions"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
@@ -75,7 +76,7 @@ func (o *Operator) RotateSecrets(req ops.RotateSecretsRequest) (resp *ops.Rotate
 		return nil, trace.Wrap(err)
 	}
 
-	resp, err = cluster.rotateSecrets(ctx, secretsPackage, node, *op)
+	resp, err = cluster.rotateSecrets(ctx, secretsPackage, node, serviceSubnet(op.InstallExpand, req.ServiceCIDR))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -457,11 +458,19 @@ func (s *site) validateUpdateOperationRequest(req ops.CreateSiteAppUpdateOperati
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = checkRuntimeUpgradePath(checkRuntimeUpgradePathRequest{
-		fromRuntime: currentRuntime.Package,
-		toRuntime:   updateRuntime.Package,
-		packages:    s.packages(),
-	})
+	currentRuntimeVersion, err := currentRuntime.Package.SemVer()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	updateRuntimeVersion, err := updateRuntime.Package.SemVer()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	path := versions.RuntimeUpgradePath{
+		From: currentRuntimeVersion,
+		To:   updateRuntimeVersion,
+	}
+	err = path.Verify(s.packages())
 	if err != nil {
 		return trace.Wrap(err)
 	}

@@ -53,7 +53,7 @@ func NewUpdatePhaseApp(
 	client *kubernetes.Clientset,
 	logger log.FieldLogger,
 ) (*updatePhaseApp, error) {
-	cluster, err := operator.GetLocalSite()
+	cluster, err := operator.GetLocalSite(context.TODO())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

@@ -176,38 +176,38 @@ func IsDirectoryEmpty(dir string) (bool, error) {
 	return false, trace.ConvertSystemError(err)
 }
 
-// CopyDirContents copies all contents of the source directory (including the
-// source directory itself and all its sub-directories) to the destination
+// CopyDirContents copies all contents of the source directory to the destination
 // directory
-func CopyDirContents(fromDir, toDir string) error {
-	// create dest dir if it doesn't exist
-	err := os.MkdirAll(toDir, defaults.SharedDirMask)
+func CopyDirContents(srcDir, dstDir string) error {
+	// create dest directory if it doesn't exist
+	err := os.MkdirAll(dstDir, defaults.SharedDirMask)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	fromDir = filepath.Clean(fromDir)
-	err = filepath.Walk(fromDir, func(path string, fi os.FileInfo, err error) error {
+	srcDir = filepath.Clean(srcDir)
+	err = filepath.Walk(srcDir, func(path string, fi os.FileInfo, err error) error {
 		if err != nil {
 			return trace.Wrap(err)
 		}
 
-		// ignore root
-		if path == fromDir {
+		// ignore root directory
+		if path == srcDir {
 			return nil
 		}
 
-		// copy sub-dirs recursively
 		if fi.IsDir() {
+			// create directory for the target file
+			targetDir := filepath.Join(dstDir, strings.TrimPrefix(path, srcDir))
+			err = os.MkdirAll(targetDir, defaults.SharedDirMask)
+			if err != nil {
+				return trace.ConvertSystemError(err)
+			}
+			// copy sub-directories recursively
 			return nil
 		}
 
-		// create directory for the target file
-		relativePath := strings.TrimPrefix(filepath.Dir(path), fromDir)
-		targetDir := filepath.Join(toDir, relativePath)
-		err = os.MkdirAll(targetDir, defaults.SharedDirMask)
-		if err != nil {
-			return trace.Wrap(err)
-		}
+		relativePath := strings.TrimPrefix(filepath.Dir(path), srcDir)
+		targetDir := filepath.Join(dstDir, relativePath)
 
 		// copy file, preserve permissions
 		toFileName := filepath.Join(targetDir, filepath.Base(fi.Name()))

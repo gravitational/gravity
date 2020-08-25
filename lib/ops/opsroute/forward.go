@@ -24,9 +24,9 @@ import (
 
 	"github.com/gravitational/gravity/lib/clients"
 	"github.com/gravitational/gravity/lib/constants"
-	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/opsservice"
+	"github.com/gravitational/gravity/lib/rpc/proto"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 
@@ -231,8 +231,8 @@ func (r *Router) GetSite(siteKey ops.SiteKey) (*ops.Site, error) {
 	return client.GetSite(siteKey)
 }
 
-func (r *Router) GetLocalSite() (*ops.Site, error) {
-	return r.Local.GetLocalSite()
+func (r *Router) GetLocalSite(ctx context.Context) (*ops.Site, error) {
+	return r.Local.GetLocalSite(ctx)
 }
 
 func (r *Router) DeactivateSite(req ops.DeactivateSiteRequest) error {
@@ -916,7 +916,7 @@ func (r *Router) EmitAuditEvent(ctx context.Context, req ops.AuditEventRequest) 
 }
 
 // GetVersion returns the gravity binary version information.
-func (r *Router) GetVersion(ctx context.Context) (*modules.Version, error) {
+func (r *Router) GetVersion(ctx context.Context) (*proto.Version, error) {
 	return r.Local.GetVersion(ctx)
 }
 

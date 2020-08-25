@@ -30,10 +30,10 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
-	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/network/validation/proto"
 	"github.com/gravitational/gravity/lib/ops/monitoring"
 	"github.com/gravitational/gravity/lib/pack"
+	rpcproto "github.com/gravitational/gravity/lib/rpc/proto"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
@@ -400,7 +400,7 @@ type Sites interface {
 	GetSite(SiteKey) (*Site, error)
 
 	// GetLocalSite returns local site for this ops center
-	GetLocalSite() (*Site, error)
+	GetLocalSite(context.Context) (*Site, error)
 
 	// GetSites sites lists all site records for account
 	GetSites(accountID string) ([]Site, error)
@@ -703,7 +703,7 @@ type Status interface {
 	// GetClusterNodes returns a real-time information about cluster nodes
 	GetClusterNodes(SiteKey) ([]Node, error)
 	// GetVersion returns the gravity binary version information.
-	GetVersion(context.Context) (*modules.Version, error)
+	GetVersion(context.Context) (*rpcproto.Version, error)
 }
 
 // Node represents a cluster node information based on Teleport node
@@ -969,6 +969,8 @@ type RotateSecretsRequest struct {
 	// Package specifies the secrets package to use.
 	// If unspecified, one will be automatically generated
 	Package *loc.Locator `json:"package,omitempty"`
+	// ServiceCIDR optionally specifies the new service IP range
+	ServiceCIDR string `json:"service_cidr,omitempty"`
 	// DryRun specifies whether only the package locator is generated
 	DryRun bool `json:"dry_run"`
 }
@@ -1106,16 +1108,7 @@ type SiteOperations []storage.SiteOperation
 
 // GetVars returns operation specific variables
 func (s *SiteOperation) GetVars() storage.OperationVariables {
-	if s.InstallExpand != nil {
-		return s.InstallExpand.Vars
-	}
-	if s.Shrink != nil {
-		return s.Shrink.Vars
-	}
-	if s.Uninstall != nil {
-		return s.Uninstall.Vars
-	}
-	return storage.OperationVariables{}
+	return (*storage.SiteOperation)(s).Vars()
 }
 
 // IsFailed returns whether operation is failed
@@ -1142,7 +1135,7 @@ func (s *SiteOperation) IsAWS() bool {
 }
 
 // Key returns key structure that can uniquely identify this operation
-func (s *SiteOperation) Key() SiteOperationKey {
+func (s SiteOperation) Key() SiteOperationKey {
 	return SiteOperationKey{
 		AccountID:   s.AccountID,
 		OperationID: s.ID,
@@ -1151,7 +1144,7 @@ func (s *SiteOperation) Key() SiteOperationKey {
 }
 
 // ClusterKey returns the cluster key for this operation
-func (s *SiteOperation) ClusterKey() SiteKey {
+func (s SiteOperation) ClusterKey() SiteKey {
 	return s.Key().SiteKey()
 }
 
@@ -1275,7 +1268,7 @@ func (r *CreateSiteInstallOperationRequest) CheckAndSetDefaults() error {
 	if r.Provisioner == schema.ProvisionerAWSTerraform {
 		r.Variables.AWS.SetDefaults()
 	}
-	err := validate.KubernetesSubnets(r.Variables.OnPrem.PodCIDR, r.Variables.OnPrem.ServiceCIDR)
+	err := validate.KubernetesSubnetsFromStrings(r.Variables.OnPrem.PodCIDR, r.Variables.OnPrem.ServiceCIDR)
 	if err != nil {
 		return trace.Wrap(err)
 	}

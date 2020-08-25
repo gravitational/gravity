@@ -163,7 +163,7 @@ func (h *WebHandler) configHandler(w http.ResponseWriter, r *http.Request, p htt
 	config.Auth = getWebConfigAuthSettings(h.cfg)
 	config.Modules.OpsCenter.Features.LicenseGenerator.Enabled = true
 
-	cluster, err := h.cfg.Operator.GetLocalSite()
+	cluster, err := h.cfg.Operator.GetLocalSite(r.Context())
 	if err != nil && !trace.IsNotFound(err) {
 		log.Errorf("Failed to get local site: %v.", trace.DebugReport(err))
 		replyError(w, "failed to get local site", http.StatusInternalServerError)
@@ -204,7 +204,7 @@ func (h *WebHandler) configHandler(w http.ResponseWriter, r *http.Request, p htt
 }
 
 func (h *WebHandler) rootHandler(w http.ResponseWriter, r *http.Request, p httprouter.Params, s session) {
-	cluster, err := h.cfg.Operator.GetLocalSite()
+	cluster, err := h.cfg.Operator.GetLocalSite(r.Context())
 	if err != nil && !trace.IsNotFound(err) {
 		log.Errorf("Failed to get local site: %v.", trace.DebugReport(err))
 		replyError(w, "failed to get local site", http.StatusInternalServerError)

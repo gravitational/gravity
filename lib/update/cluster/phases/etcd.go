@@ -18,7 +18,6 @@ package phases
 
 import (
 	"context"
-	"fmt"
 	"path/filepath"
 
 	"github.com/gravitational/gravity/lib/constants"
@@ -46,16 +45,11 @@ import (
 // 2. Planet when started, will determine the version of etcd to use (planet etcd init)
 //      This is done by assuming the oldest possible etcd release
 //      During an upgrade, the verison of etcd to use is written to the etcd data directory
-// 3. Backup all etcd data via API
+// 3. Backup all etcd data via API (optional)
 // 4. Shutdown etcd (all servers) // API outage starts
-// 6. Start the cluster masters, but with clients bound to an alternative address (127.0.0.2) and using new data dir
-//      The data directory is chosen as /ext/etcd/<version>, so when upgrading, etcd will start with a blank database
-//      To rollback, we start the old version of etcd, pointed to the data directory from the previous version
-//      We also delete the data from a previous upgrade, so we can only roll back once
-// 7. Shutdown the temporary etcd node, and do an offline database restore to the newly created database
-// 8. Restore the etcd data using the API to the new version, and migrate /registry (kubernetes) data to v3 datastore
-// 9. Restart etcd on the correct ports// API outage ends
-// 10. Restart gravity-site to fix elections
+// 5. Move old data directory to the new location
+// 6. Restart etcd on the correct ports// API outage ends
+// 7. Restart gravity-site to fix elections
 //
 //
 // Rollback
@@ -75,14 +69,6 @@ func NewPhaseUpgradeEtcdBackup(logger log.FieldLogger) (fsm.PhaseExecutor, error
 	}, nil
 }
 
-func backupFile() (string, error) {
-	stateDir, err := state.GetStateDir()
-	if err != nil {
-		return "", trace.Wrap(err)
-	}
-	return filepath.Join(state.GravityUpdateDir(stateDir), defaults.EtcdUpgradeBackupFile), nil
-}
-
 func (p *PhaseUpgradeEtcdBackup) Execute(ctx context.Context) error {
 	p.Info("Backup etcd.")
 	backupFile, err := backupFile()
@@ -97,7 +83,7 @@ func (p *PhaseUpgradeEtcdBackup) Execute(ctx context.Context) error {
 }
 
 func (p *PhaseUpgradeEtcdBackup) Rollback(context.Context) error {
-	// NOOP, don't clean up backupfile during rollback, incase we still need it
+	// NOOP, don't clean up the backup file during rollback, incase we still need it
 	return nil
 }
 
@@ -134,7 +120,7 @@ func (p *PhaseUpgradeEtcdShutdown) Execute(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err).AddField("output", string(out))
 	}
-	p.Info("command output: ", string(out))
+	p.Info("Command output: ", string(out))
 	return nil
 }
 
@@ -144,7 +130,7 @@ func (p *PhaseUpgradeEtcdShutdown) Rollback(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err).AddField("output", string(out))
 	}
-	p.Info("command output: ", string(out))
+	p.Info("Command output: ", string(out))
 
 	if p.isLeader {
 		return trace.Wrap(restartGravitySite(ctx, p.Client, p.FieldLogger))
@@ -163,19 +149,16 @@ func (*PhaseUpgradeEtcdShutdown) PostCheck(context.Context) error {
 // PhaseUpgradeEtcd upgrades etcd specifically on the leader
 type PhaseUpgradeEtcd struct {
 	log.FieldLogger
-	Server storage.Server
 }
 
 func NewPhaseUpgradeEtcd(phase storage.OperationPhase, logger log.FieldLogger) (fsm.PhaseExecutor, error) {
 	return &PhaseUpgradeEtcd{
 		FieldLogger: logger,
-		Server:      *phase.Data.Server,
 	}, nil
 }
 
 // Execute upgrades the leader
 // Upgrade etcd by changing the launch version and data directory
-// Launch the temporary etcd cluster to restore the database
 func (p *PhaseUpgradeEtcd) Execute(ctx context.Context) error {
 	p.Info("Upgrade etcd.")
 	// TODO(knisbet) only wipe the etcd database when required
@@ -183,7 +166,7 @@ func (p *PhaseUpgradeEtcd) Execute(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err).AddField("output", string(out))
 	}
-	p.Info("command output: ", string(out))
+	p.Info("Command output: ", string(out))
 
 	return nil
 }
@@ -193,7 +176,7 @@ func (p *PhaseUpgradeEtcd) Rollback(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err).AddField("output", string(out))
 	}
-	p.Info("command output: ", string(out))
+	p.Info("Command output: ", string(out))
 
 	return nil
 }
@@ -206,51 +189,52 @@ func (*PhaseUpgradeEtcd) PostCheck(context.Context) error {
 	return nil
 }
 
-// PhaseUpgradeRestore restores etcd data from backup, if it was wiped by the upgrade stage
-type PhaseUpgradeEtcdRestore struct {
+// PhaseUpgradeEtcdMigrate moves etcd data to the new version
+type PhaseUpgradeEtcdMigrate struct {
 	log.FieldLogger
-	Server storage.Server
+	fromVersion, toVersion string
 }
 
-func NewPhaseUpgradeEtcdRestore(phase storage.OperationPhase, logger log.FieldLogger) (fsm.PhaseExecutor, error) {
-	return &PhaseUpgradeEtcdRestore{
+// NewPhaseUpgradeEtcdMigrate creates a new phase to move the data from the old version to the new version
+func NewPhaseUpgradeEtcdMigrate(phase storage.OperationPhase, logger log.FieldLogger) (fsm.PhaseExecutor, error) {
+	return &PhaseUpgradeEtcdMigrate{
 		FieldLogger: logger,
-		Server:      *phase.Data.Server,
+		fromVersion: phase.Data.Update.Etcd.From,
+		toVersion:   phase.Data.Update.Etcd.To,
 	}, nil
 }
 
-// Execute restores the etcd data from backup
-// 7. Restore the /registry (kubernetes) data to etcd, including automatic migration to v3 datastore for kubernetes
-// 10. Restart etcd on the correct ports on first node // API outage ends
-func (p *PhaseUpgradeEtcdRestore) Execute(ctx context.Context) error {
-	p.Info("Restore etcd data from backup.")
-	backupFile, err := backupFile()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "restore", backupFile)
+// Execute moves the data from the old version to the new version
+func (p *PhaseUpgradeEtcdMigrate) Execute(ctx context.Context) error {
+	p.Info("Migrate etcd data.")
+	gravityPath := filepath.Join(defaults.GravityRPCAgentDir, constants.GravityBin)
+	out, err := utils.RunCommand(ctx, p.FieldLogger,
+		utils.PlanetCommandArgs(gravityPath,
+			"system", "etcd", "migrate",
+			"--from", p.fromVersion,
+			"--to", p.toVersion)...)
 	if err != nil {
 		return trace.Wrap(err).AddField("output", string(out))
 	}
 	return nil
 }
 
-func (p *PhaseUpgradeEtcdRestore) Rollback(ctx context.Context) error {
+func (*PhaseUpgradeEtcdMigrate) Rollback(ctx context.Context) error {
 	return nil
 }
 
-func (p *PhaseUpgradeEtcdRestore) PreCheck(ctx context.Context) error {
+func (p *PhaseUpgradeEtcdMigrate) PreCheck(ctx context.Context) error {
 	// wait for etcd to form a cluster
 	out, err := utils.RunCommand(ctx, p.FieldLogger,
 		utils.PlanetCommandArgs(defaults.WaitForEtcdScript, "https://127.0.0.2:2379")...)
 	if err != nil {
 		return trace.Wrap(err).AddField("output", string(out))
 	}
-	p.Info("command output: ", string(out))
+	p.Info("Command output: ", string(out))
 	return nil
 }
 
-func (*PhaseUpgradeEtcdRestore) PostCheck(context.Context) error {
+func (*PhaseUpgradeEtcdMigrate) PostCheck(context.Context) error {
 	return nil
 }
 
@@ -265,27 +249,14 @@ func NewPhaseUpgradeEtcdRestart(phase storage.OperationPhase, logger log.FieldLo
 	return &PhaseUpgradeEtcdRestart{
 		FieldLogger: logger,
 		Server:      *phase.Data.Server,
-		Master:      *phase.Data.Master,
 	}, nil
 }
 
 func (p *PhaseUpgradeEtcdRestart) Execute(ctx context.Context) error {
 	p.Info("Restart etcd after upgrade.")
-	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "disable", "--upgrade")
+	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "enable")
 	if err != nil {
 		return trace.Wrap(err).AddField("output", string(out))
-	}
-
-	if p.Server.IsEqualTo(p.Master) {
-		out, err = utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "enable")
-		if err != nil {
-			return trace.Wrap(err).AddField("output", string(out))
-		}
-	} else {
-		out, err = utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "enable", "--join-master", fmt.Sprintf("https://%v:2379", p.Master.AdvertiseIP))
-		if err != nil {
-			return trace.Wrap(err).AddField("output", string(out))
-		}
 	}
 	return nil
 }
@@ -296,7 +267,6 @@ func (p *PhaseUpgradeEtcdRestart) Rollback(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err).AddField("output", string(out))
 	}
-
 	return nil
 }
 
@@ -342,21 +312,29 @@ func (*PhaseUpgradeGravitySiteRestart) PostCheck(context.Context) error {
 	return nil
 }
 
-func restartGravitySite(ctx context.Context, client *kubeapi.Clientset, l log.FieldLogger) error {
-	l.Info("Restart cluster controller.")
+func restartGravitySite(ctx context.Context, client *kubeapi.Clientset, logger log.FieldLogger) error {
+	logger.Info("Restart cluster controller.")
 	// wait for etcd to form a cluster
-	out, err := utils.RunCommand(ctx, l, utils.PlanetCommandArgs(defaults.WaitForEtcdScript)...)
+	out, err := utils.RunCommand(ctx, logger, utils.PlanetCommandArgs(defaults.WaitForEtcdScript)...)
 	if err != nil {
 		return trace.Wrap(err).AddField("output", string(out))
 	}
-	l.Info("command output: ", string(out))
+	logger.Info("Command output: ", string(out))
 
 	// delete the gravity-site pods, in order to force them to restart
 	// This is because the leader election process seems to break during the etcd upgrade
 	label := map[string]string{"app": constants.GravityServiceName}
-	l.Infof("Deleting pods with label %v.", label)
+	logger.Infof("Deleting pods with label %v.", label)
 	err = update.Retry(ctx, func() error {
 		return trace.Wrap(kubernetes.DeletePods(client, constants.KubeSystemNamespace, label))
 	}, defaults.DrainErrorTimeout)
 	return trace.Wrap(err)
+}
+
+func backupFile() (string, error) {
+	stateDir, err := state.GetStateDir()
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+	return filepath.Join(state.GravityUpdateDir(stateDir), defaults.EtcdUpgradeBackupFile), nil
 }

@@ -73,7 +73,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.InstallCmd.SystemDevice = g.InstallCmd.Flag("system-device", "Device to use for system data directory.").Hidden().String()
 	g.InstallCmd.Mounts = configure.KeyValParam(g.InstallCmd.Flag("mount", "One or several mount overrides in the following format: <mount-name>:<path>, e.g. data:/var/lib/data."))
 	g.InstallCmd.PodCIDR = g.InstallCmd.Flag("pod-network-cidr", "Subnet range for Kubernetes pods network. Must be a minimum of /16.").Default(defaults.PodSubnet).String()
-	g.InstallCmd.ServiceCIDR = g.InstallCmd.Flag("service-cidr", "Subnet range for Kubernetes service networ.").Default(defaults.ServiceSubnet).String()
+	g.InstallCmd.ServiceCIDR = g.InstallCmd.Flag("service-cidr", "Subnet range for Kubernetes service network.").Default(defaults.ServiceSubnet).String()
 	g.InstallCmd.VxlanPort = g.InstallCmd.Flag("vxlan-port", "Custom overlay network port.").Default(strconv.Itoa(defaults.VxlanPort)).Int()
 	g.InstallCmd.DNSListenAddrs = g.InstallCmd.Flag("dns-listen-addr", "Custom listen address for in-cluster DNS.").
 		Default(defaults.DNSListenAddr).IPList()
@@ -619,21 +619,28 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.LocalSiteCmd.CmdClause = g.Command("local-site", "Prints the local cluster domain name to the console").Hidden()
 
 	// RPC agent
-	g.RPCAgentCmd.CmdClause = g.Command("agent", "RPC agent")
+	g.RPCAgentCmd.CmdClause = g.Command("agent", "Manage the deployment and operations of upgrade agents")
 
-	g.RPCAgentDeployCmd.CmdClause = g.RPCAgentCmd.Command("deploy", "deploy RPC agents across cluster nodes, and run specified execution function").Hidden()
-	g.RPCAgentDeployCmd.LeaderArgs = g.RPCAgentDeployCmd.Flag("leader", "additional arguments to leader node agent").String()
-	g.RPCAgentDeployCmd.NodeArgs = g.RPCAgentDeployCmd.Flag("node", "additional arguments to regular node agent").String()
+	g.RPCAgentDeployCmd.CmdClause = g.RPCAgentCmd.Command("deploy", "Deploy upgrade agents across cluster nodes, and run specified execution function")
+	g.RPCAgentDeployCmd.LeaderArgs = g.RPCAgentDeployCmd.Flag("leader", "Additional arguments to leader node agent").String()
+	g.RPCAgentDeployCmd.NodeArgs = g.RPCAgentDeployCmd.Flag("node", "Additional arguments to regular node agent").String()
+	g.RPCAgentDeployCmd.Version = g.RPCAgentDeployCmd.Flag("version", "Agent version to deploy").String()
 
-	g.RPCAgentShutdownCmd.CmdClause = g.RPCAgentCmd.Command("shutdown", "request agents to shut down").Hidden()
+	g.RPCAgentShutdownCmd.CmdClause = g.RPCAgentCmd.Command("shutdown", "Request agents to shut down")
 
-	g.RPCAgentInstallCmd.CmdClause = g.RPCAgentCmd.Command("install", "install and launch local RPC agent service").Hidden()
-	g.RPCAgentInstallCmd.Args = g.RPCAgentInstallCmd.Arg("arg", "additional arguments").Strings()
+	g.RPCAgentInstallCmd.CmdClause = g.RPCAgentCmd.Command("install", "Install and launch local upgrade agent service")
+	g.RPCAgentInstallCmd.Args = g.RPCAgentInstallCmd.Arg("arg", "Additional arguments").Strings()
 
-	g.RPCAgentRunCmd.CmdClause = g.RPCAgentCmd.Command("run", "run RPC agent").Hidden()
-	g.RPCAgentRunCmd.Args = g.RPCAgentRunCmd.Arg("arg", "additional arguments").Strings()
+	g.RPCAgentRunCmd.CmdClause = g.RPCAgentCmd.Command("run", "Run upgrade agent")
+	g.RPCAgentRunCmd.Args = g.RPCAgentRunCmd.Arg("arg", "Additional arguments").Strings()
+
+	g.RPCAgentStatusCmd.CmdClause = g.RPCAgentCmd.Command("status", "Collect and display upgrade agent statuses")
 
 	g.SystemCmd.CmdClause = g.Command("system", "operations on system components")
+
+	g.SystemTeleportCmd.CmdClause = g.SystemCmd.Command("teleport", "System level operations on Teleport service").Hidden()
+	g.SystemTeleportShowConfigCmd.CmdClause = g.SystemTeleportCmd.Command("show-config", "Display Teleport configuration from the specified package")
+	g.SystemTeleportShowConfigCmd.Package = g.SystemTeleportShowConfigCmd.Flag("package", "Package with Teleport configuration. Can also be 'master' or 'node' to auto-detect package").Required().String()
 
 	g.SystemRotateCertsCmd.CmdClause = g.SystemCmd.Command("rotate-certs", "Renew cluster certificates on a node").Hidden()
 	g.SystemRotateCertsCmd.ClusterName = g.SystemRotateCertsCmd.Arg("cluster-name", "Name of the local cluster").Required().String()
@@ -734,6 +741,12 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.SystemSelinuxBootstrapCmd.CmdClause = g.SystemCmd.Command("selinux-bootstrap", "Configure SELinux file contexts and ports on the node")
 	g.SystemSelinuxBootstrapCmd.Path = g.SystemSelinuxBootstrapCmd.Flag("output", "Path to output file for bootstrap script").String()
 	g.SystemSelinuxBootstrapCmd.VxlanPort = g.SystemSelinuxBootstrapCmd.Flag("vxlan-port", "Custom vxlan port").Int()
+
+	g.SystemEtcdCmd.CmdClause = g.SystemCmd.Command("etcd", "Commands to manipulate etcd cluster")
+
+	g.SystemEtcdMigrateCmd.CmdClause = g.SystemEtcdCmd.Command("migrate", "Migrate etcd data directory between from one version to another")
+	g.SystemEtcdMigrateCmd.From = g.SystemEtcdMigrateCmd.Flag("from", "Source version").String()
+	g.SystemEtcdMigrateCmd.To = g.SystemEtcdMigrateCmd.Flag("to", "Destination version").String()
 
 	// pruning cluster resources
 	g.GarbageCollectCmd.CmdClause = g.Command("gc", "Prune cluster resources")

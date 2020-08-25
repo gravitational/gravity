@@ -34,6 +34,7 @@ import (
 	"github.com/gravitational/gravity/lib/vacuum/prune/registry"
 
 	"github.com/gravitational/trace"
+	"github.com/gravitational/version"
 	"github.com/sirupsen/logrus"
 )
 
@@ -100,12 +101,12 @@ func newCollector(env *localenv.LocalEnvironment) (*vacuum.Collector, error) {
 		return nil, trace.Wrap(err)
 	}
 
-	cluster, err := operator.GetLocalSite()
+	cluster, err := operator.GetLocalSite(context.TODO())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	teleportClient, err := env.TeleportClient(constants.Localhost)
+	teleportClient, err := env.TeleportClient(context.TODO(), constants.Localhost)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to create a teleport client")
 	}
@@ -174,6 +175,7 @@ func newCollector(env *localenv.LocalEnvironment) (*vacuum.Collector, error) {
 		cluster:      *cluster,
 		clusterEnv:   clusterEnv,
 		proxy:        proxy,
+		version:      version.Get().Version,
 	}
 	creds, err := deployAgents(ctx, env, req)
 	if err != nil {
@@ -220,7 +222,7 @@ func getGarbageCollector(env *localenv.LocalEnvironment, operation ops.SiteOpera
 		return nil, trace.Wrap(err)
 	}
 
-	cluster, err := operator.GetLocalSite()
+	cluster, err := operator.GetLocalSite(context.TODO())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -294,7 +296,7 @@ func removeUnusedImages(env *localenv.LocalEnvironment, dryRun, confirmed bool) 
 		return trace.Wrap(err)
 	}
 
-	cluster, err := clusterEnv.Operator.GetLocalSite()
+	cluster, err := clusterEnv.Operator.GetLocalSite(context.TODO())
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -336,7 +338,7 @@ func removeUnusedPackages(env *localenv.LocalEnvironment, dryRun, pruneClusterPa
 		return trace.Wrap(err)
 	}
 
-	cluster, err := operator.GetLocalSite()
+	cluster, err := operator.GetLocalSite(context.TODO())
 	if err != nil {
 		return trace.Wrap(err)
 	}

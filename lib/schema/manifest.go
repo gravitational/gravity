@@ -166,6 +166,13 @@ func (m *Manifest) SetBase(locator loc.Locator) {
 	}
 }
 
+// WithBase returns a copy of this manifest with the specified base application
+func (m *Manifest) WithBase(locator loc.Locator) Manifest {
+	result := *m
+	result.SetBase(locator)
+	return result
+}
+
 // FindFlavor returns a flavor by the provided name
 func (m Manifest) FindFlavor(name string) *Flavor {
 	if m.Installer != nil {
@@ -379,11 +386,11 @@ func (m Manifest) DefaultProvider() string {
 	return ""
 }
 
-// FilterDependencies filters the provided list of application locators and
+// FilterDisabledDependencies filters the provided list of application locators and
 // returns only those that are enabled based on the manifest settings.
-func (m Manifest) FilterDependencies(apps []loc.Locator) (result []loc.Locator) {
+func (m Manifest) FilterDisabledDependencies(apps []loc.Locator) (result []loc.Locator) {
 	for _, app := range apps {
-		if !ShouldSkipApp(m, app) {
+		if !ShouldSkipApp(m, app.Name) {
 			result = append(result, app)
 		}
 	}
@@ -508,7 +515,7 @@ func (d Dependencies) ByName(names ...string) (*loc.Locator, error) {
 
 // GetPackages returns a list of all package dependencies
 func (d Dependencies) GetPackages() []loc.Locator {
-	packages := make([]loc.Locator, 0, len(d.Apps))
+	packages := make([]loc.Locator, 0, len(d.Packages)+1)
 	for _, dep := range d.Packages {
 		packages = append(packages, dep.Locator)
 	}
@@ -1237,10 +1244,10 @@ var (
 	devicePermsRegex = regexp.MustCompile("^[rwm]+$")
 )
 
-// ShouldSkipApp returns true if the specified application should not be
+// ShouldSkipApp returns true if the application given with appName should not be
 // installed in the cluster described by the provided manifest.
-func ShouldSkipApp(manifest Manifest, app loc.Locator) bool {
-	switch app.Name {
+func ShouldSkipApp(manifest Manifest, appName string) bool {
+	switch appName {
 	case defaults.BandwagonPackageName:
 		// do not install bandwagon unless the app uses it in its post-install
 		setup := manifest.SetupEndpoint()

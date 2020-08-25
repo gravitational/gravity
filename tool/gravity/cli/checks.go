@@ -22,7 +22,7 @@ import (
 	"io/ioutil"
 	"time"
 
-	"github.com/gravitational/gravity/lib/app/service"
+	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/checks"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/fsm"
@@ -48,7 +48,7 @@ func executePreflightChecks(env *localenv.LocalEnvironment, config preflightChec
 	ctx, cancel := context.WithTimeout(context.Background(), config.timeout)
 	defer cancel()
 
-	err := localenv.DetectCluster(env)
+	err := localenv.DetectCluster(ctx, env)
 	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
 	}
@@ -134,7 +134,7 @@ func checkUpgrade(ctx context.Context, env *localenv.LocalEnvironment, config pr
 		return trace.Wrap(err)
 	}
 	// Deploy RPC agents that will be used for running checks on the nodes.
-	credentials, err := rpcAgentDeployHelper(ctx, env, "", "")
+	credentials, err := rpcAgentDeployHelper(ctx, env, deployOptions{})
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -169,12 +169,12 @@ func uploadGravity(ctx context.Context, env *localenv.LocalEnvironment, manifest
 	}
 	env.PrintStep("Uploading package %v:%v to the local cluster",
 		gravityPackage.Name, gravityPackage.Version)
-	_, err = service.PullPackage(service.PackagePullRequest{
+	puller := &app.Puller{
 		SrcPack: src,
 		DstPack: dst,
 		Upsert:  true,
-		Package: *gravityPackage,
-	})
+	}
+	err = puller.PullPackage(ctx, *gravityPackage)
 	if err != nil {
 		return trace.Wrap(err)
 	}

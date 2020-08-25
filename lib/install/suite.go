@@ -221,7 +221,7 @@ func (s *PlanSuite) SetUpSuite(c *check.C) {
 				ServiceUser:      s.serviceUser,
 				DNSConfig:        s.dnsConfig,
 				Process:          &mockProcess{},
-				App:              app,
+				App:              *app,
 				Apps:             s.services.Apps,
 				Operator:         s.services.Operator,
 				Packages:         s.services.Packages,

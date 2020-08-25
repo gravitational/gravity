@@ -147,6 +147,7 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.PlanResumeCmd.FullCommand(),
 		g.PlanExecuteCmd.FullCommand(),
 		g.PlanRollbackCmd.FullCommand(),
+		g.RollbackCmd.FullCommand(),
 		g.ResourceCreateCmd.FullCommand(),
 		g.ResourceRemoveCmd.FullCommand(),
 		g.OpsAgentCmd.FullCommand():
@@ -252,7 +253,8 @@ func InitAndCheck(g *Application, cmd string) error {
 
 	// following commands must be run inside the planet container
 	switch cmd {
-	case g.SystemGCJournalCmd.FullCommand():
+	case g.SystemGCJournalCmd.FullCommand(),
+		g.SystemEtcdMigrateCmd.FullCommand():
 		if !utils.CheckInPlanet() {
 			return trace.BadParameter("this command must be run inside planet container")
 		}
@@ -844,6 +846,9 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 		return exportCertificateAuthority(localEnv,
 			*g.SystemExportCACmd.ClusterName,
 			*g.SystemExportCACmd.CAPath)
+	case g.SystemTeleportShowConfigCmd.FullCommand():
+		return showTeleportConfig(localEnv,
+			*g.SystemTeleportShowConfigCmd.Package)
 	case g.SystemReinstallCmd.FullCommand():
 		return systemReinstall(localEnv,
 			*g.SystemReinstallCmd.Package,
@@ -960,6 +965,8 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 		return removeUnusedImages(localEnv,
 			*g.SystemGCRegistryCmd.DryRun,
 			*g.SystemGCRegistryCmd.Confirm)
+	case g.SystemEtcdMigrateCmd.FullCommand():
+		return etcdMigrate(*g.SystemEtcdMigrateCmd.From, *g.SystemEtcdMigrateCmd.To)
 	case g.PlanetEnterCmd.FullCommand(), g.EnterCmd.FullCommand():
 		return planetEnter(localEnv, extraArgs)
 	case g.ExecCmd.FullCommand():
@@ -1005,8 +1012,11 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			*g.ResourceGetCmd.User)
 	case g.RPCAgentDeployCmd.FullCommand():
 		return rpcAgentDeploy(localEnv,
-			*g.RPCAgentDeployCmd.LeaderArgs,
-			*g.RPCAgentDeployCmd.NodeArgs)
+			deployOptions{
+				leaderArgs: *g.RPCAgentDeployCmd.LeaderArgs,
+				nodeArgs:   *g.RPCAgentDeployCmd.NodeArgs,
+				version:    *g.RPCAgentDeployCmd.Version,
+			})
 	case g.RPCAgentInstallCmd.FullCommand():
 		return rpcAgentInstall(localEnv, *g.RPCAgentInstallCmd.Args)
 	case g.RPCAgentRunCmd.FullCommand():
@@ -1017,6 +1027,8 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 		defer updateEnv.Close()
 		return rpcAgentRun(localEnv, updateEnv,
 			*g.RPCAgentRunCmd.Args)
+	case g.RPCAgentStatusCmd.FullCommand():
+		return rpcAgentStatus(localEnv)
 	case g.RPCAgentShutdownCmd.FullCommand():
 		return rpcAgentShutdown(localEnv)
 	case g.CheckCmd.FullCommand():

@@ -219,12 +219,15 @@ func (r *Updater) executePlan(ctx context.Context) error {
 	}
 
 	err := r.machine.Complete(ctx, planErr)
-	if err == nil {
+	if err != nil {
+		r.WithError(err).Warn("Failed to complete operation.")
+	}
+	if planErr != nil {
 		err = planErr
 	}
 
 	// Keep the agents running as long as the operation can be resumed
-	if planErr != nil {
+	if err != nil {
 		return trace.Wrap(err)
 	}
 

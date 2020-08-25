@@ -250,8 +250,14 @@ type Application struct {
 	RPCAgentInstallCmd RPCAgentInstallCmd
 	// RPCAgentRunCmd runs RPC agent
 	RPCAgentRunCmd RPCAgentRunCmd
+	// RPCAgentStatusCmd requests RPC agent statuses
+	RPCAgentStatusCmd RPCAgentStatusCmd
 	// SystemCmd combines system subcommands
 	SystemCmd SystemCmd
+	// SystemTeleportCmd combines internal Teleport commands
+	SystemTeleportCmd SystemTeleportCmd
+	// SystemTeleportShowConfigCmd displays Teleport config
+	SystemTeleportShowConfigCmd SystemTeleportShowConfigCmd
 	// SystemRotateCertsCmd renews cluster certificates on local node
 	SystemRotateCertsCmd SystemRotateCertsCmd
 	// SystemExportCACmd exports cluster CA
@@ -304,6 +310,10 @@ type Application struct {
 	SystemGCPackageCmd SystemGCPackageCmd
 	// SystemGCRegistryCmd removes unused docker images
 	SystemGCRegistryCmd SystemGCRegistryCmd
+	// SystemEtcdCmd manipulates etcd cluster
+	SystemEtcdCmd SystemEtcdCmd
+	// SystemEtcdMigrateCmd migrates etcd data directories between versions
+	SystemEtcdMigrateCmd SystemEtcdMigrateCmd
 	// GarbageCollectCmd prunes unused resources (package/journal files/docker images)
 	// in the cluster
 	GarbageCollectCmd GarbageCollectCmd
@@ -1441,6 +1451,8 @@ type RPCAgentDeployCmd struct {
 	LeaderArgs *string
 	// NodeArgs is additional arguments to the regular agent
 	NodeArgs *string
+	// Version specifies the version of the agent to be deployed
+	Version *string
 }
 
 // RPCAgentShutdownCmd requests RPC agents to shut down
@@ -1462,9 +1474,26 @@ type RPCAgentRunCmd struct {
 	Args *[]string
 }
 
+// RPCAgentStatusCmd requests RPC agent statuses
+type RPCAgentStatusCmd struct {
+	*kingpin.CmdClause
+}
+
 // SystemCmd combines system subcommands
 type SystemCmd struct {
 	*kingpin.CmdClause
+}
+
+// SystemTeleportCmd combines internal Teleport commands
+type SystemTeleportCmd struct {
+	*kingpin.CmdClause
+}
+
+// SystemTeleportShowConfigCmd displays Teleport config from specified package
+type SystemTeleportShowConfigCmd struct {
+	*kingpin.CmdClause
+	// Package is the package to show config from
+	Package *string
 }
 
 // SystemRotateCertsCmd renews cluster certificates on local node
@@ -1737,6 +1766,20 @@ type SystemGCRegistryCmd struct {
 	// DryRun displays the images to be removed
 	// without actually removing anything
 	DryRun *bool
+}
+
+// SystemEtcdCmd manipulates etcd cluster
+type SystemEtcdCmd struct {
+	*kingpin.CmdClause
+}
+
+// SystemEtcdMigrateCmd migrates etcd data directories between versions
+type SystemEtcdMigrateCmd struct {
+	*kingpin.CmdClause
+	// From specifies the source version, as a semver (without `v` prefix)
+	From *string
+	// To specifies the destination version, as a semver (without `v` prefix)
+	To *string
 }
 
 // GarbageCollectCmd prunes unused cluster resources

@@ -17,6 +17,7 @@ limitations under the License.
 package localenv
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -342,7 +343,7 @@ func (env *LocalEnvironment) LocalCluster() (*ops.Site, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	cluster, err := operator.GetLocalSite()
+	cluster, err := operator.GetLocalSite(context.TODO())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -613,7 +614,7 @@ func LocalCluster() (*ops.Site, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	cluster, err := clusterOperator.GetLocalSite()
+	cluster, err := clusterOperator.GetLocalSite(context.TODO())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -703,7 +704,7 @@ func (r Silent) PrintStep(format string, args ...interface{}) {
 // Write implements io.Writer
 func (r Silent) Write(p []byte) (n int, err error) {
 	r.Printf(string(p))
-	return 0, nil
+	return len(p), nil
 }
 
 // Silent implements a silent flag and controls console output.

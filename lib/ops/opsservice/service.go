@@ -42,6 +42,7 @@ import (
 	"github.com/gravitational/gravity/lib/ops/monitoring"
 	"github.com/gravitational/gravity/lib/ops/opsclient"
 	"github.com/gravitational/gravity/lib/pack"
+	"github.com/gravitational/gravity/lib/rpc/proto"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/users"
@@ -755,7 +756,7 @@ func (o *Operator) GetClusterAgent(req ops.ClusterAgentRequest) (*storage.LoginE
 }
 
 // GetLocalSite returns local cluster record for this Ops Center
-func (o *Operator) GetLocalSite() (*ops.Site, error) {
+func (o *Operator) GetLocalSite(context.Context) (*ops.Site, error) {
 	record, err := o.backend().GetLocalSite(defaults.SystemAccountID)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -1421,7 +1422,7 @@ func (o *Operator) EmitAuditEvent(ctx context.Context, req ops.AuditEventRequest
 }
 
 // GetVersion returns the gravity binary version information.
-func (o *Operator) GetVersion(ctx context.Context) (*modules.Version, error) {
+func (o *Operator) GetVersion(ctx context.Context) (*proto.Version, error) {
 	version := modules.Get().Version()
 	return &version, nil
 }

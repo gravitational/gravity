@@ -27,6 +27,7 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/modules"
+	"github.com/gravitational/gravity/lib/rpc/proto"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 	"github.com/gravitational/gravity/lib/users"
@@ -347,8 +348,8 @@ func (o *OperatorACL) GetSites(accountID string) ([]Site, error) {
 	return clusters, nil
 }
 
-func (o *OperatorACL) GetLocalSite() (*Site, error) {
-	return o.operator.GetLocalSite()
+func (o *OperatorACL) GetLocalSite(ctx context.Context) (*Site, error) {
+	return o.operator.GetLocalSite(ctx)
 }
 
 func (o *OperatorACL) DeleteSite(siteKey SiteKey) error {
@@ -1093,7 +1094,7 @@ func (o *OperatorACL) EmitAuditEvent(ctx context.Context, req AuditEventRequest)
 }
 
 // GetVersion returns the server version information.
-func (o *OperatorACL) GetVersion(ctx context.Context) (*modules.Version, error) {
+func (o *OperatorACL) GetVersion(ctx context.Context) (*proto.Version, error) {
 	return o.operator.GetVersion(ctx)
 }
 

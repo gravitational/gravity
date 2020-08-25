@@ -28,7 +28,7 @@ import (
 	"strings"
 	"syscall"
 
-	appservice "github.com/gravitational/gravity/lib/app/service"
+	libapp "github.com/gravitational/gravity/lib/app"
 	libarchive "github.com/gravitational/gravity/lib/archive"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
@@ -113,12 +113,12 @@ func systemPullUpdates(env *localenv.LocalEnvironment, opsCenterURL string, runt
 		}
 		log.WithField("update", update).Info("Pulling update.")
 		env.Printf("Pulling update %v\n.", update)
-		err = pullUpdate(env.Packages, remotePackages, env.Reporter, *update)
+		err = pullUpdate(context.TODO(), env.Packages, remotePackages, env.Reporter, *update)
 		if err != nil {
 			return trace.Wrap(err)
 		}
 		if update.ConfigPackage != nil {
-			err = pullUpdate(env.Packages, remotePackages, env.Reporter,
+			err = pullUpdate(context.TODO(), env.Packages, remotePackages, env.Reporter,
 				*update.ConfigPackage)
 			if err != nil {
 				return trace.Wrap(err)
@@ -292,6 +292,8 @@ func systemBlockingReinstall(env *localenv.LocalEnvironment, update storage.Pack
 	return updater.Reinstall(context.TODO(), update)
 }
 
+// reinstallOneshotService stops and reinstalls the service specified by
+// serviceName as a oneshot service.
 func reinstallOneshotService(env *localenv.LocalEnvironment, serviceName string, cmd []string) error {
 	services, err := systemservice.New()
 	if err != nil {
@@ -308,7 +310,7 @@ func reinstallOneshotService(env *localenv.LocalEnvironment, serviceName string,
 		NoBlock: true,
 		ServiceSpec: systemservice.ServiceSpec{
 			User:            constants.RootUIDString,
-			Type:            constants.OneshotService,
+			Type:            service.OneshotService,
 			StartCommand:    strings.Join(cmd, " "),
 			RemainAfterExit: true,
 		},
@@ -332,14 +334,13 @@ func applyUpdates(env *localenv.LocalEnvironment, updates []storage.PackageUpdat
 	return trace.NewAggregate(errors...)
 }
 
-func pullUpdate(localPackages, remotePackages pack.PackageService, reporter pack.ProgressReporter, update storage.PackageUpdate) error {
-	pullReq := appservice.PackagePullRequest{
+func pullUpdate(ctx context.Context, localPackages, remotePackages pack.PackageService, reporter pack.ProgressReporter, update storage.PackageUpdate) error {
+	puller := libapp.Puller{
 		SrcPack:  remotePackages,
 		DstPack:  localPackages,
-		Package:  update.To,
 		Progress: reporter,
 	}
-	_, err := appservice.PullPackage(pullReq)
+	err := puller.PullPackage(ctx, update.To)
 	if err != nil && !trace.IsAlreadyExists(err) {
 		return trace.Wrap(err)
 	}

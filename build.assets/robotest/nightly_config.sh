@@ -8,12 +8,13 @@ source $(dirname $0)/utils.sh
 # UPGRADE_MAP maps gravity version -> list of linux distros to upgrade from
 declare -A UPGRADE_MAP
 
-UPGRADE_MAP[$(recommended_upgrade_tag $(branch 7.0.x))]="centos:7 debian:9 ubuntu:18" # this branch
-UPGRADE_MAP[7.0.12]="ubuntu:16"  # 7.0.12 is the first LTS 7.0 release
+UPGRADE_MAP[$(recommended_upgrade_tag $(branch 7.0.x))]="centos:7 redhat:7 debian:9 ubuntu:18" # this branch
+UPGRADE_MAP[7.0.13]="centos:7" # 7.0.13 + centos is combination that is critical in the field -- 2020-07 walt
+UPGRADE_MAP[7.0.12]="ubuntu:18"  # 7.0.12 is the first LTS 7.0 release
 UPGRADE_MAP[7.0.0]="ubuntu:16"  # 7.0.0 is prone to upgrade failure without https://github.com/gravitational/planet/pull/671
 UPGRADE_MAP[$(recommended_upgrade_tag $(branch 6.1.x))]="redhat:7" # compatible LTS version
-UPGRADE_MAP[6.1.0]="centos:7"
-UPGRADE_MAP[$(recommended_upgrade_tag $(branch 6.3.x))]="debian:9" # compatible non-LTS version
+UPGRADE_MAP[6.1.0]="debian:9"
+UPGRADE_MAP[$(recommended_upgrade_tag $(branch 6.3.x))]="centos:7" # compatible non-LTS version
 # UPGRADE_MAP[6.3.0]="debian:8"  # disabled due to https://github.com/gravitational/gravity/issues/1009
 UPGRADE_MAP[$(recommended_upgrade_tag $(branch 6.2.x))]="centos:7" # compatible non-LTS version
 UPGRADE_MAP[6.2.0]="redhat:7"
@@ -22,7 +23,7 @@ UPGRADE_VERSIONS=${!UPGRADE_MAP[@]}
 
 function build_upgrade_size_suite {
   local from_tarball=/$(tag_to_tarball $(recommended_upgrade_tag $(branch 6.1.x)))
-  local os="redhat:7"
+  local os="centos:7"
   local cluster_sizes=( \
     '"flavor":"three","nodes":3,"role":"node"' \
     '"flavor":"six","nodes":6,"role":"node"' \
@@ -77,7 +78,7 @@ EOF
 
 function build_install_suite {
   local suite=''
-  local test_os="redhat:7 debian:9 ubuntu:16 ubuntu:18"
+  local test_os="centos:7 redhat:7 debian:9 ubuntu:16 ubuntu:18"
   local cluster_sizes=( \
     '"flavor":"three","nodes":3,"role":"node"' \
     '"flavor":"six","nodes":6,"role":"node"')
