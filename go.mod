@@ -67,7 +67,7 @@ require (
 	github.com/gravitational/oxy v0.0.0-20180629203109-e4a7e35311e6 // indirect
 	github.com/gravitational/rigging v0.0.0-20191021212636-83b2e9505286
 	github.com/gravitational/roundtrip v1.0.0
-	github.com/gravitational/satellite v0.0.9-0.20200803211125-ffa83169a36c
+	github.com/gravitational/satellite v0.0.9-0.20200825155435-feccb39a021d
 	github.com/gravitational/tail v1.0.1
 	github.com/gravitational/teleport v3.2.15-0.20200309221853-bebf7a500543+incompatible
 	github.com/gravitational/trace v1.1.11
@@ -83,6 +83,7 @@ require (
 	github.com/hashicorp/terraform v0.11.7 // indirect
 	github.com/hashicorp/yamux v0.0.0-20180826203732-cc6d2ea263b2 // indirect
 	github.com/huandu/xstrings v1.2.0 // indirect
+	github.com/influxdata/kapacitor v1.5.6 // indirect
 	github.com/jonboulle/clockwork v0.2.0
 	github.com/julienschmidt/httprouter v1.2.0
 	github.com/kardianos/osext v0.0.0-20170510131534-ae77be60afb1
