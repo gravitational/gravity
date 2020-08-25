@@ -60,9 +60,10 @@ func (*S) TestParsesClusterConfiguration(c *C) {
 version: v1
 spec:
   gravityControllerService:
-    type: ClusterIP`,
+    spec:
+      type: ClusterIP`,
 
-			error:   trace.BadParameter(`failed to validate: spec.gravityControllerService.type: spec.gravityControllerService.type must be one of the following: \"NodePort\", \"LoadBalancer\"`),
+			error:   trace.BadParameter(`failed to validate: spec.gravityControllerService.spec.type: spec.gravityControllerService.spec.type must be one of the following: \"NodePort\", \"LoadBalancer\"`),
 			comment: "invalid gravity controller service type",
 		},
 		{
@@ -201,11 +202,20 @@ spec:
 version: v1
 spec:
   gravityControllerService:
-    type: NodePort
+    labels:
+      app: gravity-site
     annotations:
       service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout: "3600"
       service.beta.kubernetes.io/aws-load-balancer-internal: "0.0.0.0/0"
-      cloud.google.com/load-balancer-type: "Internal"`,
+      cloud.google.com/load-balancer-type: "Internal"
+    spec:
+      type: NodePort
+      ports:
+      - name: web
+        protocol: TCP
+        port: 3009
+        targetPort: "3000"
+        nodePort: 32009`,
 			resource: &Resource{
 				Kind:    storage.KindClusterConfiguration,
 				Version: "v1",
@@ -216,11 +226,25 @@ spec:
 				Spec: Spec{
 					ComponentConfigs: ComponentConfigs{
 						GravityControllerService: &GravityControllerService{
-							Type: NodePort,
+							Labels: map[string]string{
+								"app": "gravity-site",
+							},
 							Annotations: map[string]string{
 								"service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout": "3600",
 								"service.beta.kubernetes.io/aws-load-balancer-internal":                "0.0.0.0/0",
 								"cloud.google.com/load-balancer-type":                                  "Internal",
+							},
+							Spec: ControllerServiceSpec{
+								Type: "NodePort",
+								Ports: []Port{
+									{
+										Name:       "web",
+										Protocol:   "TCP",
+										Port:       3009,
+										TargetPort: "3000",
+										NodePort:   32009,
+									},
+								},
 							},
 						},
 					},
@@ -237,6 +261,7 @@ spec:
 			c.Assert(err, ErrorMatches, tc.error.Error(), comment)
 			continue
 		}
+
 		c.Assert(err, IsNil, comment)
 		if tc.validate != nil {
 			tc.validate(resource, tc.resource, c)
@@ -377,9 +402,21 @@ address: 10.0.0.1
 				Spec: Spec{
 					ComponentConfigs: ComponentConfigs{
 						GravityControllerService: &GravityControllerService{
-							Type: LoadBalancer,
+							Labels: map[string]string{
+								"app": "web",
+							},
 							Annotations: map[string]string{
 								"foo": "bar",
+							},
+							Spec: ControllerServiceSpec{
+								Type: LoadBalancer,
+								Ports: []Port{
+									{
+										Name:     "web",
+										Port:     3009,
+										NodePort: 320009,
+									},
+								},
 							},
 						},
 					},
@@ -389,9 +426,21 @@ address: 10.0.0.1
 				Spec: Spec{
 					ComponentConfigs: ComponentConfigs{
 						GravityControllerService: &GravityControllerService{
-							Type: NodePort,
+							Labels: map[string]string{
+								"app": "web",
+							},
 							Annotations: map[string]string{
 								"foo": "baz",
+							},
+							Spec: ControllerServiceSpec{
+								Type: NodePort,
+								Ports: []Port{
+									{
+										Name:     "web",
+										Port:     3001,
+										NodePort: 32001,
+									},
+								},
 							},
 						},
 					},
@@ -401,9 +450,21 @@ address: 10.0.0.1
 				Spec: Spec{
 					ComponentConfigs: ComponentConfigs{
 						GravityControllerService: &GravityControllerService{
-							Type: NodePort,
+							Labels: map[string]string{
+								"app": "web",
+							},
 							Annotations: map[string]string{
 								"foo": "baz",
+							},
+							Spec: ControllerServiceSpec{
+								Type: NodePort,
+								Ports: []Port{
+									{
+										Name:     "web",
+										Port:     3001,
+										NodePort: 32001,
+									},
+								},
 							},
 						},
 					},

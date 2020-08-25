@@ -147,14 +147,27 @@ func (r Resource) Merge(other Resource) Resource {
 		if r.Spec.GravityControllerService == nil {
 			r.Spec.GravityControllerService = &GravityControllerService{}
 		}
-		if updateGravityService.Type != "" {
-			r.Spec.GravityControllerService.Type = updateGravityService.Type
+
+		if len(updateGravityService.Labels) != 0 {
+			r.Spec.GravityControllerService.Labels = make(map[string]string, len(updateGravityService.Labels))
+			for k, v := range updateGravityService.Labels {
+				r.Spec.GravityControllerService.Labels[k] = v
+			}
 		}
+
 		if len(updateGravityService.Annotations) != 0 {
 			r.Spec.GravityControllerService.Annotations = make(map[string]string, len(updateGravityService.Annotations))
 			for k, v := range updateGravityService.Annotations {
 				r.Spec.GravityControllerService.Annotations[k] = v
 			}
+		}
+
+		if updateGravityService.Spec.Type != "" {
+			r.Spec.GravityControllerService.Spec.Type = updateGravityService.Spec.Type
+		}
+
+		if len(updateGravityService.Spec.Ports) != 0 {
+			r.Spec.GravityControllerService.Spec.Ports = updateGravityService.Spec.Ports
 		}
 	}
 
@@ -274,20 +287,48 @@ type Kubelet struct {
 	Config json.RawMessage `json:"config,omitempty"`
 }
 
-// GravityControllerService defines gravity-site service configuration
+// GravityControllerService defines controller service configuration
 type GravityControllerService struct {
-	// Type specifies the gravity-site service type.
-	Type string `json:"type,omitempty"`
-	// Annotations defines the set of key=value pairs to configure the service.
+	// Labels specifies the controller service labels.
+	Labels map[string]string `json:"labels,omitempty"`
+	// Annotations defines the set of key=value pairs to configure the controller service.
 	Annotations map[string]string `json:"annotations,omitempty"`
+	// Spec defines the controller service spec.
+	Spec ControllerServiceSpec `json:"spec"`
 }
 
-// IsEmpty determines whether this global configuration is empty.
+// ControllerServiceSpec defines the controller service spec
+type ControllerServiceSpec struct {
+	// Type specifies the controller service type.
+	Type string `json:"type,omitempty"`
+	// Ports specifies the port configuration.
+	Ports []Port `json:"ports,omitempty"`
+}
+
+// Port specifies service port.
+type Port struct {
+	// Name specifies port name.
+	Name string `json:"name,omitempty"`
+	// Protocol specifies protocol.
+	Protocol string `json:"protocol,omitempty"`
+	// Port specifies exposed port number.
+	Port int32 `json:"port,omitempty"`
+	// TargetPort specifies target port number.
+	TargetPort string `json:"targetPort,omitempty"`
+	// NodePort specifies external node port.
+	NodePort int32 `json:"nodePort,omitempty"`
+}
+
+// IsEmpty determines whether this controller service configuration is empty.
 func (r *GravityControllerService) IsEmpty() bool {
 	if r == nil {
 		return true
 	}
-	return r.Type == "" && len(r.Annotations) == 0
+	emptyLabels := len(r.Labels) == 0
+	emptyAnnotations := len(r.Annotations) == 0
+	emptyType := r.Spec.Type == ""
+	emptyPorts := len(r.Spec.Ports) == 0
+	return emptyLabels && emptyAnnotations && emptyType && emptyPorts
 }
 
 // ControlPlaneComponent defines configuration of a control plane component
@@ -335,7 +376,7 @@ type Global struct {
 // Formatted string arguments:
 // [1] metadata.name
 // [2] metadata.namespace
-// [3] gravityControllerService.type
+// [3] gravityControllerService.spec.type
 const specSchemaTemplate = `{
   "type": "object",
   "additionalProperties": false,
@@ -482,16 +523,47 @@ const specSchemaTemplate = `{
         "gravityControllerService": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["type"],
           "properties": {
-            "type": {
-              "type": "string",
-              "default": "%v",
-              "enum": ["NodePort", "LoadBalancer"]
+            "labels": {
+              "type": "object",
+              "patternProperties": {
+                "^[a-zA-Z/.0-9_-]$": {"type": "string"}
+              }
             },
             "annotations": {
               "type": "object",
-              "properites": {"type": "string"}
+              "patternProperties": {
+                "^[a-zA-Z/.0-9_-]$": {"type": "string"}
+              }
+            },
+            "spec": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["type"],
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "default": "%v",
+                  "enum": ["NodePort", "LoadBalancer"]
+                },
+                "ports": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "name": {"type": "string"},
+                      "protocol": {
+                        "type": "string",
+                        "enum": ["TCP", "UDP", "SCTP"]
+                      },
+                      "port": {"type": "integer"},
+                      "targetPort": {"type": "string"},
+                      "nodePort": {"type": "integer"}
+                    }
+                  }
+                }
+              }
             }
           }
         }
@@ -516,23 +588,3 @@ func newEmpty() *Resource {
 		},
 	}
 }
-
-const (
-	// LoadBalancer defines the LoadBalancer service type.
-	LoadBalancer = "LoadBalancer"
-
-	// NodePort defines the NodePort service type.
-	NodePort = "NodePort"
-
-	// AWSIdleTimeoutKey defines the aws load balancer idle timeout property name
-	AWSIdleTimeoutKey = "service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout"
-
-	// AWSInternalKey defines the aws load balancer internal property name
-	AWSInternalKey = "service.beta.kubernetes.op/aws-load-balancer-internal"
-
-	// AWSLoadBalancerIdleTimeout defines the default aws load balancer idle timeout in seconds
-	AWSLoadBalancerIdleTimeout = "3600"
-
-	// AWSLoadBalancerInternal defines the default aws load balancer internal
-	AWSLoadBalancerInternal = "0.0.0.0/0"
-)
