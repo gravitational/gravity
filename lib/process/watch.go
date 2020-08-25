@@ -239,135 +239,24 @@ func (p *Process) runReloadEventsWatch(client *kubernetes.Clientset) clusterServ
 	}
 }
 
-// runServiceConfigWatch watches the clusterconfiguration configmap and updates
-// the gravity-site serivice configurations if the gravityControllerService has
-// been modified.
-func (p *Process) runServiceConfigWatch(client *kubernetes.Clientset) clusterService {
+// runControllerServiceReconcile periodically reconciles the controller service
+// state.
+func (p *Process) runControllerServiceReconcile(client *kubernetes.Clientset) clusterService {
+	clusterConfigControl := clusterconfig.NewClusterConfigControl(client)
+	serviceControl := clusterconfig.NewServiceControl(client)
 	return func(ctx context.Context) {
-		ticker := time.NewTicker(time.Second)
+		ticker := time.NewTicker(defaults.ControllerServiceReconcileInterval)
 		defer ticker.Stop()
 		for {
-			err := p.watchServiceConfig(ctx, client)
-			if err != nil {
-				p.Errorf("Failed to start service config watch: %v.", trace.DebugReport(err))
-			}
 			select {
 			case <-ticker.C:
+				if err := clusterconfig.Reconcile(clusterConfigControl, serviceControl); err != nil {
+					p.WithError(err).Error("Failed to reconcile controller service.")
+				}
 			case <-ctx.Done():
-				p.Debug("Service config watcher stopped.")
+				p.Debug("Controller service reconciler stopped.")
 				return
 			}
 		}
 	}
-}
-
-func (p *Process) watchServiceConfig(ctx context.Context, client *kubernetes.Clientset) error {
-	p.Debug("Restarting service config watch.")
-	watcher, err := client.CoreV1().ConfigMaps(defaults.KubeSystemNamespace).Watch(metav1.ListOptions{
-		FieldSelector: fields.OneTermEqualSelector("metadata.name", constants.ClusterConfigurationMap).String(),
-	})
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	defer watcher.Stop()
-	for {
-		select {
-		case event, ok := <-watcher.ResultChan():
-			if !ok {
-				p.Debugf("Watcher channel closed: %v.", event)
-				return nil
-			}
-			if err := updateServiceConfiguration(client); err != nil {
-				p.Debug("Failed to update service config: %v.", trace.DebugReport(err))
-			}
-		case <-ctx.Done():
-			p.Debug("Stopping certificate watcher.")
-			return nil
-		}
-	}
-}
-
-// getServiceConfiguration returns the current gravityControllerService configuration
-// defined in the cluster configuration.
-func getServiceConfiguration(client *kubernetes.Clientset) (*clusterconfig.GravityControllerService, error) {
-	configmap, err := client.CoreV1().ConfigMaps(defaults.KubeSystemNamespace).Get(constants.ClusterConfigurationMap, metav1.GetOptions{})
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	spec := configmap.Data["spec"]
-	if spec == "" {
-		return nil, trace.NotFound("clutserconfiguration spec is empty")
-	}
-
-	clusterConfig, err := clusterconfig.Unmarshal([]byte(spec))
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	return clusterConfig.GetGravityControllerServiceConfig(), nil
-}
-
-// updateServiceConfiguration updates the gravity-site service configuration.
-func updateServiceConfiguration(client *kubernetes.Clientset) error {
-	config, err := getServiceConfiguration(client)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	services := client.CoreV1().Services(defaults.KubeSystemNamespace)
-
-	svc, err := services.Get(constants.GravityServiceName, metav1.GetOptions{})
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	// Set default service type and annotations.
-	svcType := v1.ServiceType(clusterconfig.LoadBalancer)
-	annotations := map[string]string{
-		clusterconfig.AWSIdleTimeoutKey: clusterconfig.AWSLoadBalancerIdleTimeout,
-		clusterconfig.AWSInternalKey:    clusterconfig.AWSLoadBalancerInternal,
-	}
-
-	if !config.IsEmpty() {
-		if config.Type != "" {
-			svcType = v1.ServiceType(config.Type)
-		}
-		for key, val := range config.Annotations {
-			annotations[key] = val
-		}
-	}
-
-	// shouldUpdate indicates that a change has been made to the service
-	// configuration and should be updated.
-	var shouldUpdate bool
-
-	if svc.Spec.Type != svcType {
-		svc.Spec.Type = svcType
-		shouldUpdate = true
-	}
-
-	if len(svc.Annotations) != len(annotations) {
-		svc.Annotations = annotations
-		shouldUpdate = true
-	} else {
-		for key, updatedVal := range annotations {
-			existingVal, exists := svc.Annotations[key]
-			if !exists || existingVal != updatedVal {
-				svc.Annotations = annotations
-				shouldUpdate = true
-				break
-			}
-		}
-	}
-
-	if !shouldUpdate {
-		return nil
-	}
-
-	if _, err := services.Update(svc); err != nil {
-		return trace.Wrap(err)
-	}
-
-	return nil
 }

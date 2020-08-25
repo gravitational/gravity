@@ -1184,6 +1184,10 @@ const (
 
 	// HookPriorityClassName specifies the default priority class for hooks
 	HookPriorityClassName = "system-cluster-critical"
+
+	// ControllerServiceReconcileInterval specifies the interval between attempts
+	// to reconcile the controller service state.
+	ControllerServiceReconcileInterval = 30 * time.Second
 )
 
 var (
