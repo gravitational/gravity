@@ -665,9 +665,15 @@ func (r configCollection) WriteText(w io.Writer) error {
 	}
 	if config := r.GetGravityControllerServiceConfig(); config != nil {
 		common.PrintCustomTableHeader(t, []string{"GravityControllerService"}, "-")
-		fmt.Fprintf(t, "Type:\t%v\n", config.Type)
+		if len(config.Labels) != 0 {
+			fmt.Fprintf(t, "Labels:\t%v\n", formatAnnotations(config.Labels))
+		}
 		if len(config.Annotations) != 0 {
 			fmt.Fprintf(t, "Annotations:\t%v\n", formatAnnotations(config.Annotations))
+		}
+		fmt.Fprintf(t, "Type:\t%v\n", config.Spec.Type)
+		if len(config.Spec.Ports) != 0 {
+			fmt.Fprintf(t, "Ports:\t%v\n", config.Spec.Ports)
 		}
 	}
 	config := r.GetGlobalConfig()
