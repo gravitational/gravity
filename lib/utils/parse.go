@@ -483,3 +483,21 @@ func ParseProxyAddr(proxyAddr, defaultWebPort, defaultSSHPort string) (host stri
 
 	return "", "", "", trace.BadParameter("unable to parse port: %v", port)
 }
+
+// ParseProxy parses the provided HTTP(-S) proxy address and returns it in
+// the parsed URL form. The proxy value is expected to be a complete URL
+// that includes a scheme (http, https or socks5).
+//
+// This function is loosely based on Go's proxy parsing method:
+//
+// https://github.com/golang/go/blob/release-branch.go1.15/src/vendor/golang.org/x/net/http/httpproxy/proxy.go#L149-L170
+func ParseProxy(proxy string) (*url.URL, error) {
+	proxyURL, err := url.Parse(proxy)
+	if err != nil {
+		return nil, trace.Wrap(err, "failed to parse proxy address %q", proxy)
+	}
+	if !StringInSlice([]string{"http", "https", "socks5"}, proxyURL.Scheme) {
+		return nil, trace.BadParameter("proxy address %q must include a valid scheme (http, https or socks5)")
+	}
+	return proxyURL, nil
+}

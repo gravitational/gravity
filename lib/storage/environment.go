@@ -19,12 +19,12 @@ package storage
 import (
 	"encoding/json"
 	"fmt"
-	"net/url"
 	"strings"
 	"time"
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/utils"
 
 	teleservices "github.com/gravitational/teleport/lib/services"
 	teleutils "github.com/gravitational/teleport/lib/utils"
@@ -119,34 +119,26 @@ func (r *EnvironmentV1) CheckAndSetDefaults() error {
 	return trace.NewAggregate(errors...)
 }
 
-// checkHTTPProxy verifies HTTP_PROXY (if present) is valid a URL and has http:// scheme.
+// checkHTTPProxy verifies HTTP_PROXY (if present) is a valid proxy URL.
 func (r *EnvironmentV1) checkHTTPProxy() error {
 	httpProxy := r.getVariable(constants.HTTPProxyEnvVar)
 	if httpProxy == "" {
 		return nil
 	}
-	parsed, err := url.Parse(httpProxy)
-	if err != nil {
-		return trace.Wrap(err, "HTTP_PROXY must be a valid URL: %q", httpProxy)
-	}
-	if parsed.Scheme != "http" {
-		return trace.BadParameter("HTTP_PROXY URL must include http:// scheme: %q", httpProxy)
+	if _, err := utils.ParseProxy(httpProxy); err != nil {
+		return trace.Wrap(err, "failed to parse HTTP_PROXY")
 	}
 	return nil
 }
 
-// checkHTTPSProxy verifies HTTPS_PROXY (if present) is valid a URL and has https:// scheme.
+// checkHTTPSProxy verifies HTTPS_PROXY (if present) is a valid proxy URL.
 func (r *EnvironmentV1) checkHTTPSProxy() error {
 	httpsProxy := r.getVariable(constants.HTTPSProxyEnvVar)
 	if httpsProxy == "" {
 		return nil
 	}
-	parsed, err := url.Parse(httpsProxy)
-	if err != nil {
-		return trace.Wrap(err, "HTTPS_PROXY must be a valid URL: %q", httpsProxy)
-	}
-	if parsed.Scheme != "https" {
-		return trace.BadParameter("HTTPS_PROXY URL must include https:// scheme: %q", httpsProxy)
+	if _, err := utils.ParseProxy(httpsProxy); err != nil {
+		return trace.Wrap(err, "failed to parse HTTPS_PROXY")
 	}
 	return nil
 }

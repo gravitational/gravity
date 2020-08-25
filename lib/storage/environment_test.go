@@ -44,19 +44,29 @@ func (*EnvS) TestCheckAndSetDefaults(c *C) {
 			comment: "http proxy missing scheme",
 		},
 		{
+			vars:    `{"http_proxy": "proxy.example.com:8080"}`,
+			error:   true,
+			comment: "http proxy with port missing scheme",
+		},
+		{
 			vars:    `{"http_proxy": "http://proxy.example.com", "https_proxy": "proxy2.example.com"}`,
 			error:   true,
 			comment: "https proxy missing scheme",
 		},
 		{
-			vars:    `{"https_proxy": "http://proxy2.example.com"}`,
-			error:   true,
-			comment: "https proxy has incorrect scheme",
+			vars:    `{"https_proxy": "http://proxy2.example.com:1234"}`,
+			error:   false,
+			comment: "https proxy has http scheme",
 		},
 		{
 			vars:    `{"http_proxy": "http://proxy.example.com", "https_proxy": "https://proxy2.example.com"}`,
 			error:   false,
 			comment: "http and https proxies are ok",
+		},
+		{
+			vars:    `{"http_proxy": "ftp://proxy.example.com"}`,
+			error:   true,
+			comment: "invalid proxy scheme",
 		},
 		{
 			vars:    `{"http_proxy": "", "https_proxy": ""}`,
