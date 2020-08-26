@@ -211,6 +211,11 @@ const (
 	// AgentStatusTimeoutEnvVar is the name of the environment variable that specifies the agent status timeout value
 	AgentStatusTimeoutEnvVar = "GRAVITY_AGENT_STATUS_TIMEOUT"
 
+	// HTTPProxyEnvVar is the HTTP_PROXY environment variable.
+	HTTPProxyEnvVar = "HTTP_PROXY"
+	// HTTPSProxyEnvVar is the HTTPS_PROXY environment variable.
+	HTTPSProxyEnvVar = "HTTPS_PROXY"
+
 	// DockerRegistry is a default name for private docker registry
 	DockerRegistry = "leader.telekube.local:5000"
 

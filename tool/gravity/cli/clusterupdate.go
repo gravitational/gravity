@@ -45,6 +45,7 @@ import (
 
 	"github.com/coreos/go-semver/semver"
 	"github.com/fatih/color"
+	"github.com/ghodss/yaml"
 	"github.com/gravitational/trace"
 )
 
@@ -374,7 +375,43 @@ func (r *clusterInitializer) validatePreconditions(localEnv *localenv.LocalEnvir
 	if err := r.checkTiller(localEnv, updateApp.Manifest); err != nil {
 		return trace.Wrap(err)
 	}
+	if err := r.checkRuntimeEnvironment(localEnv, cluster, operator); err != nil {
+		return trace.Wrap(err)
+	}
 	r.updateLoc = updateApp.Package
+	return nil
+}
+
+func (r *clusterInitializer) checkRuntimeEnvironment(env *localenv.LocalEnvironment, cluster ops.Site, operator ops.Operator) error {
+	runtimeEnv, err := operator.GetClusterEnvironmentVariables(cluster.Key())
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if err := runtimeEnv.CheckAndSetDefaults(); err != nil {
+		log.WithError(err).Error("Runtime environment variables validation failed.")
+		if r.force {
+			env.PrintStep(color.YellowString("Runtime environment variables validation failed: %v", err))
+			return nil
+		}
+		bytes, marshalErr := yaml.Marshal(runtimeEnv)
+		if marshalErr != nil {
+			return trace.Wrap(err)
+		}
+		return trace.BadParameter(`There was an issue detected with runtime environment variables:
+
+    %q
+
+This may cause problems during the upgrade. Please review configured environment
+variables using "gravity resource get runtimeenvironment" command and update it
+appropriately before proceeding with the upgrade:
+
+%s
+See https://gravitational.com/gravity/docs/config/#runtime-environment-variables
+for more information on managing runtime environment variables.
+
+This warning can be bypassed by providing a --force flag to the upgrade command.`, err, bytes)
+	}
+	log.Info("Runtime environment variables are valid.")
 	return nil
 }
 
