@@ -456,7 +456,7 @@ func (r *clusterInitializer) validate(localEnv *localenv.LocalEnvironment, clust
 	if err := r.checkTiller(localEnv, updateApp.Manifest); err != nil {
 		return trace.Wrap(err)
 	}
-	if err := r.checkRuntimeEnvironment(localEnv, cluster, operator); err != nil {
+	if err := r.checkRuntimeEnvironment(localEnv, cluster, clusterEnv.Operator); err != nil {
 		return trace.Wrap(err)
 	}
 	r.updateLoc = updateApp.Package

@@ -222,12 +222,6 @@ const (
 	// HTTPSProxyEnvVar is the HTTPS_PROXY environment variable.
 	HTTPSProxyEnvVar = "HTTPS_PROXY"
 
-	// DockerRegistry is a default name for private docker registry
-	DockerRegistry = "leader.telekube.local:5000"
-
-	// LocalRegistryAddr is the address of the local docker registry
-	LocalRegistryAddr = "127.0.0.1:5000"
-
 	// Localhost is local host
 	Localhost = "127.0.0.1"
 
