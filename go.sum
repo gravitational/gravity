@@ -562,6 +562,8 @@ github.com/gravitational/satellite v0.0.9-0.20200803211125-ffa83169a36c h1:oh+T9
 github.com/gravitational/satellite v0.0.9-0.20200803211125-ffa83169a36c/go.mod h1:gqyBdtaefi/t7Mw//N/eoC4c3YriZZssmOiZ6NPvuek=
 github.com/gravitational/satellite v0.0.9-0.20200825155435-feccb39a021d h1:FBTLBRsvpIIUobNzFGbNxAednHvyeo1EQcmOh5pcPLk=
 github.com/gravitational/satellite v0.0.9-0.20200825155435-feccb39a021d/go.mod h1:gqyBdtaefi/t7Mw//N/eoC4c3YriZZssmOiZ6NPvuek=
+github.com/gravitational/satellite v0.0.9-0.20200826203500-ad8030ab3ddb h1:XF4a8LC+T3e59ZczOkJopPL57p2/3zVmlfVcrneIOdc=
+github.com/gravitational/satellite v0.0.9-0.20200826203500-ad8030ab3ddb/go.mod h1:gqyBdtaefi/t7Mw//N/eoC4c3YriZZssmOiZ6NPvuek=
 github.com/gravitational/tail v1.0.1 h1:Yv5nh+zV0yHQ9D9kXGEOFpUoA+Ti5uXHwOGioKSIeng=
 github.com/gravitational/tail v1.0.1/go.mod h1:3aRU+xPwNCaXykBn4jhiXsSJXX7jalcZtvCYGckNbPw=
 github.com/gravitational/teleport v3.2.15-0.20200110233851-f4445fa60013+incompatible h1:zXwIbEof+bTDqbYW97fZe7BWEuHa7ccrNe2PcMt8kYU=
