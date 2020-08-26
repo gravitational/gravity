@@ -50,3 +50,43 @@ func toServicePorts(ports []Port) []v1.ServicePort {
 	}
 	return servicePorts
 }
+
+// hasDiff returns true if the two provided controller service configs have
+// diverged.
+func hasDiff(existing, incoming *GravityControllerService) bool {
+	if len(existing.Labels) != len(incoming.Labels) {
+		return true
+	}
+	for key, incomingVal := range incoming.Labels {
+		existingVal, exists := existing.Labels[key]
+		if !exists || existingVal != incomingVal {
+			return true
+		}
+	}
+
+	if len(existing.Annotations) != len(incoming.Annotations) {
+		return true
+	}
+	for key, incomingVal := range incoming.Annotations {
+		existingVal, exists := existing.Annotations[key]
+		if !exists || existingVal != incomingVal {
+			return true
+		}
+	}
+
+	if existing.Spec.Type != incoming.Spec.Type {
+		return true
+	}
+
+	if len(existing.Spec.Ports) != len(incoming.Spec.Ports) {
+		return true
+	}
+	for i, incomingPort := range incoming.Spec.Ports {
+		existingPort := existing.Spec.Ports[i]
+		if existingPort != incomingPort {
+			return true
+		}
+	}
+
+	return false
+}

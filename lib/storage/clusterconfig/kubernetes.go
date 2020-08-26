@@ -84,7 +84,7 @@ func toServiceConfig(svc *v1.Service) *GravityControllerService {
 func (r *serviceControl) Update(config *GravityControllerService) error {
 	services := r.CoreV1().Services(defaults.KubeSystemNamespace)
 
-	existingService, err := services.Get(constants.GravityServiceName, metav1.GetOptions{})
+	service, err := services.Get(constants.GravityServiceName, metav1.GetOptions{})
 	err = rigging.ConvertError(err)
 	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
@@ -92,92 +92,60 @@ func (r *serviceControl) Update(config *GravityControllerService) error {
 
 	// Initialize new controller service if not found.
 	if trace.IsNotFound(err) {
-		newService := toService(config)
-		if newService == nil {
-			newService = ControllerService()
-		}
-		_, err = services.Create(newService)
+		_, err = services.Create(newService(config))
 		if err = rigging.ConvertError(err); err != nil {
 			return trace.Wrap(err)
 		}
 		return nil
 	}
 
-	updatedService := toService(config)
-	if !shouldUpdate(existingService, updatedService) {
+	if !shouldUpdate(toServiceConfig(service), config) {
 		return nil
 	}
 
-	if _, err := services.Update(updatedService); err != nil {
+	updateService(service, config)
+	if _, err := services.Update(service); err != nil {
 		return trace.Wrap(err)
 	}
-
 	return nil
 }
 
-// toService returns a kubernetes service constructed from the provided config.
-// Returns nil if config is empty.
-func toService(config *GravityControllerService) *v1.Service {
-	if config.IsEmpty() {
-		return nil
-	}
-	updatedService := ControllerService()
-	if len(config.Labels) != 0 {
-		updatedService.Labels = config.Labels
-	}
-	if len(config.Annotations) != 0 {
-		updatedService.Annotations = config.Annotations
-	}
-	if config.Spec.Type != "" {
-		updatedService.Spec.Type = v1.ServiceType(config.Spec.Type)
-	}
-	if len(config.Spec.Ports) != 0 {
-		updatedService.Spec.Ports = toServicePorts(config.Spec.Ports)
-	}
-	return updatedService
+// newService constructs a new controller service using the provided config.
+// Returns the default controller service if config is empty.
+func newService(config *GravityControllerService) *v1.Service {
+	newService := ControllerService()
+	updateService(newService, config)
+	return newService
 }
 
-// shouldUpdate returns true if the two provided services have diverged.
-// Returns false if updated service is nil.
-func shouldUpdate(existing, updated *v1.Service) bool {
-	if updated == nil {
+// updateService updates the service with changes specified in the incoming
+// configs.
+// The service is unmodified if the incoming config is empty.
+func updateService(service *v1.Service, config *GravityControllerService) {
+	if config.IsEmpty() {
+		return
+	}
+	if len(config.Labels) != 0 {
+		service.Labels = config.Labels
+	}
+	if len(config.Annotations) != 0 {
+		service.Annotations = config.Annotations
+	}
+	if config.Spec.Type != "" {
+		service.Spec.Type = v1.ServiceType(config.Spec.Type)
+	}
+	if len(config.Spec.Ports) != 0 {
+		service.Spec.Ports = toServicePorts(config.Spec.Ports)
+	}
+}
+
+// shouldUpdate returns true if the two provided controller service configs have
+// diverged. Returns false if incoming is empty.
+func shouldUpdate(existing, incoming *GravityControllerService) bool {
+	if incoming.IsEmpty() {
 		return false
 	}
-	if len(existing.Labels) != len(updated.Labels) {
-		return true
-	}
-	for key, updatedVal := range updated.Labels {
-		existingVal, exists := existing.Labels[key]
-		if !exists || existingVal != updatedVal {
-			return true
-		}
-	}
-
-	if len(existing.Annotations) != len(updated.Annotations) {
-		return true
-	}
-	for key, updatedVal := range updated.Annotations {
-		existingVal, exists := existing.Annotations[key]
-		if !exists || existingVal != updatedVal {
-			return true
-		}
-	}
-
-	if existing.Spec.Type != updated.Spec.Type {
-		return true
-	}
-
-	if len(existing.Spec.Ports) != len(updated.Spec.Ports) {
-		return true
-	}
-	for i, updatedPort := range updated.Spec.Ports {
-		existingPort := existing.Spec.Ports[i]
-		if existingPort != updatedPort {
-			return true
-		}
-	}
-
-	return false
+	return hasDiff(existing, incoming)
 }
 
 // ClusterConfigControl provides an interface to interact with the cluster

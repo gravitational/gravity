@@ -24,7 +24,6 @@ import (
 	"github.com/gravitational/trace"
 	. "gopkg.in/check.v1"
 	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type KubernetesSuite struct{}
@@ -230,7 +229,7 @@ func (r *KubernetesSuite) TestReconcile(c *C) {
 			},
 			expectedServiceConfig: &GravityControllerService{
 				Labels: map[string]string{
-					defaults.ApplicationLabel: constants.GravityServiceName,
+					"app-existing": constants.GravityServiceName,
 				},
 				Annotations: map[string]string{
 					"cloud.google.com/load-balancer-type": "Internal",
@@ -239,14 +238,14 @@ func (r *KubernetesSuite) TestReconcile(c *C) {
 					Type: NodePort,
 					Ports: []Port{
 						{
-							Name:     constants.GravityServicePortName,
-							Port:     defaults.GravityServicePort,
-							NodePort: defaults.GravitySiteNodePort,
+							Name:     "port-existing",
+							Port:     3001,
+							NodePort: 32001,
 						},
 					},
 				},
 			},
-			comment: "use defaults for missing fields",
+			comment: "maintain existing spec if undefined in updated service config",
 		},
 	}
 	for _, tc := range testCases {
@@ -308,23 +307,6 @@ func (r *KubernetesSuite) NewServiceControl(config *GravityControllerService) *m
 	}
 }
 
-// newService returns a service using the provided config.
-func newService(config *GravityControllerService) *v1.Service {
-	if config == nil {
-		return nil
-	}
-	return &v1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Labels:      config.Labels,
-			Annotations: config.Annotations,
-		},
-		Spec: v1.ServiceSpec{
-			Type:  v1.ServiceType(config.Spec.Type),
-			Ports: toServicePorts(config.Spec.Ports),
-		},
-	}
-}
-
 // Get returns the controller service configuration.
 func (r *mockServiceControl) Get() (*GravityControllerService, error) {
 	return toServiceConfig(r.svc), nil
@@ -333,14 +315,14 @@ func (r *mockServiceControl) Get() (*GravityControllerService, error) {
 // Update updates the controller service.
 func (r *mockServiceControl) Update(config *GravityControllerService) error {
 	if r.svc == nil {
-		r.svc = ControllerService()
-	}
-
-	updatedService := toService(config)
-	if !shouldUpdate(r.svc, updatedService) {
+		r.svc = newService(config)
 		return nil
 	}
 
-	r.svc = updatedService
+	if !shouldUpdate(toServiceConfig(r.svc), config) {
+		return nil
+	}
+
+	updateService(r.svc, config)
 	return nil
 }
