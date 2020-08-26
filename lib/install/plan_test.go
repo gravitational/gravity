@@ -255,7 +255,7 @@ func (s *PlanSuite) verifyConfigurePhase(c *check.C, phase storage.OperationPhas
 		Data: &storage.OperationPhaseData{
 			Install: &storage.InstallOperationData{
 				Env: map[string]string{
-					"HTTP_PROXY": "example.com:8081",
+					"HTTP_PROXY": "http://example.com:8081",
 				},
 			},
 		},
@@ -471,7 +471,7 @@ func (s *PlanSuite) verifyResourcesPhase(c *check.C, phase storage.OperationPhas
     "creationTimestamp": null
   },
   "data": {
-    "HTTP_PROXY": "example.com:8081"
+    "HTTP_PROXY": "http://example.com:8081"
   }
 }
 	`)
@@ -762,7 +762,7 @@ version: v1
 kind: RuntimeEnvironment
 spec:
   data:
-    HTTP_PROXY: "example.com:8081"
+    HTTP_PROXY: "http://example.com:8081"
 ---
 version: v1
 kind: AlertTarget
