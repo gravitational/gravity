@@ -49,6 +49,11 @@ func (*EnvS) TestCheckAndSetDefaults(c *C) {
 			comment: "http proxy with port missing scheme",
 		},
 		{
+			vars:    `{"HTTP_PROXY": "http://proxy.example.com", "http_proxy": "proxy.example.com"}`,
+			error:   true,
+			comment: "proxy environment variable case",
+		},
+		{
 			vars:    `{"http_proxy": "http://proxy.example.com", "https_proxy": "proxy2.example.com"}`,
 			error:   true,
 			comment: "https proxy missing scheme",

@@ -110,11 +110,13 @@ func (r *EnvironmentV1) GetKeyValues() map[string]string {
 // CheckAndSetDefaults validates this resource and sets defaults
 func (r *EnvironmentV1) CheckAndSetDefaults() error {
 	var errors []error
-	if err := r.checkProxy(constants.HTTPProxyEnvVar); err != nil {
-		errors = append(errors, err)
-	}
-	if err := r.checkProxy(constants.HTTPSProxyEnvVar); err != nil {
-		errors = append(errors, err)
+	for _, env := range []string{
+		constants.HTTPProxyEnvVar, strings.ToLower(constants.HTTPProxyEnvVar),
+		constants.HTTPSProxyEnvVar, strings.ToLower(constants.HTTPSProxyEnvVar),
+	} {
+		if err := r.checkProxy(env); err != nil {
+			errors = append(errors, err)
+		}
 	}
 	return trace.NewAggregate(errors...)
 }
@@ -133,11 +135,9 @@ func (r *EnvironmentV1) checkProxy(env string) error {
 }
 
 // getVariable returns value of the specified environment variable or an empty string.
-//
-// The variable name is treated as case-insensitive.
 func (r *EnvironmentV1) getVariable(key string) string {
 	for k, v := range r.GetKeyValues() {
-		if strings.ToLower(k) == strings.ToLower(key) {
+		if k == key {
 			return v
 		}
 	}
