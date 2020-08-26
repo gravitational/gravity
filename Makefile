@@ -44,7 +44,7 @@ RELEASE_OUT ?=
 TELEPORT_TAG = 3.0.6
 # TELEPORT_REPOTAG adapts TELEPORT_TAG to the teleport tagging scheme
 TELEPORT_REPOTAG := v$(TELEPORT_TAG)
-PLANET_TAG := 5.5.57-$(K8S_VER_SUFFIX)
+PLANET_TAG := 5.5.58-$(K8S_VER_SUFFIX)
 PLANET_BRANCH := $(PLANET_TAG)
 K8S_APP_TAG := $(GRAVITY_TAG)
 TELEKUBE_APP_TAG := $(GRAVITY_TAG)
@@ -466,7 +466,7 @@ publish-artifacts: opscenter telekube
 # scan-artifacts uploads a copy of all vendored containers to a docker registry for scanning and vulnerability reporting
 #
 .PHONY: scan-artifacts
-scan-artifacts:
+scan-artifacts: telekube
 	$(GRAVITY) app sync \
 		--registry=$(TELE_COPY_TO_REGISTRY) \
 		--registry-username=$(TELE_COPY_TO_USER) \
