@@ -23,12 +23,13 @@ UPGRADE_MAP[7.0.7]="ubuntu:16" # 7.0.7 is the first 7.0 with https://github.com/
 UPGRADE_VERSIONS=${!UPGRADE_MAP[@]}
 
 function build_upgrade_suite {
+  local size='"flavor":"three","nodes":3,"role":"node"'
+  local to_tarball=/installer/telekube.tar
   local suite=''
-  local cluster_size='"flavor":"three","nodes":3,"role":"node"'
   for release in ${!UPGRADE_MAP[@]}; do
     local from_tarball=/$(tag_to_tarball $release)
     for os in ${UPGRADE_MAP[$release]}; do
-      suite+=$(build_upgrade_step $from_tarball $os $cluster_size)
+      suite+=$(build_upgrade_step $from_tarball $to_tarball $os $size)
       suite+=' '
     done
   done

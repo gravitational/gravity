@@ -22,27 +22,30 @@ UPGRADE_MAP[6.2.0]="ubuntu:16"
 UPGRADE_VERSIONS=${!UPGRADE_MAP[@]}
 
 function build_upgrade_size_suite {
-  local from_tarball=/$(tag_to_tarball $(recommended_upgrade_tag $(branch 7.0.x)))
+  local to_tarball=/installer/telekube.tar
   local os="centos:7"
   local cluster_sizes=( \
     '"flavor":"three","nodes":3,"role":"node"' \
     '"flavor":"six","nodes":6,"role":"node"' \
     '"flavor":"one","nodes":1,"role":"node"')
   local suite=''
+  local from_tarball=/$(tag_to_tarball $(recommended_upgrade_tag $(branch 7.0.x)))
   for size in ${cluster_sizes[@]}; do
-      suite+=$(build_upgrade_step $from_tarball $os $size)
+      suite+=$(build_upgrade_step $from_tarball $to_tarball $os $size)
     suite+=' '
   done
   echo -n $suite
 }
 
 function build_upgrade_to_release_under_test_suite {
-  local cluster_size='"flavor":"three","nodes":3,"role":"node"'
+  local to_tarball=/installer/telekube.tar
+  local os="centos:7"
+  local size='"flavor":"three","nodes":3,"role":"node"'
   local suite=''
   for release in ${!UPGRADE_MAP[@]}; do
     local from_tarball=/$(tag_to_tarball $release)
     for os in ${UPGRADE_MAP[$release]}; do
-      suite+=$(build_upgrade_step $from_tarball $os $cluster_size)
+      suite+=$(build_upgrade_step $from_tarball $to_tarball $os $size)
       suite+=' '
     done
   done
