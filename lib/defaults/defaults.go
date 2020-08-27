@@ -1182,9 +1182,6 @@ const (
 
 	// GravityFileLabel specifies the file label for the gravity binary
 	GravityFileLabel = "system_u:object_r:gravity_exec_t:s0"
-
-	// HookPriorityClassName specifies the default priority class for hooks
-	HookPriorityClassName = "system-cluster-critical"
 )
 
 var (
