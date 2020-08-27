@@ -18,13 +18,17 @@ package rpc
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/rpc/proto"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/tool/common"
 
+	"github.com/buger/goterm"
 	"github.com/gravitational/trace"
+	"github.com/sirupsen/logrus"
 )
 
 // AgentStatus contains a gravity agent's status information.
@@ -44,7 +48,7 @@ type AgentStatus struct {
 }
 
 // CollectAgentStatus collects the status from the specified agents.
-func CollectAgentStatus(ctx context.Context, servers storage.Servers, rpc AgentRepository) []AgentStatus {
+func CollectAgentStatus(ctx context.Context, servers storage.Servers, rpc AgentRepository) StatusList {
 	statusCh := make(chan AgentStatus, len(servers))
 	for _, srv := range servers {
 		go func(server storage.Server) {
@@ -103,4 +107,30 @@ func getVersion(ctx context.Context, addr string, rpc AgentRepository) (*proto.V
 	}
 
 	return version, nil
+}
+
+// StatusList is a list of AgentStatus.
+type StatusList []AgentStatus
+
+// String returns the StatusList as a string.
+func (r StatusList) String() string {
+	t := goterm.NewTable(0, 10, 5, ' ', 0)
+	common.PrintTableHeader(t, []string{"Hostname", "Address", "Status", "Version"})
+	for _, status := range r {
+		fmt.Fprintf(t, "%s\t%s\t%s\t%s\n", status.Hostname, status.Address, status.Status, status.Version)
+		if status.Error != nil {
+			logrus.WithError(status.Error).Debugf("Failed to collect agent status on %s.", status.Address)
+		}
+	}
+	return t.String()
+}
+
+// AgentsActive returns true if all gravity agents are active.
+func (r StatusList) AgentsActive() bool {
+	for _, status := range r {
+		if status.Status == constants.GravityAgentOffline {
+			return false
+		}
+	}
+	return true
 }

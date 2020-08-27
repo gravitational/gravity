@@ -173,6 +173,7 @@ func executeUpdatePhase(env *localenv.LocalEnvironment, environ LocalEnvironment
 	if operation.Type != ops.OperationUpdate {
 		return trace.NotFound("no active update operation found")
 	}
+
 	return executeUpdatePhaseForOperation(env, environ, params, operation.SiteOperation)
 }
 
@@ -197,6 +198,12 @@ const gravityResumeServiceName = "gravity-resume.service"
 // executeOrForkPhase either directly executes the specified operation phase,
 // or launches a one-shot systemd service that executes it in the background.
 func executeOrForkPhase(env *localenv.LocalEnvironment, updater updater, params PhaseParams, operation ops.SiteOperation) error {
+	if params.isResume() {
+		if err := verifyAgentsActive(env); err != nil {
+			return trace.Wrap(err)
+		}
+	}
+
 	// If given the --block flag, we're running as a systemd unit (or a user
 	// requested the command to execute in foreground), so proceed to perform
 	// the command (resume or single phase) directly.
