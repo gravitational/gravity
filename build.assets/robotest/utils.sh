@@ -90,8 +90,10 @@ EOF
   echo $suite
 }
 
-function tag_to_tarball {
+export ROBOTEST_IMAGE_DIR_MOUNTPOINT=/images
+
+function tag_to_image {
   local version=${1:?specify a version}
-  echo "telekube_${version}.tar"
+  echo "${ROBOTEST_IMAGE_DIR_MOUNTPOINT}/robotest-${version}.tar"
 }
 

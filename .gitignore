@@ -18,3 +18,5 @@ gravity.log
 terraform.tfstate*
 # Ansible retry files
 *.retry
+# Robotest credentials
+robotest-gcp-credentials.json

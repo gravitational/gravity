@@ -24,10 +24,10 @@ UPGRADE_VERSIONS=${!UPGRADE_MAP[@]}
 
 function build_upgrade_suite {
   local size='"flavor":"three","nodes":3,"role":"node"'
-  local to_tarball=/installer/telekube.tar
+  local to_tarball=$(tag_to_image current)
   local suite=''
   for release in ${!UPGRADE_MAP[@]}; do
-    local from_tarball=/$(tag_to_tarball $release)
+    local from_tarball=$(tag_to_image $release)
     for os in ${UPGRADE_MAP[$release]}; do
       suite+=$(build_upgrade_step $from_tarball $to_tarball $os $size)
       suite+=' '

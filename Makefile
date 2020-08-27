@@ -159,7 +159,6 @@ SITE_APP_OUT := $(GRAVITY_BUILDDIR)/site-app.tar.gz
 DNS_APP_OUT := $(GRAVITY_BUILDDIR)/dns-app.tar.gz
 K8S_APP_OUT := $(GRAVITY_BUILDDIR)/kubernetes-app.tar.gz
 RBAC_APP_OUT := $(GRAVITY_BUILDDIR)/rbac-app.tar.gz
-ROBOTEST_OUT := $(GRAVITY_BUILDDIR)/robotest.tar
 TELEKUBE_APP_OUT := $(GRAVITY_BUILDDIR)/telekube-app.tar.gz
 TILLER_APP_OUT := $(GRAVITY_BUILDDIR)/tiller-app.tar.gz
 TELEKUBE_OUT := $(GRAVITY_BUILDDIR)/telekube.tar
@@ -361,13 +360,6 @@ test:
 	$(MAKE) -C build.assets test
 
 #
-# integration test for gravity and apps
-#
-.PHONY: ci
-ci:
-	bash assets/ci/docker-run.sh
-
-#
 # '$(MAKE) packages' builds and imports all dependency packages
 #
 .PHONY: packages
@@ -530,28 +522,13 @@ $(TELEKUBE_OUT): packages
 		--skip-version-check \
 		-o $(TELEKUBE_OUT)
 
-$(GRAVITY_OUT):
-	$(MAKE) -C build.assets build BINARIES=gravity
+.PHONY: robotest-run-suite
+robotest-run-suite: # depends on: telekube opscenter $(TELE_OUT) $(GRAVITY_OUT)
+	$(MAKE) -C build.assets/robotest run ROBOTEST_TEST_CONFIG=pr_config.sh
 
-$(TELE_OUT):
-	$(MAKE) -C build.assets build BINARIES=tele
-
-#
-# builds robotest installer
-#
-.PHONY: robotest-image
-robotest-image: GRAVITY=$(GRAVITY_OUT) --state-dir=$(PACKAGES_DIR)
-robotest-image: $(ROBOTEST_OUT)
-
-ROBOTEST_TAR_SRC=$(shell find $(ASSETSDIR)/robotest/ -type f)
-
-$(ROBOTEST_OUT): TELE=$(TELE_OUT) --state-dir=$(PACKAGES_DIR)
-$(ROBOTEST_OUT): $(TELE_OUT) $(ROBOTEST_TAR_SRC) packages
-	GRAVITY_K8S_VERSION=$(K8S_VER) $(TELE) build \
-		$(ASSETSDIR)/robotest/resources/app.yaml -f \
-		--version=$(TELEKUBE_APP_TAG) \
-		--skip-version-check \
-		-o $(ROBOTEST_OUT)
+.PHONY: robotest-run-nightly
+robotest-run-nightly: # depends on: telekube opscenter $(TELE_OUT) $(GRAVITY_OUT)
+	$(MAKE) -C build.assets/robotest run ROBOTEST_TEST_CONFIG=nightly_config.sh
 
 #
 # builds wormhole installer
@@ -591,7 +568,7 @@ opscenter: $(GRAVITY_BUILDDIR)/opscenter.tar
 
 $(GRAVITY_BUILDDIR)/opscenter.tar: packages
 	mkdir -p $(BUILDDIR)
-# this is for Jenknis pipeline integration
+# this is for Jenkins pipeline integration
 	@echo env.GRAVITY_BUILDDIR=\"$(GRAVITY_BUILDDIR)\" > $(BUILDDIR)/properties.groovy
 	if [ -z "$(GRAVITY_TAG)" ]; then \
 	  echo "GRAVITY_TAG is not set"; exit 1; \
@@ -671,18 +648,6 @@ wizard-publish:
 wizard-gen: K8S_OUT := kubernetes-$(GRAVITY_VERSION).tar.gz
 wizard-gen:
 	gravity ops create-wizard --ops-url=$(LOCAL_OPS_URL) gravitational.io/telekube:0.0.0+latest /tmp/telekube
-
-#
-# a number of environment variables are expected to be set
-# see https://github.com/gravitational/robotest/blob/master/suite/README.md
-#
-.PHONY: robotest-run-suite
-robotest-run-suite: $(ROBOTEST_OUT)
-	./build.assets/robotest/run.sh pr $(shell pwd)/upgrade_from
-
-.PHONY: robotest-run-nightly
-robotest-run-nightly: $(ROBOTEST_OUT)
-	./build.assets/robotest/run.sh nightly $(shell pwd)/upgrade_from
 
 .PHONY: dev
 dev: goinstall
