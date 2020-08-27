@@ -46,33 +46,6 @@ What are these binaries?
 See the quick start to learn how to use these tools:
 https://gravitational.com/gravity/docs/quickstart/
 
-Building from source
-====================
-Gravity is written in Go. There are two ways to build the Gravity tools from
-source: by using locally installed build tools or via Docker. In both cases
-you will need a Linux machine.
-
-**Building on MacOS, even with Docker, is possible but not currently supported**
-
-```bash
-$ git clone git@github.com:gravitational/gravity.git
-$ cd gravity
-
-# Running 'make' with the default target uses Docker.
-# The output will be stored in build/current/
-$ make
-
-# If you have Go 1.10+ installed, you can build without Docker which is faster.
-# The output will be stored in $GOPATH/bin/
-$ make install
-
-# To build tsh
-$ make build-tsh
-
-# To remove the build artifacts:
-$ make clean
-```
-
 Talk to us
 ==========
 
