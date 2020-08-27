@@ -1,5 +1,6 @@
 Gravity
 =======
+
 Gravity is a Kubernetes packaging solution that takes the drama out of
 on-premises deployments.
 
@@ -11,9 +12,9 @@ Quick Start    :  https://gravitational.com/gravity/docs/quickstart/
 Blog           :  https://blog.gravitational.com
 Community Forum:  https://community.gravitational.com
 
-
 Introduction
 ============
+
 Gravity is an open source toolkit for creating "images" of Kubernetes
 clusters and the applications running inside the clusters. The resulting
 images are called *cluster or application images* and they are just `.tar` files.
