@@ -39,6 +39,8 @@ type Interface interface {
 	teleservices.Resource
 	// GetKubeletConfig returns the configuration of the kubelet
 	GetKubeletConfig() *Kubelet
+	// GetGravityControllerServiceConfig returns the gravityControllerService configuration
+	GetGravityControllerServiceConfig() *GravityControllerService
 	// GetGlobalConfig returns the global configuration
 	GetGlobalConfig() Global
 	// SetGlobalConfig sets the new global configuration
@@ -108,6 +110,11 @@ func (r *Resource) GetKubeletConfig() *Kubelet {
 	return r.Spec.ComponentConfigs.Kubelet
 }
 
+// GetGravityControllerServiceConfig returns the gravityControllerService configuration
+func (r *Resource) GetGravityControllerServiceConfig() *GravityControllerService {
+	return r.Spec.ComponentConfigs.GravityControllerService
+}
+
 // GetGlobalConfig returns the global configuration
 func (r *Resource) GetGlobalConfig() Global {
 	return r.Spec.Global
@@ -127,6 +134,7 @@ func (r *Resource) SetCloudProvider(provider string) {
 // Only non-empty fields in other different from those in r will be set in r.
 // Returns a copy of r with necessary modifications
 func (r Resource) Merge(other Resource) Resource {
+	// Update kubelet configurations
 	if updateKubelet := other.Spec.ComponentConfigs.Kubelet; updateKubelet != nil {
 		if r.Spec.ComponentConfigs.Kubelet == nil {
 			r.Spec.ComponentConfigs.Kubelet = &Kubelet{}
@@ -140,6 +148,36 @@ func (r Resource) Merge(other Resource) Resource {
 			r.Spec.ComponentConfigs.Kubelet.Config = other.Spec.ComponentConfigs.Kubelet.Config
 		}
 	}
+
+	// Update gravityControllerService configurations
+	if updateGravityService := other.Spec.GravityControllerService; updateGravityService != nil {
+		if r.Spec.GravityControllerService == nil {
+			r.Spec.GravityControllerService = &GravityControllerService{}
+		}
+
+		if len(updateGravityService.Labels) != 0 {
+			r.Spec.GravityControllerService.Labels = make(map[string]string, len(updateGravityService.Labels))
+			for k, v := range updateGravityService.Labels {
+				r.Spec.GravityControllerService.Labels[k] = v
+			}
+		}
+
+		if len(updateGravityService.Annotations) != 0 {
+			r.Spec.GravityControllerService.Annotations = make(map[string]string, len(updateGravityService.Annotations))
+			for k, v := range updateGravityService.Annotations {
+				r.Spec.GravityControllerService.Annotations[k] = v
+			}
+		}
+
+		if updateGravityService.Spec.Type != "" {
+			r.Spec.GravityControllerService.Spec.Type = updateGravityService.Spec.Type
+		}
+
+		if len(updateGravityService.Spec.Ports) != 0 {
+			r.Spec.GravityControllerService.Spec.Ports = updateGravityService.Spec.Ports
+		}
+	}
+
 	// Changing cloud provider is not supported
 	if other.Spec.Global.PodCIDR != "" {
 		r.Spec.Global.PodCIDR = other.Spec.Global.PodCIDR
@@ -234,6 +272,8 @@ type Spec struct {
 type ComponentConfigs struct {
 	// Kubelet defines kubelet configuration
 	Kubelet *Kubelet `json:"kubelet,omitempty"`
+	// GravityControllerService defines gravity-site service configuration
+	GravityControllerService *GravityControllerService `json:"gravityControllerService,omitempty"`
 }
 
 // IsEmpty determines whether this kubelet configuration is empty.
@@ -252,6 +292,50 @@ type Kubelet struct {
 	// Config defines the kubelet configuration as a JSON-formatted
 	// payload
 	Config json.RawMessage `json:"config,omitempty"`
+}
+
+// GravityControllerService defines controller service configuration
+type GravityControllerService struct {
+	// Labels specifies the controller service labels.
+	Labels map[string]string `json:"labels,omitempty"`
+	// Annotations defines the set of key=value pairs to configure the controller service.
+	Annotations map[string]string `json:"annotations,omitempty"`
+	// Spec defines the controller service spec.
+	Spec ControllerServiceSpec `json:"spec"`
+}
+
+// ControllerServiceSpec defines the controller service spec
+type ControllerServiceSpec struct {
+	// Type specifies the controller service type.
+	Type string `json:"type,omitempty"`
+	// Ports specifies the port configuration.
+	Ports []Port `json:"ports,omitempty"`
+}
+
+// Port specifies service port.
+type Port struct {
+	// Name specifies port name.
+	Name string `json:"name,omitempty"`
+	// Protocol specifies protocol.
+	Protocol string `json:"protocol,omitempty"`
+	// Port specifies exposed port number.
+	Port int32 `json:"port,omitempty"`
+	// TargetPort specifies target port number.
+	TargetPort string `json:"targetPort,omitempty"`
+	// NodePort specifies external node port.
+	NodePort int32 `json:"nodePort,omitempty"`
+}
+
+// IsEmpty determines whether this controller service configuration is empty.
+func (r *GravityControllerService) IsEmpty() bool {
+	if r == nil {
+		return true
+	}
+	emptyLabels := len(r.Labels) == 0
+	emptyAnnotations := len(r.Annotations) == 0
+	emptyType := r.Spec.Type == ""
+	emptyPorts := len(r.Spec.Ports) == 0
+	return emptyLabels && emptyAnnotations && emptyType && emptyPorts
 }
 
 // ControlPlaneComponent defines configuration of a control plane component
@@ -295,6 +379,11 @@ type Global struct {
 }
 
 // specSchemaTemplate is JSON schema for the cluster configuration resource
+//
+// Formatted string arguments:
+// [1] metadata.name
+// [2] metadata.namespace
+// [3] gravityControllerService.spec.type
 const specSchemaTemplate = `{
   "type": "object",
   "additionalProperties": false,
@@ -437,6 +526,53 @@ const specSchemaTemplate = `{
             },
             "extraArgs": {"type": "array", "items": {"type": "string"}}
           }
+        },
+        "gravityControllerService": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "labels": {
+              "type": "object",
+              "patternProperties": {
+                "^[a-zA-Z/.0-9_-]$": {"type": "string"}
+              }
+            },
+            "annotations": {
+              "type": "object",
+              "patternProperties": {
+                "^[a-zA-Z/.0-9_-]$": {"type": "string"}
+              }
+            },
+            "spec": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["type"],
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "default": "%v",
+                  "enum": ["NodePort", "LoadBalancer"]
+                },
+                "ports": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "name": {"type": "string"},
+                      "protocol": {
+                        "type": "string",
+                        "enum": ["TCP", "UDP", "SCTP"]
+                      },
+                      "port": {"type": "integer"},
+                      "targetPort": {"type": "string"},
+                      "nodePort": {"type": "integer"}
+                    }
+                  }
+                }
+              }
+            }
+          }
         }
       }
     }
@@ -446,7 +582,7 @@ const specSchemaTemplate = `{
 // getSpecSchema returns the formatted JSON schema for the cluster configuration resource
 func getSpecSchema() string {
 	return fmt.Sprintf(specSchemaTemplate,
-		constants.ClusterConfigurationMap, defaults.KubeSystemNamespace)
+		constants.ClusterConfigurationMap, defaults.KubeSystemNamespace, LoadBalancer)
 }
 
 func newEmpty() *Resource {

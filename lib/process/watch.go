@@ -25,6 +25,7 @@ import (
 	libkube "github.com/gravitational/gravity/lib/kubernetes"
 	"github.com/gravitational/gravity/lib/processconfig"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 
 	"github.com/gravitational/teleport/lib/service"
 	"github.com/gravitational/trace"
@@ -232,6 +233,28 @@ func (p *Process) runReloadEventsWatch(client *kubernetes.Clientset) clusterServ
 				}
 			case <-ctx.Done():
 				p.Infof("Stopped watching %v events.", service.TeleportReloadEvent)
+				return
+			}
+		}
+	}
+}
+
+// runControllerServiceReconcile periodically reconciles the controller service
+// state.
+func (p *Process) runControllerServiceReconcile(client *kubernetes.Clientset) clusterService {
+	clusterConfigControl := clusterconfig.NewClusterConfigControl(client)
+	serviceControl := clusterconfig.NewServiceControl(client)
+	return func(ctx context.Context) {
+		ticker := time.NewTicker(defaults.ControllerServiceReconcileInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				if err := clusterconfig.Reconcile(clusterConfigControl, serviceControl); err != nil {
+					p.WithError(err).Error("Failed to reconcile controller service.")
+				}
+			case <-ctx.Done():
+				p.Debug("Controller service reconciler stopped.")
 				return
 			}
 		}

@@ -1182,6 +1182,10 @@ const (
 
 	// GravityFileLabel specifies the file label for the gravity binary
 	GravityFileLabel = "system_u:object_r:gravity_exec_t:s0"
+
+	// ControllerServiceReconcileInterval specifies the interval between attempts
+	// to reconcile the controller service state.
+	ControllerServiceReconcileInterval = 30 * time.Second
 )
 
 var (
