@@ -183,7 +183,7 @@ func rollbackPlan(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentF
 		return trace.BadParameter(unsupportedRollbackWarning, op.TypeString())
 	}
 
-	if err := verifyAgentsActive(localEnv); err != nil {
+	if err := verifyOrDeployAgents(localEnv); err != nil {
 		return trace.Wrap(err)
 	}
 
