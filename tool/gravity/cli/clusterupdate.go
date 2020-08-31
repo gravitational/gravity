@@ -199,7 +199,7 @@ const gravityResumeServiceName = "gravity-resume.service"
 // or launches a one-shot systemd service that executes it in the background.
 func executeOrForkPhase(env *localenv.LocalEnvironment, updater updater, params PhaseParams, operation ops.SiteOperation) error {
 	if params.isResume() {
-		if err := verifyAgentsActive(env); err != nil {
+		if err := verifyOrDeployAgents(env); err != nil {
 			return trace.Wrap(err)
 		}
 	}
