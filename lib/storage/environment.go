@@ -19,10 +19,12 @@ package storage
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/utils"
 
 	teleservices "github.com/gravitational/teleport/lib/services"
 	teleutils "github.com/gravitational/teleport/lib/utils"
@@ -107,7 +109,39 @@ func (r *EnvironmentV1) GetKeyValues() map[string]string {
 
 // CheckAndSetDefaults validates this resource and sets defaults
 func (r *EnvironmentV1) CheckAndSetDefaults() error {
+	var errors []error
+	for _, env := range []string{
+		constants.HTTPProxyEnvVar, strings.ToLower(constants.HTTPProxyEnvVar),
+		constants.HTTPSProxyEnvVar, strings.ToLower(constants.HTTPSProxyEnvVar),
+	} {
+		if err := r.checkProxy(env); err != nil {
+			errors = append(errors, err)
+		}
+	}
+	return trace.NewAggregate(errors...)
+}
+
+// checkProxy verifies the specified environment variable (HTTP_PROXY or
+// HTTPS_PROXY) is a valid proxy URL.
+func (r *EnvironmentV1) checkProxy(env string) error {
+	httpProxy := r.getVariable(env)
+	if httpProxy == "" {
+		return nil
+	}
+	if _, err := utils.ParseProxy(httpProxy); err != nil {
+		return trace.Wrap(err, "failed to parse %v", env)
+	}
 	return nil
+}
+
+// getVariable returns value of the specified environment variable or an empty string.
+func (r *EnvironmentV1) getVariable(key string) string {
+	for k, v := range r.GetKeyValues() {
+		if k == key {
+			return v
+		}
+	}
+	return ""
 }
 
 // UnmarshalEnvironmentVariables unmarshals the resource from YAML/JSON given with data
