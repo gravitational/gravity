@@ -23,6 +23,11 @@
   {% include "footer.html" %}
   {% include "scripts.html" %}
   {%- block extrascripts %}{% endblock %}
+
+  <!-- search {{ base_url }} -->
+  <script src="/gravity/docs/search/main.js"></script>
+
+
 </body>
 </html>
 {% if page and page.is_homepage %}

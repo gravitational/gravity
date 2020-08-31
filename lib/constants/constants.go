@@ -214,6 +214,11 @@ const (
 	// GravityEnvVarPrefix is the prefix for gravity-specific environment variables.
 	GravityEnvVarPrefix = "GRAVITY_"
 
+	// HTTPProxyEnvVar is the HTTP_PROXY environment variable.
+	HTTPProxyEnvVar = "HTTP_PROXY"
+	// HTTPSProxyEnvVar is the HTTPS_PROXY environment variable.
+	HTTPSProxyEnvVar = "HTTPS_PROXY"
+
 	// Localhost is local host
 	Localhost = "127.0.0.1"
 
