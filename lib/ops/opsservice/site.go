@@ -18,7 +18,6 @@ package opsservice
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -28,7 +27,6 @@ import (
 	appservice "github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
-	"github.com/gravitational/gravity/lib/kubernetes"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
@@ -604,40 +602,6 @@ func (s *site) getClusterEnvironmentVariables() (env storage.EnvironmentVariable
 		return nil, trace.Wrap(err)
 	}
 	return env, nil
-}
-
-// updateClusterConfiguration updates the clusterconfiguration configmap.
-func (s *site) updateClusterConfiguration(req ops.UpdateClusterConfigRequest) error {
-	client, err := s.service.GetKubeClient()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	configmaps := client.CoreV1().ConfigMaps(defaults.KubeSystemNamespace)
-	configmap, err := getOrCreateClusterConfigMap(configmaps)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	var previousKeyValues []byte
-	if len(configmap.Data) != 0 {
-		var err error
-		previousKeyValues, err = json.Marshal(configmap.Data)
-		if err != nil {
-			return trace.Wrap(err, "failed to marshal previous key/values")
-		}
-		if configmap.Annotations == nil {
-			configmap.Annotations = make(map[string]string)
-		}
-		configmap.Annotations[constants.PreviousKeyValuesAnnotationKey] = string(previousKeyValues)
-	}
-	configmap.Data = map[string]string{
-		"spec": string(req.Config),
-	}
-	err = kubernetes.Retry(context.TODO(), func() error {
-		_, err := configmaps.Update(configmap)
-		return trace.Wrap(err)
-	})
-
-	return trace.Wrap(err)
 }
 
 func convertSite(in storage.Site, apps appservice.Applications) (*ops.Site, error) {
