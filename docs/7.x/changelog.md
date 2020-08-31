@@ -11,7 +11,7 @@ Find the latest Open Source Gravity releases at [Gravity Downloads](https://grav
 
 | Version             | Latest Patch | LTS | Release Date         | Latest Patch Date    | End of Support *        | Kubernetes Version   | Teleport Version |
 | ------------------- | ------------ | --- | -------------------- | -------------------- | ----------------------- | -------------------- | ---------------- |
-| [7.0](#70-releases) | 7.0.15       | Yes | April 3, 2020        | August 19th, 2020    | July 9, 2022            | 1.17.9               | 3.2.13           |
+| [7.0](#70-releases) | 7.0.16       | Yes | April 3, 2020        | August 31st, 2020    | July 9, 2022            | 1.17.9               | 3.2.13           |
 | [6.1](#61-releases) | 6.1.36       | Yes | August 2, 2019       | August 20th, 2020    | November 10, 2021       | 1.15.12              | 3.2.12           |
 | [5.5](#55-releases) | 5.5.51       | Yes | March 8, 2019        | August 12th, 2020    | March 8, 2021           | 1.13.11              | 3.0.6-gravity    |
 
@@ -50,6 +50,14 @@ extend updates past End of Support through customer agreements if required.
 # Release Notes
 
 ## 7.0 Releases
+
+### 7.0.16 LTS (August 31st, 2020)
+
+#### Bugfixes
+
+* Fix an issue with disconnected Teleport nodes when rotating all masters within the cluster ([#2029](https://github.com/gravitational/gravity/pull/2029)).
+* Fix an issue with installation sometimes failing when trying to install a cluster license ([#2037](https://github.com/gravitational/gravity/pull/2037)).
+* Fix an issue with priority class incorrectly being set on the hook jobs ([#2066](https://github.com/gravitational/gravity/pull/2066)).
 
 ### 7.0.15 LTS (August 19th, 2020)
 
