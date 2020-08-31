@@ -191,9 +191,9 @@ endif
 # generate gRPC code
 #
 .PHONY: grpc
-grpc: buildbox $(GRPC_PROTO_OUTPUTS)
+grpc: $(GRPC_PROTO_OUTPUTS)
 
-$(GRPC_PROTO_OUTPUTS): $(GRPC_PROTOS)
+$(GRPC_PROTO_OUTPUTS): buildbox $(GRPC_PROTOS)
 	docker run --rm=true -u $$(id -u) \
 		   -v $(TOP):$(SRCDIR) \
 		   $(BBOX) \
