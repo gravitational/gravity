@@ -182,6 +182,7 @@ multizone=true`,
 		"secrets-dir":                {"/var/lib/gravity/secrets"},
 		"election-enabled":           []string(nil),
 		"service-uid":                {"980665"},
+		"service-gid":                {"980665"},
 		"env":                        {`VAR="value"`, `VAR2="value2"`, `VAR3="value1,value2"`},
 		"volume": {
 			"/var/lib/gravity/planet/etcd:/ext/etcd",
@@ -282,6 +283,7 @@ func (s *ConfigureSuite) TestCanSetCloudProviderWithoutCloudConfig(c *check.C) {
 		"secrets-dir":                {"/var/lib/gravity/secrets"},
 		"election-enabled":           []string(nil),
 		"service-uid":                {"980665"},
+		"service-gid":                {"980665"},
 		"volume": {
 			"/var/lib/gravity/planet/etcd:/ext/etcd",
 			"/var/lib/gravity/planet/kubelet:/var/lib/kubelet",

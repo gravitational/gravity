@@ -78,7 +78,7 @@ TELEKUBE_TSH_PKG := gravitational.io/tsh_$(OS)_$(ARCH):$(GRAVITY_TAG)
 
 # Version of tsh binary that gets published into distribution OpsCenter, may differ from
 # the one Gravity currently depends on
-TELEKUBE_TSH_TAG := v3.2.14
+TELEKUBE_TSH_TAG := v3.2.16
 
 # Extra flags that may be provided when publishing telekube artifacts (e.g. --insecure)
 TELEKUBE_PUBLISH_FLAGS ?=
