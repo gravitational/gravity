@@ -87,7 +87,7 @@ func (*EnvS) TestCheckAndSetDefaults(c *C) {
 	for _, test := range testCases {
 		data := fmt.Sprintf(`{"kind": "runtimeenvironment", "metadata": {"name": "foo"}, "version": "v1", "spec": {"data": %v}}`, test.vars)
 		env, err := UnmarshalEnvironmentVariables([]byte(data))
-		c.Assert(err, IsNil)
+		c.Assert(err, IsNil, Commentf(test.comment))
 
 		err = env.CheckAndSetDefaults()
 		if test.error {
