@@ -650,21 +650,76 @@ func emptyNodeStatus(server storage.Server) ClusterServer {
 
 // probeErrorDetail describes the failed probe
 func probeErrorDetail(p pb.Probe) string {
-	if p.Checker == monitoring.DiskSpaceCheckerID {
-		detail, err := diskSpaceProbeErrorDetail(p)
-		if err == nil {
-			return detail
+	var detail string
+	var err error
+	switch p.Checker {
+	case monitoring.DiskSpaceCheckerID:
+		if detail, err = diskSpaceProbeErrorDetail(p); err != nil {
+			log.WithError(err).Warn("Failed to compose disk space probe error.")
 		}
-		log.WithError(err).Warn("Failed to compose disk space probe error.")
+	case monitoring.PathUIDCheckerID:
+		if detail, err = pathUIDProbeErrorDetail(p); err != nil {
+			log.WithError(err).Warn("Failed to compose path UID probe error.")
+		}
+	case monitoring.PathGIDCheckerID:
+		if detail, err = pathGIDProbeErrorDetail(p); err != nil {
+			log.WithError(err).Warn("Failed to compose path GID probe error.")
+		}
 	}
-	detail := p.Detail
-	if p.Detail == "" {
+	if detail == "" {
+		detail = p.Detail
+	}
+	if detail == "" {
 		detail = p.Checker
 	}
 	if p.Error == "" {
 		return detail
 	}
 	return fmt.Sprintf("%v (%v)", detail, p.Error)
+}
+
+func pathUIDProbeErrorDetail(p pb.Probe) (string, error) {
+	var data monitoring.PathUIDCheckerData
+	err := json.Unmarshal(p.CheckerData, &data)
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+	// Not a state directory checker, so no need to update the directory in the message.
+	if data.Path != defaults.GravityDir {
+		return p.Detail, nil
+	}
+	// If status command was run inside planet, the default error message is fine.
+	if utils.CheckInPlanet() {
+		return p.Detail, nil
+	}
+	// Otherwise determine the real state directory on host and reconstruct the message.
+	data.Path, err = state.GetStateDir()
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+	return data.FailureMessage(), nil
+}
+
+func pathGIDProbeErrorDetail(p pb.Probe) (string, error) {
+	var data monitoring.PathGIDCheckerData
+	err := json.Unmarshal(p.CheckerData, &data)
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+	// Not a state directory checker, so no need to update the directory in the message.
+	if data.Path != defaults.GravityDir {
+		return p.Detail, nil
+	}
+	// If status command was run inside planet, the default error message is fine.
+	if utils.CheckInPlanet() {
+		return p.Detail, nil
+	}
+	// Otherwise determine the real state directory on host and reconstruct the message.
+	data.Path, err = state.GetStateDir()
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+	return data.FailureMessage(), nil
 }
 
 // diskSpaceProbeErrorDetail returns an appropriate error message for disk

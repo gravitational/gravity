@@ -136,7 +136,8 @@ func (c *timeDriftChecker) check(ctx context.Context, r health.Reporter) (err er
 	for _, node := range nodes {
 		drift, err := c.getTimeDrift(ctx, node)
 		if err != nil {
-			return trace.Wrap(err)
+			log.WithError(err).Debug("Failed to get time drift.")
+			continue
 		}
 		if isDriftHigh(drift) {
 			r.Add(c.failureProbe(node, drift))
