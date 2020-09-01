@@ -907,7 +907,7 @@ installer:
 
 ## Licensing (Enterprise)
 
-Gravity Enterprise provides the ability to generate licenses and require a license for cluster installations.  Licenses are restrictable for the number of nodes per cluster and a end period for the cluster.  You have the option of requiring the application to stop when a license expires.
+Gravity Enterprise provides the ability to generate licenses and require a license for cluster installations.  Licenses are restrictable for the number of nodes per cluster and a license expiration date.  You have the option of requiring the application to stop when a license expires.
 
 Here are the commands available in `gravity` for creating, installing, updating and displaying the license in the cluster.  
 
@@ -918,7 +918,7 @@ Here are the commands available in `gravity` for creating, installing, updating 
 | `gravity license show`    | Downloads a Cluster Image from a Gravity Hub.
 To see all the options on each command use `--help` as a paramter on each command (Ex: `gravity license new --help`)
 
-Licenses are generated from the `gravity` executable using a Certificate Authority (CA) with a private key with an optional encryption key. After generating the license the CA and optional encryption key is used in a cluster build that has licensing enabled.  Customers will then need to have a license in the CLI or wizard installation for those clusters installations.  Prior to a license expiration the `graviity install` allows for updating the licenses in the clusters.
+Licenses are generated from the `gravity` executable using a Certificate Authority (CA) with a private key and an optional encryption key. After generating the license the CA and optional encryption key is used in a cluster build that has licensing enabled.  Customers will then need to have a license in the CLI or wizard installation for those cluster installations.  Prior to a license expiration the `graviity install` command allows for updating the licenses in the clusters.
 
 
 Here's an example of creating a license, building a licensed cluster, installing with the license and updating the license.
@@ -929,9 +929,9 @@ Here's an example of creating a license, building a licensed cluster, installing
   openssl req -newkey rsa:2048 -nodes -keyout domain.key -x509 -days 365 -out domain.crt
   ```
   
-  2. Generate a license with a encryption key
+  2. Generate a license with an encryption key using the CA
   ```bash
-  gravity license new --max-nodes=3 --valid-for=365d --ca-cert=domain.crt --ca-key=domain.key --encryption-key=833dcd744b5aed710711ca6f0f8a66b3712f63f17ef03146 > license.pem
+  gravity license new --max-nodes=3 --valid-for=8760h --ca-cert=domain.crt --ca-key=domain.key --encryption-key=833dcd744b5aed710711ca6f0f8a66b3712f63f17ef03146 > license.pem
   ```
   
   3. Add license enabled to the Cluster Application YAML
@@ -957,11 +957,15 @@ license:
   sudo ./gravity install --license-file=/tmp/license.pem
   ```
 
-Repeat steps 1 and 2 at a later date to generate new licenses and step 5 to install a new license in a existing cluster.
+Repeat steps 1 and 2 at a later date to generate new licenses.  To install a new license file into a cluster use this command.
+
+```bash
+sudo gravity license install --from-file=/tmp/license.pem
+```
     
 
 !!! tip "License Restriction"
-    Use the `--stop-app` in the `gravity license new` command to require the application to stop once the license expires.
+    Use the `--stop-app` parameter in the `gravity license new` command to require the application to stop once the license expires.
 
 
 ## System Extensions
