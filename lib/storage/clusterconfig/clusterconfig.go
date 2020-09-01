@@ -156,17 +156,11 @@ func (r Resource) Merge(other Resource) Resource {
 		}
 
 		if len(updateGravityService.Labels) != 0 {
-			r.Spec.GravityControllerService.Labels = make(map[string]string, len(updateGravityService.Labels))
-			for k, v := range updateGravityService.Labels {
-				r.Spec.GravityControllerService.Labels[k] = v
-			}
+			r.Spec.GravityControllerService.Labels = updateGravityService.Labels
 		}
 
 		if len(updateGravityService.Annotations) != 0 {
-			r.Spec.GravityControllerService.Annotations = make(map[string]string, len(updateGravityService.Annotations))
-			for k, v := range updateGravityService.Annotations {
-				r.Spec.GravityControllerService.Annotations[k] = v
-			}
+			r.Spec.GravityControllerService.Annotations = updateGravityService.Annotations
 		}
 
 		if updateGravityService.Spec.Type != "" {
@@ -320,7 +314,7 @@ type Port struct {
 	Protocol string `json:"protocol,omitempty"`
 	// Port specifies exposed port number.
 	Port int32 `json:"port,omitempty"`
-	// TargetPort specifies target port number.
+	// TargetPort specifies target port number or name.
 	TargetPort string `json:"targetPort,omitempty"`
 	// NodePort specifies external node port.
 	NodePort int32 `json:"nodePort,omitempty"`

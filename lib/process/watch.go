@@ -250,7 +250,7 @@ func (p *Process) runControllerServiceReconcile(client *kubernetes.Clientset) cl
 		for {
 			select {
 			case <-ticker.C:
-				if err := clusterconfig.Reconcile(clusterConfigControl, serviceControl); err != nil {
+				if err := clusterconfig.Reconcile(ctx, clusterConfigControl, serviceControl); err != nil {
 					p.WithError(err).Error("Failed to reconcile controller service.")
 				}
 			case <-ctx.Done():

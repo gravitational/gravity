@@ -38,25 +38,25 @@ type ServiceControl interface {
 	// Returns NotFound if the controller service is not found.
 	Get() (*GravityControllerService, error)
 	// Update updates the controller service.
-	Update(*GravityControllerService) error
+	Update(context.Context, *GravityControllerService) error
 }
 
 type serviceControl struct {
-	*kubernetes.Clientset
+	client kubernetes.Interface
 }
 
 // NewServiceControl returns a new ServiceControl using the provided
 // kubernetes client.
-func NewServiceControl(client *kubernetes.Clientset) ServiceControl {
+func NewServiceControl(client kubernetes.Interface) ServiceControl {
 	return &serviceControl{
-		Clientset: client,
+		client: client,
 	}
 }
 
 // Get returns the controller service configuration. Returns NotFound if the
 // controller service is not found.
 func (r *serviceControl) Get() (*GravityControllerService, error) {
-	controllerSvc, err := r.CoreV1().
+	controllerSvc, err := r.client.CoreV1().
 		Services(defaults.KubeSystemNamespace).
 		Get(constants.GravityServiceName, metav1.GetOptions{})
 	if err := rigging.ConvertError(err); err != nil {
@@ -81,8 +81,8 @@ func toServiceConfig(svc *v1.Service) *GravityControllerService {
 }
 
 // Update updates the controller service using the provided config.
-func (r *serviceControl) Update(config *GravityControllerService) error {
-	services := r.CoreV1().Services(defaults.KubeSystemNamespace)
+func (r *serviceControl) Update(ctx context.Context, config *GravityControllerService) error {
+	services := r.client.CoreV1().Services(defaults.KubeSystemNamespace)
 
 	service, err := services.Get(constants.GravityServiceName, metav1.GetOptions{})
 	err = rigging.ConvertError(err)
@@ -104,10 +104,12 @@ func (r *serviceControl) Update(config *GravityControllerService) error {
 	}
 
 	updateService(service, config)
-	if _, err := services.Update(service); err != nil {
+	err = kuberneteslib.Retry(ctx, func() error {
+		_, err := services.Update(service)
 		return trace.Wrap(err)
-	}
-	return nil
+	})
+
+	return trace.Wrap(err)
 }
 
 // newService constructs a new controller service using the provided config.
@@ -155,25 +157,25 @@ type ClusterConfigControl interface {
 	// Returns NotFound if cluster configmap is not found.
 	Get() (*Resource, error)
 	// Update updates the cluster's ClusterConfiguration resource.
-	Update(*Resource) error
+	Update(context.Context, *Resource) error
 }
 
 type clusterConfigControl struct {
-	*kubernetes.Clientset
+	client kubernetes.Interface
 }
 
 // NewClusterConfigControl returns a new ClusterConfigControl using the provided
 // kubernetes client.
-func NewClusterConfigControl(client *kubernetes.Clientset) ClusterConfigControl {
+func NewClusterConfigControl(client kubernetes.Interface) ClusterConfigControl {
 	return &clusterConfigControl{
-		Clientset: client,
+		client: client,
 	}
 }
 
 // Get returns the cluster configuration. Returns NotFound if the cluster
 // configmap is not found.
 func (r *clusterConfigControl) Get() (*Resource, error) {
-	configmap, err := r.CoreV1().
+	configmap, err := r.client.CoreV1().
 		ConfigMaps(defaults.KubeSystemNamespace).
 		Get(constants.ClusterConfigurationMap, metav1.GetOptions{})
 
@@ -195,8 +197,8 @@ func (r *clusterConfigControl) Get() (*Resource, error) {
 }
 
 // Update updates the cluster configuration with the provided config values.
-func (r *clusterConfigControl) Update(config *Resource) error {
-	configmaps := r.CoreV1().ConfigMaps(defaults.KubeSystemNamespace)
+func (r *clusterConfigControl) Update(ctx context.Context, config *Resource) error {
+	configmaps := r.client.CoreV1().ConfigMaps(defaults.KubeSystemNamespace)
 
 	configmap, err := configmaps.Get(constants.ClusterConfigurationMap, metav1.GetOptions{})
 	err = rigging.ConvertError(err)
@@ -230,7 +232,7 @@ func (r *clusterConfigControl) Update(config *Resource) error {
 		"spec": string(spec),
 	}
 
-	err = kuberneteslib.Retry(context.TODO(), func() error {
+	err = kuberneteslib.Retry(ctx, func() error {
 		_, err := configmaps.Update(configmap)
 		return trace.Wrap(err)
 	})
@@ -239,7 +241,21 @@ func (r *clusterConfigControl) Update(config *Resource) error {
 }
 
 // Reconcile reconciles current controller service with the desired state.
-func Reconcile(clusterControl ClusterConfigControl, serviceControl ServiceControl) error {
+func Reconcile(ctx context.Context, clusterControl ClusterConfigControl, serviceControl ServiceControl) error {
+	errChan := make(chan error)
+	go func() {
+		errChan <- reconcile(ctx, clusterControl, serviceControl)
+	}()
+
+	select {
+	case err := <-errChan:
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func reconcile(ctx context.Context, clusterControl ClusterConfigControl, serviceControl ServiceControl) error {
 	clusterConfig, err := clusterControl.Get()
 	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
@@ -250,7 +266,7 @@ func Reconcile(clusterControl ClusterConfigControl, serviceControl ServiceContro
 		serviceConfig = clusterConfig.GetGravityControllerServiceConfig()
 	}
 
-	if err := serviceControl.Update(serviceConfig); err != nil {
+	if err := serviceControl.Update(ctx, serviceConfig); err != nil {
 		return trace.Wrap(err)
 	}
 

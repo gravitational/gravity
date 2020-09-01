@@ -17,13 +17,17 @@ limitations under the License.
 package clusterconfig
 
 import (
+	"context"
+	"time"
+
 	"github.com/gravitational/gravity/lib/compare"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
-
 	"github.com/gravitational/trace"
+
 	. "gopkg.in/check.v1"
-	v1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/fake"
 )
 
 type KubernetesSuite struct{}
@@ -45,7 +49,7 @@ func (r *KubernetesSuite) TestReconcile(c *C) {
 					defaults.ApplicationLabel: constants.GravityServiceName,
 				},
 				Annotations: map[string]string{
-					AWSIdleTimeoutKey: AWSLoadBalancerIdleTimeout,
+					AWSIdleTimeoutKey: AWSLoadBalancerIdleTimeoutSeconds,
 					AWSInternalKey:    AWSLoadBalancerInternal,
 				},
 				Spec: ControllerServiceSpec{
@@ -147,7 +151,7 @@ func (r *KubernetesSuite) TestReconcile(c *C) {
 					"app-existing": constants.GravityServiceName,
 				},
 				Annotations: map[string]string{
-					AWSIdleTimeoutKey: AWSLoadBalancerIdleTimeout,
+					AWSIdleTimeoutKey: AWSLoadBalancerIdleTimeoutSeconds,
 					AWSInternalKey:    AWSLoadBalancerInternal,
 				},
 				Spec: ControllerServiceSpec{
@@ -205,7 +209,7 @@ func (r *KubernetesSuite) TestReconcile(c *C) {
 					"app-existing": constants.GravityServiceName,
 				},
 				Annotations: map[string]string{
-					AWSIdleTimeoutKey: AWSLoadBalancerIdleTimeout,
+					AWSIdleTimeoutKey: AWSLoadBalancerIdleTimeoutSeconds,
 					AWSInternalKey:    AWSLoadBalancerInternal,
 				},
 				Spec: ControllerServiceSpec{
@@ -251,13 +255,16 @@ func (r *KubernetesSuite) TestReconcile(c *C) {
 	for _, tc := range testCases {
 		comment := Commentf(tc.comment)
 
-		// clusterControl provides control over updated service config.
-		clusterControl := r.NewClusterConfigControl(tc.updatedServiceConfig)
+		ctx, cancel := context.WithTimeout(context.TODO(), time.Second*10)
+		defer cancel()
 
-		// serviceControl provides control over existing service.
-		serviceControl := r.NewServiceControl(tc.existingServiceConfig)
+		client, err := r.NewClient(ctx, tc.existingServiceConfig, tc.updatedServiceConfig)
+		c.Assert(err, IsNil, comment)
 
-		c.Assert(Reconcile(clusterControl, serviceControl), IsNil, comment)
+		clusterControl := NewClusterConfigControl(client)
+		serviceControl := NewServiceControl(client)
+
+		c.Assert(Reconcile(ctx, clusterControl, serviceControl), IsNil, comment)
 
 		serviceConfig, err := serviceControl.Get()
 		c.Assert(err, IsNil, comment)
@@ -265,64 +272,23 @@ func (r *KubernetesSuite) TestReconcile(c *C) {
 	}
 }
 
-// mockClusterConfigControl provides mock implementation of ClusterConfigControl.
-type mockClusterConfigControl struct {
-	resource Resource
-}
-
-// NewClusterConfigControl returns a new cluster config control for the provided
-// config.
-func (r *KubernetesSuite) NewClusterConfigControl(config *GravityControllerService) *mockClusterConfigControl {
-	return &mockClusterConfigControl{
-		resource: Resource{
-			Spec: Spec{
-				ComponentConfigs: ComponentConfigs{
-					GravityControllerService: config,
-				},
-			},
-		},
+// NewClient initializes a fake clientset. The provided existing config is used
+// to initialize the controller service. The provided incoming config is used to
+// initialize the cluster configmap.
+func (r *KubernetesSuite) NewClient(ctx context.Context,
+	existing *GravityControllerService,
+	incoming *GravityControllerService) (kubernetes.Interface, error) {
+	client := fake.NewSimpleClientset(
+		ClusterConfigMap(),
+		ControllerService(),
+	)
+	config := newEmpty()
+	config.Spec.GravityControllerService = incoming
+	if err := NewClusterConfigControl(client).Update(ctx, config); err != nil {
+		return nil, trace.Wrap(err)
 	}
-}
-
-// Get returns the cluster's ClusterConfiguration resource.
-func (r *mockClusterConfigControl) Get() (*Resource, error) {
-	return &r.resource, nil
-}
-
-// Update updates the cluster's ClusterConfiguration resource.
-func (r *mockClusterConfigControl) Update(_ *Resource) error {
-	return trace.NotImplemented("not implemented for mockClusterConfigControl")
-}
-
-// mockServiceControl provides mock implementation of ServiceControl.
-type mockServiceControl struct {
-	svc *v1.Service
-}
-
-// NewServiceControl returns a new service control constructed from the provided
-// config.
-func (r *KubernetesSuite) NewServiceControl(config *GravityControllerService) *mockServiceControl {
-	return &mockServiceControl{
-		svc: newService(config),
+	if err := NewServiceControl(client).Update(ctx, existing); err != nil {
+		return nil, trace.Wrap(err)
 	}
-}
-
-// Get returns the controller service configuration.
-func (r *mockServiceControl) Get() (*GravityControllerService, error) {
-	return toServiceConfig(r.svc), nil
-}
-
-// Update updates the controller service.
-func (r *mockServiceControl) Update(config *GravityControllerService) error {
-	if r.svc == nil {
-		r.svc = newService(config)
-		return nil
-	}
-
-	if !shouldUpdate(toServiceConfig(r.svc), config) {
-		return nil
-	}
-
-	updateService(r.svc, config)
-	return nil
+	return client, nil
 }

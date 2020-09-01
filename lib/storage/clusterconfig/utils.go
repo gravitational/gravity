@@ -17,6 +17,8 @@ limitations under the License.
 package clusterconfig
 
 import (
+	"sort"
+
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
@@ -81,6 +83,11 @@ func hasDiff(existing, incoming *GravityControllerService) bool {
 	if len(existing.Spec.Ports) != len(incoming.Spec.Ports) {
 		return true
 	}
+
+	// Sort ports before comparing.
+	sort.Sort(ByName(existing.Spec.Ports))
+	sort.Sort(ByName(incoming.Spec.Ports))
+
 	for i, incomingPort := range incoming.Spec.Ports {
 		existingPort := existing.Spec.Ports[i]
 		if existingPort != incomingPort {
@@ -90,3 +97,10 @@ func hasDiff(existing, incoming *GravityControllerService) bool {
 
 	return false
 }
+
+// ByName implements sort.Interface based on the Name field.
+type ByName []Port
+
+func (r ByName) Len() int           { return len(r) }
+func (r ByName) Less(i, j int) bool { return r[i].Name < r[j].Name }
+func (r ByName) Swap(i, j int)      { r[i], r[j] = r[j], r[i] }

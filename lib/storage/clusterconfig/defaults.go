@@ -31,8 +31,8 @@ const (
 	// AWSInternalKey defines the aws load balancer internal property name
 	AWSInternalKey = "service.beta.kubernetes.op/aws-load-balancer-internal"
 
-	// AWSLoadBalancerIdleTimeout defines the default aws load balancer idle timeout in seconds
-	AWSLoadBalancerIdleTimeout = "3600"
+	// AWSLoadBalancerIdleTimeoutSeconds defines the default aws load balancer idle timeout in seconds
+	AWSLoadBalancerIdleTimeoutSeconds = "3600"
 
 	// AWSLoadBalancerInternal defines the default aws load balancer internal
 	AWSLoadBalancerInternal = "0.0.0.0/0"
@@ -68,7 +68,7 @@ func ControllerService() *v1.Service {
 				defaults.ApplicationLabel: constants.GravityServiceName,
 			},
 			Annotations: map[string]string{
-				AWSIdleTimeoutKey: AWSLoadBalancerIdleTimeout,
+				AWSIdleTimeoutKey: AWSLoadBalancerIdleTimeoutSeconds,
 				AWSInternalKey:    AWSLoadBalancerInternal,
 			},
 		},
