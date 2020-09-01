@@ -819,8 +819,8 @@ selinux:
 # to use fvbommel/sortorder.
 # https://github.com/fvbommel/util/issues/6
 #
-.PHONY: update-deps
-update-deps:
+.PHONY: dep-ensure
+dep-ensure:
 	dep version
 	dep ensure -v
 	dep status -v
