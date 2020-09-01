@@ -905,6 +905,65 @@ installer:
 !!! note
 	Currently, only one setup endpoint per application is supported.
 
+## Licensing (Enterprise)
+
+Gravity Enterprise provides the ability to generate licenses and require a license for cluster installations.  Licenses are restrictable for the number of nodes per cluster and a end period for the cluster.  You have the option of requiring the application to stop when a license expires.
+
+Here are the commands available in `gravity` for creating, installing, updating and displaying the license in the cluster.  
+
+| Command        | Description |
+|----------------|-------------|
+| `gravity license new`   | Generates a new license
+| `gravity license install`    | Install (or update) a cluster license.
+| `gravity license show`    | Downloads a Cluster Image from a Gravity Hub.
+To see all the options on each command use `--help` as a paramter on each command (Ex: `gravity license new --help`)
+
+Licenses are generated from the `gravity` executable using a Certificate Authority (CA) with a private key with an optional encryption key. After generating the license the CA and optional encryption key is used in a cluster build that has licensing enabled.  Customers will then need to have a license in the CLI or wizard installation for those clusters installations.  Prior to a license expiration the `graviity install` allows for updating the licenses in the clusters.
+
+
+Here's an example of creating a license, building a licensed cluster, installing with the license and updating the license.
+  
+  1. Generate Certifcate Authority (CA) and private key for 365 days:
+  
+  ```bash
+  openssl req -newkey rsa:2048 -nodes -keyout domain.key -x509 -days 365 -out domain.crt
+  ```
+  
+  2. Generate a license with a encryption key
+  ```bash
+  gravity license new --max-nodes=3 --valid-for=365d --ca-cert=domain.crt --ca-key=domain.key --encryption-key=833dcd744b5aed710711ca6f0f8a66b3712f63f17ef03146 > license.pem
+  ```
+  
+  3. Add license enabled to the Cluster Application YAML
+
+```yaml
+apiVersion: cluster.gravitational.io/v2
+kind: Cluster
+metadata:
+    name: Sample
+    resourceVersion: 1.0.0
+license:
+    enabled: true
+  ```
+  
+  4. Build the cluster with the CA and encryption key
+  
+  ```bash
+  tele build app.yaml --ca-cert=domain.crt --encryption-key=833dcd744b5aed710711ca6f0f8a66b3712f63f17ef03146
+  ```
+  
+  5. Install with the license file
+  ```bash
+  sudo ./gravity install --license-file=/tmp/license.pem
+  ```
+
+Repeat steps 1 and 2 at a later date to generate new licenses and step 5 to install a new license in a existing cluster.
+    
+
+!!! tip "License Restriction"
+    Use the `--stop-app` in the `gravity license new` command to require the application to stop once the license expires.
+
+
 ## System Extensions
 
 By default, a Cluster Image contains several system services to provide
