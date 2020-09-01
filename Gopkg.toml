@@ -27,12 +27,17 @@ required = [
 ignored = [
   "github.com/gravitational/gravity/build/*",
   "github.com/gravitational/gravity/e/build/*",
-  "github.com/gravitational/gravity/lib/system/selinux/generate"
+  "github.com/gravitational/gravity/lib/system/selinux/generate",
+  "vbom.ml/util/sortorder"
 ]
 
 [prune]
   unused-packages = true
   go-tests = true
+
+[[override]]
+  name = "github.com/fvbommel/sortorder"
+  source = "github.com/fvbommel/sortorder"
 
 [[override]]
   name = "github.com/gravitational/trace"

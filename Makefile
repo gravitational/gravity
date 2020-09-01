@@ -814,4 +814,9 @@ clean-codegen:
 selinux:
 	$(MAKE) -C build.assets	selinux
 
+# https://github.com/fvbommel/util/issues/6
+.PHONY: fix-sortorder
+fix-sortorder:
+	find vendor -name '*.go' -type f -print0 | xargs -0 sed -i 's/vbom.ml\/util/github.com\/fvbommel/g'
+
 include build.assets/etcd.mk
