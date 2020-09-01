@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/gravitational/gravity/lib/clients"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
@@ -166,12 +167,12 @@ func (s *site) shrinkOperationStart(ctx *operationContext) (err error) {
 	ctx.serversToRemove = state.Servers
 	force := state.Force
 
-	site, err := s.service.GetSite(s.key)
+	cluster, err := s.service.GetSite(s.key)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	server, err := site.ClusterState.FindServer(state.Servers[0].Hostname)
+	server, err := cluster.ClusterState.FindServer(state.Servers[0].Hostname)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -195,6 +196,7 @@ func (s *site) shrinkOperationStart(ctx *operationContext) (err error) {
 	}
 
 	serverName := server.Hostname
+	logger := ctx.WithField("server", serverName)
 
 	if force {
 		ctx.RecordInfo("forcing %q removal", serverName)
@@ -213,7 +215,7 @@ func (s *site) shrinkOperationStart(ctx *operationContext) (err error) {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	ctx.Infof("Selected %v (%v) as master runner.",
+	logger.Infof("Selected %v (%v) as master runner.",
 		masterRunner.server.HostName(),
 		masterRunner.server.Address())
 
@@ -223,14 +225,14 @@ func (s *site) shrinkOperationStart(ctx *operationContext) (err error) {
 	if !state.NodeRemoved {
 		_, err := s.getTeleportServerNoRetry(ops.Hostname, serverName)
 		if err != nil {
-			ctx.Warningf("node %q is offline: %v", serverName, trace.DebugReport(err))
+			logger.WithError(err).Warn("Node is offline.")
 		} else {
 			agentRunner, err = s.launchAgent(ctx, *server)
 			if err != nil {
 				if !force {
 					return trace.Wrap(err)
 				}
-				ctx.Warningf("failed to launch agent on %q: %v", serverName, trace.DebugReport(err))
+				logger.WithError(err).Warn("Failed to launch agent.")
 			} else {
 				online = true
 			}
@@ -247,7 +249,7 @@ func (s *site) shrinkOperationStart(ctx *operationContext) (err error) {
 		// stop running shrink agent
 		err := s.agentService().StopAgents(context.TODO(), opKey)
 		if err != nil {
-			ctx.Warningf("failed to stop shrink agent: %v", trace.DebugReport(err))
+			logger.WithError(err).Warn("Failed to stop shrink agent.")
 		}
 	}()
 
@@ -267,7 +269,7 @@ func (s *site) shrinkOperationStart(ctx *operationContext) (err error) {
 		if !force {
 			return trace.Wrap(err, "failed to unregister the node")
 		}
-		ctx.Warningf("failed to unregister the node, force continue: %v", trace.DebugReport(err))
+		logger.WithError(err).Warn("Failed to unregister the node, force continue.")
 	}
 
 	if s.app.Manifest.HasHook(schema.HookNodeRemoving) {
@@ -281,7 +283,7 @@ func (s *site) shrinkOperationStart(ctx *operationContext) (err error) {
 			if !force {
 				return trace.Wrap(err, "failed to run %v hook", schema.HookNodeRemoving)
 			}
-			ctx.Warningf("failed to run %v hook, force continue: %v", schema.HookNodeRemoving, trace.DebugReport(err))
+			logger.WithError(err).WithField("hook", schema.HookNodeRemoving).Warn("Failed to run hook, force continue.")
 		}
 	}
 
@@ -299,7 +301,7 @@ func (s *site) shrinkOperationStart(ctx *operationContext) (err error) {
 			if !force {
 				return trace.Wrap(err, "failed to remove the node from the serf cluster")
 			}
-			ctx.Warnf("Failed to remove node %q from serf cluster: %v.", serverName, trace.DebugReport(err))
+			logger.WithError(err).Warn("Failed to remove node from serf cluster.")
 		}
 	}
 
@@ -308,8 +310,7 @@ func (s *site) shrinkOperationStart(ctx *operationContext) (err error) {
 		if !force {
 			return trace.Wrap(err, "failed to remove the node from the cluster")
 		}
-		ctx.Warningf("Failed to remove node %q from the cluster, force continue: %v.",
-			serverName, trace.DebugReport(err))
+		logger.WithError(err).Warn("Failed to remove node from the cluster, force continue.")
 	}
 
 	s.reportProgress(ctx, ops.ProgressEntry{
@@ -319,13 +320,13 @@ func (s *site) shrinkOperationStart(ctx *operationContext) (err error) {
 	})
 
 	// remove etcd member
-	err = s.removeFromEtcd(ctx, masterRunner, *server)
+	err = s.removeFromEtcd(context.TODO(), ctx, *server, cluster.ClusterState.Servers.Masters())
 	// the node may be an etcd proxy and not a full member of the etcd cluster
 	if err != nil && !trace.IsNotFound(err) {
 		if !force {
 			return trace.Wrap(err, "failed to remove the node from the database")
 		}
-		ctx.Warningf("failed to remove the node from the database, force continue: %v", trace.DebugReport(err))
+		logger.WithError(err).Warn("Failed to remove the node from the database, force continue.")
 	}
 
 	if online {
@@ -336,7 +337,7 @@ func (s *site) shrinkOperationStart(ctx *operationContext) (err error) {
 		})
 
 		if err = s.uninstallSystem(ctx, agentRunner); err != nil {
-			ctx.Warningf("error uninstalling the system software: %v", trace.DebugReport(err))
+			logger.WithError(err).Warn("Failed to uninstall the system software.")
 		}
 	}
 
@@ -345,7 +346,7 @@ func (s *site) shrinkOperationStart(ctx *operationContext) (err error) {
 			return trace.BadParameter("%v hook is not defined",
 				schema.HookNodesDeprovision)
 		}
-		ctx.Infof("using nodes deprovisioning hook")
+		logger.Info("Using nodes deprovisioning hook.")
 		err := s.runNodesDeprovisionHook(ctx)
 		if err != nil {
 			return trace.Wrap(err)
@@ -364,7 +365,7 @@ func (s *site) shrinkOperationStart(ctx *operationContext) (err error) {
 			if !force {
 				return trace.Wrap(err, "failed to run %v hook", schema.HookNodeRemoved)
 			}
-			ctx.Warningf("failed to run %v hook, force continue: %v", schema.HookNodeRemoved, trace.DebugReport(err))
+			logger.WithError(err).WithField("hook", schema.HookNodeRemoved).Warn("Failed to run hook, force continue.")
 		}
 	}
 
@@ -379,7 +380,7 @@ func (s *site) shrinkOperationStart(ctx *operationContext) (err error) {
 		if !force {
 			return trace.Wrap(err, "failed to clean up packages")
 		}
-		ctx.Warningf("failed to clean up packages, force continue: %v", trace.DebugReport(err))
+		logger.WithError(err).Warn("Failed to clean up packages, force continue.")
 	}
 
 	s.reportProgress(ctx, ops.ProgressEntry{
@@ -389,7 +390,7 @@ func (s *site) shrinkOperationStart(ctx *operationContext) (err error) {
 	})
 
 	if err = s.waitForServerToDisappear(serverName); err != nil {
-		ctx.Warningf("failed to wait for server %v to disappear: %v", serverName, trace.DebugReport(err))
+		logger.WithError(err).Warn("Failed to wait for server to disappear.")
 	}
 
 	if err = s.removeClusterStateServers([]string{server.Hostname}); err != nil {
@@ -454,27 +455,25 @@ func (s *site) waitForServerToDisappear(hostname string) error {
 	return trace.Wrap(err)
 }
 
-func (s *site) removeFromEtcd(ctx *operationContext, runner *serverRunner, server storage.Server) error {
-	out, err := runner.Run(s.etcdctlCommand("member", "list")...)
-	if err != nil {
-		return trace.Wrap(err, "failed to list etcd members: %s", out)
-	}
-
-	provisionedServer := ProvisionedServer{Server: server}
-	memberID, err := utils.FindETCDMemberID(
-		string(out), provisionedServer.EtcdMemberName(s.domainName))
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	ctx.Debugf("found member: %v", memberID)
-
-	out, err = runner.Run(s.etcdctlCommand("member", "remove", memberID)...)
-	if err != nil {
-		return trace.Wrap(err, "failed to remove etcd member: %s", out)
-	}
-
-	return nil
+func (s *site) removeFromEtcd(ctx context.Context, opCtx *operationContext, server storage.Server, masters []storage.Server) error {
+	b := utils.NewExponentialBackOff(defaults.EtcdRemoveMemberTimeout)
+	return utils.RetryTransient(ctx, b, func() error {
+		client, err := clients.DefaultEtcdMembers()
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		members, err := client.List(ctx)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		peerURL := server.EtcdPeerURL()
+		member := utils.EtcdHasMember(members, peerURL)
+		if member == nil {
+			opCtx.WithField("peer", peerURL).Info("Peer not found.")
+			return nil
+		}
+		return trace.Wrap(client.Remove(ctx, member.ID))
+	})
 }
 
 func (s *site) uninstallSystem(ctx *operationContext, runner *serverRunner) error {
@@ -485,7 +484,10 @@ func (s *site) uninstallSystem(ctx *operationContext, runner *serverRunner) erro
 	for _, command := range commands {
 		out, err := runner.Run(command...)
 		if err != nil {
-			ctx.Warningf("failed to run %v: %v (%s)", command, trace.DebugReport(err), out)
+			ctx.WithError(err).WithFields(log.Fields{
+				"command": command,
+				"output":  string(out),
+			}).Warn("Failed to run.")
 		}
 	}
 

@@ -163,14 +163,7 @@ func (p *etcdExecutor) addEtcdMember(ctx context.Context) (member *etcd.Member, 
 }
 
 func (p *etcdExecutor) hasSelfAsMember(peers []etcd.Member) bool {
-	for _, peer := range peers {
-		for _, peerURL := range peer.PeerURLs {
-			if peerURL == p.etcdPeerURL {
-				return true
-			}
-		}
-	}
-	return false
+	return utils.EtcdHasMember(peers, p.etcdPeerURL) != nil
 }
 
 func (p *etcdExecutor) checkBackup(ctx context.Context, agent rpcclient.Client, backupPath string) error {
