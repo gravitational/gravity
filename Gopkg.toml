@@ -21,7 +21,8 @@
 #  version = "2.4.0"
 
 required = [
-  "k8s.io/code-generator"
+  "k8s.io/code-generator",
+  "github.com/fvbommel/sortorder"
 ]
 
 ignored = [

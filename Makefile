@@ -814,7 +814,18 @@ clean-codegen:
 selinux:
 	$(MAKE) -C build.assets	selinux
 
+#
+# this is a temporary target until we upgrade k8s.io packages
+# to use fvbommel/sortorder.
 # https://github.com/fvbommel/util/issues/6
+#
+.PHONY: update-deps
+update-deps:
+	dep version
+	dep ensure -v
+	dep status -v
+	$(MAKE) fix-sortorder
+
 .PHONY: fix-sortorder
 fix-sortorder:
 	find vendor -name '*.go' -type f -print0 | xargs -0 sed -i 's/vbom.ml\/util/github.com\/fvbommel/g'
