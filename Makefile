@@ -62,7 +62,7 @@ BANDWAGON_TAG ?= 6.0.1
 RBAC_APP_TAG := $(GRAVITY_TAG)
 TILLER_VERSION = 2.15.2
 TILLER_APP_TAG = 7.0.1
-SELINUX_VERSION ?= 6.0.0
+SELINUX_VERSION ?= 6.0.1
 # URI of Wormhole container for default install
 WORMHOLE_IMG ?= quay.io/gravitational/wormhole:0.3.3
 # set this to true if you want to use locally built planet packages
@@ -109,7 +109,6 @@ BANDWAGON_PKG := gravitational.io/bandwagon:$(BANDWAGON_TAG)
 RBAC_APP_PKG := gravitational.io/rbac-app:$(RBAC_APP_TAG)
 TILLER_APP_PKG := gravitational.io/tiller-app:$(TILLER_APP_TAG)
 FIO_PKG := gravitational.io/fio:$(FIO_PKG_TAG)
-SELINUX_POLICY_PKG := gravitational.io/selinux:$(SELINUX_VERSION)
 
 # Output directory that stores all of the build artifacts.
 # Artifacts from the gravity build (the binary and any internal packages)
@@ -382,7 +381,7 @@ ci:
 .PHONY: packages
 packages: planet-packages binary-packages teleport-package gravity-packages dns-packages\
 	rbac-app-package bandwagon-package tiller-package monitoring-package \
-	storage-package log-package k8s-packages telekube-packages selinux-policy-package
+	storage-package log-package k8s-packages telekube-packages
 
 .PHONY: teleport-package
 teleport-package:
@@ -485,11 +484,6 @@ dns-packages:
 web-assets:
 	$(GRAVITY) package delete $(WEB_ASSETS_PKG) $(DELETE_OPTS) && \
 	$(GRAVITY) package import $(WEB_ASSETS_OUT) $(WEB_ASSETS_PKG) --ops-url=$(OPS_URL)
-
-.PHONY: selinux-policy-package
-selinux-policy-package:
-	$(GRAVITY) package delete $(SELINUX_POLICY_PKG) $(DELETE_OPTS) && \
-	$(GRAVITY) package import $(SELINUX_OUT) $(SELINUX_POLICY_PKG) --ops-url=$(OPS_URL)
 
 #
 # publish-artifacts uploads build artifacts to the distribution Ops Center
