@@ -5,8 +5,10 @@
   {% include "topnav.html" %}
   {% include "toc.html" %}
 
-  <div class="l-section">
+  <div class="l-section is-thin has-jump-nav" data-sticky-container>
     <section id="docs-content" class="l-section-content text-article">
+      {% include "jumpnav.html" %}
+
       {% block content %}
         {{ page.content }}
       {% endblock %}
@@ -25,7 +27,7 @@
   {%- block extrascripts %}{% endblock %}
 
   <!-- search {{ base_url }} -->
-  <script src="/gravity/docs/search/main.js"></script>
+  <script src="https://gravitational.com/gravity/docs/search/main.js"></script>
 
 
 </body>
