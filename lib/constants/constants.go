@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/coreos/go-semver/semver"
 	"k8s.io/apimachinery/pkg/version"
 )
 
@@ -778,10 +777,6 @@ var (
 		DockerStorageDriverOverlay,
 		DockerStorageDriverOverlay2,
 	}
-
-	// PlanetMultiRegistryVersion is the planet release starting from which registries
-	// are running on all master nodes
-	PlanetMultiRegistryVersion = semver.New("0.1.55")
 
 	// KubernetesServiceDomainName specifies the domain names of the kubernetes API service
 	KubernetesServiceDomainNames = []string{
