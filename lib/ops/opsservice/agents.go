@@ -90,15 +90,12 @@ func (s *site) agentReport(ctx context.Context, opCtx *operationContext) (*ops.A
 }
 
 func (s *site) waitForAgents(ctx context.Context, opCtx *operationContext) (*ops.AgentReport, error) {
-	localCtx, cancel := defaults.WithTimeout(ctx)
-	defer cancel()
-
-	err := s.agentService().Wait(localCtx, opCtx.key(), opCtx.getNumServers())
+	err := s.agentService().Wait(ctx, opCtx.key(), opCtx.getNumServers())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	report, err := s.agentReport(localCtx, opCtx)
+	report, err := s.agentReport(ctx, opCtx)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

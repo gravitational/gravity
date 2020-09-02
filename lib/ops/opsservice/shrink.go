@@ -162,17 +162,33 @@ func (s *site) validateShrinkRequest(req ops.CreateSiteShrinkOperationRequest, c
 
 // shrinkOperationStart kicks off actuall uninstall process:
 // deprovisions servers, deletes packages
-func (s *site) shrinkOperationStart(ctx *operationContext) (err error) {
-	state := ctx.operation.Shrink
-	ctx.serversToRemove = state.Servers
+func (s *site) shrinkOperationStart(opCtx *operationContext) (err error) {
+	state := opCtx.operation.Shrink
+	opCtx.serversToRemove = state.Servers
 	force := state.Force
+	opKey := opCtx.key()
+	serverName := state.Servers[0].Hostname
+	logger := opCtx.WithField("server", serverName)
+
+	// schedule some clean up actions to run regardless of the outcome of the operation
+	defer func() {
+		// erase cloud provider info for this site which may contain sensitive information
+		// such as API keys
+		s.service.deleteCloudProvider(s.key)
+		ctx, cancel := context.WithTimeout(context.Background(), defaults.AgentStopTimeout)
+		defer cancel()
+		err := s.agentService().StopAgents(ctx, opKey)
+		if err != nil {
+			logger.WithError(err).Warn("Failed to stop shrink agent.")
+		}
+	}()
 
 	cluster, err := s.service.GetSite(s.key)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	server, err := cluster.ClusterState.FindServer(state.Servers[0].Hostname)
+	server, err := cluster.ClusterState.FindServer(serverName)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -181,7 +197,7 @@ func (s *site) shrinkOperationStart(ctx *operationContext) (err error) {
 	// is running on is being removed, give up the leadership so another process will pick up
 	// and resume the operation
 	if server.AdvertiseIP == os.Getenv(constants.EnvPodIP) {
-		ctx.RecordInfo("this node is being removed, stepping down")
+		opCtx.RecordInfo("this node is being removed, stepping down")
 		s.leader().StepDown()
 		return nil
 	}
@@ -189,19 +205,16 @@ func (s *site) shrinkOperationStart(ctx *operationContext) (err error) {
 	// if the operation was resumed, cloud provider might not be set
 	if s.service.getCloudProvider(s.key) == nil {
 		err = s.service.setCloudProviderFromRequest(
-			s.key, ctx.operation.Provisioner, &ctx.operation.Shrink.Vars)
+			s.key, opCtx.operation.Provisioner, &opCtx.operation.Shrink.Vars)
 		if err != nil {
 			return trace.Wrap(err)
 		}
 	}
 
-	serverName := server.Hostname
-	logger := ctx.WithField("server", serverName)
-
 	if force {
-		ctx.RecordInfo("forcing %q removal", serverName)
+		opCtx.RecordInfo("forcing %q removal", serverName)
 	} else {
-		ctx.RecordInfo("starting %q removal", serverName)
+		opCtx.RecordInfo("starting %q removal", serverName)
 	}
 
 	// shrink uses a couple of runners for the following purposes:
@@ -211,7 +224,7 @@ func (s *site) shrinkOperationStart(ctx *operationContext) (err error) {
 	//    uninstall on it (if the node is online)
 	var masterRunner, agentRunner *serverRunner
 
-	masterRunner, err = s.pickShrinkMasterRunner(ctx, *server)
+	masterRunner, err = s.pickShrinkMasterRunner(opCtx, *server)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -227,7 +240,8 @@ func (s *site) shrinkOperationStart(ctx *operationContext) (err error) {
 		if err != nil {
 			logger.WithError(err).Warn("Node is offline.")
 		} else {
-			agentRunner, err = s.launchAgent(ctx, *server)
+			logger.Info("Launch shrink agent.")
+			agentRunner, err = s.launchAgent(context.TODO(), opCtx, *server)
 			if err != nil {
 				if !force {
 					return trace.Wrap(err)
@@ -239,27 +253,13 @@ func (s *site) shrinkOperationStart(ctx *operationContext) (err error) {
 		}
 	}
 
-	opKey := ctx.key()
-
-	// schedule some clean up actions to run regardless of the outcome of the operation
-	defer func() {
-		// erase cloud provider info for this site which may contain sensitive information
-		// such as API keys
-		s.service.deleteCloudProvider(s.key)
-		// stop running shrink agent
-		err := s.agentService().StopAgents(context.TODO(), opKey)
-		if err != nil {
-			logger.WithError(err).Warn("Failed to stop shrink agent.")
-		}
-	}()
-
 	if online {
-		ctx.RecordInfo("node %q is online", serverName)
+		opCtx.RecordInfo("node %q is online", serverName)
 	} else {
-		ctx.RecordInfo("node %q is offline", serverName)
+		opCtx.RecordInfo("node %q is offline", serverName)
 	}
 
-	s.reportProgress(ctx, ops.ProgressEntry{
+	s.reportProgress(opCtx, ops.ProgressEntry{
 		State:      ops.ProgressStateInProgress,
 		Completion: 10,
 		Message:    "unregistering the node",
@@ -273,13 +273,13 @@ func (s *site) shrinkOperationStart(ctx *operationContext) (err error) {
 	}
 
 	if s.app.Manifest.HasHook(schema.HookNodeRemoving) {
-		s.reportProgress(ctx, ops.ProgressEntry{
+		s.reportProgress(opCtx, ops.ProgressEntry{
 			State:      ops.ProgressStateInProgress,
 			Completion: 20,
 			Message:    "running pre-removal hooks",
 		})
 
-		if err = s.runHook(ctx, schema.HookNodeRemoving); err != nil {
+		if err = s.runHook(opCtx, schema.HookNodeRemoving); err != nil {
 			if !force {
 				return trace.Wrap(err, "failed to run %v hook", schema.HookNodeRemoving)
 			}
@@ -287,7 +287,7 @@ func (s *site) shrinkOperationStart(ctx *operationContext) (err error) {
 		}
 	}
 
-	s.reportProgress(ctx, ops.ProgressEntry{
+	s.reportProgress(opCtx, ops.ProgressEntry{
 		State:      ops.ProgressStateInProgress,
 		Completion: 30,
 		Message:    "removing the node from the cluster",
@@ -313,14 +313,14 @@ func (s *site) shrinkOperationStart(ctx *operationContext) (err error) {
 		logger.WithError(err).Warn("Failed to remove node from the cluster, force continue.")
 	}
 
-	s.reportProgress(ctx, ops.ProgressEntry{
+	s.reportProgress(opCtx, ops.ProgressEntry{
 		State:      ops.ProgressStateInProgress,
 		Completion: 40,
 		Message:    "removing the node from the database",
 	})
 
 	// remove etcd member
-	err = s.removeFromEtcd(context.TODO(), ctx, *server, cluster.ClusterState.Servers.Masters())
+	err = s.removeFromEtcd(context.TODO(), opCtx, *server)
 	// the node may be an etcd proxy and not a full member of the etcd cluster
 	if err != nil && !trace.IsNotFound(err) {
 		if !force {
@@ -330,38 +330,38 @@ func (s *site) shrinkOperationStart(ctx *operationContext) (err error) {
 	}
 
 	if online {
-		s.reportProgress(ctx, ops.ProgressEntry{
+		s.reportProgress(opCtx, ops.ProgressEntry{
 			State:      ops.ProgressStateInProgress,
 			Completion: 50,
 			Message:    "uninstalling the system software",
 		})
 
-		if err = s.uninstallSystem(ctx, agentRunner); err != nil {
+		if err = s.uninstallSystem(opCtx, agentRunner); err != nil {
 			logger.WithError(err).Warn("Failed to uninstall the system software.")
 		}
 	}
 
-	if isAWSProvisioner(ctx.operation.Provisioner) {
+	if isAWSProvisioner(opCtx.operation.Provisioner) {
 		if !s.app.Manifest.HasHook(schema.HookNodesDeprovision) {
 			return trace.BadParameter("%v hook is not defined",
 				schema.HookNodesDeprovision)
 		}
 		logger.Info("Using nodes deprovisioning hook.")
-		err := s.runNodesDeprovisionHook(ctx)
+		err := s.runNodesDeprovisionHook(opCtx)
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		ctx.RecordInfo("nodes have been successfully deprovisioned")
+		opCtx.RecordInfo("nodes have been successfully deprovisioned")
 	}
 
 	if s.app.Manifest.HasHook(schema.HookNodeRemoved) {
-		s.reportProgress(ctx, ops.ProgressEntry{
+		s.reportProgress(opCtx, ops.ProgressEntry{
 			State:      ops.ProgressStateInProgress,
 			Completion: 80,
 			Message:    "running post-removal hooks",
 		})
 
-		if err = s.runHook(ctx, schema.HookNodeRemoved); err != nil {
+		if err = s.runHook(opCtx, schema.HookNodeRemoved); err != nil {
 			if !force {
 				return trace.Wrap(err, "failed to run %v hook", schema.HookNodeRemoved)
 			}
@@ -369,7 +369,7 @@ func (s *site) shrinkOperationStart(ctx *operationContext) (err error) {
 		}
 	}
 
-	s.reportProgress(ctx, ops.ProgressEntry{
+	s.reportProgress(opCtx, ops.ProgressEntry{
 		State:      ops.ProgressStateInProgress,
 		Completion: 85,
 		Message:    "cleaning up packages",
@@ -383,7 +383,7 @@ func (s *site) shrinkOperationStart(ctx *operationContext) (err error) {
 		logger.WithError(err).Warn("Failed to clean up packages, force continue.")
 	}
 
-	s.reportProgress(ctx, ops.ProgressEntry{
+	s.reportProgress(opCtx, ops.ProgressEntry{
 		State:      ops.ProgressStateInProgress,
 		Completion: 90,
 		Message:    "waiting for operation to complete",
@@ -406,7 +406,7 @@ func (s *site) shrinkOperationStart(ctx *operationContext) (err error) {
 		return trace.Wrap(err)
 	}
 
-	s.reportProgress(ctx, ops.ProgressEntry{
+	s.reportProgress(opCtx, ops.ProgressEntry{
 		State:      ops.ProgressStateCompleted,
 		Completion: constants.Completed,
 		Message:    fmt.Sprintf("%v removed", serverName),
@@ -455,7 +455,7 @@ func (s *site) waitForServerToDisappear(hostname string) error {
 	return trace.Wrap(err)
 }
 
-func (s *site) removeFromEtcd(ctx context.Context, opCtx *operationContext, server storage.Server, masters []storage.Server) error {
+func (s *site) removeFromEtcd(ctx context.Context, opCtx *operationContext, server storage.Server) error {
 	peerURL := server.EtcdPeerURL()
 	logger := opCtx.WithField("peer", peerURL)
 	logger.Info("Remove peer from etcd cluster.")
@@ -466,7 +466,7 @@ func (s *site) removeFromEtcd(ctx context.Context, opCtx *operationContext, serv
 			return trace.Wrap(err)
 		}
 		members, err := client.List(ctx)
-		logger.WithField("peers", members).Info("Etcd members.")
+		logger.WithError(err).WithField("peers", members).Info("Etcd members.")
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -499,7 +499,7 @@ func (s *site) uninstallSystem(ctx *operationContext, runner *serverRunner) erro
 	return nil
 }
 
-func (s *site) launchAgent(ctx *operationContext, server storage.Server) (*serverRunner, error) {
+func (s *site) launchAgent(ctx context.Context, opCtx *operationContext, server storage.Server) (*serverRunner, error) {
 	teleportServer, err := s.getTeleportServer(ops.Hostname, server.Hostname)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -507,10 +507,10 @@ func (s *site) launchAgent(ctx *operationContext, server storage.Server) (*serve
 
 	teleportRunner := &serverRunner{
 		server: teleportServer,
-		runner: &teleportRunner{ctx, s.domainName, s.teleport()},
+		runner: &teleportRunner{opCtx, s.domainName, s.teleport()},
 	}
 
-	tokenID, err := s.createShrinkAgentToken(ctx.operation.ID)
+	tokenID, err := s.createShrinkAgentToken(opCtx.operation.ID)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to create shrink agent token")
 	}
@@ -532,9 +532,16 @@ func (s *site) launchAgent(ctx *operationContext, server storage.Server) (*serve
 		return nil, trace.Wrap(err, "failed to start shrink agent: %s", out)
 	}
 
-	agentReport, err := s.waitForAgents(context.TODO(), ctx)
+	ctx, cancel := context.WithTimeout(ctx, defaults.AgentConnectTimeout)
+	defer cancel()
+	agentReport, err := s.waitForAgents(ctx, opCtx)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to wait for shrink agent")
+	}
+
+	if len(agentReport.Servers) == 0 {
+		log.Warn(agentReport.Message)
+		return nil, trace.NotFound("failed to wait for shrink agent")
 	}
 
 	info := agentReport.Servers[0]
@@ -543,7 +550,7 @@ func (s *site) launchAgent(ctx *operationContext, server storage.Server) (*serve
 			AdvertiseIP: info.AdvertiseAddr,
 			Hostname:    info.GetHostname(),
 		},
-		runner: &agentRunner{ctx, s.agentService()},
+		runner: &agentRunner{opCtx, s.agentService()},
 	}, nil
 }
 

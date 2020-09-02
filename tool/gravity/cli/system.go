@@ -1024,10 +1024,12 @@ func systemUninstall(env *localenv.LocalEnvironment, confirmed, uninstallService
 
 	logger := log.WithField(trace.Component, "system:uninstall")
 	if uninstallService {
+		logger.Info("Uninstall the system services.")
 		if err := environ.UninstallServices(env, logger); err != nil {
 			logger.WithError(err).Warn("Failed to uninstall agent services.")
 		}
 	}
+	logger.Info("Uninstall the system.")
 	if err := environ.UninstallSystem(env, logger); err != nil {
 		logger.WithError(err).Warn("Failed to uninstall system.")
 	}
