@@ -852,7 +852,9 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 		return systemServiceStatus(localEnv,
 			*g.SystemServiceStatusCmd.Package)
 	case g.SystemUninstallCmd.FullCommand():
-		return systemUninstall(localEnv, *g.SystemUninstallCmd.Confirmed)
+		return systemUninstall(localEnv,
+			*g.SystemUninstallCmd.Confirmed,
+			*g.SystemUninstallCmd.UninstallService)
 	case g.SystemReportCmd.FullCommand():
 		return systemReport(localEnv,
 			*g.SystemReportCmd.Filter,

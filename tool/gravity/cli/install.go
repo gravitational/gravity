@@ -299,7 +299,7 @@ func leave(env *localenv.LocalEnvironment, c leaveConfig) error {
 			return trace.Wrap(err)
 		}
 		log.WithError(err).Warn("Failed to leave cluster, forcing.")
-		err := systemUninstall(env, true)
+		err := systemUninstall(env, true, true)
 		if err != nil {
 			return trace.Wrap(err)
 		}

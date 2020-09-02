@@ -456,6 +456,9 @@ func (s *site) waitForServerToDisappear(hostname string) error {
 }
 
 func (s *site) removeFromEtcd(ctx context.Context, opCtx *operationContext, server storage.Server, masters []storage.Server) error {
+	peerURL := server.EtcdPeerURL()
+	logger := opCtx.WithField("peer", peerURL)
+	logger.Info("Remove peer from etcd cluster.")
 	b := utils.NewExponentialBackOff(defaults.EtcdRemoveMemberTimeout)
 	return utils.RetryTransient(ctx, b, func() error {
 		client, err := clients.DefaultEtcdMembers()
@@ -463,22 +466,24 @@ func (s *site) removeFromEtcd(ctx context.Context, opCtx *operationContext, serv
 			return trace.Wrap(err)
 		}
 		members, err := client.List(ctx)
+		logger.WithField("peers", members).Info("Etcd members.")
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		peerURL := server.EtcdPeerURL()
 		member := utils.EtcdHasMember(members, peerURL)
 		if member == nil {
-			opCtx.WithField("peer", peerURL).Info("Peer not found.")
+			logger.Info("Peer not found.")
 			return nil
 		}
-		return trace.Wrap(client.Remove(ctx, member.ID))
+		err = client.Remove(ctx, member.ID)
+		logger.WithError(err).Info("Removed etcd peer.")
+		return trace.Wrap(err)
 	})
 }
 
 func (s *site) uninstallSystem(ctx *operationContext, runner *serverRunner) error {
 	commands := [][]string{
-		s.gravityCommand("system", "uninstall", "--confirm"),
+		s.gravityCommand("system", "uninstall", "--confirm", "--no-uninstall-service"),
 	}
 
 	for _, command := range commands {
