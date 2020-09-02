@@ -915,7 +915,7 @@ Here are the commands available in `gravity` for creating, installing, updating 
 |----------------|-------------|
 | `gravity license new`   | Generates a new license.
 | `gravity license install`    | Install (or update) a cluster license.
-| `gravity license show`    | Downloads a Cluster Image from a Gravity Hub.
+| `gravity license show`    | Show the cluster license.
 To see usage details for each command, append `--help` (Ex. `gravity license new --help`)
 
 Licenses are generated from the `gravity` executable using a Certificate Authority (CA) with a private key and an optional encryption key. After generating the license, the CA and optional encryption key is used in a cluster build that has licensing enabled.  Customers will then need to have a license in the CLI or wizard installation for those cluster installations.  Prior to a license expiration the `gravity license install` command allows for updating the licenses in the clusters.
