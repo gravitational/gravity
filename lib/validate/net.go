@@ -36,11 +36,11 @@ func KubernetesSubnets(podCIDR, serviceCIDR string) error {
 				"invalid pod subnet: %q", podCIDR)
 		}
 
-		// the pod network should be /16 minimum so k8s can allocate /24 to each node
+		// the pod network should be /22 minimum so k8s can allocate /24 to each node (minimum 3 nodes)
 		ones, _ := podNet.Mask.Size()
-		if ones > 16 {
+		if ones > 22 {
 			return trace.BadParameter(
-				"pod subnet should be a minimum of /16: %q", podCIDR)
+				"pod subnet should be a minimum of /22: %q", podCIDR)
 		}
 	}
 

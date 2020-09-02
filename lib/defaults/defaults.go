@@ -698,7 +698,7 @@ const (
 	// this seems like a sensible default. The setting can also be overridden at installation time.
 	ServiceSubnet = "100.100.0.0/16"
 	// PodSubnet is a subnet dedicated to the pods in the cluster
-	PodSubnet = "100.96.0.0/16"
+	PodSubnet = "100.96.0.0/14"
 
 	// MaxRouterIdleConnsPerHost defines tha maximum number of idle connections for "opsroute" transport
 	MaxRouterIdleConnsPerHost = 5
