@@ -913,12 +913,12 @@ Here are the commands available in `gravity` for creating, installing, updating 
 
 | Command        | Description |
 |----------------|-------------|
-| `gravity license new`   | Generates a new license
+| `gravity license new`   | Generates a new license.
 | `gravity license install`    | Install (or update) a cluster license.
 | `gravity license show`    | Downloads a Cluster Image from a Gravity Hub.
-To see all the options on each command use `--help` as a paramter on each command (Ex: `gravity license new --help`)
+To see usage details for each command, append `--help` (Ex. `gravity license new --help`)
 
-Licenses are generated from the `gravity` executable using a Certificate Authority (CA) with a private key and an optional encryption key. After generating the license the CA and optional encryption key is used in a cluster build that has licensing enabled.  Customers will then need to have a license in the CLI or wizard installation for those cluster installations.  Prior to a license expiration the `graviity install` command allows for updating the licenses in the clusters.
+Licenses are generated from the `gravity` executable using a Certificate Authority (CA) with a private key and an optional encryption key. After generating the license, the CA and optional encryption key is used in a cluster build that has licensing enabled.  Customers will then need to have a license in the CLI or wizard installation for those cluster installations.  Prior to a license expiration the `gravity license install` command allows for updating the licenses in the clusters.
 
 
 Here's an example of creating a license, building a licensed cluster, installing with the license and updating the license.
@@ -934,7 +934,7 @@ Here's an example of creating a license, building a licensed cluster, installing
   gravity license new --max-nodes=3 --valid-for=8760h --ca-cert=domain.crt --ca-key=domain.key --encryption-key=833dcd744b5aed710711ca6f0f8a66b3712f63f17ef03146 > license.pem
   ```
   
-  3. Add license enabled to the Cluster Application YAML
+  3. Enable licensing feature in the cluster image manifest
 
 ```yaml
 apiVersion: cluster.gravitational.io/v2
@@ -946,7 +946,7 @@ license:
     enabled: true
   ```
   
-  4. Build the cluster with the CA and encryption key
+  4. Build the cluster with the CA and the same encryption key
   
   ```bash
   tele build app.yaml --ca-cert=domain.crt --encryption-key=833dcd744b5aed710711ca6f0f8a66b3712f63f17ef03146
@@ -957,7 +957,7 @@ license:
   sudo ./gravity install --license-file=/tmp/license.pem
   ```
 
-Repeat steps 1 and 2 at a later date to generate new licenses.  To install a new license file into a cluster use this command.
+Repeat steps 1 and 2 at a later date to generate new licenses.  To install a new license file into a cluster use this command:
 
 ```bash
 sudo gravity license install --from-file=/tmp/license.pem
