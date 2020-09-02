@@ -511,7 +511,6 @@ func (s *site) launchAgent(ctx *operationContext, server storage.Server) (*serve
 	}
 
 	serverAddr := s.service.cfg.Agents.ServerAddr()
-	serviceName := fmt.Sprintf("shrink-%v.service", ctx.operation.ID)
 	command := []string{
 		"ops", "agent", s.packages().PortalURL(),
 		"--advertise-addr", server.AdvertiseIP,
@@ -520,7 +519,7 @@ func (s *site) launchAgent(ctx *operationContext, server storage.Server) (*serve
 		"--vars", fmt.Sprintf("%v:%v", ops.AgentMode, ops.AgentModeShrink),
 		"--service-uid", s.uid(),
 		"--service-gid", s.gid(),
-		"--service-name", serviceName,
+		"--service-name", defaults.GravityRPCAgentServiceName,
 		"--cloud-provider", s.provider,
 	}
 	out, err := teleportRunner.Run(s.gravityCommand(command...)...)
