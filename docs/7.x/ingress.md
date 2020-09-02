@@ -1,3 +1,8 @@
+---
+title: Kubernetes Ingress
+description: How to configure Kubernetes ingress in air-gapped and on-premise environments
+---
+
 # Ingress
 
 Most applications deployed in Kubernetes clusters will require network access.

@@ -1,14 +1,19 @@
+---
+title: Gravity Releases (Changelog)
+description: List of Gravity releases and changes between them.
+---
+
 # Releases
 
 Find the latest Open Source Gravity releases at [Gravity Downloads](https://gravitational.com/gravity/download).
 
 ## Supported Versions
 
-| Version             | Latest Patch | LTS | Release Date         | End of Support *        | Kubernetes Version   | Teleport Version |
-| ------------------- | ------------ | --- | -------------------- | ----------------------- | -------------------- | ---------------- |
-| [7.0](#70-releases) | 7.0.13       | Yes | April 3, 2020        | July 9, 2022            | 1.17.9               | 3.2.13           |
-| [6.1](#61-releases) | 6.1.33       | Yes | August 2, 2019       | November 10, 2021       | 1.15.12              | 3.2.12           |
-| [5.5](#55-releases) | 5.5.50       | Yes | March 8, 2019        | March 8, 2021           | 1.13.11              | 3.0.6-gravity    |
+| Version             | Latest Patch | LTS | Release Date         | Latest Patch Date    | End of Support *        | Kubernetes Version   | Teleport Version |
+| ------------------- | ------------ | --- | -------------------- | -------------------- | ----------------------- | -------------------- | ---------------- |
+| [7.0](#70-releases) | 7.0.16       | Yes | April 3, 2020        | August 31st, 2020    | July 9, 2022            | 1.17.9               | 3.2.13           |
+| [6.1](#61-releases) | 6.1.37       | Yes | August 2, 2019       | August 31st, 2020    | November 10, 2021       | 1.15.12              | 3.2.12           |
+| [5.5](#55-releases) | 5.5.51       | Yes | March 8, 2019        | August 12th, 2020    | March 8, 2021           | 1.13.11              | 3.0.6-gravity    |
 
 Gravity offers one Long Term Support (LTS) version for every 2nd Kubernetes
 minor version, allowing for seamless upgrades per Kubernetes
@@ -45,6 +50,42 @@ extend updates past End of Support through customer agreements if required.
 # Release Notes
 
 ## 7.0 Releases
+
+### 7.0.16 LTS (August 31st, 2020)
+
+#### Bugfixes
+
+* Fix an issue with disconnected Teleport nodes when rotating all masters within the cluster ([#2029](https://github.com/gravitational/gravity/pull/2029)).
+* Fix an issue with installation sometimes failing when trying to install a cluster license ([#2037](https://github.com/gravitational/gravity/pull/2037)).
+* Fix an issue with priority class incorrectly being set on the hook jobs ([#2066](https://github.com/gravitational/gravity/pull/2066)).
+
+### 7.0.15 LTS (August 19th, 2020)
+
+#### Improvements
+
+* Increase default `LimitNOFile` parameter within planet's systemd to `655350` ([#2027](https://github.com/gravitational/gravity/pull/2027), [planet#725](https://github.com/gravitational/planet/pull/725)).
+
+#### Bugfixes
+
+* Fix an issue with DNS application priority class not having any effect ([#1989](https://github.com/gravitational/gravity/pull/1989)).
+
+### 7.0.14 LTS (August 7th, 2020)
+
+#### Improvements
+
+* Monitoring application has been updated to version `7.0.3` ([#1893](https://github.com/gravitational/gravity/pull/1893), [monitoring#183](https://github.com/gravitational/monitoring-app/pull/183)).
+* Gravity debug report will now include `gravity` CLI command history ([#1861](https://github.com/gravitational/gravity/pull/1861)).
+* Gravity will now report a warning if installed kernel is older than the recommended `3.10.0-1127` version ([#1926](https://github.com/gravitational/gravity/pull/1926), [satellite#250](https://github.com/gravitational/satellite/pull/250), [planet#713](https://github.com/gravitational/planet/pull/713)).
+* Update `gravity plan resume` command to launch from a systemd service by default, `--block` flag is supported for old behavior ([#1936](https://github.com/gravitational/gravity/pull/1936)).
+* Add ability to display deployed agent status using `gravity agent status` command ([#1956](https://github.com/gravitational/gravity/pull/1956)).
+* Add support for multi-hop upgrades from 5.5 releases, see [Multi-Hop Upgrades](cluster.md#multi-hop-upgrades) for more details ([#1920](https://github.com/gravitational/gravity/pull/1920), [planet#714](https://github.com/gravitational/planet/pull/714)).
+
+#### Bugfixes
+
+* Rotate RPC credentials on cluster upgrade ([#1749](https://github.com/gravitational/gravity/pull/1749)).
+* Allow invocation of the upgrade's `upload` script from external directories ([#1892](https://github.com/gravitational/gravity/pull/1892)).
+* Fix an issue with installer failing when a directory for mountpoint does not exist ([#1958](https://github.com/gravitational/gravity/pull/1958), [satellite#252](https://github.com/gravitational/satellite/pull/252)).
+* Update `ClusterConfiguration` resource to properly support service CIDR changes ([#1975](https://github.com/gravitational/gravity/pull/1975), [planet#722](https://github.com/gravitational/planet/pull/722)).
 
 ### 7.0.13 LTS (July 15th, 2020)
 
@@ -528,6 +569,47 @@ to learn how to gain insight into how the cluster status changes over time.
 * Upgrade Kubernetes to `v1.16.0`.
 
 ## 6.1 Releases
+
+### 6.1.37 LTS (August 31st, 2020)
+
+#### Improvements
+
+* Add checker that validates Gravity data directory user/group ownership ([#2057](https://github.com/gravitational/gravity/pull/2057)).
+* Validate `HTTP_PROXY` and `HTTPS_PROXY` variables set via `RuntimeEnvironment` resource ([#2061](https://github.com/gravitational/gravity/pull/2061)).
+
+#### Bugfixes
+
+* Fix an issue with installation sometimes failing when trying to install a cluster license ([#2054](https://github.com/gravitational/gravity/pull/2054)).
+
+### 6.1.36 LTS (August 20th, 2020)
+
+#### Bugfixes
+
+* Fix an issue with upgrading applications that use custom planet containers that contained corrupted version metadata ([#2032](https://github.com/gravitational/gravity/pull/2032)).
+* Fix an issue with upgrades if etcd is deployed within kubernetes and scheduled to a master ([#2024](https://github.com/gravitational/gravity/pull/2024), [planet#721](https://github.com/gravitational/planet/pull/721)).
+* Fix an issue with corrupted version metadata within custom planet containers ([#2024](https://github.com/gravitational/gravity/pull/2024), [planet#717](https://github.com/gravitational/planet/pull/717)).
+
+
+### 6.1.35 LTS (August 17th, 2020)
+
+#### Bugfixes
+
+* Fix an issue with building cluster images that use custom planet containers ([#2015](https://github.com/gravitational/gravity/pull/2015)).
+
+### 6.1.34 LTS (August 14th, 2020)
+
+#### Improvements
+
+* Upgrade agents will now restart automatically if nodes reboot during upgrade ([#1952](https://github.com/gravitational/gravity/pull/1952)).
+* Add ability to display deployed agent status using `gravity agent status` command ([#1952](https://github.com/gravitational/gravity/pull/1952)).
+* Update `gravity plan resume` command to launch from a systemd service by default, `--block` flag is supported for old behavior ([#1935](https://github.com/gravitational/gravity/pull/1935)).
+* Add ability to follow operation plan using `gravity plan --tail` command ([#1935](https://github.com/gravitational/gravity/pull/1935)).
+
+#### Bugfixes
+
+* Fixes an issue with upgrades when using alternate install location ([#2010](https://github.com/gravitational/gravity/pull/2010)).
+* Fix an issue with log forwarding configuration breaking during upgrade ([#1973](https://github.com/gravitational/gravity/pull/1973), [logging-app#68](https://github.com/gravitational/planet/pull/68)).
+* Fix several issues with using custom planet containers ([#1962](https://github.com/gravitational/gravity/pull/1962)).
 
 ### 6.1.33 LTS (July 30th, 2020)
 
@@ -1191,6 +1273,21 @@ to learn how to gain insight into how the cluster status changes over time.
 * Upgrade Kubernetes to `v1.14.0`.
 
 ## 5.5 Releases
+
+### 5.5.51 LTS (August 12th, 2020)
+
+#### Bugfixes
+
+* Backport upstream kubernetes fix for CVE-2020-8558 to Kubernetes 1.13 ([#1998](https://github.com/gravitational/gravity/pull/1998), [planet#650](https://github.com/gravitational/planet/pull/650)).
+* Fix an issue with log forwarding configuration breaking during upgrade ([#1972](https://github.com/gravitational/gravity/pull/1972), [logging-app#67](https://github.com/gravitational/planet/pull/67)).
+* Fix an issue with kubernetes scheduler priorities on cluster dns app ([#1991](https://github.com/gravitational/gravity/pull/1991)).
+* Fix an issue with etcd shutdown phase during upgrades ([#1980](https://github.com/gravitational/gravity/pull/1980), [planet#718](https://github.com/gravitational/planet/pull/718)).
+* Fix an issue with teleport when rotating all master servers within the cluster ([#1970](https://github.com/gravitational/gravity/pull/1970)).
+
+!!! warning
+    This release fixes a security vulnerability in Kubernetes. Please see
+    [Kubernetes Announcement](https://groups.google.com/g/kubernetes-announce/c/sI4KmlH3S2I) for more information.
+
 
 ### 5.5.50 LTS (July 31st, 2020)
 

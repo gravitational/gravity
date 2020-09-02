@@ -203,6 +203,9 @@ func (r clusterOperationHandler) UpdateResource(req resources.CreateRequest) err
 		if err != nil {
 			return trace.Wrap(err)
 		}
+		if err := env.CheckAndSetDefaults(); err != nil {
+			return trace.Wrap(err)
+		}
 		return trace.Wrap(updateEnviron(context.TODO(), localEnv, updateEnv,
 			env, req.Manual, req.Confirmed))
 	case storage.KindClusterConfiguration:

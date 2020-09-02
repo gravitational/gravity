@@ -1,3 +1,8 @@
+---
+title: Gravity System Requirements
+description: Description of the system requirements for running Kubernetes in production
+---
+
 # System Requirements
 
 This chapter outlines the system requirements for Linux hosts to be able to run
@@ -372,29 +377,39 @@ with permissions listed below.
 
 <details><summary>Click here to view required GCE permissions.</summary>
 ```
-compute.addresses.*
-compute.disks.*
-compute.firewalls.*
-compute.forwardingRules.*
-compute.httpHealthChecks.*
+compute.addresses.create
+compute.addresses.delete
+compute.addresses.get
+compute.addresses.use
+compute.disks.create
+compute.disks.delete
+compute.disks.get
+compute.disks.use
+compute.firewalls.create
+compute.firewalls.get
+compute.firewalls.update
+compute.forwardingRules.create
+compute.forwardingRules.get
+compute.httpHealthChecks.create
+compute.httpHealthChecks.get
+compute.httpHealthChecks.useReadOnly
 compute.instances.attachDisk
 compute.instances.detachDisk
 compute.instances.get
 compute.instances.list
 compute.instances.use
-compute.networks.*
-compute.routes.*
-compute.subnetworks.get
+compute.networks.get
+compute.networks.updatePolicy
+compute.routes.create
+compute.routes.delete
+compute.routes.get
 compute.subnetworks.list
-compute.targetPools.*
+compute.targetPools.create
+compute.targetPools.get
+compute.targetPools.use
 compute.zoneOperations.get
-compute.zoneOperations.list
-compute.zones.get
 compute.zones.list
 iam.serviceAccounts.actAs
-iam.serviceAccounts.get
-iam.serviceAccounts.list
-resourcemanager.projects.get
 ```
 </details>
 

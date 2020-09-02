@@ -1,3 +1,8 @@
+---
+title: Gravity Hub
+description: Introduction into Gravity Hub, the catalog for cloud-native applications packaged to be deployed on-premises or into air-gapped Kubernetes clusters
+---
+
 # Introduction
 
 The Gravity Hub is a multi-cluster control plane available in the Enterprise

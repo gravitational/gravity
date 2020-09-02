@@ -1,0 +1,22 @@
+ apiVersion: batch/v1
+ kind: Job
+ metadata:
+   name: echoserver-install
+   namespace: default
+ spec:
+   template:
+     metadata:
+       name: echoserver-install
+     spec:
+       restartPolicy: Never
+       containers:
+         - name: echoserver-install
+           image: quay.io/gravitational/debian-tall:buster
+           command:
+             - /usr/local/bin/helm
+             - install
+             - /var/lib/gravity/resources/charts/echoserver
+             - --set
+             - echoserverRegistry=leader.telekube.local:5000
+             - --namespace
+             - default

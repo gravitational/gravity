@@ -1,3 +1,8 @@
+---
+title: Configuring Air-Gapped Kubernetes Cluster
+description: How to configure an air-gapped Kubernetes cluster with Gravity
+---
+
 # Configuration Overview
 
 Gravity borrows the concept of resources from Kubernetes for configuration.
