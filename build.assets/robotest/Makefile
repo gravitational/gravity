@@ -62,6 +62,8 @@ PACKAGES_DIR ?= $(GRAVITY_BUILDDIR)/packages
 
 # ROBOTEST_BUILDDIR is the root of all robotest build artifacts for this build
 ROBOTEST_BUILDDIR ?= $(GRAVITY_BUILDDIR)/robotest
+# ROBOTEST_STATEDIR is the directory where robotest will store terraform state and logs
+ROBOTEST_STATEDIR ?= $(ROBOTEST_BUILDDIR)/state
 # ROBOTEST_BUILD_TMP is a staging directory for building/copying/unpacking content
 # # before an atomic rename into the build directory. Must be on the same filesystem
 # # as ROBOTEST_BUILDDIR.
@@ -273,6 +275,7 @@ run: ## Run robotest.
 run: export GRAVITY_URL = $(ROBOTEST_GRAVITY_BINARY)
 run: export INSTALLER_URL = $(ROBOTEST_OUT)
 run: export ROBOTEST_IMAGES_DIR = $(ROBOTEST_IMAGEDIR)
+run: export STATEDIR ?= $(ROBOTEST_STATEDIR)
 run: export SSH_KEY ?= $(ROBOTEST_SSH_KEY)
 run: export SSH_PUB ?= $(ROBOTEST_SSH_PUB)
 run: export GOOGLE_APPLICATION_CREDENTIALS ?= $(ROBOTEST_GOOGLE_APPLICATION_CREDENTIALS)
