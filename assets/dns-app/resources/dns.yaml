@@ -104,7 +104,7 @@ spec:
         gravitational.io/k8s-role: master
       containers:
       - name: coredns
-        image: coredns/coredns:1.2.6
+        image: coredns/coredns:1.7.0
         imagePullPolicy: IfNotPresent
         resources:
           limits:
@@ -158,7 +158,7 @@ spec:
               path: Corefile
 ---
 apiVersion: apps/v1
-kind: DaemonSet
+kind: Deployment
 metadata:
   name: coredns-worker
   namespace: kube-system
@@ -168,6 +168,7 @@ metadata:
     addonmanager.kubernetes.io/mode: Reconcile
     kubernetes.io/name: "CoreDNS"
 spec:
+  replicas: 0
   selector:
     matchLabels:
       k8s-app: kube-dns-worker
@@ -184,9 +185,19 @@ spec:
         - operator: "Exists"
       nodeSelector:
         gravitational.io/k8s-role: node
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: k8s-app
+                operator: In
+                values:
+                - coredns
+            topologyKey: "kubernetes.io/hostname"
       containers:
       - name: coredns
-        image: coredns/coredns:1.2.6
+        image: coredns/coredns:1.7.0
         imagePullPolicy: IfNotPresent
         resources:
           limits:
@@ -289,3 +300,160 @@ spec:
   - name: metrics
     port: 9153
     protocol: TCP
+#
+# Cluster Proportional Autoscaler
+# Scale the coredns deployment proportionally to the cluster size
+# https://github.com/kubernetes-sigs/cluster-proportional-autoscaler
+# https://github.com/kubernetes-sigs/cluster-proportional-autoscaler/tree/master/examples
+---
+kind: ServiceAccount
+apiVersion: v1
+metadata:
+  name: cluster-proportional-autoscaler-coredns
+  namespace: kube-system
+---
+apiVersion: extensions/v1beta1
+kind: PodSecurityPolicy
+metadata:
+  annotations:
+    seccomp.security.alpha.kubernetes.io/allowedProfileNames: docker/default
+    seccomp.security.alpha.kubernetes.io/defaultProfileName: docker/default
+  name: cluster-proportional-autoscaler
+spec:
+  privileged: false
+  allowPrivilegeEscalation: false
+  requiredDropCapabilities:
+  - All
+  runAsUser:
+    rule: 'MustRunAsNonRoot'
+  seLinux:
+    rule: 'RunAsAny'
+  supplementalGroups:
+    rule: 'MustRunAs'
+    ranges:
+      - min: 1
+        max: 65535
+  fsGroup:
+    rule: 'MustRunAs'
+    ranges:
+      - min: 1
+        max: 65535
+  volumes:
+    - 'configMap'
+    - 'emptyDir'
+    - 'projected'
+    - 'secret'
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: cluster-proportional-autoscaler-coredns
+rules:
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["list", "watch"]
+  - apiGroups:
+    - policy
+    resources:
+    - podsecuritypolicies
+    verbs:
+    - use
+    resourceNames:
+    - cluster-proportional-autoscaler
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: cluster-proportional-autoscaler-coredns
+  namespace: kube-system
+rules:
+  - apiGroups: [""]
+    resources: ["replicationcontrollers/scale"]
+    verbs: ["get", "update"]
+  - apiGroups: ["extensions","apps"]
+    resources: ["deployments/scale", "replicasets/scale"]
+    verbs: ["get", "update"]
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get"]
+    resourceNames: ["autoscaler-coredns-worker", "autoscaler-coredns-master"]
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: cluster-proportional-autoscaler-coredns
+subjects:
+  - kind: ServiceAccount
+    name: cluster-proportional-autoscaler-coredns
+    namespace: kube-system
+roleRef:
+  kind: ClusterRole
+  name: cluster-proportional-autoscaler-coredns
+  apiGroup: rbac.authorization.k8s.io
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: cluster-proportional-autoscaler-coredns
+  namespace: kube-system
+subjects:
+  - kind: ServiceAccount
+    name: cluster-proportional-autoscaler-coredns
+    namespace: kube-system
+roleRef:
+  kind: Role
+  name: cluster-proportional-autoscaler-coredns
+  apiGroup: rbac.authorization.k8s.io
+---
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: autoscaler-coredns-worker
+  namespace: kube-system
+data:
+  # When cluster is using large nodes(with more cores), "coresPerReplica" should dominate.
+  # If using small nodes, "nodesPerReplica" should dominate.
+  # Parameters based on kubernetes defaults: https://github.com/kubernetes/kubernetes/blob/f65f868aa041e108a73a014df360427c6e05e493/cluster/addons/dns-horizontal-autoscaler/dns-horizontal-autoscaler.yaml
+  linear: '{"coresPerReplica":256,"includeUnschedulableNodes":true,"nodesPerReplica":16,"preventSinglePointFailure":true}'
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: autoscaler-coredns-worker
+  namespace: kube-system
+  labels:
+    k8s-app: autoscaler-coredns-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      k8s-app: autoscaler-coredns-worker
+  template:
+    metadata:
+      labels:
+        k8s-app: autoscaler-coredns-worker
+    spec:
+      serviceAccountName: cluster-proportional-autoscaler-coredns
+      tolerations:
+        - operator: "Exists"
+      containers:
+        - image: k8s.gcr.io/cpa/cluster-proportional-autoscaler-amd64:1.8.3
+          name: autoscaler
+          command:
+            - /cluster-proportional-autoscaler
+            - --namespace=kube-system
+            - --configmap=autoscaler-coredns-worker
+            - --target=deployment/coredns-worker
+            - --nodelabels=gravitational.io/k8s-role=node
+            - --poll-period-seconds=60
+            - --logtostderr=true
+            - --v=2
+          securityContext:
+              # nonroot user is 65532 as per https://github.com/GoogleContainerTools/distroless/issues/235
+              runAsUser: 65532
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop:
+                - all
+              readOnlyRootFilesystem: true
+              runAsNonRoot: true
