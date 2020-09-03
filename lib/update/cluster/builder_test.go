@@ -663,7 +663,6 @@ func (r params) etcd(otherMasters []storage.UpdateServer) storage.OperationPhase
 					r.etcdShutdownNode(r.leadMaster, true),
 					// FIXME: assumes len(otherMasters) == 1
 					r.etcdShutdownNode(otherMasters[0], false),
-					r.etcdShutdownWorkerNode(updates[2]),
 				},
 			},
 			{
@@ -673,8 +672,6 @@ func (r params) etcd(otherMasters []storage.UpdateServer) storage.OperationPhase
 					r.etcdUpgradeNode(r.leadMaster),
 					// FIXME: assumes len(otherMasters) == 1
 					r.etcdUpgradeNode(otherMasters[0]),
-					// upgrade regular nodes
-					r.etcdUpgradeNode(updates[2]),
 				},
 			},
 			{
@@ -693,8 +690,6 @@ func (r params) etcd(otherMasters []storage.UpdateServer) storage.OperationPhase
 					r.etcdRestartLeaderNode(),
 					// FIXME: assumes len(otherMasters) == 1
 					r.etcdRestartNode(otherMasters[0]),
-					// upgrade regular nodes
-					r.etcdRestartNode(updates[2]),
 					r.etcdRestartGravity(),
 				},
 			},

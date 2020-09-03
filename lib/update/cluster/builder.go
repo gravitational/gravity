@@ -364,10 +364,6 @@ func (r phaseBuilder) etcdPlan(
 		p := r.etcdShutdownNode(server, shutdownEtcd, false)
 		shutdownEtcd.AddWithDependency(update.DependencyForServer(backupEtcd, server), p)
 	}
-	for _, server := range workers {
-		p := r.etcdShutdownNode(server, shutdownEtcd, false)
-		shutdownEtcd.Add(p)
-	}
 
 	root.Add(shutdownEtcd)
 
@@ -383,10 +379,6 @@ func (r phaseBuilder) etcdPlan(
 		r.etcdUpgrade(leadMaster, upgradeServers))
 
 	for _, server := range otherMasters {
-		p := r.etcdUpgrade(server, upgradeServers)
-		upgradeServers.AddWithDependency(update.DependencyForServer(shutdownEtcd, server), p)
-	}
-	for _, server := range workers {
 		p := r.etcdUpgrade(server, upgradeServers)
 		upgradeServers.AddWithDependency(update.DependencyForServer(shutdownEtcd, server), p)
 	}
@@ -416,10 +408,6 @@ func (r phaseBuilder) etcdPlan(
 		r.etcdRestart(leadMaster, restartMasters))
 
 	for _, server := range otherMasters {
-		p := r.etcdRestart(server, restartMasters)
-		restartMasters.AddWithDependency(update.DependencyForServer(upgradeServers, server), p)
-	}
-	for _, server := range workers {
 		p := r.etcdRestart(server, restartMasters)
 		restartMasters.AddWithDependency(update.DependencyForServer(upgradeServers, server), p)
 	}
