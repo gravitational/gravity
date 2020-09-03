@@ -22,7 +22,6 @@ import (
 	_ "net/http/pprof"
 
 	appservice "github.com/gravitational/gravity/lib/app/service"
-	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/docker"
 	"github.com/gravitational/gravity/lib/install"
@@ -190,15 +189,7 @@ func getTarballEnvironForUpgrade(env *localenv.LocalEnvironment, stateDir string
 
 // getRegistries returns a list of registry addresses in the cluster
 func getRegistries(ctx context.Context, env *localenv.LocalEnvironment, servers []storage.Server) ([]string, error) {
-	// in planets before certain version registry was running only on active master
-	version, err := planetVersion(env)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	if version.LessThan(*constants.PlanetMultiRegistryVersion) {
-		return []string{defaults.DockerRegistry}, nil
-	}
-	// otherwise return registry addresses on all masters
+	// return registry addresses on all masters
 	ips, err := getMasterNodes(ctx, servers)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -210,7 +201,6 @@ func getRegistries(ctx context.Context, env *localenv.LocalEnvironment, servers 
 	return registries, nil
 }
 
-// connectToOpsCenter
 func connectToOpsCenter(env *localenv.LocalEnvironment, opsCenterURL, username, password string) (err error) {
 	if username == "" || password == "" {
 		username, password, err = common.ReadUserPass()
