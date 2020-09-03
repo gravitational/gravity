@@ -621,7 +621,6 @@ func RegisterCommands(app *kingpin.Application) *Application {
 
 	g.SystemUninstallCmd.CmdClause = g.SystemCmd.Command("uninstall", "uninstall gravity from the host").Hidden()
 	g.SystemUninstallCmd.Confirmed = g.SystemUninstallCmd.Flag("confirm", "confirm uninstall").Bool()
-	g.SystemUninstallCmd.UninstallService = g.SystemUninstallCmd.Flag("uninstall-service", "whether to uninstall the agent service (default 'true')").Hidden().Default("true").Bool()
 
 	g.SystemPullUpdatesCmd.CmdClause = g.SystemCmd.Command("pull-updates", "Pull new package updates from the system").Hidden()
 	g.SystemPullUpdatesCmd.OpsCenterURL = g.SystemPullUpdatesCmd.Flag("ops-url", "remote Gravity Hub URL").String()

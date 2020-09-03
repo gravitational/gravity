@@ -1456,8 +1456,6 @@ type SystemUninstallCmd struct {
 	*kingpin.CmdClause
 	// Confirmed suppresses confirmation prompt
 	Confirmed *bool
-	// UninstallService specifies whether to uninstall the agent service
-	UninstallService *bool
 }
 
 // SystemPullUpdatesCmd pulls updates for system packages

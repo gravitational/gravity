@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/gravitational/gravity/lib/clients"
 	"github.com/gravitational/gravity/lib/constants"
@@ -170,19 +171,6 @@ func (s *site) shrinkOperationStart(opCtx *operationContext) (err error) {
 	serverName := state.Servers[0].Hostname
 	logger := opCtx.WithField("server", serverName)
 
-	// schedule some clean up actions to run regardless of the outcome of the operation
-	defer func() {
-		// erase cloud provider info for this site which may contain sensitive information
-		// such as API keys
-		s.service.deleteCloudProvider(s.key)
-		ctx, cancel := context.WithTimeout(context.Background(), defaults.AgentStopTimeout)
-		defer cancel()
-		err := s.agentService().StopAgents(ctx, opKey)
-		if err != nil {
-			logger.WithError(err).Warn("Failed to stop shrink agent.")
-		}
-	}()
-
 	cluster, err := s.service.GetSite(s.key)
 	if err != nil {
 		return trace.Wrap(err)
@@ -216,6 +204,19 @@ func (s *site) shrinkOperationStart(opCtx *operationContext) (err error) {
 	} else {
 		opCtx.RecordInfo("starting %q removal", serverName)
 	}
+
+	// schedule some clean up actions to run regardless of the outcome of the operation
+	defer func() {
+		// erase cloud provider info for this site which may contain sensitive information
+		// such as API keys
+		s.service.deleteCloudProvider(s.key)
+		ctx, cancel := context.WithTimeout(context.Background(), defaults.AgentStopTimeout)
+		defer cancel()
+		err := s.agentService().StopAgents(ctx, opKey)
+		if err != nil {
+			logger.WithError(err).Warn("Failed to stop shrink agent.")
+		}
+	}()
 
 	// shrink uses a couple of runners for the following purposes:
 	//  * teleport master runner is used to execute system commands that remove
@@ -460,6 +461,7 @@ func (s *site) removeFromEtcd(ctx context.Context, opCtx *operationContext, serv
 	logger := opCtx.WithField("peer", peerURL)
 	logger.Info("Remove peer from etcd cluster.")
 	b := utils.NewExponentialBackOff(defaults.EtcdRemoveMemberTimeout)
+	b.MaxInterval = 10 * time.Second
 	return utils.RetryTransient(ctx, b, func() error {
 		client, err := clients.DefaultEtcdMembers()
 		if err != nil {
@@ -483,7 +485,7 @@ func (s *site) removeFromEtcd(ctx context.Context, opCtx *operationContext, serv
 
 func (s *site) uninstallSystem(ctx *operationContext, runner *serverRunner) error {
 	commands := [][]string{
-		s.gravityCommand("system", "uninstall", "--confirm", "--no-uninstall-service"),
+		s.gravityCommand("system", "uninstall", "--confirm"),
 	}
 
 	for _, command := range commands {
