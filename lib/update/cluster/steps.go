@@ -531,8 +531,7 @@ func (r updateStep) addTo(root *builder.Phase, masters, nodes []storage.UpdateSe
 		root.AddParallel(r.etcdPhase(
 			leadMaster.Server,
 			serversToStorage(masters[1:]...),
-			serversToStorage(nodes...)),
-		)
+		))
 	}
 	// The "config" phase pulls new teleport master config packages used
 	// by gravity-sites on master nodes: it needs to run *after* system
@@ -584,7 +583,7 @@ func (r updateStep) configPhase(nodes []storage.Server) *builder.Phase {
 	return root
 }
 
-func (r updateStep) etcdPhase(leadMaster storage.Server, otherMasters []storage.Server, workers []storage.Server) *builder.Phase {
+func (r updateStep) etcdPhase(leadMaster storage.Server, otherMasters []storage.Server) *builder.Phase {
 	description := fmt.Sprintf("Upgrade etcd %v to %v", r.etcd.installed, r.etcd.update)
 	if r.etcd.installed == "" {
 		description = fmt.Sprintf("Upgrade etcd to %v", r.etcd.update)
@@ -623,10 +622,6 @@ func (r updateStep) etcdPhase(leadMaster storage.Server, otherMasters []storage.
 		p := r.etcdShutdownNodePhase(server, false)
 		shutdownEtcd.AddWithDependency(builder.DependencyForServer(backupEtcd, server), p)
 	}
-	for _, server := range workers {
-		p := r.etcdShutdownNodePhase(server, false)
-		shutdownEtcd.AddParallel(p)
-	}
 
 	root.AddParallel(shutdownEtcd)
 
@@ -642,10 +637,6 @@ func (r updateStep) etcdPhase(leadMaster storage.Server, otherMasters []storage.
 		r.etcdUpgradePhase(leadMaster))
 
 	for _, server := range otherMasters {
-		p := r.etcdUpgradePhase(server)
-		upgradeServers.AddWithDependency(builder.DependencyForServer(shutdownEtcd, server), p)
-	}
-	for _, server := range workers {
 		p := r.etcdUpgradePhase(server)
 		upgradeServers.AddWithDependency(builder.DependencyForServer(shutdownEtcd, server), p)
 	}
@@ -673,10 +664,6 @@ func (r updateStep) etcdPhase(leadMaster storage.Server, otherMasters []storage.
 	restartMasters.AddWithDependency(restoreData, r.etcdRestartPhase(leadMaster))
 
 	for _, server := range otherMasters {
-		p := r.etcdRestartPhase(server)
-		restartMasters.AddWithDependency(builder.DependencyForServer(upgradeServers, server), p)
-	}
-	for _, server := range workers {
 		p := r.etcdRestartPhase(server)
 		restartMasters.AddWithDependency(builder.DependencyForServer(upgradeServers, server), p)
 	}
