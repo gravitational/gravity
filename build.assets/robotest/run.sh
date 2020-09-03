@@ -11,8 +11,6 @@ ROBOTEST_IMAGES_DIR=${ROBOTEST_IMAGES_DIR:? Set ROBOTEST_IMAGES_DIR to the direc
 STATEDIR=${STATEDIR:?Set STATEDIR to a suitable place to store robotest terraform state and logs}
 
 TAG=$(git rev-parse --short HEAD)
-ROBOTEST_VERSION=${ROBOTEST_VERSION:-2.1.0}
-ROBOTEST_DOCKER_IMAGE=quay.io/gravitational/robotest-suite:$ROBOTEST_VERSION
 
 # cloud provider that test clusters will be provisioned on
 # see https://github.com/gravitational/robotest/blob/v2.0.0/infra/gravity/config.go#L72
