@@ -302,7 +302,7 @@ or either the hosts are virtualized or bare metal.
 The default behavior of `gravity install` CLI command will change when
 it detects that it's running on a AWS instance. Kubernetes networking will
 be configured with AWS native network features. For more information see
-[Kubernetes AWS Cloud Provider Documentation](https://kubernetes.io/docs/concepts/cluster-administration/cloud-providers/#aws).
+[Kubernetes AWS documentation](https://kubernetes.io/docs/setup/production-environment/turnkey/aws/).
 
 Before installation make sure that AWS instances intended to run Gravity
 satisfy all of Gravity [system requirements](requirements.md). In addition to these
@@ -326,7 +326,7 @@ approach as [Generic Linux Hosts](#generic-linux-hosts).
 The default behavior of `gravity install` CLI command will change when
 it detects that it's running on a GCE instance. Kubernetes networking will
 be configured with GCP native network features. For more information see
-[Kubernetes GCE Cloud Provider Documentation](https://kubernetes.io/docs/concepts/cluster-administration/cloud-providers/#gce).
+[Kubernetes GCE Documentation](https://kubernetes.io/docs/setup/production-environment/turnkey/gce/).
 
 Before installation make sure that GCE instances intended to run Gravity
 satisfy all of Gravity [system requirements](requirements.md). In addition to these
