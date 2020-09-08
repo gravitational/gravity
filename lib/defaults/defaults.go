@@ -87,6 +87,9 @@ const (
 	// EtcdRetryInterval is the retry interval for some etcd commands
 	EtcdRetryInterval = 3 * time.Second
 
+	// EtcdRemoveMemberTimeout specifies the maximum amount of time to wait for member removal
+	EtcdRemoveMemberTimeout = 5 * time.Minute
+
 	// InstallApplicationTimeout is the max allowed time for k8s application to install
 	InstallApplicationTimeout = 90 * time.Minute // 1.5 hours
 
