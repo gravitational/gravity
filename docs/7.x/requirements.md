@@ -384,6 +384,7 @@ compute.addresses.use
 compute.disks.create
 compute.disks.delete
 compute.disks.get
+compute.disks.resize
 compute.disks.use
 compute.firewalls.create
 compute.firewalls.get
