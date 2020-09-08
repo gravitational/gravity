@@ -19,6 +19,8 @@ spec:
       containers:
       - name: echoserver
         image: {{.Values.echoserverRegistry}}/echoserver:1.10
+        securityContext:
+          runAsNonRoot: false
 ---
 apiVersion: v1
 kind: Service
