@@ -57,10 +57,9 @@ type OutgoingMessageStream interface {
 func EncodeError(err error) *Error {
 	var errWithTraces *trace.TraceErr
 	var ok bool
-	if errWithTraces, ok = err.(*trace.TraceErr); ok {
+	if errWithTraces, ok = err.(*trace.TraceErr); !ok {
 		return &Error{Message: trace.UserMessage(err)}
 	}
-
 	traces := make([]string, 0, len(errWithTraces.Traces))
 	for _, trace := range errWithTraces.Traces {
 		traces = append(traces, trace.String())
