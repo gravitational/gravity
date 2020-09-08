@@ -1,12 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>{% include "head.html" %}</head>
-<body class="has-secondary-nav has-side-nav">
+<body id="gravity-docs" class="has-secondary-nav has-side-nav has-thin-side-nav">
   {% include "topnav.html" %}
   {% include "toc.html" %}
 
-  <div class="l-section">
+  <div class="l-section is-thin has-jump-nav" data-sticky-container>
     <section id="docs-content" class="l-section-content text-article">
+      {% include "jumpnav.html" %}
+
       {% block content %}
         {{ page.content }}
       {% endblock %}
@@ -23,10 +25,6 @@
   {% include "footer.html" %}
   {% include "scripts.html" %}
   {%- block extrascripts %}{% endblock %}
-
-  <!-- search {{ base_url }} -->
-  <script src="/gravity/docs/search/main.js"></script>
-
 
 </body>
 </html>
