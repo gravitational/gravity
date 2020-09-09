@@ -74,7 +74,7 @@ func (*StartSuite) TestCoreDNSConf(c *check.C) {
   }
   forward . 1.1.1.1 8.8.8.8 {
     policy sequential
-    health_check 0
+    health_check 1s
   }
 }
 `,
@@ -103,7 +103,7 @@ func (*StartSuite) TestCoreDNSConf(c *check.C) {
   }
   forward . 1.1.1.1 {
     policy random
-    health_check 0
+    health_check 1s
   }
 }
 `,
