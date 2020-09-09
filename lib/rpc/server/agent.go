@@ -176,8 +176,9 @@ func (srv *agentServer) Abort(ctx context.Context, req *types.Empty) (resp *type
 func (srv *agentServer) command(req pb.CommandArgs, stream pb.Agent_CommandServer, log *log.Entry) (err error) {
 	err = srv.commandExecutor.exec(stream.Context(), stream, req.Args, makeRemoteLogger(stream, srv.FieldLogger))
 	if err != nil {
+		stream.Send(pb.ErrorToMessage(err)) //nolint:errcheck
 		log.WithError(err).Warn("Command completed with error.")
-		return stream.Send(pb.ErrorToMessage(err))
+		return trace.Wrap(err)
 	}
 	log.Debug("Command completed OK.")
 	return nil
