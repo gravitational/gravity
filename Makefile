@@ -53,8 +53,8 @@ DNS_APP_TAG = 0.4.0
 BANDWAGON_TAG ?= 6.0.1
 RBAC_APP_TAG := $(GRAVITY_TAG)
 # IMPORTANT: When updating tiller version, DO NOT FORGET to bump TILLER_APP_TAG as well!
-TILLER_VERSION = 2.14.3
-TILLER_APP_TAG = 6.1.0
+TILLER_VERSION = 2.15.2
+TILLER_APP_TAG = 6.1.1
 # URI of Wormhole container for default install
 WORMHOLE_IMG ?= quay.io/gravitational/wormhole:0.3.3
 # set this to true if you want to use locally built planet packages
@@ -763,6 +763,22 @@ validate-deps:
 	$(MAKE) fix-logrus
 	$(eval VENDOR_UNTRACKED := $(shell git status --porcelain vendor))
 	@test -z "$(VENDOR_UNTRACKED)" || (echo "failed to recreate vendor from scratch and match it to git:\n $(VENDOR_UNTRACKED)" ; exit 1)
+
+#
+# this is a temporary target until we upgrade k8s.io packages
+# to use fvbommel/sortorder.
+# https://github.com/fvbommel/util/issues/6
+#
+.PHONY: dep-ensure
+dep-ensure:
+	dep version
+	dep ensure -v
+	dep status -v
+	$(MAKE) fix-sortorder fix-logrus
+
+.PHONY: fix-sortorder
+fix-sortorder:
+	find vendor -name '*.go' -type f -print0 | xargs -0 sed -i 's/vbom.ml\/util/github.com\/fvbommel/g'
 
 .PHONY: fix-logrus
 fix-logrus:
