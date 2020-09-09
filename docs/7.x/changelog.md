@@ -1282,9 +1282,9 @@ to learn how to gain insight into how the cluster status changes over time.
 * Restart flannel before upgrade from older versions to workaround potential overlay issues ([#2043](https://github.com/gravitational/gravity/pull/2043)).
 * Remove the requirement for all nodes to have the same operating system version from preflight checks ([#2048](https://github.com/gravitational/gravity/pull/2048)).
 * Display active Kapacitor alerts in `gravity status` ([#2039](https://github.com/gravitational/gravity/pull/2039)).
-* Update `gravity status` to display a warning upon state directory ownership change ([#2034](https://github.com/gravitational/gravity/pull/2034), [planet#727](https://github.com/gravitational/planet/pull/727), [satellite#255](https://github.com/gravitational/satellite/pull/255)).
+* Update `gravity status` to display a warning if state directory ownership changes ([#2034](https://github.com/gravitational/gravity/pull/2034), [planet#727](https://github.com/gravitational/planet/pull/727), [satellite#255](https://github.com/gravitational/satellite/pull/255)).
 * Validate `HTTP_PROXY` and `HTTPS_PROXY` variables set via `RuntimeEnvironment` resource ([#2049](https://github.com/gravitational/gravity/pull/2049)).
-* Update the log collector rotation policy to keep ten 256MB log files ([#2033](https://github.com/gravitational/gravity/pull/2033), [logging#70](https://github.com/gravitational/logging-app/pull/70)).
+* Update the log collector rotation policy to keep up to ten 256MB log files ([#2033](https://github.com/gravitational/gravity/pull/2033), [logging#70](https://github.com/gravitational/logging-app/pull/70)).
 * Drop excessive metrics from InfluxDB during an upgrade ([#2091](https://github.com/gravitational/gravity/pull/2091), [monitoring#187](https://github.com/gravitational/monitoring-app/pull/187)).
 
 #### Bugfixes
