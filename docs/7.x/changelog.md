@@ -13,7 +13,7 @@ Find the latest Open Source Gravity releases at [Gravity Downloads](https://grav
 | ------------------- | ------------ | --- | -------------------- | -------------------- | ----------------------- | -------------------- | ---------------- |
 | [7.0](#70-releases) | 7.0.16       | Yes | April 3, 2020        | August 31st, 2020    | July 9, 2022            | 1.17.9               | 3.2.13           |
 | [6.1](#61-releases) | 6.1.37       | Yes | August 2, 2019       | August 31st, 2020    | November 10, 2021       | 1.15.12              | 3.2.12           |
-| [5.5](#55-releases) | 5.5.51       | Yes | March 8, 2019        | August 12th, 2020    | March 8, 2021           | 1.13.11              | 3.0.6-gravity    |
+| [5.5](#55-releases) | 5.5.52       | Yes | March 8, 2019        | September 8th, 2020  | March 8, 2021           | 1.13.11              | 3.0.6-gravity    |
 
 Gravity offers one Long Term Support (LTS) version for every 2nd Kubernetes
 minor version, allowing for seamless upgrades per Kubernetes
@@ -1273,6 +1273,26 @@ to learn how to gain insight into how the cluster status changes over time.
 * Upgrade Kubernetes to `v1.14.0`.
 
 ## 5.5 Releases
+
+### 5.5.52 LTS (September 8th, 2020)
+
+#### Improvements
+
+* Make sure that agents are available before resuming or rolling back an upgrade ([#2044](https://github.com/gravitational/gravity/pull/2044)).
+* Restart flannel before upgrade from older versions to workaround potential overlay issues ([#2043](https://github.com/gravitational/gravity/pull/2043)).
+* Remove the requirement for all nodes to have the same operating system version from preflight checks ([#2048](https://github.com/gravitational/gravity/pull/2048)).
+* Display active Kapacitor alerts in `gravity status` ([#2039](https://github.com/gravitational/gravity/pull/2039)).
+* Update `gravity status` to display a warning if state directory ownership changes ([#2034](https://github.com/gravitational/gravity/pull/2034), [planet#727](https://github.com/gravitational/planet/pull/727), [satellite#255](https://github.com/gravitational/satellite/pull/255)).
+* Validate `HTTP_PROXY` and `HTTPS_PROXY` variables set via `RuntimeEnvironment` resource ([#2049](https://github.com/gravitational/gravity/pull/2049)).
+* Update the log collector rotation policy to keep up to ten 256MB log files ([#2033](https://github.com/gravitational/gravity/pull/2033), [logging#70](https://github.com/gravitational/logging-app/pull/70)).
+* Drop excessive metrics from InfluxDB during an upgrade ([#2091](https://github.com/gravitational/gravity/pull/2091), [monitoring#187](https://github.com/gravitational/monitoring-app/pull/187)).
+
+#### Bugfixes
+
+* Fix an issue with remote_syslog process leaking CPU time ([#2084](https://github.com/gravitational/gravity/pull/2084), [logging#71](https://github.com/gravitational/logging-app/pull/71)).
+* Fix an issue with etcd not being upgraded on the worker nodes ([#2086](https://github.com/gravitational/gravity/issues/2068), [planet#738](https://github.com/gravitational/planet/pull/738)).
+* Fix an issue with installation sometimes failing when trying to install a cluster license ([#2053](https://github.com/gravitational/gravity/pull/2053)).
+* Fix an issue with planet agent connection to serf periodically hanging after cluster networking issues ([#2079](https://github.com/gravitational/gravity/pull/2079), [planet#739](https://github.com/gravitational/planet/pull/739), [satellite#262](https://github.com/gravitational/satellite/pull/262)).
 
 ### 5.5.51 LTS (August 12th, 2020)
 

@@ -3,6 +3,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 {% if config.site_author %}<meta name="author" content="{{ config.site_author }}">{% endif %}
 
+
 <link rel="stylesheet" href="{{ base_url }}/src/docs.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons"  />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Raleway:400,500,600,700,800,900" />
@@ -16,12 +17,13 @@
 
 {% block htmltitle %}
 
+
 {% if page.meta %}
 <title>{{ page.meta.title }}</title>
 <meta name="description" content="{{ page.meta.description }}">
-{% else %}
-<title>{{ page.title }}</title>
 {% endif %}
+
+<link rel="canonical" href='{{ page.canonical_url }}'/>
 
 {% endblock %}
 
