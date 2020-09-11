@@ -20,10 +20,15 @@
 #  name = "github.com/x/y"
 #  version = "2.4.0"
 
+required = [
+  "github.com/fvbommel/sortorder"
+]
+
 ignored = [
   "github.com/Sirupsen/logrus",
   "github.com/gravitational/gravity/build/*",
-  "github.com/gravitational/gravity/e/build/*"
+  "github.com/gravitational/gravity/e/build/*",
+  "vbom.ml/util/sortorder"
 ]
 
 [prune]
@@ -33,6 +38,10 @@ ignored = [
 [[override]]
   name = "github.com/gravitational/trace"
   version = "=1.1.11"
+
+[[override]]
+  name = "github.com/fvbommel/sortorder"
+  source = "github.com/fvbommel/sortorder"
 
 [[override]]
   name = "github.com/mitchellh/go-ps"
@@ -90,7 +99,7 @@ ignored = [
 
 [[constraint]]
   name = "k8s.io/helm"
-  branch = "release-2.14"
+  branch = "release-2.15"
 
 [[override]]
   name = "k8s.io/apimachinery"

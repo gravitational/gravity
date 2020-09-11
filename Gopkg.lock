@@ -623,6 +623,15 @@
   revision = "9184fe7a2d7c920b8cdd30faa64fe025f609ef20"
 
 [[projects]]
+  digest = "1:06271c18f99ea67b3ee8bf029ea916fa025f937e5a5fe60fd706681416edbea9"
+  name = "github.com/fvbommel/sortorder"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "a1ddee917217bbd0691affdca9c88d24d3f5c27d"
+  source = "github.com/fvbommel/sortorder"
+  version = "v1.0.1"
+
+[[projects]]
   digest = "1:9c7c893401418efb15ee4b037cf37947e68db61288219204624d5174efad6930"
   name = "github.com/garyburd/redigo"
   packages = [
@@ -2649,8 +2658,8 @@
   revision = "804254d5600483f35d94e1cab8b10d40310def3d"
 
 [[projects]]
-  branch = "release-2.14"
-  digest = "1:ab1ade53af179bb25b66f01ad217d383ad80f08419232e417400f25e40c36bd8"
+  branch = "release-2.15"
+  digest = "1:40f4320f4c91d25037c57e3d5df0ccd6e0507f9adb44903412266687d7825df8"
   name = "k8s.io/helm"
   packages = [
     "pkg/chartutil",
@@ -2684,7 +2693,7 @@
     "pkg/version",
   ]
   pruneopts = "UT"
-  revision = "0e7f3b6637f7af8fcfddb3d2941fcc7cbebb0085"
+  revision = "8dce272473e5f2a7bf58ce79bb5c3691db54c96b"
 
 [[projects]]
   digest = "1:e2999bf1bb6eddc2a6aa03fe5e6629120a53088926520ca3b4765f77d7ff7eab"
@@ -2886,14 +2895,6 @@
   revision = "fd68e9863619f6ec2fdd8625fe1f02e7c877e480"
   version = "v1.1.0"
 
-[[projects]]
-  branch = "master"
-  digest = "1:9132eacc44d9bd1e03145ea2e9d4888800da7773d6edebb401f8cd34c9fb8380"
-  name = "vbom.ml/util"
-  packages = ["sortorder"]
-  pruneopts = "UT"
-  revision = "efcd4e0f97874370259c7d93e12aad57911dea81"
-
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
@@ -2951,6 +2952,7 @@
     "github.com/fatih/color",
     "github.com/fsouza/go-dockerclient",
     "github.com/fsouza/go-dockerclient/testing",
+    "github.com/fvbommel/sortorder",
     "github.com/ghodss/yaml",
     "github.com/gizak/termui",
     "github.com/gogo/protobuf/gogoproto",
