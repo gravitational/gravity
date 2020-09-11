@@ -87,6 +87,9 @@ const (
 	// EtcdRetryInterval is the retry interval for some etcd commands
 	EtcdRetryInterval = 3 * time.Second
 
+	// EtcdRemoveMemberTimeout specifies the maximum amount of time to wait for member removal
+	EtcdRemoveMemberTimeout = 5 * time.Minute
+
 	// InstallApplicationTimeout is the max allowed time for k8s application to install
 	InstallApplicationTimeout = 90 * time.Minute // 1.5 hours
 
@@ -199,6 +202,9 @@ const (
 
 	// GravityRPCInstallerServiceName defines systemd unit service name for the installer
 	GravityRPCInstallerServiceName = "gravity-installer.service"
+
+	// GravityRPCResumeServiceName defines systemd unit service name for resuming the operation plan
+	GravityRPCResumeServiceName = "gravity-resume.service"
 
 	// AgentValidationTimeout specifies the maximum amount of time for a remote validation
 	// request during the preflight test
