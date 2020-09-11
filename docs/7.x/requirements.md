@@ -287,6 +287,20 @@ fs.inotify.max_user_watches=1048576
 See the [sysctl.d man page](https://www.freedesktop.org/software/systemd/man/sysctl.d.html)
 for more information about applying the settings.
 
+## Time Drift
+
+Being a distributed system Gravity/Kubernetes clusters require the system time
+to be kept in sync between the cluster nodes.
+
+When installing a multi-node cluster or joining a new node to the cluster,
+Gravity will execute a preflight check to make sure that time drift between
+the nodes doesn't exceed `300ms` and will fail the operation otherwise. The
+same check is executed on the deployed clusters and if any node's time drifts
+off by `300ms` or more, the cluster will move to a degraded state.
+
+To avoid time drift issues it is highly recommended to run time synchronization
+software on the cluster nodes such as `ntpd` or `chronyd`.
+
 ## AWS IAM Policy
 
 When deploying on AWS, the supplied keys should have a set of EC2/ELB/IAM permissions
