@@ -260,7 +260,7 @@ func NewUnlimitedExponentialBackOff() *backoff.ExponentialBackOff {
 }
 
 // NewExponentialBackOff creates a new backoff interval with the specified timeout
-func NewExponentialBackOff(timeout time.Duration) backoff.BackOff {
+func NewExponentialBackOff(timeout time.Duration) *backoff.ExponentialBackOff {
 	b := backoff.NewExponentialBackOff()
 	b.MaxElapsedTime = timeout
 	return b

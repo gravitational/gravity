@@ -336,7 +336,7 @@ type remotePeer struct {
 
 func newClient(ctx context.Context, creds credentials.TransportCredentials, addr string, dialOpts ...grpc.DialOption) (*agentClient, error) {
 	opts := []grpc.DialOption{
-		grpc.WithBackoffMaxDelay(defaults.RPCAgentBackoffThreshold),
+		grpc.WithBackoffConfig(grpc.BackoffConfig{MaxDelay: defaults.RPCAgentBackoffThreshold}),
 		grpc.WithBlock(),
 		grpc.WithTransportCredentials(creds),
 	}

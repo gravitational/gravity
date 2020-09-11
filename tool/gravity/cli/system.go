@@ -673,11 +673,22 @@ func systemUninstall(env *localenv.LocalEnvironment, confirmed bool) error {
 	env.Backend.Close()
 
 	logger := log.WithField(trace.Component, "system:uninstall")
-	if err := environ.UninstallServices(env, logger); err != nil {
-		log.WithError(err).Warn("Failed to uninstall agent services.")
+	logger.Info("Uninstall system package services.")
+	if err := environ.UninstallPackageServices(env, logger); err != nil {
+		logger.WithError(err).Warn("Failed to uninstall package services.")
+		// Do not attempt to remove state if a package service failed to uninstall since
+		// this might result in inability to re-attempt uninstallation after fixing the issue.
+		// Instead bail out early and output the relevant error message
+		return trace.Wrap(err)
 	}
+	logger.Info("Uninstall system.")
 	if err := environ.UninstallSystem(context.TODO(), env, logger); err != nil {
-		log.WithError(err).Warn("Failed to uninstall system.")
+		logger.WithError(err).Warn("Failed to uninstall system.")
+	}
+	logger.Info("Uninstall system agent services.")
+	if err := environ.UninstallAgentServices(env, logger); err != nil {
+		logger.WithError(err).Warn("Failed to uninstall agent services.")
+		return trace.Wrap(err)
 	}
 	env.PrintStep("Gravity has been successfully uninstalled")
 	return nil

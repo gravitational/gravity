@@ -22,6 +22,7 @@ import (
 	"regexp"
 	"strings"
 
+	etcd "github.com/coreos/etcd/client"
 	"github.com/gravitational/trace"
 )
 
@@ -116,6 +117,19 @@ func (l EtcdMemberList) HasMember(name string) bool {
 		}
 	}
 	return false
+}
+
+// EtcdHasMember returns the peer given its peerURL.
+// Returns nil if no peer exists with the specified peerURL
+func EtcdHasMember(peers []etcd.Member, peerURL string) *etcd.Member {
+	for _, peer := range peers {
+		for _, url := range peer.PeerURLs {
+			if url == peerURL {
+				return &peer
+			}
+		}
+	}
+	return nil
 }
 
 var (
