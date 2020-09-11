@@ -55,6 +55,7 @@ BUILDDIR ?= $(ROOT)/build
 GRAVITY_BUILDDIR ?= $(BUILDDIR)/current
 TELE_OUT ?= $(GRAVITY_BUILDDIR)/tele
 GRAVITY_OUT ?= $(GRAVITY_BUILDDIR)/gravity
+OPSCENTER_OUT ?= $(GRAVITY_BUILDDIR)/opscenter.tar
 PACKAGES_DIR ?= $(GRAVITY_BUILDDIR)/packages
 
 
@@ -141,6 +142,8 @@ ROBOTEST_APP_YAML = $(ASSETSDIR)/robotest/resources/app.yaml
 # ROBOTEST_OUT is the robotest image for the gravity version
 # checked out in the working copy.
 ROBOTEST_OUT = $(ROBOTEST_IMAGEDIR)/robotest-current.tar
+# ROBOTEST_OPSCENTER_IMAGE is robotest's copy of the opscenter image, used for install testing.
+ROBOTEST_OPSCENTER_IMAGE = $(ROBOTEST_IMAGEDIR)/opscenter-current.tar
 # ROBOTEST_TEST_CONFIG is the desired robotest configuration (pr, nightly)
 ROBOTEST_TEST_CONFIG = $(TOP)/pr_config.sh
 # ROBOTEST_UPGRADE_VERSIONS is a list of gravity semvers that will be
@@ -214,6 +217,10 @@ $(ROBOTEST_DOCKER_IMAGE_IIDFILE): Dockerfile Makefile
 		--iidfile $(ROBOTEST_DOCKER_IMAGE_IIDFILE) \
 		--tag $(ROBOTEST_DOCKER_IMAGE) .
 
+.PHONY: images
+images: ## Create all images necessary to run Robotest CI tests.
+images: image images-upgrade image-opscenter
+
 .PHONY: image
 image: ## Create robotest image for the current Gravity.
 image: $(ROBOTEST_OUT)
@@ -232,6 +239,13 @@ $(ROBOTEST_OUT): $(TELE_OUT) $(ROBOTEST_IMAGE_SRC) | $(ROBOTEST_IMAGEDIR) $(ROBO
 images-upgrade: ## Create all other images needed for upgrade testing.
 images-upgrade:
 	$(MAKE) -j $(ROBOTEST_UPGRADE_IMAGES)
+
+.PHONY: image-opscenter
+image-opscenter: ## Move opscenter image into place for robotest testing.
+image-opscenter: $(ROBOTEST_OPSCENTER_IMAGE)
+
+$(ROBOTEST_OPSCENTER_IMAGE): $(OPSCENTER_OUT) | $(ROBOTEST_IMAGEDIR)
+	cp $(OPSCENTER_OUT) $(ROBOTEST_OPSCENTER_IMAGE)
 
 # The following rule populates the build specific docker image mount
 # from cached images. Fulfills the $(ROBOTEST_UPGRADE_IMAGES) targets.
@@ -300,5 +314,5 @@ run: export STATEDIR ?= $(ROBOTEST_STATEDIR)
 run: export SSH_KEY ?= $(ROBOTEST_SSH_KEY)
 run: export SSH_PUB ?= $(ROBOTEST_SSH_PUB)
 run: export GOOGLE_APPLICATION_CREDENTIALS ?= $(ROBOTEST_GOOGLE_APPLICATION_CREDENTIALS)
-run: $(ROBOTEST_TEST_CONFIG) image images-upgrade docker-image $(ROBOTEST_GRAVITY_BINARY)
+run: $(ROBOTEST_TEST_CONFIG) images docker-image $(ROBOTEST_GRAVITY_BINARY)
 	bash run.sh $(ROBOTEST_TEST_CONFIG)

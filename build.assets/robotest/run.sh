@@ -40,13 +40,13 @@ EXTRA_VOLUME_MOUNTS="-v $ROBOTEST_IMAGES_DIR:$ROBOTEST_IMAGE_DIR_MOUNTPOINT"
 
 # INSTALLER_FILE could be local .tar installer or s3:// or http(s) URL
 if [ -d $(dirname ${INSTALLER_URL}) ]; then
-  INSTALLER_FILE='/installer/'$(basename ${INSTALLER_URL})
+  INSTALLER_FILE='/images/'$(basename ${INSTALLER_URL})
   EXTRA_VOLUME_MOUNTS=${EXTRA_VOLUME_MOUNTS:-}" -v "$(dirname ${INSTALLER_URL}):$(dirname ${INSTALLER_FILE})
 fi
 
 # GRAVTIY_FILE/GRAVITY_URL specify the location of the up-to-date gravity binary
 if [ -d $(dirname ${GRAVITY_URL}) ]; then
-  GRAVITY_FILE='/installer/bin/'$(basename ${GRAVITY_URL})
+  GRAVITY_FILE='/robotest-bin/'$(basename ${GRAVITY_URL})
   EXTRA_VOLUME_MOUNTS=${EXTRA_VOLUME_MOUNTS:-}" -v "$(dirname ${GRAVITY_URL}):$(dirname ${GRAVITY_FILE})
 fi
 

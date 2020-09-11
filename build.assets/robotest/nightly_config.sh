@@ -73,7 +73,7 @@ EOF
 
 function build_ops_install_suite {
   local suite=$(cat <<EOF
- install={"installer_url":"/installer/opscenter.tar","nodes":1,"flavor":"standalone","role":"node","os":"ubuntu:18","ops_advertise_addr":"example.com:443"}
+ install={"installer_url":"${ROBOTEST_IMAGE_DIR_MOUNTPOINT}/opscenter-current.tar","nodes":1,"flavor":"standalone","role":"node","os":"ubuntu:18","ops_advertise_addr":"example.com:443"}
 EOF
 )
   echo -n $suite
