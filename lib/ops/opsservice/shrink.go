@@ -504,7 +504,7 @@ func (s *site) uninstallSystem(ctx *operationContext, runner *serverRunner) erro
 			ctx.WithError(err).WithFields(log.Fields{
 				"command": command,
 				"output":  string(out),
-			}).Warn("Failed to run.")
+			}).Error("Failed to run.")
 		}
 	}
 
