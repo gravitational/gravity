@@ -27,6 +27,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
+	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	libfsm "github.com/gravitational/gravity/lib/fsm"
 	helmclt "github.com/gravitational/gravity/lib/helm"
@@ -242,10 +243,6 @@ func executeUpdatePhaseForOperation(env *localenv.LocalEnvironment, environ Loca
 	return executeOrForkPhase(env, updater, params, operation)
 }
 
-// gravityResumeServiceName is the name of systemd service that executes
-// the gravity resume command.
-const gravityResumeServiceName = "gravity-resume.service"
-
 // executeOrForkPhase either directly executes the specified operation phase,
 // or launches a one-shot systemd service that executes it in the background.
 func executeOrForkPhase(env *localenv.LocalEnvironment, updater updater, params PhaseParams, operation ops.SiteOperation) error {
@@ -279,8 +276,8 @@ func executeOrForkPhase(env *localenv.LocalEnvironment, updater updater, params 
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	env.PrintStep("Starting %v service", gravityResumeServiceName)
-	if err := launchOneshotService(gravityResumeServiceName, args); err != nil {
+	env.PrintStep("Starting %v service", defaults.GravityRPCResumeServiceName)
+	if err := launchOneshotService(defaults.GravityRPCResumeServiceName, args); err != nil {
 		return trace.Wrap(err)
 	}
 	env.PrintStep(`Service %[1]v has been launched.
@@ -292,7 +289,7 @@ To monitor the operation progress:
 To monitor the service logs:
 
   sudo journalctl -u %[1]v -f
-`, gravityResumeServiceName, operation.ID)
+`, defaults.GravityRPCResumeServiceName, operation.ID)
 	return nil
 }
 

@@ -160,7 +160,8 @@ func DisableAgentServices(logger log.FieldLogger) error {
 func uninstallAgentServices(svm systemservice.ServiceManager) error {
 	return uninstallServices(svm,
 		defaults.GravityRPCInstallerServiceName,
-		defaults.GravityRPCAgentServiceName)
+		defaults.GravityRPCAgentServiceName,
+		defaults.GravityRPCResumeServiceName)
 }
 
 func unloadSELinuxPolicy(ctx context.Context) error {
