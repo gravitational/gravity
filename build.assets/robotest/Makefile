@@ -218,12 +218,12 @@ $(ROBOTEST_DOCKER_IMAGE_IIDFILE): Dockerfile Makefile
 		--tag $(ROBOTEST_DOCKER_IMAGE) .
 
 .PHONY: images
-images: ## Create all images necessary to run Robotest CI tests.
-images: image images-upgrade image-opscenter
+images: ## Create all images necessary to run robotest CI tests.
+images: image-robotest images-upgrade image-opscenter
 
-.PHONY: image
-image: ## Create robotest image for the current Gravity.
-image: $(ROBOTEST_OUT)
+.PHONY: image-robotest
+image-robotest: ## Create robotest cluster image using the current tele.
+image-robotest: $(ROBOTEST_OUT)
 
 $(ROBOTEST_OUT): $(TELE_OUT) $(ROBOTEST_IMAGE_SRC) | $(ROBOTEST_IMAGEDIR) $(ROBOTEST_BUILD_TMP)
 	$(eval TMP := $(shell mktemp -d -p $(ROBOTEST_BUILD_TMP)))
@@ -236,12 +236,12 @@ $(ROBOTEST_OUT): $(TELE_OUT) $(ROBOTEST_IMAGE_SRC) | $(ROBOTEST_IMAGEDIR) $(ROBO
 	rm -rf $(TMP)
 
 .PHONY: images-upgrade
-images-upgrade: ## Create all other images needed for upgrade testing.
+images-upgrade: ## Create/fetch robotest cluster images needed for upgrade testing.
 images-upgrade:
 	$(MAKE) -j $(ROBOTEST_UPGRADE_IMAGES)
 
 .PHONY: image-opscenter
-image-opscenter: ## Move opscenter image into place for robotest testing.
+image-opscenter: ## Move opscenter.tar cluster image into place for test execution.
 image-opscenter: $(ROBOTEST_OPSCENTER_IMAGE)
 
 $(ROBOTEST_OPSCENTER_IMAGE): $(OPSCENTER_OUT) | $(ROBOTEST_IMAGEDIR)
