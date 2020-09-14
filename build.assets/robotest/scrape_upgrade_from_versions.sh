@@ -3,7 +3,7 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-source $1 > /dev/null
+source $1 upgradeexit > /dev/null
 for release in ${!UPGRADE_MAP[@]}; do
   echo $release
 done

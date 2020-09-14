@@ -21,8 +21,14 @@ UPGRADE_MAP[6.2.0]="ubuntu:16"
 
 UPGRADE_VERSIONS=${!UPGRADE_MAP[@]}
 
+# The following breaks a dependency loop. We need upgrade versions to generate tarballs,
+# but we need tarball names to generate the full test config.
+if [[ ${1} == "upgradeexit" ]]  ; then
+    return
+fi
+
 function build_upgrade_size_suite {
-  local to_tarball=$(tag_to_image current)
+  local to_tarball=${INSTALLER_URL}
   local os="centos:7"
   local cluster_sizes=( \
     '"flavor":"three","nodes":3,"role":"node"' \
@@ -38,7 +44,7 @@ function build_upgrade_size_suite {
 }
 
 function build_upgrade_to_release_under_test_suite {
-  local to_tarball=$(tag_to_image current)
+  local to_tarball=${INSTALLER_URL}
   local os="centos:7"
   local size='"flavor":"three","nodes":3,"role":"node"'
   local suite=''
@@ -73,7 +79,7 @@ EOF
 
 function build_ops_install_suite {
   local suite=$(cat <<EOF
- install={"installer_url":"${ROBOTEST_IMAGE_DIR_MOUNTPOINT}/opscenter-current.tar","nodes":1,"flavor":"standalone","role":"node","os":"ubuntu:18","ops_advertise_addr":"example.com:443"}
+ install={"installer_url":"${OPSCENTER_IMAGE}","nodes":1,"flavor":"standalone","role":"node","os":"ubuntu:18","ops_advertise_addr":"example.com:443"}
 EOF
 )
   echo -n $suite

@@ -6,7 +6,8 @@ set -o pipefail
 readonly TARGET=${1:?Usage: [path to config]}
 
 GRAVITY_URL=${GRAVITY_URL:?Set GRAVITY_URL to the current gravity binary}
-INSTALLER_URL=${INSTALLER_URL:?Set INSTALLER_URL to the default robotest image}
+INSTALLER_URL=${INSTALLER_URL:?Set INSTALLER_URL to the container local default robotest image}
+OPSCENTER_URL=${OPSCENTER_URL:?Set OPSCENTER_URL to the container local opscenter image}
 ROBOTEST_IMAGES_DIR=${ROBOTEST_IMAGES_DIR:? Set ROBOTEST_IMAGES_DIR to the directory with robotest images}
 STATEDIR=${STATEDIR:?Set STATEDIR to a suitable place to store robotest terraform state and logs}
 
@@ -33,16 +34,12 @@ DESTROY_ON_SUCCESS=${DESTROY_ON_SUCCESS:-true}
 DESTROY_ON_FAILURE=${DESTROY_ON_FAILURE:-true}
 
 # set SUITE and ROBOTEST_IMAGE_DIR_MOUNTPOINT
+export INSTALLER_URL OPSCENTER_URL
 source $TARGET
 
 # ROBOTEST_IMAGE_DIR_MOUNTPOINT defined by the config
 EXTRA_VOLUME_MOUNTS="-v $ROBOTEST_IMAGES_DIR:$ROBOTEST_IMAGE_DIR_MOUNTPOINT"
 
-# INSTALLER_FILE could be local .tar installer or s3:// or http(s) URL
-if [ -d $(dirname ${INSTALLER_URL}) ]; then
-  INSTALLER_FILE='/images/'$(basename ${INSTALLER_URL})
-  EXTRA_VOLUME_MOUNTS=${EXTRA_VOLUME_MOUNTS:-}" -v "$(dirname ${INSTALLER_URL}):$(dirname ${INSTALLER_FILE})
-fi
 
 # GRAVTIY_FILE/GRAVITY_URL specify the location of the up-to-date gravity binary
 if [ -d $(dirname ${GRAVITY_URL}) ]; then

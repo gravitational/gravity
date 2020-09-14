@@ -52,7 +52,8 @@ ROOT := $(realpath $(TOP)/../..)
 # Makefile. They're redeclared here for direct invocation of this Makefile.
 ASSETSDIR ?= $(ROOT)/assets
 BUILDDIR ?= $(ROOT)/build
-GRAVITY_BUILDDIR ?= $(BUILDDIR)/current
+GRAVITY_VERSION ?= current
+GRAVITY_BUILDDIR ?= $(BUILDDIR)/$(GRAVITY_VERSION)
 TELE_OUT ?= $(GRAVITY_BUILDDIR)/tele
 GRAVITY_OUT ?= $(GRAVITY_BUILDDIR)/gravity
 OPSCENTER_OUT ?= $(GRAVITY_BUILDDIR)/opscenter.tar
@@ -139,11 +140,11 @@ ROBOTEST_IMAGEDIR = $(ROBOTEST_BUILDDIR)/images
 ROBOTEST_IMAGE_SRC := $(shell find $(ASSETSDIR)/robotest/ -type f)
 # ROBOTEST_APP_YAML is the gravity application manifest to build into robotest images.
 ROBOTEST_APP_YAML = $(ASSETSDIR)/robotest/resources/app.yaml
-# ROBOTEST_OUT is the robotest image for the gravity version
+# ROBOTEST_IMAGE is the robotest image for the gravity version
 # checked out in the working copy.
-ROBOTEST_OUT = $(ROBOTEST_IMAGEDIR)/robotest-current.tar
+ROBOTEST_IMAGE = $(ROBOTEST_IMAGEDIR)/robotest-$(GRAVITY_VERSION).tar
 # ROBOTEST_OPSCENTER_IMAGE is robotest's copy of the opscenter image, used for install testing.
-ROBOTEST_OPSCENTER_IMAGE = $(ROBOTEST_IMAGEDIR)/opscenter-current.tar
+ROBOTEST_OPSCENTER_IMAGE = $(ROBOTEST_IMAGEDIR)/opscenter-$(GRAVITY_VERSION).tar
 # ROBOTEST_TEST_CONFIG is the desired robotest configuration (pr, nightly)
 ROBOTEST_TEST_CONFIG = $(TOP)/pr_config.sh
 # ROBOTEST_UPGRADE_VERSIONS is a list of gravity semvers that will be
@@ -159,7 +160,7 @@ ROBOTEST_TELE_BINARIES = $(addprefix $(ROBOTEST_TELE_CACHE)/tele-, $(ROBOTEST_UP
 # for mounting into the robotest docker container. These are not shared stated.
 ROBOTEST_UPGRADE_IMAGES = $(addsuffix .tar, $(addprefix $(ROBOTEST_IMAGEDIR)/robotest-, $(ROBOTEST_UPGRADE_VERSIONS)))
 # ROBOTEST_IMAGES is all build specific cluster images/targets needed to run robotest.
-ROBOTEST_IMAGES = $(ROBOTEST_OUT) $(ROBOTEST_UPGRADE_IMAGES)
+ROBOTEST_IMAGES = $(ROBOTEST_IMAGE) $(ROBOTEST_OPSCENTER_IMAGE) $(ROBOTEST_UPGRADE_IMAGES)
 
 # Robotest run configuration.
 # These are only used in the run target.
@@ -223,16 +224,16 @@ images: image-robotest images-upgrade image-opscenter
 
 .PHONY: image-robotest
 image-robotest: ## Create robotest cluster image using the current tele.
-image-robotest: $(ROBOTEST_OUT)
+image-robotest: $(ROBOTEST_IMAGE)
 
-$(ROBOTEST_OUT): $(TELE_OUT) $(ROBOTEST_IMAGE_SRC) | $(ROBOTEST_IMAGEDIR) $(ROBOTEST_BUILD_TMP)
+$(ROBOTEST_IMAGE): $(TELE_OUT) $(ROBOTEST_IMAGE_SRC) | $(ROBOTEST_IMAGEDIR) $(ROBOTEST_BUILD_TMP)
 	$(eval TMP := $(shell mktemp -d -p $(ROBOTEST_BUILD_TMP)))
-	$(eval TGT := $(TMP)/robotest-current.tar)
+	$(eval TGT := $(TMP)/robotest-$(GRAVITY_VERSION).tar)
 	$(TELE_OUT) build \
 		$(ROBOTEST_APP_YAML) \
 		--state-dir=$(PACKAGES_DIR) \
 		--output=$(TGT)
-	mv $(TGT) $(ROBOTEST_OUT)
+	mv $(TGT) $(ROBOTEST_IMAGE)
 	rm -rf $(TMP)
 
 .PHONY: images-upgrade
@@ -308,7 +309,8 @@ export
 .PHONY: run
 run: ## Run robotest.
 run: export GRAVITY_URL = $(ROBOTEST_GRAVITY_BINARY)
-run: export INSTALLER_URL = $(ROBOTEST_OUT)
+run: export INSTALLER_URL ?= /images/$(notdir $(ROBOTEST_IMAGE))
+run: export OPSCENTER_URL ?= /images/$(notdir $(ROBOTEST_OPSCENTER_IMAGE))
 run: export ROBOTEST_IMAGES_DIR = $(ROBOTEST_IMAGEDIR)
 run: export STATEDIR ?= $(ROBOTEST_STATEDIR)
 run: export SSH_KEY ?= $(ROBOTEST_SSH_KEY)

@@ -19,12 +19,17 @@ UPGRADE_MAP[7.0.7]="ubuntu:16" # 7.0.7 is the first 7.0 with https://github.com/
 # UPGRADE_MAP[$(recommended_upgrade_tag $(branch 6.2.x))]="redhat:7" # compatible non-LTS version
 # UPGRADE_MAP[6.2.0]="ubuntu:16"
 
+export UPGRADE_VERSIONS=${!UPGRADE_MAP[@]}
 
-UPGRADE_VERSIONS=${!UPGRADE_MAP[@]}
+# The following breaks a dependency loop. We need upgrade versions to generate tarballs,
+# but we need tarball names to generate the full test config.
+if [[ ${1} == "upgradeexit" ]]  ; then
+    return
+fi
 
 function build_upgrade_suite {
   local size='"flavor":"three","nodes":3,"role":"node"'
-  local to_tarball=$(tag_to_image current)
+  local to_tarball=${INSTALLER_URL}
   local suite=''
   for release in ${!UPGRADE_MAP[@]}; do
     local from_tarball=$(tag_to_image $release)
@@ -48,7 +53,7 @@ EOF
 
 function build_ops_install_suite {
   local suite=$(cat <<EOF
- install={"installer_url":"${ROBOTEST_IMAGE_DIR_MOUNTPOINT}/opscenter-current.tar","nodes":1,"flavor":"standalone","role":"node","os":"ubuntu:18","ops_advertise_addr":"example.com:443"}
+ install={"installer_url":"${OPSCENTER_URL}","nodes":1,"flavor":"standalone","role":"node","os":"ubuntu:18","ops_advertise_addr":"example.com:443"}
 EOF
 )
   echo -n $suite
@@ -67,10 +72,11 @@ EOF
   echo -n $suite
 }
 
-SUITE=$(build_install_suite)
+SUITE=""
+SUITE="$SUITE $(build_install_suite)"
 SUITE="$SUITE $(build_resize_suite)"
 SUITE="$SUITE $(build_upgrade_suite)"
 
 echo "$SUITE" | tr ' ' '\n'
 
-export SUITE UPGRADE_VERSIONS
+export SUITE
