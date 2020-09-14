@@ -52,7 +52,7 @@ ROOT := $(realpath $(TOP)/../..)
 # Makefile. They're redeclared here for direct invocation of this Makefile.
 ASSETSDIR ?= $(ROOT)/assets
 BUILDDIR ?= $(ROOT)/build
-GRAVITY_VERSION ?= current
+GRAVITY_VERSION := $(shell cd ../.. && ./version.sh)
 GRAVITY_BUILDDIR ?= $(BUILDDIR)/$(GRAVITY_VERSION)
 TELE_OUT ?= $(GRAVITY_BUILDDIR)/tele
 GRAVITY_OUT ?= $(GRAVITY_BUILDDIR)/gravity
@@ -232,6 +232,7 @@ $(ROBOTEST_IMAGE): $(TELE_OUT) $(ROBOTEST_IMAGE_SRC) | $(ROBOTEST_IMAGEDIR) $(RO
 	$(TELE_OUT) build \
 		$(ROBOTEST_APP_YAML) \
 		--state-dir=$(PACKAGES_DIR) \
+		--version $(GRAVITY_VERSION) \
 		--output=$(TGT)
 	mv $(TGT) $(ROBOTEST_IMAGE)
 	rm -rf $(TMP)
@@ -269,6 +270,7 @@ $(ROBOTEST_UPGRADE_IMAGE_CACHE)/robotest-%.tar: $(ROBOTEST_TELE_CACHE)/tele-% $(
 	$< build \
 		$(ROBOTEST_APP_YAML) \
 		--state-dir $(ROBOTEST_GRAVITY_PKG_CACHE) \
+		--version $* \
 		--output=$(TGT)
 	mv $(TGT) $@
 	rm -rf $(TMP)
