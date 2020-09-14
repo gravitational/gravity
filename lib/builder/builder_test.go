@@ -20,17 +20,23 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
+	dockerarchive "github.com/docker/docker/pkg/archive"
 	libapp "github.com/gravitational/gravity/lib/app"
+	"github.com/gravitational/gravity/lib/app/docker"
 	app "github.com/gravitational/gravity/lib/app/service"
 	apptest "github.com/gravitational/gravity/lib/app/service/test"
 	"github.com/gravitational/gravity/lib/archive"
 	"github.com/gravitational/gravity/lib/blob/fs"
+	"github.com/gravitational/gravity/lib/compare"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
+	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/pack/localpack"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage/keyval"
@@ -48,6 +54,14 @@ func TestBuilder(t *testing.T) { check.TestingT(t) }
 type BuilderSuite struct{}
 
 var _ = check.Suite(&BuilderSuite{})
+
+type InstallerBuilderSuite struct{}
+
+var _ = check.Suite(&InstallerBuilderSuite{})
+
+type CustomImageBuilderSuite struct{}
+
+var _ = check.Suite(&CustomImageBuilderSuite{})
 
 func (s *BuilderSuite) TestVersionsCompatibility(c *check.C) {
 	testCases := []struct {
@@ -112,7 +126,14 @@ func (s *BuilderSuite) TestSelectRuntimeVersion(c *check.C) {
 	c.Assert(err, check.ErrorMatches, "unsupported base image .*")
 }
 
-func (s *BuilderSuite) TestBuildInstallerWithDefaultPlanetPackage(c *check.C) {
+func (s *InstallerBuilderSuite) SetUpSuite(c *check.C) {
+	_, err := docker.NewClientFromEnv()
+	if err != nil {
+		c.Skip("this test requires docker")
+	}
+}
+
+func (s *InstallerBuilderSuite) TestBuildInstallerWithDefaultPlanetPackage(c *check.C) {
 	// setup
 	remoteEnv := newEnviron(c)
 	defer remoteEnv.Close()
@@ -240,10 +261,20 @@ systemOptions:
 	c.Assert(err, check.IsNil)
 }
 
-/*
-// TODO(dmitri): enable this test
-func (s *BuilderSuite) TestBuildInstallerWithCustomPlanetPackageFromHub(c *check.C) {
-	// setup
+func (s *CustomImageBuilderSuite) SetUpTest(c *check.C) {
+	_, err := docker.NewClientFromEnv()
+	if err != nil {
+		c.Skip("this test requires docker")
+	}
+	dockerDir := c.MkDir()
+	createPlanetDockerImage(dockerDir, planetTag, c)
+}
+
+func (s *CustomImageBuilderSuite) TearDownTest(c *check.C) {
+	removePlanetDockerImage(c)
+}
+
+func (s *CustomImageBuilderSuite) TestBuildInstallerWithCustomGlobalPlanetPackage(c *check.C) {
 	remoteEnv := newEnviron(c)
 	defer remoteEnv.Close()
 	stateDir := c.MkDir()
@@ -276,16 +307,17 @@ nodeProfiles:
     labels:
       node-role.kubernetes.io/node: "true"
 systemOptions:
-  baseImage: quay.io/gravitational.io/planet:0.0.2
+  baseImage: quay.io/gravitational/planet:0.0.2
   runtime:
     version: 0.0.1
 `)
 	writeFile(manifestPath, manifestBytes, c)
+	outputPath := filepath.Join(stateDir, "app.tar")
 	b, err := New(Config{
 		FieldLogger:      logrus.WithField(trace.Component, "test"),
 		Progress:         utils.DiscardProgress,
 		StateDir:         stateDir,
-		OutPath:          filepath.Join(stateDir, "app.tar"),
+		OutPath:          outputPath,
 		ManifestPath:     manifestPath,
 		SkipVersionCheck: true,
 		VendorReq: app.VendorRequest{
@@ -310,8 +342,102 @@ systemOptions:
 	// verify
 	err = Build(context.TODO(), b)
 	c.Assert(err, check.IsNil)
+
+	unpackDir := c.MkDir()
+	tarballEnv := unpackTarball(outputPath, unpackDir, c)
+	defer tarballEnv.Close()
+
+	verifyPackages(tarballEnv.Packages, []string{
+		"gravitational.io/planet:0.0.2",
+		"gravitational.io/app:0.0.1",
+		"gravitational.io/gravity:0.0.1",
+		"gravitational.io/kubernetes:0.0.1",
+	}, c)
 }
-*/
+
+func (s *CustomImageBuilderSuite) TestBuildInstallerWithCustomPerNodePlanetPackage(c *check.C) {
+	remoteEnv := newEnviron(c)
+	defer remoteEnv.Close()
+	stateDir := c.MkDir()
+	appDir := c.MkDir()
+	manifestPath := filepath.Join(appDir, defaults.ManifestFileName)
+	manifestBytes := []byte(`
+apiVersion: bundle.gravitational.io/v2
+kind: Bundle
+metadata:
+  name: app
+  resourceVersion: "0.0.1"
+installer:
+  flavors:
+    items:
+      - name: "one"
+        nodes:
+          - profile: master
+            count: 1
+      - name: "three"
+        nodes:
+          - profile: master
+            count: 1
+          - profile: node
+            count: 2
+nodeProfiles:
+  - name: master
+    labels:
+      node-role.kubernetes.io/master: "true"
+  - name: node
+    systemOptions:
+      baseImage: quay.io/gravitational/planet:0.0.2
+    labels:
+      node-role.kubernetes.io/node: "true"
+systemOptions:
+  runtime:
+    version: 0.0.1
+`)
+	writeFile(manifestPath, manifestBytes, c)
+	outputPath := filepath.Join(stateDir, "app.tar")
+	b, err := New(Config{
+		FieldLogger:      logrus.WithField(trace.Component, "test"),
+		Progress:         utils.DiscardProgress,
+		StateDir:         stateDir,
+		OutPath:          outputPath,
+		ManifestPath:     manifestPath,
+		SkipVersionCheck: true,
+		VendorReq: app.VendorRequest{
+			PackageName:      "app",
+			PackageVersion:   "0.0.1",
+			VendorRuntime:    true,
+			ManifestPath:     manifestPath,
+			ResourcePatterns: []string{defaults.VendorPattern},
+		},
+		GetRepository: func(*Builder) (r string, err error) {
+			return "repository", nil
+		},
+		NewSyncer: func(*Builder) (Syncer, error) {
+			return NewPackSyncer(remoteEnv.Packages, newHubApps(remoteEnv.Apps), "repository"), nil
+		},
+	})
+	c.Assert(err, check.IsNil)
+
+	createRuntimeApplication(remoteEnv, c)
+	createApp(manifestBytes, remoteEnv.Apps, c)
+
+	// verify
+	err = Build(context.TODO(), b)
+	c.Assert(err, check.IsNil)
+
+	unpackDir := c.MkDir()
+	tarballEnv := unpackTarball(outputPath, unpackDir, c)
+	defer tarballEnv.Close()
+
+	verifyPackages(tarballEnv.Packages, []string{
+		// Per-node custom planet configuration adds to the list of planet packages
+		"gravitational.io/quay.io-gravitational-planet:0.0.2",
+		"gravitational.io/planet:0.0.1",
+		"gravitational.io/app:0.0.1",
+		"gravitational.io/gravity:0.0.1",
+		"gravitational.io/kubernetes:0.0.1",
+	}, c)
+}
 
 func newEnviron(c *check.C) *localenv.LocalEnvironment {
 	stateDir := c.MkDir()
@@ -418,6 +544,52 @@ type hubApps struct {
 	libapp.Applications
 }
 
+func createPlanetDockerImage(dir, tag string, c *check.C) {
+	dockerfileBytes := []byte(`
+FROM scratch
+COPY ./orbit.manifest.json /etc/planet/
+`)
+	planetManifestBytes := []byte(`{}`)
+
+	writeFile(filepath.Join(dir, "Dockerfile"), dockerfileBytes, c)
+	writeFile(filepath.Join(dir, "orbit.manifest.json"), planetManifestBytes, c)
+	buildDockerImage(dir, tag, c)
+}
+
+func removePlanetDockerImage(c *check.C) {
+	removeDockerImage(planetTag)
+	removeDockerImage(planetPlainTag)
+}
+
+func buildDockerImage(dir, tag string, c *check.C) {
+	out, err := exec.Command("docker", "build", "-t", tag, dir).CombinedOutput()
+	c.Assert(err, check.IsNil, check.Commentf(string(out)))
+}
+
+func removeDockerImage(tag string) {
+	exec.Command("docker", "rmi", tag).Run()
+}
+
+func verifyPackages(packages pack.PackageService, expected []string, c *check.C) {
+	var obtained []string
+	pack.ForeachPackage(packages, func(e pack.PackageEnvelope) error {
+		obtained = append(obtained, e.Locator.String())
+		return nil
+	})
+	c.Assert(obtained, compare.SortedSliceEquals, expected)
+}
+
+func unpackTarball(path, unpackedDir string, c *check.C) *localenv.LocalEnvironment {
+	f, err := os.Open(path)
+	c.Assert(err, check.IsNil)
+	defer f.Close()
+	err = dockerarchive.Untar(f, unpackedDir, archive.DefaultOptions())
+	c.Assert(err, check.IsNil)
+	env, err := localenv.New(unpackedDir)
+	c.Assert(err, check.IsNil)
+	return env
+}
+
 const (
 	manifestWithBase = `apiVersion: cluster.gravitational.io/v2
 kind: Cluster
@@ -438,4 +610,7 @@ baseImage: example:1.2.3
 metadata:
   name: test
   resourceVersion: 1.0.0`
+
+	planetTag      = "quay.io/gravitational/planet:0.0.2"
+	planetPlainTag = "gravitational/planet:0.0.2"
 )

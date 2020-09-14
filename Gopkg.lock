@@ -490,17 +490,31 @@
   revision = "edc3ab29cdff8694dd6feb85cfeb4b5f1b38ed9c"
 
 [[projects]]
-  digest = "1:48ce17256f3a5287a906117191da0a91c7c1b237f0b7876068c2b54383ec6bfe"
+  digest = "1:102cb8e90ec4799bf7f4fe37387f9b67f7e577429641b447c37afa8cd0f9c1be"
   name = "github.com/docker/docker"
   packages = [
+    "api/types/blkiodev",
+    "api/types/container",
+    "api/types/filters",
+    "api/types/mount",
+    "api/types/network",
+    "api/types/registry",
+    "api/types/strslice",
+    "api/types/swarm",
+    "api/types/swarm/runtime",
+    "api/types/versions",
+    "errdefs",
     "pkg/archive",
     "pkg/fileutils",
+    "pkg/homedir",
     "pkg/idtools",
     "pkg/ioutils",
+    "pkg/jsonmessage",
     "pkg/longpath",
     "pkg/mount",
     "pkg/namesgenerator",
     "pkg/pools",
+    "pkg/stdcopy",
     "pkg/system",
     "pkg/term",
     "pkg/term/windows",
@@ -508,6 +522,14 @@
   pruneopts = "UT"
   revision = "2adf434ca69614dfc897dd0acf29018e5590a732"
   source = "github.com/gravitational/moby"
+
+[[projects]]
+  digest = "1:ade935c55cd6d0367c843b109b09c9d748b1982952031414740750fdf94747eb"
+  name = "github.com/docker/go-connections"
+  packages = ["nat"]
+  pruneopts = "UT"
+  revision = "7395e3f8aa162843a74ed6d48e79627d9792ac55"
+  version = "v0.4.0"
 
 [[projects]]
   digest = "1:ae192be79d657527fddb53dd6a967f1a51fc7deca458dd5938c5fe7e43a041bf"
@@ -594,33 +616,15 @@
   version = "v1.4.7"
 
 [[projects]]
-  digest = "1:660acdafade72795f03d2ac721bdbaeaa06d8ccf356128b92a9ac099f2fcec3a"
+  digest = "1:dc330df4df161f8049f53fa6f07f984007073a9bb9bf1790a08867d023624e22"
   name = "github.com/fsouza/go-dockerclient"
   packages = [
     ".",
-    "external/github.com/Sirupsen/logrus",
-    "external/github.com/docker/docker/opts",
-    "external/github.com/docker/docker/pkg/archive",
-    "external/github.com/docker/docker/pkg/fileutils",
-    "external/github.com/docker/docker/pkg/homedir",
-    "external/github.com/docker/docker/pkg/idtools",
-    "external/github.com/docker/docker/pkg/ioutils",
-    "external/github.com/docker/docker/pkg/longpath",
-    "external/github.com/docker/docker/pkg/pools",
-    "external/github.com/docker/docker/pkg/promise",
-    "external/github.com/docker/docker/pkg/stdcopy",
-    "external/github.com/docker/docker/pkg/system",
-    "external/github.com/docker/go-units",
-    "external/github.com/gorilla/context",
-    "external/github.com/gorilla/mux",
-    "external/github.com/hashicorp/go-cleanhttp",
-    "external/github.com/opencontainers/runc/libcontainer/user",
-    "external/golang.org/x/net/context",
-    "external/golang.org/x/sys/unix",
     "testing",
   ]
   pruneopts = "UT"
-  revision = "9184fe7a2d7c920b8cdd30faa64fe025f609ef20"
+  revision = "9abb9ed850fd14325e1f2c7d4fa47960baf980eb"
+  version = "v1.6.5"
 
 [[projects]]
   digest = "1:06271c18f99ea67b3ee8bf029ea916fa025f937e5a5fe60fd706681416edbea9"
@@ -1651,6 +1655,14 @@
   pruneopts = "UT"
   revision = "4b7aa43c6742a2c18fdef89dd197aaae7dac7ccd"
   version = "1.0.1"
+
+[[projects]]
+  digest = "1:906eb1ca3c8455e447b99a45237b2b9615b665608fd07ad12cce847dd9a1ec43"
+  name = "github.com/morikuni/aec"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "39771216ff4c63d11f5e604076f9c45e8be1067b"
+  version = "v1.0.0"
 
 [[projects]]
   branch = "master"

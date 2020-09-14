@@ -194,12 +194,12 @@ func (p *progressPrinter) PrintSubStep(message string, args ...interface{}) {
 	fmt.Fprintf(p.w, "\t%v\n", entry.message)
 }
 
-func (p *progressPrinter) updateCurrentEntry(message string, args ...interface{}) *entry {
+func (p *progressPrinter) updateCurrentEntry(message string, args ...interface{}) entry {
 	message = fmt.Sprintf(message, args...)
-	var entry *entry
+	var entry entry
 	p.Lock()
 	p.currentEntry.message = message
-	entry = p.currentEntry
+	entry = *p.currentEntry
 	p.Unlock()
 	return entry
 }
