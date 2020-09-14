@@ -583,6 +583,7 @@ to learn how to gain insight into how the cluster status changes over time.
 * Fix an issue with etcd not being upgraded on the worker nodes ([#2097](https://github.com/gravitational/gravity/issues/2097), [planet#740](https://github.com/gravitational/planet/pull/740)).
 * Fix an issue with install not being able to uninstall existing failed planet service ([#2110](https://github.com/gravitational/gravity/issues/2110)).
 * Fix an issue with upgrade when custom planet container is used ([#2094](https://github.com/gravitational/gravity/issues/2094)).
+* Fix an issue with CoreDNS high CPU usage when configured with non-existing upstream server ([planet#745](https://github.com/gravitational/planet/pull/745)).
 
 ### 6.1.37 LTS (August 31st, 2020)
 
