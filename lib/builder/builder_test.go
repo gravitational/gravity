@@ -126,14 +126,10 @@ func (s *BuilderSuite) TestSelectRuntimeVersion(c *check.C) {
 	c.Assert(err, check.ErrorMatches, "unsupported base image .*")
 }
 
-func (s *InstallerBuilderSuite) SetUpSuite(c *check.C) {
-	_, err := docker.NewClientFromEnv()
-	if err != nil {
-		c.Skip("this test requires docker")
-	}
-}
-
 func (s *InstallerBuilderSuite) TestBuildInstallerWithDefaultPlanetPackage(c *check.C) {
+	if !checkDockerAvailable() {
+		c.Skip("test requires docker")
+	}
 	// setup
 	remoteEnv := newEnviron(c)
 	defer remoteEnv.Close()
@@ -198,6 +194,9 @@ systemOptions:
 }
 
 func (s *BuilderSuite) TestBuildInstallerWithDefaultPlanetPackageFromHub(c *check.C) {
+	if !checkDockerAvailable() {
+		c.Skip("test requires docker")
+	}
 	// setup
 	remoteEnv := newEnviron(c)
 	defer remoteEnv.Close()
@@ -262,9 +261,8 @@ systemOptions:
 }
 
 func (s *CustomImageBuilderSuite) SetUpTest(c *check.C) {
-	_, err := docker.NewClientFromEnv()
-	if err != nil {
-		c.Skip("this test requires docker")
+	if !checkDockerAvailable() {
+		c.Skip("test requires docker")
 	}
 	dockerDir := c.MkDir()
 	createPlanetDockerImage(dockerDir, planetTag, c)
@@ -588,6 +586,11 @@ func unpackTarball(path, unpackedDir string, c *check.C) *localenv.LocalEnvironm
 	env, err := localenv.New(unpackedDir)
 	c.Assert(err, check.IsNil)
 	return env
+}
+
+func checkDockerAvailable() bool {
+	_, err := docker.NewClientFromEnv()
+	return err == nil
 }
 
 const (
