@@ -6,6 +6,9 @@ if [ $1 = "update" ]; then
     echo "Updating resources"
     rig upsert -f /var/lib/gravity/resources/dns.yaml
 
+    echo "Deleting coredns daemonset that has been replaced by a deployment"
+    rig delete ds/coredns-worker --resource-namespace=kube-system --force
+
     echo "Checking status"
     rig status $RIG_CHANGESET --retry-attempts=120 --retry-period=1s --debug
     echo "Freezing"
