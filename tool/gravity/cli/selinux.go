@@ -94,7 +94,6 @@ func bootstrapSELinux(env *localenv.LocalEnvironment, path, stateDir string, vxl
 	return libselinux.WriteBootstrapScript(f, config)
 }
 
-
 func isSELinuxAlreadyBootstrapped() bool {
 	_, ok := os.LookupEnv(alreadyBootstrappedEnv)
 	return ok

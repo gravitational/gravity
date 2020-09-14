@@ -55,7 +55,7 @@ func NewActionsParser(ctx teleservices.RuleContext) (predicate.Parser, error) {
 	return predicate.NewParser(predicate.Def{
 		Operators: predicate.Operators{},
 		Functions: map[string]interface{}{
-			"log": teleservices.NewLogActionFn(ctx),
+			"log":                                  teleservices.NewLogActionFn(ctx),
 			constants.AssignKubernetesGroupsFnName: NewAssignKubernetesGroupsActionFn(ctx),
 		},
 		GetIdentifier: ctx.GetIdentifier,
