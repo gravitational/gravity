@@ -1,24 +1,22 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: echoserver-install
-  namespace: default
+  name: upgrade
 spec:
   template:
     metadata:
-      name: echoserver-install
+      name: upgrade
     spec:
-      restartPolicy: Never
+      restartPolicy: OnFailure
       containers:
-        - name: echoserver-install
+        - name: upgrade
           image: quay.io/gravitational/debian-tall:buster
           command:
             - /usr/local/bin/helm
-            - install
-            - /var/lib/gravity/resources/charts/echoserver
-            - --name
-            - echoserver
+            - upgrade
             - --set
             - echoserverRegistry=leader.telekube.local:5000
+            - echoserver
+            - /var/lib/gravity/resources/charts/echoserver
             - --namespace
             - default

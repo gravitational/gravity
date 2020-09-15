@@ -156,19 +156,6 @@ hooks:
     job: file://status.yaml
   postInstall:
     job: file://status.yaml
-  preNodeAdd:
-    job: file://status.yaml
-  postNodeAdd:
-    job: file://status.yaml
-  preNodeRemove:
-    job: file://status.yaml
-  postNodeRemove:
-    job: file://status.yaml
-  postUpdate:
-    job: file://status.yaml
-# ingress:
-#   nginx:
-#     enabled: true
 storage:
   openebs:
     enabled: true

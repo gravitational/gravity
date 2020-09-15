@@ -165,7 +165,7 @@ hooks:
   postNodeRemove:
     job: file://status.yaml
   postUpdate:
-    job: file://status.yaml
+    job: file://postupdate.yaml
 # ingress:
 #   nginx:
 #     enabled: true

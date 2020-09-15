@@ -16,6 +16,8 @@ spec:
             - /usr/local/bin/helm
             - install
             - /var/lib/gravity/resources/charts/echoserver
+            - --name
+            - echoserver
             - --set
             - echoserverRegistry=leader.telekube.local:5000
             - --namespace
