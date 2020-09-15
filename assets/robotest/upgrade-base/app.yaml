@@ -156,6 +156,3 @@ hooks:
     job: file://status.yaml
   postInstall:
     job: file://status.yaml
-storage:
-  openebs:
-    enabled: true
