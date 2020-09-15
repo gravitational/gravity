@@ -766,8 +766,9 @@ func (p *Peer) connectLoop() (*operationContext, error) {
 	// Lots of joining nodes create load on the gravity-site controller cycling on creating join operations
 	// Set a high maximum so lots of queued joins don't create too much load
 	b := backoff.NewExponentialBackOff()
+	b.Multiplier = 2
 	b.MaxElapsedTime = 0
-	b.MaxInterval = 60 * time.Second
+	b.MaxInterval = time.Minute
 
 	ticker := backoff.NewTicker(b)
 	defer ticker.Stop()
