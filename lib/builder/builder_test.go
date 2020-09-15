@@ -137,8 +137,8 @@ func (s *InstallerBuilderSuite) TestBuildInstallerWithDefaultPlanetPackage(c *ch
 	appDir := c.MkDir()
 	manifestPath := filepath.Join(appDir, defaults.ManifestFileName)
 	manifestBytes := []byte(`
-apiVersion: bundle.gravitational.io/v2
-kind: Bundle
+apiVersion: cluster.gravitational.io/v2
+kind: Cluster
 metadata:
   name: app
   resourceVersion: "0.0.1"
@@ -163,8 +163,6 @@ nodeProfiles:
     labels:
       node-role.kubernetes.io/node: "true"
 systemOptions:
-  #dependencies:
-  #  runtimePackage: gravitational.io/planet:0.0.1
   runtime:
     version: 0.0.1
 `)
@@ -204,8 +202,8 @@ func (s *BuilderSuite) TestBuildInstallerWithDefaultPlanetPackageFromHub(c *chec
 	appDir := c.MkDir()
 	manifestPath := filepath.Join(appDir, defaults.ManifestFileName)
 	manifestBytes := []byte(`
-apiVersion: bundle.gravitational.io/v2
-kind: Bundle
+apiVersion: cluster.gravitational.io/v2
+kind: Cluster
 metadata:
   name: app
   resourceVersion: "0.0.1"
@@ -279,8 +277,8 @@ func (s *CustomImageBuilderSuite) TestBuildInstallerWithCustomGlobalPlanetPackag
 	appDir := c.MkDir()
 	manifestPath := filepath.Join(appDir, defaults.ManifestFileName)
 	manifestBytes := []byte(`
-apiVersion: bundle.gravitational.io/v2
-kind: Bundle
+apiVersion: cluster.gravitational.io/v2
+kind: Cluster
 metadata:
   name: app
   resourceVersion: "0.0.1"
@@ -360,8 +358,8 @@ func (s *CustomImageBuilderSuite) TestBuildInstallerWithCustomPerNodePlanetPacka
 	appDir := c.MkDir()
 	manifestPath := filepath.Join(appDir, defaults.ManifestFileName)
 	manifestBytes := []byte(`
-apiVersion: bundle.gravitational.io/v2
-kind: Bundle
+apiVersion: cluster.gravitational.io/v2
+kind: Cluster
 metadata:
   name: app
   resourceVersion: "0.0.1"
