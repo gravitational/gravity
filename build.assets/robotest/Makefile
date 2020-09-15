@@ -137,9 +137,13 @@ ROBOTEST_CACHES = $(ROBOTEST_GRAVITY_PKG_CACHE) $(ROBOTEST_TELE_CACHE) $(ROBOTES
 ROBOTEST_IMAGEDIR = $(ROBOTEST_BUILDDIR)/images
 # ROBOTEST_IMAGE_SRC are the files that affect the robotest application.  If any
 # of these change, all robotest images must be rebuilt.
-ROBOTEST_IMAGE_SRC := $(shell find $(ASSETSDIR)/robotest/ -type f)
+ROBOTEST_IMAGE_SRC := $(shell find $(ASSETSDIR)/robotest/current/ -type f)
 # ROBOTEST_APP_YAML is the gravity application manifest to build into robotest images.
-ROBOTEST_APP_YAML = $(ASSETSDIR)/robotest/resources/app.yaml
+ROBOTEST_APP_YAML = $(ASSETSDIR)/robotest/current/app.yaml
+# ROBOTEST_APP_YAML is the gravity application manifest to build into robotest images.
+ROBOTEST_UPGRADE_BASE_IMAGE_SRC := $(shell find $(ASSETSDIR)/robotest/upgrade-base/ -type f)
+# ROBOTEST_APP_YAML is the gravity application manifest to build into robotest images.
+ROBOTEST_UPGRADE_BASE_APP_YAML = $(ASSETSDIR)/robotest/upgrade-base/app.yaml
 # ROBOTEST_IMAGE is the robotest image for the gravity version
 # checked out in the working copy.
 ROBOTEST_IMAGE = $(ROBOTEST_IMAGEDIR)/robotest-$(GRAVITY_VERSION).tar
@@ -264,11 +268,11 @@ $(ROBOTEST_IMAGEDIR)/robotest-%.tar: $(ROBOTEST_UPGRADE_IMAGE_CACHE)/robotest-%.
 # Fulfills the $(ROBOTEST_UPGRADE_CACHE_IMAGES) targets.
 # .PRECIOUS because it is a cache shared across versions.
 .PRECIOUS: $(ROBOTEST_UPGRADE_IMAGE_CACHE)/robotest-%.tar
-$(ROBOTEST_UPGRADE_IMAGE_CACHE)/robotest-%.tar: $(ROBOTEST_TELE_CACHE)/tele-% $(ROBOTEST_IMAGE_SRC) | $(ROBOTEST_UPGRADE_IMAGE_CACHE) $(ROBOTEST_CACHE_TMP)
+$(ROBOTEST_UPGRADE_IMAGE_CACHE)/robotest-%.tar: $(ROBOTEST_TELE_CACHE)/tele-% $(ROBOTEST_UPGRADE_BASE_IMAGE_SRC) | $(ROBOTEST_UPGRADE_IMAGE_CACHE) $(ROBOTEST_CACHE_TMP)
 	$(eval TMP := $(shell mktemp -d -p $(ROBOTEST_CACHE_TMP)))
 	$(eval TGT := $(TMP)/robotest-$*.tar)
 	$< build \
-		$(ROBOTEST_APP_YAML) \
+		$(ROBOTEST_UPGRADE_BASE_APP_YAML) \
 		--state-dir $(ROBOTEST_GRAVITY_PKG_CACHE) \
 		--version $* \
 		--output=$(TGT)
