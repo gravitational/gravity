@@ -137,12 +137,15 @@ func (r *layerExporter) tagCmd(image, repository, tag string) error {
 }
 
 func (r *layerExporter) pushCmd(name, tag string) error {
+	// token value irrelevant, it just needs to render the auth non-empty
+	// See: https://github.com/moby/moby/issues/10983
+	const registryToken = "token"
 	opts := dockerapi.PushImageOptions{
 		Name: fmt.Sprintf("%v/%v", r.registry.Addr(), name),
 		Tag:  tag,
 	}
 	r.Infof("Pushing %v.", opts)
-	return r.dockerClient.PushImage(opts, dockerapi.AuthConfiguration{})
+	return r.dockerClient.PushImage(opts, dockerapi.AuthConfiguration{RegistryToken: registryToken})
 }
 
 func (r *layerExporter) removeTagCmd(name, tag string) error {

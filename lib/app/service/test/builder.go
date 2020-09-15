@@ -202,7 +202,7 @@ func CreateApplicationFromBinaryData(apps app.Applications, locator loc.Locator,
 	app, err = apps.GetApp(locator)
 	c.Assert(err, IsNil)
 	c.Assert(app, NotNil)
-	c.Logf("created %v", app)
+	c.Logf("Created application %v.", app.Package)
 	return app
 }
 
@@ -226,12 +226,12 @@ systemOptions:
 	CreateApplicationFromData(apps, locator, items, c)
 }
 
-func CreatePackage(packages pack.PackageService, locator loc.Locator, files []*archive.Item, c *C) *pack.PackageEnvelope {
+func CreatePackage(packages pack.PackageService, locator loc.Locator, files []*archive.Item, c *C, opts ...pack.PackageOption) *pack.PackageEnvelope {
 	input := CreatePackageData(files, c)
 
 	c.Assert(packages.UpsertRepository(locator.Repository, time.Time{}), IsNil)
 
-	app, err := packages.CreatePackage(locator, &input)
+	app, err := packages.CreatePackage(locator, &input, opts...)
 	c.Assert(err, IsNil)
 	c.Assert(app, NotNil)
 
@@ -239,7 +239,7 @@ func CreatePackage(packages pack.PackageService, locator loc.Locator, files []*a
 	c.Assert(err, IsNil)
 	c.Assert(envelope, NotNil)
 	c.Assert(envelope.SizeBytes, Not(Equals), int64(0))
-	c.Logf("created package %v", envelope)
+	c.Logf("Created package %v.", envelope)
 	return envelope
 }
 

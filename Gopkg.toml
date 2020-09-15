@@ -302,3 +302,7 @@ ignored = [
 [[override]]
   name = "github.com/gravitational/coordinate"
   revision = "2bc9a83f6fe22919202fb09bfa01f2ff8b7784cb"
+
+[[override]]
+  name = "github.com/fsouza/go-dockerclient"
+  version = "=v1.6.5"
