@@ -158,7 +158,7 @@ ignored = [
 [[override]]
   name = "github.com/docker/distribution"
   # take dependency on the same version helm/kubernetes depend on
-  revision = "edc3ab29cdff8694dd6feb85cfeb4b5f1b38ed9c"
+  version = "=v2.7.1"
 
 [[constraint]]
   name = "github.com/opencontainers/selinux"
@@ -327,3 +327,7 @@ ignored = [
 [[override]]
   name = "github.com/ghodss/yaml"
   revision = "c7ce16629ff4cd059ed96ed06419dd3856fd3577"
+
+[[override]]
+  name = "github.com/fsouza/go-dockerclient"
+  version = "=v1.6.5"

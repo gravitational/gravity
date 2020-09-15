@@ -341,9 +341,20 @@ func (m Manifest) RuntimePackage(profile NodeProfile) (*loc.Locator, error) {
 // DefaultRuntimePackage returns the default runtime package
 func (m Manifest) DefaultRuntimePackage() (*loc.Locator, error) {
 	if m.SystemOptions == nil || m.SystemOptions.Dependencies.Runtime == nil {
-		return nil, trace.NotFound("no runtime specified in manifest")
+		return m.LegacyDefaultRuntimePackage()
 	}
 	return &m.SystemOptions.Dependencies.Runtime.Locator, nil
+}
+
+// LegacyDefaultRuntimePackage returns the default runtime package if the manifest has been preprocessed by
+// the legacy hub. In this case, the planet package should be taken from the list of general package dependencies
+func (m Manifest) LegacyDefaultRuntimePackage() (*loc.Locator, error) {
+	for _, dep := range m.Dependencies.Packages {
+		if loc.IsPlanetPackage(dep.Locator) {
+			return &dep.Locator, nil
+		}
+	}
+	return nil, trace.NotFound("no runtime specified in manifest")
 }
 
 // RuntimeImages returns the list of all runtime images.

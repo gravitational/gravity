@@ -56,8 +56,6 @@ import (
 type Config struct {
 	// Context is the build context
 	Context context.Context
-	// StateDir is the configured builder state directory
-	StateDir string
 	// Insecure disables client verification of the server TLS certificate chain
 	Insecure bool
 	// ManifestPath holds the path to the application manifest
@@ -84,6 +82,8 @@ type Config struct {
 	utils.Progress
 	// UpgradeVia lists intermediate runtime versions to embed
 	UpgradeVia []string
+	// Env specifies the local environment for the builder
+	Env *localenv.LocalEnvironment
 
 	// manifestDir is the fully-qualified directory path where manifest file resides
 	manifestDir string
@@ -93,6 +93,9 @@ type Config struct {
 
 // CheckAndSetDefaults validates builder config and fills in defaults
 func (c *Config) CheckAndSetDefaults() error {
+	if c.Env == nil {
+		return trace.BadParameter("build environment is required")
+	}
 	if c.Syncer == nil {
 		return trace.BadParameter("package syncer is required")
 	}
@@ -163,6 +166,7 @@ func New(config Config) (*Builder, error) {
 	}
 	b := &Builder{
 		Config:     config,
+		Env:        config.Env,
 		Manifest:   *manifest,
 		UpgradeVia: runtimeVersions,
 	}
@@ -393,10 +397,6 @@ func (b *Builder) Close() error {
 
 // initServices initializes the builder backend, package and apps services
 func (b *Builder) initServices() (err error) {
-	b.Env, err = b.makeBuildEnv()
-	if err != nil {
-		return trace.Wrap(err)
-	}
 	b.Dir, err = ioutil.TempDir("", "build")
 	if err != nil {
 		return trace.Wrap(err)
@@ -432,33 +432,6 @@ func (b *Builder) initServices() (err error) {
 		return trace.Wrap(err)
 	}
 	return nil
-}
-
-// makeBuildEnv creates a new local build environment instance
-func (b *Builder) makeBuildEnv() (*localenv.LocalEnvironment, error) {
-	// if state directory was specified explicitly, it overrides
-	// both cache directory and config directory as it's used as
-	// a special case only for building from local packages
-	if b.StateDir != "" {
-		b.Infof("Using package cache from %v.", b.StateDir)
-		return localenv.NewLocalEnvironment(localenv.LocalEnvironmentArgs{
-			StateDir:         b.StateDir,
-			LocalKeyStoreDir: b.StateDir,
-			Insecure:         b.Insecure,
-			Credentials:      b.Credentials,
-		})
-	}
-	// otherwise use default locations for cache / key store
-	cacheDir, err := ensureCacheDir(b.Repository)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	b.Infof("Using package cache from %v.", cacheDir)
-	return localenv.NewLocalEnvironment(localenv.LocalEnvironmentArgs{
-		StateDir:    cacheDir,
-		Insecure:    b.Insecure,
-		Credentials: b.Credentials,
-	})
 }
 
 // checkVersion makes sure that the tele version is compatible with the selected
@@ -539,9 +512,9 @@ func versionsCompatible(teleVer, runtimeVer semver.Version) bool {
 		!teleVer.LessThan(runtimeVer)
 }
 
-// ensureCacheDir makes sure a local cache directory for the provided Ops Center
+// EnsureCacheDir makes sure a local cache directory for the provided Ops Center
 // exists
-func ensureCacheDir(opsURL string) (string, error) {
+func EnsureCacheDir(opsURL string) (string, error) {
 	u, err := url.Parse(opsURL)
 	if err != nil {
 		return "", trace.Wrap(err)

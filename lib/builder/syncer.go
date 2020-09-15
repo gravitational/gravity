@@ -27,6 +27,9 @@ import (
 	"github.com/gravitational/gravity/lib/hub"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
+	"github.com/gravitational/gravity/lib/pack"
+	"github.com/gravitational/gravity/lib/schema"
+	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/coreos/go-semver/semver"
 	"github.com/gravitational/trace"
@@ -121,4 +124,67 @@ func (s *S3Syncer) download(path string, loc loc.Locator) error {
 		return trace.Wrap(err)
 	}
 	return nil
+}
+
+// NewPackSyncer creates a new syncer from provided pack and apps services
+func NewPackSyncer(pack pack.PackageService, apps libapp.Applications) *PackSyncer {
+	return &PackSyncer{
+		pack: pack,
+		apps: apps,
+	}
+}
+
+// Sync pulls dependencies from the package/app service not available locally
+func (s *PackSyncer) Sync(ctx context.Context, builder *Builder, runtimeVersion semver.Version) error {
+	cacheApps, err := builder.Env.AppServiceLocal(localenv.AppConfig{})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	// TODO(dmitri): current distribution hub will not return the manifest correctly
+	// for a recent version of the application due to compatibility issues.
+	// Query the package and parse the manifest manually to query the default runtime package
+	app, err := getApp(s.pack, RuntimeApp(runtimeVersion))
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	puller := libapp.Puller{
+		FieldLogger: builder.FieldLogger,
+		SrcPack:     s.pack,
+		SrcApp:      s.apps,
+		DstPack:     builder.Env.Packages,
+		DstApp:      cacheApps,
+		Parallel:    builder.VendorReq.Parallel,
+		OnConflict:  libapp.GetDependencyConflictHandler(false),
+	}
+	err = puller.PullAppDeps(ctx, *app)
+	if err != nil {
+		if utils.IsNetworkError(err) || trace.IsEOF(err) {
+			return trace.ConnectionProblem(err, "failed to download "+
+				"application dependencies from %v - please make sure the "+
+				"repository is reachable: %v", builder.Repository, err)
+		}
+		return trace.Wrap(err)
+	}
+	return puller.PullAppPackage(ctx, app.Package)
+}
+
+// PackSyncer synchronizes local package cache with remote package/application services
+type PackSyncer struct {
+	pack pack.PackageService
+	apps libapp.Applications
+}
+
+func getApp(pack pack.PackageService, loc loc.Locator) (*libapp.Application, error) {
+	env, err := pack.ReadPackageEnvelope(loc)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	manifest, err := schema.ParseManifestYAMLNoValidate(env.Manifest)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &libapp.Application{
+		Package:  loc,
+		Manifest: *manifest,
+	}, nil
 }
