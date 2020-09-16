@@ -89,8 +89,8 @@ ROBOTEST_BUILD_TMP = $(ROBOTEST_BUILDDIR)/tmp
 ROBOTEST_CACHE_ROOT ?= $(BUILDDIR)/cache
 # ROBOTEST_CACHEDIR is the flavor specific cache directory.
 # If the cache is in the builddir, it is already enterprise/oss specific. If not
-# we need to disambguate between the two
-ifeq ($(ROBOTEST_BUILDDIR), $(dir ROBOTEST_CACHE_ROOT))
+# we need to disambiguate between the two
+ifeq ($(BUILDDIR), $(realpath $(dir $(ROBOTEST_CACHE_ROOT))))
 # ROBOTEST_CACHEDIR is the flavor specific cache directory.
 ROBOTEST_CACHEDIR ?= $(ROBOTEST_CACHE_ROOT)
 else
