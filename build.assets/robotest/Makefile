@@ -54,18 +54,23 @@ TELE_OUT ?= $(GRAVITY_BUILDDIR)/tele
 GRAVITY_OUT ?= $(GRAVITY_BUILDDIR)/gravity
 OPSCENTER_OUT ?= $(GRAVITY_BUILDDIR)/opscenter.tar
 PACKAGES_DIR ?= $(GRAVITY_BUILDDIR)/packages
-# ROBOTEST_TELE_BUILD_OPTIONS allows the e Makefile to specify extra enterprise specific build options
-ROBOTEST_TELE_BUILD_OPTIONS ?=
 
+# ROBOTEST_TELE_BUILD_OPTIONS allows the e Makefile to specify extra enterprise specific build options.
+ROBOTEST_TELE_BUILD_OPTIONS ?=
+# ROBOTEST_DOWNLOAD_TELE_SCRIPT allows the e Makefile to override how tele binaries are sourced.
+ROBOTEST_DOWNLOAD_TELE_SCRIPT ?= $(TOP)/download_tele.sh
 
 # Robotest specific variables.
-# These are consumed by the targets in this Makefile.
+# These are local to the targets in this Makefile.
 
 ROBOTEST_VERSION ?= 2.1.0
 ROBOTEST_DOCKER_UPSTREAM_IMAGE ?= quay.io/gravitational/robotest-suite:$(ROBOTEST_VERSION)
 # ROBOTEST_DOCKER_IMAGE has the local UID & GID injected into it, to avoid
 # permissions issues with the logs.
 ROBOTEST_DOCKER_IMAGE ?= robotest-suite:$(ROBOTEST_VERSION)-local
+# ROBOTEST_TELE_BUILD_DOCKER_IMAGE is an image used to sandbox tele builds. It could
+# be almost anything.
+ROBOTEST_TELE_BUILD_DOCKER_IMAGE ?= quay.io/gravitational/debian-tall:buster-20200916
 
 # ROBOTEST_BUILDDIR is the root of all robotest build artifacts for this build
 ROBOTEST_BUILDDIR ?= $(GRAVITY_BUILDDIR)/robotest
@@ -85,21 +90,15 @@ ROBOTEST_BUILD_TMP = $(ROBOTEST_BUILDDIR)/tmp
 # gravity versions. Although this defaults to within the builddir, it is expected
 # to be overridden (to avoid wipe on `make clean`).
 ROBOTEST_CACHE_ROOT ?= $(BUILDDIR)/cache
+# ROBOTEST_CACHE_FLAVOR may be overriden to specify a non-compatible cache.
+ROBOTEST_CACHE_FLAVOR ?= oss
 # ROBOTEST_CACHEDIR is the flavor specific cache directory.
 # If the cache is in the builddir, it is already enterprise/oss specific. If not
-# we need to disambiguate between the two
+# we need to disambiguate between the two.
 ifeq ($(BUILDDIR), $(realpath $(dir $(ROBOTEST_CACHE_ROOT))))
 # ROBOTEST_CACHEDIR is the flavor specific cache directory.
 ROBOTEST_CACHEDIR ?= $(ROBOTEST_CACHE_ROOT)
 else
-# ROBOTEST_CACHE_FLAVOR keeps cached enterprise teles, packages, tarballs seperate
-# from oss caches. It is underneath ROBOTEST_CACHE_ROOT disambiguate caches when
-# outside the build directory.
-ifdef ENTERPRISE
-ROBOTEST_CACHE_FLAVOR ?= ent
-else
-ROBOTEST_CACHE_FLAVOR ?= oss
-endif
 ROBOTEST_CACHEDIR ?= $(ROBOTEST_CACHE_ROOT)/$(ROBOTEST_CACHE_FLAVOR)
 endif
 # ROBOTEST_GRAVITY_PKG_CACHE is a gravity state dir storing packages
@@ -128,15 +127,24 @@ ROBOTEST_CACHES = $(ROBOTEST_GRAVITY_PKG_CACHE) $(ROBOTEST_TELE_CACHE)
 # concurrency issues stemming from using cached images directly (e.g. if the
 # cache is edited/cleared during a test run).
 ROBOTEST_IMAGEDIR = $(ROBOTEST_BUILDDIR)/images
+
+# ROBOTEST_IMAGE_SRCDIR is the directory containing all sources to build the robotest application.
+# It is mounted into a build container.
+ROBOTEST_IMAGE_SRCDIR = $(ASSETSDIR)/robotest/current
 # ROBOTEST_IMAGE_SRC are the files that affect the robotest application.  If any
 # of these change, all robotest images must be rebuilt.
-ROBOTEST_IMAGE_SRC := $(shell find $(ASSETSDIR)/robotest/current/ -type f)
-# ROBOTEST_APP_YAML is the gravity application manifest to build into robotest images.
-ROBOTEST_APP_YAML = $(ASSETSDIR)/robotest/current/app.yaml
-# ROBOTEST_APP_YAML is the gravity application manifest to build into robotest images.
-ROBOTEST_UPGRADE_BASE_IMAGE_SRC := $(shell find $(ASSETSDIR)/robotest/upgrade-base/ -type f)
-# ROBOTEST_APP_YAML is the gravity application manifest to build into robotest images.
-ROBOTEST_UPGRADE_BASE_APP_YAML = $(ASSETSDIR)/robotest/upgrade-base/app.yaml
+ROBOTEST_IMAGE_SRC := $(shell find $(ROBOTEST_IMAGE_SRCDIR) -type f)
+# ROBOTEST_IMAGE_MANIFEST is the gravity application manifest to build into robotest images.
+ROBOTEST_IMAGE_MANIFEST = $(ROBOTEST_IMAGE_SRCDIR)/app.yaml
+
+# ROBOTEST_UPGRADE_BASE_IMAGE_SRCDIR is the directory containing all sources to build the
+# robotest upgrade base application. It is mounted into a build container.
+ROBOTEST_UPGRADE_BASE_IMAGE_SRCDIR = $(ASSETSDIR)/robotest/upgrade-base
+# ROBOTEST_UPGRADE_BASE_IMAGE_SRC is the gravity application manifest to build into robotest images.
+ROBOTEST_UPGRADE_BASE_IMAGE_SRC := $(shell find $(ROBOTEST_UPGRADE_BASE_IMAGE_SRCDIR) -type f)
+# ROBOTEST_UPGRADE_BASE_IMAGE_MANIFEST is the gravity application manifest to build into robotest images.
+ROBOTEST_UPGRADE_BASE_IMAGE_MANIFEST = $(ROBOTEST_UPGRADE_BASE_IMAGE_SRCDIR)/app.yaml
+
 # ROBOTEST_IMAGE is the robotest image for the gravity version
 # checked out in the working copy.
 ROBOTEST_IMAGE = $(ROBOTEST_IMAGEDIR)/robotest-$(GRAVITY_VERSION).tar
@@ -201,7 +209,7 @@ $(ROBOTEST_CACHE_TMP):
 docker-image: ## Create robotest docker image with the current user/group baked in.
 docker-image: $(ROBOTEST_DOCKER_IMAGE_IIDFILE)
 
-$(ROBOTEST_DOCKER_IMAGE_IIDFILE): Dockerfile Makefile
+$(ROBOTEST_DOCKER_IMAGE_IIDFILE): Dockerfile Makefile | $(ROBOTEST_BUILDDIR)
 	docker build \
 		--build-arg BASE=$(ROBOTEST_DOCKER_UPSTREAM_IMAGE) \
 		--build-arg UID=$(shell id -u) \
@@ -225,12 +233,13 @@ image-robotest: ## Create robotest cluster image using the current tele.
 image-robotest: $(ROBOTEST_IMAGE)
 
 $(ROBOTEST_IMAGE): export TARGET = $(ROBOTEST_IMAGE)
+$(ROBOTEST_IMAGE): export IMAGE = $(ROBOTEST_TELE_BUILD_DOCKER_IMAGE)
 $(ROBOTEST_IMAGE): export BUILD_TMP = $(ROBOTEST_BUILD_TMP)
-$(ROBOTEST_IMAGE): export APP_YAML = $(ROBOTEST_APP_YAML)
+$(ROBOTEST_IMAGE): export APP_MANIFEST = $(ROBOTEST_IMAGE_MANIFEST)
+$(ROBOTEST_IMAGE): export APP_SRCDIR = $(ROBOTEST_IMAGE_SRCDIR)
 $(ROBOTEST_IMAGE): export VERSION = $(GRAVITY_VERSION)
 $(ROBOTEST_IMAGE): export TELE = $(TELE_OUT)
 $(ROBOTEST_IMAGE): export STATE_DIR = $(PACKAGES_DIR)
-$(ROBOTEST_IMAGE): export EXTRA_TELE_BUILD_OPTIONS = $(ROBOTEST_TELE_BUILD_OPTIONS)
 $(ROBOTEST_IMAGE): $(TELE_OUT) $(ROBOTEST_IMAGE_SRC) ./tele_build.sh | $(ROBOTEST_IMAGEDIR) $(ROBOTEST_BUILD_TMP)
 	./tele_build.sh
 
@@ -243,30 +252,25 @@ images-upgrade:
 # .PRECIOUS because these need to be present through the run target.
 .PRECIOUS: $(ROBOTEST_IMAGEDIR)/robotest-%.tar
 $(ROBOTEST_IMAGEDIR)/robotest-%.tar: export TARGET = $@
+$(ROBOTEST_IMAGEDIR)/robotest-%.tar: export IMAGE = $(ROBOTEST_TELE_BUILD_DOCKER_IMAGE)
 $(ROBOTEST_IMAGEDIR)/robotest-%.tar: export BUILD_TMP = $(ROBOTEST_BUILD_TMP)
-$(ROBOTEST_IMAGEDIR)/robotest-%.tar: export APP_YAML = $(ROBOTEST_UPGRADE_BASE_APP_YAML)
+$(ROBOTEST_IMAGEDIR)/robotest-%.tar: export APP_MANIFEST = $(ROBOTEST_UPGRADE_BASE_IMAGE_MANIFEST)
+$(ROBOTEST_IMAGEDIR)/robotest-%.tar: export APP_SRCDIR = $(ROBOTEST_UPGRADE_BASE_IMAGE_SRCDIR)
 $(ROBOTEST_IMAGEDIR)/robotest-%.tar: export VERSION = $(GRAVITY_VERSION)
 $(ROBOTEST_IMAGEDIR)/robotest-%.tar: export TELE = $<
 $(ROBOTEST_IMAGEDIR)/robotest-%.tar: export STATE_DIR = $(ROBOTEST_GRAVITY_PKG_CACHE)
-$(ROBOTEST_IMAGEDIR)/robotest-%.tar: export EXTRA_TELE_BUILD_OPTIONS = $(ROBOTEST_TELE_BUILD_OPTIONS)
-$(ROBOTEST_IMAGEDIR)/robotest-%.tar: $(ROBOTEST_TELE_CACHE)/tele-% $(ROBOTEST_UPGRADE_BASE_IMAGE_SRC) | $(ROBOTEST_IMAGEDIR) $(ROBOTEST_BUILD_TMP)
+$(ROBOTEST_IMAGEDIR)/robotest-%.tar: $(ROBOTEST_TELE_CACHE)/tele-% $(ROBOTEST_UPGRADE_BASE_IMAGE_SRC) ./tele_build.sh | $(ROBOTEST_IMAGEDIR) $(ROBOTEST_BUILD_TMP)
 	./tele_build.sh
 
 # The following target is a pattern rule for populating the tele binary cache.
 # Fulfills the $(ROBOTEST_TELE_BINARIES) targets.
 # .PRECIOUS because it is a cache shared across branches/builds.
 .PRECIOUS: $(ROBOTEST_TELE_CACHE)/tele-%
-$(ROBOTEST_TELE_CACHE)/tele-%: | $(ROBOTEST_CACHE_TMP) $(ROBOTEST_TELE_CACHE)
-	$(eval TMP := $(shell mktemp -d -p $(ROBOTEST_CACHE_TMP)))
-ifdef ENTERPRISE
-	wget --quiet https://get.gravitational.io/telekube/bin/$*/linux/x86_64/tele --output-document $(TMP)/tele
-	chmod u+x $(TMP)/tele
-else
-	wget --quiet https://get.gravitational.com/gravity-$*-linux-x86_64-bin.tar.gz --directory-prefix $(TMP)
-	tar -xzf $(TMP)/gravity-$*-linux-x86_64-bin.tar.gz -C $(TMP)
-endif
-	mv $(TMP)/tele $@
-	rm -rf $(TMP)
+$(ROBOTEST_TELE_CACHE)/tele-%: export TARGET = $@
+$(ROBOTEST_TELE_CACHE)/tele-%: export VERSION = $*
+$(ROBOTEST_TELE_CACHE)/tele-%: export BUILD_TMP = $(ROBOTEST_CACHE_TMP)
+$(ROBOTEST_TELE_CACHE)/tele-%: $(ROBOTEST_DOWNLOAD_TELE_SCRIPT) | $(ROBOTEST_CACHE_TMP) $(ROBOTEST_TELE_CACHE)
+	$(ROBOTEST_DOWNLOAD_TELE_SCRIPT)
 
 .PHONY: download-teles
 download-teles: ## Download tele binaries needed to build robotest images.
