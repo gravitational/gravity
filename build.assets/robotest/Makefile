@@ -230,16 +230,14 @@ images: image-robotest images-upgrade image-opscenter
 image-robotest: ## Create robotest cluster image using the current tele.
 image-robotest: $(ROBOTEST_IMAGE)
 
-$(ROBOTEST_IMAGE): $(TELE_OUT) $(ROBOTEST_IMAGE_SRC) | $(ROBOTEST_IMAGEDIR) $(ROBOTEST_BUILD_TMP)
-	$(eval TMP := $(shell mktemp -d -p $(ROBOTEST_BUILD_TMP)))
-	$(eval TGT := $(TMP)/robotest-$(GRAVITY_VERSION).tar)
-	$(TELE_OUT) build \
-		$(ROBOTEST_APP_YAML) \
-		--state-dir=$(PACKAGES_DIR) \
-		--version $(GRAVITY_VERSION) \
-		--output=$(TGT)
-	mv $(TGT) $(ROBOTEST_IMAGE)
-	rm -rf $(TMP)
+$(ROBOTEST_IMAGE): export TARGET = $(ROBOTEST_IMAGE)
+$(ROBOTEST_IMAGE): export BUILD_TMP = $(ROBOTEST_BUILD_TMP)
+$(ROBOTEST_IMAGE): export APP_YAML = $(ROBOTEST_APP_YAML)
+$(ROBOTEST_IMAGE): export VERSION = $(GRAVITY_VERSION)
+$(ROBOTEST_IMAGE): export TELE = $(TELE_OUT)
+$(ROBOTEST_IMAGE): export STATE_DIR = $(PACKAGES_DIR)
+$(ROBOTEST_IMAGE): $(TELE_OUT) $(ROBOTEST_IMAGE_SRC) ./tele_build.sh | $(ROBOTEST_IMAGEDIR) $(ROBOTEST_BUILD_TMP)
+	./tele_build.sh
 
 .PHONY: images-upgrade
 images-upgrade: ## Create/fetch robotest cluster images needed for upgrade testing.
@@ -273,11 +271,19 @@ $(ROBOTEST_UPGRADE_IMAGE_CACHE)/robotest-%.tar: $(ROBOTEST_TELE_CACHE)/tele-% $(
 	$(eval TGT := $(TMP)/robotest-$*.tar)
 	$< build \
 		$(ROBOTEST_UPGRADE_BASE_APP_YAML) \
-		--state-dir $(ROBOTEST_GRAVITY_PKG_CACHE) \
-		--version $* \
+		--state-dir=$(ROBOTEST_GRAVITY_PKG_CACHE) \
+		--version=$* \
 		--output=$(TGT)
 	mv $(TGT) $@
-	rm -rf $(TMP)
+
+$(ROBOTEST_UPGRADE_IMAGE_CACHE)/robotest-%.tar: export TARGET = $@
+$(ROBOTEST_UPGRADE_IMAGE_CACHE)/robotest-%.tar: export BUILD_TMP = $(ROBOTEST_CACHE_TMP)
+$(ROBOTEST_UPGRADE_IMAGE_CACHE)/robotest-%.tar: export APP_YAML = $(ROBOTEST_UPGRADE_BASE_APP_YAML)
+$(ROBOTEST_UPGRADE_IMAGE_CACHE)/robotest-%.tar: export VERSION = $(GRAVITY_VERSION)
+$(ROBOTEST_UPGRADE_IMAGE_CACHE)/robotest-%.tar: export TELE = $<
+$(ROBOTEST_UPGRADE_IMAGE_CACHE)/robotest-%.tar: export STATE_DIR = $(ROBOTEST_GRAVITY_PKG_CACHE)
+$(ROBOTEST_UPGRADE_IMAGE_CACHE)/robotest-%.tar: $(ROBOTEST_TELE_CACHE)/tele-% $(ROBOTEST_UPGRADE_BASE_IMAGE_SRC) | $(ROBOTEST_UPGRADE_IMAGE_CACHE) $(ROBOTEST_CACHE_TMP)
+	./tele_build.sh
 
 
 # The following target is a pattern rule for populating the tele binary cache.
