@@ -20,14 +20,14 @@ set -o nounset
 set -o pipefail
 set -o xtrace
 
-TMP=$(mktemp -d -p $BUILD_TMP)
+TMP=$(mktemp -d -p "$BUILD_TMP")
 trap "rm -rf $TMP" exit
-TGT=$TMP/$(basename $TARGET)
+TGT=$TMP/$(basename "$TARGET")
 
 $TELE build \
     $APP_YAML \
-    --state-dir=$STATE_DIR \
-    --version=$VERSION \
-    --output=$TGT \
+    --state-dir="$STATE_DIR" \
+    --version="$VERSION" \
+    --output="$TGT" \
     $EXTRA_TELE_BUILD_OPTIONS
-mv $TGT $TARGET
+mv "$TGT" "$TARGET"
