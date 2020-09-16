@@ -14,6 +14,7 @@
 # VERSION - The application version to use in the cluster image
 # APP_YAML - The image manifest to be built.
 # STATE_DIR - The gravity state dir where packages are cached/drawn from. May be a shared with parallel invocations.
+# EXTRA_TELE_BUILD_OPTIONS - Any additional flags to pass to tele build (e.g. for enterprise specific behavior).
 set -o errexit
 set -o nounset
 set -o pipefail
@@ -27,5 +28,6 @@ $TELE build \
     $APP_YAML \
     --state-dir=$STATE_DIR \
     --version=$VERSION \
-    --output=$TGT
+    --output=$TGT \
+    $EXTRA_TELE_BUILD_OPTIONS
 mv $TGT $TARGET
