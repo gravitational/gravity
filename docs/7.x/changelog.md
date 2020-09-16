@@ -574,7 +574,7 @@ to learn how to gain insight into how the cluster status changes over time.
 
 #### Bugfixes
 
-* Fix regression in 'tele build' ([#2126](https://github.com/gravitational/gravity/pull/2126)).
+* Fix a regression in `tele build` when tele would fail to pull the dependent planet package ([#2126](https://github.com/gravitational/gravity/pull/2126)).
 
 ### 6.1.38 LTS (September 11th, 2020)
 
