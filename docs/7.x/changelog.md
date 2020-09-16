@@ -12,7 +12,7 @@ Find the latest Open Source Gravity releases at [Gravity Downloads](https://grav
 | Version             | Latest Patch | LTS | Release Date         | Latest Patch Date    | End of Support *        | Kubernetes Version   | Teleport Version |
 | ------------------- | ------------ | --- | -------------------- | -------------------- | ----------------------- | -------------------- | ---------------- |
 | [7.0](#70-releases) | 7.0.16       | Yes | April 3, 2020        | August 31st, 2020    | July 9, 2022            | 1.17.9               | 3.2.13           |
-| [6.1](#61-releases) | 6.1.38       | Yes | August 2, 2019       | September 11th, 2020 | November 10, 2021       | 1.15.12              | 3.2.12           |
+| [6.1](#61-releases) | 6.1.39       | Yes | August 2, 2019       | September 15th, 2020 | November 10, 2021       | 1.15.12              | 3.2.12           |
 | [5.5](#55-releases) | 5.5.52       | Yes | March 8, 2019        | September 8th, 2020  | March 8, 2021           | 1.13.11              | 3.0.6-gravity    |
 
 Gravity offers one Long Term Support (LTS) version for every 2nd Kubernetes
@@ -569,6 +569,12 @@ to learn how to gain insight into how the cluster status changes over time.
 * Upgrade Kubernetes to `v1.16.0`.
 
 ## 6.1 Releases
+
+### 6.1.39 LTS (September 15th, 2020)
+
+#### Bugfixes
+
+* Fix a regression in `tele build` when tele would fail to pull the dependent planet package ([#2126](https://github.com/gravitational/gravity/pull/2126)).
 
 ### 6.1.38 LTS (September 11th, 2020)
 
