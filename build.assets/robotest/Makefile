@@ -39,10 +39,6 @@
 #  - CACHES should not be assumed to be on the same filesystem as the build directories.
 #  - Enterprise tele and OSS tele cannot share caches, nor should their outputs
 #    be confused.
-#  - If any content in ROBOTEST_IMG_SRC changes, old images in ROBOTEST_UPGRADE_IMAGE_CACHE
-#    must be ruled out. These shouldn't necessarily be removed if the cache is
-#    shared between branches, as other branches may use the older images. In this
-#    scenario, ROBOTEST_TELE_CACHE and ROBOTEST_GRAVITY_PKG_CACHE remain valid.
 #  - ROBOTEST_IMAGEDIR can be heavy (up to 30GB for 7.0.x). This can
 #    aggravate CI workers that have many active builds or don't clean up.
 TOP := $(realpath $(dir $(CURDIR)/$(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST))))
@@ -113,21 +109,16 @@ endif
 #   $(HOME)/.gravity
 ROBOTEST_GRAVITY_PKG_CACHE ?=  $(ROBOTEST_CACHEDIR)/gravity-state
 # ROBOTEST_CACHE_TMP is a staging directory for building/copying/unpacking content
-# before an atomic rename into the. Must be on the same filesystem
-# as ROBOTEST_TELE_CACHE and ROBOTEST_UPGRADE_IMAGE_CACHE
+# before an atomic rename into the. Must be on the same filesystem as ROBOTEST_TELE_CACHE
 ROBOTEST_CACHE_TMP = $(ROBOTEST_CACHEDIR)/tmp
 # ROBOTEST_TELE_CACHE is a filesytem cache storing prebuilt tele binaries for
 # different gravity versions. ROBOTEST_TELE_CACHE may be shared between many
 # parallel robotest builds in CI infra.
 ROBOTEST_TELE_CACHE ?= $(ROBOTEST_CACHEDIR)/tele
-# ROBOTEST_UPGRADE_IMAGE_CACHE is a filesytem cache storing prebuilt robotest
-# images for different gravity versions. ROBOTEST_UPGRADE_IMAGE_CACHE may be
-# shared between many parallel robotest invocations in production infra)
-ROBOTEST_UPGRADE_IMAGE_CACHE = $(ROBOTEST_CACHEDIR)/upgrade-images
 # ROBOTEST_CACHES are all the directories on this machine used to speed up
 # upgrade artifact contruction by avoiding redownloading/rebuilding released
 # artifacts.
-ROBOTEST_CACHES = $(ROBOTEST_GRAVITY_PKG_CACHE) $(ROBOTEST_TELE_CACHE) $(ROBOTEST_UPGRADE_IMAGE_CACHE)
+ROBOTEST_CACHES = $(ROBOTEST_GRAVITY_PKG_CACHE) $(ROBOTEST_TELE_CACHE)
 
 # Image configuration.
 
@@ -156,9 +147,6 @@ ROBOTEST_TEST_CONFIG = $(TOP)/pr_config.sh
 # ROBOTEST_UPGRADE_VERSIONS is a list of gravity semvers that will be
 # used in upgrade testing.
 ROBOTEST_UPGRADE_VERSIONS = $(shell ./scrape_upgrade_from_versions.sh $(ROBOTEST_TEST_CONFIG))
-# ROBOTEST_UPGRADE_CACHE_IMAGES is a list of potentially cached robotest tarballs
-# to be used in upgrade testing.
-ROBOTEST_UPGRADE_CACHE_IMAGES = $(addsuffix .tar, $(addprefix $(ROBOTEST_UPGRADE_IMAGE_CACHE)/robotest-, $(ROBOTEST_UPGRADE_VERSIONS)))
 # ROBOTEST_TELE_BINARIES is the list of build specific tele binaries needed to
 # build all robotest upgrade images.
 ROBOTEST_TELE_BINARIES = $(addprefix $(ROBOTEST_TELE_CACHE)/tele-, $(ROBOTEST_UPGRADE_VERSIONS))
@@ -197,9 +185,6 @@ clean-caches: ## Remove cached tele binaries, gravity packages, and robotest upg
 $(ROBOTEST_BUILDDIR):
 	mkdir -p $(ROBOTEST_BUILDDIR)
 
-$(ROBOTEST_UPGRADE_IMAGE_CACHE):
-	mkdir -p $(ROBOTEST_UPGRADE_IMAGE_CACHE)
-
 $(ROBOTEST_IMAGEDIR):
 	mkdir -p $(ROBOTEST_IMAGEDIR)
 
@@ -228,6 +213,13 @@ $(ROBOTEST_DOCKER_IMAGE_IIDFILE): Dockerfile Makefile
 images: ## Create all images necessary to run robotest CI tests.
 images: image-robotest images-upgrade image-opscenter
 
+.PHONY: image-opscenter
+image-opscenter: ## Move opscenter.tar cluster image into place for test execution.
+image-opscenter: $(ROBOTEST_OPSCENTER_IMAGE)
+
+$(ROBOTEST_OPSCENTER_IMAGE): $(OPSCENTER_OUT) | $(ROBOTEST_IMAGEDIR)
+	cp $(OPSCENTER_OUT) $(ROBOTEST_OPSCENTER_IMAGE)
+
 .PHONY: image-robotest
 image-robotest: ## Create robotest cluster image using the current tele.
 image-robotest: $(ROBOTEST_IMAGE)
@@ -243,52 +235,22 @@ $(ROBOTEST_IMAGE): $(TELE_OUT) $(ROBOTEST_IMAGE_SRC) ./tele_build.sh | $(ROBOTES
 	./tele_build.sh
 
 .PHONY: images-upgrade
-images-upgrade: ## Create/fetch robotest cluster images needed for upgrade testing.
+images-upgrade: ## Create robotest cluster images needed for upgrade testing.
 images-upgrade:
 	$(MAKE) -j $(ROBOTEST_UPGRADE_IMAGES)
 
-.PHONY: image-opscenter
-image-opscenter: ## Move opscenter.tar cluster image into place for test execution.
-image-opscenter: $(ROBOTEST_OPSCENTER_IMAGE)
-
-$(ROBOTEST_OPSCENTER_IMAGE): $(OPSCENTER_OUT) | $(ROBOTEST_IMAGEDIR)
-	cp $(OPSCENTER_OUT) $(ROBOTEST_OPSCENTER_IMAGE)
-
-# The following rule populates the build specific docker image mount
-# from cached images. Fulfills the $(ROBOTEST_UPGRADE_IMAGES) targets.
+# The following rule builds all upgrade base images. It fulfills the $(ROBOTEST_UPGRADE_IMAGES) targets.
 # .PRECIOUS because these need to be present through the run target.
 .PRECIOUS: $(ROBOTEST_IMAGEDIR)/robotest-%.tar
-$(ROBOTEST_IMAGEDIR)/robotest-%.tar: $(ROBOTEST_UPGRADE_IMAGE_CACHE)/robotest-%.tar | $(ROBOTEST_IMAGEDIR) $(ROBOTEST_BUILD_TMP)
-	$(eval TMP := $(shell mktemp -d -p $(ROBOTEST_BUILD_TMP)))
-	$(eval ATOMIC := $(TMP)/robotest-$*.tar)
-	cp $< $(ATOMIC)
-	mv $(ATOMIC) $@
-	rm -rf $(TMP)
-
-# The following target is a pattern rule for populating the upgrade image cache
-# Fulfills the $(ROBOTEST_UPGRADE_CACHE_IMAGES) targets.
-# .PRECIOUS because it is a cache shared across versions.
-.PRECIOUS: $(ROBOTEST_UPGRADE_IMAGE_CACHE)/robotest-%.tar
-$(ROBOTEST_UPGRADE_IMAGE_CACHE)/robotest-%.tar: $(ROBOTEST_TELE_CACHE)/tele-% $(ROBOTEST_UPGRADE_BASE_IMAGE_SRC) | $(ROBOTEST_UPGRADE_IMAGE_CACHE) $(ROBOTEST_CACHE_TMP)
-	$(eval TMP := $(shell mktemp -d -p $(ROBOTEST_CACHE_TMP)))
-	$(eval TGT := $(TMP)/robotest-$*.tar)
-	$< build \
-		$(ROBOTEST_UPGRADE_BASE_APP_YAML) \
-		--state-dir=$(ROBOTEST_GRAVITY_PKG_CACHE) \
-		--version=$* \
-		--output=$(TGT)
-	mv $(TGT) $@
-
-$(ROBOTEST_UPGRADE_IMAGE_CACHE)/robotest-%.tar: export TARGET = $@
-$(ROBOTEST_UPGRADE_IMAGE_CACHE)/robotest-%.tar: export BUILD_TMP = $(ROBOTEST_CACHE_TMP)
-$(ROBOTEST_UPGRADE_IMAGE_CACHE)/robotest-%.tar: export APP_YAML = $(ROBOTEST_UPGRADE_BASE_APP_YAML)
-$(ROBOTEST_UPGRADE_IMAGE_CACHE)/robotest-%.tar: export VERSION = $(GRAVITY_VERSION)
-$(ROBOTEST_UPGRADE_IMAGE_CACHE)/robotest-%.tar: export TELE = $<
-$(ROBOTEST_UPGRADE_IMAGE_CACHE)/robotest-%.tar: export STATE_DIR = $(ROBOTEST_GRAVITY_PKG_CACHE)
-$(ROBOTEST_UPGRADE_IMAGE_CACHE)/robotest-%.tar: export EXTRA_TELE_BUILD_OPTIONS = $(ROBOTEST_TELE_BUILD_OPTIONS)
-$(ROBOTEST_UPGRADE_IMAGE_CACHE)/robotest-%.tar: $(ROBOTEST_TELE_CACHE)/tele-% $(ROBOTEST_UPGRADE_BASE_IMAGE_SRC) | $(ROBOTEST_UPGRADE_IMAGE_CACHE) $(ROBOTEST_CACHE_TMP)
+$(ROBOTEST_IMAGEDIR)/robotest-%.tar: export TARGET = $@
+$(ROBOTEST_IMAGEDIR)/robotest-%.tar: export BUILD_TMP = $(ROBOTEST_BUILD_TMP)
+$(ROBOTEST_IMAGEDIR)/robotest-%.tar: export APP_YAML = $(ROBOTEST_UPGRADE_BASE_APP_YAML)
+$(ROBOTEST_IMAGEDIR)/robotest-%.tar: export VERSION = $(GRAVITY_VERSION)
+$(ROBOTEST_IMAGEDIR)/robotest-%.tar: export TELE = $<
+$(ROBOTEST_IMAGEDIR)/robotest-%.tar: export STATE_DIR = $(ROBOTEST_GRAVITY_PKG_CACHE)
+$(ROBOTEST_IMAGEDIR)/robotest-%.tar: export EXTRA_TELE_BUILD_OPTIONS = $(ROBOTEST_TELE_BUILD_OPTIONS)
+$(ROBOTEST_IMAGEDIR)/robotest-%.tar: $(ROBOTEST_TELE_CACHE)/tele-% $(ROBOTEST_UPGRADE_BASE_IMAGE_SRC) | $(ROBOTEST_IMAGEDIR) $(ROBOTEST_BUILD_TMP)
 	./tele_build.sh
-
 
 # The following target is a pattern rule for populating the tele binary cache.
 # Fulfills the $(ROBOTEST_TELE_BINARIES) targets.
@@ -312,9 +274,9 @@ download-teles:
 	$(MAKE) -j $(ROBOTEST_TELE_BINARIES)
 
 .PHONY: populate-caches
-populate-caches: ## Populate caches with tele binaries, gravity packages, and robotest upgrade images.
+populate-caches: ## Populate caches with tele binaries and gravity packages.
 	$(MAKE) -j $(ROBOTEST_TELE_BINARIES)
-	$(MAKE) -j $(ROBOTEST_UPGRADE_CACHE_IMAGES)
+	$(MAKE) -j $(ROBOTEST_UPGRADE_IMAGES)
 
 .PHONY: get-upgrade-from-versions
 get-upgrade-from-versions: ## Show versions used in upgrade from testing.
