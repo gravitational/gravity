@@ -7,7 +7,7 @@ def propagateParamsToEnv() {
   }
 }
 
-// Define Robotest config that may be tweaked per job.
+// Define Robotest configuration parameters that may be tweaked per job.
 // This is needed for the Jenkins GitHub Branch Source Plugin
 // which creases a unique Jenkins job for each pull request.
 def setRobotestParameters() {
@@ -33,68 +33,85 @@ def setRobotestParameters() {
   ])
 }
 
-timestamps {
-  node {
-    stage('checkout') {
-      checkout scm
-      sh "git submodule update --init --recursive"
-      sh "sudo git clean -ffdx" // supply -f flag twice to force-remove untracked dirs with .git subdirs (e.g. submodules)
+// robotest() defines the robotest pipeline.  It is expected to be run after
+// the gravity build, as it implicitly relies on artifacts & state from those targets.
+//
+// Per https://plugins.jenkins.io/pipeline-stage-view/: If we want to visualize
+// dynamically changing stages, it is better to make it conditional to execute the
+// stage contents, not conditional to include the stage.
+def robotest() {
+  stage('set robotest params') {
+    // For try builds, we DO NOT want to overwrite parameters, as try builds
+    // offer a superset of PR/nightly parameters, and the extra ones will be
+    // lost when setRobotestParameters() is called -- 2020-04 walt
+    echo "Jenkins Job Parameters:"
+    for (param in params) { echo "${param}" }
+    if (env.KEEP_PARAMETERS == 'true') {
+      echo "KEEP_PARAMETERS detected. Ignoring Jenkins job parameters from Jenkinsfile."
+    } else {
+      echo "Overwriting Jenkins job parameters with parameters from Jenkinsfile."
+      setRobotestParameters()
+      propagateParamsToEnv()
     }
-    stage('params') {
-      // For try builds, we DO NOT want to overwrite parameters, as try builds
-      // offer a superset of PR/nightly parameters, and the extra ones will be
-      // lost when setRobotestParameters() is called -- 2020-04 walt
-      echo "Jenkins Job Parameters:"
-      for (param in params) { echo "${param}" }
-      if (env.KEEP_PARAMETERS == 'true') {
-        echo "KEEP_PARAMETERS detected. Ignoring Jenkins job parameters from Jenkinsfile."
-      } else {
-        echo "Overwriting Jenkins job parameters with parameters from Jenkinsfile."
-        setRobotestParameters()
-        propagateParamsToEnv()
-      }
-    }
-    stage('clean') {
-      sh "make -C e clean"
-    }
-    stage('build-gravity') {
-      withCredentials([
-      [$class: 'SSHUserPrivateKeyBinding', credentialsId: '08267d86-0b3a-4101-841e-0036bf780b11', keyFileVariable: 'GITHUB_SSH_KEY'],
-      [
-        $class: 'UsernamePasswordMultiBinding',
-        credentialsId: 'jenkins-aws-s3',
-        usernameVariable: 'AWS_ACCESS_KEY_ID',
-        passwordVariable: 'AWS_SECRET_ACCESS_KEY',
-      ],
-      ]) {
-        sh 'make -C e production telekube opscenter'
-      }
+  }
+  runRobotest = (env.RUN_ROBOTEST == 'run')
+  stage('build robotest images') {
+    if (runRobotest) {
+      sh 'make -C e/assets/robotest images'
+    } else {
+      echo 'skipping building robotest images'
     }
   }
   throttle(['robotest']) {
-    node {
-      stage('build-and-test') {
-        parallel (
-        build : {
-          withCredentials([
-          [$class: 'SSHUserPrivateKeyBinding', credentialsId: '08267d86-0b3a-4101-841e-0036bf780b11', keyFileVariable: 'GITHUB_SSH_KEY']]) {
-            sh 'make test && make -C e test'
-          }
-        },
-        robotest : {
-          if (env.RUN_ROBOTEST == 'run') {
-            withCredentials([
-                [$class: 'FileBinding', credentialsId:'ROBOTEST_LOG_GOOGLE_APPLICATION_CREDENTIALS', variable: 'GOOGLE_APPLICATION_CREDENTIALS'],
-                [$class: 'FileBinding', credentialsId:'OPS_SSH_KEY', variable: 'SSH_KEY'],
-                [$class: 'FileBinding', credentialsId:'OPS_SSH_PUB', variable: 'SSH_PUB'],
-                ]) {
-                  sh 'make -C e robotest-run-suite'
-            }
-          }else {
-            echo 'skipped system tests'
-          }
-        } )
+    stage('run robotest') {
+      if (runRobotest) {
+        withCredentials([
+					file(credentialsId:'ROBOTEST_LOG_GOOGLE_APPLICATION_CREDENTIALS', variable: 'GOOGLE_APPLICATION_CREDENTIALS'),
+					file(credentialsId:'OPS_SSH_KEY', variable: 'SSH_KEY'),
+					file(credentialsId:'OPS_SSH_PUB', variable: 'SSH_PUB'),
+        ]) {
+          sh 'make -C e robotest-run-suite'
+        }
+      } else {
+        echo 'skipping robotest execution'
       }
     }
-  }
+  } // end throttle
+}
+
+timestamps {
+  node { ansiColor('xterm') {
+			stage('checkout') {
+				checkout scm
+				sh "git submodule update --init --recursive"
+				sh "sudo git clean -ffdx" // supply -f flag twice to force-remove untracked dirs with .git subdirs (e.g. submodules)
+			}
+			stage('clean') {
+				sh "make -C e clean"
+			}
+			stage('build gravity') {
+				withCredentials([
+					sshUserPrivateKey(credentialsId: '08267d86-0b3a-4101-841e-0036bf780b11', keyFileVariable: 'GITHUB_SSH_KEY'),
+					usernamePassword(credentialsId: 'jenkins-aws-s3', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY'),
+				]) {
+					sh 'make -C e production telekube opscenter'
+				}
+			}
+  }}
+  node { ansiColor('xterm') {
+    parallel (
+      unittest : {
+        stage("unittest") {
+          withCredentials([
+            sshUserPrivateKey(credentialsId: '08267d86-0b3a-4101-841e-0036bf780b11', keyFileVariable: 'GITHUB_SSH_KEY'),
+          ]) {
+            sh 'make test && make -C e test'
+          }
+        }
+      },
+      robotest : {
+        robotest()
+      }
+    ) // end parallel
+  }} // end ansiColor & node
 }
