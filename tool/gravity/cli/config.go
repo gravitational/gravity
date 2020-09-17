@@ -345,9 +345,15 @@ func (i *InstallConfig) CheckAndSetDefaults(validator resources.Validator) (err 
 	if i.SiteDomain == "" {
 		i.SiteDomain = generateClusterName()
 	}
-	err = i.validateResources(validator)
-	if err != nil {
-		return trace.Wrap(err)
+	// Avoid validating resources for wizard-driven installation or when the installer
+	// executes a remote install.
+	// In this case, the validation happens on the remote node where the cluster is
+	// being set up.
+	if !i.Remote {
+		err = i.validateResources(validator)
+		if err != nil {
+			return trace.Wrap(err)
+		}
 	}
 	return nil
 }
