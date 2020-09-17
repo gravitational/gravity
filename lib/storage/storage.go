@@ -929,13 +929,13 @@ func (p Package) String() string {
 
 func (p *Package) Check() error {
 	if p.Repository == "" {
-		return trace.BadParameter("missing repository name")
+		return trace.BadParameter("%v missing repository name", p)
 	}
 	if p.Name == "" {
-		return trace.BadParameter("missing package name")
+		return trace.BadParameter("%v missing package name", p)
 	}
 	if p.Version == "" {
-		return trace.BadParameter("missing package name")
+		return trace.BadParameter("%v missing package version", p)
 	}
 	return nil
 }
