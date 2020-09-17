@@ -246,10 +246,46 @@ $(ROBOTEST_IMAGE): export STATE_DIR = $(PACKAGES_DIR)
 $(ROBOTEST_IMAGE): $(TELE_OUT) $(ROBOTEST_IMAGE_SRC) ./tele_build.sh | $(ROBOTEST_IMAGEDIR) $(ROBOTEST_BUILD_TMP)
 	./tele_build.sh
 
+# When using a shared state dir 7.0.x package syncing is prone to races
+# resulting in failures like:
+#
+#   [ERROR]: failed to sync packages for runtime version 7.0.16
+#       package(gravitational.io/bandwagon:6.0.1) already exists
+#
+# Because we must support old tele binaries to build old image versions, these races seem
+# unavoidable.
+#
+# Interestingly, I've never seen sync races happen with oss tele and the s3Syncer
+# I've only observed them with enterprise teles syncing from the distribution opscenter.
+#
+# Seeded state dir package caches eliminate the race but can only happen if:
+#  - We're on build 2+ with a semaphore on concurrent builds, or
+#  - We split state dir package cache population from `tele build` (and do so in a non-racy way)
+#
+# Benchmarks:
+#  a) parallel builds with common unseeded state dirs (races & fails often)
+# *b) parallel builds with independent unseeded state dirs (4-5 mins)
+#  c) parallel builds with common seeded state dir (~2 mins)
+# *d) serial builds with common unseeded state dir (5-7 mins)
+#  e) serial builds with independent unseeded state dirs (didn't bother testing)
+#  f) serial builds with common seeded state dir (3-4 mins)
+#
+# *   Recommended strategies
+#
+# Benchmarked on GCP e2-standard-8 with 30MB/s & 200 sustained random IOPS disks.
+# Code at PR #2133, with 4 7.0.x upgrade base images.
+#
+# For now, I've implemented: d) serial builds with common unseeded state dir.  This has
+# two nice properties:
+#  1) The build output is linear and easy to read
+#  2) Jenkins PR builds & local builds effectively have a semaphore, allowing f) seeded state
+#     dir to kick in and bring the 2+ build time lower than b) parallel independent unseeded.
+#
+# - 2020-09 - walt
 .PHONY: images-upgrade
 images-upgrade: ## Create robotest cluster images needed for upgrade testing.
 images-upgrade:
-	$(MAKE) -j $(ROBOTEST_UPGRADE_IMAGES)
+	$(MAKE) $(ROBOTEST_UPGRADE_IMAGES)
 
 # The following rule builds all upgrade base images. It fulfills the $(ROBOTEST_UPGRADE_IMAGES) targets.
 # .PRECIOUS because these need to be present through the run target.
