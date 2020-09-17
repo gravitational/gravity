@@ -14,9 +14,9 @@ spec:
           command:
             - /usr/local/bin/helm
             - upgrade
-            - --set
-            - echoserverRegistry=leader.telekube.local:5000
             - echoserver
             - /var/lib/gravity/resources/charts/echoserver
+            - --set
+            - echoserverRegistry=registry.local:5000
             - --namespace
             - default

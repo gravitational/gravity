@@ -19,6 +19,6 @@ spec:
             - --name
             - echoserver
             - --set
-            - echoserverRegistry=leader.telekube.local:5000
+            - echoserverRegistry=registry.local:5000
             - --namespace
             - default
