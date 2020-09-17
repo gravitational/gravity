@@ -199,6 +199,9 @@ $(ROBOTEST_IMAGEDIR):
 $(ROBOTEST_TELE_CACHE):
 	mkdir -p $(ROBOTEST_TELE_CACHE)
 
+$(ROBOTEST_GRAVITY_PKG_CACHE):
+	mkdir -p $(ROBOTEST_GRAVITY_PKG_CACHE)
+
 $(ROBOTEST_BUILD_TMP):
 	mkdir -p $(ROBOTEST_BUILD_TMP)
 
@@ -259,7 +262,7 @@ $(ROBOTEST_IMAGEDIR)/robotest-%.tar: export APP_SRCDIR = $(ROBOTEST_UPGRADE_BASE
 $(ROBOTEST_IMAGEDIR)/robotest-%.tar: export VERSION = $(GRAVITY_VERSION)
 $(ROBOTEST_IMAGEDIR)/robotest-%.tar: export TELE = $<
 $(ROBOTEST_IMAGEDIR)/robotest-%.tar: export STATE_DIR = $(ROBOTEST_GRAVITY_PKG_CACHE)
-$(ROBOTEST_IMAGEDIR)/robotest-%.tar: $(ROBOTEST_TELE_CACHE)/tele-% $(ROBOTEST_UPGRADE_BASE_IMAGE_SRC) ./tele_build.sh | $(ROBOTEST_IMAGEDIR) $(ROBOTEST_BUILD_TMP)
+$(ROBOTEST_IMAGEDIR)/robotest-%.tar: $(ROBOTEST_TELE_CACHE)/tele-% $(ROBOTEST_UPGRADE_BASE_IMAGE_SRC) ./tele_build.sh | $(ROBOTEST_IMAGEDIR) $(ROBOTEST_BUILD_TMP) $(ROBOTEST_GRAVITY_PKG_CACHE)
 	./tele_build.sh
 
 # The following target is a pattern rule for populating the tele binary cache.
