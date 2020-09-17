@@ -345,9 +345,11 @@ func (i *InstallConfig) CheckAndSetDefaults(validator resources.Validator) (err 
 	if i.SiteDomain == "" {
 		i.SiteDomain = generateClusterName()
 	}
-	err = i.validateResources(validator)
-	if err != nil {
-		return trace.Wrap(err)
+	if !i.Remote {
+		err = i.validateResources(validator)
+		if err != nil {
+			return trace.Wrap(err)
+		}
 	}
 	return nil
 }
