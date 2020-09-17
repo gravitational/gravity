@@ -13,6 +13,6 @@ spec:
         - name: echoserver-status
           image: quay.io/gravitational/debian-tall:buster
           command:
-            - sh
+            - /bin/sh
             - -c
-            - wget --quiet --output-document=- echoserver:$ECHOSERVER_SERVICE_PORT
+            - /bin/wget --no-verbose --output-document=- echoserver:$ECHOSERVER_SERVICE_PORT
