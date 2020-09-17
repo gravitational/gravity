@@ -212,13 +212,14 @@ $(ROBOTEST_CACHE_TMP):
 docker-image: ## Create robotest docker image with the current user/group baked in.
 docker-image: $(ROBOTEST_DOCKER_IMAGE_IIDFILE)
 
+# TODO change touch to --iidfile, but jenkin's docker is too old. See ops issue #141
 $(ROBOTEST_DOCKER_IMAGE_IIDFILE): Dockerfile Makefile | $(ROBOTEST_BUILDDIR)
 	docker build \
 		--build-arg BASE=$(ROBOTEST_DOCKER_UPSTREAM_IMAGE) \
 		--build-arg UID=$(shell id -u) \
 		--build-arg GID=$(shell id -g) \
-		--iidfile $(ROBOTEST_DOCKER_IMAGE_IIDFILE) \
 		--tag $(ROBOTEST_DOCKER_IMAGE) .
+	touch $(ROBOTEST_DOCKER_IMAGE_IIDFILE)
 
 .PHONY: images
 images: ## Create all images necessary to run robotest CI tests.
