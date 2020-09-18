@@ -8,7 +8,7 @@ readonly TARGET=${1:?Usage: [path to config]}
 GRAVITY_URL=${GRAVITY_URL:?Set GRAVITY_URL to the current gravity binary}
 INSTALLER_URL=${INSTALLER_URL:?Set INSTALLER_URL to the container local default robotest image}
 OPSCENTER_URL=${OPSCENTER_URL:?Set OPSCENTER_URL to the container local opscenter image}
-ROBOTEST_IMAGES_DIR=${ROBOTEST_IMAGES_DIR:? Set ROBOTEST_IMAGES_DIR to the directory with robotest images}
+IMAGEDIR=${IMAGEDIR:? Set IMAGEDIR to the directory with robotest images}
 STATEDIR=${STATEDIR:?Set STATEDIR to a suitable place to store robotest terraform state and logs}
 
 TAG=$(git rev-parse --short HEAD)
@@ -33,11 +33,11 @@ ALWAYS_COLLECT_LOGS=${ALWAYS_COLLECT_LOGS:-true}
 DESTROY_ON_SUCCESS=${DESTROY_ON_SUCCESS:-true}
 DESTROY_ON_FAILURE=${DESTROY_ON_FAILURE:-true}
 
-ROBOTEST_IMAGE_DIR_MOUNTPOINT=/images
-EXTRA_VOLUME_MOUNTS="-v $ROBOTEST_IMAGES_DIR:$ROBOTEST_IMAGE_DIR_MOUNTPOINT"
+IMAGEDIR_MOUNTPOINT=/images
+EXTRA_VOLUME_MOUNTS="-v $IMAGEDIR:$IMAGEDIR_MOUNTPOINT"
 
 # set SUITE
-export INSTALLER_URL OPSCENTER_URL ROBOTEST_IMAGE_DIR_MOUNTPOINNT
+export INSTALLER_URL OPSCENTER_URL IMAGEDIR_MOUNTPOINNT
 source $TARGET
 
 
@@ -103,7 +103,7 @@ set -o xtrace
 
 exec docker run \
     $NOROOT \
-	-v ${ROBOTEST_STATEDIR}:/robotest/state \
+	-v ${STATEDIR}:/robotest/state \
 	-v ${SSH_KEY}:/robotest/config/ops.pem \
 	${GCE_CONFIG:+'-v' "${SSH_PUB}:/robotest/config/ops_rsa.pub"} \
 	${GCE_CONFIG:+'-v' "${GOOGLE_APPLICATION_CREDENTIALS}:/robotest/config/creds.json"} \

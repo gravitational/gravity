@@ -48,17 +48,16 @@ ROOT := $(realpath $(TOP)/../..)
 # Makefile. They're redeclared here for direct invocation of this Makefile.
 ASSETSDIR ?= $(ROOT)/assets
 BUILDDIR ?= $(ROOT)/build
-GRAVITY_VERSION := $(shell cd ../.. && ./version.sh)
+GRAVITY_VERSION ?= $(shell cd $(ROOT) && ./version.sh)
 GRAVITY_BUILDDIR ?= $(BUILDDIR)/$(GRAVITY_VERSION)
 TELE_OUT ?= $(GRAVITY_BUILDDIR)/tele
 GRAVITY_OUT ?= $(GRAVITY_BUILDDIR)/gravity
 OPSCENTER_OUT ?= $(GRAVITY_BUILDDIR)/opscenter.tar
 PACKAGES_DIR ?= $(GRAVITY_BUILDDIR)/packages
-
-# ROBOTEST_TELE_BUILD_OPTIONS allows the e Makefile to specify extra enterprise specific build options.
-ROBOTEST_TELE_BUILD_OPTIONS ?=
 # ROBOTEST_DOWNLOAD_TELE_SCRIPT allows the e Makefile to override how tele binaries are sourced.
 ROBOTEST_DOWNLOAD_TELE_SCRIPT ?= $(TOP)/download_tele.sh
+# ROBOTEST_CACHE_FLAVOR may be overriden to specify a non-compatible cache.
+ROBOTEST_CACHE_FLAVOR ?= oss
 
 # Robotest specific variables.
 # These are local to the targets in this Makefile.
@@ -85,8 +84,6 @@ ROBOTEST_BUILD_TMP = $(ROBOTEST_BUILDDIR)/tmp
 # gravity versions. Although this defaults to within the builddir, it is expected
 # to be overridden (to avoid wipe on `make clean`).
 ROBOTEST_CACHE_ROOT ?= $(BUILDDIR)/cache
-# ROBOTEST_CACHE_FLAVOR may be overriden to specify a non-compatible cache.
-ROBOTEST_CACHE_FLAVOR ?= oss
 # ROBOTEST_CACHEDIR is the flavor specific cache directory.
 # If the cache is in the builddir, it is already enterprise/oss specific. If not
 # we need to disambiguate between the two.
@@ -140,16 +137,14 @@ ROBOTEST_UPGRADE_BASE_IMAGE_SRC := $(shell find $(ROBOTEST_UPGRADE_BASE_IMAGE_SR
 # ROBOTEST_UPGRADE_BASE_IMAGE_MANIFEST is the gravity application manifest to build into robotest images.
 ROBOTEST_UPGRADE_BASE_IMAGE_MANIFEST = $(ROBOTEST_UPGRADE_BASE_IMAGE_SRCDIR)/app.yaml
 
-# ROBOTEST_IMAGE is the robotest image for the gravity version
-# checked out in the working copy.
+# ROBOTEST_IMAGE is the robotest image for the gravity version checked out in the working copy.
 ROBOTEST_IMAGE = $(ROBOTEST_IMAGEDIR)/robotest-$(GRAVITY_VERSION).tar
 # ROBOTEST_OPSCENTER_IMAGE is robotest's copy of the opscenter image, used for install testing.
 ROBOTEST_OPSCENTER_IMAGE = $(ROBOTEST_IMAGEDIR)/opscenter-$(GRAVITY_VERSION).tar
 # ROBOTEST_TEST_CONFIG is the desired robotest configuration (pr, nightly)
 ROBOTEST_TEST_CONFIG = $(TOP)/pr_config.sh
-# ROBOTEST_UPGRADE_VERSIONS is a list of gravity semvers that will be
-# used in upgrade testing.
-ROBOTEST_UPGRADE_VERSIONS = $(shell ./scrape_upgrade_from_versions.sh $(ROBOTEST_TEST_CONFIG))
+# ROBOTEST_UPGRADE_VERSIONS is a list of gravity semvers that will be used in upgrade testing.
+ROBOTEST_UPGRADE_VERSIONS = $(shell cd $(TOP) && ./scrape_upgrade_from_versions.sh $(ROBOTEST_TEST_CONFIG))
 # ROBOTEST_TELE_BINARIES is the list of build specific tele binaries needed to
 # build all robotest upgrade images.
 ROBOTEST_TELE_BINARIES = $(addprefix $(ROBOTEST_TELE_CACHE)/tele-, $(ROBOTEST_UPGRADE_VERSIONS))
@@ -167,15 +162,15 @@ ROBOTEST_SSH_KEY ?= $(HOME)/.ssh/id_rsa
 ROBOTEST_SSH_PUB ?= $(HOME)/.ssh/id_rsa.pub
 ROBOTEST_GOOGLE_APPLICATION_CREDENTIALS ?= $(ROOT)/robotest-gcp-credentials.json
 
-.PHONY: help
 # kudos to https://gist.github.com/prwhite/8168133 for inspiration
+.PHONY: help
 help: ## Show this message.
 	@echo 'Usage: make [options] [target] ...'
 	@echo
 	@echo 'Options: run `make --help` for options'
 	@echo
 	@echo 'Targets:'
-	@egrep '^(.+)\:\ ##\ (.+)' ${MAKEFILE_LIST} | column -t -c 2 -s ':#' | sort | sed 's/^/  /'
+	@egrep --no-filename '^(.+)\:\ ##\ (.+)' ${MAKEFILE_LIST} | column -t -c 2 -s ':#' | sort | sed 's/^/  /'
 
 .PHONY: clean
 clean: ## Remove build artifacts.
@@ -226,8 +221,8 @@ $(ROBOTEST_IMAGE): export APP_SRCDIR = $(ROBOTEST_IMAGE_SRCDIR)
 $(ROBOTEST_IMAGE): export VERSION = $(GRAVITY_VERSION)
 $(ROBOTEST_IMAGE): export TELE = $(TELE_OUT)
 $(ROBOTEST_IMAGE): export STATE_DIR = $(PACKAGES_DIR)
-$(ROBOTEST_IMAGE): $(TELE_OUT) $(ROBOTEST_IMAGE_SRC) ./tele_build.sh | $(ROBOTEST_IMAGEDIR) $(ROBOTEST_BUILD_TMP)
-	./tele_build.sh
+$(ROBOTEST_IMAGE): $(TELE_OUT) $(ROBOTEST_IMAGE_SRC) $(TOP)/tele_build.sh | $(ROBOTEST_IMAGEDIR) $(ROBOTEST_BUILD_TMP)
+	$(TOP)/tele_build.sh
 
 # When using a shared state dir 7.0.x package syncing is prone to races
 # resulting in failures like:
@@ -281,8 +276,8 @@ $(ROBOTEST_IMAGEDIR)/robotest-%.tar: export APP_SRCDIR = $(ROBOTEST_UPGRADE_BASE
 $(ROBOTEST_IMAGEDIR)/robotest-%.tar: export VERSION = $*
 $(ROBOTEST_IMAGEDIR)/robotest-%.tar: export TELE = $<
 $(ROBOTEST_IMAGEDIR)/robotest-%.tar: export STATE_DIR = $(ROBOTEST_GRAVITY_PKG_CACHE)
-$(ROBOTEST_IMAGEDIR)/robotest-%.tar: $(ROBOTEST_TELE_CACHE)/tele-% $(ROBOTEST_UPGRADE_BASE_IMAGE_SRC) ./tele_build.sh | $(ROBOTEST_IMAGEDIR) $(ROBOTEST_BUILD_TMP) $(ROBOTEST_GRAVITY_PKG_CACHE)
-	./tele_build.sh
+$(ROBOTEST_IMAGEDIR)/robotest-%.tar: $(ROBOTEST_TELE_CACHE)/tele-% $(ROBOTEST_UPGRADE_BASE_IMAGE_SRC) $(TOP)/tele_build.sh | $(ROBOTEST_IMAGEDIR) $(ROBOTEST_BUILD_TMP) $(ROBOTEST_GRAVITY_PKG_CACHE)
+	$(TOP)/tele_build.sh
 
 # The following target is a pattern rule for populating the tele binary cache.
 # Fulfills the $(ROBOTEST_TELE_BINARIES) targets.
@@ -293,6 +288,7 @@ $(ROBOTEST_TELE_CACHE)/tele-%: export VERSION = $*
 $(ROBOTEST_TELE_CACHE)/tele-%: export BUILD_TMP = $(ROBOTEST_CACHE_TMP)
 $(ROBOTEST_TELE_CACHE)/tele-%: $(ROBOTEST_DOWNLOAD_TELE_SCRIPT) | $(ROBOTEST_CACHE_TMP) $(ROBOTEST_TELE_CACHE)
 	$(ROBOTEST_DOWNLOAD_TELE_SCRIPT)
+
 
 .PHONY: download-teles
 download-teles: ## Download tele binaries needed to build robotest images.
@@ -308,7 +304,6 @@ populate-caches: ## Populate caches with tele binaries and gravity packages.
 get-upgrade-from-versions: ## Show versions used in upgrade from testing.
 get-upgrade-from-versions:
 	@echo $(ROBOTEST_UPGRADE_VERSIONS)
-export
 
 .PHONY: run
 run: ## Run robotest.
@@ -316,10 +311,10 @@ run: export DOCKER_IMAGE = $(ROBOTEST_DOCKER_IMAGE)
 run: export GRAVITY_URL = $(ROBOTEST_GRAVITY_BINARY)
 run: export INSTALLER_URL ?= /images/$(notdir $(ROBOTEST_IMAGE))
 run: export OPSCENTER_URL ?= /images/$(notdir $(ROBOTEST_OPSCENTER_IMAGE))
-run: export ROBOTEST_IMAGES_DIR = $(ROBOTEST_IMAGEDIR)
+run: export IMAGEDIR = $(ROBOTEST_IMAGEDIR)
 run: export STATEDIR ?= $(ROBOTEST_STATEDIR)
 run: export SSH_KEY ?= $(ROBOTEST_SSH_KEY)
 run: export SSH_PUB ?= $(ROBOTEST_SSH_PUB)
 run: export GOOGLE_APPLICATION_CREDENTIALS ?= $(ROBOTEST_GOOGLE_APPLICATION_CREDENTIALS)
 run: $(ROBOTEST_TEST_CONFIG) images $(ROBOTEST_GRAVITY_BINARY)
-	bash run.sh $(ROBOTEST_TEST_CONFIG)
+	$(TOP)/run.sh $(ROBOTEST_TEST_CONFIG)

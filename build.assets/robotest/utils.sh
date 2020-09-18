@@ -90,9 +90,9 @@ EOF
   echo $suite
 }
 
-# ROBOTEST_IMAGE_DIR_MOUNTPOINT expected to be set by caller
+# IMAGEDIR_MOUNTPOINT expected to be set by caller
 function tag_to_image {
   local version=${1:?specify a version}
-  echo "${ROBOTEST_IMAGE_DIR_MOUNTPOINT}/robotest-${version}.tar"
+  echo "${IMAGEDIR_MOUNTPOINT}/robotest-${version}.tar"
 }
 
