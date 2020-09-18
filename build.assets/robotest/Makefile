@@ -259,11 +259,14 @@ $(ROBOTEST_IMAGE): $(TELE_OUT) $(ROBOTEST_IMAGE_SRC) $(TOP)/tele_build.sh | $(RO
 #  2) Jenkins PR builds & local builds effectively have a semaphore, allowing f) seeded state
 #     dir to kick in and bring the 2+ build time lower than b) parallel independent unseeded.
 #
+# Lastly, some test configs don't require upgrades, so the sub-make invocation can be skipped.
+#
 # - 2020-09 - walt
 .PHONY: images-upgrade
 images-upgrade: ## Create robotest cluster images needed for upgrade testing.
-images-upgrade:
+ifneq ($(ROBOTEST_TELE_BINARIES),)
 	$(MAKE) $(ROBOTEST_UPGRADE_IMAGES)
+endif
 
 # The following rule builds all upgrade base images. It fulfills the $(ROBOTEST_UPGRADE_IMAGES) targets.
 # .PRECIOUS because these need to be present through the run target.
@@ -289,16 +292,15 @@ $(ROBOTEST_TELE_CACHE)/tele-%: export BUILD_TMP = $(ROBOTEST_CACHE_TMP)
 $(ROBOTEST_TELE_CACHE)/tele-%: $(ROBOTEST_DOWNLOAD_TELE_SCRIPT) | $(ROBOTEST_CACHE_TMP) $(ROBOTEST_TELE_CACHE)
 	$(ROBOTEST_DOWNLOAD_TELE_SCRIPT)
 
-
 .PHONY: download-teles
 download-teles: ## Download tele binaries needed to build robotest images.
-download-teles:
+ifneq ($(ROBOTEST_TELE_BINARIES),)
 	$(MAKE) -j $(ROBOTEST_TELE_BINARIES)
+endif
 
 .PHONY: populate-caches
 populate-caches: ## Populate caches with tele binaries and gravity packages.
-	$(MAKE) -j $(ROBOTEST_TELE_BINARIES)
-	$(MAKE) -j $(ROBOTEST_UPGRADE_IMAGES)
+populate-caches: download-teles images-upgrade
 
 .PHONY: get-upgrade-from-versions
 get-upgrade-from-versions: ## Show versions used in upgrade from testing.
