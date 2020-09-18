@@ -33,12 +33,13 @@ ALWAYS_COLLECT_LOGS=${ALWAYS_COLLECT_LOGS:-true}
 DESTROY_ON_SUCCESS=${DESTROY_ON_SUCCESS:-true}
 DESTROY_ON_FAILURE=${DESTROY_ON_FAILURE:-true}
 
-# set SUITE and ROBOTEST_IMAGE_DIR_MOUNTPOINT
-export INSTALLER_URL OPSCENTER_URL
+ROBOTEST_IMAGE_DIR_MOUNTPOINT=/images
+EXTRA_VOLUME_MOUNTS="-v $ROBOTEST_IMAGES_DIR:$ROBOTEST_IMAGE_DIR_MOUNTPOINT"
+
+# set SUITE
+export INSTALLER_URL OPSCENTER_URL ROBOTEST_IMAGE_DIR_MOUNTPOINNT
 source $TARGET
 
-# ROBOTEST_IMAGE_DIR_MOUNTPOINT defined by the config
-EXTRA_VOLUME_MOUNTS="-v $ROBOTEST_IMAGES_DIR:$ROBOTEST_IMAGE_DIR_MOUNTPOINT"
 
 
 # GRAVTIY_FILE/GRAVITY_URL specify the location of the up-to-date gravity binary
@@ -96,16 +97,19 @@ ${GCE_CONFIG:-}
 
 mkdir -p $STATEDIR
 
+NOROOT="--user=$(id -u):$(id -g)"
+
 set -o xtrace
 
 exec docker run \
+    $NOROOT \
 	-v ${ROBOTEST_STATEDIR}:/robotest/state \
 	-v ${SSH_KEY}:/robotest/config/ops.pem \
 	${GCE_CONFIG:+'-v' "${SSH_PUB}:/robotest/config/ops_rsa.pub"} \
 	${GCE_CONFIG:+'-v' "${GOOGLE_APPLICATION_CREDENTIALS}:/robotest/config/creds.json"} \
 	${GCL_PROJECT_ID:+'-v' "${GOOGLE_APPLICATION_CREDENTIALS}:/robotest/config/gcp.json" '-e' 'GOOGLE_APPLICATION_CREDENTIALS=/robotest/config/gcp.json'} \
 	${EXTRA_VOLUME_MOUNTS:-} \
-	${ROBOTEST_DOCKER_IMAGE} \
+	${DOCKER_IMAGE} \
 	dumb-init robotest-suite -test.timeout=48h \
 	${GCL_PROJECT_ID:+"-gcl-project-id=${GCL_PROJECT_ID}"} \
 	-test.parallel=${PARALLEL_TESTS} -repeat=${REPEAT_TESTS} -retries=${RETRIES} -fail-fast=${FAIL_FAST} \

@@ -64,18 +64,13 @@ ROBOTEST_DOWNLOAD_TELE_SCRIPT ?= $(TOP)/download_tele.sh
 # These are local to the targets in this Makefile.
 
 ROBOTEST_VERSION ?= 2.1.0
-ROBOTEST_DOCKER_UPSTREAM_IMAGE ?= quay.io/gravitational/robotest-suite:$(ROBOTEST_VERSION)
-# ROBOTEST_DOCKER_IMAGE has the local UID & GID injected into it, to avoid
-# permissions issues with the logs.
-ROBOTEST_DOCKER_IMAGE ?= robotest-suite:$(ROBOTEST_VERSION)-local
+ROBOTEST_DOCKER_IMAGE ?= quay.io/gravitational/robotest-suite:$(ROBOTEST_VERSION)
 # ROBOTEST_TELE_BUILD_DOCKER_IMAGE is an image used to sandbox tele builds. It could
 # be almost anything.
 ROBOTEST_TELE_BUILD_DOCKER_IMAGE ?= quay.io/gravitational/debian-tall:buster-20200916
 
 # ROBOTEST_BUILDDIR is the root of all robotest build artifacts for this build
 ROBOTEST_BUILDDIR ?= $(GRAVITY_BUILDDIR)/robotest
-# ROBOTEST_DOCKER_IMAGE_IIDFILE tracks if the local image has been built
-ROBOTEST_DOCKER_IMAGE_IIDFILE = $(ROBOTEST_BUILDDIR)/docker-image.iid
 # ROBOTEST_STATEDIR is the directory where robotest will store terraform state and logs
 ROBOTEST_STATEDIR ?= $(ROBOTEST_BUILDDIR)/state
 # ROBOTEST_BUILD_TMP is a staging directory for building/copying/unpacking content
@@ -208,19 +203,6 @@ $(ROBOTEST_BUILD_TMP):
 $(ROBOTEST_CACHE_TMP):
 	mkdir -p $(ROBOTEST_CACHE_TMP)
 
-.PHONY:docker-image
-docker-image: ## Create robotest docker image with the current user/group baked in.
-docker-image: $(ROBOTEST_DOCKER_IMAGE_IIDFILE)
-
-# TODO change touch to --iidfile, but jenkin's docker is too old. See ops issue #141
-$(ROBOTEST_DOCKER_IMAGE_IIDFILE): Dockerfile Makefile | $(ROBOTEST_BUILDDIR)
-	docker build \
-		--build-arg BASE=$(ROBOTEST_DOCKER_UPSTREAM_IMAGE) \
-		--build-arg UID=$(shell id -u) \
-		--build-arg GID=$(shell id -g) \
-		--tag $(ROBOTEST_DOCKER_IMAGE) .
-	touch $(ROBOTEST_DOCKER_IMAGE_IIDFILE)
-
 .PHONY: images
 images: ## Create all images necessary to run robotest CI tests.
 images: image-robotest images-upgrade image-opscenter
@@ -330,6 +312,7 @@ export
 
 .PHONY: run
 run: ## Run robotest.
+run: export DOCKER_IMAGE = $(ROBOTEST_DOCKER_IMAGE)
 run: export GRAVITY_URL = $(ROBOTEST_GRAVITY_BINARY)
 run: export INSTALLER_URL ?= /images/$(notdir $(ROBOTEST_IMAGE))
 run: export OPSCENTER_URL ?= /images/$(notdir $(ROBOTEST_OPSCENTER_IMAGE))
@@ -338,5 +321,5 @@ run: export STATEDIR ?= $(ROBOTEST_STATEDIR)
 run: export SSH_KEY ?= $(ROBOTEST_SSH_KEY)
 run: export SSH_PUB ?= $(ROBOTEST_SSH_PUB)
 run: export GOOGLE_APPLICATION_CREDENTIALS ?= $(ROBOTEST_GOOGLE_APPLICATION_CREDENTIALS)
-run: $(ROBOTEST_TEST_CONFIG) images docker-image $(ROBOTEST_GRAVITY_BINARY)
+run: $(ROBOTEST_TEST_CONFIG) images $(ROBOTEST_GRAVITY_BINARY)
 	bash run.sh $(ROBOTEST_TEST_CONFIG)
