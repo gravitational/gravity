@@ -2,7 +2,7 @@
 #
 # This file provides the following features to the tele build process:
 #
-#  1) Atomicity.  The TARGET is either complete or absent. (So long as long as
+#  1) Atomicity.  The TARGET is either complete or absent. (As long as
 #     BUILD_TMP is on the same filesystem as TARGET and that fs supports atomic
 #     renames). This means no half finished files for Make to trip on.
 #  2) Isolation.  Various old teles *always* check ~/.tsh for a logged in cluster
@@ -18,7 +18,7 @@
 # APP_SRCDIR - The directory that contains all files necessary to build the application.
 # APP_YAML - The image manifest to be built.
 # VERSION - The application version to use in the cluster image. Must be within SRCDIR.
-# STATE_DIR - The gravity state dir where packages are cached/drawn from. May be a shared with parallel invocations.
+# STATE_DIR - The gravity state dir where packages are cached/drawn from. May be shared with parallel invocations.
 # EXTRA_TELE_BUILD_OPTIONS - Any additional flags to pass to tele build (e.g. for enterprise specific behavior).
 set -o errexit
 set -o nounset
