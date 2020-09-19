@@ -524,11 +524,11 @@ $(TELEKUBE_OUT): packages
 
 .PHONY: robotest-run-suite
 robotest-run-suite: # depends on: telekube opscenter $(TELE_OUT) $(GRAVITY_OUT)
-	$(MAKE) -C build.assets/robotest run ROBOTEST_CONFIG=pr
+	$(MAKE) -C assets/robotest run ROBOTEST_CONFIG=pr
 
 .PHONY: robotest-run-nightly
 robotest-run-nightly: # depends on: telekube opscenter $(TELE_OUT) $(GRAVITY_OUT)
-	$(MAKE) -C build.assets/robotest run ROBOTEST_CONFIG=nightly
+	$(MAKE) -C assets/robotest run ROBOTEST_CONFIG=nightly
 
 #
 # builds wormhole installer
