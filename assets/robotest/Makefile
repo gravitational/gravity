@@ -1,51 +1,10 @@
-# This Makefile & related scripts exist to:
-#
-#  - Determine appropriate robotest configuration for the branch
-#  - Fetch or build the necessary artifacts for robotest testing
-#  - Gather necessary configuration & parameters robotest
-#  - Using all the above, run robotest!
-#
-# With the advent of custom robotest images in upgrade testing (#1915)
-# constructing all the necessary cluster images became complex. As such
-# the logic has been quarantined in this file to reduce complexity in Gravity's
-# Makefile, e/Makefile, and build.assets/Makefile.
-#
-# Robotest image construction uses the following strategy:
-#
-#  - For the release under test, build using TELE_OUT and PACKAGES_DIR from
-#    the Gravity Makefiles.  This must occur after a successful `make telekube`
-#    (which populates PACKAGES_DIR with a base image). This Makefile does not
-#    know how to generate these and will fail if they're absent.
-#
-#  - For upgrade to/from versions:
-#
-#    1) Download & cache appropriate tele from our release infrastructure.
-#    2) Build & cache the robotest image using the current application manifest
-#       with the old tele. Build with a shared --state-dir caching released
-#       packages locally.
-#    3) Populate the current build directory from the image cache.
-#
-# Caching is critical because at the time of writing:
-#
-#  - Jenkins is pushing 20TB/mo of network data, primarily for robotest
-#    image construction & distribution.
-#  - Downloading one gravity base image is O(minutes). Multiply this by 3-10
-#    different versions used in upgrade testing and the build times become tedious.
-#
-# Misc additional concerns:
-#
-#  - All CACHE population must be atomic (file renames on the same filesystem). Otherwise
-#    a race between builds could result in a half copied artifact being used.
-#  - CACHES should not be assumed to be on the same filesystem as the build directories.
-#  - Enterprise tele and OSS tele cannot share caches, nor should their outputs
-#    be confused.
-#  - ROBOTEST_IMAGEDIR can be heavy (up to 30GB for 7.0.x). This can
-#    aggravate CI workers that have many active builds or don't clean up.
+# See README.md for usage & implementation notes.
 TOP := $(realpath $(dir $(CURDIR)/$(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST))))
 ROOT := $(realpath $(TOP)/../..)
 
 # The following variables are typically set by Gravity's top level or e
 # Makefile. They're redeclared here for direct invocation of this Makefile.
+
 BUILDDIR ?= $(ROOT)/build
 GRAVITY_VERSION ?= $(shell cd $(ROOT) && ./version.sh)
 GRAVITY_BUILDDIR ?= $(BUILDDIR)/$(GRAVITY_VERSION)
@@ -62,14 +21,13 @@ ROBOTEST_CONFIG = pr
 # ROBOTEST_CONFIG_SCRIPT is full path to the scrip that will generate robotest configurations
 ROBOTEST_CONFIG_SCRIPT = $(TOP)/config/$(ROBOTEST_CONFIG).sh
 
-
-# Robotest specific variables.
-# These are local to the targets in this Makefile.
+# End variables expected to be set outside this Makefile.
+# Everything below is Robotest specific.
 
 ROBOTEST_VERSION ?= 2.1.0
 ROBOTEST_DOCKER_IMAGE ?= quay.io/gravitational/robotest-suite:$(ROBOTEST_VERSION)
 # ROBOTEST_TELE_BUILD_DOCKER_IMAGE is an image used to sandbox tele builds. It could
-# be almost anything.
+# be almost anything with dumb-init available.
 ROBOTEST_TELE_BUILD_DOCKER_IMAGE ?= quay.io/gravitational/debian-tall:buster-20200916
 
 # ROBOTEST_BUILDDIR is the root of all robotest build artifacts for this build
@@ -77,16 +35,15 @@ ROBOTEST_BUILDDIR ?= $(GRAVITY_BUILDDIR)/robotest
 # ROBOTEST_STATEDIR is the directory where robotest will store terraform state and logs
 ROBOTEST_STATEDIR ?= $(ROBOTEST_BUILDDIR)/state
 # ROBOTEST_BUILD_TMP is a staging directory for building/copying/unpacking content
-# # before an atomic rename into the build directory. Must be on the same filesystem
-# # as ROBOTEST_BUILDDIR.
+# before an atomic rename into the ROBOTEST_IMAGEDIR. Both must be on the same filesystem.
 ROBOTEST_BUILD_TMP = $(ROBOTEST_BUILDDIR)/tmp
 
 # Robotest cache configuration.
 
-# ROBOTEST_CACHE_ROOT is a filesystem cache intended to be shared between parallel
+# ROBOTEST_CACHE_ROOT is a filesystem cache intended to be used across subsequent
 # invocations of this Makefile against wildly disparate (5.5, 6.1, 7.0, 7.1+)
-# gravity versions. Although this defaults to within the builddir, it is expected
-# to be overridden (to avoid wipe on `make clean`).
+# gravity versions. Although the cache root defaults to within the builddir, it
+# is expected to be overridden (to avoid wipe on `make clean`).
 ROBOTEST_CACHE_ROOT ?= $(BUILDDIR)/cache
 # ROBOTEST_CACHEDIR is the flavor specific cache directory.
 # If the cache is in the builddir, it is already enterprise/oss specific. If not
@@ -313,7 +270,7 @@ get-config: export INSTALLER_URL ?= /images/$(notdir $(ROBOTEST_IMAGE))
 get-config: export OPSCENTER_URL ?= /images/$(notdir $(ROBOTEST_OPSCENTER_IMAGE))
 get-config: export IMAGEDIR_MOUNTPOINT ?= /images
 get-config: ## Show robotest configuration.
-	$(ROBOTEST_CONFIG_SCRIPT) configuration | sed -e 's/^[[:space:]]*//' | tr ' ' '\n'
+	@$(ROBOTEST_CONFIG_SCRIPT) configuration | sed -e 's/^[[:space:]]*//' | tr ' ' '\n'
 
 .PHONY: run
 run: ## Run robotest.
