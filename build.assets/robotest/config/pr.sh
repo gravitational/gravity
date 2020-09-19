@@ -3,7 +3,7 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-source $(dirname $0)/utils.sh
+source $(dirname $0)/lib/utils.sh
 
 # UPGRADE_MAP maps gravity version -> list of linux distros to upgrade from
 declare -A UPGRADE_MAP
@@ -18,14 +18,6 @@ UPGRADE_MAP[7.0.7]="ubuntu:16" # 7.0.7 is the first 7.0 with https://github.com/
 # UPGRADE_MAP[6.3.0]="ubuntu:16"  # disabled due to https://github.com/gravitational/gravity/issues/1009
 # UPGRADE_MAP[$(recommended_upgrade_tag $(branch 6.2.x))]="redhat:7" # compatible non-LTS version
 # UPGRADE_MAP[6.2.0]="ubuntu:16"
-
-export UPGRADE_VERSIONS=${!UPGRADE_MAP[@]}
-
-# The following breaks a dependency loop. We need upgrade versions to generate tarballs,
-# but we need tarball names to generate the full test config.
-if [[ ${1} == "upgradeexit" ]]  ; then
-    return
-fi
 
 function build_upgrade_suite {
   local size='"flavor":"three","nodes":3,"role":"node"'
@@ -72,11 +64,14 @@ EOF
   echo -n $suite
 }
 
-SUITE=""
-SUITE="$SUITE $(build_install_suite)"
-SUITE="$SUITE $(build_resize_suite)"
-SUITE="$SUITE $(build_upgrade_suite)"
-
-echo "$SUITE" | tr ' ' '\n'
-
-export SUITE
+if [[ ${1} == "upgradeversions" ]] ; then
+    UPGRADE_VERSIONS=${!UPGRADE_MAP[@]}
+    echo "$UPGRADE_VERSIONS"
+    exit
+elif [[ ${1} == "configuration" ]] ; then
+    SUITE=""
+    SUITE="$SUITE $(build_install_suite)"
+    SUITE="$SUITE $(build_resize_suite)"
+    SUITE="$SUITE $(build_upgrade_suite)"
+    echo "$SUITE"
+fi

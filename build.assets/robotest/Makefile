@@ -58,6 +58,11 @@ PACKAGES_DIR ?= $(GRAVITY_BUILDDIR)/packages
 ROBOTEST_DOWNLOAD_TELE_SCRIPT ?= $(TOP)/download_tele.sh
 # ROBOTEST_CACHE_FLAVOR may be overriden to specify a non-compatible cache.
 ROBOTEST_CACHE_FLAVOR ?= oss
+# ROBOTEST_CONFIG is the desired robotest configuration (pr, nightly)
+ROBOTEST_CONFIG = pr
+# ROBOTEST_CONFIG_SCRIPT is full path to the scrip that will generate robotest configurations
+ROBOTEST_CONFIG_SCRIPT = $(TOP)/config/$(ROBOTEST_CONFIG).sh
+
 
 # Robotest specific variables.
 # These are local to the targets in this Makefile.
@@ -141,10 +146,8 @@ ROBOTEST_UPGRADE_BASE_IMAGE_MANIFEST = $(ROBOTEST_UPGRADE_BASE_IMAGE_SRCDIR)/app
 ROBOTEST_IMAGE = $(ROBOTEST_IMAGEDIR)/robotest-$(GRAVITY_VERSION).tar
 # ROBOTEST_OPSCENTER_IMAGE is robotest's copy of the opscenter image, used for install testing.
 ROBOTEST_OPSCENTER_IMAGE = $(ROBOTEST_IMAGEDIR)/opscenter-$(GRAVITY_VERSION).tar
-# ROBOTEST_TEST_CONFIG is the desired robotest configuration (pr, nightly)
-ROBOTEST_TEST_CONFIG = $(TOP)/pr_config.sh
 # ROBOTEST_UPGRADE_VERSIONS is a list of gravity semvers that will be used in upgrade testing.
-ROBOTEST_UPGRADE_VERSIONS = $(shell cd $(TOP) && ./scrape_upgrade_from_versions.sh $(ROBOTEST_TEST_CONFIG))
+ROBOTEST_UPGRADE_VERSIONS = $(shell cd $(TOP)/config && $(ROBOTEST_CONFIG_SCRIPT) upgradeversions)
 # ROBOTEST_TELE_BINARIES is the list of build specific tele binaries needed to
 # build all robotest upgrade images.
 ROBOTEST_TELE_BINARIES = $(addprefix $(ROBOTEST_TELE_CACHE)/tele-, $(ROBOTEST_UPGRADE_VERSIONS))
@@ -302,10 +305,16 @@ endif
 populate-caches: ## Populate caches with tele binaries and gravity packages.
 populate-caches: download-teles images-upgrade
 
-.PHONY: get-upgrade-from-versions
-get-upgrade-from-versions: ## Show versions used in upgrade from testing.
-get-upgrade-from-versions:
+.PHONY: get-upgrade-versions
+get-upgrade-versions: ## Show Gravity versions used in upgrade testing.
 	@echo $(ROBOTEST_UPGRADE_VERSIONS)
+
+.PHONY: get-config
+get-config: export INSTALLER_URL ?= /images/$(notdir $(ROBOTEST_IMAGE))
+get-config: export OPSCENTER_URL ?= /images/$(notdir $(ROBOTEST_OPSCENTER_IMAGE))
+get-config: export IMAGEDIR_MOUNTPOINT ?= /images
+get-config: ## Show robotest configuration.
+	$(ROBOTEST_CONFIG_SCRIPT) configuration | sed -e 's/^[[:space:]]*//' | tr ' ' '\n'
 
 .PHONY: run
 run: ## Run robotest.
@@ -318,5 +327,5 @@ run: export STATEDIR ?= $(ROBOTEST_STATEDIR)
 run: export SSH_KEY ?= $(ROBOTEST_SSH_KEY)
 run: export SSH_PUB ?= $(ROBOTEST_SSH_PUB)
 run: export GOOGLE_APPLICATION_CREDENTIALS ?= $(ROBOTEST_GOOGLE_APPLICATION_CREDENTIALS)
-run: $(ROBOTEST_TEST_CONFIG) images $(ROBOTEST_GRAVITY_BINARY)
-	$(TOP)/run.sh $(ROBOTEST_TEST_CONFIG)
+run: $(ROBOTEST_CONFIG_SCRIPT) images $(ROBOTEST_GRAVITY_BINARY)
+	cd $(TOP) && ./run.sh $(ROBOTEST_CONFIG_SCRIPT)

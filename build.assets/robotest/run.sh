@@ -36,11 +36,8 @@ DESTROY_ON_FAILURE=${DESTROY_ON_FAILURE:-true}
 IMAGEDIR_MOUNTPOINT=/images
 EXTRA_VOLUME_MOUNTS="-v $IMAGEDIR:$IMAGEDIR_MOUNTPOINT"
 
-# set SUITE
 export INSTALLER_URL OPSCENTER_URL IMAGEDIR_MOUNTPOINNT
-source $TARGET
-
-
+SUITE=$($TARGET configuration)
 
 # GRAVTIY_FILE/GRAVITY_URL specify the location of the up-to-date gravity binary
 if [ -d $(dirname ${GRAVITY_URL}) ]; then
