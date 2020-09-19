@@ -162,7 +162,7 @@ ROBOTEST_IMAGES = $(ROBOTEST_IMAGE) $(ROBOTEST_OPSCENTER_IMAGE) $(ROBOTEST_UPGRA
 ROBOTEST_GRAVITY_BINARY ?= $(GRAVITY_OUT)
 ROBOTEST_SSH_KEY ?= $(HOME)/.ssh/id_rsa
 ROBOTEST_SSH_PUB ?= $(HOME)/.ssh/id_rsa.pub
-ROBOTEST_GOOGLE_APPLICATION_CREDENTIALS ?= $(ROOT)/robotest-gcp-credentials.json
+ROBOTEST_GOOGLE_APPLICATION_CREDENTIALS ?= $(TOP)/.gcp-credentials.json
 
 # kudos to https://gist.github.com/prwhite/8168133 for inspiration
 .PHONY: help
