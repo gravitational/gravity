@@ -46,7 +46,6 @@ ROOT := $(realpath $(TOP)/../..)
 
 # The following variables are typically set by Gravity's top level or e
 # Makefile. They're redeclared here for direct invocation of this Makefile.
-ASSETSDIR ?= $(ROOT)/assets
 BUILDDIR ?= $(ROOT)/build
 GRAVITY_VERSION ?= $(shell cd $(ROOT) && ./version.sh)
 GRAVITY_BUILDDIR ?= $(BUILDDIR)/$(GRAVITY_VERSION)
@@ -127,7 +126,7 @@ ROBOTEST_IMAGEDIR = $(ROBOTEST_BUILDDIR)/images
 
 # ROBOTEST_IMAGE_SRCDIR is the directory containing all sources to build the robotest application.
 # It is mounted into a build container.
-ROBOTEST_IMAGE_SRCDIR = $(ASSETSDIR)/robotest/current
+ROBOTEST_IMAGE_SRCDIR = $(TOP)/current
 # ROBOTEST_IMAGE_SRC are the files that affect the robotest application.  If any
 # of these change, all robotest images must be rebuilt.
 ROBOTEST_IMAGE_SRC := $(shell find $(ROBOTEST_IMAGE_SRCDIR) -type f)
@@ -136,7 +135,7 @@ ROBOTEST_IMAGE_MANIFEST = $(ROBOTEST_IMAGE_SRCDIR)/app.yaml
 
 # ROBOTEST_UPGRADE_BASE_IMAGE_SRCDIR is the directory containing all sources to build the
 # robotest upgrade base application. It is mounted into a build container.
-ROBOTEST_UPGRADE_BASE_IMAGE_SRCDIR = $(ASSETSDIR)/robotest/upgrade-base
+ROBOTEST_UPGRADE_BASE_IMAGE_SRCDIR = $(TOP)/upgrade-base
 # ROBOTEST_UPGRADE_BASE_IMAGE_SRC is the gravity application manifest to build into robotest images.
 ROBOTEST_UPGRADE_BASE_IMAGE_SRC := $(shell find $(ROBOTEST_UPGRADE_BASE_IMAGE_SRCDIR) -type f)
 # ROBOTEST_UPGRADE_BASE_IMAGE_MANIFEST is the gravity application manifest to build into robotest images.
