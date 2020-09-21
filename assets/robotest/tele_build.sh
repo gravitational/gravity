@@ -18,7 +18,7 @@
 # APP_SRCDIR - The directory that contains all files necessary to build the application.
 # APP_YAML - The image manifest to be built.
 # VERSION - The application version to use in the cluster image. Must be within SRCDIR.
-# STATE_DIR - The gravity state dir where packages are cached/drawn from. May be shared with parallel invocations.
+# STATE_DIR - The gravity state dir where packages are cached/drawn from. May be shared across subsequent builds.
 # EXTRA_TELE_BUILD_OPTIONS - Any additional flags to pass to tele build (e.g. for enterprise specific behavior).
 set -o errexit
 set -o nounset

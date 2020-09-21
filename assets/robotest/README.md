@@ -44,7 +44,7 @@ export ROBOTEST_SSH_PUB=~/.ssh/robotest.pub
 export ROBOTEST_GOOGLE_APPLICATION_CREDENTIALS=~/.config/gcloud/legacy_credentials/robotest.json
 ```
 
-Once these are set, robotest with:
+Once these variables are set, run robotest with:
 
 ```
 make -C assets/robotest run
