@@ -17,6 +17,7 @@ package update
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/gravitational/gravity/lib/defaults"
@@ -66,7 +67,7 @@ func (r *reconciler) ReconcilePlan(ctx context.Context, plan storage.OperationPl
 }
 
 func (r *reconciler) trySyncChangelogToEtcd(ctx context.Context) error {
-	disbled, err := isEtcdDisabled(ctx, r.FieldLogger)
+	disabled, err := isEtcdDisabled(ctx, r.FieldLogger)
 	if err == nil && disabled {
 		r.Info("Etcd disabled, skipping plan sync.")
 		return nil
@@ -123,13 +124,26 @@ func SyncChangelog(src storage.Backend, dst storage.Backend, clusterName string,
 	return nil
 }
 
-// isEtcdDisabled checks whether the etcd service on this node is disnabled
+// isEtcdDisabled checks whether the etcd service on this node is disabled
 func isEtcdDisabled(ctx context.Context, logger logrus.FieldLogger) (enabled bool, err error) {
 	out, err := utils.RunCommand(ctx, logger, utils.PlanetCommandArgs(defaults.SystemctlBin, "is-enabled", "etcd")...)
-	if err != nil {
+	if err == nil {
+		// Unit is not disabled
+		return false, nil
+	}
+	exitCode := utils.ExitStatusFromError(err)
+	// See https://www.freedesktop.org/software/systemd/man/systemctl.html#is-enabled%20UNIT%E2%80%A6
+	if exitCode == nil || *exitCode != 1 {
 		return false, trace.Wrap(err, "failed to determine etcd status: %s", out)
 	}
-	return err == nil && string(out) == serviceStatusDisabled, nil
+	return isServiceDisabled(string(out)), nil
+}
+
+func isServiceDisabled(status string) bool {
+	if status == serviceStatusDisabled {
+		return true
+	}
+	return strings.HasPrefix(status, "masked")
 }
 
 const serviceStatusDisabled = "disabled"
