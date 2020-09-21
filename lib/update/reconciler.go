@@ -66,8 +66,8 @@ func (r *reconciler) ReconcilePlan(ctx context.Context, plan storage.OperationPl
 }
 
 func (r *reconciler) trySyncChangelogToEtcd(ctx context.Context) error {
-	enabled, err := isEtcdEnabled(ctx, r.FieldLogger)
-	if err == nil && !enabled {
+	disbled, err := isEtcdDisabled(ctx, r.FieldLogger)
+	if err == nil && disabled {
 		r.Info("Etcd disabled, skipping plan sync.")
 		return nil
 	}
@@ -75,8 +75,8 @@ func (r *reconciler) trySyncChangelogToEtcd(ctx context.Context) error {
 }
 
 func (r *reconciler) trySyncChangelogFromEtcd(ctx context.Context) error {
-	enabled, err := isEtcdEnabled(ctx, r.FieldLogger)
-	if err == nil && !enabled {
+	disabled, err := isEtcdDisabled(ctx, r.FieldLogger)
+	if err == nil && disabled {
 		r.Info("Etcd disabled, skipping plan sync.")
 		return nil
 	}
@@ -123,13 +123,13 @@ func SyncChangelog(src storage.Backend, dst storage.Backend, clusterName string,
 	return nil
 }
 
-// isEtcdEnabled verifies that the etcd service on this node is enabled
-func isEtcdEnabled(ctx context.Context, logger logrus.FieldLogger) (enabled bool, err error) {
+// isEtcdDisabled checks whether the etcd service on this node is disnabled
+func isEtcdDisabled(ctx context.Context, logger logrus.FieldLogger) (enabled bool, err error) {
 	out, err := utils.RunCommand(ctx, logger, utils.PlanetCommandArgs(defaults.SystemctlBin, "is-enabled", "etcd")...)
 	if err != nil {
 		return false, trace.Wrap(err, "failed to determine etcd status: %s", out)
 	}
-	return err == nil && string(out) == serviceStatusEnabled, nil
+	return err == nil && string(out) == serviceStatusDisabled, nil
 }
 
-const serviceStatusEnabled = "enabled"
+const serviceStatusDisabled = "disabled"
