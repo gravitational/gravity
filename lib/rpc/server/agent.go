@@ -157,15 +157,6 @@ func (srv *agentServer) Shutdown(ctx context.Context, _ *types.Empty) (*types.Em
 }
 
 func (srv *agentServer) command(req pb.CommandArgs, stream pb.Agent_CommandServer, log *log.Entry) (err error) {
-	defer func() {
-		r := recover()
-		if r == nil {
-			return
-		}
-
-		err = trace.BadParameter("panic for command %+v: %v", req, r)
-	}()
-
 	err = srv.commandExecutor.exec(stream.Context(), stream, req.Args, makeRemoteLogger(stream, srv.FieldLogger))
 	if err != nil {
 		stream.Send(pb.ErrorToMessage(err))
