@@ -924,18 +924,18 @@ Licenses are generated from the `gravity` executable using a Certificate Authori
 
 Here's an example of creating a license, building a licensed cluster, installing with the license and updating the license.
   
-1. Generate Certifcate Authority (CA) and private key for 365 days:
+Step 1. Generate Certifcate Authority (CA) and private key for 365 days:
   
 ```bash
 openssl req -newkey rsa:2048 -nodes -keyout domain.key -x509 -days 365 -out domain.crt
 ```
   
-2. Generate a license with an encryption key using the CA
+Step 2. Generate a license with an encryption key using the CA
 ```bash
 gravity license new --max-nodes=3 --valid-for=8760h --ca-cert=domain.crt --ca-key=domain.key --encryption-key=833dcd744b5aed710711ca6f0f8a66b3712f63f17ef03146 > license.pem
 ```
   
-3. Enable licensing feature in the cluster image manifest
+Step 3. Enable licensing feature in the cluster image manifest
 
 ```yaml
 apiVersion: cluster.gravitational.io/v2
@@ -947,13 +947,13 @@ license:
     enabled: true
 ```
   
-4. Build the cluster with the CA and the same encryption key
+Step 4. Build the cluster with the CA and the same encryption key
   
 ```bash
 tele build app.yaml --ca-cert=domain.crt --encryption-key=833dcd744b5aed710711ca6f0f8a66b3712f63f17ef03146
 ```
   
-5. Install with the license file
+Step 5. Install with the license file
 ```bash
   sudo ./gravity install --license-file=/tmp/license.pem
 ```
