@@ -17,13 +17,14 @@ package update
 
 import (
 	"context"
-	"os/exec"
+	"time"
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/cenkalti/backoff"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
 )
@@ -65,34 +66,31 @@ func (r *reconciler) ReconcilePlan(ctx context.Context, plan storage.OperationPl
 }
 
 func (r *reconciler) trySyncChangelogToEtcd(ctx context.Context) error {
-	shouldSync, err := isEtcdAvailable(ctx, r.FieldLogger)
-	if err != nil {
-		return trace.Wrap(err)
+	enabled, err := isEtcdEnabled(ctx, r.FieldLogger)
+	if err == nil && !enabled {
+		r.Info("Etcd disabled, skipping plan sync.")
+		return nil
 	}
-
-	if shouldSync {
-		return trace.Wrap(r.syncChangelog(r.localBackend, r.backend))
-	}
-
-	return nil
+	return trace.Wrap(r.syncChangelog(ctx, r.localBackend, r.backend))
 }
 
 func (r *reconciler) trySyncChangelogFromEtcd(ctx context.Context) error {
-	shouldSync, err := isEtcdAvailable(ctx, r.FieldLogger)
-	if err != nil {
-		return trace.Wrap(err)
+	enabled, err := isEtcdEnabled(ctx, r.FieldLogger)
+	if err == nil && !enabled {
+		r.Info("Etcd disabled, skipping plan sync.")
+		return nil
 	}
-
-	if shouldSync {
-		return trace.Wrap(r.syncChangelog(r.backend, r.localBackend))
-	}
-
-	return nil
+	return trace.Wrap(r.syncChangelog(ctx, r.backend, r.localBackend))
 }
 
 // syncChangelog will sync changelog entries from src to dst storage
-func (r *reconciler) syncChangelog(src storage.Backend, dst storage.Backend) error {
-	return trace.Wrap(SyncChangelog(src, dst, r.cluster, r.operationID))
+func (r *reconciler) syncChangelog(ctx context.Context, src storage.Backend, dst storage.Backend) error {
+	b := backoff.NewExponentialBackOff()
+	b.MaxInterval = 1 * time.Minute
+	b.MaxElapsedTime = 5 * time.Minute
+	return utils.RetryTransient(ctx, b, func() error {
+		return SyncChangelog(src, dst, r.cluster, r.operationID)
+	})
 }
 
 type reconciler struct {
@@ -125,16 +123,13 @@ func SyncChangelog(src storage.Backend, dst storage.Backend, clusterName string,
 	return nil
 }
 
-// isEtcdAvailable verifies that the etcd cluster is healthy
-func isEtcdAvailable(ctx context.Context, logger logrus.FieldLogger) (bool, error) {
-	_, err := utils.RunCommand(ctx, logger, utils.PlanetCommandArgs(defaults.EtcdCtlBin, "cluster-health")...)
+// isEtcdEnabled verifies that the etcd service on this node is enabled
+func isEtcdEnabled(ctx context.Context, logger logrus.FieldLogger) (enabled bool, err error) {
+	out, err := utils.RunCommand(ctx, logger, utils.PlanetCommandArgs(defaults.SystemctlBin, "is-enabled", "etcd")...)
 	if err != nil {
-		// etcdctl uses an exit code if the health cannot be checked
-		// so we don't need to return an error
-		if _, ok := trace.Unwrap(err).(*exec.ExitError); ok {
-			return false, nil
-		}
-		return false, trace.Wrap(err)
+		return false, trace.Wrap(err, "failed to determine etcd status: %s", out)
 	}
-	return true, nil
+	return err == nil && string(out) == serviceStatusEnabled, nil
 }
+
+const serviceStatusEnabled = "enabled"
