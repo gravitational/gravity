@@ -189,6 +189,8 @@ $(ROBOTEST_IMAGE): $(TELE_OUT) $(ROBOTEST_IMAGE_SRC) $(TOP)/tele_build.sh | $(RO
 #   [ERROR]: failed to sync packages for runtime version 7.0.16
 #       package(gravitational.io/bandwagon:6.0.1) already exists
 #
+# Possibly due to https://github.com/gravitational/gravity/issues/2060
+#
 # Because we must support old tele binaries to build old image versions, these races seem
 # unavoidable.
 #
