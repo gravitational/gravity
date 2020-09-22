@@ -101,7 +101,7 @@ timestamps {
   node { ansiColor('xterm') {
     parallel (
         unittest : {
-          stage("unittest") {
+          stage("unit test gravity") {
             withCredentials([
               sshUserPrivateKey(credentialsId: '08267d86-0b3a-4101-841e-0036bf780b11', keyFileVariable: 'GITHUB_SSH_KEY'),
             ]) {
