@@ -84,7 +84,7 @@ function build_upgrade_step {
   local service_opts='"service_uid":997,"service_gid":994' # see issue #1279
   local suite=''
   suite+=$(cat <<EOF
- upgrade={${cluster_size},"os":"${os}","from":"${from_tarball}","installer_url":"${to_tarball}",${service_opts},${storage_driver}}
+ upgrade={"from":"${from_tarball}","installer_url":"${to_tarball}",${cluster_size},"os":"${os}",${service_opts},${storage_driver}}
 EOF
 )
   echo $suite

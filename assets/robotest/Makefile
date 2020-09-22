@@ -11,6 +11,7 @@ GRAVITY_BUILDDIR ?= $(BUILDDIR)/$(GRAVITY_VERSION)
 TELE_OUT ?= $(GRAVITY_BUILDDIR)/tele
 GRAVITY_OUT ?= $(GRAVITY_BUILDDIR)/gravity
 OPSCENTER_OUT ?= $(GRAVITY_BUILDDIR)/opscenter.tar
+TELEKUBE_OUT ?= $(GRAVITY_BUILDDIR)/telekube.tar
 PACKAGES_DIR ?= $(GRAVITY_BUILDDIR)/packages
 # ROBOTEST_DOWNLOAD_TELE_SCRIPT allows the e Makefile to override how tele binaries are sourced.
 ROBOTEST_DOWNLOAD_TELE_SCRIPT ?= $(TOP)/download_tele.sh
@@ -102,6 +103,8 @@ ROBOTEST_UPGRADE_BASE_IMAGE_MANIFEST = $(ROBOTEST_UPGRADE_BASE_IMAGE_SRCDIR)/app
 ROBOTEST_IMAGE = $(ROBOTEST_IMAGEDIR)/robotest-$(GRAVITY_VERSION).tar
 # ROBOTEST_OPSCENTER_IMAGE is robotest's copy of the opscenter image, used for install testing.
 ROBOTEST_OPSCENTER_IMAGE = $(ROBOTEST_IMAGEDIR)/opscenter-$(GRAVITY_VERSION).tar
+# ROBOTEST_TELEKUBE_IMAGE is robotest's copy of the telekube image, used for install testing.
+ROBOTEST_TELEKUBE_IMAGE = $(ROBOTEST_IMAGEDIR)/telekube-$(GRAVITY_VERSION).tar
 # ROBOTEST_UPGRADE_VERSIONS is a list of gravity semvers that will be used in upgrade testing.
 ROBOTEST_UPGRADE_VERSIONS = $(shell cd $(TOP)/config && $(ROBOTEST_CONFIG_SCRIPT) upgradeversions)
 # ROBOTEST_TELE_BINARIES is the list of build specific tele binaries needed to
@@ -111,7 +114,7 @@ ROBOTEST_TELE_BINARIES = $(addprefix $(ROBOTEST_TELE_CACHE)/tele-, $(ROBOTEST_UP
 # for mounting into the robotest docker container. These are not shared stated.
 ROBOTEST_UPGRADE_IMAGES = $(addsuffix .tar, $(addprefix $(ROBOTEST_IMAGEDIR)/robotest-, $(ROBOTEST_UPGRADE_VERSIONS)))
 # ROBOTEST_IMAGES is all build specific cluster images/targets needed to run robotest.
-ROBOTEST_IMAGES = $(ROBOTEST_IMAGE) $(ROBOTEST_OPSCENTER_IMAGE) $(ROBOTEST_UPGRADE_IMAGES)
+ROBOTEST_IMAGES = $(ROBOTEST_TELEKUBE_IMAGE) $(ROBOTEST_OPSCENTER_IMAGE) $(ROBOTEST_IMAGE) $(ROBOTEST_UPGRADE_IMAGES)
 
 # Robotest run configuration.
 # These are only used in the run target.
@@ -136,7 +139,7 @@ clean: ## Remove build artifacts.
 	rm -rf $(ROBOTEST_BUILDDIR)
 
 .PHONY: clean-caches
-clean-caches: ## Remove cached tele binaries, gravity packages, and robotest upgrade images.
+clean-caches: ## Remove cached tele binaries and gravity packages.
 	rm -rf $(ROBOTEST_CACHES) $(ROBOTEST_CACHE_TMP)
 
 $(ROBOTEST_BUILDDIR):
@@ -158,8 +161,15 @@ $(ROBOTEST_CACHE_TMP):
 	mkdir -p $(ROBOTEST_CACHE_TMP)
 
 .PHONY: images
-images: ## Create all images necessary to run robotest CI tests.
-images: image-robotest images-upgrade image-opscenter
+images: ## Build all images necessary to run robotest CI tests.
+images: image-telekube image-opscenter image-robotest image-robotest-upgrade
+
+.PHONY: image-telekube
+image-telekube: ## Move telekube.tar cluster image into place for test execution.
+image-telekube: $(ROBOTEST_TELEKUBE_IMAGE)
+
+$(ROBOTEST_TELEKUBE_IMAGE): $(TELEKUBE_OUT) | $(ROBOTEST_IMAGEDIR)
+	cp $(TELEKUBE_OUT) $(ROBOTEST_TELEKUBE_IMAGE)
 
 .PHONY: image-opscenter
 image-opscenter: ## Move opscenter.tar cluster image into place for test execution.
@@ -169,7 +179,7 @@ $(ROBOTEST_OPSCENTER_IMAGE): $(OPSCENTER_OUT) | $(ROBOTEST_IMAGEDIR)
 	cp $(OPSCENTER_OUT) $(ROBOTEST_OPSCENTER_IMAGE)
 
 .PHONY: image-robotest
-image-robotest: ## Create robotest cluster image using the current tele.
+image-robotest: ## Build robotest cluster image using the current tele.
 image-robotest: $(ROBOTEST_IMAGE)
 
 $(ROBOTEST_IMAGE): export TARGET = $(ROBOTEST_IMAGE)
@@ -223,8 +233,8 @@ $(ROBOTEST_IMAGE): $(TELE_OUT) $(ROBOTEST_IMAGE_SRC) $(TOP)/tele_build.sh | $(RO
 # Lastly, some test configs don't require upgrades, so the sub-make invocation can be skipped.
 #
 # - 2020-09 - walt
-.PHONY: images-upgrade
-images-upgrade: ## Create robotest cluster images needed for upgrade testing.
+.PHONY: image-robotest-upgrade
+image-robotest-upgrade: ## Build robotest cluster images needed for upgrade testing.
 ifneq ($(ROBOTEST_TELE_BINARIES),)
 	$(MAKE) $(ROBOTEST_UPGRADE_IMAGES)
 endif
@@ -261,25 +271,28 @@ endif
 
 .PHONY: populate-caches
 populate-caches: ## Populate caches with tele binaries and gravity packages.
-populate-caches: download-teles images-upgrade
+populate-caches: download-teles image-robotest-upgrade
 
 .PHONY: get-upgrade-versions
 get-upgrade-versions: ## Show Gravity versions used in upgrade testing.
 	@echo $(ROBOTEST_UPGRADE_VERSIONS)
 
 .PHONY: get-config
+get-config: export IMAGEDIR_MOUNTPOINT ?= /images
 get-config: export INSTALLER_URL ?= /images/$(notdir $(ROBOTEST_IMAGE))
 get-config: export OPSCENTER_URL ?= /images/$(notdir $(ROBOTEST_OPSCENTER_IMAGE))
-get-config: export IMAGEDIR_MOUNTPOINT ?= /images
+get-config: export TELEKUBE_URL  ?= /images/$(notdir $(ROBOTEST_TELEKUBE_IMAGE))
 get-config: ## Show robotest configuration.
-	@$(ROBOTEST_CONFIG_SCRIPT) configuration | sed -e 's/^[[:space:]]*//' | tr ' ' '\n'
+	@cd $(TOP) && $(ROBOTEST_CONFIG_SCRIPT) configuration | sed -e 's/^[[:space:]]*//' | tr ' ' '\n'
 
 .PHONY: run
 run: ## Run robotest.
 run: export DOCKER_IMAGE = $(ROBOTEST_DOCKER_IMAGE)
 run: export GRAVITY_URL = $(ROBOTEST_GRAVITY_BINARY)
+run: export IMAGEDIR_MOUNTPOINT ?= /images
 run: export INSTALLER_URL ?= /images/$(notdir $(ROBOTEST_IMAGE))
 run: export OPSCENTER_URL ?= /images/$(notdir $(ROBOTEST_OPSCENTER_IMAGE))
+run: export TELEKUBE_URL  ?= /images/$(notdir $(ROBOTEST_TELEKUBE_IMAGE))
 run: export IMAGEDIR = $(ROBOTEST_IMAGEDIR)
 run: export STATEDIR ?= $(ROBOTEST_STATEDIR)
 run: export SSH_KEY ?= $(ROBOTEST_SSH_KEY)

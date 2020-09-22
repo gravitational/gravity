@@ -61,22 +61,29 @@ EOF
 
 function build_resize_suite {
   local suite=$(cat <<EOF
- resize={"to":3,"flavor":"one","nodes":1,"role":"node","state_dir":"/var/lib/telekube","os":"ubuntu:18","storage_driver":"overlay2"}
- resize={"to":6,"flavor":"three","nodes":3,"role":"node","state_dir":"/var/lib/telekube","os":"ubuntu:18","storage_driver":"overlay2"}
- shrink={"nodes":3,"flavor":"three","role":"node","os":"redhat:7"}
+ resize={"installer_url":"${INSTALLER_URL}","to":3,"flavor":"one","nodes":1,"role":"node","state_dir":"/var/lib/telekube","os":"ubuntu:18","storage_driver":"overlay2"}
+ resize={"installer_url":"${INSTALLER_URL}","to":6,"flavor":"three","nodes":3,"role":"node","state_dir":"/var/lib/telekube","os":"ubuntu:18","storage_driver":"overlay2"}
+ shrink={"installer_url":"${INSTALLER_URL}","nodes":3,"flavor":"three","role":"node","os":"redhat:7"}
 EOF
 )
   echo -n $suite
 }
 
-function build_ops_install_suite {
+function build_ops_suite {
   local suite=$(cat <<EOF
- install={"installer_url":"${OPSCENTER_URL}","nodes":1,"flavor":"standalone","role":"node","os":"ubuntu:18","ops_advertise_addr":"example.com:443"}
+ install={"installer_url":"${OPSCENTER_URL}","nodes":3,"flavor":"ha","role":"node","os":"ubuntu:18","ops_advertise_addr":"example.com:443"}
 EOF
 )
   echo -n $suite
 }
 
+function build_telekube_suite {
+  local suite=$(cat <<EOF
+ install={"installer_url":"${TELEKUBE_URL}","nodes":3,"flavor":"three","role":"node","os":"ubuntu:18"}
+EOF
+)
+  echo -n $suite
+}
 function build_install_suite {
   local suite=''
   local test_os="redhat:7 centos:7 debian:9 ubuntu:16 ubuntu:18"
@@ -86,7 +93,7 @@ function build_install_suite {
   for os in $test_os; do
     for size in ${cluster_sizes[@]}; do
       suite+=$(cat <<EOF
- install={${size},"os":"${os}","storage_driver":"overlay2"}
+ install={"installer_url":"${INSTALLER_URL}",${size},"os":"${os}","storage_driver":"overlay2"}
 EOF
 )
       suite+=' '
@@ -99,10 +106,16 @@ EOF
 if [[ ${1} == "upgradeversions" ]] ; then
     UPGRADE_VERSIONS=${!UPGRADE_MAP[@]}
     echo "$UPGRADE_VERSIONS"
+    exit
 elif [[ ${1} == "configuration" ]] ; then
     SUITE=""
-    SUITE="$SUITE $(build_install_suite)"
-    SUITE="$SUITE $(build_resize_suite)"
-    SUITE="$SUITE $(build_upgrade_suite)"
+    SUITE+=" $(build_telekube_suite)"
+    SUITE+=" $(build_ops_suite)"
+    SUITE+=" $(build_install_suite)"
+    SUITE+=" $(build_resize_suite)"
+    SUITE+=" $(build_upgrade_suite)"
     echo "$SUITE"
+else
+    echo "Unknown parameter: $1"
+    exit 1
 fi

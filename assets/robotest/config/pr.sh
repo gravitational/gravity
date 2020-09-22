@@ -36,16 +36,24 @@ function build_upgrade_suite {
 
 function build_resize_suite {
   local suite=$(cat <<EOF
- resize={"to":3,"flavor":"one","nodes":1,"role":"node","state_dir":"/var/lib/telekube","os":"ubuntu:18","storage_driver":"overlay2"}
- shrink={"nodes":3,"flavor":"three","role":"node","os":"redhat:7"}
+ resize={"installer_url":"${INSTALLER_URL}","nodes":1,"to":3,"flavor":"one","role":"node","state_dir":"/var/lib/telekube","os":"ubuntu:18","storage_driver":"overlay2"}
+ shrink={"installer_url":"${INSTALLER_URL}","nodes":3,"flavor":"three","role":"node","os":"redhat:7"}
 EOF
 )
     echo -n $suite
 }
 
-function build_ops_install_suite {
+function build_ops_suite {
   local suite=$(cat <<EOF
  install={"installer_url":"${OPSCENTER_URL}","nodes":1,"flavor":"standalone","role":"node","os":"ubuntu:18","ops_advertise_addr":"example.com:443"}
+EOF
+)
+  echo -n $suite
+}
+
+function build_telekube_suite {
+  local suite=$(cat <<EOF
+ install={"installer_url":"${TELEKUBE_URL}","nodes":3,"flavor":"three","role":"node","os":"ubuntu:18"}
 EOF
 )
   echo -n $suite
@@ -56,22 +64,25 @@ function build_install_suite {
   local test_os="centos:7"
   local cluster_size='"flavor":"three","nodes":3,"role":"node"'
   suite+=$(cat <<EOF
- install={${cluster_size},"os":"${test_os}","storage_driver":"overlay2"}
+ install={"installer_url":"${INSTALLER_URL}",${cluster_size},"os":"${test_os}","storage_driver":"overlay2"}
 EOF
 )
   suite+=' '
-  suite+=$(build_ops_install_suite)
   echo -n $suite
 }
 
 if [[ ${1} == "upgradeversions" ]] ; then
     UPGRADE_VERSIONS=${!UPGRADE_MAP[@]}
     echo "$UPGRADE_VERSIONS"
-    exit
 elif [[ ${1} == "configuration" ]] ; then
     SUITE=""
-    SUITE="$SUITE $(build_install_suite)"
-    SUITE="$SUITE $(build_resize_suite)"
-    SUITE="$SUITE $(build_upgrade_suite)"
+    SUITE+=" $(build_telekube_suite)"
+    SUITE+=" $(build_ops_suite)"
+    SUITE+=" $(build_install_suite)"
+    SUITE+=" $(build_resize_suite)"
+    SUITE+=" $(build_upgrade_suite)"
     echo "$SUITE"
+else
+    echo "Unknown parameter: $1"
+    exit 1
 fi
