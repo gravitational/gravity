@@ -6,7 +6,11 @@ ROOT := $(realpath $(TOP)/../..)
 # Makefile. They're redeclared here for direct invocation of this Makefile.
 
 BUILDDIR ?= $(ROOT)/build
-GRAVITY_VERSION ?= $(shell cd $(ROOT) && ./version.sh)
+# Use := instead of ?= for GRAVITY_VERSION to avoid running the same shell
+# command repeatedly upon recursive expansion.
+ifeq ($(origin GRAVITY_VERSION), undefined)
+GRAVITY_VERSION := $(shell cd $(ROOT) && ./version.sh)
+endif
 GRAVITY_BUILDDIR ?= $(BUILDDIR)/$(GRAVITY_VERSION)
 TELE_OUT ?= $(GRAVITY_BUILDDIR)/tele
 GRAVITY_OUT ?= $(GRAVITY_BUILDDIR)/gravity
@@ -106,13 +110,13 @@ ROBOTEST_OPSCENTER_IMAGE = $(ROBOTEST_IMAGEDIR)/opscenter-$(GRAVITY_VERSION).tar
 # ROBOTEST_TELEKUBE_IMAGE is robotest's copy of the telekube image, used for install testing.
 ROBOTEST_TELEKUBE_IMAGE = $(ROBOTEST_IMAGEDIR)/telekube-$(GRAVITY_VERSION).tar
 # ROBOTEST_UPGRADE_VERSIONS is a list of gravity semvers that will be used in upgrade testing.
-ROBOTEST_UPGRADE_VERSIONS = $(shell cd $(TOP)/config && $(ROBOTEST_CONFIG_SCRIPT) upgradeversions)
+ROBOTEST_UPGRADE_VERSIONS := $(shell cd $(TOP)/config && $(ROBOTEST_CONFIG_SCRIPT) upgradeversions)
 # ROBOTEST_TELE_BINARIES is the list of build specific tele binaries needed to
 # build all robotest upgrade images.
-ROBOTEST_TELE_BINARIES = $(addprefix $(ROBOTEST_TELE_CACHE)/tele-, $(ROBOTEST_UPGRADE_VERSIONS))
+ROBOTEST_TELE_BINARIES := $(addprefix $(ROBOTEST_TELE_CACHE)/tele-, $(ROBOTEST_UPGRADE_VERSIONS))
 # ROBOTEST_UPGRADE_IMAGES is the list of build specific upgrade images, suitable
 # for mounting into the robotest docker container. These are not shared stated.
-ROBOTEST_UPGRADE_IMAGES = $(addsuffix .tar, $(addprefix $(ROBOTEST_IMAGEDIR)/robotest-, $(ROBOTEST_UPGRADE_VERSIONS)))
+ROBOTEST_UPGRADE_IMAGES := $(addsuffix .tar, $(addprefix $(ROBOTEST_IMAGEDIR)/robotest-, $(ROBOTEST_UPGRADE_VERSIONS)))
 # ROBOTEST_IMAGES is all build specific cluster images/targets needed to run robotest.
 ROBOTEST_IMAGES = $(ROBOTEST_TELEKUBE_IMAGE) $(ROBOTEST_OPSCENTER_IMAGE) $(ROBOTEST_IMAGE) $(ROBOTEST_UPGRADE_IMAGES)
 
