@@ -41,9 +41,7 @@ import (
 	"github.com/gravitational/gravity/lib/update"
 	clusterupdate "github.com/gravitational/gravity/lib/update/cluster"
 	"github.com/gravitational/gravity/lib/utils"
-	"github.com/gravitational/gravity/tool/common"
 
-	"github.com/buger/goterm"
 	"github.com/cenkalti/backoff"
 	teleclient "github.com/gravitational/teleport/lib/client"
 	"github.com/gravitational/trace"
@@ -429,49 +427,65 @@ func rpcAgentShutdown(env *localenv.LocalEnvironment) error {
 func rpcAgentStatus(env *localenv.LocalEnvironment) error {
 	env.PrintStep("Collecting RPC agent status")
 
-	operator, err := env.SiteOperator()
+	statusList, err := collectAgentStatus(env)
 	if err != nil {
 		return trace.Wrap(err)
+	}
+
+	env.Println(statusList.String())
+
+	if !statusList.AgentsActive() {
+		return trace.BadParameter("some agents are offline")
+	}
+
+	return nil
+}
+
+// collectAgentStatus collects the gravity agent status from all members of the
+// cluster.
+func collectAgentStatus(env *localenv.LocalEnvironment) (statusList rpc.StatusList, err error) {
+	operator, err := env.SiteOperator()
+	if err != nil {
+		return statusList, trace.Wrap(err)
 	}
 
 	creds, err := fsm.GetClientCredentials()
 	if err != nil {
-		return trace.Wrap(err)
+		return statusList, trace.Wrap(err)
 	}
 
 	cluster, err := operator.GetLocalSite()
 	if err != nil {
-		return trace.Wrap(err)
+		return statusList, trace.Wrap(err)
 	}
 
 	timeout, err := utils.GetenvDuration(constants.AgentStatusTimeoutEnvVar)
 	if err != nil {
-		timeout = defaults.AgentStatusTimeout
+		timeout = defaults.AgentRequestTimeout
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	statusList := rpc.CollectAgentStatus(ctx, cluster.ClusterState.Servers, fsm.NewAgentRunner(creds))
+	statusList = rpc.CollectAgentStatus(ctx, cluster.ClusterState.Servers, fsm.NewAgentRunner(creds))
+	return statusList, nil
+}
 
-	var errs []error
-
-	t := goterm.NewTable(0, 10, 5, ' ', 0)
-	common.PrintTableHeader(t, []string{"Hostname", "Address", "Status", "Version"})
-	for _, status := range statusList {
-		fmt.Fprintf(t, "%s\t%s\t%s\t%s\n", status.Hostname, status.Address, status.Status, status.Version)
-		if status.Error != nil {
-			log.WithError(status.Error).Debugf("Failed to collect agent status on %s.", status.Address)
-			errs = append(errs, status.Error)
-		}
+// verifyOrDeployAgents verifies that all agents are active or attempts to
+// re-deploy agents.
+func verifyOrDeployAgents(env *localenv.LocalEnvironment) error {
+	statusList, err := collectAgentStatus(env)
+	if err != nil {
+		return trace.Wrap(err, "failed to collect agent status")
 	}
-	env.Println(t.String())
-
-	if len(errs) > 0 {
-		log.Warn("Some agents are offline.")
-		return trace.BadParameter("some agents are offline")
+	if statusList.AgentsActive() {
+		return nil
 	}
-
+	if err := rpcAgentDeploy(env, deployOptions{}); err != nil {
+		log.WithError(err).Error("Failed to deploy agents.")
+		env.Println(statusList.String())
+		return trace.BadParameter("some agents are offline; ensure all agents are deployed with `./gravity agent deploy`")
+	}
 	return nil
 }
 
