@@ -8,7 +8,7 @@ spec:
     metadata:
       name: echoserver-install
     spec:
-      restartPolicy: Never
+      restartPolicy: OnFailure
       containers:
         - name: echoserver-install
           image: quay.io/gravitational/debian-tall:buster
