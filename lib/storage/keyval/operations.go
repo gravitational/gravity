@@ -57,6 +57,14 @@ func (b *backend) GetSiteOperation(siteDomain, operationID string) (*storage.Sit
 	if operationID == "" {
 		return nil, trace.BadParameter("missing parameter OperationID")
 	}
+
+	b.cachedCompleteOperationsMutex.RLock()
+	if op, ok := b.cachedCompleteOperations[operationID]; ok {
+		b.cachedCompleteOperationsMutex.RUnlock()
+		return op, nil
+	}
+	b.cachedCompleteOperationsMutex.RUnlock()
+
 	var op storage.SiteOperation
 	if err := b.getVal(b.key(sitesP, siteDomain, operationsP, operationID, valP), &op); err != nil {
 		if trace.IsNotFound(err) {
@@ -66,6 +74,14 @@ func (b *backend) GetSiteOperation(siteDomain, operationID string) (*storage.Sit
 	}
 	utils.UTC(&op.Created)
 	utils.UTC(&op.Updated)
+
+	// Operations that are not expected to change in the future are the only operations that are safe to cache
+	if op.State == storage.OperationPhaseStateCompleted || op.State == storage.OperationPhaseStateRolledBack {
+		b.cachedCompleteOperationsMutex.Lock()
+		b.cachedCompleteOperations[operationID] = &op
+		b.cachedCompleteOperationsMutex.Unlock()
+	}
+
 	return &op, nil
 }
 
@@ -96,20 +112,32 @@ func (b *backend) GetSiteOperations(siteDomain string) ([]storage.SiteOperation,
 		}
 		return nil, trace.Wrap(err)
 	}
+
 	var out []storage.SiteOperation
+	var uncachedOperations []string
+
+	b.cachedCompleteOperationsMutex.RLock()
 	for _, id := range ids {
-		var op storage.SiteOperation
-		err = b.getVal(b.key(sitesP, siteDomain, operationsP, id, valP), &op)
+		if op, ok := b.cachedCompleteOperations[id]; ok {
+			out = append(out, *op)
+		} else {
+			uncachedOperations = append(uncachedOperations, id)
+		}
+	}
+	b.cachedCompleteOperationsMutex.RUnlock()
+
+	for _, id := range uncachedOperations {
+		op, err := b.GetSiteOperation(siteDomain, id)
 		if err != nil {
 			if !trace.IsNotFound(err) {
 				return nil, trace.Wrap(err)
 			}
 			continue
 		}
-		utils.UTC(&op.Created)
-		utils.UTC(&op.Updated)
-		out = append(out, op)
+
+		out = append(out, *op)
 	}
+
 	sort.Sort(operationsSorter(out))
 	return out, nil
 }

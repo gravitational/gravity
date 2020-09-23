@@ -2188,7 +2188,7 @@ func (p *Process) ensureClusterState() error {
 		SiteDomain: site.Domain,
 	}
 
-	operations, err := p.operator.GetSiteOperations(siteKey)
+	operations, err := p.operator.GetSiteOperations(siteKey, ops.OperationsFilter{})
 	if err != nil {
 		return trace.Wrap(err)
 	}

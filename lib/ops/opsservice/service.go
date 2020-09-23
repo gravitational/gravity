@@ -165,6 +165,11 @@ type Operator struct {
 
 	// FieldLogger allows this operator to log messages
 	log.FieldLogger
+
+	// cachedProvisioningToken holds an in memory cache of which token is the cluster provisioning token.
+	cachedProvisioningToken string
+	// cachedProvisioningTokenMutex provides a mutex on use of the cached provisioning token.
+	cachedProvisioningTokenMutex sync.RWMutex
 }
 
 // New creates an instance of the Operator service
@@ -433,6 +438,20 @@ func (o *Operator) CreateProvisioningToken(token storage.ProvisioningToken) erro
 }
 
 func (o *Operator) GetExpandToken(key ops.SiteKey) (*storage.ProvisioningToken, error) {
+	o.cachedProvisioningTokenMutex.RLock()
+	if o.cachedProvisioningToken != "" {
+		// security: make sure to re-retrieve the token from the backend in case it's been updated or removed
+		token, err := o.backend().GetProvisioningToken(o.cachedProvisioningToken)
+		if err != nil && !trace.IsNotFound(err) {
+			return nil, trace.Wrap(err)
+		}
+
+		if token != nil {
+			return token, nil
+		}
+	}
+	o.cachedProvisioningTokenMutex.RUnlock()
+
 	tokens, err := o.backend().GetSiteProvisioningTokens(key.SiteDomain)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -441,6 +460,9 @@ func (o *Operator) GetExpandToken(key ops.SiteKey) (*storage.ProvisioningToken, 
 	for _, token := range tokens {
 		// return long-lived join token
 		if token.Type == storage.ProvisioningTokenTypeExpand && token.Expires.IsZero() {
+			o.cachedProvisioningTokenMutex.Lock()
+			o.cachedProvisioningToken = token.Token
+			o.cachedProvisioningTokenMutex.Unlock()
 			return &token, nil
 		}
 	}
@@ -885,7 +907,7 @@ func (o *Operator) SignSSHKey(req ops.SSHSignRequest) (*ops.SSHSignResponse, err
 	}, nil
 }
 
-func (o *Operator) GetSiteOperations(key ops.SiteKey) (ops.SiteOperations, error) {
+func (o *Operator) GetSiteOperations(key ops.SiteKey, f ops.OperationsFilter) (ops.SiteOperations, error) {
 	_, err := o.openSite(key)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -894,7 +916,10 @@ func (o *Operator) GetSiteOperations(key ops.SiteKey) (ops.SiteOperations, error
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return ops.SiteOperations(operations), nil
+
+	filtered := f.Filter(ops.SiteOperations(operations))
+
+	return filtered, nil
 }
 
 // GetsiteOperation returns the operation information based on it's key

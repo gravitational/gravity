@@ -19,8 +19,10 @@ package keyval
 import (
 	"encoding/base64"
 	"encoding/json"
+	"sync"
 	"time"
 
+	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/trace"
 	"github.com/jonboulle/clockwork"
 	log "github.com/sirupsen/logrus"
@@ -30,6 +32,9 @@ import (
 type backend struct {
 	clockwork.Clock
 	kvengine
+
+	cachedCompleteOperations      map[string]*storage.SiteOperation
+	cachedCompleteOperationsMutex sync.RWMutex
 }
 
 func (b *backend) ttl(t time.Time) time.Duration {
