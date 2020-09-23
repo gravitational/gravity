@@ -223,9 +223,6 @@ const (
 	// AgentStopTimeout is amount of time agent gets to gracefully shut down
 	AgentStopTimeout = 10 * time.Second
 
-	// AgentStatusTimeout specifies the timeout for agent status query
-	AgentStatusTimeout = 5 * time.Second
-
 	// PeerConnectTimeout is the timeout of an RPC agent connecting to its peer
 	PeerConnectTimeout = 10 * time.Second
 
