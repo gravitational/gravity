@@ -22,7 +22,5 @@ TMP=$(mktemp -d -p "$BUILD_TMP")
 trap "rm -rf \"$TMP\"" exit
 
 wget --no-verbose "https://get.gravitational.com/gravity-$VERSION-linux-x86_64-bin.tar.gz" --directory-prefix "$TMP"
-tar -xzf "$TMP/gravity-$VERSION-linux-x86_64-bin.tar.gz" -C "$TMP"
-# touch because unpacking from gnu tar keeps the original mtime
-touch "$TMP/tele"
+tar --touch -xzf "$TMP/gravity-$VERSION-linux-x86_64-bin.tar.gz" -C "$TMP"
 mv "$TMP/tele" "$TARGET"
