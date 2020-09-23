@@ -21,7 +21,7 @@ allow the test configuration to refer to installer tars:
  * INSTALLER_URL
 
 `./script.sh configuration` must return a robotest suite configuration as described in
-https://github.com/gravitational/robotest/blob/master/suite/README.md.  For instance:
+https://github.com/gravitational/robotest/blob/v2.1.0/suite/README.md.  For instance:
 
 ```
 $ ./script.sh configuration
