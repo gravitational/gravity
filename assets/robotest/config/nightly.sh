@@ -99,7 +99,6 @@ EOF
       suite+=' '
     done
   done
-  suite+=$(build_ops_install_suite)
   echo -n $suite
 }
 
