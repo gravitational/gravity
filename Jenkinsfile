@@ -55,13 +55,13 @@ def robotest() {
     }
   }
   runRobotest = (env.RUN_ROBOTEST == 'run')
-    stage('build robotest images') {
-      if (runRobotest) {
-        sh 'make -C e/assets/robotest images'
-      } else {
-        echo 'skipping building robotest images'
-      }
+  stage('build robotest images') {
+    if (runRobotest) {
+      sh 'make -C e/assets/robotest images'
+    } else {
+      echo 'skipping building robotest images'
     }
+  }
   throttle(['robotest']) {
     stage('run robotest') {
       if (runRobotest) {
