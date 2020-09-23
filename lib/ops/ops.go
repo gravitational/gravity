@@ -876,6 +876,7 @@ type OperationsFilter struct {
 	Type string
 }
 
+// URLValues converts the filter to a set of URL values that can be passed via the API
 func (f OperationsFilter) URLValues() (res url.Values) {
 	res = url.Values{}
 
@@ -906,6 +907,7 @@ func (f OperationsFilter) URLValues() (res url.Values) {
 	return
 }
 
+// FilterFromURLValues returns an operations filter based on set URL values
 func FilterFromURLValues(v url.Values) (f OperationsFilter) {
 	if _, ok := v["last"]; ok {
 		f.Last = true
@@ -936,6 +938,7 @@ func FilterFromURLValues(v url.Values) (f OperationsFilter) {
 	return
 }
 
+// Filter takes a list of operations and filters the results based on the set filter parameters
 func (filter OperationsFilter) Filter(in SiteOperations) SiteOperations {
 	if len(in) == 0 {
 		return nil
