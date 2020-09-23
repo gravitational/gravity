@@ -126,7 +126,7 @@ func systemStatus() Collectors {
 func syslogExportLogs(since time.Duration) Collector {
 	var script = `
 #!/bin/bash
-/bin/journalctl --no-pager --output=export `
+/bin/journalctl --no-pager `
 	if since != 0 {
 		script = script + fmt.Sprintf(`--since="%s" `, time.Now().Add(-since).Format(JournalDateFormat))
 	}
@@ -151,11 +151,7 @@ cat %v 2> /dev/null || true`
 // planetLogs fetches planet syslog messages as well as the fresh journal entries
 func planetLogs(since time.Duration) Collectors {
 	return Collectors{
-		// Fetch planet journal entries for the last two days
-		// The log can be imported as a journal with systemd-journal-remote:
-		//
-		// $ cat ./node-1-planet-journal-export.log | /lib/systemd/systemd-journal-remote -o ./journal/system.journal -
-		Self("planet-journal-export.log.gz",
+		Self("planet-journal.log.gz",
 			"system", "export-runtime-journal", "--since", since.String()),
 	}
 }

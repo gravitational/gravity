@@ -124,7 +124,6 @@ func streamRuntimeJournal(env *localenv.LocalEnvironment, since time.Duration) e
 	const cmd = defaults.JournalctlBinHost
 	args := []string{
 		cmd,
-		"--output", "export",
 		"-D", journalDir,
 	}
 	if since != 0 {
