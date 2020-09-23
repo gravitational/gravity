@@ -19,7 +19,8 @@ TELEKUBE_OUT ?= $(GRAVITY_BUILDDIR)/telekube.tar
 PACKAGES_DIR ?= $(GRAVITY_BUILDDIR)/packages
 # ROBOTEST_DOWNLOAD_TELE_SCRIPT allows the e Makefile to override how tele binaries are sourced.
 ROBOTEST_DOWNLOAD_TELE_SCRIPT ?= $(TOP)/download_tele.sh
-# ROBOTEST_CACHE_FLAVOR may be overriden to specify a non-compatible cache.
+# ROBOTEST_CACHE_FLAVOR is a cache subdirectory. It may be overridden to specify a non-compatible
+# (e.g. enterprise) cache.
 ROBOTEST_CACHE_FLAVOR ?= oss
 # ROBOTEST_CONFIG is the desired robotest configuration (pr, nightly)
 ROBOTEST_CONFIG = pr
@@ -66,14 +67,15 @@ endif
 #   $(HOME)/.gravity
 ROBOTEST_GRAVITY_PKG_CACHE ?=  $(ROBOTEST_CACHEDIR)/gravity-state
 # ROBOTEST_CACHE_TMP is a staging directory for building/copying/unpacking content
-# before an atomic rename into the. Must be on the same filesystem as ROBOTEST_TELE_CACHE
+# before an atomic rename into ROBOTEST_TELE_CACHE. Must be on the same filesystem
+# as ROBOTEST_TELE_CACHE.
 ROBOTEST_CACHE_TMP = $(ROBOTEST_CACHEDIR)/tmp
 # ROBOTEST_TELE_CACHE is a filesytem cache storing prebuilt tele binaries for
 # different gravity versions. ROBOTEST_TELE_CACHE may be shared between many
 # parallel robotest builds in CI infra.
 ROBOTEST_TELE_CACHE ?= $(ROBOTEST_CACHEDIR)/tele
 # ROBOTEST_CACHES are all the directories on this machine used to speed up
-# upgrade artifact contruction by avoiding redownloading/rebuilding released
+# upgrade artifact construction by avoiding redownloading/rebuilding released
 # artifacts.
 ROBOTEST_CACHES = $(ROBOTEST_GRAVITY_PKG_CACHE) $(ROBOTEST_TELE_CACHE)
 
@@ -90,7 +92,7 @@ ROBOTEST_IMAGEDIR = $(ROBOTEST_BUILDDIR)/images
 # It is mounted into a build container.
 ROBOTEST_IMAGE_SRCDIR = $(TOP)/current
 # ROBOTEST_IMAGE_SRC are the files that affect the robotest application.  If any
-# of these change, all robotest images must be rebuilt.
+# of these change, the robotest image must be rebuilt.
 ROBOTEST_IMAGE_SRC := $(shell find $(ROBOTEST_IMAGE_SRCDIR) -type f)
 # ROBOTEST_IMAGE_MANIFEST is the gravity application manifest to build into robotest images.
 ROBOTEST_IMAGE_MANIFEST = $(ROBOTEST_IMAGE_SRCDIR)/app.yaml
@@ -98,7 +100,8 @@ ROBOTEST_IMAGE_MANIFEST = $(ROBOTEST_IMAGE_SRCDIR)/app.yaml
 # ROBOTEST_UPGRADE_BASE_IMAGE_SRCDIR is the directory containing all sources to build the
 # robotest upgrade base application. It is mounted into a build container.
 ROBOTEST_UPGRADE_BASE_IMAGE_SRCDIR = $(TOP)/upgrade-base
-# ROBOTEST_UPGRADE_BASE_IMAGE_SRC is the gravity application manifest to build into robotest images.
+# ROBOTEST_UPGRADE_BASE_IMAGE_SRC are the files that affect the robotest application.  If any
+# of these change, all robotest upgrade base images must be rebuilt.
 ROBOTEST_UPGRADE_BASE_IMAGE_SRC := $(shell find $(ROBOTEST_UPGRADE_BASE_IMAGE_SRCDIR) -type f)
 # ROBOTEST_UPGRADE_BASE_IMAGE_MANIFEST is the gravity application manifest to build into robotest images.
 ROBOTEST_UPGRADE_BASE_IMAGE_MANIFEST = $(ROBOTEST_UPGRADE_BASE_IMAGE_SRCDIR)/app.yaml
@@ -115,7 +118,7 @@ ROBOTEST_UPGRADE_VERSIONS := $(shell cd $(TOP)/config && $(ROBOTEST_CONFIG_SCRIP
 # build all robotest upgrade images.
 ROBOTEST_TELE_BINARIES := $(addprefix $(ROBOTEST_TELE_CACHE)/tele-, $(ROBOTEST_UPGRADE_VERSIONS))
 # ROBOTEST_UPGRADE_IMAGES is the list of build specific upgrade images, suitable
-# for mounting into the robotest docker container. These are not shared stated.
+# for mounting into the robotest docker container. These are not shared state.
 ROBOTEST_UPGRADE_IMAGES := $(addsuffix .tar, $(addprefix $(ROBOTEST_IMAGEDIR)/robotest-, $(ROBOTEST_UPGRADE_VERSIONS)))
 # ROBOTEST_IMAGES is all build specific cluster images/targets needed to run robotest.
 ROBOTEST_IMAGES = $(ROBOTEST_TELEKUBE_IMAGE) $(ROBOTEST_OPSCENTER_IMAGE) $(ROBOTEST_IMAGE) $(ROBOTEST_UPGRADE_IMAGES)

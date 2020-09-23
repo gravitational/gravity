@@ -1,11 +1,11 @@
 #!/bin/bash
 #
-# This file is used to download tele binaries.  It provies the following benefits:
+# This file is used to download tele binaries.  It provides the following benefits:
 #
-#  1) Atomicity.  The TARGET is either complete or absent. (So long as long as
+#  1) Atomicity.  The TARGET is either complete or absent. (So long as
 #     BUILD_TMP is on the same filesystem as TARGET and that fs supports atomic
 #     renames). This means no half finished files for Make to trip on.
-#  2) The file can be overridden/replaced in the make file to allow enterprise
+#  2) The file can be overridden/replaced in the Makefile to allow enterprise
 #     specific functionaltiy.
 #
 # The following environment variables must be specified by the caller:

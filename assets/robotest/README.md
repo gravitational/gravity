@@ -33,7 +33,7 @@ populated with cluster images needed to run robotest.
 
 ### Running Robotest
 
-Before runnning robotest, set the following environment variables needed to
+Before running robotest, set the following environment variables needed to
 provision & connect to infrastructure.
 
 ```bash
@@ -59,7 +59,7 @@ try the following:
 ### Using Alternative Configurations
 
 By default, all targets use the `pr` configuration found in the `config/`
-directory. A `noop` configuration this does not rely on any upgrade images is
+directory. A `noop` configuration that does not rely on any upgrade images is
 provided to quickly test robotest build & execution.  To use alternative configs:
 
 ```
@@ -101,13 +101,13 @@ binaries and packages every time a commit is made. To reuse the last Gravity bui
 (including `tele`, `gravity`, and the package cache):
 
 ```
-make -C assets/robotest GRAVITY_BUILDDIR=build/current images
+make -C assets/robotest GRAVITY_BUILDDIR=$(pwd)/build/current images
 ```
 
 ## File Structure
 
  * `Makefile` is the entrypoint. Run `make help` to see targets.
- * `config/` contain branch specific suite configurations. See the README.md therein.
+ * `config/` contains branch specific suite configurations. See the README.md therein.
  * `current/` includes the version of the robotest cluster image to be used
    with the gravity version at this commit.
  * `upgrade-base/` includes an "older" version of the robotest cluster image
@@ -144,7 +144,7 @@ the Gravity Makefiles.  This *must* occur after a successful `make telekube`
 For upgrade to/from versions:
 
  1. Download & cache appropriate tele from the gravity release infrastructure.
- 2. Build the the robotest image using the `upgrade-base` manifest
+ 2. Build the robotest image using the `upgrade-base` manifest
     with the downloaded tele.
 
 Caching is critical because (as of 2020-09):

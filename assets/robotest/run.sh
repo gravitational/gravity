@@ -6,10 +6,10 @@ set -o pipefail
 readonly TARGET=${1:?Usage: [path to config]}
 
 GRAVITY_URL=${GRAVITY_URL:?Set GRAVITY_URL to the current gravity binary}
-IMAGEDIR_MOUNTPOINT=${IMAGEDIR_MOUNTPOINT:? Set IMAGEDIR_MOUNTPOINT to the mountpoint where imags will be availabe inside the container}
+IMAGEDIR_MOUNTPOINT=${IMAGEDIR_MOUNTPOINT:? Set IMAGEDIR_MOUNTPOINT to the mountpoint where images will be availabe inside the container}
 INSTALLER_URL=${INSTALLER_URL:?Set INSTALLER_URL to the container local default robotest image}
 OPSCENTER_URL=${OPSCENTER_URL:?Set OPSCENTER_URL to the container local opscenter image}
-TELEKUBE_URL=${TELEKUBE_URL:?Set TELEKUBE_URL to the container local opscenter image}
+TELEKUBE_URL=${TELEKUBE_URL:?Set TELEKUBE_URL to the container local telekube image}
 IMAGEDIR=${IMAGEDIR:? Set IMAGEDIR to the directory with robotest images}
 STATEDIR=${STATEDIR:?Set STATEDIR to a suitable place to store robotest terraform state and logs}
 
@@ -40,7 +40,7 @@ EXTRA_VOLUME_MOUNTS="-v $IMAGEDIR:$IMAGEDIR_MOUNTPOINT"
 export INSTALLER_URL TELEKUBE_URL OPSCENTER_URL IMAGEDIR_MOUNTPOINT
 SUITE=$($TARGET configuration)
 
-# GRAVTIY_FILE/GRAVITY_URL specify the location of the up-to-date gravity binary
+# GRAVITY_FILE/GRAVITY_URL specify the location of the up-to-date gravity binary
 if [ -d $(dirname ${GRAVITY_URL}) ]; then
   GRAVITY_FILE='/robotest-bin/'$(basename ${GRAVITY_URL})
   EXTRA_VOLUME_MOUNTS=${EXTRA_VOLUME_MOUNTS:-}" -v "$(dirname ${GRAVITY_URL}):$(dirname ${GRAVITY_FILE})
