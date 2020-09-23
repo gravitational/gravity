@@ -11,7 +11,7 @@
 #
 # The following environment variables must be specified by the caller:
 #
-# IMAGE - A docker cotainer that the build will run in
+# IMAGE - A docker container that the build will run in
 # BUILD_TMP - Partially constructed images are built here. Must be on the same filesystem as TARGET for atomic move operations.
 # TARGET - Where the cluster image should end up
 # TELE  - The tele to build the image, should typically be equal to VERSION
