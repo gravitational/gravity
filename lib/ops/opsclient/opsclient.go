@@ -109,6 +109,15 @@ func WithLocalDialer(dialer httplib.Dialer) ClientParam {
 // ClientParam defines the API to override configuration on client c
 type ClientParam func(c *Client) error
 
+// Ping calls the operator service status endpoint.
+func (c *Client) Ping(ctx context.Context) error {
+	_, err := c.Get(c.Endpoint("status"), url.Values{})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
 func (c *Client) GetAccount(accountID string) (*ops.Account, error) {
 	out, err := c.Get(c.Endpoint("accounts", accountID), url.Values{})
 	if err != nil {
