@@ -17,12 +17,13 @@ package update
 
 import (
 	"context"
-	"strings"
+	"os/exec"
 	"time"
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/storage/keyval"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/cenkalti/backoff"
@@ -38,7 +39,7 @@ type Reconciler interface {
 
 // NewDefaultReconciler returns an implementation of Reconciler that syncs changes between
 // the authoritative and the remote backends
-func NewDefaultReconciler(remote, authoritative storage.Backend, clusterName, operationID string, logger logrus.FieldLogger) *reconciler {
+func NewDefaultReconciler(remote keyval.EtcdBackend, authoritative storage.Backend, clusterName, operationID string, logger logrus.FieldLogger) *reconciler {
 	return &reconciler{
 		FieldLogger:  logger,
 		backend:      remote,
@@ -67,25 +68,33 @@ func (r *reconciler) ReconcilePlan(ctx context.Context, plan storage.OperationPl
 }
 
 func (r *reconciler) trySyncChangelogToEtcd(ctx context.Context) error {
-	disabled, err := isEtcdDisabled(ctx, r.FieldLogger)
-	if err == nil && disabled {
-		r.Info("Etcd disabled, skipping plan sync.")
-		return nil
+	shouldSync, err := isEtcdAvailable(ctx, r.FieldLogger)
+	if err != nil {
+		return trace.Wrap(err)
 	}
-	return trace.Wrap(r.syncChangelog(ctx, r.localBackend, r.backend))
+
+	if shouldSync {
+		return trace.Wrap(r.syncChangelog(ctx, r.localBackend, r.backend))
+	}
+
+	return nil
 }
 
 func (r *reconciler) trySyncChangelogFromEtcd(ctx context.Context) error {
-	disabled, err := isEtcdDisabled(ctx, r.FieldLogger)
-	if err == nil && disabled {
-		r.Info("Etcd disabled, skipping plan sync.")
-		return nil
+	shouldSync, err := isEtcdAvailable(ctx, r.FieldLogger)
+	if err != nil {
+		return trace.Wrap(err)
 	}
-	return trace.Wrap(r.syncChangelog(ctx, r.backend, r.localBackend))
+
+	if shouldSync {
+		return trace.Wrap(r.syncChangelog(ctx, r.backend, r.localBackend))
+	}
+
+	return nil
 }
 
 // syncChangelog will sync changelog entries from src to dst storage
-func (r *reconciler) syncChangelog(ctx context.Context, src storage.Backend, dst storage.Backend) error {
+func (r *reconciler) syncChangelog(ctx context.Context, src, dst storage.Backend) error {
 	b := backoff.NewExponentialBackOff()
 	b.MaxInterval = 1 * time.Minute
 	b.MaxElapsedTime = 5 * time.Minute
@@ -96,9 +105,10 @@ func (r *reconciler) syncChangelog(ctx context.Context, src storage.Backend, dst
 
 type reconciler struct {
 	logrus.FieldLogger
-	backend, localBackend storage.Backend
-	cluster               string
-	operationID           string
+	backend      keyval.EtcdBackend
+	localBackend storage.Backend
+	cluster      string
+	operationID  string
 }
 
 // SyncChangelog will sync changelog entries from src to dst storage
@@ -124,26 +134,16 @@ func SyncChangelog(src storage.Backend, dst storage.Backend, clusterName string,
 	return nil
 }
 
-// isEtcdDisabled checks whether the etcd service on this node is disabled
-func isEtcdDisabled(ctx context.Context, logger logrus.FieldLogger) (enabled bool, err error) {
-	out, err := utils.RunCommand(ctx, logger, utils.PlanetCommandArgs(defaults.SystemctlBin, "is-enabled", "etcd")...)
-	if err == nil {
-		// Unit is not disabled
-		return false, nil
+// isEtcdAvailable verifies that the etcd cluster is healthy
+func isEtcdAvailable(ctx context.Context, logger logrus.FieldLogger) (bool, error) {
+	_, err := utils.RunCommand(ctx, logger, utils.PlanetCommandArgs(defaults.EtcdCtlBin, "cluster-health")...)
+	if err != nil {
+		// etcdctl uses an exit code if the health cannot be checked
+		// so we don't need to return an error
+		if _, ok := trace.Unwrap(err).(*exec.ExitError); ok {
+			return false, nil
+		}
+		return false, trace.Wrap(err)
 	}
-	exitCode := utils.ExitStatusFromError(err)
-	// See https://www.freedesktop.org/software/systemd/man/systemctl.html#is-enabled%20UNIT%E2%80%A6
-	if exitCode == nil || *exitCode != 1 {
-		return false, trace.Wrap(err, "failed to determine etcd status: %s", out)
-	}
-	return isServiceDisabled(string(out)), nil
+	return true, nil
 }
-
-func isServiceDisabled(status string) bool {
-	if status == serviceStatusDisabled {
-		return true
-	}
-	return strings.HasPrefix(status, "masked")
-}
-
-const serviceStatusDisabled = "disabled"

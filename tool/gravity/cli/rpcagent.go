@@ -17,6 +17,7 @@ limitations under the License.
 package cli
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -542,6 +543,30 @@ func getGravityPackage() loc.Locator {
 		Name:       constants.GravityPackage,
 		Version:    strings.Split(ver.Version, "+")[0],
 	}
+}
+
+// String returns a textual representation of this request suitable
+// for logging
+func (r deployAgentsRequest) String() string {
+	var buf bytes.Buffer
+	fmt.Fprint(&buf, "deploy(cluster=", r.cluster.Domain)
+	if r.leader != nil {
+		fmt.Fprint(&buf, ",leader(addr=", r.leader.AdvertiseIP, ",params=", r.leaderParams, ")")
+	}
+	if r.version != "" {
+		fmt.Fprint(&buf, ",version=", r.version)
+	}
+	if len(r.servers) != 0 {
+		fmt.Fprint(&buf, ",servers(")
+	}
+	for _, s := range r.servers {
+		fmt.Fprint(&buf, "addr=", s.AdvertiseIP, ",")
+	}
+	if len(r.servers) != 0 {
+		fmt.Fprint(&buf, ")")
+	}
+	fmt.Fprint(&buf, ")")
+	return buf.String()
 }
 
 type deployAgentsRequest struct {

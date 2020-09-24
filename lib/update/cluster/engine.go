@@ -316,8 +316,9 @@ func (f *engine) reconcilePlan(ctx context.Context) error {
 	}
 	f.plan = *plan
 	var buf bytes.Buffer
+	type s string
 	fsm.FormatOperationPlanText(&buf, f.plan)
-	f.Debugf("Reconciled plan: %v.", buf.String())
+	f.WithField("plan", s(buf.String())).Debug("Reconciled plan.")
 	return nil
 }
 

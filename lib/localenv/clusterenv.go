@@ -31,7 +31,6 @@ import (
 	"github.com/gravitational/gravity/lib/ops/opsservice"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/pack/localpack"
-	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/keyval"
 	"github.com/gravitational/gravity/lib/systeminfo"
 	"github.com/gravitational/gravity/lib/users"
@@ -85,7 +84,7 @@ func (r *LocalEnvironment) NewClusterEnvironment(opts ...ClusterEnvironmentOptio
 // ClusterEnvironment provides access to local cluster services
 type ClusterEnvironment struct {
 	// Backend is the cluster etcd backend
-	Backend storage.Backend
+	Backend keyval.EtcdBackend
 	// Packages is the package service that talks to local storage
 	Packages pack.PackageService
 	// ClusterPackages is the package service that talks to cluster API

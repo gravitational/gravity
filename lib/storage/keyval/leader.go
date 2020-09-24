@@ -27,7 +27,9 @@ import (
 type electingBackend struct {
 	storage.Backend
 	storage.Leader
-	client etcd.Client
+
+	backend *backend
+	engine  *engine
 }
 
 // AddWatch starts watching the key for changes and sending them
@@ -48,7 +50,17 @@ func (b *electingBackend) StepDown() {
 	b.Leader.StepDown()
 }
 
+func (b *electingBackend) CopyWithOptions(opts ...EtcdOption) storage.Backend {
+	engine := b.engine.copyWithOptions(opts...)
+	return &electingBackend{
+		Backend: b.backend,
+		Leader:  b.Leader,
+		backend: b.backend,
+		engine:  engine,
+	}
+}
+
 // api returns etcd API client used by tests
 func (b *electingBackend) api() etcd.KeysAPI {
-	return etcd.NewKeysAPI(b.client)
+	return etcd.NewKeysAPI(b.engine.client)
 }

@@ -21,9 +21,9 @@ import (
 	"encoding/json"
 	"time"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/gravitational/trace"
 	"github.com/jonboulle/clockwork"
+	log "github.com/sirupsen/logrus"
 )
 
 // backend implements storage interface, it also acts as a codec
