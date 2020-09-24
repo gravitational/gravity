@@ -17,8 +17,10 @@ limitations under the License.
 package builder
 
 import (
+	"bytes"
 	"fmt"
 	"net/url"
+	"os/exec"
 	"runtime"
 
 	"github.com/gravitational/gravity/lib/defaults"
@@ -63,15 +65,25 @@ func checkBuildEnv() error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	_, err = client.Version()
-	if err != nil {
-		log.Error(trace.DebugReport(err))
-		return trace.BadParameter(
-			`Docker does not seem to be available on this machine.
+	dockerErr := trace.BadParameter(
+		`Docker does not seem to be available on this machine.
 To resolve the issue:
   * Install Docker (https://docs.docker.com/engine/installation/).
   * Make sure it can be used by a non-root user (https://docs.docker.com/install/linux/linux-postinstall/).`)
+
+	_, err = client.Version()
+	if err != nil {
+		log.WithError(err).Error("failed to validate docker client connectivity")
+		return dockerErr
 	}
+
+	var out bytes.Buffer
+	err = utils.Exec(exec.Command("docker", "version"), &out)
+	if err != nil {
+		log.WithError(err).Errorf("failed to validate docker binary, output: %q", out.String())
+		return dockerErr
+	}
+
 	return nil
 }
 
