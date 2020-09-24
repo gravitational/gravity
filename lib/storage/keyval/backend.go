@@ -33,8 +33,8 @@ type backend struct {
 	clockwork.Clock
 	kvengine
 
-	cachedCompleteOperations      map[string]*storage.SiteOperation
 	cachedCompleteOperationsMutex sync.RWMutex
+	cachedCompleteOperations      map[string]*storage.SiteOperation
 }
 
 func (b *backend) ttl(t time.Time) time.Duration {

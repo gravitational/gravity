@@ -767,7 +767,7 @@ func (p *Peer) connectLoop() (*operationContext, error) {
 	// Set a high maximum so lots of queued joins don't create too much load
 	b := backoff.NewExponentialBackOff()
 	b.Multiplier = 2
-	b.MaxElapsedTime = 0
+	b.MaxElapsedTime = 0 // unlimited timeout
 	b.MaxInterval = time.Minute
 
 	ticker := backoff.NewTicker(b)

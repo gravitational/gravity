@@ -293,9 +293,18 @@ func getLastOperation(localEnv *localenv.LocalEnvironment, environ LocalEnvironm
 	b := newBackendOperations()
 
 	if operationID != "" {
-		return b.GetOperationById(localEnv, environ, operationID), nil
+		op := b.GetOperationById(localEnv, environ, operationID)
+		if op == nil {
+			return nil, newOperationNotFound("no operation with ID %v found", operationID)
+		}
 	}
-	return b.GetLastOperation(localEnv, environ), nil
+
+	op := b.GetLastOperation(localEnv, environ)
+	if op == nil {
+		return nil, newOperationNotFound("no operation found")
+	}
+
+	return op, nil
 }
 
 func getActiveOperation(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operationID string) (*clusterOperation, error) {
@@ -330,7 +339,7 @@ func (r *backendOperations) getLastOperationFromCluster(localEnv *localenv.Local
 		return nil, trace.Wrap(err)
 	}
 	if len(sites) == 0 {
-		return nil, trace.NotFound("no sites found")
+		return nil, trace.NotFound("no clusters found")
 	}
 
 	operations, err := clusterEnv.Operator.GetSiteOperations(ops.SiteKey{
@@ -390,7 +399,7 @@ func (r *backendOperations) GetLastOperation(localEnv *localenv.LocalEnvironment
 	return &operations[0]
 }
 
-func (r *backendOperations) getOperationByIdFromCluster(localEnv *localenv.LocalEnvironment, operationId string) (*clusterOperation, error) {
+func (r *backendOperations) getOperationByIDFromCluster(localEnv *localenv.LocalEnvironment, operationID string) (*clusterOperation, error) {
 	clusterEnv, err := localEnv.NewClusterEnvironment(localenv.WithEtcdTimeout(1 * time.Second))
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -405,13 +414,13 @@ func (r *backendOperations) getOperationByIdFromCluster(localEnv *localenv.Local
 		return nil, trace.Wrap(err)
 	}
 	if len(sites) == 0 {
-		return nil, trace.NotFound("no sites found")
+		return nil, trace.NotFound("no clusters found")
 	}
 
 	operation, err := clusterEnv.Operator.GetSiteOperation(ops.SiteOperationKey{
 		AccountID:   defaults.SystemAccountID,
 		SiteDomain:  sites[0].Domain,
-		OperationID: operationId,
+		OperationID: operationID,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -439,7 +448,7 @@ func (r *backendOperations) GetOperationById(localEnv *localenv.LocalEnvironment
 		return &op
 	}
 
-	clusterOp, err := r.getOperationByIdFromCluster(localEnv, operationId)
+	clusterOp, err := r.getOperationByIDFromCluster(localEnv, operationId)
 	if err != nil {
 		log.WithError(err).Warn("Failed to request operation from cluster.")
 	}

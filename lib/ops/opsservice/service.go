@@ -166,10 +166,10 @@ type Operator struct {
 	// FieldLogger allows this operator to log messages
 	log.FieldLogger
 
-	// cachedProvisioningToken holds an in memory cache of which token is the cluster provisioning token.
-	cachedProvisioningToken string
 	// cachedProvisioningTokenMutex provides a mutex on use of the cached provisioning token.
 	cachedProvisioningTokenMutex sync.RWMutex
+	// cachedProvisioningToken holds an in memory cache of which token is the cluster provisioning token.
+	cachedProvisioningToken string
 }
 
 // New creates an instance of the Operator service
@@ -439,9 +439,12 @@ func (o *Operator) CreateProvisioningToken(token storage.ProvisioningToken) erro
 
 func (o *Operator) GetExpandToken(key ops.SiteKey) (*storage.ProvisioningToken, error) {
 	o.cachedProvisioningTokenMutex.RLock()
-	if o.cachedProvisioningToken != "" {
+	cachedToken := o.cachedProvisioningToken
+	o.cachedProvisioningTokenMutex.RUnlock()
+
+	if cachedToken != "" {
 		// security: make sure to re-retrieve the token from the backend in case it's been updated or removed
-		token, err := o.backend().GetProvisioningToken(o.cachedProvisioningToken)
+		token, err := o.backend().GetProvisioningToken(cachedToken)
 		if err != nil && !trace.IsNotFound(err) {
 			return nil, trace.Wrap(err)
 		}
@@ -450,7 +453,6 @@ func (o *Operator) GetExpandToken(key ops.SiteKey) (*storage.ProvisioningToken, 
 			return token, nil
 		}
 	}
-	o.cachedProvisioningTokenMutex.RUnlock()
 
 	tokens, err := o.backend().GetSiteProvisioningTokens(key.SiteDomain)
 	if err != nil {

@@ -19,6 +19,7 @@ package keyval
 import (
 	"sort"
 
+	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -76,7 +77,7 @@ func (b *backend) GetSiteOperation(siteDomain, operationID string) (*storage.Sit
 	utils.UTC(&op.Updated)
 
 	// Operations that are not expected to change in the future are the only operations that are safe to cache
-	if op.State == storage.OperationPhaseStateCompleted || op.State == storage.OperationPhaseStateRolledBack {
+	if op.State == ops.OperationStateCompleted {
 		b.cachedCompleteOperationsMutex.Lock()
 		b.cachedCompleteOperations[operationID] = &op
 		b.cachedCompleteOperationsMutex.Unlock()

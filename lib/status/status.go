@@ -468,7 +468,7 @@ func fetchOperationByID(clusterKey ops.SiteKey, operationID string, operator ops
 		}
 		operation, progress, err = ops.GetOperationWithProgress(opKey, operator)
 	} else {
-		operation, progress, err = ops.GetLastCompletedOperation(clusterKey, operator)
+		operation, progress, err = ops.GetLastFinishedOperation(clusterKey, operator)
 	}
 	if err != nil {
 		return trace.Wrap(err)

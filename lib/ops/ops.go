@@ -872,8 +872,8 @@ type OperationsFilter struct {
 	// Active indicate to only return active operations
 	Active bool
 
-	// Type indicates to only return a type of operation
-	Type string
+	// Types indicates to only return an operation type (ie OperationExpand)
+	Types []string
 }
 
 // URLValues converts the filter to a set of URL values that can be passed via the API
@@ -900,8 +900,10 @@ func (f OperationsFilter) URLValues() (res url.Values) {
 		res.Add("active", "")
 	}
 
-	if f.Type != "" {
-		res.Add("type", f.Type)
+	if len(f.Types) > 0 {
+		for _, t := range f.Types {
+			res.Add("type", t)
+		}
 	}
 
 	return
@@ -931,7 +933,7 @@ func FilterFromURLValues(v url.Values) (f OperationsFilter) {
 
 	if t, ok := v["type"]; ok {
 		if len(t) > 0 {
-			f.Type = t[0]
+			f.Types = t
 		}
 	}
 
@@ -946,32 +948,34 @@ func (filter OperationsFilter) Filter(in SiteOperations) SiteOperations {
 
 	filtered := in
 
-	if filter.Type != "" || filter.Active || filter.Complete || filter.Finished {
+	if len(filter.Types) > 0 || filter.Active || filter.Complete || filter.Finished {
 		filtered = SiteOperations{}
 
 		for _, value := range in {
-			drop := false
-
-			if filter.Type != "" && filter.Type != value.Type {
-				drop = true
+			drop := true
+			for _, t := range filter.Types {
+				if t == value.Type {
+					drop = false
+				}
+			}
+			if drop {
+				continue
 			}
 
 			op := SiteOperation(value)
 			if filter.Active && op.IsFinished() {
-				drop = true
+				continue
 			}
 
 			if filter.Complete && !op.IsCompleted() {
-				drop = true
+				continue
 			}
 
 			if filter.Finished && !op.IsFinished() {
-				drop = true
+				continue
 			}
 
-			if !drop {
-				filtered = append(filtered, value)
-			}
+			filtered = append(filtered, value)
 		}
 	}
 
