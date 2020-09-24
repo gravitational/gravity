@@ -32,8 +32,7 @@ TGT=$TMP/$(basename "$TARGET")
 
 NOROOT="--user=$(id -u):$(id -g) --group-add=$(getent group docker | cut -d: -f3)"
 VOLUMES="-v $TELE:$TELE -v $APP_SRCDIR:$APP_SRCDIR -v $STATE_DIR:$STATE_DIR -v $TMP:$TMP"
-VOLUMES="$VOLUMES -v /var/run/docker.sock:/var/run/docker.sock -v /run/docker.sock:/run/docker.sock"
-VOLUMES="$VOLUMES -v $HOME/.docker:/.docker:ro"
+VOLUMES="$VOLUMES -v /var/run/docker.sock:/var/run/docker.sock"
 VOLUMES="$VOLUMES --tmpfs /tmp"
 
 (
