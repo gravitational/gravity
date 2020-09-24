@@ -83,7 +83,7 @@ func WaitForEndpoints(ctx context.Context, client corev1.CoreV1Interface, server
 			errors = append(errors, trace.Wrap(err))
 		}
 
-		if server.Role == string(schema.ServiceRoleNode) {
+		if server.ClusterRole == string(schema.ServiceRoleNode) {
 			if err := hasEndpoints(client, kubednsWorkerLabels); err != nil {
 				errors = append(errors, trace.Wrap(err))
 			}
