@@ -952,14 +952,16 @@ func (filter OperationsFilter) Filter(in SiteOperations) SiteOperations {
 		filtered = SiteOperations{}
 
 		for _, value := range in {
-			drop := true
-			for _, t := range filter.Types {
-				if t == value.Type {
-					drop = false
+			if len(filter.Types) > 0 {
+				drop := true
+				for _, t := range filter.Types {
+					if t == value.Type {
+						drop = false
+					}
 				}
-			}
-			if drop {
-				continue
+				if drop {
+					continue
+				}
 			}
 
 			op := SiteOperation(value)
