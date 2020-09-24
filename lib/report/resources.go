@@ -19,6 +19,7 @@ package report
 import (
 	"fmt"
 
+	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 )
 
@@ -27,14 +28,14 @@ func ResourceCollectors() Collectors {
 	// Collect select gravity resources. More information on supported gravity
 	// resources found at https://gravitational.com/gravity/docs/config/
 	resources := []string{
-		"clusterconfiguration",
-		"runtimeenvironment",
-		"authgateway",
-		"operations",
-		"smtp",
-		"alerttarget",
-		"alert",
-		"logforwarder",
+		storage.KindClusterConfiguration,
+		storage.KindRuntimeEnvironment,
+		storage.KindAuthGateway,
+		storage.KindOperation,
+		storage.KindSMTPConfig,
+		storage.KindAlertTarget,
+		storage.KindAlert,
+		storage.KindLogForwarder,
 	}
 
 	collectors := make(Collectors, len(resources))
@@ -47,5 +48,5 @@ func ResourceCollectors() Collectors {
 // gravityResourceYAML returns the gravity command to output the specified
 // resource in YAML format.
 func gravityResourceYAML(resource string) []string {
-	return []string{utils.Exe.Path, "resource", "get", "--format", "yaml", resource}
+	return utils.Self("resource", "get", "--format", "yaml", resource)
 }
