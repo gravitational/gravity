@@ -87,7 +87,8 @@ func (r *reconciler) trySyncChangelogFromEtcd(ctx context.Context) error {
 	}
 
 	if shouldSync {
-		return trace.Wrap(r.syncChangelog(ctx, r.backend, r.localBackend))
+		consistentSrc := r.backend.CopyWithOptions(keyval.WithReadQuorum(true))
+		return trace.Wrap(r.syncChangelog(ctx, consistentSrc, r.localBackend))
 	}
 
 	return nil
