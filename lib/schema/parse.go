@@ -195,6 +195,12 @@ func SetDefaults(manifest *Manifest) error {
 		} else if manifest.NodeProfiles[i].Labels[constants.MasterLabel] == constants.True {
 			manifest.NodeProfiles[i].ServiceRole = ServiceRoleMaster
 		}
+
+		// Allow using the gravity labels to indicate the service role and not just the kubernetes labels
+		// as the kubernetes labels may have undesireable implications
+		if label, ok := manifest.NodeProfiles[i].Labels[ServiceLabelRole]; ok {
+			manifest.NodeProfiles[i].ServiceRole = ServiceRole(label)
+		}
 	}
 	return nil
 }

@@ -155,7 +155,7 @@ func (m *Handler) validateServers(w http.ResponseWriter, r *http.Request, p http
 func (m *Handler) getOperations(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *AuthContext) (interface{}, error) {
 	siteDomain := p[0].Value
 	siteKey := ops.SiteKey{AccountID: context.User.GetAccountID(), SiteDomain: siteDomain}
-	operations, err := context.Operator.GetSiteOperations(siteKey)
+	operations, err := context.Operator.GetSiteOperations(siteKey, ops.FilterFromURLValues(r.URL.Query()))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

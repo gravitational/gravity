@@ -1355,7 +1355,7 @@ func (h *WebHandler) validateRemoteAccess(w http.ResponseWriter, r *http.Request
    }]
 */
 func (h *WebHandler) getSiteOperations(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
-	operations, err := context.Operator.GetSiteOperations(siteKey(p))
+	operations, err := context.Operator.GetSiteOperations(siteKey(p), ops.FilterFromURLValues(r.URL.Query()))
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -2447,7 +2447,7 @@ func NeedsAuth(devmode bool, backend storage.Backend, operator ops.Operator, aut
 }
 
 func getLastOperation(key ops.SiteKey, operationType string, context *HandlerContext) (*ops.SiteOperation, error) {
-	operations, err := context.Operator.GetSiteOperations(key)
+	operations, err := context.Operator.GetSiteOperations(key, ops.OperationsFilter{})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

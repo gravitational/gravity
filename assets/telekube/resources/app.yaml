@@ -64,6 +64,11 @@ installer:
         nodes:
           - profile: node
             count: 6
+      - name: "cloud"
+        description: "cloud install"
+        nodes:
+          - profile: gmaster
+            count: 1
 nodeProfiles:
   - name: node
     description: "Gravity Auto Node"
@@ -184,6 +189,13 @@ nodeProfiles:
           - c3.2xlarge
           - c3.4xlarge
           - i2.2xlarge
+  - name: gmaster
+    description: "Gravity Master (not kubernetes master)"
+    taints:
+      - key: node-role.kubernetes.io/master
+        effect: NoSchedule
+    labels:
+      gravitational.io/k8s-role: "master"
 hooks:
   clusterProvision:
     job: file://clusterProvision.yaml
