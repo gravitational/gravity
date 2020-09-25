@@ -19,6 +19,7 @@ package utils
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -28,6 +29,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/trace"
+	"github.com/sirupsen/logrus"
 )
 
 // ReadEnv reads the file at the specified path as a file containing environment
@@ -38,16 +40,33 @@ func ReadEnv(path string) (map[string]string, error) {
 		return nil, trace.Wrap(err)
 	}
 	defer file.Close()
-	env := make(map[string]string)
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		kv := strings.SplitN(scanner.Text(), "=", 2)
-		if len(kv) != 2 {
-			continue // skip bad env vars
+	return ParseEnv(file)
+}
+
+// ParseEnv parses key=value pairs in the specified reader.
+// The reader might have multiple lines
+func ParseEnv(r io.Reader) (env map[string]string, err error) {
+	env = make(map[string]string)
+	s := bufio.NewScanner(r)
+	s.Split(bufio.ScanLines)
+	for s.Scan() {
+		line := strings.TrimSpace(s.Text())
+		if len(line) == 0 {
+			continue
 		}
-		env[kv[0]] = kv[1]
+		pos := strings.Index(line, "=")
+		if pos == -1 {
+			logrus.Warnf("Skip ill-formed line %q", line)
+			continue
+		}
+		key := line[:pos]
+		value := line[pos+1:]
+		env[key] = value
 	}
-	return env, trace.Wrap(scanner.Err())
+	if s.Err() != nil {
+		return nil, trace.ConvertSystemError(err)
+	}
+	return env, nil
 }
 
 // WriteEnv writes the provided env as an environment variables file
