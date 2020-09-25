@@ -138,7 +138,7 @@ func (e *Engine) upsertClusterAndOperation(ctx context.Context, installer instal
 	} else {
 		cluster = &clusters[0]
 	}
-	operations, err := e.Operator.GetSiteOperations(cluster.Key())
+	operations, err := e.Operator.GetSiteOperations(cluster.Key(), ops.OperationsFilter{})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

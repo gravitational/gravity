@@ -701,7 +701,7 @@ func (r Silent) PrintStep(format string, args ...interface{}) {
 // Write implements io.Writer
 func (r Silent) Write(p []byte) (n int, err error) {
 	r.Printf(string(p))
-	return 0, nil
+	return len(p), nil
 }
 
 // Silent implements a silent flag and controls console output.
