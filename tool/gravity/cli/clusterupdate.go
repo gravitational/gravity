@@ -237,7 +237,9 @@ func executeUpdatePhaseForOperation(env *localenv.LocalEnvironment, environ Loca
 func executeOrForkPhase(env *localenv.LocalEnvironment, updater updater, params PhaseParams, operation ops.SiteOperation) error {
 	if params.isResume() {
 		if err := verifyOrDeployAgents(env); err != nil {
-			return trace.Wrap(err)
+			// Continue operation in case gravity-site or etcd is down. In these
+			// cases the agent status may not be retrievable.
+			log.WithError(err).Warn("Failed to verify or deploy agents.")
 		}
 	}
 

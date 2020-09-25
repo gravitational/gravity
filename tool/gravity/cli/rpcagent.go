@@ -476,15 +476,16 @@ func collectAgentStatus(env *localenv.LocalEnvironment) (statusList rpc.StatusLi
 func verifyOrDeployAgents(env *localenv.LocalEnvironment) error {
 	statusList, err := collectAgentStatus(env)
 	if err != nil {
+		env.Println("Failed to verify agents. Ensure gravity-site and etcd are up and running.")
 		return trace.Wrap(err, "failed to collect agent status")
 	}
 	if statusList.AgentsActive() {
 		return nil
 	}
 	if err := rpcAgentDeploy(env, deployOptions{}); err != nil {
-		log.WithError(err).Error("Failed to deploy agents.")
 		env.Println(statusList.String())
-		return trace.BadParameter("some agents are offline; ensure all agents are deployed with `./gravity agent deploy`")
+		env.Println("Some agents are offline. Ensure all agents are deployed with `./gravity agent deploy`.")
+		return trace.Wrap(err, "failed to deploy agents")
 	}
 	return nil
 }
