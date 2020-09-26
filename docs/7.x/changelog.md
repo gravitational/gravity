@@ -575,7 +575,7 @@ to learn how to gain insight into how the cluster status changes over time.
 #### Improvements
 
 * Degrade cluster status if any of the nodes are offline ([#2130](https://github.com/gravitational/gravity/pull/2130)).
-* Make sure upgrade agents are online when resuming or rolling back the operation ([#2171](https://github.com/gravitational/gravity/pull/2171)).
+* Make sure upgrade agents are online when resuming or rolling back the operation ([#2071](https://github.com/gravitational/gravity/pull/2071)).
 * Scale Prometheus/Alertmanager replicas according to the number of cluster nodes ([#2145](https://github.com/gravitational/gravity/pull/2145), [monitoring#188](https://github.com/gravitational/monitoring-app/pull/188)).
 
 #### Bugfixes
