@@ -50,7 +50,8 @@ func (b *electingBackend) StepDown() {
 	b.Leader.StepDown()
 }
 
-func (b *electingBackend) CopyWithOptions(opts ...EtcdOption) storage.Backend {
+// CloneWithOptions returns a shallow copy of this backend with the specified options applied
+func (b *electingBackend) CloneWithOptions(opts ...EtcdOption) storage.Backend {
 	engine := b.engine.copyWithOptions(opts...)
 	return &electingBackend{
 		Backend: b.backend,

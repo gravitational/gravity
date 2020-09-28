@@ -35,7 +35,6 @@ import (
 	"github.com/gravitational/coordinate/leader"
 	"github.com/gravitational/trace"
 	"github.com/jonboulle/clockwork"
-	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 )
@@ -108,9 +107,9 @@ func LocalEtcdConfig(retryTimeout time.Duration) (*ETCDConfig, error) {
 // EtcdBackend enables access to etcd-specific features
 type EtcdBackend interface {
 	storage.Backend
-	// CopyWithOptions creates a copy of this backend
+	// CloneWithOptions creates a shallow copy of this backend
 	// with the specified options applied
-	CopyWithOptions(opts ...EtcdOption) storage.Backend
+	CloneWithOptions(opts ...EtcdOption) storage.Backend
 }
 
 // EtcdOption is a functional option to configure an etcd backend
@@ -120,12 +119,12 @@ type EtcdOption func(*etcdOptions)
 // e.g. return the latest committed value applied in a quorum of members
 func WithReadQuorum(quorum bool) EtcdOption {
 	return func(config *etcdOptions) {
-		logrus.WithField("quorum", quorum).Info("Specify quorum reads.")
 		config.GetOptions.Quorum = quorum
 	}
 }
 
 type etcdOptions struct {
+	// GetOptions specifies the options for Get API
 	GetOptions client.GetOptions
 }
 
