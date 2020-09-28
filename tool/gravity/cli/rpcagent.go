@@ -44,6 +44,7 @@ import (
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/cenkalti/backoff"
+	"github.com/fatih/color"
 	teleclient "github.com/gravitational/teleport/lib/client"
 	"github.com/gravitational/trace"
 	"github.com/gravitational/version"
@@ -470,15 +471,21 @@ func collectAgentStatus(env *localenv.LocalEnvironment) (statusList rpc.StatusLi
 	return statusList, nil
 }
 
-// verifyAgentsActive verifies that all agents are active.
-func verifyAgentsActive(env *localenv.LocalEnvironment) error {
+// verifyOrDeployAgents verifies that all agents are active or attempts to
+// re-deploy agents.
+func verifyOrDeployAgents(env *localenv.LocalEnvironment) error {
 	statusList, err := collectAgentStatus(env)
 	if err != nil {
+		env.Println(color.YellowString("Couldn't verify upgrade agents status. If some are offline, they won't be redeployed automatically"))
 		return trace.Wrap(err, "failed to collect agent status")
 	}
-	if !statusList.AgentsActive() {
+	if statusList.AgentsActive() {
+		return nil
+	}
+	if err := rpcAgentDeploy(env, deployOptions{}); err != nil {
 		env.Println(statusList.String())
-		return trace.BadParameter("some agents are offline; ensure all agents are deployed with `./gravity agent deploy`")
+		env.Println(color.YellowString("Some agents are offline. Ensure all agents are deployed with `./gravity agent deploy`"))
+		return trace.Wrap(err, "failed to deploy agents")
 	}
 	return nil
 }
