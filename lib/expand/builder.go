@@ -359,7 +359,7 @@ func (p *Peer) getPlanBuilder(ctx operationContext) (*planBuilder, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	planetPackage, err := application.Manifest.RuntimePackageForProfile(p.Role)
+	planetPackage, err := application.Manifest.RuntimePackageForProfileName(p.Role)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

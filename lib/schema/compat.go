@@ -64,14 +64,14 @@ func GetProvisionerFromProvider(provider string) (string, error) {
 	}
 }
 
-// GetRuntimePackage returns the runtime package for the specified node profile
+// GetRuntimePackageForProfile returns the runtime package for the specified node profile
 // and cluster role
-func GetRuntimePackage(manifest Manifest, profileName string, clusterRole ServiceRole) (*loc.Locator, error) {
+func GetRuntimePackageForProfile(manifest Manifest, profileName string, clusterRole ServiceRole) (*loc.Locator, error) {
 	profile, err := manifest.NodeProfiles.ByName(profileName)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	runtimePackage, err := manifest.RuntimePackage(*profile)
+	runtimePackage, err := manifest.RuntimePackageForProfile(*profile)
 	if err != nil && !trace.IsNotFound(err) {
 		return nil, trace.Wrap(err)
 	}
@@ -92,9 +92,9 @@ func GetRuntimePackage(manifest Manifest, profileName string, clusterRole Servic
 	return runtimePackage, nil
 }
 
-// GetDefaultRuntimePackage returns the default runtime package for the specified manifest
-func GetDefaultRuntimePackage(m Manifest) (*loc.Locator, error) {
-	runtimePackage, err := m.DefaultRuntimePackage()
+// GetRuntimePackage returns the global runtime package for the specified manifest
+func GetRuntimePackage(m Manifest) (*loc.Locator, error) {
+	runtimePackage, err := m.RuntimePackage()
 	if err != nil && !trace.IsNotFound(err) {
 		return nil, trace.Wrap(err)
 	}

@@ -260,7 +260,7 @@ func (b *PlanBuilder) getPullData(node storage.Server) (*storage.PullData, error
 	}
 	// Regular nodes pull only packages required for runtime such as planet
 	// or teleport. The planet package also depends on the node role.
-	planetPackage, err := b.Application.Manifest.RuntimePackageForProfile(node.Role)
+	planetPackage, err := b.Application.Manifest.RuntimePackageForProfileName(node.Role)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -277,7 +277,7 @@ func (b *PlanBuilder) getPullData(node storage.Server) (*storage.PullData, error
 func (b *PlanBuilder) AddMastersPhase(plan *storage.OperationPlan) error {
 	var masterPhases []storage.OperationPhase
 	for i, node := range b.Masters {
-		planetPackage, err := b.Application.Manifest.RuntimePackageForProfile(node.Role)
+		planetPackage, err := b.Application.Manifest.RuntimePackageForProfileName(node.Role)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -333,7 +333,7 @@ func (b *PlanBuilder) AddMastersPhase(plan *storage.OperationPlan) error {
 func (b *PlanBuilder) AddNodesPhase(plan *storage.OperationPlan) error {
 	var nodePhases []storage.OperationPhase
 	for i, node := range b.Nodes {
-		planetPackage, err := b.Application.Manifest.RuntimePackageForProfile(node.Role)
+		planetPackage, err := b.Application.Manifest.RuntimePackageForProfileName(node.Role)
 		if err != nil {
 			return trace.Wrap(err)
 		}

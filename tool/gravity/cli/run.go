@@ -968,6 +968,12 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			*g.SystemGCRegistryCmd.DryRun,
 			*g.SystemGCRegistryCmd.Confirm)
 	case g.SystemEtcdMigrateCmd.FullCommand():
+		if *g.SystemEtcdMigrateCmd.From == "" {
+			return trace.BadParameter("from cannot be empty")
+		}
+		if *g.SystemEtcdMigrateCmd.To == "" {
+			return trace.BadParameter("to cannot be empty")
+		}
 		return etcdMigrate(*g.SystemEtcdMigrateCmd.From, *g.SystemEtcdMigrateCmd.To)
 	case g.PlanetEnterCmd.FullCommand(), g.EnterCmd.FullCommand():
 		return planetEnter(localEnv, extraArgs)

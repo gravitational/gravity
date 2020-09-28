@@ -59,7 +59,7 @@ func NewPull(p fsm.ExecutorParams, operator ops.Operator, wizardPack, localPack 
 		return nil, trace.Wrap(err)
 	}
 
-	runtimePackage, err := app.Manifest.RuntimePackageForProfile(p.Phase.Data.Server.Role)
+	runtimePackage, err := app.Manifest.RuntimePackageForProfileName(p.Phase.Data.Server.Role)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

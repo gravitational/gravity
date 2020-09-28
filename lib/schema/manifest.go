@@ -319,36 +319,36 @@ func (m Manifest) RuntimeArgs(profile NodeProfile) []string {
 	return append(args, m.SystemOptions.RuntimeArgs()...)
 }
 
-// RuntimePackageForProfile returns the planet package for the specified profile
-func (m Manifest) RuntimePackageForProfile(profileName string) (*loc.Locator, error) {
+// RuntimePackageForProfileName returns the planet package for the specified profile
+func (m Manifest) RuntimePackageForProfileName(profileName string) (*loc.Locator, error) {
 	profile, err := m.NodeProfiles.ByName(profileName)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return m.RuntimePackage(*profile)
+	return m.RuntimePackageForProfile(*profile)
 }
 
-// RuntimePackage returns the planet package for the specified profile.
+// RuntimePackageForProfile returns the planet package for the specified profile.
 // If the profile does not specify a runtime package, the default runtime
 // package is returned
-func (m Manifest) RuntimePackage(profile NodeProfile) (*loc.Locator, error) {
+func (m Manifest) RuntimePackageForProfile(profile NodeProfile) (*loc.Locator, error) {
 	if profile.SystemOptions != nil && profile.SystemOptions.Dependencies.Runtime != nil {
 		return &profile.SystemOptions.Dependencies.Runtime.Locator, nil
 	}
-	return m.DefaultRuntimePackage()
+	return m.RuntimePackage()
 }
 
-// DefaultRuntimePackage returns the default runtime package
-func (m Manifest) DefaultRuntimePackage() (*loc.Locator, error) {
+// RuntimePackage returns the global runtime package
+func (m Manifest) RuntimePackage() (*loc.Locator, error) {
 	if m.SystemOptions == nil || m.SystemOptions.Dependencies.Runtime == nil {
-		return m.LegacyDefaultRuntimePackage()
+		return m.LegacyRuntimePackage()
 	}
 	return &m.SystemOptions.Dependencies.Runtime.Locator, nil
 }
 
-// LegacyDefaultRuntimePackage returns the default runtime package if the manifest has been preprocessed by
-// the legacy hub. In this case, the planet package should be taken from the list of general package dependencies
-func (m Manifest) LegacyDefaultRuntimePackage() (*loc.Locator, error) {
+// LegacyRuntimePackage returns the global runtime package if the manifest has been preprocessed by
+// the legacy hub. In this case, the planet package is taken from the list of general package dependencies
+func (m Manifest) LegacyRuntimePackage() (*loc.Locator, error) {
 	for _, dep := range m.Dependencies.Packages {
 		if loc.IsPlanetPackage(dep.Locator) {
 			return &dep.Locator, nil
@@ -382,7 +382,7 @@ func (m Manifest) AllPackageDependencies() (deps []loc.Locator) {
 // PackageDependencies returns the list of package dependencies
 // for the specified profile
 func (m Manifest) PackageDependencies(profile string) (deps []loc.Locator, err error) {
-	runtimePackage, err := m.RuntimePackageForProfile(profile)
+	runtimePackage, err := m.RuntimePackageForProfileName(profile)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -484,6 +484,15 @@ type Metadata struct {
 // GetName returns an application name
 func (m Metadata) GetName() string {
 	return m.Name
+}
+
+// App returns the application package locator
+func (m Metadata) App() loc.Locator {
+	return loc.Locator{
+		Name:       m.Name,
+		Repository: m.Repository,
+		Version:    m.ResourceVersion,
+	}
 }
 
 // Endpoint describes an application endpoint

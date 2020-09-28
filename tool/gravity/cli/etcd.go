@@ -18,7 +18,6 @@ package cli
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 
 	"github.com/gravitational/gravity/lib/defaults"
@@ -29,13 +28,6 @@ import (
 )
 
 func etcdMigrate(fromVersion, toVersion string) (err error) {
-	if fromVersion == "" {
-		fromVersion, err = getCurrentEtcdVersion()
-		logrus.WithError(err).WithField("from", fromVersion).Info("Detected source etcd version.")
-		if err != nil {
-			return trace.Wrap(err, "failed to determine current etcd version")
-		}
-	}
 	srcDir := getBaseEtcdDir(fromVersion)
 	dstDir := getBaseEtcdDir(toVersion)
 	log.WithFields(logrus.Fields{
@@ -45,25 +37,6 @@ func etcdMigrate(fromVersion, toVersion string) (err error) {
 	return trace.Wrap(utils.CopyDirContents(srcDir, dstDir))
 }
 
-func getCurrentEtcdVersion() (version string, err error) {
-	f, err := os.Open(filepath.Join(defaults.PlanetEtcdDir, "etcd", "etcd-version.txt"))
-	if err != nil {
-		return "", trace.ConvertSystemError(err)
-	}
-	defer f.Close()
-	kvs, err := utils.ParseEnv(f)
-	if err != nil {
-		return "", trace.ConvertSystemError(err)
-	}
-	if version, ok := kvs[etcdVersionKey]; ok {
-		return version, nil
-	}
-	return "", trace.NotFound("current etcd version unspecified in the version file")
-}
-
 func getBaseEtcdDir(version string) (path string) {
 	return filepath.Join(defaults.PlanetEtcdDir, fmt.Sprint("v", version))
 }
-
-// https://github.com/gravitational/planet/blob/version/7.0.x/tool/planet/constants.go#L87
-const etcdVersionKey = "PLANET_ETCD_VERSION"

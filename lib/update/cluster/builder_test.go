@@ -394,11 +394,13 @@ func (s *PlanSuite) TestDeterminesWhetherToUpdateEtcd(c *check.C) {
 	services := opsservice.SetupTestServices(c)
 	runtimePackage := loc.MustParseLocator("example.com/runtime:1.0.0")
 	updateRuntimePackage := loc.MustParseLocator("example.com/runtime:1.0.1")
+	installedEtcdVersion := *semver.New("3.3.2")
+	updateEtcdVersion := *semver.New("3.3.3")
 	createRuntimePackages(runtimePackage, updateRuntimePackage, etcdVersion{
-		installed: "3.3.2",
-		update:    "3.3.3",
+		installed: installedEtcdVersion.String(),
+		update:    updateEtcdVersion.String(),
 	}, services.Packages, c)
-	etcd, err := shouldUpdateEtcd(runtimePackage, updateRuntimePackage, services.Packages)
+	etcd, err := shouldUpdateEtcd(installedEtcdVersion, updateEtcdVersion)
 	c.Assert(err, check.IsNil)
 	c.Assert(etcd, check.DeepEquals, &etcdVersion{
 		installed: "3.3.2",

@@ -160,7 +160,7 @@ func (r GetDependenciesRequest) getDependencies(app Application, state *state) e
 	// only the top-level runtime package is pulled
 	// Ignore the error, since here we're only interested if a custom package
 	// has been defined
-	if runtimePackage, _ := app.Manifest.DefaultRuntimePackage(); runtimePackage != nil {
+	if runtimePackage, _ := app.Manifest.RuntimePackage(); runtimePackage != nil {
 		logger.WithField("pkg", runtimePackage.String()).Debug("Default runtime package.")
 		state.runtimePackage = runtimePackage
 	}

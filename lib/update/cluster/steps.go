@@ -71,15 +71,19 @@ func (r *phaseBuilder) initSteps(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	installedRuntimePackage, err := schema.GetDefaultRuntimePackage(r.installedApp.Manifest)
-	if err != nil {
-		return trace.Wrap(err, "error fetching runtime package for %v", r.installedApp.Package)
+	// TODO: should somehow maintain etcd version invariant across runtime packages
+	installedEtcdVersion, err := getEtcdVersionFromManifest(r.installedApp.Manifest, r.packages)
+	if err != nil && !trace.IsNotFound(err) {
+		return trace.Wrap(err)
 	}
-	updateRuntimePackage, err := schema.GetDefaultRuntimePackage(r.updateApp.Manifest)
-	if err != nil {
-		return trace.Wrap(err, "error fetching runtime package for %v", r.updateApp.Package)
+	if installedEtcdVersion == nil {
+		installedEtcdVersion = &r.currentEtcdVersion
 	}
-	etcd, err := shouldUpdateEtcd(*installedRuntimePackage, *updateRuntimePackage, r.packages)
+	updateEtcdVersion, err := getEtcdVersionFromManifest(r.updateApp.Manifest, r.packages)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	etcd, err := shouldUpdateEtcd(*installedEtcdVersion, *updateEtcdVersion)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -107,21 +111,21 @@ func (r phaseBuilder) buildIntermediateSteps(context.Context) (updates []interme
 	}
 	updates = make([]intermediateUpdateStep, 0, len(result))
 	prevRuntimeApp := r.installedRuntimeApp
-	prevRuntimePackage, err := schema.GetDefaultRuntimePackage(r.installedRuntimeApp.Manifest)
-	if err != nil {
-		return nil, trace.Wrap(err, "error fetching runtime package for %v", r.installedRuntimeApp.Package)
-	}
 	prevTeleport := r.installedTeleport
 	prevRuntimeFunc := getRuntimePackageFromManifest(r.installedApp.Manifest)
 	for version, update := range result {
 		if err := update.validate(); err != nil {
 			return nil, trace.Wrap(err)
 		}
-		updateRuntimePackage, err := schema.GetDefaultRuntimePackage(update.runtimeApp.Manifest)
+		installedEtcdVersion, err := getEtcdVersionFromManifest(prevRuntimeApp.Manifest, r.packages)
 		if err != nil {
-			return nil, trace.Wrap(err, "error fetching runtime package for %v", update.runtimeApp.Package)
+			return nil, trace.Wrap(err)
 		}
-		update.etcd, err = shouldUpdateEtcd(*prevRuntimePackage, *updateRuntimePackage, r.packages)
+		updateEtcdVersion, err := getEtcdVersionFromManifest(update.runtimeApp.Manifest, r.packages)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		update.etcd, err = shouldUpdateEtcd(*installedEtcdVersion, *updateEtcdVersion)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
@@ -142,7 +146,6 @@ func (r phaseBuilder) buildIntermediateSteps(context.Context) (updates []interme
 		}
 		updates = append(updates, update)
 		prevRuntimeApp = update.runtimeApp
-		prevRuntimePackage = updateRuntimePackage
 		prevTeleport = update.teleport
 		prevRuntimeFunc = getRuntimePackageStatic(update.runtime)
 	}
@@ -1016,7 +1019,7 @@ type etcdVersion struct {
 
 func getRuntimePackageFromManifest(m schema.Manifest) runtimePackageGetterFunc {
 	return func(server storage.Server) (*loc.Locator, error) {
-		loc, err := schema.GetRuntimePackage(m, server.Role,
+		loc, err := schema.GetRuntimePackageForProfile(m, server.Role,
 			schema.ServiceRole(server.ClusterRole))
 		if err != nil {
 			return nil, trace.Wrap(err)
