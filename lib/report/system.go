@@ -40,7 +40,7 @@ func NewSystemCollector(since time.Duration) Collectors {
 
 	add(basicSystemInfo()...)
 	add(systemStatus()...)
-	add(syslogExportLogs(since))
+	add(syslogExportLogs(since)...)
 	add(systemFileLogs()...)
 	add(planetLogs(since)...)
 	add(auditLog())
@@ -123,15 +123,21 @@ func systemStatus() Collectors {
 }
 
 // syslogExportLogs fetches host journal logs
-func syslogExportLogs(since time.Duration) Collector {
+func syslogExportLogs(since time.Duration) Collectors {
 	var script = `
 #!/bin/bash
-/bin/journalctl --no-pager --output=export `
+/bin/journalctl --no-pager `
 	if since != 0 {
 		script = script + fmt.Sprintf(`--since="%s" `, time.Now().Add(-since).Format(JournalDateFormat))
 	}
-	script = script + "| /bin/gzip -f"
-	return Script("gravity-journal.log.gz", script)
+
+	plain := fmt.Sprintf("%s | /bin/gzip -f", script)
+	export := fmt.Sprintf("%s --output=export | /bin/gzip -f", script)
+
+	return Collectors{
+		Script("gravity-journal.log.gz", plain),
+		Script("gravity-journal-export.log.gz", export),
+	}
 }
 
 // systemFileLogs fetches gravity platform-related logs
@@ -151,12 +157,17 @@ cat %v 2> /dev/null || true`
 // planetLogs fetches planet syslog messages as well as the fresh journal entries
 func planetLogs(since time.Duration) Collectors {
 	return Collectors{
+		Self("planet-journal.log.gz",
+			"system", "export-runtime-journal",
+			"--since", since.String()),
 		// Fetch planet journal entries for the last two days
 		// The log can be imported as a journal with systemd-journal-remote:
 		//
 		// $ cat ./node-1-planet-journal-export.log | /lib/systemd/systemd-journal-remote -o ./journal/system.journal -
 		Self("planet-journal-export.log.gz",
-			"system", "export-runtime-journal", "--since", since.String()),
+			"system", "export-runtime-journal",
+			"--since", since.String(),
+			"--export"),
 	}
 }
 
