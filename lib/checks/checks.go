@@ -59,32 +59,50 @@ func New(config Config) (*checker, error) {
 	return &checker{Config: config}, nil
 }
 
-// ValidateManifest verifies the specified manifest against the host environment.
+// Validate verifies the specified manifest against the host environment.
 // Returns list of failed health probes.
-func ValidateManifest(
-	manifest schema.Manifest,
-	profile schema.NodeProfile,
-	dockerConfig storage.DockerConfig,
-	stateDir string,
-) (failedProbes []*agentpb.Probe, err error) {
+func (r *ManifestValidator) Validate(ctx context.Context) (failedProbes []*agentpb.Probe, err error) {
 	var errors []error
-	failed, err := schema.ValidateRequirements(profile.Requirements, stateDir)
+	requirements := r.Profile.Requirements
+	if len(r.Mounts) != 0 {
+		requirements = overrideMounts(requirements, r.Mounts)
+	}
+	failed, err := schema.ValidateRequirements(ctx, requirements, r.StateDir)
 	if err != nil {
 		errors = append(errors, trace.Wrap(err,
-			"error validating profile requirements, see syslog for details"))
+			"error validating profile requirements, see log file for details"))
 	}
 	failedProbes = append(failedProbes, failed...)
 
+	dockerConfig := r.Manifest.Docker(r.Profile)
+	if r.Docker != nil {
+		dockerConfig.StorageDriver = r.Docker.StorageDriver
+	}
 	dockerSchema := schema.Docker{StorageDriver: dockerConfig.StorageDriver}
-	failed, err = schema.ValidateDocker(dockerSchema, stateDir)
+	failed, err = schema.ValidateDocker(ctx, dockerSchema, r.StateDir)
 	if err != nil {
 		errors = append(errors, trace.Wrap(err,
-			"error validating docker requirements, see syslog for details"))
+			"error validating docker requirements, see log file for details"))
 	}
 	failedProbes = append(failedProbes, failed...)
 
-	failedProbes = append(failedProbes, schema.ValidateKubelet(profile, manifest)...)
+	failedProbes = append(failedProbes, schema.ValidateKubelet(ctx, r.Profile, r.Manifest)...)
 	return failedProbes, trace.NewAggregate(errors...)
+}
+
+// ManifestValidator describes a manifest validator
+type ManifestValidator struct {
+	// Manifest specifies the manifest to validate against
+	Manifest schema.Manifest
+	// Profile specifies the node profile to validate against
+	Profile schema.NodeProfile
+	// StateDir specifies the state directory on the local node
+	StateDir string
+	// Docker specifies optional docker configuration.
+	// If specified, overrides the system docker configuration
+	Docker *storage.DockerConfig
+	// Mounts specifies the mount overrides as name -> source path pairs
+	Mounts map[string]string
 }
 
 // RunBasicChecks executes a set of additional health checks.
@@ -112,6 +130,8 @@ type LocalChecksRequest struct {
 	Options *validationpb.ValidateOptions
 	// Docker specifies Docker configuration overrides (if any)
 	Docker storage.DockerConfig
+	// Mounts specidies optional mount overrides as name -> source path pairs
+	Mounts map[string]string
 	// AutoFix when set to true attempts to fix some common problems
 	AutoFix bool
 	// Progress is used to report information about auto-fixed problems
@@ -170,7 +190,16 @@ func ValidateLocal(ctx context.Context, req LocalChecksRequest) (*LocalChecksRes
 
 	dockerConfig := DockerConfigFromSchemaValue(req.Manifest.SystemDocker())
 	OverrideDockerConfig(&dockerConfig, req.Docker)
-	failedProbes, err := ValidateManifest(req.Manifest, *profile, dockerConfig, stateDir)
+
+	v := ManifestValidator{
+		Manifest: req.Manifest,
+		Profile:  *profile,
+		StateDir: stateDir,
+		Docker:   &dockerConfig,
+		Mounts:   req.Mounts,
+	}
+
+	failedProbes, err := v.Validate(ctx)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -1006,6 +1035,21 @@ func ifTestsDisabled() bool {
 	disabled, _ := strconv.ParseBool(envVar)
 	return disabled
 
+}
+
+func overrideMounts(requirements schema.Requirements, mounts map[string]string) schema.Requirements {
+	var result []schema.Volume
+	for _, volume := range requirements.Volumes {
+		if path, ok := mounts[volume.Name]; !ok {
+			result = append(result, volume)
+		} else {
+			v := volume
+			v.Path = path
+			result = append(result, v)
+		}
+	}
+	requirements.Volumes = result
+	return requirements
 }
 
 // RunStream executes the specified command on r.server.
