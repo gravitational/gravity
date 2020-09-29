@@ -20,6 +20,7 @@ import (
 	"context"
 	"io"
 
+	"github.com/gravitational/gravity/lib/defaults"
 	statusapi "github.com/gravitational/gravity/lib/status"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -38,6 +39,8 @@ func (r TimelineCollector) Collect(ctx context.Context, reportWriter FileWriter,
 		return trace.Wrap(err)
 	}
 	defer w.Close()
+	ctx, cancel := context.WithTimeout(ctx, defaults.StatusCollectionTimeout)
+	defer cancel()
 	return trace.Wrap(collectTimeline(ctx, w))
 }
 

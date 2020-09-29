@@ -633,6 +633,15 @@
   revision = "9184fe7a2d7c920b8cdd30faa64fe025f609ef20"
 
 [[projects]]
+  digest = "1:06271c18f99ea67b3ee8bf029ea916fa025f937e5a5fe60fd706681416edbea9"
+  name = "github.com/fvbommel/sortorder"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "a1ddee917217bbd0691affdca9c88d24d3f5c27d"
+  source = "github.com/fvbommel/sortorder"
+  version = "v1.0.1"
+
+[[projects]]
   digest = "1:9c7c893401418efb15ee4b037cf37947e68db61288219204624d5174efad6930"
   name = "github.com/garyburd/redigo"
   packages = [
@@ -1028,7 +1037,7 @@
   version = "v1.0.0"
 
 [[projects]]
-  digest = "1:ca187512f7bfcf5a3052504009edfe358c3a4377da3badbf5966a68ecfa3fead"
+  digest = "1:d828e2594bb82c50c0c54d2aa34876d6107b7afdf8c9440764085cbfa80e1ec4"
   name = "github.com/gravitational/satellite"
   packages = [
     "agent",
@@ -1045,8 +1054,8 @@
     "utils",
   ]
   pruneopts = "UT"
-  revision = "a07c40a562d8284a18d54f63816687f3bd2736e7"
-  version = "7.0.18"
+  revision = "2e85c3f8024f2e1d79d0fb202f10eb3a4ce2f1b8"
+  version = "7.0.19"
 
 [[projects]]
   digest = "1:49f6abbce9ade5f43508429e4af1adcce55d27adcd62719fea049decc766a7c9"
@@ -3142,14 +3151,6 @@
   revision = "fd68e9863619f6ec2fdd8625fe1f02e7c877e480"
   version = "v1.1.0"
 
-[[projects]]
-  branch = "master"
-  digest = "1:9132eacc44d9bd1e03145ea2e9d4888800da7773d6edebb401f8cd34c9fb8380"
-  name = "vbom.ml/util"
-  packages = ["sortorder"]
-  pruneopts = "UT"
-  revision = "efcd4e0f97874370259c7d93e12aad57911dea81"
-
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
@@ -3207,6 +3208,7 @@
     "github.com/fatih/color",
     "github.com/fsouza/go-dockerclient",
     "github.com/fsouza/go-dockerclient/testing",
+    "github.com/fvbommel/sortorder",
     "github.com/ghodss/yaml",
     "github.com/gizak/termui",
     "github.com/go-openapi/runtime/client",

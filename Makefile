@@ -40,8 +40,8 @@ GRAVITY_TAG := $(CURRENT_TAG)
 # Abbreviated gravity version to use as a build ID
 GRAVITY_VERSION := $(CURRENT_TAG)
 # Release of the gravity runtime application to build installer with intermediate steps.
-# This release has been chosen arbitrarily and should generally point to a stable 6.1.x LTS release.
-GRAVITY_INTERMEDIATE_RELEASE ?= 6.1.31
+# This should point to the latest patch release.
+GRAVITY_INTERMEDIATE_RELEASE ?= 6.1.37
 
 RELEASE_TARBALL_NAME ?=
 RELEASE_OUT ?=
@@ -49,7 +49,7 @@ RELEASE_OUT ?=
 TELEPORT_TAG = 3.2.16
 # TELEPORT_REPOTAG adapts TELEPORT_TAG to the teleport tagging scheme
 TELEPORT_REPOTAG := v$(TELEPORT_TAG)
-PLANET_TAG := 7.0.41-$(K8S_VER_SUFFIX)
+PLANET_TAG := 7.0.42-$(K8S_VER_SUFFIX)
 PLANET_BRANCH := $(PLANET_TAG)
 K8S_APP_TAG := $(GRAVITY_TAG)
 TELEKUBE_APP_TAG := $(GRAVITY_TAG)
@@ -62,7 +62,7 @@ BANDWAGON_TAG ?= 6.0.1
 RBAC_APP_TAG := $(GRAVITY_TAG)
 TILLER_VERSION = 2.15.2
 TILLER_APP_TAG = 7.0.1
-SELINUX_VERSION ?= 6.0.0
+SELINUX_VERSION ?= 6.0.1
 # URI of Wormhole container for default install
 WORMHOLE_IMG ?= quay.io/gravitational/wormhole:0.3.3
 # set this to true if you want to use locally built planet packages
@@ -109,7 +109,6 @@ BANDWAGON_PKG := gravitational.io/bandwagon:$(BANDWAGON_TAG)
 RBAC_APP_PKG := gravitational.io/rbac-app:$(RBAC_APP_TAG)
 TILLER_APP_PKG := gravitational.io/tiller-app:$(TILLER_APP_TAG)
 FIO_PKG := gravitational.io/fio:$(FIO_PKG_TAG)
-SELINUX_POLICY_PKG := gravitational.io/selinux:$(SELINUX_VERSION)
 
 # Output directory that stores all of the build artifacts.
 # Artifacts from the gravity build (the binary and any internal packages)
@@ -382,7 +381,7 @@ ci:
 .PHONY: packages
 packages: planet-packages binary-packages teleport-package gravity-packages dns-packages\
 	rbac-app-package bandwagon-package tiller-package monitoring-package \
-	storage-package log-package k8s-packages telekube-packages selinux-policy-package
+	storage-package log-package k8s-packages telekube-packages
 
 .PHONY: teleport-package
 teleport-package:
@@ -485,11 +484,6 @@ dns-packages:
 web-assets:
 	$(GRAVITY) package delete $(WEB_ASSETS_PKG) $(DELETE_OPTS) && \
 	$(GRAVITY) package import $(WEB_ASSETS_OUT) $(WEB_ASSETS_PKG) --ops-url=$(OPS_URL)
-
-.PHONY: selinux-policy-package
-selinux-policy-package:
-	$(GRAVITY) package delete $(SELINUX_POLICY_PKG) $(DELETE_OPTS) && \
-	$(GRAVITY) package import $(SELINUX_OUT) $(SELINUX_POLICY_PKG) --ops-url=$(OPS_URL)
 
 #
 # publish-artifacts uploads build artifacts to the distribution Ops Center
@@ -819,5 +813,21 @@ clean-codegen:
 .PHONY: selinux
 selinux:
 	$(MAKE) -C build.assets	selinux
+
+#
+# this is a temporary target until we upgrade k8s.io packages
+# to use fvbommel/sortorder.
+# https://github.com/fvbommel/util/issues/6
+#
+.PHONY: dep-ensure
+dep-ensure:
+	dep version
+	dep ensure -v
+	dep status -v
+	$(MAKE) fix-sortorder
+
+.PHONY: fix-sortorder
+fix-sortorder:
+	find vendor -name '*.go' -type f -print0 | xargs -0 sed -i 's/vbom.ml\/util/github.com\/fvbommel/g'
 
 include build.assets/etcd.mk

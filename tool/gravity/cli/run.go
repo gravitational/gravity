@@ -942,10 +942,12 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 	case g.SystemExportRuntimeJournalCmd.FullCommand():
 		return exportRuntimeJournal(localEnv,
 			*g.SystemExportRuntimeJournalCmd.OutputFile,
-			*g.SystemExportRuntimeJournalCmd.Since)
+			*g.SystemExportRuntimeJournalCmd.Since,
+			*g.SystemExportRuntimeJournalCmd.Export)
 	case g.SystemStreamRuntimeJournalCmd.FullCommand():
 		return streamRuntimeJournal(localEnv,
-			*g.SystemStreamRuntimeJournalCmd.Since)
+			*g.SystemStreamRuntimeJournalCmd.Since,
+			*g.SystemStreamRuntimeJournalCmd.Export)
 	case g.SystemSelinuxBootstrapCmd.FullCommand():
 		return bootstrapSELinux(localEnv,
 			*g.SystemSelinuxBootstrapCmd.Path,

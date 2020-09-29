@@ -27,6 +27,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
+	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	libfsm "github.com/gravitational/gravity/lib/fsm"
 	helmclt "github.com/gravitational/gravity/lib/helm"
@@ -50,6 +51,7 @@ import (
 
 	"github.com/coreos/go-semver/semver"
 	"github.com/fatih/color"
+	"github.com/ghodss/yaml"
 	"github.com/gravitational/trace"
 	"github.com/gravitational/version"
 )
@@ -224,6 +226,7 @@ func executeUpdatePhase(env *localenv.LocalEnvironment, environ LocalEnvironment
 	if operation.Type != ops.OperationUpdate {
 		return trace.NotFound("no active update operation found")
 	}
+
 	return executeUpdatePhaseForOperation(env, environ, params, operation.SiteOperation)
 }
 
@@ -241,13 +244,15 @@ func executeUpdatePhaseForOperation(env *localenv.LocalEnvironment, environ Loca
 	return executeOrForkPhase(env, updater, params, operation)
 }
 
-// gravityResumeServiceName is the name of systemd service that executes
-// the gravity resume command.
-const gravityResumeServiceName = "gravity-resume.service"
-
 // executeOrForkPhase either directly executes the specified operation phase,
 // or launches a one-shot systemd service that executes it in the background.
 func executeOrForkPhase(env *localenv.LocalEnvironment, updater updater, params PhaseParams, operation ops.SiteOperation) error {
+	if params.isResume() {
+		if err := verifyOrDeployAgents(env); err != nil {
+			return trace.Wrap(err)
+		}
+	}
+
 	// If given the --block flag, we're running as a systemd unit (or a user
 	// requested the command to execute in foreground), so proceed to perform
 	// the command (resume or single phase) directly.
@@ -278,8 +283,8 @@ func executeOrForkPhase(env *localenv.LocalEnvironment, updater updater, params 
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	env.PrintStep("Starting %v service", gravityResumeServiceName)
-	if err := launchOneshotService(gravityResumeServiceName, args); err != nil {
+	env.PrintStep("Starting %v service", defaults.GravityRPCResumeServiceName)
+	if err := launchOneshotService(defaults.GravityRPCResumeServiceName, args); err != nil {
 		return trace.Wrap(err)
 	}
 	env.PrintStep(`Service %[1]v has been launched.
@@ -291,7 +296,7 @@ To monitor the operation progress:
 To monitor the service logs:
 
   sudo journalctl -u %[1]v -f
-`, gravityResumeServiceName, operation.ID)
+`, defaults.GravityRPCResumeServiceName, operation.ID)
 	return nil
 }
 
@@ -455,7 +460,43 @@ func (r *clusterInitializer) validate(localEnv *localenv.LocalEnvironment, clust
 	if err := r.checkTiller(localEnv, updateApp.Manifest); err != nil {
 		return trace.Wrap(err)
 	}
+	if err := r.checkRuntimeEnvironment(localEnv, cluster, clusterEnv.Operator); err != nil {
+		return trace.Wrap(err)
+	}
 	r.updateLoc = updateApp.Package
+	return nil
+}
+
+func (r *clusterInitializer) checkRuntimeEnvironment(env *localenv.LocalEnvironment, cluster ops.Site, operator ops.Operator) error {
+	runtimeEnv, err := operator.GetClusterEnvironmentVariables(cluster.Key())
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if err := runtimeEnv.CheckAndSetDefaults(); err != nil {
+		log.WithError(err).Error("Runtime environment variables validation failed.")
+		if r.force {
+			env.PrintStep(color.YellowString("Runtime environment variables validation failed: %v", err))
+			return nil
+		}
+		bytes, marshalErr := yaml.Marshal(runtimeEnv)
+		if marshalErr != nil {
+			return trace.Wrap(err)
+		}
+		return trace.BadParameter(`There was an issue detected with runtime environment variables:
+
+    %q
+
+This may cause problems during the upgrade. Please review configured environment
+variables using "gravity resource get runtimeenvironment" command and update it
+appropriately before proceeding with the upgrade:
+
+%s
+See https://gravitational.com/gravity/docs/config/#runtime-environment-variables
+for more information on managing runtime environment variables.
+
+This warning can be bypassed by providing a --force flag to the upgrade command.`, err, bytes)
+	}
+	log.Info("Runtime environment variables are valid.")
 	return nil
 }
 

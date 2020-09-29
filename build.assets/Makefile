@@ -191,9 +191,9 @@ endif
 # generate gRPC code
 #
 .PHONY: grpc
-grpc: buildbox $(GRPC_PROTO_OUTPUTS)
+grpc: $(GRPC_PROTO_OUTPUTS)
 
-$(GRPC_PROTO_OUTPUTS): $(GRPC_PROTOS)
+$(GRPC_PROTO_OUTPUTS): buildbox $(GRPC_PROTOS)
 	docker run --rm=true -u $$(id -u) \
 		   -v $(TOP):$(SRCDIR) \
 		   $(BBOX) \
@@ -658,11 +658,6 @@ push-storage-app: $(STORAGE_APP_OUT)
 .PHONY: enter
 enter:
 	docker run -ti --rm=true $(BBOX) /bin/bash
-
-.PHONY: selinux-policy-package
-selinux-policy-package: $(SELINUX_OUT)
-	$(GRAVITY) package delete $(SELINUX_POLICY_PKG) $(DELETE_OPTS) && \
-		$(GRAVITY) package import $(SELINUX_OUT) $(SELINUX_POLICY_PKG)
 
 .PHONY: selinux
 selinux: $(SELINUX_ASSETS)

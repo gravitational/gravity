@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/coreos/go-semver/semver"
 	"k8s.io/apimachinery/pkg/version"
 )
 
@@ -216,6 +215,11 @@ const (
 
 	// GravityEnvVarPrefix is the prefix for gravity-specific environment variables.
 	GravityEnvVarPrefix = "GRAVITY_"
+
+	// HTTPProxyEnvVar is the HTTP_PROXY environment variable.
+	HTTPProxyEnvVar = "HTTP_PROXY"
+	// HTTPSProxyEnvVar is the HTTPS_PROXY environment variable.
+	HTTPSProxyEnvVar = "HTTPS_PROXY"
 
 	// Localhost is local host
 	Localhost = "127.0.0.1"
@@ -773,10 +777,6 @@ var (
 		DockerStorageDriverOverlay,
 		DockerStorageDriverOverlay2,
 	}
-
-	// PlanetMultiRegistryVersion is the planet release starting from which registries
-	// are running on all master nodes
-	PlanetMultiRegistryVersion = semver.New("0.1.55")
 
 	// KubernetesServiceDomainName specifies the domain names of the kubernetes API service
 	KubernetesServiceDomainNames = []string{

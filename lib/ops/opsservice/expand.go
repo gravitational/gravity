@@ -19,6 +19,7 @@ package opsservice
 import (
 	"context"
 
+	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
@@ -65,9 +66,9 @@ func (s *site) getSiteOperation(operationID string) (*ops.SiteOperation, error) 
 
 // expandOperationStart kicks off actuall expansion process:
 // resource provisioning, package configuration and deployment
-func (s *site) expandOperationStart(ctx *operationContext) error {
+func (s *site) expandOperationStart(opCtx *operationContext) error {
 	op, err := s.compareAndSwapOperationState(context.TODO(), swap{
-		key: ctx.key(),
+		key: opCtx.key(),
 		expectedStates: []string{
 			ops.OperationStateExpandInitiated,
 			ops.OperationStateExpandPrechecks,
@@ -83,31 +84,33 @@ func (s *site) expandOperationStart(ctx *operationContext) error {
 			return trace.NotFound("%v hook is not defined",
 				schema.HookNodesProvision)
 		}
-		ctx.Infof("Using nodes provisioning hook.")
-		err := s.runNodesProvisionHook(ctx)
+		opCtx.Info("Using nodes provisioning hook.")
+		err := s.runNodesProvisionHook(opCtx)
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		ctx.RecordInfo("Infrastructure has been successfully provisioned.")
+		opCtx.RecordInfo("Infrastructure has been successfully provisioned.")
 	}
 
-	s.reportProgress(ctx, ops.ProgressEntry{
+	s.reportProgress(opCtx, ops.ProgressEntry{
 		State:   ops.ProgressStateInProgress,
 		Message: "Waiting for the provisioned node to come up",
 	})
 
-	_, err = s.waitForAgents(context.TODO(), ctx)
+	ctx, cancel := defaults.WithTimeout(context.Background())
+	defer cancel()
+	_, err = s.waitForAgents(ctx, opCtx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	s.reportProgress(ctx, ops.ProgressEntry{
+	s.reportProgress(opCtx, ops.ProgressEntry{
 		State:   ops.ProgressStateInProgress,
 		Message: "The node is up",
 	})
 
 	_, err = s.compareAndSwapOperationState(context.TODO(), swap{
-		key:            ctx.key(),
+		key:            opCtx.key(),
 		expectedStates: []string{ops.OperationStateExpandProvisioning},
 		newOpState:     ops.OperationStateReady,
 	})
@@ -115,7 +118,7 @@ func (s *site) expandOperationStart(ctx *operationContext) error {
 		return trace.Wrap(err)
 	}
 
-	err = s.waitForOperation(ctx)
+	err = s.waitForOperation(opCtx)
 	if err != nil {
 		return trace.Wrap(err)
 	}

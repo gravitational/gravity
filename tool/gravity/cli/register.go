@@ -734,9 +734,11 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.SystemExportRuntimeJournalCmd.CmdClause = g.SystemCmd.Command("export-runtime-journal", "Export runtime journal logs to a file").Hidden()
 	g.SystemExportRuntimeJournalCmd.OutputFile = g.SystemExportRuntimeJournalCmd.Flag("output", "Name of resulting tarball. Output to stdout if unspecified").String()
 	g.SystemExportRuntimeJournalCmd.Since = g.SystemExportRuntimeJournalCmd.Flag("since", "Only return logs newer than a relative duration like 5s, 2m, or 3h. Default is 336h (14 days). Specify 0s to collect all logs.").Default("336h").Duration()
+	g.SystemExportRuntimeJournalCmd.Export = g.SystemExportRuntimeJournalCmd.Flag("export", "Serializes the journal into a binary stream").Bool()
 
 	g.SystemStreamRuntimeJournalCmd.CmdClause = g.SystemCmd.Command("stream-runtime-journal", "Stream runtime journal to stdout").Hidden()
 	g.SystemStreamRuntimeJournalCmd.Since = g.SystemStreamRuntimeJournalCmd.Flag("since", "Only return logs newer than a relative duration like 5s, 2m, or 3h. Default is 336h (14 days). Specify 0s to collect all logs.").Default("336h").Duration()
+	g.SystemStreamRuntimeJournalCmd.Export = g.SystemStreamRuntimeJournalCmd.Flag("export", "Serializes the journal into a binary stream").Bool()
 
 	g.SystemSelinuxBootstrapCmd.CmdClause = g.SystemCmd.Command("selinux-bootstrap", "Configure SELinux file contexts and ports on the node")
 	g.SystemSelinuxBootstrapCmd.Path = g.SystemSelinuxBootstrapCmd.Flag("output", "Path to output file for bootstrap script").String()

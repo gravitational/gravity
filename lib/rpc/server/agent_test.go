@@ -18,7 +18,6 @@ package server
 
 import (
 	"bytes"
-	"strings"
 	"sync"
 	"time"
 
@@ -457,8 +456,4 @@ func (r *peerStore) remove(peer Peer) {
 	r.Lock()
 	defer r.Unlock()
 	delete(r.peers, peer.Addr())
-}
-
-func isPeerDeniedError(err error) bool {
-	return strings.Contains(err.Error(), "peer not authorized")
 }

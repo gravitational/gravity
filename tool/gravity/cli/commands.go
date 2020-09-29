@@ -1714,6 +1714,8 @@ type SystemExportRuntimeJournalCmd struct {
 	// filter. Only log entries from the start of the time filter until now will
 	// be included in the report.
 	Since *time.Duration
+	// Export serializes the journal into a binary stream.
+	Export *bool
 }
 
 // SystemStreamRuntimeJournalCmd streams contents of the runtime journal
@@ -1723,6 +1725,8 @@ type SystemStreamRuntimeJournalCmd struct {
 	// filter. Only log entries from the start of the time filter until now will
 	// be included in the report.
 	Since *time.Duration
+	// Export serializes the journal into a binary stream.
+	Export *bool
 }
 
 // SystemSelinuxBootstrapCmd configures SELinux file contexts and ports on the node
