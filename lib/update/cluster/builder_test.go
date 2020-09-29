@@ -400,8 +400,7 @@ func (s *PlanSuite) TestDeterminesWhetherToUpdateEtcd(c *check.C) {
 		installed: installedEtcdVersion.String(),
 		update:    updateEtcdVersion.String(),
 	}, services.Packages, c)
-	etcd, err := shouldUpdateEtcd(installedEtcdVersion, updateEtcdVersion)
-	c.Assert(err, check.IsNil)
+	etcd := shouldUpdateEtcd(installedEtcdVersion, updateEtcdVersion)
 	c.Assert(etcd, check.DeepEquals, &etcdVersion{
 		installed: "3.3.2",
 		update:    "3.3.3",

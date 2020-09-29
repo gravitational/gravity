@@ -22,14 +22,13 @@ import (
 	"encoding/json"
 	"io"
 	"io/ioutil"
-	"os"
-	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/archive"
+	"github.com/gravitational/gravity/lib/clients"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
@@ -96,7 +95,7 @@ func InitOperationPlan(
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	currentEtcdVersion, err := getCurrentEtcdVersion(stateDir)
+	currentEtcdVersion, err := getCurrentEtcdVersion(ctx, stateDir)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -441,20 +440,20 @@ func shouldUpdateCoreDNS(client *kubernetes.Clientset) (bool, error) {
 	return false, nil
 }
 
-func shouldUpdateEtcd(installedVersion, updateVersion semver.Version) (*etcdVersion, error) {
+func shouldUpdateEtcd(installedVersion, updateVersion semver.Version) *etcdVersion {
 	if installedVersion.Compare(updateVersion) >= 0 {
-		return nil, nil
+		return nil
 	}
 	return &etcdVersion{
 		installed: installedVersion.String(),
 		update:    updateVersion.String(),
-	}, nil
+	}
 }
 
 func getEtcdVersionFromManifest(m schema.Manifest, packages pack.PackageService) (*semver.Version, error) {
 	runtimePackage, err := schema.GetRuntimePackage(m)
 	if err != nil {
-		return nil, trace.Wrap(err, "error fetching runtime package for %v", m.Metadata.App())
+		return nil, trace.Wrap(err, "error fetching runtime package for %v", m.Locator())
 	}
 	version, err := getEtcdVersion(*runtimePackage, packages)
 	if err != nil {
@@ -483,31 +482,20 @@ func getEtcdVersion(locator loc.Locator, packages pack.PackageService) (*semver.
 		locator, searchLabel)
 }
 
-// getCurrentEtcdVersion attempts to read the version of etcd from the etcd version
-// file. This assumes that all cluster (master) nodes run the same version of etcd
-// although this might be invalidated with the use of custom planet image.
-// This does not make sense to have this descripancy though and it should be flagged
-// elsewhere - i.e. at 'tele build' time
-func getCurrentEtcdVersion(stateDir string) (version *semver.Version, err error) {
-	// https://github.com/gravitational/planet/blob/version/7.0.x/tool/planet/constants.go#L87
-	const etcdVersionKey = "PLANET_ETCD_VERSION"
-	f, err := os.Open(filepath.Join(state.EtcdDir(stateDir), "etcd-version.txt"))
+func getCurrentEtcdVersion(ctx context.Context, stateDir string) (version *semver.Version, err error) {
+	client, err := clients.Etcd(&clients.EtcdConfig{
+		SecretsDir: state.SecretDir(stateDir),
+	})
 	if err != nil {
-		return nil, trace.ConvertSystemError(err)
+		return nil, trace.Wrap(err)
 	}
-	defer f.Close()
-	kvs, err := utils.ParseEnv(f)
+	versions, err := client.GetVersion(ctx)
 	if err != nil {
-		return nil, trace.ConvertSystemError(err)
+		return nil, trace.Wrap(err)
 	}
-	var ok bool
-	var versionS string
-	if versionS, ok = kvs[etcdVersionKey]; !ok {
-		return nil, trace.NotFound("current etcd version unspecified in the version file")
-	}
-	version, err = semver.NewVersion(strings.TrimPrefix(versionS, "v"))
+	version, err = semver.NewVersion(versions.Server)
 	if err != nil {
-		return nil, trace.Wrap(err, "version not in semver format: %q", versionS)
+		return nil, trace.Wrap(err)
 	}
 	return version, nil
 }

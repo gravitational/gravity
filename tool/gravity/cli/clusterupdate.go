@@ -388,7 +388,7 @@ func completeUpdatePlanForOperation(env *localenv.LocalEnvironment, environ Loca
 		return trace.Wrap(err)
 	}
 	defer updateEnv.Close()
-	updater, err := getClusterUpdaterForCompletion(env, updateEnv, clusterEnv, operation.SiteOperation)
+	updater, err := getClusterUpdater(env, updateEnv, operation.SiteOperation, true)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -432,34 +432,6 @@ func getClusterUpdater(localEnv, updateEnv *localenv.LocalEnvironment, operation
 	}
 	if noValidateVersion {
 		return updater, nil
-	}
-	if err := validateBinaryVersion(updater); err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return updater, nil
-}
-
-func getClusterUpdaterForCompletion(localEnv, updateEnv *localenv.LocalEnvironment, clusterEnv *localenv.ClusterEnvironment, operation ops.SiteOperation) (*update.Updater, error) {
-	updater, err := clusterupdate.New(context.TODO(), clusterupdate.Config{
-		Config: update.Config{
-			Operation:    &operation,
-			Operator:     clusterEnv.Operator,
-			Backend:      clusterEnv.Backend,
-			LocalBackend: updateEnv.Backend,
-			Silent:       localEnv.Silent,
-			// Runner is not provided on purpose. This needs to work
-			// even if the operation has not been successfully initialized
-		},
-		Apps:              clusterEnv.Apps,
-		Client:            clusterEnv.Client,
-		Packages:          clusterEnv.Packages,
-		ClusterPackages:   clusterEnv.ClusterPackages,
-		HostLocalBackend:  localEnv.Backend,
-		HostLocalPackages: localEnv.Packages,
-		Users:             clusterEnv.Users,
-	})
-	if err != nil {
-		return nil, trace.Wrap(err)
 	}
 	if err := validateBinaryVersion(updater); err != nil {
 		return nil, trace.Wrap(err)

@@ -83,11 +83,8 @@ func (r *phaseBuilder) initSteps(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	etcd, err := shouldUpdateEtcd(*installedEtcdVersion, *updateEtcdVersion)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	// check if OpenEBS itegration has been enabled in the new application
+	etcd := shouldUpdateEtcd(*installedEtcdVersion, *updateEtcdVersion)
+	// check if OpenEBS integration has been enabled in the new application
 	openEBSEnabled := !r.installedApp.Manifest.OpenEBSEnabled() && r.updateApp.Manifest.OpenEBSEnabled()
 	r.targetStep = newTargetUpdateStep(updateStep{
 		servers:        serverUpdates,
@@ -125,10 +122,7 @@ func (r phaseBuilder) buildIntermediateSteps(context.Context) (updates []interme
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
-		update.etcd, err = shouldUpdateEtcd(*installedEtcdVersion, *updateEtcdVersion)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
+		update.etcd = shouldUpdateEtcd(*installedEtcdVersion, *updateEtcdVersion)
 		result[version] = update
 		serverUpdates, err := r.intermediateConfigUpdates(
 			r.installedApp.Manifest,

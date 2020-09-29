@@ -486,15 +486,6 @@ func (m Metadata) GetName() string {
 	return m.Name
 }
 
-// App returns the application package locator
-func (m Metadata) App() loc.Locator {
-	return loc.Locator{
-		Name:       m.Name,
-		Repository: m.Repository,
-		Version:    m.ResourceVersion,
-	}
-}
-
 // Endpoint describes an application endpoint
 type Endpoint struct {
 	// Name is the endpoint short name
