@@ -24,6 +24,7 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/gravitational/trace"
@@ -79,16 +80,20 @@ func (a *Autoscaler) checkSourceDestination(ctx context.Context, operator ops.Op
 			a.Warnf("%v doesn't have cloud instance id.", node)
 		}
 	}
-	instances, err := a.DescribeInstancesWithSourceDestinationCheck(ctx, instanceIDs)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	for _, instance := range instances {
-		a.Infof("Instance %v has source/dest check enabled, disabling.",
-			aws.StringValue(instance.InstanceId))
-		err := a.TurnOffSourceDestinationCheck(ctx, aws.StringValue(instance.InstanceId))
+	// We don't know how EC2 API will react when provided with a large number
+	// of instance IDs at once e.g. in 1K+ node clusters, so split them in
+	// several smaller batches.
+	for _, batch := range utils.SplitSlice(instanceIDs, 250) {
+		instances, err := a.DescribeInstancesWithSourceDestinationCheck(ctx, batch)
 		if err != nil {
 			return trace.Wrap(err)
+		}
+		for _, instance := range instances {
+			a.Infof("Instance %v has source/dest check enabled, disabling.", aws.StringValue(instance.InstanceId))
+			err := a.TurnOffSourceDestinationCheck(ctx, aws.StringValue(instance.InstanceId))
+			if err != nil {
+				return trace.Wrap(err)
+			}
 		}
 	}
 	return nil
