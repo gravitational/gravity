@@ -40,7 +40,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func exportRuntimeJournal(env *localenv.LocalEnvironment, outputFile string, since time.Duration) error {
+func exportRuntimeJournal(env *localenv.LocalEnvironment, outputFile string, since time.Duration, export bool) error {
 	stateDir, err := state.GetStateDir()
 	if err != nil {
 		return trace.Wrap(err)
@@ -92,15 +92,21 @@ func exportRuntimeJournal(env *localenv.LocalEnvironment, outputFile string, sin
 
 	zip := gzip.NewWriter(w)
 	defer zip.Close()
-	cmd := exec.CommandContext(ctx, utils.Exe.Path,
+
+	args := []string{
 		"system", "stream-runtime-journal",
-		"--since", since.String())
+		"--since", since.String(),
+	}
+	if export {
+		args = append(args, "--export")
+	}
+	cmd := exec.CommandContext(ctx, utils.Exe.Path, args...)
 	cmd.Stdout = zip
 	cmd.Stderr = zip
 	return trace.Wrap(cmd.Run())
 }
 
-func streamRuntimeJournal(env *localenv.LocalEnvironment, since time.Duration) error {
+func streamRuntimeJournal(env *localenv.LocalEnvironment, since time.Duration, export bool) error {
 	runtimePackage, err := pack.FindRuntimePackage(env.Packages)
 	if err != nil {
 		return trace.Wrap(err)
@@ -124,8 +130,10 @@ func streamRuntimeJournal(env *localenv.LocalEnvironment, since time.Duration) e
 	const cmd = defaults.JournalctlBin
 	args := []string{
 		cmd,
-		"--output", "export",
 		"-D", journalDir,
+	}
+	if export {
+		args = append(args, "--output", "export")
 	}
 	if since != 0 {
 		args = append(args, "--since", time.Now().Add(-since).Format(report.JournalDateFormat))
