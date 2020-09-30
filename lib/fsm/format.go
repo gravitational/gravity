@@ -59,6 +59,7 @@ func FormatOperationPlanJSON(w io.Writer, plan storage.OperationPlan) error {
 func FormatOperationPlanText(w io.Writer, plan storage.OperationPlan) {
 	var t tabwriter.Writer
 	t.Init(w, 0, 10, 5, ' ', 0)
+	fmt.Fprintln(&t, "Operation: ", OperationString(plan))
 	common.PrintTableHeader(&t, []string{"Phase", "Description", "State", "Node", "Requires", "Updated"})
 	for _, phase := range plan.Phases {
 		printPhase(&t, phase, 0)

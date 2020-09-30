@@ -488,10 +488,10 @@ func (f *FSM) executeOnePhase(ctx context.Context, p Params, phase storage.Opera
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
+	logger := executor.WithField("phase", phase.ID)
 	err = executor.PreCheck(ctx)
 	if err != nil {
-		executor.Errorf("Phase precheck failed: %v.", err)
+		logger.WithError(err).Error("Phase precheck failed.")
 		return trace.Wrap(err)
 	}
 
@@ -504,11 +504,11 @@ func (f *FSM) executeOnePhase(ctx context.Context, p Params, phase storage.Opera
 		return trace.Wrap(err)
 	}
 
-	executor.Infof("Executing phase: %v.", phase.ID)
+	logger.Info("Executing phase.")
 
 	err = executor.Execute(ctx)
 	if err != nil {
-		executor.Errorf("Phase execution failed: %v.", err)
+		logger.WithError(err).Error("Phase execution failed.")
 		if err := f.ChangePhaseState(ctx,
 			StateChange{
 				Phase: phase.ID,
@@ -522,7 +522,7 @@ func (f *FSM) executeOnePhase(ctx context.Context, p Params, phase storage.Opera
 
 	err = executor.PostCheck(ctx)
 	if err != nil {
-		executor.Errorf("Phase postcheck failed: %v.", err)
+		logger.WithError(err).Error("Phase postcheck failed.")
 		return trace.Wrap(err)
 	}
 
@@ -589,11 +589,12 @@ func (f *FSM) rollbackPhaseLocally(ctx context.Context, p Params, phase storage.
 
 func (f *FSM) rollbackPhaseRemotely(ctx context.Context, p Params, phase storage.OperationPhase, server storage.Server) error {
 	return f.RunCommand(ctx, f.Runner, server, Params{
-		PhaseID:  p.PhaseID,
-		Force:    p.Force,
-		Resume:   p.Resume,
-		Rollback: true,
-		Progress: p.Progress,
+		PhaseID:     p.PhaseID,
+		OperationID: p.OperationID,
+		Force:       p.Force,
+		Resume:      p.Resume,
+		Rollback:    true,
+		Progress:    p.Progress,
 	})
 }
 

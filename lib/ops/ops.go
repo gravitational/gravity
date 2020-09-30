@@ -1164,7 +1164,13 @@ func (s *SiteOperation) String() string {
 
 // TypeString returns the textual representation of the operation's type
 func (s *SiteOperation) TypeString() string {
-	switch s.Type {
+	return OperationTypeString(s.Type)
+}
+
+// OperationTypeString formats the specified operation type
+// as readable text
+func OperationTypeString(typ string) string {
+	switch typ {
 	case OperationInstall:
 		return "install"
 	case OperationExpand:
@@ -1182,7 +1188,7 @@ func (s *SiteOperation) TypeString() string {
 	case OperationUpdateConfig:
 		return "update configuration"
 	default:
-		return s.Type
+		return typ
 	}
 }
 

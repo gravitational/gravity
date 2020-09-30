@@ -18,12 +18,15 @@ package update
 import (
 	"context"
 	"os/exec"
+	"time"
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/storage/keyval"
 	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/cenkalti/backoff"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
 )
@@ -36,7 +39,7 @@ type Reconciler interface {
 
 // NewDefaultReconciler returns an implementation of Reconciler that syncs changes between
 // the authoritative and the remote backends
-func NewDefaultReconciler(remote, authoritative storage.Backend, clusterName, operationID string, logger logrus.FieldLogger) *reconciler {
+func NewDefaultReconciler(remote keyval.EtcdBackend, authoritative storage.Backend, clusterName, operationID string, logger logrus.FieldLogger) *reconciler {
 	return &reconciler{
 		FieldLogger:  logger,
 		backend:      remote,
@@ -71,7 +74,7 @@ func (r *reconciler) trySyncChangelogToEtcd(ctx context.Context) error {
 	}
 
 	if shouldSync {
-		return trace.Wrap(r.syncChangelog(r.localBackend, r.backend))
+		return trace.Wrap(r.syncChangelog(ctx, r.localBackend, r.backend))
 	}
 
 	return nil
@@ -84,22 +87,35 @@ func (r *reconciler) trySyncChangelogFromEtcd(ctx context.Context) error {
 	}
 
 	if shouldSync {
-		return trace.Wrap(r.syncChangelog(r.backend, r.localBackend))
+		r.Debug("Use quorum reads for plan sync.")
+		// Use consistent reads when querying the operation plan to avoid
+		// reading stale values.
+		// TODO(v3): This is only required for etcd client v2 as client v3 defaults
+		// to quorum reads and offers clientv3.WithSerializable() as an opt-out.
+		// See https://etcd.io/docs/v2/faq/ and https://github.com/etcd-io/etcd/issues/6829 for details
+		consistentSrc := r.backend.CloneWithOptions(keyval.WithReadQuorum(true))
+		return trace.Wrap(r.syncChangelog(ctx, consistentSrc, r.localBackend))
 	}
 
 	return nil
 }
 
 // syncChangelog will sync changelog entries from src to dst storage
-func (r *reconciler) syncChangelog(src storage.Backend, dst storage.Backend) error {
-	return trace.Wrap(SyncChangelog(src, dst, r.cluster, r.operationID))
+func (r *reconciler) syncChangelog(ctx context.Context, src, dst storage.Backend) error {
+	b := backoff.NewExponentialBackOff()
+	b.MaxInterval = 15 * time.Second
+	b.MaxElapsedTime = 1 * time.Minute
+	return utils.RetryTransient(ctx, b, func() error {
+		return SyncChangelog(src, dst, r.cluster, r.operationID)
+	})
 }
 
 type reconciler struct {
 	logrus.FieldLogger
-	backend, localBackend storage.Backend
-	cluster               string
-	operationID           string
+	backend      keyval.EtcdBackend
+	localBackend storage.Backend
+	cluster      string
+	operationID  string
 }
 
 // SyncChangelog will sync changelog entries from src to dst storage

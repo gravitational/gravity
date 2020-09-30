@@ -41,12 +41,12 @@ import (
 	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/update"
 	clusterupdate "github.com/gravitational/gravity/lib/update/cluster"
-	"github.com/gravitational/version"
 
 	"github.com/coreos/go-semver/semver"
 	"github.com/fatih/color"
 	"github.com/ghodss/yaml"
 	"github.com/gravitational/trace"
+	"github.com/gravitational/version"
 )
 
 func updateCheck(env *localenv.LocalEnvironment, updatePackage string) error {
@@ -183,11 +183,16 @@ func executeUpdatePhaseForOperation(env *localenv.LocalEnvironment, environ Loca
 		return trace.Wrap(err)
 	}
 	defer updateEnv.Close()
-	updater, err := getClusterUpdater(env, updateEnv, operation, params.SkipVersionCheck)
+	updater, err := getClusterUpdater(env, updateEnv, operation)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	defer updater.Close()
+	if !params.SkipVersionCheck {
+		if err := validateBinaryVersion(updater); err != nil {
+			return trace.Wrap(err)
+		}
+	}
 	return executeOrForkPhase(env, updater, params, operation)
 }
 
@@ -284,11 +289,16 @@ func rollbackUpdatePhaseForOperation(env *localenv.LocalEnvironment, environ Loc
 		return trace.Wrap(err)
 	}
 	defer updateEnv.Close()
-	updater, err := getClusterUpdater(env, updateEnv, operation, params.SkipVersionCheck)
+	updater, err := getClusterUpdater(env, updateEnv, operation)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	defer updater.Close()
+	if !params.SkipVersionCheck {
+		if err := validateBinaryVersion(updater); err != nil {
+			return trace.Wrap(err)
+		}
+	}
 	err = updater.RollbackPhase(context.TODO(), fsm.Params{
 		PhaseID: params.PhaseID,
 		Force:   params.Force,
@@ -303,7 +313,7 @@ func setUpdatePhaseForOperation(env *localenv.LocalEnvironment, environ LocalEnv
 		return trace.Wrap(err)
 	}
 	defer updateEnv.Close()
-	updater, err := getClusterUpdater(env, updateEnv, operation, true)
+	updater, err := getClusterUpdater(env, updateEnv, operation)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -317,7 +327,7 @@ func completeUpdatePlanForOperation(env *localenv.LocalEnvironment, environ Loca
 		return trace.Wrap(err)
 	}
 	defer updateEnv.Close()
-	updater, err := getClusterUpdater(env, updateEnv, operation, true)
+	updater, err := getClusterUpdater(env, updateEnv, operation)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -331,7 +341,7 @@ func completeUpdatePlanForOperation(env *localenv.LocalEnvironment, environ Loca
 	return nil
 }
 
-func getClusterUpdater(localEnv, updateEnv *localenv.LocalEnvironment, operation ops.SiteOperation, noValidateVersion bool) (*update.Updater, error) {
+func getClusterUpdater(localEnv, updateEnv *localenv.LocalEnvironment, operation ops.SiteOperation) (*update.Updater, error) {
 	clusterEnv, err := localEnv.NewClusterEnvironment()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -362,12 +372,6 @@ func getClusterUpdater(localEnv, updateEnv *localenv.LocalEnvironment, operation
 		Users:             clusterEnv.Users,
 	})
 	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	if noValidateVersion {
-		return updater, nil
-	}
-	if err := validateBinaryVersion(updater); err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return updater, nil
