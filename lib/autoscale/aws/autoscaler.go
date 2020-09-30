@@ -160,6 +160,27 @@ func (a *Autoscaler) DescribeInstance(ctx context.Context, instanceID string) (*
 	return resp.Reservations[0].Instances[0], nil
 }
 
+// DescribeInstancesWithSourceDestinationCheck returns all instances from the
+// specified list that have source/destination check enabled.
+func (a *Autoscaler) DescribeInstancesWithSourceDestinationCheck(ctx context.Context, instanceIDs []string) (result []*ec2.Instance, err error) {
+	resp, err := a.Cloud.DescribeInstancesWithContext(ctx, &ec2.DescribeInstancesInput{
+		InstanceIds: aws.StringSlice(instanceIDs),
+		Filters: []*ec2.Filter{
+			{
+				Name:   aws.String("source-dest-check"),
+				Values: aws.StringSlice([]string{"true"}),
+			},
+		},
+	})
+	if err != nil {
+		return nil, utils.ConvertEC2Error(err)
+	}
+	for _, reservation := range resp.Reservations {
+		result = append(result, reservation.Instances...)
+	}
+	return result, nil
+}
+
 // WaitUntilInstanceTerminated blocks until the instance with the specified ID
 // is terminated.
 //

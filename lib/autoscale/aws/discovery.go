@@ -24,7 +24,9 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/gravitational/trace"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -34,10 +36,11 @@ func (a *Autoscaler) PublishDiscovery(ctx context.Context, operator ops.Operator
 	a.Info("Start publishing discovery info.")
 	err := a.syncDiscovery(ctx, operator, true)
 	if err != nil {
-		a.Errorf("Failed to publish discovery: %v.", trace.DebugReport(err))
+		a.WithError(err).Error("Failed to publish discovery.")
 	}
 	publishTicker := time.NewTicker(defaults.DiscoveryPublishInterval)
 	resyncTicker := time.NewTicker(defaults.DiscoveryResyncInterval)
+	sourceDestTicker := time.NewTicker(defaults.SourceDestinationCheckInterval)
 	for {
 		select {
 		case <-ctx.Done():
@@ -46,15 +49,54 @@ func (a *Autoscaler) PublishDiscovery(ctx context.Context, operator ops.Operator
 		case <-publishTicker.C:
 			err = a.syncDiscovery(ctx, operator, false)
 			if err != nil {
-				a.Errorf("Failed to publish discovery: %v.", trace.DebugReport(err))
+				a.WithError(err).Error("Failed to publish discovery.")
 			}
 		case <-resyncTicker.C:
 			err = a.syncDiscovery(ctx, operator, true)
 			if err != nil {
-				a.Errorf("Failed to publish discovery: %v.", trace.DebugReport(err))
+				a.WithError(err).Error("Failed to publish discovery.")
+			}
+		case <-sourceDestTicker.C:
+			err = a.checkSourceDestination(ctx, operator)
+			if err != nil {
+				a.WithError(err).Error("Failed to ensure source/dest check is disabled.")
 			}
 		}
 	}
+}
+
+// checkSourceDestination makes sure source/destination check is disabled for
+// the cluster instances.
+func (a *Autoscaler) checkSourceDestination(ctx context.Context, operator ops.Operator) error {
+	cluster, err := operator.GetLocalSite(ctx)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	var instanceIDs []string
+	for _, node := range cluster.ClusterState.Servers {
+		if node.InstanceID != "" {
+			instanceIDs = append(instanceIDs, node.InstanceID)
+		} else {
+			a.Warnf("%v doesn't have cloud instance id.", node)
+		}
+	}
+	// We don't know how EC2 API will react when provided with a large number
+	// of instance IDs at once e.g. in 1K+ node clusters, so split them in
+	// several smaller batches.
+	for _, batch := range utils.SplitSlice(instanceIDs, 250) {
+		instances, err := a.DescribeInstancesWithSourceDestinationCheck(ctx, batch)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		for _, instance := range instances {
+			a.Infof("Instance %v has source/dest check enabled, disabling.", aws.StringValue(instance.InstanceId))
+			err := a.TurnOffSourceDestinationCheck(ctx, aws.StringValue(instance.InstanceId))
+			if err != nil {
+				return trace.Wrap(err)
+			}
+		}
+	}
+	return nil
 }
 
 // syncDiscovery syncs cluster discovery information in the SSM
