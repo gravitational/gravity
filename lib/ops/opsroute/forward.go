@@ -280,12 +280,12 @@ func (r *Router) GetSiteInstructions(tokenID string, serverProfile string, param
 	return client.GetSiteInstructions(tokenID, serverProfile, params)
 }
 
-func (r *Router) GetSiteOperations(key ops.SiteKey) (ops.SiteOperations, error) {
+func (r *Router) GetSiteOperations(key ops.SiteKey, f ops.OperationsFilter) (ops.SiteOperations, error) {
 	client, err := r.PickOperationClient(key.SiteDomain)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return client.GetSiteOperations(key)
+	return client.GetSiteOperations(key, f)
 }
 
 func (r *Router) GetSiteOperation(key ops.SiteOperationKey) (*ops.SiteOperation, error) {

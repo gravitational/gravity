@@ -63,11 +63,14 @@ func NewETCD(cfg ETCDConfig) (*electingBackend, error) {
 	backend := &backend{
 		Clock:    clock,
 		kvengine: engine,
+
+		cachedCompleteOperations: make(map[string]*storage.SiteOperation),
 	}
+
 	return &electingBackend{
 		Backend: backend,
-		Leader:  leader,
 		backend: backend,
+		Leader:  leader,
 		engine:  engine,
 	}, nil
 }
