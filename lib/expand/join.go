@@ -53,7 +53,6 @@ import (
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/cenkalti/backoff"
-	"github.com/gravitational/coordinate/leader"
 	"github.com/gravitational/roundtrip"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
@@ -764,7 +763,15 @@ type operationContext struct {
 // For a local gravity cluster, it will attempt to start the expand operation
 // and will return an operation context wrapping a new expand operation.
 func (p *Peer) connectLoop() (*operationContext, error) {
-	ticker := backoff.NewTicker(leader.NewUnlimitedExponentialBackOff())
+
+	// Lots of joining nodes create load on the gravity-site controller cycling on creating join operations
+	// Set a high maximum so lots of queued joins don't create too much load
+	b := backoff.NewExponentialBackOff()
+	b.Multiplier = 2
+	b.MaxElapsedTime = 0 // unlimited timeout
+	b.MaxInterval = time.Minute
+
+	ticker := backoff.NewTicker(b)
 	defer ticker.Stop()
 	for {
 		select {

@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/gravitational/gravity/lib/constants"
@@ -137,9 +138,6 @@ const (
 
 	// MaxValidationConcurrency defines a number of validation requests to run concurrently
 	MaxValidationConcurrency = 5
-
-	// MaxExpandConcurrency is the number of servers that can be joining the cluster concurrently
-	MaxExpandConcurrency = 5
 
 	// DownloadRetryPeriod is the period between failed retry attempts
 	DownloadRetryPeriod = 5 * time.Second
@@ -1301,6 +1299,14 @@ var (
 	AlertmanagerServiceAddr = fmt.Sprintf(
 		"alertmanager-main.monitoring.svc.cluster.local:%v",
 		AlertmanagerServicePort)
+
+	// HelmRegistryVar is the Helm variable that gets passed via --set flag and
+	// sets the registry variable to the address of internal cluster registry:
+	// image.registry=leader.telekube.local:5000/
+	HelmRegistryVar = fmt.Sprintf("%v=%v/", ImageRegistryVar, DockerRegistry)
+
+	// MaxExpandConcurrency is the number of servers that can be joining the cluster concurrently
+	MaxExpandConcurrency = (runtime.NumCPU() / 3) + 1
 )
 
 // HookSecurityContext returns default securityContext for hook pods

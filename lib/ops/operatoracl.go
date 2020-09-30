@@ -425,11 +425,11 @@ func (o *OperatorACL) GetSiteInstructions(tokenID string, serverProfile string, 
 	return o.operator.GetSiteInstructions(tokenID, serverProfile, params)
 }
 
-func (o *OperatorACL) GetSiteOperations(key SiteKey) (SiteOperations, error) {
+func (o *OperatorACL) GetSiteOperations(key SiteKey, f OperationsFilter) (SiteOperations, error) {
 	if err := o.ClusterAction(key.SiteDomain, storage.KindCluster, teleservices.VerbRead); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return o.operator.GetSiteOperations(key)
+	return o.operator.GetSiteOperations(key, f)
 }
 
 func (o *OperatorACL) GetSiteOperation(key SiteOperationKey) (*SiteOperation, error) {

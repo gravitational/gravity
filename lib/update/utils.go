@@ -32,7 +32,6 @@ import (
 	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -67,20 +66,30 @@ func WaitForEndpoints(ctx context.Context, client corev1.CoreV1Interface, server
 	kubednsLabels := labels.Set{"k8s-app": defaults.KubeDNSLabel}
 	kubednsWorkerLabels := labels.Set{"k8s-app": defaults.KubeDNSWorkerLabel}
 
-	// Due to https://github.com/gravitational/gravity.e/issues/3808 the node name we need to match may be inconsistent
-	// so try to match either possible node name
-	matchesNode := matchesNode([]string{
-		server.AdvertiseIP,
-		server.Nodename,
-	})
 	err := Retry(ctx, func() error {
-		if (hasEndpoints(client, clusterLabels, existingEndpoint) == nil) &&
-			(hasEndpoints(client, kubednsLabels, matchesNode) == nil ||
-				hasEndpoints(client, kubednsLegacyLabels, matchesNode) == nil ||
-				hasEndpoints(client, kubednsWorkerLabels, matchesNode) == nil) {
-			return nil
+		var errors []error
+
+		if err := hasEndpoints(client, clusterLabels); err != nil {
+			errors = append(errors, trace.Wrap(err))
 		}
-		return trace.NotFound("endpoints not ready")
+
+		if err := hasEndpoints(client, kubednsLegacyLabels); err == nil {
+			// If this cluster has the legacy dns application, new labels won't be available, and we can exit at
+			// this point.
+			return trace.NewAggregate(errors...)
+		}
+
+		if err := hasEndpoints(client, kubednsLabels); err != nil {
+			errors = append(errors, trace.Wrap(err))
+		}
+
+		if server.ClusterRole == string(schema.ServiceRoleNode) {
+			if err := hasEndpoints(client, kubednsWorkerLabels); err != nil {
+				errors = append(errors, trace.Wrap(err))
+			}
+		}
+
+		return trace.NewAggregate(errors...)
 	}, defaults.EndpointsWaitTimeout)
 	return trace.Wrap(err)
 }
@@ -107,7 +116,7 @@ func SplitServers(servers []storage.UpdateServer) (masters, nodes []storage.Upda
 	return masters, nodes
 }
 
-func hasEndpoints(client corev1.CoreV1Interface, labels labels.Set, fn endpointMatchFn) error {
+func hasEndpoints(client corev1.CoreV1Interface, labels labels.Set) error {
 	list, err := client.Endpoints(metav1.NamespaceSystem).List(
 		metav1.ListOptions{
 			LabelSelector: labels.String(),
@@ -119,45 +128,14 @@ func hasEndpoints(client corev1.CoreV1Interface, labels labels.Set, fn endpointM
 	}
 	for _, endpoint := range list.Items {
 		for _, subset := range endpoint.Subsets {
-			for _, addr := range subset.Addresses {
-				log.WithField("addr", addr).Debug("Trying endpoint.")
-				if fn(addr) {
-					return nil
-				}
+			if len(subset.Addresses) > 0 {
+				return nil
 			}
 		}
 	}
 	log.WithField("query", labels).Warn("No active endpoints found.")
 	return trace.NotFound("no active endpoints found for query %q", labels)
 }
-
-// matchesNode is a predicate that matches an endpoint address to the specified
-// node name
-func matchesNode(nodes []string) endpointMatchFn {
-	return func(addr v1.EndpointAddress) bool {
-		// Abort if the node name is not populated.
-		// There is no need to wait for endpoints we cannot
-		// match to a node.
-		if addr.NodeName == nil {
-			return false
-		}
-
-		for _, node := range nodes {
-			if *addr.NodeName == node {
-				return true
-			}
-		}
-		return false
-	}
-}
-
-// existingEndpoint is a trivial predicate that matches for any endpoint.
-func existingEndpoint(v1.EndpointAddress) bool {
-	return true
-}
-
-// endpointMatchFn matches an endpoint address using custom criteria.
-type endpointMatchFn func(addr v1.EndpointAddress) bool
 
 func formatOperation(op ops.SiteOperation) string {
 	return fmt.Sprintf("operation(%v(%v), cluster=%v, created=%v)",

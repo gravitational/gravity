@@ -26,6 +26,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/state"
+	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/cenkalti/backoff"
@@ -63,6 +64,8 @@ func NewETCD(cfg ETCDConfig) (*electingBackend, error) {
 		Backend: &backend{
 			Clock:    clock,
 			kvengine: engine,
+
+			cachedCompleteOperations: make(map[string]*storage.SiteOperation),
 		},
 		Leader: leader,
 		client: engine.client,
