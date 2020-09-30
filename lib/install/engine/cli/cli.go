@@ -144,7 +144,7 @@ func (r *executor) upsertClusterAndOperation() (*ops.SiteOperation, error) {
 	} else {
 		cluster = &clusters[0]
 	}
-	operations, err := r.Operator.GetSiteOperations(cluster.Key())
+	operations, err := r.Operator.GetSiteOperations(cluster.Key(), ops.OperationsFilter{})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

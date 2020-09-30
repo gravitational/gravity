@@ -350,6 +350,7 @@ func (g *operationGroup) onSiteOperationComplete(key ops.SiteOperationKey) error
 	if err != nil {
 		return trace.Wrap(err)
 	}
+
 	logger := log.WithField("operation", operation.String())
 
 	operations, err := ops.GetActiveOperationsByType(g.siteKey, g.operator, operation.Type)

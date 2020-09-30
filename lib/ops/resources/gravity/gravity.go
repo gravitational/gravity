@@ -416,7 +416,7 @@ func (r *Resources) GetCollection(req resources.ListRequest) (resources.Collecti
 		}
 		return storageCollection{PersistentStorage: ps}, nil
 	case storage.KindOperation:
-		operations, err := r.Operator.GetSiteOperations(req.SiteKey)
+		operations, err := r.Operator.GetSiteOperations(req.SiteKey, ops.OperationsFilter{})
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
