@@ -108,3 +108,15 @@ func CombineLabels(labels ...map[string]string) (result map[string]string) {
 	}
 	return result
 }
+
+// SplitSlice splits the provided string slice into batches of specified size.
+func SplitSlice(slice []string, batchSize int) (result [][]string) {
+	for i := 0; i < len(slice); i += batchSize {
+		batchEnd := i + batchSize
+		if batchEnd > len(slice) {
+			batchEnd = len(slice)
+		}
+		result = append(result, slice[i:batchEnd])
+	}
+	return result
+}
