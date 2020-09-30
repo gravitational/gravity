@@ -531,6 +531,7 @@ func (i *InstallConfig) RunLocalChecks() error {
 		Manifest: app.Manifest,
 		Role:     role,
 		Docker:   i.Docker,
+		Mounts:   i.Mounts,
 		Options: &validationpb.ValidateOptions{
 			VxlanPort: int32(i.VxlanPort),
 			DnsAddrs:  i.DNSConfig.Addrs,
