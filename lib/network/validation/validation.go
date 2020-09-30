@@ -139,15 +139,20 @@ func (_ *Server) Validate(ctx context.Context, req *pb.ValidateRequest) (resp *p
 		return nil, trace.Wrap(err)
 	}
 
-	var failedProbes []*agentpb.Probe
-	dockerConfig := storage.DockerConfig{
-		StorageDriver: req.Docker.StorageDriver,
+	v := checks.ManifestValidator{
+		Manifest: manifest,
+		Profile:  *profile,
+		StateDir: stateDir,
 	}
+	var failedProbes []*agentpb.Probe
 	if req.FullRequirements {
-		failedProbes, err = checks.ValidateManifest(manifest, *profile, dockerConfig, stateDir)
+		v.Docker = &storage.DockerConfig{
+			StorageDriver: req.Docker.StorageDriver,
+		}
+		failedProbes, err = v.Validate(ctx)
 		failedProbes = append(failedProbes, checks.RunBasicChecks(ctx, req.Options)...)
 	} else {
-		failedProbes, err = validateManifest(*profile, manifest, stateDir)
+		failedProbes, err = validateManifest(ctx, v)
 		failedProbes = append(failedProbes, runLocalChecks(ctx)...)
 	}
 
@@ -190,16 +195,16 @@ func computeDiff(expected []*pb.Addr, actual []*pb.ServerResult) (diff []*pb.Add
 // validateManifest validates the node against the specified profile.
 // The profile requirements are skipped as these are only meaningful during
 // installation.
-func validateManifest(profile schema.NodeProfile, manifest schema.Manifest, stateDir string) (failedProbes []*agentpb.Probe, err error) {
+func validateManifest(ctx context.Context, v checks.ManifestValidator) (failedProbes []*agentpb.Probe, err error) {
 	var errors []error
-	failed, err := schema.ValidateDocker(manifest.SystemDocker(), stateDir)
+	failed, err := schema.ValidateDocker(ctx, v.Manifest.Docker(v.Profile), v.StateDir)
 	if err != nil {
 		errors = append(errors, trace.Wrap(err,
 			"error validating docker requirements, see syslog for details"))
 	}
 	failedProbes = append(failedProbes, failed...)
 
-	failedProbes = append(failedProbes, schema.ValidateKubelet(profile, manifest)...)
+	failedProbes = append(failedProbes, schema.ValidateKubelet(ctx, v.Profile, v.Manifest)...)
 	return failedProbes, trace.NewAggregate(errors...)
 }
 
