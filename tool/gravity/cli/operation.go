@@ -178,7 +178,9 @@ func rollbackPlan(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentF
 	}
 
 	if err := verifyOrDeployAgents(localEnv); err != nil {
-		return trace.Wrap(err)
+		// Continue operation in case gravity-site or etcd is down. In these
+		// cases the agent status may not be retrievable.
+		log.WithError(err).Warn("Failed to verify or deploy agents.")
 	}
 
 	if !confirmed && !params.DryRun {
