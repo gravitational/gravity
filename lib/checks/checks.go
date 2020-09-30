@@ -70,7 +70,8 @@ func (r *ManifestValidator) Validate(ctx context.Context) (failedProbes []*agent
 	failed, err := schema.ValidateRequirements(ctx, requirements, r.StateDir)
 	if err != nil {
 		errors = append(errors, trace.Wrap(err,
-			"error validating profile requirements, see log file for details"))
+			"error validating profile requirements, see log file (%v) for details",
+			defaults.GravitySystemLogPath))
 	}
 	failedProbes = append(failedProbes, failed...)
 
@@ -82,7 +83,8 @@ func (r *ManifestValidator) Validate(ctx context.Context) (failedProbes []*agent
 	failed, err = schema.ValidateDocker(ctx, dockerSchema, r.StateDir)
 	if err != nil {
 		errors = append(errors, trace.Wrap(err,
-			"error validating docker requirements, see log file for details"))
+			"error validating docker requirements, see log file (%v) for details",
+			defaults.GravitySystemLogPath))
 	}
 	failedProbes = append(failedProbes, failed...)
 
@@ -130,7 +132,7 @@ type LocalChecksRequest struct {
 	Options *validationpb.ValidateOptions
 	// Docker specifies Docker configuration overrides (if any)
 	Docker storage.DockerConfig
-	// Mounts specidies optional mount overrides as name -> source path pairs
+	// Mounts specifies optional mount overrides as name -> source path pairs
 	Mounts map[string]string
 	// AutoFix when set to true attempts to fix some common problems
 	AutoFix bool
