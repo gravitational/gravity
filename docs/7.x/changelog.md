@@ -11,7 +11,7 @@ Find the latest Open Source Gravity releases at [Gravity Downloads](https://grav
 
 | Version             | Latest Patch | LTS | Release Date         | Latest Patch Date    | End of Support *        | Kubernetes Version   | Teleport Version |
 | ------------------- | ------------ | --- | -------------------- | -------------------- | ----------------------- | -------------------- | ---------------- |
-| [7.0](#70-releases) | 7.0.16       | Yes | April 3, 2020        | August 31st, 2020    | July 9, 2022            | 1.17.9               | 3.2.13           |
+| [7.0](#70-releases) | 7.0.17       | Yes | April 3, 2020        | September 30th, 2020 | July 9, 2022            | 1.17.9               | 3.2.13           |
 | [6.1](#61-releases) | 6.1.40       | Yes | August 2, 2019       | September 25th, 2020 | November 10, 2021       | 1.15.12              | 3.2.12           |
 | [5.5](#55-releases) | 5.5.52       | Yes | March 8, 2019        | September 8th, 2020  | March 8, 2021           | 1.13.11              | 3.0.6-gravity    |
 
@@ -50,6 +50,27 @@ extend updates past End of Support through customer agreements if required.
 # Release Notes
 
 ## 7.0 Releases
+
+### 7.0.17 LTS (September 30th, 2020)
+
+#### Improvements
+
+* Tune gravity to support up to 1000 nodes ([#2159](https://github.com/gravitational/gravity/pull/2159)).
+* Introduce reconciliation loop to disable source/dest check when using AWS integrations ([#2163](https://github.com/gravitational/gravity/pull/2163)).
+* Include additional gravity configuration within debug reports ([#2162](https://github.com/gravitational/gravity/pull/2162)).
+* Verify agents are active before resuming operations ([#2073](https://github.com/gravitational/gravity/pull/2073)).
+* Shrink operation resiliency improvements ([#2114](https://github.com/gravitational/gravity/issues/2114)).
+* Optimize etcd upgrade to avoid steps that are no longer required ([#2098](https://github.com/gravitational/gravity/issues/2098)).
+* Add check that state dir has expected uid/gid set ([#2058](https://github.com/gravitational/gravity/pull/2058)).
+* Add check that env variables for http(s) proxy are the correct format ([#2062](https://github.com/gravitational/gravity/pull/2062)).
+
+#### Bugfixes
+
+* Fix an issue with operations stalling when gravity-site or etcd is down ([#2166](https://github.com/gravitational/gravity/pull/2166)).
+* Fix an issue with wizard installation ([#2137](https://github.com/gravitational/gravity/pull/2137)).
+* Fix an issue with a cluster reporting as online when some nodes have been partitioned ([#2131](https://github.com/gravitational/gravity/pull/2131)).
+* Fix an issue with syncing to the registry when using custom planet containers ([#2080](https://github.com/gravitational/gravity/pull/2080)).
+* Fix an issue with selinux installs rhel/centos 7 ([#2012](https://github.com/gravitational/gravity/pull/2012)).
 
 ### 7.0.16 LTS (August 31st, 2020)
 
