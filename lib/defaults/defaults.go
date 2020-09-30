@@ -1153,6 +1153,9 @@ const (
 	DiscoveryPublishInterval = 5 * time.Second
 	// DiscoveryResyncInterval specifies the frequency to force publish cluster discovery details
 	DiscoveryResyncInterval = 10 * time.Minute
+	// SourceDestinationCheckInterval is how often Gravity will check if any of
+	// the instances have source/dest check enabled and try to disable it.
+	SourceDestinationCheckInterval = 10 * time.Minute
 
 	// CACertificateExpiry is the validity period of self-signed CA generated
 	// for clusters during installation
