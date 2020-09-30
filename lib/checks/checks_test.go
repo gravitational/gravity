@@ -40,13 +40,13 @@ func (s *ChecksSuite) SetUpSuite(c *check.C) {
 	sysinfo := storage.NewSystemInfo(storage.SystemSpecV2{
 		Hostname: "foo",
 		Filesystems: []storage.Filesystem{
-			storage.Filesystem{
+			{
 				DirName: "/foo/bar",
 				Type:    "tmpfs",
 			},
 		},
 		FilesystemStats: map[string]storage.FilesystemUsage{
-			"/foo/bar": storage.FilesystemUsage{
+			"/foo/bar": {
 				TotalKB: 2,
 				FreeKB:  1,
 			},

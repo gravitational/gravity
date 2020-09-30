@@ -55,7 +55,7 @@ var (
 // ValidateDocker validates Docker requirements.
 // The specified directory is expected to be on the same filesystem
 // as the Docker graph directory (which might not exist at this point).
-func ValidateDocker(d Docker, dir string) (failed []*pb.Probe, err error) {
+func ValidateDocker(ctx context.Context, d Docker, dir string) (failed []*pb.Probe, err error) {
 	var checkers []health.Checker
 
 	checkers = append(checkers,
@@ -72,12 +72,12 @@ func ValidateDocker(d Docker, dir string) (failed []*pb.Probe, err error) {
 	all := monitoring.NewCompositeChecker("docker", checkers)
 	var probes health.Probes
 
-	all.Check(context.TODO(), &probes)
+	all.Check(ctx, &probes)
 	return probes.GetFailed(), nil
 }
 
 // ValidateKubelet will check kubelet configuration
-func ValidateKubelet(profile NodeProfile, manifest Manifest) (failed []*pb.Probe) {
+func ValidateKubelet(ctx context.Context, profile NodeProfile, manifest Manifest) (failed []*pb.Probe) {
 	checkers := append([]health.Checker{},
 		DefaultKernelModuleChecker,
 		monitoring.NewCGroupChecker("cpu", "cpuacct", "cpuset", "memory"),
@@ -85,12 +85,12 @@ func ValidateKubelet(profile NodeProfile, manifest Manifest) (failed []*pb.Probe
 	checker := monitoring.NewCompositeChecker("kubelet", checkers)
 
 	var probes health.Probes
-	checker.Check(context.TODO(), &probes)
+	checker.Check(ctx, &probes)
 	return probes.GetFailed()
 }
 
 // ValidateRequirements will assess local node to match requirements
-func ValidateRequirements(reqs Requirements, stateDir string) (failed []*pb.Probe, err error) {
+func ValidateRequirements(ctx context.Context, reqs Requirements, stateDir string) (failed []*pb.Probe, err error) {
 	var checkers []health.Checker
 	checkers = append(checkers, monitoring.NewHostChecker(
 		monitoring.HostConfig{
@@ -157,7 +157,7 @@ func ValidateRequirements(reqs Requirements, stateDir string) (failed []*pb.Prob
 	all := monitoring.NewCompositeChecker("common requirements", checkers)
 	var probes health.Probes
 
-	all.Check(context.TODO(), &probes)
+	all.Check(ctx, &probes)
 	return probes.GetFailed(), nil
 }
 
