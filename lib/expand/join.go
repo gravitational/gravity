@@ -721,6 +721,7 @@ func (p *Peer) runLocalChecks(ctx operationContext) error {
 		Manifest: ctx.Cluster.App.Manifest,
 		Role:     p.Role,
 		Docker:   ctx.Cluster.ClusterState.Docker,
+		Mounts:   mountsFromProto(p.PeerConfig.RuntimeConfig.Mounts),
 		Options: &validationpb.ValidateOptions{
 			VxlanPort: int32(installOperation.GetVars().OnPrem.VxlanPort),
 			DnsAddrs:  ctx.Cluster.DNSConfig.Addrs,
@@ -1350,4 +1351,12 @@ type connectResult struct {
 type closeResponse struct {
 	doneC chan struct{}
 	resp  *installpb.ProgressResponse
+}
+
+func mountsFromProto(mounts []*pb.Mount) (result map[string]string) {
+	result = make(map[string]string, len(mounts))
+	for _, mount := range mounts {
+		result[mount.Name] = mount.Source
+	}
+	return result
 }
