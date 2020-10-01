@@ -228,6 +228,32 @@ To remove an alert:
 $ gravity resource rm alert my-formula
 ```
 
+### Configuring Custom Alerts With Config Maps
+
+It is also possible to configure custom alerts without using `gravity resource`
+CLI. To do it this way, create a ConfigMap with `monitoring: alert` label in
+the `monitoring` namespace and put the full "alert" Gravity resource spec in
+the ConfigMap data under the `spec` key:
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: my-formula
+  namespace: monitoring
+  labels:
+    monitoring: alert
+data:
+  spec: |
+    kind: alert
+    version: v2
+    metadata:
+      name: my-formula
+    spec:
+      formula: |
+        Kapacitor formula
+```
+
 ### Builtin Alerts
 
 Alerts (written in [TICKscript](https://docs.influxdata.com/kapacitor/v1.2/tick)) are automatically detected, loaded and
