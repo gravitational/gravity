@@ -125,7 +125,7 @@ func newUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironm
 	})
 	deployCtx, cancel := context.WithTimeout(ctx, defaults.AgentDeployTimeout)
 	defer cancel()
-	logger.WithField("request", req).Debug("Deploying agents on cluster nodes.")
+	logger.WithField("request", req.String()).Debug("Deploying agents on cluster nodes.")
 	localEnv.PrintStep("Deploying agents on cluster nodes")
 	creds, err := deployAgents(deployCtx, localEnv, req)
 	if err != nil {

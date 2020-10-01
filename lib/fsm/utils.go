@@ -17,6 +17,8 @@ limitations under the License.
 package fsm
 
 import (
+	"fmt"
+
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/schema"
@@ -285,6 +287,14 @@ func ClusterKey(plan storage.OperationPlan) ops.SiteKey {
 		AccountID:  plan.AccountID,
 		SiteDomain: plan.ClusterName,
 	}
+}
+
+// OperationString returns the textual representation of this operation
+func OperationString(plan storage.OperationPlan) string {
+	return fmt.Sprintf("%v(%v), cluster=%v",
+		ops.OperationTypeString(plan.OperationType),
+		plan.OperationID,
+		plan.ClusterName)
 }
 
 // CompleteOrFailOperation completes or fails the operation given by the plan in the specified operator.

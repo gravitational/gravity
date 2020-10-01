@@ -450,8 +450,10 @@ func (f *FSM) executeSubphasesConcurrently(ctx context.Context, p Params, phase 
 			p.PhaseID = subphase.ID
 			err := f.ExecutePhase(ctx, p)
 			if err != nil {
-				logrus.Warnf("Failed to execute phase %q: %v.",
-					p.PhaseID, trace.DebugReport(err))
+				logrus.WithFields(logrus.Fields{
+					logrus.ErrorKey: err,
+					"phase":         p.PhaseID,
+				}).Warn("Failed to execute phase.")
 			}
 			errorsCh <- trace.Wrap(err, "failed to execute phase %q", p.PhaseID)
 		}(p, subphase)
@@ -472,10 +474,10 @@ func (f *FSM) executeOnePhase(ctx context.Context, p Params, phase storage.Opera
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
+	logger := executor.WithField("phase", phase.ID)
 	err = executor.PreCheck(ctx)
 	if err != nil {
-		executor.Errorf("Phase precheck failed: %v.", err)
+		logger.WithError(err).Error("Phase precheck failed.")
 		return trace.Wrap(err)
 	}
 
@@ -488,11 +490,11 @@ func (f *FSM) executeOnePhase(ctx context.Context, p Params, phase storage.Opera
 		return trace.Wrap(err)
 	}
 
-	executor.Infof("Executing phase: %v.", phase.ID)
+	logger.Info("Executing phase.")
 
 	err = executor.Execute(ctx)
 	if err != nil {
-		executor.Errorf("Phase execution failed: %v.", err)
+		logger.WithError(err).Error("Phase execution failed.")
 		if err := f.ChangePhaseState(ctx,
 			StateChange{
 				Phase: phase.ID,
@@ -506,7 +508,7 @@ func (f *FSM) executeOnePhase(ctx context.Context, p Params, phase storage.Opera
 
 	err = executor.PostCheck(ctx)
 	if err != nil {
-		executor.Errorf("Phase postcheck failed: %v.", err)
+		logger.WithError(err).Error("Phase postcheck failed.")
 		return trace.Wrap(err)
 	}
 

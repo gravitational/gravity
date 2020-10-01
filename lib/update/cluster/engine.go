@@ -315,9 +315,12 @@ func (f *engine) reconcilePlan(ctx context.Context) error {
 		return trace.Wrap(err)
 	}
 	f.plan = *plan
+	// Use a type alias and not the string type directly as a workaround to
+	// log the plan unescaped.
 	var buf bytes.Buffer
+	type s string
 	fsm.FormatOperationPlanText(&buf, f.plan)
-	f.Debugf("Reconciled plan: %v.", buf.String())
+	f.WithField("plan", s(buf.String())).Debug("Reconciled plan.")
 	return nil
 }
 
