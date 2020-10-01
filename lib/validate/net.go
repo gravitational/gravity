@@ -59,7 +59,7 @@ func KubernetesSubnets(podNet, serviceNet *net.IPNet) (err error) {
 		ones, _ := podNet.Mask.Size()
 		if ones > 22 {
 			return trace.BadParameter(
-				"pod subnet should be a minimum of /22: %q", podNet)
+				"pod subnet should be a minimum of /22: %q", podNet.String())
 		}
 	}
 	if podNet != nil && serviceNet != nil {
