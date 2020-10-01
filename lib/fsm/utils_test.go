@@ -148,3 +148,123 @@ func (s *FSMUtilsSuite) TestDiffPlanNoPrevious(c *check.C) {
 		},
 	})
 }
+
+func (s *FSMUtilsSuite) TestLatestRollback(c *check.C) {
+	tests := []struct {
+		comment  string
+		phases   []storage.OperationPhase
+		phaseID  string
+		expected bool
+	}{
+		{
+			comment: "Rollback latest phase",
+			phases: []storage.OperationPhase{
+				{
+					ID:    "/init",
+					State: storage.OperationPhaseStateCompleted,
+				},
+				{
+					ID:    "/startAgent",
+					State: storage.OperationPhaseStateInProgress,
+				},
+			},
+			phaseID:  "/startAgent",
+			expected: true,
+		},
+		{
+			comment: "Cannot rollback /init before /startAgent",
+			phases: []storage.OperationPhase{
+				{
+					ID:    "/init",
+					State: storage.OperationPhaseStateCompleted,
+				},
+				{
+					ID:    "/startAgent",
+					State: storage.OperationPhaseStateInProgress,
+				},
+			},
+			phaseID:  "/init",
+			expected: false,
+		},
+		{
+			comment: "/init is latest un-rolled back phase",
+			phases: []storage.OperationPhase{
+				{
+					ID:    "/init",
+					State: storage.OperationPhaseStateCompleted,
+				},
+				{
+					ID:    "/startAgent",
+					State: storage.OperationPhaseStateRolledBack,
+				},
+			},
+			phaseID:  "/init",
+			expected: true,
+		},
+		{
+			comment: "Rollback after a previously forced rollback",
+			phases: []storage.OperationPhase{
+				{
+					ID:    "/init",
+					State: storage.OperationPhaseStateCompleted,
+				},
+				{
+					ID:    "/startAgent",
+					State: storage.OperationPhaseStateRolledBack,
+				},
+				{
+					ID:    "/checks",
+					State: storage.OperationPhaseStateFailed,
+				},
+			},
+			phaseID:  "/init",
+			expected: false,
+		},
+		{
+			comment: "Rollback leaf phase",
+			phases: []storage.OperationPhase{
+				{
+					ID:    "/masters",
+					State: storage.OperationPhaseStateInProgress,
+					Phases: []storage.OperationPhase{
+						{
+							ID:    "/masters/node-1",
+							State: storage.OperationPhaseStateCompleted,
+						},
+						{
+							ID:    "/masters/node-2",
+							State: storage.OperationPhaseStateInProgress,
+						},
+					},
+				},
+			},
+			phaseID:  "/masters/node-2",
+			expected: true,
+		},
+		{
+			comment: "Rollback top level phase that has sub phases",
+			phases: []storage.OperationPhase{
+				{
+					ID:    "/masters",
+					State: storage.OperationPhaseStateCompleted,
+					Phases: []storage.OperationPhase{
+						{
+							ID:    "/masters/node-1",
+							State: storage.OperationPhaseStateCompleted,
+						},
+						{
+							ID:    "/masters/node-2",
+							State: storage.OperationPhaseStateCompleted,
+						},
+					},
+				},
+			},
+			phaseID:  "/masters",
+			expected: true,
+		},
+	}
+	for _, tc := range tests {
+		comment := check.Commentf(tc.comment)
+		c.Assert(latestRollback(tc.phases, tc.phaseID), check.Equals, tc.expected, comment)
+	}
+}

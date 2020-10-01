@@ -257,7 +257,7 @@ func (f *FSM) RollbackPhase(ctx context.Context, p Params) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = CanRollback(plan, p.PhaseID)
+	err = CanRollback(plan, p.PhaseID, p.DryRun)
 	if err != nil {
 		if !p.Force {
 			return trace.Wrap(err)

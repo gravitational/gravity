@@ -30,7 +30,7 @@ import (
 )
 
 // CanRollback checks if specified phase can be rolled back
-func CanRollback(plan *storage.OperationPlan, phaseID string) error {
+func CanRollback(plan *storage.OperationPlan, phaseID string, dryRun bool) error {
 	phase, err := FindPhase(plan, phaseID)
 	if err != nil {
 		return trace.Wrap(err)
@@ -43,7 +43,40 @@ func CanRollback(plan *storage.OperationPlan, phaseID string) error {
 		return trace.BadParameter(
 			"phase %q has already been rolled back", phase.ID)
 	}
+	if !dryRun && !latestRollback(plan.Phases, phaseID) {
+		return trace.BadParameter(
+			"rollback subsequent phases before rolling back phase %q", phase.ID)
+	}
 	return nil
+}
+
+// latestRollback returns true if the phase specified by phaseID is next in line
+// to be rolledback.
+func latestRollback(phases []storage.OperationPhase, phaseID string) bool {
+	if len(phases) == 0 {
+		return false
+	}
+
+	// latest keeps track of the latest phase that has not yet been rolled back.
+	var latest storage.OperationPhase
+	for _, phase := range phases {
+		if latestRollback(phase.Phases, phaseID) {
+			return true
+		}
+		switch {
+		// if we run into an unstarted phase, all later phases should also be unstarted
+		case phase.IsUnstarted():
+			break
+		case phase.IsInProgress(), phase.IsFailed(), phase.IsCompleted():
+			latest = phase
+		default:
+			logrus.WithField("phase", phase).Warn("Phase has unknown state.")
+		}
+	}
+	if phaseID == latest.ID {
+		return true
+	}
+	return false
 }
 
 // IsCompleted returns true if all phases of the provided plan are completed
