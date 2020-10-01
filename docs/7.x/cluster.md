@@ -1647,4 +1647,43 @@ Example:
   $ gravity report --since 0s
 ```
 
-This command will collect diagnostics from all Cluster nodes into the specified tarball that you can then submit for evaluation.
+This command will collect diagnostics from all Cluster nodes into the specified tarball that you can then submit for
+evaluation.
+
+If you would like to examine the debug report, here is a quick overview of what information is collected and availble
+for examination. First extract the tarball into a directory of your choice. Here we'll extract the tarball into a
+`report` directory with: `mkdir report && tar -zxf report.tar.gz -C report`.
+
+The contents of the report should look something like:
+```bsh
+$ tree report
+report
+├── cluster.json
+├── node-1-debug-logs.tar.gz
+├── node-1-etcd.tar.gz
+├── node-2-debug-logs.tar.gz
+├── node-2-etcd.tar.gz
+├── node-3-debug-logs.tar.gz
+├── node-3-etcd.tar.gz
+├── node-3-k8s-logs.tar.gz
+├── node-3-resources.tar.gz
+├── node-3-status.tar.gz
+└── operation_install.a27a9fa0-c5e6-4a62-973b-2893752c25b6
+```
+
+* `cluster.json` contains the JSON-encoded cluster metadata. Pretty print the contents using the python json tool:
+`cat cluster.json | python -m json.tool`.
+
+* `<node>-debug-logs.tar.gz` contains a collection of system information. The host journal logs can be found in
+`gravity-journal.log.gz` and Planet journal logs can be found in `planet-journal.log.gz`. The logs have been compressed
+with gzip and can be expanded with the `gunzip` command.
+
+* `<node>-etcd.tar.gz` contains etcd backup and a snapshot of the etcd metrics.
+
+* `<node>-status.tar.gz` contains the Gravity [Cluster Status History](cluster.md#cluster-status-history).
+
+* `<node>-resources.tar.gz` contains the Gravity resources. More information about Gravity resources can be found in
+[Configuration Overview](config.md#configuration-overview).
+
+* `<node>-k8s-logs.tar.gz` contains a dump of the kubernetes cluster information. Here we can find descriptions of
+kubernetes resources and the logs of various pods.
