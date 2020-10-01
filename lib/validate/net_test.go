@@ -53,7 +53,7 @@ func (*S) TestValidateKubernetesSubnets(c *check.C) {
 			description: "service subnet is not a valid CIDR",
 		},
 		{
-			podCIDR:     "10.200.0.0/20",
+			podCIDR:     "10.200.0.0/24",
 			ok:          false,
 			description: "pod subnet is too small",
 		},
