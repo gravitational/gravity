@@ -123,6 +123,11 @@ func ShareDir(baseDir string) string {
 	return filepath.Join(baseDir, defaults.PlanetDir, defaults.ShareDir)
 }
 
+// EtcdDir returns full path to the planet etcd directory
+func EtcdDir(baseDir string) string {
+	return filepath.Join(baseDir, defaults.PlanetDir, defaults.EtcdDir)
+}
+
 // RegistryDir returns full path to the planet docker registry directory
 func RegistryDir(baseDir string) string {
 	return filepath.Join(baseDir, defaults.PlanetDir, defaults.StateRegistryDir)

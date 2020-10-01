@@ -128,7 +128,7 @@ func updateTrigger(localEnv, updateEnv *localenv.LocalEnvironment, config upgrad
 		// The cluster is updating in background
 		return nil
 	}
-	localEnv.Println(updateClusterManualOperationBanner)
+	localEnv.Printf(updateClusterManualOperationBanner, updater.Operation.ID)
 	return nil
 }
 
@@ -136,7 +136,7 @@ func newClusterUpdater(
 	ctx context.Context,
 	localEnv, updateEnv *localenv.LocalEnvironment,
 	config upgradeConfig,
-) (updater, error) {
+) (*update.Updater, error) {
 	init := &clusterInitializer{
 		updatePackage: config.upgradePackage,
 		unattended:    !config.manual,
@@ -371,21 +371,29 @@ func setUpdatePhaseForOperation(env *localenv.LocalEnvironment, environ LocalEnv
 	return updater.SetPhase(context.TODO(), params.PhaseID, params.State)
 }
 
-func completeUpdatePlanForOperation(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operation ops.SiteOperation) error {
+func completeUpdatePlanForOperation(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operation clusterOperation) error {
+	clusterEnv, err := env.NewClusterEnvironment()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if isInvalidOperation(operation) {
+		log.WithField("op", operation.SiteOperation.String()).Warn("Operation is invalid, activate cluster directly.")
+		return clusterEnv.Operator.ActivateSite(ops.ActivateSiteRequest{
+			AccountID:  operation.SiteOperation.AccountID,
+			SiteDomain: operation.SiteOperation.SiteDomain,
+		})
+	}
 	updateEnv, err := environ.NewUpdateEnv()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	defer updateEnv.Close()
-	updater, err := getClusterUpdater(env, updateEnv, operation, true)
+	updater, err := getClusterUpdater(env, updateEnv, operation.SiteOperation, true)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	defer updater.Close()
 	if err := updater.Complete(context.TODO(), nil); err != nil {
-		return trace.Wrap(err)
-	}
-	if err := updater.Activate(); err != nil {
 		return trace.Wrap(err)
 	}
 	return nil
@@ -402,15 +410,13 @@ func getClusterUpdater(localEnv, updateEnv *localenv.LocalEnvironment, operation
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	runner := libfsm.NewAgentRunner(creds)
-
 	updater, err := clusterupdate.New(context.TODO(), clusterupdate.Config{
 		Config: update.Config{
 			Operation:    &operation,
 			Operator:     operator,
 			Backend:      clusterEnv.Backend,
 			LocalBackend: updateEnv.Backend,
-			Runner:       runner,
+			Runner:       libfsm.NewAgentRunner(creds),
 			Silent:       localEnv.Silent,
 		},
 		Apps:              clusterEnv.Apps,
@@ -618,7 +624,7 @@ func getRuntimeAppVersion(apps app.Applications, loc loc.Locator) (*semver.Versi
 }
 
 const (
-	updateClusterManualOperationBanner = `The operation has been created in manual mode.
+	updateClusterManualOperationBanner = `The operation %v has been created in manual mode.
 
 See https://gravitational.com/gravity/docs/cluster/#managing-an-ongoing-operation for details on working with operation plan.`
 )

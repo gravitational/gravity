@@ -120,7 +120,7 @@ func (s *PlanSuite) SetUpSuite(c *check.C) {
 	c.Assert(err, check.IsNil)
 	s.gravityPackage, err = app.Manifest.Dependencies.ByName(constants.GravityPackage)
 	c.Assert(err, check.IsNil)
-	runtimePackage, err := app.Manifest.DefaultRuntimePackage()
+	runtimePackage, err := app.Manifest.RuntimePackage()
 	c.Assert(err, check.IsNil)
 	s.runtimePackage = *runtimePackage
 	s.rbacPackage, err = app.Manifest.Dependencies.ByName(constants.BootstrapConfigPackage)

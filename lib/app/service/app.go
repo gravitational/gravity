@@ -905,9 +905,9 @@ func (r *applications) checkImportRequirements(manifest *schema.Manifest, req *a
 		req.PackageVersion = manifest.Metadata.ResourceVersion
 	}
 
-	// check dependencies-packages
-	for _, dep := range manifest.Dependencies.Packages {
-		locator, err := r.processMetadata(dep.Locator)
+	// check package dependencies
+	for _, dep := range manifest.Dependencies.GetPackages() {
+		locator, err := r.processMetadata(dep)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -920,9 +920,9 @@ func (r *applications) checkImportRequirements(manifest *schema.Manifest, req *a
 		}
 	}
 
-	// check dependencies-apps
-	for _, dep := range manifest.Dependencies.Apps {
-		locator, err := r.processMetadata(dep.Locator)
+	// check application dependencies
+	for _, dep := range manifest.Dependencies.GetApps() {
+		locator, err := r.processMetadata(dep)
 		if err != nil {
 			return trace.Wrap(err)
 		}

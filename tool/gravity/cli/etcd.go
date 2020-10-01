@@ -27,7 +27,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func etcdMigrate(fromVersion, toVersion string) error {
+func etcdMigrate(fromVersion, toVersion string) (err error) {
 	srcDir := getBaseEtcdDir(fromVersion)
 	dstDir := getBaseEtcdDir(toVersion)
 	log.WithFields(logrus.Fields{

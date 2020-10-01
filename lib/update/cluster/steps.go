@@ -71,11 +71,20 @@ func (r *phaseBuilder) initSteps(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	etcd, err := shouldUpdateEtcd(installedRuntimeApp, r.updateRuntimeApp, r.packages)
+	// TODO: should somehow maintain etcd version invariant across runtime packages
+	installedEtcdVersion, err := getEtcdVersionFromManifest(r.installedApp.Manifest, r.packages)
+	if err != nil && !trace.IsNotFound(err) {
+		return trace.Wrap(err)
+	}
+	if installedEtcdVersion == nil {
+		installedEtcdVersion = &r.currentEtcdVersion
+	}
+	updateEtcdVersion, err := getEtcdVersionFromManifest(r.updateApp.Manifest, r.packages)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	// check if OpenEBS itegration has been enabled in the new application
+	etcd := shouldUpdateEtcd(*installedEtcdVersion, *updateEtcdVersion)
+	// check if OpenEBS integration has been enabled in the new application
 	openEBSEnabled := !r.installedApp.Manifest.OpenEBSEnabled() && r.updateApp.Manifest.OpenEBSEnabled()
 	r.targetStep = newTargetUpdateStep(updateStep{
 		servers:        serverUpdates,
@@ -105,10 +114,15 @@ func (r phaseBuilder) buildIntermediateSteps(context.Context) (updates []interme
 		if err := update.validate(); err != nil {
 			return nil, trace.Wrap(err)
 		}
-		update.etcd, err = shouldUpdateEtcd(prevRuntimeApp, update.runtimeApp, r.packages)
+		installedEtcdVersion, err := getEtcdVersionFromManifest(prevRuntimeApp.Manifest, r.packages)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
+		updateEtcdVersion, err := getEtcdVersionFromManifest(update.runtimeApp.Manifest, r.packages)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		update.etcd = shouldUpdateEtcd(*installedEtcdVersion, *updateEtcdVersion)
 		result[version] = update
 		serverUpdates, err := r.intermediateConfigUpdates(
 			r.installedApp.Manifest,
@@ -999,7 +1013,7 @@ type etcdVersion struct {
 
 func getRuntimePackageFromManifest(m schema.Manifest) runtimePackageGetterFunc {
 	return func(server storage.Server) (*loc.Locator, error) {
-		loc, err := schema.GetRuntimePackage(m, server.Role,
+		loc, err := schema.GetRuntimePackageForProfile(m, server.Role,
 			schema.ServiceRole(server.ClusterRole))
 		if err != nil {
 			return nil, trace.Wrap(err)

@@ -28,6 +28,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/archive"
+	"github.com/gravitational/gravity/lib/clients"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
@@ -35,6 +36,7 @@ import (
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
+	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
 	libphase "github.com/gravitational/gravity/lib/update/cluster/phases"
 	"github.com/gravitational/gravity/lib/utils"
@@ -89,17 +91,27 @@ func InitOperationPlan(
 		}
 		dnsConfig = *existingDNS
 	}
+	stateDir, err := state.GetStateDir()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	currentEtcdVersion, err := getCurrentEtcdVersion(ctx, stateDir)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	log.WithField("version", currentEtcdVersion.String()).Info("Current etcd version.")
 
-	plan, err = NewOperationPlan(ctx, PlanConfig{
-		Backend:     clusterEnv.Backend,
-		Apps:        clusterEnv.Apps,
-		Packages:    clusterEnv.ClusterPackages,
-		Client:      clusterEnv.Client,
-		DNSConfig:   dnsConfig,
-		Operator:    clusterEnv.Operator,
-		Operation:   operation,
-		Leader:      leader,
-		ServiceUser: &cluster.ServiceUser,
+	plan, err = newOperationPlan(ctx, planConfig{
+		Backend:            clusterEnv.Backend,
+		Apps:               clusterEnv.Apps,
+		Packages:           clusterEnv.ClusterPackages,
+		Client:             clusterEnv.Client,
+		DNSConfig:          dnsConfig,
+		Operator:           clusterEnv.Operator,
+		Operation:          operation,
+		Leader:             leader,
+		ServiceUser:        &cluster.ServiceUser,
+		CurrentEtcdVersion: *currentEtcdVersion,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -113,8 +125,8 @@ func InitOperationPlan(
 	return plan, nil
 }
 
-// NewOperationPlan generates a new plan for the provided operation
-func NewOperationPlan(ctx context.Context, config PlanConfig) (*storage.OperationPlan, error) {
+// newOperationPlan generates a new plan for the provided operation
+func newOperationPlan(ctx context.Context, config planConfig) (*storage.OperationPlan, error) {
 	if err := config.checkAndSetDefaults(); err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -239,6 +251,7 @@ func NewOperationPlan(ctx context.Context, config PlanConfig) (*storage.Operatio
 		installedTeleport:          *installedTeleport,
 		updateTeleport:             *updateTeleport,
 		serviceUser:                *config.ServiceUser,
+		currentEtcdVersion:         config.CurrentEtcdVersion,
 	}
 
 	err = builder.initSteps(ctx)
@@ -253,7 +266,7 @@ func NewOperationPlan(ctx context.Context, config PlanConfig) (*storage.Operatio
 	return plan, nil
 }
 
-func (r *PlanConfig) checkAndSetDefaults() error {
+func (r *planConfig) checkAndSetDefaults() error {
 	if r.Client == nil {
 		return trace.BadParameter("Kubernetes client is required")
 	}
@@ -281,8 +294,8 @@ func (r *PlanConfig) checkAndSetDefaults() error {
 	return nil
 }
 
-// PlanConfig defines the configuration for creating a new operation plan
-type PlanConfig struct {
+// planConfig defines the configuration for creating a new operation plan
+type planConfig struct {
 	// Backend specifies the cluster backend for low-level queries
 	Backend storage.Backend
 	// Packages specifies the cluster package service
@@ -301,6 +314,8 @@ type PlanConfig struct {
 	Leader *storage.Server
 	// ServiceUser specifies the cluster's service user
 	ServiceUser *storage.OSUser
+	// CurrentEtcdVersion specifies the current version of etcd
+	CurrentEtcdVersion semver.Version
 }
 
 func checkAndSetServerDefaults(servers []storage.Server, client corev1.NodeInterface) ([]storage.Server, error) {
@@ -425,47 +440,31 @@ func shouldUpdateCoreDNS(client *kubernetes.Clientset) (bool, error) {
 	return false, nil
 }
 
-func shouldUpdateEtcd(installedRuntimeApp, updateRuntimeApp app.Application, packages pack.PackageService) (*etcdVersion, error) {
-	// TODO: should somehow maintain etcd version invariant across runtime packages
-	runtimePackage, err := schema.GetDefaultRuntimePackage(installedRuntimeApp.Manifest)
-	if err != nil {
-		return nil, trace.Wrap(err, "error fetching runtime package for %v", installedRuntimeApp.Package)
+func shouldUpdateEtcd(installedVersion, updateVersion semver.Version) *etcdVersion {
+	if installedVersion.Compare(updateVersion) >= 0 {
+		return nil
 	}
-	var updateEtcd bool
-	installedVersion, err := getEtcdVersion(*runtimePackage, packages)
-	if err != nil {
-		if !trace.IsNotFound(err) {
-			return nil, trace.Wrap(err)
-		}
-		// if the currently installed version doesn't have etcd version information, it needs to be upgraded
-		updateEtcd = true
+	return &etcdVersion{
+		installed: installedVersion.String(),
+		update:    updateVersion.String(),
 	}
-	runtimePackage, err = schema.GetDefaultRuntimePackage(updateRuntimeApp.Manifest)
+}
+
+func getEtcdVersionFromManifest(m schema.Manifest, packages pack.PackageService) (*semver.Version, error) {
+	runtimePackage, err := schema.GetRuntimePackage(m)
 	if err != nil {
-		return nil, trace.Wrap(err, "error fetching runtime package for %v", updateRuntimeApp.Package)
+		return nil, trace.Wrap(err, "error fetching runtime package for %v", m.Locator())
 	}
-	updateVersion, err := getEtcdVersion(*runtimePackage, packages)
+	version, err := getEtcdVersion(*runtimePackage, packages)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	if installedVersion == nil || installedVersion.Compare(*updateVersion) < 0 {
-		updateEtcd = true
-	}
-	if !updateEtcd {
-		return nil, nil
-	}
-	result := etcdVersion{
-		update: updateVersion.String(),
-	}
-	if installedVersion != nil {
-		result.installed = installedVersion.String()
-	}
-	return &result, nil
+	return version, nil
 }
 
-func getEtcdVersion(locator loc.Locator, packageService pack.PackageService) (*semver.Version, error) {
+func getEtcdVersion(locator loc.Locator, packages pack.PackageService) (*semver.Version, error) {
 	const searchLabel = "version-etcd"
-	manifest, err := pack.GetPackageManifest(packageService, locator)
+	manifest, err := pack.GetPackageManifest(packages, locator)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -483,6 +482,24 @@ func getEtcdVersion(locator loc.Locator, packageService pack.PackageService) (*s
 		locator, searchLabel)
 }
 
+func getCurrentEtcdVersion(ctx context.Context, stateDir string) (version *semver.Version, err error) {
+	client, err := clients.Etcd(&clients.EtcdConfig{
+		SecretsDir: state.SecretDir(stateDir),
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	versions, err := client.GetVersion(ctx)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	version, err = semver.NewVersion(versions.Server)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return version, nil
+}
+
 // systemNeedsUpdate determines whether planet or teleport services need
 // to be updated by comparing versions of respective packages in the
 // installed and update application manifest
@@ -497,7 +514,7 @@ func systemNeedsUpdate(
 	if err != nil {
 		return false, false, trace.Wrap(err)
 	}
-	updateRuntimePackage, err := update.RuntimePackage(*updateProfile)
+	updateRuntimePackage, err := update.RuntimePackageForProfile(*updateProfile)
 	if err != nil {
 		return false, false, trace.Wrap(err)
 	}
@@ -505,7 +522,7 @@ func systemNeedsUpdate(
 	if err != nil {
 		return false, false, trace.Wrap(err)
 	}
-	installedRuntimePackage, err := schema.GetRuntimePackage(installed, profile, schema.ServiceRole(clusterRole))
+	installedRuntimePackage, err := schema.GetRuntimePackageForProfile(installed, profile, schema.ServiceRole(clusterRole))
 	if err != nil {
 		return false, false, trace.Wrap(err)
 	}

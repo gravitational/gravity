@@ -31,77 +31,77 @@ import (
 )
 
 // Build builds the standalone application installer using the provided builder
-func Build(ctx context.Context, builder *Builder) error {
+func (b *Builder) Build(ctx context.Context) error {
 	err := checkBuildEnv()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	locator := builder.Locator()
-	if builder.OutPath == "" {
-		builder.OutPath = fmt.Sprintf("%v-%v.tar", locator.Name, locator.Version)
-		if _, err := os.Stat(builder.OutPath); err == nil && !builder.Overwrite {
+	locator := b.Locator()
+	if b.OutPath == "" {
+		b.OutPath = fmt.Sprintf("%v-%v.tar", locator.Name, locator.Version)
+		if _, err := os.Stat(b.OutPath); err == nil && !b.Overwrite {
 			return trace.BadParameter("tarball %v already exists, please remove "+
-				"it first or provide -f (--overwrite) flag to overwrite it", builder.OutPath)
+				"it first or provide -f (--overwrite) flag to overwrite it", b.OutPath)
 		}
 	}
 
-	switch builder.Manifest.Kind {
+	switch b.Manifest.Kind {
 	case schema.KindBundle, schema.KindCluster:
-		builder.NextStep("Building cluster image %v %v",
+		b.NextStep("Building cluster image %v %v",
 			locator.Name, locator.Version)
 	case schema.KindApplication:
-		builder.NextStep("Building application image %v %v",
+		b.NextStep("Building application image %v %v",
 			locator.Name, locator.Version)
 	default:
 		return trace.BadParameter("unknown manifest kind %q",
-			builder.Manifest.Kind)
+			b.Manifest.Kind)
 	}
 
-	switch builder.Manifest.Kind {
+	switch b.Manifest.Kind {
 	case schema.KindBundle, schema.KindCluster:
-		builder.NextStep("Selecting base image version")
-		runtimeVersion, err := builder.SelectRuntime()
+		b.NextStep("Selecting base image version")
+		runtimeVersion, err := b.SelectRuntime()
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		err = builder.checkVersion(runtimeVersion)
+		err = b.checkVersion(runtimeVersion)
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		err = builder.SyncPackageCache(ctx, *runtimeVersion, builder.UpgradeVia...)
+		err = b.SyncPackageCache(ctx, *runtimeVersion, b.UpgradeVia...)
 		if err != nil {
 			return trace.Wrap(err)
 		}
 	}
 
-	builder.NextStep("Embedding application container images")
+	b.NextStep("Embedding application container images")
 	vendorDir, err := ioutil.TempDir("", "vendor")
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	defer os.RemoveAll(vendorDir)
-	stream, err := builder.Vendor(ctx, vendorDir)
+	stream, err := b.Vendor(ctx, vendorDir)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	defer stream.Close()
 
-	builder.NextStep("Creating application")
-	application, err := builder.CreateApplication(stream)
+	b.NextStep("Creating application")
+	application, err := b.CreateApplication(stream)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	builder.NextStep("Generating the cluster image")
-	installer, err := builder.GenerateInstaller(*application)
+	b.NextStep("Generating the cluster image")
+	installer, err := b.GenerateInstaller(*application)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	defer installer.Close()
 
-	builder.NextStep("Saving the image as %v", builder.OutPath)
-	err = builder.WriteInstaller(installer)
+	b.NextStep("Saving the image as %v", b.OutPath)
+	err = b.WriteInstaller(installer)
 	if err != nil {
 		return trace.Wrap(err)
 	}

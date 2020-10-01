@@ -164,7 +164,7 @@ type healthExecutor struct {
 func (p *healthExecutor) Execute(ctx context.Context) error {
 	p.Progress.NextStep("Waiting for the planet to start")
 	p.Info("Waiting for the planet to start.")
-	err := utils.Retry(defaults.RetryInterval, defaults.RetryAttempts,
+	err := utils.RetryWithInterval(ctx, defaults.ExponentialBackOff(),
 		func() error {
 			status, err := status.FromPlanetAgent(ctx, nil)
 			if err != nil {

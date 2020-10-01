@@ -233,6 +233,9 @@ type phaseBuilder struct {
 	steps []intermediateUpdateStep
 	// targetStep defines the final runtime update step
 	targetStep targetUpdateStep
+	// currentEtcdVersion specifies the etcd version of the
+	// installed cluster
+	currentEtcdVersion semver.Version
 }
 
 // setLeaderElection creates a phase that will change the leader election state in the cluster

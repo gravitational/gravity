@@ -17,6 +17,7 @@ limitations under the License.
 package compare
 
 import (
+	"fmt"
 	"reflect"
 	"runtime/debug"
 	"sort"
@@ -59,11 +60,28 @@ var SortedSliceEquals check.Checker = &sliceEqualsChecker{
 // If comparison fails, it returns a readable diff in error.
 // Implements gocheck checker interface
 func (checker *sliceEqualsChecker) Check(params []interface{}, names []string) (result bool, error string) {
-	obtained := params[0].(sort.Interface)
-	sort.Sort(obtained)
-	expected := params[1].(sort.Interface)
-	sort.Sort(expected)
+	switch obtained := params[0].(type) {
+	case sort.Interface:
+		return checker.checkIfaces(obtained, params[1].(sort.Interface))
+	case []string:
+		return checker.checkSlices(obtained, params[1].([]string))
+	}
+	return false, fmt.Sprintf("unexpected argument type: %T", params[0])
+}
 
+func (checker *sliceEqualsChecker) checkIfaces(obtained, expected sort.Interface) (result bool, error string) {
+	sort.Sort(obtained)
+	sort.Sort(expected)
+	result = reflect.DeepEqual(obtained, expected)
+	if !result {
+		error = Diff(obtained, expected)
+	}
+	return result, error
+}
+
+func (checker *sliceEqualsChecker) checkSlices(obtained, expected []string) (result bool, error string) {
+	sort.Strings(obtained)
+	sort.Strings(expected)
 	result = reflect.DeepEqual(obtained, expected)
 	if !result {
 		error = Diff(obtained, expected)

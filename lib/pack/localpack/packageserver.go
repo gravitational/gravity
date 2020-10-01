@@ -327,22 +327,14 @@ func (p *PackageServer) UpsertRepository(repository string, expires time.Time) e
 		return trace.BadParameter(
 			"expected a valid domain name, got '%v'", repository)
 	}
-	_, err := p.backend.GetRepository(repository)
-	if err == nil {
-		return nil
-	}
-	if !trace.IsNotFound(err) {
-		return trace.Wrap(err)
-	}
 	repo := storage.NewRepository(repository)
 	if !expires.IsZero() {
 		repo.SetExpiry(expires)
 	}
-	_, err = p.backend.CreateRepository(repo)
-	if err != nil {
+	_, err := p.backend.CreateRepository(repo)
+	if err != nil && !trace.IsAlreadyExists(err) {
 		return trace.Wrap(err)
 	}
-
 	return nil
 }
 

@@ -188,7 +188,7 @@ func (s *site) configureExpandPackages(ctx context.Context, opCtx *operationCont
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	planetPackage, err := s.app.Manifest.RuntimePackage(provisionedServer.Profile)
+	planetPackage, err := s.app.Manifest.RuntimePackageForProfile(provisionedServer.Profile)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -319,7 +319,7 @@ func (s *site) configurePackages(ctx *operationContext, req ops.ConfigurePackage
 	}
 
 	for i, master := range masters {
-		planetPackage, err := s.app.Manifest.RuntimePackage(master.Profile)
+		planetPackage, err := s.app.Manifest.RuntimePackageForProfile(master.Profile)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -388,7 +388,7 @@ func (s *site) configurePackages(ctx *operationContext, req ops.ConfigurePackage
 			return trace.Wrap(err)
 		}
 
-		planetPackage, err := s.app.Manifest.RuntimePackage(node.Profile)
+		planetPackage, err := s.app.Manifest.RuntimePackageForProfile(node.Profile)
 		if err != nil {
 			return trace.Wrap(err)
 		}

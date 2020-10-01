@@ -152,7 +152,7 @@ func (r *Updater) Complete(ctx context.Context, fsmErr error) error {
 	if err := r.machine.Complete(ctx, fsmErr); err != nil {
 		return trace.Wrap(err)
 	}
-	if err := r.emitAuditEvent(context.TODO()); err != nil {
+	if err := r.emitAuditEvent(ctx); err != nil {
 		log.WithError(err).Warn("Failed to emit audit event.")
 	}
 	return nil

@@ -28,6 +28,7 @@ import (
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/pack"
+	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/coreos/go-semver/semver"
@@ -41,96 +42,108 @@ type Syncer interface {
 	Sync(ctx context.Context, builder *Builder, runtimeVersion semver.Version) error
 }
 
-// NewSyncerFunc defines function that creates syncer for a builder
-type NewSyncerFunc func(*Builder) (Syncer, error)
-
-// NewSyncer returns a new syncer instance for the provided builder
-//
-// Satisfies NewSyncerFunc type.
-func NewSyncer(b *Builder) (Syncer, error) {
-	return newS3Syncer()
-}
-
-// s3Syncer synchronizes local package cache with S3 bucket
-type s3Syncer struct {
+// S3Syncer synchronizes local package cache with an S3 bucket
+type S3Syncer struct {
 	// hub provides access to runtimes stored in S3 bucket
 	hub hub.Hub
 }
 
-// newS3Syncer returns a syncer that syncs packages with S3 bucket
-func newS3Syncer() (*s3Syncer, error) {
+// NewS3Syncer returns a syncer that syncs packages with an S3 bucket
+func NewS3Syncer() (*S3Syncer, error) {
 	hub, err := hub.New(hub.Config{})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return &s3Syncer{
+	return &S3Syncer{
 		hub: hub,
 	}, nil
 }
 
 // Sync makes sure that local cache has all required dependencies for the
 // selected runtime
-func (s *s3Syncer) Sync(ctx context.Context, builder *Builder, runtimeVersion semver.Version) error {
-	tarball, err := s.hub.Get(application.WithVersion(runtimeVersion))
-	if err != nil {
-		return trace.Wrap(err)
+func (s *S3Syncer) Sync(ctx context.Context, builder *Builder, runtimeVersion semver.Version) error {
+	var application = loc.Locator{
+		Repository: defaults.SystemAccountOrg,
+		Name:       "telekube",
+		Version:    runtimeVersion.String(),
 	}
-	defer tarball.Close()
-	// unpack the downloaded tarball
+
 	unpackedDir, err := ioutil.TempDir("", "runtime-unpacked")
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	defer os.RemoveAll(unpackedDir)
-	err = archive.Extract(tarball, unpackedDir)
+
+	err = s.download(unpackedDir, application)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	// sync packages between unpacked tarball directory and package cache
-	env, err := localenv.New(unpackedDir)
+	tarballEnv, err := localenv.NewTarballEnvironment(localenv.TarballEnvironmentArgs{
+		StateDir: unpackedDir,
+	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	defer env.Close()
+	defer tarballEnv.Close()
+
 	cacheApps, err := builder.Env.AppServiceLocal(localenv.AppConfig{})
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	tarballApps, err := env.AppServiceLocal(localenv.AppConfig{})
+
+	// sync packages between unpacked tarball directory and package cache
+	app, err := tarballEnv.Apps.GetApp(RuntimeApp(runtimeVersion))
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	puller := libapp.Puller{
 		FieldLogger: builder.FieldLogger,
-		SrcPack:     env.Packages,
-		SrcApp:      tarballApps,
+		SrcPack:     tarballEnv.Packages,
+		SrcApp:      tarballEnv.Apps,
 		DstPack:     builder.Env.Packages,
 		DstApp:      cacheApps,
 		Parallel:    builder.VendorReq.Parallel,
 		Upsert:      true,
 	}
-	return puller.PullAppDeps(ctx, builder.appForRuntime(runtimeVersion))
+	err = puller.PullAppDeps(ctx, *app)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return puller.PullAppPackage(ctx, app.Package)
 }
 
-// packSyncer synchronizes local package cache with pack/apps services
-type packSyncer struct {
-	pack pack.PackageService
-	apps libapp.Applications
-	repo string
+func (s *S3Syncer) download(path string, loc loc.Locator) error {
+	tarball, err := s.hub.Get(loc)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer tarball.Close()
+	// unpack the downloaded tarball
+	err = archive.Extract(tarball, path)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
 }
 
 // NewPackSyncer creates a new syncer from provided pack and apps services
-func NewPackSyncer(pack pack.PackageService, apps libapp.Applications, repo string) *packSyncer {
-	return &packSyncer{
+func NewPackSyncer(pack pack.PackageService, apps libapp.Applications) *PackSyncer {
+	return &PackSyncer{
 		pack: pack,
 		apps: apps,
-		repo: repo,
 	}
 }
 
 // Sync pulls dependencies from the package/app service not available locally
-func (s *packSyncer) Sync(ctx context.Context, builder *Builder, runtimeVersion semver.Version) error {
+func (s *PackSyncer) Sync(ctx context.Context, builder *Builder, runtimeVersion semver.Version) error {
 	cacheApps, err := builder.Env.AppServiceLocal(localenv.AppConfig{})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	// TODO(dmitri): current distribution hub will not return the manifest correctly
+	// for a recent version of the application due to compatibility issues.
+	// Query the package and parse the manifest manually to query the default runtime package
+	app, err := getApp(s.pack, RuntimeApp(runtimeVersion))
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -143,20 +156,35 @@ func (s *packSyncer) Sync(ctx context.Context, builder *Builder, runtimeVersion 
 		Parallel:    builder.VendorReq.Parallel,
 		OnConflict:  libapp.GetDependencyConflictHandler(false),
 	}
-	err = puller.PullAppDeps(ctx, builder.appForRuntime(runtimeVersion))
+	err = puller.PullAppDeps(ctx, *app)
 	if err != nil {
 		if utils.IsNetworkError(err) || trace.IsEOF(err) {
 			return trace.ConnectionProblem(err, "failed to download "+
 				"application dependencies from %v - please make sure the "+
-				"repository is reachable: %v", s.repo, err)
+				"repository is reachable: %v", builder.Repository, err)
 		}
 		return trace.Wrap(err)
 	}
-	return nil
+	return puller.PullAppPackage(ctx, app.Package)
 }
 
-var application = loc.Locator{
-	Repository: defaults.SystemAccountOrg,
-	Name:       "telekube",
-	Version:    loc.ZeroVersion,
+// PackSyncer synchronizes local package cache with remote package/application services
+type PackSyncer struct {
+	pack pack.PackageService
+	apps libapp.Applications
+}
+
+func getApp(pack pack.PackageService, loc loc.Locator) (*libapp.Application, error) {
+	env, err := pack.ReadPackageEnvelope(loc)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	manifest, err := schema.ParseManifestYAMLNoValidate(env.Manifest)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &libapp.Application{
+		Package:  loc,
+		Manifest: *manifest,
+	}, nil
 }

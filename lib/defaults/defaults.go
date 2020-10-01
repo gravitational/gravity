@@ -27,6 +27,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/constants"
 
+	"github.com/cenkalti/backoff"
 	"github.com/coreos/go-semver/semver"
 	"github.com/gravitational/teleport/lib/utils"
 	v1 "k8s.io/api/core/v1"
@@ -1371,6 +1372,13 @@ func GravityRPCAgentAddr(host string) string {
 // WithTimeout returns a default timeout context
 func WithTimeout(ctx context.Context) (context.Context, context.CancelFunc) {
 	return context.WithTimeout(ctx, RetryAttempts*RetryInterval)
+}
+
+// ExponentialBackOff returns a default backoff interval
+func ExponentialBackOff() *backoff.ExponentialBackOff {
+	b := backoff.NewExponentialBackOff()
+	b.MaxElapsedTime = RetryAttempts * RetryInterval
+	return b
 }
 
 // InstallerAddr returns the complete address of the installer given its IP

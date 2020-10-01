@@ -114,7 +114,7 @@ func (s *PlanSuite) SetUpSuite(c *check.C) {
 		Role:        "node",
 		ClusterRole: string(schema.ServiceRoleMaster),
 	}
-	s.planetPackage, err = app.Manifest.RuntimePackageForProfile(s.joiningNode.Role)
+	s.planetPackage, err = app.Manifest.RuntimePackageForProfileName(s.joiningNode.Role)
 	c.Assert(err, check.IsNil)
 	s.adminAgent, err = s.services.Operator.GetClusterAgent(ops.ClusterAgentRequest{
 		AccountID:   account.ID,

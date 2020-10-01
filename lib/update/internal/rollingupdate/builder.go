@@ -22,7 +22,7 @@ func RuntimeConfigUpdates(
 ) (updates []storage.UpdateServer, err error) {
 	updates = make([]storage.UpdateServer, 0, len(servers))
 	for _, server := range servers {
-		runtimePackage, err := manifest.RuntimePackageForProfile(server.Role)
+		runtimePackage, err := manifest.RuntimePackageForProfileName(server.Role)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
@@ -60,7 +60,7 @@ func RuntimeConfigUpdatesWithSecrets(
 ) (updates []storage.UpdateServer, err error) {
 	updates = make([]storage.UpdateServer, 0, len(servers))
 	for _, server := range servers {
-		runtimePackage, err := manifest.RuntimePackageForProfile(server.Role)
+		runtimePackage, err := manifest.RuntimePackageForProfileName(server.Role)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
