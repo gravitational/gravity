@@ -249,7 +249,32 @@ func (s *FSMUtilsSuite) TestCanRollback(c *check.C) {
 			expected: `rollback subsequent phases before rolling back phase "/init"`,
 		},
 		{
-			comment: "Rollback leaf phase",
+			comment: "Rollback after a later phase has been executed out of band",
+			plan: &storage.OperationPlan{
+				Phases: []storage.OperationPhase{
+					{
+						ID:    "/init",
+						State: storage.OperationPhaseStateCompleted,
+					},
+					{
+						ID:    "/startAgent",
+						State: storage.OperationPhaseStateUnstarted,
+					},
+					{
+						ID:    "/checks",
+						State: storage.OperationPhaseStateCompleted,
+					},
+					{
+						ID:    "/test",
+						State: storage.OperationPhaseStateRolledBack,
+					},
+				},
+			},
+			phaseID:  "/init",
+			expected: `rollback subsequent phases before rolling back phase "/init"`,
+		},
+		{
+			comment: "Rollback subphase",
 			plan: &storage.OperationPlan{
 				Phases: []storage.OperationPhase{
 					{
@@ -271,7 +296,7 @@ func (s *FSMUtilsSuite) TestCanRollback(c *check.C) {
 			phaseID: "/masters/node-2",
 		},
 		{
-			comment: "Rollback top level phase that has sub phases",
+			comment: "Rollback non-leaf phase",
 			plan: &storage.OperationPlan{
 				Phases: []storage.OperationPhase{
 					{
@@ -290,7 +315,8 @@ func (s *FSMUtilsSuite) TestCanRollback(c *check.C) {
 					},
 				},
 			},
-			phaseID: "/masters",
+			phaseID:  "/masters",
+			expected: `attempting to rollback non-leaf phase "/masters"`,
 		},
 	}
 	for _, tc := range tests {

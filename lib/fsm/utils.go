@@ -43,32 +43,42 @@ func CanRollback(plan *storage.OperationPlan, phaseID string) error {
 		return trace.BadParameter(
 			"phase %q has already been rolled back", phase.ID)
 	}
-	if !latestRollback(plan.Phases, phaseID) {
+
+	leafPhases := plan.GetLeafPhases()
+
+	// TODO: Rollback of non-leaf phases may currently not be implemented
+	// properly. Roll back starts top-down, and not in reverse order.
+	if !containsPhase(leafPhases, phaseID) {
+		return trace.BadParameter(
+			"attempting to rollback non-leaf phase %q", phase.ID)
+	}
+	if !latestRollback(leafPhases, phaseID) {
 		return trace.BadParameter(
 			"rollback subsequent phases before rolling back phase %q", phase.ID)
 	}
 	return nil
 }
 
+// containsPhase returns true if phases contains a phase with ID matching
+// phaseID.
+func containsPhase(phases []storage.OperationPhase, phaseID string) bool {
+	for _, phase := range phases {
+		if phase.ID == phaseID {
+			return true
+		}
+	}
+	return false
+}
+
 // latestRollback returns true if the phase specified by phaseID is next in line
 // to be rolled back.
 func latestRollback(phases []storage.OperationPhase, phaseID string) bool {
-	if len(phases) == 0 {
-		return false
-	}
-
 	// latest keeps track of the latest phase that has not yet been rolled back.
 	var latest storage.OperationPhase
-
-L:
 	for _, phase := range phases {
-		if latestRollback(phase.Phases, phaseID) {
-			return true
-		}
 		switch {
-		// if we run into an unstarted phase, all later phases should also be unstarted
-		case phase.IsUnstarted():
-			break L
+		// phases may be executed "out of band" so we need to examine all phases
+		case phase.IsUnstarted(), phase.IsRolledBack():
 		case phase.IsInProgress(), phase.IsFailed(), phase.IsCompleted():
 			latest = phase
 		default:

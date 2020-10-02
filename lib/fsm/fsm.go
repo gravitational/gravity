@@ -257,6 +257,7 @@ func (f *FSM) RollbackPhase(ctx context.Context, p Params) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	// No need to verify if phase can be rolled back during dry runs.
 	if !p.DryRun {
 		err = CanRollback(plan, p.PhaseID)
 		if err != nil {
