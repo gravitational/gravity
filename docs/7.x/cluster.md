@@ -1650,11 +1650,11 @@ Example:
 This command will collect diagnostics from all Cluster nodes into the specified tarball that you can then submit for
 evaluation.
 
-If you would like to examine the debug report, here is a quick overview of what information is collected and availble
+If you would like to examine the debug report, here is a quick overview of what information is collected and available
 for examination. First extract the tarball into a directory of your choice. Here we'll extract the tarball into a
 `report` directory with: `mkdir report && tar -zxf report.tar.gz -C report`.
 
-The contents of the report should look something like:
+The contents of the report should look similiar to this:
 ```bsh
 $ tree report
 report
@@ -1671,8 +1671,7 @@ report
 └── operation_install.a27a9fa0-c5e6-4a62-973b-2893752c25b6
 ```
 
-* `cluster.json` contains the JSON-encoded cluster metadata. Pretty print the contents using the python json tool:
-`cat cluster.json | python -m json.tool`.
+* `cluster.json` contains the JSON-encoded cluster metadata.
 
 * `<node>-debug-logs.tar.gz` contains a collection of system information. The host journal logs can be found in
 `gravity-journal.log.gz` and Planet journal logs can be found in `planet-journal.log.gz`. The logs have been compressed

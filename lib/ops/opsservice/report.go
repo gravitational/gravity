@@ -359,6 +359,7 @@ func collectClusterInfo(s storage.Site) collectorFn {
 			s.License = "redacted"
 		}
 		enc := json.NewEncoder(w)
+		enc.SetIndent("", "\t")
 		err = enc.Encode(s)
 		return trace.Wrap(err)
 	}
