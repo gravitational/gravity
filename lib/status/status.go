@@ -521,15 +521,6 @@ func fromPlanetAgent(ctx context.Context, local bool, servers []storage.Server) 
 		nodes = fromSystemStatus(*status)
 	}
 
-	// Collected system status may exclude the status of some nodes due to
-	// network partition. If offline nodes are detected, degrade system status.
-	for _, node := range nodes {
-		if node.Status != NodeHealthy {
-			status.Status = pb.SystemStatus_Degraded
-			break
-		}
-	}
-
 	return &Agent{
 		SystemStatus: SystemStatus(status.Status),
 		Nodes:        nodes,
