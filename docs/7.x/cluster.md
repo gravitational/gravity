@@ -1671,18 +1671,45 @@ report
 └── operation_install.a27a9fa0-c5e6-4a62-973b-2893752c25b6
 ```
 
-* `cluster.json` contains the JSON-encoded cluster metadata.
+| Content | Description |
+|---------|-------------|
+| `cluster.json`             | Contains the JSON-encoded cluster metadata. |
+| `<node>-debug-logs.tar.gz` | Contains system information. The host journal logs can be found in `gravity-journal.log.gz` and Planet journal logs can be found in `planet-journal.log.gz`. |
+| `<node>-etcd.tar.gz`       | Contains etcd backup and a snapshot of the etcd metrics. |
+| `<node>-status.tar.gz`     | Contains Gravity [Cluster Status History](cluster.md#cluster-status-history). |
+| `<node>-resources.tar.gz`  | Contains Gravity resources. More information about Gravity resources can be found in [Configuration Overview](config.md#configuration-overview).
+| `<node>-k8s-logs.tar.gz`   | Contains a dump of the Kubernetes cluster information. Here we can find descriptions of Kubernetes resources and the logs of various pods. |
 
-* `<node>-debug-logs.tar.gz` contains a collection of system information. The host journal logs can be found in
-`gravity-journal.log.gz` and Planet journal logs can be found in `planet-journal.log.gz`. The logs have been compressed
-with gzip and can be expanded with the `gunzip` command.
+In order to collect specific diagnostic information for the local node use the `system report` command: 
 
-* `<node>-etcd.tar.gz` contains etcd backup and a snapshot of the etcd metrics.
+```bsh
+$ gravity system report --help
+usage: gravity system report [<flags>] [<file>]
 
-* `<node>-status.tar.gz` contains the Gravity [Cluster Status History](cluster.md#cluster-status-history).
+collect system diagnostics and output as gzipped tarball to terminal
 
-* `<node>-resources.tar.gz` contains the Gravity resources. More information about Gravity resources can be found in
-[Configuration Overview](config.md#configuration-overview).
+Flags:
+      --help                 Show context-sensitive help (also try --help-long and --help-man).
+      --debug                Enable debug mode
+  -q, --quiet                Suppress any extra output to stdout
+      --insecure             Skip TLS verification
+      --state-dir=STATE-DIR  Directory for local state
+      --log-file="/var/log/gravity-install.log"
+                             log file with diagnostic information
+      --filter=FILTER ...    collect only specific diagnostics ('system', 'kubernetes', 'etcd', 'timeline', 'resources'). Collect everything if unspecified
+      --compressed           whether to compress the tarball
+      --since=336h           only return logs newer than a relative duration like 5s, 2m, or 3h. Default is 336h (14 days). Specify 0s to collect all logs.
 
-* `<node>-k8s-logs.tar.gz` contains a dump of the kubernetes cluster information. Here we can find descriptions of
-kubernetes resources and the logs of various pods.
+Args:
+  [<file>]  optional output path
+
+Example:
+  # Collect all diagnostic information into report.tar.gz.
+  $ gravity system report --compressed report.tar.gz
+
+  # Collect all system information from the last hour into system.tar.gz.
+  $ gravity system report --compressed --filter=system --since=1h system.tar.gz
+
+  # Collect all Gravity resources into resources.tar.gz.
+  $ gravity system report --compressed --filter=resources resources.tar.gz
+```

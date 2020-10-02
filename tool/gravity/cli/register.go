@@ -723,7 +723,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.SystemServiceJournalCmd.Args = g.SystemServiceJournalCmd.Arg("arg", "optional arguments to the journalctl").Strings()
 
 	g.SystemReportCmd.CmdClause = g.SystemCmd.Command("report", "collect system diagnostics and output as gzipped tarball to terminal").Hidden()
-	g.SystemReportCmd.Filter = g.SystemReportCmd.Flag("filter", "collect only specific diagnostics ('system', 'kubernetes'). Collect everything if unspecified").Strings()
+	g.SystemReportCmd.Filter = g.SystemReportCmd.Flag("filter", "collect only specific diagnostics ('system', 'kubernetes', 'etc', 'timeline', 'resources'). Collect everything if unspecified").Strings()
 	g.SystemReportCmd.Compressed = g.SystemReportCmd.Flag("compressed", "whether to compress the tarball").Default("true").Bool()
 	g.SystemReportCmd.Output = g.SystemReportCmd.Flag("output", "optional output file path").String()
 	g.SystemReportCmd.Since = g.SystemReportCmd.Flag("since", "only return logs newer than a relative duration like 5s, 2m, or 3h. Default is 336h (14 days). Specify 0s to collect all logs.").Default("336h").Duration()
