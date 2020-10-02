@@ -3,7 +3,12 @@ variable "image_name" {
   default = "ubuntu-18.04-server-cloudimg-amd64.img"
 }
 
-variable "disk_size" {
+variable "root_disk_size" {
+  type = string
+  default = "15000000000"
+}
+
+variable "data_disk_size" {
   type = string
   default = "15000000000"
 }
@@ -33,7 +38,6 @@ resource "libvirt_volume" "os-qcow2" {
   name = "os-disk-${count.index}.qcow2"
   pool = "default"
   source = "/var/lib/libvirt/images/${var.image_name}"
-  format = "raw"
   count = var.nodes_count
 }
 
@@ -51,7 +55,14 @@ resource "libvirt_volume" "root" {
   name = "root-disk-${count.index}.qcow2"
   base_volume_id = element(libvirt_volume.os-qcow2.*.id, count.index)
   pool = "default"
-  size = var.disk_size
+  size = var.root_disk_size
+  count = var.nodes_count
+}
+
+resource "libvirt_volume" "data" {
+  name = "data-disk-${count.index}.qcow2"
+  pool = "default"
+  size = var.data_disk_size
   count = var.nodes_count
 }
 
@@ -98,6 +109,10 @@ resource "libvirt_domain" "domain-gravity" {
 
   disk {
     volume_id = element(libvirt_volume.root.*.id, count.index)
+  }
+
+  disk {
+    volume_id = element(libvirt_volume.data.*.id, count.index)
   }
 }
 

@@ -1,6 +1,7 @@
 IMAGEURL := https://cloud-images.ubuntu.com/releases/bionic/release/ubuntu-18.04-server-cloudimg-amd64.img
 CPU_COUNT ?= 1
-DISK_SIZE ?= 15000000000
+ROOT_DISK_SIZE ?= 15000000000
+DATA_DISK_SIZE ?= 15000000000
 OS ?= ubuntu
 ANSIBLE_EXTRA_VARS ?=
 NODES_COUNT ?= 3
@@ -11,7 +12,9 @@ endif
 
 IMAGENAME := $(shell basename $(IMAGEURL))
 TF_VARIABLES := TF_VAR_image_name=$(IMAGENAME) TF_VAR_cpu_count=$(CPU_COUNT)\
-	TF_VAR_disk_size=$(DISK_SIZE) TF_VAR_username=$(OS) TF_VAR_nodes_count=$(NODES_COUNT)
+	TF_VAR_root_disk_size=$(ROOT_DISK_SIZE) \
+	TF_VAR_data_disk_size=$(DATA_DISK_SIZE) \
+	TF_VAR_username=$(OS) TF_VAR_nodes_count=$(NODES_COUNT)
 
 .PHONY: all
 all: apply install
