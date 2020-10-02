@@ -87,14 +87,7 @@ func (r *reconciler) trySyncChangelogFromEtcd(ctx context.Context) error {
 	}
 
 	if shouldSync {
-		r.Debug("Use quorum reads for plan sync.")
-		// Use consistent reads when querying the operation plan to avoid
-		// reading stale values.
-		// TODO(v3): This is only required for etcd client v2 as client v3 defaults
-		// to quorum reads and offers clientv3.WithSerializable() as an opt-out.
-		// See https://etcd.io/docs/v2/faq/ and https://github.com/etcd-io/etcd/issues/6829 for details
-		consistentSrc := r.backend.CloneWithOptions(keyval.WithReadQuorum(true))
-		return trace.Wrap(r.syncChangelog(ctx, consistentSrc, r.localBackend))
+		return trace.Wrap(r.syncChangelog(ctx, r.backend, r.localBackend))
 	}
 
 	return nil

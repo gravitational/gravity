@@ -115,11 +115,13 @@ type EtcdBackend interface {
 // EtcdOption is a functional option to configure an etcd backend
 type EtcdOption func(*etcdOptions)
 
-// WithReadQuorum specifies that reads should go through the quorum,
-// e.g. return the latest committed value applied in a quorum of members
-func WithReadQuorum(quorum bool) EtcdOption {
+// WithSerializable specifies that reads should be serializable.
+// Serializable requests are better for low-latency requirements, but the downside
+// is that stale values might be returned.
+// By default, the reads are linearizable - i.e. go through the quorum of members
+func WithSerializable() EtcdOption {
 	return func(config *etcdOptions) {
-		config.GetOptions.Quorum = quorum
+		config.GetOptions.Quorum = false
 	}
 }
 
@@ -155,6 +157,7 @@ func newEngine(cfg ETCDConfig, codec Codec) (*engine, error) {
 		nodes:   cfg.Nodes,
 		etcdKey: strings.Split(cfg.Key, "/"),
 		codec:   codec,
+		options: defaultEtcdOptions(),
 	}
 	if err := e.reconnect(); err != nil {
 		return nil, trace.Wrap(err)
@@ -619,6 +622,15 @@ func (r retryApi) retry(ctx context.Context, fn apiCall) (resp *client.Response,
 		return nil, convertErr(err)
 	}
 	return resp, nil
+}
+
+func defaultEtcdOptions() etcdOptions {
+	return etcdOptions{
+		GetOptions: client.GetOptions{
+			// Make reads go through the quorum by default
+			Quorum: true,
+		},
+	}
 }
 
 type apiCall func() (*client.Response, error)
