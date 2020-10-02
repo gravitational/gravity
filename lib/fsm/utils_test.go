@@ -20,6 +20,7 @@ import (
 	"github.com/gravitational/gravity/lib/compare"
 	"github.com/gravitational/gravity/lib/storage"
 
+	"github.com/gravitational/trace"
 	"gopkg.in/check.v1"
 )
 
@@ -149,122 +150,157 @@ func (s *FSMUtilsSuite) TestDiffPlanNoPrevious(c *check.C) {
 	})
 }
 
-func (s *FSMUtilsSuite) TestLatestRollback(c *check.C) {
+func (s *FSMUtilsSuite) TestCanRollback(c *check.C) {
 	tests := []struct {
 		comment  string
-		phases   []storage.OperationPhase
+		plan     *storage.OperationPlan
 		phaseID  string
-		expected bool
+		expected string
 	}{
 		{
 			comment: "Rollback latest phase",
-			phases: []storage.OperationPhase{
-				{
-					ID:    "/init",
-					State: storage.OperationPhaseStateCompleted,
-				},
-				{
-					ID:    "/startAgent",
-					State: storage.OperationPhaseStateInProgress,
+
+			plan: &storage.OperationPlan{
+				Phases: []storage.OperationPhase{
+					{
+						ID:    "/init",
+						State: storage.OperationPhaseStateCompleted,
+					},
+					{
+						ID:    "/startAgent",
+						State: storage.OperationPhaseStateInProgress,
+					},
 				},
 			},
 			phaseID:  "/startAgent",
-			expected: true,
+			expected: "",
 		},
 		{
-			comment: "Cannot rollback /init before /startAgent",
-			phases: []storage.OperationPhase{
-				{
-					ID:    "/init",
-					State: storage.OperationPhaseStateCompleted,
-				},
-				{
-					ID:    "/startAgent",
-					State: storage.OperationPhaseStateInProgress,
+			comment: "A subsequent phase is in progress",
+			plan: &storage.OperationPlan{
+				Phases: []storage.OperationPhase{
+					{
+						ID:    "/init",
+						State: storage.OperationPhaseStateCompleted,
+					},
+					{
+						ID:    "/startAgent",
+						State: storage.OperationPhaseStateInProgress,
+					},
 				},
 			},
 			phaseID:  "/init",
-			expected: false,
+			expected: `rollback subsequent phases before rolling back phase "/init"`,
 		},
 		{
-			comment: "/init is latest un-rolled back phase",
-			phases: []storage.OperationPhase{
-				{
-					ID:    "/init",
-					State: storage.OperationPhaseStateCompleted,
-				},
-				{
-					ID:    "/startAgent",
-					State: storage.OperationPhaseStateRolledBack,
+			comment: "All later phases have been rolled back",
+			plan: &storage.OperationPlan{
+				Phases: []storage.OperationPhase{
+					{
+						ID:    "/init",
+						State: storage.OperationPhaseStateCompleted,
+					},
+					{
+						ID:    "/startAgent",
+						State: storage.OperationPhaseStateRolledBack,
+					},
 				},
 			},
 			phaseID:  "/init",
-			expected: true,
+			expected: "",
+		},
+		{
+			comment: "All later phases have been rolled back or are unstarted",
+			plan: &storage.OperationPlan{
+				Phases: []storage.OperationPhase{
+					{
+						ID:    "/init",
+						State: storage.OperationPhaseStateCompleted,
+					},
+					{
+						ID:    "/startAgent",
+						State: storage.OperationPhaseStateRolledBack,
+					},
+					{
+						ID:    "/checks",
+						State: storage.OperationPhaseStateUnstarted,
+					},
+				},
+			},
+			phaseID:  "/init",
+			expected: "",
 		},
 		{
 			comment: "Rollback after a previously forced rollback",
-			phases: []storage.OperationPhase{
-				{
-					ID:    "/init",
-					State: storage.OperationPhaseStateCompleted,
-				},
-				{
-					ID:    "/startAgent",
-					State: storage.OperationPhaseStateRolledBack,
-				},
-				{
-					ID:    "/checks",
-					State: storage.OperationPhaseStateFailed,
+			plan: &storage.OperationPlan{
+				Phases: []storage.OperationPhase{
+					{
+						ID:    "/init",
+						State: storage.OperationPhaseStateCompleted,
+					},
+					{
+						ID:    "/startAgent",
+						State: storage.OperationPhaseStateRolledBack,
+					},
+					{
+						ID:    "/checks",
+						State: storage.OperationPhaseStateFailed,
+					},
 				},
 			},
 			phaseID:  "/init",
-			expected: false,
+			expected: `rollback subsequent phases before rolling back phase "/init"`,
 		},
 		{
 			comment: "Rollback leaf phase",
-			phases: []storage.OperationPhase{
-				{
-					ID:    "/masters",
-					State: storage.OperationPhaseStateInProgress,
-					Phases: []storage.OperationPhase{
-						{
-							ID:    "/masters/node-1",
-							State: storage.OperationPhaseStateCompleted,
-						},
-						{
-							ID:    "/masters/node-2",
-							State: storage.OperationPhaseStateInProgress,
+			plan: &storage.OperationPlan{
+				Phases: []storage.OperationPhase{
+					{
+						ID:    "/masters",
+						State: storage.OperationPhaseStateInProgress,
+						Phases: []storage.OperationPhase{
+							{
+								ID:    "/masters/node-1",
+								State: storage.OperationPhaseStateCompleted,
+							},
+							{
+								ID:    "/masters/node-2",
+								State: storage.OperationPhaseStateInProgress,
+							},
 						},
 					},
 				},
 			},
 			phaseID:  "/masters/node-2",
-			expected: true,
+			expected: "",
 		},
 		{
 			comment: "Rollback top level phase that has sub phases",
-			phases: []storage.OperationPhase{
-				{
-					ID:    "/masters",
-					State: storage.OperationPhaseStateCompleted,
-					Phases: []storage.OperationPhase{
-						{
-							ID:    "/masters/node-1",
-							State: storage.OperationPhaseStateCompleted,
-						},
-						{
-							ID:    "/masters/node-2",
-							State: storage.OperationPhaseStateCompleted,
+			plan: &storage.OperationPlan{
+				Phases: []storage.OperationPhase{
+					{
+						ID:    "/masters",
+						State: storage.OperationPhaseStateCompleted,
+						Phases: []storage.OperationPhase{
+							{
+								ID:    "/masters/node-1",
+								State: storage.OperationPhaseStateCompleted,
+							},
+							{
+								ID:    "/masters/node-2",
+								State: storage.OperationPhaseStateCompleted,
+							},
 						},
 					},
 				},
 			},
 			phaseID:  "/masters",
-			expected: true,
+			expected: "",
 		},
 	}
 	for _, tc := range tests {
 		comment := check.Commentf(tc.comment)
-		c.Assert(latestRollback(tc.phases, tc.phaseID), check.Equals, tc.expected, comment)
+		err := CanRollback(tc.plan, tc.phaseID)
+		c.Assert(trace.UserMessage(err), check.Equals, tc.expected, comment)
 	}
 }

@@ -30,7 +30,7 @@ import (
 )
 
 // CanRollback checks if specified phase can be rolled back
-func CanRollback(plan *storage.OperationPlan, phaseID string, dryRun bool) error {
+func CanRollback(plan *storage.OperationPlan, phaseID string) error {
 	phase, err := FindPhase(plan, phaseID)
 	if err != nil {
 		return trace.Wrap(err)
@@ -43,7 +43,7 @@ func CanRollback(plan *storage.OperationPlan, phaseID string, dryRun bool) error
 		return trace.BadParameter(
 			"phase %q has already been rolled back", phase.ID)
 	}
-	if !dryRun && !latestRollback(plan.Phases, phaseID) {
+	if !latestRollback(plan.Phases, phaseID) {
 		return trace.BadParameter(
 			"rollback subsequent phases before rolling back phase %q", phase.ID)
 	}
@@ -51,7 +51,7 @@ func CanRollback(plan *storage.OperationPlan, phaseID string, dryRun bool) error
 }
 
 // latestRollback returns true if the phase specified by phaseID is next in line
-// to be rolledback.
+// to be rolled back.
 func latestRollback(phases []storage.OperationPhase, phaseID string) bool {
 	if len(phases) == 0 {
 		return false
@@ -59,6 +59,8 @@ func latestRollback(phases []storage.OperationPhase, phaseID string) bool {
 
 	// latest keeps track of the latest phase that has not yet been rolled back.
 	var latest storage.OperationPhase
+
+L:
 	for _, phase := range phases {
 		if latestRollback(phase.Phases, phaseID) {
 			return true
@@ -66,7 +68,7 @@ func latestRollback(phases []storage.OperationPhase, phaseID string) bool {
 		switch {
 		// if we run into an unstarted phase, all later phases should also be unstarted
 		case phase.IsUnstarted():
-			break
+			break L
 		case phase.IsInProgress(), phase.IsFailed(), phase.IsCompleted():
 			latest = phase
 		default:
