@@ -172,8 +172,7 @@ func (s *FSMUtilsSuite) TestCanRollback(c *check.C) {
 					},
 				},
 			},
-			phaseID:  "/startAgent",
-			expected: "",
+			phaseID: "/startAgent",
 		},
 		{
 			comment: "A subsequent phase is in progress",
@@ -206,8 +205,7 @@ func (s *FSMUtilsSuite) TestCanRollback(c *check.C) {
 					},
 				},
 			},
-			phaseID:  "/init",
-			expected: "",
+			phaseID: "/init",
 		},
 		{
 			comment: "All later phases have been rolled back or are unstarted",
@@ -227,8 +225,7 @@ func (s *FSMUtilsSuite) TestCanRollback(c *check.C) {
 					},
 				},
 			},
-			phaseID:  "/init",
-			expected: "",
+			phaseID: "/init",
 		},
 		{
 			comment: "Rollback after a previously forced rollback",
@@ -271,8 +268,7 @@ func (s *FSMUtilsSuite) TestCanRollback(c *check.C) {
 					},
 				},
 			},
-			phaseID:  "/masters/node-2",
-			expected: "",
+			phaseID: "/masters/node-2",
 		},
 		{
 			comment: "Rollback top level phase that has sub phases",
@@ -294,8 +290,7 @@ func (s *FSMUtilsSuite) TestCanRollback(c *check.C) {
 					},
 				},
 			},
-			phaseID:  "/masters",
-			expected: "",
+			phaseID: "/masters",
 		},
 	}
 	for _, tc := range tests {
