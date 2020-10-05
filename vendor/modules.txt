@@ -77,7 +77,7 @@ github.com/aws/aws-sdk-go/service/s3/s3manager
 github.com/aws/aws-sdk-go/service/sqs
 github.com/aws/aws-sdk-go/service/ssm
 github.com/aws/aws-sdk-go/service/sts
-# github.com/beevik/etree v0.0.0-20170418002358-cda1c0026246
+# github.com/beevik/etree v1.1.0
 github.com/beevik/etree
 # github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973 => github.com/beorn7/perks v0.0.0-20150223135152-b965b613227f
 github.com/beorn7/perks/quantile
@@ -408,7 +408,7 @@ github.com/gravitational/tail/ratelimiter
 github.com/gravitational/tail/util
 github.com/gravitational/tail/watch
 github.com/gravitational/tail/winfile
-# github.com/gravitational/teleport v3.2.15-0.20200309221853-bebf7a500543+incompatible
+# github.com/gravitational/teleport v3.2.15-0.20201005225507-eccdab5226f7+incompatible
 github.com/gravitational/teleport
 github.com/gravitational/teleport/lib
 github.com/gravitational/teleport/lib/auth
@@ -638,7 +638,7 @@ github.com/rubenv/sql-migrate/sqlparse
 # github.com/russellhaering/gosaml2 v0.0.0-20170515204909-8908227c114a
 github.com/russellhaering/gosaml2
 github.com/russellhaering/gosaml2/types
-# github.com/russellhaering/goxmldsig v0.0.0-20170515183101-605161228693
+# github.com/russellhaering/goxmldsig v1.1.0
 github.com/russellhaering/goxmldsig
 github.com/russellhaering/goxmldsig/etreeutils
 github.com/russellhaering/goxmldsig/types

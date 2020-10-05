@@ -17,7 +17,6 @@ require (
 	github.com/apparentlymart/go-cidr v1.0.0 // indirect
 	github.com/armon/go-radix v1.0.0 // indirect
 	github.com/aws/aws-sdk-go v1.25.41
-	github.com/beevik/etree v0.0.0-20170418002358-cda1c0026246 // indirect
 	github.com/bgentry/go-netrc v0.0.0-20140422174119-9fd32a8b3d3d // indirect
 	github.com/boltdb/bolt v1.3.1
 	github.com/boombuler/barcode v0.0.0-20161226211916-fe0f26ff6d26 // indirect
@@ -69,7 +68,7 @@ require (
 	github.com/gravitational/roundtrip v1.0.0
 	github.com/gravitational/satellite v0.0.9-0.20200826203500-ad8030ab3ddb
 	github.com/gravitational/tail v1.0.1
-	github.com/gravitational/teleport v3.2.15-0.20200309221853-bebf7a500543+incompatible
+	github.com/gravitational/teleport v3.2.15-0.20201005225507-eccdab5226f7+incompatible
 	github.com/gravitational/trace v1.1.11
 	github.com/gravitational/ttlmap v0.0.0-20171116003245-91fd36b9004c
 	github.com/gravitational/version v0.0.2-0.20170324200323-95d33ece5ce1
@@ -118,7 +117,7 @@ require (
 	github.com/prometheus/common v0.6.0
 	github.com/rubenv/sql-migrate v0.0.0-20190902133344-8926f37f0bc1 // indirect
 	github.com/russellhaering/gosaml2 v0.0.0-20170515204909-8908227c114a // indirect
-	github.com/russellhaering/goxmldsig v0.0.0-20170515183101-605161228693 // indirect
+	github.com/russellhaering/goxmldsig v1.1.0 // indirect
 	github.com/santhosh-tekuri/jsonschema v1.2.2
 	github.com/shurcooL/sanitized_anchor_name v0.0.0-20170918181015-86672fcb3f95 // indirect
 	github.com/sirupsen/logrus v1.6.0
