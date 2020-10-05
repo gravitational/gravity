@@ -58,7 +58,7 @@ func reconfigureCluster(env *localenv.LocalEnvironment, config InstallConfig, co
 	}
 	log.Infof("Using config: %#v.", config)
 	if config.FromService {
-		err := startReconfiguratorFromService(env, config, localState)
+		err := startReconfiguratorFromService(env, config, *localState)
 		if utils.IsContextCancelledError(err) {
 			return trace.Wrap(err, "reconfigurator interrupted")
 		}
@@ -126,20 +126,20 @@ func startReconfiguratorFromService(env *localenv.LocalEnvironment, config Insta
 	return trace.Wrap(installer.Run(listener))
 }
 
-func newReconfigurator(ctx context.Context, config *install.Config, state *localenv.LocalState) (*install.Installer, error) {
+func newReconfigurator(ctx context.Context, config install.Config, state localenv.LocalState) (*install.Installer, error) {
 	engine, err := reconfigure.NewEngine(reconfigure.Config{
 		Operator: config.Operator,
-		State:    state,
+		State:    &state,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	config.LocalAgent = false // To make sure agent does not get launched on this node.
 	installer, err := install.New(ctx, install.RuntimeConfig{
-		Config:         *config,
-		Planner:        reconfigure.NewPlanner(config, state.Cluster),
-		FSMFactory:     reconfigure.NewFSMFactory(*config),
-		ClusterFactory: install.NewClusterFactory(*config),
+		Config:         config,
+		Planner:        reconfigure.NewPlanner(&config, state.Cluster, state.Cluster.ClusterState.Servers[0].Role),
+		FSMFactory:     reconfigure.NewFSMFactory(config),
+		ClusterFactory: install.NewClusterFactory(config),
 		Engine:         engine,
 	})
 	if err != nil {

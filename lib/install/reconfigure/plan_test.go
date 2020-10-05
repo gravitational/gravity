@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/gravitational/gravity/lib/app/service/test"
 	"github.com/gravitational/gravity/lib/install"
 	installphases "github.com/gravitational/gravity/lib/install/phases"
 	"github.com/gravitational/gravity/lib/install/reconfigure/phases"
@@ -58,7 +59,7 @@ func (s *ReconfiguratorSuite) TestPlan(c *check.C) {
 	c.Assert(err, check.IsNil)
 
 	cluster := s.suite.Cluster()
-	planner := NewPlanner(s.suite.PlanBuilderGetter(), ops.ConvertOpsSite(*cluster))
+	planner := NewPlanner(s.suite.PlanBuilderGetter(), ops.ConvertOpsSite(*cluster), test.NodeProfile)
 	plan, err := planner.GetOperationPlan(s.suite.Services().Operator, *cluster, *operation)
 	c.Assert(err, check.IsNil)
 
@@ -201,7 +202,7 @@ func (s *ReconfiguratorSuite) verifyRestartPhase(c *check.C, phase storage.Opera
 				ID: fmt.Sprintf("%v%v", phases.RestartPhase, phases.PlanetPhase),
 				Data: &storage.OperationPhaseData{
 					Server:  &master,
-					Package: &loc.Planet,
+					Package: &test.PlanetPackage,
 				},
 			},
 		},

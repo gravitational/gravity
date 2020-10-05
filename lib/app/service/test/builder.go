@@ -249,6 +249,18 @@ func CreatePackageData(items []*archive.Item, c *C) bytes.Buffer {
 	return buf
 }
 
+var (
+	// PlanetPackage defines the runtime package for tests
+	PlanetPackage = loc.Locator{
+		Repository: defaults.SystemAccountOrg,
+		Name:       loc.Planet.Name,
+		Version:    "0.0.1",
+	}
+
+	// NodeProfile specifies the default node profile
+	NodeProfile = "node"
+)
+
 const hooks = `hooks:
   preNodeAdd:
     job: |
