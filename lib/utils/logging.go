@@ -20,23 +20,70 @@ import (
 	"io/ioutil"
 	"log/syslog"
 	"os"
+	"strconv"
+	"strings"
 
 	"github.com/gravitational/gravity/lib/defaults"
 
 	log "github.com/sirupsen/logrus"
 	syslogrus "github.com/sirupsen/logrus/hooks/syslog"
+	"google.golang.org/grpc/grpclog"
 )
 
 // InitLogging initalizes logging to log both to syslog and to a file
-func InitLogging(logFile string) {
+func InitLogging(level log.Level, logFile string) {
 	log.StandardLogger().Hooks.Add(&Hook{
 		path: logFile,
 	})
-	setLoggingOptions()
+	setLoggingOptions(level)
 }
 
-func setLoggingOptions() {
-	log.SetLevel(log.DebugLevel)
+// InitGRPCLoggerFromEnvironment configures the GRPC logger if any of the related environment variables
+// are set.
+func InitGRPCLoggerFromEnvironment(severityDefault, verbosityDefault string) {
+	const (
+		envSeverityLevel  = "GRPC_GO_LOG_SEVERITY_LEVEL"
+		envVerbosityLevel = "GRPC_GO_LOG_VERBOSITY_LEVEL"
+	)
+	severityLevel := GetenvWithDefault(envSeverityLevel, severityDefault)
+	verbosityLevel := GetenvWithDefault(envVerbosityLevel, verbosityDefault)
+	if severityLevel == "" && verbosityLevel == "" {
+		// Nothing to do
+		return
+	}
+	var verbosity int
+	if verbosityOverride, err := strconv.Atoi(verbosityLevel); err == nil {
+		verbosity = verbosityOverride
+	}
+	InitGRPCLogger(GrpcSeverity(strings.ToLower(severityLevel)), verbosity)
+}
+
+// DebugGRPCEnvironment returns the gRPC logging environment for debugging
+func DebugGRPCEnvironment() (severity, verbosity string) {
+	return string(GrpcInfoSeverity), grpcMaxVerbosity
+}
+
+// Severity level is one of `info`, `warning` or `error` and defaults to error if unspecified.
+// Verbosity is a non-negative integer.
+func InitGRPCLogger(severityLevel GrpcSeverity, verbosity int) {
+	errorW := ioutil.Discard
+	warningW := ioutil.Discard
+	infoW := ioutil.Discard
+
+	switch severityLevel {
+	case GrpcEmptySeverity, GrpcErrorSeverity: // If env is unset, set level to `error`.
+		errorW = os.Stderr
+	case GrpcWarnSeverity:
+		warningW = os.Stderr
+	case GrpcInfoSeverity:
+		infoW = os.Stderr
+	}
+
+	grpclog.SetLoggerV2(grpclog.NewLoggerV2WithVerbosity(infoW, warningW, errorW, verbosity))
+}
+
+func setLoggingOptions(level log.Level) {
+	log.SetLevel(level)
 	log.SetOutput(ioutil.Discard)
 }
 
@@ -89,3 +136,15 @@ func defaultLogger() *log.Logger {
 	logger.Out = ioutil.Discard
 	return logger
 }
+
+// GrpcSeverity defines the severity level for gRPC logging
+type GrpcSeverity string
+
+const (
+	GrpcEmptySeverity GrpcSeverity = ""
+	GrpcInfoSeverity  GrpcSeverity = "info"
+	GrpcWarnSeverity  GrpcSeverity = "warning"
+	GrpcErrorSeverity GrpcSeverity = "error"
+)
+
+const grpcMaxVerbosity = "10"
