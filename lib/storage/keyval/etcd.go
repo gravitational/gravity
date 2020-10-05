@@ -26,6 +26,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/state"
+	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/cenkalti/backoff"
@@ -59,13 +60,15 @@ func NewETCD(cfg ETCDConfig) (*electingBackend, error) {
 		return nil, trace.Wrap(err)
 	}
 
+	backend := &backend{
+		Clock:    clock,
+		kvengine: engine,
+	}
 	return &electingBackend{
-		Backend: &backend{
-			Clock:    clock,
-			kvengine: engine,
-		},
-		Leader: leader,
-		client: engine.client,
+		Backend: backend,
+		Leader:  leader,
+		backend: backend,
+		engine:  engine,
 	}, nil
 }
 
@@ -101,6 +104,32 @@ func LocalEtcdConfig(retryTimeout time.Duration) (*ETCDConfig, error) {
 	}, nil
 }
 
+// EtcdBackend enables access to etcd-specific features
+type EtcdBackend interface {
+	storage.Backend
+	// CloneWithOptions creates a shallow copy of this backend
+	// with the specified options applied
+	CloneWithOptions(opts ...EtcdOption) storage.Backend
+}
+
+// EtcdOption is a functional option to configure an etcd backend
+type EtcdOption func(*etcdOptions)
+
+// WithSerializable specifies that reads should be serializable.
+// Serializable requests are better for low-latency requirements, but the downside
+// is that stale values might be returned.
+// By default, the reads are linearizable - i.e. go through the quorum of members
+func WithSerializable() EtcdOption {
+	return func(config *etcdOptions) {
+		config.GetOptions.Quorum = false
+	}
+}
+
+type etcdOptions struct {
+	// GetOptions specifies the options for Get API
+	GetOptions client.GetOptions
+}
+
 // Check checks if all the parameters are valid and sets defaults
 func (cfg *ETCDConfig) Check() error {
 	if len(cfg.Key) == 0 {
@@ -124,12 +153,11 @@ func newEngine(cfg ETCDConfig, codec Codec) (*engine, error) {
 		return nil, trace.Wrap(err)
 	}
 	e := &engine{
-		cfg:     cfg,
+		config:  cfg,
 		nodes:   cfg.Nodes,
 		etcdKey: strings.Split(cfg.Key, "/"),
-		cancelC: make(chan bool, 1),
-		stopC:   make(chan bool, 1),
 		codec:   codec,
+		options: defaultEtcdOptions(),
 	}
 	if err := e.reconnect(); err != nil {
 		return nil, trace.Wrap(err)
@@ -141,11 +169,21 @@ type engine struct {
 	client.KeysAPI
 	nodes   []string
 	codec   Codec
-	cfg     ETCDConfig
+	config  ETCDConfig
 	etcdKey []string
 	client  client.Client
-	cancelC chan bool
-	stopC   chan bool
+	options etcdOptions
+}
+
+func (e *engine) copyWithOptions(opts ...EtcdOption) *engine {
+	options := e.options
+	for _, opt := range opts {
+		opt(&options)
+	}
+	// Create a shallow copy of the engine
+	engine := *e
+	engine.options = options
+	return &engine
 }
 
 func (e *engine) key(prefix string, keys ...string) key {
@@ -171,9 +209,9 @@ func (e *engine) Close() error {
 
 func (e *engine) reconnect() error {
 	info := transport.TLSInfo{
-		CAFile:   e.cfg.TLSCAFile,
-		CertFile: e.cfg.TLSCertFile,
-		KeyFile:  e.cfg.TLSKeyFile,
+		CAFile:   e.config.TLSCAFile,
+		CertFile: e.config.TLSCertFile,
+		KeyFile:  e.config.TLSKeyFile,
 	}
 	cfg, err := info.ClientConfig()
 	if err != nil {
@@ -201,7 +239,7 @@ func (e *engine) reconnect() error {
 	e.client = clt
 	e.KeysAPI = retryApi{
 		api:      client.NewKeysAPI(e.client),
-		interval: e.cfg.RetryInterval,
+		interval: e.config.RetryInterval,
 	}
 
 	return nil
@@ -360,7 +398,7 @@ func (e *engine) compareAndSwapBytes(key key, val, prevVal []byte, outVal *[]byt
 }
 
 func (e *engine) getValBytes(key key) ([]byte, error) {
-	re, err := e.Get(context.TODO(), ekey(key), nil)
+	re, err := e.Get(context.TODO(), ekey(key), &e.options.GetOptions)
 	if err != nil {
 		return nil, convertErr(err)
 	}
@@ -371,7 +409,7 @@ func (e *engine) getValBytes(key key) ([]byte, error) {
 }
 
 func (e *engine) getVal(key key, val interface{}) error {
-	re, err := e.Get(context.TODO(), ekey(key), nil)
+	re, err := e.Get(context.TODO(), ekey(key), &e.options.GetOptions)
 	if err != nil {
 		return convertErr(err)
 	}
@@ -435,7 +473,7 @@ func (e *engine) releaseLock(key key) error {
 
 func (e *engine) getKeys(key key) ([]string, error) {
 	var vals []string
-	re, err := e.Get(context.TODO(), ekey(key), nil)
+	re, err := e.Get(context.TODO(), ekey(key), &e.options.GetOptions)
 	err = convertErr(err)
 	if err != nil {
 		if trace.IsNotFound(err) {
@@ -572,11 +610,11 @@ func (r retryApi) retry(ctx context.Context, fn apiCall) (resp *client.Response,
 	err = backoff.Retry(func() (err error) {
 		resp, err = fn()
 		if utils.IsTransientClusterError(err) {
-			log.Debugf("retrying on transient etcd error: %v", err)
+			log.WithField("err", trace.UserMessage(err)).Debug("Retry on transient etcd error.")
 			return trace.Wrap(err)
 		}
 		if err != nil {
-			return &backoff.PermanentError{err}
+			return &backoff.PermanentError{Err: err}
 		}
 		return nil
 	}, b)
@@ -584,6 +622,15 @@ func (r retryApi) retry(ctx context.Context, fn apiCall) (resp *client.Response,
 		return nil, convertErr(err)
 	}
 	return resp, nil
+}
+
+func defaultEtcdOptions() etcdOptions {
+	return etcdOptions{
+		GetOptions: client.GetOptions{
+			// Make reads go through the quorum by default
+			Quorum: true,
+		},
+	}
 }
 
 type apiCall func() (*client.Response, error)

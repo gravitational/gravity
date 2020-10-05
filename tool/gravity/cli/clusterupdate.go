@@ -184,11 +184,16 @@ func executeUpdatePhaseForOperation(env *localenv.LocalEnvironment, environ Loca
 		return trace.Wrap(err)
 	}
 	defer updateEnv.Close()
-	updater, err := getClusterUpdater(env, updateEnv, operation, params.SkipVersionCheck)
+	updater, err := getClusterUpdater(env, updateEnv, operation)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	defer updater.Close()
+	if !params.SkipVersionCheck {
+		if err := validateBinaryVersion(updater); err != nil {
+			return trace.Wrap(err)
+		}
+	}
 	return executeOrForkPhase(env, updater, params, operation)
 }
 
@@ -285,11 +290,16 @@ func rollbackUpdatePhaseForOperation(env *localenv.LocalEnvironment, environ Loc
 		return trace.Wrap(err)
 	}
 	defer updateEnv.Close()
-	updater, err := getClusterUpdater(env, updateEnv, operation, params.SkipVersionCheck)
+	updater, err := getClusterUpdater(env, updateEnv, operation)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	defer updater.Close()
+	if !params.SkipVersionCheck {
+		if err := validateBinaryVersion(updater); err != nil {
+			return trace.Wrap(err)
+		}
+	}
 	err = updater.RollbackPhase(context.TODO(), fsm.Params{
 		PhaseID: params.PhaseID,
 		Force:   params.Force,
@@ -304,7 +314,7 @@ func completeUpdatePlanForOperation(env *localenv.LocalEnvironment, environ Loca
 		return trace.Wrap(err)
 	}
 	defer updateEnv.Close()
-	updater, err := getClusterUpdater(env, updateEnv, operation, true)
+	updater, err := getClusterUpdater(env, updateEnv, operation)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -318,7 +328,7 @@ func completeUpdatePlanForOperation(env *localenv.LocalEnvironment, environ Loca
 	return nil
 }
 
-func getClusterUpdater(localEnv, updateEnv *localenv.LocalEnvironment, operation ops.SiteOperation, noValidateVersion bool) (*update.Updater, error) {
+func getClusterUpdater(localEnv, updateEnv *localenv.LocalEnvironment, operation ops.SiteOperation) (*update.Updater, error) {
 	clusterEnv, err := localEnv.NewClusterEnvironment()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -349,12 +359,6 @@ func getClusterUpdater(localEnv, updateEnv *localenv.LocalEnvironment, operation
 		Users:             clusterEnv.Users,
 	})
 	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	if noValidateVersion {
-		return updater, nil
-	}
-	if err := validateBinaryVersion(updater); err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return updater, nil

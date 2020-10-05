@@ -30,6 +30,7 @@ import (
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/rpc"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/storage/keyval"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
@@ -202,7 +203,7 @@ func (r *Updater) executePlan(ctx context.Context) error {
 		addrs = append(addrs, server.AdvertiseIP)
 	}
 	if errShutdown := rpc.ShutdownAgents(ctx, addrs, r.FieldLogger, r.Runner); errShutdown != nil {
-		r.Warnf("Failed to shutdown agents: %v.", trace.DebugReport(errShutdown))
+		r.WithError(errShutdown).Warn("Failed to shutdown agents.")
 	}
 	return nil
 }
@@ -250,7 +251,7 @@ type Config struct {
 	// Operator is the cluster operator service
 	Operator ops.Operator
 	// Backend specifies the cluster backend
-	Backend storage.Backend
+	Backend keyval.EtcdBackend
 	// LocalBackend specifies the authoritative source for operation state
 	LocalBackend storage.Backend
 	// Runner specifies the runner for remote commands

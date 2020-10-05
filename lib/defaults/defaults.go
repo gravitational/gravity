@@ -1177,6 +1177,9 @@ var (
 
 	// TeleportVersion specifies the version of the bundled teleport package as a semver
 	TeleportVersion = semver.New(TeleportVersionString)
+
+	// DockerRegistry is a default name for private docker registry
+	DockerRegistry = DockerRegistryAddr("leader.telekube.local")
 )
 
 // HookSecurityContext returns default securityContext for hook pods

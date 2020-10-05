@@ -209,7 +209,7 @@ spec:
 	c.Assert(err, IsNil)
 
 	imageService, err := docker.NewImageService(docker.RegistryConnectionRequest{
-		RegistryAddress: fmt.Sprintf("%v:5000", constants.APIServerDomainName),
+		RegistryAddress: defaults.DockerRegistry,
 	})
 	c.Assert(err, IsNil)
 
@@ -269,7 +269,7 @@ func (r *AppsSuite) ExportsApplication(c *C) {
 	defer registry.Close()
 
 	imageService, err := docker.NewImageService(docker.RegistryConnectionRequest{
-		RegistryAddress: fmt.Sprintf(constants.DockerRegistry),
+		RegistryAddress: defaults.DockerRegistry,
 	})
 	c.Assert(err, IsNil)
 	apps := r.NewService(c, dockerClient, imageService)
@@ -278,14 +278,15 @@ func (r *AppsSuite) ExportsApplication(c *C) {
 	c.Assert(err, IsNil)
 	application := r.importApplication(apps, vendorer, c)
 
+	registryAddr := registryAddr(registry.Addr())
 	c.Assert(apps.ExportApp(app.ExportAppRequest{
 		Package:         application.Package,
-		RegistryAddress: registry.Addr(),
+		RegistryAddress: registryAddr,
 	}), IsNil)
 
 	remoteRegistry, err := docker.ConnectRegistry(context.TODO(),
 		docker.RegistryConnectionRequest{
-			RegistryAddress: registry.Addr(),
+			RegistryAddress: registryAddr,
 		})
 	c.Assert(err, IsNil)
 	repos := make([]string, 3)
@@ -635,7 +636,7 @@ func (r *AppsSuite) Charts(c *C) {
 	defer registry.Close()
 
 	imageService, err := docker.NewImageService(docker.RegistryConnectionRequest{
-		RegistryAddress: fmt.Sprintf(constants.DockerRegistry),
+		RegistryAddress: defaults.DockerRegistry,
 	})
 	c.Assert(err, IsNil)
 
@@ -700,19 +701,20 @@ registry:
 	c.Assert(files["resources/charts/mattermost/values.yaml"], Equals, valuesBytes)
 	c.Assert(files["resources/charts/mattermost/templates/pod.yaml"], Equals, templateBytes)
 
+	registryAddr := registryAddr(registry.Addr())
 	// alpine was referenced as a part of helm template,
 	// but make sure helm template has captured it
 	// and added to the list of vendored apps
 	c.Assert(apps.ExportApp(app.ExportAppRequest{
 		Package:         application.Package,
-		RegistryAddress: registry.Addr(),
+		RegistryAddress: registryAddr,
 	}), IsNil)
 
 	ctx := context.Background()
 	remoteRegistry, err := docker.ConnectRegistry(
 		ctx,
 		docker.RegistryConnectionRequest{
-			RegistryAddress: registry.Addr(),
+			RegistryAddress: registryAddr,
 		})
 	c.Assert(err, IsNil)
 	repos := make([]string, 2)
@@ -898,4 +900,8 @@ spec:
 	defer reader.Close()
 	archive.AssertArchiveHasFiles(c, reader, []string{"registry"}, "resources", "resources/resource-0.yaml", "resources/app.yaml")
 	return importedApplication
+}
+
+func registryAddr(addr string) string {
+	return fmt.Sprintf("http://%v", addr)
 }
