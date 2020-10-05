@@ -70,11 +70,11 @@ func Run(g *Application) (err error) {
 		return trace.Wrap(err)
 	}
 
+	var grpcSeverity, grpcVerbosity string
 	if *g.Debug {
-		utils.InitGRPCLoggerWithDefaults()
-	} else {
-		utils.InitGRPCLoggerFromEnvironment()
+		grpcSeverity, grpcVerbosity = utils.DebugGRPCEnvironment()
 	}
+	utils.InitGRPCLoggerFromEnvironment(grpcSeverity, grpcVerbosity)
 
 	if *g.UID != -1 || *g.GID != -1 {
 		return SwitchPrivileges(*g.UID, *g.GID)

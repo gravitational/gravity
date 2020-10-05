@@ -227,7 +227,6 @@ func (r *peers) reconnectPeer(p Peer, reqCh <-chan chan clientUpdate, doneCh cha
 			err := utils.RetryWithInterval(r.ctx, r.Backoff(), func() (err error) {
 				clt, err = p.Reconnect(r.ctx)
 				if err != nil {
-					log.WithError(err).Warn("Unable to reconnect.")
 					return r.ShouldReconnect(err)
 				}
 				return nil
