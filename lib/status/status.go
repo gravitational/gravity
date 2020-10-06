@@ -69,6 +69,16 @@ func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, o
 		logrus.WithError(err).Warn("Failed to query cluster nodes.")
 	}
 
+	// Populate cloud specific InstanceId
+	if len(cluster.ClusterState.Servers) != 0 {
+		for i, node := range status.Agent.Nodes {
+			server := cluster.ClusterState.Servers.FindByIP(node.AdvertiseIP)
+			if server != nil && status.Agent.Nodes[i].TeleportNode != nil {
+				status.Agent.Nodes[i].TeleportNode.InstanceId = server.InstanceID
+			}
+		}
+	}
+
 	token, err := operator.GetExpandToken(cluster.Key())
 	if err != nil && !trace.IsNotFound(err) {
 		logrus.WithError(err).Warn("Failed to fetch expand token.")
