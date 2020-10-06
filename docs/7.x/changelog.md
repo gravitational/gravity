@@ -11,9 +11,9 @@ Find the latest Open Source Gravity releases at [Gravity Downloads](https://grav
 
 | Version             | Latest Patch | LTS | Release Date         | Latest Patch Date    | End of Support *        | Kubernetes Version   | Teleport Version |
 | ------------------- | ------------ | --- | -------------------- | -------------------- | ----------------------- | -------------------- | ---------------- |
-| [7.0](#70-releases) | 7.0.18       | Yes | April 3, 2020        | October 1st, 2020    | July 9, 2022            | 1.17.9               | 3.2.13           |
-| [6.1](#61-releases) | 6.1.41       | Yes | August 2, 2019       | October 2nd, 2020    | November 10, 2021       | 1.15.12              | 3.2.12           |
-| [5.5](#55-releases) | 5.5.52       | Yes | March 8, 2019        | September 8th, 2020  | March 8, 2021           | 1.13.11              | 3.0.6-gravity    |
+| [7.0](#70-releases) | 7.0.19       | Yes | April 3, 2020        | October 6th, 2020    | July 9, 2022            | 1.17.9               | 3.2.14-gravity   |
+| [6.1](#61-releases) | 6.1.42       | Yes | August 2, 2019       | October 6th, 2020    | November 10, 2021       | 1.15.12              | 3.2.14-gravity   |
+| [5.5](#55-releases) | 5.5.53       | Yes | March 8, 2019        | October 6th, 2020    | March 8, 2021           | 1.13.11              | 3.0.7-gravity    |
 
 Gravity offers one Long Term Support (LTS) version for every 2nd Kubernetes
 minor version, allowing for seamless upgrades per Kubernetes
@@ -50,6 +50,20 @@ extend updates past End of Support through customer agreements if required.
 # Release Notes
 
 ## 7.0 Releases
+
+### 7.0.19 LTS (October 6th, 2020)
+
+#### Improvements
+* Update a minimum required subnet size for pod network cidr to be a /22 ([#2183](https://github.com/gravitational/gravity/pull/2183)).
+
+#### Bugfixes
+
+* Fix a security issue when using SAML authentication to an identity provider (CVE-2020-15216) ([#2193](https://github.com/gravitational/gravity/pull/2193)).
+* Fix an issue with serf clusters missing nodes when partitioned for more than 24 hours ([#2027](https://github.com/gravitational/gravity/pull/2027), [planet#760](https://github.com/gravitational/planet/pull/760)).
+
+!!! warning
+    This release fixes a security vulnerability in Teleport when connecting Gravity to a SAML 2.0 identity provider. Please see
+    [Teleport Announcement for CVE-2020-15216](https://github.com/gravitational/teleport/releases/tag/v4.3.7) for more information.
 
 ### 7.0.18 LTS (October 1st, 2020)
 
@@ -601,6 +615,20 @@ to learn how to gain insight into how the cluster status changes over time.
 * Upgrade Kubernetes to `v1.16.0`.
 
 ## 6.1 Releases
+
+### 6.1.42 LTS (October 6th, 2020)
+
+#### Improvements
+* GRPC logging will be enabled when passing the `--debug` flag to gravity commands ([#2183](https://github.com/gravitational/gravity/pull/2178)).
+
+#### Bugfixes
+
+* Fix a security issue when using SAML authentication to an identity provider (CVE-2020-15216) ([#2193](https://github.com/gravitational/gravity/pull/2193)).
+* Fix an issue with serf clusters missing nodes when partitioned for more than 24 hours ([#2176](https://github.com/gravitational/gravity/pull/2027), [planet#759](https://github.com/gravitational/planet/pull/759)).
+
+!!! warning
+    This release fixes a security vulnerability in Teleport when connecting Gravity to a SAML 2.0 identity provider. Please see
+    [Teleport Announcement for CVE-2020-15216](https://github.com/gravitational/teleport/releases/tag/v4.3.7) for more information.
 
 ### 6.1.41 LTS (October 2nd, 2020)
 
@@ -1351,6 +1379,23 @@ to learn how to gain insight into how the cluster status changes over time.
 * Upgrade Kubernetes to `v1.14.0`.
 
 ## 5.5 Releases
+
+### 5.5.53 LTS (October 6th, 2020)
+
+#### Improvements
+* GRPC logging will be enabled when passing the `--debug` flag to gravity commands ([#2183](https://github.com/gravitational/gravity/pull/2178)).
+* Gravity debug reports will include additional gravity configuration ([#2160](https://github.com/gravitational/gravity/pull/2160)).
+
+#### Bugfixes
+
+* Fix a security issue when using SAML authentication to an identity provider (CVE-2020-15216) ([#2193](https://github.com/gravitational/gravity/pull/2193)).
+* Fix an issue with the backend not using linerizable reads ([#2179](https://github.com/gravitational/gravity/pull/2179)).
+* Fix an issue with recent checks that fail during operation phases where gravity-site or etcd are unavailable ([#2164](https://github.com/gravitational/gravity/pull/2164)).
+* Fix an issue with serf clusters missing nodes when partitioned for more than 24 hours ([#2176](https://github.com/gravitational/gravity/pull/2027), [planet#759](https://github.com/gravitational/planet/pull/759)).
+
+!!! warning
+    This release fixes a security vulnerability in Teleport when connecting Gravity to a SAML 2.0 identity provider. Please see
+    [Teleport Announcement for CVE-2020-15216](https://github.com/gravitational/teleport/releases/tag/v4.3.7) for more information.
 
 ### 5.5.52 LTS (September 8th, 2020)
 
