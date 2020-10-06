@@ -54,7 +54,7 @@ extend updates past End of Support through customer agreements if required.
 ### 7.0.19 LTS (October 6th, 2020)
 
 #### Improvements
-* Update a minimum required subnet size for pod network cidr to be a /22 ([#2183](https://github.com/gravitational/gravity/pull/2183)).
+* Update a minimum required subnet size for pod network cidr to be a /22 ([#2182](https://github.com/gravitational/gravity/pull/2182)).
 
 #### Bugfixes
 
@@ -619,12 +619,12 @@ to learn how to gain insight into how the cluster status changes over time.
 ### 6.1.42 LTS (October 6th, 2020)
 
 #### Improvements
-* GRPC logging will be enabled when passing the `--debug` flag to gravity commands ([#2183](https://github.com/gravitational/gravity/pull/2178)).
+* GRPC logging will be enabled when passing the `--debug` flag to gravity commands ([#2178](https://github.com/gravitational/gravity/pull/2178)).
 
 #### Bugfixes
 
 * Fix a security issue when using SAML authentication to an identity provider (CVE-2020-15216) ([#2193](https://github.com/gravitational/gravity/pull/2193)).
-* Fix an issue with serf clusters missing nodes when partitioned for more than 24 hours ([#2176](https://github.com/gravitational/gravity/pull/2027), [planet#759](https://github.com/gravitational/planet/pull/759)).
+* Fix an issue with serf clusters missing nodes when partitioned for more than 24 hours ([#2176](https://github.com/gravitational/gravity/pull/2176), [planet#759](https://github.com/gravitational/planet/pull/759)).
 
 !!! warning
     This release fixes a security vulnerability in Teleport when connecting Gravity to a SAML 2.0 identity provider. Please see
@@ -1383,7 +1383,6 @@ to learn how to gain insight into how the cluster status changes over time.
 ### 5.5.53 LTS (October 6th, 2020)
 
 #### Improvements
-* GRPC logging will be enabled when passing the `--debug` flag to gravity commands ([#2183](https://github.com/gravitational/gravity/pull/2178)).
 * Gravity debug reports will include additional gravity configuration ([#2160](https://github.com/gravitational/gravity/pull/2160)).
 
 #### Bugfixes
@@ -1391,7 +1390,7 @@ to learn how to gain insight into how the cluster status changes over time.
 * Fix a security issue when using SAML authentication to an identity provider (CVE-2020-15216) ([#2193](https://github.com/gravitational/gravity/pull/2193)).
 * Fix an issue with the backend not using linerizable reads ([#2179](https://github.com/gravitational/gravity/pull/2179)).
 * Fix an issue with recent checks that fail during operation phases where gravity-site or etcd are unavailable ([#2164](https://github.com/gravitational/gravity/pull/2164)).
-* Fix an issue with serf clusters missing nodes when partitioned for more than 24 hours ([#2176](https://github.com/gravitational/gravity/pull/2027), [planet#759](https://github.com/gravitational/planet/pull/759)).
+* Fix an issue with serf clusters missing nodes when partitioned for more than 24 hours ([#2174](https://github.com/gravitational/gravity/pull/2174), [planet#758](https://github.com/gravitational/planet/pull/758)).
 
 !!! warning
     This release fixes a security vulnerability in Teleport when connecting Gravity to a SAML 2.0 identity provider. Please see
