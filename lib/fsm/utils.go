@@ -51,30 +51,73 @@ func CanRollback(plan *storage.OperationPlan, phaseID string) error {
 			"unable to rollback non-leaf phase, only leaf phases can be rolled back").AddField("phase", phase.ID)
 	}
 
-	if !latestRollback(plan.GetLeafPhases(), phaseID) {
+	if !dependentsRolledBack(plan, phase.ID) {
 		return trace.BadParameter(
 			"rollback subsequent phases before rolling back phase %q", phase.ID)
 	}
 	return nil
 }
 
-// latestRollback returns true if the phase specified by phaseID is next in line
-// to be rolled back.
-func latestRollback(phases []storage.OperationPhase, phaseID string) bool {
-	// latest keeps track of the latest phase that has not yet been rolled back.
-	var latest storage.OperationPhase
+// dependentsRolledBack returns true if all phases that are dependent on the
+// phase specified by phaseID is unstarted or has been rolled back.
+func dependentsRolledBack(plan *storage.OperationPlan, phaseID string) bool {
+	// required will be nil if an invalid phaseID is provided.
+	required := getRequired(plan.Phases, phaseID)
+	if required == nil {
+		return true
+	}
+	return dependentsRolledBackHelper(required, plan.Phases)
+}
+
+// getRequired constructs the initial set of required phases. This set includes
+// the phase specified by phaseID and its parent phases.
+func getRequired(phases []storage.OperationPhase, phaseID string) map[string]struct{} {
 	for _, phase := range phases {
-		switch {
-		// phases may be executed "out of band" so we need to examine all phases
-		case phase.IsUnstarted(), phase.IsRolledBack():
-		case phase.IsInProgress(), phase.IsFailed(), phase.IsCompleted():
-			latest = phase
-		default:
-			logrus.WithField("phase", phase).Warn("Phase has unknown state.")
+		if phase.ID == phaseID {
+			return map[string]struct{}{
+				phaseID: {},
+			}
+		}
+		required := getRequired(phase.Phases, phaseID)
+		if required != nil {
+			required[phase.ID] = struct{}{}
+			return required
 		}
 	}
-	if phaseID == latest.ID {
+	return nil
+}
+
+// dependentsRolledBackHelper is a recursive helper function that returns true
+// if all phases that are dependent on the required set is unstarted or has
+// been rolled back.
+func dependentsRolledBackHelper(required map[string]struct{}, phases []storage.OperationPhase) bool {
+	if len(phases) == 0 {
 		return true
+	}
+
+	for _, phase := range phases {
+		if isDependent(required, phase) {
+			if !phase.IsUnstarted() && !phase.IsRolledBack() {
+				return false
+			}
+			required[phase.ID] = struct{}{}
+		}
+
+		if !dependentsRolledBackHelper(required, phase.Phases) {
+			return false
+		}
+	}
+
+	return true
+}
+
+// isDependent returns true if the phase requires any of the phases contained in
+// the required set.
+func isDependent(required map[string]struct{}, phase storage.OperationPhase) bool {
+	for _, phaseID := range phase.Requires {
+		if _, exists := required[phaseID]; exists {
+			return true
+		}
 	}
 	return false
 }

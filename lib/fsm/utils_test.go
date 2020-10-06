@@ -167,8 +167,9 @@ func (s *FSMUtilsSuite) TestCanRollback(c *check.C) {
 						State: storage.OperationPhaseStateCompleted,
 					},
 					{
-						ID:    "/startAgent",
-						State: storage.OperationPhaseStateInProgress,
+						ID:       "/startAgent",
+						State:    storage.OperationPhaseStateInProgress,
+						Requires: []string{"/init"},
 					},
 				},
 			},
@@ -183,8 +184,9 @@ func (s *FSMUtilsSuite) TestCanRollback(c *check.C) {
 						State: storage.OperationPhaseStateCompleted,
 					},
 					{
-						ID:    "/startAgent",
-						State: storage.OperationPhaseStateInProgress,
+						ID:       "/startAgent",
+						State:    storage.OperationPhaseStateInProgress,
+						Requires: []string{"/init"},
 					},
 				},
 			},
@@ -200,8 +202,9 @@ func (s *FSMUtilsSuite) TestCanRollback(c *check.C) {
 						State: storage.OperationPhaseStateCompleted,
 					},
 					{
-						ID:    "/startAgent",
-						State: storage.OperationPhaseStateRolledBack,
+						ID:       "/startAgent",
+						State:    storage.OperationPhaseStateRolledBack,
+						Requires: []string{"/init"},
 					},
 				},
 			},
@@ -216,12 +219,14 @@ func (s *FSMUtilsSuite) TestCanRollback(c *check.C) {
 						State: storage.OperationPhaseStateCompleted,
 					},
 					{
-						ID:    "/startAgent",
-						State: storage.OperationPhaseStateRolledBack,
+						ID:       "/startAgent",
+						State:    storage.OperationPhaseStateRolledBack,
+						Requires: []string{"/init"},
 					},
 					{
-						ID:    "/checks",
-						State: storage.OperationPhaseStateUnstarted,
+						ID:       "/checks",
+						State:    storage.OperationPhaseStateUnstarted,
+						Requires: []string{"/startAgent"},
 					},
 				},
 			},
@@ -236,12 +241,14 @@ func (s *FSMUtilsSuite) TestCanRollback(c *check.C) {
 						State: storage.OperationPhaseStateCompleted,
 					},
 					{
-						ID:    "/startAgent",
-						State: storage.OperationPhaseStateRolledBack,
+						ID:       "/startAgent",
+						State:    storage.OperationPhaseStateRolledBack,
+						Requires: []string{"/init"},
 					},
 					{
-						ID:    "/checks",
-						State: storage.OperationPhaseStateFailed,
+						ID:       "/checks",
+						State:    storage.OperationPhaseStateFailed,
+						Requires: []string{"/startAgent"},
 					},
 				},
 			},
@@ -257,16 +264,19 @@ func (s *FSMUtilsSuite) TestCanRollback(c *check.C) {
 						State: storage.OperationPhaseStateCompleted,
 					},
 					{
-						ID:    "/startAgent",
-						State: storage.OperationPhaseStateUnstarted,
+						ID:       "/startAgent",
+						State:    storage.OperationPhaseStateUnstarted,
+						Requires: []string{"/init"},
 					},
 					{
-						ID:    "/checks",
-						State: storage.OperationPhaseStateCompleted,
+						ID:       "/checks",
+						State:    storage.OperationPhaseStateCompleted,
+						Requires: []string{"/startAgent"},
 					},
 					{
-						ID:    "/test",
-						State: storage.OperationPhaseStateRolledBack,
+						ID:       "/test",
+						State:    storage.OperationPhaseStateRolledBack,
+						Requires: []string{"/checks"},
 					},
 				},
 			},
@@ -286,8 +296,9 @@ func (s *FSMUtilsSuite) TestCanRollback(c *check.C) {
 								State: storage.OperationPhaseStateCompleted,
 							},
 							{
-								ID:    "/masters/node-2",
-								State: storage.OperationPhaseStateInProgress,
+								ID:       "/masters/node-2",
+								State:    storage.OperationPhaseStateInProgress,
+								Requires: []string{"/masters/node-1"},
 							},
 						},
 					},
@@ -308,8 +319,9 @@ func (s *FSMUtilsSuite) TestCanRollback(c *check.C) {
 								State: storage.OperationPhaseStateCompleted,
 							},
 							{
-								ID:    "/masters/node-2",
-								State: storage.OperationPhaseStateCompleted,
+								ID:       "/masters/node-2",
+								State:    storage.OperationPhaseStateCompleted,
+								Requires: []string{"/masters/node-1"},
 							},
 						},
 					},
@@ -317,6 +329,41 @@ func (s *FSMUtilsSuite) TestCanRollback(c *check.C) {
 			},
 			phaseID:  "/masters",
 			expected: "unable to rollback non-leaf phase, only leaf phases can be rolled back",
+		},
+		{
+			comment: "Top level phase has dependent phases that have not been rolled back",
+			plan: &storage.OperationPlan{
+				Phases: []storage.OperationPhase{
+					{
+						ID:    "/masters",
+						State: storage.OperationPhaseStateCompleted,
+						Phases: []storage.OperationPhase{
+							{
+								ID:    "/masters/node-1",
+								State: storage.OperationPhaseStateCompleted,
+							},
+						},
+					},
+					{
+						ID:    "/nodes",
+						State: storage.OperationPhaseStateCompleted,
+						Phases: []storage.OperationPhase{
+							{
+								ID:    "/nodes/node-2",
+								State: storage.OperationPhaseStateCompleted,
+							},
+							{
+								ID:       "/nodes/node-3",
+								State:    storage.OperationPhaseStateCompleted,
+								Requires: []string{"/nodes-node-2"},
+							},
+						},
+						Requires: []string{"/masters"},
+					},
+				},
+			},
+			phaseID:  "/masters/node-1",
+			expected: `rollback subsequent phases before rolling back phase "/masters/node-1"`,
 		},
 	}
 	for _, tc := range tests {
