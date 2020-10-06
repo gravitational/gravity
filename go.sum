@@ -115,6 +115,8 @@ github.com/bazelbuild/buildtools v0.0.0-20190917191645-69366ca98f89/go.mod h1:5J
 github.com/bazelbuild/rules_go v0.0.0-20190719190356-6dae44dc5cab/go.mod h1:MC23Dc/wkXEyk3Wpq6lCqz0ZAYOZDw2DR5y3N1q2i7M=
 github.com/beevik/etree v0.0.0-20170418002358-cda1c0026246 h1:ug+AeM+Rh5O1beNwuhXlR29jr11nUuB7ZB+X9SzPSJQ=
 github.com/beevik/etree v0.0.0-20170418002358-cda1c0026246/go.mod h1:r8Aw8JqVegEf0w2fDnATrX9VpkMcyFeM0FhwO62wh+A=
+github.com/beevik/etree v1.1.0 h1:T0xke/WvNtMoCqgzPhkX2r4rjY3GDZFi+FjpRZY2Jbs=
+github.com/beevik/etree v1.1.0/go.mod h1:r8Aw8JqVegEf0w2fDnATrX9VpkMcyFeM0FhwO62wh+A=
 github.com/beorn7/perks v0.0.0-20150223135152-b965b613227f h1:L/FlB1krOjojJSmUaiAiOMiIdRWylhc9QcHg0vHBuzA=
 github.com/beorn7/perks v0.0.0-20150223135152-b965b613227f/go.mod h1:Dwedo/Wpr24TaqPxmxbtue+5NUziq4I4S80YR8gNf3Q=
 github.com/bgentry/go-netrc v0.0.0-20140422174119-9fd32a8b3d3d h1:xDfNPAt8lFiC1UJrqV3uuy861HCTo708pDMbjHHdCas=
@@ -570,6 +572,8 @@ github.com/gravitational/teleport v3.2.15-0.20200110233851-f4445fa60013+incompat
 github.com/gravitational/teleport v3.2.15-0.20200110233851-f4445fa60013+incompatible/go.mod h1:m0eatGeHK6TR5mlAkfvQQS+XAVyVOgeRUP+2Z4VksIY=
 github.com/gravitational/teleport v3.2.15-0.20200309221853-bebf7a500543+incompatible h1:L6DkdyiqRLNNt+VAtB5bvpyT8PSBLh0WM2KYXorfEgA=
 github.com/gravitational/teleport v3.2.15-0.20200309221853-bebf7a500543+incompatible/go.mod h1:m0eatGeHK6TR5mlAkfvQQS+XAVyVOgeRUP+2Z4VksIY=
+github.com/gravitational/teleport v3.2.15-0.20201005225507-eccdab5226f7+incompatible h1:0pZ87MnJgF9B8hg05cqIQ/18eurDNF/hwdBA5MRf930=
+github.com/gravitational/teleport v3.2.15-0.20201005225507-eccdab5226f7+incompatible/go.mod h1:m0eatGeHK6TR5mlAkfvQQS+XAVyVOgeRUP+2Z4VksIY=
 github.com/gravitational/trace v1.1.10-0.20200225111356-f1826cb74334 h1:8UrtSQu9fsU6L7DY7DuO1biIegINbUFfKmCAJTzP46s=
 github.com/gravitational/trace v1.1.10-0.20200225111356-f1826cb74334/go.mod h1:RvdOUHE4SHqR3oXlFFKnGzms8a5dugHygGw1bqDstYI=
 github.com/gravitational/trace v1.1.10-0.20200326194303-2d27a078e25b h1:vQtlpWkjJeI7BCqLq/+WtZMlpILyIHHDwwEXpiBMkek=
@@ -995,6 +999,8 @@ github.com/russellhaering/gosaml2 v0.0.0-20170515204909-8908227c114a h1:t10m/WbI
 github.com/russellhaering/gosaml2 v0.0.0-20170515204909-8908227c114a/go.mod h1:niieRtQaw+opTVp9jzZo1nAAoksI2eNpd+weDcjZ+Mk=
 github.com/russellhaering/goxmldsig v0.0.0-20170515183101-605161228693 h1:N6BLFjXGfV1dGbLqHVVqe7u6ii+JHrl7L2lRZK7JzrY=
 github.com/russellhaering/goxmldsig v0.0.0-20170515183101-605161228693/go.mod h1:Oz4y6ImuOQZxynhbSXk7btjEfNBtGlj2dcaOvXl2FSM=
+github.com/russellhaering/goxmldsig v1.1.0 h1:lK/zeJie2sqG52ZAlPNn1oBBqsIsEKypUUBGpYYF6lk=
+github.com/russellhaering/goxmldsig v1.1.0/go.mod h1:QK8GhXPB3+AfuCrfo0oRISa9NfzeCpWmxeGnqEpDF9o=
 github.com/russross/blackfriday v0.0.0-20151117072312-300106c228d5 h1:+6eORf9Bt4C3Wjt91epyu6wvLW+P6+AEODb6uKgO+4g=
 github.com/russross/blackfriday v0.0.0-20151117072312-300106c228d5/go.mod h1:JO/DiYxRf+HjHt06OyowR9PTA263kcR/rfWxYHBV53g=
 github.com/ryanuber/columnize v0.0.0-20160712163229-9b3edd62028f/go.mod h1:sm1tb6uqfes/u+d4ooFouqFdy9/2g9QGwK3SQygK0Ts=
