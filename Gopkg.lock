@@ -991,7 +991,7 @@
 
 [[projects]]
   branch = "branch/3.2-g"
-  digest = "1:32fabc3fcc923985f60d20d975617976fefaa78290f1f9aeb7381ab4dcc37160"
+  digest = "1:3e9462c52e2458c00d1bf1dd97c5bb857409c9b0cda2d6df8ddb5a87e121282a"
   name = "github.com/gravitational/teleport"
   packages = [
     ".",
@@ -1049,7 +1049,7 @@
     "lib/wrappers",
   ]
   pruneopts = "UT"
-  revision = "bebf7a500543a21911aaea5f7e57032918fb7b8c"
+  revision = "eccdab5226f7c1b82314c8fdc44d4876eb347ca4"
 
 [[projects]]
   digest = "1:403af811cfc53bf78a655e601b01dc9a149aa154cbd63384784b25799cdbea8c"
@@ -1858,7 +1858,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:65963258b8be458e2201a630215975134025f2c1ab1ce82a889790cd1bd18eb7"
+  digest = "1:3124d7c436f8a6c51ccb50dde6184f6e8a1a58ce318e0adaf21f2d02631617fb"
   name = "github.com/russellhaering/goxmldsig"
   packages = [
     ".",
@@ -1866,7 +1866,7 @@
     "types",
   ]
   pruneopts = "UT"
-  revision = "605161228693b2efadce55323c9c661a40c5fbaa"
+  revision = "0bf1c101303755caca6d6e65e3b7fc83799a3877"
 
 [[projects]]
   digest = "1:f78dee1142c1e43c9288534cadfa82f21dfd9a1163b06fa0fdf872f8020f2a53"
