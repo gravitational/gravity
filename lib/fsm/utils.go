@@ -44,30 +44,18 @@ func CanRollback(plan *storage.OperationPlan, phaseID string) error {
 			"phase %q has already been rolled back", phase.ID)
 	}
 
-	leafPhases := plan.GetLeafPhases()
-
-	// TODO: Rollback of non-leaf phases may currently not be implemented
-	// properly. Roll back starts top-down, and not in reverse order.
-	if !containsPhase(leafPhases, phaseID) {
+	// TODO: Rollback of non-leaf phases is not currently supported.
+	// Rollback starts top-down, and not in reverse order.
+	if phase.HasSubphases() {
 		return trace.BadParameter(
-			"attempting to rollback non-leaf phase %q", phase.ID)
+			"unable to rollback non-leaf phase, only leaf phases can be rolled back").AddField("phase", phase.ID)
 	}
-	if !latestRollback(leafPhases, phaseID) {
+
+	if !latestRollback(plan.GetLeafPhases(), phaseID) {
 		return trace.BadParameter(
 			"rollback subsequent phases before rolling back phase %q", phase.ID)
 	}
 	return nil
-}
-
-// containsPhase returns true if phases contains a phase with ID matching
-// phaseID.
-func containsPhase(phases []storage.OperationPhase, phaseID string) bool {
-	for _, phase := range phases {
-		if phase.ID == phaseID {
-			return true
-		}
-	}
-	return false
 }
 
 // latestRollback returns true if the phase specified by phaseID is next in line

@@ -316,7 +316,7 @@ func (s *FSMUtilsSuite) TestCanRollback(c *check.C) {
 				},
 			},
 			phaseID:  "/masters",
-			expected: `attempting to rollback non-leaf phase "/masters"`,
+			expected: "unable to rollback non-leaf phase, only leaf phases can be rolled back",
 		},
 	}
 	for _, tc := range tests {
