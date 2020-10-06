@@ -365,6 +365,28 @@ func (s *FSMUtilsSuite) TestCanRollback(c *check.C) {
 			phaseID:  "/masters/node-1",
 			expected: `rollback subsequent phases before rolling back phase "/masters/node-1"`,
 		},
+		{
+			comment: "Rollback parallel phase",
+			plan: &storage.OperationPlan{
+				Phases: []storage.OperationPhase{
+					{
+						ID:    "/parallel",
+						State: storage.OperationPhaseStateCompleted,
+						Phases: []storage.OperationPhase{
+							{
+								ID:    "/parallel/masters",
+								State: storage.OperationPhaseStateCompleted,
+							},
+							{
+								ID:    "/parallel/nodes",
+								State: storage.OperationPhaseStateCompleted,
+							},
+						},
+					},
+				},
+			},
+			phaseID: "/parallel/masters",
+		},
 	}
 	for _, tc := range tests {
 		comment := check.Commentf(tc.comment)
