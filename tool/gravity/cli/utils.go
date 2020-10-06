@@ -216,7 +216,7 @@ func findLocalServer(servers storage.Servers) (*storage.Server, error) {
 }
 
 // findServer searches the provided cluster's state for a server that matches one of the provided
-// tokens, where a token can be the server's advertise IP, hostname or AWS internal DNS name
+// tokens, where a token can be the server's advertise IP, hostname, cloud specific InstanceId or AWS internal DNS name
 func findServer(servers storage.Servers, tokens []string) (*storage.Server, error) {
 	for _, server := range servers {
 		for _, token := range tokens {
@@ -224,7 +224,7 @@ func findServer(servers storage.Servers, tokens []string) (*storage.Server, erro
 				continue
 			}
 			switch token {
-			case server.AdvertiseIP, server.Hostname, server.Nodename:
+			case server.AdvertiseIP, server.Hostname, server.Nodename, server.InstanceID:
 				return &server, nil
 			}
 		}
