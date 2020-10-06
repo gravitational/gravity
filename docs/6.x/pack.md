@@ -93,8 +93,12 @@ plugging them into a CI/CD pipeline.
 FROM quay.io/gravitational/debian-grande:buster
 
 ARG TELE_VERSION
-RUN apt-get update
-RUN apt-get -y install curl make git
+RUN apt-get update && \
+    apt-get -y install curl make git apt-transport-https ca-certificates gnupg software-properties-common
+RUN curl -fsSL https://download.docker.com/linux/debian/gpg | sudo apt-key add - && \
+    add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/debian buster stable"
+RUN apt-get update && \
+    apt-get -y install docker-ce-cli
 RUN curl https://get.gravitational.io/telekube/bin/${TELE_VERSION}/linux/x86_64/tele -o /usr/bin/tele && chmod 755 /usr/bin/tele
 ```
 
@@ -111,20 +115,20 @@ Now you should have `tele-buildbox` container on the build machine. Next, do the
   images referenced in the Image Manifest.
 * Expose the working directory with the Image Manifest to the container as `/mnt/cluster`
 
-The command below assumes that `build.sh` is located in the same working directory as the application:
+The command below assumes that the Image Manifest `app.yaml` is located in the current directory:
 
 ```bsh
 docker run \
        -v /tmp/tele-cache:/mnt/tele-cache \
        -v /var/run/docker.sock:/var/run/docker.sock \
-       -v $(pwd):/mnt/app \
+       -v $(pwd):/mnt/cluster \
        -w /mnt/cluster \
-        --net=host \
-        tele-buildbox:latest \
-        bash -c "tele --state-dir=/mnt/tele-cache build -o cluster.tar"
+       --net=host \
+       tele-buildbox:latest \
+       dumb-init tele --state-dir=/mnt/tele-cache build app.yaml -o cluster.tar
 ```
 
-!!! note 
+!!! note
     Notice that we are reusing tele loaded cache directory in between builds
     by setting `--state-dir`. You can use unique temporary directory
     to avoid sharing state between builds, or use parallel builds instead.

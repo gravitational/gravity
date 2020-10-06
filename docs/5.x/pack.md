@@ -133,15 +133,19 @@ The example below builds a Docker image called `tele-buildbox`. This image will 
 First, build docker image `tele-buildbox` with `tele` inside:
 
 ```bsh
-FROM quay.io/gravitational/debian-grande:stretch
+FROM quay.io/gravitational/debian-grande:buster
 
 ARG TELE_VERSION
-RUN apt-get update
-RUN apt-get -y install curl make git
+RUN apt-get update && \
+    apt-get -y install curl make git apt-transport-https ca-certificates gnupg software-properties-common
+RUN curl -fsSL https://download.docker.com/linux/debian/gpg | sudo apt-key add - && \
+    add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/debian buster stable"
+RUN apt-get update && \
+    apt-get -y install docker-ce-cli
 RUN curl https://get.gravitational.io/telekube/bin/${TELE_VERSION}/linux/x86_64/tele -o /usr/bin/tele && chmod 755 /usr/bin/tele
 ```
 
-Then build the image:
+Set the `TELE_VERSION` argument to the desired Gravity version, then build the docker image:
 
 ```bsh
 docker build . -t tele-buildbox:latest
@@ -183,7 +187,7 @@ docker run -e OPS_URL=<opscenter url> \
         bash -c "cd /mnt/app && build.sh"
 ```
 
-!!! note 
+!!! note
     Notice that we are reusing tele loaded cache directory in between builds
     by setting `--state-dir`. You can use unique temporary directory
     to avoid sharing state between builds, or use parallel builds instead.
