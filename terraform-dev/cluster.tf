@@ -3,6 +3,11 @@ variable "image_name" {
   default = "ubuntu-18.04-server-cloudimg-amd64.img"
 }
 
+variable "disk_pool" {
+  type = string
+  default = "default"
+}
+
 variable "root_disk_size" {
   type = string
   default = "15000000000"
@@ -36,7 +41,7 @@ provider "libvirt" {
 # Use locally pre-fetched image
 resource "libvirt_volume" "os-qcow2" {
   name = "os-disk-${count.index}.qcow2"
-  pool = "default"
+  pool = "${var.disk_pool}"
   source = "/var/lib/libvirt/images/${var.image_name}"
   count = var.nodes_count
 }
@@ -51,6 +56,7 @@ resource "libvirt_network" "vm_network" {
    }
 }
 
+# "root" volume will be used to store the OS installation filesystem
 resource "libvirt_volume" "root" {
   name = "root-disk-${count.index}.qcow2"
   base_volume_id = element(libvirt_volume.os-qcow2.*.id, count.index)
@@ -59,6 +65,8 @@ resource "libvirt_volume" "root" {
   count = var.nodes_count
 }
 
+# "data" volume may be used as a secondary disk volume in specific scenarios
+# (eg: running tests against docker using 'devicemapper' based storage)
 resource "libvirt_volume" "data" {
   name = "data-disk-${count.index}.qcow2"
   pool = "default"
