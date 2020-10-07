@@ -720,8 +720,6 @@ type Node struct {
 	Role string `json:"role"`
 	// InstanceType is the node cloud specific instance type
 	InstanceType string `json:"instance_type"`
-	// InstanceId is the node cloud specific instance id
-	InstanceId string `json:"instance_id"`
 }
 
 // Nodes is a list of nodes.
