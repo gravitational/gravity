@@ -17,6 +17,8 @@ limitations under the License.
 package fsm
 
 import (
+	"fmt"
+
 	"github.com/gravitational/gravity/lib/compare"
 	"github.com/gravitational/gravity/lib/storage"
 
@@ -150,247 +152,297 @@ func (s *FSMUtilsSuite) TestDiffPlanNoPrevious(c *check.C) {
 	})
 }
 
-func (s *FSMUtilsSuite) TestCanRollback(c *check.C) {
+func (s *FSMUtilsSuite) TestNonLeafRollback(c *check.C) {
 	tests := []struct {
-		comment  string
-		plan     *storage.OperationPlan
-		phaseID  string
-		expected string
+		comment    string
+		phases     []*phaseBuilder
+		rollbackID string
+		expected   string
 	}{
 		{
-			comment: "Rollback latest phase",
-
-			plan: &storage.OperationPlan{
-				Phases: []storage.OperationPhase{
-					{
-						ID:    "/init",
-						State: storage.OperationPhaseStateCompleted,
-					},
-					{
-						ID:       "/startAgent",
-						State:    storage.OperationPhaseStateInProgress,
-						Requires: []string{"/init"},
-					},
-				},
-			},
-			phaseID: "/startAgent",
-		},
-		{
-			comment: "A subsequent phase is in progress",
-			plan: &storage.OperationPlan{
-				Phases: []storage.OperationPhase{
-					{
-						ID:    "/init",
-						State: storage.OperationPhaseStateCompleted,
-					},
-					{
-						ID:       "/startAgent",
-						State:    storage.OperationPhaseStateInProgress,
-						Requires: []string{"/init"},
-					},
-				},
-			},
-			phaseID:  "/init",
-			expected: rollbackDependentsErrorMsg("/init", []string{"/startAgent"}),
-		},
-		{
-			comment: "All later phases have been rolled back",
-			plan: &storage.OperationPlan{
-				Phases: []storage.OperationPhase{
-					{
-						ID:    "/init",
-						State: storage.OperationPhaseStateCompleted,
-					},
-					{
-						ID:       "/startAgent",
-						State:    storage.OperationPhaseStateRolledBack,
-						Requires: []string{"/init"},
-					},
-				},
-			},
-			phaseID: "/init",
-		},
-		{
-			comment: "All later phases have been rolled back or are unstarted",
-			plan: &storage.OperationPlan{
-				Phases: []storage.OperationPhase{
-					{
-						ID:    "/init",
-						State: storage.OperationPhaseStateCompleted,
-					},
-					{
-						ID:       "/startAgent",
-						State:    storage.OperationPhaseStateRolledBack,
-						Requires: []string{"/init"},
-					},
-					{
-						ID:       "/checks",
-						State:    storage.OperationPhaseStateUnstarted,
-						Requires: []string{"/startAgent"},
-					},
-				},
-			},
-			phaseID: "/init",
-		},
-		{
-			comment: "Rollback after a previously forced rollback",
-			plan: &storage.OperationPlan{
-				Phases: []storage.OperationPhase{
-					{
-						ID:    "/init",
-						State: storage.OperationPhaseStateCompleted,
-					},
-					{
-						ID:       "/startAgent",
-						State:    storage.OperationPhaseStateRolledBack,
-						Requires: []string{"/init"},
-					},
-					{
-						ID:       "/checks",
-						State:    storage.OperationPhaseStateFailed,
-						Requires: []string{"/startAgent"},
-					},
-				},
-			},
-			phaseID:  "/init",
-			expected: rollbackDependentsErrorMsg("/init", []string{"/checks"}),
-		},
-		{
-			comment: "Rollback after a later phase has been executed out of band",
-			plan: &storage.OperationPlan{
-				Phases: []storage.OperationPhase{
-					{
-						ID:    "/init",
-						State: storage.OperationPhaseStateCompleted,
-					},
-					{
-						ID:       "/startAgent",
-						State:    storage.OperationPhaseStateUnstarted,
-						Requires: []string{"/init"},
-					},
-					{
-						ID:       "/checks",
-						State:    storage.OperationPhaseStateCompleted,
-						Requires: []string{"/startAgent"},
-					},
-					{
-						ID:       "/test",
-						State:    storage.OperationPhaseStateRolledBack,
-						Requires: []string{"/checks"},
-					},
-				},
-			},
-			phaseID:  "/init",
-			expected: rollbackDependentsErrorMsg("/init", []string{"/checks"}),
-		},
-		{
-			comment: "Rollback subphase",
-			plan: &storage.OperationPlan{
-				Phases: []storage.OperationPhase{
-					{
-						ID:    "/masters",
-						State: storage.OperationPhaseStateInProgress,
-						Phases: []storage.OperationPhase{
-							{
-								ID:    "/masters/node-1",
-								State: storage.OperationPhaseStateCompleted,
-							},
-							{
-								ID:       "/masters/node-2",
-								State:    storage.OperationPhaseStateInProgress,
-								Requires: []string{"/masters/node-1"},
-							},
-						},
-					},
-				},
-			},
-			phaseID: "/masters/node-2",
-		},
-		{
 			comment: "Rollback non-leaf phase",
-			plan: &storage.OperationPlan{
-				Phases: []storage.OperationPhase{
-					{
-						ID:    "/masters",
-						State: storage.OperationPhaseStateCompleted,
-						Phases: []storage.OperationPhase{
-							{
-								ID:    "/masters/node-1",
-								State: storage.OperationPhaseStateCompleted,
-							},
-							{
-								ID:       "/masters/node-2",
-								State:    storage.OperationPhaseStateCompleted,
-								Requires: []string{"/masters/node-1"},
-							},
-						},
-					},
-				},
+			phases: []*phaseBuilder{
+				s.phaseBuilder("/non-leaf", storage.OperationPhaseStateCompleted).
+					withSubphases(
+						s.phaseBuilder("/leaf", storage.OperationPhaseStateCompleted)),
 			},
-			phaseID:  "/masters",
-			expected: "rolling back phases that have sub-phases is not supported. Please rollback individual phases",
-		},
-		{
-			comment: "Top level phase has dependent phases that have not been rolled back",
-			plan: &storage.OperationPlan{
-				Phases: []storage.OperationPhase{
-					{
-						ID:    "/masters",
-						State: storage.OperationPhaseStateCompleted,
-						Phases: []storage.OperationPhase{
-							{
-								ID:    "/masters/node-1",
-								State: storage.OperationPhaseStateCompleted,
-							},
-						},
-					},
-					{
-						ID:    "/nodes",
-						State: storage.OperationPhaseStateCompleted,
-						Phases: []storage.OperationPhase{
-							{
-								ID:    "/nodes/node-2",
-								State: storage.OperationPhaseStateCompleted,
-							},
-							{
-								ID:       "/nodes/node-3",
-								State:    storage.OperationPhaseStateCompleted,
-								Requires: []string{"/nodes/node-2"},
-							},
-						},
-						Requires: []string{"/masters"},
-					},
-				},
-			},
-			phaseID:  "/masters/node-1",
-			expected: rollbackDependentsErrorMsg("/masters/node-1", []string{"/nodes"}),
-		},
-		{
-			comment: "Rollback parallel phase",
-			plan: &storage.OperationPlan{
-				Phases: []storage.OperationPhase{
-					{
-						ID:    "/parallel",
-						State: storage.OperationPhaseStateCompleted,
-						Phases: []storage.OperationPhase{
-							{
-								ID:    "/parallel/masters",
-								State: storage.OperationPhaseStateCompleted,
-							},
-							{
-								ID:    "/parallel/nodes",
-								State: storage.OperationPhaseStateCompleted,
-							},
-						},
-					},
-				},
-			},
-			phaseID: "/parallel/masters",
+			rollbackID: "/non-leaf",
+			expected:   "rolling back phases that have sub-phases is not supported. Please rollback individual phases",
 		},
 	}
 	for _, tc := range tests {
 		comment := check.Commentf(tc.comment)
-		err := CanRollback(tc.plan, tc.phaseID)
+
+		// build plan
+		phases := make([]storage.OperationPhase, len(tc.phases))
+		for i, phase := range tc.phases {
+			phases[i] = phase.build()
+		}
+		plan := &storage.OperationPlan{Phases: phases}
+
+		err := CanRollback(plan, tc.rollbackID)
 		c.Assert(trace.UserMessage(err), check.Equals, tc.expected, comment)
 	}
+
+}
+
+func (s *FSMUtilsSuite) TestCanRollback(c *check.C) {
+	tests := []struct {
+		comment    string
+		phases     []*phaseBuilder
+		rollbackID string
+		expected   string
+	}{
+		{
+			comment: "Rollback latest phase",
+			phases: []*phaseBuilder{
+				s.phaseBuilder("/init", storage.OperationPhaseStateCompleted),
+			},
+			rollbackID: "/init",
+		},
+		{
+			comment: "A subsequent phase is in progress",
+			phases: []*phaseBuilder{
+				s.phaseBuilder("/init", storage.OperationPhaseStateCompleted),
+				s.phaseBuilder("/startAgent", storage.OperationPhaseStateInProgress).
+					withRequires("/init"),
+			},
+			rollbackID: "/init",
+			expected:   rollbackDependentsErrorMsg("/init", []string{"/startAgent"}),
+		},
+		{
+			comment: "All dependent phases have been rolled back or are unstarted",
+			phases: []*phaseBuilder{
+				s.phaseBuilder("/init", storage.OperationPhaseStateCompleted),
+				s.phaseBuilder("/startAgent", storage.OperationPhaseStateRolledBack).
+					withRequires("/init"),
+				s.phaseBuilder("/checks", storage.OperationPhaseStateUnstarted).
+					withRequires("/startAgent"),
+			},
+			rollbackID: "/init",
+		},
+		{
+			comment: "Dependent phase is in progress",
+			phases: []*phaseBuilder{
+				s.phaseBuilder("/init", storage.OperationPhaseStateCompleted),
+				s.phaseBuilder("/masters", storage.OperationPhaseStateInProgress).
+					withRequires("/init").
+					withSubphases(
+						s.phaseBuilder("/node-1", storage.OperationPhaseStateRolledBack),
+						s.phaseBuilder("/node-2", storage.OperationPhaseStateUnstarted).
+							withRequires("/masters/node-1"),
+					),
+			},
+			rollbackID: "/init",
+			expected:   rollbackDependentsErrorMsg("/init", []string{"/masters"}),
+		},
+		{
+			comment: "Rollback after a dependent phase was previously rolled back forcefully",
+			phases: []*phaseBuilder{
+				s.phaseBuilder("/init", storage.OperationPhaseStateCompleted),
+				s.phaseBuilder("/startAgent", storage.OperationPhaseStateRolledBack).
+					withRequires("/init"),
+				s.phaseBuilder("/checks", storage.OperationPhaseStateFailed).
+					withRequires("/startAgent"),
+			},
+			rollbackID: "/init",
+			expected:   rollbackDependentsErrorMsg("/init", []string{"/checks"}),
+		},
+		{
+			comment: "Rollback after a dependent phase has been executed out of band",
+			phases: []*phaseBuilder{
+				s.phaseBuilder("/init", storage.OperationPhaseStateCompleted),
+				s.phaseBuilder("/startAgent", storage.OperationPhaseStateUnstarted).
+					withRequires("/init"),
+				s.phaseBuilder("/checks", storage.OperationPhaseStateCompleted).
+					withRequires("/startAgent"),
+			},
+			rollbackID: "/init",
+			expected:   rollbackDependentsErrorMsg("/init", []string{"/checks"}),
+		},
+		{
+			comment: "Top level phase has dependent phases that have not been rolled back",
+			phases: []*phaseBuilder{
+				s.phaseBuilder("/masters", storage.OperationPhaseStateCompleted).
+					withSubphases(
+						s.phaseBuilder("/node-1", storage.OperationPhaseStateCompleted)),
+				s.phaseBuilder("/nodes", storage.OperationPhaseStateCompleted).
+					withRequires("/masters").
+					withSubphases(
+						s.phaseBuilder("node-2", storage.OperationPhaseStateCompleted),
+						s.phaseBuilder("node-3", storage.OperationPhaseStateCompleted).
+							withRequires("/nodes/node-2")),
+			},
+			rollbackID: "/masters/node-1",
+			expected:   rollbackDependentsErrorMsg("/masters/node-1", []string{"/nodes"}),
+		},
+		{
+			comment: "Rollback parallel phase",
+			phases: []*phaseBuilder{
+				s.phaseBuilder("/parallel", storage.OperationPhaseStateCompleted).
+					withSubphases(
+						s.phaseBuilder("/masters", storage.OperationPhaseStateCompleted),
+						s.phaseBuilder("/nodes", storage.OperationPhaseStateCompleted)),
+			},
+			rollbackID: "/parallel/masters",
+		},
+		{
+			comment: "Rollback with multiple requires",
+			phases: []*phaseBuilder{
+				s.phaseBuilder("/init", storage.OperationPhaseStateCompleted).
+					withSubphases(
+						s.phaseBuilder("/node-1", storage.OperationPhaseStateCompleted),
+						s.phaseBuilder("/node-2", storage.OperationPhaseStateCompleted),
+						s.phaseBuilder("/node-3", storage.OperationPhaseStateCompleted),
+					),
+				s.phaseBuilder("/checks", storage.OperationPhaseStateCompleted).
+					withRequires("/init"),
+				s.phaseBuilder("/pre-update", storage.OperationPhaseStateCompleted).
+					withRequires("/init", "/checks"),
+			},
+			rollbackID: "/init/node-1",
+			expected:   rollbackDependentsErrorMsg("/init/node-1", []string{"/checks", "/pre-update"}),
+		},
+		{
+			comment: "Invalid rollback with multi-level deep subphases",
+			phases: []*phaseBuilder{
+				s.phaseBuilder("/init", storage.OperationPhaseStateCompleted),
+				s.phaseBuilder("/masters", storage.OperationPhaseStateCompleted).
+					withRequires("/init").
+					withSubphases(
+						s.phaseBuilder("/node-1", storage.OperationPhaseStateCompleted).
+							withSubphases(
+								s.phaseBuilder("/drain", storage.OperationPhaseStateCompleted),
+								s.phaseBuilder("/system-upgrade", storage.OperationPhaseStateCompleted).
+									withRequires("/masters/node-1/drain")),
+						s.phaseBuilder("/node-2", storage.OperationPhaseStateCompleted).
+							withRequires("/masters/node-1").
+							withSubphases(
+								s.phaseBuilder("/drain", storage.OperationPhaseStateCompleted),
+								s.phaseBuilder("/system-upgrade", storage.OperationPhaseStateCompleted).
+									withRequires("/masters/node-2/drain"))),
+				s.phaseBuilder("/nodes", storage.OperationPhaseStateCompleted).
+					withRequires("/masters").
+					withSubphases(
+						s.phaseBuilder("node-3", storage.OperationPhaseStateCompleted).
+							withSubphases(
+								s.phaseBuilder("/drain", storage.OperationPhaseStateCompleted),
+								s.phaseBuilder("/system-upgrade", storage.OperationPhaseStateCompleted).
+									withRequires("/nodes/node-3/drain"))),
+				s.phaseBuilder("/etcd", storage.OperationPhaseStateCompleted).
+					withSubphases(
+						s.phaseBuilder("/backup", storage.OperationPhaseStateCompleted)),
+				s.phaseBuilder("/runtime", storage.OperationPhaseStateCompleted).
+					withRequires("/masters").
+					withSubphases(
+						s.phaseBuilder("/monitoring", storage.OperationPhaseStateCompleted),
+						s.phaseBuilder("/site", storage.OperationPhaseStateCompleted)),
+				s.phaseBuilder("/gc", storage.OperationPhaseStateCompleted).
+					withRequires("/runtime"),
+			},
+			rollbackID: "/masters/node-1/drain",
+			expected: rollbackDependentsErrorMsg("/masters/node-1/drain", []string{
+				"/masters/node-1/system-upgrade",
+				"/masters/node-2",
+				"/nodes",
+				"/runtime",
+				"/gc",
+			}),
+		},
+		{
+			comment: "Valid rollback with multi-level deep subphases",
+			phases: []*phaseBuilder{
+				s.phaseBuilder("/init", storage.OperationPhaseStateCompleted),
+				s.phaseBuilder("/masters", storage.OperationPhaseStateCompleted).
+					withRequires("/init").
+					withSubphases(
+						s.phaseBuilder("/node-1", storage.OperationPhaseStateCompleted).
+							withSubphases(
+								s.phaseBuilder("/drain", storage.OperationPhaseStateCompleted),
+								s.phaseBuilder("/system-upgrade", storage.OperationPhaseStateRolledBack).
+									withRequires("/masters/node-1/drain")),
+						s.phaseBuilder("/node-2", storage.OperationPhaseStateRolledBack).
+							withRequires("/masters/node-1").
+							withSubphases(
+								s.phaseBuilder("/drain", storage.OperationPhaseStateRolledBack),
+								s.phaseBuilder("/system-upgrade", storage.OperationPhaseStateRolledBack).
+									withRequires("/masters/node-2/drain"))),
+				s.phaseBuilder("/nodes", storage.OperationPhaseStateRolledBack).
+					withRequires("/masters").
+					withSubphases(
+						s.phaseBuilder("node-3", storage.OperationPhaseStateRolledBack).
+							withSubphases(
+								s.phaseBuilder("/drain", storage.OperationPhaseStateRolledBack),
+								s.phaseBuilder("/system-upgrade", storage.OperationPhaseStateRolledBack).
+									withRequires("/nodes/node-3/drain"))),
+				s.phaseBuilder("/etcd", storage.OperationPhaseStateCompleted).
+					withSubphases(
+						s.phaseBuilder("/backup", storage.OperationPhaseStateCompleted)),
+				s.phaseBuilder("/runtime", storage.OperationPhaseStateRolledBack).
+					withRequires("/masters").
+					withSubphases(
+						s.phaseBuilder("/monitoring", storage.OperationPhaseStateRolledBack),
+						s.phaseBuilder("/site", storage.OperationPhaseStateRolledBack)),
+				s.phaseBuilder("/gc", storage.OperationPhaseStateUnstarted).
+					withRequires("/runtime"),
+			},
+			rollbackID: "/masters/node-1/drain",
+		},
+	}
+	for _, tc := range tests {
+		comment := check.Commentf(tc.comment)
+
+		// build plan
+		phases := make([]storage.OperationPhase, len(tc.phases))
+		for i, phase := range tc.phases {
+			phases[i] = phase.build()
+		}
+		plan := &storage.OperationPlan{Phases: phases}
+
+		err := CanRollback(plan, tc.rollbackID)
+		c.Assert(trace.UserMessage(err), check.Equals, tc.expected, comment)
+	}
+}
+
+// phaseBuilder returns a new phaseBuilder.
+func (s *FSMUtilsSuite) phaseBuilder(id, state string) *phaseBuilder {
+	return &phaseBuilder{
+		id:    id,
+		state: state,
+	}
+}
+
+// phaseBuilder builds storage.OperationPhase to be used in test cases.
+type phaseBuilder struct {
+	id       string
+	state    string
+	phases   []*phaseBuilder
+	requires []string
+}
+
+// withSubphases appends the provided subphases.
+func (r *phaseBuilder) withSubphases(subphases ...*phaseBuilder) *phaseBuilder {
+	r.phases = append(r.phases, subphases...)
+	return r
+}
+
+// withRequires appends the provided required phases.
+func (r *phaseBuilder) withRequires(requires ...string) *phaseBuilder {
+	r.requires = append(r.requires, requires...)
+	return r
+}
+
+// build builds the phase.
+func (r *phaseBuilder) build() storage.OperationPhase {
+	phase := storage.OperationPhase{
+		ID:       r.id,
+		State:    r.state,
+		Phases:   make([]storage.OperationPhase, len(r.phases)),
+		Requires: r.requires,
+	}
+	for i, subphase := range r.phases {
+		subphase.id = fmt.Sprintf("%s%s", r.id, subphase.id)
+		phase.Phases[i] = subphase.build()
+	}
+	return phase
 }
