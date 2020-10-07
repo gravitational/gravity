@@ -32,6 +32,7 @@
 
 ## Implementation
 <!--Optional. Add any relevant implementation details that might help the reviewers.-->
+<!--Optional. Add any performance considerations for the reviewers, such as considerations for supporting 1k node clusters.-->
 
 ## Testing done
 <!--Required. Explain what kind of testing these changes underwent.-->
