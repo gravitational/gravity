@@ -18,6 +18,7 @@ package fsm
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/ops"
@@ -28,6 +29,17 @@ import (
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
 )
+
+// rollbackDependentsErrorMsg returns an error message for when a phase is being
+// rolled back, but has dependent phases that have not yet been rolled back.
+func rollbackDependentsErrorMsg(phaseID string, dependents []string) string {
+	const msg = `phase %[1]s cannot be rolled back because some phases that depend on it haven't been rolled back yet. Please rollback the following phases first:
+
+	%[2]s
+
+you can pass --force flag to override this check and force phase %[1]s rollback`
+	return fmt.Sprintf(msg, phaseID, strings.Join(dependents, "\n\t"))
+}
 
 // CanRollback checks if specified phase can be rolled back
 func CanRollback(plan *storage.OperationPlan, phaseID string) error {
@@ -52,26 +64,17 @@ func CanRollback(plan *storage.OperationPlan, phaseID string) error {
 			AddField("phase", phase.ID)
 	}
 
-	if !dependentsRolledBack(plan, phase.ID) {
-		return trace.BadParameter(
-			"rollback subsequent phases before rolling back phase %q", phase.ID)
+	requiresRollback := getRequiresRollback(plan, phase.ID)
+	if len(requiresRollback) != 0 {
+		return trace.BadParameter(rollbackDependentsErrorMsg(phase.ID, requiresRollback))
 	}
+
 	return nil
 }
 
-// dependentsRolledBack returns true if all phases that are dependent on the
-// phase specified by phaseID are unstarted or have been rolled back.
-func dependentsRolledBack(plan *storage.OperationPlan, phaseID string) bool {
-	// required will be nil if an invalid phaseID is provided.
-	required := getRequired(plan.Phases, phaseID)
-	if required == nil {
-		return true
-	}
-	return dependentsRolledBackHelper(required, plan.Phases)
-}
-
 // getRequired constructs the initial set of required phases. This set includes
-// the phase specified by phaseID and its parent phases.
+// the phase specified by phaseID and its parent phases. Returns nil if phases
+// does not contain a phase with phaseID.
 //
 // Given a list of phases like:
 //
@@ -100,28 +103,39 @@ func getRequired(phases []storage.OperationPhase, phaseID string) map[string]str
 	return nil
 }
 
-// dependentsRolledBackHelper is a recursive helper function that returns true
-// if all phases that are dependent on the required set are unstarted or have
-// been rolled back.
-func dependentsRolledBackHelper(required map[string]struct{}, phases []storage.OperationPhase) bool {
+// getRequiresRollback returns a list of phases that need to be rolled back
+// before the phase specified by phaseID can be rolled back.
+func getRequiresRollback(plan *storage.OperationPlan, phaseID string) (dependents []string) {
+	// required will be nil if an invalid phaseID is provided.
+	required := getRequired(plan.Phases, phaseID)
+	if required == nil {
+		return dependents
+	}
+	return getRequiresRollbackHelper(required, plan.Phases)
+}
+
+// getRequiresRollbackHelper is a recursive helper function that returns a list
+// of dependent phases that have been started and have not been rolled back.
+func getRequiresRollbackHelper(required map[string]struct{}, phases []storage.OperationPhase) (dependents []string) {
 	if len(phases) == 0 {
-		return true
+		return dependents
 	}
 
 	for _, phase := range phases {
 		if isDependent(required, phase) {
 			if !phase.IsUnstarted() && !phase.IsRolledBack() {
-				return false
+				// Append phase to list of dependents that need to be rolled back.
+				dependents = append(dependents, phase.ID)
 			}
+			// Add phase to the required set. Phases dependent on this phase are
+			// also dependents of the original set of required phases.
 			required[phase.ID] = struct{}{}
 		}
-
-		if !dependentsRolledBackHelper(required, phase.Phases) {
-			return false
-		}
+		// Append any dependent sub phases that need to be rolled back.
+		dependents = append(dependents, getRequiresRollbackHelper(required, phase.Phases)...)
 	}
 
-	return true
+	return dependents
 }
 
 // isDependent returns true if the phase requires any of the phases contained in

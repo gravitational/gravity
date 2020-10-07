@@ -191,7 +191,7 @@ func (s *FSMUtilsSuite) TestCanRollback(c *check.C) {
 				},
 			},
 			phaseID:  "/init",
-			expected: `rollback subsequent phases before rolling back phase "/init"`,
+			expected: rollbackDependentsErrorMsg("/init", []string{"/startAgent"}),
 		},
 		{
 			comment: "All later phases have been rolled back",
@@ -253,7 +253,7 @@ func (s *FSMUtilsSuite) TestCanRollback(c *check.C) {
 				},
 			},
 			phaseID:  "/init",
-			expected: `rollback subsequent phases before rolling back phase "/init"`,
+			expected: rollbackDependentsErrorMsg("/init", []string{"/checks"}),
 		},
 		{
 			comment: "Rollback after a later phase has been executed out of band",
@@ -281,7 +281,7 @@ func (s *FSMUtilsSuite) TestCanRollback(c *check.C) {
 				},
 			},
 			phaseID:  "/init",
-			expected: `rollback subsequent phases before rolling back phase "/init"`,
+			expected: rollbackDependentsErrorMsg("/init", []string{"/checks"}),
 		},
 		{
 			comment: "Rollback subphase",
@@ -363,7 +363,7 @@ func (s *FSMUtilsSuite) TestCanRollback(c *check.C) {
 				},
 			},
 			phaseID:  "/masters/node-1",
-			expected: `rollback subsequent phases before rolling back phase "/masters/node-1"`,
+			expected: rollbackDependentsErrorMsg("/masters/node-1", []string{"/nodes"}),
 		},
 		{
 			comment: "Rollback parallel phase",
