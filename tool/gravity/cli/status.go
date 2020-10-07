@@ -384,6 +384,12 @@ func printNodeStatus(node statusapi.ClusterServer, w io.Writer) {
 	if node.Profile != "" {
 		description = fmt.Sprintf("%v / %v", description, node.Profile)
 	}
+	if node.InstanceID != "" {
+		description = fmt.Sprintf("%v / %v", description, node.InstanceID)
+	}
+	if node.TeleportNode != nil && node.TeleportNode.InstanceType != "" {
+		description = fmt.Sprintf("%v / %v", description, node.TeleportNode.InstanceType)
+	}
 	fmt.Fprintf(w, "        * %v / %v\n", unknownFallback(node.Hostname), description)
 	if node.SELinux != nil && *node.SELinux {
 		fmt.Fprintf(w, "            SELinux:\t%v\n", formatSELinuxStatus(*node.SELinux))
