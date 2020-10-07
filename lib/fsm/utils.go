@@ -48,7 +48,8 @@ func CanRollback(plan *storage.OperationPlan, phaseID string) error {
 	// Rollback starts top-down, and not in reverse order.
 	if phase.HasSubphases() {
 		return trace.BadParameter(
-			"unable to rollback non-leaf phase, only leaf phases can be rolled back").AddField("phase", phase.ID)
+			"rolling back phases that have sub-phases is not supported. Please rollback individual phases").
+			AddField("phase", phase.ID)
 	}
 
 	if !dependentsRolledBack(plan, phase.ID) {
@@ -59,7 +60,7 @@ func CanRollback(plan *storage.OperationPlan, phaseID string) error {
 }
 
 // dependentsRolledBack returns true if all phases that are dependent on the
-// phase specified by phaseID is unstarted or has been rolled back.
+// phase specified by phaseID are unstarted or have been rolled back.
 func dependentsRolledBack(plan *storage.OperationPlan, phaseID string) bool {
 	// required will be nil if an invalid phaseID is provided.
 	required := getRequired(plan.Phases, phaseID)
@@ -71,6 +72,18 @@ func dependentsRolledBack(plan *storage.OperationPlan, phaseID string) bool {
 
 // getRequired constructs the initial set of required phases. This set includes
 // the phase specified by phaseID and its parent phases.
+//
+// Given a list of phases like:
+//
+//	/init
+//	/masters
+//		* /node-1
+//			* /system-upgrade
+//		* /node-2
+//
+// and a phaseID "/masters/node-1/system-upgrade" will return the set:
+//
+// {"/masters", "/masters/node-1", "/masters/node-1/system-upgrade"}
 func getRequired(phases []storage.OperationPhase, phaseID string) map[string]struct{} {
 	for _, phase := range phases {
 		if phase.ID == phaseID {
@@ -88,7 +101,7 @@ func getRequired(phases []storage.OperationPhase, phaseID string) map[string]str
 }
 
 // dependentsRolledBackHelper is a recursive helper function that returns true
-// if all phases that are dependent on the required set is unstarted or has
+// if all phases that are dependent on the required set are unstarted or have
 // been rolled back.
 func dependentsRolledBackHelper(required map[string]struct{}, phases []storage.OperationPhase) bool {
 	if len(phases) == 0 {

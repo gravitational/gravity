@@ -328,7 +328,7 @@ func (s *FSMUtilsSuite) TestCanRollback(c *check.C) {
 				},
 			},
 			phaseID:  "/masters",
-			expected: "unable to rollback non-leaf phase, only leaf phases can be rolled back",
+			expected: "rolling back phases that have sub-phases is not supported. Please rollback individual phases",
 		},
 		{
 			comment: "Top level phase has dependent phases that have not been rolled back",
@@ -355,7 +355,7 @@ func (s *FSMUtilsSuite) TestCanRollback(c *check.C) {
 							{
 								ID:       "/nodes/node-3",
 								State:    storage.OperationPhaseStateCompleted,
-								Requires: []string{"/nodes-node-2"},
+								Requires: []string{"/nodes/node-2"},
 							},
 						},
 						Requires: []string{"/masters"},
