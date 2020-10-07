@@ -1365,10 +1365,10 @@ func checkNetworkConflict(advertiseAddr string, serviceCIDR string, podCIDR stri
 	}
 	ip := net.ParseIP(advertiseAddr)
 	if ip == nil {
-		return trace.BadParameter("unable to parse advertiseAddr(%s) ", advertiseAddr)
+		return trace.BadParameter("Invalid advertise address (%v).", advertiseAddr)
 	}
 	if serviceSubnet.Contains(ip) {
-		return trace.BadParameter("advertiseAddr(%s) is in range of the serviceCIDR %s",
+		return trace.BadParameter("The selected advertise address %v conflicts with the service network CIDR range %v. Please specify a different service CIDR via --service-cidr flag.",
 			advertiseAddr, serviceCIDR)
 	}
 
@@ -1377,7 +1377,7 @@ func checkNetworkConflict(advertiseAddr string, serviceCIDR string, podCIDR stri
 		return trace.Wrap(err)
 	}
 	if podSubnet.Contains(ip) {
-		return trace.BadParameter("advertiseAddr(%s) is in range of the podCIDR %s",
+		return trace.BadParameter("The selected advertise address %v conflicts with the pod network CIDR range %v. Please specify a different pod CIDR via --pod-network-cidr flag.",
 			advertiseAddr, podCIDR)
 	}
 
