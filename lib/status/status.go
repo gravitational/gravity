@@ -69,13 +69,11 @@ func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, o
 		logrus.WithError(err).Warn("Failed to query cluster nodes.")
 	}
 
-	// Populate cloud specific InstanceId
-	if len(cluster.ClusterState.Servers) != 0 {
-		for i, node := range status.Agent.Nodes {
-			server := cluster.ClusterState.Servers.FindByIP(node.AdvertiseIP)
-			if server != nil && status.Agent.Nodes[i].TeleportNode != nil {
-				status.Agent.Nodes[i].TeleportNode.InstanceId = server.InstanceID
-			}
+	// Populate cloud specific InstanceID
+	for i, node := range status.Agent.Nodes {
+		server := cluster.ClusterState.Servers.FindByIP(node.AdvertiseIP)
+		if server != nil {
+			status.Agent.Nodes[i].InstanceID = server.InstanceID
 		}
 	}
 
@@ -401,6 +399,8 @@ type ClusterServer struct {
 	WarnProbes []string `json:"warn_probes,omitempty"`
 	// TeleportNode contains information about Teleport node running on this server
 	TeleportNode *ops.Node `json:"teleport_node,omitempty"`
+	// InstanceID is the node cloud specific instance ID
+	InstanceID string `json:"instance_id"`
 }
 
 func (r ClusterOperation) isFailed() bool {
