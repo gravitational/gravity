@@ -336,7 +336,7 @@ func (i *InstallConfig) CheckAndSetDefaults() (err error) {
 		return trace.Wrap(err)
 	}
 
-	if err := checkOverlayNet(i.AdvertiseAddr, i.ServiceCIDR, i.PodCIDR); err != nil {
+	if err := checkNetworkConflict(i.AdvertiseAddr, i.ServiceCIDR, i.PodCIDR); err != nil {
 		return trace.Wrap(err)
 	}
 
@@ -1357,8 +1357,8 @@ func checkLocalAddr(addr string) error {
 		addr, strings.Join(availableAddrs, ", "))
 }
 
-// checkOverlayNet verifies that the host network address is not in the range of the serviceCIDR or podCIDR
-func checkOverlayNet(advertiseAddr string, serviceCIDR string, podCIDR string) error {
+// checkNetworkConflict verifies that the host network address is not in the range of the serviceCIDR or podCIDR
+func checkNetworkConflict(advertiseAddr string, serviceCIDR string, podCIDR string) error {
 	_, serviceSubnet, err := net.ParseCIDR(serviceCIDR)
 	if err != nil {
 		return trace.Wrap(err)
