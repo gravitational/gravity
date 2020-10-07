@@ -162,9 +162,9 @@ func (s *FSMUtilsSuite) TestNonLeafRollback(c *check.C) {
 		{
 			comment: "Rollback non-leaf phase",
 			phases: []*phaseBuilder{
-				s.phaseBuilder("/non-leaf", storage.OperationPhaseStateCompleted).
+				s.phaseBuilder("/non-leaf").
 					withSubphases(
-						s.phaseBuilder("/leaf", storage.OperationPhaseStateCompleted)),
+						s.phaseBuilder("/leaf").withState(storage.OperationPhaseStateCompleted)),
 			},
 			rollbackID: "/non-leaf",
 			expected:   "rolling back phases that have sub-phases is not supported. Please rollback individual phases",
@@ -196,15 +196,15 @@ func (s *FSMUtilsSuite) TestCanRollback(c *check.C) {
 		{
 			comment: "Rollback latest phase",
 			phases: []*phaseBuilder{
-				s.phaseBuilder("/init", storage.OperationPhaseStateCompleted),
+				s.phaseBuilder("/init").withState(storage.OperationPhaseStateCompleted),
 			},
 			rollbackID: "/init",
 		},
 		{
 			comment: "A subsequent phase is in progress",
 			phases: []*phaseBuilder{
-				s.phaseBuilder("/init", storage.OperationPhaseStateCompleted),
-				s.phaseBuilder("/startAgent", storage.OperationPhaseStateInProgress).
+				s.phaseBuilder("/init").withState(storage.OperationPhaseStateCompleted),
+				s.phaseBuilder("/startAgent").withState(storage.OperationPhaseStateInProgress).
 					withRequires("/init"),
 			},
 			rollbackID: "/init",
@@ -213,36 +213,35 @@ func (s *FSMUtilsSuite) TestCanRollback(c *check.C) {
 		{
 			comment: "All dependent phases have been rolled back or are unstarted",
 			phases: []*phaseBuilder{
-				s.phaseBuilder("/init", storage.OperationPhaseStateCompleted),
-				s.phaseBuilder("/startAgent", storage.OperationPhaseStateRolledBack).
+				s.phaseBuilder("/init").withState(storage.OperationPhaseStateCompleted),
+				s.phaseBuilder("/startAgent").withState(storage.OperationPhaseStateRolledBack).
 					withRequires("/init"),
-				s.phaseBuilder("/checks", storage.OperationPhaseStateUnstarted).
+				s.phaseBuilder("/checks").withState(storage.OperationPhaseStateUnstarted).
 					withRequires("/startAgent"),
 			},
 			rollbackID: "/init",
 		},
 		{
-			comment: "Dependent phase is in progress",
+			comment: "Phase is considered rolled back if all subphases are unstarted or rolled back",
 			phases: []*phaseBuilder{
-				s.phaseBuilder("/init", storage.OperationPhaseStateCompleted),
-				s.phaseBuilder("/masters", storage.OperationPhaseStateInProgress).
+				s.phaseBuilder("/init").withState(storage.OperationPhaseStateCompleted),
+				s.phaseBuilder("/masters").
 					withRequires("/init").
 					withSubphases(
-						s.phaseBuilder("/node-1", storage.OperationPhaseStateRolledBack),
-						s.phaseBuilder("/node-2", storage.OperationPhaseStateUnstarted).
+						s.phaseBuilder("/node-1").withState(storage.OperationPhaseStateRolledBack),
+						s.phaseBuilder("/node-2").withState(storage.OperationPhaseStateUnstarted).
 							withRequires("/masters/node-1"),
 					),
 			},
 			rollbackID: "/init",
-			expected:   rollbackDependentsErrorMsg("/init", []string{"/masters"}),
 		},
 		{
 			comment: "Rollback after a dependent phase was previously rolled back forcefully",
 			phases: []*phaseBuilder{
-				s.phaseBuilder("/init", storage.OperationPhaseStateCompleted),
-				s.phaseBuilder("/startAgent", storage.OperationPhaseStateRolledBack).
+				s.phaseBuilder("/init").withState(storage.OperationPhaseStateCompleted),
+				s.phaseBuilder("/startAgent").withState(storage.OperationPhaseStateRolledBack).
 					withRequires("/init"),
-				s.phaseBuilder("/checks", storage.OperationPhaseStateFailed).
+				s.phaseBuilder("/checks").withState(storage.OperationPhaseStateFailed).
 					withRequires("/startAgent"),
 			},
 			rollbackID: "/init",
@@ -251,10 +250,10 @@ func (s *FSMUtilsSuite) TestCanRollback(c *check.C) {
 		{
 			comment: "Rollback after a dependent phase has been executed out of band",
 			phases: []*phaseBuilder{
-				s.phaseBuilder("/init", storage.OperationPhaseStateCompleted),
-				s.phaseBuilder("/startAgent", storage.OperationPhaseStateUnstarted).
+				s.phaseBuilder("/init").withState(storage.OperationPhaseStateCompleted),
+				s.phaseBuilder("/startAgent").withState(storage.OperationPhaseStateUnstarted).
 					withRequires("/init"),
-				s.phaseBuilder("/checks", storage.OperationPhaseStateCompleted).
+				s.phaseBuilder("/checks").withState(storage.OperationPhaseStateCompleted).
 					withRequires("/startAgent"),
 			},
 			rollbackID: "/init",
@@ -263,14 +262,14 @@ func (s *FSMUtilsSuite) TestCanRollback(c *check.C) {
 		{
 			comment: "Top level phase has dependent phases that have not been rolled back",
 			phases: []*phaseBuilder{
-				s.phaseBuilder("/masters", storage.OperationPhaseStateCompleted).
+				s.phaseBuilder("/masters").
 					withSubphases(
-						s.phaseBuilder("/node-1", storage.OperationPhaseStateCompleted)),
-				s.phaseBuilder("/nodes", storage.OperationPhaseStateCompleted).
+						s.phaseBuilder("/node-1").withState(storage.OperationPhaseStateCompleted)),
+				s.phaseBuilder("/nodes").
 					withRequires("/masters").
 					withSubphases(
-						s.phaseBuilder("node-2", storage.OperationPhaseStateCompleted),
-						s.phaseBuilder("node-3", storage.OperationPhaseStateCompleted).
+						s.phaseBuilder("node-2").withState(storage.OperationPhaseStateCompleted),
+						s.phaseBuilder("node-3").withState(storage.OperationPhaseStateCompleted).
 							withRequires("/nodes/node-2")),
 			},
 			rollbackID: "/masters/node-1",
@@ -279,25 +278,25 @@ func (s *FSMUtilsSuite) TestCanRollback(c *check.C) {
 		{
 			comment: "Rollback parallel phase",
 			phases: []*phaseBuilder{
-				s.phaseBuilder("/parallel", storage.OperationPhaseStateCompleted).
+				s.phaseBuilder("/parallel").
 					withSubphases(
-						s.phaseBuilder("/masters", storage.OperationPhaseStateCompleted),
-						s.phaseBuilder("/nodes", storage.OperationPhaseStateCompleted)),
+						s.phaseBuilder("/masters").withState(storage.OperationPhaseStateCompleted),
+						s.phaseBuilder("/nodes").withState(storage.OperationPhaseStateCompleted)),
 			},
 			rollbackID: "/parallel/masters",
 		},
 		{
 			comment: "Rollback with multiple requires",
 			phases: []*phaseBuilder{
-				s.phaseBuilder("/init", storage.OperationPhaseStateCompleted).
+				s.phaseBuilder("/init").
 					withSubphases(
-						s.phaseBuilder("/node-1", storage.OperationPhaseStateCompleted),
-						s.phaseBuilder("/node-2", storage.OperationPhaseStateCompleted),
-						s.phaseBuilder("/node-3", storage.OperationPhaseStateCompleted),
+						s.phaseBuilder("/node-1").withState(storage.OperationPhaseStateCompleted),
+						s.phaseBuilder("/node-2").withState(storage.OperationPhaseStateCompleted),
+						s.phaseBuilder("/node-3").withState(storage.OperationPhaseStateCompleted),
 					),
-				s.phaseBuilder("/checks", storage.OperationPhaseStateCompleted).
+				s.phaseBuilder("/checks").withState(storage.OperationPhaseStateCompleted).
 					withRequires("/init"),
-				s.phaseBuilder("/pre-update", storage.OperationPhaseStateCompleted).
+				s.phaseBuilder("/pre-update").withState(storage.OperationPhaseStateCompleted).
 					withRequires("/init", "/checks"),
 			},
 			rollbackID: "/init/node-1",
@@ -306,38 +305,38 @@ func (s *FSMUtilsSuite) TestCanRollback(c *check.C) {
 		{
 			comment: "Invalid rollback with multi-level deep subphases",
 			phases: []*phaseBuilder{
-				s.phaseBuilder("/init", storage.OperationPhaseStateCompleted),
-				s.phaseBuilder("/masters", storage.OperationPhaseStateCompleted).
+				s.phaseBuilder("/init").withState(storage.OperationPhaseStateCompleted),
+				s.phaseBuilder("/masters").
 					withRequires("/init").
 					withSubphases(
-						s.phaseBuilder("/node-1", storage.OperationPhaseStateCompleted).
+						s.phaseBuilder("/node-1").
 							withSubphases(
-								s.phaseBuilder("/drain", storage.OperationPhaseStateCompleted),
-								s.phaseBuilder("/system-upgrade", storage.OperationPhaseStateCompleted).
+								s.phaseBuilder("/drain").withState(storage.OperationPhaseStateCompleted),
+								s.phaseBuilder("/system-upgrade").withState(storage.OperationPhaseStateCompleted).
 									withRequires("/masters/node-1/drain")),
-						s.phaseBuilder("/node-2", storage.OperationPhaseStateCompleted).
+						s.phaseBuilder("/node-2").
 							withRequires("/masters/node-1").
 							withSubphases(
-								s.phaseBuilder("/drain", storage.OperationPhaseStateCompleted),
-								s.phaseBuilder("/system-upgrade", storage.OperationPhaseStateCompleted).
+								s.phaseBuilder("/drain").withState(storage.OperationPhaseStateCompleted),
+								s.phaseBuilder("/system-upgrade").withState(storage.OperationPhaseStateCompleted).
 									withRequires("/masters/node-2/drain"))),
-				s.phaseBuilder("/nodes", storage.OperationPhaseStateCompleted).
+				s.phaseBuilder("/nodes").
 					withRequires("/masters").
 					withSubphases(
-						s.phaseBuilder("node-3", storage.OperationPhaseStateCompleted).
+						s.phaseBuilder("node-3").
 							withSubphases(
-								s.phaseBuilder("/drain", storage.OperationPhaseStateCompleted),
-								s.phaseBuilder("/system-upgrade", storage.OperationPhaseStateCompleted).
+								s.phaseBuilder("/drain").withState(storage.OperationPhaseStateCompleted),
+								s.phaseBuilder("/system-upgrade").withState(storage.OperationPhaseStateCompleted).
 									withRequires("/nodes/node-3/drain"))),
-				s.phaseBuilder("/etcd", storage.OperationPhaseStateCompleted).
+				s.phaseBuilder("/etcd").
 					withSubphases(
-						s.phaseBuilder("/backup", storage.OperationPhaseStateCompleted)),
-				s.phaseBuilder("/runtime", storage.OperationPhaseStateCompleted).
+						s.phaseBuilder("/backup").withState(storage.OperationPhaseStateCompleted)),
+				s.phaseBuilder("/runtime").
 					withRequires("/masters").
 					withSubphases(
-						s.phaseBuilder("/monitoring", storage.OperationPhaseStateCompleted),
-						s.phaseBuilder("/site", storage.OperationPhaseStateCompleted)),
-				s.phaseBuilder("/gc", storage.OperationPhaseStateCompleted).
+						s.phaseBuilder("/monitoring").withState(storage.OperationPhaseStateCompleted),
+						s.phaseBuilder("/site").withState(storage.OperationPhaseStateCompleted)),
+				s.phaseBuilder("/gc").withState(storage.OperationPhaseStateCompleted).
 					withRequires("/runtime"),
 			},
 			rollbackID: "/masters/node-1/drain",
@@ -352,38 +351,40 @@ func (s *FSMUtilsSuite) TestCanRollback(c *check.C) {
 		{
 			comment: "Valid rollback with multi-level deep subphases",
 			phases: []*phaseBuilder{
-				s.phaseBuilder("/init", storage.OperationPhaseStateCompleted),
-				s.phaseBuilder("/masters", storage.OperationPhaseStateCompleted).
+				s.phaseBuilder("/init").withState(storage.OperationPhaseStateCompleted),
+				s.phaseBuilder("/masters").
 					withRequires("/init").
 					withSubphases(
-						s.phaseBuilder("/node-1", storage.OperationPhaseStateCompleted).
+						s.phaseBuilder("/node-1").
 							withSubphases(
-								s.phaseBuilder("/drain", storage.OperationPhaseStateCompleted),
-								s.phaseBuilder("/system-upgrade", storage.OperationPhaseStateRolledBack).
+								s.phaseBuilder("/drain").
+									withState(storage.OperationPhaseStateCompleted),
+								s.phaseBuilder("/system-upgrade").
+									withState(storage.OperationPhaseStateRolledBack).
 									withRequires("/masters/node-1/drain")),
-						s.phaseBuilder("/node-2", storage.OperationPhaseStateRolledBack).
+						s.phaseBuilder("/node-2").
 							withRequires("/masters/node-1").
 							withSubphases(
-								s.phaseBuilder("/drain", storage.OperationPhaseStateRolledBack),
-								s.phaseBuilder("/system-upgrade", storage.OperationPhaseStateRolledBack).
+								s.phaseBuilder("/drain").withState(storage.OperationPhaseStateRolledBack),
+								s.phaseBuilder("/system-upgrade").withState(storage.OperationPhaseStateRolledBack).
 									withRequires("/masters/node-2/drain"))),
-				s.phaseBuilder("/nodes", storage.OperationPhaseStateRolledBack).
+				s.phaseBuilder("/nodes").
 					withRequires("/masters").
 					withSubphases(
-						s.phaseBuilder("node-3", storage.OperationPhaseStateRolledBack).
+						s.phaseBuilder("node-3").
 							withSubphases(
-								s.phaseBuilder("/drain", storage.OperationPhaseStateRolledBack),
-								s.phaseBuilder("/system-upgrade", storage.OperationPhaseStateRolledBack).
+								s.phaseBuilder("/drain").withState(storage.OperationPhaseStateRolledBack),
+								s.phaseBuilder("/system-upgrade").withState(storage.OperationPhaseStateRolledBack).
 									withRequires("/nodes/node-3/drain"))),
-				s.phaseBuilder("/etcd", storage.OperationPhaseStateCompleted).
+				s.phaseBuilder("/etcd").
 					withSubphases(
-						s.phaseBuilder("/backup", storage.OperationPhaseStateCompleted)),
-				s.phaseBuilder("/runtime", storage.OperationPhaseStateRolledBack).
+						s.phaseBuilder("/backup").withState(storage.OperationPhaseStateCompleted)),
+				s.phaseBuilder("/runtime").
 					withRequires("/masters").
 					withSubphases(
-						s.phaseBuilder("/monitoring", storage.OperationPhaseStateRolledBack),
-						s.phaseBuilder("/site", storage.OperationPhaseStateRolledBack)),
-				s.phaseBuilder("/gc", storage.OperationPhaseStateUnstarted).
+						s.phaseBuilder("/monitoring").withState(storage.OperationPhaseStateRolledBack),
+						s.phaseBuilder("/site").withState(storage.OperationPhaseStateRolledBack)),
+				s.phaseBuilder("/gc").withState(storage.OperationPhaseStateUnstarted).
 					withRequires("/runtime"),
 			},
 			rollbackID: "/masters/node-1/drain",
@@ -405,10 +406,9 @@ func (s *FSMUtilsSuite) TestCanRollback(c *check.C) {
 }
 
 // phaseBuilder returns a new phaseBuilder.
-func (s *FSMUtilsSuite) phaseBuilder(id, state string) *phaseBuilder {
+func (s *FSMUtilsSuite) phaseBuilder(id string) *phaseBuilder {
 	return &phaseBuilder{
-		id:    id,
-		state: state,
+		id: id,
 	}
 }
 
@@ -418,6 +418,12 @@ type phaseBuilder struct {
 	state    string
 	phases   []*phaseBuilder
 	requires []string
+}
+
+// withState sets the phase state.
+func (r *phaseBuilder) withState(state string) *phaseBuilder {
+	r.state = state
+	return r
 }
 
 // withSubphases appends the provided subphases.

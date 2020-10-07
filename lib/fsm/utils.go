@@ -33,11 +33,11 @@ import (
 // rollbackDependentsErrorMsg returns an error message for when a phase is being
 // rolled back, but has dependent phases that have not yet been rolled back.
 func rollbackDependentsErrorMsg(phaseID string, dependents []string) string {
-	const msg = `phase %[1]s cannot be rolled back because some phases that depend on it haven't been rolled back yet. Please rollback the following phases first:
+	const msg = `Phase %[1]s cannot be rolled back because some phases that depend on it haven't been rolled back yet. Please rollback the following phases first:
 
 	%[2]s
 
-you can pass --force flag to override this check and force phase %[1]s rollback`
+You can pass --force flag to override this check and force phase %[1]s rollback.`
 	return fmt.Sprintf(msg, phaseID, strings.Join(dependents, "\n\t"))
 }
 
