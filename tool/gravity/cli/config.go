@@ -335,6 +335,11 @@ func (i *InstallConfig) CheckAndSetDefaults() (err error) {
 	if err := checkLocalAddr(i.AdvertiseAddr); err != nil {
 		return trace.Wrap(err)
 	}
+
+	if err := checkOverlayNet(i.AdvertiseAddr, i.ServiceCIDR, i.PodCIDR); err != nil {
+		return trace.Wrap(err)
+	}
+
 	i.WithField("addr", i.AdvertiseAddr).Info("Set advertise address.")
 	if err := i.Docker.Check(); err != nil {
 		return trace.Wrap(err)
@@ -1350,6 +1355,33 @@ func checkLocalAddr(addr string) error {
 	return trace.BadParameter(
 		"%v matches none of the available addresses %v",
 		addr, strings.Join(availableAddrs, ", "))
+}
+
+// checkOverlayNet verifies that the host network address is not in the range of the serviceCIDR or podCIDR
+func checkOverlayNet(advertiseAddr string, serviceCIDR string, podCIDR string) error {
+	_, serviceSubnet, err := net.ParseCIDR(serviceCIDR)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	ip := net.ParseIP(advertiseAddr)
+	if ip == nil {
+		return trace.BadParameter("unable to parse advertiseAddr(%s) ", advertiseAddr)
+	}
+	if serviceSubnet.Contains(ip) {
+		return trace.BadParameter("advertiseAddr(%s) is in range of the serviceCIDR %s",
+			advertiseAddr, serviceCIDR)
+	}
+
+	_, podSubnet, err := net.ParseCIDR(podCIDR)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if podSubnet.Contains(ip) {
+		return trace.BadParameter("advertiseAddr(%s) is in range of the podCIDR %s",
+			advertiseAddr, podCIDR)
+	}
+
+	return nil
 }
 
 // selectAdvertiseAddr selects an advertise address from one of the host's interfaces
