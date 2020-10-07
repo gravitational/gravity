@@ -34,7 +34,7 @@ func (s *UtilsSuite) TestFindServer(c *check.C) {
 	server := storage.Server{
 		AdvertiseIP: "10.0.0.1",
 		Hostname:    "hostName",
-		Nodename:    "nodeNamee",
+		Nodename:    "nodeName",
 		InstanceID:  "i-sdfkwerjal",
 	}
 	servers := []storage.Server{server}
