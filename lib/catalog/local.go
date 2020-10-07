@@ -17,6 +17,8 @@ limitations under the License.
 package catalog
 
 import (
+	"context"
+
 	"github.com/gravitational/gravity/lib/localenv"
 
 	"github.com/gravitational/trace"
@@ -28,7 +30,7 @@ func NewLocal() (*catalog, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	localCluster, err := opsClient.GetLocalSite()
+	localCluster, err := opsClient.GetLocalSite(context.TODO())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

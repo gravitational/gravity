@@ -171,13 +171,11 @@ func (r *executor) createOperation() (*ops.SiteOperation, error) {
 				Docker: r.config.Docker,
 			},
 			OnPrem: storage.OnPremVariables{
-				PodCIDR:     r.config.PodCIDR,
-				ServiceCIDR: r.config.ServiceCIDR,
-				VxlanPort:   r.config.VxlanPort,
+				VxlanPort: r.config.VxlanPort,
 			},
 			Values: r.config.Values,
 		},
-		Profiles: install.ServerRequirements(*r.config.Flavor),
+		Profiles: install.ServerRequirements(r.config.Flavor),
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)

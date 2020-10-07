@@ -59,7 +59,7 @@ func updateCheck(env *localenv.LocalEnvironment, updatePackage string) error {
 		return trace.Wrap(err)
 	}
 
-	cluster, err := operator.GetLocalSite()
+	cluster, err := operator.GetLocalSite(context.TODO())
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -155,7 +155,7 @@ func checkStatus(ctx context.Context, env *localenv.LocalEnvironment, ignoreWarn
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	cluster, err := operator.GetLocalSite()
+	cluster, err := operator.GetLocalSite(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}

@@ -17,6 +17,7 @@ limitations under the License.
 package catalog
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -71,7 +72,7 @@ func newRemoteForTrustedCluster(name string) (Catalog, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	localCluster, err := clusterEnv.Operator.GetLocalSite()
+	localCluster, err := clusterEnv.Operator.GetLocalSite(context.TODO())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

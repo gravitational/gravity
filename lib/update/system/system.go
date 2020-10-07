@@ -502,7 +502,7 @@ func (r *PackageUpdater) reinstallSecretsPackage(newPackage loc.Locator) (labelU
 	r.WithFields(logrus.Fields{
 		"target-path": targetPath,
 		"package":     newPackage,
-	}).Info("Installed secrets package.", newPackage, targetPath)
+	}).Info("Installed secrets package.")
 	return labelUpdates, nil
 }
 

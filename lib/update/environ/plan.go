@@ -17,10 +17,13 @@ limitations under the License.
 package environ
 
 import (
+	"context"
+
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/update"
+	libbuilder "github.com/gravitational/gravity/lib/update/internal/builder"
 	"github.com/gravitational/gravity/lib/update/internal/rollingupdate"
 
 	"github.com/gravitational/trace"
@@ -28,12 +31,13 @@ import (
 
 // NewOperationPlan creates a new operation plan for the specified operation
 func NewOperationPlan(
+	ctx context.Context,
 	operator ops.Operator,
 	apps app.Applications,
 	operation ops.SiteOperation,
 	servers []storage.Server,
 ) (plan *storage.OperationPlan, err error) {
-	cluster, err := operator.GetLocalSite()
+	cluster, err := operator.GetLocalSite(ctx)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -75,15 +79,15 @@ func newOperationPlan(
 	if len(masters) == 0 {
 		return nil, trace.NotFound("no master servers found in cluster state")
 	}
-	config := *builder.Config("Update cluster environment", configUpdates)
-	updateMasters := *builder.Masters(
+	config := builder.Config("Update cluster environment", configUpdates)
+	updateMasters := builder.Masters(
 		masters,
 		"Update cluster environment",
 		"Update runtime environment on node %q",
 	).Require(config)
-	phases := update.Phases{config, updateMasters}
+	phases := []*libbuilder.Phase{config, updateMasters}
 	if len(nodes) != 0 {
-		updateNodes := *builder.Nodes(
+		updateNodes := builder.Nodes(
 			nodes, masters[0].Server,
 			"Update cluster environment",
 			"Update runtime environment on node %q",
@@ -91,16 +95,12 @@ func newOperationPlan(
 		phases = append(phases, updateNodes)
 	}
 
-	plan := &storage.OperationPlan{
+	return libbuilder.Resolve(phases, storage.OperationPlan{
 		OperationID:   operation.ID,
 		OperationType: operation.Type,
 		AccountID:     operation.AccountID,
 		ClusterName:   operation.SiteDomain,
-		Phases:        phases.AsPhases(),
 		Servers:       servers,
 		DNSConfig:     dnsConfig,
-	}
-	update.ResolvePlan(plan)
-
-	return plan, nil
+	}), nil
 }

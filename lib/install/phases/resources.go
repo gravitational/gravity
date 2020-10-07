@@ -212,7 +212,7 @@ func NewGravityResourcesPhase(p fsm.ExecutorParams, operator ops.Operator, facto
 // Execute creates the Gravity resources from the configured list
 func (r *gravityExecutor) Execute(ctx context.Context) (err error) {
 	r.progress.NextStep("Creating user-supplied cluster resources")
-	cluster, err := r.operator.GetLocalSite()
+	cluster, err := r.operator.GetLocalSite(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}

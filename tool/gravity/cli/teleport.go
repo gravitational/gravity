@@ -17,6 +17,7 @@ limitations under the License.
 package cli
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
 	"io"
@@ -124,7 +125,7 @@ func findTeleportMasterConfig(env *localenv.LocalEnvironment, teleportVersion se
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	cluster, err := clusterEnv.Operator.GetLocalSite()
+	cluster, err := clusterEnv.Operator.GetLocalSite(context.TODO())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

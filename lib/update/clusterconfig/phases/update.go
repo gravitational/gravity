@@ -22,11 +22,14 @@ import (
 
 	"github.com/gravitational/gravity/lib/app"
 	libfsm "github.com/gravitational/gravity/lib/fsm"
+	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
+	"github.com/gravitational/gravity/lib/status"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
@@ -52,6 +55,10 @@ func NewUpdateConfig(
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to query installed application")
 	}
+	config, err := clusterconfig.Unmarshal(operation.UpdateConfig.Config)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	return &updateConfig{
 		FieldLogger:  logger,
 		operator:     operator,
@@ -60,6 +67,8 @@ func NewUpdateConfig(
 		hostPackages: hostPackages,
 		servers:      params.Phase.Data.Update.Servers,
 		manifest:     app.Manifest,
+		config:       config,
+		dnsAddr:      params.Plan.DNSConfig.Addr(),
 	}, nil
 }
 
@@ -67,21 +76,12 @@ func NewUpdateConfig(
 func (r *updateConfig) Execute(ctx context.Context) error {
 	for _, update := range r.servers {
 		r.Infof("Generate new runtime configuration package for %v.", update.Server)
-		req := ops.RotatePlanetConfigRequest{
-			Key:            r.operation.Key(),
-			Server:         update.Server,
-			Manifest:       r.manifest,
-			RuntimePackage: update.Runtime.Update.Package,
-			Package:        &update.Runtime.Update.ConfigPackage,
-			Config:         r.operation.UpdateConfig.Config,
+		if update.Runtime.SecretsPackage != nil {
+			if err := r.rotateSecrets(update); err != nil {
+				return trace.Wrap(err)
+			}
 		}
-		resp, err := r.operator.RotatePlanetConfig(req)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		_, err = r.packages.UpsertPackage(resp.Locator, resp.Reader,
-			pack.WithLabels(resp.Labels))
-		if err != nil {
+		if err := r.rotateConfig(update); err != nil {
 			return trace.Wrap(err)
 		}
 	}
@@ -93,7 +93,11 @@ func (r *updateConfig) Execute(ctx context.Context) error {
 }
 
 // Rollback resets the cluster configuration to the previous value
-func (r *updateConfig) Rollback(context.Context) error {
+func (r *updateConfig) Rollback(ctx context.Context) error {
+	client := httplib.NewClient(httplib.WithInsecure(), httplib.WithLocalResolver(r.dnsAddr))
+	if err := status.WaitController(ctx, client); err != nil {
+		return trace.Wrap(err, "failed to connect to cluster controller")
+	}
 	for _, update := range r.servers {
 		for _, packages := range []packageService{r.packages, r.hostPackages} {
 			err := packages.DeletePackage(update.Runtime.Update.ConfigPackage)
@@ -128,9 +132,55 @@ type updateConfig struct {
 	hostPackages packageService
 	servers      []storage.UpdateServer
 	manifest     schema.Manifest
+	config       clusterconfig.Interface
+	dnsAddr      string
+}
+
+func (r *updateConfig) rotateConfig(update storage.UpdateServer) error {
+	r.Infof("Generate new configuration package for %v.", update)
+	req := ops.RotatePlanetConfigRequest{
+		Key:            r.operation.Key(),
+		Server:         update.Server,
+		Manifest:       r.manifest,
+		RuntimePackage: update.Runtime.Update.Package,
+		Package:        &update.Runtime.Update.ConfigPackage,
+		Config:         r.operation.UpdateConfig.Config,
+	}
+	resp, err := r.operator.RotatePlanetConfig(req)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	_, err = r.packages.CreatePackage(resp.Locator, resp.Reader,
+		pack.WithLabels(resp.Labels))
+	if err != nil && !trace.IsAlreadyExists(err) {
+		return trace.Wrap(err)
+	}
+	r.Debugf("Rotated configuration package for %v: %v.", update, resp.Locator)
+	return nil
+}
+
+func (r *updateConfig) rotateSecrets(update storage.UpdateServer) error {
+	r.Infof("Generate new secrets configuration package for %v.", update)
+	resp, err := r.operator.RotateSecrets(ops.RotateSecretsRequest{
+		Key:            r.operation.ClusterKey(),
+		Package:        update.Runtime.SecretsPackage,
+		RuntimePackage: update.Runtime.Update.Package,
+		Server:         update.Server,
+		ServiceCIDR:    r.config.GetGlobalConfig().ServiceCIDR,
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	_, err = r.packages.CreatePackage(resp.Locator, resp.Reader, pack.WithLabels(resp.Labels))
+	if err != nil && !trace.IsAlreadyExists(err) {
+		return trace.Wrap(err)
+	}
+	r.Debugf("Rotated secrets package for %v: %v.", update, resp.Locator)
+	return nil
 }
 
 type operator interface {
+	RotateSecrets(ops.RotateSecretsRequest) (*ops.RotatePackageResponse, error)
 	RotatePlanetConfig(ops.RotatePlanetConfigRequest) (*ops.RotatePackageResponse, error)
 	UpdateClusterConfiguration(ops.UpdateClusterConfigRequest) error
 }
@@ -140,6 +190,7 @@ type appGetter interface {
 }
 
 type packageService interface {
+	CreatePackage(loc.Locator, io.Reader, ...pack.PackageOption) (*pack.PackageEnvelope, error)
 	UpsertPackage(loc.Locator, io.Reader, ...pack.PackageOption) (*pack.PackageEnvelope, error)
 	DeletePackage(loc.Locator) error
 }

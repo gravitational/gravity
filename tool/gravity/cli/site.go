@@ -134,7 +134,7 @@ func getClusterReport(env *localenv.LocalEnvironment, targetFile string, since t
 		return trace.Wrap(err)
 	}
 
-	site, err := operator.GetLocalSite()
+	site, err := operator.GetLocalSite(context.TODO())
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -183,7 +183,7 @@ func GetLocalClusterInfo(env *localenv.LocalEnvironment) (*ClusterInfo, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	cluster, err := operator.GetLocalSite()
+	cluster, err := operator.GetLocalSite(context.TODO())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -229,7 +229,7 @@ func completeInstallerStep(env *localenv.LocalEnvironment, supportAction string)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	cluster, err := operator.GetLocalSite()
+	cluster, err := operator.GetLocalSite(context.TODO())
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -251,7 +251,7 @@ func resetPassword(env *localenv.LocalEnvironment) error {
 		return trace.Wrap(err)
 	}
 
-	site, err := operator.GetLocalSite()
+	site, err := operator.GetLocalSite(context.TODO())
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -287,7 +287,7 @@ func getLocalSite(env *localenv.LocalEnvironment) error {
 		return trace.Wrap(err)
 	}
 
-	site, err := operator.GetLocalSite()
+	site, err := operator.GetLocalSite(context.TODO())
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -326,7 +326,7 @@ func resetClusterState(env *localenv.LocalEnvironment, confirmed bool) error {
 		return trace.Wrap(err)
 	}
 
-	site, err := operator.GetLocalSite()
+	site, err := operator.GetLocalSite(context.TODO())
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -349,7 +349,7 @@ func stepDown(env *localenv.LocalEnvironment) error {
 		return trace.Wrap(err)
 	}
 
-	site, err := operator.GetLocalSite()
+	site, err := operator.GetLocalSite(context.TODO())
 	if err != nil {
 		return trace.Wrap(err)
 	}
