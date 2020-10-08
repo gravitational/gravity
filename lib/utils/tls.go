@@ -34,12 +34,13 @@ import (
 
 	"github.com/gravitational/gravity/lib/archive"
 	"github.com/gravitational/gravity/lib/defaults"
-	"github.com/sirupsen/logrus"
 
 	cfsslhelpers "github.com/cloudflare/cfssl/helpers"
 	dockerarchive "github.com/docker/docker/pkg/archive"
 	"github.com/gravitational/license/authority"
+	teleutils "github.com/gravitational/teleport/lib/utils"
 	"github.com/gravitational/trace"
+	"github.com/sirupsen/logrus"
 )
 
 // CertificateOutput contains information about cluster certificate
@@ -62,20 +63,11 @@ type CertificateName struct {
 	OrganizationalUnit []string `json:"org_unit"`
 }
 
-// TLSCredentials keeps the typical 3 components of a proper HTTPS configuration
-type TLSCredentials struct {
-	// PublicKey in PEM format
-	PublicKey []byte
-	// PrivateKey in PEM format
-	PrivateKey []byte
-	Cert       []byte
-}
-
 // GenerateSelfSignedCert generates a self signed certificate that
 // is valid for given domain names and ips, returns PEM-encoded bytes with key and cert
 // Generates a certificate that is compatible with the MacOS requirements described at:
 // https://support.apple.com/en-us/HT210176
-func GenerateSelfSignedCert(hostNames []string) (*TLSCredentials, error) {
+func GenerateSelfSignedCert(hostNames []string) (*teleutils.TLSCredentials, error) {
 	priv, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -125,7 +117,7 @@ func GenerateSelfSignedCert(hostNames []string) (*TLSCredentials, error) {
 		return nil, trace.Wrap(err)
 	}
 
-	return &TLSCredentials{
+	return &teleutils.TLSCredentials{
 		PublicKey:  pem.EncodeToMemory(&pem.Block{Type: "RSA PUBLIC KEY", Bytes: publicKeyBytes}),
 		PrivateKey: pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(priv)}),
 		Cert:       pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: derBytes}),
