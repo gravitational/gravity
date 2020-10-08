@@ -255,14 +255,14 @@ root$ modprobe iptable_nat
 Following table summarizes the required kernel modules per OS distribution.
 Gravity requires that these modules are loaded prior to installation.
 
-| Linux Distribution                     | Version | Modules |
-|--------------------------|-----------|---------------------------|
-| CentOS                    | 7.2     | bridge, ebtable_filter, iptables, overlay  |
-| CentOS                  | 7.3-7.6     | br_netfilter, ebtable_filter, iptables, overlay  |
-| RedHat Linux | 7.3-7.6     | br_netfilter, ebtable_filter, iptables, overlay     |
-| Debian | 8-9 | br_netfilter, ebtable_filter, iptables, overlay |
-| Ubuntu | 16.04 | br_netfilter, ebtable_filter, iptables, overlay |
-| Ubuntu-Core | 16.04 | br_netfilter, ebtable_filter, iptables, overlay |
+| Linux Distribution                   | Version          | Modules                                         |
+|--------------------------------------|------------------|-------------------------------------------------|
+| CentOS                               | 7.2              | bridge, ebtable_filter, iptables, overlay       |
+| CentOS                               | 7.3-7.6          | br_netfilter, ebtable_filter, iptables, overlay |
+| RedHat Linux                         | 7.3-7.6          | br_netfilter, ebtable_filter, iptables, overlay |
+| Debian                               | 8-9              | br_netfilter, ebtable_filter, iptables, overlay |
+| Ubuntu                               | 16.04            | br_netfilter, ebtable_filter, iptables, overlay |
+| Ubuntu-Core                          | 16.04            | br_netfilter, ebtable_filter, iptables, overlay |
 | Suse Linux (openSUSE and Enterprise) | 12-SP2 to 12-SP5 | br_netfilter, ebtable_filter, iptables, overlay |
 
 ### Inotify watches
