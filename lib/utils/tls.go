@@ -18,15 +18,23 @@ package utils
 
 import (
 	"archive/tar"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/big"
+	"net"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/gravitational/gravity/lib/archive"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/sirupsen/logrus"
 
 	cfsslhelpers "github.com/cloudflare/cfssl/helpers"
 	dockerarchive "github.com/docker/docker/pkg/archive"
@@ -52,6 +60,74 @@ type CertificateName struct {
 	Organization []string `json:"org"`
 	// OrganizationalUnit is the subject/issuer unit
 	OrganizationalUnit []string `json:"org_unit"`
+}
+
+// TLSCredentials keeps the typical 3 components of a proper HTTPS configuration
+type TLSCredentials struct {
+	// PublicKey in PEM format
+	PublicKey []byte
+	// PrivateKey in PEM format
+	PrivateKey []byte
+	Cert       []byte
+}
+
+// GenerateSelfSignedCert generates a self signed certificate that
+// is valid for given domain names and ips, returns PEM-encoded bytes with key and cert
+func GenerateSelfSignedCert(hostNames []string) (*TLSCredentials, error) {
+	priv, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	notBefore := time.Now()
+	notAfter := notBefore.Add(time.Hour * 24 * 825) // 825 days or fewer is the required validity period for MacOS
+
+	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
+	serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	entity := pkix.Name{
+		CommonName:   "localhost",
+		Country:      []string{"US"},
+		Organization: []string{"localhost"},
+	}
+
+	template := x509.Certificate{
+		SerialNumber:          serialNumber,
+		Issuer:                entity,
+		Subject:               entity,
+		NotBefore:             notBefore,
+		NotAfter:              notAfter,
+		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+	}
+
+	// collect IP addresses localhost resolves to and add them to the cert. template:
+	template.DNSNames = append(hostNames, "localhost.local")
+	ips, _ := net.LookupIP("localhost")
+	if ips != nil {
+		template.IPAddresses = ips
+	}
+
+	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, &priv.PublicKey, priv)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	publicKeyBytes, err := x509.MarshalPKIXPublicKey(priv.Public())
+	if err != nil {
+		logrus.WithError(err).Warn("Failed to marshal PKI public key.")
+		return nil, trace.Wrap(err)
+	}
+
+	return &TLSCredentials{
+		PublicKey:  pem.EncodeToMemory(&pem.Block{Type: "RSA PUBLIC KEY", Bytes: publicKeyBytes}),
+		PrivateKey: pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(priv)}),
+		Cert:       pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: derBytes}),
+	}, nil
 }
 
 // CertificateValidity contains information about certificate validity dates
