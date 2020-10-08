@@ -13,7 +13,8 @@ LOCAL_BUILDDIR ?= /gopath/src/github.com/gravitational/gravity/build
 LOCAL_GRAVITY_BUILDDIR ?= /gopath/src/github.com/gravitational/gravity/build/$(GRAVITY_VERSION)
 
 DOCKER_ARGS ?= --pull
-BBOX = gravity-buildbox:latest
+BUILDBOX = gravity-buildbox:7.0.x
+TESTBOX ?= gravity-testbox:7.0.x
 
 GRAVITY_WEB_APP_DIR ?= $(abspath $(LOCALDIR)/../web)/
 
@@ -122,12 +123,14 @@ endif
 # Runs tests inside a build container
 #
 .PHONY: test
-test: buildbox test-etcd
+test: testbox test-etcd
 	docker run --net=host --rm=true $(NOROOT) \
 		-v $(TOP):$(SRCDIR) \
-		-e "GRAVITY_PKG_PATH=$(GRAVITY_PKG_PATH)" \
+		-v /var/run/docker.sock:/var/run/docker.sock \
+		--tmpfs /tmp:rw,nosuid,nodev,exec,relatime \
+		-e "GRAVITY_PKG_PATH=$(GRAVITY_PK,_PATH)" \
 		-e "TEST_PACKAGES=$(TEST_PACKAGES)" \
-		-t $(BBOX) \
+		-t $(TESTBOX) \
 		dumb-init make -C $(SRCDIR)/build.assets FLAGS='-cover -race' TEST_ETCD=true TEST_K8S=$(TEST_K8S) test-inside-container
 
 
@@ -196,7 +199,7 @@ grpc: $(GRPC_PROTO_OUTPUTS)
 $(GRPC_PROTO_OUTPUTS): buildbox $(GRPC_PROTOS)
 	docker run --rm=true -u $$(id -u) \
 		   -v $(TOP):$(SRCDIR) \
-		   $(BBOX) \
+		   $(BUILDBOX) \
 		   dumb-init make -C $(subst $(TOP),$(SRCDIR),$(@D))
 
 #
@@ -211,7 +214,7 @@ validate-deps: buildbox
 	docker run --rm=true \
 		   -v $(GITHUB_SSH_KEY):/root/.ssh/id_rsa \
 		   -v $(TMP):$(SRCDIR) \
-		   $(BBOX) \
+		   $(BUILDBOX) \
 		   dumb-init make -C $(SRCDIR) validate-deps
 
 #
@@ -231,7 +234,7 @@ build-in-container: buildbox
 		   -e "GRAVITY_BUILDTAGS=$(GRAVITY_BUILDTAGS)" \
 		   -e "TARGETS=$(TARGETS)" \
 		   $(GOCACHE_DOCKER_OPTIONS) \
-		   $(BBOX) \
+		   $(BUILDBOX) \
 		   dumb-init make -C $(SRCDIR)/build.assets -j $(TARGETS)
 
 #
@@ -472,7 +475,7 @@ build-tsh-in-container: clone-teleport
 		   -e "GRAVITY_VERSION=$(GRAVITY_VERSION)" \
 		   -e "GRAVITY_TAG=$(GRAVITY_TAG)" \
 		   -e "LOCAL_GRAVITY_BUILDDIR=$(LOCAL_GRAVITY_BUILDDIR)" \
-		   $(BBOX) \
+		   $(BUILDBOX) \
 		   dumb-init make -C $(SRCDIR)/build.assets build-tsh-inside-container
 
 #
@@ -582,7 +585,7 @@ build-fio-sub: clone-fio
 	docker run --rm=true -u $$(id -u) \
 	    -v $(TOP):$(SRCDIR) \
 	    -v $(FIO_BUILDDIR):/fio \
-	    $(BBOX) \
+	    $(BUILDBOX) \
 	    dumb-init make -C $(SRCDIR)/build.assets build-fio-in-buildbox
 
 .PHONY: build-fio-in-buildbox
@@ -657,7 +660,7 @@ push-storage-app: $(STORAGE_APP_OUT)
 #
 .PHONY: enter
 enter:
-	docker run -ti --rm=true $(BBOX) /bin/bash
+	docker run -ti --rm=true $(BUILDBOX) /bin/bash
 
 .PHONY: selinux
 selinux: $(SELINUX_ASSETS)
@@ -696,4 +699,10 @@ buildbox:
 		--build-arg GRPC_GATEWAY_TAG=$(GRPC_GATEWAY_TAG) \
 		--build-arg GODEP_TAG=$(GODEP_TAG) \
 		--build-arg VERSION_TAG=$(VERSION_TAG) \
-		$(DOCKER_ARGS) --tag $(BBOX) .
+		$(DOCKER_ARGS) --tag $(BUILDBOX) .
+#
+# testbox container: container used for tests
+#
+.PHONY: testbox
+testbox:
+	docker build $(DOCKER_ARGS) --tag $(TESTBOX) -f Dockerfile.testbox .

@@ -37,8 +37,10 @@ import (
 
 // Syncer synchronizes the local package cache from a (remote) repository
 type Syncer interface {
-	// Sync makes sure that local cache has all required dependencies for the
-	// selected runtime
+	// Sync synchronizes the dependencies between a remote repository and the local cache directory.
+	// app specifies the application to synchronize dependencies for.
+	// intermediateRuntimes optionally provides the list of additional runtime application dependencies
+	// to sync.
 	Sync(ctx context.Context, builder *Builder, app libapp.Application, intermediateRuntimes []semver.Version) error
 }
 
@@ -59,9 +61,12 @@ func NewS3Syncer() (*S3Syncer, error) {
 	}, nil
 }
 
-// Sync makes sure that local cache has all required dependencies for the
-// selected runtime.
 // intermediateRuntimes provides a list of additional runtime dependencies to sync.
+// Sync synchronizes the runtime application of the specified app.
+// intermediateRuntimes optionally specifies additional runtime application versions to sync.
+//
+// This implementation does not attempt to sync the application's direct dependencies since
+// they are never available in the oss hub and instead should already be in the local package cache.
 func (s *S3Syncer) Sync(ctx context.Context, builder *Builder, app libapp.Application, intermediateRuntimes []semver.Version) error {
 	if app.Manifest.Base() == nil {
 		return trace.BadParameter("runtime version unspecified in manifest")
@@ -78,7 +83,6 @@ func (s *S3Syncer) Sync(ctx context.Context, builder *Builder, app libapp.Applic
 		return trace.Wrap(err)
 	}
 	for _, runtimeVersion := range intermediateRuntimes {
-		runtimeApp := runtimeApp(runtimeVersion.String())
 		err := libapp.VerifyDependencies(app, cacheApps, builder.Env.Packages)
 		if err != nil && !trace.IsNotFound(err) {
 			return trace.Wrap(err)
@@ -88,6 +92,7 @@ func (s *S3Syncer) Sync(ctx context.Context, builder *Builder, app libapp.Applic
 			builder.NextStep("Local package cache is up-to-date for %v", runtimeVersion)
 			continue
 		}
+		runtimeApp := runtimeApp(runtimeVersion.String())
 		if err := s.sync(ctx, builder, runtimeApp, cacheApps); err != nil {
 			return trace.Wrap(err, "failed to sync packages for runtime version %v", runtimeVersion)
 		}
@@ -156,7 +161,9 @@ func NewPackSyncer(pack pack.PackageService, apps libapp.Applications) *PackSync
 	}
 }
 
-// Sync pulls dependencies from the package/app service not available locally
+// Sync pulls dependencies from the package/app service not available locally.
+// app specifies the application to sync dependencies for.
+// intermediateRuntimes optionally specifies additional runtime application versions to sync.
 func (s *PackSyncer) Sync(ctx context.Context, builder *Builder, app libapp.Application, intermediateRuntimes []semver.Version) error {
 	cacheApps, err := builder.Env.AppServiceLocal(localenv.AppConfig{})
 	if err != nil {
@@ -185,6 +192,7 @@ func (s *PackSyncer) Sync(ctx context.Context, builder *Builder, app libapp.Appl
 			return trace.Wrap(err, "failed to sync packages for runtime version %v", runtimeVersion)
 		}
 	}
+	// Synchronize direct dependencies of the application
 	if err := s.syncDeps(ctx, builder, app, cacheApps); err != nil {
 		return trace.Wrap(err, "failed to sync dependencies for application %v", app)
 	}
