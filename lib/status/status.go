@@ -48,12 +48,18 @@ import (
 // FromCluster collects cluster status information.
 // The function returns the partial status if not all details can be collected
 func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, operationID string) (status *Status, err error) {
+	site, err := operator.GetLocalSite()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
 	status = &Status{
 		Cluster: &Cluster{
 			Domain: cluster.Domain,
 			// Default to degraded - reset on successful query
 			State:         ops.SiteStateDegraded,
 			Reason:        cluster.Reason,
+			CloudProvider: site.Provider,
 			App:           cluster.App.Package,
 			ClientVersion: modules.Get().Version(),
 			Extension:     newExtension(),
@@ -233,6 +239,8 @@ type Cluster struct {
 	Reason storage.Reason `json:"reason,omitempty"`
 	// Domain provides the name of the cluster domain
 	Domain string `json:"domain"`
+	// CloudProvider has the name of the provider
+	CloudProvider string `json:"cloud_provider"`
 	// Token specifies the provisioning token used for joining nodes to cluster if any
 	Token storage.ProvisioningToken `json:"token"`
 	// Operation describes a cluster operation.
