@@ -75,3 +75,33 @@ func (s *UtilsSuite) TestFindServer(c *check.C) {
 	c.Assert(err, check.IsNil)
 	compare.DeepCompare(c, out, &server1)
 }
+
+func (s *UtilsSuite) TestFindServerNotFound(c *check.C) {
+	server1 := storage.Server{
+		AdvertiseIP: "10.0.0.1",
+		Hostname:    "hostName1",
+		Nodename:    "nodeName1",
+		InstanceID:  "i-sdfkwerjal_1",
+	}
+
+	server2 := storage.Server{
+		AdvertiseIP: "10.0.0.2",
+		Hostname:    "hostName2",
+		Nodename:    "nodeName2",
+		InstanceID:  "i-sdfkwerjal_2",
+	}
+
+	server3 := storage.Server{
+		AdvertiseIP: "10.0.0.3",
+		Hostname:    "hostName3",
+		Nodename:    "nodeName3",
+		InstanceID:  "i-sdfkwerjal_3",
+	}
+
+	servers := []storage.Server{server1, server2, server3}
+
+	tokens := []string{"110.0.0.7"}
+	out, err := findServer(servers, tokens)
+	c.Assert(out, check.IsNil)
+	c.Assert(err.Error(), check.Equals, "no server matching [110.0.0.7] found among registered cluster nodes")
+}
