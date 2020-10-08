@@ -191,21 +191,17 @@ func printStatus(operator ops.Operator, status clusterStatus, printOptions print
 
 	case printOptions.quiet:
 	default:
-		site, err := operator.GetLocalSite()
-		if err != nil {
-			return err
-		}
-		return trace.Wrap(printStatusWithOptions(status, printOptions, site))
+		return trace.Wrap(printStatusWithOptions(status, printOptions))
 	}
 	return nil
 }
 
-func printStatusWithOptions(status clusterStatus, printOptions printOptions, site *ops.Site) error {
+func printStatusWithOptions(status clusterStatus, printOptions printOptions) error {
 	switch printOptions.format {
 	case constants.EncodingJSON:
 		return printStatusJSON(os.Stdout, status)
 	default:
-		return printStatusText(os.Stdout, status, site)
+		return printStatusText(os.Stdout, status)
 	}
 }
 
@@ -262,7 +258,7 @@ func printStatusJSON(out io.Writer, status clusterStatus) error {
 	return clusterStatusError(status)
 }
 
-func printStatusText(out io.Writer, cluster clusterStatus, site *ops.Site) error {
+func printStatusText(out io.Writer, cluster clusterStatus) error {
 	w := new(tabwriter.Writer)
 
 	w.Init(out, 0, 8, 1, '\t', 0)
@@ -280,7 +276,7 @@ func printStatusText(out io.Writer, cluster clusterStatus, site *ops.Site) error
 		} else {
 			fmt.Fprintf(w, "Cluster status:\t%v\n", color.GreenString(cluster.State))
 		}
-		printClusterStatus(*cluster.Cluster, w, site)
+		printClusterStatus(*cluster.Cluster, w)
 	}
 
 	if cluster.Agent != nil {
@@ -305,13 +301,13 @@ func formatVersion(version *proto.Version) string {
 	return "n/a"
 }
 
-func printClusterStatus(cluster statusapi.Cluster, w io.Writer, site *ops.Site) {
+func printClusterStatus(cluster statusapi.Cluster, w io.Writer) {
 	if cluster.App.Name != "" {
 		fmt.Fprintf(w, "Cluster image:\t%v, version %v\n", cluster.App.Name,
 			cluster.App.Version)
 	}
-	if site.Provider != "" {
-		fmt.Fprintf(w, "Cloud provider:\t%v\n", site.Provider)
+	if cluster.CloudProvider != "" {
+		fmt.Fprintf(w, "Cloud provider:\t%v\n", cluster.CloudProvider)
 	}
 	fmt.Fprintf(w, "Gravity version:\t%v (client) / %v (server)\n",
 		cluster.ClientVersion.Version, formatVersion(cluster.ServerVersion))

@@ -48,18 +48,13 @@ import (
 // FromCluster collects cluster status information.
 // The function returns the partial status if not all details can be collected
 func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, operationID string) (status *Status, err error) {
-	site, err := operator.GetLocalSite()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
 	status = &Status{
 		Cluster: &Cluster{
 			Domain: cluster.Domain,
 			// Default to degraded - reset on successful query
 			State:         ops.SiteStateDegraded,
 			Reason:        cluster.Reason,
-			CloudProvider: site.Provider,
+			CloudProvider: cluster.Provider,
 			App:           cluster.App.Package,
 			ClientVersion: modules.Get().Version(),
 			Extension:     newExtension(),
