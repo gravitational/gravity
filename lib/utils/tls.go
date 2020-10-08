@@ -73,6 +73,8 @@ type TLSCredentials struct {
 
 // GenerateSelfSignedCert generates a self signed certificate that
 // is valid for given domain names and ips, returns PEM-encoded bytes with key and cert
+// Generates a certificate that is compatible with the MacOS requirements described at:
+// https://support.apple.com/en-us/HT210176
 func GenerateSelfSignedCert(hostNames []string) (*TLSCredentials, error) {
 	priv, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
@@ -100,7 +102,7 @@ func GenerateSelfSignedCert(hostNames []string) (*TLSCredentials, error) {
 		NotBefore:             notBefore,
 		NotAfter:              notAfter,
 		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}, // MacOS specific requirement
 		BasicConstraintsValid: true,
 		IsCA:                  true,
 	}
