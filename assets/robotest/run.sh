@@ -35,7 +35,7 @@ ALWAYS_COLLECT_LOGS=${ALWAYS_COLLECT_LOGS:-true}
 DESTROY_ON_SUCCESS=${DESTROY_ON_SUCCESS:-true}
 DESTROY_ON_FAILURE=${DESTROY_ON_FAILURE:-true}
 
-EXTRA_VOLUME_MOUNTS="-v $IMAGEDIR:$IMAGEDIR_MOUNTPOINT"
+EXTRA_VOLUME_MOUNTS="-v $IMAGEDIR:$IMAGEDIR_MOUNTPOINT:ro"
 
 export INSTALLER_URL TELEKUBE_URL OPSCENTER_URL IMAGEDIR_MOUNTPOINT
 SUITE=$($TARGET configuration)
@@ -43,7 +43,7 @@ SUITE=$($TARGET configuration)
 # GRAVITY_FILE/GRAVITY_URL specify the location of the up-to-date gravity binary
 if [ -d $(dirname ${GRAVITY_URL}) ]; then
   GRAVITY_FILE='/robotest-bin/'$(basename ${GRAVITY_URL})
-  EXTRA_VOLUME_MOUNTS=${EXTRA_VOLUME_MOUNTS:-}" -v "$(dirname ${GRAVITY_URL}):$(dirname ${GRAVITY_FILE})
+  EXTRA_VOLUME_MOUNTS=${EXTRA_VOLUME_MOUNTS:-}" -v "$(dirname ${GRAVITY_URL}):$(dirname ${GRAVITY_FILE}:ro)
 fi
 
 check_files () {
@@ -102,10 +102,10 @@ set -o xtrace
 exec docker run \
     $NOROOT \
 	-v ${STATEDIR}:/robotest/state \
-	-v ${SSH_KEY}:/robotest/config/ops.pem \
-	${GCE_CONFIG:+'-v' "${SSH_PUB}:/robotest/config/ops_rsa.pub"} \
-	${GCE_CONFIG:+'-v' "${GOOGLE_APPLICATION_CREDENTIALS}:/robotest/config/creds.json"} \
-	${GCL_PROJECT_ID:+'-v' "${GOOGLE_APPLICATION_CREDENTIALS}:/robotest/config/gcp.json" '-e' 'GOOGLE_APPLICATION_CREDENTIALS=/robotest/config/gcp.json'} \
+	-v ${SSH_KEY}:/robotest/config/ops.pem:ro \
+	${GCE_CONFIG:+'-v' "${SSH_PUB}:/robotest/config/ops_rsa.pub:ro"} \
+	${GCE_CONFIG:+'-v' "${GOOGLE_APPLICATION_CREDENTIALS}:/robotest/config/creds.json:ro"} \
+	${GCL_PROJECT_ID:+'-v' "${GOOGLE_APPLICATION_CREDENTIALS}:/robotest/config/gcp.json:ro" '-e' 'GOOGLE_APPLICATION_CREDENTIALS=/robotest/config/gcp.json'} \
 	${EXTRA_VOLUME_MOUNTS:-} \
 	${DOCKER_IMAGE} \
 	dumb-init robotest-suite -test.timeout=48h \
