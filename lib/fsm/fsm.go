@@ -329,13 +329,28 @@ You can redeploy upgrade agents on all cluster nodes using "./gravity agent depl
 }
 
 func (f *FSM) rollbackPhaseRemotely(ctx context.Context, p Params, phase storage.OperationPhase, server storage.Server) error {
-	return f.RunCommand(ctx, f.Runner, server, Params{
+	err := f.RunCommand(ctx, f.Runner, server, Params{
 		PhaseID:  p.PhaseID,
 		Force:    p.Force,
 		Resume:   p.Resume,
 		Rollback: true,
 		Progress: p.Progress,
 	})
+	if err == nil {
+		// if the remote phase rollback is successful, we need to mark it in our local database
+		// because etcd might not be available to synchronize the changes back to us
+		err = f.ChangePhaseState(ctx,
+			StateChange{
+				Phase: phase.ID,
+				State: storage.OperationPhaseStateRolledBack,
+			})
+	}
+
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	return nil
 }
 
 // SetPreExec sets the hook that's called before phase execution
