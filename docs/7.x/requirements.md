@@ -16,7 +16,7 @@ Gravity officially supports the following Linux distributions:
 |--------------------------|------------------|---------------------------------------|
 | Red Hat Enterprise Linux | 7.4-7.8, 8.0-8.2 | `overlay`, `overlay2`                 |
 | CentOS                   | 7.2-7.7, 8.0-8.1 | `overlay`, `overlay2`                 |
-| Debian                   | 8-9              | `overlay`, `overlay2`                 |
+| Debian                   | 9                | `overlay`, `overlay2`                 |
 | Ubuntu                   | 16.04, 18.04     | `overlay`, `overlay2`                 |
 | Ubuntu-Core              | 16.04            | `overlay`, `overlay2`                 |
 | openSuse                 | 12-SP2 to 12-SP5 | `overlay`, `overlay2`                 |
@@ -38,7 +38,7 @@ specified in the manifest:
 |--------------------------|----------------------------|------------------|
 | Red Hat Enterprise Linux | rhel                       | 7.4-7.8, 8.0-8.2 |
 | CentOS                   | centos                     | 7.2-7.7, 8.0-8.1 |
-| Debian                   | debian                     | 8-9              |
+| Debian                   | debian                     | 9                |
 | Ubuntu                   | ubuntu                     | 16.04, 18.04     |
 | Ubuntu-Core              | ubuntu                     | 16.04            |
 | openSuse                 | suse, opensuse, opensuse-* | 12-SP2 to 12-SP5 |
@@ -260,7 +260,7 @@ Gravity requires that these modules are loaded prior to installation.
 | CentOS                               | 7.2              | bridge, ebtable_filter, iptables, overlay       |
 | CentOS                               | 7.3-7.6          | br_netfilter, ebtable_filter, iptables, overlay |
 | RedHat Linux                         | 7.3-7.6          | br_netfilter, ebtable_filter, iptables, overlay |
-| Debian                               | 8-9              | br_netfilter, ebtable_filter, iptables, overlay |
+| Debian                               | 9                | br_netfilter, ebtable_filter, iptables, overlay |
 | Ubuntu                               | 16.04            | br_netfilter, ebtable_filter, iptables, overlay |
 | Ubuntu-Core                          | 16.04            | br_netfilter, ebtable_filter, iptables, overlay |
 | Suse Linux (openSUSE and Enterprise) | 12-SP2 to 12-SP5 | br_netfilter, ebtable_filter, iptables, overlay |
