@@ -32,7 +32,9 @@
 
 ## Implementation
 <!--Optional. Add any relevant implementation details that might help the reviewers.-->
-<!--Optional. Add any performance considerations for the reviewers, such as considerations for supporting 1k node clusters.-->
+
+## Performance/scaling (optional)
+<!--Optional. Add any relevant details on how this PR reacts when scaled to 1k nodes, and any additional scaling considerations for the reviewers.-->
 
 ## Testing done
 <!--Required. Explain what kind of testing these changes underwent.-->
