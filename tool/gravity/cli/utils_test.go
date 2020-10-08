@@ -19,6 +19,7 @@ package cli
 import (
 	"testing"
 
+	"github.com/gravitational/gravity/lib/compare"
 	"github.com/gravitational/gravity/lib/storage"
 
 	"gopkg.in/check.v1"
@@ -57,20 +58,20 @@ func (s *UtilsSuite) TestFindServer(c *check.C) {
 	tokens := []string{server1.AdvertiseIP}
 	out, err := findServer(servers, tokens)
 	c.Assert(err, check.IsNil)
-	c.Assert(out.AdvertiseIP, check.Equals, server1.AdvertiseIP)
+	compare.DeepCompare(c, out, &server1)
 
 	tokens = []string{server1.Hostname}
 	out, err = findServer(servers, tokens)
 	c.Assert(err, check.IsNil)
-	c.Assert(out.Hostname, check.Equals, server1.Hostname)
+	compare.DeepCompare(c, out, &server1)
 
 	tokens = []string{server1.Nodename}
 	out, err = findServer(servers, tokens)
 	c.Assert(err, check.IsNil)
-	c.Assert(out.Nodename, check.Equals, server1.Nodename)
+	compare.DeepCompare(c, out, &server1)
 
 	tokens = []string{server1.InstanceID}
 	out, err = findServer(servers, tokens)
 	c.Assert(err, check.IsNil)
-	c.Assert(out.InstanceID, check.Equals, server1.InstanceID)
+	compare.DeepCompare(c, out, &server1)
 }
