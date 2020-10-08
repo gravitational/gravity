@@ -1305,7 +1305,7 @@ var (
 	HelmRegistryVar = fmt.Sprintf("%v=%v/", ImageRegistryVar, DockerRegistry)
 
 	// MaxExpandConcurrency is the number of servers that can be joining the cluster concurrently
-	MaxExpandConcurrency = (runtime.NumCPU() / 3) + 1
+	MaxExpandConcurrency = (runtime.NumCPU() / 3) + 4
 )
 
 // HookSecurityContext returns default securityContext for hook pods
