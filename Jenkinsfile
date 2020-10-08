@@ -70,7 +70,7 @@ def robotest() {
           file(credentialsId:'OPS_SSH_KEY', variable: 'SSH_KEY'),
           file(credentialsId:'OPS_SSH_PUB', variable: 'SSH_PUB'),
         ]) {
-          sh 'make -C e robotest-run-suite'
+          sh 'make -C e robotest-run'
         }
       } else {
         echo 'skipping robotest execution'
