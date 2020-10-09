@@ -203,6 +203,75 @@ metadata:
 	c.Assert(err, check.IsNil)
 }
 
+func (s *InstallerBuilderSuite) TestBuildInstallerWithPackagesInCache(c *check.C) {
+	if !checkDockerAvailable() {
+		c.Skip("test requires docker")
+	}
+
+	var (
+		manifestBytes = []byte(`
+apiVersion: cluster.gravitational.io/v2
+kind: Cluster
+metadata:
+  name: app
+  resourceVersion: "0.0.1"
+installer:
+  flavors:
+    items:
+      - name: "one"
+        nodes:
+          - profile: master
+            count: 1
+      - name: "three"
+        nodes:
+          - profile: master
+            count: 1
+          - profile: node
+            count: 2
+nodeProfiles:
+  - name: master
+    labels:
+      node-role.kubernetes.io/master: "true"
+  - name: node
+    labels:
+      node-role.kubernetes.io/node: "true"
+systemOptions:
+  runtime:
+    version: 0.0.2-dev.1
+`)
+	)
+
+	// setup
+	remoteEnv := newEnviron(c)
+	defer remoteEnv.Close()
+	buildEnv := newEnviron(c)
+	defer buildEnv.Close()
+	appDir := c.MkDir()
+	manifestPath := filepath.Join(appDir, defaults.ManifestFileName)
+
+	writeFile(manifestPath, manifestBytes, c)
+	b, err := New(Config{
+		FieldLogger:      logrus.WithField(trace.Component, "test"),
+		Progress:         utils.DiscardProgress,
+		Env:              buildEnv,
+		OutPath:          filepath.Join(buildEnv.StateDir, "app.tar"),
+		ManifestPath:     manifestPath,
+		SkipVersionCheck: true,
+		Repository:       "repository",
+		Syncer:           NewPackSyncer(remoteEnv.Packages, remoteEnv.Apps),
+	})
+	c.Assert(err, check.IsNil)
+
+	// Simulate a development workflow with packages/applications
+	// explicitly cached (but also unavailable in the remote hub)
+	createRuntimeApplicationWithVersion(buildEnv, "0.0.2-dev.1", c)
+	createApp(manifestBytes, buildEnv.Apps, c)
+
+	// verify
+	err = b.Build(context.TODO())
+	c.Assert(err, check.IsNil)
+}
+
 func (s *InstallerBuilderSuite) TestBuildInstallerWithIntermediateHops(c *check.C) {
 	if !checkDockerAvailable() {
 		c.Skip("test requires docker")
@@ -608,7 +677,7 @@ func (r legacyHubApps) GetApp(loc loc.Locator) (*libapp.Application, error) {
 }
 
 // legacyHubApps implements the libapp.Applications interface but replaces
-// the GetApp API to mimick the behavior of the legacy enterprise hub - namely,
+// the GetApp API to mimic the behavior of the legacy enterprise hub - namely,
 // that it does not understand the recent versions of the manifest and strips
 // away SystemOptions which is used to detect the planet package
 type legacyHubApps struct {
