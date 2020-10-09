@@ -26,6 +26,7 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/gravitational/gravity/lib/app"
 	libapp "github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/app/service"
 	blobfs "github.com/gravitational/gravity/lib/blob/fs"
@@ -245,40 +246,10 @@ func (b *Builder) SelectRuntime() (*semver.Version, error) {
 
 // SyncPackageCache ensures that all system dependencies are present in
 // the local cache directory for the specified list of runtime versions
-func (b *Builder) SyncPackageCache(ctx context.Context, runtimeVersion semver.Version, intermediateVersions ...semver.Version) error {
-	apps, err := b.Env.AppServiceLocal(localenv.AppConfig{})
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	for _, runtimeVersion := range append([]semver.Version{runtimeVersion}, intermediateVersions...) {
-		b.NextStep("Syncing packages for %v", runtimeVersion)
-		if err := b.syncPackageCache(ctx, runtimeVersion, apps); err != nil {
-			return trace.Wrap(err, "failed to sync packages for runtime version %v", runtimeVersion)
-		}
-	}
-	return nil
-}
-
-func (b *Builder) syncPackageCache(ctx context.Context, runtimeVersion semver.Version, apps libapp.Applications) error {
-	// see if all required packages/apps are already present in the local cache
-	runtimeApp, err := apps.GetApp(RuntimeApp(runtimeVersion))
-	if err != nil && !trace.IsNotFound(err) {
-		return trace.Wrap(err)
-	}
-	if runtimeApp != nil {
-		err = libapp.VerifyDependencies(*runtimeApp, apps, b.Env.Packages)
-		if err != nil && !trace.IsNotFound(err) {
-			return trace.Wrap(err)
-		}
-		if err == nil {
-			b.Info("Local package cache is up-to-date.")
-			b.NextStep("Local package cache is up-to-date")
-			return nil
-		}
-	}
+func (b *Builder) SyncPackageCache(ctx context.Context, runtimeVersion semver.Version, intermediateRuntimes ...semver.Version) error {
 	b.Infof("Synchronizing package cache with %v.", b.Repository)
 	b.NextStep("Downloading dependencies from %v", b.Repository)
-	return b.Syncer.Sync(ctx, b, runtimeVersion)
+	return b.Syncer.Sync(ctx, b, b.app(runtimeVersion), intermediateRuntimes)
 }
 
 // Vendor vendors the application images in the provided directory and
@@ -493,8 +464,17 @@ func (b *Builder) collectUpgradeDependencies() (result *libapp.Dependencies, err
 	return result, nil
 }
 
-// RuntimeApp returns the locator of the runtime application with the specified version
-func RuntimeApp(version semver.Version) loc.Locator {
+// app returns the application value with the specified runtime version
+// set as the base
+func (b Builder) app(runtimeVersion semver.Version) app.Application {
+	return app.Application{
+		Package:  b.Manifest.Locator(),
+		Manifest: b.Manifest.WithBase(runtimeApp(runtimeVersion)),
+	}
+}
+
+// runtimeApp returns the locator of the runtime application with the specified version
+func runtimeApp(version semver.Version) loc.Locator {
 	return loc.Runtime.WithVersion(version)
 }
 

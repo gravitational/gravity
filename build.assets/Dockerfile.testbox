@@ -1,0 +1,23 @@
+FROM quay.io/gravitational/debian-venti:go1.12.9-stretch
+
+RUN set -ex && adduser jenkins --uid=995 --disabled-password --system
+RUN (set -ex && mkdir -p /gopath/src/github.com/gravitational/gravity && \
+     chown -R jenkins /gopath && \
+     mkdir -p /.cache && \
+     chmod 777 /.cache)
+
+RUN set -ex && apt-get update && \
+    apt-get -y install apt-transport-https ca-certificates curl gnupg software-properties-common && \
+    curl -fsSL https://download.docker.com/linux/debian/gpg | APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=1 apt-key add - && \
+    add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/debian buster stable" && \
+    apt-get update && \
+    apt-get -y install docker-ce-cli
+
+ENV LANGUAGE="en_US.UTF-8" \
+     LANG="en_US.UTF-8" \
+     LC_ALL="en_US.UTF-8" \
+     LC_CTYPE="en_US.UTF-8" \
+     GOPATH="/gopath" \
+     PATH="$PATH:/opt/go/bin:/gopath/bin"
+
+VOLUME ["/gopath/src/github.com/gravitational/gravity"]
