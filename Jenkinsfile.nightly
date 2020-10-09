@@ -115,7 +115,7 @@ timestamps {
                   [$class: 'FileBinding', credentialsId:'OPS_SSH_KEY', variable: 'SSH_KEY'],
                   [$class: 'FileBinding', credentialsId:'OPS_SSH_PUB', variable: 'SSH_PUB'],
                   ]) {
-                    sh 'make -C e robotest-run-nightly'
+                    sh 'make -C e robotest-run ROBOTEST_CONFIG=nightly'
               }
             } else {
               echo 'skipped system tests'
