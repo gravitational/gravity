@@ -306,6 +306,9 @@ func printClusterStatus(cluster statusapi.Cluster, w io.Writer) {
 		fmt.Fprintf(w, "Cluster image:\t%v, version %v\n", cluster.App.Name,
 			cluster.App.Version)
 	}
+	if cluster.CloudProvider != "" {
+		fmt.Fprintf(w, "Cloud provider:\t%v\n", cluster.CloudProvider)
+	}
 	fmt.Fprintf(w, "Gravity version:\t%v (client) / %v (server)\n",
 		cluster.ClientVersion.Version, formatVersion(cluster.ServerVersion))
 	if cluster.Token.Token != "" {
@@ -385,6 +388,12 @@ func printNodeStatus(node statusapi.ClusterServer, w io.Writer) {
 		description = fmt.Sprintf("%v / %v", description, node.Profile)
 	}
 	fmt.Fprintf(w, "        * %v / %v\n", unknownFallback(node.Hostname), description)
+	if node.InstanceID != "" {
+		fmt.Fprintf(w, "            Instance ID:\t%v\n", node.InstanceID)
+	}
+	if node.InstanceType != "" {
+		fmt.Fprintf(w, "            Instance Type:\t%v\n", node.InstanceType)
+	}
 	if node.SELinux != nil && *node.SELinux {
 		fmt.Fprintf(w, "            SELinux:\t%v\n", formatSELinuxStatus(*node.SELinux))
 	}
