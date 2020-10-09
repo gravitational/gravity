@@ -97,6 +97,15 @@ func (s *S3Syncer) Sync(ctx context.Context, builder *Builder, app libapp.Applic
 			return trace.Wrap(err, "failed to sync packages for runtime version %v", runtimeVersion)
 		}
 	}
+	err = libapp.VerifyDependencies(app, cacheApps, builder.Env.Packages)
+	if err != nil && !trace.IsNotFound(err) {
+		return trace.Wrap(err)
+	}
+	if err == nil {
+		builder.WithField("app", app.String()).Info("Local package cache is up-to-date.")
+		builder.NextStep("Local package cache is up-to-date for %v", app)
+		return nil
+	}
 	if err := s.sync(ctx, builder, runtimeApp(app.Manifest.Base().Version), cacheApps); err != nil {
 		return trace.Wrap(err, "failed to sync packages for runtime version %v", app.Manifest.Base().Version)
 	}
@@ -191,6 +200,15 @@ func (s *PackSyncer) Sync(ctx context.Context, builder *Builder, app libapp.Appl
 		if err := s.sync(ctx, builder, *app, cacheApps); err != nil {
 			return trace.Wrap(err, "failed to sync packages for runtime version %v", runtimeVersion)
 		}
+	}
+	err = libapp.VerifyDependencies(app, cacheApps, builder.Env.Packages)
+	if err != nil && !trace.IsNotFound(err) {
+		return trace.Wrap(err)
+	}
+	if err == nil {
+		builder.WithField("app", app.String()).Info("Local package cache is up-to-date.")
+		builder.NextStep("Local package cache is up-to-date for %v", app)
+		return nil
 	}
 	// Synchronize direct dependencies of the application
 	if err := s.syncDeps(ctx, builder, app, cacheApps); err != nil {
