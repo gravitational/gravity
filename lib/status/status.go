@@ -53,6 +53,7 @@ func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, o
 			// Default to degraded - reset on successful query
 			State:         ops.SiteStateDegraded,
 			Reason:        cluster.Reason,
+			CloudProvider: cluster.Provider,
 			App:           cluster.App.Package,
 			ClientVersion: modules.Get().Version(),
 			Extension:     newExtension(),
@@ -66,6 +67,15 @@ func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, o
 
 	if err := updateClusterNodes(cluster.Key(), operator, status); err != nil {
 		log.WithError(err).Warn("Failed to query cluster nodes.")
+	}
+
+	// Populate cloud specific InstanceID
+	for i, node := range status.Agent.Nodes {
+		server := cluster.ClusterState.Servers.FindByIP(node.AdvertiseIP)
+		if server != nil {
+			status.Agent.Nodes[i].InstanceID = server.InstanceID
+			status.Agent.Nodes[i].InstanceType = server.InstanceType
+		}
 	}
 
 	token, err := operator.GetExpandToken(cluster.Key())
@@ -224,6 +234,8 @@ type Cluster struct {
 	Reason storage.Reason `json:"reason,omitempty"`
 	// Domain provides the name of the cluster domain
 	Domain string `json:"domain"`
+	// CloudProvider has the name of the provider
+	CloudProvider string `json:"cloud_provider,omitempty"`
 	// Token specifies the provisioning token used for joining nodes to cluster if any
 	Token storage.ProvisioningToken `json:"token"`
 	// Operation describes a cluster operation.
@@ -390,6 +402,10 @@ type ClusterServer struct {
 	WarnProbes []string `json:"warn_probes,omitempty"`
 	// TeleportNode contains information about Teleport node running on this server
 	TeleportNode *ops.Node `json:"teleport_node,omitempty"`
+	// InstanceID is the node cloud specific instance ID
+	InstanceID string `json:"instance_id,omitempty"`
+	// InstanceType is the node cloud specific instance Type
+	InstanceType string `json:"instance_type,omitempty"`
 }
 
 func (r ClusterOperation) isFailed() bool {

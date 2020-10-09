@@ -718,7 +718,7 @@ type Node struct {
 	Profile string `json:"profile"`
 	// Role is the node service role
 	Role string `json:"role"`
-	// InstanceType is the node instance type
+	// InstanceType is the node cloud specific instance type
 	InstanceType string `json:"instance_type"`
 }
 

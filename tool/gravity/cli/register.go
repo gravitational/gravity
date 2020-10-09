@@ -135,7 +135,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.LeaveCmd.Confirm = g.LeaveCmd.Flag("confirm", "Do not ask for confirmation.").Bool()
 
 	g.RemoveCmd.CmdClause = g.Command("remove", "Remove a node from the cluster.")
-	g.RemoveCmd.Node = g.RemoveCmd.Arg("node", "Node to remove: can be IP address, hostname or name from `kubectl get nodes` output).").
+	g.RemoveCmd.Node = g.RemoveCmd.Arg("node", "Node to remove: can be IP address, hostname, cloud specific instance ID or name from `kubectl get nodes` output).").
 		Required().String()
 	g.RemoveCmd.Force = g.RemoveCmd.Flag("force", "Force removal of an offline node.").Bool()
 	g.RemoveCmd.Confirm = g.RemoveCmd.Flag("confirm", "Do not ask for confirmation.").Bool()
