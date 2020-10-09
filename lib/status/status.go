@@ -71,10 +71,10 @@ func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, o
 	}
 
 	// Populate cloud specific InstanceID
-	for _, node := range status.Agent.Nodes {
+	for i, node := range status.Agent.Nodes {
 		server := cluster.ClusterState.Servers.FindByIP(node.AdvertiseIP)
 		if server != nil {
-			node.InstanceID = server.InstanceID
+			status.Agent.Nodes[i].InstanceID = server.InstanceID
 		}
 	}
 
