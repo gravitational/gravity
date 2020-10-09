@@ -235,7 +235,7 @@ type Cluster struct {
 	// Domain provides the name of the cluster domain
 	Domain string `json:"domain"`
 	// CloudProvider has the name of the provider
-	CloudProvider string `json:"cloud_provider"`
+	CloudProvider string `json:"cloud_provider,omitempty"`
 	// Token specifies the provisioning token used for joining nodes to cluster if any
 	Token storage.ProvisioningToken `json:"token"`
 	// Operation describes a cluster operation.
@@ -403,7 +403,7 @@ type ClusterServer struct {
 	// TeleportNode contains information about Teleport node running on this server
 	TeleportNode *ops.Node `json:"teleport_node,omitempty"`
 	// InstanceID is the node cloud specific instance ID
-	InstanceID string `json:"instance_id"`
+	InstanceID string `json:"instance_id,omitempty"`
 }
 
 func (r ClusterOperation) isFailed() bool {
