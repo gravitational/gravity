@@ -37,9 +37,11 @@ import (
 
 // Syncer synchronizes the local package cache from a (remote) repository
 type Syncer interface {
-	// Sync makes sure that local cache has all required dependencies for the
-	// selected runtime
-	Sync(ctx context.Context, builder *Builder, runtimeVersion semver.Version) error
+	// Sync synchronizes the dependencies between a remote repository and the local cache directory.
+	// app specifies the application to synchronize dependencies for.
+	// intermediateRuntimes optionally provides the list of additional runtime application dependencies
+	// to sync.
+	Sync(ctx context.Context, builder *Builder, app libapp.Application, intermediateRuntimes []semver.Version) error
 }
 
 // S3Syncer synchronizes local package cache with an S3 bucket
@@ -59,22 +61,65 @@ func NewS3Syncer() (*S3Syncer, error) {
 	}, nil
 }
 
-// Sync makes sure that local cache has all required dependencies for the
-// selected runtime
-func (s *S3Syncer) Sync(ctx context.Context, builder *Builder, runtimeVersion semver.Version) error {
-	var application = loc.Locator{
-		Repository: defaults.SystemAccountOrg,
-		Name:       "telekube",
-		Version:    runtimeVersion.String(),
+// intermediateRuntimes provides a list of additional runtime dependencies to sync.
+// Sync synchronizes the runtime application of the specified app.
+// intermediateRuntimes optionally specifies additional runtime application versions to sync.
+//
+// This implementation does not attempt to sync the application's direct dependencies since
+// they are never available in the oss hub and instead should already be in the local package cache.
+func (s *S3Syncer) Sync(ctx context.Context, builder *Builder, app libapp.Application, intermediateRuntimes []semver.Version) error {
+	if app.Manifest.Base() == nil {
+		return trace.BadParameter("runtime version unspecified in manifest")
 	}
+	runtimeApp := func(version string) loc.Locator {
+		return loc.Locator{
+			Repository: defaults.SystemAccountOrg,
+			Name:       "telekube",
+			Version:    version,
+		}
+	}
+	cacheApps, err := builder.Env.AppServiceLocal(localenv.AppConfig{})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	for _, runtimeVersion := range intermediateRuntimes {
+		err := libapp.VerifyDependencies(app, cacheApps, builder.Env.Packages)
+		if err != nil && !trace.IsNotFound(err) {
+			return trace.Wrap(err)
+		}
+		if err == nil {
+			builder.WithField("runtime-app", runtimeVersion).Info("Local package cache is up-to-date.")
+			builder.NextStep("Local package cache is up-to-date for %v", runtimeVersion)
+			continue
+		}
+		runtimeApp := runtimeApp(runtimeVersion.String())
+		if err := s.sync(ctx, builder, runtimeApp, cacheApps); err != nil {
+			return trace.Wrap(err, "failed to sync packages for runtime version %v", runtimeVersion)
+		}
+	}
+	err = libapp.VerifyDependencies(app, cacheApps, builder.Env.Packages)
+	if err != nil && !trace.IsNotFound(err) {
+		return trace.Wrap(err)
+	}
+	if err == nil {
+		builder.WithField("app", app.String()).Info("Local package cache is up-to-date.")
+		builder.NextStep("Local package cache is up-to-date for %v", app)
+		return nil
+	}
+	if err := s.sync(ctx, builder, runtimeApp(app.Manifest.Base().Version), cacheApps); err != nil {
+		return trace.Wrap(err, "failed to sync packages for runtime version %v", app.Manifest.Base().Version)
+	}
+	return nil
+}
 
+func (s *S3Syncer) sync(ctx context.Context, builder *Builder, app loc.Locator, cacheApps libapp.Applications) error {
 	unpackedDir, err := ioutil.TempDir("", "runtime-unpacked")
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	defer os.RemoveAll(unpackedDir)
 
-	err = s.download(unpackedDir, application)
+	err = s.download(unpackedDir, app)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -86,13 +131,8 @@ func (s *S3Syncer) Sync(ctx context.Context, builder *Builder, runtimeVersion se
 	}
 	defer tarballEnv.Close()
 
-	cacheApps, err := builder.Env.AppServiceLocal(localenv.AppConfig{})
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
 	// sync packages between unpacked tarball directory and package cache
-	app, err := tarballEnv.Apps.GetApp(RuntimeApp(runtimeVersion))
+	tarballApp, err := tarballEnv.Apps.GetApp(app)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -105,11 +145,7 @@ func (s *S3Syncer) Sync(ctx context.Context, builder *Builder, runtimeVersion se
 		Parallel:    builder.VendorReq.Parallel,
 		Upsert:      true,
 	}
-	err = puller.PullAppDeps(ctx, *app)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	return puller.PullAppPackage(ctx, app.Package)
+	return puller.PullApp(ctx, tarballApp.Package)
 }
 
 func (s *S3Syncer) download(path string, loc loc.Locator) error {
@@ -134,19 +170,54 @@ func NewPackSyncer(pack pack.PackageService, apps libapp.Applications) *PackSync
 	}
 }
 
-// Sync pulls dependencies from the package/app service not available locally
-func (s *PackSyncer) Sync(ctx context.Context, builder *Builder, runtimeVersion semver.Version) error {
+// Sync pulls dependencies from the package/app service not available locally.
+// app specifies the application to sync dependencies for.
+// intermediateRuntimes optionally specifies additional runtime application versions to sync.
+func (s *PackSyncer) Sync(ctx context.Context, builder *Builder, app libapp.Application, intermediateRuntimes []semver.Version) error {
 	cacheApps, err := builder.Env.AppServiceLocal(localenv.AppConfig{})
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	// TODO(dmitri): current distribution hub will not return the manifest correctly
-	// for a recent version of the application due to compatibility issues.
-	// Query the package and parse the manifest manually to query the default runtime package
-	app, err := getApp(s.pack, RuntimeApp(runtimeVersion))
-	if err != nil {
+	for _, runtimeVersion := range intermediateRuntimes {
+		builder.NextStep("Syncing packages for %v", runtimeVersion)
+		// TODO(dmitri): current distribution hub will not return the manifest correctly
+		// for a recent version of the application due to compatibility issues.
+		// Query the package and parse the manifest manually to be able to properly query
+		// the runtime package
+		app, err := getApp(s.pack, runtimeApp(runtimeVersion))
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		err = libapp.VerifyDependencies(*app, cacheApps, builder.Env.Packages)
+		if err != nil && !trace.IsNotFound(err) {
+			return trace.Wrap(err)
+		}
+		if err == nil {
+			builder.WithField("runtime-app", runtimeVersion).Info("Local package cache is up-to-date.")
+			builder.NextStep("Local package cache is up-to-date for %v", runtimeVersion)
+			continue
+		}
+		if err := s.sync(ctx, builder, *app, cacheApps); err != nil {
+			return trace.Wrap(err, "failed to sync packages for runtime version %v", runtimeVersion)
+		}
+	}
+	err = libapp.VerifyDependencies(app, cacheApps, builder.Env.Packages)
+	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
 	}
+	if err == nil {
+		builder.WithField("app", app.String()).Info("Local package cache is up-to-date.")
+		builder.NextStep("Local package cache is up-to-date for %v", app)
+		return nil
+	}
+	// Synchronize direct dependencies of the application
+	if err := s.syncDeps(ctx, builder, app, cacheApps); err != nil {
+		return trace.Wrap(err, "failed to sync dependencies for application %v", app)
+	}
+	return nil
+}
+
+func (s *PackSyncer) sync(ctx context.Context, builder *Builder, app libapp.Application, cacheApps libapp.Applications) error {
 	puller := libapp.Puller{
 		FieldLogger: builder.FieldLogger,
 		SrcPack:     s.pack,
@@ -156,7 +227,7 @@ func (s *PackSyncer) Sync(ctx context.Context, builder *Builder, runtimeVersion 
 		Parallel:    builder.VendorReq.Parallel,
 		OnConflict:  libapp.GetDependencyConflictHandler(false),
 	}
-	err = puller.PullAppDeps(ctx, *app)
+	err := puller.PullAppDeps(ctx, app)
 	if err != nil {
 		if utils.IsNetworkError(err) || trace.IsEOF(err) {
 			return trace.ConnectionProblem(err, "failed to download "+
@@ -166,6 +237,28 @@ func (s *PackSyncer) Sync(ctx context.Context, builder *Builder, runtimeVersion 
 		return trace.Wrap(err)
 	}
 	return puller.PullAppPackage(ctx, app.Package)
+}
+
+func (s *PackSyncer) syncDeps(ctx context.Context, builder *Builder, app libapp.Application, cacheApps libapp.Applications) error {
+	puller := libapp.Puller{
+		FieldLogger: builder.FieldLogger,
+		SrcPack:     s.pack,
+		SrcApp:      s.apps,
+		DstPack:     builder.Env.Packages,
+		DstApp:      cacheApps,
+		Parallel:    builder.VendorReq.Parallel,
+		OnConflict:  libapp.GetDependencyConflictHandler(false),
+	}
+	err := puller.PullAppDeps(ctx, app)
+	if err != nil {
+		if utils.IsNetworkError(err) || trace.IsEOF(err) {
+			return trace.ConnectionProblem(err, "failed to download "+
+				"application dependencies from %v - please make sure the "+
+				"repository is reachable: %v", builder.Repository, err)
+		}
+		return trace.Wrap(err)
+	}
+	return nil
 }
 
 // PackSyncer synchronizes local package cache with remote package/application services

@@ -128,6 +128,51 @@ func (s *InstallerBuilderSuite) TestBuildInstallerWithDefaultPlanetPackage(c *ch
 	if !checkDockerAvailable() {
 		c.Skip("test requires docker")
 	}
+
+	var (
+		manifestBytes = []byte(`
+apiVersion: cluster.gravitational.io/v2
+kind: Cluster
+metadata:
+  name: app
+  resourceVersion: "0.0.1"
+dependencies:
+  apps:
+    - gravitational.io/app-dependency:0.0.1
+installer:
+  flavors:
+    items:
+      - name: "one"
+        nodes:
+          - profile: master
+            count: 1
+      - name: "three"
+        nodes:
+          - profile: master
+            count: 1
+          - profile: node
+            count: 2
+nodeProfiles:
+  - name: master
+    labels:
+      node-role.kubernetes.io/master: "true"
+  - name: node
+    labels:
+      node-role.kubernetes.io/node: "true"
+systemOptions:
+  runtime:
+    version: 0.0.1
+`)
+
+		dependencyManifestBytes = []byte(`
+apiVersion: bundle.gravitational.io/v2
+kind: SystemApplication
+metadata:
+  name: app-dependency
+  resourceVersion: "0.0.1"
+`)
+	)
+
 	// setup
 	remoteEnv := newEnviron(c)
 	defer remoteEnv.Close()
@@ -135,7 +180,36 @@ func (s *InstallerBuilderSuite) TestBuildInstallerWithDefaultPlanetPackage(c *ch
 	defer buildEnv.Close()
 	appDir := c.MkDir()
 	manifestPath := filepath.Join(appDir, defaults.ManifestFileName)
-	manifestBytes := []byte(`
+
+	writeFile(manifestPath, manifestBytes, c)
+	b, err := New(Config{
+		FieldLogger:      logrus.WithField(trace.Component, "test"),
+		Progress:         utils.DiscardProgress,
+		Env:              buildEnv,
+		OutPath:          filepath.Join(buildEnv.StateDir, "app.tar"),
+		ManifestPath:     manifestPath,
+		SkipVersionCheck: true,
+		Repository:       "repository",
+		Syncer:           NewPackSyncer(remoteEnv.Packages, remoteEnv.Apps),
+	})
+	c.Assert(err, check.IsNil)
+
+	createRuntimeApplication(remoteEnv, c)
+	createApp(dependencyManifestBytes, remoteEnv.Apps, c)
+	createApp(manifestBytes, remoteEnv.Apps, c)
+
+	// verify
+	err = b.Build(context.TODO())
+	c.Assert(err, check.IsNil)
+}
+
+func (s *InstallerBuilderSuite) TestBuildInstallerWithPackagesInCache(c *check.C) {
+	if !checkDockerAvailable() {
+		c.Skip("test requires docker")
+	}
+
+	var (
+		manifestBytes = []byte(`
 apiVersion: cluster.gravitational.io/v2
 kind: Cluster
 metadata:
@@ -163,8 +237,18 @@ nodeProfiles:
       node-role.kubernetes.io/node: "true"
 systemOptions:
   runtime:
-    version: 0.0.1
+    version: 0.0.2-dev.1
 `)
+	)
+
+	// setup
+	remoteEnv := newEnviron(c)
+	defer remoteEnv.Close()
+	buildEnv := newEnviron(c)
+	defer buildEnv.Close()
+	appDir := c.MkDir()
+	manifestPath := filepath.Join(appDir, defaults.ManifestFileName)
+
 	writeFile(manifestPath, manifestBytes, c)
 	b, err := New(Config{
 		FieldLogger:      logrus.WithField(trace.Component, "test"),
@@ -178,15 +262,107 @@ systemOptions:
 	})
 	c.Assert(err, check.IsNil)
 
-	createRuntimeApplication(remoteEnv, c)
-	createApp(manifestBytes, remoteEnv.Apps, c)
+	// Simulate a development workflow with packages/applications
+	// explicitly cached (but also unavailable in the remote hub)
+	createRuntimeApplicationWithVersion(buildEnv, "0.0.2-dev.1", c)
+	createApp(manifestBytes, buildEnv.Apps, c)
 
 	// verify
 	err = b.Build(context.TODO())
 	c.Assert(err, check.IsNil)
 }
 
-func (s *BuilderSuite) TestBuildInstallerWithDefaultPlanetPackageFromHub(c *check.C) {
+func (s *InstallerBuilderSuite) TestBuildInstallerWithIntermediateHops(c *check.C) {
+	if !checkDockerAvailable() {
+		c.Skip("test requires docker")
+	}
+
+	var (
+		manifestBytes = []byte(`
+apiVersion: cluster.gravitational.io/v2
+kind: Cluster
+metadata:
+  name: app
+  resourceVersion: "0.0.1"
+installer:
+  flavors:
+    items:
+      - name: "one"
+        nodes:
+          - profile: master
+            count: 1
+      - name: "three"
+        nodes:
+          - profile: master
+            count: 1
+          - profile: node
+            count: 2
+nodeProfiles:
+  - name: master
+    labels:
+      node-role.kubernetes.io/master: "true"
+  - name: node
+    labels:
+      node-role.kubernetes.io/node: "true"
+systemOptions:
+  runtime:
+    version: 0.0.2
+`)
+	)
+
+	// setup
+	remoteEnv := newEnviron(c)
+	defer remoteEnv.Close()
+	buildEnv := newEnviron(c)
+	defer buildEnv.Close()
+	appDir := c.MkDir()
+	manifestPath := filepath.Join(appDir, defaults.ManifestFileName)
+
+	writeFile(manifestPath, manifestBytes, c)
+	outputPath := filepath.Join(buildEnv.StateDir, "app.tar")
+	b, err := New(Config{
+		FieldLogger:      logrus.WithField(trace.Component, "test"),
+		Progress:         utils.DiscardProgress,
+		Env:              buildEnv,
+		OutPath:          outputPath,
+		ManifestPath:     manifestPath,
+		SkipVersionCheck: true,
+		Repository:       "repository",
+		Syncer:           NewPackSyncer(remoteEnv.Packages, remoteEnv.Apps),
+		UpgradeVia:       []string{"0.0.1"},
+	})
+	c.Assert(err, check.IsNil)
+
+	createRuntimeApplicationWithVersion(remoteEnv, "0.0.1", c)
+	createRuntimeApplicationWithVersion(remoteEnv, "0.0.2", c)
+	createApp(manifestBytes, remoteEnv.Apps, c)
+
+	// verify
+	err = b.Build(context.TODO())
+	c.Assert(err, check.IsNil)
+
+	unpackDir := c.MkDir()
+	tarballEnv := unpackTarball(outputPath, unpackDir, c)
+	defer tarballEnv.Close()
+
+	verifyPackagesWithLabels(tarballEnv.Packages, packagesWithLabels{
+		newPackage("gravitational.io/planet:0.0.2"),
+		newPackage("gravitational.io/planet:0.0.1",
+			pack.PurposeRuntimeUpgrade, "0.0.1",
+		),
+		newPackage("gravitational.io/app:0.0.1"),
+		newPackage("gravitational.io/gravity:0.0.1",
+			pack.PurposeRuntimeUpgrade, "0.0.1",
+		),
+		newPackage("gravitational.io/gravity:0.0.2"),
+		newPackage("gravitational.io/kubernetes:0.0.1",
+			pack.PurposeRuntimeUpgrade, "0.0.1",
+		),
+		newPackage("gravitational.io/kubernetes:0.0.2"),
+	}, c)
+}
+
+func (s *BuilderSuite) TestBuildInstallerWithDefaultPlanetPackageFromLegacyHub(c *check.C) {
 	if !checkDockerAvailable() {
 		c.Skip("test requires docker")
 	}
@@ -429,36 +605,39 @@ func newEnviron(c *check.C) *localenv.LocalEnvironment {
 }
 
 func createRuntimeApplication(env *localenv.LocalEnvironment, c *check.C) {
-	runtimePackage := loc.MustParseLocator("gravitational.io/planet:0.0.1")
+	createRuntimeApplicationWithVersion(env, "0.0.1", c)
+}
+
+func createRuntimeApplicationWithVersion(env *localenv.LocalEnvironment, version string, c *check.C) {
+	runtimePackage := loc.Planet.WithLiteralVersion(version)
+	gravityPackage := loc.Gravity.WithLiteralVersion(version)
 	items := []*archive.Item{
 		archive.ItemFromString("planet", "planet"),
 	}
 	apptest.CreatePackage(env.Packages, runtimePackage, items, c)
-	gravityPackage := loc.MustParseLocator("gravitational.io/gravity:0.0.1")
 	items = []*archive.Item{
 		archive.ItemFromString("gravity", "gravity"),
 	}
 	apptest.CreatePackage(env.Packages, gravityPackage, items, c)
-	manifestBytes := `apiVersion: bundle.gravitational.io/v2
+	manifestBytes := fmt.Sprintf(`apiVersion: bundle.gravitational.io/v2
 kind: Runtime
 metadata:
   name: kubernetes
-  resourceVersion: 0.0.1
+  resourceVersion: %[1]v
 dependencies:
   packages:
-  - gravitational.io/planet:0.0.1
-  - gravitational.io/gravity:0.0.1
+  - gravitational.io/planet:%[1]v
+  - gravitational.io/gravity:%[1]v
 systemOptions:
   dependencies:
-    runtimePackage: gravitational.io/planet:0.0.1
-`
-	locator := loc.MustParseLocator(
-		fmt.Sprintf("%v/%v:0.0.1", defaults.SystemAccountOrg, defaults.Runtime))
+    runtimePackage: gravitational.io/planet:%[1]v
+`, version)
+	runtimeAppLoc := loc.Runtime.WithLiteralVersion(version)
 	items = []*archive.Item{
 		archive.DirItem("resources"),
 		archive.ItemFromString("resources/app.yaml", manifestBytes),
 	}
-	apptest.CreateApplicationFromData(env.Apps, locator, items, c)
+	apptest.CreateApplicationFromData(env.Apps, runtimeAppLoc, items, c)
 }
 
 func createApp(manifestBytes []byte, apps libapp.Applications, c *check.C) *libapp.Application {
@@ -481,10 +660,10 @@ func writeFile(path string, contents []byte, c *check.C) {
 }
 
 func newHubApps(apps libapp.Applications) libapp.Applications {
-	return hubApps{Applications: apps}
+	return legacyHubApps{Applications: apps}
 }
 
-func (r hubApps) GetApp(loc loc.Locator) (*libapp.Application, error) {
+func (r legacyHubApps) GetApp(loc loc.Locator) (*libapp.Application, error) {
 	app, err := r.Applications.GetApp(loc)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -497,7 +676,11 @@ func (r hubApps) GetApp(loc loc.Locator) (*libapp.Application, error) {
 	return app, nil
 }
 
-type hubApps struct {
+// legacyHubApps implements the libapp.Applications interface but replaces
+// the GetApp API to mimic the behavior of the legacy enterprise hub - namely,
+// that it does not understand the recent versions of the manifest and strips
+// away SystemOptions which is used to detect the planet package
+type legacyHubApps struct {
 	libapp.Applications
 }
 
@@ -525,6 +708,24 @@ func buildDockerImage(dir, tag string, c *check.C) {
 
 func removeDockerImage(tag string) {
 	exec.Command("docker", "rmi", tag).Run()
+}
+
+func verifyPackagesWithLabels(packages pack.PackageService, expected packagesWithLabels, c *check.C) {
+	var obtained packagesWithLabels
+	pack.ForeachPackage(packages, func(e pack.PackageEnvelope) error {
+		labels := e.RuntimeLabels
+		if labels == nil {
+			// To compensate for package envelopes with nil labels
+			// when comparing
+			labels = make(map[string]string)
+		}
+		obtained = append(obtained, packageWithLabels{
+			loc:    e.Locator,
+			labels: labels,
+		})
+		return nil
+	})
+	c.Assert(obtained, compare.SortedSliceEquals, expected)
 }
 
 func verifyPackages(packages pack.PackageService, expected []string, c *check.C) {
@@ -576,3 +777,30 @@ metadata:
 	planetTag      = "quay.io/gravitational/planet:0.0.2"
 	planetPlainTag = "gravitational/planet:0.0.2"
 )
+
+func newPackage(s string, labels ...string) packageWithLabels {
+	if len(labels)%2 != 0 {
+		panic("number of labels must be even")
+	}
+	var m map[string]string
+	m = make(map[string]string)
+	for i := 0; i < len(labels); i += 2 {
+		m[labels[i]] = labels[i+1]
+	}
+	return packageWithLabels{loc: loc.MustParseLocator(s), labels: m}
+}
+
+func (r packagesWithLabels) Len() int { return len(r) }
+func (r packagesWithLabels) Swap(i, j int) {
+	r[i], r[j] = r[j], r[i]
+}
+func (r packagesWithLabels) Less(i, j int) bool {
+	return r[i].loc.String() < r[j].loc.String()
+}
+
+type packagesWithLabels []packageWithLabels
+
+type packageWithLabels struct {
+	loc    loc.Locator
+	labels map[string]string
+}
