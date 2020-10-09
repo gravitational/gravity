@@ -75,6 +75,7 @@ func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, o
 		server := cluster.ClusterState.Servers.FindByIP(node.AdvertiseIP)
 		if server != nil {
 			status.Agent.Nodes[i].InstanceID = server.InstanceID
+			status.Agent.Nodes[i].InstanceType = server.InstanceType
 		}
 	}
 
@@ -404,6 +405,8 @@ type ClusterServer struct {
 	TeleportNode *ops.Node `json:"teleport_node,omitempty"`
 	// InstanceID is the node cloud specific instance ID
 	InstanceID string `json:"instance_id,omitempty"`
+	// InstanceType is the node cloud specific instance Type
+	InstanceType string `json:"instance_type,omitempty"`
 }
 
 func (r ClusterOperation) isFailed() bool {

@@ -391,8 +391,8 @@ func printNodeStatus(node statusapi.ClusterServer, w io.Writer) {
 	if node.InstanceID != "" {
 		fmt.Fprintf(w, "            Instance ID:\t%v\n", node.InstanceID)
 	}
-	if node.TeleportNode != nil && node.TeleportNode.InstanceType != "" {
-		fmt.Fprintf(w, "            Instance Type:\t%v\n", node.TeleportNode.InstanceType)
+	if node.InstanceType != "" {
+		fmt.Fprintf(w, "            Instance Type:\t%v\n", node.InstanceType)
 	}
 	if node.SELinux != nil && *node.SELinux {
 		fmt.Fprintf(w, "            SELinux:\t%v\n", formatSELinuxStatus(*node.SELinux))
