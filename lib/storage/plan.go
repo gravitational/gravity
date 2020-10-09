@@ -456,7 +456,7 @@ func (p OperationPhase) GetState() string {
 		}
 		return p.State
 	}
-	// otherwise collect states of all subphases
+	// otherwise collect the set of states of all subphases
 	states := utils.NewStringSet()
 	for _, phase := range p.Phases {
 		states.Add(phase.GetState())
@@ -465,10 +465,24 @@ func (p OperationPhase) GetState() string {
 	if len(states) == 1 {
 		return states.Slice()[0]
 	}
-	// if any of the subphases is failed or rolled back then this phase is failed
-	if states.Has(OperationPhaseStateFailed) || states.Has(OperationPhaseStateRolledBack) {
+
+	// if any of the subphases are in a failed state, then this phase is also failed.
+	if states.Has(OperationPhaseStateFailed) {
 		return OperationPhaseStateFailed
 	}
+
+	// an in_progress state means that the phase has at least one subphase
+	// in_progress and no failed subphases.
+	if states.Has(OperationPhaseStateInProgress) {
+		return OperationPhaseStateInProgress
+	}
+
+	// If all subphases are either unstarted or rolled back, this phase is also
+	// considered to be rolled back.
+	if !states.Has(OperationPhaseStateCompleted) && states.Has(OperationPhaseStateRolledBack) {
+		return OperationPhaseStateRolledBack
+	}
+
 	// otherwise we consider the whole phase to be in progress because it hasn't
 	// converged to a single state yet
 	return OperationPhaseStateInProgress

@@ -18,6 +18,7 @@ package fsm
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/ops"
@@ -28,6 +29,17 @@ import (
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
 )
+
+// rollbackDependentsErrorMsg returns an error message for when a phase is being
+// rolled back, but has dependent phases that have not yet been rolled back.
+func rollbackDependentsErrorMsg(phaseID string, dependents []string) string {
+	const msg = `Phase %[1]s cannot be rolled back because some phases that depend on it haven't been rolled back yet. Please rollback the following phases first:
+
+	%[2]s
+
+You can pass --force flag to override this check and force phase %[1]s rollback.`
+	return fmt.Sprintf(msg, phaseID, strings.Join(dependents, "\n\t"))
+}
 
 // CanRollback checks if specified phase can be rolled back
 func CanRollback(plan *storage.OperationPlan, phaseID string) error {
@@ -43,7 +55,98 @@ func CanRollback(plan *storage.OperationPlan, phaseID string) error {
 		return trace.BadParameter(
 			"phase %q has already been rolled back", phase.ID)
 	}
+
+	// TODO: Rollback of non-leaf phases is not currently supported.
+	// Rollback starts top-down, and not in reverse order.
+	if phase.HasSubphases() {
+		return trace.BadParameter(
+			"rolling back phases that have sub-phases is not supported. Please rollback individual phases").
+			AddField("phase", phase.ID)
+	}
+
+	requiresRollback := getRequiresRollback(plan, phase.ID)
+	if len(requiresRollback) != 0 {
+		return trace.BadParameter(rollbackDependentsErrorMsg(phase.ID, requiresRollback))
+	}
+
 	return nil
+}
+
+// getRequired constructs the initial set of required phases. This set includes
+// the phase specified by phaseID and its parent phases. Returns nil if phases
+// does not contain a phase with phaseID.
+//
+// Given a list of phases like:
+//
+//	/init
+//	/masters
+//		* /node-1
+//			* /system-upgrade
+//		* /node-2
+//
+// and a phaseID "/masters/node-1/system-upgrade" will return the set:
+//
+// {"/masters", "/masters/node-1", "/masters/node-1/system-upgrade"}
+func getRequired(phases []storage.OperationPhase, phaseID string) map[string]struct{} {
+	for _, phase := range phases {
+		if phase.ID == phaseID {
+			return map[string]struct{}{
+				phaseID: {},
+			}
+		}
+		required := getRequired(phase.Phases, phaseID)
+		if required != nil {
+			required[phase.ID] = struct{}{}
+			return required
+		}
+	}
+	return nil
+}
+
+// getRequiresRollback returns a list of phases that need to be rolled back
+// before the phase specified by phaseID can be rolled back.
+func getRequiresRollback(plan *storage.OperationPlan, phaseID string) (dependents []string) {
+	// required will be nil if an invalid phaseID is provided.
+	required := getRequired(plan.Phases, phaseID)
+	if required == nil {
+		return dependents
+	}
+	return getRequiresRollbackHelper(required, plan.Phases)
+}
+
+// getRequiresRollbackHelper is a recursive helper function that returns a list
+// of dependent phases that have been started and have not been rolled back.
+func getRequiresRollbackHelper(required map[string]struct{}, phases []storage.OperationPhase) (dependents []string) {
+	if len(phases) == 0 {
+		return dependents
+	}
+
+	for _, phase := range phases {
+		if isDependent(required, phase) {
+			if !phase.IsUnstarted() && !phase.IsRolledBack() {
+				// Append phase to list of dependents that need to be rolled back.
+				dependents = append(dependents, phase.ID)
+			}
+			// Add phase to the required set. Phases dependent on this phase are
+			// also dependents of the original set of required phases.
+			required[phase.ID] = struct{}{}
+		}
+		// Append any dependent sub phases that need to be rolled back.
+		dependents = append(dependents, getRequiresRollbackHelper(required, phase.Phases)...)
+	}
+
+	return dependents
+}
+
+// isDependent returns true if the phase requires any of the phases contained in
+// the required set.
+func isDependent(required map[string]struct{}, phase storage.OperationPhase) bool {
+	for _, phaseID := range phase.Requires {
+		if _, exists := required[phaseID]; exists {
+			return true
+		}
+	}
+	return false
 }
 
 // IsCompleted returns true if all phases of the provided plan are completed
