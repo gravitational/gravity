@@ -9,7 +9,7 @@
 # - make install  : build via `go install`. The output goes into GOPATH/bin/
 # - make clean    : remove the build output and artifacts
 #
-TOP := $(dir $(CURDIR)/$(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST)))
+TOP := $(realpath $(dir $(CURDIR)/$(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST))))
 
 OPS_URL ?=
 
@@ -136,7 +136,7 @@ LOCAL_BUILDDIR ?= /gopath/src/github.com/gravitational/gravity/build
 LOCAL_GRAVITY_BUILDDIR ?= /gopath/src/github.com/gravitational/gravity/build/$(GRAVITY_VERSION)
 
 # Directory used as a state dir with all packages when building an application
-# with tele build (e.g. opscenter or telekube)
+# with tele build (e.g. opscenter, robotest, telekube, or wormhole)
 PACKAGES_DIR ?= $(GRAVITY_BUILDDIR)/packages
 
 # Outputs
@@ -172,14 +172,10 @@ SELINUX_ASSETS := $(SELINUX_ASSETSDIR)/gravity.pp.bz2 \
 		$(SELINUX_ASSETSDIR)/gravity.statedir.fc.template
 SELINUX_OUT := $(GRAVITY_BUILDDIR)/selinux-policy.tgz
 
-GRAVITY_DIR := /var/lib/gravity
-GRAVITY_ASSETS_DIR := /usr/local/share/gravity
-
 LOCAL_OPSCENTER_HOST ?= opscenter.localhost.localdomain
-LOCAL_OPSCENTER_DIR := $(GRAVITY_DIR)/opscenter
-LOCAL_ETCD_DIR := $(GRAVITY_DIR)/etcd
 LOCAL_OPS_URL := https://$(LOCAL_OPSCENTER_HOST):33009
-LOCAL_STATE_DIR ?= $(LOCAL_OPSCENTER_DIR)/read
+
+LOCAL_STATE_DIR ?= $(GRAVITY_BUILDDIR)/state
 
 # Build artifacts published to S3
 GRAVITY_PUBLISH_TARGETS := $(GRAVITY_OUT) \
@@ -191,8 +187,6 @@ GRAVITY_PUBLISH_TARGETS := $(GRAVITY_OUT) \
 	$(RBAC_APP_OUT) \
 	$(TELEKUBE_APP_OUT) \
 	$(TILLER_APP_OUT)
-
-TELEPORT_DIR = /var/lib/teleport
 
 GRAVITY_EXTRA_OPTIONS ?=
 
@@ -369,13 +363,6 @@ test:
 	$(MAKE) -C build.assets test
 
 #
-# integration test for gravity and apps
-#
-.PHONY: ci
-ci:
-	bash assets/ci/docker-run.sh
-
-#
 # '$(MAKE) packages' builds and imports all dependency packages
 #
 .PHONY: packages
@@ -516,21 +503,28 @@ scan-artifacts: telekube
 #
 .PHONY: telekube
 telekube: GRAVITY=$(GRAVITY_OUT) --state-dir=$(PACKAGES_DIR)
-telekube: $(GRAVITY_BUILDDIR)/telekube.tar
+telekube: $(TELEKUBE_OUT)
 
 .PHONY: telekube-intermediate-upgrade
 telekube-intermediate-upgrade: GRAVITY=$(GRAVITY_OUT) --state-dir=$(PACKAGES_DIR)
 telekube-intermediate-upgrade: GRAVITY_INSTALLER_OPTIONS:=$(GRAVITY_INSTALLER_OPTIONS) --upgrade-via=$(GRAVITY_INTERMEDIATE_RELEASE)
 telekube-intermediate-upgrade: $(GRAVITY_BUILDDIR)/telekube.tar
 
-$(GRAVITY_BUILDDIR)/telekube.tar: packages
+$(TELEKUBE_OUT): packages
 	GRAVITY_K8S_VERSION=$(K8S_VER) $(GRAVITY_BUILDDIR)/tele build \
 		$(ASSETSDIR)/telekube/resources/app.yaml -f \
 		--version=$(TELEKUBE_APP_TAG) \
 		--state-dir=$(PACKAGES_DIR) \
 		--skip-version-check \
 		$(GRAVITY_INSTALLER_OPTIONS) \
-		-o $(GRAVITY_BUILDDIR)/telekube.tar
+		-o $(TELEKUBE_OUT)
+
+#
+# runs robotest integration tests
+#
+.PHONY: robotest-run
+robotest-run: # depends on: telekube opscenter $(TELE_OUT) $(GRAVITY_OUT)
+	$(MAKE) -C assets/robotest run
 
 #
 # builds wormhole installer
@@ -570,7 +564,7 @@ opscenter: $(GRAVITY_BUILDDIR)/opscenter.tar
 
 $(GRAVITY_BUILDDIR)/opscenter.tar: packages
 	mkdir -p $(BUILDDIR)
-# this is for Jenknis pipeline integration
+# this is for Jenkins pipeline integration
 	@echo env.GRAVITY_BUILDDIR=\"$(GRAVITY_BUILDDIR)\" > $(BUILDDIR)/properties.groovy
 	if [ -z "$(GRAVITY_TAG)" ]; then \
 	  echo "GRAVITY_TAG is not set"; exit 1; \
@@ -660,64 +654,6 @@ wizard-publish:
 wizard-gen: K8S_OUT := kubernetes-$(GRAVITY_VERSION).tar.gz
 wizard-gen:
 	gravity ops create-wizard --ops-url=$(LOCAL_OPS_URL) gravitational.io/telekube:0.0.0+latest /tmp/telekube
-
-#
-# robotest-installer builds an installer tarball for use in robotest
-# Resulting installer URL is written to a properies file specified with BUILDPROPS
-#
-.PHONY: robotest-installer
-robotest-installer: TMPDIR := $(shell mktemp -d)
-robotest-installer: BUILDPROPS ?= build.properties
-robotest-installer: LOCAL_STATE_DIR := $(TMPDIR)/state
-robotest-installer: EXPORT_DIR := $(LOCAL_STATE_DIR)/export
-robotest-installer: EXPORT_APP_TARBALL := $(EXPORT_DIR)/app.tar.gz
-robotest-installer: ROBOTEST_APP_PACKAGE ?= $(TELEKUBE_APP_PKG)
-robotest-installer: ROBOTEST_APP_PACKAGE_SRCDIR ?= $(TOP)/assets/telekube
-robotest-installer: ROBO_BUCKET_URL = s3://builds.gravitational.io/robotest
-robotest-installer: ROBO_GRAVITY_BUCKET := $(ROBO_BUCKET_URL)/gravity/$(GRAVITY_VERSION)
-robotest-installer: INSTALLER_FILE := $(subst /,-,$(subst :,-,$(ROBOTEST_APP_PACKAGE)))-$(GRAVITY_VERSION)-installer.tar.gz
-robotest-installer: INSTALLER_URL := $(ROBO_BUCKET_URL)/$(INSTALLER_FILE)
-robotest-installer: robotest-publish-gravity
-robotest-installer:
-	# Reset properties file
-	@> $(BUILDPROPS)
-	@mkdir -p $(TMPDIR)/state/export
-	@$(MAKE) packages LOCAL_STATE_DIR=$(LOCAL_STATE_DIR)
-	@$(GRAVITY_BUILDDIR)/gravity package export \
-		--state-dir=$(LOCAL_STATE_DIR) \
-		$(ROBOTEST_APP_PACKAGE) \
-		$(EXPORT_APP_TARBALL)
-	@tar xvf $(EXPORT_APP_TARBALL) -C $(EXPORT_DIR)/ --strip-components=1 resources/app.yaml
-	@$(GRAVITY_BUILDDIR)/tele --debug build \
-		--state-dir=$(LOCAL_STATE_DIR) \
-		$(EXPORT_DIR)/app.yaml -o $(INSTALLER_FILE)
-	aws s3 cp --region us-east-1 $(INSTALLER_FILE) $(INSTALLER_URL)
-	# Jenkins: downstream job configuration
-	echo "ROBO_INSTALLER_URL=$(INSTALLER_URL)" >> $(BUILDPROPS)
-	echo "GRAVITY_VERSION=$(GRAVITY_VERSION)" >> $(BUILDPROPS)
-	@rm -rf $(TMPDIR)
-
-.PHONY: robotest-publish-gravity
-robotest-publish-gravity:
-	aws s3 cp --region us-east-1 $(GRAVITY_BUILDDIR)/gravity \
-		$(ROBO_GRAVITY_BUCKET)/ \
-		--metadata version=$(GRAVITY_VERSION)
-
-#
-# number of environment variables are expected to be set
-# see https://github.com/gravitational/robotest/blob/master/suite/README.md
-#
-.PHONY: robotest-run-suite
-robotest-run-suite:
-	./build.assets/robotest/run.sh pr $(shell pwd)/upgrade_from
-
-.PHONY: robotest-run-nightly
-robotest-run-nightly:
-	./build.assets/robotest/run.sh nightly $(shell pwd)/upgrade_from
-
-.PHONY: robotest-installer-ready
-robotest-installer-ready:
-	mv $(GRAVITY_BUILDDIR)/telekube.tar $(GRAVITY_BUILDDIR)/telekube_ready.tar
 
 .PHONY: dev
 dev: goinstall
