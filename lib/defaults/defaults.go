@@ -621,6 +621,9 @@ const (
 	// SiteStatusCheckInterval is how often local gravity site will invoke app status hook
 	SiteStatusCheckInterval = 1 * time.Minute
 
+	// ClusterStatusTimeout specifies the time limit for cluster status check
+	ClusterStatusTimeout = 5 * time.Minute
+
 	// OfflineCheckInterval is how often OpsCenter checks whether its sites are online/offline
 	OfflineCheckInterval = 10 * time.Second
 
@@ -1305,7 +1308,7 @@ var (
 	HelmRegistryVar = fmt.Sprintf("%v=%v/", ImageRegistryVar, DockerRegistry)
 
 	// MaxExpandConcurrency is the number of servers that can be joining the cluster concurrently
-	MaxExpandConcurrency = (runtime.NumCPU() / 3) + 1
+	MaxExpandConcurrency = (runtime.NumCPU() / 3) + 4
 )
 
 // HookSecurityContext returns default securityContext for hook pods

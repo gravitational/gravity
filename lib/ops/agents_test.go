@@ -63,7 +63,7 @@ func (s *AgentReportSuite) TestCheck(c *check.C) {
 		Servers: []checks.ServerInfo{server1, server2, server3},
 	}
 
-	needed, extra := report.MatchFlavor(&schema.Flavor{
+	needed, extra := report.MatchFlavor(schema.Flavor{
 		Nodes: []schema.FlavorNode{
 			{Profile: "worker", Count: 3},
 			{Profile: "db", Count: 2},

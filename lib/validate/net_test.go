@@ -65,7 +65,7 @@ func (*S) TestValidateKubernetesSubnets(c *check.C) {
 		},
 	}
 	for _, tc := range testCases {
-		err := KubernetesSubnets(tc.podCIDR, tc.serviceCIDR)
+		err := KubernetesSubnetsFromStrings(tc.podCIDR, tc.serviceCIDR)
 		if tc.ok {
 			c.Assert(err, check.IsNil, check.Commentf(tc.description))
 		} else {

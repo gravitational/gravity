@@ -50,6 +50,12 @@ func NewRestart(
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	// Do not wait for the container to become healthy
+	// on the way back - it might not be possible (e.g. during
+	// rollback of the service CIDR upgrade when the agent would
+	// not be able to create the DNS services until all nodes have
+	// been rolled back)
+	base.WaitStatusOnRollback = false
 	config, err := clusterconfig.Unmarshal(operation.UpdateConfig.Config)
 	if err != nil {
 		return nil, trace.Wrap(err)
