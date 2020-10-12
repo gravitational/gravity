@@ -7,6 +7,8 @@ set -o pipefail
 
 if [[ ${1} == "upgradeversions" ]]  ; then
     echo
+elif [[ ${1} == "intermediateversion" ]] ; then
+    echo
 elif [[ ${1} == "configuration" ]]  ; then
     echo 'noop={"fail":false,"sleep":3}'
 fi

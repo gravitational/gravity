@@ -7,11 +7,20 @@ source $(dirname $0)/lib/utils.sh
 
 # UPGRADE_MAP maps gravity version -> list of linux distros to upgrade from
 declare -A UPGRADE_MAP
-UPGRADE_MAP[$(recommended_upgrade_tag $(branch 7.0.x))]="centos:7" # compatible LTS version
+UPGRADE_MAP[$(recommended_upgrade_tag $(branch 7.0.x))]="centos:7" # this branch
 UPGRADE_MAP[7.0.13]="centos:7" # 7.0.13 + centos is combination that is critical in the field -- 2020-07 walt
 UPGRADE_MAP[7.0.12]="ubuntu:18" # 7.0.12 is the first LTS 7.0 release
 UPGRADE_MAP[7.0.7]="ubuntu:16" # 7.0.7 is the first 7.0 with https://github.com/gravitational/planet/pull/671 included
 # UPGRADE_MAP[7.0.0]="ubuntu:16" # 7.0.0 is prone to upgrade failure without https://github.com/gravitational/planet/pull/671
+
+UPGRADE_MAP[$(recommended_upgrade_tag $(branch 6.1.x))]="redhat:7" # compatible LTS version
+UPGRADE_MAP[6.1.0]="debian:9"
+UPGRADE_MAP[$(recommended_upgrade_tag $(branch 6.3.x))]="centos:7" # compatible non-LTS version
+
+# Upgrade path with an intermediate hop. The chosen version will exercise a double etcd upgrade from v3.3.11 to v3.3.22 to v3.4.9
+# Disabled to an issue with etcd upgrades which needs further investigation.
+# UPGRADE_MAP[5.5.10]="centos:7"
+# UPGRADE_MAP[5.5.49]="centos:7"
 
 # 6.2 and 6.3 ignored in PR builds per https://github.com/gravitational/gravity/pull/1760#pullrequestreview-437838773
 # UPGRADE_MAP[$(recommended_upgrade_tag $(branch 6.3.x))]="redhat:7" # compatible non-LTS version
