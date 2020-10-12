@@ -26,6 +26,7 @@ import (
 
 	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
+	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -217,6 +218,33 @@ func IsKubernetesLabel(key string) bool {
 		return true
 	}
 	return false
+}
+
+// IsHeadlessService return true if the given service is a headless service
+// (explicitly without a cluster IP)
+func IsHeadlessService(service v1.Service) bool {
+	const headlessServiceClusterIP = "None"
+	return service.Spec.ClusterIP == headlessServiceClusterIP
+}
+
+// IsAPIServerService return true if the given service specifies the API server service
+func IsAPIServerService(service v1.Service) bool {
+	const apiServerService = "kubernetes"
+	return service.Name == apiServerService && service.Namespace == metav1.NamespaceDefault
+}
+
+// LoggerWithService returns a new logger with service-relevant metadata
+func LoggerWithService(service v1.Service, logger log.FieldLogger) log.FieldLogger {
+	return logger.WithFields(log.Fields{
+		"service":   FormatMeta(service.ObjectMeta),
+		"type":      service.Spec.Type,
+		"clusterIP": service.Spec.ClusterIP,
+	})
+}
+
+// FormatMeta formats the specified object metadata for output
+func FormatMeta(meta metav1.ObjectMeta) string {
+	return fmt.Sprintf("%v/%v", meta.Namespace, meta.Name)
 }
 
 func getLabelNamespace(key string) string {

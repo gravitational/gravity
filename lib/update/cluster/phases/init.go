@@ -74,10 +74,11 @@ type updatePhaseInit struct {
 	// installedApp references the installed application instance
 	installedApp app.Application
 	// existingDocker describes the existing Docker configuration
-	existingDocker        storage.DockerConfig
-	existingDNS           storage.DNSConfig
-	existingEnviron       map[string]string
-	existingClusterConfig []byte
+	existingDocker             storage.DockerConfig
+	existingDNS                storage.DNSConfig
+	existingEnviron            map[string]string
+	existingClusterConfigBytes []byte
+	existingClusterConfig      clusterconfig.Interface
 }
 
 // NewUpdatePhaseInit creates a new update init phase executor
@@ -100,7 +101,7 @@ func NewUpdatePhaseInit(
 	if p.Phase.Data.Update == nil || len(p.Phase.Data.Update.Servers) == 0 {
 		return nil, trace.BadParameter("no servers specified for phase %q", p.Phase.ID)
 	}
-	cluster, err := operator.GetLocalSite()
+	cluster, err := operator.GetLocalSite(context.TODO())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -137,22 +138,23 @@ func NewUpdatePhaseInit(
 	checks.OverrideDockerConfig(&existingDocker, installOperation.InstallExpand.Vars.System.Docker)
 
 	return &updatePhaseInit{
-		Backend:               backend,
-		LocalBackend:          localBackend,
-		Operator:              operator,
-		Packages:              packages,
-		Users:                 users,
-		Client:                client,
-		Cluster:               *cluster,
-		Operation:             *operation,
-		Servers:               p.Phase.Data.Update.Servers,
-		FieldLogger:           logger,
-		updateManifest:        app.Manifest,
-		installedApp:          *installedApp,
-		existingDocker:        existingDocker,
-		existingDNS:           p.Plan.DNSConfig,
-		existingClusterConfig: configBytes,
-		existingEnviron:       env.GetKeyValues(),
+		Backend:                    backend,
+		LocalBackend:               localBackend,
+		Operator:                   operator,
+		Packages:                   packages,
+		Users:                      users,
+		Client:                     client,
+		Cluster:                    *cluster,
+		Operation:                  *operation,
+		Servers:                    p.Phase.Data.Update.Servers,
+		FieldLogger:                logger,
+		updateManifest:             app.Manifest,
+		installedApp:               *installedApp,
+		existingDocker:             existingDocker,
+		existingDNS:                p.Plan.DNSConfig,
+		existingClusterConfigBytes: configBytes,
+		existingClusterConfig:      clusterConfig,
+		existingEnviron:            env.GetKeyValues(),
 	}, nil
 }
 
@@ -414,6 +416,7 @@ func (p *updatePhaseInit) rotateSecrets(server storage.UpdateServer) error {
 		Package:        server.Runtime.SecretsPackage,
 		RuntimePackage: server.Runtime.Update.Package,
 		Server:         server.Server,
+		ServiceCIDR:    p.existingClusterConfig.GetGlobalConfig().ServiceCIDR,
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -434,7 +437,7 @@ func (p *updatePhaseInit) rotatePlanetConfig(server storage.UpdateServer) error 
 		Manifest:       p.updateManifest,
 		RuntimePackage: server.Runtime.Update.Package,
 		Package:        &server.Runtime.Update.ConfigPackage,
-		Config:         p.existingClusterConfig,
+		Config:         p.existingClusterConfigBytes,
 		Env:            p.existingEnviron,
 	})
 	if err != nil {

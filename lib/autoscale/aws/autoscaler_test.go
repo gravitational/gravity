@@ -272,7 +272,7 @@ type mockOperator struct {
 	shrinksC chan *ops.CreateSiteShrinkOperationRequest
 }
 
-func (o *mockOperator) GetLocalSite() (*ops.Site, error) {
+func (o *mockOperator) GetLocalSite(context.Context) (*ops.Site, error) {
 	return &o.site, nil
 }
 

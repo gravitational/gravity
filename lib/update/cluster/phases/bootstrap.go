@@ -91,8 +91,7 @@ func NewUpdatePhaseBootstrap(
 	if p.Phase.Data.Update == nil || len(p.Phase.Data.Update.Servers) == 0 {
 		return nil, trace.BadParameter("no server specified for phase %q", p.Phase.ID)
 	}
-	server := p.Phase.Data.Update.Servers[0]
-	cluster, err := operator.GetLocalSite()
+	cluster, err := operator.GetLocalSite(context.TODO())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -115,7 +114,7 @@ func NewUpdatePhaseBootstrap(
 		HostLocalBackend: hostLocalBackend,
 		LocalPackages:    localPackages,
 		Packages:         packages,
-		Server:           server,
+		Server:           p.Phase.Data.Update.Servers[0],
 		Operation:        *operation,
 		GravityPath:      gravityPath,
 		GravityPackage:   p.Plan.GravityPackage,

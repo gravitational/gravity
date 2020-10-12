@@ -68,7 +68,7 @@ func (a *Autoscaler) PublishDiscovery(ctx context.Context, operator ops.Operator
 // checkSourceDestination makes sure source/destination check is disabled for
 // the cluster instances.
 func (a *Autoscaler) checkSourceDestination(ctx context.Context, operator ops.Operator) error {
-	cluster, err := operator.GetLocalSite()
+	cluster, err := operator.GetLocalSite(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -101,7 +101,7 @@ func (a *Autoscaler) checkSourceDestination(ctx context.Context, operator ops.Op
 
 // syncDiscovery syncs cluster discovery information in the SSM
 func (a *Autoscaler) syncDiscovery(ctx context.Context, operator ops.Operator, force bool) error {
-	cluster, err := operator.GetLocalSite()
+	cluster, err := operator.GetLocalSite(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}

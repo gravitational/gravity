@@ -18,6 +18,7 @@ package status
 
 import (
 	"context"
+	"net/http"
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/ops"
@@ -34,7 +35,7 @@ var log = logrus.WithField(trace.Component, "status")
 func WaitCluster(ctx context.Context, operator ops.Operator) error {
 	b := utils.NewExponentialBackOff(defaults.NodeStatusTimeout)
 	return utils.RetryWithInterval(ctx, b, func() error {
-		cluster, err := operator.GetLocalSite()
+		cluster, err := operator.GetLocalSite(ctx)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -48,4 +49,31 @@ func WaitCluster(ctx context.Context, operator ops.Operator) error {
 		log.Info("Cluster is healthy.")
 		return nil
 	})
+}
+
+// WaitController blocks until either the cluster controller reports healthy
+// or the specified context expires
+func WaitController(ctx context.Context, client *http.Client) error {
+	b := utils.NewExponentialBackOff(defaults.ClusterStatusTimeout)
+	return utils.RetryTransient(ctx, b, func() error {
+		return statusController(ctx, client)
+	})
+}
+
+func statusController(ctx context.Context, client *http.Client) error {
+	url := defaults.GravityServiceURL + "/healthz"
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	req = req.WithContext(ctx)
+	resp, err := client.Do(req)
+	if err != nil {
+		return trace.Wrap(err, "failed to connect to %v", url)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusOK {
+		return nil
+	}
+	return trace.BadParameter("cluster is unhealthy")
 }
