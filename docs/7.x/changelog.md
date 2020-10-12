@@ -11,7 +11,7 @@ Find the latest Open Source Gravity releases at [Gravity Downloads](https://grav
 
 | Version             | Latest Patch | LTS | Release Date         | Latest Patch Date    | End of Support *        | Kubernetes Version   | Teleport Version |
 | ------------------- | ------------ | --- | -------------------- | -------------------- | ----------------------- | -------------------- | ---------------- |
-| [7.0](#70-releases) | 7.0.19       | Yes | April 3, 2020        | October 6th, 2020    | July 9, 2022            | 1.17.9               | 3.2.14-gravity   |
+| [7.0](#70-releases) | 7.0.20       | Yes | April 3, 2020        | October 9th, 2020    | July 9, 2022            | 1.17.9               | 3.2.14-gravity   |
 | [6.1](#61-releases) | 6.1.42       | Yes | August 2, 2019       | October 6th, 2020    | November 10, 2021       | 1.15.12              | 3.2.14-gravity   |
 | [5.5](#55-releases) | 5.5.53       | Yes | March 8, 2019        | October 6th, 2020    | March 8, 2021           | 1.13.11              | 3.0.7-gravity    |
 
@@ -50,6 +50,12 @@ extend updates past End of Support through customer agreements if required.
 # Release Notes
 
 ## 7.0 Releases
+
+### 7.0.20 LTS (October 9th, 2020)
+
+#### Bugfixes
+
+* Fix a regression in `tele build` that failed to handle direct package dependencies in a cluster manifest ([#2211](https://github.com/gravitational/gravity/pull/2211)).
 
 ### 7.0.19 LTS (October 6th, 2020)
 
