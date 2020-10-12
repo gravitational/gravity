@@ -13,7 +13,7 @@ Find the latest Open Source Gravity releases at [Gravity Downloads](https://grav
 | ------------------- | ------------ | --- | -------------------- | -------------------- | ----------------------- | -------------------- | ---------------- |
 | [7.0](#70-releases) | 7.0.20       | Yes | April 3, 2020        | October 9th, 2020    | July 9, 2022            | 1.17.9               | 3.2.14-gravity   |
 | [6.1](#61-releases) | 6.1.42       | Yes | August 2, 2019       | October 6th, 2020    | November 10, 2021       | 1.15.12              | 3.2.14-gravity   |
-| [5.5](#55-releases) | 5.5.53       | Yes | March 8, 2019        | October 6th, 2020    | March 8, 2021           | 1.13.11              | 3.0.7-gravity    |
+| [5.5](#55-releases) | 5.5.54       | Yes | March 8, 2019        | October 12th, 2020   | March 8, 2021           | 1.13.11              | 3.0.7-gravity    |
 
 Gravity offers one Long Term Support (LTS) version for every 2nd Kubernetes
 minor version, allowing for seamless upgrades per Kubernetes
@@ -1385,6 +1385,12 @@ to learn how to gain insight into how the cluster status changes over time.
 * Upgrade Kubernetes to `v1.14.0`.
 
 ## 5.5 Releases
+
+### 5.5.54 LTS (October 12th, 2020)
+
+#### Improvements
+
+* Check dependent phases when performing phase rollback to prevent cluster from entering inconsistent state ([#2185](https://github.com/gravitational/gravity/pull/2185)).
 
 ### 5.5.53 LTS (October 6th, 2020)
 
