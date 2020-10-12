@@ -350,7 +350,13 @@ func (i *InstallConfig) CheckAndSetDefaults(validator resources.Validator) (err 
 		return trace.Wrap(err)
 	}
 
-	if err := checkNetworkConflict(i.AdvertiseAddr, i.ServiceCIDR, i.PodCIDR); err != nil {
+	if err := validate.NetworkOverlap(i.AdvertiseAddr, i.ServiceCIDR, fmt.Sprintf("The selected advertise address %v conflicts with the service network CIDR range %v. Please specify a different service CIDR via --service-cidr flag.",
+		i.AdvertiseAddr, i.ServiceCIDR)); err != nil {
+		return trace.Wrap(err)
+	}
+
+	if err := validate.NetworkOverlap(i.AdvertiseAddr, i.PodCIDR, fmt.Sprintf("The selected advertise address %v conflicts with the pod network CIDR range %v. Please specify a different pod CIDR via --pod-network-cidr flag.",
+		i.AdvertiseAddr, i.PodCIDR)); err != nil {
 		return trace.Wrap(err)
 	}
 
@@ -1393,33 +1399,6 @@ func checkLocalAddr(addr string) error {
 	return trace.BadParameter(
 		"%v matches none of the available addresses %v",
 		addr, strings.Join(availableAddrs, ", "))
-}
-
-// checkNetworkConflict verifies that the host network address is not in the range of the serviceCIDR or podCIDR
-func checkNetworkConflict(advertiseAddr string, serviceCIDR string, podCIDR string) error {
-	_, serviceSubnet, err := net.ParseCIDR(serviceCIDR)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	ip := net.ParseIP(advertiseAddr)
-	if ip == nil {
-		return trace.BadParameter("Invalid advertise address (%v).", advertiseAddr)
-	}
-	if serviceSubnet.Contains(ip) {
-		return trace.BadParameter("The selected advertise address %v conflicts with the service network CIDR range %v. Please specify a different service CIDR via --service-cidr flag.",
-			advertiseAddr, serviceCIDR)
-	}
-
-	_, podSubnet, err := net.ParseCIDR(podCIDR)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	if podSubnet.Contains(ip) {
-		return trace.BadParameter("The selected advertise address %v conflicts with the pod network CIDR range %v. Please specify a different pod CIDR via --pod-network-cidr flag.",
-			advertiseAddr, podCIDR)
-	}
-
-	return nil
 }
 
 // selectAdvertiseAddr selects an advertise address from one of the host's interfaces

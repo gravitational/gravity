@@ -18,6 +18,7 @@ package cli
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/gravitational/gravity/lib/fsm"
 	libfsm "github.com/gravitational/gravity/lib/fsm"
@@ -280,7 +281,26 @@ func validateClusterConfig(localEnv *localenv.LocalEnvironment, update libcluste
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return validate.ClusterConfiguration(existing, update)
+	err = validate.ClusterConfiguration(existing, update)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	server, err := findLocalServer(cluster.ClusterState.Servers)
+	if err != nil {
+		return trace.NotFound("unable to find server info")
+	}
+	if err := validate.NetworkOverlap(server.AdvertiseIP, update.GetGlobalConfig().ServiceCIDR, fmt.Sprintf("The advertise address %v conflicts with the service network CIDR range %v. Please specify a different service CIDR.",
+		server.AdvertiseIP, update.GetGlobalConfig().ServiceCIDR)); err != nil {
+		return trace.Wrap(err)
+	}
+
+	if err := validate.NetworkOverlap(server.AdvertiseIP, update.GetGlobalConfig().PodCIDR, fmt.Sprintf("The advertise address %v conflicts with the pod network CIDR range %v. Please specify a different pod CIDR.",
+		server.AdvertiseIP, update.GetGlobalConfig().PodCIDR)); err != nil {
+		return trace.Wrap(err)
+	}
+
+	return nil
 }
 
 const (
