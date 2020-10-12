@@ -17,6 +17,8 @@ limitations under the License.
 package opsservice
 
 import (
+	"context"
+
 	"github.com/gravitational/gravity/lib/helm"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
@@ -26,7 +28,7 @@ import (
 
 // ListReleases returns all currently installed application releases.
 func (o *Operator) ListReleases(req ops.ListReleasesRequest) ([]storage.Release, error) {
-	cluster, err := o.GetLocalSite()
+	cluster, err := o.GetLocalSite(context.TODO())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

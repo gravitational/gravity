@@ -112,7 +112,7 @@ func IsTransientClusterError(err error) bool {
 	}
 
 	switch {
-	case trace.IsConnectionProblem(err):
+	case IsConnectionProblem(err):
 		return true
 	case IsConnectionResetError(err):
 		return true
@@ -121,6 +121,10 @@ func IsTransientClusterError(err error) bool {
 	case IsClusterUnavailableError(err) || isEtcdClusterError(err):
 		return true
 	case isKubernetesEtcdClusterError(err):
+		return true
+	case IsKubeAuthError(err):
+		// Kubernetes replies with unauthorized for certain
+		// operations when etcd is down
 		return true
 	default:
 		return false
@@ -366,6 +370,18 @@ func IsConnectionRefusedError(err error) bool {
 	}
 	return strings.Contains(trace.Unwrap(err).Error(),
 		"connection refused")
+}
+
+// IsConnectionProblem determines whether err signifies a connection
+// problem
+func IsConnectionProblem(err error) bool {
+	if trace.IsConnectionProblem(err) {
+		return true
+	}
+	if urlError, ok := trace.Unwrap(err).(*url.Error); ok {
+		return trace.IsConnectionProblem(urlError.Err)
+	}
+	return false
 }
 
 // ShouldReconnectPeer implements the error classification for peer connection errors

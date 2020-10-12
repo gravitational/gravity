@@ -646,7 +646,7 @@ func (p *Peer) connectCluster(addr string) (*operationContext, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	cluster, err := operator.GetLocalSite()
+	cluster, err := operator.GetLocalSite(p.ctx)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
