@@ -122,7 +122,7 @@ func resetUser(env *localenv.LocalEnvironment, email string, ttl time.Duration) 
 		return trace.Wrap(err)
 	}
 
-	cluster, err := operator.GetLocalSite()
+	cluster, err := operator.GetLocalSite(context.TODO())
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -148,7 +148,7 @@ func inviteUser(env *localenv.LocalEnvironment, username string, roles []string,
 		return trace.Wrap(err)
 	}
 
-	cluster, err := operator.GetLocalSite()
+	cluster, err := operator.GetLocalSite(context.TODO())
 	if err != nil {
 		return trace.Wrap(err)
 	}

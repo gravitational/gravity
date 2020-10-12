@@ -23,7 +23,7 @@ ROBOTEST_DOWNLOAD_TELE_SCRIPT ?= $(TOP)/download_tele.sh
 # (e.g. enterprise) cache.
 ROBOTEST_CACHE_FLAVOR ?= oss
 # ROBOTEST_CONFIG is the desired robotest configuration (pr, nightly)
-ROBOTEST_CONFIG = pr
+ROBOTEST_CONFIG ?= pr
 # ROBOTEST_CONFIG_SCRIPT is full path to the scrip that will generate robotest configurations
 ROBOTEST_CONFIG_SCRIPT = $(TOP)/config/$(ROBOTEST_CONFIG).sh
 

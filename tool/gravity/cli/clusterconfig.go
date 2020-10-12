@@ -219,7 +219,10 @@ func (r configInitializer) newOperationPlan(
 	clusterEnv *localenv.ClusterEnvironment,
 	leader *storage.Server,
 ) (*storage.OperationPlan, error) {
-	plan, err := clusterconfig.NewOperationPlan(operator, clusterEnv.Apps, operation, r.config, cluster.ClusterState.Servers)
+	plan, err := clusterconfig.NewOperationPlan(
+		ctx, operator, clusterEnv.Apps, clusterEnv.Client,
+		operation, r.config, cluster.ClusterState.Servers,
+	)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -269,7 +272,7 @@ func validateClusterConfig(localEnv *localenv.LocalEnvironment, update libcluste
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	cluster, err := operator.GetLocalSite()
+	cluster, err := operator.GetLocalSite(context.TODO())
 	if err != nil {
 		return trace.Wrap(err)
 	}

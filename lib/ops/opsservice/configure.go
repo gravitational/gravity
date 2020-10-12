@@ -219,9 +219,9 @@ func (s *site) configureExpandPackages(ctx context.Context, opCtx *operationCont
 			return trace.Wrap(err)
 		}
 		masterParams := planetMasterParams{
-			master:            provisionedServer,
-			secretsPackage:    &secretsPackage,
-			serviceSubnetCIDR: opCtx.operation.InstallExpand.Subnets.Service,
+			master:         provisionedServer,
+			secretsPackage: &secretsPackage,
+			serviceSubnet:  planetConfig.serviceSubnet(),
 		}
 		// if we have connection to an Ops Center set up, configure
 		// SNI host so it can dial in
@@ -307,15 +307,15 @@ func (s *site) configurePackages(ctx *operationContext, req ops.ConfigurePackage
 
 	etcdConfig := s.prepareEtcdConfig(ctx)
 
-	var clusterConfig clusterconfig.Interface
+	clusterConfig := clusterconfig.NewEmpty()
 	if len(req.Config) != 0 {
 		clusterConfig, err = clusterconfig.Unmarshal(req.Config)
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		if s.cloudProviderName() != "" {
-			clusterConfig.SetCloudProvider(s.cloudProviderName())
-		}
+	}
+	if s.cloudProviderName() != "" {
+		clusterConfig.SetCloudProvider(s.cloudProviderName())
 	}
 
 	for i, master := range masters {
@@ -325,15 +325,6 @@ func (s *site) configurePackages(ctx *operationContext, req ops.ConfigurePackage
 		}
 		secretsPackage := s.planetSecretsPackage(master, planetPackage.Version)
 		configPackage := s.planetConfigPackage(master, planetPackage.Version)
-
-		err = s.configurePlanetMasterSecrets(ctx, planetMasterParams{
-			master:            master,
-			secretsPackage:    &secretsPackage,
-			serviceSubnetCIDR: ctx.operation.InstallExpand.Subnets.Service,
-		})
-		if err != nil && !trace.IsAlreadyExists(err) {
-			return trace.Wrap(err)
-		}
 
 		masterConfig := regularMasterConfig
 		masterConfig.addr = master.AdvertiseIP
@@ -361,6 +352,15 @@ func (s *site) configurePackages(ctx *operationContext, req ops.ConfigurePackage
 			manifest:      s.app.Manifest,
 			env:           req.Env,
 			config:        clusterConfig,
+		}
+
+		err = s.configurePlanetMasterSecrets(ctx, planetMasterParams{
+			master:         master,
+			secretsPackage: &secretsPackage,
+			serviceSubnet:  config.serviceSubnet(),
+		})
+		if err != nil && !trace.IsAlreadyExists(err) {
+			return trace.Wrap(err)
 		}
 		err = s.configurePlanetMaster(config)
 		if err != nil && !trace.IsAlreadyExists(err) {
@@ -560,10 +560,10 @@ func (s *site) readCertAuthorityPackage() (utils.TLSArchive, error) {
 }
 
 type planetMasterParams struct {
-	master            *ProvisionedServer
-	secretsPackage    *loc.Locator
-	serviceSubnetCIDR string
-	sniHost           string
+	master         *ProvisionedServer
+	secretsPackage *loc.Locator
+	serviceSubnet  string
+	sniHost        string
 }
 
 func (s *site) getPlanetMasterSecretsPackage(ctx *operationContext, p planetMasterParams) (*ops.RotatePackageResponse, error) {
@@ -578,13 +578,13 @@ func (s *site) getPlanetMasterSecretsPackage(ctx *operationContext, p planetMast
 	}
 
 	// Don't rotate apiserver secrets, as this secret is currently used to authenticate service account tokens
-	// TODO(securty) support rotation of apiserver / serviceaccount secrets
+	// TODO(security) support rotation of apiserver / serviceaccount secrets
 	apiserverKeyPair, err := archive.GetKeyPair(constants.APIServerKeyPair)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	serviceSubnet, err := configure.ParseCIDR(p.serviceSubnetCIDR)
+	serviceSubnet, err := configure.ParseCIDR(p.serviceSubnet)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -901,8 +901,8 @@ func (s *site) getPlanetConfig(config planetConfig) (args []string, err error) {
 		fmt.Sprintf("--service-gid=%v", s.gid()),
 	}
 	overrideArgs := map[string]string{
-		"service-subnet": config.installExpand.InstallExpand.Subnets.Service,
-		"pod-subnet":     config.installExpand.InstallExpand.Subnets.Overlay,
+		"service-subnet": config.serviceSubnet(),
+		"pod-subnet":     config.podSubnet(),
 	}
 
 	if config.master.electionEnabled {
@@ -1033,6 +1033,22 @@ func (s *site) configurePlanetServer(config planetConfig) error {
 		return trace.Wrap(err)
 	}
 	return nil
+}
+
+func (r planetConfig) podSubnet() string {
+	var override string
+	if r.config != nil {
+		override = r.config.GetGlobalConfig().PodCIDR
+	}
+	return podSubnet(r.installExpand.InstallExpand, override)
+}
+
+func (r planetConfig) serviceSubnet() string {
+	var override string
+	if r.config != nil {
+		override = r.config.GetGlobalConfig().ServiceCIDR
+	}
+	return serviceSubnet(r.installExpand.InstallExpand, override)
 }
 
 type planetConfig struct {
@@ -1455,6 +1471,26 @@ func configureDockerOptions(
 	}
 
 	return args, nil
+}
+
+func podSubnet(installExpand *storage.InstallExpandOperationState, override string) string {
+	if override != "" {
+		return override
+	}
+	if installExpand == nil || installExpand.Subnets.Overlay == "" {
+		return storage.DefaultSubnets.Overlay
+	}
+	return installExpand.Subnets.Overlay
+}
+
+func serviceSubnet(installExpand *storage.InstallExpandOperationState, override string) string {
+	if override != "" {
+		return override
+	}
+	if installExpand == nil || installExpand.Subnets.Service == "" {
+		return storage.DefaultSubnets.Service
+	}
+	return installExpand.Subnets.Service
 }
 
 // exportBackend defines a shim to export site information

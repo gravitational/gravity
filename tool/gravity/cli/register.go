@@ -74,7 +74,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.InstallCmd.SystemDevice = g.InstallCmd.Flag("system-device", "Device to use for system data directory.").Hidden().String()
 	g.InstallCmd.Mounts = configure.KeyValParam(g.InstallCmd.Flag("mount", "One or several mount overrides in the following format: <mount-name>:<path>, e.g. data:/var/lib/data."))
 	g.InstallCmd.PodCIDR = g.InstallCmd.Flag("pod-network-cidr", "Subnet range for Kubernetes pods network. Must be a minimum of /16.").Default(defaults.PodSubnet).String()
-	g.InstallCmd.ServiceCIDR = g.InstallCmd.Flag("service-cidr", "Subnet range for Kubernetes service networ.").Default(defaults.ServiceSubnet).String()
+	g.InstallCmd.ServiceCIDR = g.InstallCmd.Flag("service-cidr", "Subnet range for Kubernetes service network.").Default(defaults.ServiceSubnet).String()
 	g.InstallCmd.VxlanPort = g.InstallCmd.Flag("vxlan-port", "Custom overlay network port.").Default(strconv.Itoa(defaults.VxlanPort)).Int()
 	g.InstallCmd.DNSListenAddrs = g.InstallCmd.Flag("dns-listen-addr", "Custom listen address for in-cluster DNS.").
 		Default(defaults.DNSListenAddr).IPList()
@@ -136,7 +136,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.LeaveCmd.Confirm = g.LeaveCmd.Flag("confirm", "Do not ask for confirmation.").Bool()
 
 	g.RemoveCmd.CmdClause = g.Command("remove", "Remove a node from the cluster.")
-	g.RemoveCmd.Node = g.RemoveCmd.Arg("node", "Node to remove: can be IP address, hostname or name from `kubectl get nodes` output).").
+	g.RemoveCmd.Node = g.RemoveCmd.Arg("node", "Node to remove: can be IP address, hostname, cloud specific instance ID or name from `kubectl get nodes` output).").
 		Required().String()
 	g.RemoveCmd.Force = g.RemoveCmd.Flag("force", "Force removal of an offline node.").Bool()
 	g.RemoveCmd.Confirm = g.RemoveCmd.Flag("confirm", "Do not ask for confirmation.").Bool()

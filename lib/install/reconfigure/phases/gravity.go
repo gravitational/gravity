@@ -59,7 +59,7 @@ func (p *gravityExecutor) Execute(ctx context.Context) error {
 		return trace.Wrap(err)
 	}
 	return utils.RetryFor(ctx, 5*time.Minute, func() error {
-		if _, err := operator.GetLocalSite(); err != nil {
+		if _, err := operator.GetLocalSite(ctx); err != nil {
 			return trace.Wrap(err)
 		}
 		return nil

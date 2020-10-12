@@ -51,7 +51,7 @@ type EC2 interface {
 
 // Operator is a simplified operator interface to mock in tests
 type Operator interface {
-	GetLocalSite() (*ops.Site, error)
+	GetLocalSite(context.Context) (*ops.Site, error)
 	CreateSiteShrinkOperation(context.Context, ops.CreateSiteShrinkOperationRequest) (*ops.SiteOperationKey, error)
 }
 

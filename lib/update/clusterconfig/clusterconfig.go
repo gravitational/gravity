@@ -64,7 +64,7 @@ type Config struct {
 	Apps app.Applications
 	// ClusterPackages specifies the cluster package service
 	ClusterPackages pack.PackageService
-	// Client specifies the optional kubernetes client
+	// Client specifies the kubernetes client
 	Client *kubernetes.Clientset
 }
 
@@ -82,6 +82,12 @@ func (r *dispatcher) Dispatch(config rollingupdate.Config, params fsm.ExecutorPa
 			config.Apps, config.LocalBackend,
 			config.ClusterPackages, config.HostLocalPackages,
 			logger)
+	case libphase.Custom:
+		return phases.NewServices(params, config.Client.CoreV1(), logger)
+	case phases.InitPhase:
+		return phases.NewInit(params, config.Client.CoreV1(), logger)
+	case phases.FiniPhase:
+		return phases.NewFinal(params, config.Client.CoreV1(), logger)
 	default:
 		return r.Dispatcher.Dispatch(config, params, remote, logger)
 	}

@@ -114,7 +114,7 @@ func (s *AgentReport) Diff(previous *AgentReport) (added, removed []checks.Serve
 //
 // Returns number/roles of agents that still need to join as well as any
 // extra servers that are not a part of the flavor.
-func (s *AgentReport) MatchFlavor(flavor *schema.Flavor) (needed map[string]int, extra []checks.ServerInfo) {
+func (s *AgentReport) MatchFlavor(flavor schema.Flavor) (needed map[string]int, extra []checks.ServerInfo) {
 	needed = make(map[string]int)
 	for _, node := range flavor.Nodes {
 		needed[node.Profile] = node.Count

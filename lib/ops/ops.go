@@ -400,7 +400,7 @@ type Sites interface {
 	GetSite(SiteKey) (*Site, error)
 
 	// GetLocalSite returns local site for this ops center
-	GetLocalSite() (*Site, error)
+	GetLocalSite(context.Context) (*Site, error)
 
 	// GetSites sites lists all site records for account
 	GetSites(accountID string) ([]Site, error)
@@ -718,7 +718,7 @@ type Node struct {
 	Profile string `json:"profile"`
 	// Role is the node service role
 	Role string `json:"role"`
-	// InstanceType is the node instance type
+	// InstanceType is the node cloud specific instance type
 	InstanceType string `json:"instance_type"`
 }
 
@@ -1112,6 +1112,8 @@ type RotateSecretsRequest struct {
 	// Package specifies the secrets package to use.
 	// If unspecified, one will be automatically generated
 	Package *loc.Locator `json:"package,omitempty"`
+	// ServiceCIDR optionally specifies the new service IP range
+	ServiceCIDR string `json:"service_cidr,omitempty"`
 	// DryRun specifies whether only the package locator is generated
 	DryRun bool `json:"dry_run"`
 }
@@ -1418,7 +1420,7 @@ func (r *CreateSiteInstallOperationRequest) CheckAndSetDefaults() error {
 	if r.Provisioner == schema.ProvisionerAWSTerraform {
 		r.Variables.AWS.SetDefaults()
 	}
-	err := validate.KubernetesSubnets(r.Variables.OnPrem.PodCIDR, r.Variables.OnPrem.ServiceCIDR)
+	err := validate.KubernetesSubnetsFromStrings(r.Variables.OnPrem.PodCIDR, r.Variables.OnPrem.ServiceCIDR)
 	if err != nil {
 		return trace.Wrap(err)
 	}
