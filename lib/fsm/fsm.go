@@ -265,12 +265,15 @@ func (f *FSM) RollbackPhase(ctx context.Context, p Params) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = CanRollback(plan, p.PhaseID)
-	if err != nil {
-		if !p.Force {
-			return trace.Wrap(err)
+	// No need to verify if phase can be rolled back during dry runs.
+	if !p.DryRun {
+		err = CanRollback(plan, p.PhaseID)
+		if err != nil {
+			if !p.Force {
+				return trace.Wrap(err)
+			}
+			f.WithError(err).Warn("Forcing rollback.")
 		}
-		f.WithError(err).Warn("Forcing rollback.")
 	}
 	phase, err := FindPhase(plan, p.PhaseID)
 	if err != nil {
@@ -588,14 +591,28 @@ func (f *FSM) rollbackPhaseLocally(ctx context.Context, p Params, phase storage.
 }
 
 func (f *FSM) rollbackPhaseRemotely(ctx context.Context, p Params, phase storage.OperationPhase, server storage.Server) error {
-	return f.RunCommand(ctx, f.Runner, server, Params{
-		PhaseID:     p.PhaseID,
-		OperationID: p.OperationID,
-		Force:       p.Force,
-		Resume:      p.Resume,
-		Rollback:    true,
-		Progress:    p.Progress,
+	err := f.RunCommand(ctx, f.Runner, server, Params{
+		PhaseID:  p.PhaseID,
+		Force:    p.Force,
+		Resume:   p.Resume,
+		Rollback: true,
+		Progress: p.Progress,
 	})
+	if err == nil {
+		// if the remote phase rollback is successful, we need to mark it in our local database
+		// because etcd might not be available to synchronize the changes back to us
+		err = f.ChangePhaseState(ctx,
+			StateChange{
+				Phase: phase.ID,
+				State: storage.OperationPhaseStateRolledBack,
+			})
+	}
+
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	return nil
 }
 
 // prerequisitesComplete checks if specified phase can be executed in the
