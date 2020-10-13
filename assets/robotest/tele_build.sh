@@ -24,6 +24,7 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
+EXTRA_TELE_BUILD_OPTIONS=${EXTRA_TELE_BUILD_OPTIONS:-}
 TMP=$(mktemp -d -p "$BUILD_TMP")
 trap "rm -rf $TMP" exit
 
@@ -43,6 +44,7 @@ docker run --rm=true --net=host $NOROOT \
     $IMAGE \
     dumb-init \
     "$TELE" build \
+    $EXTRA_TELE_BUILD_OPTIONS \
     "$APP_MANIFEST" \
     --state-dir="$STATE_DIR" \
     --version="$VERSION" \

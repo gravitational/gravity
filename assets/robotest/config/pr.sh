@@ -17,10 +17,15 @@ UPGRADE_MAP[$(recommended_upgrade_tag $(branch 6.1.x))]="redhat:7" # compatible 
 UPGRADE_MAP[6.1.0]="debian:9"
 UPGRADE_MAP[$(recommended_upgrade_tag $(branch 6.3.x))]="centos:7" # compatible non-LTS version
 
-# Upgrade path with an intermediate hop. The chosen version will exercise a double etcd upgrade from v3.3.11 to v3.3.22 to v3.4.9
-# Disabled to an issue with etcd upgrades which needs further investigation.
-# UPGRADE_MAP[5.5.10]="centos:7"
-# UPGRADE_MAP[5.5.49]="centos:7"
+# INTERMEDIATE_UPGRADE_VERSION is the middle hop to use with --upgrade-via
+INTERMEDIATE_UPGRADE_VERSION=$(recommended_upgrade_tag $(branch 6.1.x))
+# INTERMEDIATE_UPGRADE_MAP maps gravity version -> linux distros that will be upgraded to a combined
+# latest + INTERMEDIATE_UPGRADE_VERSION image.  The chosen version will exercise a double etcd upgrade.
+# For example: v3.3.11 to v3.3.22 to v3.4.9
+declare -A INTERMEDIATE_UPGRADE_MAP
+INTERMEDIATE_UPGRADE_MAP[$(recommended_upgrade_tag $(branch 5.5.x))]="centos:7"
+# 5.5.10 is disabled to an issue with etcd upgrades which needs further investigation (#2013).
+# INTERMEDIATE_UPGRADE_MAP[5.5.10]="centos:7"
 
 # 6.2 and 6.3 ignored in PR builds per https://github.com/gravitational/gravity/pull/1760#pullrequestreview-437838773
 # UPGRADE_MAP[$(recommended_upgrade_tag $(branch 6.3.x))]="redhat:7" # compatible non-LTS version
@@ -35,6 +40,20 @@ function build_upgrade_suite {
   for release in ${!UPGRADE_MAP[@]}; do
     local from_tarball=$(tag_to_image $release)
     for os in ${UPGRADE_MAP[$release]}; do
+      suite+=$(build_upgrade_step $from_tarball $to_tarball $os $size)
+      suite+=' '
+    done
+  done
+  echo -n $suite
+}
+
+function build_intermediate_upgrade_suite {
+  local size='"flavor":"three","nodes":3,"role":"node"'
+  local to_tarball=${INTERMEDIATE_INSTALLER_URL}
+  local suite=''
+  for release in ${!INTERMEDIATE_UPGRADE_MAP[@]}; do
+    local from_tarball=$(tag_to_image $release)
+    for os in ${INTERMEDIATE_UPGRADE_MAP[$release]}; do
       suite+=$(build_upgrade_step $from_tarball $to_tarball $os $size)
       suite+=' '
     done
@@ -82,7 +101,10 @@ EOF
 
 if [[ ${1} == "upgradeversions" ]] ; then
     UPGRADE_VERSIONS=${!UPGRADE_MAP[@]}
+    UPGRADE_VERSIONS+=" ${!INTERMEDIATE_UPGRADE_MAP[@]}"
     echo "$UPGRADE_VERSIONS"
+elif [[ ${1} == "intermediateversion" ]] ; then
+    echo "$INTERMEDIATE_UPGRADE_VERSION"
 elif [[ ${1} == "configuration" ]] ; then
     SUITE=""
     SUITE+=" $(build_telekube_suite)"
@@ -90,6 +112,7 @@ elif [[ ${1} == "configuration" ]] ; then
     SUITE+=" $(build_install_suite)"
     SUITE+=" $(build_resize_suite)"
     SUITE+=" $(build_upgrade_suite)"
+    SUITE+=" $(build_intermediate_upgrade_suite)"
     echo "$SUITE"
 else
     echo "Unknown parameter: $1"

@@ -116,6 +116,11 @@ ROBOTEST_IMAGE = $(ROBOTEST_IMAGEDIR)/robotest-$(GRAVITY_VERSION).tar
 ROBOTEST_OPSCENTER_IMAGE = $(ROBOTEST_IMAGEDIR)/opscenter-$(GRAVITY_VERSION).tar
 # ROBOTEST_TELEKUBE_IMAGE is robotest's copy of the telekube image, used for install testing.
 ROBOTEST_TELEKUBE_IMAGE = $(ROBOTEST_IMAGEDIR)/telekube-$(GRAVITY_VERSION).tar
+# GRAVITY_VERSION_INTERMEDIATE is a gravity semver used for --upgrade-via testing
+GRAVITY_VERSION_INTERMEDIATE := $(shell cd $(TOP)/config && $(ROBOTEST_CONFIG_SCRIPT) intermediateversion)
+# ROBOTEST_IMAGE_INTERMEDIATE is a robotest image that includes an older intermediate runtime.
+# Used to test upgrades from releases that are too old to support direct upgrade
+ROBOTEST_IMAGE_INTERMEDIATE = $(ROBOTEST_IMAGEDIR)/robotest-$(GRAVITY_VERSION)-via-$(GRAVITY_VERSION_INTERMEDIATE).tar
 # ROBOTEST_UPGRADE_VERSIONS is a list of gravity semvers that will be used in upgrade testing.
 ROBOTEST_UPGRADE_VERSIONS := $(shell cd $(TOP)/config && $(ROBOTEST_CONFIG_SCRIPT) upgradeversions)
 # ROBOTEST_TELE_BINARIES is the list of build specific tele binaries needed to
@@ -187,7 +192,7 @@ $(TELE_BUILD_DOCKER_IIDFILE): $(TOP)/Dockerfile $(ROBOTEST_BUILDDIR)
 
 .PHONY: images
 images: ## Build all images necessary to run robotest CI tests.
-images: image-telekube image-opscenter image-robotest image-robotest-upgrade
+images: image-telekube image-opscenter image-robotest image-robotest-intermediate image-robotest-upgrade
 
 .PHONY: image-telekube
 image-telekube: ## Move telekube.tar cluster image into place for test execution.
@@ -216,6 +221,22 @@ $(ROBOTEST_IMAGE): export VERSION = $(GRAVITY_VERSION)
 $(ROBOTEST_IMAGE): export TELE = $(TELE_OUT)
 $(ROBOTEST_IMAGE): export STATE_DIR = $(PACKAGES_DIR)
 $(ROBOTEST_IMAGE): $(TELE_OUT) $(ROBOTEST_IMAGE_SRC) $(TOP)/tele_build.sh $(TELE_BUILD_DOCKER_IIDFILE) | $(ROBOTEST_IMAGEDIR) $(ROBOTEST_BUILD_TMP)
+	$(TOP)/tele_build.sh
+
+.PHONY: image-robotest-intermediate
+image-robotest-intermediate: ## Build robotest cluster image with a prior LTS baked in through --upgrade-via.
+image-robotest-intermediate: $(ROBOTEST_IMAGE_INTERMEDIATE)
+
+$(ROBOTEST_IMAGE_INTERMEDIATE): export EXTRA_TELE_BUILD_OPTIONS = --upgrade-via=$(GRAVITY_VERSION_INTERMEDIATE)
+$(ROBOTEST_IMAGE_INTERMEDIATE): export TARGET = $(ROBOTEST_IMAGE_INTERMEDIATE)
+$(ROBOTEST_IMAGE_INTERMEDIATE): export IMAGE = $(TELE_BUILD_DOCKER_IMAGE)
+$(ROBOTEST_IMAGE_INTERMEDIATE): export BUILD_TMP = $(ROBOTEST_BUILD_TMP)
+$(ROBOTEST_IMAGE_INTERMEDIATE): export APP_MANIFEST = $(ROBOTEST_IMAGE_MANIFEST)
+$(ROBOTEST_IMAGE_INTERMEDIATE): export APP_SRCDIR = $(ROBOTEST_IMAGE_SRCDIR)
+$(ROBOTEST_IMAGE_INTERMEDIATE): export VERSION = $(GRAVITY_VERSION)
+$(ROBOTEST_IMAGE_INTERMEDIATE): export TELE = $(TELE_OUT)
+$(ROBOTEST_IMAGE_INTERMEDIATE): export STATE_DIR = $(PACKAGES_DIR)
+$(ROBOTEST_IMAGE_INTERMEDIATE): $(TELE_OUT) $(ROBOTEST_IMAGE_SRC) $(TOP)/tele_build.sh $(TELE_BUILD_DOCKER_IIDFILE) | $(ROBOTEST_IMAGEDIR) $(ROBOTEST_BUILD_TMP)
 	$(TOP)/tele_build.sh
 
 # When using a shared state dir 7.0.x package syncing is prone to races
@@ -305,6 +326,7 @@ get-config: export IMAGEDIR_MOUNTPOINT ?= /images
 get-config: export INSTALLER_URL ?= /images/$(notdir $(ROBOTEST_IMAGE))
 get-config: export OPSCENTER_URL ?= /images/$(notdir $(ROBOTEST_OPSCENTER_IMAGE))
 get-config: export TELEKUBE_URL  ?= /images/$(notdir $(ROBOTEST_TELEKUBE_IMAGE))
+get-config: export INTERMEDIATE_INSTALLER_URL ?= /images/$(notdir $(ROBOTEST_IMAGE_INTERMEDIATE))
 get-config: ## Show robotest configuration.
 	@cd $(TOP) && $(ROBOTEST_CONFIG_SCRIPT) configuration | sed -e 's/^[[:space:]]*//' | tr ' ' '\n'
 
@@ -316,6 +338,7 @@ run: export IMAGEDIR_MOUNTPOINT ?= /images
 run: export INSTALLER_URL ?= /images/$(notdir $(ROBOTEST_IMAGE))
 run: export OPSCENTER_URL ?= /images/$(notdir $(ROBOTEST_OPSCENTER_IMAGE))
 run: export TELEKUBE_URL  ?= /images/$(notdir $(ROBOTEST_TELEKUBE_IMAGE))
+run: export INTERMEDIATE_INSTALLER_URL ?= /images/$(notdir $(ROBOTEST_IMAGE_INTERMEDIATE))
 run: export IMAGEDIR = $(ROBOTEST_IMAGEDIR)
 run: export STATEDIR ?= $(ROBOTEST_STATEDIR)
 run: export SSH_KEY ?= $(ROBOTEST_SSH_KEY)
