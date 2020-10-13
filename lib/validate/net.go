@@ -31,7 +31,7 @@ func NetworkOverlap(ipAddr, subnetCIDR, errMsg string) error {
 
 	ip := net.ParseIP(ipAddr)
 	if ip == nil {
-		return trace.BadParameter("Invalid IP address (%v).", ipAddr)
+		return trace.BadParameter("invalid IP address (%v)", ipAddr)
 	}
 
 	if subNet.Contains(ip) {
