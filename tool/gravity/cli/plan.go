@@ -81,12 +81,15 @@ func displayOperationPlan(localEnv *localenv.LocalEnvironment, environ LocalEnvi
 		}
 		return trace.Wrap(err)
 	}
+
 	if isInvalidOperation(*op) {
 		return trace.BadParameter(invalidOperationBanner, op.String(), op.ID)
 	}
+
 	if op.IsCompleted() && op.hasPlan {
 		return displayClusterOperationPlan(localEnv, op.Key(), opts)
 	}
+
 	switch op.Type {
 
 	case ops.OperationInstall:

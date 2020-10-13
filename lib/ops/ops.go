@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2018-2020 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -728,7 +728,7 @@ type Operations interface {
 	GetSiteInstructions(token string, serverProfile string, params url.Values) (string, error)
 
 	// GetSiteOperations returns a list of operations executed for this site
-	GetSiteOperations(key SiteKey) (SiteOperations, error)
+	GetSiteOperations(key SiteKey, filter OperationsFilter) (SiteOperations, error)
 
 	// CreateSiteInstallOperation initiates install operation for the site
 	// this operation can be currently run only once
@@ -832,6 +832,149 @@ type Operations interface {
 
 	// GetOperationPlan returns plan for the specified operation
 	GetOperationPlan(SiteOperationKey) (*storage.OperationPlan, error)
+}
+
+// OperationsFilter represents a filter to apply to results when listing operations
+type OperationsFilter struct {
+	// Last indicates to only return the last operation
+	Last bool
+
+	// First indicates to only return the first operation
+	First bool
+
+	// Complete indicates to only return completed operations
+	Complete bool
+
+	// Finished indicates to only return finished operations (complete or failed)
+	Finished bool
+
+	// Active indicate to only return active operations
+	Active bool
+
+	// Types indicates to only return an operation type (ie OperationExpand)
+	Types []string
+}
+
+// URLValues converts the filter to a set of URL values that can be passed via the API
+func (f OperationsFilter) URLValues() (res url.Values) {
+	res = url.Values{}
+
+	if f.Last {
+		res.Add("last", "")
+	}
+
+	if f.First {
+		res.Add("first", "")
+	}
+
+	if f.Complete {
+		res.Add("complete", "")
+	}
+
+	if f.Finished {
+		res.Add("finished", "")
+	}
+
+	if f.Active {
+		res.Add("active", "")
+	}
+
+	if len(f.Types) > 0 {
+		for _, t := range f.Types {
+			res.Add("type", t)
+		}
+	}
+
+	return
+}
+
+// FilterFromURLValues returns an operations filter based on set URL values
+func FilterFromURLValues(v url.Values) (f OperationsFilter) {
+	if _, ok := v["last"]; ok {
+		f.Last = true
+	}
+
+	if _, ok := v["first"]; ok {
+		f.First = true
+	}
+
+	if _, ok := v["complete"]; ok {
+		f.Complete = true
+	}
+
+	if _, ok := v["finished"]; ok {
+		f.Finished = true
+	}
+
+	if _, ok := v["active"]; ok {
+		f.Active = true
+	}
+
+	if t, ok := v["type"]; ok {
+		if len(t) > 0 {
+			f.Types = t
+		}
+	}
+
+	return
+}
+
+// Filter takes a list of operations and filters the results based on the set filter parameters
+func (filter OperationsFilter) Filter(in SiteOperations) SiteOperations {
+	if len(in) == 0 {
+		return nil
+	}
+
+	filtered := in
+
+	if len(filter.Types) > 0 || filter.Active || filter.Complete || filter.Finished {
+		filtered = SiteOperations{}
+
+		for _, value := range in {
+			if len(filter.Types) > 0 {
+				drop := true
+				for _, t := range filter.Types {
+					if t == value.Type {
+						drop = false
+					}
+				}
+				if drop {
+					continue
+				}
+			}
+
+			op := SiteOperation(value)
+			if filter.Active && op.IsFinished() {
+				continue
+			}
+
+			if filter.Complete && !op.IsCompleted() {
+				continue
+			}
+
+			if filter.Finished && !op.IsFinished() {
+				continue
+			}
+
+			filtered = append(filtered, value)
+		}
+	}
+
+	if len(filtered) == 0 {
+		return nil
+	}
+
+	if filter.First {
+		// backend is guaranteed to return operations in the last-to-first order
+		return SiteOperations{filtered[len(filtered)-1]}
+	}
+
+	if filter.Last {
+		// backend is guaranteed to return operations in the last-to-first order
+		return SiteOperations{filtered[0]}
+	}
+
+	return filtered
 }
 
 // LogEntry represents a single log line for an operation

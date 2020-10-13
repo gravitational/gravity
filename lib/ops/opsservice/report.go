@@ -327,7 +327,7 @@ func runCollectors(ctx context.Context, cluster site, dir string) error {
 }
 
 func collectOperationsLogs(site site, dir string) error {
-	operations, err := site.service.GetSiteOperations(site.key)
+	operations, err := site.service.GetSiteOperations(site.key, ops.OperationsFilter{})
 	if err != nil {
 		return trace.Wrap(err, "failed to get cluster operations")
 	}

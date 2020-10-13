@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/gravitational/gravity/lib/constants"
@@ -137,9 +138,6 @@ const (
 
 	// MaxValidationConcurrency defines a number of validation requests to run concurrently
 	MaxValidationConcurrency = 5
-
-	// MaxExpandConcurrency is the number of servers that can be joining the cluster concurrently
-	MaxExpandConcurrency = 5
 
 	// DownloadRetryPeriod is the period between failed retry attempts
 	DownloadRetryPeriod = 5 * time.Second
@@ -1190,6 +1188,9 @@ var (
 	// A failed precondition usually means a configuration error when an operation cannot be retried.
 	// The exit code is used to prevent the agent service from restarting after shutdown
 	FailedPreconditionExitCode = 252
+
+	// MaxExpandConcurrency is the number of servers that can be joining the cluster concurrently
+	MaxExpandConcurrency = (runtime.NumCPU() / 3) + 4
 )
 
 // HookSecurityContext returns default securityContext for hook pods
