@@ -55,7 +55,7 @@ nodeProfiles:
         - name: ubuntu-core
           versions: ["16"]
         - name: debian
-          versions: ["8", "9"]
+          versions: ["9"]
         - name: suse
           versions: ["12"]
         - name: sles  # Suse Linux Enterprise Server
