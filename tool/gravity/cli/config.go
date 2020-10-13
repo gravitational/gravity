@@ -350,13 +350,15 @@ func (i *InstallConfig) CheckAndSetDefaults(validator resources.Validator) (err 
 		return trace.Wrap(err)
 	}
 
-	if err := validate.NetworkOverlap(i.AdvertiseAddr, i.ServiceCIDR, fmt.Sprintf("The selected advertise address %v conflicts with the service network CIDR range %v. Please specify a different service CIDR via --service-cidr flag.",
-		i.AdvertiseAddr, i.ServiceCIDR)); err != nil {
+	message := fmt.Sprintf("The selected advertise address %v conflicts with the service network CIDR range %v. "+
+		"Please specify a different service CIDR via --service-cidr flag.", i.AdvertiseAddr, i.ServiceCIDR)
+	if err := validate.NetworkOverlap(i.AdvertiseAddr, i.ServiceCIDR, message); err != nil {
 		return trace.Wrap(err)
 	}
 
-	if err := validate.NetworkOverlap(i.AdvertiseAddr, i.PodCIDR, fmt.Sprintf("The selected advertise address %v conflicts with the pod network CIDR range %v. Please specify a different pod CIDR via --pod-network-cidr flag.",
-		i.AdvertiseAddr, i.PodCIDR)); err != nil {
+	message = fmt.Sprintf("The selected advertise address %v conflicts with the pod network CIDR range %v. "+
+		"Please specify a different pod CIDR via --pod-network-cidr flag.", i.AdvertiseAddr, i.PodCIDR)
+	if err := validate.NetworkOverlap(i.AdvertiseAddr, i.PodCIDR, message); err != nil {
 		return trace.Wrap(err)
 	}
 

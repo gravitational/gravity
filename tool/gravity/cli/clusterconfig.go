@@ -288,15 +288,19 @@ func validateClusterConfig(localEnv *localenv.LocalEnvironment, update libcluste
 
 	server, err := findLocalServer(cluster.ClusterState.Servers)
 	if err != nil {
-		return trace.NotFound("unable to find local node among cluster state servers: %v", cluster.ClusterState.Servers)
+		return trace.NotFound("unable to find local node among cluster state servers: %v",
+			cluster.ClusterState.Servers)
 	}
-	if err := validate.NetworkOverlap(server.AdvertiseIP, update.GetGlobalConfig().ServiceCIDR, fmt.Sprintf("The advertise address %v conflicts with the service network CIDR range %v. Please specify a different service CIDR.",
-		server.AdvertiseIP, update.GetGlobalConfig().ServiceCIDR)); err != nil {
+
+	message := fmt.Sprintf("The advertise address %v conflicts with the service network CIDR range %v. "+
+		"Please specify a different service CIDR.", server.AdvertiseIP, update.GetGlobalConfig().ServiceCIDR)
+	if err := validate.NetworkOverlap(server.AdvertiseIP, update.GetGlobalConfig().ServiceCIDR, message); err != nil {
 		return trace.Wrap(err)
 	}
 
-	if err := validate.NetworkOverlap(server.AdvertiseIP, update.GetGlobalConfig().PodCIDR, fmt.Sprintf("The advertise address %v conflicts with the pod network CIDR range %v. Please specify a different pod CIDR.",
-		server.AdvertiseIP, update.GetGlobalConfig().PodCIDR)); err != nil {
+	message = fmt.Sprintf("The advertise address %v conflicts with the pod network CIDR range %v. "+
+		"Please specify a different pod CIDR.", server.AdvertiseIP, update.GetGlobalConfig().PodCIDR)
+	if err := validate.NetworkOverlap(server.AdvertiseIP, update.GetGlobalConfig().PodCIDR, message); err != nil {
 		return trace.Wrap(err)
 	}
 
