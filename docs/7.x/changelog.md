@@ -625,7 +625,7 @@ to learn how to gain insight into how the cluster status changes over time.
 ### 6.1.43 LTS (October 13th, 2020)
 
 #### Improvements
-* Tune gravity to support up to 1000 nodes ([#2220](https://github.com/gravitational/gravity/pull/2220)).
+* Tune gravity to support larger clusters ([#2220](https://github.com/gravitational/gravity/pull/2220)).
 * Add check that phases are rolled back in the correct order ([#2218](https://github.com/gravitational/gravity/pull/2218)).
 
 ### 6.1.42 LTS (October 6th, 2020)
