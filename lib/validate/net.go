@@ -23,7 +23,7 @@ import (
 )
 
 // NetworkOverlap verifies that ipAddr is not in the range of the subnetCIDR
-func NetworkOverlap(ipAddr string, subnetCIDR string, errMsg string) error {
+func NetworkOverlap(ipAddr, subnetCIDR, errMsg string) error {
 	_, subNet, err := net.ParseCIDR(subnetCIDR)
 	if err != nil {
 		return trace.Wrap(err)
