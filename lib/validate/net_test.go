@@ -106,7 +106,7 @@ func (*S) TestNetworkOverlap(c *check.C) {
 		if tc.ok {
 			c.Assert(err, check.IsNil, check.Commentf(tc.description))
 		} else {
-			c.Assert(err, check.NotNil, check.Commentf(tc.description))
+			c.Assert(err, check.ErrorMatches, "errMsg")
 		}
 	}
 }
