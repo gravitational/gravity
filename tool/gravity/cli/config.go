@@ -725,6 +725,19 @@ func (i *InstallConfig) updateClusterConfig(resources []storage.UnknownResource)
 	if err != nil {
 		return nil, trace.Wrap(err, "invalid service subnet: %v", globalConfig.ServiceCIDR)
 	}
+
+	message := fmt.Sprintf("The selected advertise address %v conflicts with the service network CIDR range %v. "+
+		"Please specify a different service CIDR.", i.AdvertiseAddr, globalConfig.ServiceCIDR)
+	if err := validate.NetworkOverlap(i.AdvertiseAddr, globalConfig.ServiceCIDR, message); err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	message = fmt.Sprintf("The selected advertise address %v conflicts with the pod network CIDR range %v. "+
+		"Please specify a different pod CIDR.", i.AdvertiseAddr, globalConfig.PodCIDR)
+	if err := validate.NetworkOverlap(i.AdvertiseAddr, globalConfig.PodCIDR, message); err != nil {
+		return nil, trace.Wrap(err)
+	}
+
 	config.SetGlobalConfig(globalConfig)
 	// Serialize the cluster configuration and add to resources
 	configResource, err := clusterconfig.ToUnknown(config)
