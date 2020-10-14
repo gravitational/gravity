@@ -41,3 +41,69 @@ func (*PlanSuite) TestGetLeafPhases(c *check.C) {
 	compare.DeepCompare(c, plan.GetLeafPhases(), []OperationPhase{
 		initPhase, bootstrapPhase1, bootstrapPhase2, upgradePhase})
 }
+
+func (*PlanSuite) TestGetState(c *check.C) {
+	tests := []struct {
+		comment  string
+		expected string
+		phase    OperationPhase
+	}{
+		{
+			comment:  "Phase unstarted",
+			expected: OperationPhaseStateUnstarted,
+			phase: OperationPhase{
+				Phases: []OperationPhase{
+					{
+						State: OperationPhaseStateUnstarted,
+					},
+				},
+			},
+		},
+		{
+			comment:  "Phase completed",
+			expected: OperationPhaseStateCompleted,
+			phase: OperationPhase{
+				Phases: []OperationPhase{
+					{State: OperationPhaseStateCompleted},
+				},
+			},
+		},
+		{
+			comment:  "Phase failed",
+			expected: OperationPhaseStateFailed,
+			phase: OperationPhase{
+				Phases: []OperationPhase{
+					{State: OperationPhaseStateCompleted},
+					{State: OperationPhaseStateFailed},
+					{State: OperationPhaseStateRolledBack},
+					{State: OperationPhaseStateUnstarted},
+				},
+			},
+		},
+		{
+			comment:  "Phase rolled back",
+			expected: OperationPhaseStateRolledBack,
+			phase: OperationPhase{
+				Phases: []OperationPhase{
+					{State: OperationPhaseStateRolledBack},
+					{State: OperationPhaseStateUnstarted},
+				},
+			},
+		},
+		{
+			comment:  "Phase in progress",
+			expected: OperationPhaseStateInProgress,
+			phase: OperationPhase{
+				Phases: []OperationPhase{
+					{State: OperationPhaseStateCompleted},
+					{State: OperationPhaseStateInProgress},
+					{State: OperationPhaseStateUnstarted},
+				},
+			},
+		},
+	}
+	for _, tc := range tests {
+		comment := check.Commentf(tc.comment)
+		c.Assert(tc.phase.GetState(), check.Equals, tc.expected, comment)
+	}
+}
