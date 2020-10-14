@@ -165,6 +165,12 @@ $(ROBOTEST_TELE_CACHE):
 $(ROBOTEST_GRAVITY_PKG_CACHE):
 	mkdir -p $(ROBOTEST_GRAVITY_PKG_CACHE)
 
+# .PRECIOUS because this is a pattern rule. As such these caches would otherwise be marked intermediate
+# and make would try to delete them.
+.PRECIOUS: $(ROBOTEST_GRAVITY_PKG_CACHE)/%
+$(ROBOTEST_GRAVITY_PKG_CACHE)/%:
+	mkdir -p $@
+
 $(ROBOTEST_BUILD_TMP):
 	mkdir -p $(ROBOTEST_BUILD_TMP)
 
@@ -268,8 +274,8 @@ $(ROBOTEST_IMAGEDIR)/robotest-%.tar: export APP_MANIFEST = $(ROBOTEST_UPGRADE_BA
 $(ROBOTEST_IMAGEDIR)/robotest-%.tar: export APP_SRCDIR = $(ROBOTEST_UPGRADE_BASE_IMAGE_SRCDIR)
 $(ROBOTEST_IMAGEDIR)/robotest-%.tar: export VERSION = $*
 $(ROBOTEST_IMAGEDIR)/robotest-%.tar: export TELE = $<
-$(ROBOTEST_IMAGEDIR)/robotest-%.tar: export STATE_DIR = $(ROBOTEST_GRAVITY_PKG_CACHE)
-$(ROBOTEST_IMAGEDIR)/robotest-%.tar: $(ROBOTEST_TELE_CACHE)/tele-% $(ROBOTEST_UPGRADE_BASE_IMAGE_SRC) $(TOP)/tele_build.sh | $(ROBOTEST_IMAGEDIR) $(ROBOTEST_BUILD_TMP) $(ROBOTEST_GRAVITY_PKG_CACHE)
+$(ROBOTEST_IMAGEDIR)/robotest-%.tar: export STATE_DIR = $(ROBOTEST_GRAVITY_PKG_CACHE)/$*
+$(ROBOTEST_IMAGEDIR)/robotest-%.tar: $(ROBOTEST_TELE_CACHE)/tele-% $(ROBOTEST_UPGRADE_BASE_IMAGE_SRC) $(TOP)/tele_build.sh | $(ROBOTEST_IMAGEDIR) $(ROBOTEST_BUILD_TMP) $(ROBOTEST_GRAVITY_PKG_CACHE)/%
 	$(TOP)/tele_build.sh
 
 # The following target is a pattern rule for populating the tele binary cache.
