@@ -365,7 +365,7 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 		// If advertise address was explicitly provided to the start command,
 		// launch the reconfigure operation.
 		if *g.StartCmd.AdvertiseAddr != "" {
-			config, err := NewReconfigureConfig(localEnv, g)
+			config, err := newReconfigureConfig(localEnv, g)
 			if err != nil {
 				return trace.Wrap(err)
 			}
@@ -385,6 +385,7 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			systemDevice:  *g.AutoJoinCmd.SystemDevice,
 			mounts:        *g.AutoJoinCmd.Mounts,
 			fromService:   *g.AutoJoinCmd.FromService,
+			stateDir:      *g.AutoJoinCmd.StateDir,
 			serviceURL:    *g.AutoJoinCmd.ServiceAddr,
 			token:         *g.AutoJoinCmd.Token,
 			advertiseAddr: *g.AutoJoinCmd.AdvertiseAddr,

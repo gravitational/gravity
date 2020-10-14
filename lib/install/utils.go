@@ -42,7 +42,6 @@ import (
 
 	"github.com/cenkalti/backoff"
 	"github.com/gravitational/trace"
-	"github.com/kardianos/osext"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc/credentials"
 )
@@ -291,7 +290,7 @@ func ServerRequirements(flavor schema.Flavor) map[string]storage.ServerProfileRe
 // resulting binary
 func InstallBinary(uid, gid int, logger log.FieldLogger) (err error) {
 	for _, targetPath := range state.GravityBinPaths {
-		err = tryInstallBinary(targetPath, uid, gid, logger)
+		err = InstallBinaryInto(targetPath, logger, utils.OwnerOption(uid, gid))
 		if err == nil {
 			break
 		}
@@ -305,6 +304,42 @@ func InstallBinary(uid, gid int, logger log.FieldLogger) (err error) {
 	if err != nil {
 		return trace.Wrap(err, "failed to install gravity binary in any of %v",
 			state.GravityBinPaths)
+	}
+	return nil
+}
+
+// InstallBinaryIntoDefaultLocation installs the gravity binary into one of the default locations
+// based on the distribution.
+// Returns the path of the binary if installed successfully
+func InstallBinaryIntoDefaultLocation(logger log.FieldLogger, opts ...utils.FileOption) (path string, err error) {
+	var targetPath string
+	for _, targetPath = range state.GravityBinPaths {
+		err = InstallBinaryInto(targetPath, logger, opts...)
+		if err == nil {
+			break
+		}
+		logger.WithError(err).WithField("target-path", targetPath).Warn("Failed to install binary.")
+	}
+	if err != nil {
+		return "", trace.Wrap(err, "failed to install gravity binary in any of %v",
+			state.GravityBinPaths)
+	}
+	return targetPath, nil
+}
+
+// InstallBinaryInto installs this gravity binary into targetPath using given file options.
+func InstallBinaryInto(targetPath string, logger log.FieldLogger, opts ...utils.FileOption) error {
+	opts = append(opts, utils.PermOption(defaults.SharedExecutableMask))
+	dir := filepath.Dir(targetPath)
+	if !isRootDir(dir) {
+		err := os.MkdirAll(dir, defaults.SharedDirMask)
+		if err != nil {
+			return trace.ConvertSystemError(err)
+		}
+	}
+	err := utils.CopyFileWithOptions(targetPath, utils.Exe.Path, opts...)
+	if err != nil {
+		return trace.Wrap(err)
 	}
 	return nil
 }
@@ -389,31 +424,6 @@ func isOperationSuccessful(progress ops.ProgressEntry) bool {
 
 type eventDispatcher interface {
 	Send(dispatcher.Event)
-}
-
-func tryInstallBinary(targetPath string, uid, gid int, logger log.FieldLogger) error {
-	path, err := osext.Executable()
-	if err != nil {
-		return trace.Wrap(err, "failed to determine path to binary")
-	}
-	dir := filepath.Dir(targetPath)
-	if !isRootDir(dir) {
-		err = os.MkdirAll(dir, defaults.SharedDirMask)
-		if err != nil {
-			return trace.ConvertSystemError(err)
-		}
-	}
-	err = utils.CopyFileWithPerms(targetPath, path, defaults.SharedExecutableMask)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	err = os.Chown(targetPath, uid, gid)
-	if err != nil {
-		return trace.Wrap(trace.ConvertSystemError(err),
-			"failed to change ownership on %v", targetPath)
-	}
-	logger.WithField("path", targetPath).Info("Installed gravity binary.")
-	return nil
 }
 
 // initOperationPlan initializes a new operation plan for the specified install operation

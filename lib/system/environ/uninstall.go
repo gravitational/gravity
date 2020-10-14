@@ -74,6 +74,8 @@ func getPathsToRemove() []string {
 	return append(getStatePaths(),
 		defaults.GravityBin,
 		defaults.GravityBinAlternate,
+		defaults.GravityAgentBin,
+		defaults.GravityAgentBinAlternate,
 		defaults.KubectlBin,
 		defaults.KubectlBinAlternate,
 		defaults.HelmBin,
@@ -84,11 +86,7 @@ func getPathsToRemove() []string {
 
 // CleanupOperationState removes all operation state after the operation is complete
 func CleanupOperationState(printer utils.Printer, logger log.FieldLogger) error {
-	stateDir, err := state.GravityInstallDir()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	return trace.Wrap(removePaths(printer, logger, stateDir))
+	return trace.Wrap(removePaths(printer, logger, state.GravityInstallDir()))
 }
 
 // UninstallPackageServices stops and uninstalls system package services
@@ -107,22 +105,6 @@ func UninstallAgentServices(printer utils.Printer, logger log.FieldLogger) error
 		return trace.Wrap(err)
 	}
 	return uninstallAgentServices(svm)
-}
-
-// UninstallServices stops and uninstalls all relevant services
-func UninstallServices(printer utils.Printer, logger log.FieldLogger) error {
-	svm, err := systemservice.New()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	var errors []error
-	if err := uninstallPackageServices(svm, printer, logger); err != nil {
-		errors = append(errors, err)
-	}
-	if err := uninstallAgentServices(svm); err != nil {
-		errors = append(errors, err)
-	}
-	return trace.NewAggregate(errors...)
 }
 
 // UninstallService stops and uninstalls a service with the specified name
@@ -291,9 +273,7 @@ func getStatePaths() (paths []string) {
 	// do not attempt to remove state directory if started with root
 	// as a working directory
 	if !isRunningInRootDir() {
-		if stateDir, err := state.GravityInstallDir(); err == nil {
-			paths = append(paths, stateDir)
-		}
+		paths = append(paths, state.GravityInstallDir())
 	}
 	return append(paths,
 		defaults.ModulesPath,

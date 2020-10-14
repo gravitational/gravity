@@ -36,7 +36,6 @@ import (
 	installerclient "github.com/gravitational/gravity/lib/install/client"
 	clinstall "github.com/gravitational/gravity/lib/install/engine/cli"
 	"github.com/gravitational/gravity/lib/install/engine/interactive"
-	installpb "github.com/gravitational/gravity/lib/install/proto"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/resources"
@@ -75,6 +74,8 @@ func startInstall(env *localenv.LocalEnvironment, config InstallConfig) error {
 	if err := config.RunLocalChecks(); err != nil {
 		return trace.Wrap(err)
 	}
+	// Installer uses the tarball directory for local state
+	stateDir := state.GravityInstallDirAt(config.StateDir)
 	strategy, err := NewInstallerConnectStrategy(env, config, cli.CommandArgs{
 		Parser: cli.ArgsParserFunc(parseArgs),
 	})
@@ -84,15 +85,15 @@ func startInstall(env *localenv.LocalEnvironment, config InstallConfig) error {
 	err = InstallerClient(env, installerclient.Config{
 		ConnectStrategy: strategy,
 		Lifecycle: &installerclient.AutomaticLifecycle{
-			Aborter:            AborterForMode(config.Mode, env),
-			Completer:          InstallerCompleteOperation(env),
+			Aborter:            AborterForMode(stateDir, config.Mode, env),
+			Completer:          InstallerCompleteOperation(stateDir, env),
 			DebugReportPath:    DebugReportPath(),
 			LocalDebugReporter: InstallerGenerateLocalReport(env),
 		},
 	})
 	if utils.IsContextCancelledError(err) {
 		// We only end up here if the initialization has not been successful - clean up the state
-		if err := InstallerCleanup(); err != nil {
+		if err := InstallerCleanup(stateDir); err != nil {
 			log.Warnf("Failed to clean up installer: %v.", err)
 		}
 		return trace.Wrap(err, "installer interrupted")
@@ -105,7 +106,8 @@ func startInstallFromService(env *localenv.LocalEnvironment, config InstallConfi
 	interrupt := signals.NewInterruptHandler(ctx, cancel, InterruptSignals)
 	defer interrupt.Close()
 	go TerminationHandler(interrupt, env)
-	listener, err := NewServiceListener()
+	socketPath := state.GravityInstallDirAt(config.StateDir, defaults.GravityRPCInstallerSocketName)
+	listener, err := NewServiceListener(socketPath)
 	if err != nil {
 		return trace.Wrap(utils.NewPreconditionFailedError(err))
 	}
@@ -220,7 +222,8 @@ func joinFromService(env, joinEnv *localenv.LocalEnvironment, config JoinConfig)
 	interrupt := signals.NewInterruptHandler(ctx, cancel, InterruptSignals)
 	defer interrupt.Close()
 	go TerminationHandler(interrupt, env)
-	listener, err := NewServiceListener()
+	socketPath := state.GravityInstallDirAt(config.StateDir, defaults.GravityRPCAgentSocketName)
+	listener, err := NewServiceListener(socketPath)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -246,18 +249,19 @@ func joinFromService(env, joinEnv *localenv.LocalEnvironment, config JoinConfig)
 func restartInstallOrJoin(env *localenv.LocalEnvironment) error {
 	env.PrintStep("Resuming installer")
 
+	stateDir := state.GravityInstallDir()
 	err := InstallerClient(env, installerclient.Config{
 		ConnectStrategy: &installerclient.ResumeStrategy{},
 		Lifecycle: &installerclient.AutomaticLifecycle{
-			Aborter:            installerAbortOperation(env),
-			Completer:          InstallerCompleteOperation(env),
+			Aborter:            installerAbortOperation(stateDir, env),
+			Completer:          InstallerCompleteOperation(stateDir, env),
 			DebugReportPath:    DebugReportPath(),
 			LocalDebugReporter: InstallerGenerateLocalReport(env),
 		},
 	})
 	if utils.IsContextCancelledError(err) {
 		// We only end up here if the initialization has not been successful - clean up the state
-		if err := InstallerCleanup(); err != nil {
+		if err := InstallerCleanup(stateDir); err != nil {
 			log.Warnf("Failed to clean up installer: %v.", err)
 		}
 		return trace.Wrap(err, "installer interrupted")
@@ -433,20 +437,22 @@ func autojoin(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, c
 
 	env.PrintStep("Auto-joining cluster %q via %v\n", config.clusterName, config.serviceURL)
 
-	strategy, err := newAutoAgentConnectStrategy(env, config.newJoinConfig())
+	baseDir := utils.Exe.WorkingDir
+	stateDir := state.GravityInstallDirAt(baseDir)
+	strategy, err := newAutoAgentConnectStrategy(env, baseDir, config.newJoinConfig())
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	err = joinClient(env, installerclient.Config{
 		ConnectStrategy: strategy,
 		Lifecycle: &installerclient.AutomaticLifecycle{
-			Aborter:   installerAbortOperation(env),
-			Completer: InstallerCompleteOperation(env),
+			Aborter:   installerAbortOperation(stateDir, env),
+			Completer: InstallerCompleteOperation(stateDir, env),
 		},
 	})
 	if utils.IsContextCancelledError(err) {
 		// We only end up here if the initialization has not been successful - clean up the state
-		if err := InstallerCleanup(); err != nil {
+		if err := InstallerCleanup(stateDir); err != nil {
 			log.Warnf("Failed to clean up installer: %v.", err)
 		}
 		return trace.Wrap(err, "agent interrupted")
@@ -458,7 +464,7 @@ func autojoinFromService(env *localenv.LocalEnvironment, environ LocalEnvironmen
 	if err := config.checkAndSetDefaults(); err != nil {
 		return trace.Wrap(err)
 	}
-	joinEnv, err := environ.NewJoinEnv()
+	joinEnv, err := environ.NewJoinEnv(state.GravityInstallDirAt(config.stateDir))
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -488,8 +494,9 @@ func agent(env *localenv.LocalEnvironment, config agentConfig) error {
 			ServiceSpec: systemservice.ServiceSpec{
 				StartCommand: strings.Join(command, " "),
 			},
-			NoBlock: true,
-			Name:    config.serviceName,
+			NoBlock:             true,
+			ReloadConfiguration: true,
+			Name:                config.serviceName,
 		}
 		log.WithField("req", req).Info("Installing service with req.")
 		err := service.ReinstallOneshot(req)
@@ -621,6 +628,7 @@ func executePhaseFromService(
 	go clientTerminationHandler(interrupt, env)
 
 	env.PrintStep(connecting)
+	stateDir := state.GravityInstallDir()
 	config := installerclient.Config{
 		ConnectStrategy:  &installerclient.ResumeStrategy{},
 		InterruptHandler: interrupt,
@@ -628,8 +636,8 @@ func executePhaseFromService(
 	}
 	if params.isResume() {
 		config.Lifecycle = &installerclient.AutomaticLifecycle{
-			Aborter:            installerAbortOperation(env),
-			Completer:          InstallerCompleteOperation(env),
+			Aborter:            installerAbortOperation(stateDir, env),
+			Completer:          InstallerCompleteOperation(stateDir, env),
 			DebugReportPath:    DebugReportPath(),
 			LocalDebugReporter: InstallerGenerateLocalReport(env),
 		}
@@ -694,7 +702,7 @@ func completePlanFromService(
 		Printer:          env,
 		ConnectStrategy:  &installerclient.ResumeStrategy{},
 		Lifecycle: &installerclient.AutomaticLifecycle{
-			Completer: InstallerCompleteOperation(env),
+			Completer: InstallerCompleteOperation(state.GravityInstallDir(), env),
 		},
 	})
 	if err != nil {
@@ -722,29 +730,31 @@ func join(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, confi
 		return trace.Wrap(err)
 	}
 	if config.FromService {
-		joinEnv, err := environ.NewJoinEnv()
+		joinEnv, err := environ.NewJoinEnv(state.GravityInstallDirAt(config.StateDir))
 		if err != nil {
 			return trace.Wrap(err)
 		}
 		defer joinEnv.Close()
 		return trace.Wrap(joinFromService(env, joinEnv, config))
 	}
-	strategy, err := newAgentConnectStrategy(env, config)
+	baseDir := utils.Exe.WorkingDir
+	stateDir := state.GravityInstallDirAt(baseDir)
+	strategy, err := newAgentConnectStrategy(env, baseDir, config)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	err = joinClient(env, installerclient.Config{
 		ConnectStrategy: strategy,
 		Lifecycle: &installerclient.AutomaticLifecycle{
-			Aborter:            installerAbortOperation(env),
-			Completer:          InstallerCompleteOperation(env),
+			Aborter:            installerAbortOperation(stateDir, env),
+			Completer:          InstallerCompleteOperation(stateDir, env),
 			DebugReportPath:    DebugReportPath(),
 			LocalDebugReporter: InstallerGenerateLocalReport(env),
 		},
 	})
 	if utils.IsContextCancelledError(err) {
 		// We only end up here if the initialization has not been successful - clean up the state
-		if err := InstallerCleanup(); err != nil {
+		if err := InstallerCleanup(stateDir); err != nil {
 			log.Warnf("Failed to clean up installer: %v.", err)
 		}
 		return trace.Wrap(err, "agent interrupted")
@@ -770,11 +780,7 @@ func TerminationHandler(interrupt *signals.InterruptHandler, printer utils.Print
 }
 
 // NewServiceListener returns a new listener for the installer service
-func NewServiceListener() (net.Listener, error) {
-	socketPath, err := installpb.SocketPath()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
+func NewServiceListener(socketPath string) (net.Listener, error) {
 	if err := os.RemoveAll(socketPath); err != nil {
 		return nil, trace.Wrap(trace.ConvertSystemError(err), "failed to remove installer socket")
 	}
@@ -791,9 +797,15 @@ var InterruptSignals = signals.WithSignals(
 
 // NewInstallerConnectStrategy returns default installer service connect strategy
 func NewInstallerConnectStrategy(env *localenv.LocalEnvironment, config InstallConfig, commandArgs cli.CommandArgs) (strategy installerclient.ConnectStrategy, err error) {
+	installedPath, err := install.InstallBinaryIntoDefaultLocation(log)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	commandArgs.FlagsToAdd = append(commandArgs.FlagsToAdd,
 		cli.NewFlag("token", config.Token),
 		cli.NewBoolFlag("from-service", true),
+		// During installation, installer stores local state
+		// inside the tarball directory
 		cli.NewArg("path", config.StateDir),
 	)
 	if config.Mode != constants.InstallModeInteractive {
@@ -806,16 +818,13 @@ func NewInstallerConnectStrategy(env *localenv.LocalEnvironment, config InstallC
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	args = append([]string{utils.Exe.Path}, args...)
-	servicePath, err := state.GravityInstallDir(defaults.GravityRPCInstallerServiceName)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
+	args = append([]string{installedPath}, args...)
 	return &installerclient.InstallerStrategy{
 		Args:           args,
-		Validate:       environ.ValidateInstall(env),
-		ApplicationDir: utils.Exe.WorkingDir,
-		ServicePath:    servicePath,
+		Validate:       environ.ValidateInstall(state.GravityInstallDirAt(config.StateDir), env),
+		ApplicationDir: config.StateDir,
+		SocketPath:     state.GravityInstallDirAt(config.StateDir, defaults.GravityRPCInstallerSocketName),
+		ServicePath:    defaults.SystemUnitPath(defaults.GravityRPCInstallerServiceName),
 	}, nil
 }
 
@@ -823,33 +832,41 @@ func NewInstallerConnectStrategy(env *localenv.LocalEnvironment, config InstallC
 // for the agent executing the cluster reconfiguration operation.
 func newReconfiguratorConnectStrategy(
 	env *localenv.LocalEnvironment,
-	config InstallConfig,
+	baseDir string,
+	config reconfigureConfig,
 	commandArgs cli.CommandArgs,
 ) (strategy installerclient.ConnectStrategy, err error) {
+	installedPath, err := install.InstallBinaryIntoDefaultLocation(log)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	commandArgs.FlagsToAdd = append(commandArgs.FlagsToAdd,
 		cli.NewBoolFlag("from-service", true),
+		cli.NewFlag("path", baseDir),
 	)
-	commandArgs.FlagsToRemove = append(commandArgs.FlagsToRemove, "from-service")
+	commandArgs.FlagsToRemove = append(commandArgs.FlagsToRemove, "path", "from-service")
 	args, err := commandArgs.Update(os.Args[1:])
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	args = append([]string{utils.Exe.Path}, args...)
-	servicePath, err := state.GravityInstallDir(defaults.GravityRPCInstallerServiceName)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
+	args = append([]string{installedPath}, args...)
 	return &installerclient.InstallerStrategy{
 		Args:           args,
 		Validate:       func() error { return nil },
-		ApplicationDir: utils.Exe.WorkingDir,
-		ServicePath:    servicePath,
+		ApplicationDir: baseDir,
+		SocketPath:     state.GravityInstallDirAt(baseDir, defaults.GravityRPCInstallerSocketName),
+		ServicePath:    defaults.SystemUnitPath(defaults.GravityRPCInstallerServiceName),
 	}, nil
 }
 
 // newAutoAgentConnectStrategy returns a new service connect strategy for a joining agent
 // in autojoin scenario
-func newAutoAgentConnectStrategy(env *localenv.LocalEnvironment, config JoinConfig) (strategy installerclient.ConnectStrategy, err error) {
+func newAutoAgentConnectStrategy(env *localenv.LocalEnvironment, baseDir string, config JoinConfig) (strategy installerclient.ConnectStrategy, err error) {
+	installedPath, err := install.InstallBinaryIntoDefaultLocation(log)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	stateDir := state.GravityInstallDirAt(baseDir)
 	// TODO: accept command line parser as argument if the join command
 	// is to be extended on enterprise side
 	commandArgs := cli.CommandArgs{
@@ -859,30 +876,33 @@ func newAutoAgentConnectStrategy(env *localenv.LocalEnvironment, config JoinConf
 			cli.NewBoolFlag("from-service", true),
 			cli.NewFlag("token", config.Token),
 			cli.NewFlag("advertise-addr", config.AdvertiseAddr),
+			cli.NewFlag("path", baseDir),
 			cli.NewFlag("service-addr", config.PeerAddrs),
 		},
 		// Avoid duplicates on command line
-		FlagsToRemove: []string{"token", "advertise-addr", "service-addr", "from-service"},
+		FlagsToRemove: []string{"token", "advertise-addr", "service-addr", "path", "from-service"},
 	}
 	args, err := commandArgs.Update(os.Args[1:])
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	args = append([]string{utils.Exe.Path}, args...)
-	servicePath, err := state.GravityInstallDir(defaults.GravityRPCAgentServiceName)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
+	args = append([]string{installedPath}, args...)
 	return &installerclient.InstallerStrategy{
 		Args:           args,
-		Validate:       environ.ValidateInstall(env),
-		ApplicationDir: utils.Exe.WorkingDir,
-		ServicePath:    servicePath,
+		Validate:       environ.ValidateInstall(stateDir, env),
+		ApplicationDir: baseDir,
+		SocketPath:     state.GravityInstallDirAt(baseDir, defaults.GravityRPCAgentSocketName),
+		ServicePath:    defaults.SystemUnitPath(defaults.GravityRPCAgentServiceName),
 	}, nil
 }
 
 // newAgentConnectStrategy returns default service connect strategy for a joining agent
-func newAgentConnectStrategy(env *localenv.LocalEnvironment, config JoinConfig) (strategy installerclient.ConnectStrategy, err error) {
+func newAgentConnectStrategy(env *localenv.LocalEnvironment, baseDir string, config JoinConfig) (strategy installerclient.ConnectStrategy, err error) {
+	installedPath, err := install.InstallBinaryIntoDefaultLocation(log)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	stateDir := state.GravityInstallDirAt(baseDir)
 	// TODO: accept command line parser as argument if the join command
 	// is to be extended on enterprise side
 	commandArgs := cli.CommandArgs{
@@ -892,25 +912,23 @@ func newAgentConnectStrategy(env *localenv.LocalEnvironment, config JoinConfig) 
 			cli.NewBoolFlag("from-service", true),
 			cli.NewFlag("token", config.Token),
 			cli.NewFlag("advertise-addr", config.AdvertiseAddr),
+			cli.NewFlag("path", baseDir),
 			cli.NewBoolFlag("selinux", config.SELinux),
 		},
 		// Avoid duplicates on command line
-		FlagsToRemove: []string{"token", "advertise-addr", "selinux", "from-service"},
+		FlagsToRemove: []string{"token", "advertise-addr", "selinux", "path", "from-service"},
 	}
 	args, err := commandArgs.Update(os.Args[1:])
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	args = append([]string{utils.Exe.Path}, args...)
-	servicePath, err := state.GravityInstallDir(defaults.GravityRPCAgentServiceName)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
+	args = append([]string{installedPath}, args...)
 	return &installerclient.InstallerStrategy{
 		Args:           args,
-		Validate:       environ.ValidateInstall(env),
-		ApplicationDir: utils.Exe.WorkingDir,
-		ServicePath:    servicePath,
+		Validate:       environ.ValidateInstall(stateDir, env),
+		ApplicationDir: baseDir,
+		SocketPath:     state.GravityInstallDirAt(baseDir, defaults.GravityRPCAgentSocketName),
+		ServicePath:    defaults.SystemUnitPath(defaults.GravityRPCAgentServiceName),
 	}, nil
 }
 

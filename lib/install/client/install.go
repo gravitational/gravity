@@ -27,7 +27,6 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	installpb "github.com/gravitational/gravity/lib/install/proto"
-	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/system/service"
 	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/utils"
@@ -82,8 +81,9 @@ func (r *InstallerStrategy) installSelfAsService() error {
 			// Propagate all gravity-related environment variables to the service.
 			Environment: utils.GetenvsByPrefix(constants.GravityEnvVarPrefix),
 		},
-		NoBlock: true,
-		Name:    r.ServicePath,
+		NoBlock:             true,
+		ReloadConfiguration: true,
+		Name:                r.ServicePath,
 	}
 	r.WithField("req", fmt.Sprintf("%+v", req)).Info("Install service.")
 	return trace.Wrap(service.Reinstall(req))
@@ -100,16 +100,10 @@ func (r *InstallerStrategy) checkAndSetDefaults() (err error) {
 		return trace.BadParameter("Validate is required")
 	}
 	if r.ServicePath == "" {
-		r.ServicePath, err = state.GravityInstallDir(defaults.GravityRPCInstallerServiceName)
-		if err != nil {
-			return trace.Wrap(err)
-		}
+		return trace.BadParameter("ServicePath is required")
 	}
 	if r.SocketPath == "" {
-		r.SocketPath, err = installpb.SocketPath()
-		if err != nil {
-			return trace.Wrap(err)
-		}
+		r.SocketPath = installpb.SocketPath()
 	}
 	if r.ConnectTimeout == 0 {
 		r.ConnectTimeout = defaults.ServiceConnectTimeout

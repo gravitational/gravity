@@ -98,7 +98,7 @@ type ClientConfig struct {
 }
 
 // SocketPath returns the default path to the installer service socket
-func SocketPath() (path string, err error) {
+func SocketPath() (path string) {
 	return state.GravityInstallDir("installer.sock")
 }
 

@@ -147,9 +147,15 @@ func LogDir(baseDir string, suffixes ...string) string {
 // GravityInstallDir returns the location of the temporary state directory for
 // the install/join operation.
 // elems are appended to resulting path
-func GravityInstallDir(elems ...string) (path string, err error) {
-	parts := []string{utils.Exe.WorkingDir, ".gravity"}
-	return filepath.Join(append(parts, elems...)...), nil
+func GravityInstallDir(elems ...string) (path string) {
+	return GravityInstallDirAt(utils.Exe.WorkingDir, elems...)
+}
+
+// GravityInstallDirAt returns the path to the specified elements
+// inside the installer state directory rooted at baseDir
+func GravityInstallDirAt(baseDir string, elems ...string) (path string) {
+	parts := []string{baseDir, ".gravity"}
+	return filepath.Join(append(parts, elems...)...)
 }
 
 var (
@@ -164,5 +170,11 @@ var (
 	GravityBinPaths = []string{
 		defaults.GravityBin,
 		defaults.GravityBinAlternate,
+	}
+
+	// GravityAgentBinPaths is a list of possible gravity agent binary locations on host
+	GravityAgentBinPaths = []string{
+		defaults.GravityAgentBin,
+		defaults.GravityAgentBinAlternate,
 	}
 )

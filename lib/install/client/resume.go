@@ -21,7 +21,6 @@ import (
 
 	"github.com/gravitational/gravity/lib/defaults"
 	installpb "github.com/gravitational/gravity/lib/install/proto"
-	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/system/environ"
 	"github.com/gravitational/gravity/lib/system/service"
 
@@ -54,11 +53,8 @@ func (r *ResumeStrategy) connect(ctx context.Context) (installpb.AgentClient, er
 
 func (r *ResumeStrategy) checkAndSetDefaults() (err error) {
 	if r.ServicePath == "" {
-		stateDir, err := state.GravityInstallDir()
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		r.ServicePath, err = environ.GetServicePath(stateDir)
+		// FIXME: compute the service path using the name of the socket file
+		r.ServicePath, err = environ.GetServicePath(defaults.SystemUnitDir)
 		if err != nil {
 			if trace.IsNotFound(err) {
 				return trace.Wrap(err, "failed to find installer service. "+
@@ -68,10 +64,7 @@ func (r *ResumeStrategy) checkAndSetDefaults() (err error) {
 		}
 	}
 	if r.SocketPath == "" {
-		r.SocketPath, err = installpb.SocketPath()
-		if err != nil {
-			return trace.Wrap(err)
-		}
+		r.SocketPath = installpb.SocketPath()
 	}
 	if r.ConnectTimeout == 0 {
 		r.ConnectTimeout = defaults.ServiceConnectTimeout

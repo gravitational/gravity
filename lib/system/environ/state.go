@@ -99,8 +99,8 @@ func GetServiceName(stateDir string) (name string, err error) {
 // GetServicePath returns the path of the service configured in the specified state directory stateDir
 func GetServicePath(stateDir string) (path string, err error) {
 	for _, name := range []string{
-		defaults.GravityRPCInstallerServiceName,
-		defaults.GravityRPCAgentServiceName,
+		defaults.GravityRPCInstallerSocketName,
+		defaults.GravityRPCAgentSocketName,
 	} {
 		if ok, _ := utils.IsFile(filepath.Join(stateDir, name)); ok {
 			return filepath.Join(stateDir, name), nil

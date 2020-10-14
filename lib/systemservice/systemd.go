@@ -148,6 +148,12 @@ func (s *systemdManager) installService(service serviceTemplate, req NewServiceR
 		return trace.Wrap(err, "error rendering template")
 	}
 
+	if req.ReloadConfiguration {
+		if out, err := invokeSystemctl("daemon-reload"); err != nil {
+			return trace.Wrap(err, "failed to reload manager's configuration").AddField("output", out)
+		}
+	}
+
 	if err := s.EnableService(req.Name); err != nil {
 		return trace.Wrap(err, "error enabling the service")
 	}
@@ -414,7 +420,11 @@ func (s *systemdManager) UninstallService(req UninstallServiceRequest) error {
 
 // DisableService disables service without stopping it
 func (s *systemdManager) DisableService(req DisableServiceRequest) error {
-	out, err := invokeSystemctl("disable", serviceName(req.Name))
+	args := []string{"disable", serviceName(req.Name)}
+	if req.Now {
+		args = append(args, "--now")
+	}
+	out, err := invokeSystemctl(args...)
 	if err != nil {
 		return trace.Wrap(err, "error disabling service %v: %s", req.Name, out)
 	}

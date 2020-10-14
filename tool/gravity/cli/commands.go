@@ -459,6 +459,8 @@ type JoinCmd struct {
 	// the client will simply connect to the service and stream its output and errors
 	// and control whether it should stop
 	FromService *bool
+	// StateDir is the operation-specific local state directory path
+	StateDir *string
 }
 
 // AutoJoinCmd uses cloud provider info to join existing cluster
@@ -487,6 +489,8 @@ type AutoJoinCmd struct {
 	// the client will simply connect to the service and stream its output and errors
 	// and control whether it should stop
 	FromService *bool
+	// StateDir is the operation-specific local state directory path
+	StateDir *string
 }
 
 // LeaveCmd removes the current node from the cluster
@@ -1530,6 +1534,8 @@ type StartCmd struct {
 	AdvertiseAddr *string
 	// FromService indicates that the command is running as a systemd service.
 	FromService *bool
+	// StateDir is the local operation-specific state directory path
+	StateDir *string
 	// Confirmed suppresses confirmation prompt.
 	Confirmed *bool
 }

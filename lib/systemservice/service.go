@@ -74,6 +74,8 @@ type NewServiceRequest struct {
 	Name string `json:"Name"`
 	// NoBlock means we won't block and wait until service starts
 	NoBlock bool `json:"-"`
+	// ReloadConfiguration forces a daemon-reload after writing the service file
+	ReloadConfiguration bool `json:"-"`
 }
 
 // NewMountServiceRequest describes a request to create a new systemd mount service
@@ -96,6 +98,8 @@ type UninstallServiceRequest struct {
 type DisableServiceRequest struct {
 	// Name identifies the service
 	Name string
+	// Now specifies whether the service is also stopped
+	Now bool
 }
 
 // NewPackageServiceRequest specifies parameters needed to create a new service

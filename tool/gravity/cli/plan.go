@@ -25,6 +25,7 @@ import (
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
 	libenviron "github.com/gravitational/gravity/lib/system/environ"
 	"github.com/gravitational/gravity/lib/update"
@@ -177,7 +178,8 @@ func displayInstallOperationPlan(localEnv *localenv.LocalEnvironment, opKey ops.
 
 func getExpandOperationPlanFunc(environ LocalEnvironmentFactory, opKey ops.SiteOperationKey) fsm.GetPlanFunc {
 	return func() (*storage.OperationPlan, error) {
-		joinEnv, err := environ.NewJoinEnv()
+		// TODO(dmitri): assumes local state inside process's working directory
+		joinEnv, err := environ.NewJoinEnv(state.GravityInstallDir())
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}

@@ -26,7 +26,6 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/pack"
-	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/keyval"
 	"github.com/gravitational/gravity/lib/system"
@@ -40,12 +39,8 @@ import (
 
 // ValidateInstall performs a local environment sanity check to make sure
 // that install on this node can proceed without issues
-func ValidateInstall(env *localenv.LocalEnvironment) func() error {
+func ValidateInstall(stateDir string, env *localenv.LocalEnvironment) func() error {
 	return func() error {
-		stateDir, err := state.GravityInstallDir()
-		if err != nil {
-			return trace.Wrap(err)
-		}
 		if err := validateNonVolatileDirectory(stateDir, env); err != nil {
 			// Operational state directory requirements are advisory
 			log.WithError(err).Warn("Failed to validate state directory requirements.")

@@ -199,8 +199,14 @@ const (
 	// GravityRPCAgentServiceName defines systemd unit service name for RPC agents
 	GravityRPCAgentServiceName = "gravity-agent.service"
 
+	// GravityRPCAgentSocketName defines the name of the socket file for the agent service
+	GravityRPCAgentSocketName = "gravity-agent.sock"
+
 	// GravityRPCInstallerServiceName defines systemd unit service name for the installer
 	GravityRPCInstallerServiceName = "gravity-installer.service"
+
+	// GravityRPCInstallerSocketName defines the name of the socket file for the installer service
+	GravityRPCInstallerSocketName = "gravity-installer.sock"
 
 	// GravityRPCResumeServiceName defines systemd unit service name for resuming the operation plan
 	GravityRPCResumeServiceName = "gravity-resume.service"
@@ -370,6 +376,12 @@ const (
 
 	// StatBin is stat executable path inside planet
 	StatBin = "/usr/bin/stat"
+
+	// AlternativeBinDir defines the default location for binaries on Ubuntu Core
+	AlternativeBinDir = "/writable/bin"
+
+	// GravityAgentBin specifies the location of the gravity binary used during upgrades
+	GravityAgentBin = "/usr/local/bin/gravity-upgrade-agent"
 
 	// SystemdLogDir specifies the default location of the systemd journal files
 	SystemdLogDir = "/var/log/journal"
@@ -1308,6 +1320,9 @@ var (
 
 	// MaxExpandConcurrency is the number of servers that can be joining the cluster concurrently
 	MaxExpandConcurrency = (runtime.NumCPU() / 3) + 4
+
+	// GravityAgentBinAlternate defines the gravity binary used during upgrades on Ubuntu Core
+	GravityAgentBinAlternate = AlternateBinPath("gravity-upgrade-agent")
 )
 
 // HookSecurityContext returns default securityContext for hook pods
@@ -1390,6 +1405,18 @@ func InstallerAddr(installerIP string) (addr string) {
 // `kubectl get nodes`
 func FormatKubernetesNodeRoleLabel(role string) string {
 	return fmt.Sprintf("node-role.kubernetes.io/%v", role)
+}
+
+// SystemUnitPath builds the path to the specified unit in the system unit directory
+func SystemUnitPath(unit string) (path string) {
+	return filepath.Join(SystemUnitDir, unit)
+}
+
+// AlternateBinPath returns a path in the alternative binary directory
+// for the specifies sub-paths
+func AlternateBinPath(paths ...string) (path string) {
+	paths = append([]string{AlternativeBinDir}, paths...)
+	return filepath.Join(paths...)
 }
 
 // TLSConfig returns default TLS configuration.
