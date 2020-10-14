@@ -239,21 +239,19 @@ $(ROBOTEST_IMAGE): $(TELE_OUT) $(ROBOTEST_IMAGE_SRC) $(TOP)/tele_build.sh $(TELE
 # Benchmarks:
 #  a) parallel builds with common unseeded state dirs (races & fails often)
 # *b) parallel builds with independent unseeded state dirs (4-5 mins)
-#  c) parallel builds with common seeded state dir (~2 mins)
-# *d) serial builds with common unseeded state dir (5-7 mins)
-#  e) serial builds with independent unseeded state dirs (didn't bother testing)
-#  f) serial builds with common seeded state dir (3-4 mins)
+#  c) parallel builds with common seeded state dir (~2 mins, determinism suffers, see #2229)
+# *d) parallel builds with independent seeded state dirs (~2 mins)
+# *e) serial builds with common unseeded state dir (5-7 mins)
+#  f) serial builds with independent unseeded state dirs (didn't bother testing)
+#  g) serial builds with common seeded state dir (3-4 mins)
 #
 # *   Recommended strategies
 #
 # Benchmarked on GCP e2-standard-8 with 30MB/s & 200 sustained random IOPS disks.
 # Code at PR #2133, with 4 7.0.x upgrade base images.
 #
-# For now, I've implemented: d) serial builds with common unseeded state dir.  This has
-# two nice properties:
-#  1) The build output is linear and easy to read
-#  2) Jenkins PR builds & local builds effectively have a semaphore, allowing f) seeded state
-#     dir to kick in and bring the 2+ build time lower than b) parallel independent unseeded.
+# I've implemented: d) parallel builds with independent seeded state dirs. This is fast and
+# benefits from caching on subsequent runs but the parallel build output can get confusing.
 #
 # Lastly, some test configs don't require upgrades, so the sub-make invocation can be skipped.
 #
@@ -261,7 +259,7 @@ $(ROBOTEST_IMAGE): $(TELE_OUT) $(ROBOTEST_IMAGE_SRC) $(TOP)/tele_build.sh $(TELE
 .PHONY: image-robotest-upgrade
 image-robotest-upgrade: ## Build robotest cluster images needed for upgrade testing.
 ifneq ($(ROBOTEST_TELE_BINARIES),)
-	$(MAKE) $(ROBOTEST_UPGRADE_IMAGES)
+	$(MAKE) -j $(ROBOTEST_UPGRADE_IMAGES)
 endif
 
 # The following rule builds all upgrade base images. It fulfills the $(ROBOTEST_UPGRADE_IMAGES) targets.
