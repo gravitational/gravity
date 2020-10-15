@@ -1299,29 +1299,25 @@ func generateClusterName() string {
 }
 
 // AborterForMode returns the Aborter implementation specific to given installation mode
-func AborterForMode(stateDir, mode string, env *localenv.LocalEnvironment) func(context.Context) error {
+func AborterForMode(serviceName, mode string, env *localenv.LocalEnvironment) func(context.Context) error {
 	switch mode {
 	case constants.InstallModeInteractive:
 		return installerInteractiveUninstallSystem(env)
 	default:
-		return installerAbortOperation(stateDir, env)
+		return installerAbortOperation(serviceName, env)
 	}
 }
 
 // installerAbortOperation implements the clean up phase when the installer service
 // is explicitly interrupted by user.
 // stateDir specifies the location of operation-specific state
-func installerAbortOperation(stateDir string, env *localenv.LocalEnvironment) func(context.Context) error {
+func installerAbortOperation(serviceName string, env *localenv.LocalEnvironment) func(context.Context) error {
 	return func(ctx context.Context) error {
-		logger := log.WithField(trace.Component, "installer:abort")
+		logger := log.WithField(trace.Component, "installer:abort").WithField("service", serviceName)
 		logger.Info("Leaving cluster.")
-		serviceName, err := environ.GetServicePath(stateDir)
-		if err == nil {
-			logger := logger.WithField("service", serviceName)
-			logger.Info("Uninstalling service.")
-			if err := environ.UninstallService(serviceName); err != nil {
-				logger.WithError(err).Warn("Failed to uninstall service.")
-			}
+		logger.Info("Uninstalling service.")
+		if err := environ.UninstallService(serviceName); err != nil {
+			logger.WithError(err).Warn("Failed to uninstall service.")
 		}
 		logger.Info("Uninstalling system.")
 		if err := environ.UninstallSystem(ctx, utils.DiscardPrinter, logger); err != nil {
@@ -1354,22 +1350,22 @@ func installerInteractiveUninstallSystem(env *localenv.LocalEnvironment) func(co
 
 // InstallerCompleteOperation implements the clean up phase when the installer service
 // shuts down after a sucessfully completed operation
-func InstallerCompleteOperation(stateDir string, env *localenv.LocalEnvironment) installerclient.CompletionHandler {
+func InstallerCompleteOperation(serviceName string, env *localenv.LocalEnvironment) installerclient.CompletionHandler {
 	return func(ctx context.Context, status installpb.ProgressResponse_Status) error {
-		logger := log.WithField(trace.Component, "installer:cleanup").WithField("state-dir", stateDir)
+		logger := log.WithField(trace.Component, "installer:cleanup").WithField("service", serviceName)
 		if status == installpb.StatusCompletedPending {
 			// Wait for explicit interrupt signal before cleaning up
 			env.PrintStep(postInstallInteractiveBanner)
 			signals.WaitFor(os.Interrupt)
 		}
-		return trace.Wrap(installerCleanup(stateDir, logger))
+		return trace.Wrap(installerCleanup(serviceName, logger))
 	}
 }
 
 // InstallerCleanup uninstalls the services and cleans up operation state
-func InstallerCleanup(stateDir string) error {
-	logger := log.WithField(trace.Component, "installer:cleanup").WithField("state-dir", stateDir)
-	return installerCleanup(stateDir, logger)
+func InstallerCleanup(serviceName string) error {
+	logger := log.WithField(trace.Component, "installer:cleanup").WithField("service", serviceName)
+	return installerCleanup(serviceName, logger)
 }
 
 // InstallerGenerateLocalReport creates a host-local debug report in the specified file
@@ -1394,15 +1390,10 @@ func InstallerGenerateLocalReport(env *localenv.LocalEnvironment) func(context.C
 	}
 }
 
-func installerCleanup(stateDir string, logger logrus.FieldLogger) error {
-	serviceName, err := environ.GetServicePath(stateDir)
+func installerCleanup(serviceName string, logger logrus.FieldLogger) error {
 	logger.WithField("service", serviceName).Info("Uninstalling service.")
-	if err == nil {
-		if err := environ.UninstallService(serviceName); err != nil {
-			logger.WithError(err).Warn("Failed to uninstall agent services.")
-		}
-	} else {
-		logger.WithError(err).Warn("Failed to find installer service.")
+	if err := environ.UninstallService(serviceName); err != nil {
+		logger.WithError(err).Warn("Failed to uninstall agent services.")
 	}
 	if err := environ.CleanupOperationState(utils.DiscardPrinter, logger); err != nil {
 		logger.WithError(err).Warn("Failed to clean up operation state.")

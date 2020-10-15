@@ -32,6 +32,7 @@ import (
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/system/signals"
+	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/gravity/tool/common"
 
 	"github.com/buger/goterm"
@@ -705,12 +706,16 @@ type operationGetter interface {
 }
 
 func ensureInstallerServiceRunning() error {
+	strategy, err := newResumeStrategy(utils.Exe.WorkingDir)
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	interrupt := signals.NewInterruptHandler(ctx, cancel)
 	defer interrupt.Close()
-	_, err := installerclient.New(context.Background(), installerclient.Config{
-		ConnectStrategy:  &installerclient.ResumeStrategy{},
+	_, err = installerclient.New(context.Background(), installerclient.Config{
+		ConnectStrategy:  strategy,
 		InterruptHandler: interrupt,
 	})
 	if err != nil {

@@ -21,8 +21,6 @@ import (
 	"net"
 	"time"
 
-	"github.com/gravitational/gravity/lib/state"
-
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 	grpc "google.golang.org/grpc"
@@ -95,11 +93,6 @@ type ClientConfig struct {
 	ShouldReconnectService func() error
 	// DialOptions specifies additional gRPC dial options
 	DialOptions []grpc.DialOption
-}
-
-// SocketPath returns the default path to the installer service socket
-func SocketPath() (path string) {
-	return state.GravityInstallDir("installer.sock")
 }
 
 // Temporary returns false for this error.

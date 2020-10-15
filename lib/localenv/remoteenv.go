@@ -282,7 +282,7 @@ func (w *RemoteEnvironment) wizardEntry() (*storage.LoginEntry, error) {
 // closed afterwards
 func (w *RemoteEnvironment) withBackend(fn func(storage.Backend) error) (err error) {
 	backend, err := keyval.NewBolt(keyval.BoltConfig{
-		Path: filepath.Join(w.StateDir, "wizard.db"),
+		Path: filepath.Join(w.StateDir, defaults.InstallerDBFile),
 	})
 	if err != nil {
 		return trace.Wrap(err)

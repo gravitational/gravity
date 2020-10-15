@@ -144,6 +144,28 @@ func LogDir(baseDir string, suffixes ...string) string {
 	return filepath.Join(append(elems, suffixes...)...)
 }
 
+// GravityInstallerServicePath returns the path to the installer service
+// as configured in the state directory rooted at baseDir.
+func GravityInstallerServicePath(baseDir string) (path string, err error) {
+	stateDBFile := GravityInstallDirAt(baseDir, "wizard", defaults.InstallerDBFile)
+	var isInstaller bool
+	isInstaller, err = utils.IsFile(stateDBFile)
+	log.WithError(err).WithField("state-db", stateDBFile).Warn("Determine installer service path.")
+	if err != nil && !trace.IsNotFound(err) {
+		return "", trace.ConvertSystemError(err)
+	}
+	if isInstaller {
+		return defaults.SystemUnitPath(defaults.GravityRPCInstallerServiceName), nil
+	}
+	return defaults.SystemUnitPath(defaults.GravityRPCAgentServiceName), nil
+}
+
+// GravityInstallerSocketPath returns the path to the installer socket file
+// inside the installer state directory rooted at baseDir
+func GravityInstallerSocketPath(baseDir string) (path string) {
+	return GravityInstallDirAt(baseDir, defaults.GravityRPCInstallerSocketName)
+}
+
 // GravityInstallDir returns the location of the temporary state directory for
 // the install/join operation.
 // elems are appended to resulting path

@@ -379,10 +379,12 @@ func (s *systemdManager) UninstallService(req UninstallServiceRequest) error {
 		return trace.Wrap(err, out)
 	}
 
+	// Returns 0 if the unit is in failed state, non-zero otherwise
+	// See https://www.freedesktop.org/software/systemd/man/systemctl.html#is-failed%20PATTERN%E2%80%A6
 	out, err = invokeSystemctl("is-failed", serviceName)
 	status := strings.TrimSpace(out)
 
-	if err == nil {
+	if exitCode := utils.ExitStatusFromError(err); exitCode != nil && *exitCode != 0 {
 		unitPath := unitPath(req.Name)
 		logger = logger.WithField("path", unitPath)
 		if errDelete := os.Remove(unitPath); errDelete != nil {

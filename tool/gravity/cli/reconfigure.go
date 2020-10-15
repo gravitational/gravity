@@ -19,7 +19,6 @@ package cli
 import (
 	"context"
 
-	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/install"
 	"github.com/gravitational/gravity/lib/install/client"
 	"github.com/gravitational/gravity/lib/install/reconfigure"
@@ -75,7 +74,6 @@ func reconfigureCluster(env *localenv.LocalEnvironment, config reconfigureConfig
 	}
 	env.PrintStep("Starting reconfiguration to advertise address %v", config.AdvertiseAddr)
 	baseDir := utils.Exe.WorkingDir
-	stateDir := state.GravityInstallDirAt(baseDir)
 	strategy, err := newReconfiguratorConnectStrategy(env, baseDir, config, cli.CommandArgs{
 		Parser: cli.ArgsParserFunc(parseArgs),
 	})
@@ -85,12 +83,12 @@ func reconfigureCluster(env *localenv.LocalEnvironment, config reconfigureConfig
 	err = InstallerClient(env, client.Config{
 		ConnectStrategy: strategy,
 		Lifecycle: &client.AutomaticLifecycle{
-			Aborter:   AborterForMode(stateDir, config.Mode, env),
-			Completer: InstallerCompleteOperation(stateDir, env),
+			Aborter:   AborterForMode(strategy.ServiceName, config.Mode, env),
+			Completer: InstallerCompleteOperation(strategy.ServiceName, env),
 		},
 	})
 	if utils.IsContextCancelledError(err) {
-		if err := InstallerCleanup(stateDir); err != nil {
+		if err := InstallerCleanup(strategy.ServiceName); err != nil {
 			logrus.WithError(err).Error("Failed to clean up installer.")
 		}
 		return trace.Wrap(err, "reconfigurator interrupted")
@@ -103,7 +101,7 @@ func startReconfiguratorFromService(env *localenv.LocalEnvironment, config recon
 	interrupt := signals.NewInterruptHandler(ctx, cancel, InterruptSignals)
 	defer interrupt.Close()
 	go TerminationHandler(interrupt, env)
-	socketPath := state.GravityInstallDirAt(config.StateDir, defaults.GravityRPCInstallerSocketName)
+	socketPath := state.GravityInstallerSocketPath(config.StateDir)
 	listener, err := NewServiceListener(socketPath)
 	if err != nil {
 		return trace.Wrap(utils.NewPreconditionFailedError(err))

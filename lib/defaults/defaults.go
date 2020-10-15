@@ -199,14 +199,11 @@ const (
 	// GravityRPCAgentServiceName defines systemd unit service name for RPC agents
 	GravityRPCAgentServiceName = "gravity-agent.service"
 
-	// GravityRPCAgentSocketName defines the name of the socket file for the agent service
-	GravityRPCAgentSocketName = "gravity-agent.sock"
-
 	// GravityRPCInstallerServiceName defines systemd unit service name for the installer
 	GravityRPCInstallerServiceName = "gravity-installer.service"
 
 	// GravityRPCInstallerSocketName defines the name of the socket file for the installer service
-	GravityRPCInstallerSocketName = "gravity-installer.sock"
+	GravityRPCInstallerSocketName = "installer.sock"
 
 	// GravityRPCResumeServiceName defines systemd unit service name for resuming the operation plan
 	GravityRPCResumeServiceName = "gravity-resume.service"
@@ -503,6 +500,9 @@ const (
 
 	// GravityDBFile is a default file name for gravity sqlite DB file
 	GravityDBFile = "gravity.db"
+
+	// InstallerDBFile is a default file name for the installer state database file
+	InstallerDBFile = "wizard.db"
 
 	// SystemAccountID is the ID of the system account
 	SystemAccountID = "00000000-0000-0000-0000-000000000001"

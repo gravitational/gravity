@@ -21,8 +21,6 @@ import (
 	"context"
 	"os"
 	"os/exec"
-	"path/filepath"
-	"strings"
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/storage"
@@ -86,43 +84,6 @@ func ConfigureStateDirectory(stateDir, devicePath string) (err error) {
 	}
 
 	return nil
-}
-
-// GetServiceName returns the name of the service configured in the specified state directory stateDir
-func GetServiceName(stateDir string) (name string, err error) {
-	path, err := GetServicePath(stateDir)
-	if err != nil {
-		return "", trace.Wrap(err)
-	}
-	return filepath.Base(path), nil
-}
-
-// GetServicePath returns the path of the service configured in the specified state directory stateDir
-func GetServicePath(stateDir string) (path string, err error) {
-	socketPath, err := GetSocketPath(stateDir)
-	if err != nil {
-		return "", trace.Wrap(err)
-	}
-	return GetServicePathFromSocketPath(socketPath), nil
-}
-
-// GetServicePathFromSocketPath returns the path of the service given the socket path
-func GetServicePathFromSocketPath(socketPath string) (path string) {
-	serviceName := strings.TrimSuffix(filepath.Base(socketPath), filepath.Ext(socketPath))
-	return defaults.SystemUnitPath(systemservice.FullServiceName(serviceName))
-}
-
-// GetSocketPath returns the path of the socket from the specified state directory
-func GetSocketPath(stateDir string) (path string, err error) {
-	for _, name := range []string{
-		defaults.GravityRPCInstallerSocketName,
-		defaults.GravityRPCAgentSocketName,
-	} {
-		if ok, _ := utils.IsFile(filepath.Join(stateDir, name)); ok {
-			return filepath.Join(stateDir, name), nil
-		}
-	}
-	return "", trace.NotFound("no installer socket file in %v", stateDir)
 }
 
 func formatDevice(path string) (filesystem string, err error) {

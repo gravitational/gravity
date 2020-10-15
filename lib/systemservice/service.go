@@ -38,8 +38,8 @@ const (
 	// ServiceStatusInactive indicates that service is not running
 	// Corresponds to exit code 3
 	ServiceStatusInactive = "inactive"
-	// ServiceStatusUnknown indicates that service does not exist
-	// Corresponds to either exit code 3 or 4 depending on the version of systemd
+	// ServiceStatusUnknown indicates that service does not exist or the status
+	// could not be determined - depending on the command
 	ServiceStatusUnknown = "unknown"
 )
 

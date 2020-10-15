@@ -22,6 +22,7 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	installpb "github.com/gravitational/gravity/lib/install/proto"
 	"github.com/gravitational/gravity/lib/system/service"
+	"github.com/gravitational/gravity/lib/systemservice"
 
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
@@ -36,26 +37,28 @@ func (r *ResumeStrategy) connect(ctx context.Context) (installpb.AgentClient, er
 	r.Info("Connect to running service.")
 	ctx, cancel := context.WithTimeout(ctx, r.ConnectTimeout)
 	defer cancel()
-	serviceName := serviceNameFromPath(r.ServicePath)
 	client, err := installpb.NewClient(ctx, installpb.ClientConfig{
 		FieldLogger:            r.FieldLogger,
 		SocketPath:             r.SocketPath,
-		ShouldReconnectService: shouldReconnectService(serviceName),
+		ShouldReconnectService: shouldReconnectService(r.ServiceName),
 	})
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to connect to the installer service.\n"+
 			"Use 'journalctl -u %v' to check the service logs for errors.\n"+
-			"Use 'gravity install' or 'gravity join' to start the installation.", serviceName)
+			"Use 'gravity install' or 'gravity join' to start the installation.", r.ServiceName)
 	}
 	return client, nil
 }
 
 func (r *ResumeStrategy) checkAndSetDefaults() (err error) {
 	if r.ServicePath == "" {
-		return trace.BadParameter("resume: ServicePath is required")
+		return trace.BadParameter("ServicePath is required")
+	}
+	if r.ServiceName == "" {
+		return trace.BadParameter("ServiceName is required")
 	}
 	if r.SocketPath == "" {
-		r.SocketPath = installpb.SocketPath()
+		return trace.BadParameter("SocketPath is required")
 	}
 	if r.ConnectTimeout == 0 {
 		r.ConnectTimeout = defaults.ServiceConnectTimeout
@@ -67,12 +70,19 @@ func (r *ResumeStrategy) checkAndSetDefaults() (err error) {
 }
 
 func (r *ResumeStrategy) serviceName() string {
-	return serviceNameFromPath(r.ServicePath)
+	return r.ServiceName
 }
 
 // restartService starts the installer's systemd unit unless it's already active
 func (r *ResumeStrategy) restartService() error {
-	return trace.Wrap(service.Start(serviceNameFromPath(r.ServicePath)))
+	err := service.Start(r.ServiceName)
+	if err == nil {
+		return nil
+	}
+	if systemservice.IsUnknownServiceError(err) {
+		return trace.NotFound("service %v not found", r.ServiceName)
+	}
+	return trace.Wrap(err)
 }
 
 // ResumeStrategy implements the strategy to connect to the existing installer service
@@ -83,6 +93,9 @@ type ResumeStrategy struct {
 	SocketPath string
 	// ServicePath specifies the absolute path to the service unit
 	ServicePath string
+	// ServiceName specifies the name of the installer service. Must reference
+	// the same service specified with ServicePath
+	ServiceName string
 	// ConnectTimeout specifies the maximum amount of time to wait for
 	// installer service connection. Defaults to defaults.ServiceConnectTimeout
 	// if unspecified
