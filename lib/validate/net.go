@@ -22,6 +22,25 @@ import (
 	"github.com/gravitational/trace"
 )
 
+// NetworkOverlap verifies that ipAddr is not in the range of the subnetCIDR
+func NetworkOverlap(ipAddr, subnetCIDR, errMsg string) error {
+	_, subNet, err := net.ParseCIDR(subnetCIDR)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	ip := net.ParseIP(ipAddr)
+	if ip == nil {
+		return trace.BadParameter("invalid IP address (%v)", ipAddr)
+	}
+
+	if subNet.Contains(ip) {
+		return trace.BadParameter(errMsg)
+	}
+
+	return nil
+}
+
 // KubernetesSubnetsFromStrings makes sure that the provided CIDR ranges are valid and can be used as
 // pod/service Kubernetes subnets
 func KubernetesSubnetsFromStrings(podCIDR, serviceCIDR string) error {
