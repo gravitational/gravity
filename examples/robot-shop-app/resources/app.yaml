@@ -111,7 +111,3 @@ hooks:
 # the helm call to upgrade.
   update:
     job: file://upgrade.yaml
-
-extensions:
-  monitoring:
-    disabled: true
