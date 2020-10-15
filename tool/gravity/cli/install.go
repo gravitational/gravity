@@ -249,9 +249,14 @@ func joinFromService(env, joinEnv *localenv.LocalEnvironment, config JoinConfig)
 func restartInstallOrJoin(env *localenv.LocalEnvironment) error {
 	env.PrintStep("Resuming installer")
 
-	stateDir := state.GravityInstallDir()
-	err := InstallerClient(env, installerclient.Config{
-		ConnectStrategy: &installerclient.ResumeStrategy{},
+	baseDir := utils.Exe.WorkingDir
+	stateDir := state.GravityInstallDirAt(baseDir)
+	strategy, err := newResumeStrategy(baseDir)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = InstallerClient(env, installerclient.Config{
+		ConnectStrategy: strategy,
 		Lifecycle: &installerclient.AutomaticLifecycle{
 			Aborter:            installerAbortOperation(stateDir, env),
 			Completer:          InstallerCompleteOperation(stateDir, env),
@@ -599,13 +604,17 @@ func completeJoinPlanFromExistingNode(localEnv *localenv.LocalEnvironment, opera
 }
 
 func setPhaseFromService(env *localenv.LocalEnvironment, params SetPhaseParams, operation ops.SiteOperation) error {
+	strategy, err := newResumeStrategy(utils.Exe.WorkingDir)
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	interrupt := signals.NewInterruptHandler(ctx, cancel, clientInterruptSignals)
 	defer interrupt.Close()
 	go clientTerminationHandler(interrupt, env)
 	client, err := installerclient.New(ctx, installerclient.Config{
 		InterruptHandler: interrupt,
-		ConnectStrategy:  &installerclient.ResumeStrategy{},
+		ConnectStrategy:  strategy,
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -622,6 +631,10 @@ func executePhaseFromService(
 	operation ops.SiteOperation,
 	connecting, connected string,
 ) error {
+	strategy, err := newResumeStrategy(utils.Exe.WorkingDir)
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	interrupt := signals.NewInterruptHandler(ctx, cancel, clientInterruptSignals)
 	defer interrupt.Close()
@@ -630,7 +643,7 @@ func executePhaseFromService(
 	env.PrintStep(connecting)
 	stateDir := state.GravityInstallDir()
 	config := installerclient.Config{
-		ConnectStrategy:  &installerclient.ResumeStrategy{},
+		ConnectStrategy:  strategy,
 		InterruptHandler: interrupt,
 		Printer:          env,
 	}
@@ -662,6 +675,10 @@ func rollbackPhaseFromService(
 	operation ops.SiteOperation,
 	connecting, connected string,
 ) error {
+	strategy, err := newResumeStrategy(utils.Exe.WorkingDir)
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	interrupt := signals.NewInterruptHandler(ctx, cancel, clientInterruptSignals)
 	defer interrupt.Close()
@@ -671,7 +688,7 @@ func rollbackPhaseFromService(
 	client, err := installerclient.New(ctx, installerclient.Config{
 		InterruptHandler: interrupt,
 		Printer:          env,
-		ConnectStrategy:  &installerclient.ResumeStrategy{},
+		ConnectStrategy:  strategy,
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -691,6 +708,10 @@ func completePlanFromService(
 	operation ops.SiteOperation,
 	connecting, connected string,
 ) error {
+	strategy, err := newResumeStrategy(utils.Exe.WorkingDir)
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	interrupt := signals.NewInterruptHandler(ctx, cancel, clientInterruptSignals)
 	defer interrupt.Close()
@@ -700,7 +721,7 @@ func completePlanFromService(
 	client, err := installerclient.New(ctx, installerclient.Config{
 		InterruptHandler: interrupt,
 		Printer:          env,
-		ConnectStrategy:  &installerclient.ResumeStrategy{},
+		ConnectStrategy:  strategy,
 		Lifecycle: &installerclient.AutomaticLifecycle{
 			Completer: InstallerCompleteOperation(state.GravityInstallDir(), env),
 		},
@@ -929,6 +950,21 @@ func newAgentConnectStrategy(env *localenv.LocalEnvironment, baseDir string, con
 		ApplicationDir: baseDir,
 		SocketPath:     state.GravityInstallDirAt(baseDir, defaults.GravityRPCAgentSocketName),
 		ServicePath:    defaults.SystemUnitPath(defaults.GravityRPCAgentServiceName),
+	}, nil
+}
+
+func newResumeStrategy(baseDir string) (*installerclient.ResumeStrategy, error) {
+	socketPath, err := environ.GetSocketPath(baseDir)
+	if err != nil {
+		if trace.IsNotFound(err) {
+			return nil, trace.Wrap(err, "failed to find installer service. "+
+				"Use 'gravity install' to start new installation or 'gravity join' to join an existing cluster.")
+		}
+		return nil, trace.Wrap(err)
+	}
+	return &installerclient.ResumeStrategy{
+		SocketPath:  socketPath,
+		ServicePath: environ.GetServicePathFromSocketPath(socketPath),
 	}, nil
 }
 

@@ -21,7 +21,6 @@ import (
 
 	"github.com/gravitational/gravity/lib/defaults"
 	installpb "github.com/gravitational/gravity/lib/install/proto"
-	"github.com/gravitational/gravity/lib/system/environ"
 	"github.com/gravitational/gravity/lib/system/service"
 
 	"github.com/gravitational/trace"
@@ -53,15 +52,7 @@ func (r *ResumeStrategy) connect(ctx context.Context) (installpb.AgentClient, er
 
 func (r *ResumeStrategy) checkAndSetDefaults() (err error) {
 	if r.ServicePath == "" {
-		// FIXME: compute the service path using the name of the socket file
-		r.ServicePath, err = environ.GetServicePath(defaults.SystemUnitDir)
-		if err != nil {
-			if trace.IsNotFound(err) {
-				return trace.Wrap(err, "failed to find installer service. "+
-					"Use 'gravity install' to start new installation or 'gravity join' to join an existing cluster.")
-			}
-			return trace.Wrap(err)
-		}
+		return trace.BadParameter("resume: ServicePath is required")
 	}
 	if r.SocketPath == "" {
 		r.SocketPath = installpb.SocketPath()

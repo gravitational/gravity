@@ -76,8 +76,6 @@ WantedBy={{.WantedBy}}
 {{end}}
 `
 
-	systemdUnitFileSuffix = ".service"
-
 	systemdServiceDelimiter = "__"
 )
 
@@ -106,7 +104,7 @@ type systemdUnit struct {
 }
 
 func parseUnit(unit string) *loc.Locator {
-	unit = strings.TrimSuffix(unit, systemdUnitFileSuffix)
+	unit = strings.TrimSuffix(unit, ServiceSuffix)
 	parts := strings.Split(unit, systemdServiceDelimiter)
 	if len(parts) != 4 {
 		return nil
@@ -122,7 +120,7 @@ func parseUnit(unit string) *loc.Locator {
 func (u *systemdUnit) serviceName() string {
 	return strings.Join([]string{
 		servicePrefix, u.pkg.Repository, u.pkg.Name, u.pkg.Version},
-		systemdServiceDelimiter) + systemdUnitFileSuffix
+		systemdServiceDelimiter) + ServiceSuffix
 }
 
 func (u *systemdUnit) servicePath() string {
