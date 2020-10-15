@@ -1464,9 +1464,11 @@ func (o *Operator) EmitAuditEvent(ctx context.Context, req ops.AuditEventRequest
 		return trace.Wrap(err)
 	}
 	o.Infof("%s.", req)
-	err = o.cfg.AuditLog.EmitAuditEvent(req.Event, req.Fields)
-	if err != nil {
-		return trace.Wrap(err)
+	if o.cfg.AuditLog != nil {
+		err = o.cfg.AuditLog.EmitAuditEvent(req.Event, req.Fields)
+		if err != nil {
+			return trace.Wrap(err)
+		}
 	}
 	return nil
 }
