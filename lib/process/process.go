@@ -1488,6 +1488,7 @@ func (p *Process) initService(ctx context.Context) (err error) {
 		}
 
 		p.startService(p.runCertificateWatch(client))
+		p.startService(p.runCertExpirationWatch(client))
 		p.startService(p.runAuthGatewayWatch(client))
 		p.startService(p.runReloadEventsWatch(client))
 		p.startService(p.runRegistrySynchronizer)

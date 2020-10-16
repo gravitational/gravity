@@ -82,7 +82,9 @@ func GenerateSelfSignedCert(hostNames []string) (*teleutils.TLSCredentials, erro
 	}
 
 	entity := pkix.Name{
-		CommonName:   "localhost",
+		CommonName: "Gravitational self signed", // This is needed in order to be able to identify the cert when doing
+		// automated cert rotation. If a customer decides to use their own cert
+		// we should not rotate.
 		Country:      []string{"US"},
 		Organization: []string{"localhost"},
 	}

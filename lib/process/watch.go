@@ -18,22 +18,96 @@ package process
 
 import (
 	"context"
+	"crypto/x509"
+	"encoding/pem"
 	"time"
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	libkube "github.com/gravitational/gravity/lib/kubernetes"
+	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/ops/opsservice"
 	"github.com/gravitational/gravity/lib/processconfig"
 	"github.com/gravitational/gravity/lib/storage"
-
+	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/teleport/lib/service"
 	"github.com/gravitational/trace"
+
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 )
+
+// runCertExpirationWatch checks if the default self signed cluster cert is about to expire soon and updates it
+func (p *Process) runCertExpirationWatch(client *kubernetes.Clientset) clusterService {
+	p.Info("Starting self signed certificate expiration watch.")
+
+	return func(ctx context.Context) {
+		ticker := time.NewTicker(time.Hour * 24 * 1)
+		defer ticker.Stop()
+		for {
+			err := p.replaceCertIfAboutToExpire(client)
+			if err != nil {
+				p.Errorf("Failed to check for certificate expiration: %v.", trace.DebugReport(err))
+			}
+
+			select {
+			case <-ticker.C:
+			case <-ctx.Done():
+				p.Debug("Certificate expiration watcher stopped.")
+				return
+			}
+		}
+	}
+}
+
+func (p *Process) replaceCertIfAboutToExpire(client *kubernetes.Clientset) error {
+	p.Info("Running self signed certificate expiration watch.")
+
+	clusterCert, _, err := opsservice.GetClusterCertificate(client)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	block, _ := pem.Decode(clusterCert)
+	cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	if cert.Issuer.CommonName != "Gravitational self signed" {
+		p.Info("Skipping expiration check for customer provided certificate.")
+		return nil
+	}
+
+	// This is the time window to replace the certificate before expiration.
+	// Lets Encrypt recommends to renew 30 days before expiration.
+	periodBeforeExpire := time.Now().Add(time.Hour * 24 * 30)
+	if periodBeforeExpire.After(cert.NotAfter) {
+		p.Infof("The cert with SerialNumber=%v will expire soon. Replacing it with a new one...", cert.SerialNumber)
+
+		cert, err := utils.GenerateSelfSignedCert([]string{p.cfg.Hostname})
+		if err != nil {
+			return trace.Wrap(err)
+		}
+
+		err = opsservice.UpdateClusterCertificate(client, ops.UpdateCertificateRequest{
+			AccountID:   defaults.SystemAccountID,
+			SiteDomain:  defaults.SystemAccountOrg,
+			Certificate: cert.Cert,
+			PrivateKey:  cert.PrivateKey,
+		})
+		if err != nil {
+			return trace.Wrap(err)
+		}
+
+		p.Infof("Successfully rotated the self-signed cluster certificate.")
+	}
+
+	return nil
+}
 
 // runCertificateWatch updates process on p.certificateCh
 // when changes to cluster certificates are detected
