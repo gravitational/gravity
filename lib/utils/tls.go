@@ -43,6 +43,10 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+const (
+	SelfSignedCertOrg = "Gravitational"
+)
+
 // CertificateOutput contains information about cluster certificate
 type CertificateOutput struct {
 	// IssuedTo contains  certificate subject
@@ -82,12 +86,13 @@ func GenerateSelfSignedCert(hostNames []string) (*teleutils.TLSCredentials, erro
 	}
 
 	entity := pkix.Name{
-		// This CommonName is needed in order to be able to identify the cert when doing
-		// automated cert rotation. If a customer decides to use their own cert
-		// we should not rotate.
-		CommonName:   "Gravitational self signed",
+		CommonName:   "localhost",
 		Country:      []string{"US"},
 		Organization: []string{"localhost"},
+		// OrganizationalUnit is needed in order to be able to identify the cert when doing
+		// automated cert rotation. If a customer decides to use their own cert
+		// we should not rotate.
+		OrganizationalUnit: []string{SelfSignedCertOrg},
 	}
 
 	template := x509.Certificate{

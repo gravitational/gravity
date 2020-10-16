@@ -20,6 +20,7 @@ import (
 	"context"
 	"crypto/x509"
 	"encoding/pem"
+	"strings"
 	"time"
 
 	"github.com/gravitational/gravity/lib/constants"
@@ -45,7 +46,7 @@ func (p *Process) runCertExpirationWatch(client *kubernetes.Clientset) clusterSe
 	p.Info("Starting self signed certificate expiration watch.")
 
 	return func(ctx context.Context) {
-		ticker := time.NewTicker(time.Hour * 24 * 1)
+		ticker := time.NewTicker(time.Hour * 24)
 		defer ticker.Stop()
 		for {
 			err := p.replaceCertIfAboutToExpire(client)
@@ -77,7 +78,7 @@ func (p *Process) replaceCertIfAboutToExpire(client *kubernetes.Clientset) error
 		return trace.Wrap(err)
 	}
 
-	if cert.Issuer.CommonName != "Gravitational self signed" {
+	if len(cert.Issuer.OrganizationalUnit) == 0 || !strings.Contains(cert.Issuer.OrganizationalUnit[0], utils.SelfSignedCertOrg) {
 		p.Info("Skipping expiration check for customer provided certificate.")
 		return nil
 	}
