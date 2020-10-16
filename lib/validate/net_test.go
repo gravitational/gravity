@@ -65,11 +65,48 @@ func (*S) TestValidateKubernetesSubnets(c *check.C) {
 		},
 	}
 	for _, tc := range testCases {
-		err := KubernetesSubnets(tc.podCIDR, tc.serviceCIDR)
+		err := KubernetesSubnetsFromStrings(tc.podCIDR, tc.serviceCIDR)
 		if tc.ok {
 			c.Assert(err, check.IsNil, check.Commentf(tc.description))
 		} else {
 			c.Assert(err, check.NotNil, check.Commentf(tc.description))
+		}
+	}
+}
+
+func (*S) TestNetworkOverlap(c *check.C) {
+	type testCase struct {
+		ipAddr      string
+		subnetCIDR  string
+		ok          bool
+		description string
+	}
+	testCases := []testCase{
+		{
+			ipAddr:      "10.100.0.0",
+			subnetCIDR:  "10.100.0.0/16",
+			ok:          false,
+			description: "At the edge of the range.",
+		},
+		{
+			ipAddr:      "10.100.0.111",
+			subnetCIDR:  "10.100.0.0/16",
+			ok:          false,
+			description: "Inside the range.",
+		},
+		{
+			ipAddr:      "11.100.0.111",
+			subnetCIDR:  "10.100.0.0/16",
+			ok:          true,
+			description: "Outside the range.",
+		},
+	}
+	for _, tc := range testCases {
+		err := NetworkOverlap(tc.ipAddr, tc.subnetCIDR, "errMsg")
+		if tc.ok {
+			c.Assert(err, check.IsNil, check.Commentf(tc.description))
+		} else {
+			c.Assert(err, check.ErrorMatches, "errMsg")
 		}
 	}
 }

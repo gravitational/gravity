@@ -108,7 +108,7 @@ func AutomaticUpgrade(ctx context.Context, localEnv, updateEnv *localenv.LocalEn
 }
 
 func waitForAgents(ctx context.Context, clusterEnv *localenv.ClusterEnvironment, runner rpc.RemoteRunner) error {
-	cluster, err := clusterEnv.Operator.GetLocalSite()
+	cluster, err := clusterEnv.Operator.GetLocalSite(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}

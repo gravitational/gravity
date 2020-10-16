@@ -18,6 +18,7 @@ package cli
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/gravitational/gravity/lib/fsm"
 	libfsm "github.com/gravitational/gravity/lib/fsm"
@@ -219,7 +220,10 @@ func (r configInitializer) newOperationPlan(
 	clusterEnv *localenv.ClusterEnvironment,
 	leader *storage.Server,
 ) (*storage.OperationPlan, error) {
-	plan, err := clusterconfig.NewOperationPlan(operator, clusterEnv.Apps, operation, r.config, cluster.ClusterState.Servers)
+	plan, err := clusterconfig.NewOperationPlan(
+		ctx, operator, clusterEnv.Apps, clusterEnv.Client,
+		operation, r.config, cluster.ClusterState.Servers,
+	)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -269,7 +273,7 @@ func validateClusterConfig(localEnv *localenv.LocalEnvironment, update libcluste
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	cluster, err := operator.GetLocalSite()
+	cluster, err := operator.GetLocalSite(context.TODO())
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -277,7 +281,34 @@ func validateClusterConfig(localEnv *localenv.LocalEnvironment, update libcluste
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return validate.ClusterConfiguration(existing, update)
+	err = validate.ClusterConfiguration(existing, update)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	server, err := findLocalServer(cluster.ClusterState.Servers)
+	if err != nil {
+		return trace.NotFound("unable to find local node among cluster state servers: %v",
+			cluster.ClusterState.Servers)
+	}
+
+	if update.GetGlobalConfig().ServiceCIDR != "" {
+		message := fmt.Sprintf("The advertise address %v conflicts with the global service network CIDR range %v. "+
+			"Please specify a different service CIDR.", server.AdvertiseIP, update.GetGlobalConfig().ServiceCIDR)
+		if err := validate.NetworkOverlap(server.AdvertiseIP, update.GetGlobalConfig().ServiceCIDR, message); err != nil {
+			return trace.Wrap(err)
+		}
+	}
+
+	if update.GetGlobalConfig().PodCIDR != "" {
+		message := fmt.Sprintf("The advertise address %v conflicts with the global pod network CIDR range %v. "+
+			"Please specify a different pod CIDR.", server.AdvertiseIP, update.GetGlobalConfig().PodCIDR)
+		if err := validate.NetworkOverlap(server.AdvertiseIP, update.GetGlobalConfig().PodCIDR, message); err != nil {
+			return trace.Wrap(err)
+		}
+	}
+
+	return nil
 }
 
 const (

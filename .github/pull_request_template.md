@@ -33,6 +33,9 @@
 ## Implementation
 <!--Optional. Add any relevant implementation details that might help the reviewers.-->
 
+## Performance/Scaling
+<!--Optional. Add any relevant details on how this PR reacts when scaled to 1k nodes, and any additional scaling considerations for the reviewers.-->
+
 ## Testing done
 <!--Required. Explain what kind of testing these changes underwent.-->
 

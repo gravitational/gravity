@@ -48,7 +48,7 @@ func executePreflightChecks(env *localenv.LocalEnvironment, config preflightChec
 	ctx, cancel := context.WithTimeout(context.Background(), config.timeout)
 	defer cancel()
 
-	err := localenv.DetectCluster(env)
+	err := localenv.DetectCluster(ctx, env)
 	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
 	}

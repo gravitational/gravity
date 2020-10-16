@@ -231,8 +231,8 @@ func (r *Router) GetSite(siteKey ops.SiteKey) (*ops.Site, error) {
 	return client.GetSite(siteKey)
 }
 
-func (r *Router) GetLocalSite() (*ops.Site, error) {
-	return r.Local.GetLocalSite()
+func (r *Router) GetLocalSite(ctx context.Context) (*ops.Site, error) {
+	return r.Local.GetLocalSite(ctx)
 }
 
 func (r *Router) DeactivateSite(req ops.DeactivateSiteRequest) error {

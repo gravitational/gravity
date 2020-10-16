@@ -31,12 +31,12 @@ import (
 )
 
 // TeleportClient returns a new teleport client for the local cluster
-func (env *LocalEnvironment) TeleportClient(proxyHost string) (*client.TeleportClient, error) {
+func (env *LocalEnvironment) TeleportClient(ctx context.Context, proxyHost string) (*client.TeleportClient, error) {
 	operator, err := env.SiteOperator()
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to get cluster operator service")
 	}
-	cluster, err := operator.GetLocalSite()
+	cluster, err := operator.GetLocalSite(ctx)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -49,7 +49,7 @@ func (env *LocalEnvironment) AuditLog(ctx context.Context) (teleevents.IAuditLog
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	cluster, err := operator.GetLocalSite()
+	cluster, err := operator.GetLocalSite(ctx)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

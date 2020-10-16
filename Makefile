@@ -46,15 +46,15 @@ RELEASE_OUT ?=
 TELEPORT_TAG = 3.2.16
 # TELEPORT_REPOTAG adapts TELEPORT_TAG to the teleport tagging scheme
 TELEPORT_REPOTAG := v$(TELEPORT_TAG)
-PLANET_TAG := 7.1.11-$(K8S_VER_SUFFIX)
+PLANET_TAG := 7.1.13-$(K8S_VER_SUFFIX)
 PLANET_BRANCH := $(PLANET_TAG)
 K8S_APP_TAG := $(GRAVITY_TAG)
 TELEKUBE_APP_TAG := $(GRAVITY_TAG)
 WORMHOLE_APP_TAG := $(GRAVITY_TAG)
 INGRESS_APP_TAG ?= 0.0.1
 STORAGE_APP_TAG ?= 0.0.3
-LOGGING_APP_TAG ?= 6.0.6
-MONITORING_APP_TAG ?= 7.0.2
+LOGGING_APP_TAG ?= 6.0.7
+MONITORING_APP_TAG ?= 7.1.1
 DNS_APP_TAG = 7.1.1
 BANDWAGON_TAG ?= 6.0.1
 RBAC_APP_TAG := $(GRAVITY_TAG)
@@ -522,13 +522,12 @@ $(TELEKUBE_OUT): packages
 		--skip-version-check \
 		-o $(TELEKUBE_OUT)
 
-.PHONY: robotest-run-suite
-robotest-run-suite: # depends on: telekube opscenter $(TELE_OUT) $(GRAVITY_OUT)
-	$(MAKE) -C assets/robotest run ROBOTEST_CONFIG=pr
-
-.PHONY: robotest-run-nightly
-robotest-run-nightly: # depends on: telekube opscenter $(TELE_OUT) $(GRAVITY_OUT)
-	$(MAKE) -C assets/robotest run ROBOTEST_CONFIG=nightly
+#
+# runs robotest integration tests
+#
+.PHONY: robotest-run
+robotest-run: # depends on: telekube opscenter $(TELE_OUT) $(GRAVITY_OUT)
+	$(MAKE) -C assets/robotest run
 
 #
 # builds wormhole installer

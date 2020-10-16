@@ -45,7 +45,7 @@ def robotest() {
     // offer a superset of PR/nightly parameters, and the extra ones will be
     // lost when setRobotestParameters() is called -- 2020-04 walt
     echo "Jenkins Job Parameters:"
-      for (param in params) { echo "${param}" }
+    for(int i = 0; i < params.size(); i++) { echo "${params[i]}" }
     if (env.KEEP_PARAMETERS == 'true') {
       echo "KEEP_PARAMETERS detected. Ignoring Jenkins job parameters from Jenkinsfile."
     } else {
@@ -70,7 +70,7 @@ def robotest() {
           file(credentialsId:'OPS_SSH_KEY', variable: 'SSH_KEY'),
           file(credentialsId:'OPS_SSH_PUB', variable: 'SSH_PUB'),
         ]) {
-          sh 'make -C e robotest-run-suite'
+          sh 'make -C e robotest-run'
         }
       } else {
         echo 'skipping robotest execution'

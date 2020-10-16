@@ -22,9 +22,28 @@ import (
 	"github.com/gravitational/trace"
 )
 
-// KubernetesSubnets makes sure that the provided CIDR ranges can be used as
+// NetworkOverlap verifies that ipAddr is not in the range of the subnetCIDR
+func NetworkOverlap(ipAddr, subnetCIDR, errMsg string) error {
+	_, subNet, err := net.ParseCIDR(subnetCIDR)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	ip := net.ParseIP(ipAddr)
+	if ip == nil {
+		return trace.BadParameter("invalid IP address (%v)", ipAddr)
+	}
+
+	if subNet.Contains(ip) {
+		return trace.BadParameter(errMsg)
+	}
+
+	return nil
+}
+
+// KubernetesSubnetsFromStrings makes sure that the provided CIDR ranges are valid and can be used as
 // pod/service Kubernetes subnets
-func KubernetesSubnets(podCIDR, serviceCIDR string) error {
+func KubernetesSubnetsFromStrings(podCIDR, serviceCIDR string) error {
 	var podNet, serviceNet *net.IPNet
 	var err error
 
@@ -34,13 +53,6 @@ func KubernetesSubnets(podCIDR, serviceCIDR string) error {
 		if err != nil {
 			return trace.BadParameter(
 				"invalid pod subnet: %q", podCIDR)
-		}
-
-		// the pod network should be /16 minimum so k8s can allocate /24 to each node
-		ones, _ := podNet.Mask.Size()
-		if ones > 16 {
-			return trace.BadParameter(
-				"pod subnet should be a minimum of /16: %q", podCIDR)
 		}
 	}
 
@@ -54,13 +66,38 @@ func KubernetesSubnets(podCIDR, serviceCIDR string) error {
 	}
 
 	// make sure the subnets do not overlap
+	return KubernetesSubnets(podNet, serviceNet)
+}
+
+// KubernetesSubnets makes sure that the provided CIDR ranges can be used as
+// pod/service Kubernetes subnets
+func KubernetesSubnets(podNet, serviceNet *net.IPNet) (err error) {
+	if podNet != nil {
+		// make sure the pod subnet is valid
+		// the pod network should be /16 minimum so k8s can allocate /24 to each node
+		ones, _ := podNet.Mask.Size()
+		if ones > 16 {
+			return trace.BadParameter(
+				"pod subnet should be a minimum of /16: %q", podNet.String())
+		}
+	}
 	if podNet != nil && serviceNet != nil {
+		// make sure the subnets do not overlap
 		if podNet.Contains(serviceNet.IP) || serviceNet.Contains(podNet.IP) {
 			return trace.BadParameter(
 				"pod subnet %q and service subnet %q should not overlap",
-				podCIDR, serviceCIDR)
+				podNet.String(), serviceNet.String())
 		}
 	}
-
 	return nil
+}
+
+// NormalizeSubnet returns the text representation of the given subnet
+// as the IP masked with the network mask
+func NormalizeSubnet(subnet string) (string, error) {
+	_, ipNet, err := net.ParseCIDR(subnet)
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+	return ipNet.String(), nil
 }

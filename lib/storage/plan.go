@@ -24,6 +24,7 @@ import (
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
+	v1 "k8s.io/api/core/v1"
 )
 
 // OperationPlan represents a plan of an operation as a collection of phases
@@ -208,6 +209,20 @@ type UpdateOperationData struct {
 	// The list might be a subset of all cluster servers in case
 	// the operation only operates on a specific part
 	Servers []UpdateServer `json:"updates,omitempty"`
+	// ClusterConfig optionally specifies data specific to cluster configuration operation
+	ClusterConfig *ClusterConfigData `json:"cluster_config,omitempty"`
+}
+
+// ClusterConfigData describes the configuration specific to cluster configuration update operation
+type ClusterConfigData struct {
+	// ServiceSuffix specifies the suffix of the temporary DNS services with a ClusterIP
+	// from a new service subnet when updating cluster service CIDR
+	ServiceSuffix string `json:"service_suffix,omitempty"`
+	// ServiceCIDR specifies the service IP range
+	ServiceCIDR string `json:"service_cidr,omitempty"`
+	// Services lists original service definitions as captured
+	// prior to update
+	Services []v1.Service `json:"services,omitempty"`
 }
 
 // UpdateServer describes an intent to update runtime/teleport configuration
@@ -377,7 +392,7 @@ func (p OperationPhase) GetState() string {
 		}
 		return p.State
 	}
-	// otherwise collect states of all subphases
+	// otherwise collect the set of states of all subphases
 	states := utils.NewStringSet()
 	for _, phase := range p.Phases {
 		states.Add(phase.GetState())
@@ -386,10 +401,24 @@ func (p OperationPhase) GetState() string {
 	if len(states) == 1 {
 		return states.Slice()[0]
 	}
-	// if any of the subphases is failed or rolled back then this phase is failed
-	if states.Has(OperationPhaseStateFailed) || states.Has(OperationPhaseStateRolledBack) {
+
+	// if any of the subphases are in a failed state, then this phase is also failed.
+	if states.Has(OperationPhaseStateFailed) {
 		return OperationPhaseStateFailed
 	}
+
+	// an in_progress state means that the phase has at least one subphase
+	// in_progress and no failed subphases.
+	if states.Has(OperationPhaseStateInProgress) {
+		return OperationPhaseStateInProgress
+	}
+
+	// If all subphases are either unstarted or rolled back, this phase is also
+	// considered to be rolled back.
+	if !states.Has(OperationPhaseStateCompleted) && states.Has(OperationPhaseStateRolledBack) {
+		return OperationPhaseStateRolledBack
+	}
+
 	// otherwise we consider the whole phase to be in progress because it hasn't
 	// converged to a single state yet
 	return OperationPhaseStateInProgress
