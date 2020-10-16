@@ -88,8 +88,6 @@ type Config struct {
 
 	// manifestDir is the fully-qualified directory path where manifest file resides
 	manifestDir string
-	// manifestFilename is the name of the manifest file
-	manifestFilename string
 }
 
 // CheckAndSetDefaults validates builder config and fills in defaults
@@ -115,8 +113,7 @@ func (c *Config) CheckAndSetDefaults() error {
 			return trace.Wrap(err)
 		}
 		c.manifestDir = filepath.Dir(manifestAbsPath)
-		c.manifestFilename = filepath.Base(manifestAbsPath)
-		if c.manifestFilename != defaults.ManifestFileName {
+		if filepath.Base(manifestAbsPath) != defaults.ManifestFileName {
 			return trace.BadParameter("manifest filename should be %q",
 				defaults.ManifestFileName)
 		}
@@ -259,19 +256,10 @@ func (b *Builder) Vendor(ctx context.Context, dir string) (io.ReadCloser, error)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	manifestPath := filepath.Join(dir, defaults.ResourcesDir, "app.yaml")
-	// If manifest filename is empty, it means it was auto-generated
-	// out of a Helm chart so write the generated manifest to the
-	// vendor directory as well.
-	if b.manifestFilename == "" {
-		data, err := yaml.Marshal(b.Manifest)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-		err = ioutil.WriteFile(manifestPath, data, defaults.SharedReadMask)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
+	manifestPath := filepath.Join(dir, defaults.ResourcesDir, defaults.ManifestFileName)
+	err = writeManifest(manifestPath, b.Manifest)
+	if err != nil {
+		return nil, trace.Wrap(err)
 	}
 	dockerClient, err := docker.NewDefaultClient()
 	if err != nil {
@@ -476,6 +464,18 @@ func (b Builder) app(runtimeVersion semver.Version) app.Application {
 // runtimeApp returns the locator of the runtime application with the specified version
 func runtimeApp(version semver.Version) loc.Locator {
 	return loc.Runtime.WithVersion(version)
+}
+
+func writeManifest(path string, manifest schema.Manifest) error {
+	data, err := yaml.Marshal(manifest)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = ioutil.WriteFile(path, data, defaults.SharedReadMask)
+	if err != nil {
+		return trace.ConvertSystemError(err)
+	}
+	return nil
 }
 
 // versionsCompatible returns true if the provided tele and runtime versions
