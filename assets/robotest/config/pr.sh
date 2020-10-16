@@ -14,8 +14,8 @@ UPGRADE_MAP[7.0.7]="ubuntu:16" # 7.0.7 is the first 7.0 with https://github.com/
 # UPGRADE_MAP[7.0.0]="ubuntu:16" # 7.0.0 is prone to upgrade failure without https://github.com/gravitational/planet/pull/671
 
 UPGRADE_MAP[$(recommended_upgrade_tag $(branch 6.1.x))]="redhat:7" # compatible LTS version
-UPGRADE_MAP[6.1.0]="debian:9"
-UPGRADE_MAP[$(recommended_upgrade_tag $(branch 6.3.x))]="centos:7" # compatible non-LTS version
+# UPGRADE_MAP[6.1.0]="debian:9" # 6.1.0 hook init containers are broken (#2243)
+UPGRADE_MAP[$(recommended_upgrade_tag $(branch 6.3.x))]="debian:9" # compatible non-LTS version
 
 # INTERMEDIATE_UPGRADE_VERSION is the middle hop to use with --upgrade-via
 INTERMEDIATE_UPGRADE_VERSION=$(recommended_upgrade_tag $(branch 6.1.x))
