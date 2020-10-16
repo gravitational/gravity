@@ -195,15 +195,14 @@ type InstallConfig struct {
 //
 // Reconfiguration is very similar to initial installation so the install
 // config is reused.
-func newReconfigureConfig(env *localenv.LocalEnvironment, g *Application) (*reconfigureConfig, error) {
+func newReconfigureConfig(env *localenv.LocalEnvironment, g *Application) (*InstallConfig, error) {
 	// The installer is using the existing state directory in order to be able
 	// to use existing application packages.
 	readStateDir, err := state.GetStateDir()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return &reconfigureConfig{
-		InstallConfig: InstallConfig{
+	return &InstallConfig{
 			Insecure:           *g.Insecure,
 			StateDir:           state.GravityLocalDir(readStateDir),
 			UserLogFile:        *g.UserLogFile,
@@ -216,8 +215,6 @@ func newReconfigureConfig(env *localenv.LocalEnvironment, g *Application) (*reco
 			LocalClusterClient: env.SiteOperator,
 			Mode:               constants.InstallModeCLI,
 			Printer:            env,
-		},
-		stateDir: *g.StartCmd.StateDir,
 	}, nil
 }
 
@@ -880,28 +877,23 @@ type JoinConfig struct {
 	// If specified, will affect the local file contexts generated
 	// when SELinux configuration is bootstrapped
 	SystemStateDir string
-	// StateDir specifies the local state directory.
-	// Defaults to current working directory for the client. Will be always specified
-	// for the service
-	StateDir string
 }
 
 // NewJoinConfig populates join configuration from the provided CLI application
 func NewJoinConfig(g *Application) JoinConfig {
 	return JoinConfig{
-		SystemLogFile:  *g.SystemLogFile,
-		UserLogFile:    *g.UserLogFile,
-		PeerAddrs:      *g.JoinCmd.PeerAddr,
-		AdvertiseAddr:  *g.JoinCmd.AdvertiseAddr,
-		ServerAddr:     *g.JoinCmd.ServerAddr,
-		Token:          *g.JoinCmd.Token,
-		Role:           *g.JoinCmd.Role,
-		SystemDevice:   *g.JoinCmd.SystemDevice,
-		Mounts:         *g.JoinCmd.Mounts,
-		OperationID:    *g.JoinCmd.OperationID,
-		SELinux:        *g.JoinCmd.SELinux,
-		FromService:    *g.JoinCmd.FromService,
-		StateDir:       *g.JoinCmd.StateDir,
+		SystemLogFile: *g.SystemLogFile,
+		UserLogFile:   *g.UserLogFile,
+		PeerAddrs:     *g.JoinCmd.PeerAddr,
+		AdvertiseAddr: *g.JoinCmd.AdvertiseAddr,
+		ServerAddr:    *g.JoinCmd.ServerAddr,
+		Token:         *g.JoinCmd.Token,
+		Role:          *g.JoinCmd.Role,
+		SystemDevice:  *g.JoinCmd.SystemDevice,
+		Mounts:        *g.JoinCmd.Mounts,
+		OperationID:   *g.JoinCmd.OperationID,
+		SELinux:       *g.JoinCmd.SELinux,
+		FromService:   *g.JoinCmd.FromService,
 		SystemStateDir: *g.StateDir,
 	}
 }
@@ -1080,7 +1072,6 @@ type autojoinConfig struct {
 	systemDevice  string
 	mounts        map[string]string
 	fromService   bool
-	stateDir      string
 	serviceURL    string
 	advertiseAddr string
 	token         string

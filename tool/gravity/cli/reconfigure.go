@@ -18,9 +18,12 @@ package cli
 
 import (
 	"context"
+	"os"
 
+	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/install"
 	"github.com/gravitational/gravity/lib/install/client"
+	installerclient "github.com/gravitational/gravity/lib/install/client"
 	"github.com/gravitational/gravity/lib/install/reconfigure"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops/resources"
@@ -42,9 +45,9 @@ Would you like to proceed? You can launch the command with --confirm flag to sup
 //
 // Currently, the reconfiguration operation only allows to change advertise
 // address for single-node clusters.
-func reconfigureCluster(env *localenv.LocalEnvironment, config reconfigureConfig, confirmed bool) error {
+func reconfigureCluster(env *localenv.LocalEnvironment, config InstallConfig, confirmed bool) error {
 	// Validate that the operation is ok to launch.
-	localState, err := validateReconfiguration(env, config.InstallConfig)
+	localState, err := validateReconfiguration(env, config)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -96,7 +99,7 @@ func reconfigureCluster(env *localenv.LocalEnvironment, config reconfigureConfig
 	return trace.Wrap(err)
 }
 
-func startReconfiguratorFromService(env *localenv.LocalEnvironment, config reconfigureConfig, localState *localenv.LocalState) error {
+func startReconfiguratorFromService(env *localenv.LocalEnvironment, config InstallConfig, localState *localenv.LocalState) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	interrupt := signals.NewInterruptHandler(ctx, cancel, InterruptSignals)
 	defer interrupt.Close()
@@ -111,7 +114,7 @@ func startReconfiguratorFromService(env *localenv.LocalEnvironment, config recon
 			listener.Close()
 		}
 	}()
-	installerConfig, err := newInstallerConfig(ctx, env, config.InstallConfig)
+	installerConfig, err := newInstallerConfig(ctx, env, config)
 	if err != nil {
 		return trace.Wrap(utils.NewPreconditionFailedError(err))
 	}
@@ -143,6 +146,37 @@ func newReconfigurator(ctx context.Context, config *install.Config, state *local
 		return nil, trace.Wrap(err)
 	}
 	return installer, nil
+}
+
+// newReconfiguratorConnectStrategy returns a new service connect strategy
+// for the agent executing the cluster reconfiguration operation.
+func newReconfiguratorConnectStrategy(
+	env *localenv.LocalEnvironment,
+	baseDir string,
+	config InstallConfig,
+	commandArgs cli.CommandArgs,
+) (strategy *installerclient.InstallerStrategy, err error) {
+	installedPath, err := install.InstallBinaryIntoDefaultLocation(log)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	commandArgs.FlagsToAdd = append(commandArgs.FlagsToAdd,
+		cli.NewBoolFlag("from-service", true),
+	)
+	commandArgs.FlagsToRemove = append(commandArgs.FlagsToRemove, "from-service")
+	args, err := commandArgs.Update(os.Args[1:])
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	args = append([]string{installedPath}, args...)
+	return &installerclient.InstallerStrategy{
+		Args:           args,
+		Validate:       func() error { return nil },
+		ApplicationDir: baseDir,
+		SocketPath:     state.GravityInstallerSocketPath(baseDir),
+		ServicePath:    defaults.SystemUnitPath(defaults.GravityRPCInstallerServiceName),
+		ServiceName:    defaults.GravityRPCInstallerServiceName,
+	}, nil
 }
 
 // validateReconfiguration determines if reconfiguration can be launched on this

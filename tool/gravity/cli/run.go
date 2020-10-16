@@ -385,7 +385,6 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			systemDevice:  *g.AutoJoinCmd.SystemDevice,
 			mounts:        *g.AutoJoinCmd.Mounts,
 			fromService:   *g.AutoJoinCmd.FromService,
-			stateDir:      *g.AutoJoinCmd.StateDir,
 			serviceURL:    *g.AutoJoinCmd.ServiceAddr,
 			token:         *g.AutoJoinCmd.Token,
 			advertiseAddr: *g.AutoJoinCmd.AdvertiseAddr,

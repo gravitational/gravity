@@ -31,6 +31,8 @@ import (
 const (
 	// ServiceStatusActivating indicates that service is activating
 	ServiceStatusActivating = "activating"
+	// ServiceStatusDeactivating indicates that service is deactivating
+	ServiceStatusDeactivating = "deactivating"
 	// ServiceStatusFailed means taht service has failed
 	ServiceStatusFailed = "failed"
 	// ServiceStatusActive means that service is active
@@ -98,8 +100,6 @@ type UninstallServiceRequest struct {
 type DisableServiceRequest struct {
 	// Name identifies the service
 	Name string
-	// Now specifies whether the service is also stopped
-	Now bool
 }
 
 // NewPackageServiceRequest specifies parameters needed to create a new service
@@ -366,7 +366,9 @@ func (r *NewServiceRequest) CheckAndSetDefaults() error {
 }
 
 // IsUnknownServiceError determines whether the err specifies the
-// 'unknown service' error
+// 'unknown service' error.
+// Note that systemctl status predicates (e.g. `is-active` or `is-enabled`) will never
+// return this status - only commands will
 func IsUnknownServiceError(err error) bool {
 	const errCodeNotInstalled = 5
 	if exitCode := utils.ExitStatusFromError(err); exitCode != nil {

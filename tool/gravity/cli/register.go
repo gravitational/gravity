@@ -116,7 +116,6 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.JoinCmd.OperationID = g.JoinCmd.Flag("operation-id", "ID of the operation that was created via UI.").Hidden().String()
 	g.JoinCmd.SELinux = g.JoinCmd.Flag("selinux", "Run with SELinux support. Default 'false'.").Default("false").Envar(defaults.GravitySELinuxEnv).Bool()
 	g.JoinCmd.FromService = g.JoinCmd.Flag("from-service", "Run in service mode.").Hidden().Bool()
-	g.JoinCmd.StateDir = g.JoinCmd.Arg("path", "Path to the directory with local state. Defaults to working directory.").String()
 
 	g.AutoJoinCmd.CmdClause = g.Command("autojoin", "Use cloud provider data to join a node to existing cluster.")
 	g.AutoJoinCmd.ClusterName = g.AutoJoinCmd.Arg("cluster-name", "Cluster name used for discovery.").Required().String()
@@ -130,7 +129,6 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.AutoJoinCmd.Token = g.AutoJoinCmd.Flag("token", "Unique token to authorize this node to join the cluster.").Hidden().String()
 	g.AutoJoinCmd.SELinux = g.AutoJoinCmd.Flag("selinux", "Run with SELinux support. Default 'false'.").Default("false").Envar(defaults.GravitySELinuxEnv).Bool()
 	g.AutoJoinCmd.FromService = g.AutoJoinCmd.Flag("from-service", "Run in service mode.").Hidden().Bool()
-	g.AutoJoinCmd.StateDir = g.AutoJoinCmd.Arg("path", "Path to the directory with local state. Defaults to working directory.").String()
 
 	g.LeaveCmd.CmdClause = g.Command("leave", "Decommission this node from the cluster.")
 	g.LeaveCmd.Force = g.LeaveCmd.Flag("force", "Force local state cleanup.").Bool()
@@ -154,7 +152,6 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.StartCmd.CmdClause = g.Command("start", "Start Gravity services on the node.")
 	g.StartCmd.AdvertiseAddr = g.StartCmd.Flag("advertise-addr", "New advertise address the node will use. Must be present on the node.").String()
 	g.StartCmd.FromService = g.StartCmd.Flag("from-service", "Run in service mode.").Hidden().Bool()
-	g.StartCmd.StateDir = g.StartCmd.Arg("path", "Path to local state directory. Defaults to working directory.").String()
 	g.StartCmd.Confirmed = g.StartCmd.Flag("confirm", "Suppress confirmation prompt.").Bool()
 
 	g.PlanCmd.CmdClause = g.Command("plan", "Manage operation plan.")

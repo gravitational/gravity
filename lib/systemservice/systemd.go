@@ -268,7 +268,7 @@ func (s *systemdManager) ListPackageServices(opts ListServiceOptions) ([]Package
 	if opts.Pattern != "" {
 		args = append(args, opts.Pattern)
 	}
-	out, err := invokeSystemctl(args...)
+	out, err := invokeSystemctlQuiet(args...)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to list-units: %v", out)
 	}
@@ -368,7 +368,7 @@ func (s *systemdManager) UninstallService(req UninstallServiceRequest) error {
 	out, err := invokeSystemctl("stop", serviceName)
 	if err != nil {
 		if IsUnknownServiceError(err) {
-			logger.WithError(err).Warn("Failed to find service.")
+			logger.Info("Service not found.")
 			return nil
 		}
 		return trace.Wrap(err, out)
@@ -420,11 +420,7 @@ func (s *systemdManager) UninstallService(req UninstallServiceRequest) error {
 
 // DisableService disables service without stopping it
 func (s *systemdManager) DisableService(req DisableServiceRequest) error {
-	args := []string{"disable", serviceName(req.Name)}
-	if req.Now {
-		args = append(args, "--now")
-	}
-	out, err := invokeSystemctl(args...)
+	out, err := invokeSystemctl("disable", serviceName(req.Name))
 	if err != nil {
 		return trace.Wrap(err, "error disabling service %v: %s", req.Name, out)
 	}
@@ -459,10 +455,16 @@ func (s *systemdManager) RestartService(name string) error {
 func (s *systemdManager) StatusService(name string) (string, error) {
 	out, err := invokeSystemctl("is-active", name)
 	out = strings.TrimSpace(out)
+	// TODO(dmitri): this is a dubious behavior at least w.r.t `unknown` state
+	// which one might consider actually unknown. In fact, the `is-active` predicate
+	// _always_ returns a state for a (arbitrary, even non-existent) service, and a
+	// non-zero exit code if the status is not 'active'
+	//
 	// do not report error in case if status is known
 	switch out {
-	case ServiceStatusActive, ServiceStatusFailed, ServiceStatusActivating,
-		ServiceStatusUnknown, ServiceStatusInactive:
+	case ServiceStatusActive, ServiceStatusInactive,
+		ServiceStatusFailed, ServiceStatusUnknown,
+		ServiceStatusActivating, ServiceStatusDeactivating:
 		return out, nil
 	}
 	return out, err
@@ -496,6 +498,11 @@ func (s *systemdManager) supportsTasksAccounting() bool {
 		return false
 	}
 	return version >= defaults.SystemdTasksMinVersion
+}
+
+func invokeSystemctlQuiet(args ...string) (string, error) {
+	out, err := exec.Command("systemctl", append(args, "--no-pager")...).CombinedOutput()
+	return string(out), trace.Wrap(err)
 }
 
 func invokeSystemctl(args ...string) (string, error) {

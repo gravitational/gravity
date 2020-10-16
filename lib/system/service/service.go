@@ -106,10 +106,13 @@ func install(services systemservice.ServiceManager, req systemservice.NewService
 	logger := log.WithField("service", req.Name)
 	err := services.DisableService(systemservice.DisableServiceRequest{
 		Name: Name(req.Name),
-		Now:  true,
 	})
 	if err != nil && !systemservice.IsUnknownServiceError(err) {
 		logger.WithError(err).Warn("Failed to disable.")
+	}
+	err = services.StopService(Name(req.Name))
+	if err != nil && !systemservice.IsUnknownServiceError(err) {
+		logger.WithError(err).Warn("Failed to stop.")
 	}
 	return trace.Wrap(services.InstallService(req))
 }

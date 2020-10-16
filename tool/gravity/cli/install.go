@@ -221,7 +221,7 @@ func joinFromService(env, joinEnv *localenv.LocalEnvironment, config JoinConfig)
 	interrupt := signals.NewInterruptHandler(ctx, cancel, InterruptSignals)
 	defer interrupt.Close()
 	go TerminationHandler(interrupt, env)
-	socketPath := state.GravityInstallerSocketPath(config.StateDir)
+	socketPath := state.GravityInstallerSocketPath(utils.Exe.WorkingDir)
 	listener, err := NewServiceListener(socketPath)
 	if err != nil {
 		return trace.Wrap(err)
@@ -466,7 +466,7 @@ func autojoinFromService(env *localenv.LocalEnvironment, environ LocalEnvironmen
 	if err := config.checkAndSetDefaults(); err != nil {
 		return trace.Wrap(err)
 	}
-	joinEnv, err := environ.NewJoinEnv(state.GravityInstallDirAt(config.stateDir))
+	joinEnv, err := environ.NewJoinEnv(state.GravityInstallDir())
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -747,7 +747,7 @@ func join(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, confi
 		return trace.Wrap(err)
 	}
 	if config.FromService {
-		joinEnv, err := environ.NewJoinEnv(state.GravityInstallDirAt(config.StateDir))
+		joinEnv, err := environ.NewJoinEnv(state.GravityInstallDir())
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -845,38 +845,6 @@ func NewInstallerConnectStrategy(env *localenv.LocalEnvironment, config InstallC
 	}, nil
 }
 
-// newReconfiguratorConnectStrategy returns a new service connect strategy
-// for the agent executing the cluster reconfiguration operation.
-func newReconfiguratorConnectStrategy(
-	env *localenv.LocalEnvironment,
-	baseDir string,
-	config reconfigureConfig,
-	commandArgs cli.CommandArgs,
-) (strategy *installerclient.InstallerStrategy, err error) {
-	installedPath, err := install.InstallBinaryIntoDefaultLocation(log)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	commandArgs.FlagsToAdd = append(commandArgs.FlagsToAdd,
-		cli.NewBoolFlag("from-service", true),
-		cli.NewArg("path", baseDir),
-	)
-	commandArgs.FlagsToRemove = append(commandArgs.FlagsToRemove, "path", "from-service")
-	args, err := commandArgs.Update(os.Args[1:])
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	args = append([]string{installedPath}, args...)
-	return &installerclient.InstallerStrategy{
-		Args:           args,
-		Validate:       func() error { return nil },
-		ApplicationDir: baseDir,
-		SocketPath:     state.GravityInstallerSocketPath(baseDir),
-		ServicePath:    defaults.SystemUnitPath(defaults.GravityRPCInstallerServiceName),
-		ServiceName:    defaults.GravityRPCInstallerServiceName,
-	}, nil
-}
-
 // newAutoAgentConnectStrategy returns a new service connect strategy for a joining agent
 // in autojoin scenario
 func newAutoAgentConnectStrategy(env *localenv.LocalEnvironment, baseDir string, config JoinConfig) (strategy *installerclient.InstallerStrategy, err error) {
@@ -893,11 +861,10 @@ func newAutoAgentConnectStrategy(env *localenv.LocalEnvironment, baseDir string,
 			cli.NewBoolFlag("from-service", true),
 			cli.NewFlag("token", config.Token),
 			cli.NewFlag("advertise-addr", config.AdvertiseAddr),
-			cli.NewArg("path", baseDir),
 			cli.NewFlag("service-addr", config.PeerAddrs),
 		},
 		// Avoid duplicates on command line
-		FlagsToRemove: []string{"token", "advertise-addr", "service-addr", "path", "from-service"},
+		FlagsToRemove: []string{"token", "advertise-addr", "service-addr", "from-service"},
 	}
 	args, err := commandArgs.Update(os.Args[1:])
 	if err != nil {
@@ -929,11 +896,10 @@ func newAgentConnectStrategy(env *localenv.LocalEnvironment, baseDir string, con
 			cli.NewBoolFlag("from-service", true),
 			cli.NewFlag("token", config.Token),
 			cli.NewFlag("advertise-addr", config.AdvertiseAddr),
-			cli.NewArg("path", baseDir),
 			cli.NewBoolFlag("selinux", config.SELinux),
 		},
 		// Avoid duplicates on command line
-		FlagsToRemove: []string{"token", "advertise-addr", "selinux", "path", "from-service"},
+		FlagsToRemove: []string{"token", "advertise-addr", "selinux", "from-service"},
 	}
 	args, err := commandArgs.Update(os.Args[1:])
 	if err != nil {

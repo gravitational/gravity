@@ -104,11 +104,13 @@ func validateNoActiveService(serviceName string) error {
 		return trace.Wrap(err)
 	}
 	status, err := manager.StatusService(serviceName)
-	if err != nil && !systemservice.IsUnknownServiceError(err) {
+	if err != nil {
 		return trace.Wrap(err)
 	}
 	switch status {
-	case systemservice.ServiceStatusFailed, systemservice.ServiceStatusUnknown:
+	case systemservice.ServiceStatusFailed,
+		systemservice.ServiceStatusUnknown,
+		systemservice.ServiceStatusInactive:
 		return nil
 	default:
 		// Consider service running if in another status

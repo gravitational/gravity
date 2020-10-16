@@ -192,7 +192,7 @@ func uninstallPackageServices(svm systemservice.ServiceManager, printer utils.Pr
 func unmountDevicemapper(printer utils.Printer, logger log.FieldLogger) error {
 	dockerInfo, err := dockerInfo()
 	if err != nil {
-		logger.WithError(err).Warn("Failed to get docker info.")
+		logger.Warnf("Failed to get docker info: %v.", err)
 	} else {
 		logger.WithField("info", fmt.Sprintf("%#v", dockerInfo)).Debug("Detected docker configuration.")
 	}
