@@ -90,7 +90,7 @@ func GenerateSelfSignedCert(hostNames []string) (*teleutils.TLSCredentials, erro
 		Country:      []string{"US"},
 		Organization: []string{"localhost"},
 		// OrganizationalUnit is needed in order to be able to identify the cert when doing
-		// automated cert rotation. If a customer decides to use their own cert
+		// automated cert rotation. If a user decides to use their own cert
 		// we should not rotate.
 		OrganizationalUnit: []string{SelfSignedCertOrg},
 	}
