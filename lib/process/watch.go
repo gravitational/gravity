@@ -75,7 +75,7 @@ func (p *Process) replaceCertIfAboutToExpire(client *kubernetes.Clientset) error
 	}
 
 	if len(cert.Issuer.OrganizationalUnit) == 0 || !strings.Contains(cert.Issuer.OrganizationalUnit[0], utils.SelfSignedCertOrg) {
-		p.Info("Skipping expiration check for customer provided certificate.")
+		p.Debug("Skipping expiration check for customer provided certificate.")
 		return nil
 	}
 
