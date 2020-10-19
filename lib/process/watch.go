@@ -30,6 +30,7 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/cenkalti/backoff"
 	"github.com/gravitational/teleport/lib/service"
 	"github.com/gravitational/teleport/lib/tlsca"
 	"github.com/gravitational/trace"
@@ -46,9 +47,9 @@ func (p *Process) runCertExpirationWatch(client *kubernetes.Clientset) clusterSe
 		ticker := time.NewTicker(time.Hour * 24)
 		defer ticker.Stop()
 		for {
-			err := p.replaceCertIfAboutToExpire(client)
+			err := p.replaceCertIfAboutToExpire(ctx, client)
 			if err != nil {
-				p.WithError(err).Error("Failed to check for certificate expiration.")
+				p.WithError(err).Error("Failed to check for certificate expiration or replace it.")
 			}
 
 			select {
@@ -61,53 +62,74 @@ func (p *Process) runCertExpirationWatch(client *kubernetes.Clientset) clusterSe
 	}
 }
 
-func (p *Process) replaceCertIfAboutToExpire(client *kubernetes.Clientset) error {
-	p.Info("Running self signed certificate expiration watch.")
+func (p *Process) replaceCertIfAboutToExpire(ctx context.Context, client *kubernetes.Clientset) error {
+	p.Info("Running self signed certificate expiration check...")
 
-	clusterCert, _, err := opsservice.GetClusterCertificate(client)
-	if err != nil {
-		return trace.Wrap(err)
-	}
+	ticker := backoff.NewTicker(&backoff.ExponentialBackOff{
+		InitialInterval: time.Second,
+		Multiplier:      1.5,
+		MaxInterval:     10 * time.Second,
+		MaxElapsedTime:  1 * time.Minute,
+		Clock:           backoff.SystemClock,
+	})
+	defer ticker.Stop()
 
-	cert, err := tlsca.ParseCertificatePEM(clusterCert)
-	if err != nil {
-		return trace.Wrap(err)
-	}
+	for {
+		select {
+		case <-ticker.C:
+			clusterCert, _, err := opsservice.GetClusterCertificate(client)
+			if err != nil {
+				p.WithError(err).Error("Failed to retrieve the certificate from k8s.")
+				continue
+			}
 
-	if len(cert.Issuer.OrganizationalUnit) == 0 || !strings.Contains(cert.Issuer.OrganizationalUnit[0], defaults.SelfSignedCertOrg) {
-		p.Debug("Skipping expiration check for customer provided certificate.")
-		return nil
-	}
+			cert, err := tlsca.ParseCertificatePEM(clusterCert)
+			if err != nil {
+				p.WithError(err).Error("Failed to parse the certificate.")
+				continue
+			}
 
-	periodBeforeExpire := time.Now().Add(defaults.CertRenewBeforeExpiry)
-	if periodBeforeExpire.After(cert.NotAfter) {
-		p.Infof("The cert with SerialNumber=%v will expire soon. Replacing it with a new one...", cert.SerialNumber)
+			if len(cert.Issuer.OrganizationalUnit) == 0 || !strings.Contains(cert.Issuer.OrganizationalUnit[0], defaults.SelfSignedCertOrg) {
+				p.Debug("Skipping expiration check for customer provided certificate.")
+				return nil
+			}
 
-		cert, err := utils.GenerateSelfSignedCert([]string{p.cfg.Hostname})
-		if err != nil {
-			return trace.Wrap(err)
+			periodBeforeExpire := time.Now().Add(defaults.CertRenewBeforeExpiry)
+			if periodBeforeExpire.After(cert.NotAfter) {
+				p.Infof("The cert with SerialNumber=%v will expire soon. Replacing it with a new one...", cert.SerialNumber)
+
+				cert, err := utils.GenerateSelfSignedCert([]string{p.cfg.Hostname})
+				if err != nil {
+					p.WithError(err).Error("Failed to generate self signed cert.")
+					continue
+				}
+
+				parsedCert, err := tlsca.ParseCertificatePEM(cert.Cert)
+				if err != nil {
+					p.WithError(err).Error("Failed to parse self signed cert.")
+					continue
+				}
+
+				err = opsservice.UpdateClusterCertificate(client, ops.UpdateCertificateRequest{
+					AccountID:   defaults.SystemAccountID,
+					SiteDomain:  defaults.SystemAccountOrg,
+					Certificate: cert.Cert,
+					PrivateKey:  cert.PrivateKey,
+				})
+				if err != nil {
+					p.WithError(err).Error("Failed to update self signed cluster cert.")
+					continue
+				}
+
+				p.Infof("Successfully rotated the self-signed cluster certificate. "+
+					"New cert ExpirationDate:%v, SerialNumber=%v", parsedCert.NotAfter, parsedCert.SerialNumber)
+			}
+
+			return nil
+		case <-ctx.Done():
+			return trace.Wrap(ctx.Err())
 		}
-
-		parsedCert, err := tlsca.ParseCertificatePEM(cert.Cert)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-
-		err = opsservice.UpdateClusterCertificate(client, ops.UpdateCertificateRequest{
-			AccountID:   defaults.SystemAccountID,
-			SiteDomain:  defaults.SystemAccountOrg,
-			Certificate: cert.Cert,
-			PrivateKey:  cert.PrivateKey,
-		})
-		if err != nil {
-			return trace.Wrap(err)
-		}
-
-		p.Infof("Successfully rotated the self-signed cluster certificate. New cert ExpirationDate:%v, SerialNumber=%v",
-			parsedCert.NotAfter, parsedCert.SerialNumber)
 	}
-
-	return nil
 }
 
 // runCertificateWatch updates process on p.certificateCh

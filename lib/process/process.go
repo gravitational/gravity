@@ -1973,7 +1973,7 @@ func (p *Process) initClusterCertificate(ctx context.Context, client *kubernetes
 		return trace.Wrap(err)
 	}
 
-	err = p.replaceCertIfAboutToExpire(p.client)
+	err = p.replaceCertIfAboutToExpire(ctx, p.client)
 	if err != nil {
 		return trace.Wrap(err)
 	}
