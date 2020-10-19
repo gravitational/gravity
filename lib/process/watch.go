@@ -51,7 +51,7 @@ func (p *Process) runCertExpirationWatch(client *kubernetes.Clientset) clusterSe
 		for {
 			err := p.replaceCertIfAboutToExpire(client)
 			if err != nil {
-				p.Errorf("Failed to check for certificate expiration: %v.", trace.DebugReport(err))
+				p.WithError(err).Error("Failed to check for certificate expiration.")
 			}
 
 			select {
