@@ -79,9 +79,7 @@ func (p *Process) replaceCertIfAboutToExpire(client *kubernetes.Clientset) error
 		return nil
 	}
 
-	// This is the time window to replace the certificate before expiration.
-	// Lets Encrypt recommends to renew 30 days before expiration.
-	periodBeforeExpire := time.Now().Add(time.Hour * 24 * 30)
+	periodBeforeExpire := time.Now().Add(defaults.CertRenewBeforeExpiry)
 	if periodBeforeExpire.After(cert.NotAfter) {
 		p.Infof("The cert with SerialNumber=%v will expire soon. Replacing it with a new one...", cert.SerialNumber)
 

@@ -1164,6 +1164,10 @@ const (
 	// during cluster installation (such as apiserver, etcd, kubelet, etc.)
 	CertificateExpiry = 10 * 365 * 24 * time.Hour // 10 years
 
+	// CertRenewBeforeExpiry is the time window to replace a certificate before expiration.
+	// Lets Encrypt recommends to renew certificates 30 days before expiration.
+	CertRenewBeforeExpiry = 30 * 24 * time.Hour
+
 	// TransientErrorTimeout specifies the maximum amount of time to attempt
 	// an operation experiencing transient errors
 	TransientErrorTimeout = 15 * time.Minute
