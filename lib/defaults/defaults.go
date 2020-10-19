@@ -1168,6 +1168,9 @@ const (
 	// Lets Encrypt recommends to renew certificates 30 days before expiration.
 	CertRenewBeforeExpiry = 30 * 24 * time.Hour
 
+	// SelfSignedCertOrg is the Organisation that is used to self-sign certificates.
+	SelfSignedCertOrg = "Gravitational"
+
 	// TransientErrorTimeout specifies the maximum amount of time to attempt
 	// an operation experiencing transient errors
 	TransientErrorTimeout = 15 * time.Minute

@@ -43,11 +43,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-const (
-	SelfSignedCertOrg   = "Gravitational"
-	PemBlockCertificate = "CERTIFICATE"
-)
-
 // CertificateOutput contains information about cluster certificate
 type CertificateOutput struct {
 	// IssuedTo contains  certificate subject
@@ -93,7 +88,7 @@ func GenerateSelfSignedCert(hostNames []string) (*teleutils.TLSCredentials, erro
 		// OrganizationalUnit is needed in order to be able to identify the cert when doing
 		// automated cert rotation. If a user decides to use their own cert
 		// we should not rotate.
-		OrganizationalUnit: []string{SelfSignedCertOrg},
+		OrganizationalUnit: []string{defaults.SelfSignedCertOrg},
 	}
 
 	template := x509.Certificate{
