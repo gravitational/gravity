@@ -18,8 +18,6 @@ package process
 
 import (
 	"context"
-	"crypto/x509"
-	"encoding/pem"
 	"strings"
 	"time"
 
@@ -31,9 +29,10 @@ import (
 	"github.com/gravitational/gravity/lib/processconfig"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
-	"github.com/gravitational/teleport/lib/service"
-	"github.com/gravitational/trace"
 
+	"github.com/gravitational/teleport/lib/service"
+	"github.com/gravitational/teleport/lib/tlsca"
+	"github.com/gravitational/trace"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -70,11 +69,7 @@ func (p *Process) replaceCertIfAboutToExpire(client *kubernetes.Clientset) error
 		return trace.Wrap(err)
 	}
 
-	block, _ := pem.Decode(clusterCert)
-	if block == nil || block.Type != utils.PemBlockCertificate {
-		return trace.NotFound("no PEM data found")
-	}
-	cert, err := x509.ParseCertificate(block.Bytes)
+	cert, err := tlsca.ParseCertificatePEM(clusterCert)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -95,6 +90,11 @@ func (p *Process) replaceCertIfAboutToExpire(client *kubernetes.Clientset) error
 			return trace.Wrap(err)
 		}
 
+		parsedCert, err := tlsca.ParseCertificatePEM(cert.Cert)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+
 		err = opsservice.UpdateClusterCertificate(client, ops.UpdateCertificateRequest{
 			AccountID:   defaults.SystemAccountID,
 			SiteDomain:  defaults.SystemAccountOrg,
@@ -105,7 +105,7 @@ func (p *Process) replaceCertIfAboutToExpire(client *kubernetes.Clientset) error
 			return trace.Wrap(err)
 		}
 
-		p.Infof("Successfully rotated the self-signed cluster certificate.")
+		p.Infof("Successfully rotated the self-signed cluster certificate. New cert ExpirationDate:%v, SerialNumber=%v", parsedCert.NotAfter, parsedCert.SerialNumber)
 	}
 
 	return nil
