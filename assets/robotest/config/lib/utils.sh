@@ -75,22 +75,24 @@ function recommended_upgrade_tag {
 }
 
 function build_upgrade_step {
-  local usage="$FUNCNAME from_tarball os cluster-size"
+  local usage="$FUNCNAME from_tarball to_tarball os cluster-size"
   local from_tarball=${1:?$usage}
-  local os=${2:?$usage}
-  local cluster_size=${3:?$usage}
+  local to_tarball=${2:?$usage}
+  local os=${3:?$usage}
+  local cluster_size=${4:?$usage}
   local storage_driver='"storage_driver":"overlay2"'
   local service_opts='"service_uid":997,"service_gid":994' # see issue #1279
   local suite=''
   suite+=$(cat <<EOF
- upgrade={${cluster_size},"os":"${os}","from":"$from_tarball",${service_opts},${storage_driver}}
+ upgrade={"from":"${from_tarball}","installer_url":"${to_tarball}",${cluster_size},"os":"${os}",${service_opts},${storage_driver}}
 EOF
 )
   echo $suite
 }
 
-function tag_to_tarball {
+# IMAGEDIR_MOUNTPOINT expected to be set by caller
+function tag_to_image {
   local version=${1:?specify a version}
-  echo "telekube_${version}.tar"
+  echo "${IMAGEDIR_MOUNTPOINT}/robotest-${version}.tar"
 }
 
