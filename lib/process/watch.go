@@ -71,6 +71,9 @@ func (p *Process) replaceCertIfAboutToExpire(client *kubernetes.Clientset) error
 	}
 
 	block, _ := pem.Decode(clusterCert)
+	if block == nil || block.Type != utils.PemBlockCertificate {
+		return trace.NotFound("no PEM data found")
+	}
 	cert, err := x509.ParseCertificate(block.Bytes)
 	if err != nil {
 		return trace.Wrap(err)

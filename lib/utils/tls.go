@@ -44,7 +44,8 @@ import (
 )
 
 const (
-	SelfSignedCertOrg = "Gravitational"
+	SelfSignedCertOrg   = "Gravitational"
+	PemBlockCertificate = "CERTIFICATE"
 )
 
 // CertificateOutput contains information about cluster certificate
