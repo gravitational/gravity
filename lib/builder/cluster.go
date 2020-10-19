@@ -21,13 +21,13 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/fatih/color"
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/app/service"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/schema"
 
+	"github.com/fatih/color"
 	"github.com/gravitational/trace"
 )
 
@@ -117,7 +117,11 @@ func (b *clusterBuilder) Build(ctx context.Context, req ClusterRequest) error {
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		version, err := response.Manifest.Base().SemVer()
+		base := response.Manifest.Base()
+		if base == nil {
+			return trace.BadParameter("failed to determine base image from manifest")
+		}
+		version, err := base.SemVer()
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -135,11 +139,11 @@ You can provide --skip-base-check flag to bypass this check.`,
 					runtimeVersion)
 			}
 			b.NextStep(color.YellowString("Upgrade-from image %v uses different base image %v",
-				response.Manifest.Locator().Human(),
+				response.Manifest.Locator().Description(),
 				version))
 		}
 		req.Vendor.SkipImages = response.Images
-		upgradeFrom = response.Manifest.LocatorP()
+		upgradeFrom = response.Manifest.LocatorPtr()
 	}
 
 	vendorDir, err := ioutil.TempDir("", "vendor")

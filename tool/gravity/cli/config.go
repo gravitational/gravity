@@ -591,7 +591,7 @@ func (i *InstallConfig) validateApplication() error {
 	if upgradeFrom != nil {
 		return trace.BadParameter("This cluster image was built as an incremental "+
 			"upgrade from %v. It cannot be used to perform full installation as "+
-			"only contains a subset of Docker images.", upgradeFrom.Human())
+			"it only contains a subset of Docker images.", upgradeFrom.Description())
 	}
 	return nil
 }

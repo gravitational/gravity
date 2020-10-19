@@ -100,7 +100,7 @@ func InspectCluster(ctx context.Context, path string, vendor service.VendorReque
 	}, nil
 }
 
-// InspectImage returns information about the specified tarball image.
+// InspectImage returns information about the tarball image specified with path.
 func InspectImage(ctx context.Context, path string) (*InspectResponse, error) {
 	// Cluster and application images built with recent versions of tele include
 	// Docker images information in the application metadata.

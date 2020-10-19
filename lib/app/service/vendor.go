@@ -256,19 +256,22 @@ func (v *vendorer) Images(unpackedDir string, req VendorRequest) (result []loc.D
 
 // getManifestRewrites returns a list of transformations to apply to manifest
 // file according to the provided request.
-func (v *vendorer) getManifestRewrites(req VendorRequest) []resources.ManifestRewriteFunc {
-	return []resources.ManifestRewriteFunc{
+func (v *vendorer) getManifestRewrites(req VendorRequest) (rewrites []resources.ManifestRewriteFunc) {
+	rewrites = append(rewrites,
 		// Rewrite file:// and http:// values.
 		makeRewriteMultiSourceFunc(req.ManifestPath),
 		// Inject wormhole hooks if necessary.
 		makeRewriteWormholeJobFunc(),
 		// Rewrite app/package dependencies according to --set-dep flags.
 		makeRewriteDepsFunc(req.SetDeps),
-		// Rewrite packages with meta versions.
-		makeRewritePackagesMetadataFunc(v.packages),
 		// Rewrite image metadata.
-		makeRewriteAppMetadataFunc(req.Repository, req.PackageName, req.PackageVersion),
+		makeRewriteAppMetadataFunc(req.Repository, req.PackageName, req.PackageVersion))
+	if v.packages != nil {
+		rewrites = append(rewrites,
+			// Rewrite packages with meta versions.
+			makeRewritePackagesMetadataFunc(v.packages))
 	}
+	return rewrites
 }
 
 // getManifestRewrites returns a list of transformations to apply to Docker
@@ -398,8 +401,7 @@ func (v *vendorer) VendorDir(ctx context.Context, unpackedDir string, req Vendor
 		images[i] = v.imageService.Unwrap(image)
 	}
 
-	// Filter out images if some images need to be skipped when building an
-	// incremental upgrade image.
+	// Remove images from the skip list.
 	images = teleutils.Deduplicate(append(images, chartImages...))
 	imagesToVendor, err := req.Filter(images)
 	if err != nil {
@@ -432,7 +434,6 @@ func (v *vendorer) VendorDir(ctx context.Context, unpackedDir string, req Vendor
 
 	log.Infof("Will vendor the following images: %v.", imagesToVendor)
 
-	// Perform vendoring.
 	err = v.pullAndExportImages(ctx, imagesToVendor, unpackedDir, req.Parallel, req.ProgressReporter)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -820,9 +821,6 @@ func makeRewriteDepsFunc(setPackages []loc.Locator) resources.ManifestRewriteFun
 // packages (base, packages, apps) and rewrites versions accordingly
 func makeRewritePackagesMetadataFunc(packages pack.PackageService) resources.ManifestRewriteFunc {
 	return func(m *schema.Manifest) error {
-		if packages == nil {
-			return nil
-		}
 		base := m.Base()
 		if base != nil {
 			newLoc, err := pack.ProcessMetadata(packages, base)

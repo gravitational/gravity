@@ -30,7 +30,7 @@ type BuildParameters struct {
 	SourcePath string
 	// OutPath holds the path to the installer tarball to be output
 	OutPath string
-	// Overwrite indicates whether or not to overwrite an existing installer file
+	// Overwrite indicates whether to overwrite an existing installer file
 	Overwrite bool
 	// SkipVersionCheck indicates whether or not to perform the version check of the tele binary with the application's runtime at build time
 	SkipVersionCheck bool
@@ -38,7 +38,7 @@ type BuildParameters struct {
 	Silent bool
 	// Verbose turns on more detailed progress output
 	Verbose bool
-	// Insecure turns on insecure verify mode
+	// Insecure turns off TLS verification
 	Insecure bool
 	// Vendor combines vendoring parameters
 	Vendor service.VendorRequest

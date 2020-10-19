@@ -223,7 +223,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 
 	g.UpdateUploadCmd.CmdClause = g.UpdateCmd.Command("upload", "Upload update package to locally running site").Hidden()
 	g.UpdateUploadCmd.OpsCenterURL = g.UpdateUploadCmd.Flag("ops-url", "Optional Gravity Hub URL to upload new packages to (defaults to local gravity site)").Default(defaults.GravityServiceURL).String()
-	g.UpdateUploadCmd.Force = g.UpdateUploadCmd.Flag("force", "Bypass checks that would have otherwise resulted in the rejected upload").Bool()
+	g.UpdateUploadCmd.SkipVersionCheck = g.UpdateUploadCmd.Flag("skip-version-check", "Suppress the installed application version check when uploading an incremental upgrade image").Bool()
 
 	// manual update flow commands
 	g.UpdateCompleteCmd.CmdClause = g.UpdateCmd.Command("complete", "Mark update operation as completed").Hidden()

@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	_ "net/http/pprof"
+	"time"
 
 	appservice "github.com/gravitational/gravity/lib/app/service"
 	"github.com/gravitational/gravity/lib/defaults"
@@ -52,7 +53,7 @@ func appPackage(env *localenv.LocalEnvironment) error {
 	return nil
 }
 
-func uploadUpdate(ctx context.Context, tarballEnv *localenv.TarballEnvironment, env *localenv.LocalEnvironment, opsURL string, force bool) error {
+func uploadUpdate(ctx context.Context, tarballEnv *localenv.TarballEnvironment, env *localenv.LocalEnvironment, opsURL string, skipVersionCheck bool) error {
 	clusterOperator, err := env.SiteOperator()
 	if err != nil {
 		return trace.Wrap(err, "unable to access cluster.\n"+
@@ -88,7 +89,7 @@ func uploadUpdate(ctx context.Context, tarballEnv *localenv.TarballEnvironment, 
 	}
 
 	var registries []string
-	err = utils.Retry(defaults.RetryInterval, defaults.RetryLessAttempts, func() error {
+	err = utils.RetryWithInterval(ctx, utils.NewExponentialBackOff(5*time.Minute), func() error {
 		registries, err = getRegistries(ctx, env, cluster.ClusterState.Servers)
 		return trace.Wrap(err)
 	})
@@ -106,7 +107,7 @@ func uploadUpdate(ctx context.Context, tarballEnv *localenv.TarballEnvironment, 
 	sourcePackages := tarballEnv.Packages
 	sourceApps := tarballEnv.Apps
 
-	// Before importing check if the new version is an incremental upgrade
+	// Before importing, check if the new version is an incremental upgrade
 	// and if so, check whether the currently installed version can be
 	// upgraded to it.
 	upgradeFrom, err := application.LabelAsLocator(pack.UpgradeFromLabel)
@@ -114,21 +115,28 @@ func uploadUpdate(ctx context.Context, tarballEnv *localenv.TarballEnvironment, 
 		return trace.Wrap(err)
 	}
 	if upgradeFrom != nil {
-		if !cluster.App.Package.IsEqualTo(*upgradeFrom) && !force {
-			return trace.BadParameter(`This cluster image was built as an incremental upgrade from %v.
-The currently installed cluster image is %v.
-You can force the upgrade by providing --force flag.`,
-				upgradeFrom.Human(),
-				cluster.App.Package.Human())
+		if !cluster.App.Package.IsEqualTo(*upgradeFrom) && !skipVersionCheck {
+			return trace.BadParameter(`This cluster image was built as an incremental upgrade from %v which differs
+from the currently installed cluster image %v.
+
+Upgrading over a different image may result in unexpected behavior, such as a
+failed upgrade due to missing Docker images.
+
+If you wish to upgrade anyway, you can suppress this error by providing the
+--skip-version-check flag.`,
+				upgradeFrom.Description(),
+				cluster.App.Package.Description())
 		}
 		// Incremental images currently require that the upgrade image has the
 		// same base as the currently installed image. In future we may support
 		// including partial runtime updates as well.
 		if !application.Manifest.Base().IsEqualTo(*cluster.App.Manifest.Base()) {
-			return trace.BadParameter(`This cluster image can only be used as an incremental upgrade for clusters based on Gravity %v.
+			return trace.BadParameter(`This cluster image can only be used as an incremental upgrade for clusters
+based on Gravity %v.
+
 The currently installed cluster image %v is based on Gravity %v.`,
 				application.Manifest.Base().Version,
-				cluster.App.Manifest.Locator().Human(),
+				cluster.App.Manifest.Locator().Description(),
 				cluster.App.Manifest.Base().Version)
 		}
 		response, err := appservice.RestoreApp(ctx, appservice.RestoreRequest{
@@ -150,7 +158,7 @@ The currently installed cluster image %v is based on Gravity %v.`,
 		sourceApps = response.Apps
 	}
 
-	env.PrintStep("Importing cluster image %v", application.Package.Human())
+	env.PrintStep("Importing cluster image %v", application.Package.Description())
 	_, err = appservice.PullApp(appservice.AppPullRequest{
 		SrcPack: sourcePackages,
 		SrcApp:  sourceApps,

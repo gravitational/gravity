@@ -93,8 +93,8 @@ func printDiff(oldImage, newImage *builder.InspectResponse) {
 	diffResults := loc.DiffDockerImages(oldImage.Images, newImage.Images)
 	t := goterm.NewTable(0, 10, 5, ' ', 0)
 	common.PrintTableHeader(t, []string{"",
-		oldImage.Manifest.Locator().Human(),
-		newImage.Manifest.Locator().Human()})
+		oldImage.Manifest.Locator().Description(),
+		newImage.Manifest.Locator().Description()})
 	for _, diff := range diffResults {
 		var oldTags, newTags []string
 		for _, tag := range diff.Tags {

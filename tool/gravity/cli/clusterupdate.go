@@ -445,10 +445,8 @@ func (r *clusterInitializer) checkAppIntegrity(env *localenv.LocalEnvironment, u
 	err = app.VerifyDependencies(upgradeApp, apps, packages)
 	if err != nil {
 		log.WithError(err).Errorf("Failed to verify %v dependencies.", upgradeApp)
-		return trace.BadParameter(`There was an issue trying to verify %v cluster image integrity.
-
-Some required dependencies are missing from the cluster store. Check logs for more details.`,
-			upgradeApp.Package.Human())
+		return trace.BadParameter("Some required dependencies are missing from the cluster store for image %v. Check logs for more details.",
+			upgradeApp.Package.Description())
 	}
 	log.Infof("All required dependencies for %v are present.", upgradeApp)
 	return nil

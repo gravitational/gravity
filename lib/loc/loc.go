@@ -172,8 +172,8 @@ func (l Locator) String() string {
 	return str
 }
 
-// Human returns user-friendly string representation of the locator.
-func (l Locator) Human() string {
+// Description returns user-friendly string representation of the locator.
+func (l Locator) Description() string {
 	return fmt.Sprintf("%v v%v", l.Name, l.Version)
 }
 

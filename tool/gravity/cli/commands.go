@@ -654,8 +654,9 @@ type UpdateUploadCmd struct {
 	*kingpin.CmdClause
 	// OpsCenterURL is cluster URL
 	OpsCenterURL *string
-	// Force allows to override certain preconditions.
-	Force *bool
+	// SkipVersionCheck overrides the installed version check when uploading
+	// an incremental upgrade image.
+	SkipVersionCheck *bool
 }
 
 // UpdateCompleteCmd marks update operation as completed

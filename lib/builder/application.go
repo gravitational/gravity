@@ -87,7 +87,7 @@ func (b *applicationBuilder) Build(ctx context.Context, req ApplicationRequest) 
 			return trace.Wrap(err)
 		}
 		req.Vendor.SkipImages = response.Images
-		upgradeFrom = response.Manifest.LocatorP()
+		upgradeFrom = response.Manifest.LocatorPtr()
 	}
 
 	vendorDir, err := ioutil.TempDir("", "vendor")

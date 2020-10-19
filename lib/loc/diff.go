@@ -51,23 +51,11 @@ func DiffDockerImages(left, right DockerImages) (results []RepositoryDiff) {
 		sort.Strings(repoTags)
 		result := RepositoryDiff{Repository: repo}
 		for _, tag := range repoTags {
-			if left.Has(repo, tag) && right.Has(repo, tag) {
-				result.Tags = append(result.Tags, TagDiff{
-					Tag:   tag,
-					Left:  true,
-					Right: true,
-				})
-			} else if left.Has(repo, tag) {
-				result.Tags = append(result.Tags, TagDiff{
-					Tag:  tag,
-					Left: true,
-				})
-			} else if right.Has(repo, tag) {
-				result.Tags = append(result.Tags, TagDiff{
-					Tag:   tag,
-					Right: true,
-				})
-			}
+			result.Tags = append(result.Tags, TagDiff{
+				Tag:   tag,
+				Left:  left.Has(repo, tag),
+				Right: right.Has(repo, tag),
+			})
 		}
 		results = append(results, result)
 	}

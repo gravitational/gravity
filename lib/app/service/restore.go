@@ -89,11 +89,13 @@ func RestoreApp(ctx context.Context, req RestoreRequest) (*LayeredApps, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	layered, err := NewLayeredApps(req.ClusterPackages)
+	layered, err := NewLayeredApps(LayeredAppsConfig{
+		Packages: req.ClusterPackages,
+	})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	req.Progress.PrintStep("Importing restored application in %v", layered.dir)
+	req.Progress.PrintStep("Importing restored application in %v", layered.Dir)
 	_, err = app.ImportApplication(stream, layered.Packages, layered.Apps)
 	if err != nil {
 		return nil, trace.Wrap(err)

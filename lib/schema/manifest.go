@@ -168,8 +168,8 @@ func (m Manifest) Locator() loc.Locator {
 	}
 }
 
-// LocatorP returns a pointer to the manifest's app locator.
-func (m Manifest) LocatorP() *loc.Locator {
+// LocatorPtr returns a pointer to the manifest's app locator.
+func (m Manifest) LocatorPtr() *loc.Locator {
 	locator := m.Locator()
 	return &locator
 }

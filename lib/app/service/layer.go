@@ -32,63 +32,80 @@ import (
 	"github.com/gravitational/trace"
 )
 
-// LayeredApps contains layered package and application services.
-type LayeredApps struct {
-	// Package is a layered package service.
+// LayeredAppsConfig is the configuration for the layered service.
+type LayeredAppsConfig struct {
+	// Packages is the package service to use as a read layer.
 	Packages pack.PackageService
-	// Apps is app service based on the layered package service.
-	Apps app.Applications
-	// dir is the directory with the new write layer data.
-	dir string
+	// Dir is the directory where write layer will reside.
+	Dir string
 }
 
-// Cleanup removes the write layer directory.
-func (l LayeredApps) Cleanup() error {
-	if l.dir != "" {
-		return os.RemoveAll(l.dir)
+// CheckAndSetDefaults validates the config and sets default values.
+func (c *LayeredAppsConfig) CheckAndSetDefaults() (err error) {
+	if c.Packages == nil {
+		return trace.BadParameter("missing read layer Packages")
+	}
+	if c.Dir == "" {
+		if c.Dir, err = ioutil.TempDir("", ""); err != nil {
+			return trace.ConvertSystemError(err)
+		}
 	}
 	return nil
 }
 
+// LayeredApps contains layered package and application services.
+type LayeredApps struct {
+	// LayeredAppsConfig is the service configuration.
+	LayeredAppsConfig
+	// Package is a layered package service.
+	Packages pack.PackageService
+	// Apps is app service based on the layered package service.
+	Apps app.Applications
+}
+
+// Cleanup removes the write layer directory.
+func (l LayeredApps) Cleanup() error {
+	return os.RemoveAll(l.Dir)
+}
+
 // NewLayeredApps returns layered package and application services where
 // the provided package service serves as a read-only layer.
-func NewLayeredApps(readPackages pack.PackageService) (*LayeredApps, error) {
-	dir, err := ioutil.TempDir("", "")
-	if err != nil {
-		return nil, trace.ConvertSystemError(err)
+func NewLayeredApps(config LayeredAppsConfig) (*LayeredApps, error) {
+	if err := config.CheckAndSetDefaults(); err != nil {
+		return nil, trace.Wrap(err)
 	}
 	backend, err := keyval.NewBolt(keyval.BoltConfig{
-		Path:  filepath.Join(dir, defaults.GravityDBFile),
+		Path:  filepath.Join(config.Dir, defaults.GravityDBFile),
 		Multi: true,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	objects, err := fs.New(filepath.Join(dir, defaults.PackagesDir))
+	objects, err := fs.New(filepath.Join(config.Dir, defaults.PackagesDir))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	packages, err := localpack.New(localpack.Config{
 		Backend:     backend,
-		UnpackedDir: filepath.Join(dir, defaults.PackagesDir, defaults.UnpackedDir),
+		UnpackedDir: filepath.Join(config.Dir, defaults.PackagesDir, defaults.UnpackedDir),
 		Objects:     objects,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	layeredPackages := layerpack.New(readPackages, packages)
+	layeredPackages := layerpack.New(config.Packages, packages)
 	layeredApps, err := New(Config{
-		StateDir:    filepath.Join(dir, defaults.ImportDir),
+		StateDir:    filepath.Join(config.Dir, defaults.ImportDir),
 		Backend:     backend,
 		Packages:    layeredPackages,
-		UnpackedDir: filepath.Join(dir, defaults.PackagesDir, defaults.UnpackedDir),
+		UnpackedDir: filepath.Join(config.Dir, defaults.PackagesDir, defaults.UnpackedDir),
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return &LayeredApps{
-		Packages: layeredPackages,
-		Apps:     layeredApps,
-		dir:      dir,
+		LayeredAppsConfig: config,
+		Packages:          layeredPackages,
+		Apps:              layeredApps,
 	}, nil
 }
