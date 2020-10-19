@@ -24,6 +24,7 @@ import (
 	"runtime"
 
 	"github.com/gravitational/gravity/lib/docker"
+	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/schema"
 
 	"github.com/gravitational/trace"
@@ -69,6 +70,7 @@ func (b *Builder) Build(ctx context.Context) error {
 		if err != nil {
 			return trace.Wrap(err)
 		}
+		b.Manifest.SetBase(loc.Runtime.WithVersion(*runtimeVersion))
 		err = b.SyncPackageCache(ctx, *runtimeVersion, b.UpgradeVia...)
 		if err != nil {
 			return trace.Wrap(err)
