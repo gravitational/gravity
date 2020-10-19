@@ -1948,7 +1948,7 @@ func (p *Process) initClusterCertificate(ctx context.Context, client *kubernetes
 		return nil
 	}
 
-	p.Info("Initializing cluster certificate.")
+	p.Infof("Initializing cluster certificate from file: %v.", p.teleportConfig.Proxy.TLSCert)
 
 	certificateData, err := ioutil.ReadFile(p.teleportConfig.Proxy.TLSCert)
 	if err != nil {
@@ -1969,6 +1969,11 @@ func (p *Process) initClusterCertificate(ctx context.Context, client *kubernetes
 		Certificate: certificateData,
 		PrivateKey:  privateKeyData,
 	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	err = p.replaceCertIfAboutToExpire(p.client)
 	if err != nil {
 		return trace.Wrap(err)
 	}

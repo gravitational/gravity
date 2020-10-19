@@ -103,7 +103,8 @@ func (p *Process) replaceCertIfAboutToExpire(client *kubernetes.Clientset) error
 			return trace.Wrap(err)
 		}
 
-		p.Infof("Successfully rotated the self-signed cluster certificate. New cert ExpirationDate:%v, SerialNumber=%v", parsedCert.NotAfter, parsedCert.SerialNumber)
+		p.Infof("Successfully rotated the self-signed cluster certificate. New cert ExpirationDate:%v, SerialNumber=%v",
+			parsedCert.NotAfter, parsedCert.SerialNumber)
 	}
 
 	return nil
