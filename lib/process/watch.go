@@ -43,8 +43,6 @@ import (
 
 // runCertExpirationWatch checks if the default self signed cluster cert is about to expire soon and updates it
 func (p *Process) runCertExpirationWatch(client *kubernetes.Clientset) clusterService {
-	p.Info("Starting self signed certificate expiration watch.")
-
 	return func(ctx context.Context) {
 		ticker := time.NewTicker(time.Hour * 24)
 		defer ticker.Stop()
