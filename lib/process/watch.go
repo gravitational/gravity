@@ -92,7 +92,7 @@ func (p *Process) replaceCertIfAboutToExpire(ctx context.Context, client *kubern
 				continue
 			}
 
-			if len(cert.Issuer.OrganizationalUnit) == 0 || !strings.Contains(cert.Issuer.OrganizationalUnit[0], defaults.SelfSignedCertOrg) {
+			if len(cert.Issuer.OrganizationalUnit) == 0 || !strings.Contains(cert.Issuer.OrganizationalUnit[0], defaults.SelfSignedCertWebOrg) {
 				p.Debug("Skipping expiration check for customer provided certificate.")
 				return nil
 			}

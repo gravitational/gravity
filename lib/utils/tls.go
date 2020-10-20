@@ -88,7 +88,7 @@ func GenerateSelfSignedCert(hostNames []string) (*teleutils.TLSCredentials, erro
 		// OrganizationalUnit is needed in order to be able to identify the cert when doing
 		// automated cert rotation. If a user decides to use their own cert
 		// we should not rotate.
-		OrganizationalUnit: []string{defaults.SelfSignedCertOrg},
+		OrganizationalUnit: []string{defaults.SelfSignedCertWebOrg},
 	}
 
 	template := x509.Certificate{
