@@ -72,7 +72,7 @@ func GenerateSelfSignedCert(hostNames []string) (*teleutils.TLSCredentials, erro
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	notBefore := time.Now()
+	notBefore := time.Now().Add(defaults.CertBackdating)
 	notAfter := notBefore.Add(time.Hour * 24 * 825) // 825 days or fewer is the required validity period for MacOS
 
 	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)

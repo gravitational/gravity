@@ -1168,8 +1168,14 @@ const (
 	// Lets Encrypt recommends to renew certificates 30 days before expiration.
 	CertRenewBeforeExpiry = 30 * 24 * time.Hour
 
-	// SelfSignedCertOrg is the Organisation that is used to self-sign certificates.
-	SelfSignedCertOrg = "Gravitational"
+	// CertBackdating is the time duration that will be used
+	// to shift back the start date of the certificate validity period.
+	// Following Let’s Encrypt example of intentionally backdating certificates by 1 hour.
+	// The backdating is needed in order to avoid issues with clock skew.
+	CertBackdating = -1 * time.Hour
+
+	// SelfSignedCertWebOrg is the Organisation that is used to self-sign certificates.
+	SelfSignedCertWebOrg = "Gravitational Self-Signed Web Access"
 
 	// TransientErrorTimeout specifies the maximum amount of time to attempt
 	// an operation experiencing transient errors
