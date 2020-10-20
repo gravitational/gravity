@@ -114,10 +114,6 @@ func install(services systemservice.ServiceManager, req systemservice.NewService
 	if err != nil && !systemservice.IsUnknownServiceError(err) {
 		logger.WithError(err).Warn("Failed to stop.")
 	}
-	err = removeLingeringUnitFile(req.Name)
-	if err != nil && !systemservice.IsUnknownServiceError(err) {
-		logger.WithError(err).Warn("Failed to remove lingering unit files.")
-	}
 	return trace.Wrap(services.InstallService(req))
 }
 

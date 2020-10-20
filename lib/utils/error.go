@@ -23,6 +23,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"strings"
@@ -344,6 +345,12 @@ func IsConnectionResetError(err error) bool {
 // 'connection refused' error.
 // err is expected to be non-nil
 func IsConnectionRefusedError(err error) bool {
+	if urlError, ok := trace.Unwrap(err).(*url.Error); ok {
+		if opError, ok := urlError.Err.(*net.OpError); ok {
+			errno, ok := opError.Err.(syscall.Errno)
+			return ok && errno == syscall.ECONNREFUSED
+		}
+	}
 	return strings.Contains(trace.Unwrap(err).Error(),
 		"connection refused")
 }
