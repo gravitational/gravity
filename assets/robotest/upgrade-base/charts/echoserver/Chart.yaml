@@ -1,0 +1,4 @@
+name: echoserver
+version: 1.0.0
+description: A basic nginx chart for test purposes.
+tillerVersion: ">=2.8.0"
