@@ -66,7 +66,7 @@ func (p *Process) replaceCertIfAboutToExpire(ctx context.Context, client *kubern
 	p.Info("Running self signed certificate expiration check...")
 
 	ticker := backoff.NewTicker(&backoff.ExponentialBackOff{
-		InitialInterval: time.Second,
+		InitialInterval: time.Second * 3,
 		Multiplier:      1.5,
 		MaxInterval:     10 * time.Second,
 		MaxElapsedTime:  1 * time.Minute,
@@ -76,7 +76,10 @@ func (p *Process) replaceCertIfAboutToExpire(ctx context.Context, client *kubern
 
 	for {
 		select {
-		case <-ticker.C:
+		case tm := <-ticker.C:
+			if tm.IsZero() {
+				return trace.ConnectionProblem(nil, "timed out waiting while checking for certificate expiration")
+			}
 			clusterCert, _, err := opsservice.GetClusterCertificate(client)
 			if err != nil {
 				p.WithError(err).Error("Failed to retrieve the certificate from k8s.")
