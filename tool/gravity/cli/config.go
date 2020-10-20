@@ -203,18 +203,18 @@ func newReconfigureConfig(env *localenv.LocalEnvironment, g *Application) (*Inst
 		return nil, trace.Wrap(err)
 	}
 	return &InstallConfig{
-			Insecure:           *g.Insecure,
-			StateDir:           state.GravityLocalDir(readStateDir),
-			UserLogFile:        *g.UserLogFile,
-			SystemLogFile:      *g.SystemLogFile,
-			AdvertiseAddr:      *g.StartCmd.AdvertiseAddr,
-			FromService:        *g.StartCmd.FromService,
-			LocalPackages:      env.Packages,
-			LocalApps:          env.Apps,
-			LocalBackend:       env.Backend,
-			LocalClusterClient: env.SiteOperator,
-			Mode:               constants.InstallModeCLI,
-			Printer:            env,
+		Insecure:           *g.Insecure,
+		StateDir:           state.GravityLocalDir(readStateDir),
+		UserLogFile:        *g.UserLogFile,
+		SystemLogFile:      *g.SystemLogFile,
+		AdvertiseAddr:      *g.StartCmd.AdvertiseAddr,
+		FromService:        *g.StartCmd.FromService,
+		LocalPackages:      env.Packages,
+		LocalApps:          env.Apps,
+		LocalBackend:       env.Backend,
+		LocalClusterClient: env.SiteOperator,
+		Mode:               constants.InstallModeCLI,
+		Printer:            env,
 	}, nil
 }
 
@@ -415,7 +415,10 @@ func (i *InstallConfig) CheckAndSetDefaults(validator resources.Validator) (err 
 	// executes a remote install.
 	// In this case, the validation happens on the remote node where the cluster is
 	// being set up.
-	if !i.Remote {
+	// TODO(dmitri): the service/pod subnet configuration should be available
+	// for the reconfiguration operation as well as the advertise address needs to be verified
+	// against them
+	if !i.Remote && i.ServiceCIDR != "" && i.PodCIDR != "" {
 		err = i.validateResources(validator)
 		if err != nil {
 			return trace.Wrap(err)
@@ -882,18 +885,18 @@ type JoinConfig struct {
 // NewJoinConfig populates join configuration from the provided CLI application
 func NewJoinConfig(g *Application) JoinConfig {
 	return JoinConfig{
-		SystemLogFile: *g.SystemLogFile,
-		UserLogFile:   *g.UserLogFile,
-		PeerAddrs:     *g.JoinCmd.PeerAddr,
-		AdvertiseAddr: *g.JoinCmd.AdvertiseAddr,
-		ServerAddr:    *g.JoinCmd.ServerAddr,
-		Token:         *g.JoinCmd.Token,
-		Role:          *g.JoinCmd.Role,
-		SystemDevice:  *g.JoinCmd.SystemDevice,
-		Mounts:        *g.JoinCmd.Mounts,
-		OperationID:   *g.JoinCmd.OperationID,
-		SELinux:       *g.JoinCmd.SELinux,
-		FromService:   *g.JoinCmd.FromService,
+		SystemLogFile:  *g.SystemLogFile,
+		UserLogFile:    *g.UserLogFile,
+		PeerAddrs:      *g.JoinCmd.PeerAddr,
+		AdvertiseAddr:  *g.JoinCmd.AdvertiseAddr,
+		ServerAddr:     *g.JoinCmd.ServerAddr,
+		Token:          *g.JoinCmd.Token,
+		Role:           *g.JoinCmd.Role,
+		SystemDevice:   *g.JoinCmd.SystemDevice,
+		Mounts:         *g.JoinCmd.Mounts,
+		OperationID:    *g.JoinCmd.OperationID,
+		SELinux:        *g.JoinCmd.SELinux,
+		FromService:    *g.JoinCmd.FromService,
 		SystemStateDir: *g.StateDir,
 	}
 }

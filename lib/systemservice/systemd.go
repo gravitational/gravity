@@ -391,7 +391,7 @@ func (s *systemdManager) UninstallService(req UninstallServiceRequest) error {
 			if !os.IsNotExist(errDelete) {
 				logger.WithError(errDelete).Warn("Failed to remove service unit file.")
 			} else {
-				logger.Info("Service unit files does not exist.")
+				logger.Info("Service unit file does not exist.")
 			}
 		} else {
 			logger.Info("Removed service unit file.")

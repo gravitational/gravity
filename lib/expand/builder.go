@@ -93,7 +93,7 @@ func (b *planBuilder) AddBootstrapSELinuxPhase(plan *storage.OperationPlan) {
 func (b *planBuilder) AddChecksPhase(plan *storage.OperationPlan) {
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
 		ID:          ChecksPhase,
-		Description: "Execute preflight checks on the joining node",
+		Description: "Execute pre-flight checks on the joining node",
 		Data: &storage.OperationPhaseData{
 			Server: &b.JoiningNode,
 			Master: &b.Master,

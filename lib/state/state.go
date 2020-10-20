@@ -147,10 +147,9 @@ func LogDir(baseDir string, suffixes ...string) string {
 // GravityInstallerServicePath returns the path to the installer service
 // as configured in the state directory rooted at baseDir.
 func GravityInstallerServicePath(baseDir string) (path string, err error) {
-	stateDBFile := GravityInstallDirAt(baseDir, "wizard", defaults.InstallerDBFile)
-	var isInstaller bool
-	isInstaller, err = utils.IsFile(stateDBFile)
-	log.WithError(err).WithField("state-db", stateDBFile).Warn("Determine installer service path.")
+	marker := GravityInstallDirAt(baseDir, "host_uuid")
+	isInstaller, err := utils.IsFile(marker)
+	log.WithError(err).WithField("marker", marker).Warn("Determine installer service path.")
 	if err != nil && !trace.IsNotFound(err) {
 		return "", trace.ConvertSystemError(err)
 	}

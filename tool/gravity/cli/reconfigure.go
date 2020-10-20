@@ -104,7 +104,7 @@ func startReconfiguratorFromService(env *localenv.LocalEnvironment, config Insta
 	interrupt := signals.NewInterruptHandler(ctx, cancel, InterruptSignals)
 	defer interrupt.Close()
 	go TerminationHandler(interrupt, env)
-	socketPath := state.GravityInstallerSocketPath(config.StateDir)
+	socketPath := state.GravityInstallerSocketPath(utils.Exe.WorkingDir)
 	listener, err := NewServiceListener(socketPath)
 	if err != nil {
 		return trace.Wrap(utils.NewPreconditionFailedError(err))

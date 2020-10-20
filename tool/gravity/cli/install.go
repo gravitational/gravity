@@ -798,7 +798,7 @@ func TerminationHandler(interrupt *signals.InterruptHandler, printer utils.Print
 // NewServiceListener returns a new listener for the installer service
 func NewServiceListener(socketPath string) (net.Listener, error) {
 	if err := os.RemoveAll(socketPath); err != nil {
-		return nil, trace.Wrap(trace.ConvertSystemError(err), "failed to remove installer socket")
+		return nil, trace.Wrap(trace.ConvertSystemError(err), "failed to remove installer socket").AddField("socket", socketPath)
 	}
 	return net.Listen("unix", socketPath)
 }
