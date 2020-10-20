@@ -63,7 +63,7 @@ func (p *Process) runCertExpirationWatch(client *kubernetes.Clientset) clusterSe
 }
 
 func (p *Process) replaceCertIfAboutToExpire(ctx context.Context, client *kubernetes.Clientset) error {
-	p.Info("Running self signed certificate expiration check...")
+	p.Info("Running self signed certificate expiration check/rotation...")
 
 	ticker := backoff.NewTicker(&backoff.ExponentialBackOff{
 		InitialInterval: time.Second * 3,
