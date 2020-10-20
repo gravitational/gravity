@@ -105,10 +105,7 @@ func GenerateSelfSignedCert(hostNames []string) (*teleutils.TLSCredentials, erro
 
 	// collect IP addresses localhost resolves to and add them to the cert. template:
 	template.DNSNames = append(hostNames, "localhost.local")
-	ips, _ := net.LookupIP("localhost")
-	if ips != nil {
-		template.IPAddresses = ips
-	}
+	template.IPAddresses = []net.IP{net.ParseIP("127.0.0.1")}
 
 	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, &priv.PublicKey, priv)
 	if err != nil {
