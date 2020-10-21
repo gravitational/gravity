@@ -611,10 +611,10 @@ func (i *InstallConfig) splitResources(validator resources.Validator) (runtimeRe
 
 func (i *InstallConfig) updateClusterConfig(resources []storage.UnknownResource) (updated []storage.UnknownResource, err error) {
 	var clusterConfig *storage.UnknownResource
-	updated = resources[:0]
-	for _, res := range resources {
+	updated = make([]storage.UnknownResource, 0, len(resources))
+	for i, res := range resources {
 		if res.Kind == storage.KindClusterConfiguration {
-			clusterConfig = &res
+			clusterConfig = &resources[i]
 			continue
 		}
 		updated = append(updated, res)
