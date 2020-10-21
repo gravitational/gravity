@@ -320,6 +320,10 @@ const (
 	// GravityBin is a default location of gravity binary
 	GravityBin = "/usr/bin/gravity"
 
+	// GravityLocalAgentBin specifies the path to the gravity binary used in interactive
+	// installation
+	GravityLocalAgentBin = "/usr/local/bin/gravity"
+
 	// GravityBinAlternate is an alternative location of gravity binary on systems
 	// where /usr/bin is not writable (e.g. on Ubuntu Core)
 	GravityBinAlternate = "/writable/bin/gravity"
