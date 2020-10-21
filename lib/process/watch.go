@@ -121,7 +121,7 @@ func (p *Process) replaceCertIfAboutToExpire(ctx context.Context, client *kubern
 					PrivateKey:  cert.PrivateKey,
 				})
 				if err != nil {
-					p.WithError(err).Error("Failed to update self signed cluster web UI certificate.")
+					p.WithError(err).Error("Failed to update the self signed cluster web UI certificate.")
 					continue
 				}
 
