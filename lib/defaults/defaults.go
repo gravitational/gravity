@@ -1174,7 +1174,7 @@ const (
 	// The backdating is needed in order to avoid issues with clock skew.
 	CertBackdating = -1 * time.Hour
 
-	// SelfSignedCertWebOrg is the Organisation that is used to self-sign certificates.
+	// SelfSignedCertWebOrg is the Organization that is used to self-sign certificates.
 	SelfSignedCertWebOrg = "Gravitational Self-Signed Web Access"
 
 	// TransientErrorTimeout specifies the maximum amount of time to attempt
