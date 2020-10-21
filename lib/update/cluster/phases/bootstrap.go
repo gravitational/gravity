@@ -454,13 +454,6 @@ func (p *updatePhaseBootstrap) pullSystemUpdates(ctx context.Context) error {
 		if err != nil && !trace.IsAlreadyExists(err) {
 			return trace.Wrap(err)
 		}
-		if !update.IsEqualTo(p.GravityPackage) {
-			p.Infof("Unpacking package %v.", update)
-			err = pack.Unpack(p.LocalPackages, update, "", nil)
-			if err != nil {
-				return trace.Wrap(err)
-			}
-		}
 	}
 	// after having pulled packages as root we need to set proper ownership
 	// on the blobs dir

@@ -396,6 +396,9 @@ func completeUpdatePlanForOperation(env *localenv.LocalEnvironment, environ Loca
 	if err := updater.Complete(context.TODO(), nil); err != nil {
 		return trace.Wrap(err)
 	}
+	if err := updater.Activate(); err != nil {
+		return trace.Wrap(err)
+	}
 	return nil
 }
 
