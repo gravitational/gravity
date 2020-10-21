@@ -1944,6 +1944,10 @@ func (p *Process) initClusterCertificate(ctx context.Context, client *kubernetes
 		return trace.Wrap(err)
 	}
 	if len(cert) != 0 && len(key) != 0 {
+		err = p.replaceCertIfAboutToExpire(ctx, p.client)
+		if err != nil {
+			return trace.Wrap(err)
+		}
 		p.Info("Cluster web UI certificate is already initialized.")
 		return nil
 	}
