@@ -1982,7 +1982,7 @@ func (p *Process) initClusterCertificate(ctx context.Context, client *kubernetes
 		return trace.Wrap(err)
 	}
 
-	p.Info("Successfully initialized cluster web UI certificate from file: %v.", p.teleportConfig.Proxy.TLSCert)
+	p.Infof("Successfully initialized cluster web UI certificate from file: %v.", p.teleportConfig.Proxy.TLSCert)
 	return nil
 }
 
