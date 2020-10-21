@@ -18,7 +18,6 @@ package process
 
 import (
 	"context"
-	"strings"
 	"time"
 
 	"github.com/gravitational/gravity/lib/constants"
@@ -93,7 +92,7 @@ func (p *Process) replaceCertIfAboutToExpire(ctx context.Context, client *kubern
 				continue
 			}
 
-			if len(cert.Issuer.OrganizationalUnit) == 0 || !strings.Contains(cert.Issuer.OrganizationalUnit[0], defaults.SelfSignedCertWebOrg) {
+			if len(cert.Issuer.OrganizationalUnit) == 0 || cert.Issuer.OrganizationalUnit[0] != defaults.SelfSignedCertWebOrg {
 				p.Debug("Skipping expiration check for customer provided cluster web UI certificate.")
 				return nil
 			}
