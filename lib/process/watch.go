@@ -41,7 +41,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-// runCertExpirationWatch checks if the default self signed cluster cert is about to expire soon and updates it
+// runCertExpirationWatch checks if the default self signed cluster web UI cert is about to expire soon and rotates it
 func (p *Process) runCertExpirationWatch(client *kubernetes.Clientset) clusterService {
 	return func(ctx context.Context) {
 		ticker := time.NewTicker(time.Hour * 24)
@@ -49,13 +49,13 @@ func (p *Process) runCertExpirationWatch(client *kubernetes.Clientset) clusterSe
 		for {
 			err := p.replaceCertIfAboutToExpire(ctx, client)
 			if err != nil {
-				p.WithError(err).Error("Failed to check for certificate expiration or replace it.")
+				p.WithError(err).Error("Failed to check for cluster web UI certificate expiration or replace it.")
 			}
 
 			select {
 			case <-ticker.C:
 			case <-ctx.Done():
-				p.Debug("Certificate expiration watcher stopped.")
+				p.Debug("Cluster web UI certificate expiration watcher stopped.")
 				return
 			}
 		}
@@ -63,7 +63,7 @@ func (p *Process) runCertExpirationWatch(client *kubernetes.Clientset) clusterSe
 }
 
 func (p *Process) replaceCertIfAboutToExpire(ctx context.Context, client *kubernetes.Clientset) error {
-	p.Info("Running self signed certificate expiration check/rotation...")
+	p.Info("Running self signed cluster web UI certificate expiration check/rotation...")
 
 	ticker := backoff.NewTicker(&backoff.ExponentialBackOff{
 		InitialInterval: time.Second * 3,
@@ -78,38 +78,40 @@ func (p *Process) replaceCertIfAboutToExpire(ctx context.Context, client *kubern
 		select {
 		case tm := <-ticker.C:
 			if tm.IsZero() {
-				return trace.ConnectionProblem(nil, "timed out waiting while checking for certificate expiration")
+				return trace.ConnectionProblem(nil, "timed out waiting while checking "+
+					"for cluster web UI certificate expiration")
 			}
 			clusterCert, _, err := opsservice.GetClusterCertificate(client)
 			if err != nil {
-				p.WithError(err).Error("Failed to retrieve the certificate from k8s.")
+				p.WithError(err).Error("Failed to retrieve the cluster web UI certificate from k8s.")
 				continue
 			}
 
 			cert, err := tlsca.ParseCertificatePEM(clusterCert)
 			if err != nil {
-				p.WithError(err).Error("Failed to parse the certificate.")
+				p.WithError(err).Error("Failed to parse the cluster web UI certificate.")
 				continue
 			}
 
 			if len(cert.Issuer.OrganizationalUnit) == 0 || !strings.Contains(cert.Issuer.OrganizationalUnit[0], defaults.SelfSignedCertWebOrg) {
-				p.Debug("Skipping expiration check for customer provided certificate.")
+				p.Debug("Skipping expiration check for customer provided cluster web UI certificate.")
 				return nil
 			}
 
 			periodBeforeExpire := time.Now().Add(defaults.CertRenewBeforeExpiry)
 			if periodBeforeExpire.After(cert.NotAfter) {
-				p.Infof("The cert with SerialNumber=%v will expire soon. Replacing it with a new one...", cert.SerialNumber)
+				p.Infof("The cluster web UI certificate with SerialNumber=%v will expire soon."+
+					" Replacing it with a new one...", cert.SerialNumber)
 
 				cert, err := utils.GenerateSelfSignedCert([]string{p.cfg.Hostname})
 				if err != nil {
-					p.WithError(err).Error("Failed to generate self signed cert.")
+					p.WithError(err).Error("Failed to generate self signed cluster web UI certificate.")
 					continue
 				}
 
 				parsedCert, err := tlsca.ParseCertificatePEM(cert.Cert)
 				if err != nil {
-					p.WithError(err).Error("Failed to parse self signed cert.")
+					p.WithError(err).Error("Failed to parse self signed cluster web UI certificate.")
 					continue
 				}
 
@@ -120,11 +122,11 @@ func (p *Process) replaceCertIfAboutToExpire(ctx context.Context, client *kubern
 					PrivateKey:  cert.PrivateKey,
 				})
 				if err != nil {
-					p.WithError(err).Error("Failed to update self signed cluster cert.")
+					p.WithError(err).Error("Failed to update self signed cluster web UI certificate.")
 					continue
 				}
 
-				p.Infof("Successfully rotated the self-signed cluster certificate. "+
+				p.Infof("Successfully rotated the self-signed cluster web UI certificate. "+
 					"New cert ExpirationDate:%v, SerialNumber=%v", parsedCert.NotAfter, parsedCert.SerialNumber)
 			}
 

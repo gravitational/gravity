@@ -1944,11 +1944,11 @@ func (p *Process) initClusterCertificate(ctx context.Context, client *kubernetes
 		return trace.Wrap(err)
 	}
 	if len(cert) != 0 && len(key) != 0 {
-		p.Info("Cluster certificate is already initialized.")
+		p.Info("Cluster web UI certificate is already initialized.")
 		return nil
 	}
 
-	p.Infof("Initializing cluster certificate from file: %v.", p.teleportConfig.Proxy.TLSCert)
+	p.Infof("Initializing cluster web UI certificate from file: %v...", p.teleportConfig.Proxy.TLSCert)
 
 	certificateData, err := ioutil.ReadFile(p.teleportConfig.Proxy.TLSCert)
 	if err != nil {
@@ -1978,7 +1978,7 @@ func (p *Process) initClusterCertificate(ctx context.Context, client *kubernetes
 		return trace.Wrap(err)
 	}
 
-	p.Info("Cluster certificate has been initialized.")
+	p.Info("Successfully initialized cluster web UI certificate from file: %v.", p.teleportConfig.Proxy.TLSCert)
 	return nil
 }
 
