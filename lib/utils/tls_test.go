@@ -83,6 +83,7 @@ func (s *TLSSuite) TestGenerateSelfSignedCert(c *C) {
 	c.Assert(err, IsNil)
 
 	block, _ := pem.Decode([]byte(credentials.Cert))
+	c.Assert(block, NotNil)
 
 	cert, err := x509.ParseCertificate(block.Bytes)
 	c.Assert(err, IsNil)
