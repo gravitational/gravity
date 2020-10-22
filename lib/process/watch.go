@@ -110,7 +110,7 @@ func (p *Process) replaceCertIfAboutToExpire(ctx context.Context, client *kubern
 
 				parsedCert, err := tlsca.ParseCertificatePEM(cert.Cert)
 				if err != nil {
-					p.WithError(err).Error("Failed to parse self signed cluster web UI certificate.")
+					p.WithError(err).Error("Failed to parse the self signed cluster web UI certificate.")
 					continue
 				}
 
