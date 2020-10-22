@@ -11,8 +11,8 @@ Find the latest Open Source Gravity releases at [Gravity Downloads](https://grav
 
 | Version             | Latest Patch | LTS | Release Date         | Latest Patch Date    | End of Support *        | Kubernetes Version   | Teleport Version |
 | ------------------- | ------------ | --- | -------------------- | -------------------- | ----------------------- | -------------------- | ---------------- |
-| [7.0](#70-releases) | 7.0.20       | Yes | April 3, 2020        | October 9th, 2020    | July 9, 2022            | 1.17.9               | 3.2.14-gravity   |
-| [6.1](#61-releases) | 6.1.43       | Yes | August 2, 2019       | October 13th, 2020   | November 10, 2021       | 1.15.12              | 3.2.14-gravity   |
+| [7.0](#70-releases) | 7.0.21       | Yes | April 3, 2020        | October 22nd, 2020   | July 9, 2022            | 1.17.9               | 3.2.14-gravity   |
+| [6.1](#61-releases) | 6.1.44       | Yes | August 2, 2019       | October 22nd, 2020   | November 10, 2021       | 1.15.12              | 3.2.14-gravity   |
 | [5.5](#55-releases) | 5.5.55       | Yes | March 8, 2019        | October 21th, 2020   | March 8, 2021           | 1.13.11              | 3.0.7-gravity    |
 
 Gravity offers one Long Term Support (LTS) version for every 2nd Kubernetes
@@ -50,6 +50,27 @@ extend updates past End of Support through customer agreements if required.
 # Release Notes
 
 ## 7.0 Releases
+
+### 7.0.21 LTS (October 22nd, 2020)
+
+#### Improvements
+
+* Update TLS cipher suites for Kubernetes components ([#2265](https://github.com/gravitational/gravity/pull/2265), [planet#782](https://github.com/gravitational/planet/pull/782)).
+* Satellite queries for system pods will use less load by searching only the `kube-system` and `monitoring` namespaces for critical pods that aren't running ([#2250](https://github.com/gravitational/gravity/pull/2250), [planet#775](https://github.com/gravitational/planet/pull/775), [satellite#281](https://github.com/gravitational/satellite/pull/281)).
+* Implement a check to prevent installation if the chosen overlay network conflicts with the host networking ([#2204](https://github.com/gravitational/gravity/pull/2204)).
+* Implement a check so that a phase is only rolled back if dependent phases have also been rolled back ([#2219](https://github.com/gravitational/gravity/pull/2219)).
+* Increase base value of expand concurrency to allow a minimum of 4 simaltanous worker joins ([#2205](https://github.com/gravitational/gravity/pull/2205)).
+* Include additional cloud metadata as part of `gravity status` output ([#2202](https://github.com/gravitational/gravity/pull/2202)).
+
+#### Bugfixes
+
+* Fix an issue where flannel could corrupt iptables rules if newly generated rules don't exactly match rules previously used ([#2265](https://github.com/gravitational/gravity/pull/2265), [planet#777](https://github.com/gravitational/planet/pull/777), [flannel#7](https://github.com/gravitational/flannel/pull/7)).
+* Fix an issue when using GCE integrations that unneccesary oauth scopes would be requested ([#2265](https://github.com/gravitational/gravity/pull/2265), [planet#777](https://github.com/gravitational/planet/pull/777), [flannel#7](https://github.com/gravitational/flannel/pull/8)).
+* Fix an issue where etcd-backups were using too short of a timer ([#2250](https://github.com/gravitational/gravity/pull/2250), [planet#775](https://github.com/gravitational/planet/pull/775), [etcd-backup#5](https://github.com/gravitational/satellite/pull/5)).
+* Fix an issue where cluster configuration could be lost during validation ([#2253](https://github.com/gravitational/gravity/pull/2253)).
+* Fix a panic in the audit event emitter ([#2241](https://github.com/gravitational/gravity/pull/2241)).
+* Fix an issue that prevents log truncation ([#2238](https://github.com/gravitational/gravity/pull/2238), [logging-app#72](https://github.com/gravitational/logging-app/pull/72)).
+
 
 ### 7.0.20 LTS (October 9th, 2020)
 
@@ -621,6 +642,21 @@ to learn how to gain insight into how the cluster status changes over time.
 * Upgrade Kubernetes to `v1.16.0`.
 
 ## 6.1 Releases
+
+### 6.1.44 LTS (October 22nd, 2020)
+
+#### Improvements
+
+* Update TLS cipher suites for Kubernetes components ([#2264](https://github.com/gravitational/gravity/pull/2264), [planet#781](https://github.com/gravitational/planet/pull/781)).
+* Satellite queries for system pods will use less load by searching only the `kube-system` and `monitoring` namespaces for critical pods that aren't running ([#2249](https://github.com/gravitational/gravity/pull/2249), [planet#774](https://github.com/gravitational/planet/pull/774), [satellite#280](https://github.com/gravitational/satellite/pull/280)).
+
+#### Bugfixes
+
+* Fix an issue where flannel could corrupt iptables rules if newly generated rules don't exactly match rules previously used ([#2264](https://github.com/gravitational/gravity/pull/2264), [planet#778](https://github.com/gravitational/planet/pull/778), [flannel#7](https://github.com/gravitational/flannel/pull/7)).
+* Fix an issue when using GCE integrations that unneccesary oauth scopes would be requested ([#2264](https://github.com/gravitational/gravity/pull/2264), [planet#778](https://github.com/gravitational/planet/pull/778), [flannel#7](https://github.com/gravitational/flannel/pull/8)).
+* Fix an issue where etcd-backups were using too short of a timer ([#2250](https://github.com/gravitational/gravity/pull/2250), [planet#768](https://github.com/gravitational/planet/pull/768), [etcd-backup#5](https://github.com/gravitational/satellite/pull/5)).
+* Fix an issue where cluster configuration could be lost during validation ([#2256](https://github.com/gravitational/gravity/pull/2256)).
+* Fix an issue that prevents log truncation ([#2237](https://github.com/gravitational/gravity/pull/2237), [logging-app#72](https://github.com/gravitational/logging-app/pull/72)).
 
 ### 6.1.43 LTS (October 13th, 2020)
 
