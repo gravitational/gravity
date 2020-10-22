@@ -33,12 +33,6 @@ import (
 )
 
 var (
-	// gravityTemplateSource is a bash script that downloads gravity binary
-	// from an Ops Center and installs it into /usr/bin
-	gravityTemplateSource = `
-
-`
-
 	// joinTemplate is a template for instructions to run on nodes during
 	// wizard installation or expand
 	joinTemplate = template.Must(
