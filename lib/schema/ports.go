@@ -120,6 +120,12 @@ var DefaultPortRanges = PortRanges{
 		},
 		{
 			Protocol:    "tcp",
+			From:        defaults.GravitySiteAuthNodePort,
+			To:          defaults.GravitySiteAuthNodePort,
+			Description: "gravity teleport auth service",
+		},
+		{
+			Protocol:    "tcp",
 			From:        defaults.SatelliteRPCAgentPort,
 			To:          defaults.SatelliteRPCAgentPort,
 			Description: "planet agent RPC",

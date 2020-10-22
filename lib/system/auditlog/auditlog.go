@@ -80,7 +80,6 @@ type Auditlog struct {
 var Domains = []string{
 	// gravity_domain
 	"gravity_t",
-	"gravity_installer_t",
 	// gravity_container_domain
 	"gravity_container_runtime_t",
 	"gravity_container_init_t",
@@ -93,7 +92,7 @@ var Domains = []string{
 }
 
 var syscalls = []string{
-	"open", "creat", "rename", "unlink", "mkdir", "rmdir", "chown", "chmod", "symlink",
+	"open", "creat", "rename", "unlink", "mkdir", "rmdir", "chown", "chmod", "symlink", "read",
 	"openat", "truncate", "renameat", "unlinkat", "mkdirat",
 	"execve", "setxattr",
 	"connect", "bind", "accept", "sendto", "recvfrom",
