@@ -38,6 +38,7 @@ import (
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/rpc"
 	"github.com/gravitational/gravity/lib/schema"
+	"github.com/gravitational/gravity/lib/state"
 	statusapi "github.com/gravitational/gravity/lib/status"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/system/selinux"
@@ -46,6 +47,7 @@ import (
 	"github.com/gravitational/gravity/lib/update"
 	clusterupdate "github.com/gravitational/gravity/lib/update/cluster"
 	"github.com/gravitational/gravity/lib/update/cluster/versions"
+	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/gravity/lib/utils/cli"
 	"github.com/gravitational/gravity/lib/utils/helm"
 
@@ -285,8 +287,12 @@ func executeOrForkPhase(env *localenv.LocalEnvironment, updater updater, params 
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	binPath, err := getBinaryPathForOperation(operation)
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	env.PrintStep("Starting %v service", defaults.GravityRPCResumeServiceName)
-	if err := launchOneshotService(defaults.GravityRPCResumeServiceName, args); err != nil {
+	if err := launchOneshotService(defaults.GravityRPCResumeServiceName, binPath, args); err != nil {
 		return trace.Wrap(err)
 	}
 	env.PrintStep(`Service %[1]v has been launched.
@@ -304,7 +310,7 @@ To monitor the service logs:
 
 // launchOneshotService launches the specified command as a one-shot systemd
 // service with the specified name.
-func launchOneshotService(name string, args []string) error {
+func launchOneshotService(name, binPath string, args []string) error {
 	systemd, err := systemservice.New()
 	if err != nil {
 		return trace.Wrap(err)
@@ -321,19 +327,12 @@ func launchOneshotService(name string, args []string) error {
 	case systemservice.ServiceStatusActivating, systemservice.ServiceStatusActive:
 		return trace.AlreadyExists("service %v is already running", name)
 	}
-	// Launch the systemd unit that runs the specified command using same binary.
-	gravityPath, err := os.Executable()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	command := strings.Join(append([]string{gravityPath}, args...), " ")
-	return systemd.InstallService(systemservice.NewServiceRequest{
+	return service.ReinstallOneshot(systemservice.NewServiceRequest{
 		Name:    name,
 		NoBlock: true,
 		ServiceSpec: systemservice.ServiceSpec{
 			User:         constants.RootUIDString,
-			Type:         service.OneshotService,
-			StartCommand: command,
+			StartCommand: strings.Join(append([]string{binPath}, args...), " "),
 		},
 	})
 }
@@ -767,6 +766,22 @@ func queryClusterState(ctx context.Context) (*clusterState, error) {
 	}
 	return &state, nil
 }
+
+func getBinaryPathForOperation(operation ops.SiteOperation) (path string, err error) {
+	if operation.Type != ops.OperationUpdate {
+		return defaults.GravityBin, nil
+	}
+	for _, path := range state.GravityAgentBinPaths {
+		if ok, _ := utils.IsFile(path); ok {
+			return path, nil
+		}
+	}
+	return "", trace.NotFound(agentBinaryNotFoundMsg)
+}
+
+var agentBinaryNotFoundMsg = fmt.Sprintf("no agent binary found in any of %v."+
+	" Make sure the upgrade operation was triggered and the agents have been deployed",
+	state.GravityAgentBinPaths)
 
 type clusterState struct {
 	// Cluster describes the state of a cluster
