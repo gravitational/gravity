@@ -71,6 +71,11 @@ ignored = [
   version = "v0.4"
 
 [[constraint]]
+  name = "github.com/golang/protobuf"
+  # To roughly match the gogo/protobuf
+  version = "=v1.0.0"
+
+[[constraint]]
   name = "golang.org/x/net"
   branch = "release-branch.go1.9"
 
