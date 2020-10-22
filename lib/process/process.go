@@ -1488,6 +1488,7 @@ func (p *Process) initService(ctx context.Context) (err error) {
 		}
 
 		p.startService(p.runCertificateWatch(client))
+		p.startService(p.runCertExpirationWatch(client))
 		p.startService(p.runAuthGatewayWatch(client))
 		p.startService(p.runReloadEventsWatch(client))
 		p.startService(p.runRegistrySynchronizer)
@@ -1943,11 +1944,15 @@ func (p *Process) initClusterCertificate(ctx context.Context, client *kubernetes
 		return trace.Wrap(err)
 	}
 	if len(cert) != 0 && len(key) != 0 {
-		p.Info("Cluster certificate is already initialized.")
+		err = p.replaceCertIfAboutToExpire(ctx, p.client)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		p.Info("Cluster web UI certificate is already initialized.")
 		return nil
 	}
 
-	p.Info("Initializing cluster certificate.")
+	p.Infof("Initializing cluster web UI certificate from file: %v...", p.teleportConfig.Proxy.TLSCert)
 
 	certificateData, err := ioutil.ReadFile(p.teleportConfig.Proxy.TLSCert)
 	if err != nil {
@@ -1972,7 +1977,12 @@ func (p *Process) initClusterCertificate(ctx context.Context, client *kubernetes
 		return trace.Wrap(err)
 	}
 
-	p.Info("Cluster certificate has been initialized.")
+	err = p.replaceCertIfAboutToExpire(ctx, p.client)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	p.Infof("Successfully initialized cluster web UI certificate from file: %v.", p.teleportConfig.Proxy.TLSCert)
 	return nil
 }
 
@@ -2333,7 +2343,7 @@ func initSelfSignedHTTPSCert(cfg *service.Config, hostname string) (err error) {
 	if hostname != "" {
 		hosts = append(hosts, hostname)
 	}
-	creds, err := teleutils.GenerateSelfSignedCert(hosts)
+	creds, err := utils.GenerateSelfSignedCert(hosts)
 	if err != nil {
 		return trace.Wrap(err)
 	}
