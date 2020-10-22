@@ -134,16 +134,9 @@ func (s *systemdManager) installService(service serviceTemplate, req NewServiceR
 	if _, ok := service.Environment[defaults.PathEnv]; !ok {
 		service.Environment[defaults.PathEnv] = defaults.PathEnvVal
 	}
-	f, err := os.Create(unitPath(req.Name))
-	if err != nil {
-		return trace.Wrap(err,
-			"error creating systemd unit file at %v", unitPath(req.Name))
-	}
-	defer f.Close()
 
-	err = serviceUnitTemplate.Execute(f, service)
-	if err != nil {
-		return trace.Wrap(err, "error rendering template")
+	if err := writeUnitFile(unitPath(req.Name), service); err != nil {
+		return trace.Wrap(err)
 	}
 
 	if req.ReloadConfiguration {
@@ -506,6 +499,21 @@ func invokeSystemctl(args ...string) (string, error) {
 	cmd := exec.Command("systemctl", append(args, "--no-pager")...)
 	err := utils.ExecL(cmd, &out, log)
 	return out.String(), trace.Wrap(err)
+}
+
+func writeUnitFile(path string, service serviceTemplate) error {
+	f, err := os.Create(path)
+	if err != nil {
+		return trace.Wrap(err,
+			"error creating systemd unit file at %v", path)
+	}
+	defer f.Close()
+
+	err = serviceUnitTemplate.Execute(f, service)
+	if err != nil {
+		return trace.Wrap(err, "error rendering template")
+	}
+	return nil
 }
 
 // unitPath returns the default path for the systemd unit with the given name.
