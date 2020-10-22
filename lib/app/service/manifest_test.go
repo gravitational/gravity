@@ -27,18 +27,18 @@ import (
 	. "gopkg.in/check.v1"
 )
 
-func init() {
-	if testing.Verbose() {
-		log.SetOutput(os.Stderr)
-		log.SetLevel(log.InfoLevel)
-	}
-}
-
 func TestService(t *testing.T) { TestingT(t) }
 
 type ManifestSuite struct{}
 
 var _ = Suite(&ManifestSuite{})
+
+func (r *ManifestSuite) SetUpSuite(c *C) {
+	if testing.Verbose() {
+		log.SetOutput(os.Stderr)
+		log.SetLevel(log.InfoLevel)
+	}
+}
 
 func (r *ManifestSuite) TestReadsManifestFromTarball(c *C) {
 	files := []*archive.Item{

@@ -555,5 +555,8 @@ buildbox:
 		--build-arg PROTOC_PLATFORM=$(PROTOC_PLATFORM) \
 		--build-arg GOGO_PROTO_TAG=$(GOGO_PROTO_TAG) \
 		--build-arg GRPC_GATEWAY_TAG=$(GRPC_GATEWAY_TAG) \
+		--build-arg GODEP_TAG=$(GODEP_TAG) \
 		--build-arg VERSION_TAG=$(VERSION_TAG) \
+		--build-arg GOLANG_PROTO_TAG=$(GOLANG_PROTO_TAG) \
+		--build-arg GOLANG_GLOG_TAG=$(GOLANG_GLOG_TAG) \
 		$(DOCKER_ARGS) --tag $(BBOX) .
