@@ -41,7 +41,7 @@ extend updates past End of Support through customer agreements if required.
 | [5.6](#56-releases) | 5.6.8        | No  | April 19, 2019       | July 17, 2019 (6.0)     | 1.14.7               | 3.0.6-gravity    |
 | [5.4](#54-releases) | 5.4.10       | No  | December 14, 2018    | March 8, 2019 (5.5)     | 1.13.5               | 2.4.10           |
 | [5.3](#53-releases) | 5.3.9        | No  | October 19, 2018     | December 14, 2018 (5.4) | 1.12.3               | 2.4.7            |
-| [5.2](#52-releases) | 5.2.17       | Yes | October 15, 2018     | October 15, 2019        | 1.11.9               | 2.4.10           |
+| [5.2](#52-releases) | 5.2.18       | Yes | October 15, 2018     | October 15, 2019        | 1.11.9               | 2.4.10           |
 | [5.0](#50-releases) | 5.0.36       | Yes | April 18, 2018       | April 13, 2019          | 1.9.13-gravitational | 2.4.10           |
 | [4.x](#4x-releases) | 4.68.0       | Yes | June 1, 2017         | November 16, 2018       | 1.7.18-gravitational | 2.3.5            |
 | [3.x](#3x-releases) | 3.64.0       | Yes | February 16, 2017    | June 2, 2018            | 1.5.7                | 2.0.6            |
@@ -2306,6 +2306,12 @@ for details.
 * Remove dependency on system user/group being present in local `/etc/passwd` and `/etc/group` databases.
 
 ## 5.2 Releases
+
+### 5.2.18 LTS (October 23rd, 2020)
+
+#### Bugfixes
+
+* Fix an issue where etcd-backups were using too short of a timer ([#2263](https://github.com/gravitational/gravity/pull/2263), [planet#770](https://github.com/gravitational/planet/pull/770), [etcd-backup#5](https://github.com/gravitational/satellite/pull/5)).
 
 ### 5.2.17 LTS (June 11th, 2020)
 
