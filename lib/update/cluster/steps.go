@@ -43,13 +43,14 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func (r *phaseBuilder) initSteps(ctx context.Context) error {
+func (r *phaseBuilder) initSteps(ctx context.Context) (err error) {
+	var installedOrUpgradedEtcdVersion *semver.Version
+
 	if !r.isDirectUpgrade() {
-		steps, err := r.buildIntermediateSteps(ctx)
+		r.steps, installedOrUpgradedEtcdVersion, err = r.buildIntermediateSteps(ctx)
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		r.steps = steps
 	}
 	installedRuntimeFunc := getRuntimePackageFromManifest(r.installedApp.Manifest)
 	updateRuntimeFunc := getRuntimePackageFromManifest(r.updateApp.Manifest)
@@ -71,19 +72,21 @@ func (r *phaseBuilder) initSteps(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	// TODO: should somehow maintain etcd version invariant across runtime packages
-	installedEtcdVersion, err := getEtcdVersionFromManifest(r.installedApp.Manifest, r.packages)
-	if err != nil && !trace.IsNotFound(err) {
-		return trace.Wrap(err)
+
+	if installedOrUpgradedEtcdVersion == nil {
+		installedOrUpgradedEtcdVersion, err = getEtcdVersionFromManifest(r.installedApp.Manifest, r.packages)
+		if err != nil && !trace.IsNotFound(err) {
+			return trace.Wrap(err)
+		}
 	}
-	if installedEtcdVersion == nil {
-		installedEtcdVersion = &r.currentEtcdVersion
+	if installedOrUpgradedEtcdVersion == nil {
+		installedOrUpgradedEtcdVersion = &r.currentEtcdVersion
 	}
 	updateEtcdVersion, err := getEtcdVersionFromManifest(r.updateApp.Manifest, r.packages)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	etcd := shouldUpdateEtcd(*installedEtcdVersion, *updateEtcdVersion)
+	etcd := shouldUpdateEtcd(*installedOrUpgradedEtcdVersion, *updateEtcdVersion)
 	// check if OpenEBS integration has been enabled in the new application
 	openEBSEnabled := !r.installedApp.Manifest.OpenEBSEnabled() && r.updateApp.Manifest.OpenEBSEnabled()
 	r.targetStep = newTargetUpdateStep(updateStep{
@@ -101,10 +104,10 @@ func (r phaseBuilder) hasRuntimeUpdates() bool {
 	return len(r.steps) != 0 || len(r.targetStep.runtimeUpdates) != 0
 }
 
-func (r phaseBuilder) buildIntermediateSteps(context.Context) (updates []intermediateUpdateStep, err error) {
+func (r phaseBuilder) buildIntermediateSteps(context.Context) (updates []intermediateUpdateStep, lastUpgradeEtcdVersion *semver.Version, err error) {
 	result, err := r.collectIntermediateSteps()
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return nil, nil, trace.Wrap(err)
 	}
 	updates = make([]intermediateUpdateStep, 0, len(result))
 	prevRuntimeApp := r.installedRuntimeApp
@@ -112,16 +115,17 @@ func (r phaseBuilder) buildIntermediateSteps(context.Context) (updates []interme
 	prevRuntimeFunc := getRuntimePackageFromManifest(r.installedApp.Manifest)
 	for version, update := range result {
 		if err := update.validate(); err != nil {
-			return nil, trace.Wrap(err)
+			return nil, nil, trace.Wrap(err)
 		}
 		installedEtcdVersion, err := getEtcdVersionFromManifest(prevRuntimeApp.Manifest, r.packages)
 		if err != nil {
-			return nil, trace.Wrap(err)
+			return nil, nil, trace.Wrap(err)
 		}
 		updateEtcdVersion, err := getEtcdVersionFromManifest(update.runtimeApp.Manifest, r.packages)
 		if err != nil {
-			return nil, trace.Wrap(err)
+			return nil, nil, trace.Wrap(err)
 		}
+		lastUpgradeEtcdVersion = updateEtcdVersion
 		update.etcd = shouldUpdateEtcd(*installedEtcdVersion, *updateEtcdVersion)
 		result[version] = update
 		serverUpdates, err := r.intermediateConfigUpdates(
@@ -130,13 +134,13 @@ func (r phaseBuilder) buildIntermediateSteps(context.Context) (updates []interme
 			prevTeleport, &update.teleport,
 			r.operator)
 		if err != nil {
-			return nil, trace.Wrap(err)
+			return nil, nil, trace.Wrap(err)
 		}
 		log.WithField("updates", serverUpdates).Info("Intermediate server upgrade step.")
 		update.servers = serverUpdates
 		update.runtimeUpdates, err = runtimeUpdates(prevRuntimeApp, update.runtimeApp, r.installedApp)
 		if err != nil {
-			return nil, trace.Wrap(err)
+			return nil, nil, trace.Wrap(err)
 		}
 		updates = append(updates, update)
 		prevRuntimeApp = update.runtimeApp
@@ -144,7 +148,7 @@ func (r phaseBuilder) buildIntermediateSteps(context.Context) (updates []interme
 		prevRuntimeFunc = getRuntimePackageStatic(update.runtime)
 	}
 	sort.Sort(updatesByVersion(updates))
-	return updates, nil
+	return updates, lastUpgradeEtcdVersion, nil
 }
 
 func (r phaseBuilder) collectIntermediateSteps() (result map[string]intermediateUpdateStep, err error) {
