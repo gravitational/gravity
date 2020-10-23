@@ -41,8 +41,9 @@ func ReinstallSimpleService(serviceName string, cmd []string) error {
 	}
 
 	err = services.InstallService(systemservice.NewServiceRequest{
-		Name:    serviceName,
-		NoBlock: true,
+		Name:                serviceName,
+		NoBlock:             true,
+		ReloadConfiguration: true,
 		ServiceSpec: systemservice.ServiceSpec{
 			User:         constants.RootUIDString,
 			Type:         SimpleService,

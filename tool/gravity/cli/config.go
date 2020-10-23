@@ -23,7 +23,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -192,20 +191,20 @@ type InstallConfig struct {
 	flavor schema.Flavor
 }
 
-// NewReconfigureConfig creates config for the reconfigure operation.
+// newReconfigureConfig creates config for the reconfigure operation.
 //
 // Reconfiguration is very similar to initial installation so the install
 // config is reused.
-func NewReconfigureConfig(env *localenv.LocalEnvironment, g *Application) (*InstallConfig, error) {
+func newReconfigureConfig(env *localenv.LocalEnvironment, g *Application) (*InstallConfig, error) {
 	// The installer is using the existing state directory in order to be able
 	// to use existing application packages.
-	stateDir, err := state.GetStateDir()
+	readStateDir, err := state.GetStateDir()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return &InstallConfig{
 		Insecure:           *g.Insecure,
-		StateDir:           state.GravityLocalDir(stateDir),
+		StateDir:           state.GravityLocalDir(readStateDir),
 		UserLogFile:        *g.UserLogFile,
 		SystemLogFile:      *g.SystemLogFile,
 		AdvertiseAddr:      *g.StartCmd.AdvertiseAddr,
@@ -217,6 +216,12 @@ func NewReconfigureConfig(env *localenv.LocalEnvironment, g *Application) (*Inst
 		Mode:               constants.InstallModeCLI,
 		Printer:            env,
 	}, nil
+}
+
+type reconfigureConfig struct {
+	InstallConfig
+	// stateDir specifies the location of the local operation-specific state
+	stateDir string
 }
 
 // Apply updates the config with the data found from the cluster/operation.
@@ -292,13 +297,10 @@ func (i *InstallConfig) CheckAndSetDefaults(validator resources.Validator) (err 
 		i.FieldLogger = log.WithField(trace.Component, "installer")
 	}
 	if i.StateDir == "" {
-		i.StateDir = filepath.Dir(utils.Exe.Path)
+		i.StateDir = utils.Exe.WorkingDir
 		i.WithField("dir", i.StateDir).Info("Set installer read state directory.")
 	}
-	i.writeStateDir, err = state.GravityInstallDir()
-	if err != nil {
-		return trace.Wrap(err)
-	}
+	i.writeStateDir = state.GravityInstallDir()
 	if err := os.MkdirAll(i.writeStateDir, defaults.SharedDirMask); err != nil {
 		return trace.ConvertSystemError(err)
 	}
@@ -413,7 +415,10 @@ func (i *InstallConfig) CheckAndSetDefaults(validator resources.Validator) (err 
 	// executes a remote install.
 	// In this case, the validation happens on the remote node where the cluster is
 	// being set up.
-	if !i.Remote {
+	// TODO(dmitri): the service/pod subnet configuration should be available
+	// for the reconfiguration operation as well as the advertise address needs to be verified
+	// against them
+	if !i.Remote && i.ServiceCIDR != "" && i.PodCIDR != "" {
 		err = i.validateResources(validator)
 		if err != nil {
 			return trace.Wrap(err)
@@ -1288,32 +1293,25 @@ func generateClusterName() string {
 }
 
 // AborterForMode returns the Aborter implementation specific to given installation mode
-func AborterForMode(mode string, env *localenv.LocalEnvironment) func(context.Context) error {
+func AborterForMode(serviceName, mode string, env *localenv.LocalEnvironment) func(context.Context) error {
 	switch mode {
 	case constants.InstallModeInteractive:
 		return installerInteractiveUninstallSystem(env)
 	default:
-		return installerAbortOperation(env)
+		return installerAbortOperation(serviceName, env)
 	}
 }
 
 // installerAbortOperation implements the clean up phase when the installer service
-// is explicitly interrupted by user
-func installerAbortOperation(env *localenv.LocalEnvironment) func(context.Context) error {
+// is explicitly interrupted by user.
+// stateDir specifies the location of operation-specific state
+func installerAbortOperation(serviceName string, env *localenv.LocalEnvironment) func(context.Context) error {
 	return func(ctx context.Context) error {
-		logger := log.WithField(trace.Component, "installer:abort")
+		logger := log.WithField(trace.Component, "installer:abort").WithField("service", serviceName)
 		logger.Info("Leaving cluster.")
-		stateDir, err := state.GravityInstallDir()
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		serviceName, err := environ.GetServicePath(stateDir)
-		if err == nil {
-			logger := logger.WithField("service", serviceName)
-			logger.Info("Uninstalling service.")
-			if err := environ.UninstallService(serviceName); err != nil {
-				logger.WithError(err).Warn("Failed to uninstall service.")
-			}
+		logger.Info("Uninstalling service.")
+		if err := environ.UninstallService(serviceName); err != nil {
+			logger.WithError(err).Warn("Failed to uninstall service.")
 		}
 		logger.Info("Uninstalling system.")
 		if err := environ.UninstallSystem(ctx, utils.DiscardPrinter, logger); err != nil {
@@ -1346,21 +1344,22 @@ func installerInteractiveUninstallSystem(env *localenv.LocalEnvironment) func(co
 
 // InstallerCompleteOperation implements the clean up phase when the installer service
 // shuts down after a sucessfully completed operation
-func InstallerCompleteOperation(env *localenv.LocalEnvironment) installerclient.CompletionHandler {
+func InstallerCompleteOperation(serviceName string, env *localenv.LocalEnvironment) installerclient.CompletionHandler {
 	return func(ctx context.Context, status installpb.ProgressResponse_Status) error {
-		logger := log.WithField(trace.Component, "installer:cleanup")
+		logger := log.WithField(trace.Component, "installer:cleanup").WithField("service", serviceName)
 		if status == installpb.StatusCompletedPending {
 			// Wait for explicit interrupt signal before cleaning up
 			env.PrintStep(postInstallInteractiveBanner)
 			signals.WaitFor(os.Interrupt)
 		}
-		return trace.Wrap(installerCleanup(logger))
+		return trace.Wrap(installerCleanup(serviceName, logger))
 	}
 }
 
 // InstallerCleanup uninstalls the services and cleans up operation state
-func InstallerCleanup() error {
-	return installerCleanup(log.WithField(trace.Component, "installer:cleanup"))
+func InstallerCleanup(serviceName string) error {
+	logger := log.WithField(trace.Component, "installer:cleanup").WithField("service", serviceName)
+	return installerCleanup(serviceName, logger)
 }
 
 // InstallerGenerateLocalReport creates a host-local debug report in the specified file
@@ -1385,17 +1384,10 @@ func InstallerGenerateLocalReport(env *localenv.LocalEnvironment) func(context.C
 	}
 }
 
-func installerCleanup(logger logrus.FieldLogger) error {
-	stateDir, err := state.GravityInstallDir()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	serviceName, err := environ.GetServicePath(stateDir)
+func installerCleanup(serviceName string, logger logrus.FieldLogger) error {
 	logger.WithField("service", serviceName).Info("Uninstalling service.")
-	if err == nil {
-		if err := environ.UninstallService(serviceName); err != nil {
-			logger.WithError(err).Warn("Failed to uninstall agent services.")
-		}
+	if err := environ.UninstallService(serviceName); err != nil {
+		logger.WithError(err).Warn("Failed to uninstall agent services.")
 	}
 	if err := environ.CleanupOperationState(utils.DiscardPrinter, logger); err != nil {
 		logger.WithError(err).Warn("Failed to clean up operation state.")

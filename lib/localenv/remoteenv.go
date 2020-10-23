@@ -58,11 +58,8 @@ type RemoteEnvironment struct {
 
 // NewRemoteEnvironment creates a new remote environment
 func NewRemoteEnvironment() (*RemoteEnvironment, error) {
-	stateDir, err := state.GravityInstallDir("wizard")
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	err = os.MkdirAll(stateDir, defaults.SharedDirMask)
+	stateDir := state.GravityInstallDir("wizard")
+	err := os.MkdirAll(stateDir, defaults.SharedDirMask)
 	if err != nil {
 		return nil, trace.ConvertSystemError(err)
 	}
@@ -285,7 +282,7 @@ func (w *RemoteEnvironment) wizardEntry() (*storage.LoginEntry, error) {
 // closed afterwards
 func (w *RemoteEnvironment) withBackend(fn func(storage.Backend) error) (err error) {
 	backend, err := keyval.NewBolt(keyval.BoltConfig{
-		Path: filepath.Join(w.StateDir, "wizard.db"),
+		Path: filepath.Join(w.StateDir, defaults.InstallerDBFile),
 	})
 	if err != nil {
 		return trace.Wrap(err)

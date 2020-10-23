@@ -202,6 +202,9 @@ const (
 	// GravityRPCInstallerServiceName defines systemd unit service name for the installer
 	GravityRPCInstallerServiceName = "gravity-installer.service"
 
+	// GravityRPCInstallerSocketName defines the name of the socket file for the installer service
+	GravityRPCInstallerSocketName = "installer.sock"
+
 	// GravityRPCResumeServiceName defines systemd unit service name for resuming the operation plan
 	GravityRPCResumeServiceName = "gravity-resume.service"
 
@@ -317,6 +320,10 @@ const (
 	// GravityBin is a default location of gravity binary
 	GravityBin = "/usr/bin/gravity"
 
+	// GravityLocalAgentBin specifies the path to the gravity binary used in interactive
+	// installation
+	GravityLocalAgentBin = "/usr/local/bin/gravity"
+
 	// GravityBinAlternate is an alternative location of gravity binary on systems
 	// where /usr/bin is not writable (e.g. on Ubuntu Core)
 	GravityBinAlternate = "/writable/bin/gravity"
@@ -370,6 +377,12 @@ const (
 
 	// StatBin is stat executable path inside planet
 	StatBin = "/usr/bin/stat"
+
+	// AlternativeBinDir defines the default location for binaries on Ubuntu Core
+	AlternativeBinDir = "/writable/bin"
+
+	// GravityAgentBin specifies the location of the gravity binary used during upgrades
+	GravityAgentBin = "/usr/local/bin/gravity-upgrade-agent"
 
 	// SystemdLogDir specifies the default location of the systemd journal files
 	SystemdLogDir = "/var/log/journal"
@@ -491,6 +504,9 @@ const (
 
 	// GravityDBFile is a default file name for gravity sqlite DB file
 	GravityDBFile = "gravity.db"
+
+	// InstallerDBFile is a default file name for the installer state database file
+	InstallerDBFile = "wizard.db"
 
 	// SystemAccountID is the ID of the system account
 	SystemAccountID = "00000000-0000-0000-0000-000000000001"
@@ -1308,6 +1324,9 @@ var (
 
 	// MaxExpandConcurrency is the number of servers that can be joining the cluster concurrently
 	MaxExpandConcurrency = (runtime.NumCPU() / 3) + 4
+
+	// GravityAgentBinAlternate defines the gravity binary used during upgrades on Ubuntu Core
+	GravityAgentBinAlternate = AlternateBinPath("gravity-upgrade-agent")
 )
 
 // HookSecurityContext returns default securityContext for hook pods
@@ -1390,6 +1409,18 @@ func InstallerAddr(installerIP string) (addr string) {
 // `kubectl get nodes`
 func FormatKubernetesNodeRoleLabel(role string) string {
 	return fmt.Sprintf("node-role.kubernetes.io/%v", role)
+}
+
+// SystemUnitPath builds the path to the specified unit in the system unit directory
+func SystemUnitPath(unit string) (path string) {
+	return filepath.Join(SystemUnitDir, unit)
+}
+
+// AlternateBinPath returns a path in the alternative binary directory
+// for the specifies sub-paths
+func AlternateBinPath(paths ...string) (path string) {
+	paths = append([]string{AlternativeBinDir}, paths...)
+	return filepath.Join(paths...)
 }
 
 // TLSConfig returns default TLS configuration.

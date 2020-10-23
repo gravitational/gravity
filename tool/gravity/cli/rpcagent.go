@@ -21,13 +21,13 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"os"
 	"strings"
 	"sync"
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
+	"github.com/gravitational/gravity/lib/install"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
@@ -36,6 +36,7 @@ import (
 	pb "github.com/gravitational/gravity/lib/rpc/proto"
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
 	"github.com/gravitational/gravity/lib/schema"
+	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/system/service"
 	"github.com/gravitational/gravity/lib/update"
@@ -52,14 +53,13 @@ import (
 )
 
 func rpcAgentInstall(env *localenv.LocalEnvironment, args []string) error {
-	gravityPath, err := os.Executable()
+	path, err := installAgentBinary()
 	if err != nil {
-		return trace.Wrap(err, "failed to determine gravity executable path")
+		return trace.Wrap(err)
 	}
-
 	return trace.Wrap(service.ReinstallSimpleService(
 		defaults.GravityRPCAgentServiceName,
-		append([]string{gravityPath, "--debug", "agent", "run"}, args...)))
+		append([]string{path, "--debug", "agent", "run"}, args...)))
 }
 
 // rpcAgentRun runs a local agent executing the function specified with optional args
@@ -542,6 +542,22 @@ func getGravityPackage() loc.Locator {
 		Name:       constants.GravityPackage,
 		Version:    strings.Split(ver.Version, "+")[0],
 	}
+}
+
+func installAgentBinary() (path string, err error) {
+	var targetPath string
+	for _, targetPath = range state.GravityAgentBinPaths {
+		err = install.InstallBinaryInto(targetPath, log)
+		if err == nil {
+			break
+		}
+		log.WithError(err).WithField("target-path", targetPath).Warn("Failed to install binary.")
+	}
+	if err != nil {
+		return "", trace.Wrap(err, "failed to install gravity binary in any of %v",
+			state.GravityAgentBinPaths)
+	}
+	return targetPath, nil
 }
 
 type deployAgentsRequest struct {
