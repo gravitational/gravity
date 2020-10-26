@@ -1196,7 +1196,7 @@ const (
 	AgentWaitTimeout = 5 * time.Minute
 
 	// GravityInstallerProcessLabel specifies the SELinux label of the installer process
-	GravityInstallerProcessLabel = "system_u:system_r:gravity_installer_t:s0"
+	GravityInstallerProcessLabel = "system_u:system_r:gravity_t:s0"
 
 	// ContainerFileLabel specifies the default SELinux container file label
 	ContainerFileLabel = "system_u:object_r:container_file_t:s0"

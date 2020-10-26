@@ -148,6 +148,7 @@ func (r BootstrapConfig) paths() []string {
 		r.stateDir(),
 		defaults.PlanetStateDir,
 		defaults.GravityEphemeralDir,
+		defaults.GravityLocalAgentBin,
 		// TODO: even though it is sort of possible to override the log file paths
 		// from command line, the locations are not persisted anywhere so subsequent
 		// command will just use the default locations.
@@ -329,7 +330,7 @@ port -a -t gravity_install_port_t -r 's0' -p {{.Protocol}} {{.From}}-{{.To}}{{en
 port -a -t gravity_kubernetes_port_t -r 's0' -p {{.Protocol}} {{.From}}-{{.To}}{{end}}
 {{- range .PortRanges.Generic}}
 port -a -t gravity_port_t -r 's0' -p {{.Protocol}} {{.From}}-{{.To}}{{end}}
-fcontext -a -f f -t gravity_installer_exec_t -r 's0' '{{.Path}}/gravity'
+fcontext -a -f f -t gravity_exec_t -r 's0' '{{.Path}}/gravity'
 fcontext -a -f f -t gravity_log_t -r 's0' '{{.Path}}/gravity-(install|system)\.log'
 fcontext -a -f a -t gravity_home_t -r 's0' '{{.Path}}/.gravity(/.*)?'
 fcontext -a -f a -t gravity_home_t -r 's0' '{{.Path}}/crashreport.tgz'

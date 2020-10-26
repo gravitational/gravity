@@ -53,7 +53,7 @@ func (*S) TestWritesBootstrapScript(c *C) {
 			expected: `
 port -D
 fcontext -D
-fcontext -a -f f -t gravity_installer_exec_t -r 's0' '/path/to/installer/gravity'
+fcontext -a -f f -t gravity_exec_t -r 's0' '/path/to/installer/gravity'
 fcontext -a -f f -t gravity_log_t -r 's0' '/path/to/installer/gravity-(install|system)\.log'
 fcontext -a -f a -t gravity_home_t -r 's0' '/path/to/installer/.gravity(/.*)?'
 fcontext -a -f a -t gravity_home_t -r 's0' '/path/to/installer/crashreport.tgz'
@@ -82,7 +82,7 @@ fcontext -a -f a -t gravity_home_t -r 's0' '/path/to/installer/crashreport.tgz'
 			expected: `
 port -D
 fcontext -D
-fcontext -a -f f -t gravity_installer_exec_t -r 's0' '/path/to/installer/gravity'
+fcontext -a -f f -t gravity_exec_t -r 's0' '/path/to/installer/gravity'
 fcontext -a -f f -t gravity_log_t -r 's0' '/path/to/installer/gravity-(install|system)\.log'
 fcontext -a -f a -t gravity_home_t -r 's0' '/path/to/installer/.gravity(/.*)?'
 fcontext -a -f a -t gravity_home_t -r 's0' '/path/to/installer/crashreport.tgz'
@@ -112,7 +112,7 @@ port -a -t gravity_install_port_t -r 's0' -p tcp 1000-1001
 port -a -t gravity_kubernetes_port_t -r 's0' -p udp 2000-2000
 port -a -t gravity_port_t -r 's0' -p tcp 3000-3000
 port -a -t gravity_port_t -r 's0' -p udp 4000-4002
-fcontext -a -f f -t gravity_installer_exec_t -r 's0' '/path/to/installer/gravity'
+fcontext -a -f f -t gravity_exec_t -r 's0' '/path/to/installer/gravity'
 fcontext -a -f f -t gravity_log_t -r 's0' '/path/to/installer/gravity-(install|system)\.log'
 fcontext -a -f a -t gravity_home_t -r 's0' '/path/to/installer/.gravity(/.*)?'
 fcontext -a -f a -t gravity_home_t -r 's0' '/path/to/installer/crashreport.tgz'
