@@ -11,9 +11,9 @@ Find the latest Open Source Gravity releases at [Gravity Downloads](https://grav
 
 | Version             | Latest Patch | LTS | Release Date         | Latest Patch Date    | End of Support *        | Kubernetes Version   | Teleport Version |
 | ------------------- | ------------ | --- | -------------------- | -------------------- | ----------------------- | -------------------- | ---------------- |
-| [7.0](#70-releases) | 7.0.22       | Yes | April 3, 2020        | October 23rd, 2020   | July 9, 2022            | 1.17.9               | 3.2.14-gravity   |
-| [6.1](#61-releases) | 6.1.44       | Yes | August 2, 2019       | October 22nd, 2020   | November 10, 2021       | 1.15.12              | 3.2.14-gravity   |
-| [5.5](#55-releases) | 5.5.55       | Yes | March 8, 2019        | October 21th, 2020   | March 8, 2021           | 1.13.11              | 3.0.7-gravity    |
+| [7.0](#70-releases) | 7.0.23       | Yes | April 3, 2020        | October 26, 2020   | July 9, 2022            | 1.17.9               | 3.2.14-gravity   |
+| [6.1](#61-releases) | 6.1.44       | Yes | August 2, 2019       | October 22, 2020   | November 10, 2021       | 1.15.12              | 3.2.14-gravity   |
+| [5.5](#55-releases) | 5.5.55       | Yes | March 8, 2019        | October 21, 2020   | March 8, 2021           | 1.13.11              | 3.0.7-gravity    |
 
 Gravity offers one Long Term Support (LTS) version for every 2nd Kubernetes
 minor version, allowing for seamless upgrades per Kubernetes
@@ -51,11 +51,17 @@ extend updates past End of Support through customer agreements if required.
 
 ## 7.0 Releases
 
+### 7.0.23 LTS (October 26, 2020)
+
+#### Bugfixes
+
+* Fix an issue with multi-hop upgrades that involve multiple etcd upgrades ([#2275](https://github.com/gravitational/gravity/pull/2275)). 
+
 ### 7.0.22 LTS (October 23rd, 2020)
 
 #### Bugfixes
 
-* Make it possible to install/expand/upgrade clusters based on CentOS/rhel 8 with SELinux in enforcing mode ([#2240](https://github.com/gravitational/gravity/pull/2240).
+* Make it possible to install/expand/upgrade clusters based on CentOS/rhel 8 with SELinux in enforcing mode ([#2240](https://github.com/gravitational/gravity/pull/2240)).
 
 ### 7.0.21 LTS (October 22nd, 2020)
 
