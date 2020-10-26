@@ -55,13 +55,13 @@ extend updates past End of Support through customer agreements if required.
 
 #### Bugfixes
 
-* Fix an issue with multi-hop upgrades that involve multiple etcd upgrades ([#2275](https://github.com/gravitational/gravity/pull/2275). 
+* Fix an issue with multi-hop upgrades that involve multiple etcd upgrades ([#2275](https://github.com/gravitational/gravity/pull/2275)). 
 
 ### 7.0.22 LTS (October 23rd, 2020)
 
 #### Bugfixes
 
-* Make it possible to install/expand/upgrade clusters based on CentOS/rhel 8 with SELinux in enforcing mode ([#2240](https://github.com/gravitational/gravity/pull/2240).
+* Make it possible to install/expand/upgrade clusters based on CentOS/rhel 8 with SELinux in enforcing mode ([#2240](https://github.com/gravitational/gravity/pull/2240)).
 
 ### 7.0.21 LTS (October 22nd, 2020)
 
