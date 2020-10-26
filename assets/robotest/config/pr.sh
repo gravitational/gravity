@@ -24,8 +24,7 @@ INTERMEDIATE_UPGRADE_VERSION=$(recommended_upgrade_tag $(branch 6.1.x))
 # For example: v3.3.11 to v3.3.22 to v3.4.9
 declare -A INTERMEDIATE_UPGRADE_MAP
 INTERMEDIATE_UPGRADE_MAP[$(recommended_upgrade_tag $(branch 5.5.x))]="centos:7"
-# 5.5.10 is disabled to an issue with etcd upgrades which needs further investigation (#2013).
-# INTERMEDIATE_UPGRADE_MAP[5.5.10]="centos:7"
+INTERMEDIATE_UPGRADE_MAP[5.5.10]="centos:7"
 
 # 6.2 and 6.3 ignored in PR builds per https://github.com/gravitational/gravity/pull/1760#pullrequestreview-437838773
 # UPGRADE_MAP[$(recommended_upgrade_tag $(branch 6.3.x))]="redhat:7" # compatible non-LTS version
