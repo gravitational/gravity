@@ -821,18 +821,21 @@ func currentServerTime(currentTime, heartbeatTime, serverTime time.Time) time.Ti
 	return serverTime.Add(delta)
 }
 
-func basicCheckers(options *validationpb.ValidateOptions) health.Checker {
-	return monitoring.NewCompositeChecker(
-		"local",
-		[]health.Checker{
-			monitoring.NewIPForwardChecker(),
-			monitoring.NewBridgeNetfilterChecker(),
-			monitoring.NewMayDetachMountsChecker(),
-			monitoring.DefaultProcessChecker(),
-			defaultPortChecker(options),
-			monitoring.DefaultBootConfigParams(),
-		},
-	)
+func basicCheckers(options *validationpb.ValidateOptions, openEBSEnabled bool) health.Checker {
+	checkers := []health.Checker{
+		monitoring.NewIPForwardChecker(),
+		monitoring.NewBridgeNetfilterChecker(),
+		monitoring.NewMayDetachMountsChecker(),
+		monitoring.DefaultProcessChecker(openEBSEnabled),
+		defaultPortChecker(options),
+		monitoring.DefaultBootConfigParams(),
+	}
+
+	if openEBSEnabled {
+		checkers = append(checkers, monitoring.NewISCSIChecker())
+	}
+
+	return monitoring.NewCompositeChecker("local", checkers)
 }
 
 func defaultPortChecker(options *validationpb.ValidateOptions) health.Checker {
