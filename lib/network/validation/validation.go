@@ -150,7 +150,7 @@ func (_ *Server) Validate(ctx context.Context, req *pb.ValidateRequest) (resp *p
 			StorageDriver: req.Docker.StorageDriver,
 		}
 		failedProbes, err = v.Validate(ctx)
-		failedProbes = append(failedProbes, checks.RunBasicChecks(ctx, req.Options)...)
+		failedProbes = append(failedProbes, checks.RunBasicChecks(ctx, req.Options, manifest.OpenEBSEnabled())...)
 	} else {
 		failedProbes, err = validateManifest(ctx, v)
 		failedProbes = append(failedProbes, runLocalChecks(ctx)...)
@@ -207,7 +207,7 @@ func validateManifest(ctx context.Context, v checks.ManifestValidator) (failedPr
 }
 
 func runLocalChecks(ctx context.Context) (failed []*agentpb.Probe) {
-	checks := monitoring.NewCompositeChecker("local",
+	localChecks := monitoring.NewCompositeChecker("local",
 		[]health.Checker{
 			monitoring.NewIPForwardChecker(),
 			monitoring.NewBridgeNetfilterChecker(),
@@ -217,7 +217,7 @@ func runLocalChecks(ctx context.Context) (failed []*agentpb.Probe) {
 	)
 
 	var reporter health.Probes
-	checks.Check(ctx, &reporter)
+	localChecks.Check(ctx, &reporter)
 
 	for _, probe := range reporter {
 		if probe.Status == agentpb.Probe_Failed {

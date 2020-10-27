@@ -109,9 +109,9 @@ type ManifestValidator struct {
 
 // RunBasicChecks executes a set of additional health checks.
 // Returns list of failed health probes.
-func RunBasicChecks(ctx context.Context, options *validationpb.ValidateOptions) (failed []*agentpb.Probe) {
+func RunBasicChecks(ctx context.Context, options *validationpb.ValidateOptions, openEBSEnabled bool) (failed []*agentpb.Probe) {
 	var reporter health.Probes
-	basicCheckers(options).Check(ctx, &reporter)
+	basicCheckers(options, openEBSEnabled).Check(ctx, &reporter)
 
 	for _, p := range reporter {
 		if p.Status == agentpb.Probe_Failed {
@@ -206,7 +206,7 @@ func ValidateLocal(ctx context.Context, req LocalChecksRequest) (*LocalChecksRes
 		return nil, trace.Wrap(err)
 	}
 
-	failedProbes = append(failedProbes, RunBasicChecks(ctx, req.Options)...)
+	failedProbes = append(failedProbes, RunBasicChecks(ctx, req.Options, req.Manifest.OpenEBSEnabled())...)
 	if len(failedProbes) == 0 {
 		return &LocalChecksResult{}, nil
 	}
