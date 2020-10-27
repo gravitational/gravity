@@ -17,6 +17,9 @@ limitations under the License.
 package utils
 
 import (
+	"crypto/x509"
+	"encoding/pem"
+
 	"github.com/cloudflare/cfssl/csr"
 	"github.com/gravitational/license/authority"
 	. "gopkg.in/check.v1"
@@ -70,4 +73,24 @@ func (s *TLSSuite) TestCertArchive(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(string(okeyPair.CertPEM), Equals, string(keyPair.CertPEM))
 	c.Assert(string(okeyPair.KeyPEM), Equals, string(keyPair.KeyPEM))
+}
+
+// TestGenerateSelfSignedCert verifies that MacOS specific requirements are met according to:
+// https://support.apple.com/en-us/HT210176
+func (s *TLSSuite) TestGenerateSelfSignedCert(c *C) {
+	hostNames := []string{"localhost"}
+	credentials, err := GenerateSelfSignedCert(hostNames)
+	c.Assert(err, IsNil)
+
+	block, _ := pem.Decode([]byte(credentials.Cert))
+	c.Assert(block, NotNil)
+
+	cert, err := x509.ParseCertificate(block.Bytes)
+	c.Assert(err, IsNil)
+
+	validityPeriod := int(cert.NotAfter.Sub(cert.NotBefore).Hours() / 24)
+	c.Assert(validityPeriod, Equals, 825)
+
+	testExtKeyUsage := []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}
+	c.Assert(cert.ExtKeyUsage, DeepEquals, testExtKeyUsage)
 }

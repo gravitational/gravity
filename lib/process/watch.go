@@ -23,10 +23,15 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	libkube "github.com/gravitational/gravity/lib/kubernetes"
+	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/ops/opsservice"
 	"github.com/gravitational/gravity/lib/processconfig"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/cenkalti/backoff"
 	"github.com/gravitational/teleport/lib/service"
+	"github.com/gravitational/teleport/lib/tlsca"
 	"github.com/gravitational/trace"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,6 +39,102 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 )
+
+// runCertExpirationWatch checks if the default self signed cluster web UI cert is about to expire soon and rotates it
+func (p *Process) runCertExpirationWatch(client *kubernetes.Clientset) clusterService {
+	return func(ctx context.Context) {
+		ticker := time.NewTicker(time.Hour * 24)
+		defer ticker.Stop()
+		for {
+			err := p.replaceCertIfAboutToExpire(ctx, client)
+			if err != nil {
+				p.WithError(err).Error("Failed to check for cluster web UI certificate expiration or replace it.")
+			}
+
+			select {
+			case <-ticker.C:
+			case <-ctx.Done():
+				p.Debug("Cluster web UI certificate expiration watcher stopped.")
+				return
+			}
+		}
+	}
+}
+
+func (p *Process) replaceCertIfAboutToExpire(ctx context.Context, client *kubernetes.Clientset) error {
+	p.Info("Running check for self signed cluster web UI certificate expiration.")
+
+	ticker := backoff.NewTicker(&backoff.ExponentialBackOff{
+		InitialInterval: time.Second * 3,
+		Multiplier:      1.5,
+		MaxInterval:     10 * time.Second,
+		MaxElapsedTime:  1 * time.Minute,
+		Clock:           backoff.SystemClock,
+	})
+	defer ticker.Stop()
+
+	for {
+		select {
+		case tm := <-ticker.C:
+			if tm.IsZero() {
+				return trace.ConnectionProblem(nil, "timed out waiting while checking "+
+					"for cluster web UI certificate expiration")
+			}
+			clusterCert, _, err := opsservice.GetClusterCertificate(client)
+			if err != nil {
+				p.WithError(err).Error("Failed to retrieve the cluster web UI certificate from k8s.")
+				continue
+			}
+
+			cert, err := tlsca.ParseCertificatePEM(clusterCert)
+			if err != nil {
+				p.WithError(err).Error("Failed to parse the cluster web UI certificate.")
+				continue
+			}
+
+			if len(cert.Issuer.OrganizationalUnit) == 0 || cert.Issuer.OrganizationalUnit[0] != defaults.SelfSignedCertWebOrg {
+				p.Debug("Skipping expiration check for customer provided cluster web UI certificate.")
+				return nil
+			}
+
+			periodBeforeExpire := time.Now().Add(defaults.CertRenewBeforeExpiry)
+			if periodBeforeExpire.After(cert.NotAfter) {
+				p.Infof("The cluster web UI certificate with SerialNumber=%v will expire soon."+
+					" Replacing it with a new one...", cert.SerialNumber)
+
+				cert, err := utils.GenerateSelfSignedCert([]string{p.cfg.Hostname})
+				if err != nil {
+					p.WithError(err).Error("Failed to generate self signed cluster web UI certificate.")
+					continue
+				}
+
+				parsedCert, err := tlsca.ParseCertificatePEM(cert.Cert)
+				if err != nil {
+					p.WithError(err).Error("Failed to parse the self signed cluster web UI certificate.")
+					continue
+				}
+
+				err = opsservice.UpdateClusterCertificate(client, ops.UpdateCertificateRequest{
+					AccountID:   defaults.SystemAccountID,
+					SiteDomain:  defaults.SystemAccountOrg,
+					Certificate: cert.Cert,
+					PrivateKey:  cert.PrivateKey,
+				})
+				if err != nil {
+					p.WithError(err).Error("Failed to update the self signed cluster web UI certificate.")
+					continue
+				}
+
+				p.Infof("Successfully rotated the self-signed cluster web UI certificate. "+
+					"New cert ExpirationDate:%v, SerialNumber=%v", parsedCert.NotAfter, parsedCert.SerialNumber)
+			}
+
+			return nil
+		case <-ctx.Done():
+			return trace.Wrap(ctx.Err())
+		}
+	}
+}
 
 // runCertificateWatch updates process on p.certificateCh
 // when changes to cluster certificates are detected
