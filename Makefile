@@ -31,7 +31,7 @@ ETCD_VER := v2.3.7
 VERSION_TAG := 0.0.2
 
 # Current versions of the dependencies
-CURRENT_TAG := $(shell ./version.sh)
+CURRENT_TAG ?= $(shell ./version.sh)
 GRAVITY_TAG := $(CURRENT_TAG)
 # Abbreviated gravity version to use as a build ID
 GRAVITY_VERSION := $(CURRENT_TAG)
