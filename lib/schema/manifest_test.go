@@ -641,3 +641,68 @@ extensions:
 			Commentf("Test case %v failed", tc))
 	}
 }
+
+func (s *ManifestSuite) TestWithBaseCopiesAndDoesnotMutate(c *C) {
+	bytes := []byte(`apiVersion: cluster.gravitational.io/v2
+kind: Cluster
+metadata:
+  name: app
+  resourceVersion: 0.0.1
+systemOptions:
+  runtime:
+    version: 0.0.1
+  docker:
+    storageDriver: overlay2
+  baseImage: quay.io/gravitational/planet:0.0.3
+`)
+	m, err := ParseManifestYAMLNoValidate(bytes)
+	c.Assert(err, IsNil)
+
+	c.Assert(m, compare.DeepEquals, &Manifest{
+		Header: Header{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       KindCluster,
+				APIVersion: ClusterGroupVersion.String(),
+			},
+			Metadata: Metadata{
+				Name:            "app",
+				ResourceVersion: "0.0.1",
+				Repository:      defaults.SystemAccountOrg,
+				Namespace:       "default",
+			},
+		},
+		SystemOptions: &SystemOptions{
+			Docker: &Docker{
+				StorageDriver: "overlay2",
+			},
+			Runtime: &Runtime{
+				Locator: loc.Runtime.WithLiteralVersion("0.0.1"),
+			},
+			BaseImage: "quay.io/gravitational/planet:0.0.3",
+		},
+	})
+	m2 := m.WithBase(loc.Runtime.WithLiteralVersion("0.0.2"))
+	c.Assert(m2, compare.DeepEquals, Manifest{
+		Header: Header{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       KindCluster,
+				APIVersion: ClusterGroupVersion.String(),
+			},
+			Metadata: Metadata{
+				Name:            "app",
+				ResourceVersion: "0.0.1",
+				Repository:      defaults.SystemAccountOrg,
+				Namespace:       "default",
+			},
+		},
+		SystemOptions: &SystemOptions{
+			Docker: &Docker{
+				StorageDriver: "overlay2",
+			},
+			BaseImage: "quay.io/gravitational/planet:0.0.3",
+			Runtime: &Runtime{
+				Locator: loc.Runtime.WithLiteralVersion("0.0.2"),
+			},
+		},
+	})
+}

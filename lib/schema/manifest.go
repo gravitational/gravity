@@ -172,9 +172,14 @@ func (m *Manifest) WithBase(locator loc.Locator) Manifest {
 	if m.BaseImage != nil {
 		result.BaseImage = &BaseImage{Locator: locator}
 	}
-	result.SystemOptions = &SystemOptions{
-		Runtime: &Runtime{Locator: locator},
+	if m.SystemOptions != nil {
+		systemOptions := *m.SystemOptions
+		result.SystemOptions = &systemOptions
+	} else {
+		result.SystemOptions = &SystemOptions{}
 	}
+	// Reset the runtime with the specified locator
+	result.SystemOptions.Runtime = &Runtime{Locator: locator}
 	return result
 }
 
