@@ -169,7 +169,17 @@ func (m *Manifest) SetBase(locator loc.Locator) {
 // WithBase returns a copy of this manifest with the specified base application
 func (m *Manifest) WithBase(locator loc.Locator) Manifest {
 	result := *m
-	result.SetBase(locator)
+	if m.BaseImage != nil {
+		result.BaseImage = &BaseImage{Locator: locator}
+	}
+	if m.SystemOptions != nil {
+		systemOptions := *m.SystemOptions
+		result.SystemOptions = &systemOptions
+	} else {
+		result.SystemOptions = &SystemOptions{}
+	}
+	// Reset the runtime with the specified locator
+	result.SystemOptions.Runtime = &Runtime{Locator: locator}
 	return result
 }
 

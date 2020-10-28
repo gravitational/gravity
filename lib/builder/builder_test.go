@@ -203,6 +203,89 @@ metadata:
 	c.Assert(err, check.IsNil)
 }
 
+func (s *InstallerBuilderSuite) TestBuildInstallerWithMixedVersionPackages(c *check.C) {
+	if !checkDockerAvailable() {
+		c.Skip("test requires docker")
+	}
+
+	var (
+		manifestBytes = []byte(`
+apiVersion: cluster.gravitational.io/v2
+kind: Cluster
+metadata:
+  name: app
+  resourceVersion: "0.0.1"
+installer:
+  flavors:
+    items:
+      - name: "one"
+        nodes:
+          - profile: master
+            count: 1
+      - name: "three"
+        nodes:
+          - profile: master
+            count: 1
+          - profile: node
+            count: 2
+nodeProfiles:
+  - name: master
+    labels:
+      node-role.kubernetes.io/master: "true"
+  - name: node
+    labels:
+      node-role.kubernetes.io/node: "true"
+systemOptions:
+  runtime:
+    version: 0.0.0+latest # use meta version as a placeholder
+`)
+	)
+
+	// setup
+	remoteEnv := newEnviron(c)
+	defer remoteEnv.Close()
+	buildEnv := newEnviron(c)
+	defer buildEnv.Close()
+	appDir := c.MkDir()
+	manifestPath := filepath.Join(appDir, defaults.ManifestFileName)
+
+	version.Init("0.0.1")
+	writeFile(manifestPath, manifestBytes, c)
+	outputPath := filepath.Join(buildEnv.StateDir, "app.tar")
+	b, err := New(Config{
+		FieldLogger:      logrus.WithField(trace.Component, "test"),
+		Progress:         utils.DiscardProgress,
+		Env:              buildEnv,
+		OutPath:          outputPath,
+		ManifestPath:     manifestPath,
+		SkipVersionCheck: true,
+		Repository:       "repository",
+		Syncer:           NewPackSyncer(remoteEnv.Packages, remoteEnv.Apps),
+	})
+	c.Assert(err, check.IsNil)
+
+	// Simulate a workflow with packages/applications of mixed versions
+	// and at least one version available above the requested runtime version
+	createRuntimeApplicationWithVersion(buildEnv, "0.0.1", c)
+	createRuntimeApplicationWithVersion(buildEnv, "0.0.2", c)
+	createApp(manifestBytes, buildEnv.Apps, c)
+
+	// verify
+	err = b.Build(context.TODO())
+	c.Assert(err, check.IsNil)
+
+	unpackDir := c.MkDir()
+	tarballEnv := unpackTarball(outputPath, unpackDir, c)
+	defer tarballEnv.Close()
+
+	verifyPackages(tarballEnv.Packages, []string{
+		"gravitational.io/planet:0.0.1",
+		"gravitational.io/app:0.0.1",
+		"gravitational.io/gravity:0.0.1",
+		"gravitational.io/kubernetes:0.0.1",
+	}, c)
+}
+
 func (s *InstallerBuilderSuite) TestBuildInstallerWithPackagesInCache(c *check.C) {
 	if !checkDockerAvailable() {
 		c.Skip("test requires docker")
