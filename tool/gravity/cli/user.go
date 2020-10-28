@@ -163,7 +163,7 @@ func inviteUser(env *localenv.LocalEnvironment, username string, roles []string,
 		return trace.Wrap(err)
 	}
 
-	fmt.Printf("Signup token has been created and is valid for %v  Share this URL with the user:\n%v\n\nNOTE: make sure this URL is accessible!\n",
+	fmt.Printf("Signup token has been created and is valid for %v. Share this URL with the user:\n%v\n\nNOTE: make sure this URL is accessible!\n",
 		ttl.String(), inviteToken.URL)
 
 	return nil
