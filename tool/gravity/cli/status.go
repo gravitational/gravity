@@ -94,11 +94,7 @@ func status(env *localenv.LocalEnvironment, printOptions printOptions) error {
 			env.Println("Failed to query Gravity cluster status. Running additional checks")
 		}
 
-		localSite, err := clusterOperator.GetLocalSite(ctx)
-		if err != nil {
-			log.WithError(err).Warn("Failed to get local site.")
-		}
-		failed = checks.RunBasicChecks(ctx, nil, localSite.App.Manifest.OpenEBSEnabled())
+		failed = checks.RunBasicChecks(ctx, nil)
 	}
 
 	clusterStatus := clusterStatus{*status, failed}

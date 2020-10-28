@@ -104,6 +104,8 @@ message ValidateOptions {
     repeated string dns_addrs = 2;
     // DnsPort specifies the DNS port for coredns
     int32 dns_port = 3;
+    // CheckOpenebs is used to specify if OpenEBS related checks should be performed
+    bool check_openebs = 4;
 }
 
 // Docker groups Docker-relevant attributes to validate

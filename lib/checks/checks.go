@@ -109,9 +109,9 @@ type ManifestValidator struct {
 
 // RunBasicChecks executes a set of additional health checks.
 // Returns list of failed health probes.
-func RunBasicChecks(ctx context.Context, options *validationpb.ValidateOptions, openEBSEnabled bool) (failed []*agentpb.Probe) {
+func RunBasicChecks(ctx context.Context, options *validationpb.ValidateOptions) (failed []*agentpb.Probe) {
 	var reporter health.Probes
-	basicCheckers(options, openEBSEnabled).Check(ctx, &reporter)
+	basicCheckers(options).Check(ctx, &reporter)
 
 	for _, p := range reporter {
 		if p.Status == agentpb.Probe_Failed {
@@ -206,7 +206,7 @@ func ValidateLocal(ctx context.Context, req LocalChecksRequest) (*LocalChecksRes
 		return nil, trace.Wrap(err)
 	}
 
-	failedProbes = append(failedProbes, RunBasicChecks(ctx, req.Options, req.Manifest.OpenEBSEnabled())...)
+	failedProbes = append(failedProbes, RunBasicChecks(ctx, req.Options)...)
 	if len(failedProbes) == 0 {
 		return &LocalChecksResult{}, nil
 	}
@@ -821,17 +821,21 @@ func currentServerTime(currentTime, heartbeatTime, serverTime time.Time) time.Ti
 	return serverTime.Add(delta)
 }
 
-func basicCheckers(options *validationpb.ValidateOptions, openEBSEnabled bool) health.Checker {
+func basicCheckers(options *validationpb.ValidateOptions) health.Checker {
+	checkISCSI := false
+	if options != nil && options.CheckOpenebs {
+		checkISCSI = true
+	}
 	checkers := []health.Checker{
 		monitoring.NewIPForwardChecker(),
 		monitoring.NewBridgeNetfilterChecker(),
 		monitoring.NewMayDetachMountsChecker(),
-		monitoring.DefaultProcessChecker(openEBSEnabled),
+		monitoring.DefaultProcessChecker(checkISCSI),
 		defaultPortChecker(options),
 		monitoring.DefaultBootConfigParams(),
 	}
 
-	if openEBSEnabled {
+	if checkISCSI {
 		checkers = append(checkers, monitoring.NewISCSIChecker())
 	}
 

@@ -540,9 +540,10 @@ func (i *InstallConfig) RunLocalChecks() error {
 		Docker:   i.Docker,
 		Mounts:   i.Mounts,
 		Options: &validationpb.ValidateOptions{
-			VxlanPort: int32(i.VxlanPort),
-			DnsAddrs:  i.DNSConfig.Addrs,
-			DnsPort:   int32(i.DNSConfig.Port),
+			VxlanPort:    int32(i.VxlanPort),
+			DnsAddrs:     i.DNSConfig.Addrs,
+			DnsPort:      int32(i.DNSConfig.Port),
+			CheckOpenebs: app.Manifest.OpenEBSEnabled(),
 		},
 		AutoFix: true,
 	}))

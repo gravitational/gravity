@@ -150,7 +150,7 @@ func (_ *Server) Validate(ctx context.Context, req *pb.ValidateRequest) (resp *p
 			StorageDriver: req.Docker.StorageDriver,
 		}
 		failedProbes, err = v.Validate(ctx)
-		failedProbes = append(failedProbes, checks.RunBasicChecks(ctx, req.Options, manifest.OpenEBSEnabled())...)
+		failedProbes = append(failedProbes, checks.RunBasicChecks(ctx, req.Options)...)
 	} else {
 		failedProbes, err = validateManifest(ctx, v)
 		failedProbes = append(failedProbes, runLocalChecks(ctx)...)
