@@ -57,7 +57,12 @@ def robotest() {
   runRobotest = (env.RUN_ROBOTEST == 'run')
   stage('build robotest images') {
     if (runRobotest) {
-      sh 'make -C e/assets/robotest images'
+      // Use a shared cache outside the build directory, to avoid repeat downloads and improve
+      // build time. For more info see:
+      //   https://github.com/gravitational/gravity/blob/4c7ac3ada1e3fb50cf8afdd1d1a4ed4d34bb75d0/assets/robotest/README.md#local-caching
+      withEnv(["ROBOTEST_CACHE_ROOT=/var/lib/gravity/robotest-cache"]) {
+        sh 'make -C e/assets/robotest images'
+      }
     } else {
       echo 'skipping building robotest images'
     }
