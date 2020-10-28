@@ -35,6 +35,7 @@ message ShutdownRequest {
     bool completed = 1;
 }
 
+// CommandArgs defines the command execution configuration
 message CommandArgs {
     // Args specify the command to run
     repeated string args = 1;
@@ -43,6 +44,8 @@ message CommandArgs {
     bool self_command = 2;
     // Env sets the environment for the command
     map<string,string> env = 3;
+    // WorkingDir specifies the working directory for the process
+    string working_dir = 4;
 }
 
 // Message is a union of various subtypes of event stream

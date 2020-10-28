@@ -55,7 +55,7 @@ type LocalEnvironmentFactory interface {
 	// NewUpdateEnv creates a new environment for update operations
 	NewUpdateEnv() (*localenv.LocalEnvironment, error)
 	// NewJoinEnv creates a new environment for join operations
-	NewJoinEnv() (*localenv.LocalEnvironment, error)
+	NewJoinEnv(stateDir string) (*localenv.LocalEnvironment, error)
 }
 
 // NewLocalEnv returns an instance of the local environment.
@@ -107,13 +107,9 @@ func (g *Application) NewUpdateEnv() (*localenv.LocalEnvironment, error) {
 }
 
 // NewJoinEnv returns an instance of local environment where join-specific data is stored
-func (g *Application) NewJoinEnv() (*localenv.LocalEnvironment, error) {
+func (g *Application) NewJoinEnv(stateDir string) (*localenv.LocalEnvironment, error) {
 	const failImmediatelyIfLocked = -1
-	stateDir, err := state.GravityInstallDir()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	err = os.MkdirAll(stateDir, defaults.SharedDirMask)
+	err := os.MkdirAll(stateDir, defaults.SharedDirMask)
 	if err != nil {
 		return nil, trace.ConvertSystemError(err)
 	}

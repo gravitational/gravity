@@ -268,7 +268,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.BackupCmd.Timeout = g.BackupCmd.Flag("timeout", "Active deadline for the backup job, in Go duration format (e.g. 30s, 5m, etc.). If not specified, the value from manifest is used. If that is not specified as well, the default value of 20 minutes is used.").Duration()
 	g.BackupCmd.Follow = g.BackupCmd.Flag("follow", "Output backup job logs to the stdout.").Bool()
 
-	g.CheckCmd.CmdClause = g.Command("check", "Execute preflight checks")
+	g.CheckCmd.CmdClause = g.Command("check", "Execute pre-flight checks")
 	g.CheckCmd.ManifestFile = g.CheckCmd.Arg("manifest", "Cluster image manifest file").Default(defaults.ManifestFileName).String()
 	g.CheckCmd.Profile = g.CheckCmd.Flag("profile", "Name of the node profile to check against").Short('p').String()
 	g.CheckCmd.AutoFix = g.CheckCmd.Flag("autofix", "Attempt to fix discovered problems on a best-effort basis").Bool()

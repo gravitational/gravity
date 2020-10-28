@@ -18,13 +18,17 @@ package cli
 
 import (
 	"context"
+	"os"
 
+	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/install"
 	"github.com/gravitational/gravity/lib/install/client"
+	installerclient "github.com/gravitational/gravity/lib/install/client"
 	"github.com/gravitational/gravity/lib/install/reconfigure"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops/resources"
 	"github.com/gravitational/gravity/lib/ops/resources/gravity"
+	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/system/signals"
 	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/gravity/lib/utils/cli"
@@ -71,8 +75,9 @@ func reconfigureCluster(env *localenv.LocalEnvironment, config InstallConfig, co
 			return nil
 		}
 	}
-	env.PrintStep("Starting advertise address reconfiguration to %v", config.AdvertiseAddr)
-	strategy, err := newReconfiguratorConnectStrategy(env, config, cli.CommandArgs{
+	env.PrintStep("Starting reconfiguration to advertise address %v", config.AdvertiseAddr)
+	baseDir := utils.Exe.WorkingDir
+	strategy, err := newReconfiguratorConnectStrategy(env, baseDir, config, cli.CommandArgs{
 		Parser: cli.ArgsParserFunc(parseArgs),
 	})
 	if err != nil {
@@ -81,12 +86,12 @@ func reconfigureCluster(env *localenv.LocalEnvironment, config InstallConfig, co
 	err = InstallerClient(env, client.Config{
 		ConnectStrategy: strategy,
 		Lifecycle: &client.AutomaticLifecycle{
-			Aborter:   AborterForMode(config.Mode, env),
-			Completer: InstallerCompleteOperation(env),
+			Aborter:   AborterForMode(strategy.ServiceName, config.Mode, env),
+			Completer: InstallerCompleteOperation(strategy.ServiceName, env),
 		},
 	})
 	if utils.IsContextCancelledError(err) {
-		if err := InstallerCleanup(); err != nil {
+		if err := InstallerCleanup(strategy.ServiceName); err != nil {
 			logrus.WithError(err).Error("Failed to clean up installer.")
 		}
 		return trace.Wrap(err, "reconfigurator interrupted")
@@ -94,12 +99,13 @@ func reconfigureCluster(env *localenv.LocalEnvironment, config InstallConfig, co
 	return trace.Wrap(err)
 }
 
-func startReconfiguratorFromService(env *localenv.LocalEnvironment, config InstallConfig, state *localenv.LocalState) error {
+func startReconfiguratorFromService(env *localenv.LocalEnvironment, config InstallConfig, localState *localenv.LocalState) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	interrupt := signals.NewInterruptHandler(ctx, cancel, InterruptSignals)
 	defer interrupt.Close()
 	go TerminationHandler(interrupt, env)
-	listener, err := NewServiceListener()
+	socketPath := state.GravityInstallerSocketPath(utils.Exe.WorkingDir)
+	listener, err := NewServiceListener(socketPath)
 	if err != nil {
 		return trace.Wrap(utils.NewPreconditionFailedError(err))
 	}
@@ -112,7 +118,7 @@ func startReconfiguratorFromService(env *localenv.LocalEnvironment, config Insta
 	if err != nil {
 		return trace.Wrap(utils.NewPreconditionFailedError(err))
 	}
-	installer, err := newReconfigurator(ctx, installerConfig, state)
+	installer, err := newReconfigurator(ctx, installerConfig, localState)
 	if err != nil {
 		return trace.Wrap(utils.NewPreconditionFailedError(err))
 	}
@@ -140,6 +146,37 @@ func newReconfigurator(ctx context.Context, config *install.Config, state *local
 		return nil, trace.Wrap(err)
 	}
 	return installer, nil
+}
+
+// newReconfiguratorConnectStrategy returns a new service connect strategy
+// for the agent executing the cluster reconfiguration operation.
+func newReconfiguratorConnectStrategy(
+	env *localenv.LocalEnvironment,
+	baseDir string,
+	config InstallConfig,
+	commandArgs cli.CommandArgs,
+) (strategy *installerclient.InstallerStrategy, err error) {
+	installedPath, err := install.InstallBinaryIntoDefaultLocation(log)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	commandArgs.FlagsToAdd = append(commandArgs.FlagsToAdd,
+		cli.NewBoolFlag("from-service", true),
+	)
+	commandArgs.FlagsToRemove = append(commandArgs.FlagsToRemove, "from-service")
+	args, err := commandArgs.Update(os.Args[1:])
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	args = append([]string{installedPath}, args...)
+	return &installerclient.InstallerStrategy{
+		Args:           args,
+		Validate:       func() error { return nil },
+		ApplicationDir: baseDir,
+		SocketPath:     state.GravityInstallerSocketPath(baseDir),
+		ServicePath:    defaults.SystemUnitPath(defaults.GravityRPCInstallerServiceName),
+		ServiceName:    defaults.GravityRPCInstallerServiceName,
+	}, nil
 }
 
 // validateReconfiguration determines if reconfiguration can be launched on this
