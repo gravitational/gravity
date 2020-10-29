@@ -23,6 +23,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -291,7 +292,7 @@ func (i *InstallConfig) CheckAndSetDefaults(validator resources.Validator) (err 
 		i.FieldLogger = log.WithField(trace.Component, "installer")
 	}
 	if i.StateDir == "" {
-		i.StateDir = utils.Exe.WorkingDir
+		i.StateDir = filepath.Dir(utils.Exe.Path)
 		i.WithField("dir", i.StateDir).Info("Set installer read state directory.")
 	}
 	i.writeStateDir = state.GravityInstallDir()
