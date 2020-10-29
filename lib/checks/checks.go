@@ -826,11 +826,18 @@ func basicCheckers(options *validationpb.ValidateOptions) health.Checker {
 	if options != nil && options.CheckOpenebs {
 		checkISCSI = true
 	}
+
+	processesToCheck := monitoring.DefaultProcessesToCheck
+
+	if checkISCSI {
+		processesToCheck = append(processesToCheck, "iscsid")
+	}
+
 	checkers := []health.Checker{
 		monitoring.NewIPForwardChecker(),
 		monitoring.NewBridgeNetfilterChecker(),
 		monitoring.NewMayDetachMountsChecker(),
-		monitoring.DefaultProcessChecker(checkISCSI),
+		monitoring.DefaultProcessChecker(processesToCheck),
 		defaultPortChecker(options),
 		monitoring.DefaultBootConfigParams(),
 	}
