@@ -71,5 +71,5 @@ func ReinstallOneshot(req systemservice.NewServiceRequest) error {
 
 func installOneshot(services systemservice.ServiceManager, req systemservice.NewServiceRequest) error {
 	req.ServiceSpec.Type = OneshotService
-	return trace.Wrap(install(services, req))
+	return trace.Wrap(reinstall(services, req))
 }

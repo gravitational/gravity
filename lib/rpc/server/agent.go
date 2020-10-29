@@ -25,6 +25,7 @@ import (
 	pb "github.com/gravitational/gravity/lib/rpc/proto"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/gravitational/trace"
@@ -44,12 +45,8 @@ func (srv *agentServer) Command(req *pb.CommandArgs, stream pb.Agent_CommandServ
 	log.Debug("Request received.")
 
 	if req.SelfCommand {
-		gravityPath, err := os.Executable()
-		if err != nil {
-			return trace.ConvertSystemError(err)
-		}
-
-		req.Args = append([]string{gravityPath}, req.Args...)
+		req.Args = append([]string{utils.Exe.Path}, req.Args...)
+		req.WorkingDir = utils.Exe.WorkingDir
 	}
 
 	return trace.Wrap(srv.command(*req, stream, log))
@@ -174,7 +171,7 @@ func (srv *agentServer) Abort(ctx context.Context, req *types.Empty) (resp *type
 }
 
 func (srv *agentServer) command(req pb.CommandArgs, stream pb.Agent_CommandServer, log *log.Entry) (err error) {
-	err = srv.commandExecutor.exec(stream.Context(), stream, req.Args, makeRemoteLogger(stream, srv.FieldLogger))
+	err = srv.commandExecutor.exec(stream.Context(), stream, req, makeRemoteLogger(stream, srv.FieldLogger))
 	if err != nil {
 		stream.Send(pb.ErrorToMessage(err)) //nolint:errcheck
 		log.WithError(err).Warn("Command completed with error.")

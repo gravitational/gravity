@@ -82,6 +82,7 @@ func IsStatus(serviceName string, statuses ...string) error {
 }
 
 // Reinstall installs a systemd service specified with req.
+// It will attempt to remove the previous service with the name specified in request.
 // The operation is non-blocking and returns without waiting for service to start
 func Reinstall(req systemservice.NewServiceRequest) error {
 	if err := req.CheckAndSetDefaults(); err != nil {
@@ -91,7 +92,7 @@ func Reinstall(req systemservice.NewServiceRequest) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return trace.Wrap(install(services, req))
+	return trace.Wrap(reinstall(services, req))
 }
 
 // Name returns the unit name part of path
@@ -99,24 +100,16 @@ func Name(path string) string {
 	return filepath.Base(path)
 }
 
-func install(services systemservice.ServiceManager, req systemservice.NewServiceRequest) error {
+func reinstall(services systemservice.ServiceManager, req systemservice.NewServiceRequest) error {
 	if req.ServiceSpec.User == "" {
 		req.ServiceSpec.User = constants.RootUIDString
 	}
 	logger := log.WithField("service", req.Name)
-	err := services.DisableService(systemservice.DisableServiceRequest{
+	err := services.UninstallService(systemservice.UninstallServiceRequest{
 		Name: Name(req.Name),
 	})
 	if err != nil && !systemservice.IsUnknownServiceError(err) {
-		logger.WithError(err).Warn("Failed to disable.")
-	}
-	err = services.StopService(Name(req.Name))
-	if err != nil && !systemservice.IsUnknownServiceError(err) {
-		logger.WithError(err).Warn("Failed to stop.")
-	}
-	err = removeLingeringUnitFile(req.Name)
-	if err != nil && !systemservice.IsUnknownServiceError(err) {
-		logger.WithError(err).Warn("Failed to remove lingering unit files.")
+		logger.WithError(err).Warn("Failed to uninstall.")
 	}
 	return trace.Wrap(services.InstallService(req))
 }

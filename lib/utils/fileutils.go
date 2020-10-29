@@ -275,12 +275,18 @@ func CopyReader(dst string, src io.Reader) error {
 // Uses CopyReaderWithPerms for its implementation - see function documentation
 // for details of operation
 func CopyFileWithPerms(dst, src string, perm os.FileMode) error {
+	return CopyFileWithOptions(dst, src, PermOption(perm))
+}
+
+// CopyFileWithOptions copies the contents from src to dst atomically.
+// Applies specified options to the target path
+func CopyFileWithOptions(dst, src string, options ...FileOption) error {
 	in, err := os.Open(src)
 	if err != nil {
 		return trace.ConvertSystemError(err)
 	}
 	defer in.Close()
-	return CopyReaderWithPerms(dst, in, perm)
+	return CopyReaderWithOptions(dst, in, options...)
 }
 
 // CopyExecutable copies the provided reader to the specified destination and

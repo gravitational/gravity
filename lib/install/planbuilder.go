@@ -145,7 +145,7 @@ func (b *PlanBuilder) AddBootstrapSELinuxPhase(plan *storage.OperationPlan) {
 func (b *PlanBuilder) AddChecksPhase(plan *storage.OperationPlan) {
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
 		ID:          phases.ChecksPhase,
-		Description: "Execute preflight checks",
+		Description: "Execute pre-flight checks",
 		Requires:    []string{phases.InitPhase},
 		Data: &storage.OperationPhaseData{
 			Package: &b.Application.Package,

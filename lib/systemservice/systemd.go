@@ -76,8 +76,6 @@ WantedBy={{.WantedBy}}
 {{end}}
 `
 
-	systemdUnitFileSuffix = ".service"
-
 	systemdServiceDelimiter = "__"
 )
 
@@ -106,7 +104,7 @@ type systemdUnit struct {
 }
 
 func parseUnit(unit string) *loc.Locator {
-	unit = strings.TrimSuffix(unit, systemdUnitFileSuffix)
+	unit = strings.TrimSuffix(unit, ServiceSuffix)
 	parts := strings.Split(unit, systemdServiceDelimiter)
 	if len(parts) != 4 {
 		return nil
@@ -122,7 +120,7 @@ func parseUnit(unit string) *loc.Locator {
 func (u *systemdUnit) serviceName() string {
 	return strings.Join([]string{
 		servicePrefix, u.pkg.Repository, u.pkg.Name, u.pkg.Version},
-		systemdServiceDelimiter) + systemdUnitFileSuffix
+		systemdServiceDelimiter) + ServiceSuffix
 }
 
 func (s *systemdManager) installService(service serviceTemplate, req NewServiceRequest) error {
@@ -132,16 +130,15 @@ func (s *systemdManager) installService(service serviceTemplate, req NewServiceR
 	if _, ok := service.Environment[defaults.PathEnv]; !ok {
 		service.Environment[defaults.PathEnv] = defaults.PathEnvVal
 	}
-	f, err := os.Create(unitPath(req.Name))
-	if err != nil {
-		return trace.Wrap(err,
-			"error creating systemd unit file at %v", unitPath(req.Name))
-	}
-	defer f.Close()
 
-	err = serviceUnitTemplate.Execute(f, service)
-	if err != nil {
-		return trace.Wrap(err, "error rendering template")
+	if err := writeUnitFile(unitPath(req.Name), service); err != nil {
+		return trace.Wrap(err)
+	}
+
+	if req.ReloadConfiguration {
+		if out, err := invokeSystemctl("daemon-reload"); err != nil {
+			return trace.Wrap(err, "failed to reload manager's configuration").AddField("output", out)
+		}
 	}
 
 	if err := s.EnableService(req.Name); err != nil {
@@ -260,7 +257,7 @@ func (s *systemdManager) ListPackageServices(opts ListServiceOptions) ([]Package
 	if opts.Pattern != "" {
 		args = append(args, opts.Pattern)
 	}
-	out, err := invokeSystemctl(args...)
+	out, err := invokeSystemctlQuiet(args...)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to list-units: %v", out)
 	}
@@ -360,7 +357,7 @@ func (s *systemdManager) UninstallService(req UninstallServiceRequest) error {
 	out, err := invokeSystemctl("stop", serviceName)
 	if err != nil {
 		if IsUnknownServiceError(err) {
-			logger.WithError(err).Warn("Failed to find service.")
+			logger.Info("Service not found.")
 			return nil
 		}
 		return trace.Wrap(err, out)
@@ -371,17 +368,19 @@ func (s *systemdManager) UninstallService(req UninstallServiceRequest) error {
 		return trace.Wrap(err, out)
 	}
 
+	// Returns 0 if the unit is in failed state, non-zero otherwise
+	// See https://www.freedesktop.org/software/systemd/man/systemctl.html#is-failed%20PATTERN%E2%80%A6
 	out, err = invokeSystemctl("is-failed", serviceName)
 	status := strings.TrimSpace(out)
 
-	if err == nil {
+	if exitCode := utils.ExitStatusFromError(err); exitCode != nil && *exitCode != 0 {
 		unitPath := unitPath(req.Name)
 		logger = logger.WithField("path", unitPath)
 		if errDelete := os.Remove(unitPath); errDelete != nil {
 			if !os.IsNotExist(errDelete) {
 				logger.WithError(errDelete).Warn("Failed to remove service unit file.")
 			} else {
-				logger.Info("Service unit files does not exist.")
+				logger.Info("Service unit file does not exist.")
 			}
 		} else {
 			logger.Info("Removed service unit file.")
@@ -395,7 +394,7 @@ func (s *systemdManager) UninstallService(req UninstallServiceRequest) error {
 	case ServiceStatusFailed:
 		return trace.CompareFailed("error stopping service %q: %s", serviceName, out)
 	default:
-		if err != nil && !IsUnknownServiceError(err) {
+		if err != nil {
 			// Results of `systemctl is-failed` are purely informational
 			// beyond the state values we already check above
 			logger.WithFields(logrus.Fields{
@@ -445,10 +444,16 @@ func (s *systemdManager) RestartService(name string) error {
 func (s *systemdManager) StatusService(name string) (string, error) {
 	out, err := invokeSystemctl("is-active", name)
 	out = strings.TrimSpace(out)
+	// TODO(dmitri): this is a dubious behavior at least w.r.t `unknown` state
+	// which one might consider actually unknown. In fact, the `is-active` predicate
+	// _always_ returns a state for a (arbitrary, even non-existent) service, and a
+	// non-zero exit code if the status is not 'active'
+	//
 	// do not report error in case if status is known
 	switch out {
-	case ServiceStatusActive, ServiceStatusFailed, ServiceStatusActivating,
-		ServiceStatusUnknown, ServiceStatusInactive:
+	case ServiceStatusActive, ServiceStatusInactive,
+		ServiceStatusFailed, ServiceStatusUnknown,
+		ServiceStatusActivating, ServiceStatusDeactivating:
 		return out, nil
 	}
 	return out, err
@@ -484,11 +489,31 @@ func (s *systemdManager) supportsTasksAccounting() bool {
 	return version >= defaults.SystemdTasksMinVersion
 }
 
+func invokeSystemctlQuiet(args ...string) (string, error) {
+	out, err := exec.Command("systemctl", append(args, "--no-pager")...).CombinedOutput()
+	return string(out), trace.Wrap(err)
+}
+
 func invokeSystemctl(args ...string) (string, error) {
 	var out bytes.Buffer
 	cmd := exec.Command("systemctl", append(args, "--no-pager")...)
 	err := utils.ExecL(cmd, &out, log)
 	return out.String(), trace.Wrap(err)
+}
+
+func writeUnitFile(path string, service serviceTemplate) error {
+	f, err := os.Create(path)
+	if err != nil {
+		return trace.Wrap(err,
+			"error creating systemd unit file at %v", path)
+	}
+	defer f.Close()
+
+	err = serviceUnitTemplate.Execute(f, service)
+	if err != nil {
+		return trace.Wrap(err, "error rendering template")
+	}
+	return nil
 }
 
 // unitPath returns the default path for the systemd unit with the given name.
