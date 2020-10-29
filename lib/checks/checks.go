@@ -828,7 +828,6 @@ func basicCheckers(options *validationpb.ValidateOptions) health.Checker {
 	}
 
 	processesToCheck := monitoring.DefaultProcessesToCheck
-
 	if checkISCSI {
 		processesToCheck = append(processesToCheck, "iscsid")
 	}
@@ -841,7 +840,6 @@ func basicCheckers(options *validationpb.ValidateOptions) health.Checker {
 		defaultPortChecker(options),
 		monitoring.DefaultBootConfigParams(),
 	}
-
 	if checkISCSI {
 		checkers = append(checkers, monitoring.NewISCSIChecker())
 	}
