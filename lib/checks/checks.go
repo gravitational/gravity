@@ -67,6 +67,13 @@ var (
 	log = logrus.WithField(trace.Component, "checks")
 )
 
+const (
+	failedISCSIProbeMessage = "Found conflicting systemd service: %v. " +
+		"If this service is present on the host it will interfere " +
+		"with OpenEBS enabled applications running in Gravity." +
+		"Please stop and mask this service and try again."
+)
+
 // New creates a new checker for the specified list of servers using given
 // set of server information payloads and the specified interface for
 // running remote commands.
@@ -859,7 +866,7 @@ func basicCheckers(options *validationpb.ValidateOptions) health.Checker {
 		monitoring.DefaultBootConfigParams(),
 	}
 	if checkISCSI {
-		checkers = append(checkers, monitoring.NewISCSIChecker())
+		checkers = append(checkers, monitoring.NewISCSIChecker(failedISCSIProbeMessage))
 	}
 
 	return monitoring.NewCompositeChecker("local", checkers)
