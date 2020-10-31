@@ -47,7 +47,25 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var log = logrus.WithField(trace.Component, "checks")
+var (
+	// DefaultProcessesToCheck is the default list of processes to verify that are not running on the host.
+	// This list should be passed to the DefaultProcessChecker function.
+	DefaultProcessesToCheck = []string{
+		"dockerd",
+		"docker-current", // Docker daemon name when installed from RHEL repos.
+		"lxd",
+		"coredns",
+		"kube-apiserver",
+		"kube-scheduler",
+		"kube-controller-manager",
+		"kube-proxy",
+		"kubelet",
+		"planet",
+		"teleport",
+	}
+
+	log = logrus.WithField(trace.Component, "checks")
+)
 
 // New creates a new checker for the specified list of servers using given
 // set of server information payloads and the specified interface for
@@ -827,7 +845,7 @@ func basicCheckers(options *validationpb.ValidateOptions) health.Checker {
 		checkISCSI = true
 	}
 
-	processesToCheck := monitoring.DefaultProcessesToCheck
+	processesToCheck := DefaultProcessesToCheck
 	if checkISCSI {
 		processesToCheck = append(processesToCheck, "iscsid")
 	}
