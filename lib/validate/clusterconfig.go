@@ -52,8 +52,6 @@ func ClusterConfiguration(existing, update clusterconfig.Interface) error {
 		return trace.BadParameter("cannot set cloud configuration: cluster does not have cloud provider configured")
 	}
 
-	// subnetModified will be set to true if any Kubernetes subnet configuration has been modified
-	var subnetModified bool
 	podCIDRString := globalConfig.PodCIDR
 	serviceCIDRString := globalConfig.ServiceCIDR
 	podSubnetSizeString := globalConfig.PodSubnetSize
@@ -68,7 +66,6 @@ func ClusterConfiguration(existing, update clusterconfig.Interface) error {
 				newGlobalConfig.PodCIDR)
 		}
 		podCIDRString = newGlobalConfig.PodCIDR
-		subnetModified = true
 	}
 
 	if newGlobalConfig.ServiceCIDR != "" {
@@ -81,18 +78,14 @@ func ClusterConfiguration(existing, update clusterconfig.Interface) error {
 				newGlobalConfig.ServiceCIDR)
 		}
 		serviceCIDRString = newGlobalConfig.ServiceCIDR
-		subnetModified = true
 	}
 
 	if newGlobalConfig.PodSubnetSize != "" {
 		podSubnetSizeString = newGlobalConfig.PodSubnetSize
-		subnetModified = true
 	}
 
-	if subnetModified {
-		if err := KubernetesSubnetsFromStrings(podCIDRString, serviceCIDRString, podSubnetSizeString); err != nil {
-			return trace.Wrap(err)
-		}
+	if err := KubernetesSubnetsFromStrings(podCIDRString, serviceCIDRString, podSubnetSizeString); err != nil {
+		return trace.Wrap(err)
 	}
 
 	return nil
