@@ -47,7 +47,18 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+const (
+	failedISCSIProbeMessage = "Found conflicting systemd service: %v. " +
+		"If this service is present on the host it will interfere " +
+		"with OpenEBS enabled applications running in Gravity." +
+		"Please stop and mask this service and try again."
+)
+
 var (
+	fmtISCSICheckFailedMsg = func(unitName string) string {
+		return fmt.Sprintf(failedISCSIProbeMessage, unitName)
+	}
+
 	// DefaultProcessesToCheck is the default list of processes to verify that are not running on the host.
 	// This list should be passed to the DefaultProcessChecker function.
 	DefaultProcessesToCheck = []string{
@@ -65,13 +76,6 @@ var (
 	}
 
 	log = logrus.WithField(trace.Component, "checks")
-)
-
-const (
-	failedISCSIProbeMessage = "Found conflicting systemd service: %v. " +
-		"If this service is present on the host it will interfere " +
-		"with OpenEBS enabled applications running in Gravity." +
-		"Please stop and mask this service and try again."
 )
 
 // New creates a new checker for the specified list of servers using given
@@ -866,7 +870,7 @@ func basicCheckers(options *validationpb.ValidateOptions) health.Checker {
 		monitoring.DefaultBootConfigParams(),
 	}
 	if checkISCSI {
-		checkers = append(checkers, monitoring.NewISCSIChecker(failedISCSIProbeMessage))
+		checkers = append(checkers, monitoring.NewISCSIChecker(fmtISCSICheckFailedMsg))
 	}
 
 	return monitoring.NewCompositeChecker("local", checkers)
