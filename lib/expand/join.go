@@ -722,10 +722,10 @@ func (p *Peer) runLocalChecks(ctx operationContext) error {
 		Docker:   ctx.Cluster.ClusterState.Docker,
 		Mounts:   mountsFromProto(p.PeerConfig.RuntimeConfig.Mounts),
 		Options: &validationpb.ValidateOptions{
-			VxlanPort:    int32(installOperation.GetVars().OnPrem.VxlanPort),
-			DnsAddrs:     ctx.Cluster.DNSConfig.Addrs,
-			DnsPort:      int32(ctx.Cluster.DNSConfig.Port),
-			CheckOpenebs: ctx.Cluster.App.Manifest.OpenEBSEnabled(),
+			VxlanPort: int32(installOperation.GetVars().OnPrem.VxlanPort),
+			DnsAddrs:  ctx.Cluster.DNSConfig.Addrs,
+			DnsPort:   int32(ctx.Cluster.DNSConfig.Port),
+			Openebs:   ctx.Cluster.App.Manifest.OpenEBSEnabled(),
 		},
 		AutoFix: true,
 	})
