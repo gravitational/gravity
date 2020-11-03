@@ -73,6 +73,12 @@ func KubernetesSubnetsFromStrings(podCIDR, serviceCIDR, podSubnetSize string) er
 		if err != nil || subnetSize < 1 || subnetSize > 32 {
 			return trace.BadParameter("invalid pod subnet size: %q", podSubnetSize)
 		}
+
+		// The minimum subnet size accepted by flannel is /28:
+		// https://github.com/gravitational/flannel/blob/master/subnet/config.go#L70-L74
+		if subnetSize > 28 {
+			return trace.BadParameter("pod subnet is too small. Minimum useful network prefix is /28: %q", podSubnetSize)
+		}
 	}
 
 	// make sure the subnets do not overlap
