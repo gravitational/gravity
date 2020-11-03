@@ -667,6 +667,9 @@ func (r configCollection) WriteText(w io.Writer) error {
 	if len(config.PodCIDR) != 0 {
 		fmt.Fprintf(t, "Pod IP Range:\t%v\n", config.PodCIDR)
 	}
+	if len(config.PodSubnetSize) != 0 {
+		fmt.Fprintf(t, "Pod subnet size:\t%v\n", config.PodSubnetSize)
+	}
 	if len(config.ServiceCIDR) != 0 {
 		fmt.Fprintf(t, "Service IP Range:\t%v\n", config.ServiceCIDR)
 	}
