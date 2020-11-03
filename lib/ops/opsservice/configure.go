@@ -1403,6 +1403,9 @@ func (s *site) addClusterConfig(config clusterconfig.Interface, overrideArgs map
 	if globalConfig.PodCIDR != "" {
 		overrideArgs["pod-subnet"] = globalConfig.PodCIDR
 	}
+	if globalConfig.PodSubnetSize != "" {
+		overrideArgs["pod-subnet-size"] = globalConfig.PodSubnetSize
+	}
 	if globalConfig.ServiceNodePortRange != "" {
 		args = append(args,
 			fmt.Sprintf("--service-node-portrange=%v", globalConfig.ServiceNodePortRange),
