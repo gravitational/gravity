@@ -714,7 +714,7 @@ func updateSymlinks(planetPath string, logger log.Logger) (err error) {
 	}
 
 	// update helm3 symlink
-	helmPath := filepath.Join(planetPath, constants.PlanetRootfs, defaults.Helm3Script)
+	helmPath = filepath.Join(planetPath, constants.PlanetRootfs, defaults.Helm3Script)
 	for _, path := range []string{defaults.Helm3Bin, defaults.Helm3BinAlternate} {
 		out, err = exec.Command("ln", "-sfT", helmPath, path).CombinedOutput()
 		if err == nil {
