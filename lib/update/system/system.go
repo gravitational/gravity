@@ -718,11 +718,11 @@ func updateSymlinks(planetPath string, logger log.Logger) (err error) {
 	for _, path := range []string{defaults.Helm3Bin, defaults.Helm3BinAlternate} {
 		out, err = exec.Command("ln", "-sfT", helmPath, path).CombinedOutput()
 		if err == nil {
-			logger.Infof("Updated helm symlink: %v -> %v.", path, helmPath)
+			logger.Infof("Updated helm 3 symlink: %v -> %v.", path, helmPath)
 			break
 		}
 		logger.WithError(err).WithField("output", string(out)).Warn(
-			"Failed to update helm symlink.")
+			"Failed to update helm 3 symlink.")
 	}
 
 	// update kube config environment variable

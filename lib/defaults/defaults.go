@@ -353,7 +353,7 @@ const (
 	HelmBinAlternate = "/writable/bin/helm"
 
 	// Helm3Bin is the location of helm 3 binary inside planet
-	Helm3Bin = "/usr/bin/helm"
+	Helm3Bin = "/usr/bin/helm3"
 
 	// Helm3Script is the location of the helm 3 script, which the host's helm
 	// is symlinked to, inside the planet
