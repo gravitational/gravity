@@ -11,7 +11,7 @@ Find the latest Open Source Gravity releases at [Gravity Downloads](https://grav
 
 | Version             | Latest Patch | LTS | Release Date         | Latest Patch Date    | End of Support *        | Kubernetes Version   | Teleport Version |
 | ------------------- | ------------ | --- | -------------------- | -------------------- | ----------------------- | -------------------- | ---------------- |
-| [7.0](#70-releases) | 7.0.23       | Yes | April 3, 2020        | October 26, 2020   | July 9, 2022            | 1.17.9               | 3.2.14-gravity   |
+| [7.0](#70-releases) | 7.0.24       | Yes | April 3, 2020        | November 2, 2020   | July 9, 2022            | 1.17.9               | 3.2.14-gravity   |
 | [6.1](#61-releases) | 6.1.44       | Yes | August 2, 2019       | October 22, 2020   | November 10, 2021       | 1.15.12              | 3.2.14-gravity   |
 | [5.5](#55-releases) | 5.5.55       | Yes | March 8, 2019        | October 21, 2020   | March 8, 2021           | 1.13.11              | 3.0.7-gravity    |
 
@@ -50,6 +50,19 @@ extend updates past End of Support through customer agreements if required.
 # Release Notes
 
 ## 7.0 Releases
+
+### 7.0.24 LTS (November 2, 2020)
+
+#### Improvements
+
+* [Allow customization of number of CoreDNS worker instances.](https://gravitational.com/gravity/docs/config/#customize-number-of-dns-instances-on-workers) ([#2299](https://github.com/gravitational/gravity/pull/2299)) ([rigging#83](https://github.com/gravitational/rigging/pull/83)).
+
+#### Bugfixes
+
+* Fix an issue when install is triggered outside of the extracted directory ([#2295](https://github.com/gravitational/gravity/pull/2295)).
+* Fix an issue where tele build could select the wrong runtime version ([#2247](https://github.com/gravitational/gravity/pull/2247)).
+* Fix an issue where self signed certificates are not accepted by latest MacOS requirements ([#2279](https://github.com/gravitational/gravity/pull/2279)).
+
 
 ### 7.0.23 LTS (October 26, 2020)
 
