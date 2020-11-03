@@ -112,9 +112,8 @@ func KubernetesSubnets(podNet, serviceNet *net.IPNet, podSubnetSize int) (err er
 	if podSubnetSize != 0 {
 		// make sure the subnet size is smaller than the pod network CIDR range
 		if podSubnetSize < ones {
-			return trace.BadParameter("pod subnet size cannot be larger than the network CIDR range").
-				AddField("pod-subnet-size", podSubnetSize).
-				AddField("pod-subnet", podNet.String())
+			return trace.BadParameter("pod subnet size (%d) cannot be larger than the network CIDR range (%q)",
+				podSubnetSize, podNet.String())
 		}
 	}
 	return nil
