@@ -352,6 +352,17 @@ const (
 	// systems where /usr/bin is not writable
 	HelmBinAlternate = "/writable/bin/helm"
 
+	// Helm3Bin is the location of helm 3 binary inside planet
+	Helm3Bin = "/usr/bin/helm"
+
+	// Helm3Script is the location of the helm 3 script, which the host's helm
+	// is symlinked to, inside the planet
+	Helm3Script = "/usr/local/bin/helm3"
+
+	// Helm3BinAlternate is the alternative location of helm 3 symlink on
+	// systems where /usr/bin is not writable
+	Helm3BinAlternate = "/writable/bin/helm3"
+
 	// PlanetBin is the default location of planet binary
 	PlanetBin = "/usr/bin/planet"
 
