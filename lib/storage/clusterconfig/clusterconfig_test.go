@@ -168,7 +168,8 @@ spec:
   global:
     featureGates:
       FeatureA: true
-      FeatureB: false`,
+      FeatureB: false
+    podSubnetSize: "26"`,
 			resource: &Resource{
 				Kind:    storage.KindClusterConfiguration,
 				Version: "v1",
@@ -182,6 +183,7 @@ spec:
 							"FeatureA": true,
 							"FeatureB": false,
 						},
+						PodSubnetSize: "26",
 					},
 				},
 			},
@@ -232,8 +234,9 @@ func (*S) TestMergesClusterConfiguration(c *C) {
 						},
 					},
 					Global: Global{
-						PodCIDR:     "10.244.0.0/16",
-						ServiceCIDR: "100.10.0.0/16",
+						PodCIDR:       "10.244.0.0/16",
+						ServiceCIDR:   "100.10.0.0/16",
+						PodSubnetSize: "26",
 						FeatureGates: map[string]bool{
 							"feature1": true,
 							"feature2": false,
@@ -249,8 +252,9 @@ func (*S) TestMergesClusterConfiguration(c *C) {
 						},
 					},
 					Global: Global{
-						PodCIDR:     "10.244.0.0/16",
-						ServiceCIDR: "100.10.0.0/16",
+						PodCIDR:       "10.244.0.0/16",
+						ServiceCIDR:   "100.10.0.0/16",
+						PodSubnetSize: "26",
 						FeatureGates: map[string]bool{
 							"feature1": true,
 							"feature2": false,
@@ -276,6 +280,7 @@ address: 10.0.0.1
 					Global: Global{
 						PodCIDR:        "10.244.0.0/16",
 						ServiceCIDR:    "100.10.0.0/16",
+						PodSubnetSize:  "26",
 						ProxyPortRange: "8080-8081",
 						FeatureGates: map[string]bool{
 							"feature1": true,
@@ -321,6 +326,7 @@ address: 10.0.0.1
 					Global: Global{
 						PodCIDR:        "10.245.0.0/16",
 						ServiceCIDR:    "100.10.0.0/16",
+						PodSubnetSize:  "26",
 						ProxyPortRange: "8080-8081",
 						FeatureGates: map[string]bool{
 							"feature1": true,

@@ -18,6 +18,7 @@ package validate
 
 import (
 	"net"
+	"strconv"
 
 	"github.com/gravitational/trace"
 )
@@ -43,8 +44,9 @@ func NetworkOverlap(ipAddr, subnetCIDR, errMsg string) error {
 
 // KubernetesSubnetsFromStrings makes sure that the provided CIDR ranges are valid and can be used as
 // pod/service Kubernetes subnets
-func KubernetesSubnetsFromStrings(podCIDR, serviceCIDR string) error {
+func KubernetesSubnetsFromStrings(podCIDR, serviceCIDR, podSubnetSize string) error {
 	var podNet, serviceNet *net.IPNet
+	var subnetSize int
 	var err error
 
 	// make sure the pod subnet is valid
@@ -65,28 +67,53 @@ func KubernetesSubnetsFromStrings(podCIDR, serviceCIDR string) error {
 		}
 	}
 
+	// make sure podSubnetSize is valid
+	if podSubnetSize != "" {
+		subnetSize, err = strconv.Atoi(podSubnetSize)
+		if err != nil || subnetSize < 1 || subnetSize > 32 {
+			return trace.BadParameter("invalid pod subnet size: %q", podSubnetSize)
+		}
+
+		// The minimum subnet size accepted by flannel is /28:
+		// https://github.com/gravitational/flannel/blob/master/subnet/config.go#L70-L74
+		if subnetSize > 28 {
+			return trace.BadParameter("pod subnet is too small. Minimum useful network prefix is /28: %q", podSubnetSize)
+		}
+	}
+
 	// make sure the subnets do not overlap
-	return KubernetesSubnets(podNet, serviceNet)
+	return KubernetesSubnets(podNet, serviceNet, subnetSize)
 }
 
 // KubernetesSubnets makes sure that the provided CIDR ranges can be used as
 // pod/service Kubernetes subnets
-func KubernetesSubnets(podNet, serviceNet *net.IPNet) (err error) {
-	if podNet != nil {
-		// make sure the pod subnet is valid
-		// the pod network should be /16 minimum so k8s can allocate /24 to each node
-		ones, _ := podNet.Mask.Size()
-		if ones > 16 {
-			return trace.BadParameter(
-				"pod subnet should be a minimum of /16: %q", podNet.String())
-		}
+func KubernetesSubnets(podNet, serviceNet *net.IPNet, podSubnetSize int) (err error) {
+	if podNet == nil {
+		return nil
 	}
-	if podNet != nil && serviceNet != nil {
+
+	// make sure the pod subnet is valid
+	// the pod network should be /16 minimum so k8s can allocate /24 to each node
+	ones, _ := podNet.Mask.Size()
+	if ones > 16 {
+		return trace.BadParameter(
+			"pod subnet should be a minimum of /16: %q", podNet.String())
+	}
+
+	if serviceNet != nil {
 		// make sure the subnets do not overlap
 		if podNet.Contains(serviceNet.IP) || serviceNet.Contains(podNet.IP) {
 			return trace.BadParameter(
 				"pod subnet %q and service subnet %q should not overlap",
 				podNet.String(), serviceNet.String())
+		}
+	}
+
+	if podSubnetSize != 0 {
+		// make sure the subnet size is smaller than the pod network CIDR range
+		if podSubnetSize < ones {
+			return trace.BadParameter("pod subnet size (%d) cannot be larger than the network CIDR range (%q)",
+				podSubnetSize, podNet.String())
 		}
 	}
 	return nil

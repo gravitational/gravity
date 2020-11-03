@@ -56,6 +56,8 @@ spec:
     proxyPortRange: "0-0"
     # CIDR range for Pods in Cluster
     podCIDR: "10.0.0.0/24"
+    # The size of the Pod subnet allocated to each host
+    podSubnetSize: "26"
     # A set of key=value pairs that describe feature gates for alpha/experimental features
     featureGates:
       AllAlpha: true
