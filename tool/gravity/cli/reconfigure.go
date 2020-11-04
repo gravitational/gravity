@@ -99,7 +99,7 @@ func reconfigureCluster(env *localenv.LocalEnvironment, config InstallConfig, co
 	return trace.Wrap(err)
 }
 
-func startReconfiguratorFromService(env *localenv.LocalEnvironment, config InstallConfig, localState *localenv.LocalState) error {
+func startReconfiguratorFromService(env *localenv.LocalEnvironment, config InstallConfig, localState localenv.LocalState) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	interrupt := signals.NewInterruptHandler(ctx, cancel, InterruptSignals)
 	defer interrupt.Close()
@@ -118,7 +118,7 @@ func startReconfiguratorFromService(env *localenv.LocalEnvironment, config Insta
 	if err != nil {
 		return trace.Wrap(utils.NewPreconditionFailedError(err))
 	}
-	installer, err := newReconfigurator(ctx, installerConfig, localState)
+	installer, err := newReconfigurator(ctx, *installerConfig, localState)
 	if err != nil {
 		return trace.Wrap(utils.NewPreconditionFailedError(err))
 	}
