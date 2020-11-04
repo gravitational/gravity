@@ -30,6 +30,7 @@ import (
 type PlanBuilder struct {
 	// PlanBuilder is the embedded installer plan builder.
 	*install.PlanBuilder
+	runtimePackage loc.Locator
 }
 
 // AddChecksPhase adds the preflight checks phase to the plan.
@@ -132,7 +133,7 @@ func (b *PlanBuilder) AddPodsPhase(plan *storage.OperationPlan) {
 }
 
 // AddRestartPhase adds phase that restarts Teleport and Planet units.
-func (b *PlanBuilder) AddRestartPhase(plan *storage.OperationPlan, runtimePackage loc.Locator) {
+func (b *PlanBuilder) AddRestartPhase(plan *storage.OperationPlan) {
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
 		ID:          phases.RestartPhase,
 		Description: "Restart Gravity services",
@@ -150,7 +151,7 @@ func (b *PlanBuilder) AddRestartPhase(plan *storage.OperationPlan, runtimePackag
 				Description: "Restart Planet",
 				Data: &storage.OperationPhaseData{
 					Server:  &b.Master,
-					Package: &runtimePackage,
+					Package: &b.runtimePackage,
 				},
 			},
 		},

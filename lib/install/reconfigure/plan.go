@@ -69,6 +69,7 @@ func (p *Planner) GetOperationPlan(operator ops.Operator, cluster ops.Site, oper
 			ServiceUser:     p.Cluster.ServiceUser,
 			TeleportPackage: *teleportPackage,
 		},
+		runtimePackage: *runtimePackage,
 	}
 
 	plan := &storage.OperationPlan{
@@ -97,7 +98,7 @@ func (p *Planner) GetOperationPlan(operator ops.Operator, cluster ops.Site, oper
 	builder.AddNodePhase(plan)
 	builder.AddDirectoriesPhase(plan)
 	builder.AddPodsPhase(plan)
-	builder.AddRestartPhase(plan, *runtimePackage)
+	builder.AddRestartPhase(plan)
 	builder.AddGravityPhase(plan)
 	builder.AddClusterPackagesPhase(plan)
 
