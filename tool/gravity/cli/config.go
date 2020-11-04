@@ -384,7 +384,7 @@ func (i *InstallConfig) CheckAndSetDefaults(validator resources.Validator) (err 
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = validate.KubernetesSubnetsFromStrings(i.PodCIDR, i.ServiceCIDR)
+	err = validate.KubernetesSubnetsFromStrings(i.PodCIDR, i.ServiceCIDR, "")
 	if err != nil {
 		return trace.Wrap(err)
 	}
