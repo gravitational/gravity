@@ -84,7 +84,12 @@ func startGravity(env *localenv.LocalEnvironment, confirmed bool) error {
 		}
 	}
 
-	err := checkAdvertiseAddress(env.Packages)
+	nodeAddr, err := env.Backend.GetNodeAddr()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	err = checkAdvertiseAddress(nodeAddr)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -115,7 +120,7 @@ func startGravity(env *localenv.LocalEnvironment, confirmed bool) error {
 }
 
 func findInstalledPackages(packages pack.PackageService) ([]loc.Locator, error) {
-	planet, err := pack.FindInstalledPackage(packages, loc.Planet)
+	planet, err := pack.FindRuntimePackage(packages)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -132,21 +137,7 @@ func findInstalledPackages(packages pack.PackageService) ([]loc.Locator, error) 
 // This helps prevent scenarios when, for example, a node is migrated to
 // another machine and user does not provide a new advertise address to the
 // start command.
-func checkAdvertiseAddress(packages pack.PackageService) error {
-	// Use the runtime package label to determine the current advertise address.
-	locator, err := pack.FindInstalledConfigPackage(packages, loc.Planet)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	envelope, err := packages.ReadPackageEnvelope(*locator)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	advertiseIP := envelope.RuntimeLabels[pack.AdvertiseIPLabel]
-	if advertiseIP == "" {
-		log.Warnf("No %v label on %v.", pack.AdvertiseIPLabel, envelope)
-		return nil
-	}
+func checkAdvertiseAddress(advertiseIP string) error {
 	ifaces, err := systeminfo.NetworkInterfaces()
 	if err != nil {
 		return trace.Wrap(err)

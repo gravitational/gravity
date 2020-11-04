@@ -28,10 +28,11 @@ import (
 )
 
 // NewPlanner returns reconfigure operation plan builder.
-func NewPlanner(getter install.PlanBuilderGetter, cluster storage.Site) *Planner {
+func NewPlanner(getter install.PlanBuilderGetter, cluster storage.Site, role string) *Planner {
 	return &Planner{
 		PlanBuilderGetter: getter,
 		Cluster:           cluster,
+		nodeRole:          role,
 	}
 }
 
@@ -44,6 +45,11 @@ func (p *Planner) GetOperationPlan(operator ops.Operator, cluster ops.Site, oper
 	}
 
 	teleportPackage, err := cluster.App.Manifest.Dependencies.ByName(constants.TeleportPackage)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	runtimePackage, err := cluster.App.Manifest.RuntimePackageForProfileName(p.nodeRole)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -63,6 +69,7 @@ func (p *Planner) GetOperationPlan(operator ops.Operator, cluster ops.Site, oper
 			ServiceUser:     p.Cluster.ServiceUser,
 			TeleportPackage: *teleportPackage,
 		},
+		runtimePackage: *runtimePackage,
 	}
 
 	plan := &storage.OperationPlan{
@@ -104,4 +111,6 @@ type Planner struct {
 	install.PlanBuilderGetter
 	// Cluster is the installed cluster.
 	Cluster storage.Site
+	// nodeRole specifies the node's application role
+	nodeRole string
 }
