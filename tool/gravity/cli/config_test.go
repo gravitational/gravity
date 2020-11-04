@@ -45,6 +45,7 @@ spec:
   global:
     cloudProvider: gce
     serviceCIDR: "100.200.0.0/16"
+    podSubnetSize: "26"
     cloudConfig: |
       [global]
       node-tags=example-cluster
@@ -74,6 +75,7 @@ spec:
 				CloudProvider: "gce",
 				ServiceCIDR:   "100.200.0.0/16",
 				PodCIDR:       "100.96.0.0/16",
+				PodSubnetSize: "26",
 				CloudConfig: `[global]
 node-tags=example-cluster
 multizone="true"
