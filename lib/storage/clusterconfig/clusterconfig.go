@@ -92,7 +92,7 @@ func (r *Resource) SetExpiry(expires time.Time) {
 	r.Metadata.SetExpiry(expires)
 }
 
-// Expires returns expiration time
+// Expiry returns expiration time
 func (r *Resource) Expiry() time.Time {
 	return r.Metadata.Expiry()
 }
@@ -146,6 +146,9 @@ func (r Resource) Merge(other Resource) Resource {
 	}
 	if other.Spec.Global.ServiceCIDR != "" {
 		r.Spec.Global.ServiceCIDR = other.Spec.Global.ServiceCIDR
+	}
+	if other.Spec.Global.PodSubnetSize != "" {
+		r.Spec.Global.PodSubnetSize = other.Spec.Global.PodSubnetSize
 	}
 	if other.Spec.Global.CloudConfig != "" {
 		r.Spec.Global.CloudConfig = other.Spec.Global.CloudConfig
@@ -230,7 +233,7 @@ type Spec struct {
 	Global Global `json:"global,omitempty"`
 }
 
-// ComponentsConfigs groups component configurations
+// ComponentConfigs groups component configurations
 type ComponentConfigs struct {
 	// Kubelet defines kubelet configuration
 	Kubelet *Kubelet `json:"kubelet,omitempty"`
@@ -261,8 +264,12 @@ type ControlPlaneComponent struct {
 
 // IsEmpty determines whether this global configuration is empty.
 func (r Global) IsEmpty() bool {
-	return r.CloudConfig == "" && r.ServiceCIDR == "" && r.PodCIDR == "" &&
-		r.ServiceNodePortRange == "" && r.ProxyPortRange == "" &&
+	return r.CloudConfig == "" &&
+		r.ServiceCIDR == "" &&
+		r.PodCIDR == "" &&
+		r.PodSubnetSize == "" &&
+		r.ServiceNodePortRange == "" &&
+		r.ProxyPortRange == "" &&
 		len(r.FeatureGates) == 0
 }
 
@@ -284,6 +291,8 @@ type Global struct {
 	// PodCIDR defines the CIDR Range for Pods in cluster.
 	// Targets: controller manager, kubelet
 	PodCIDR string `json:"podCIDR,omitempty"`
+	// PodSubnetSize defines the size of the subnet allocated for each host.
+	PodSubnetSize string `json:"podSubnetSize,omitempty"`
 	// ProxyPortRange specifies the range of host ports (beginPort-endPort, single port or beginPort+offset, inclusive)
 	// that may be consumed in order to proxy service traffic.
 	// If (unspecified, 0, or 0-0) then ports will be randomly chosen.
@@ -333,6 +342,7 @@ const specSchemaTemplate = `{
             "serviceNodePortRange": {"type": "string"},
             "poxyPortRange": {"type": "string"},
             "podCIDR": {"type": "string"},
+            "podSubnetSize": {"type": "string"},
             "featureGates": {
               "type": "object",
               "patternProperties": {
