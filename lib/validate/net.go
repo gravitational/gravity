@@ -93,9 +93,9 @@ func KubernetesSubnets(podNet, serviceNet *net.IPNet, podSubnetSize int) (err er
 	}
 
 	// make sure the pod subnet is valid
-	// the pod network should be /16 minimum so k8s can allocate /24 to each node
+	// the pod network should be /22 minimum so k8s can allocate /24 to each node (minimum 3 nodes)
 	ones, _ := podNet.Mask.Size()
-	if ones > 16 {
+	if ones > 22 {
 		return trace.BadParameter(
 			"pod subnet should be a minimum of /16: %q", podNet.String())
 	}
