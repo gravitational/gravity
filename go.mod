@@ -27,7 +27,7 @@ require (
 	github.com/cloudfoundry/gosigar v1.1.1-0.20180406153506-1375283248c3
 	github.com/codahale/hdrhistogram v0.0.0-20161010025455-3a0bb77429bd
 	github.com/containerd/continuity v0.0.0-20200107194136-26c1120b8d41 // indirect
-	github.com/coreos/etcd v3.3.17+incompatible
+	github.com/coreos/etcd v3.3.25+incompatible
 	github.com/coreos/go-semver v0.3.0
 	github.com/coreos/prometheus-operator v0.0.0-00010101000000-000000000000 // indirect
 	github.com/davecgh/go-spew v1.1.1
@@ -170,7 +170,7 @@ replace (
 	github.com/beorn7/perks => github.com/beorn7/perks v0.0.0-20150223135152-b965b613227f
 	github.com/boltdb/bolt => github.com/gravitational/bolt v1.3.2-gravitational
 	github.com/cloudflare/cfssl => github.com/gravitational/cfssl v0.0.0-20180619163912-4b8305b36ad0
-	github.com/coreos/etcd => github.com/coreos/etcd v3.3.10+incompatible
+	github.com/coreos/etcd => github.com/coreos/etcd v3.3.25+incompatible
 	github.com/coreos/go-oidc => github.com/gravitational/go-oidc v0.0.1
 	github.com/coreos/go-semver => github.com/coreos/go-semver v0.2.0
 	github.com/coreos/go-systemd => github.com/coreos/go-systemd v0.0.0-20180202092358-40e2722dffea
@@ -220,7 +220,7 @@ replace (
 	github.com/sirupsen/logrus => github.com/gravitational/logrus v1.4.3
 	github.com/spf13/cobra => github.com/spf13/cobra v0.0.3
 	github.com/stretchr/testify => github.com/stretchr/testify v1.2.2
-	github.com/ugorji/go => github.com/ugorji/go v1.1.7
+	github.com/ugorji/go => github.com/ugorji/go v1.1.1
 	golang.org/x/crypto => golang.org/x/crypto v0.0.0-20181025213731-e84da0312774
 	golang.org/x/oauth2 => golang.org/x/oauth2 v0.0.0-20181003184128-c57b0facaced
 	golang.org/x/sys => golang.org/x/sys v0.0.0-20181026203630-95b1ffbd15a5
