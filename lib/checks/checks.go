@@ -852,7 +852,7 @@ func currentServerTime(currentTime, heartbeatTime, serverTime time.Time) time.Ti
 
 func basicCheckers(options *validationpb.ValidateOptions) health.Checker {
 	checkISCSI := false
-	if options != nil && options.Openebs {
+	if options != nil && options.OpenEBS {
 		checkISCSI = true
 	}
 

@@ -725,7 +725,7 @@ func (p *Peer) runLocalChecks(ctx operationContext) error {
 			VxlanPort: int32(installOperation.GetVars().OnPrem.VxlanPort),
 			DnsAddrs:  ctx.Cluster.DNSConfig.Addrs,
 			DnsPort:   int32(ctx.Cluster.DNSConfig.Port),
-			Openebs:   ctx.Cluster.App.Manifest.OpenEBSEnabled(),
+			OpenEBS:   ctx.Cluster.App.Manifest.OpenEBSEnabled(),
 		},
 		AutoFix: true,
 	})

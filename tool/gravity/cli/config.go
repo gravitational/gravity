@@ -543,7 +543,7 @@ func (i *InstallConfig) RunLocalChecks() error {
 			VxlanPort: int32(i.VxlanPort),
 			DnsAddrs:  i.DNSConfig.Addrs,
 			DnsPort:   int32(i.DNSConfig.Port),
-			Openebs:   app.Manifest.OpenEBSEnabled(),
+			OpenEBS:   app.Manifest.OpenEBSEnabled(),
 		},
 		AutoFix: true,
 	}))

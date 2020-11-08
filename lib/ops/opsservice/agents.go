@@ -196,7 +196,7 @@ func (r *AgentService) Validate(ctx context.Context, key ops.SiteOperationKey, a
 			VxlanPort: int32(operation.Vars().OnPrem.VxlanPort),
 			DnsAddrs:  cluster.DNSConfig.Addrs,
 			DnsPort:   int32(cluster.DNSConfig.Port),
-			Openebs:   manifest.OpenEBSEnabled(),
+			OpenEBS:   manifest.OpenEBSEnabled(),
 		},
 		Docker: &validationpb.Docker{
 			StorageDriver: cluster.ClusterState.Docker.StorageDriver,
