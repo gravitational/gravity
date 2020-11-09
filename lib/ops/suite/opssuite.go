@@ -125,7 +125,7 @@ func (s *OpsSuite) SitesCRUD(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(sites, DeepEquals, []ops.Site{*site})
 
-	operations, err := s.O.GetSiteOperations(siteKey)
+	operations, err := s.O.GetSiteOperations(siteKey, ops.OperationsFilter{})
 	c.Assert(err, IsNil)
 	c.Assert(len(operations), Equals, 0)
 
@@ -159,7 +159,7 @@ func (s *OpsSuite) SitesCRUD(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(reportStream.Close(), IsNil)
 
-	operations, err = s.O.GetSiteOperations(siteKey)
+	operations, err = s.O.GetSiteOperations(siteKey, ops.OperationsFilter{})
 	c.Assert(err, IsNil)
 	c.Assert(operations, DeepEquals, ops.SiteOperations{storage.SiteOperation(*op)})
 

@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/coreos/go-semver/semver"
 	"k8s.io/apimachinery/pkg/version"
 )
 
@@ -210,6 +209,11 @@ const (
 
 	// AgentStatusTimeoutEnvVar is the name of the environment variable that specifies the agent status timeout value
 	AgentStatusTimeoutEnvVar = "GRAVITY_AGENT_STATUS_TIMEOUT"
+
+	// HTTPProxyEnvVar is the HTTP_PROXY environment variable.
+	HTTPProxyEnvVar = "HTTP_PROXY"
+	// HTTPSProxyEnvVar is the HTTPS_PROXY environment variable.
+	HTTPSProxyEnvVar = "HTTPS_PROXY"
 
 	// DockerRegistry is a default name for private docker registry
 	DockerRegistry = "leader.telekube.local:5000"
@@ -765,10 +769,6 @@ var (
 		DockerStorageDriverOverlay,
 		DockerStorageDriverOverlay2,
 	}
-
-	// PlanetMultiRegistryVersion is the planet release starting from which registries
-	// are running on all master nodes
-	PlanetMultiRegistryVersion = semver.New("0.1.55")
 
 	// KubernetesServiceDomainName specifies the domain names of the kubernetes API service
 	KubernetesServiceDomainNames = []string{

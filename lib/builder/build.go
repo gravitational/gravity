@@ -74,6 +74,7 @@ func Build(ctx context.Context, builder *Builder) error {
 		err = builder.SyncPackageCache(ctx, runtimeVersion)
 		if err != nil {
 			if trace.IsNotFound(err) {
+				logrus.WithField("runtime-version", runtimeVersion).WithError(err).Warn("Failed to sync package cache.")
 				return trace.NotFound("base image version %v not found", runtimeVersion)
 			}
 			return trace.Wrap(err)

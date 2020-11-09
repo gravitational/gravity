@@ -68,6 +68,24 @@ func CleanupOperationState(printer utils.Printer, logger log.FieldLogger) error 
 	return trace.Wrap(removePaths(printer, logger, stateDir))
 }
 
+// UninstallPackageServices stops and uninstalls system package services
+func UninstallPackageServices(printer utils.Printer, logger log.FieldLogger) error {
+	svm, err := systemservice.New()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return uninstallPackageServices(svm, printer, logger)
+}
+
+// UninstallAgentServices stops and uninstalls system agent services
+func UninstallAgentServices(printer utils.Printer, logger log.FieldLogger) error {
+	svm, err := systemservice.New()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return uninstallAgentServices(svm)
+}
+
 // UninstallServices stops and uninstalls all relevant services
 func UninstallServices(printer utils.Printer, logger log.FieldLogger) error {
 	svm, err := systemservice.New()
@@ -78,9 +96,7 @@ func UninstallServices(printer utils.Printer, logger log.FieldLogger) error {
 	if err := uninstallPackageServices(svm, printer, logger); err != nil {
 		errors = append(errors, err)
 	}
-	if err := uninstallServices(svm,
-		defaults.GravityRPCInstallerServiceName,
-		defaults.GravityRPCAgentServiceName); err != nil {
+	if err := uninstallAgentServices(svm); err != nil {
 		errors = append(errors, err)
 	}
 	return trace.NewAggregate(errors...)
@@ -116,6 +132,12 @@ func DisableAgentServices(logger log.FieldLogger) error {
 		}
 	}
 	return trace.NewAggregate(errors...)
+}
+
+func uninstallAgentServices(svm systemservice.ServiceManager) error {
+	return uninstallServices(svm,
+		defaults.GravityRPCInstallerServiceName,
+		defaults.GravityRPCAgentServiceName)
 }
 
 func uninstallPackageServices(svm systemservice.ServiceManager, printer utils.Printer, logger log.FieldLogger) error {

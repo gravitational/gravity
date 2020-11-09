@@ -31,6 +31,7 @@ import (
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/rpc"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/storage/keyval"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
@@ -281,7 +282,7 @@ type Config struct {
 	// Operator is the cluster operator service
 	Operator ops.Operator
 	// Backend specifies the cluster backend
-	Backend storage.Backend
+	Backend keyval.EtcdBackend
 	// LocalBackend specifies the authoritative source for operation state
 	LocalBackend storage.Backend
 	// Runner specifies the runner for remote commands

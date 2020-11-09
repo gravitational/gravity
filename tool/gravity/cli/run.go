@@ -70,6 +70,12 @@ func Run(g *Application) (err error) {
 		return trace.Wrap(err)
 	}
 
+	var grpcSeverity, grpcVerbosity string
+	if *g.Debug {
+		grpcSeverity, grpcVerbosity = utils.DebugGRPCEnvironment()
+	}
+	utils.InitGRPCLoggerFromEnvironment(grpcSeverity, grpcVerbosity)
+
 	if *g.UID != -1 || *g.GID != -1 {
 		return SwitchPrivileges(*g.UID, *g.GID)
 	}
@@ -142,20 +148,20 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.ResourceCreateCmd.FullCommand(),
 		g.ResourceRemoveCmd.FullCommand(),
 		g.OpsAgentCmd.FullCommand():
-		utils.InitLogging(*g.SystemLogFile)
+		utils.InitLogging(level, *g.SystemLogFile)
 		// install and join command also duplicate their logs to the file in
 		// the current directory for convenience, unless the user set their
 		// own location
 		switch cmd {
 		case g.InstallCmd.FullCommand(), g.JoinCmd.FullCommand():
 			if *g.SystemLogFile == defaults.GravitySystemLogPath {
-				utils.InitLogging(defaults.GravitySystemLogFile)
+				utils.InitLogging(level, defaults.GravitySystemLogFile)
 			}
 		}
 	default:
 		if systemLogSet {
 			// For all commands, use the system log file explicitly set on command line
-			utils.InitLogging(*g.SystemLogFile)
+			utils.InitLogging(level, *g.SystemLogFile)
 		}
 	}
 
@@ -864,9 +870,12 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 	case g.SystemExportRuntimeJournalCmd.FullCommand():
 		return exportRuntimeJournal(localEnv,
 			*g.SystemExportRuntimeJournalCmd.OutputFile,
-			*g.SystemExportRuntimeJournalCmd.Since)
+			*g.SystemExportRuntimeJournalCmd.Since,
+			*g.SystemExportRuntimeJournalCmd.Export)
 	case g.SystemStreamRuntimeJournalCmd.FullCommand():
-		return streamRuntimeJournal(localEnv, *g.SystemStreamRuntimeJournalCmd.Since)
+		return streamRuntimeJournal(localEnv,
+			*g.SystemStreamRuntimeJournalCmd.Since,
+			*g.SystemStreamRuntimeJournalCmd.Export)
 	case g.GarbageCollectCmd.FullCommand():
 		return garbageCollect(localEnv, *g.GarbageCollectCmd.Manual, *g.GarbageCollectCmd.Confirmed)
 	case g.SystemGCJournalCmd.FullCommand():

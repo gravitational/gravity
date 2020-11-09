@@ -17,6 +17,7 @@ limitations under the License.
 package cli
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -43,10 +44,9 @@ import (
 	"github.com/gravitational/gravity/lib/update"
 	clusterupdate "github.com/gravitational/gravity/lib/update/cluster"
 	"github.com/gravitational/gravity/lib/utils"
-	"github.com/gravitational/gravity/tool/common"
 
-	"github.com/buger/goterm"
 	"github.com/cenkalti/backoff"
+	"github.com/fatih/color"
 	teleclient "github.com/gravitational/teleport/lib/client"
 	"github.com/gravitational/trace"
 	"github.com/gravitational/version"
@@ -455,49 +455,66 @@ func rpcAgentShutdown(env *localenv.LocalEnvironment) error {
 func rpcAgentStatus(env *localenv.LocalEnvironment) error {
 	env.PrintStep("Collecting RPC agent status")
 
-	operator, err := env.SiteOperator()
+	statusList, err := collectAgentStatus(env)
 	if err != nil {
 		return trace.Wrap(err)
+	}
+
+	env.Println(statusList.String())
+
+	if !statusList.AgentsActive() {
+		return trace.BadParameter("some agents are offline")
+	}
+
+	return nil
+}
+
+// collectAgentStatus collects the gravity agent status from all members of the
+// cluster.
+func collectAgentStatus(env *localenv.LocalEnvironment) (statusList rpc.StatusList, err error) {
+	operator, err := env.SiteOperator()
+	if err != nil {
+		return statusList, trace.Wrap(err)
 	}
 
 	creds, err := fsm.GetClientCredentials()
 	if err != nil {
-		return trace.Wrap(err)
+		return statusList, trace.Wrap(err)
 	}
 
 	cluster, err := operator.GetLocalSite(context.TODO())
 	if err != nil {
-		return trace.Wrap(err)
+		return statusList, trace.Wrap(err)
 	}
 
 	timeout, err := utils.GetenvDuration(constants.AgentStatusTimeoutEnvVar)
 	if err != nil {
-		timeout = defaults.AgentStatusTimeout
+		timeout = defaults.AgentRequestTimeout
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	statusList := rpc.CollectAgentStatus(ctx, cluster.ClusterState.Servers, fsm.NewAgentRunner(creds))
+	statusList = rpc.CollectAgentStatus(ctx, cluster.ClusterState.Servers, fsm.NewAgentRunner(creds))
+	return statusList, nil
+}
 
-	var errs []error
-
-	t := goterm.NewTable(0, 10, 5, ' ', 0)
-	common.PrintTableHeader(t, []string{"Hostname", "Address", "Status", "Version"})
-	for _, status := range statusList {
-		fmt.Fprintf(t, "%s\t%s\t%s\t%s\n", status.Hostname, status.Address, status.Status, status.Version)
-		if status.Error != nil {
-			log.WithError(status.Error).Debugf("Failed to collect agent status on %s.", status.Address)
-			errs = append(errs, status.Error)
-		}
+// verifyOrDeployAgents verifies that all agents are active or attempts to
+// re-deploy agents.
+func verifyOrDeployAgents(env *localenv.LocalEnvironment) error {
+	statusList, err := collectAgentStatus(env)
+	if err != nil {
+		env.Println(color.YellowString("Couldn't verify upgrade agents status. If some are offline, they won't be redeployed automatically"))
+		return trace.Wrap(err, "failed to collect agent status")
 	}
-	env.Println(t.String())
-
-	if len(errs) > 0 {
-		log.Warn("Some agents are offline.")
-		return trace.BadParameter("some agents are offline")
+	if statusList.AgentsActive() {
+		return nil
 	}
-
+	if err := rpcAgentDeploy(env, deployOptions{}); err != nil {
+		env.Println(statusList.String())
+		env.Println(color.YellowString("Some agents are offline. Ensure all agents are deployed with `./gravity agent deploy`"))
+		return trace.Wrap(err, "failed to deploy agents")
+	}
 	return nil
 }
 
@@ -528,6 +545,30 @@ func getGravityPackage() loc.Locator {
 		Name:       constants.GravityPackage,
 		Version:    strings.Split(ver.Version, "+")[0],
 	}
+}
+
+// String returns a textual representation of this request suitable
+// for logging
+func (r deployAgentsRequest) String() string {
+	var buf bytes.Buffer
+	fmt.Fprint(&buf, "deploy(cluster=", r.cluster.Domain)
+	if r.leader != nil {
+		fmt.Fprint(&buf, ",leader(addr=", r.leader.AdvertiseIP, ",params=", r.leaderParams, ")")
+	}
+	if r.version != "" {
+		fmt.Fprint(&buf, ",version=", r.version)
+	}
+	if len(r.servers) != 0 {
+		fmt.Fprint(&buf, ",servers(")
+	}
+	for _, s := range r.servers {
+		fmt.Fprint(&buf, "addr=", s.AdvertiseIP, ",")
+	}
+	if len(r.servers) != 0 {
+		fmt.Fprint(&buf, ")")
+	}
+	fmt.Fprint(&buf, ")")
+	return buf.String()
 }
 
 type deployAgentsRequest struct {

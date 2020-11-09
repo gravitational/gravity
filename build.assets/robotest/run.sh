@@ -11,7 +11,7 @@ readonly ROBOTEST_SCRIPT=$(mktemp -d)/runsuite.sh
 
 # a number of environment variables are expected to be set
 # see https://github.com/gravitational/robotest/blob/v2.0.0/suite/README.md
-export ROBOTEST_VERSION=${ROBOTEST_VERSION:-2.0.0}
+export ROBOTEST_VERSION=${ROBOTEST_VERSION:-2.1.0}
 export ROBOTEST_REPO=quay.io/gravitational/robotest-suite:$ROBOTEST_VERSION
 export INSTALLER_URL=$GRAVITY_BUILDDIR/telekube.tar
 export GRAVITY_URL=$GRAVITY_BUILDDIR/gravity
@@ -27,6 +27,13 @@ export GCE_VM=${GCE_VM:-custom-4-8192}
 # Parallelism & retry, tuned for GCE
 export PARALLEL_TESTS=${PARALLEL_TESTS:-4}
 export REPEAT_TESTS=${REPEAT_TESTS:-1}
+export DOCKER_RUN_FLAGS="--rm=true --user=$(id -u):$(id -g)"
+
+# Work around a bug in https://github.com/gravitational/robotest/blob/v2.1.0/docker/suite/run_suite.sh#L21-L30
+# which mounts a volume inside a volume, resulting in docker creating the inner mountpoint
+# owned by root:root if it does not already exist. See https://github.com/gravitational/gravity/issues/1915.
+INSTALLER_BINDIR="$(dirname ${INSTALLER_URL})/bin"
+mkdir -p "${INSTALLER_BINDIR}"
 
 # set SUITE and UPGRADE_VERSIONS
 case $TARGET in

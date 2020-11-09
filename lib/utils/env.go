@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/gravitational/gravity/lib/defaults"
+
 	"github.com/gravitational/trace"
 )
 

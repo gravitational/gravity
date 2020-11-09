@@ -50,11 +50,6 @@ func InitProcess(ctx context.Context, gravityConfig processconfig.Config, newPro
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	err = process.WaitForServiceStarted(ctx, p)
-	if err != nil {
-		shutdown(p)
-		return nil, trace.Wrap(err)
-	}
 	return p, nil
 }
 

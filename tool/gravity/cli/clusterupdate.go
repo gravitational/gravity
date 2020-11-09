@@ -41,11 +41,12 @@ import (
 	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/update"
 	clusterupdate "github.com/gravitational/gravity/lib/update/cluster"
-	"github.com/gravitational/version"
 
 	"github.com/coreos/go-semver/semver"
 	"github.com/fatih/color"
+	"github.com/ghodss/yaml"
 	"github.com/gravitational/trace"
+	"github.com/gravitational/version"
 )
 
 func updateCheck(env *localenv.LocalEnvironment, updatePackage string) error {
@@ -172,6 +173,7 @@ func executeUpdatePhase(env *localenv.LocalEnvironment, environ LocalEnvironment
 	if operation.Type != ops.OperationUpdate {
 		return trace.NotFound("no active update operation found")
 	}
+
 	return executeUpdatePhaseForOperation(env, environ, params, operation.SiteOperation)
 }
 
@@ -181,11 +183,16 @@ func executeUpdatePhaseForOperation(env *localenv.LocalEnvironment, environ Loca
 		return trace.Wrap(err)
 	}
 	defer updateEnv.Close()
-	updater, err := getClusterUpdater(env, updateEnv, operation, params.SkipVersionCheck)
+	updater, err := getClusterUpdater(env, updateEnv, operation)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	defer updater.Close()
+	if !params.SkipVersionCheck {
+		if err := validateBinaryVersion(updater); err != nil {
+			return trace.Wrap(err)
+		}
+	}
 	return executeOrForkPhase(env, updater, params, operation)
 }
 
@@ -196,6 +203,14 @@ const gravityResumeServiceName = "gravity-resume.service"
 // executeOrForkPhase either directly executes the specified operation phase,
 // or launches a one-shot systemd service that executes it in the background.
 func executeOrForkPhase(env *localenv.LocalEnvironment, updater updater, params PhaseParams, operation ops.SiteOperation) error {
+	if params.isResume() {
+		if err := verifyOrDeployAgents(env); err != nil {
+			// Continue operation in case gravity-site or etcd is down. In these
+			// cases the agent status may not be retrievable.
+			log.WithError(err).Warn("Failed to verify or deploy agents.")
+		}
+	}
+
 	// If given the --block flag, we're running as a systemd unit (or a user
 	// requested the command to execute in foreground), so proceed to perform
 	// the command (resume or single phase) directly.
@@ -274,11 +289,16 @@ func rollbackUpdatePhaseForOperation(env *localenv.LocalEnvironment, environ Loc
 		return trace.Wrap(err)
 	}
 	defer updateEnv.Close()
-	updater, err := getClusterUpdater(env, updateEnv, operation, params.SkipVersionCheck)
+	updater, err := getClusterUpdater(env, updateEnv, operation)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	defer updater.Close()
+	if !params.SkipVersionCheck {
+		if err := validateBinaryVersion(updater); err != nil {
+			return trace.Wrap(err)
+		}
+	}
 	err = updater.RollbackPhase(context.TODO(), fsm.Params{
 		PhaseID: params.PhaseID,
 		Force:   params.Force,
@@ -293,7 +313,7 @@ func setUpdatePhaseForOperation(env *localenv.LocalEnvironment, environ LocalEnv
 		return trace.Wrap(err)
 	}
 	defer updateEnv.Close()
-	updater, err := getClusterUpdater(env, updateEnv, operation, true)
+	updater, err := getClusterUpdater(env, updateEnv, operation)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -307,7 +327,7 @@ func completeUpdatePlanForOperation(env *localenv.LocalEnvironment, environ Loca
 		return trace.Wrap(err)
 	}
 	defer updateEnv.Close()
-	updater, err := getClusterUpdater(env, updateEnv, operation, true)
+	updater, err := getClusterUpdater(env, updateEnv, operation)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -321,7 +341,7 @@ func completeUpdatePlanForOperation(env *localenv.LocalEnvironment, environ Loca
 	return nil
 }
 
-func getClusterUpdater(localEnv, updateEnv *localenv.LocalEnvironment, operation ops.SiteOperation, noValidateVersion bool) (*update.Updater, error) {
+func getClusterUpdater(localEnv, updateEnv *localenv.LocalEnvironment, operation ops.SiteOperation) (*update.Updater, error) {
 	clusterEnv, err := localEnv.NewClusterEnvironment()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -354,12 +374,6 @@ func getClusterUpdater(localEnv, updateEnv *localenv.LocalEnvironment, operation
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	if noValidateVersion {
-		return updater, nil
-	}
-	if err := validateBinaryVersion(updater); err != nil {
-		return nil, trace.Wrap(err)
-	}
 	return updater, nil
 }
 
@@ -374,7 +388,43 @@ func (r *clusterInitializer) validatePreconditions(localEnv *localenv.LocalEnvir
 	if err := r.checkTiller(localEnv, updateApp.Manifest); err != nil {
 		return trace.Wrap(err)
 	}
+	if err := r.checkRuntimeEnvironment(localEnv, cluster, operator); err != nil {
+		return trace.Wrap(err)
+	}
 	r.updateLoc = updateApp.Package
+	return nil
+}
+
+func (r *clusterInitializer) checkRuntimeEnvironment(env *localenv.LocalEnvironment, cluster ops.Site, operator ops.Operator) error {
+	runtimeEnv, err := operator.GetClusterEnvironmentVariables(cluster.Key())
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if err := runtimeEnv.CheckAndSetDefaults(); err != nil {
+		log.WithError(err).Error("Runtime environment variables validation failed.")
+		if r.force {
+			env.PrintStep(color.YellowString("Runtime environment variables validation failed: %v", err))
+			return nil
+		}
+		bytes, marshalErr := yaml.Marshal(runtimeEnv)
+		if marshalErr != nil {
+			return trace.Wrap(err)
+		}
+		return trace.BadParameter(`There was an issue detected with runtime environment variables:
+
+    %q
+
+This may cause problems during the upgrade. Please review configured environment
+variables using "gravity resource get runtimeenvironment" command and update it
+appropriately before proceeding with the upgrade:
+
+%s
+See https://gravitational.com/gravity/docs/config/#runtime-environment-variables
+for more information on managing runtime environment variables.
+
+This warning can be bypassed by providing a --force flag to the upgrade command.`, err, bytes)
+	}
+	log.Info("Runtime environment variables are valid.")
 	return nil
 }
 

@@ -9,7 +9,7 @@
 # - make install  : build via `go install`. The output goes into GOPATH/bin/
 # - make clean    : remove the build output and artifacts
 #
-TOP := $(dir $(CURDIR)/$(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST)))
+TOP := $(realpath $(dir $(CURDIR)/$(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST))))
 
 OPS_URL ?=
 
@@ -42,19 +42,19 @@ RELEASE_OUT ?=
 TELEPORT_TAG = 3.2.13
 # TELEPORT_REPOTAG adapts TELEPORT_TAG to the teleport tagging scheme
 TELEPORT_REPOTAG := v$(TELEPORT_TAG)
-PLANET_TAG := 6.1.33-$(K8S_VER_SUFFIX)
+PLANET_TAG := 6.1.43-$(K8S_VER_SUFFIX)
 PLANET_BRANCH := $(PLANET_TAG)
 K8S_APP_TAG := $(GRAVITY_TAG)
 TELEKUBE_APP_TAG := $(GRAVITY_TAG)
 WORMHOLE_APP_TAG := $(GRAVITY_TAG)
-LOGGING_APP_TAG ?= 6.0.6
-MONITORING_APP_TAG ?= 6.0.13
+LOGGING_APP_TAG ?= 6.0.7
+MONITORING_APP_TAG ?= 6.0.16
 DNS_APP_TAG = 6.1.0
 BANDWAGON_TAG ?= 6.0.1
 RBAC_APP_TAG := $(GRAVITY_TAG)
 # IMPORTANT: When updating tiller version, DO NOT FORGET to bump TILLER_APP_TAG as well!
-TILLER_VERSION = 2.14.3
-TILLER_APP_TAG = 6.1.0
+TILLER_VERSION = 2.15.2
+TILLER_APP_TAG = 6.1.1
 # URI of Wormhole container for default install
 WORMHOLE_IMG ?= quay.io/gravitational/wormhole:0.3.3
 # set this to true if you want to use locally built planet packages
@@ -150,14 +150,10 @@ TELEKUBE_OUT := $(GRAVITY_BUILDDIR)/telekube.tar
 TF_PROVIDER_GRAVITY_OUT := $(GRAVITY_BUILDDIR)/terraform-provider-gravity
 TF_PROVIDER_GRAVITYENTERPRISE_OUT := $(GRAVITY_BUILDDIR)/terraform-provider-gravityenterprise
 
-GRAVITY_DIR := /var/lib/gravity
-GRAVITY_ASSETS_DIR := /usr/local/share/gravity
-
 LOCAL_OPSCENTER_HOST ?= opscenter.localhost.localdomain
-LOCAL_OPSCENTER_DIR := $(GRAVITY_DIR)/opscenter
-LOCAL_ETCD_DIR := $(GRAVITY_DIR)/etcd
 LOCAL_OPS_URL := https://$(LOCAL_OPSCENTER_HOST):33009
-LOCAL_STATE_DIR ?= $(LOCAL_OPSCENTER_DIR)/read
+
+LOCAL_STATE_DIR ?= $(GRAVITY_BUILDDIR)/state
 
 # Build artifacts published to S3
 GRAVITY_PUBLISH_TARGETS := $(GRAVITY_OUT) \
@@ -169,8 +165,6 @@ GRAVITY_PUBLISH_TARGETS := $(GRAVITY_OUT) \
 	$(RBAC_APP_OUT) \
 	$(TELEKUBE_APP_OUT) \
 	$(TILLER_APP_OUT)
-
-TELEPORT_DIR = /var/lib/teleport
 
 GRAVITY_EXTRA_OPTIONS ?=
 
@@ -191,11 +185,13 @@ USER := $(shell echo $${SUDO_USER:-$$USER})
 TEST_ETCD ?= false
 TEST_K8S ?= false
 
+GODEP_TAG ?= v0.5.4
+
 # grpc
-PROTOC_VER ?= 3.7.1
+PROTOC_VER ?= 3.10.0
 PROTOC_PLATFORM := linux-x86_64
-GOGO_PROTO_TAG ?= v1.2.1
-GRPC_GATEWAY_TAG ?= v1.8.5
+GOGO_PROTO_TAG ?= v1.3.0
+GRPC_GATEWAY_TAG ?= v1.11.3
 
 BINARIES ?= tele gravity terraform-provider-gravity
 TF_PROVIDERS ?= terraform-provider-gravity
@@ -614,48 +610,6 @@ wizard-gen:
 	gravity ops create-wizard --ops-url=$(LOCAL_OPS_URL) gravitational.io/telekube:0.0.0+latest /tmp/telekube
 
 #
-# robotest-installer builds an installer tarball for use in robotest
-# Resulting installer URL is written to a properies file specified with BUILDPROPS
-#
-.PHONY: robotest-installer
-robotest-installer: TMPDIR := $(shell mktemp -d)
-robotest-installer: BUILDPROPS ?= build.properties
-robotest-installer: LOCAL_STATE_DIR := $(TMPDIR)/state
-robotest-installer: EXPORT_DIR := $(LOCAL_STATE_DIR)/export
-robotest-installer: EXPORT_APP_TARBALL := $(EXPORT_DIR)/app.tar.gz
-robotest-installer: ROBOTEST_APP_PACKAGE ?= $(TELEKUBE_APP_PKG)
-robotest-installer: ROBOTEST_APP_PACKAGE_SRCDIR ?= $(TOP)/assets/telekube
-robotest-installer: ROBO_BUCKET_URL = s3://builds.gravitational.io/robotest
-robotest-installer: ROBO_GRAVITY_BUCKET := $(ROBO_BUCKET_URL)/gravity/$(GRAVITY_VERSION)
-robotest-installer: INSTALLER_FILE := $(subst /,-,$(subst :,-,$(ROBOTEST_APP_PACKAGE)))-$(GRAVITY_VERSION)-installer.tar.gz
-robotest-installer: INSTALLER_URL := $(ROBO_BUCKET_URL)/$(INSTALLER_FILE)
-robotest-installer: robotest-publish-gravity
-robotest-installer:
-	# Reset properties file
-	@> $(BUILDPROPS)
-	@mkdir -p $(TMPDIR)/state/export
-	@$(MAKE) packages LOCAL_STATE_DIR=$(LOCAL_STATE_DIR)
-	@$(GRAVITY_BUILDDIR)/gravity package export \
-		--state-dir=$(LOCAL_STATE_DIR) \
-		$(ROBOTEST_APP_PACKAGE) \
-		$(EXPORT_APP_TARBALL)
-	@tar xvf $(EXPORT_APP_TARBALL) -C $(EXPORT_DIR)/ --strip-components=1 resources/app.yaml
-	@$(GRAVITY_BUILDDIR)/tele --debug build \
-		--state-dir=$(LOCAL_STATE_DIR) \
-		$(EXPORT_DIR)/app.yaml -o $(INSTALLER_FILE)
-	aws s3 cp --region us-east-1 $(INSTALLER_FILE) $(INSTALLER_URL)
-	# Jenkins: downstream job configuration
-	echo "ROBO_INSTALLER_URL=$(INSTALLER_URL)" >> $(BUILDPROPS)
-	echo "GRAVITY_VERSION=$(GRAVITY_VERSION)" >> $(BUILDPROPS)
-	@rm -rf $(TMPDIR)
-
-.PHONY: robotest-publish-gravity
-robotest-publish-gravity:
-	aws s3 cp --region us-east-1 $(GRAVITY_BUILDDIR)/gravity \
-		$(ROBO_GRAVITY_BUCKET)/ \
-		--metadata version=$(GRAVITY_VERSION)
-
-#
 # number of environment variables are expected to be set
 # see https://github.com/gravitational/robotest/blob/master/suite/README.md
 #
@@ -666,10 +620,6 @@ robotest-run-suite:
 .PHONY: robotest-run-nightly
 robotest-run-nightly:
 	./build.assets/robotest/run.sh nightly $(shell pwd)/upgrade_from
-
-.PHONY: robotest-installer-ready
-robotest-installer-ready:
-	mv $(GRAVITY_BUILDDIR)/telekube.tar $(GRAVITY_BUILDDIR)/telekube_ready.tar
 
 .PHONY: dev
 dev: goinstall
@@ -763,6 +713,22 @@ validate-deps:
 	$(MAKE) fix-logrus
 	$(eval VENDOR_UNTRACKED := $(shell git status --porcelain vendor))
 	@test -z "$(VENDOR_UNTRACKED)" || (echo "failed to recreate vendor from scratch and match it to git:\n $(VENDOR_UNTRACKED)" ; exit 1)
+
+#
+# this is a temporary target until we upgrade k8s.io packages
+# to use fvbommel/sortorder.
+# https://github.com/fvbommel/util/issues/6
+#
+.PHONY: dep-ensure
+dep-ensure:
+	dep version
+	dep ensure -v
+	dep status -v
+	$(MAKE) fix-sortorder fix-logrus
+
+.PHONY: fix-sortorder
+fix-sortorder:
+	find vendor -name '*.go' -type f -print0 | xargs -0 sed -i 's/vbom.ml\/util/github.com\/fvbommel/g'
 
 .PHONY: fix-logrus
 fix-logrus:

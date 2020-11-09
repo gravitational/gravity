@@ -141,6 +141,10 @@ func newInstallerConfig(ctx context.Context, env *localenv.LocalEnvironment, con
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	err = wizard.WaitForOperator(ctx)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	installerConfig, err := config.NewInstallerConfig(env, wizard, process)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -471,8 +475,9 @@ func agent(env *localenv.LocalEnvironment, config agentConfig) error {
 			ServiceSpec: systemservice.ServiceSpec{
 				StartCommand: strings.Join(command, " "),
 			},
-			NoBlock: true,
-			Name:    config.serviceName,
+			NoBlock:             true,
+			ReloadConfiguration: true,
+			Name:                config.serviceName,
 		}
 		log.WithField("req", req).Info("Installing service with req.")
 		err := service.ReinstallOneshot(req)

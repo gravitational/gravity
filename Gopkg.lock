@@ -490,17 +490,31 @@
   revision = "edc3ab29cdff8694dd6feb85cfeb4b5f1b38ed9c"
 
 [[projects]]
-  digest = "1:48ce17256f3a5287a906117191da0a91c7c1b237f0b7876068c2b54383ec6bfe"
+  digest = "1:102cb8e90ec4799bf7f4fe37387f9b67f7e577429641b447c37afa8cd0f9c1be"
   name = "github.com/docker/docker"
   packages = [
+    "api/types/blkiodev",
+    "api/types/container",
+    "api/types/filters",
+    "api/types/mount",
+    "api/types/network",
+    "api/types/registry",
+    "api/types/strslice",
+    "api/types/swarm",
+    "api/types/swarm/runtime",
+    "api/types/versions",
+    "errdefs",
     "pkg/archive",
     "pkg/fileutils",
+    "pkg/homedir",
     "pkg/idtools",
     "pkg/ioutils",
+    "pkg/jsonmessage",
     "pkg/longpath",
     "pkg/mount",
     "pkg/namesgenerator",
     "pkg/pools",
+    "pkg/stdcopy",
     "pkg/system",
     "pkg/term",
     "pkg/term/windows",
@@ -508,6 +522,14 @@
   pruneopts = "UT"
   revision = "2adf434ca69614dfc897dd0acf29018e5590a732"
   source = "github.com/gravitational/moby"
+
+[[projects]]
+  digest = "1:ade935c55cd6d0367c843b109b09c9d748b1982952031414740750fdf94747eb"
+  name = "github.com/docker/go-connections"
+  packages = ["nat"]
+  pruneopts = "UT"
+  revision = "7395e3f8aa162843a74ed6d48e79627d9792ac55"
+  version = "v0.4.0"
 
 [[projects]]
   digest = "1:ae192be79d657527fddb53dd6a967f1a51fc7deca458dd5938c5fe7e43a041bf"
@@ -594,33 +616,24 @@
   version = "v1.4.7"
 
 [[projects]]
-  digest = "1:660acdafade72795f03d2ac721bdbaeaa06d8ccf356128b92a9ac099f2fcec3a"
+  digest = "1:dc330df4df161f8049f53fa6f07f984007073a9bb9bf1790a08867d023624e22"
   name = "github.com/fsouza/go-dockerclient"
   packages = [
     ".",
-    "external/github.com/Sirupsen/logrus",
-    "external/github.com/docker/docker/opts",
-    "external/github.com/docker/docker/pkg/archive",
-    "external/github.com/docker/docker/pkg/fileutils",
-    "external/github.com/docker/docker/pkg/homedir",
-    "external/github.com/docker/docker/pkg/idtools",
-    "external/github.com/docker/docker/pkg/ioutils",
-    "external/github.com/docker/docker/pkg/longpath",
-    "external/github.com/docker/docker/pkg/pools",
-    "external/github.com/docker/docker/pkg/promise",
-    "external/github.com/docker/docker/pkg/stdcopy",
-    "external/github.com/docker/docker/pkg/system",
-    "external/github.com/docker/go-units",
-    "external/github.com/gorilla/context",
-    "external/github.com/gorilla/mux",
-    "external/github.com/hashicorp/go-cleanhttp",
-    "external/github.com/opencontainers/runc/libcontainer/user",
-    "external/golang.org/x/net/context",
-    "external/golang.org/x/sys/unix",
     "testing",
   ]
   pruneopts = "UT"
-  revision = "9184fe7a2d7c920b8cdd30faa64fe025f609ef20"
+  revision = "9abb9ed850fd14325e1f2c7d4fa47960baf980eb"
+  version = "v1.6.5"
+
+[[projects]]
+  digest = "1:06271c18f99ea67b3ee8bf029ea916fa025f937e5a5fe60fd706681416edbea9"
+  name = "github.com/fvbommel/sortorder"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "a1ddee917217bbd0691affdca9c88d24d3f5c27d"
+  source = "github.com/fvbommel/sortorder"
+  version = "v1.0.1"
 
 [[projects]]
   digest = "1:9c7c893401418efb15ee4b037cf37947e68db61288219204624d5174efad6930"
@@ -714,7 +727,7 @@
   version = "v4.0.0"
 
 [[projects]]
-  digest = "1:3f7c586d2fd571c4f2e3d313c0638b33b999055de507d5f11fafe27e5adc30db"
+  digest = "1:2f22933a3050e47920c6b494a9c1f56dc46ebc83d7443fc9a32d0a8e26f53b4d"
   name = "github.com/gogo/protobuf"
   packages = [
     "gogoproto",
@@ -724,8 +737,8 @@
     "types",
   ]
   pruneopts = "UT"
-  revision = "636bf0302bc95575d69441b25a2603156ffdddf1"
-  version = "v1.1.1"
+  revision = "0ca988a254f991240804bf9821f3450d87ccbb1b"
+  version = "v1.3.0"
 
 [[projects]]
   branch = "master"
@@ -942,7 +955,7 @@
   version = "v1.0.0"
 
 [[projects]]
-  digest = "1:40d5ce979eaa9dd4bed99bba729047353187e376b23be304c9af94f426605dda"
+  digest = "1:9282374de44d63a6035eaa0dfb89fb9af9166c2010718a11a8d253327e558e9e"
   name = "github.com/gravitational/satellite"
   packages = [
     "agent",
@@ -959,8 +972,8 @@
     "utils",
   ]
   pruneopts = "UT"
-  revision = "bfd2f0e6a954aaa4b28ae8937ad1ffb26c584ff5"
-  version = "6.1.14"
+  revision = "d6669b7a61450d0afa71bc4a823892b0028db17c"
+  version = "6.1.15"
 
 [[projects]]
   digest = "1:49f6abbce9ade5f43508429e4af1adcce55d27adcd62719fea049decc766a7c9"
@@ -978,7 +991,7 @@
 
 [[projects]]
   branch = "branch/3.2-g"
-  digest = "1:32fabc3fcc923985f60d20d975617976fefaa78290f1f9aeb7381ab4dcc37160"
+  digest = "1:3e9462c52e2458c00d1bf1dd97c5bb857409c9b0cda2d6df8ddb5a87e121282a"
   name = "github.com/gravitational/teleport"
   packages = [
     ".",
@@ -1036,7 +1049,7 @@
     "lib/wrappers",
   ]
   pruneopts = "UT"
-  revision = "bebf7a500543a21911aaea5f7e57032918fb7b8c"
+  revision = "eccdab5226f7c1b82314c8fdc44d4876eb347ca4"
 
 [[projects]]
   digest = "1:403af811cfc53bf78a655e601b01dc9a149aa154cbd63384784b25799cdbea8c"
@@ -1644,6 +1657,14 @@
   version = "1.0.1"
 
 [[projects]]
+  digest = "1:906eb1ca3c8455e447b99a45237b2b9615b665608fd07ad12cce847dd9a1ec43"
+  name = "github.com/morikuni/aec"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "39771216ff4c63d11f5e604076f9c45e8be1067b"
+  version = "v1.0.0"
+
+[[projects]]
   branch = "master"
   digest = "1:afa1e06ea6d032b05068597d26dbcfdb47483ce1ddb4d8ad2f73cc4fd4811367"
   name = "github.com/mreiferson/go-httpclient"
@@ -1837,7 +1858,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:65963258b8be458e2201a630215975134025f2c1ab1ce82a889790cd1bd18eb7"
+  digest = "1:3124d7c436f8a6c51ccb50dde6184f6e8a1a58ce318e0adaf21f2d02631617fb"
   name = "github.com/russellhaering/goxmldsig"
   packages = [
     ".",
@@ -1845,7 +1866,7 @@
     "types",
   ]
   pruneopts = "UT"
-  revision = "605161228693b2efadce55323c9c661a40c5fbaa"
+  revision = "0bf1c101303755caca6d6e65e3b7fc83799a3877"
 
 [[projects]]
   digest = "1:f78dee1142c1e43c9288534cadfa82f21dfd9a1163b06fa0fdf872f8020f2a53"
@@ -2649,8 +2670,8 @@
   revision = "804254d5600483f35d94e1cab8b10d40310def3d"
 
 [[projects]]
-  branch = "release-2.14"
-  digest = "1:ab1ade53af179bb25b66f01ad217d383ad80f08419232e417400f25e40c36bd8"
+  branch = "release-2.15"
+  digest = "1:40f4320f4c91d25037c57e3d5df0ccd6e0507f9adb44903412266687d7825df8"
   name = "k8s.io/helm"
   packages = [
     "pkg/chartutil",
@@ -2684,7 +2705,7 @@
     "pkg/version",
   ]
   pruneopts = "UT"
-  revision = "0e7f3b6637f7af8fcfddb3d2941fcc7cbebb0085"
+  revision = "8dce272473e5f2a7bf58ce79bb5c3691db54c96b"
 
 [[projects]]
   digest = "1:e2999bf1bb6eddc2a6aa03fe5e6629120a53088926520ca3b4765f77d7ff7eab"
@@ -2886,14 +2907,6 @@
   revision = "fd68e9863619f6ec2fdd8625fe1f02e7c877e480"
   version = "v1.1.0"
 
-[[projects]]
-  branch = "master"
-  digest = "1:9132eacc44d9bd1e03145ea2e9d4888800da7773d6edebb401f8cd34c9fb8380"
-  name = "vbom.ml/util"
-  packages = ["sortorder"]
-  pruneopts = "UT"
-  revision = "efcd4e0f97874370259c7d93e12aad57911dea81"
-
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
@@ -2951,6 +2964,7 @@
     "github.com/fatih/color",
     "github.com/fsouza/go-dockerclient",
     "github.com/fsouza/go-dockerclient/testing",
+    "github.com/fvbommel/sortorder",
     "github.com/ghodss/yaml",
     "github.com/gizak/termui",
     "github.com/gogo/protobuf/gogoproto",

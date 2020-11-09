@@ -30,17 +30,19 @@ var _ = check.Suite(&S{})
 
 func (*S) TestValidateKubernetesSubnets(c *check.C) {
 	type testCase struct {
-		podCIDR     string
-		serviceCIDR string
-		ok          bool
-		description string
+		podCIDR       string
+		serviceCIDR   string
+		podSubnetSize string
+		ok            bool
+		description   string
 	}
 	testCases := []testCase{
 		{
-			podCIDR:     "10.244.0.0/16",
-			serviceCIDR: "10.100.0.0/16",
-			ok:          true,
-			description: "default subnets should validate",
+			podCIDR:       "10.244.0.0/16",
+			serviceCIDR:   "10.100.0.0/16",
+			podSubnetSize: "24",
+			ok:            true,
+			description:   "default subnets should validate",
 		},
 		{
 			podCIDR:     "10.244.0.0-10.244.255.0",
@@ -53,9 +55,19 @@ func (*S) TestValidateKubernetesSubnets(c *check.C) {
 			description: "service subnet is not a valid CIDR",
 		},
 		{
-			podCIDR:     "10.200.0.0/20",
+			podCIDR:     "10.200.0.0/24",
 			ok:          false,
 			description: "pod subnet is too small",
+		},
+		{
+			podSubnetSize: "33",
+			ok:            false,
+			description:   "pob subnet size is not valid; value cannot be > 32",
+		},
+		{
+			podSubnetSize: "0",
+			ok:            false,
+			description:   "pob subnet size is not valid; value cannot be < 1",
 		},
 		{
 			podCIDR:     "10.100.0.0/16",
@@ -63,9 +75,15 @@ func (*S) TestValidateKubernetesSubnets(c *check.C) {
 			ok:          false,
 			description: "pod and service subnets overlap",
 		},
+		{
+			podCIDR:       "10.100.0.0/16",
+			podSubnetSize: "14",
+			ok:            false,
+			description:   "pod subnet size is larger than the pod network CIDR range",
+		},
 	}
 	for _, tc := range testCases {
-		err := KubernetesSubnetsFromStrings(tc.podCIDR, tc.serviceCIDR)
+		err := KubernetesSubnetsFromStrings(tc.podCIDR, tc.serviceCIDR, tc.podSubnetSize)
 		if tc.ok {
 			c.Assert(err, check.IsNil, check.Commentf(tc.description))
 		} else {

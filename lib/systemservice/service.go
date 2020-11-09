@@ -20,10 +20,10 @@ import (
 	"fmt"
 	"os/exec"
 	"path/filepath"
-	"syscall"
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
+	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
 )
@@ -31,6 +31,8 @@ import (
 const (
 	// ServiceStatusActivating indicates that service is activating
 	ServiceStatusActivating = "activating"
+	// ServiceStatusDeactivating indicates that service is deactivating
+	ServiceStatusDeactivating = "deactivating"
 	// ServiceStatusFailed means taht service has failed
 	ServiceStatusFailed = "failed"
 	// ServiceStatusActive means that service is active
@@ -38,8 +40,8 @@ const (
 	// ServiceStatusInactive indicates that service is not running
 	// Corresponds to exit code 3
 	ServiceStatusInactive = "inactive"
-	// ServiceStatusUnknown indicates that service does not exist
-	// Corresponds to either exit code 3 or 4 depending on the version of systemd
+	// ServiceStatusUnknown indicates that service does not exist or the status
+	// could not be determined - depending on the command
 	ServiceStatusUnknown = "unknown"
 )
 
@@ -74,6 +76,8 @@ type NewServiceRequest struct {
 	Name string `json:"Name"`
 	// NoBlock means we won't block and wait until service starts
 	NoBlock bool `json:"-"`
+	// ReloadConfiguration forces a daemon-reload after writing the service file
+	ReloadConfiguration bool `json:"-"`
 }
 
 // NewMountServiceRequest describes a request to create a new systemd mount service
@@ -182,7 +186,7 @@ type MountServiceSpec struct {
 	Type string `json:"type"`
 	// Options lists mount options to use when mounting
 	// This setting is optional
-	Options []string `json:"options,emitempty"`
+	Options []string `json:"options,omitempty"`
 	// TimeoutSec configures the time to wait for the mount command to finish.
 	// Takes a unit-less value in seconds, or a time span value such as "5min 20s".
 	// Pass "0" to disable the timeout logic.
@@ -359,20 +363,13 @@ func (r *NewServiceRequest) CheckAndSetDefaults() error {
 }
 
 // IsUnknownServiceError determines whether the err specifies the
-// 'unknown service' error
+// 'unknown service' error.
+// Note that systemctl status predicates (e.g. `is-active` or `is-enabled`) will never
+// return this status - only commands will
 func IsUnknownServiceError(err error) bool {
-	const (
-		errCodeGenericFailure = 1
-		errCodeNotInstalled   = 5
-	)
-	switch err := trace.Unwrap(err).(type) {
-	case *exec.ExitError:
-		if status, ok := err.Sys().(syscall.WaitStatus); ok {
-			switch status.ExitStatus() {
-			case errCodeGenericFailure, errCodeNotInstalled:
-				return true
-			}
-		}
+	const errCodeNotInstalled = 5
+	if exitCode := utils.ExitStatusFromError(err); exitCode != nil {
+		return *exitCode == errCodeNotInstalled
 	}
 	return false
 }

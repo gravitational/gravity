@@ -109,6 +109,15 @@ func WithLocalDialer(dialer httplib.Dialer) ClientParam {
 // ClientParam defines the API to override configuration on client c
 type ClientParam func(c *Client) error
 
+// Ping calls the operator service status endpoint.
+func (c *Client) Ping(ctx context.Context) error {
+	_, err := c.Get(c.Endpoint("status"), url.Values{})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
 func (c *Client) GetAccount(accountID string) (*ops.Account, error) {
 	out, err := c.Get(c.Endpoint("accounts", accountID), url.Values{})
 	if err != nil {
@@ -432,9 +441,9 @@ func (c *Client) CheckSiteStatus(ctx context.Context, key ops.SiteKey) error {
 	return trace.Wrap(err)
 }
 
-func (c *Client) GetSiteOperations(siteKey ops.SiteKey) (ops.SiteOperations, error) {
+func (c *Client) GetSiteOperations(siteKey ops.SiteKey, f ops.OperationsFilter) (ops.SiteOperations, error) {
 	out, err := c.Get(c.Endpoint("accounts", siteKey.AccountID, "sites", siteKey.SiteDomain, "operations", "common"),
-		url.Values{})
+		f.URLValues())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -442,6 +451,10 @@ func (c *Client) GetSiteOperations(siteKey ops.SiteKey) (ops.SiteOperations, err
 	if err := json.Unmarshal(out.Bytes(), &ops); err != nil {
 		return nil, trace.Wrap(err)
 	}
+
+	// Servers that haven't been upgraded may not have filtered the results.
+	ops = f.Filter(ops)
+
 	return ops, nil
 }
 

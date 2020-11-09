@@ -90,15 +90,12 @@ func (s *site) agentReport(ctx context.Context, opCtx *operationContext) (*ops.A
 }
 
 func (s *site) waitForAgents(ctx context.Context, opCtx *operationContext) (*ops.AgentReport, error) {
-	localCtx, cancel := defaults.WithTimeout(ctx)
-	defer cancel()
-
-	err := s.agentService().Wait(localCtx, opCtx.key(), opCtx.getNumServers())
+	err := s.agentService().Wait(ctx, opCtx.key(), opCtx.getNumServers())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	report, err := s.agentReport(localCtx, opCtx)
+	report, err := s.agentReport(ctx, opCtx)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -284,13 +281,12 @@ func (r *AgentService) Wait(ctx context.Context, key ops.SiteOperationKey, numAg
 
 // AbortAgents shuts down remote agents and cleans up state
 func (r *AgentService) AbortAgents(ctx context.Context, key ops.SiteOperationKey) error {
-	group, err := r.peerStore.getGroup(key)
+	group, err := r.peerStore.removeGroup(ctx, key)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = group.Abort(ctx)
-	r.peerStore.removeGroup(ctx, key)
-	return trace.Wrap(err)
+	defer group.Close(ctx)
+	return trace.Wrap(group.Abort(ctx))
 }
 
 // StopAgents shuts down remote agents
@@ -304,18 +300,12 @@ func (r *AgentService) CompleteAgents(ctx context.Context, key ops.SiteOperation
 }
 
 func (r *AgentService) stopAgents(ctx context.Context, key ops.SiteOperationKey, req *pb.ShutdownRequest) error {
-	group, err := r.peerStore.getGroup(key)
+	group, err := r.peerStore.removeGroup(ctx, key)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
-	err = group.Shutdown(ctx, req)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	r.peerStore.removeGroup(ctx, key)
-	return nil
+	defer group.Close(ctx)
+	return trace.Wrap(group.Shutdown(ctx, req))
 }
 
 // AgentService is a controller for install agents.
@@ -509,23 +499,17 @@ func (r *AgentPeerStore) getOrCreateGroup(key ops.SiteOperationKey) (*agentGroup
 	return group, nil
 }
 
-func (r *AgentPeerStore) getGroup(key ops.SiteOperationKey) (*agentGroup, error) {
+// removeGroup removes the peer group specified with operation key and returns an instance to it.
+// The group is not closed which is the responsibility of the caller.
+// Returns a NotFound error if the group cannot be found
+func (r *AgentPeerStore) removeGroup(ctx context.Context, key ops.SiteOperationKey) (*agentGroup, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if group, ok := r.groups[key]; ok {
+		delete(r.groups, key)
 		return group, nil
 	}
-
 	return nil, trace.NotFound("no execution group for %v", key)
-}
-
-func (r *AgentPeerStore) removeGroup(ctx context.Context, key ops.SiteOperationKey) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if group, ok := r.groups[key]; ok {
-		group.Close(ctx)
-	}
-	delete(r.groups, key)
 }
 
 // addGroup adds a new empty group.

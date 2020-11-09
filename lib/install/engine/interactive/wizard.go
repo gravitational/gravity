@@ -115,7 +115,7 @@ func (r *executor) waitForOperation() (operation *ops.SiteOperation, err error) 
 			return trace.NotFound("no clusters created yet")
 		}
 		cluster := clusters[0]
-		operations, err := r.Operator.GetSiteOperations(cluster.Key())
+		operations, err := r.Operator.GetSiteOperations(cluster.Key(), ops.OperationsFilter{})
 		if err != nil {
 			return trace.Wrap(err, "failed to fetch operations")
 		}

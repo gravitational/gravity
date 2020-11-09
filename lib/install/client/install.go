@@ -80,8 +80,9 @@ func (r *InstallerStrategy) installSelfAsService() error {
 			WantedBy:         "multi-user.target",
 			WorkingDirectory: r.ApplicationDir,
 		},
-		NoBlock: true,
-		Name:    r.ServicePath,
+		NoBlock:             true,
+		ReloadConfiguration: true,
+		Name:                r.ServicePath,
 	}
 	req.ServiceSpec.Environment = utils.Getenv(constants.PreflightChecksOffEnvVar)
 	r.WithField("req", fmt.Sprintf("%+v", req)).Info("Install service.")

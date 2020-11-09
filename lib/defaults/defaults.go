@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/gravitational/gravity/lib/constants"
@@ -87,6 +88,9 @@ const (
 	// EtcdRetryInterval is the retry interval for some etcd commands
 	EtcdRetryInterval = 3 * time.Second
 
+	// EtcdRemoveMemberTimeout specifies the maximum amount of time to wait for member removal
+	EtcdRemoveMemberTimeout = 5 * time.Minute
+
 	// InstallApplicationTimeout is the max allowed time for k8s application to install
 	InstallApplicationTimeout = 90 * time.Minute // 1.5 hours
 
@@ -134,9 +138,6 @@ const (
 
 	// MaxValidationConcurrency defines a number of validation requests to run concurrently
 	MaxValidationConcurrency = 5
-
-	// MaxExpandConcurrency is the number of servers that can be joining the cluster concurrently
-	MaxExpandConcurrency = 5
 
 	// DownloadRetryPeriod is the period between failed retry attempts
 	DownloadRetryPeriod = 5 * time.Second
@@ -215,9 +216,6 @@ const (
 
 	// AgentStopTimeout is amount of time agent gets to gracefully shut down
 	AgentStopTimeout = 10 * time.Second
-
-	// AgentStatusTimeout specifies the timeout for agent status query
-	AgentStatusTimeout = 5 * time.Second
 
 	// PeerConnectTimeout is the timeout of an RPC agent connecting to its peer
 	PeerConnectTimeout = 10 * time.Second
@@ -1190,6 +1188,9 @@ var (
 	// A failed precondition usually means a configuration error when an operation cannot be retried.
 	// The exit code is used to prevent the agent service from restarting after shutdown
 	FailedPreconditionExitCode = 252
+
+	// MaxExpandConcurrency is the number of servers that can be joining the cluster concurrently
+	MaxExpandConcurrency = (runtime.NumCPU() / 3) + 4
 )
 
 // HookSecurityContext returns default securityContext for hook pods

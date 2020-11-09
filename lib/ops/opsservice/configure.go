@@ -904,6 +904,7 @@ func (s *site) getPlanetConfig(config planetConfig) (args []string, err error) {
 		fmt.Sprintf("--volume=%v:/var/log", node.InGravity("planet", "log")),
 		fmt.Sprintf("--volume=%v:%v", node.StateDir(), defaults.GravityDir),
 		fmt.Sprintf("--service-uid=%v", s.uid()),
+		fmt.Sprintf("--service-gid=%v", s.gid()),
 	}
 	overrideArgs := map[string]string{
 		"service-subnet": config.serviceSubnet(),
@@ -1395,6 +1396,9 @@ func (s *site) addClusterConfig(config clusterconfig.Interface, overrideArgs map
 	}
 	if globalConfig.PodCIDR != "" {
 		overrideArgs["pod-subnet"] = globalConfig.PodCIDR
+	}
+	if globalConfig.PodSubnetSize != "" {
+		overrideArgs["pod-subnet-size"] = globalConfig.PodSubnetSize
 	}
 	if globalConfig.ServiceNodePortRange != "" {
 		args = append(args,

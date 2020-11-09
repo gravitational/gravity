@@ -697,6 +697,9 @@ func addResources(builder *PlanBuilder, resourceBytes []byte, runtimeResources [
 			if err != nil {
 				return trace.Wrap(err)
 			}
+			if err := env.CheckAndSetDefaults(); err != nil {
+				return trace.Wrap(err)
+			}
 			builder.env = env.GetKeyValues()
 			configmap := opsservice.NewEnvironmentConfigMap(env.GetKeyValues())
 			kubernetesResources = append(kubernetesResources, configmap)

@@ -7,10 +7,11 @@ import (
 	context "context"
 	fmt "fmt"
 	_ "github.com/gogo/protobuf/gogoproto"
+	proto "github.com/gogo/protobuf/proto"
 	types "github.com/gogo/protobuf/types"
-	proto "github.com/golang/protobuf/proto"
 	grpc "google.golang.org/grpc"
-	io "io"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	math "math"
 )
 
@@ -23,7 +24,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
 // Version represents a gravity version
 type Version struct {
@@ -46,25 +47,16 @@ func (*Version) Descriptor() ([]byte, []int) {
 	return fileDescriptor_1e7ff60feb39c8d0, []int{0}
 }
 func (m *Version) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
+	return xxx_messageInfo_Version.Unmarshal(m, b)
 }
 func (m *Version) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_Version.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
+	return xxx_messageInfo_Version.Marshal(b, m, deterministic)
 }
 func (m *Version) XXX_Merge(src proto.Message) {
 	xxx_messageInfo_Version.Merge(m, src)
 }
 func (m *Version) XXX_Size() int {
-	return m.Size()
+	return xxx_messageInfo_Version.Size(m)
 }
 func (m *Version) XXX_DiscardUnknown() {
 	xxx_messageInfo_Version.DiscardUnknown(m)
@@ -116,25 +108,16 @@ func (*SystemInfo) Descriptor() ([]byte, []int) {
 	return fileDescriptor_1e7ff60feb39c8d0, []int{1}
 }
 func (m *SystemInfo) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
+	return xxx_messageInfo_SystemInfo.Unmarshal(m, b)
 }
 func (m *SystemInfo) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_SystemInfo.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
+	return xxx_messageInfo_SystemInfo.Marshal(b, m, deterministic)
 }
 func (m *SystemInfo) XXX_Merge(src proto.Message) {
 	xxx_messageInfo_SystemInfo.Merge(m, src)
 }
 func (m *SystemInfo) XXX_Size() int {
-	return m.Size()
+	return xxx_messageInfo_SystemInfo.Size(m)
 }
 func (m *SystemInfo) XXX_DiscardUnknown() {
 	xxx_messageInfo_SystemInfo.DiscardUnknown(m)
@@ -183,25 +166,16 @@ func (*RuntimeConfig) Descriptor() ([]byte, []int) {
 	return fileDescriptor_1e7ff60feb39c8d0, []int{2}
 }
 func (m *RuntimeConfig) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
+	return xxx_messageInfo_RuntimeConfig.Unmarshal(m, b)
 }
 func (m *RuntimeConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_RuntimeConfig.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
+	return xxx_messageInfo_RuntimeConfig.Marshal(b, m, deterministic)
 }
 func (m *RuntimeConfig) XXX_Merge(src proto.Message) {
 	xxx_messageInfo_RuntimeConfig.Merge(m, src)
 }
 func (m *RuntimeConfig) XXX_Size() int {
-	return m.Size()
+	return xxx_messageInfo_RuntimeConfig.Size(m)
 }
 func (m *RuntimeConfig) XXX_DiscardUnknown() {
 	xxx_messageInfo_RuntimeConfig.DiscardUnknown(m)
@@ -288,25 +262,16 @@ func (*Device) Descriptor() ([]byte, []int) {
 	return fileDescriptor_1e7ff60feb39c8d0, []int{3}
 }
 func (m *Device) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
+	return xxx_messageInfo_Device.Unmarshal(m, b)
 }
 func (m *Device) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_Device.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
+	return xxx_messageInfo_Device.Marshal(b, m, deterministic)
 }
 func (m *Device) XXX_Merge(src proto.Message) {
 	xxx_messageInfo_Device.Merge(m, src)
 }
 func (m *Device) XXX_Size() int {
-	return m.Size()
+	return xxx_messageInfo_Device.Size(m)
 }
 func (m *Device) XXX_DiscardUnknown() {
 	xxx_messageInfo_Device.DiscardUnknown(m)
@@ -338,25 +303,16 @@ func (*Mount) Descriptor() ([]byte, []int) {
 	return fileDescriptor_1e7ff60feb39c8d0, []int{4}
 }
 func (m *Mount) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
+	return xxx_messageInfo_Mount.Unmarshal(m, b)
 }
 func (m *Mount) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_Mount.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
+	return xxx_messageInfo_Mount.Marshal(b, m, deterministic)
 }
 func (m *Mount) XXX_Merge(src proto.Message) {
 	xxx_messageInfo_Mount.Merge(m, src)
 }
 func (m *Mount) XXX_Size() int {
-	return m.Size()
+	return xxx_messageInfo_Mount.Size(m)
 }
 func (m *Mount) XXX_DiscardUnknown() {
 	xxx_messageInfo_Mount.DiscardUnknown(m)
@@ -398,25 +354,16 @@ func (*CloudMetadata) Descriptor() ([]byte, []int) {
 	return fileDescriptor_1e7ff60feb39c8d0, []int{5}
 }
 func (m *CloudMetadata) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
+	return xxx_messageInfo_CloudMetadata.Unmarshal(m, b)
 }
 func (m *CloudMetadata) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_CloudMetadata.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
+	return xxx_messageInfo_CloudMetadata.Marshal(b, m, deterministic)
 }
 func (m *CloudMetadata) XXX_Merge(src proto.Message) {
 	xxx_messageInfo_CloudMetadata.Merge(m, src)
 }
 func (m *CloudMetadata) XXX_Size() int {
-	return m.Size()
+	return xxx_messageInfo_CloudMetadata.Size(m)
 }
 func (m *CloudMetadata) XXX_DiscardUnknown() {
 	xxx_messageInfo_CloudMetadata.DiscardUnknown(m)
@@ -458,47 +405,45 @@ func init() {
 func init() { proto.RegisterFile("discovery.proto", fileDescriptor_1e7ff60feb39c8d0) }
 
 var fileDescriptor_1e7ff60feb39c8d0 = []byte{
-	// 631 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x74, 0x54, 0xcd, 0x6e, 0xd3, 0x40,
-	0x10, 0xae, 0x9b, 0x9f, 0x26, 0xd3, 0x38, 0x84, 0x55, 0x55, 0x99, 0x14, 0xd2, 0x2a, 0x05, 0xd4,
-	0x53, 0x2a, 0x15, 0x0e, 0x50, 0x38, 0x40, 0x93, 0x2a, 0x2a, 0xa8, 0x1c, 0x42, 0xd5, 0xab, 0xe5,
-	0x7a, 0xa7, 0x66, 0x95, 0x78, 0xd7, 0x5a, 0xaf, 0x23, 0xfc, 0x00, 0xbc, 0x43, 0x8f, 0x3c, 0x01,
-	0xcf, 0xc1, 0x91, 0x47, 0x40, 0xe5, 0x45, 0xd0, 0xae, 0xd7, 0x55, 0x02, 0xcd, 0x29, 0xf3, 0x7d,
-	0xdf, 0xec, 0xcc, 0xe4, 0xdb, 0x1d, 0xc3, 0x03, 0xca, 0xd2, 0x50, 0xcc, 0x51, 0xe6, 0x83, 0x44,
-	0x0a, 0x25, 0x48, 0xcd, 0xfc, 0x74, 0x77, 0x22, 0x21, 0xa2, 0x19, 0x1e, 0x1a, 0x74, 0x95, 0x5d,
-	0x1f, 0x62, 0x9c, 0x28, 0x9b, 0xd3, 0xdd, 0xfd, 0x57, 0x54, 0x2c, 0xc6, 0x54, 0x05, 0x71, 0x62,
-	0x13, 0x20, 0x12, 0x91, 0x28, 0xe2, 0xfe, 0x1c, 0x36, 0x2e, 0x51, 0xa6, 0x4c, 0x70, 0xe2, 0xc1,
-	0x06, 0x52, 0xa6, 0x98, 0xe0, 0x9e, 0xb3, 0xe7, 0x1c, 0x34, 0x27, 0x25, 0xd4, 0xca, 0xbc, 0x48,
-	0xf2, 0xd6, 0x0b, 0xc5, 0x42, 0xf2, 0x04, 0x20, 0x62, 0xca, 0x0f, 0x45, 0x1c, 0x33, 0xe5, 0x55,
-	0x8c, 0xd8, 0x8c, 0x98, 0x1a, 0x1a, 0x82, 0x10, 0xa8, 0x7e, 0xc1, 0x59, 0xec, 0x55, 0x8d, 0x60,
-	0xe2, 0xe3, 0xea, 0xcd, 0xf7, 0xdd, 0xb5, 0xfe, 0x73, 0x80, 0xcf, 0x79, 0xaa, 0x30, 0x3e, 0xe3,
-	0xd7, 0x42, 0x37, 0x48, 0x82, 0x7c, 0x26, 0x02, 0x6a, 0x5a, 0xb7, 0x26, 0x25, 0xec, 0xff, 0xa8,
-	0x80, 0x3b, 0xc9, 0xb8, 0xfe, 0x0b, 0x43, 0xc1, 0xaf, 0x59, 0xa4, 0x6b, 0x4a, 0x31, 0x43, 0x3b,
-	0xa3, 0x89, 0xc9, 0x33, 0x68, 0x07, 0x74, 0x8e, 0x52, 0xb1, 0x14, 0xfd, 0x80, 0x52, 0x69, 0xe7,
-	0x74, 0xef, 0xd8, 0xf7, 0x94, 0x4a, 0xb2, 0x0f, 0x6e, 0x6a, 0x9a, 0xfa, 0x14, 0xe7, 0x2c, 0x44,
-	0x3b, 0x57, 0xab, 0x20, 0x47, 0x86, 0x23, 0x4f, 0xa1, 0x1e, 0x8b, 0x8c, 0xab, 0xd4, 0xab, 0xed,
-	0x55, 0x0e, 0x36, 0x8f, 0x5a, 0x85, 0x53, 0x83, 0x73, 0x4d, 0x4e, 0xac, 0x46, 0x76, 0xa0, 0x99,
-	0xaa, 0x40, 0xa1, 0x4f, 0x99, 0xf4, 0xea, 0xa6, 0x4c, 0xc3, 0x10, 0x23, 0x26, 0xc9, 0x23, 0x68,
-	0x28, 0x8c, 0x13, 0xa3, 0x6d, 0x14, 0x86, 0x69, 0xac, 0xa5, 0x2d, 0xa8, 0x29, 0x31, 0x45, 0xee,
-	0x35, 0x0c, 0x5f, 0x00, 0xf2, 0x06, 0xda, 0xe1, 0x4c, 0x64, 0xd4, 0x8f, 0x51, 0x05, 0x34, 0x50,
-	0x81, 0xd7, 0xdc, 0x73, 0x0e, 0x36, 0x8f, 0xb6, 0x6c, 0xef, 0xa1, 0x16, 0xcf, 0xad, 0x36, 0x71,
-	0xc3, 0x45, 0x48, 0x4e, 0x00, 0xa6, 0x98, 0xfb, 0xf3, 0x60, 0x96, 0x61, 0xea, 0x81, 0x19, 0x7a,
-	0xdf, 0x1e, 0x5c, 0xb2, 0x6e, 0xf0, 0x11, 0xf3, 0x4b, 0x93, 0x75, 0xca, 0x95, 0xcc, 0x27, 0xcd,
-	0x69, 0x89, 0xbb, 0x6f, 0xa1, 0xbd, 0x2c, 0x92, 0x0e, 0x54, 0xa6, 0x98, 0x5b, 0x97, 0x75, 0xa8,
-	0x47, 0x37, 0x3d, 0xac, 0xb7, 0x05, 0x38, 0x5e, 0x7f, 0xe5, 0x14, 0x57, 0xfa, 0xa1, 0xda, 0xa8,
-	0x74, 0xaa, 0xfd, 0xc7, 0x50, 0xb7, 0x46, 0x12, 0xa8, 0xf2, 0x20, 0xbe, 0xbb, 0x28, 0x1d, 0xf7,
-	0x5f, 0x43, 0xcd, 0xf8, 0x78, 0x9f, 0x48, 0xb6, 0xa1, 0x9e, 0x8a, 0x4c, 0x86, 0x65, 0x07, 0x8b,
-	0xec, 0x8b, 0xf9, 0x0a, 0xee, 0x92, 0x0d, 0xfa, 0x0a, 0xb8, 0xa0, 0xe8, 0x2f, 0xd4, 0x69, 0x68,
-	0xe2, 0x93, 0xae, 0xb5, 0x0f, 0x2e, 0xe3, 0xa9, 0x0a, 0x78, 0x88, 0xbe, 0xca, 0x93, 0xb2, 0x64,
-	0xab, 0x24, 0x2f, 0xf2, 0x04, 0xc9, 0x2e, 0x6c, 0xde, 0x25, 0x31, 0x6a, 0x9f, 0x2f, 0x94, 0xd4,
-	0x19, 0x2d, 0x3a, 0x1f, 0x7d, 0x5b, 0x87, 0xe6, 0xa8, 0x5c, 0x44, 0xf2, 0x0e, 0x3a, 0x63, 0x54,
-	0xcb, 0x6f, 0x72, 0x7b, 0x50, 0xec, 0xdc, 0xa0, 0xdc, 0xb9, 0xc1, 0xa9, 0x5e, 0xc8, 0xee, 0xd6,
-	0x7d, 0xd7, 0x40, 0x8e, 0xc1, 0x1d, 0xa3, 0x5a, 0x78, 0xfe, 0xab, 0x8e, 0x3f, 0xb4, 0xc7, 0x17,
-	0x52, 0x47, 0xd0, 0x1e, 0xa3, 0x1a, 0x66, 0x52, 0x22, 0x57, 0x17, 0x4c, 0xbb, 0xb6, 0xe2, 0x70,
-	0xf7, 0x3f, 0xfe, 0xa2, 0xfc, 0x0e, 0x90, 0x97, 0x00, 0x63, 0x54, 0xe5, 0xe2, 0xaf, 0xaa, 0xd0,
-	0xb6, 0xed, 0x6d, 0xde, 0x49, 0xe7, 0xe7, 0x6d, 0xcf, 0xf9, 0x75, 0xdb, 0x73, 0x7e, 0xdf, 0xf6,
-	0x9c, 0x9b, 0x3f, 0xbd, 0xb5, 0xab, 0xba, 0x49, 0x78, 0xf1, 0x37, 0x00, 0x00, 0xff, 0xff, 0x1b,
-	0x07, 0x18, 0x94, 0xa8, 0x04, 0x00, 0x00,
+	// 607 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x74, 0x54, 0xcf, 0x6e, 0xd3, 0x4e,
+	0x10, 0xfe, 0xa5, 0xf9, 0xd3, 0x64, 0x1a, 0xe7, 0x57, 0x56, 0x55, 0x65, 0x52, 0x50, 0xab, 0x14,
+	0x50, 0x4f, 0xa9, 0x54, 0x38, 0x40, 0xe1, 0x00, 0x24, 0x55, 0x54, 0x50, 0x39, 0x84, 0xaa, 0x57,
+	0xcb, 0xf5, 0x4e, 0xcd, 0x2a, 0xf1, 0xae, 0xb5, 0x1e, 0x5b, 0xf8, 0x01, 0x78, 0x07, 0x8e, 0x3c,
+	0x01, 0xcf, 0x88, 0x76, 0xbd, 0xae, 0x12, 0x68, 0x4e, 0x99, 0xef, 0xfb, 0x66, 0x67, 0x26, 0xdf,
+	0xee, 0x18, 0xfe, 0xe7, 0x22, 0x8b, 0x54, 0x81, 0xba, 0x1c, 0xa7, 0x5a, 0x91, 0x62, 0x6d, 0xfb,
+	0x33, 0x3c, 0x88, 0x95, 0x8a, 0x97, 0x78, 0x6a, 0xd1, 0x6d, 0x7e, 0x77, 0x8a, 0x49, 0x4a, 0x2e,
+	0x67, 0x78, 0xf8, 0xb7, 0x48, 0x22, 0xc1, 0x8c, 0xc2, 0x24, 0x75, 0x09, 0x10, 0xab, 0x58, 0x55,
+	0xf1, 0xa8, 0x80, 0xed, 0x1b, 0xd4, 0x99, 0x50, 0x92, 0xf9, 0xb0, 0x8d, 0x5c, 0x90, 0x50, 0xd2,
+	0x6f, 0x1c, 0x35, 0x4e, 0x7a, 0xf3, 0x1a, 0x1a, 0xa5, 0xa8, 0x92, 0xfc, 0xad, 0x4a, 0x71, 0x90,
+	0x3d, 0x05, 0x88, 0x05, 0x05, 0x91, 0x4a, 0x12, 0x41, 0x7e, 0xd3, 0x8a, 0xbd, 0x58, 0xd0, 0xc4,
+	0x12, 0x8c, 0x41, 0xeb, 0x1b, 0x2e, 0x13, 0xbf, 0x65, 0x05, 0x1b, 0x9f, 0xb7, 0x7e, 0xfe, 0x3a,
+	0xfc, 0x6f, 0xf4, 0x02, 0xe0, 0x6b, 0x99, 0x11, 0x26, 0x97, 0xf2, 0x4e, 0x99, 0x06, 0x69, 0x58,
+	0x2e, 0x55, 0xc8, 0x6d, 0xeb, 0xfe, 0xbc, 0x86, 0xa3, 0xdf, 0x4d, 0xf0, 0xe6, 0xb9, 0x34, 0x7f,
+	0x61, 0xa2, 0xe4, 0x9d, 0x88, 0x4d, 0x4d, 0xad, 0x96, 0xe8, 0x66, 0xb4, 0x31, 0x7b, 0x0e, 0x83,
+	0x90, 0x17, 0xa8, 0x49, 0x64, 0x18, 0x84, 0x9c, 0x6b, 0x37, 0xa7, 0x77, 0xcf, 0x7e, 0xe0, 0x5c,
+	0xb3, 0x63, 0xf0, 0x32, 0xdb, 0x34, 0xe0, 0x58, 0x88, 0x08, 0xdd, 0x5c, 0xfd, 0x8a, 0x9c, 0x5a,
+	0x8e, 0x3d, 0x83, 0x4e, 0xa2, 0x72, 0x49, 0x99, 0xdf, 0x3e, 0x6a, 0x9e, 0xec, 0x9c, 0xf5, 0x2b,
+	0xa7, 0xc6, 0x57, 0x86, 0x9c, 0x3b, 0x8d, 0x1d, 0x40, 0x2f, 0xa3, 0x90, 0x30, 0xe0, 0x42, 0xfb,
+	0x1d, 0x5b, 0xa6, 0x6b, 0x89, 0xa9, 0xd0, 0xec, 0x31, 0x74, 0x09, 0x93, 0xd4, 0x6a, 0xdb, 0x95,
+	0x61, 0x06, 0x1b, 0x69, 0x0f, 0xda, 0xa4, 0x16, 0x28, 0xfd, 0xae, 0xe5, 0x2b, 0xc0, 0xde, 0xc2,
+	0x20, 0x5a, 0xaa, 0x9c, 0x07, 0x09, 0x52, 0xc8, 0x43, 0x0a, 0xfd, 0xde, 0x51, 0xe3, 0x64, 0xe7,
+	0x6c, 0xcf, 0xf5, 0x9e, 0x18, 0xf1, 0xca, 0x69, 0x73, 0x2f, 0x5a, 0x85, 0xec, 0x23, 0xc0, 0x02,
+	0xcb, 0xa0, 0x08, 0x97, 0x39, 0x66, 0x3e, 0xd8, 0xa1, 0x8f, 0xdd, 0xc1, 0x35, 0xeb, 0xc6, 0x9f,
+	0xb1, 0xbc, 0xb1, 0x59, 0x17, 0x92, 0x74, 0x39, 0xef, 0x2d, 0x6a, 0x3c, 0x7c, 0x07, 0x83, 0x75,
+	0x91, 0xed, 0x42, 0x73, 0x81, 0xa5, 0x73, 0xd9, 0x84, 0x66, 0x74, 0xdb, 0xc3, 0x79, 0x5b, 0x81,
+	0xf3, 0xad, 0xd7, 0x8d, 0xea, 0x4a, 0x3f, 0xb5, 0xba, 0xcd, 0xdd, 0xd6, 0xe8, 0x09, 0x74, 0x9c,
+	0x91, 0x0c, 0x5a, 0x32, 0x4c, 0xee, 0x2f, 0xca, 0xc4, 0xa3, 0x37, 0xd0, 0xb6, 0x3e, 0x3e, 0x24,
+	0xb2, 0x7d, 0xe8, 0x64, 0x2a, 0xd7, 0x51, 0xdd, 0xc1, 0x21, 0xf7, 0x62, 0xbe, 0x83, 0xb7, 0x66,
+	0x83, 0xb9, 0x02, 0xa9, 0x38, 0x06, 0x2b, 0x75, 0xba, 0x86, 0xf8, 0x62, 0x6a, 0x1d, 0x83, 0x27,
+	0x64, 0x46, 0xa1, 0x8c, 0x30, 0xa0, 0x32, 0xad, 0x4b, 0xf6, 0x6b, 0xf2, 0xba, 0x4c, 0x91, 0x1d,
+	0xc2, 0xce, 0x7d, 0x92, 0xe0, 0xee, 0xf9, 0x42, 0x4d, 0x5d, 0xf2, 0xaa, 0xf3, 0xd9, 0x8f, 0x2d,
+	0xe8, 0x4d, 0xeb, 0x45, 0x64, 0xef, 0x61, 0x77, 0x86, 0xb4, 0xfe, 0x26, 0xf7, 0xc7, 0xd5, 0xce,
+	0x8d, 0xeb, 0x9d, 0x1b, 0x5f, 0x98, 0x85, 0x1c, 0xee, 0x3d, 0x74, 0x0d, 0xec, 0x1c, 0xbc, 0x19,
+	0xd2, 0xca, 0xf3, 0xdf, 0x74, 0xfc, 0x91, 0x3b, 0xbe, 0x92, 0x3a, 0x85, 0xc1, 0x0c, 0x69, 0x92,
+	0x6b, 0x8d, 0x92, 0xae, 0x85, 0x71, 0x6d, 0xc3, 0xe1, 0xe1, 0x3f, 0xfc, 0x75, 0xfd, 0x1d, 0x60,
+	0xaf, 0x00, 0x66, 0x48, 0xf5, 0xe2, 0x6f, 0xaa, 0x30, 0x70, 0xed, 0x5d, 0xde, 0x6d, 0xc7, 0xc2,
+	0x97, 0x7f, 0x02, 0x00, 0x00, 0xff, 0xff, 0x95, 0xea, 0x2e, 0x56, 0x96, 0x04, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -577,6 +522,23 @@ type DiscoveryServer interface {
 	GetCurrentTime(context.Context, *types.Empty) (*types.Timestamp, error)
 	// GetVersion returns the agent's version information.
 	GetVersion(context.Context, *types.Empty) (*Version, error)
+}
+
+// UnimplementedDiscoveryServer can be embedded to have forward compatible implementations.
+type UnimplementedDiscoveryServer struct {
+}
+
+func (*UnimplementedDiscoveryServer) GetRuntimeConfig(ctx context.Context, req *types.Empty) (*RuntimeConfig, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetRuntimeConfig not implemented")
+}
+func (*UnimplementedDiscoveryServer) GetSystemInfo(ctx context.Context, req *types.Empty) (*SystemInfo, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetSystemInfo not implemented")
+}
+func (*UnimplementedDiscoveryServer) GetCurrentTime(ctx context.Context, req *types.Empty) (*types.Timestamp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetCurrentTime not implemented")
+}
+func (*UnimplementedDiscoveryServer) GetVersion(ctx context.Context, req *types.Empty) (*Version, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetVersion not implemented")
 }
 
 func RegisterDiscoveryServer(s *grpc.Server, srv DiscoveryServer) {
@@ -679,1628 +641,3 @@ var _Discovery_serviceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "discovery.proto",
 }
-
-func (m *Version) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *Version) MarshalTo(dAtA []byte) (int, error) {
-	var i int
-	_ = i
-	var l int
-	_ = l
-	if len(m.Edition) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.Edition)))
-		i += copy(dAtA[i:], m.Edition)
-	}
-	if len(m.Version) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.Version)))
-		i += copy(dAtA[i:], m.Version)
-	}
-	if len(m.GitCommit) > 0 {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.GitCommit)))
-		i += copy(dAtA[i:], m.GitCommit)
-	}
-	if len(m.Helm) > 0 {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.Helm)))
-		i += copy(dAtA[i:], m.Helm)
-	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
-}
-
-func (m *SystemInfo) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *SystemInfo) MarshalTo(dAtA []byte) (int, error) {
-	var i int
-	_ = i
-	var l int
-	_ = l
-	if len(m.Payload) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.Payload)))
-		i += copy(dAtA[i:], m.Payload)
-	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
-}
-
-func (m *RuntimeConfig) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *RuntimeConfig) MarshalTo(dAtA []byte) (int, error) {
-	var i int
-	_ = i
-	var l int
-	_ = l
-	if len(m.Role) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.Role)))
-		i += copy(dAtA[i:], m.Role)
-	}
-	if len(m.AdvertiseAddr) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.AdvertiseAddr)))
-		i += copy(dAtA[i:], m.AdvertiseAddr)
-	}
-	if len(m.SystemDevice) > 0 {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.SystemDevice)))
-		i += copy(dAtA[i:], m.SystemDevice)
-	}
-	if len(m.Mounts) > 0 {
-		for _, msg := range m.Mounts {
-			dAtA[i] = 0x2a
-			i++
-			i = encodeVarintDiscovery(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
-	}
-	if len(m.StateDir) > 0 {
-		dAtA[i] = 0x32
-		i++
-		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.StateDir)))
-		i += copy(dAtA[i:], m.StateDir)
-	}
-	if len(m.TempDir) > 0 {
-		dAtA[i] = 0x3a
-		i++
-		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.TempDir)))
-		i += copy(dAtA[i:], m.TempDir)
-	}
-	if len(m.Token) > 0 {
-		dAtA[i] = 0x42
-		i++
-		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.Token)))
-		i += copy(dAtA[i:], m.Token)
-	}
-	if m.CloudMetadata != nil {
-		dAtA[i] = 0x4a
-		i++
-		i = encodeVarintDiscovery(dAtA, i, uint64(m.CloudMetadata.Size()))
-		n1, err := m.CloudMetadata.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n1
-	}
-	if len(m.KeyValues) > 0 {
-		for k, _ := range m.KeyValues {
-			dAtA[i] = 0x52
-			i++
-			v := m.KeyValues[k]
-			mapSize := 1 + len(k) + sovDiscovery(uint64(len(k))) + 1 + len(v) + sovDiscovery(uint64(len(v)))
-			i = encodeVarintDiscovery(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintDiscovery(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x12
-			i++
-			i = encodeVarintDiscovery(dAtA, i, uint64(len(v)))
-			i += copy(dAtA[i:], v)
-		}
-	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
-}
-
-func (m *Device) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *Device) MarshalTo(dAtA []byte) (int, error) {
-	var i int
-	_ = i
-	var l int
-	_ = l
-	if len(m.Name) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
-	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
-}
-
-func (m *Mount) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *Mount) MarshalTo(dAtA []byte) (int, error) {
-	var i int
-	_ = i
-	var l int
-	_ = l
-	if len(m.Name) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
-	}
-	if len(m.Source) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.Source)))
-		i += copy(dAtA[i:], m.Source)
-	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
-}
-
-func (m *CloudMetadata) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *CloudMetadata) MarshalTo(dAtA []byte) (int, error) {
-	var i int
-	_ = i
-	var l int
-	_ = l
-	if len(m.NodeName) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.NodeName)))
-		i += copy(dAtA[i:], m.NodeName)
-	}
-	if len(m.InstanceType) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.InstanceType)))
-		i += copy(dAtA[i:], m.InstanceType)
-	}
-	if len(m.InstanceId) > 0 {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintDiscovery(dAtA, i, uint64(len(m.InstanceId)))
-		i += copy(dAtA[i:], m.InstanceId)
-	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
-}
-
-func encodeVarintDiscovery(dAtA []byte, offset int, v uint64) int {
-	for v >= 1<<7 {
-		dAtA[offset] = uint8(v&0x7f | 0x80)
-		v >>= 7
-		offset++
-	}
-	dAtA[offset] = uint8(v)
-	return offset + 1
-}
-func (m *Version) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	l = len(m.Edition)
-	if l > 0 {
-		n += 1 + l + sovDiscovery(uint64(l))
-	}
-	l = len(m.Version)
-	if l > 0 {
-		n += 1 + l + sovDiscovery(uint64(l))
-	}
-	l = len(m.GitCommit)
-	if l > 0 {
-		n += 1 + l + sovDiscovery(uint64(l))
-	}
-	l = len(m.Helm)
-	if l > 0 {
-		n += 1 + l + sovDiscovery(uint64(l))
-	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
-	}
-	return n
-}
-
-func (m *SystemInfo) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	l = len(m.Payload)
-	if l > 0 {
-		n += 1 + l + sovDiscovery(uint64(l))
-	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
-	}
-	return n
-}
-
-func (m *RuntimeConfig) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	l = len(m.Role)
-	if l > 0 {
-		n += 1 + l + sovDiscovery(uint64(l))
-	}
-	l = len(m.AdvertiseAddr)
-	if l > 0 {
-		n += 1 + l + sovDiscovery(uint64(l))
-	}
-	l = len(m.SystemDevice)
-	if l > 0 {
-		n += 1 + l + sovDiscovery(uint64(l))
-	}
-	if len(m.Mounts) > 0 {
-		for _, e := range m.Mounts {
-			l = e.Size()
-			n += 1 + l + sovDiscovery(uint64(l))
-		}
-	}
-	l = len(m.StateDir)
-	if l > 0 {
-		n += 1 + l + sovDiscovery(uint64(l))
-	}
-	l = len(m.TempDir)
-	if l > 0 {
-		n += 1 + l + sovDiscovery(uint64(l))
-	}
-	l = len(m.Token)
-	if l > 0 {
-		n += 1 + l + sovDiscovery(uint64(l))
-	}
-	if m.CloudMetadata != nil {
-		l = m.CloudMetadata.Size()
-		n += 1 + l + sovDiscovery(uint64(l))
-	}
-	if len(m.KeyValues) > 0 {
-		for k, v := range m.KeyValues {
-			_ = k
-			_ = v
-			mapEntrySize := 1 + len(k) + sovDiscovery(uint64(len(k))) + 1 + len(v) + sovDiscovery(uint64(len(v)))
-			n += mapEntrySize + 1 + sovDiscovery(uint64(mapEntrySize))
-		}
-	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
-	}
-	return n
-}
-
-func (m *Device) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	l = len(m.Name)
-	if l > 0 {
-		n += 1 + l + sovDiscovery(uint64(l))
-	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
-	}
-	return n
-}
-
-func (m *Mount) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	l = len(m.Name)
-	if l > 0 {
-		n += 1 + l + sovDiscovery(uint64(l))
-	}
-	l = len(m.Source)
-	if l > 0 {
-		n += 1 + l + sovDiscovery(uint64(l))
-	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
-	}
-	return n
-}
-
-func (m *CloudMetadata) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	l = len(m.NodeName)
-	if l > 0 {
-		n += 1 + l + sovDiscovery(uint64(l))
-	}
-	l = len(m.InstanceType)
-	if l > 0 {
-		n += 1 + l + sovDiscovery(uint64(l))
-	}
-	l = len(m.InstanceId)
-	if l > 0 {
-		n += 1 + l + sovDiscovery(uint64(l))
-	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
-	}
-	return n
-}
-
-func sovDiscovery(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
-}
-func sozDiscovery(x uint64) (n int) {
-	return sovDiscovery(uint64((x << 1) ^ uint64((int64(x) >> 63))))
-}
-func (m *Version) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowDiscovery
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= uint64(b&0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: Version: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: Version: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Edition", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowDiscovery
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthDiscovery
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthDiscovery
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Edition = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 2:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Version", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowDiscovery
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthDiscovery
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthDiscovery
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Version = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 3:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field GitCommit", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowDiscovery
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthDiscovery
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthDiscovery
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.GitCommit = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 4:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Helm", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowDiscovery
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthDiscovery
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthDiscovery
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Helm = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := skipDiscovery(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthDiscovery
-			}
-			if (iNdEx + skippy) < 0 {
-				return ErrInvalidLengthDiscovery
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *SystemInfo) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowDiscovery
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= uint64(b&0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: SystemInfo: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: SystemInfo: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Payload", wireType)
-			}
-			var byteLen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowDiscovery
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				byteLen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if byteLen < 0 {
-				return ErrInvalidLengthDiscovery
-			}
-			postIndex := iNdEx + byteLen
-			if postIndex < 0 {
-				return ErrInvalidLengthDiscovery
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Payload = append(m.Payload[:0], dAtA[iNdEx:postIndex]...)
-			if m.Payload == nil {
-				m.Payload = []byte{}
-			}
-			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := skipDiscovery(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthDiscovery
-			}
-			if (iNdEx + skippy) < 0 {
-				return ErrInvalidLengthDiscovery
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *RuntimeConfig) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowDiscovery
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= uint64(b&0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: RuntimeConfig: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: RuntimeConfig: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Role", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowDiscovery
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthDiscovery
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthDiscovery
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Role = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 2:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field AdvertiseAddr", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowDiscovery
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthDiscovery
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthDiscovery
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.AdvertiseAddr = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 4:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field SystemDevice", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowDiscovery
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthDiscovery
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthDiscovery
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.SystemDevice = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 5:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Mounts", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowDiscovery
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthDiscovery
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthDiscovery
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Mounts = append(m.Mounts, &Mount{})
-			if err := m.Mounts[len(m.Mounts)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 6:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field StateDir", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowDiscovery
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthDiscovery
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthDiscovery
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.StateDir = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 7:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field TempDir", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowDiscovery
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthDiscovery
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthDiscovery
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.TempDir = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 8:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Token", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowDiscovery
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthDiscovery
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthDiscovery
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Token = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 9:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field CloudMetadata", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowDiscovery
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthDiscovery
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthDiscovery
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.CloudMetadata == nil {
-				m.CloudMetadata = &CloudMetadata{}
-			}
-			if err := m.CloudMetadata.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 10:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field KeyValues", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowDiscovery
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthDiscovery
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthDiscovery
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.KeyValues == nil {
-				m.KeyValues = make(map[string]string)
-			}
-			var mapkey string
-			var mapvalue string
-			for iNdEx < postIndex {
-				entryPreIndex := iNdEx
-				var wire uint64
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return ErrIntOverflowDiscovery
-					}
-					if iNdEx >= l {
-						return io.ErrUnexpectedEOF
-					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					wire |= uint64(b&0x7F) << shift
-					if b < 0x80 {
-						break
-					}
-				}
-				fieldNum := int32(wire >> 3)
-				if fieldNum == 1 {
-					var stringLenmapkey uint64
-					for shift := uint(0); ; shift += 7 {
-						if shift >= 64 {
-							return ErrIntOverflowDiscovery
-						}
-						if iNdEx >= l {
-							return io.ErrUnexpectedEOF
-						}
-						b := dAtA[iNdEx]
-						iNdEx++
-						stringLenmapkey |= uint64(b&0x7F) << shift
-						if b < 0x80 {
-							break
-						}
-					}
-					intStringLenmapkey := int(stringLenmapkey)
-					if intStringLenmapkey < 0 {
-						return ErrInvalidLengthDiscovery
-					}
-					postStringIndexmapkey := iNdEx + intStringLenmapkey
-					if postStringIndexmapkey < 0 {
-						return ErrInvalidLengthDiscovery
-					}
-					if postStringIndexmapkey > l {
-						return io.ErrUnexpectedEOF
-					}
-					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
-					iNdEx = postStringIndexmapkey
-				} else if fieldNum == 2 {
-					var stringLenmapvalue uint64
-					for shift := uint(0); ; shift += 7 {
-						if shift >= 64 {
-							return ErrIntOverflowDiscovery
-						}
-						if iNdEx >= l {
-							return io.ErrUnexpectedEOF
-						}
-						b := dAtA[iNdEx]
-						iNdEx++
-						stringLenmapvalue |= uint64(b&0x7F) << shift
-						if b < 0x80 {
-							break
-						}
-					}
-					intStringLenmapvalue := int(stringLenmapvalue)
-					if intStringLenmapvalue < 0 {
-						return ErrInvalidLengthDiscovery
-					}
-					postStringIndexmapvalue := iNdEx + intStringLenmapvalue
-					if postStringIndexmapvalue < 0 {
-						return ErrInvalidLengthDiscovery
-					}
-					if postStringIndexmapvalue > l {
-						return io.ErrUnexpectedEOF
-					}
-					mapvalue = string(dAtA[iNdEx:postStringIndexmapvalue])
-					iNdEx = postStringIndexmapvalue
-				} else {
-					iNdEx = entryPreIndex
-					skippy, err := skipDiscovery(dAtA[iNdEx:])
-					if err != nil {
-						return err
-					}
-					if skippy < 0 {
-						return ErrInvalidLengthDiscovery
-					}
-					if (iNdEx + skippy) > postIndex {
-						return io.ErrUnexpectedEOF
-					}
-					iNdEx += skippy
-				}
-			}
-			m.KeyValues[mapkey] = mapvalue
-			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := skipDiscovery(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthDiscovery
-			}
-			if (iNdEx + skippy) < 0 {
-				return ErrInvalidLengthDiscovery
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *Device) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowDiscovery
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= uint64(b&0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: Device: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: Device: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Name", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowDiscovery
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthDiscovery
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthDiscovery
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Name = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := skipDiscovery(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthDiscovery
-			}
-			if (iNdEx + skippy) < 0 {
-				return ErrInvalidLengthDiscovery
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *Mount) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowDiscovery
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= uint64(b&0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: Mount: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: Mount: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Name", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowDiscovery
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthDiscovery
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthDiscovery
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Name = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 2:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Source", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowDiscovery
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthDiscovery
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthDiscovery
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Source = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := skipDiscovery(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthDiscovery
-			}
-			if (iNdEx + skippy) < 0 {
-				return ErrInvalidLengthDiscovery
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *CloudMetadata) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowDiscovery
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= uint64(b&0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: CloudMetadata: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: CloudMetadata: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field NodeName", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowDiscovery
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthDiscovery
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthDiscovery
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.NodeName = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 2:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field InstanceType", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowDiscovery
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthDiscovery
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthDiscovery
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.InstanceType = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 3:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field InstanceId", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowDiscovery
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthDiscovery
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthDiscovery
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.InstanceId = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := skipDiscovery(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthDiscovery
-			}
-			if (iNdEx + skippy) < 0 {
-				return ErrInvalidLengthDiscovery
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func skipDiscovery(dAtA []byte) (n int, err error) {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return 0, ErrIntOverflowDiscovery
-			}
-			if iNdEx >= l {
-				return 0, io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		wireType := int(wire & 0x7)
-		switch wireType {
-		case 0:
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return 0, ErrIntOverflowDiscovery
-				}
-				if iNdEx >= l {
-					return 0, io.ErrUnexpectedEOF
-				}
-				iNdEx++
-				if dAtA[iNdEx-1] < 0x80 {
-					break
-				}
-			}
-			return iNdEx, nil
-		case 1:
-			iNdEx += 8
-			return iNdEx, nil
-		case 2:
-			var length int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return 0, ErrIntOverflowDiscovery
-				}
-				if iNdEx >= l {
-					return 0, io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				length |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if length < 0 {
-				return 0, ErrInvalidLengthDiscovery
-			}
-			iNdEx += length
-			if iNdEx < 0 {
-				return 0, ErrInvalidLengthDiscovery
-			}
-			return iNdEx, nil
-		case 3:
-			for {
-				var innerWire uint64
-				var start int = iNdEx
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return 0, ErrIntOverflowDiscovery
-					}
-					if iNdEx >= l {
-						return 0, io.ErrUnexpectedEOF
-					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					innerWire |= (uint64(b) & 0x7F) << shift
-					if b < 0x80 {
-						break
-					}
-				}
-				innerWireType := int(innerWire & 0x7)
-				if innerWireType == 4 {
-					break
-				}
-				next, err := skipDiscovery(dAtA[start:])
-				if err != nil {
-					return 0, err
-				}
-				iNdEx = start + next
-				if iNdEx < 0 {
-					return 0, ErrInvalidLengthDiscovery
-				}
-			}
-			return iNdEx, nil
-		case 4:
-			return iNdEx, nil
-		case 5:
-			iNdEx += 4
-			return iNdEx, nil
-		default:
-			return 0, fmt.Errorf("proto: illegal wireType %d", wireType)
-		}
-	}
-	panic("unreachable")
-}
-
-var (
-	ErrInvalidLengthDiscovery = fmt.Errorf("proto: negative length found during unmarshaling")
-	ErrIntOverflowDiscovery   = fmt.Errorf("proto: integer overflow")
-)

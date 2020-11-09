@@ -176,6 +176,13 @@ func rollbackPlan(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentF
 	default:
 		return trace.BadParameter(unsupportedRollbackWarning, op.TypeString())
 	}
+
+	if err := verifyOrDeployAgents(localEnv); err != nil {
+		// Continue operation in case gravity-site or etcd is down. In these
+		// cases the agent status may not be retrievable.
+		log.WithError(err).Warn("Failed to verify or deploy agents.")
+	}
+
 	if !confirmed && !params.DryRun {
 		localEnv.Printf(planRollbackWarning, operationList{*op}.formatTable())
 		if err := enforceConfirmation("Proceed?"); err != nil {
@@ -279,18 +286,21 @@ func completeClusterOperationPlan(localEnv *localenv.LocalEnvironment, operation
 // getLastOperation returns the last operation found across the specified backends.
 // If no operation is found, the returned error will indicate a not found operation
 func getLastOperation(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operationID string) (*clusterOperation, error) {
-	operations, err := getBackendOperations(localEnv, environ, operationID)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	log.WithField("operations", operationList(operations).String()).Debug("Fetched backend operations.")
-	if len(operations) == 0 {
-		if operationID != "" {
+	b := newBackendOperations()
+
+	if operationID != "" {
+		op := b.GetOperationById(localEnv, environ, operationID)
+		if op == nil {
 			return nil, newOperationNotFound("no operation with ID %v found", operationID)
 		}
+	}
+
+	op := b.GetLastOperation(localEnv, environ)
+	if op == nil {
 		return nil, newOperationNotFound("no operation found")
 	}
-	return &operations[0], nil
+
+	return op, nil
 }
 
 func getActiveOperation(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operationID string) (*clusterOperation, error) {
@@ -304,39 +314,145 @@ func getActiveOperation(localEnv *localenv.LocalEnvironment, environ LocalEnviro
 	return operation, nil
 }
 
-// getBackendOperations returns the list of operation from the specified backends
-// in descending order (sorted by creation time)
-func getBackendOperations(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operationID string) (result []clusterOperation, err error) {
-	b := newBackendOperations()
-	b.List(localEnv, environ)
-	for _, op := range b.operations {
-		if operationID == "" || operationID == op.ID {
-			result = append(result, op)
-		}
-	}
-	sort.Slice(result, func(i, j int) bool {
-		return result[i].Created.After(result[j].Created)
-	})
-	return result, nil
-}
-
 func newBackendOperations() backendOperations {
 	return backendOperations{
 		operations: make(map[string]clusterOperation),
 	}
 }
 
-func (r *backendOperations) List(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory) {
+func (r *backendOperations) getLastOperationFromCluster(localEnv *localenv.LocalEnvironment) (*clusterOperation, error) {
 	clusterEnv, err := localEnv.NewClusterEnvironment(localenv.WithEtcdTimeout(1 * time.Second))
 	if err != nil {
-		log.WithError(err).Debug("Failed to create cluster environment.")
+		return nil, trace.Wrap(err)
 	}
-	if clusterEnv != nil {
-		err = r.init(clusterEnv.Backend)
-		if err != nil {
-			log.WithError(err).Debug("Failed to query cluster operations.")
-		}
+
+	if clusterEnv == nil {
+		return nil, trace.NotFound("clusterEnv not available")
 	}
+
+	sites, err := clusterEnv.Operator.GetSites(defaults.SystemAccountID)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	if len(sites) == 0 {
+		return nil, trace.NotFound("no clusters found")
+	}
+
+	operations, err := clusterEnv.Operator.GetSiteOperations(ops.SiteKey{
+		AccountID:  defaults.SystemAccountID,
+		SiteDomain: sites[0].Domain,
+	}, ops.OperationsFilter{
+		Last: true,
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	if len(operations) == 0 {
+		return nil, trace.NotFound("no operations found")
+	}
+
+	plan, err := clusterEnv.Operator.GetOperationPlan(ops.SiteOperationKey{
+		AccountID:   defaults.SystemAccountID,
+		SiteDomain:  sites[0].Domain,
+		OperationID: operations[0].ID,
+	})
+	if err != nil && !trace.IsNotFound(err) {
+		return nil, trace.Wrap(err).AddField("operationId", operations[0].ID)
+	}
+
+	return &clusterOperation{
+		SiteOperation: ops.SiteOperation(operations[0]),
+		hasPlan:       plan != nil,
+	}, nil
+}
+
+func (r *backendOperations) GetLastOperation(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory) *clusterOperation {
+	r.importLocal(environ)
+
+	clusterOp, err := r.getLastOperationFromCluster(localEnv)
+	if err != nil {
+		log.WithError(err).Warn("Failed to request operation from cluster.")
+	}
+
+	if len(r.operations) == 0 {
+		return clusterOp
+	}
+
+	operations := []clusterOperation{}
+	for _, v := range r.operations {
+		operations = append(operations, v)
+	}
+
+	sort.Slice(operations, func(i, j int) bool {
+		return operations[i].Created.After(operations[j].Created)
+	})
+
+	if clusterOp != nil && clusterOp.Created.After(operations[0].Created) {
+		return clusterOp
+	}
+
+	return &operations[0]
+}
+
+func (r *backendOperations) getOperationByIDFromCluster(localEnv *localenv.LocalEnvironment, operationID string) (*clusterOperation, error) {
+	clusterEnv, err := localEnv.NewClusterEnvironment(localenv.WithEtcdTimeout(1 * time.Second))
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	if clusterEnv == nil {
+		return nil, trace.NotFound("clusterEnv not available")
+	}
+
+	sites, err := clusterEnv.Operator.GetSites(defaults.SystemAccountID)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	if len(sites) == 0 {
+		return nil, trace.NotFound("no clusters found")
+	}
+
+	operation, err := clusterEnv.Operator.GetSiteOperation(ops.SiteOperationKey{
+		AccountID:   defaults.SystemAccountID,
+		SiteDomain:  sites[0].Domain,
+		OperationID: operationID,
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	plan, err := clusterEnv.Operator.GetOperationPlan(ops.SiteOperationKey{
+		AccountID:   defaults.SystemAccountID,
+		SiteDomain:  sites[0].Domain,
+		OperationID: operation.ID,
+	})
+	if err != nil && !trace.IsNotFound(err) {
+		return nil, trace.Wrap(err).AddField("operationId", operation.ID)
+	}
+
+	return &clusterOperation{
+		SiteOperation: *operation,
+		hasPlan:       plan != nil,
+	}, nil
+}
+
+func (r *backendOperations) GetOperationById(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operationId string) *clusterOperation {
+	r.importLocal(environ)
+
+	if op, ok := r.operations[operationId]; ok {
+		return &op
+	}
+
+	clusterOp, err := r.getOperationByIDFromCluster(localEnv, operationId)
+	if err != nil {
+		log.WithError(err).Warn("Failed to request operation from cluster.")
+	}
+
+	return clusterOp
+}
+
+func (r *backendOperations) importLocal(environ LocalEnvironmentFactory) {
 	if environ == nil {
 		return
 	}

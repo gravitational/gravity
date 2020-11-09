@@ -53,7 +53,6 @@ import (
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/cenkalti/backoff"
-	"github.com/gravitational/coordinate/leader"
 	"github.com/gravitational/roundtrip"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
@@ -721,6 +720,7 @@ func (p *Peer) runLocalChecks(ctx operationContext) error {
 		Manifest: ctx.Cluster.App.Manifest,
 		Role:     p.Role,
 		Docker:   ctx.Cluster.ClusterState.Docker,
+		Mounts:   mountsFromProto(p.PeerConfig.RuntimeConfig.Mounts),
 		Options: &validationpb.ValidateOptions{
 			VxlanPort: int32(installOperation.GetVars().OnPrem.VxlanPort),
 			DnsAddrs:  ctx.Cluster.DNSConfig.Addrs,
@@ -763,7 +763,15 @@ type operationContext struct {
 // For a local gravity cluster, it will attempt to start the expand operation
 // and will return an operation context wrapping a new expand operation.
 func (p *Peer) connectLoop() (*operationContext, error) {
-	ticker := backoff.NewTicker(leader.NewUnlimitedExponentialBackOff())
+
+	// Lots of joining nodes create load on the gravity-site controller cycling on creating join operations
+	// Set a high maximum so lots of queued joins don't create too much load
+	b := backoff.NewExponentialBackOff()
+	b.Multiplier = 2
+	b.MaxElapsedTime = 0 // unlimited timeout
+	b.MaxInterval = time.Minute
+
+	ticker := backoff.NewTicker(b)
 	defer ticker.Stop()
 	for {
 		select {
@@ -1350,4 +1358,12 @@ type connectResult struct {
 type closeResponse struct {
 	doneC chan struct{}
 	resp  *installpb.ProgressResponse
+}
+
+func mountsFromProto(mounts []*pb.Mount) (result map[string]string) {
+	result = make(map[string]string, len(mounts))
+	for _, mount := range mounts {
+		result[mount.Name] = mount.Source
+	}
+	return result
 }

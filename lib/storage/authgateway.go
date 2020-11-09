@@ -105,7 +105,7 @@ func NewAuthGateway(spec AuthGatewaySpecV1) AuthGateway {
 
 // DefaultAuthGateway returns auth gateway resource with default parameters.
 func DefaultAuthGateway() AuthGateway {
-	var maxConnections int64 = teledefaults.LimiterMaxConnections
+	var maxConnections int64 = 10000
 	maxUsers := teledefaults.LimiterMaxConcurrentUsers
 	clientIdleTimeout := teleservices.NewDuration(0)
 	disconnectExpiredCert := teleservices.NewBool(false)

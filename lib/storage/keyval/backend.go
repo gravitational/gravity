@@ -19,17 +19,23 @@ package keyval
 import (
 	"encoding/base64"
 	"encoding/json"
+	"sync"
 	"time"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/gravitational/gravity/lib/storage"
+
 	"github.com/gravitational/trace"
 	"github.com/jonboulle/clockwork"
+	log "github.com/sirupsen/logrus"
 )
 
 // backend implements storage interface, it also acts as a codec
 type backend struct {
 	clockwork.Clock
 	kvengine
+
+	cachedCompleteOperationsMutex sync.RWMutex
+	cachedCompleteOperations      map[string]*storage.SiteOperation
 }
 
 func (b *backend) ttl(t time.Time) time.Duration {

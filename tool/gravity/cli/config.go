@@ -317,7 +317,7 @@ func (i *InstallConfig) CheckAndSetDefaults(validator resources.Validator) (err 
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = validate.KubernetesSubnetsFromStrings(i.PodCIDR, i.ServiceCIDR)
+	err = validate.KubernetesSubnetsFromStrings(i.PodCIDR, i.ServiceCIDR, "")
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -345,9 +345,15 @@ func (i *InstallConfig) CheckAndSetDefaults(validator resources.Validator) (err 
 	if i.SiteDomain == "" {
 		i.SiteDomain = generateClusterName()
 	}
-	err = i.validateResources(validator)
-	if err != nil {
-		return trace.Wrap(err)
+	// Avoid validating resources for wizard-driven installation or when the installer
+	// executes a remote install.
+	// In this case, the validation happens on the remote node where the cluster is
+	// being set up.
+	if !i.Remote {
+		err = i.validateResources(validator)
+		if err != nil {
+			return trace.Wrap(err)
+		}
 	}
 	return nil
 }
@@ -472,6 +478,7 @@ func (i *InstallConfig) RunLocalChecks() error {
 		Manifest: app.Manifest,
 		Role:     role,
 		Docker:   i.Docker,
+		Mounts:   i.Mounts,
 		Options: &validationpb.ValidateOptions{
 			VxlanPort: int32(i.VxlanPort),
 			DnsAddrs:  i.DNSConfig.Addrs,
@@ -604,10 +611,10 @@ func (i *InstallConfig) splitResources(validator resources.Validator) (runtimeRe
 
 func (i *InstallConfig) updateClusterConfig(resources []storage.UnknownResource) (updated []storage.UnknownResource, err error) {
 	var clusterConfig *storage.UnknownResource
-	updated = resources[:0]
-	for _, res := range resources {
+	updated = make([]storage.UnknownResource, 0, len(resources))
+	for i, res := range resources {
 		if res.Kind == storage.KindClusterConfiguration {
-			clusterConfig = &res
+			clusterConfig = &resources[i]
 			continue
 		}
 		updated = append(updated, res)

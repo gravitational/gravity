@@ -159,6 +159,9 @@ func (s *site) getReport(ctx context.Context, runner remoteRunner, servers []rem
 		if err := s.collectStatusTimeline(reportWriter, serverRunner); err != nil {
 			logger.WithError(err).Error("Failed to collect status timeline.")
 		}
+		if err := s.collectResources(reportWriter, serverRunner); err != nil {
+			logger.WithError(err).Error("Failed to collect gravity resources.")
+		}
 	}
 
 	// use a pipe to avoid allocating a buffer
@@ -287,6 +290,20 @@ func (s *site) collectStatusTimeline(reportWriter report.FileWriter, runner *ser
 	return nil
 }
 
+func (s *site) collectResources(reportWriter report.FileWriter, runner *serverRunner) error {
+	w, err := reportWriter.NewWriter("resources.tar.gz")
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer w.Close()
+	err = runner.RunStream(w, s.gravityCommand("system", "report",
+		fmt.Sprintf("--filter=%v", report.FilterResources), "--compressed")...)
+	if err != nil {
+		return trace.Wrap(err, "failed to collect gravity resources")
+	}
+	return nil
+}
+
 func runCollectors(ctx context.Context, cluster site, dir string) error {
 	storageSite, err := cluster.service.cfg.Backend.GetSite(cluster.domainName)
 	if err != nil {
@@ -310,7 +327,7 @@ func runCollectors(ctx context.Context, cluster site, dir string) error {
 }
 
 func collectOperationsLogs(site site, dir string) error {
-	operations, err := site.service.GetSiteOperations(site.key)
+	operations, err := site.service.GetSiteOperations(site.key, ops.OperationsFilter{})
 	if err != nil {
 		return trace.Wrap(err, "failed to get cluster operations")
 	}

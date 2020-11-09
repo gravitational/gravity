@@ -397,7 +397,7 @@ func (r *Resources) GetCollection(req resources.ListRequest) (resources.Collecti
 		}
 		return configCollection{Interface: config}, nil
 	case storage.KindOperation:
-		operations, err := r.Operator.GetSiteOperations(req.SiteKey)
+		operations, err := r.Operator.GetSiteOperations(req.SiteKey, ops.OperationsFilter{})
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
@@ -565,7 +565,7 @@ func Validate(resource storage.UnknownResource) (err error) {
 			return trace.Wrap(err)
 		}
 		globalConfig := config.GetGlobalConfig()
-		return validate.KubernetesSubnetsFromStrings(globalConfig.PodCIDR, globalConfig.ServiceCIDR)
+		return validate.KubernetesSubnetsFromStrings(globalConfig.PodCIDR, globalConfig.ServiceCIDR, globalConfig.PodSubnetSize)
 	default:
 		return trace.NotImplemented("unsupported resource %q, supported are: %v",
 			resource.Kind, modules.GetResources().SupportedResources())
