@@ -97,7 +97,7 @@ spec:
         seccomp.security.alpha.kubernetes.io/pod: docker/default
     spec:
       serviceAccountName: coredns
-      priorityClassName: cluster-node-critical
+      priorityClassName: system-node-critical
       tolerations:
         - operator: "Exists"
       nodeSelector:
@@ -185,7 +185,7 @@ spec:
         seccomp.security.alpha.kubernetes.io/pod: docker/default
     spec:
       serviceAccountName: coredns
-      priorityClassName: cluster-node-critical
+      priorityClassName: system-node-critical
       tolerations:
         - operator: "Exists"
       nodeSelector:
