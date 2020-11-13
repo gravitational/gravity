@@ -1,3 +1,8 @@
+---
+title: Gravity OpsCenter
+description: Gravity Ops Center is a multi-cluster control plane available in the Enterprise version of Gravity.
+---
+
 # Introduction
 
 The Gravity Ops Center is a multi-cluster control plane available in the Enterprise version of Gravity. It reduces the operational overhead of managing multiple Gravity Clusters and Application Bundles by allowing users to:
@@ -14,12 +19,12 @@ This chapter will guide you through the process of downloading and installing yo
 ## Installing Ops Center
 
 The Ops Center only works with the Gravity Enterprise Edition license key and
-the Application Bundle for the Ops Center. You can [contact us](https://gravitational.com/gravity/demo/) 
+the Application Bundle for the Ops Center. You can [contact us](https://gravitational.com/gravity/demo/)
 to get a trial license key and the Ops Center Application Bundle.
 
 As with any Gravity application, you will also need a Linux server to install the Ops Center.
 
-### Downloading Ops Center 
+### Downloading Ops Center
 
 The Ops Center itself is packaged as a Gravity application bundle, i.e. it's a
 tarball which contains a fully functional K8s cluster. To download the Ops Center,
@@ -27,7 +32,7 @@ run the following command:
 
 ```bash
 # This command only works with the enterprise edition of 'tele' command.
-# It may take 1-2 minutes to download the bundle, depending on the 
+# It may take 1-2 minutes to download the bundle, depending on the
 # quality of your Internet connection:
 $ tele pull opscenter
 
@@ -41,7 +46,7 @@ $ tele pull opscenter
 	Still downloading opscenter:5.5.0 (50 seconds elapsed)
 	Still downloading opscenter:5.5.0 (1 minute elapsed)
 * [3/3] Application opscenter downloaded
-* [3/3] Download completed in 1 minute 
+* [3/3] Download completed in 1 minute
 
 # See the result:
 $ ls -lh

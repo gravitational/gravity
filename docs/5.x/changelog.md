@@ -1,3 +1,8 @@
+---
+title: Gravity Releases (Changelog)
+description: List of Gravity releases and changes between them.
+---
+
 # Releases
 
 ## Current Releases

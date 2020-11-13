@@ -1,3 +1,8 @@
+---
+title: Gravity Terraform
+description: How to setup Gravity using Terraform.
+---
+
 # Terraform Provider (OSS)
 
 The Gravity terraform provider is used to support terraform management of open-source Gravity clusters. The provider needs to be configured with a valid token in order to manage a cluster.
