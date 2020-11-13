@@ -36,7 +36,7 @@ function build_upgrade_suite {
 
 function build_resize_suite {
   local suite=$(cat <<EOF
- resize={"installer_url":"${INSTALLER_URL}","nodes":1,"to":3,"flavor":"one","role":"node","state_dir":"/var/lib/telekube","os":"ubuntu:18","storage_driver":"overlay2"}
+ resize={"installer_url":"${INSTALLER_URL}","nodes":1,"to":3,"flavor":"one","role":"node","state_dir":"/var/lib/telekube","os":"ubuntu:18"}
  shrink={"installer_url":"${INSTALLER_URL}","nodes":3,"flavor":"three","role":"node","os":"redhat:7"}
 EOF
 )
@@ -65,7 +65,7 @@ function build_install_suite {
   local cluster_size='"flavor":"one","nodes":1,"role":"node"'
   for os in $oses; do
     suite+=$(cat <<EOF
- install={"installer_url":"${INSTALLER_URL}",${cluster_size},"os":"${os}","storage_driver":"overlay2"}
+ install={"installer_url":"${INSTALLER_URL}",${cluster_size},"os":"${os}"}
 EOF
 )
   done
