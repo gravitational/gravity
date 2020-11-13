@@ -207,7 +207,7 @@ WantedBy=test.target
 	for _, test := range tt {
 		buf := &bytes.Buffer{}
 		err := serviceUnitTemplate.Execute(buf, test.in)
-		c.Assert(err, IsNil)
+		c.Assert(err, IsNil, Commentf(test.description))
 		c.Assert(buf.String(), compare.DeepEquals, test.out, Commentf(test.description))
 	}
 }
