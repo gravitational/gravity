@@ -56,7 +56,7 @@ ExecStart={{.StartCommand}}
 {{if .StartPostCommand}}ExecStartPost={{.StartPostCommand}}{{end}}
 {{if .StopCommand}}ExecStop={{.StopCommand}}{{end}}
 {{if .StopPostCommand}}ExecStopPost={{.StopPostCommand}}{{end}}
-{{if .LimitNoFile}}LimitNOFILE={{.LimitNoFile}}{{end}}
+{{if .LimitNoFile}}LimitNOFILE={{.LimitNoFile}}{{else}}LimitNOFILE=100000{{end}}
 {{if .KillMode}}KillMode={{.KillMode}}{{end}}
 {{if .KillSignal}}KillSignal={{.KillSignal}}{{end}}
 {{if .Restart}}Restart={{.Restart}}{{end}}
