@@ -11,7 +11,7 @@ Find the latest Open Source Gravity releases at [Gravity Downloads](https://grav
 
 | Version             | Latest Patch | LTS | Release Date         | Latest Patch Date    | End of Support *        | Kubernetes Version   | Teleport Version |
 | ------------------- | ------------ | --- | -------------------- | -------------------- | ----------------------- | -------------------- | ---------------- |
-| [7.0](#70-releases) | 7.0.25       | Yes | April 3, 2020        | November 4, 2020   | July 9, 2022            | 1.17.9               | 3.2.14-gravity   |
+| [7.0](#70-releases) | 7.0.26       | Yes | April 3, 2020        | November 11, 2020   | July 9, 2022            | 1.17.9               | 3.2.14-gravity   |
 | [6.1](#61-releases) | 6.1.45       | Yes | August 2, 2019       | November 5, 2020   | November 10, 2021       | 1.15.12              | 3.2.14-gravity   |
 | [5.5](#55-releases) | 5.5.55       | Yes | March 8, 2019        | October 21, 2020   | March 8, 2021           | 1.13.11              | 3.0.7-gravity    |
 
@@ -50,6 +50,12 @@ extend updates past End of Support through customer agreements if required.
 # Release Notes
 
 ## 7.0 Releases
+
+### 7.0.26 LTS (November 11, 2020)
+
+#### Bugfixes
+
+* Fix an issue with planet agent failing to provide correct list of nameservers to kubelet on worker nodes ([#2312](https://github.com/gravitational/gravity/pull/2312), [planet#791](https://github.com/gravitational/planet/pull/791)).
 
 ### 7.0.25 LTS (November 4, 2020)
 
