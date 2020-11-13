@@ -61,12 +61,14 @@ EOF
 
 function build_install_suite {
   local suite=''
-  local test_os="redhat:8.3"
-  local cluster_size='"flavor":"three","nodes":3,"role":"node"'
-  suite+=$(cat <<EOF
- install={"installer_url":"${INSTALLER_URL}",${cluster_size},"os":"${test_os}","storage_driver":"overlay2"}
+  local oses="redhat:8.3 redhat:7.9 centos:8.2 centos:7.9 sles:12-sp5 sles:15-sp2 ubuntu:16 ubuntu:18 ubuntu:20 debian:9 debian:10"
+  local cluster_size='"flavor":"one","nodes":1,"role":"node"'
+  for os in $oses; do
+    suite+=$(cat <<EOF
+ install={"installer_url":"${INSTALLER_URL}",${cluster_size},"os":"${os}","storage_driver":"overlay2"}
 EOF
 )
+  done
   suite+=' '
   echo -n $suite
 }
