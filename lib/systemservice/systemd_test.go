@@ -128,7 +128,7 @@ WantedBy=test.target
 `,
 		},
 		{
-			description: "unspecified file limits set to infinity",
+			description: "unspecified file limits",
 			in: serviceTemplate{
 				Name:        "test.service",
 				Description: "test",
