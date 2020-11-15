@@ -12,7 +12,7 @@ if [ $1 = "update" ]; then
     rig upsert -f /var/lib/gravity/resources/dns.yaml
 
     echo "Checking status"
-    rig status $RIG_CHANGESET --retry-attempts=120 --retry-period=1s --debug
+    rig status $RIG_CHANGESET --retry-attempts=600 --retry-period=1s --debug
     echo "Freezing"
     rig freeze
 elif [ $1 = "rollback" ]; then
