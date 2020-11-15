@@ -46,41 +46,46 @@ func (s *SystemdSuite) TestUnitParsing(c *C) {
 }
 
 func (s *SystemdSuite) TestServiceTemplate(c *C) {
-	buf := &bytes.Buffer{}
-	err := serviceUnitTemplate.Execute(buf, serviceTemplate{
-		Name:        "test.service",
-		Description: "test",
-		ServiceSpec: ServiceSpec{
-			Type:             "oneshot",
-			StartCommand:     "start",
-			StopCommand:      "stop",
-			StopPostCommand:  "stop post",
-			StartPreCommand:  "start pre",
-			StartPostCommand: "start post",
-			WantedBy:         "test.target",
-			KillMode:         "cgroup",
-			KillSignal:       "SIGQUIT",
-			RestartSec:       3,
-			Timeout:          4,
-			Restart:          "always",
-			User:             "root",
-			LimitNoFile:      1000,
-			RemainAfterExit:  true,
-			Dependencies: Dependencies{
-				Requires: "foo.service",
-				After:    "foo.service",
-				Before:   "bar.service",
+	tt := []struct {
+		in          serviceTemplate
+		out         string
+		description string
+	}{
+		{
+			description: "Full service",
+			in: serviceTemplate{
+				Name:        "test.service",
+				Description: "test",
+				ServiceSpec: ServiceSpec{
+					Type:             "oneshot",
+					StartCommand:     "start",
+					StopCommand:      "stop",
+					StopPostCommand:  "stop post",
+					StartPreCommand:  "start pre",
+					StartPostCommand: "start post",
+					WantedBy:         "test.target",
+					KillMode:         "cgroup",
+					KillSignal:       "SIGQUIT",
+					RestartSec:       3,
+					Timeout:          4,
+					Restart:          "always",
+					User:             "root",
+					LimitNoFile:      1000,
+					RemainAfterExit:  true,
+					Dependencies: Dependencies{
+						Requires: "foo.service",
+						After:    "foo.service",
+						Before:   "bar.service",
+					},
+					Environment: map[string]string{
+						"PATH": "/usr/bin",
+					},
+					TasksMax:            "infinity",
+					TimeoutStopSec:      "5min",
+					ConditionPathExists: "/path/to/foo",
+				},
 			},
-			Environment: map[string]string{
-				"PATH": "/usr/bin",
-			},
-			TasksMax:            "infinity",
-			TimeoutStopSec:      "5min",
-			ConditionPathExists: "/path/to/foo",
-		},
-	})
-	c.Assert(err, IsNil)
-	c.Assert(buf.String(), compare.DeepEquals, `[Unit]
+			out: `[Unit]
 Description=test
 
 Requires=foo.service
@@ -113,7 +118,84 @@ TasksMax=infinity
 [Install]
 WantedBy=test.target
 
-`)
+`,
+		},
+		{
+			description: "unspecified file limits",
+			in: serviceTemplate{
+				Name:        "test.service",
+				Description: "test",
+				ServiceSpec: ServiceSpec{
+					Type:             "oneshot",
+					StartCommand:     "start",
+					StopCommand:      "stop",
+					StopPostCommand:  "stop post",
+					StartPreCommand:  "start pre",
+					StartPostCommand: "start post",
+					WantedBy:         "test.target",
+					KillMode:         "cgroup",
+					KillSignal:       "SIGQUIT",
+					RestartSec:       3,
+					Timeout:          4,
+					Restart:          "always",
+					User:             "root",
+					RemainAfterExit:  true,
+					Dependencies: Dependencies{
+						Requires: "foo.service",
+						After:    "foo.service",
+						Before:   "bar.service",
+					},
+					Environment: map[string]string{
+						"PATH": "/usr/bin",
+					},
+					TasksMax:            "infinity",
+					TimeoutStopSec:      "5min",
+					ConditionPathExists: "/path/to/foo",
+				},
+			},
+			out: `[Unit]
+Description=test
+
+Requires=foo.service
+After=foo.service
+Before=bar.service
+
+ConditionPathExists=/path/to/foo
+
+[Service]
+TimeoutStartSec=4
+Type=oneshot
+User=root
+ExecStart=start
+ExecStartPre=start pre
+ExecStartPost=start post
+ExecStop=stop
+ExecStopPost=stop post
+LimitNOFILE=100000
+KillMode=cgroup
+KillSignal=SIGQUIT
+Restart=always
+TimeoutStopSec=5min
+RestartSec=3
+RemainAfterExit=yes
+Environment=PATH=/usr/bin
+
+TasksMax=infinity
+
+
+[Install]
+WantedBy=test.target
+
+`,
+		},
+	}
+
+	for _, test := range tt {
+		buf := &bytes.Buffer{}
+		err := serviceUnitTemplate.Execute(buf, test.in)
+		c.Assert(err, IsNil, Commentf(test.description))
+		c.Assert(buf.String(), compare.DeepEquals, test.out, Commentf(test.description))
+	}
 }
 
 func (s *SystemdSuite) TestMountServiceTemplate(c *C) {
