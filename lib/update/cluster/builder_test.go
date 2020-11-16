@@ -171,7 +171,7 @@ func (s *PlanSuite) TestPlanWithRuntimeAppsUpdate(c *check.C) {
 			params.coreDNS("/bootstrap"),
 			params.masters(leadMaster, updates[0:1], gravityPackage, "id", "/coredns"),
 			params.nodes(updates[2:], leadMaster.Server, gravityPackage, "id", "/masters"),
-			params.etcd(leadMaster.Server, updates[0:1], *params.targetStep.etcd),
+			params.etcd(leadMaster.Server, updates[0:1], updates[2:], *params.targetStep.etcd),
 			params.config("/etcd"),
 			params.runtime(runtimeUpdates, "/config"),
 			params.migration("/runtime"),
@@ -393,6 +393,7 @@ func (s *PlanSuite) TestPlanWithIntermediateRuntimeUpdate(c *check.C) {
 				params.nodes(intermediateNodes, intermediateLeadMaster.Server, intermediateGravityPackage, "id2", "/masters"),
 				params.etcd(intermediateLeadMaster.Server,
 					intermediateOtherMasters,
+					intermediateNodes,
 					*params.steps[0].etcd),
 				params.config("/etcd"),
 				params.runtime(intermediateRuntimeUpdates, "/config"),
@@ -402,7 +403,7 @@ func (s *PlanSuite) TestPlanWithIntermediateRuntimeUpdate(c *check.C) {
 				params.coreDNS("/bootstrap"),
 				params.masters(leadMaster, otherMasters, gravityPackage, "id", "/coredns"),
 				params.nodes(nodes, leadMaster.Server, gravityPackage, "id", "/masters"),
-				params.etcd(leadMaster.Server, otherMasters, *params.targetStep.etcd),
+				params.etcd(leadMaster.Server, otherMasters, nodes, *params.targetStep.etcd),
 				params.config("/etcd"),
 				params.runtime(runtimeUpdates, "/config"),
 			),
@@ -1125,7 +1126,7 @@ func (r *params) bootstrapNodeVersioned(server storage.UpdateServer, version str
 	}
 }
 
-func (r params) etcd(leadMaster storage.Server, otherMasters []storage.UpdateServer, etcd etcdVersion) storage.OperationPhase {
+func (r params) etcd(leadMaster storage.Server, otherMasters, nodes []storage.UpdateServer, etcd etcdVersion) storage.OperationPhase {
 	return storage.OperationPhase{
 		ID:          "/etcd",
 		Description: fmt.Sprintf("Upgrade etcd %v to %v", etcd.installed, etcd.update),
@@ -1172,7 +1173,8 @@ func (r params) etcd(leadMaster storage.Server, otherMasters []storage.UpdateSer
 				Phases: []storage.OperationPhase{
 					r.etcdRestartLeaderNode(leadMaster),
 					// FIXME: assumes len(otherMasters) == 1
-					r.etcdRestartNode(otherMasters[0].Server),
+					r.etcdRestartController(otherMasters[0].Server),
+					r.etcdRestartWorker(nodes[0].Server),
 					r.etcdRestartGravity(leadMaster),
 				},
 			},
@@ -1255,7 +1257,7 @@ func (r params) etcdRestartLeaderNode(leadMaster storage.Server) storage.Operati
 	}
 }
 
-func (r params) etcdRestartNode(server storage.Server) storage.OperationPhase {
+func (r params) etcdRestartController(server storage.Server) storage.OperationPhase {
 	t := func(format string) string {
 		return fmt.Sprintf(format, server.Hostname)
 	}
@@ -1264,6 +1266,21 @@ func (r params) etcdRestartNode(server storage.Server) storage.OperationPhase {
 		Description: t("Restart etcd on node %q"),
 		Executor:    updateEtcdRestart,
 		Requires:    []string{t("/etcd/upgrade/%v")},
+		Data: &storage.OperationPhaseData{
+			Server: &server,
+		},
+	}
+}
+
+func (r params) etcdRestartWorker(server storage.Server) storage.OperationPhase {
+	t := func(format string) string {
+		return fmt.Sprintf(format, server.Hostname)
+	}
+	return storage.OperationPhase{
+		ID:          t("/etcd/restart/%v"),
+		Description: t("Restart etcd on node %q"),
+		Executor:    updateEtcdRestart,
+		Requires:    []string{"/etcd/upgrade"},
 		Data: &storage.OperationPhaseData{
 			Server: &server,
 		},
