@@ -1,3 +1,8 @@
+---
+title: Gravity System Requirements
+description: Description of the system requirements for running Kubernetes in production
+---
+
 # System Requirements
 
 This section outlines system requirements and best practices for installing

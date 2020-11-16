@@ -1,3 +1,8 @@
+---
+title: Introduction to Gravity
+description: Introduction to Gravity, the toolkit for packaging and deploying cloud application on-premises, into remote, restricted and regulated environments.
+---
+
 # Introduction
 
 Gravity is an open source toolkit which allows developers to
@@ -29,9 +34,9 @@ There are two primary use cases for Gravity:
    by their customers.
 
 2. **Reducing Operational Overhead:** Ops teams supporting many distributed
-   product teams are often tasked with providing Kubernetes-as-a-Service 
+   product teams are often tasked with providing Kubernetes-as-a-Service
    within their organization across multiple hosting regions and multiple
-   hosting providers. Gravity's image-based approach allows them to treat 
+   hosting providers. Gravity's image-based approach allows them to treat
    K8s clusters as cattle, not pets, dramatically reducing operational overhead.
 
 For these use cases, Gravity is used to create an Application Bundle that includes the Kubernetes binaries,
@@ -63,7 +68,7 @@ Gravity is only available inside the cluster so you have to either `tsh ssh` int
 
 Application Bundles may contain "empty", pre-packaged Kubernetes for
 centralized management of Kubernetes resources within an organization or may
-also contain other applications running on Kubernetes. 
+also contain other applications running on Kubernetes.
 
 The typical cluster lifecycle consists of the following:
 
@@ -94,7 +99,7 @@ Cluster (i.e. the installation of the Cluster).
 !!! tip "Gravity Roadmap Tip"
     Kubernetes community is working on finalizing the cluster API spec. Once it
     becomes production ready, Gravity developers will be looking into adopting the
-    future standard to replace the application manifest in the future. Meanwhile, 
+    future standard to replace the application manifest in the future. Meanwhile,
     it continues to be the only production-ready method of describing hardware
     requirements for K8s clusters.
 
@@ -138,7 +143,7 @@ nodeProfiles:
 The Application Manifest works in conjunction with [Helm charts](https://helm.sh/)
 and Kubernetes resources like jobs and configuration maps. These
 tools provide a high degree of flexibility for specifying how applications are
-installed, updated and configured. 
+installed, updated and configured.
 
 To create an Application Bundle you have to:
 
@@ -149,10 +154,10 @@ To create an Application Bundle you have to:
 $ tele build -o my-kubernetes-appliance.tar manifest.yaml
 ```
 
-This will produce the Application Bundle called `my-kubernetes-appliance.tar`, which can 
-be deployed across cloud providers and private data centers. 
+This will produce the Application Bundle called `my-kubernetes-appliance.tar`, which can
+be deployed across cloud providers and private data centers.
 
-You can learn more about the Application Manifest in the [Packaging & Deployment](pack.md) 
+You can learn more about the Application Manifest in the [Packaging & Deployment](pack.md)
 section of the documentation.
 
 ## Publishing
@@ -205,7 +210,7 @@ must be executed on any cluster node and it allows a cluster administrator to:
    of individual applications in the Clusters.
 
 `gravity` is a higher level replacement for tools like `kubeadm` or `etcdadm`. It provides automatic, hypervisor-like management of `etcd`. Additionally, it delivers
-benefits such as enforcing system requirements and delivering on the promise of 
+benefits such as enforcing system requirements and delivering on the promise of
 lower operational overhead for managing many Kubernetes clusters. You can also still use `kubectl` for tasks like watching logs, seeing
 stats for pods or volumes, managing configuration and other operational tasks.
 
@@ -215,7 +220,7 @@ provide remote access to the clusters (assuming the remote administrators allow 
 ### Updates and Upgrades
 
 `gravity` can perform updates of both the Kubernetes itself and the
-applications running inside. The updates can be performed in one of two modes: 
+applications running inside. The updates can be performed in one of two modes:
 
 * **online mode** allows `gravity` command to check for new versions of a
   cluster, download them and perform a in-place upgrade of the cluster.
@@ -223,4 +228,3 @@ applications running inside. The updates can be performed in one of two modes:
   bundle_ tarball to perform an in-place upgrade.
 
 For more details on using `gravity` to manage Clusters please see the [Cluster Management](cluster.md) and [Remote Management](manage.md) sections.
-

@@ -1,3 +1,9 @@
+---
+title: Installing Cloud Applications on-prem
+description: How to install a cloud application into on-premise or air-gapped environment. This also works for deploying into 3rd party cloud accounts.
+---
+
+
 # Installation
 
 ### Standalone Offline UI Installation
@@ -247,7 +253,7 @@ root$ rm -r .gravity
 
 ## Installing on Google Compute Engine
 
-!!! note 
+!!! note
     GCE cloud provider integration is supported starting from Gravity
     version `5.1.0-alpha.1`.
 
