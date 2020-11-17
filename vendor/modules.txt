@@ -405,7 +405,7 @@ github.com/gravitational/oxy/utils
 github.com/gravitational/rigging
 # github.com/gravitational/roundtrip v1.0.0
 github.com/gravitational/roundtrip
-# github.com/gravitational/satellite v0.0.9-0.20200826203500-ad8030ab3ddb
+# github.com/gravitational/satellite v0.0.9-0.20201117211559-1d546b9eca4e
 github.com/gravitational/satellite/agent
 github.com/gravitational/satellite/agent/cache
 github.com/gravitational/satellite/agent/health
@@ -416,6 +416,7 @@ github.com/gravitational/satellite/lib/history
 github.com/gravitational/satellite/lib/history/sqlite
 github.com/gravitational/satellite/lib/kubernetes
 github.com/gravitational/satellite/lib/membership
+github.com/gravitational/satellite/lib/nethealth
 github.com/gravitational/satellite/lib/rpc
 github.com/gravitational/satellite/lib/rpc/client
 github.com/gravitational/satellite/monitoring
@@ -752,6 +753,7 @@ golang.org/x/net/context/ctxhttp
 golang.org/x/net/http/httpguts
 golang.org/x/net/http2
 golang.org/x/net/http2/hpack
+golang.org/x/net/icmp
 golang.org/x/net/idna
 golang.org/x/net/internal/iana
 golang.org/x/net/internal/socket

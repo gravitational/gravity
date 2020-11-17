@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"sync"
 
 	"github.com/gravitational/satellite/lib/rpc"
 	"github.com/gravitational/satellite/lib/rpc/client"
@@ -30,35 +29,24 @@ import (
 	"github.com/hashicorp/serf/coordinate"
 )
 
-// RetryingClient is an rpc client used to make requests to a serf agent.
-// Attempts to reconnect to agent if connection is lost.
-type RetryingClient struct {
-	sync.RWMutex
+// Client is an rpc client used to make requests to a serf agent.
+type Client struct {
 	client *serf.RPCClient
-	config serf.Config
 }
 
 // NewSerfClient returns a new serf client for the specified configuration.
-// The client will attempt to reconnect if it detects that the connection to the
-// serf agent has been lost.
-func NewSerfClient(config serf.Config) (*RetryingClient, error) {
-	client, err := reinit(config)
+func NewSerfClient(config serf.Config) (*Client, error) {
+	client, err := serf.ClientFromConfig(&config)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return &RetryingClient{
+	return &Client{
 		client: client,
-		config: config,
 	}, nil
 }
 
 // Members lists members of the serf cluster.
-func (r *RetryingClient) Members() ([]ClusterMember, error) {
-	if err := r.reinit(); err != nil {
-		return nil, trace.Wrap(err)
-	}
-	r.RLock()
-	defer r.RUnlock()
+func (r *Client) Members() ([]ClusterMember, error) {
 	members, err := r.client.Members()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -77,7 +65,7 @@ func (r *RetryingClient) Members() ([]ClusterMember, error) {
 }
 
 // FindMember finds serf member with the specified name.
-func (r *RetryingClient) FindMember(name string) (member ClusterMember, err error) {
+func (r *Client) FindMember(name string) (member ClusterMember, err error) {
 	members, err := r.Members()
 	if err != nil {
 		return member, trace.Wrap(err)
@@ -91,41 +79,24 @@ func (r *RetryingClient) FindMember(name string) (member ClusterMember, err erro
 }
 
 // Stop cancels the serf event delivery and removes the subscription.
-func (r *RetryingClient) Stop(handle serf.StreamHandle) error {
-	if err := r.reinit(); err != nil {
-		return trace.Wrap(err)
-	}
-	r.RLock()
-	defer r.RUnlock()
+func (r *Client) Stop(handle serf.StreamHandle) error {
 	return r.client.Stop(handle)
 }
 
 // Join attempts to join an existing serf cluster identified by peers.
 // Replay controls if previous user events are replayed once this node has joined the cluster.
 // Returns the number of nodes joined
-func (r *RetryingClient) Join(peers []string, replay bool) (int, error) {
-	if err := r.reinit(); err != nil {
-		return 0, trace.Wrap(err)
-	}
-	r.RLock()
-	defer r.RUnlock()
+func (r *Client) Join(peers []string, replay bool) (int, error) {
 	return r.client.Join(peers, replay)
 }
 
 // UpdateTags will modify the tags on a running serf agent
-func (r *RetryingClient) UpdateTags(tags map[string]string, delTags []string) error {
-	if err := r.reinit(); err != nil {
-		return trace.Wrap(err)
-	}
-	r.RLock()
-	defer r.RUnlock()
+func (r *Client) UpdateTags(tags map[string]string, delTags []string) error {
 	return r.client.UpdateTags(tags, delTags)
 }
 
 // Close closes the client
-func (r *RetryingClient) Close() error {
-	r.RLock()
-	defer r.RUnlock()
+func (r *Client) Close() error {
 	if r.client.IsClosed() {
 		return nil
 	}
@@ -133,36 +104,8 @@ func (r *RetryingClient) Close() error {
 }
 
 // GetCoordinate returns the Serf Coordinate for a specific node
-func (r *RetryingClient) GetCoordinate(node string) (*coordinate.Coordinate, error) {
-	if err := r.reinit(); err != nil {
-		return nil, trace.Wrap(err)
-	}
-	r.RLock()
-	defer r.RUnlock()
+func (r *Client) GetCoordinate(node string) (*coordinate.Coordinate, error) {
 	return r.client.GetCoordinate(node)
-}
-
-func (r *RetryingClient) reinit() (err error) {
-	r.Lock()
-	defer r.Unlock()
-	client := r.client
-	if !client.IsClosed() {
-		return nil
-	}
-	client, err = reinit(r.config)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	r.client = client
-	return nil
-}
-
-func reinit(clientConfig serf.Config) (*serf.RPCClient, error) {
-	client, err := serf.ClientFromConfig(&clientConfig)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return client, nil
 }
 
 // filterLeft filters out members that have left the serf cluster
@@ -185,7 +128,6 @@ type SerfMember struct {
 
 // Dial attempts to create client connection to the serf member.
 func (r SerfMember) Dial(ctx context.Context, caFile, certFile, keyFile string) (client.Client, error) {
-
 	config := client.Config{
 		Address:  fmt.Sprintf("%s:%d", r.Member.Addr.String(), rpc.Port),
 		CAFile:   caFile,
