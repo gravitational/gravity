@@ -24,6 +24,7 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/kubernetes"
+	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/update"
@@ -270,14 +271,18 @@ func NewPhaseUpgradeEtcdRestart(phase storage.OperationPhase, logger log.FieldLo
 }
 
 func (p *PhaseUpgradeEtcdRestart) Execute(ctx context.Context) error {
-	p.Info("Restart etcd after upgrade.")
-	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "--debug", "etcd", "disable", "--upgrade")
-	if err != nil {
-		return trace.Wrap(err).AddField("output", string(out))
+	// The etcd-upgrade service will not be started on the workers. The command is not safe to run on a worker, as
+	// the gateway service will be running, and gets detected by the service code as a running etcd instance
+	if p.Server.ClusterRole == string(schema.ServiceRoleMaster) {
+		p.Info("Restart etcd after upgrade.")
+		out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "--debug", "etcd", "disable", "--upgrade")
+		if err != nil {
+			return trace.Wrap(err).AddField("output", string(out))
+		}
+		p.Info("Command output: ", string(out))
 	}
-	p.Info("Command output: ", string(out))
 
-	out, err = utils.RunPlanetCommand(ctx, p.FieldLogger, "--debug", "etcd", "enable")
+	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "--debug", "etcd", "enable")
 	if err != nil {
 		return trace.Wrap(err).AddField("output", string(out))
 	}

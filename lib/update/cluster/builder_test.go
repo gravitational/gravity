@@ -1280,7 +1280,6 @@ func (r params) etcdRestartWorker(server storage.Server) storage.OperationPhase 
 		ID:          t("/etcd/restart/%v"),
 		Description: t("Restart etcd on node %q"),
 		Executor:    updateEtcdRestart,
-		Requires:    []string{"/etcd/upgrade"},
 		Data: &storage.OperationPhaseData{
 			Server: &server,
 		},

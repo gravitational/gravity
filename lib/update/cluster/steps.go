@@ -673,7 +673,7 @@ func (r updateStep) etcdPhase(leadMaster storage.Server, otherMasters, workers [
 	// phase is called on each worker to ensure all watches are properly reset.
 	for _, server := range workers {
 		p := r.etcdRestartPhase(server)
-		restartMasters.AddWithDependency(builder.DependencyForServer(upgradeServers, server), p)
+		restartMasters.AddParallel(p)
 	}
 
 	// also restart gravity-site, so that elections get unbroken
