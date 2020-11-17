@@ -51,7 +51,7 @@ nodeProfiles:
         - name: rhel
           versions: ["7", "8"]
         - name: ubuntu
-          versions: ["16.04", "18.04"]
+          versions: ["16.04", "18.04", "20.04"]
         - name: debian
           versions: ["9", "10"]
         - name: suse
@@ -87,7 +87,7 @@ nodeProfiles:
         - name: rhel
           versions: ["7", "8"]
         - name: ubuntu
-          versions: ["16.04", "18.04"]
+          versions: ["16.04", "18.04", "20.04"]
         - name: debian
           versions: ["9", "10"]
         - name: suse
@@ -124,7 +124,7 @@ nodeProfiles:
         - name: rhel
           versions: ["7", "8"]
         - name: ubuntu
-          versions: ["16.04", "18.04"]
+          versions: ["16.04", "18.04", "20.04"]
         - name: debian
           versions: ["9", "10"]
         - name: suse
