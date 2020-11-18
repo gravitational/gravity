@@ -54,8 +54,6 @@ nodeProfiles:
           versions: ["16.04", "18.04", "20.04"]
         - name: debian
           versions: ["9", "10"]
-        - name: suse
-          versions: ["12", "15"]
         - name: sles  # Suse Linux Enterprise Server
           versions: ["12", "15"]
         - name: amz
@@ -90,8 +88,6 @@ nodeProfiles:
           versions: ["16.04", "18.04", "20.04"]
         - name: debian
           versions: ["9", "10"]
-        - name: suse
-          versions: ["12", "15"]
         - name: sles  # Suse Linux Enterprise Server
           versions: ["12", "15"]
       volumes:
@@ -127,8 +123,6 @@ nodeProfiles:
           versions: ["16.04", "18.04", "20.04"]
         - name: debian
           versions: ["9", "10"]
-        - name: suse
-          versions: ["12", "15"]
         - name: sles  # Suse Linux Enterprise Server
           versions: ["12", "15"]
       volumes:
