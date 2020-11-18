@@ -10,7 +10,7 @@ if [ $1 = "update" ]; then
     rig delete ds/coredns-worker --resource-namespace=kube-system --force
 
     echo "Checking status"
-    rig status $RIG_CHANGESET --retry-attempts=120 --retry-period=1s --debug
+    rig status $RIG_CHANGESET --retry-attempts=600 --retry-period=1s --debug
     echo "Freezing"
     rig freeze
 elif [ $1 = "rollback" ]; then
