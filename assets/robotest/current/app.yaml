@@ -55,9 +55,9 @@ nodeProfiles:
         - name: debian
           versions: ["9", "10"]
         - name: suse
-          versions: ["12"]
+          versions: ["12", "15"]
         - name: sles  # Suse Linux Enterprise Server
-          versions: ["12"]
+          versions: ["12", "15"]
         - name: amz
           versions: ["2"]
       volumes:
@@ -91,9 +91,9 @@ nodeProfiles:
         - name: debian
           versions: ["9", "10"]
         - name: suse
-          versions: ["12"]
+          versions: ["12", "15"]
         - name: sles  # Suse Linux Enterprise Server
-          versions: ["12"]
+          versions: ["12", "15"]
       volumes:
         - path: /var/lib/gravity
           capacity: "10GB"
@@ -128,9 +128,9 @@ nodeProfiles:
         - name: debian
           versions: ["9", "10"]
         - name: suse
-          versions: ["12"]
+          versions: ["12", "15"]
         - name: sles  # Suse Linux Enterprise Server
-          versions: ["12"]
+          versions: ["12", "15"]
       volumes:
         - path: /var/lib/gravity
           capacity: "10GB"
