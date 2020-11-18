@@ -20,22 +20,24 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io/ioutil"
 	"math"
+	"net"
+	"net/http"
 	"sync"
 	"time"
 
 	"github.com/gravitational/satellite/agent"
 	"github.com/gravitational/satellite/agent/health"
 	pb "github.com/gravitational/satellite/agent/proto/agentpb"
+	"github.com/gravitational/satellite/lib/nethealth"
 	"github.com/gravitational/satellite/utils"
 
-	"github.com/gravitational/roundtrip"
 	"github.com/gravitational/trace"
 	"github.com/mailgun/holster"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
 	log "github.com/sirupsen/logrus"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 )
@@ -44,8 +46,8 @@ import (
 type NethealthConfig struct {
 	// NodeName specifies the kubernetes name of this node.
 	NodeName string
-	// NethealthPort specifies the port that nethealth is listening on.
-	NethealthPort int
+	// NethealthSocketPath specifies the location of the unix-socket nethealth is listening on.
+	NethealthSocketPath string
 	// NetStatsInterval specifies the duration to store net stats.
 	NetStatsInterval time.Duration
 	// KubeConfig specifies kubernetes access information.
@@ -62,8 +64,8 @@ func (c *NethealthConfig) CheckAndSetDefaults() error {
 	if c.KubeConfig == nil {
 		errors = append(errors, trace.BadParameter("kubernetes access config must be provided"))
 	}
-	if c.NethealthPort == 0 {
-		c.NethealthPort = defaultNethealthPort
+	if c.NethealthSocketPath == "" {
+		c.NethealthSocketPath = nethealth.DefaultNethealthSocket
 	}
 	if c.NetStatsInterval == time.Duration(0) {
 		c.NetStatsInterval = defaultNetStatsInterval
@@ -127,16 +129,7 @@ func (c *nethealthChecker) check(ctx context.Context, reporter health.Reporter) 
 		return nil
 	}
 
-	addr, err := c.getNethealthAddr()
-	if trace.IsNotFound(err) {
-		log.Debug("Nethealth pod was not found.")
-		return nil // pod was not found, log and treat gracefully
-	}
-	if err != nil {
-		return trace.Wrap(err) // received unexpected error, maybe network-related, will add error probe above
-	}
-
-	resp, err := fetchNethealthMetrics(ctx, addr)
+	resp, err := c.fetchNethealthMetrics(ctx)
 	if err != nil {
 		return trace.Wrap(err, "failed to fetch nethealth metrics")
 	}
@@ -171,33 +164,6 @@ func (c *nethealthChecker) getPeers() (peers []string, err error) {
 		peers = append(peers, pod.Spec.NodeName)
 	}
 	return peers, nil
-}
-
-// getNethealthAddr returns the address of the local nethealth pod.
-func (c *nethealthChecker) getNethealthAddr() (addr string, err error) {
-	opts := metav1.ListOptions{
-		LabelSelector: nethealthLabelSelector.String(),
-		FieldSelector: fields.OneTermEqualSelector("spec.nodeName", c.NodeName).String(),
-		Limit:         1,
-	}
-	pods, err := c.Client.CoreV1().Pods(nethealthNamespace).List(opts)
-	if err != nil {
-		return addr, utils.ConvertError(err) // this will convert error to a proper trace error, e.g. trace.NotFound
-	}
-
-	if len(pods.Items) < 1 {
-		return addr, trace.NotFound("nethealth pod not found on local node %s", c.NodeName)
-	}
-
-	pod := pods.Items[0]
-	if pod.Status.Phase != corev1.PodRunning {
-		return addr, trace.NotFound("local nethealth pod %v is not Running: %v", pod.Name, pod.Status.Phase)
-	}
-	if pod.Status.PodIP == "" {
-		return addr, trace.NotFound("local nethealth pod %v has not been assigned an IP", pod.Name)
-	}
-
-	return fmt.Sprintf("http://%s:%d", pod.Status.PodIP, c.NethealthPort), nil
 }
 
 // updateStats updates netStats with new incoming data.
@@ -328,14 +294,18 @@ func nethealthFailureProbe(name, peer string, packetLoss float64) *pb.Probe {
 	}
 }
 
-// fetchNethealthMetrics collects the network metrics from the nethealth pod
-// specified by addr. Returns the resp as an array of bytes.
-func fetchNethealthMetrics(ctx context.Context, addr string) ([]byte, error) {
-	client, err := roundtrip.NewClient(addr, "")
-	if err != nil {
-		return nil, trace.Wrap(err, "failed to connect to nethealth service at %s.", addr)
+// fetchNethealthMetrics collects the network metrics from the nethealth pod.
+// Returns the response as an array of bytes.
+func (c *nethealthChecker) fetchNethealthMetrics(ctx context.Context) (res []byte, err error) {
+	client := http.Client{
+		Transport: &http.Transport{
+			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
+				var d net.Dialer
+				return d.DialContext(ctx, "unix", c.NethealthSocketPath)
+			},
+		},
+		Timeout: time.Second,
 	}
-
 	// The two relevant metrics exposed by nethealth are 'nethealth_echo_request_total' and
 	// 'nethealth_echo_timeout_total'. We expect a pair of request/timeout metrics per peer.
 	// Example metrics received from nethealth may look something like the output below:
@@ -348,11 +318,29 @@ func fetchNethealthMetrics(ctx context.Context, addr string) ([]byte, error) {
 	//      # TYPE nethealth_echo_timeout_total counter
 	//      nethealth_echo_timeout_total{node_name="10.128.0.96",peer_name="10.128.0.70"} 37
 	//      nethealth_echo_timeout_total{node_name="10.128.0.96",peer_name="10.128.0.97"} 0
-	resp, err := client.Get(ctx, client.Endpoint("metrics"), nil)
+	req, err := http.NewRequest(http.MethodGet, "http://unix/metrics", nil)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return resp.Bytes(), nil
+
+	req = req.WithContext(ctx)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusOK {
+		buffer, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return nil, trace.ConvertSystemError(err)
+		}
+
+		return buffer, nil
+	}
+
+	return nil, trace.BadParameter("unexpected response from %s: %v", c.NethealthSocketPath, resp.Status)
 }
 
 // parseMetrics parses the provided data and returns the structured network
@@ -517,9 +505,6 @@ const (
 	echoRequestLabel = "nethealth_echo_request_total"
 	// echoTimeoutLabel defines the metric family label for the echo timeout counter.
 	echoTimeoutLabel = "nethealth_echo_timeout_total"
-
-	// defaultNethealthPort defines the default nethealth port.
-	defaultNethealthPort = 9801
 
 	// defaultNetStatsInterval defines the default interval duration for the netStats.
 	defaultNetStatsInterval = 5 * time.Minute
