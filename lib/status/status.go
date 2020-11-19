@@ -585,7 +585,6 @@ func fromSystemStatus(systemStatus pb.SystemStatus) (out []ClusterServer) {
 func fromClusterState(systemStatus pb.SystemStatus, cluster []storage.Server) (out []ClusterServer) {
 	out = make([]ClusterServer, 0, len(systemStatus.Nodes))
 	nodes := nodes(systemStatus)
-
 	for _, server := range cluster {
 		node, found := nodes[server.AdvertiseIP]
 		if !found {
@@ -636,14 +635,14 @@ func planetAgentStatus(ctx context.Context, local bool) (*pb.SystemStatus, error
 func nodes(systemStatus pb.SystemStatus) (out map[string]*pb.NodeStatus) {
 	out = make(map[string]*pb.NodeStatus)
 	for _, node := range systemStatus.Nodes {
-		publicIP := node.MemberStatus.Addr
+		publicIP := node.MemberStatus.Tags[publicIPAddrTag]
 		out[publicIP] = node
 	}
 	return out
 }
 
 func fromNodeStatus(node pb.NodeStatus) (status ClusterServer) {
-	status.AdvertiseIP = node.MemberStatus.Addr
+	status.AdvertiseIP = node.MemberStatus.Tags[publicIPAddrTag]
 	status.Role = node.MemberStatus.Tags[roleTag]
 	switch node.Status {
 	case pb.NodeStatus_Unknown:
