@@ -61,7 +61,7 @@ EOF
 
 function build_install_suite {
   local suite=''
-  local test_os="centos:7"
+  local test_os="redhat:8.3"
   local cluster_size='"flavor":"three","nodes":3,"role":"node"'
   suite+=$(cat <<EOF
  install={"installer_url":"${INSTALLER_URL}",${cluster_size},"os":"${test_os}","storage_driver":"overlay2"}
