@@ -59,19 +59,6 @@ func NodesStatusHealth(config KubeConfig, nodesReadyThreshold int) health.Checke
 	return NewNodesStatusChecker(config, nodesReadyThreshold)
 }
 
-// PingHealth creates a checker that monitors ping values between Master nodes
-// and other nodes
-func PingHealth(serfRPCAddr, serfMemberName string) (c health.Checker, err error) {
-	c, err = NewPingChecker(PingCheckerConfig{
-		SerfRPCAddr:    serfRPCAddr,
-		SerfMemberName: serfMemberName,
-	})
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return c, nil
-}
-
 // TimeDriftHealth creates a checker that monitors time difference between cluster nodes.
 func TimeDriftHealth(config TimeDriftCheckerConfig) (c health.Checker, err error) {
 	c, err = NewTimeDriftChecker(config)
