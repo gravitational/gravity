@@ -405,7 +405,7 @@ github.com/gravitational/oxy/utils
 github.com/gravitational/rigging
 # github.com/gravitational/roundtrip v1.0.0
 github.com/gravitational/roundtrip
-# github.com/gravitational/satellite v0.0.9-0.20201117211559-1d546b9eca4e
+# github.com/gravitational/satellite v0.0.9-0.20201119182158-fe29d7b2c010
 github.com/gravitational/satellite/agent
 github.com/gravitational/satellite/agent/cache
 github.com/gravitational/satellite/agent/health
