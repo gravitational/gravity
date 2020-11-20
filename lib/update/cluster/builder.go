@@ -291,9 +291,9 @@ func (r phaseBuilder) openEBSDataPlane(ctx context.Context, storageAppVersion st
 	return nil
 }
 
-func openEBSPhase(phase string, components map[string]string, executor string, storageAppVersion string, root *update.Phase) {
+func openEBSPhase(phase string, components map[string]string, executor string, storageAppVer string, root *update.Phase) {
 	for k, v := range components {
-		toVer := openEBSDataPlaneComponentToVersion(storageAppVersion, k, v)
+		toVer := openEBSComponentToVer(storageAppVer, k, v)
 		if toVer == "" {
 			continue
 		}
@@ -312,24 +312,26 @@ func buildOpenEBSUpgradePhaseData(dataPlaneComponent string, fromVer string, toV
 	return dataPlaneComponent + " " + fromVer + " " + toVer
 }
 
-func openEBSDataPlaneComponentToVersion(storageAppVersion string, openEBSComponentName string, openEBSComponentFromVersion string) string {
-	if storageAppVersion == "0.0.4" {
-		correspondingOpenEBSDataPlaneComponentVer := "2.2.0"
+func openEBSComponentToVer(storageAppVer string, openEBSComponentName string, openEBSComponentFromVer string) string {
+	if storageAppVer == "0.0.4" {
+		openEBSComponentToVer := "2.2.0"
 
-		if openEBSComponentFromVersion != "1.4.0" && openEBSComponentFromVersion != "1.5.0" && openEBSComponentFromVersion != "1.7.0" && openEBSComponentFromVersion != "2.2.0" {
-			log.Infof("Skipping upgrade of %v because not in the expected fromVersion: %v", openEBSComponentName, openEBSComponentFromVersion)
+		if openEBSComponentFromVer != "1.4.0" && openEBSComponentFromVer != "1.5.0" &&
+			openEBSComponentFromVer != "1.7.0" && openEBSComponentFromVer != openEBSComponentToVer {
+			log.Infof("Skipping upgrade of %v because not in the expected fromVersion: %v.", openEBSComponentName, openEBSComponentFromVer)
 			return ""
 		}
 
-		if openEBSComponentFromVersion == "2.2.0" {
-			log.Infof("Skipping upgrade of %v because it is already upgraded to the expected toVersion: %v", openEBSComponentName, correspondingOpenEBSDataPlaneComponentVer)
+		if openEBSComponentFromVer == openEBSComponentToVer {
+			log.Infof("Skipping upgrade of %v because it is already upgraded to the expected toVersion: %v.",
+				openEBSComponentName, openEBSComponentToVer)
 			return ""
 		}
 
-		return correspondingOpenEBSDataPlaneComponentVer
+		return openEBSComponentToVer
 	}
 
-	log.Infof("Skipping upgrade of %v because of unsupported storageAppVersion=%v", storageAppVersion)
+	log.Infof("Skipping upgrade of %v because of unsupported storageAppVer: %v.", openEBSComponentName, storageAppVer)
 	return ""
 }
 
