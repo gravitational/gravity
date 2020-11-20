@@ -713,6 +713,18 @@ func updateSymlinks(planetPath string, logger log.Logger) (err error) {
 			"Failed to update helm symlink.")
 	}
 
+	// update helm3 symlink
+	helmPath = filepath.Join(planetPath, constants.PlanetRootfs, defaults.Helm3Script)
+	for _, path := range []string{defaults.Helm3Bin, defaults.Helm3BinAlternate} {
+		out, err = exec.Command("ln", "-sfT", helmPath, path).CombinedOutput()
+		if err == nil {
+			logger.Infof("Updated helm 3 symlink: %v -> %v.", path, helmPath)
+			break
+		}
+		logger.WithError(err).WithField("output", string(out)).Warn(
+			"Failed to update helm 3 symlink.")
+	}
+
 	// update kube config environment variable
 	kubeConfigPath := filepath.Join(planetPath, constants.PlanetRootfs, defaults.PlanetKubeConfigPath)
 	environment, err := utils.ReadEnv(defaults.EnvironmentPath)

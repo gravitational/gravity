@@ -21,7 +21,6 @@ import (
 	"context"
 	"os"
 	"os/exec"
-	"path/filepath"
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/storage"
@@ -85,28 +84,6 @@ func ConfigureStateDirectory(stateDir, devicePath string) (err error) {
 	}
 
 	return nil
-}
-
-// GetServiceName returns the name of the service configured in the specified state directory stateDir
-func GetServiceName(stateDir string) (name string, err error) {
-	path, err := GetServicePath(stateDir)
-	if err != nil {
-		return "", trace.Wrap(err)
-	}
-	return filepath.Base(path), nil
-}
-
-// GetServicePath returns the path of the service configured in the specified state directory stateDir
-func GetServicePath(stateDir string) (path string, err error) {
-	for _, name := range []string{
-		defaults.GravityRPCInstallerServiceName,
-		defaults.GravityRPCAgentServiceName,
-	} {
-		if ok, _ := utils.IsFile(filepath.Join(stateDir, name)); ok {
-			return filepath.Join(stateDir, name), nil
-		}
-	}
-	return "", trace.NotFound("no service unit file in %v", stateDir)
 }
 
 func formatDevice(path string) (filesystem string, err error) {

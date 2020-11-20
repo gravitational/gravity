@@ -1,3 +1,8 @@
+---
+title: Monitoring a Kubernetes Cluster with Gravity
+description: How to monitor the health and performance an air-gapped or on-prem Kubernetes cluster with Gravity
+---
+
 # Cluster Monitoring
 
 Gravity Clusters come with a fully configured and customizable monitoring/alerting system by default.

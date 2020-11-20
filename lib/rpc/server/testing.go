@@ -71,8 +71,8 @@ func TestServerCredentials(c *C) credentials.TransportCredentials {
 }
 
 // nolint:errcheck
-func (r testCommand) exec(ctx context.Context, stream pb.OutgoingMessageStream, args []string, log log.FieldLogger) error {
-	stream.Send(&pb.Message{Element: &pb.Message_ExecStarted{ExecStarted: &pb.ExecStarted{Seq: 1, Args: args}}})
+func (r testCommand) exec(ctx context.Context, stream pb.OutgoingMessageStream, req pb.CommandArgs, log log.FieldLogger) error {
+	stream.Send(&pb.Message{Element: &pb.Message_ExecStarted{ExecStarted: &pb.ExecStarted{Seq: 1, Args: req.Args}}})
 	stream.Send(&pb.Message{Element: &pb.Message_ExecOutput{ExecOutput: &pb.ExecOutput{Data: []byte(r.output)}}})
 	stream.Send(&pb.Message{Element: &pb.Message_ExecCompleted{ExecCompleted: &pb.ExecCompleted{Seq: 1, ExitCode: 0}}})
 	return nil

@@ -1,3 +1,9 @@
+---
+title: Gravity CLI Reference
+description: User manual for the Gravity command line (CLI) tools
+---
+
+
 # CLI Tools
 
 Gravity uses the following CLI commands:

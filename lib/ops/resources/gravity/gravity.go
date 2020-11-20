@@ -584,7 +584,7 @@ func Validate(resource storage.UnknownResource) (err error) {
 			return trace.Wrap(err)
 		}
 		globalConfig := config.GetGlobalConfig()
-		return validate.KubernetesSubnetsFromStrings(globalConfig.PodCIDR, globalConfig.ServiceCIDR)
+		return validate.KubernetesSubnetsFromStrings(globalConfig.PodCIDR, globalConfig.ServiceCIDR, globalConfig.PodSubnetSize)
 	case storage.KindPersistentStorage:
 		_, err = storage.UnmarshalPersistentStorage(resource.Raw)
 	default:
