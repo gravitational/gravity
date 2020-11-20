@@ -955,7 +955,7 @@
   version = "v1.0.0"
 
 [[projects]]
-  digest = "1:9282374de44d63a6035eaa0dfb89fb9af9166c2010718a11a8d253327e558e9e"
+  digest = "1:71319e2422b5d6f6b9032c16bb16c364191f069aa7f809fd8fda0a694f92444c"
   name = "github.com/gravitational/satellite"
   packages = [
     "agent",
@@ -966,14 +966,15 @@
     "lib/history/sqlite",
     "lib/kubernetes",
     "lib/membership",
+    "lib/nethealth",
     "lib/rpc",
     "lib/rpc/client",
     "monitoring",
     "utils",
   ]
   pruneopts = "UT"
-  revision = "d6669b7a61450d0afa71bc4a823892b0028db17c"
-  version = "6.1.15"
+  revision = "336a276099236ea802e0dfe722acabab8ce9560a"
+  version = "6.1.19"
 
 [[projects]]
   digest = "1:49f6abbce9ade5f43508429e4af1adcce55d27adcd62719fea049decc766a7c9"
@@ -2091,7 +2092,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:4b3ab0b41b7a63380a6055ada2cce3dda98826f1ba13564093149221a1cba2af"
+  digest = "1:3913764a4b6220154431e04ff8c9c2a125e4f57978106024bcfe3a9db1b5d21b"
   name = "golang.org/x/net"
   packages = [
     "bpf",
@@ -2102,6 +2103,7 @@
     "http/httpguts",
     "http2",
     "http2/hpack",
+    "icmp",
     "idna",
     "internal/iana",
     "internal/socket",
@@ -2968,9 +2970,9 @@
     "github.com/ghodss/yaml",
     "github.com/gizak/termui",
     "github.com/gogo/protobuf/gogoproto",
+    "github.com/gogo/protobuf/proto",
     "github.com/gogo/protobuf/types",
     "github.com/gokyle/hotp",
-    "github.com/golang/protobuf/proto",
     "github.com/golang/protobuf/ptypes/any",
     "github.com/gravitational/configure",
     "github.com/gravitational/configure/cstrings",
@@ -3054,6 +3056,7 @@
     "google.golang.org/grpc",
     "google.golang.org/grpc/codes",
     "google.golang.org/grpc/credentials",
+    "google.golang.org/grpc/grpclog",
     "google.golang.org/grpc/health",
     "google.golang.org/grpc/health/grpc_health_v1",
     "google.golang.org/grpc/status",

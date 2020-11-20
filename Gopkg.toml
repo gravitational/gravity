@@ -75,7 +75,7 @@ ignored = [
 
 [[constraint]]
   name = "github.com/gravitational/satellite"
-  version = "=6.1.15"
+  version = "=6.1.19"
 
 [[constraint]]
   name = "github.com/miekg/dns"
