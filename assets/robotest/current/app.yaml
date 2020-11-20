@@ -51,15 +51,11 @@ nodeProfiles:
         - name: rhel
           versions: ["7", "8"]
         - name: ubuntu
-          versions: ["16.04", "18.04"]
-        - name: ubuntu-core
-          versions: ["16"]
+          versions: ["16.04", "18.04", "20.04"]
         - name: debian
-          versions: ["9"]
-        - name: suse
-          versions: ["12"]
+          versions: ["9", "10"]
         - name: sles  # Suse Linux Enterprise Server
-          versions: ["12"]
+          versions: ["12", "15"]
         - name: amz
           versions: ["2"]
       volumes:
@@ -89,15 +85,11 @@ nodeProfiles:
         - name: rhel
           versions: ["7", "8"]
         - name: ubuntu
-          versions: ["16.04", "18.04"]
-        - name: ubuntu-core
-          versions: ["16"]
+          versions: ["16.04", "18.04", "20.04"]
         - name: debian
-          versions: ["8", "9"]
-        - name: suse
-          versions: ["12"]
+          versions: ["9", "10"]
         - name: sles  # Suse Linux Enterprise Server
-          versions: ["12"]
+          versions: ["12", "15"]
       volumes:
         - path: /var/lib/gravity
           capacity: "10GB"
@@ -128,15 +120,11 @@ nodeProfiles:
         - name: rhel
           versions: ["7", "8"]
         - name: ubuntu
-          versions: ["16.04", "18.04"]
-        - name: ubuntu-core
-          versions: ["16"]
+          versions: ["16.04", "18.04", "20.04"]
         - name: debian
-          versions: ["8", "9"]
-        - name: suse
-          versions: ["12"]
+          versions: ["9", "10"]
         - name: sles  # Suse Linux Enterprise Server
-          versions: ["12"]
+          versions: ["12", "15"]
       volumes:
         - path: /var/lib/gravity
           capacity: "10GB"
