@@ -1052,7 +1052,7 @@
   version = "v1.0.0"
 
 [[projects]]
-  digest = "1:d828e2594bb82c50c0c54d2aa34876d6107b7afdf8c9440764085cbfa80e1ec4"
+  digest = "1:0a64c18267d348a32eb9c564a62e826a03f41323f7b980b98700ef7adfae8840"
   name = "github.com/gravitational/satellite"
   packages = [
     "agent",
@@ -1063,14 +1063,15 @@
     "lib/history/sqlite",
     "lib/kubernetes",
     "lib/membership",
+    "lib/nethealth",
     "lib/rpc",
     "lib/rpc/client",
     "monitoring",
     "utils",
   ]
   pruneopts = "UT"
-  revision = "2e85c3f8024f2e1d79d0fb202f10eb3a4ce2f1b8"
-  version = "7.0.19"
+  revision = "aef8c3a377eb8e09f0fb06f7ba4ee7a63b61a617"
+  version = "7.0.24"
 
 [[projects]]
   digest = "1:49f6abbce9ade5f43508429e4af1adcce55d27adcd62719fea049decc766a7c9"
@@ -2231,7 +2232,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:4b3ab0b41b7a63380a6055ada2cce3dda98826f1ba13564093149221a1cba2af"
+  digest = "1:3913764a4b6220154431e04ff8c9c2a125e4f57978106024bcfe3a9db1b5d21b"
   name = "golang.org/x/net"
   packages = [
     "bpf",
@@ -2242,6 +2243,7 @@
     "http/httpguts",
     "http2",
     "http2/hpack",
+    "icmp",
     "idna",
     "internal/iana",
     "internal/socket",
@@ -3281,7 +3283,6 @@
     "github.com/hashicorp/terraform/terraform",
     "github.com/jonboulle/clockwork",
     "github.com/julienschmidt/httprouter",
-    "github.com/kardianos/osext",
     "github.com/kylelemons/godebug/diff",
     "github.com/mailgun/lemma/secret",
     "github.com/mailgun/timetools",
