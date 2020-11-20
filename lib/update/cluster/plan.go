@@ -88,7 +88,7 @@ func InitOperationPlan(
 		dnsConfig = *existingDNS
 	}
 
-	plan, err = NewOperationPlan(PlanConfig{
+	plan, err = NewOperationPlan(ctx, PlanConfig{
 		Backend:   clusterEnv.Backend,
 		Apps:      clusterEnv.Apps,
 		Packages:  clusterEnv.ClusterPackages,
@@ -111,7 +111,7 @@ func InitOperationPlan(
 }
 
 // NewOperationPlan generates a new plan for the provided operation
-func NewOperationPlan(config PlanConfig) (*storage.OperationPlan, error) {
+func NewOperationPlan(ctx context.Context, config PlanConfig) (*storage.OperationPlan, error) {
 	if err := config.checkAndSetDefaults(); err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -193,7 +193,7 @@ func NewOperationPlan(config PlanConfig) (*storage.OperationPlan, error) {
 		return nil, trace.Wrap(err)
 	}
 
-	plan, err := newOperationPlan(planConfig{
+	plan, err := newOperationPlan(ctx, planConfig{
 		plan: storage.OperationPlan{
 			OperationID:    config.Operation.ID,
 			OperationType:  config.Operation.Type,
@@ -300,7 +300,7 @@ type planConfig struct {
 	leadMaster storage.UpdateServer
 }
 
-func newOperationPlan(p planConfig) (*storage.OperationPlan, error) {
+func newOperationPlan(ctx context.Context, p planConfig) (*storage.OperationPlan, error) {
 	masters, nodes := update.SplitServers(p.servers)
 	if len(masters) == 0 {
 		return nil, trace.NotFound("no master servers found")
@@ -416,6 +416,17 @@ func newOperationPlan(p planConfig) (*storage.OperationPlan, error) {
 
 		runtimePhase := *builder.runtime(runtimeUpdates).Require(mastersPhase)
 		root.Add(runtimePhase)
+
+		if p.installedApp.Manifest.OpenEBSEnabled() {
+			for _, update := range runtimeUpdates {
+				if update.Name == constants.StorageAppPackage {
+					err := builder.openEBSDataPlane(ctx, update.Version, &root)
+					if err != nil {
+						return nil, trace.Wrap(err)
+					}
+				}
+			}
+		}
 	}
 
 	root.AddSequential(*builder.app(appUpdates), *builder.cleanup())

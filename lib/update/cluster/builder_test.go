@@ -17,6 +17,7 @@ limitations under the License.
 package cluster
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 
@@ -73,7 +74,7 @@ func (s *PlanSuite) TestPlanWithRuntimeUpdate(c *check.C) {
 	config := newTestPlan(c, params)
 
 	// exercise
-	obtainedPlan, err := newOperationPlan(config)
+	obtainedPlan, err := newOperationPlan(context.TODO(), config)
 	c.Assert(err, check.IsNil)
 	update.ResolvePlan(obtainedPlan)
 
@@ -126,7 +127,7 @@ func (s *PlanSuite) TestPlanWithoutRuntimeUpdate(c *check.C) {
 	config := newTestPlan(c, params)
 
 	// exercise
-	obtainedPlan, err := newOperationPlan(config)
+	obtainedPlan, err := newOperationPlan(context.TODO(), config)
 	c.Assert(err, check.IsNil)
 	update.ResolvePlan(obtainedPlan)
 

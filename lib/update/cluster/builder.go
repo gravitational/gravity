@@ -1,5 +1,5 @@
 /*
-Copyright 2019 Gravitational, Inc.
+Copyright 2020 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -29,11 +29,13 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/update"
 	libphase "github.com/gravitational/gravity/lib/update/cluster/phases"
+	"github.com/gravitational/gravity/lib/utils/kubectl"
 
 	"github.com/coreos/go-semver/semver"
 	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/net/context"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
@@ -269,6 +271,66 @@ func (r phaseBuilder) openEBS(leadMaster storage.UpdateServer) *update.Phase {
 		},
 	})
 	return &phase
+}
+
+// openEBSDataPlane checks if existing OpenEBS pools or volumes need to be upgraded
+// and generates upgrade steps
+func (r phaseBuilder) openEBSDataPlane(ctx context.Context, storageAppVersion string, root *update.Phase) error {
+	pv, err := kubectl.OpenEBSPoolsVersions(ctx)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	openEBSPhase("pool", pv, updateOpenEBSPool, storageAppVersion, root)
+
+	vv, err := kubectl.OpenEBSVolumesVersions(ctx)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	openEBSPhase("volume", vv, updateOpenEBSVolume, storageAppVersion, root)
+
+	return nil
+}
+
+func openEBSPhase(phase string, components map[string]string, executor string, storageAppVersion string, root *update.Phase) {
+	for k, v := range components {
+		toVer := openEBSDataPlaneComponentToVersion(storageAppVersion, k, v)
+		if toVer == "" {
+			continue
+		}
+
+		phase := update.Phase{
+			ID:          fmt.Sprintf("openebs-%v-%v", phase, k),
+			Description: fmt.Sprintf("Update OpenEBS %v: %v to %v", phase, k, toVer),
+			Executor:    executor,
+			Data:        &storage.OperationPhaseData{Data: buildOpenEBSUpgradePhaseData(k, v, toVer)},
+		}
+		root.AddSequential(phase)
+	}
+}
+
+func buildOpenEBSUpgradePhaseData(dataPlaneComponent string, fromVer string, toVer string) string {
+	return dataPlaneComponent + " " + fromVer + " " + toVer
+}
+
+func openEBSDataPlaneComponentToVersion(storageAppVersion string, openEBSComponentName string, openEBSComponentFromVersion string) string {
+	if storageAppVersion == "0.0.4" {
+		correspondingOpenEBSDataPlaneComponentVer := "2.2.0"
+
+		if openEBSComponentFromVersion != "1.4.0" && openEBSComponentFromVersion != "1.5.0" && openEBSComponentFromVersion != "1.7.0" && openEBSComponentFromVersion != "2.2.0" {
+			log.Infof("Skipping upgrade of %v because not in the expected fromVersion: %v", openEBSComponentName, openEBSComponentFromVersion)
+			return ""
+		}
+
+		if openEBSComponentFromVersion == "2.2.0" {
+			log.Infof("Skipping upgrade of %v because it is already upgraded to the expected toVersion: %v", openEBSComponentName, correspondingOpenEBSDataPlaneComponentVer)
+			return ""
+		}
+
+		return correspondingOpenEBSDataPlaneComponentVer
+	}
+
+	log.Infof("Skipping upgrade of %v because of unsupported storageAppVersion=%v", storageAppVersion)
+	return ""
 }
 
 func (r phaseBuilder) runtime(updates []loc.Locator) *update.Phase {

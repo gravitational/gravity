@@ -82,6 +82,13 @@ func RunCommand(cmd *Cmd, options ...optionSetter) ([]byte, error) {
 	return exec.Command(cmd.command, cmd.args...).CombinedOutput()
 }
 
+// Apply invokes kubectl apply
+func Apply(fileName string) ([]byte, error) {
+	cmd := Command("apply", "-f", fileName)
+
+	return exec.Command(cmd.command, cmd.args...).CombinedOutput()
+}
+
 // GetNamespaces fetches the names of all namespaces
 func GetNamespaces(ctx context.Context, runner utils.CommandRunner) ([]string, error) {
 	cmd := Command("get", "namespaces", "--output", "jsonpath={.items..metadata.name}")
@@ -154,6 +161,54 @@ func GetNodesAddr(ctx context.Context) ([]string, error) {
 
 	nodes := strings.Fields(strings.TrimSpace(string(out)))
 	return nodes, nil
+}
+
+// OpenEBSPoolsVersions retrieves the pool name and version
+func OpenEBSPoolsVersions(ctx context.Context) (map[string]string, error) {
+	args := utils.PlanetCommand(Command("get", "pods",
+		"--field-selector", "status.phase=Running",
+		"--selector", "app=cstor-pool",
+		"-nopenebs",
+		"-o", `jsonpath={range .items[*]}{.metadata.labels.openebs\.io/storage-pool-claim}{" "}{.metadata.labels.openebs\.io/version}{"\n"}{end}`))
+
+	return RunCmdMapOutput(ctx, args)
+}
+
+// OpenEBSVolumesVersions retrieves the volume name and version
+func OpenEBSVolumesVersions(ctx context.Context) (map[string]string, error) {
+	args := utils.PlanetCommand(Command("get", "pods",
+		"--field-selector", "status.phase=Running",
+		"--selector", `app=cstor-volume-manager,openebs.io/storage-class=openebs-cstor`,
+		"-nopenebs",
+		"-o", `jsonpath={range .items[*]}{.metadata.labels.openebs\.io/persistent-volume}{" "}{.metadata.labels.openebs\.io/version}{"\n"}{end}`))
+
+	return RunCmdMapOutput(ctx, args)
+}
+
+// RunCmdMapOutput executes a kubectl command with parameters and produces a key-value output.
+// Expects that the passed in command will generate a 2 column output separated by spaces.
+// The columns of the output lines will be returned as key-value entries in a map.
+func RunCmdMapOutput(ctx context.Context, args []string) (map[string]string, error) {
+	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
+
+	cmd.Stderr = utils.NewStderrLogger(log.WithField("cmd", "kubectl run cmd"))
+
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, trace.Wrap(err, "%v : %v", cmd, err)
+	}
+
+	ret := make(map[string]string)
+	for _, kvs := range strings.Split(string(out), "\n") {
+		kv := strings.Split(kvs, " ")
+		if len(kv) != 2 {
+			continue
+		}
+
+		ret[kv[0]] = kv[1]
+	}
+
+	return ret, nil
 }
 
 // WithPrivilegedConfig returns a command option to specify a privileged kubeconfig

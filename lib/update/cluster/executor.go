@@ -84,6 +84,10 @@ const (
 	cleanupNode = "cleanup_node"
 	// openebs is the phase that creates OpenEBS configuration
 	openebs = "openebs"
+	// updateOpenEBSVolume upgrades OpenEBS volumes
+	updateOpenEBSVolume = "openebs_upgrade_volume"
+	// updateOpenEBSPool upgrades OpenEBS pools
+	updateOpenEBSPool = "openebs_upgrade_pool"
 )
 
 // fsmSpec returns the function that returns an appropriate phase executor
@@ -171,6 +175,10 @@ func fsmSpec(c Config) fsm.FSMSpecFunc {
 			return libphase.NewGarbageCollectPhase(p, remote, logger)
 		case openebs:
 			return installphases.NewOpenEBS(p, c.Operator, c.Client)
+		case updateOpenEBSVolume:
+			return libphase.NewPhaseUpgradeVolume(p.Phase, c.Client, logger)
+		case updateOpenEBSPool:
+			return libphase.NewPhaseUpgradePool(p.Phase, c.Client, logger)
 		default:
 			return nil, trace.BadParameter(
 				"phase %q requires executor %q (potential mismatch between upgrade versions)",

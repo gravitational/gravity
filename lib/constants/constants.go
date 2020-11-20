@@ -184,6 +184,9 @@ const (
 	// DNSAppPackage is the name of the dns-app package
 	DNSAppPackage = "dns-app"
 
+	// StorageAppPackage is the name of the storage-app package
+	StorageAppPackage = "storage-app"
+
 	// TrustedClusterPackage is the name of the package that contains trusted
 	// cluster spec for external Ops Center when installing in wizard mode
 	TrustedClusterPackage = "trusted-cluster"
