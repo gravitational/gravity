@@ -56,6 +56,8 @@ spec:
     proxyPortRange: "0-0"
     # CIDR range for Pods in Cluster
     podCIDR: "10.0.0.0/24"
+    # The size of the Pod subnet allocated to each host
+    podSubnetSize: "26"
     # A set of key=value pairs that describe feature gates for alpha/experimental features
     featureGates:
       AllAlpha: true
@@ -900,3 +902,35 @@ To disconnect the Cluster Gravity Hub, remove the Trusted Cluster:
 $ gravity resource rm trustedCluster hub.example.com
 Trusted Cluster "hub.example.com" has been deleted
 ```
+
+### Customize Number of DNS instances on workers
+Gravity ships a default DNS configuration that should be appropriate for most environments, that scales based on the
+number of CPU cores and nodes within the cluster.
+
+The scaling configuration can be customized by replacing the autoscaler configmap with the desired configuration.
+```bsh
+kubectl apply -f - <<EOF
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: autoscaler-coredns-worker
+  namespace: kube-system
+  annotations:
+    gravitational.io/customer-managed: "true"
+data:
+  linear: |-
+    {
+      "coresPerReplica": 4,
+      "nodesPerReplica": 1,
+      "min": 9,
+      "preventSinglePointFailure": true
+    }
+EOF
+```
+
+The annotation `gravitational.io/customer-managed` indicates to gravity that the configuration has been overwritten,
+and that cluster upgrades should not reset the configuration to default.
+
+!!! note
+    Gravity uses the cluster-proportional-autoscaler to scale the number of DNS instances on workers. For more
+    information on how to configure the autoscaler, please see the [cluster-proportional-autoscaler docs](https://github.com/kubernetes-sigs/cluster-proportional-autoscaler/blob/1.8.3/README.md#control-patterns-and-configmap-formats) for information.

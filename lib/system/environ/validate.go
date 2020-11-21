@@ -40,17 +40,14 @@ import (
 
 // ValidateInstall performs a local environment sanity check to make sure
 // that install on this node can proceed without issues
-func ValidateInstall(env *localenv.LocalEnvironment) func() error {
+func ValidateInstall(baseDir, serviceName string, env *localenv.LocalEnvironment) func() error {
 	return func() error {
-		stateDir, err := state.GravityInstallDir()
-		if err != nil {
-			return trace.Wrap(err)
-		}
+		stateDir := state.GravityInstallDirAt(baseDir)
 		if err := validateNonVolatileDirectory(stateDir, env); err != nil {
 			// Operational state directory requirements are advisory
 			log.WithError(err).Warn("Failed to validate state directory requirements.")
 		}
-		if err := validateNoActiveService(stateDir); err != nil {
+		if err := validateNoActiveService(serviceName); err != nil {
 			if !trace.IsAlreadyExists(err) {
 				log.WithError(err).Warn("Failed to determine if service is not active.")
 			}
@@ -101,14 +98,7 @@ func validateNonVolatileDirectory(stateDir string, printer utils.Printer) error 
 	return nil
 }
 
-func validateNoActiveService(stateDir string) error {
-	serviceName, err := GetServiceName(stateDir)
-	if err != nil {
-		if trace.IsNotFound(err) {
-			return nil
-		}
-		return trace.Wrap(err)
-	}
+func validateNoActiveService(serviceName string) error {
 	manager, err := systemservice.New()
 	if err != nil {
 		return trace.Wrap(err)
@@ -118,10 +108,12 @@ func validateNoActiveService(stateDir string) error {
 		return trace.Wrap(err)
 	}
 	switch status {
-	case systemservice.ServiceStatusFailed:
+	case systemservice.ServiceStatusFailed,
+		systemservice.ServiceStatusUnknown,
+		systemservice.ServiceStatusInactive:
 		return nil
 	default:
-		// Consider service as running if in another status
+		// Consider service running if in another status
 		return trace.AlreadyExists("service already running")
 	}
 }

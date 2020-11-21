@@ -365,7 +365,7 @@ type Agent interface {
 	// RecordLocalEvents records the events into the local timeline.
 	RecordLocalEvents(ctx context.Context, events []*pb.TimelineEvent) error
 	// IsMember returns whether this agent is already a member of serf cluster
-	IsMember() bool
+	IsMember() (ok bool, err error)
 	// GetConfig returns the agent configuration.
 	GetConfig() Config
 	// CheckerRepository allows to add checks to the agent.
