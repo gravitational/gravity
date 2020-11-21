@@ -168,6 +168,9 @@ type agent struct {
 
 	// LocalTimeline keeps track of local timeline events.
 	LocalTimeline history.Timeline
+
+	// newSerfClientFunc is used to create a serf client on demand.
+	newSerfClientFunc func() (membership.ClusterMembership, error)
 }
 
 // New creates an instance of an agent based on configuration options given in config.
@@ -176,13 +179,6 @@ func New(config *Config) (*agent, error) {
 		return nil, trace.Wrap(err)
 	}
 
-	serfClient, err := initSerfClient(config.SerfConfig, config.Tags)
-	if err != nil {
-		return nil, trace.Wrap(err, "failed to initialize serf client")
-	}
-
-	// TODO: do we need to initialize metrics listener in constructor?
-	// Move to Start?
 	metricsListener, err := net.Listen("tcp", config.MetricsAddr)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to serve prometheus metrics")
@@ -216,10 +212,10 @@ func New(config *Config) (*agent, error) {
 		lastSeen:                lastSeen,
 		done:                    make(chan struct{}),
 		Config:                  *config,
-		ClusterMembership:       serfClient,
 		ClusterTimeline:         clusterTimeline,
 		LocalTimeline:           localTimeline,
 	}
+	agent.newSerfClientFunc = agent.newSerfClient
 
 	agent.rpc, err = newRPCServer(agent, config.CAFile, config.CertFile, config.KeyFile, config.RPCAddrs)
 	if err != nil {
@@ -228,20 +224,7 @@ func New(config *Config) (*agent, error) {
 	return agent, nil
 }
 
-// initSerfClient initializes a new serf client and modifies the client with
-// the provided tags.
-func initSerfClient(config serf.Config, tags map[string]string) (*membership.RetryingClient, error) {
-	client, err := membership.NewSerfClient(config)
-	if err != nil {
-		return nil, trace.Wrap(err, "failed to connect to serf")
-	}
-	if err = client.UpdateTags(tags, nil); err != nil {
-		return nil, trace.Wrap(err, "failed to update serf agent tags")
-	}
-	return client, nil
-}
-
-// initTimeline initializes a new sqlite timeline. dbName specifies the
+// initTimeline initializes a new sqlite timeline. fileName specifies the
 // SQLite database file name.
 func initTimeline(config sqlite.Config, fileName string) (history.Timeline, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timelineInitTimeout)
@@ -288,34 +271,42 @@ func (r *agent) serveMetrics() {
 }
 
 // IsMember returns true if this agent is a member of the serf cluster
-func (r *agent) IsMember() bool {
-	members, err := r.ClusterMembership.Members()
+func (r *agent) IsMember() (ok bool, err error) {
+	client, err := r.newSerfClientFunc()
 	if err != nil {
-		log.Errorf("failed to retrieve members: %v", trace.DebugReport(err))
-		return false
+		return false, trace.Wrap(err)
+	}
+	defer client.Close()
+	members, err := client.Members()
+	if err != nil {
+		return false, trace.Wrap(err, "failed to retrieve members")
 	}
 	// if we're the only one, consider that we're not in the cluster yet
 	// (cause more often than not there are more than 1 member)
 	if len(members) == 1 && members[0].Name() == r.Name {
-		return false
+		return false, nil
 	}
 	for _, member := range members {
 		if member.Name() == r.Name {
-			return true
+			return true, nil
 		}
 	}
-	return false
+	return false, nil
 }
 
 // Join attempts to join a serf cluster identified by peers.
 func (r *agent) Join(peers []string) error {
-	noReplay := false
-	numJoined, err := r.ClusterMembership.Join(peers, noReplay)
+	client, err := r.newSerfClientFunc()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
-	log.Infof("joined %d nodes", numJoined)
+	defer client.Close()
+	noReplay := false
+	numJoined, err := client.Join(peers, noReplay)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	log.Infof("Joined %d nodes.", numJoined)
 	return nil
 }
 
@@ -333,16 +324,7 @@ func (r *agent) Close() (err error) {
 	if r.done != nil {
 		close(r.done)
 	}
-
-	err = r.ClusterMembership.Close()
-	if err != nil {
-		errors = append(errors, trace.Wrap(err))
-	}
-
-	if len(errors) > 0 {
-		return trace.NewAggregate(errors...)
-	}
-	return nil
+	return trace.NewAggregate(errors...)
 }
 
 // Time reports the current server time.
@@ -556,34 +538,54 @@ func (r *agent) statusUpdateLoop(ctx context.Context) {
 func (r *agent) updateStatus(ctx context.Context) error {
 	ctxStatus, cancel := context.WithTimeout(ctx, r.statusQueryReplyTimeout)
 	defer cancel()
-	status, err := r.collectStatus(ctxStatus)
-	if err != nil {
-		return trace.Wrap(err, "error collecting system status")
-	}
-	if status == nil {
-		return nil
-	}
+	status := r.collectStatus(ctxStatus)
 	if err := r.Cache.UpdateStatus(status); err != nil {
 		return trace.Wrap(err, "error updating system status in cache")
 	}
 	return nil
 }
 
+func (r *agent) defaultUnknownStatus() *pb.NodeStatus {
+	return &pb.NodeStatus{
+		Name: r.Name,
+		MemberStatus: &pb.MemberStatus{
+			Name: r.Name,
+		},
+	}
+}
+
 // collectStatus obtains the cluster status by querying statuses of
 // known cluster members.
-func (r *agent) collectStatus(ctx context.Context) (systemStatus *pb.SystemStatus, err error) {
+func (r *agent) collectStatus(ctx context.Context) *pb.SystemStatus {
 	ctx, cancel := context.WithTimeout(ctx, StatusUpdateTimeout)
 	defer cancel()
 
-	systemStatus = &pb.SystemStatus{
-		Status:    pb.SystemStatus_Unknown,
-		Timestamp: pb.NewTimeToProto(r.Clock.Now()),
+	client, err := r.newSerfClientFunc()
+	if err != nil {
+		log.WithError(err).Error("Failed to create serf client.")
+		r.setLocalStatus(r.defaultUnknownStatus())
+		return &pb.SystemStatus{
+			Status:    pb.SystemStatus_Degraded,
+			Timestamp: pb.NewTimeToProto(r.Clock.Now()),
+			Summary:   fmt.Sprintf("failed to create serf client: %v", err),
+		}
+	}
+	defer client.Close()
+
+	members, err := client.Members()
+	if err != nil {
+		log.WithError(err).Error("Failed to query serf members.")
+		r.setLocalStatus(r.defaultUnknownStatus())
+		return &pb.SystemStatus{
+			Status:    pb.SystemStatus_Degraded,
+			Timestamp: pb.NewTimeToProto(r.Clock.Now()),
+			Summary:   fmt.Sprintf("failed to query serf members: %v", err),
+		}
 	}
 
-	members, err := r.ClusterMembership.Members()
-	if err != nil {
-		log.WithError(err).Warn("Failed to query serf members.")
-		return nil, trace.Wrap(err, "failed to query serf members")
+	systemStatus := &pb.SystemStatus{
+		Status:    pb.SystemStatus_Unknown,
+		Timestamp: pb.NewTimeToProto(r.Clock.Now()),
 	}
 
 	log.Debugf("Started collecting statuses from members %v.", members)
@@ -594,7 +596,7 @@ func (r *agent) collectStatus(ctx context.Context) (systemStatus *pb.SystemStatu
 	statusCh := make(chan *statusResponse, len(members))
 	for _, member := range members {
 		if r.Name == member.Name() {
-			go r.getLocalStatus(ctxNode, statusCh)
+			go r.getLocalStatus(ctxNode, statusCh, client)
 		} else {
 			go r.getStatusFrom(ctx, member, statusCh)
 		}
@@ -622,12 +624,12 @@ L:
 
 	setSystemStatus(systemStatus, members)
 
-	return systemStatus, nil
+	return systemStatus
 }
 
 // collectLocalStatus executes monitoring tests on the local node.
-func (r *agent) collectLocalStatus(ctx context.Context) (status *pb.NodeStatus, err error) {
-	local, err := r.ClusterMembership.FindMember(r.Name)
+func (r *agent) collectLocalStatus(ctx context.Context, client membership.ClusterMembership) (status *pb.NodeStatus, err error) {
+	local, err := client.FindMember(r.Name)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to query local serf member")
 	}
@@ -645,7 +647,7 @@ func (r *agent) collectLocalStatus(ctx context.Context) (status *pb.NodeStatus, 
 		return status, trace.Wrap(err, "failed to record local timeline events")
 	}
 
-	if err := r.notifyMasters(ctx); err != nil {
+	if err := r.notifyMasters(ctx, client); err != nil {
 		return status, trace.Wrap(err, "failed to notify master nodes of local timeline events")
 	}
 
@@ -653,15 +655,14 @@ func (r *agent) collectLocalStatus(ctx context.Context) (status *pb.NodeStatus, 
 }
 
 // getLocalStatus obtains local node status.
-func (r *agent) getLocalStatus(ctx context.Context, respc chan<- *statusResponse) {
+func (r *agent) getLocalStatus(ctx context.Context, respc chan<- *statusResponse, client membership.ClusterMembership) {
 	// TODO: restructure code so that local member is not needed here.
-	local, err := r.ClusterMembership.FindMember(r.Name)
+	local, err := client.FindMember(r.Name)
 	if err != nil {
 		respc <- &statusResponse{err: err}
 		return
 	}
-
-	status, err := r.collectLocalStatus(ctx)
+	status, err := r.collectLocalStatus(ctx, client)
 	resp := &statusResponse{
 		NodeStatus: status,
 		member:     local,
@@ -674,8 +675,8 @@ func (r *agent) getLocalStatus(ctx context.Context, respc chan<- *statusResponse
 }
 
 // notifyMasters pushes new timeline events to all master nodes in the cluster.
-func (r *agent) notifyMasters(ctx context.Context) error {
-	members, err := r.ClusterMembership.Members()
+func (r *agent) notifyMasters(ctx context.Context, client membership.ClusterMembership) error {
+	members, err := client.Members()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -759,6 +760,24 @@ func (r *agent) recentLocalStatus() *pb.NodeStatus {
 	r.Lock()
 	defer r.Unlock()
 	return r.localStatus
+}
+
+func (r *agent) setLocalStatus(status *pb.NodeStatus) {
+	r.Lock()
+	defer r.Unlock()
+	r.localStatus = status
+}
+
+// newSerfClient creates a new instance of the serf client.
+//
+// It is responsibility of the caller to close the returned client.
+func (r *agent) newSerfClient() (membership.ClusterMembership, error) {
+	client, err := membership.NewSerfClient(r.Config.SerfConfig)
+	if err != nil {
+		return nil, trace.Wrap(err, "failed to connect to serf agent: %#v",
+			r.Config.SerfConfig)
+	}
+	return client, nil
 }
 
 // filterByTimestamp filters out events that occurred before the provided
