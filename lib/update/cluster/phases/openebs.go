@@ -22,8 +22,9 @@ import (
 	"text/template"
 
 	"github.com/gravitational/gravity/lib/fsm"
+	k8sutil "github.com/gravitational/gravity/lib/kubernetes"
 	"github.com/gravitational/gravity/lib/storage"
-	"github.com/gravitational/gravity/lib/utils"
+
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/client-go/kubernetes"
@@ -80,8 +81,8 @@ type PoolUpgrade struct {
 }
 
 func (p *PhaseUpgradePool) execPoolUpgradeCmd(ctx context.Context) error {
-	jobName := utils.MakeJobName(k8sJobPrefix, p.Pool)
-	out, err := utils.ExecJob(ctx, jobName, k8sNamespace, poolUpgradeJobTemplate, &PoolUpgrade{Pool: p.Pool,
+	jobName := k8sutil.MakeJobName(k8sJobPrefix, p.Pool)
+	out, err := k8sutil.ExecJob(ctx, jobName, k8sNamespace, poolUpgradeJobTemplate, &PoolUpgrade{Pool: p.Pool,
 		FromVersion: p.FromVersion, ToVersion: p.ToVersion, JobName: jobName}, p.Client)
 
 	p.Infof("OpenEBS pool upgrade job output: %v", out)
@@ -157,8 +158,8 @@ type VolumeUpgrade struct {
 }
 
 func (p *PhaseUpgradeVolume) execVolumeUpgradeCmd(ctx context.Context) error {
-	jobName := utils.MakeJobName(k8sJobPrefix, p.Volume)
-	out, err := utils.ExecJob(ctx, jobName, k8sNamespace, volumeUpgradeJobTemplate, &VolumeUpgrade{Volume: p.Volume,
+	jobName := k8sutil.MakeJobName(k8sJobPrefix, p.Volume)
+	out, err := k8sutil.ExecJob(ctx, jobName, k8sNamespace, volumeUpgradeJobTemplate, &VolumeUpgrade{Volume: p.Volume,
 		FromVersion: p.FromVersion, ToVersion: p.ToVersion, JobName: jobName}, p.Client)
 
 	p.Infof("OpenEBS volume upgrade job output: %v", out)
