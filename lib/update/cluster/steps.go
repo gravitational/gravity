@@ -531,6 +531,7 @@ func (r updateStep) addTo(root *builder.Phase, masters, nodes []storage.UpdateSe
 		root.AddParallel(r.etcdPhase(
 			leadMaster.Server,
 			serversToStorage(masters[1:]...),
+			serversToStorage(nodes...),
 		))
 	}
 	// The "config" phase pulls new teleport master config packages used
@@ -583,7 +584,7 @@ func (r updateStep) configPhase(nodes []storage.Server) *builder.Phase {
 	return root
 }
 
-func (r updateStep) etcdPhase(leadMaster storage.Server, otherMasters []storage.Server) *builder.Phase {
+func (r updateStep) etcdPhase(leadMaster storage.Server, otherMasters, workers []storage.Server) *builder.Phase {
 	description := fmt.Sprintf("Upgrade etcd %v to %v", r.etcd.installed, r.etcd.update)
 	if r.etcd.installed == "" {
 		description = fmt.Sprintf("Upgrade etcd to %v", r.etcd.update)
@@ -666,6 +667,12 @@ func (r updateStep) etcdPhase(leadMaster storage.Server, otherMasters []storage.
 	for _, server := range otherMasters {
 		p := r.etcdRestartPhase(server)
 		restartMasters.AddWithDependency(builder.DependencyForServer(upgradeServers, server), p)
+	}
+
+	// The etcd restart phase resets any etcd clients that may hang watches to the etcd cluster. So ensure the restart
+	// phase is called on each worker to ensure all watches are properly reset.
+	for _, server := range workers {
+		restartMasters.AddParallel(r.etcdRestartPhase(server))
 	}
 
 	// also restart gravity-site, so that elections get unbroken

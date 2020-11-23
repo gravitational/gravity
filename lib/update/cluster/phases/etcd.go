@@ -24,6 +24,7 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/kubernetes"
+	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/update"
@@ -79,7 +80,7 @@ func backupFile() (path string) {
 
 func (p *PhaseUpgradeEtcdBackup) Execute(ctx context.Context) error {
 	p.Info("Backup etcd.")
-	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "backup", backupFile())
+	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "--debug", "etcd", "backup", backupFile())
 	if err != nil {
 		return trace.Wrap(err, "failed to backup etcd").AddField("output", string(out))
 	}
@@ -121,7 +122,7 @@ func NewPhaseUpgradeEtcdShutdown(phase storage.OperationPhase, client *kubeapi.C
 
 func (p *PhaseUpgradeEtcdShutdown) Execute(ctx context.Context) error {
 	p.Info("Shutdown etcd.")
-	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "disable", "--stop-api")
+	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "--debug", "etcd", "disable", "--stop-api")
 	if err != nil {
 		return trace.Wrap(err).AddField("output", string(out))
 	}
@@ -131,7 +132,7 @@ func (p *PhaseUpgradeEtcdShutdown) Execute(ctx context.Context) error {
 
 func (p *PhaseUpgradeEtcdShutdown) Rollback(ctx context.Context) error {
 	p.Info("Enable etcd.")
-	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "enable")
+	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "--debug", "etcd", "enable")
 	if err != nil {
 		return trace.Wrap(err).AddField("output", string(out))
 	}
@@ -170,13 +171,13 @@ func NewPhaseUpgradeEtcd(phase storage.OperationPhase, logger log.FieldLogger) (
 func (p *PhaseUpgradeEtcd) Execute(ctx context.Context) error {
 	p.Info("Upgrade etcd.")
 	// TODO(knisbet) only wipe the etcd database when required
-	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "upgrade")
+	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "--debug", "etcd", "upgrade")
 	if err != nil {
 		return trace.Wrap(err).AddField("output", string(out))
 	}
 	p.Info("Command output: ", string(out))
 
-	out, err = utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "enable", "--upgrade")
+	out, err = utils.RunPlanetCommand(ctx, p.FieldLogger, "--debug", "etcd", "enable", "--upgrade")
 	if err != nil {
 		return trace.Wrap(err).AddField("output", string(out))
 	}
@@ -187,13 +188,13 @@ func (p *PhaseUpgradeEtcd) Execute(ctx context.Context) error {
 
 func (p *PhaseUpgradeEtcd) Rollback(ctx context.Context) error {
 	p.Info("Rollback upgrade of etcd.")
-	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "disable", "--upgrade")
+	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "--debug", "etcd", "disable", "--upgrade")
 	if err != nil {
 		return trace.Wrap(err).AddField("output", string(out))
 	}
 	p.Info("Command output: ", string(out))
 
-	out, err = utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "rollback")
+	out, err = utils.RunPlanetCommand(ctx, p.FieldLogger, "--debug", "etcd", "rollback")
 	if err != nil {
 		return trace.Wrap(err).AddField("output", string(out))
 	}
@@ -228,7 +229,7 @@ func NewPhaseUpgradeEtcdRestore(phase storage.OperationPhase, logger log.FieldLo
 // 10. Restart etcd on the correct ports on first node // API outage ends
 func (p *PhaseUpgradeEtcdRestore) Execute(ctx context.Context) error {
 	p.Info("Restore etcd data from backup.")
-	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "restore", backupFile())
+	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "--debug", "etcd", "restore", backupFile())
 	if err != nil {
 		return trace.Wrap(err).AddField("output", string(out))
 	}
@@ -270,14 +271,18 @@ func NewPhaseUpgradeEtcdRestart(phase storage.OperationPhase, logger log.FieldLo
 }
 
 func (p *PhaseUpgradeEtcdRestart) Execute(ctx context.Context) error {
-	p.Info("Restart etcd after upgrade.")
-	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "disable", "--upgrade")
-	if err != nil {
-		return trace.Wrap(err).AddField("output", string(out))
+	// The etcd-upgrade service will not be started on the workers. The command is not safe to run on a worker, as
+	// the gateway service will be running, and gets detected by the service code as a running etcd instance
+	if p.Server.ClusterRole == string(schema.ServiceRoleMaster) {
+		p.Info("Restart etcd after upgrade.")
+		out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "--debug", "etcd", "disable", "--upgrade")
+		if err != nil {
+			return trace.Wrap(err).AddField("output", string(out))
+		}
+		p.Info("Command output: ", string(out))
 	}
-	p.Info("Command output: ", string(out))
 
-	out, err = utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "enable")
+	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "--debug", "etcd", "enable")
 	if err != nil {
 		return trace.Wrap(err).AddField("output", string(out))
 	}
@@ -287,13 +292,13 @@ func (p *PhaseUpgradeEtcdRestart) Execute(ctx context.Context) error {
 
 func (p *PhaseUpgradeEtcdRestart) Rollback(ctx context.Context) error {
 	p.Info("Reenable etcd upgrade service.")
-	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "disable", "--stop-api")
+	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "--debug", "etcd", "disable", "--stop-api")
 	if err != nil {
 		return trace.Wrap(err).AddField("output", string(out))
 	}
 	p.Info("Command output: ", string(out))
 
-	out, err = utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "enable", "--upgrade")
+	out, err = utils.RunPlanetCommand(ctx, p.FieldLogger, "--debug", "etcd", "enable", "--upgrade")
 	if err != nil {
 		return trace.Wrap(err).AddField("output", string(out))
 	}
