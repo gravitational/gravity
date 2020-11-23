@@ -22,7 +22,6 @@ import (
 
 	"github.com/gravitational/satellite/agent/health"
 	pb "github.com/gravitational/satellite/agent/proto/agentpb"
-	"github.com/gravitational/satellite/lib/kubernetes"
 	"github.com/gravitational/satellite/utils"
 
 	"github.com/gravitational/trace"
@@ -38,6 +37,8 @@ type SystemPodsConfig struct {
 	NodeName string
 	// KubeConfig specifies kubernetes access configuration.
 	*KubeConfig
+	// Namespaces specifies the list of namespaces to query for critical pods.
+	Namespaces []string
 }
 
 // checkAndSetDefaults validates that this configuration is correct and sets
@@ -104,17 +105,21 @@ func (r *systemPodsChecker) check(ctx context.Context, reporter health.Reporter)
 
 // getPods returns a list of the local pods that have the
 // `gravitational.io/critical-pod` label.
-func (r *systemPodsChecker) getPods() ([]corev1.Pod, error) {
+func (r *systemPodsChecker) getPods() (pods []corev1.Pod, err error) {
 	opts := metav1.ListOptions{
 		LabelSelector: systemPodsSelector.String(),
 		FieldSelector: fields.OneTermEqualSelector("spec.nodeName", r.NodeName).String(),
 	}
-	pods, err := r.Client.CoreV1().Pods(kubernetes.AllNamespaces).List(opts)
-	if err != nil {
-		return nil, utils.ConvertError(err)
+
+	for _, namespace := range r.Namespaces {
+		podList, err := r.Client.CoreV1().Pods(namespace).List(opts)
+		if err != nil {
+			return pods, utils.ConvertError(err)
+		}
+		pods = append(pods, podList.Items...)
 	}
 
-	return pods.Items, nil
+	return pods, nil
 }
 
 // verifyPods verifies the pods are in a valid state. Reports a failed probe for
