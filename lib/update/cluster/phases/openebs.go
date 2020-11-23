@@ -17,23 +17,15 @@ limitations under the License.
 package phases
 
 import (
-	"bytes"
 	"context"
-	"errors"
-	"fmt"
 	"strings"
 	"text/template"
 
-	"github.com/gravitational/gravity/lib/app/hooks"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
-	"github.com/gravitational/gravity/lib/utils/kubectl"
-
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
-	"io/ioutil"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -89,8 +81,8 @@ type PoolUpgrade struct {
 
 func (p *PhaseUpgradePool) execPoolUpgradeCmd(ctx context.Context) error {
 	jobName := utils.MakeJobName(k8sJobPrefix, p.Pool)
-	out, err := execUpgradeJob(ctx, poolUpgradeJobTemplate, &PoolUpgrade{Pool: p.Pool,
-		FromVersion: p.FromVersion, ToVersion: p.ToVersion, JobName: jobName}, jobName, p.Client)
+	out, err := utils.ExecJob(ctx, jobName, k8sNamespace, poolUpgradeJobTemplate, &PoolUpgrade{Pool: p.Pool,
+		FromVersion: p.FromVersion, ToVersion: p.ToVersion, JobName: jobName}, p.Client)
 
 	p.Infof("OpenEBS pool upgrade job output: %v", out)
 
@@ -99,48 +91,6 @@ func (p *PhaseUpgradePool) execPoolUpgradeCmd(ctx context.Context) error {
 	}
 
 	return nil
-}
-
-func execUpgradeJob(ctx context.Context, template *template.Template, templateData interface{}, jobName string, client *kubernetes.Clientset) (string, error) {
-	var buf bytes.Buffer
-	err := template.Execute(&buf, templateData)
-	if err != nil {
-		return "", trace.Wrap(err)
-	}
-
-	jobFile := "openebs_data_plane_component_upgrade.yaml"
-	err = ioutil.WriteFile(jobFile, buf.Bytes(), 0644)
-	if err != nil {
-		return "", trace.Wrap(err)
-	}
-
-	out, err := kubectl.Apply(jobFile)
-	if err != nil {
-		return fmt.Sprintf("Failed to exec kubectl: %v", string(out)), trace.Wrap(err)
-	}
-
-	runner, err := hooks.NewRunner(client)
-	if err != nil {
-		return "", trace.Wrap(err)
-	}
-
-	jobRef := hooks.JobRef{Name: jobName, Namespace: k8sNamespace}
-	logs := utils.NewSyncBuffer()
-	err = runner.StreamLogs(ctx, jobRef, logs)
-	if err != nil {
-		return logs.String(), trace.Wrap(err)
-	}
-
-	job, err := client.BatchV1().Jobs(jobRef.Namespace).Get(jobRef.Name, metav1.GetOptions{})
-	if err != nil {
-		return logs.String(), trace.Wrap(err)
-	}
-
-	if job.Status.Failed != 0 {
-		return logs.String(), trace.Wrap(errors.New("upgrade job has failed pods"))
-	}
-
-	return logs.String(), nil
 }
 
 // Rollback gets executed when a rollback is requested
@@ -208,8 +158,8 @@ type VolumeUpgrade struct {
 
 func (p *PhaseUpgradeVolume) execVolumeUpgradeCmd(ctx context.Context) error {
 	jobName := utils.MakeJobName(k8sJobPrefix, p.Volume)
-	out, err := execUpgradeJob(ctx, volumeUpgradeJobTemplate, &VolumeUpgrade{Volume: p.Volume,
-		FromVersion: p.FromVersion, ToVersion: p.ToVersion, JobName: jobName}, jobName, p.Client)
+	out, err := utils.ExecJob(ctx, jobName, k8sNamespace, volumeUpgradeJobTemplate, &VolumeUpgrade{Volume: p.Volume,
+		FromVersion: p.FromVersion, ToVersion: p.ToVersion, JobName: jobName}, p.Client)
 
 	p.Infof("OpenEBS volume upgrade job output: %v", out)
 

@@ -17,16 +17,23 @@ limitations under the License.
 package utils
 
 import (
+	"bytes"
+	"context"
+	"errors"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"strings"
+	"text/template"
 
+	"github.com/gravitational/gravity/lib/app/hooks"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
-
+	"github.com/gravitational/gravity/lib/utils/kubectl"
 	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
 
+	"github.com/gravitational/teleport/lib/utils"
 	"github.com/pborman/uuid"
 	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
@@ -268,4 +275,50 @@ func MakeJobName(prefix string, name string) string {
 	}
 
 	return fmt.Sprintf("%v-%v-%v", prefix, name, uuid.New()[:13])
+}
+
+// ExecJob launches a Kubernetes job specified by a template.
+// Uses kubectl to load the job spec yaml file.
+// Waits for the job to complete and returns the output of the job.
+func ExecJob(ctx context.Context, jobName string, namespace string, template *template.Template,
+	templateData interface{}, client *kubernetes.Clientset) (string, error) {
+	var buf bytes.Buffer
+	err := template.Execute(&buf, templateData)
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+
+	jobFile := "job.yaml"
+	err = ioutil.WriteFile(jobFile, buf.Bytes(), 0644)
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+
+	out, err := kubectl.Apply(jobFile)
+	if err != nil {
+		return fmt.Sprintf("Failed to exec kubectl: %v", string(out)), trace.Wrap(err)
+	}
+
+	runner, err := hooks.NewRunner(client)
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+
+	jobRef := hooks.JobRef{Name: jobName, Namespace: namespace}
+	logs := utils.NewSyncBuffer()
+	err = runner.StreamLogs(ctx, jobRef, logs)
+	if err != nil {
+		return logs.String(), trace.Wrap(err)
+	}
+
+	job, err := client.BatchV1().Jobs(jobRef.Namespace).Get(jobRef.Name, metav1.GetOptions{})
+	if err != nil {
+		return logs.String(), trace.Wrap(err)
+	}
+
+	if job.Status.Failed != 0 {
+		return logs.String(), trace.Wrap(errors.New("k8s job has failed pods"))
+	}
+
+	return logs.String(), nil
 }
