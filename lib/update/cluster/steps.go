@@ -672,8 +672,7 @@ func (r updateStep) etcdPhase(leadMaster storage.Server, otherMasters, workers [
 	// The etcd restart phase resets any etcd clients that may hang watches to the etcd cluster. So ensure the restart
 	// phase is called on each worker to ensure all watches are properly reset.
 	for _, server := range workers {
-		p := r.etcdRestartPhase(server)
-		restartMasters.AddParallel(p)
+		restartMasters.AddParallel(r.etcdRestartPhase(server))
 	}
 
 	// also restart gravity-site, so that elections get unbroken
