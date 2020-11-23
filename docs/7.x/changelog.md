@@ -11,9 +11,9 @@ Find the latest Open Source Gravity releases at [Gravity Downloads](https://grav
 
 | Version             | Latest Patch | LTS | Release Date         | Latest Patch Date    | End of Support *        | Kubernetes Version   | Teleport Version |
 | ------------------- | ------------ | --- | -------------------- | -------------------- | ----------------------- | -------------------- | ---------------- |
-| [7.0](#70-releases) | 7.0.26       | Yes | April 3, 2020        | November 11, 2020   | July 9, 2022            | 1.17.9               | 3.2.14-gravity   |
-| [6.1](#61-releases) | 6.1.45       | Yes | August 2, 2019       | November 5, 2020   | November 10, 2021       | 1.15.12              | 3.2.14-gravity   |
-| [5.5](#55-releases) | 5.5.55       | Yes | March 8, 2019        | October 21, 2020   | March 8, 2021           | 1.13.11              | 3.0.7-gravity    |
+| [7.0](#70-releases) | 7.0.27       | Yes | April 3, 2020        | November 23, 2020    | July 9, 2022            | 1.17.9               | 3.2.14-gravity   |
+| [6.1](#61-releases) | 6.1.45       | Yes | August 2, 2019       | November 5, 2020     | November 10, 2021       | 1.15.12              | 3.2.14-gravity   |
+| [5.5](#55-releases) | 5.5.56       | Yes | March 8, 2019        | November 23, 2020    | March 8, 2021           | 1.13.11              | 3.0.7-gravity    |
 
 Gravity offers one Long Term Support (LTS) version for every 2nd Kubernetes
 minor version, allowing for seamless upgrades per Kubernetes
@@ -50,6 +50,20 @@ extend updates past End of Support through customer agreements if required.
 # Release Notes
 
 ## 7.0 Releases
+
+### 7.0.27 LTS (November 23, 2020)
+
+#### Improvements
+* Add support for Redhat/Centos 7.9 and 8.3 ([#2335](https://github.com/gravitational/gravity/pull/2335), [planet#796](https://github.com/gravitational/planet/pull/796), [satellite#286](https://github.com/gravitational/satellite/pull/286)).
+* Update Helm/Tiller to 2.16.12 ([#2319](https://github.com/gravitational/gravity/pull/2319), [planet#793](https://github.com/gravitational/planet/pull/793)).
+
+#### Bugfixes
+
+* Fix an issue where gravity wouldn't be able to generate an upgrade plan due to corrupted planet metadata ([#2344](https://github.com/gravitational/gravity/pull/2344)).
+* Fix an issue where monitoring-app would not tolerate customer applied taints ([#2340](https://github.com/gravitational/gravity/pull/2340), [monitoring-app#199](https://github.com/gravitational/monitoring-app/pull/199)).
+* Fix an issue where logging-app would not tolerate customer applied taints ([#2340](https://github.com/gravitational/gravity/pull/2340), [logging-app#74](https://github.com/gravitational/logging-app/pull/74)).
+* Increase the amount of time dns-app update hooks will wait for cluster changes to complete ([#2326](https://github.com/gravitational/gravity/pull/2326)).
+* Increase FD limits when creating systemd units ([#2321](https://github.com/gravitational/gravity/pull/2321)).
 
 ### 7.0.26 LTS (November 11, 2020)
 
@@ -1476,6 +1490,19 @@ to learn how to gain insight into how the cluster status changes over time.
 * Upgrade Kubernetes to `v1.14.0`.
 
 ## 5.5 Releases
+
+### 5.5.56 LTS (November 23, 2020)
+
+#### Improvements
+* Add support for Redhat/Centos 7.9 and 8.3 ([#2338](https://github.com/gravitational/gravity/pull/2335), [planet#798](https://github.com/gravitational/planet/pull/798), [satellite#287](https://github.com/gravitational/satellite/pull/287)).
+
+#### Bugfixes
+
+* Fix an issue with etcd upgrades breaking watches in planet services ([#2330](https://github.com/gravitational/gravity/pull/2330)).
+* Fix an issue where monitoring-app would not tolerate customer applied taints ([#2341](https://github.com/gravitational/gravity/pull/2341), [monitoring-app#200](https://github.com/gravitational/monitoring-app/pull/200)).
+* Fix an issue where logging-app would not tolerate customer applied taints ([#2341](https://github.com/gravitational/gravity/pull/2341), [logging-app#73](https://github.com/gravitational/logging-app/pull/73)).
+* Increase the amount of time dns-app update hooks will wait for cluster changes to complete ([#2328](https://github.com/gravitational/gravity/pull/2328)).
+* Increase FD limits when creating systemd units ([#2315](https://github.com/gravitational/gravity/pull/2315)).
 
 ### 5.5.55 LTS (October 21st, 2020)
 
