@@ -178,7 +178,7 @@ func OpenEBSPoolsVersions(ctx context.Context) (map[string]string, error) {
 func OpenEBSVolumesVersions(ctx context.Context) (map[string]string, error) {
 	args := utils.PlanetCommand(Command("get", "pods",
 		"--field-selector", "status.phase=Running",
-		"--selector", `app=cstor-volume-manager,openebs.io/storage-class=openebs-cstor`,
+		"--selector", "app=cstor-volume-manager",
 		"-nopenebs",
 		"-o", `jsonpath={range .items[*]}{.metadata.labels.openebs\.io/persistent-volume}{" "}{.metadata.labels.openebs\.io/version}{"\n"}{end}`))
 
