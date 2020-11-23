@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"strings"
 
 	libapp "github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
@@ -76,7 +77,12 @@ func (r *phaseBuilder) initSteps(ctx context.Context) (err error) {
 	if installedOrUpgradedEtcdVersion == nil {
 		installedOrUpgradedEtcdVersion, err = getEtcdVersionFromManifest(r.installedApp.Manifest, r.packages)
 		if err != nil && !trace.IsNotFound(err) {
-			return trace.Wrap(err)
+			// Several versions of gravity 6.1 have corrupted planet metadata for the etcd version.
+			// If we fail to parse the etcd version, fallback to the currentEtcdVersion included below.
+			// https://github.com/gravitational/gravity/issues/2031
+			if !strings.Contains(err.Error(), "REPLACE_ETCD_LATEST_VERSION") {
+				return trace.Wrap(err)
+			}
 		}
 	}
 	if installedOrUpgradedEtcdVersion == nil {
