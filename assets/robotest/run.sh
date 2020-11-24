@@ -25,7 +25,7 @@ GCE_REGION="northamerica-northeast1,us-west1,us-east1,us-east4,us-central1"
 GCE_VM=${GCE_VM:-custom-4-8192}
 GCE_PREEMPTIBLE=${GCE_PREEMPTIBLE:-'false'}
 # Parallelism & retry, tuned for GCE
-PARALLEL_TESTS=${PARALLEL_TESTS:-4}
+PARALLEL_TESTS=${PARALLEL_TESTS:-10}
 REPEAT_TESTS=${REPEAT_TESTS:-1}
 RETRIES=${RETRIES:-3}
 FAIL_FAST=${FAIL_FAST:-false}
