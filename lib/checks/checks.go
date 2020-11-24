@@ -869,6 +869,9 @@ func basicCheckers(options *validationpb.ValidateOptions) health.Checker {
 		defaultPortChecker(options),
 		monitoring.DefaultBootConfigParams(),
 	}
+	// TODO (lenko-d) perform iscsid related checks when upgrading the cluster.
+	// Currently if the existing deployment is not OpenEBS enabled but the upgrade is
+	// then there are no checks.
 	if checkISCSI {
 		checkers = append(checkers, monitoring.NewISCSIChecker(fmtISCSICheckFailedMsg))
 	}
