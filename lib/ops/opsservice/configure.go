@@ -911,6 +911,12 @@ func (s *site) getPlanetConfig(config planetConfig) (args []string, err error) {
 		args = append(args, "--no-election-enabled")
 	}
 
+	if config.manifest.OpenEBSEnabled() {
+		args = append(args, "--openebs-enabled")
+	} else {
+		args = append(args, "--no-openebs-enabled")
+	}
+
 	for k, v := range config.env {
 		args = append(args, fmt.Sprintf("--env=%v=%v", k, strconv.Quote(v)))
 	}
