@@ -57,10 +57,10 @@ EOF
 
 function build_install_suite {
   local suite=''
-  local test_os="redhat:7"
+  local test_os="redhat:8.3"
   local cluster_size='"flavor":"three","nodes":3,"role":"node"'
   suite+=$(cat <<EOF
- install={${cluster_size},"os":"${test_os}","storage_driver":"overlay2"}
+ install={${cluster_size},"os":"${test_os}","script":{"url":"/disableSELinux.sh"},"storage_driver":"overlay2"}
 EOF
 )
   suite+=' '

@@ -49,7 +49,8 @@ function build_volume_mounts {
   done
 }
 
-export EXTRA_VOLUME_MOUNTS=$(build_volume_mounts)
+SCRIPT_MOUNT="-v $(readlink -f $(dirname $0))/disableSELinux.sh:/disableSELinux.sh"
+export EXTRA_VOLUME_MOUNTS="$(build_volume_mounts) $SCRIPT_MOUNT"
 
 tele=$GRAVITY_BUILDDIR/tele
 mkdir -p $UPGRADE_FROM_DIR
