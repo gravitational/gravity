@@ -244,7 +244,7 @@ spec:
 
         # the image version should be same as the --to-version mentioned above
         # in the args of the job
-        image: openebs/m-upgrade:{{.ToVersion}}
+        image: registry.local:5000/openebs/m-upgrade:{{.ToVersion}}
         imagePullPolicy: Always
       restartPolicy: Never
 ---
@@ -308,7 +308,7 @@ spec:
 
           # the image version should be same as the --to-version mentioned above
           # in the args of the job
-          image: quay.io/openebs/m-upgrade:{{.ToVersion}}
+          image: registry.local:5000/openebs/m-upgrade:{{.ToVersion}}
           imagePullPolicy: Always
       restartPolicy: Never
 ---
