@@ -39,7 +39,7 @@ const (
 	k8sNamespace = "openebs"
 )
 
-// PhaseUpgradePool backs up etcd data on all servers
+// PhaseUpgradePool has the info needed for a pool upgrade
 type PhaseUpgradePool struct {
 	// FieldLogger is used for logging
 	log.FieldLogger
@@ -116,7 +116,7 @@ func (*PhaseUpgradePool) PostCheck(context.Context) error {
 	return nil
 }
 
-// PhaseUpgradeVolume upgrades OpenEBS volumes
+// PhaseUpgradeVolume has the info needed for a volume upgrade
 type PhaseUpgradeVolume struct {
 	// FieldLogger is used for logging
 	log.FieldLogger
