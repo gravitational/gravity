@@ -10,17 +10,17 @@ declare -A UPGRADE_MAP
 
 UPGRADE_MAP[$(recommended_upgrade_tag $(branch 6.1.x))]="ubuntu:18" # this branch
 UPGRADE_MAP[6.1.0]="ubuntu:16"
-UPGRADE_MAP[$(recommended_upgrade_tag $(branch 5.5.x))]="redhat:7" # compatible LTS version
-UPGRADE_MAP[5.5.0]="centos:7"
+UPGRADE_MAP[$(recommended_upgrade_tag $(branch 5.5.x))]="redhat:7.9" # compatible LTS version
+UPGRADE_MAP[5.5.0]="centos:7.9"
 # 5.6.x upgrade testing disabled on PRs because it has been out of support for over a year
 # UPGRADE_MAP[$(recommended_upgrade_tag $(branch 5.6.x))]="debian:9" # compatible non-LTS version
 # UPGRADE_MAP[5.6.0]="debian:8"
 
 # customer specific scenarios, these versions have traction in the field
-UPGRADE_MAP[5.5.40]="centos:7"
-UPGRADE_MAP[5.5.38]="centos:7"
-UPGRADE_MAP[5.5.36]="centos:7"
-UPGRADE_MAP[5.5.28]="centos:7"
+UPGRADE_MAP[5.5.40]="centos:7.9"
+UPGRADE_MAP[5.5.38]="centos:7.9"
+UPGRADE_MAP[5.5.36]="centos:7.9"
+UPGRADE_MAP[5.5.28]="centos:7.9"
 
 UPGRADE_VERSIONS=${!UPGRADE_MAP[@]}
 
@@ -41,7 +41,7 @@ function build_upgrade_suite {
 function build_resize_suite {
   local suite=$(cat <<EOF
  resize={"to":3,"flavor":"one","nodes":1,"role":"node","state_dir":"/var/lib/telekube","os":"ubuntu:18","storage_driver":"overlay2"}
- shrink={"nodes":3,"flavor":"three","role":"node","os":"redhat:7"}
+ shrink={"nodes":3,"flavor":"three","role":"node","os":"redhat:7.9"}
 EOF
 )
     echo -n $suite
@@ -57,10 +57,10 @@ EOF
 
 function build_install_suite {
   local suite=''
-  local test_os="redhat:7"
+  local test_os="redhat:8.3"
   local cluster_size='"flavor":"three","nodes":3,"role":"node"'
   suite+=$(cat <<EOF
- install={${cluster_size},"os":"${test_os}","storage_driver":"overlay2"}
+ install={${cluster_size},"os":"${test_os}","script":{"url":"/disableSELinux.sh"},"storage_driver":"overlay2"}
 EOF
 )
   suite+=' '

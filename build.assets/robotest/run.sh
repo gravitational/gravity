@@ -11,7 +11,7 @@ readonly ROBOTEST_SCRIPT=$(mktemp -d)/runsuite.sh
 
 # a number of environment variables are expected to be set
 # see https://github.com/gravitational/robotest/blob/v2.0.0/suite/README.md
-export ROBOTEST_VERSION=${ROBOTEST_VERSION:-2.1.0}
+export ROBOTEST_VERSION=${ROBOTEST_VERSION:-2.2.0}
 export ROBOTEST_REPO=quay.io/gravitational/robotest-suite:$ROBOTEST_VERSION
 export INSTALLER_URL=$GRAVITY_BUILDDIR/telekube.tar
 export GRAVITY_URL=$GRAVITY_BUILDDIR/gravity
@@ -49,7 +49,8 @@ function build_volume_mounts {
   done
 }
 
-export EXTRA_VOLUME_MOUNTS=$(build_volume_mounts)
+SCRIPT_MOUNT="-v $(readlink -f $(dirname $0))/disableSELinux.sh:/disableSELinux.sh"
+export EXTRA_VOLUME_MOUNTS="$(build_volume_mounts) $SCRIPT_MOUNT"
 
 tele=$GRAVITY_BUILDDIR/tele
 mkdir -p $UPGRADE_FROM_DIR
