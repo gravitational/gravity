@@ -184,6 +184,7 @@ func GRPCHandlerFunc(grpcHandler, httpHandler http.Handler) http.Handler {
 		if isGRPCRequest(r) {
 			grpcHandler.ServeHTTP(w, r)
 		} else {
+			w.Header().Add("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
 			httpHandler.ServeHTTP(w, r)
 		}
 	})
