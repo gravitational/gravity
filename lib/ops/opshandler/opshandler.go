@@ -358,7 +358,7 @@ func (h *WebHandler) getSiteInstructions(w http.ResponseWriter, r *http.Request,
 	serverProfile := p[1].Value
 	instructions, err := h.cfg.Operator.GetSiteInstructions(token, serverProfile, r.URL.Query())
 	if err != nil {
-		trace.WriteError(w, err)
+		trace.WriteError(w, trace.Unwrap(err))
 		return
 	}
 	w.Header().Set("Content-Type", "text/plain")
@@ -2441,7 +2441,7 @@ func NeedsAuth(devmode bool, backend storage.Backend, operator ops.Operator, aut
 			if trace.IsAccessDenied(err) {
 				log.WithFields(fields.FromRequest(r)).WithError(err).Warn("Access denied.")
 			}
-			trace.WriteError(w, err)
+			trace.WriteError(w, trace.Unwrap(err))
 		}
 	}
 }

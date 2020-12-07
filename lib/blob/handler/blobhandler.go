@@ -89,7 +89,7 @@ func New(cfg Config) (*Server, error) {
 func (s *Server) notFound(w http.ResponseWriter, r *http.Request) {
 	err := trace.NotFound("%v %v is not recognized", r.Method, r.URL.String())
 	log.Infof(err.Error())
-	trace.WriteError(w, err)
+	trace.WriteError(w, trace.Unwrap(err))
 }
 
 func (s *Server) getBLOBs(w http.ResponseWriter, r *http.Request, p httprouter.Params, objects blob.Objects) error {
@@ -172,7 +172,7 @@ func (s *Server) needsAuth(fn authHandle, objects blob.Objects) httprouter.Handl
 
 		authCreds, err := httplib.ParseAuthHeaders(r)
 		if err != nil {
-			trace.WriteError(w, err)
+			trace.WriteError(w, trace.Unwrap(err))
 			return
 		}
 
@@ -181,7 +181,7 @@ func (s *Server) needsAuth(fn authHandle, objects blob.Objects) httprouter.Handl
 			log.Infof("authenticate error: %v", err)
 			// we hide the error from the remote user to avoid giving any hints
 			trace.WriteError(
-				w, trace.AccessDenied("bad username or password"))
+				w, trace.Unwrap(trace.AccessDenied("bad username or password")))
 			return
 		}
 
@@ -190,7 +190,7 @@ func (s *Server) needsAuth(fn authHandle, objects blob.Objects) httprouter.Handl
 			if !trace.IsNotFound(err) && !trace.IsAlreadyExists(err) {
 				log.Errorf("handler error: %v", trace.DebugReport(err))
 			}
-			trace.WriteError(w, err)
+			trace.WriteError(w, trace.Unwrap(err))
 		}
 	}
 }
