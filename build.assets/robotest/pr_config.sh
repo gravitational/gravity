@@ -20,9 +20,9 @@ UPGRADE_MAP[5.2.0]="centos:7.9"
 UPGRADE_MAP[5.0.36]="centos:7.9"
 
 # customer specific scenarios, these versions have traction in the field
-UPGRADE_MAP[5.5.41]="centos:7.9"
+UPGRADE_MAP[5.5.51]="centos:7.9"
+UPGRADE_MAP[5.5.49]="centos:7.9"
 UPGRADE_MAP[5.5.40]="centos:7.9"
-UPGRADE_MAP[5.5.38]="centos:7.9"
 UPGRADE_MAP[5.5.36]="centos:7.9"
 UPGRADE_MAP[5.5.28]="centos:7.9"
 
