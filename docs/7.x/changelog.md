@@ -11,8 +11,8 @@ Find the latest Open Source Gravity releases at [Gravity Downloads](https://grav
 
 | Version             | Latest Patch | LTS | Release Date         | Latest Patch Date    | End of Support *        | Kubernetes Version   | Teleport Version |
 | ------------------- | ------------ | --- | -------------------- | -------------------- | ----------------------- | -------------------- | ---------------- |
-| [7.0](#70-releases) | 7.0.27       | Yes | April 3, 2020        | November 23, 2020    | July 9, 2022            | 1.17.9               | 3.2.14-gravity   |
-| [6.1](#61-releases) | 6.1.45       | Yes | August 2, 2019       | November 5, 2020     | November 10, 2021       | 1.15.12              | 3.2.14-gravity   |
+| [7.0](#70-releases) | 7.0.28       | Yes | April 3, 2020        | December 7, 2020     | July 9, 2022            | 1.17.9               | 3.2.14-gravity   |
+| [6.1](#61-releases) | 6.1.46       | Yes | August 2, 2019       | December 7, 2020     | November 10, 2021       | 1.15.12              | 3.2.14-gravity   |
 | [5.5](#55-releases) | 5.5.56       | Yes | March 8, 2019        | November 23, 2020    | March 8, 2021           | 1.13.11              | 3.0.7-gravity    |
 
 Gravity offers one Long Term Support (LTS) version for every 2nd Kubernetes
@@ -50,6 +50,16 @@ extend updates past End of Support through customer agreements if required.
 # Release Notes
 
 ## 7.0 Releases
+
+### 7.0.28 LTS (December 7, 2020)
+
+#### Improvements
+* Add helm 3 binary to planet and make available for hooks ([#2345](https://github.com/gravitational/gravity/pull/2345)).
+* Add support for using a separate network project in GCE to flannel ([#2355](https://github.com/gravitational/gravity/pull/2355), [planet#807](https://github.com/gravitational/planet/pull/807), [flannel#9](https://github.com/gravitational/satellite/pull/9)).
+
+#### Bugfixes
+* Shutdown kubernetes control plane immediately when elections are disabled ([#2355](https://github.com/gravitational/gravity/pull/2355), [planet#805](https://github.com/gravitational/planet/pull/805)).
+
 
 ### 7.0.27 LTS (November 23, 2020)
 
@@ -698,6 +708,17 @@ to learn how to gain insight into how the cluster status changes over time.
 * Upgrade Kubernetes to `v1.16.0`.
 
 ## 6.1 Releases
+
+### 6.1.46 LTS (December 7, 2020)
+
+#### Improvements
+* Add support for using a separate network project in GCE to flannel ([#2356](https://github.com/gravitational/gravity/pull/2356), [planet#808](https://github.com/gravitational/planet/pull/808), [flannel#9](https://github.com/gravitational/satellite/pull/9)).
+* Remove CONFIG_NF_NAT_IPv4 check to support RHEL 8.3 based kernels ([#2337](https://github.com/gravitational/gravity/pull/2337), [planet#797](https://github.com/gravitational/planet/pull/797), [satellite#288](https://github.com/gravitational/satellite/pull/288)).
+
+#### Bugfixes
+* Shutdown kubernetes control plane immediately when elections are disabled ([#2356](https://github.com/gravitational/gravity/pull/2356), [planet#804](https://github.com/gravitational/planet/pull/804)).
+* Increase the amount of time dns-app update hooks will wait for cluster changes to complete ([#2327](https://github.com/gravitational/gravity/pull/2327)).
+* Increase FD limits when creating systemd units ([#2322](https://github.com/gravitational/gravity/pull/2322)).
 
 ### 6.1.45 LTS (November 5th, 2020)
 
