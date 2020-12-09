@@ -54,7 +54,7 @@ extend updates past End of Support through customer agreements if required.
 ### 7.0.28 LTS (December 7, 2020)
 
 #### Improvements
-* Add helm 3 binary to planet and make available for hooks ([#2345](https://github.com/gravitational/gravity/pull/2345)).
+* Add helm 3 binary to planet and make it available for hooks ([#2345](https://github.com/gravitational/gravity/pull/2345)).
 * Add support for using a separate network project in GCE to flannel ([#2355](https://github.com/gravitational/gravity/pull/2355), [planet#807](https://github.com/gravitational/planet/pull/807), [flannel#9](https://github.com/gravitational/satellite/pull/9)).
 
 #### Bugfixes
