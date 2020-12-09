@@ -718,7 +718,7 @@ to learn how to gain insight into how the cluster status changes over time.
 #### Bugfixes
 * Shutdown kubernetes control plane immediately when elections are disabled ([#2356](https://github.com/gravitational/gravity/pull/2356), [planet#804](https://github.com/gravitational/planet/pull/804)).
 * Increase the amount of time dns-app update hooks will wait for cluster changes to complete ([#2327](https://github.com/gravitational/gravity/pull/2327)).
-* Increase FD limits when creating systemd units ([#2322](https://github.com/gravitational/gravity/pull/2322)).
+* Increase file descriptor limits when creating systemd units ([#2322](https://github.com/gravitational/gravity/pull/2322)).
 
 ### 6.1.45 LTS (November 5th, 2020)
 
