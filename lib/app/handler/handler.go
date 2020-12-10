@@ -979,6 +979,7 @@ func (h *WebHandler) wrap(fn func(w http.ResponseWriter, r *http.Request, p http
 	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		if err := fn(w, r, p); err != nil {
 			log.WithFields(fields.FromRequest(r)).WithError(err).Info("Handler error.")
+			log.Infof("%v", trace.DebugReport(err))
 			trace.WriteError(w, trace.Unwrap(err))
 		}
 	}
@@ -1005,8 +1006,10 @@ func (h *WebHandler) needsAuth(fn serviceHandler) httprouter.Handle {
 		if err := fn(w, r, params, context); err != nil {
 			if !trace.IsNotFound(err) && !trace.IsAlreadyExists(err) {
 				logger.WithError(err).Error("Handler error.")
+				logger.Errorf("%v", trace.DebugReport(err))
 			} else {
 				logger.WithError(err).Debug("Handler error.")
+				logger.Debugf("%v", trace.DebugReport(err))
 			}
 			trace.WriteError(w, trace.Unwrap(err))
 		}
