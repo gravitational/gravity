@@ -991,6 +991,7 @@ func (h *WebHandler) needsAuth(fn serviceHandler) httprouter.Handle {
 		authResult, err := h.Authenticator.Authenticate(w, r)
 		if err != nil {
 			logger.WithError(err).Warn("Authentication error.")
+			logger.Warnf("%v", trace.DebugReport(err))
 			trace.WriteError(w, trace.Unwrap(trace.AccessDenied("bad username or password"))) // Hide the actual error.
 			return
 		}
