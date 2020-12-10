@@ -174,6 +174,8 @@ type InstallConfig struct {
 	AcceptEULA bool
 	// Values are helm values in marshaled yaml format
 	Values []byte
+	// AdmissionPlugins is a list of Kubernetes admission plugins to enable.
+	AdmissionPlugins []string
 
 	// Computed values
 	//
@@ -281,6 +283,7 @@ func NewInstallConfig(env *localenv.LocalEnvironment, g *Application) (*InstallC
 		SELinux:            *g.InstallCmd.SELinux,
 		FromService:        *g.InstallCmd.FromService,
 		AcceptEULA:         *g.InstallCmd.AcceptEULA,
+		AdmissionPlugins:   *g.InstallCmd.AdmissionPlugins,
 		Values:             values,
 		Printer:            env,
 	}, nil
@@ -419,6 +422,35 @@ func (i *InstallConfig) CheckAndSetDefaults(validator resources.Validator) (err 
 			return trace.Wrap(err)
 		}
 	}
+
+	if err := i.checkAdmissionPlugins(); err != nil {
+		return trace.Wrap(err)
+	}
+
+	return nil
+}
+
+// checkAdmissionPlugins verifies the specified Kubernetes admission plugins are
+// valid.
+func (i *InstallConfig) checkAdmissionPlugins() error {
+	// https://kubernetes.io/docs/reference/command-line-tools-reference/kube-apiserver/#options
+	// List of available Kubernetes admission plugins available can be found under
+	// --enable-admission-plugins.
+	validPlugins := []string{
+		"ImagePolicyWebhook",
+	}
+
+	searchPlugins := make(map[string]struct{})
+	for _, validPlugin := range validPlugins {
+		searchPlugins[validPlugin] = struct{}{}
+	}
+
+	for _, plugin := range i.AdmissionPlugins {
+		if _, exists := searchPlugins[plugin]; !exists {
+			return trace.BadParameter("%s is not a valid plugin. Current valid plugins include: \n\t%v",
+				plugin, strings.Join(validPlugins, "\n\t"))
+		}
+	}
 	return nil
 }
 
@@ -515,6 +547,7 @@ func (i *InstallConfig) NewInstallerConfig(
 		LocalAgent:         !i.Remote,
 		Values:             i.Values,
 		SELinux:            i.SELinux,
+		AdmissionPlugins:   i.AdmissionPlugins,
 	}, nil
 
 }

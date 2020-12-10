@@ -593,6 +593,8 @@ type Site struct {
 	DNSConfig DNSConfig `json:"dns_config"`
 	// InstallToken specifies the original token the cluster was installed with
 	InstallToken string `json:"install_token"`
+	// AdmissionPlugins is a list of Kubernetes admission plugins to enable
+	AdmissionPlugins []string `json:"admission_plugins"`
 }
 
 // Check validates the cluster object's fields.

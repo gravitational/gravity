@@ -641,7 +641,8 @@ func (o *Operator) CreateSite(r ops.NewSiteRequest) (*ops.Site, error) {
 		ClusterState: storage.ClusterState{
 			Docker: dockerConfig,
 		},
-		InstallToken: r.InstallToken,
+		InstallToken:     r.InstallToken,
+		AdmissionPlugins: r.AdmissionPlugins,
 	}
 	if runtimeLoc := app.Manifest.Base(); runtimeLoc != nil {
 		runtimeApp, err := o.cfg.Apps.GetApp(*runtimeLoc)
