@@ -682,6 +682,9 @@ func (r configCollection) WriteText(w io.Writer) error {
 	if len(config.FeatureGates) != 0 {
 		fmt.Fprintf(t, "Feature Gates:\t%v\n", formatFeatureGates(config.FeatureGates))
 	}
+	if len(config.AdmissionPlugins) != 0 {
+		fmt.Fprintf(t, "Admission Plugins:\t%v\n", strings.Join(config.AdmissionPlugins, ","))
+	}
 	displayCloudConfig := config.CloudProvider != "" || config.CloudConfig != ""
 	if displayCloudConfig {
 		common.PrintCustomTableHeader(t, []string{"Cloud"}, "-")

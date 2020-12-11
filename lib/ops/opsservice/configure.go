@@ -1444,6 +1444,10 @@ func (s *site) addClusterConfig(config clusterconfig.Interface, overrideArgs map
 		args = append(args,
 			fmt.Sprintf("--feature-gates=%v", strings.Join(features, ",")))
 	}
+	if len(globalConfig.AdmissionPlugins) != 0 {
+		args = append(args,
+			fmt.Sprintf("--admission-plugins=%v", strings.Join(globalConfig.AdmissionPlugins, ",")))
+	}
 	return args
 }
 
