@@ -140,8 +140,6 @@ type Config struct {
 	// SELinux specifies whether the installer runs with SELinux support.
 	// This makes the installer run in its own domain
 	SELinux bool
-	// AdmissionPlugins is a list of Kubernetes admission plugins to enable.
-	AdmissionPlugins []string
 }
 
 // checkAndSetDefaults checks the parameters and autodetects some defaults
@@ -221,10 +219,9 @@ func (r *clusterFactory) NewCluster() ops.NewSiteRequest {
 		CloudConfig: storage.CloudConfig{
 			GCENodeTags: r.GCENodeTags,
 		},
-		DNSOverrides:     r.DNSOverrides,
-		DNSConfig:        r.DNSConfig,
-		Docker:           r.Docker,
-		AdmissionPlugins: r.AdmissionPlugins,
+		DNSOverrides: r.DNSOverrides,
+		DNSConfig:    r.DNSConfig,
+		Docker:       r.Docker,
 	}
 }
 

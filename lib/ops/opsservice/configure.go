@@ -967,10 +967,6 @@ func (s *site) getPlanetConfig(config planetConfig) (args []string, err error) {
 		args = append(args, fmt.Sprintf("--kubelet-options=%v", strings.Join(kubeletArgs, " ")))
 	}
 
-	if len(s.backendSite.AdmissionPlugins) > 0 {
-		args = append(args, fmt.Sprintf("--admission-plugins=%v", strings.Join(s.backendSite.AdmissionPlugins, ",")))
-	}
-
 	mounts, err := GetMounts(manifest, node.Server)
 	if err != nil {
 		return nil, trace.Wrap(err)

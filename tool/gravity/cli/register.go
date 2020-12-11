@@ -102,7 +102,6 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.InstallCmd.Set = g.InstallCmd.Flag("set", "Set Helm chart values on the command line. Can be specified multiple times and/or as comma-separated values: key1=val1,key2=val2.").Strings()
 	g.InstallCmd.Values = g.InstallCmd.Flag("values", "Set Helm chart values from the provided YAML file. Can be specified multiple times.").Strings()
 	g.InstallCmd.AcceptEULA = g.InstallCmd.Flag("accept-eula", "Auto-accept the end-user license agreement if the application requires it.").Bool()
-	g.InstallCmd.AdmissionPlugins = g.InstallCmd.Flag("admission-plugins", "List of Kubernetes admission plugins to enable. These will be enabled along with the default plugins.").Strings()
 
 	g.JoinCmd.CmdClause = g.Command("join", "Join the existing cluster or an on-going install operation.")
 	g.JoinCmd.PeerAddr = g.JoinCmd.Arg("peer-addrs", "One or several IP addresses of cluster nodes to join, as comma-separated values.").String()

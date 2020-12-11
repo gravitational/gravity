@@ -423,8 +423,6 @@ type InstallCmd struct {
 	Values *[]string
 	// AcceptEULA allows to auto-accept end-user license agreement.
 	AcceptEULA *bool
-	// AdmissionPlugins is a list of Kubernetes admission plugins to enable.
-	AdmissionPlugins *[]string
 }
 
 // JoinCmd joins to the installer or existing cluster

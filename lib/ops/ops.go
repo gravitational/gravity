@@ -1788,8 +1788,6 @@ type NewSiteRequest struct {
 	DNSConfig storage.DNSConfig `json:"dns_config"`
 	// Docker specifies the cluster Docker configuration
 	Docker storage.DockerConfig `json:"docker"`
-	// AdmissionPlugins is a list of Kubernetes admission plugins to enable
-	AdmissionPlugins []string `json:"admission_plugins"`
 }
 
 // SiteKey is a key used to identify site

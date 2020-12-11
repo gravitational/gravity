@@ -127,7 +127,6 @@ Flag               | Description
 `--vxlan-port`       | _(Optional)_ Specify custom overlay network port. Default is `8472`.
 `--remote` | _(Optional)_ Excludes this node from the Cluster, i.e. allows to bootstrap the Cluster from a developer's laptop, for example. In this case the Kubernetes master will be chosen randomly.
 `--selinux` | _(Optional)_ Turns on SELinux support. Defaults to `false`. See [SELinux](selinux.md) for more details.
-`--admission-plugins` | _(Optional)_ List of Kubernetes admission plugins to enable.
 
 The `gravity join` command accepts the following arguments:
 
