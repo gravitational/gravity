@@ -430,11 +430,11 @@ func (i *InstallConfig) CheckAndSetDefaults(validator resources.Validator) (err 
 	return nil
 }
 
-// checkAdmissionPlugins verifies the specified Kubernetes admission plugins are
-// valid.
+// checkAdmissionPlugins verifies that the specified Kubernetes admission
+// plugins are valid.
 func (i *InstallConfig) checkAdmissionPlugins() error {
 	// https://kubernetes.io/docs/reference/command-line-tools-reference/kube-apiserver/#options
-	// List of available Kubernetes admission plugins available can be found under
+	// List of available Kubernetes admission plugins can be found under
 	// --enable-admission-plugins.
 	validPlugins := []string{
 		"ImagePolicyWebhook",
