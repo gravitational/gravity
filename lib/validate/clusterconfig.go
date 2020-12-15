@@ -18,7 +18,6 @@ package validate
 
 import (
 	"net"
-	"strings"
 
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 
@@ -51,10 +50,6 @@ func ClusterConfiguration(existing, update clusterconfig.Interface) error {
 	}
 	if globalConfig.CloudProvider == "" && newGlobalConfig.CloudConfig != "" {
 		return trace.BadParameter("cannot set cloud configuration: cluster does not have cloud provider configured")
-	}
-
-	if err := validateAdmissionPlugins(newGlobalConfig.AdmissionPlugins); err != nil {
-		return trace.Wrap(err)
 	}
 
 	podCIDRString := globalConfig.PodCIDR
@@ -98,29 +93,4 @@ func ClusterConfiguration(existing, update clusterconfig.Interface) error {
 
 func isCloudConfigEmpty(global clusterconfig.Global) bool {
 	return global.CloudProvider == "" && global.CloudConfig == ""
-}
-
-// validateAdmissionPlugins verifies that the provided Kubernetes admission
-// plugins are valid.
-func validateAdmissionPlugins(plugins []string) error {
-	// https://kubernetes.io/docs/reference/command-line-tools-reference/kube-apiserver/#options
-	// List of available Kubernetes admission plugins can be found under
-	// --enable-admission-plugins.
-	validPlugins := []string{
-		"ImagePolicyWebhook",
-	}
-
-	searchPlugins := make(map[string]struct{})
-	for _, validPlugin := range validPlugins {
-		searchPlugins[validPlugin] = struct{}{}
-	}
-
-	for _, plugin := range plugins {
-		if _, exists := searchPlugins[plugin]; !exists {
-			return trace.BadParameter("%s is not a valid plugin. Current valid plugins include: \n\t%v",
-				plugin, strings.Join(validPlugins, "\n\t"))
-		}
-	}
-
-	return nil
 }

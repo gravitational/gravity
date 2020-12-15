@@ -203,7 +203,7 @@ func shouldUpdateNodes(clusterConfig clusterconfig.Interface, numWorkerNodes int
 	}
 	var hasComponentUpdate, hasCIDRUpdate bool
 	config := clusterConfig.GetGlobalConfig()
-	hasComponentUpdate = len(config.FeatureGates) != 0 || len(config.AdmissionPlugins) != 0
+	hasComponentUpdate = len(config.FeatureGates) != 0
 	hasCIDRUpdate = len(config.PodCIDR) != 0 || len(config.ServiceCIDR) != 0 || config.PodSubnetSize != ""
 	return !clusterConfig.GetKubeletConfig().IsEmpty() || hasComponentUpdate || hasCIDRUpdate
 }

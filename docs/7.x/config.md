@@ -64,9 +64,6 @@ spec:
       APIResponseCompression: false
       BoundServiceAccountTokenVolume: false
       ExperimentalHostUserNamespaceDefaulting: true
-    # A list of Kubernetes admission plugins to be enabled. These will be enabled along with the default plugins.
-    admissionPlugins:
-      - ImagePolicyWebhook
   # kubelet configuration as described here: https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/
   # and here: https://github.com/kubernetes/kubelet/blob/release-1.13/config/v1beta1/types.go#L62
   kubelet:

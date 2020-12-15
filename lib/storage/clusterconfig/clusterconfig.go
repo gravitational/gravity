@@ -165,12 +165,6 @@ func (r Resource) Merge(other Resource) Resource {
 			r.Spec.Global.FeatureGates[k] = v
 		}
 	}
-	if len(other.Spec.Global.AdmissionPlugins) != 0 {
-		r.Spec.Global.AdmissionPlugins = make([]string, len(other.Spec.Global.AdmissionPlugins))
-		for i, plugin := range other.Spec.Global.AdmissionPlugins {
-			r.Spec.Global.AdmissionPlugins[i] = plugin
-		}
-	}
 	return r
 }
 
@@ -276,8 +270,7 @@ func (r Global) IsEmpty() bool {
 		r.PodSubnetSize == "" &&
 		r.ServiceNodePortRange == "" &&
 		r.ProxyPortRange == "" &&
-		len(r.FeatureGates) == 0 &&
-		len(r.AdmissionPlugins) == 0
+		len(r.FeatureGates) == 0
 }
 
 // Global describes global configuration
@@ -308,8 +301,6 @@ type Global struct {
 	// FeatureGates defines the set of key=value pairs that describe feature gates for alpha/experimental features.
 	// Targets: all components
 	FeatureGates map[string]bool `json:"featureGates,omitempty"`
-	// AdmissionPlugins defines the list of additional Kubernetes admission plugins to enable.
-	AdmissionPlugins []string `json:"admissionPlugins,omitempty"`
 }
 
 // specSchemaTemplate is JSON schema for the cluster configuration resource
@@ -357,8 +348,7 @@ const specSchemaTemplate = `{
               "patternProperties": {
                  "^[a-zA-Z]+[a-zA-Z0-9]*$": {"type": "boolean"}
               }
-            },
-            "admissionPlugins": {"type": "array", "items": {"type": "string"}}
+            }
           }
         },
         "kubelet": {

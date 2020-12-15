@@ -169,9 +169,7 @@ spec:
     featureGates:
       FeatureA: true
       FeatureB: false
-    podSubnetSize: "26"
-    admissionPlugins:
-      - ImagePolicyWebhook`,
+    podSubnetSize: "26"`,
 			resource: &Resource{
 				Kind:    storage.KindClusterConfiguration,
 				Version: "v1",
@@ -185,8 +183,7 @@ spec:
 							"FeatureA": true,
 							"FeatureB": false,
 						},
-						PodSubnetSize:    "26",
-						AdmissionPlugins: []string{"ImagePolicyWebhook"},
+						PodSubnetSize: "26",
 					},
 				},
 			},
@@ -244,7 +241,6 @@ func (*S) TestMergesClusterConfiguration(c *C) {
 							"feature1": true,
 							"feature2": false,
 						},
-						AdmissionPlugins: []string{"ImagePolicyWebhook"},
 					},
 				},
 			},
@@ -263,7 +259,6 @@ func (*S) TestMergesClusterConfiguration(c *C) {
 							"feature1": true,
 							"feature2": false,
 						},
-						AdmissionPlugins: []string{"ImagePolicyWebhook"},
 					},
 				},
 			},
@@ -291,7 +286,6 @@ address: 10.0.0.1
 							"feature1": true,
 							"feature2": false,
 						},
-						AdmissionPlugins: []string{"ImagePolicyWebhook"},
 					},
 				},
 			},
@@ -338,7 +332,6 @@ address: 10.0.0.1
 							"feature1": true,
 							"feature3": true,
 						},
-						AdmissionPlugins: []string{"ImagePolicyWebhook"},
 					},
 				},
 			},
