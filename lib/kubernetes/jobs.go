@@ -17,21 +17,20 @@ limitations under the License.
 package kubernetes
 
 import (
-	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 
 	"github.com/gravitational/gravity/lib/app/hooks"
 	"github.com/gravitational/gravity/lib/utils"
-	"github.com/gravitational/gravity/lib/utils/kubectl"
 
+	"github.com/ghodss/yaml"
 	"github.com/gravitational/trace"
 	"github.com/pborman/uuid"
+	batchv1 "k8s.io/api/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"text/template"
 )
 
 // MakeJobName generates a unique job name.
@@ -48,26 +47,23 @@ func MakeJobName(prefix string, name string) string {
 	return fmt.Sprintf("%v-%v-%v", prefix, name, uuid.New()[:13])
 }
 
-// ExecJob launches a Kubernetes job specified by a template.
-// Uses kubectl to load the job spec yaml file.
+// ExecJob launches a Kubernetes job specified by a YAML.
 // Waits for the job to complete and returns the output of the job.
-func ExecJob(ctx context.Context, jobName string, namespace string, template *template.Template,
-	templateData interface{}, client *kubernetes.Clientset) (string, error) {
-	var buf bytes.Buffer
-	err := template.Execute(&buf, templateData)
+func ExecJob(ctx context.Context, jobSpecYAML []byte, client *kubernetes.Clientset) (string, error) {
+	jobSpecJSON, err := yaml.YAMLToJSON(jobSpecYAML)
 	if err != nil {
 		return "", trace.Wrap(err)
 	}
 
-	jobFile := "job.yaml"
-	err = ioutil.WriteFile(jobFile, buf.Bytes(), 0644)
+	var jobSpec batchv1.Job
+	err = json.Unmarshal(jobSpecJSON, &jobSpec)
 	if err != nil {
 		return "", trace.Wrap(err)
 	}
 
-	out, err := kubectl.Apply(jobFile)
+	_, err = client.BatchV1().Jobs(jobSpec.Namespace).Create(&jobSpec)
 	if err != nil {
-		return fmt.Sprintf("Failed to exec kubectl: %v", string(out)), trace.Wrap(err)
+		return "", trace.Wrap(err)
 	}
 
 	runner, err := hooks.NewRunner(client)
@@ -75,7 +71,7 @@ func ExecJob(ctx context.Context, jobName string, namespace string, template *te
 		return "", trace.Wrap(err)
 	}
 
-	jobRef := hooks.JobRef{Name: jobName, Namespace: namespace}
+	jobRef := hooks.JobRef{Name: jobSpec.Name, Namespace: jobSpec.Namespace}
 	logs := utils.NewSyncBuffer()
 	err = runner.StreamLogs(ctx, jobRef, logs)
 	if err != nil {

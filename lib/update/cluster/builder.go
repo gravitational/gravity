@@ -292,6 +292,11 @@ func (r phaseBuilder) openEBSDataPlane(ctx context.Context, storageAppVersion st
 }
 
 func openEBSPhase(phase string, components map[string]string, executor string, storageAppVer string, root *update.Phase) {
+	if len(components) == 0 {
+		log.Infof("Did not find any OpenEBS components to upgrade for phase: %v", phase)
+		return
+	}
+
 	for k, v := range components {
 		toVer := openEBSComponentToVer(storageAppVer, k, v)
 		if toVer == "" {
@@ -328,6 +333,7 @@ func openEBSComponentToVer(storageAppVer string, openEBSComponentName string, op
 			return ""
 		}
 
+		log.Infof("Going to upgrade %v FromVersion: %v ToVersion: %v", openEBSComponentName, openEBSComponentFromVer, openEBSComponentToVer)
 		return openEBSComponentToVer
 	}
 

@@ -17,6 +17,7 @@ limitations under the License.
 package phases
 
 import (
+	"bytes"
 	"context"
 	"strings"
 	"text/template"
@@ -36,7 +37,6 @@ import (
 
 const (
 	k8sJobPrefix = "cstor"
-	k8sNamespace = "openebs"
 )
 
 // PhaseUpgradePool has the info needed for a pool upgrade
@@ -82,8 +82,14 @@ type PoolUpgrade struct {
 
 func (p *PhaseUpgradePool) execPoolUpgradeCmd(ctx context.Context) error {
 	jobName := k8sutil.MakeJobName(k8sJobPrefix, p.Pool)
-	out, err := k8sutil.ExecJob(ctx, jobName, k8sNamespace, poolUpgradeJobTemplate, &PoolUpgrade{Pool: p.Pool,
-		FromVersion: p.FromVersion, ToVersion: p.ToVersion, JobName: jobName}, p.Client)
+
+	jobSpec, err := execTemplate(poolUpgradeJobTemplate, &PoolUpgrade{Pool: p.Pool,
+		FromVersion: p.FromVersion, ToVersion: p.ToVersion, JobName: jobName})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	out, err := k8sutil.ExecJob(ctx, jobSpec, p.Client)
 
 	p.Infof("OpenEBS pool upgrade job output: %v", out)
 
@@ -159,8 +165,14 @@ type VolumeUpgrade struct {
 
 func (p *PhaseUpgradeVolume) execVolumeUpgradeCmd(ctx context.Context) error {
 	jobName := k8sutil.MakeJobName(k8sJobPrefix, p.Volume)
-	out, err := k8sutil.ExecJob(ctx, jobName, k8sNamespace, volumeUpgradeJobTemplate, &VolumeUpgrade{Volume: p.Volume,
-		FromVersion: p.FromVersion, ToVersion: p.ToVersion, JobName: jobName}, p.Client)
+
+	jobSpec, err := execTemplate(volumeUpgradeJobTemplate, &VolumeUpgrade{Volume: p.Volume,
+		FromVersion: p.FromVersion, ToVersion: p.ToVersion, JobName: jobName})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	out, err := k8sutil.ExecJob(ctx, jobSpec, p.Client)
 
 	p.Infof("OpenEBS volume upgrade job output: %v", out)
 
@@ -313,3 +325,13 @@ spec:
       restartPolicy: Never
 ---
 `))
+
+func execTemplate(template *template.Template, templateData interface{}) ([]byte, error) {
+	var buf bytes.Buffer
+	err := template.Execute(&buf, templateData)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	return buf.Bytes(), nil
+}
