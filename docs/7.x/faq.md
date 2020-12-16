@@ -182,3 +182,10 @@ Gravity Hub (Enterprise) requires a valid TLS key pair (not self signed) install
 `[ERROR]: the trusted cluster uses misconfigured HTTP/TLS certificate`
 
 That error message can occur when the certificate installed on Gravity Hub does not include the Intermediate/Chained certificate.  The browser interaction on Gravity Hub will appear secure, for example, with a Let's Encrypt certificate private/public PEM installed. The trusted cluster create attempt will fail in the certificate validation.  To clear this issue replace the certificate including the Intermediate/Chained certificate through the Gravity Hub HTTPS Certificate web page or the tlskeypair resource. See [TLS Key Pair](config.md#tls-key-pair)
+
+
+## HSTS Headers reported as missing in automated scans
+
+Gravity clusters by default present a [number of ports](requirements.md#cluster-ports) as part of normal operations that use HTTP based protocols for internal APIs. When scanning a gravity cluster, some automated scanners will produce a false positive on ports used for internal APIs that do not set HTTP Strict Transport Security Policy headers. As per [RFC 6797 section 2.1](https://tools.ietf.org/html/rfc6797#section-2.1) the primary use case of HSTS headers is for a web browser to interact with a web site using only secure protocols. A web browser, when connected to the gravity cluster UI will not use or connect to any of the API ports that do not present HSTS headers, and all the API clients in use that do connect to the API ports do not follow HSTS headers and are instead hard coded to only use TLS.
+
+If there is a concern that these ports are accessible from outside the cluster, the [Installer Ports](requirements.md#installer-ports) and [Cluster Ports](requirements.md#cluster-ports) docs can be used as a reference to build a firewall policy that prevents external access to ports that are used only between cluster nodes.
