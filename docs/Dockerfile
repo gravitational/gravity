@@ -14,7 +14,9 @@ ARG GID
 ARG WORKDIR
 ARG PORT
 
-RUN groupadd builder --gid=$GID -o && useradd builder --uid=$UID --gid=$GID --create-home --shell=/bin/bash
+RUN getent group  $GID || groupadd builder --gid=$GID -o; \
+    getent passwd $UID || useradd builder --uid=$UID --gid=$GID --create-home --shell=/bin/bash;
+
 COPY --from=milv-builder /gopath/bin/milv /usr/bin/milv
 
 VOLUME [$WORKDIR]
