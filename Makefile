@@ -148,6 +148,7 @@ RBAC_APP_OUT := $(GRAVITY_BUILDDIR)/rbac-app.tar.gz
 TELEKUBE_APP_OUT := $(GRAVITY_BUILDDIR)/telekube-app.tar.gz
 TILLER_APP_OUT := $(GRAVITY_BUILDDIR)/tiller-app.tar.gz
 TELEKUBE_OUT := $(GRAVITY_BUILDDIR)/telekube.tar
+OPSCENTER_OUT := $(GRAVITY_BUILDDIR)/opscenter.tar
 TF_PROVIDER_GRAVITY_OUT := $(GRAVITY_BUILDDIR)/terraform-provider-gravity
 TF_PROVIDER_GRAVITYENTERPRISE_OUT := $(GRAVITY_BUILDDIR)/terraform-provider-gravityenterprise
 
@@ -447,42 +448,41 @@ dev-planet-packages: planet-packages
 # publish-artifacts uploads build artifacts to the distribution Ops Center
 #
 .PHONY: publish-artifacts
-publish-artifacts: opscenter telekube
+publish-artifacts: $(OPSCENTER_OUT) $(TELEKUBE_OUT)
 	if [ -z "$(TELE_KEY)" ] || [ -z "$(DISTRIBUTION_OPSCENTER)" ]; then \
 	   echo "TELE_KEY or DISTRIBUTION_OPSCENTER are not set"; exit 1; \
 	fi;
 	$(GRAVITY_BUILDDIR)/tele logout
 	$(GRAVITY_BUILDDIR)/tele login -o $(DISTRIBUTION_OPSCENTER) --token=$(TELE_KEY)
-	$(GRAVITY_BUILDDIR)/tele push $(GRAVITY_BUILDDIR)/telekube.tar
-	$(GRAVITY_BUILDDIR)/tele push $(GRAVITY_BUILDDIR)/opscenter.tar
+	$(GRAVITY_BUILDDIR)/tele push $(TELEKUBE_OUT)
+	$(GRAVITY_BUILDDIR)/tele push $(OPSCENTER_OUT)
 
 #
 # scan-artifacts uploads a copy of all vendored containers to a docker registry for scanning and vulnerability reporting
 #
 .PHONY: scan-artifacts
-scan-artifacts: telekube
+scan-artifacts: $(TELEKUBE_OUT)
 	$(GRAVITY) app sync \
 		--registry=$(TELE_COPY_TO_REGISTRY) \
 		--registry-username=$(TELE_COPY_TO_USER) \
 		--registry-password=$(TELE_COPY_TO_PASS) \
 		--scan-repository=$(TELE_COPY_TO_REPOSITORY) \
 		--scan-prefix=$(TELE_COPY_TO_PREFIX) \
-		$(GRAVITY_BUILDDIR)/telekube.tar
+		$(TELEKUBE_OUT)
 
 #
 # builds telekube installer
 #
 .PHONY: telekube
-telekube: GRAVITY=$(GRAVITY_OUT) --state-dir=$(PACKAGES_DIR)
-telekube: $(GRAVITY_BUILDDIR)/telekube.tar
+telekube: $(TELEKUBE_OUT)
 
 .PHONY: telekube-intermediate-upgrade
-telekube-intermediate-upgrade: GRAVITY=$(GRAVITY_OUT) --state-dir=$(PACKAGES_DIR)
 telekube-intermediate-upgrade: GRAVITY_INSTALLER_OPTIONS=--upgrade-via=$(GRAVITY_INTERMEDIATE_RELEASE)
-telekube-intermediate-upgrade: $(GRAVITY_BUILDDIR)/telekube.tar
+telekube-intermediate-upgrade: $(TELEKUBE_OUT)
 
-$(GRAVITY_BUILDDIR)/telekube.tar: packages
-	GRAVITY_K8S_VERSION=$(K8S_VER)GRAVITY_BUILD_OPTIONS $(GRAVITY_BUILDDIR)/tele build \
+$(TELEKUBE_OUT): GRAVITY=$(GRAVITY_OUT) --state-dir=$(PACKAGES_DIR)
+$(TELEKUBE_OUT): packages
+	GRAVITY_K8S_VERSION=$(K8S_VER) $(GRAVITY_BUILDDIR)/tele build \
 		$(ASSETSDIR)/telekube/resources/app.yaml -f \
 		--version=$(TELEKUBE_APP_TAG) \
 		--state-dir=$(PACKAGES_DIR) \
@@ -508,8 +508,8 @@ $(GRAVITY_BUILDDIR)/wormhole.tar: packages
 # Uploads opscenter to S3 is used to test custom releases of the ops center
 #
 .PHONY: upload-opscenter
-upload-opscenter:
-	aws s3 cp $(GRAVITY_BUILDDIR)/opscenter.tar s3://testreleases.gravitational.io/$(GRAVITY_TAG)/opscenter.tar
+upload-opscenter: $(OPSCENTER_OUT)
+	aws s3 cp $(OPSCENTER_OUT) s3://testreleases.gravitational.io/$(GRAVITY_TAG)/opscenter.tar
 
 #
 # Uploads gravity to test builds
@@ -523,10 +523,10 @@ upload-binaries:
 # builds opscenter installer
 #
 .PHONY: opscenter
-opscenter: GRAVITY=$(GRAVITY_OUT) --state-dir=$(PACKAGES_DIR)
-opscenter: $(GRAVITY_BUILDDIR)/opscenter.tar
+opscenter: $(OPSCENTER_OUT)
 
-$(GRAVITY_BUILDDIR)/opscenter.tar: packages
+$(OPSCENTER_OUT): GRAVITY=$(GRAVITY_OUT) --state-dir=$(PACKAGES_DIR)
+$(OPSCENTER_OUT): packages
 	mkdir -p $(BUILDDIR)
 # this is for Jenknis pipeline integration
 	@echo env.GRAVITY_BUILDDIR=\"$(GRAVITY_BUILDDIR)\" > $(BUILDDIR)/properties.groovy
@@ -549,7 +549,7 @@ $(GRAVITY_BUILDDIR)/opscenter.tar: packages
 	cat $(TEMPDIR)/resources/app.yaml
 	$(GRAVITY_BUILDDIR)/tele build $(TEMPDIR)/resources/app.yaml -f \
 		--state-dir=$(PACKAGES_DIR) \
-		-o $(GRAVITY_BUILDDIR)/opscenter.tar
+		-o $(OPSCENTER_OUT)
 	rm -rf $(TEMPDIR)
 
 #

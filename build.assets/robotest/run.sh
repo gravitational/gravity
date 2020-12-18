@@ -11,7 +11,7 @@ readonly ROBOTEST_SCRIPT=$(mktemp -d)/runsuite.sh
 
 # a number of environment variables are expected to be set
 # see https://github.com/gravitational/robotest/blob/v2.0.0/suite/README.md
-export ROBOTEST_VERSION=${ROBOTEST_VERSION:-2.2.2}
+export ROBOTEST_VERSION=${ROBOTEST_VERSION:-3.0.0}
 export ROBOTEST_REPO=quay.io/gravitational/robotest-suite:$ROBOTEST_VERSION
 export INSTALLER_URL=$GRAVITY_BUILDDIR/telekube.tar
 export GRAVITY_URL=$GRAVITY_BUILDDIR/gravity
@@ -19,7 +19,7 @@ export TAG=$(git rev-parse --short HEAD)
 # cloud provider that test clusters will be provisioned on
 # see https://github.com/gravitational/robotest/blob/v2.0.0/infra/gravity/config.go#L72
 export DEPLOY_TO=${DEPLOY_TO:-gce}
-export GCL_PROJECT_ID=${GCL_PROJECT_ID:-"kubeadm-167321"}
+export GCL_PROJECT_ID=${GCL_PROJECT_ID:-"robotest-production"}
 export GCE_REGION="northamerica-northeast1,us-west1,us-east1,us-east4,us-central1"
 # GCE_VM tuned down from the Robotest's 7 cpu default in 09cec0e49e9d51c3603950209cec3c26dfe0e66b
 # We should consider changing Robotest's default so that we can drop the override here. -- 2019-04 walt
