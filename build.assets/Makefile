@@ -32,11 +32,11 @@ TILLER_APP_TAG ?= 0.0.1
 GOLFLAGS ?= -w -s
 
 # Git repositories
-TELEPORT_REPO = git@github.com:gravitational/teleport.git
-PLANET_REPO = git@github.com:gravitational/planet.git
-LOGGING_APP_REPO = git@github.com:gravitational/logging-app.git
-MONITORING_APP_REPO = git@github.com:gravitational/monitoring-app.git
-BANDWAGON_REPO = git@github.com:gravitational/bandwagon.git
+TELEPORT_REPO = https://github.com/gravitational/teleport.git
+PLANET_REPO = https://github.com/gravitational/planet.git
+LOGGING_APP_REPO = https://github.com/gravitational/logging-app.git
+MONITORING_APP_REPO = https://github.com/gravitational/monitoring-app.git
+BANDWAGON_REPO = https://github.com/gravitational/bandwagon.git
 
 # Amazon S3
 BUILD_BUCKET_URL = s3://clientbuilds.gravitational.io
@@ -163,7 +163,7 @@ build:
 		ln -sf $(GRAVITY_BUILDDIR) $(GRAVITY_CURRENT_BUILDDIR); \
 	else \
 		$(MAKE) build-in-container; \
-		ln --symbolic --force --no-target-directory $(GRAVITY_BUILDDIR) $(GRAVITY_CURRENT_BUILDDIR); \
+		ln -sfT $(GRAVITY_BUILDDIR) $(GRAVITY_CURRENT_BUILDDIR); \
 	fi;
 
 #
@@ -391,7 +391,7 @@ tiller-app:
 
 .PHONY: site-app
 site-app:
-	$(eval TMPDIR := $(shell mktemp -d --tmpdir=$(GRAVITY_BUILDDIR)))
+	$(eval TMPDIR := $(shell mktemp -d -p $(GRAVITY_BUILDDIR)))
 	cp -r $(ASSETSDIR)/site-app/* $(TMPDIR)
 	cp $(GRAVITY_BUILDDIR)/gravity $(TMPDIR)/images/site
 	cd $(TMPDIR) && VERSION=$(GRAVITY_TAG) GRAVITY="$(GRAVITY)" OPS_URL=$(OPS_URL) make import
@@ -457,17 +457,17 @@ build-tsh-in-container: clone-teleport
 .PHONY: build-tsh-on-host
 build-tsh-on-host:
 	@echo "\n----> Building Tsh binary on host...\n"
-	GOPATH=$(BUILDDIR) go get -v $(TELEPORT_PKG_PATH) && \
+	GO111MODULE=off GOPATH=$(BUILDDIR) go get -v $(TELEPORT_PKG_PATH) && \
 		cd $(BUILDDIR)/src/$(TELEPORT_PKG_PATH) && \
 		git fetch --all --tags && \
 		git checkout $(TELEPORT_REPOTAG) && \
-		GOPATH=$(BUILDDIR) go build -ldflags "$(GOLFLAGS)" -o $(TSH_OUT) ./tool/tsh
+		GO111MODULE=off GOPATH=$(BUILDDIR) go build -ldflags "$(GOLFLAGS)" -o $(TSH_OUT) ./tool/tsh
 	@echo "Done --> $(TSH_OUT)"
 
 .PHONY: build-tsh-inside-container
 build-tsh-inside-container:
 	@echo "\n----> Building Tsh binary inside container...\n"
-	go build -ldflags "$(GOLFLAGS)" -o $(LOCAL_GRAVITY_BUILDDIR)/tsh $(TELEPORT_PKG_PATH)/tool/tsh
+	GO111MODULE=off go build -ldflags "$(GOLFLAGS)" -o $(LOCAL_GRAVITY_BUILDDIR)/tsh $(TELEPORT_PKG_PATH)/tool/tsh
 	@echo "Done --> $(LOCAL_GRAVITY_BUILDDIR)/tsh"
 
 .PHONY: clone-teleport
@@ -574,4 +574,6 @@ buildbox:
 		--build-arg GRPC_GATEWAY_TAG=$(GRPC_GATEWAY_TAG) \
 		--build-arg GODEP_TAG=$(GODEP_TAG) \
 		--build-arg VERSION_TAG=$(VERSION_TAG) \
+		--build-arg UID=$(shell id -u) \
+		--build-arg GID=$(shell id -g) \
 		$(DOCKER_ARGS) --tag $(BBOX) .
