@@ -6,18 +6,30 @@ ARG GOGO_PROTO_TAG
 ARG GRPC_GATEWAY_TAG
 ARG GODEP_TAG
 ARG VERSION_TAG
+ARG UID
+ARG GID
 
 ENV TARBALL protoc-${PROTOC_VER}-${PROTOC_PLATFORM}.zip
-ENV GRPC_GATEWAY_ROOT /src/github.com/grpc-ecosystem/grpc-gateway
-ENV GOGOPROTO_ROOT /src/github.com/gogo/protobuf
+ENV GRPC_GATEWAY_ROOT /gopath/src/github.com/grpc-ecosystem/grpc-gateway
+ENV GOGOPROTO_ROOT /gopath/src/github.com/gogo/protobuf
 ENV PROTOC_URL https://github.com/google/protobuf/releases/download/v${PROTOC_VER}/protoc-${PROTOC_VER}-${PROTOC_PLATFORM}.zip
 
-RUN adduser jenkins --uid=995 --disabled-password --system
-RUN (mkdir -p /gopath/src/github.com/gravitational/gravity && \
-     chown -R jenkins /gopath && \
+RUN getent group  $GID || groupadd builder --gid=$GID -o; \
+    getent passwd $UID || useradd builder --uid=$UID --gid=$GID --create-home --shell=/bin/sh;
+
+# install DEP tool
+RUN wget --quiet -O /usr/bin/dep https://github.com/golang/dep/releases/download/${GODEP_TAG}/dep-linux-amd64 && chmod +x /usr/bin/dep
+
+RUN (set -ex && \
+     mkdir -p /gopath && \
+     chown -R $UID:$GID /gopath && \
+     mkdir -p /opt/protoc && \
+     chown -R $UID:$GID /opt/protoc && \
      mkdir -p /.cache && \
-     chmod 777 /.cache && \
+     chown -R $UID:$GID /.cache && \
      chmod 777 /tmp)
+
+USER $UID:$GID
 
 ENV LANGUAGE="en_US.UTF-8" \
      LANG="en_US.UTF-8" \
@@ -36,14 +48,12 @@ RUN (mkdir -p /gopath/src/github.com/gravitational && \
 RUN (mkdir -p /opt/protoc && \
      wget --quiet -O /tmp/${TARBALL} ${PROTOC_URL} && \
      unzip -d /opt/protoc /tmp/${TARBALL} && \
-     mkdir -p /src/github.com/gogo/ /src/github.com/grpc-ecosystem && \
-     git clone https://github.com/gogo/protobuf --branch ${GOGO_PROTO_TAG} /src/github.com/gogo/protobuf && cd /src/github.com/gogo/protobuf && make install && \
-     git clone https://github.com/grpc-ecosystem/grpc-gateway --branch ${GRPC_GATEWAY_TAG} /src/github.com/grpc-ecosystem/grpc-gateway && cd /src/github.com/grpc-ecosystem/grpc-gateway && pwd && go install ./protoc-gen-grpc-gateway)
+     mkdir -p /gopath/src/github.com/gogo/ /gopath/src/github.com/grpc-ecosystem && \
+     git clone https://github.com/gogo/protobuf --branch ${GOGO_PROTO_TAG} /gopath/src/github.com/gogo/protobuf && \
+     cd /gopath/src/github.com/gogo/protobuf && make install && \
+     git clone https://github.com/grpc-ecosystem/grpc-gateway --branch ${GRPC_GATEWAY_TAG} /gopath/src/github.com/grpc-ecosystem/grpc-gateway && \
+     cd /gopath/src/github.com/grpc-ecosystem/grpc-gateway && GO111MODULE=on go install ./protoc-gen-grpc-gateway)
 
-ENV PROTO_INCLUDE "/usr/local/include":"/src":"${GRPC_GATEWAY_ROOT}/third_party/googleapis":"${GOGOPROTO_ROOT}/gogoproto"
-
-# install DEP tool
-RUN wget --quiet -O /usr/bin/dep https://github.com/golang/dep/releases/download/${GODEP_TAG}/dep-linux-amd64 && chmod +x /usr/bin/dep
-RUN chmod -R a+rw /gopath
+ENV PROTO_INCLUDE "/usr/local/include":"/gopath/src":"${GRPC_GATEWAY_ROOT}/third_party/googleapis":"${GOGOPROTO_ROOT}/gogoproto"
 
 VOLUME ["/gopath/src/github.com/gravitational/gravity"]
