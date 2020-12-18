@@ -12,7 +12,7 @@ endif
 
 .PHONY: base-etcd
 base-etcd:
-	if docker ps | grep $(TEST_ETCD_INSTANCE) --quiet; then \
+	if docker ps | grep $(TEST_ETCD_INSTANCE) -q; then \
 	  echo "ETCD is already running"; \
 	else \
 	  echo "starting test ETCD instance"; \
