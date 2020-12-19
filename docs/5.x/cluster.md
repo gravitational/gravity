@@ -1,3 +1,8 @@
+---
+title: Managing a Kubernetes Cluster with Gravity
+description: How to manage the life cycle of an air-gapped or on-prem Kubernetes cluster with Gravity
+---
+
 # Cluster Management
 
 This chapter covers Gravity Cluster administration.
@@ -223,8 +228,8 @@ In this case the response HTTP status code will be `503 Service Unavailable`.
 
 ### Cluster Status History
 
-Running `gravity status history` displays the history of changes to the 
-Cluster status. 
+Running `gravity status history` displays the history of changes to the
+Cluster status.
 
 Example output may look something like the following:
 
@@ -264,7 +269,7 @@ key specifies the name of the node (node-1, node-2, node-3).
 key specifies the name of the health check (time-drift, kube-apiserver).
 
 The `gravity status history` command is available on all `master` nodes of the
-cluster and provides an eventually consistent history between nodes. 
+cluster and provides an eventually consistent history between nodes.
 
 ## Application Status
 
@@ -1280,7 +1285,7 @@ The `hd` scope contains the hosted Google suite domain of the user so in the
 above example, any user who belongs to the "example.com" domain will be
 allowed to log in and granted the admin role.
 
-!!! note 
+!!! note
     The user must belong to a hosted domain, otherwise the `hd` claim will
     not be populated.
 
@@ -1322,7 +1327,7 @@ $ gravity resource create github.yaml
 Once the connector has been created, the cluster login screen will start
 presenting "Login with GitHub" button.
 
-!!! note 
+!!! note
     When going through the Github authentication flow for the first time, the
     application must be granted the access to all organizations that are present
     in the "teams to logins" mapping, otherwise Gravity will not be able to
@@ -1368,7 +1373,7 @@ spec:
     ...
 ```
 
-!!! note 
+!!! note
     For an example of configuring a SAML application with Okta take a look
     at the following guide: [SSH Authentication With Okta](https://gravitational.com/teleport/docs/ssh_okta/).
 
@@ -1811,7 +1816,7 @@ Create the resource to update the Ops Center endpoints:
 $ gravity resource create endpoints.yaml
 ```
 
-!!! note 
+!!! note
     Updating the endpoints resource will result in restart of `gravity-site`
     pods so the changes can take effect.
 
@@ -1897,7 +1902,7 @@ gravity-agents   LoadBalancer   10.100.91.204   <pending>     4443:30873/TCP,302
 
 ### Configuring Cluster Authentication Gateway
 
-!!! note 
+!!! note
     Authentication gateway resource is supported starting Gravity version `5.5.0`.
 
 Cluster authentication gateway handles authentication/authorization and allows
@@ -1949,7 +1954,7 @@ To update authentication gateway configuration, run:
 $ gravity resource create gateway.yaml
 ```
 
-!!! note 
+!!! note
     The `gravity-site` pods will be restarted upon resource creation in order
     for the new settings to take effect, so the cluster management UI / API
     will become briefly unavailable.
@@ -2025,7 +2030,7 @@ Create it:
 $ gravity resource create auth.yaml
 ```
 
-!!! note 
+!!! note
     Make sure to configure a proper [OIDC connector](cluster.md#configuring-openid-connect)
     when using "oidc" authentication type.
 
@@ -2164,7 +2169,7 @@ to the `gravity install` command:
 root$ ./gravity install --cluster=<cluster-name> ... --config=cluster-config.yaml
 ```
 
-!!! note 
+!!! note
     You can combine multiple kubernetes and Gravity-specific resources in the config file prior to
     running the install command to have the installer automatically create all resources upon installation.
 
@@ -2231,7 +2236,7 @@ Signup token has been created and is valid for 1h0m0s hours. Share this URL with
 https://<host>/web/newuser/<token>
 ```
 
-!!! note 
+!!! note
     Make sure that `<host>` is accessible to the invited user.
 
 ### Reset User Password
@@ -2252,7 +2257,7 @@ Password reset token has been created and is valid for 1h0m0s. Share this URL wi
 https://<host>/web/reset/<token>
 ```
 
-!!! note 
+!!! note
     Make sure that `<host>` is accessible to the user.
 
 ## Securing a Cluster

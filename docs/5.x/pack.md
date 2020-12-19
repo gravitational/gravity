@@ -1,3 +1,8 @@
+---
+title: Building Cluster Images
+description: How to package a cloud application into a single file for deploying into on-premise or air-gapped environment
+---
+
 # Packaging And Deployment
 
 This section covers how to prepare an application for distribution with Gravity.
@@ -82,7 +87,7 @@ Cluster:	remote.cluster.1234
 Expires:	Fri Feb 17 15:46 UTC (19 hours from now)
 ```
 
-!!! note 
+!!! note
     The `tele login` command needs to
     be executed from a machine with a browser by default.
 
@@ -199,7 +204,7 @@ After packaging an application into an Application Bundle, it can be deployed an
 installed by publishing it into the Ops Center. The commands below are used to manage the
 publishing process.
 
-!!! note 
+!!! note
 		The commands below will only work if a user is first
 		logged into an Ops Center by using `tele login`.
 
@@ -751,7 +756,7 @@ directories with Helm charts (determined by the presence of `Chart.yaml` file)
 and vendor all Docker images they reference into the resulting installer
 tarball.
 
-!!! note 
+!!! note
     The machine running `tele build` must have Helm binary [installed](https://docs.helm.sh/using_helm/#installing-helm)
     and available in PATH as well as its [template plugin](https://docs.helm.sh/using_helm/#installing-a-plugin).
 
@@ -835,7 +840,7 @@ installer:
     - "Bandwagon"
 ```
 
-!!! note 
+!!! note
 	Currently, only one setup endpoint per application is supported.
 
 ## Excluding System Applications
@@ -859,7 +864,7 @@ extensions:
     disabled: true
 ```
 
-!!! note 
+!!! note
     Disabling the system logging component will result in inability
     to view operation logs via cluster UI.
 
@@ -924,7 +929,7 @@ available to each hook.
 
 ## User-Defined Base Image
 
-!!! note 
+!!! note
     Ability to override default base image is currently only supported in
     the `5.1.x` line of releases starting from `5.1.0-alpha.4`.
 
@@ -1016,7 +1021,7 @@ of the supported syntax.
 If a mount specifies a file pattern in `path`, `targetPath` will be automatically set to the
 actual match as found on host.
 
-!!! note 
+!!! note
     When working with mounts, it is important to always specify the `targetPath` to
     differentiate a mount from a volume requirement.
     Leaving the `targetPath` empty does not automatically set it equal to `path`

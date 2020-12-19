@@ -11,9 +11,9 @@ Find the latest Open Source Gravity releases at [Gravity Downloads](https://grav
 
 | Version             | Latest Patch | LTS | Release Date         | Latest Patch Date    | End of Support *        | Kubernetes Version   | Teleport Version |
 | ------------------- | ------------ | --- | -------------------- | -------------------- | ----------------------- | -------------------- | ---------------- |
-| [7.0](#70-releases) | 7.0.20       | Yes | April 3, 2020        | October 9th, 2020    | July 9, 2022            | 1.17.9               | 3.2.14-gravity   |
-| [6.1](#61-releases) | 6.1.43       | Yes | August 2, 2019       | October 13th, 2020   | November 10, 2021       | 1.15.12              | 3.2.14-gravity   |
-| [5.5](#55-releases) | 5.5.54       | Yes | March 8, 2019        | October 12th, 2020   | March 8, 2021           | 1.13.11              | 3.0.7-gravity    |
+| [7.0](#70-releases) | 7.0.28       | Yes | April 3, 2020        | December 7, 2020     | July 9, 2022            | 1.17.9               | 3.2.14-gravity   |
+| [6.1](#61-releases) | 6.1.46       | Yes | August 2, 2019       | December 7, 2020     | November 10, 2021       | 1.15.12              | 3.2.14-gravity   |
+| [5.5](#55-releases) | 5.5.56       | Yes | March 8, 2019        | November 23, 2020    | March 8, 2021           | 1.13.11              | 3.0.7-gravity    |
 
 Gravity offers one Long Term Support (LTS) version for every 2nd Kubernetes
 minor version, allowing for seamless upgrades per Kubernetes
@@ -41,7 +41,7 @@ extend updates past End of Support through customer agreements if required.
 | [5.6](#56-releases) | 5.6.8        | No  | April 19, 2019       | July 17, 2019 (6.0)     | 1.14.7               | 3.0.6-gravity    |
 | [5.4](#54-releases) | 5.4.10       | No  | December 14, 2018    | March 8, 2019 (5.5)     | 1.13.5               | 2.4.10           |
 | [5.3](#53-releases) | 5.3.9        | No  | October 19, 2018     | December 14, 2018 (5.4) | 1.12.3               | 2.4.7            |
-| [5.2](#52-releases) | 5.2.17       | Yes | October 15, 2018     | October 15, 2019        | 1.11.9               | 2.4.10           |
+| [5.2](#52-releases) | 5.2.18       | Yes | October 15, 2018     | October 15, 2019        | 1.11.9               | 2.4.10           |
 | [5.0](#50-releases) | 5.0.36       | Yes | April 18, 2018       | April 13, 2019          | 1.9.13-gravitational | 2.4.10           |
 | [4.x](#4x-releases) | 4.68.0       | Yes | June 1, 2017         | November 16, 2018       | 1.7.18-gravitational | 2.3.5            |
 | [3.x](#3x-releases) | 3.64.0       | Yes | February 16, 2017    | June 2, 2018            | 1.5.7                | 2.0.6            |
@@ -50,6 +50,93 @@ extend updates past End of Support through customer agreements if required.
 # Release Notes
 
 ## 7.0 Releases
+
+### 7.0.28 LTS (December 7, 2020)
+
+#### Improvements
+* Add helm 3 binary to planet and make it available for hooks ([#2345](https://github.com/gravitational/gravity/pull/2345)).
+* Add support for using a separate network project in GCE to flannel ([#2355](https://github.com/gravitational/gravity/pull/2355), [planet#807](https://github.com/gravitational/planet/pull/807), [flannel#9](https://github.com/gravitational/satellite/pull/9)).
+
+#### Bugfixes
+* Shutdown kubernetes control plane immediately when elections are disabled ([#2355](https://github.com/gravitational/gravity/pull/2355), [planet#805](https://github.com/gravitational/planet/pull/805)).
+
+
+### 7.0.27 LTS (November 23, 2020)
+
+#### Improvements
+* Add support for Redhat/Centos 7.9 and 8.3 ([#2335](https://github.com/gravitational/gravity/pull/2335), [planet#796](https://github.com/gravitational/planet/pull/796), [satellite#286](https://github.com/gravitational/satellite/pull/286)).
+* Update Helm/Tiller to 2.16.12 ([#2319](https://github.com/gravitational/gravity/pull/2319), [planet#793](https://github.com/gravitational/planet/pull/793)).
+
+#### Bugfixes
+
+* Fix an issue where gravity wouldn't be able to generate an upgrade plan due to corrupted planet metadata ([#2344](https://github.com/gravitational/gravity/pull/2344)).
+* Fix an issue where monitoring-app would not tolerate customer applied taints ([#2340](https://github.com/gravitational/gravity/pull/2340), [monitoring-app#199](https://github.com/gravitational/monitoring-app/pull/199)).
+* Fix an issue where logging-app would not tolerate customer applied taints ([#2340](https://github.com/gravitational/gravity/pull/2340), [logging-app#74](https://github.com/gravitational/logging-app/pull/74)).
+* Increase the amount of time dns-app update hooks will wait for cluster changes to complete ([#2326](https://github.com/gravitational/gravity/pull/2326)).
+* Increase FD limits when creating systemd units ([#2321](https://github.com/gravitational/gravity/pull/2321)).
+
+### 7.0.26 LTS (November 11, 2020)
+
+#### Bugfixes
+
+* Fix an issue with planet agent failing to provide correct list of nameservers to kubelet on worker nodes ([#2312](https://github.com/gravitational/gravity/pull/2312), [planet#791](https://github.com/gravitational/planet/pull/791)).
+
+### 7.0.25 LTS (November 4, 2020)
+
+#### Improvements
+
+* Allow configuration of the Pod subnet size through the Cluster Configuration resource ([#2302](https://github.com/gravitational/gravity/pull/2302), [planet#785](https://github.com/gravitational/planet/pull/785)).
+
+#### Bugfixes
+
+* Fix an issue where `gravity stop` fails when executed with a custom planet package ([#2191](https://github.com/gravitational/gravity/pull/2191)).
+
+
+### 7.0.24 LTS (November 2, 2020)
+
+#### Improvements
+
+* [Allow customization of number of CoreDNS worker instances.](https://gravitational.com/gravity/docs/config/#customize-number-of-dns-instances-on-workers) ([#2299](https://github.com/gravitational/gravity/pull/2299)) ([rigging#83](https://github.com/gravitational/rigging/pull/83)).
+
+#### Bugfixes
+
+* Fix an issue when install is triggered outside of the extracted directory ([#2295](https://github.com/gravitational/gravity/pull/2295)).
+* Fix an issue where tele build could select the wrong runtime version ([#2247](https://github.com/gravitational/gravity/pull/2247)).
+* Fix an issue where self signed certificates are not accepted by latest MacOS requirements ([#2279](https://github.com/gravitational/gravity/pull/2279)).
+
+
+### 7.0.23 LTS (October 26, 2020)
+
+#### Bugfixes
+
+* Fix an issue with multi-hop upgrades that involve multiple etcd upgrades ([#2275](https://github.com/gravitational/gravity/pull/2275)). 
+
+### 7.0.22 LTS (October 23rd, 2020)
+
+#### Bugfixes
+
+* Make it possible to install/expand/upgrade clusters based on CentOS/rhel 8 with SELinux in enforcing mode ([#2240](https://github.com/gravitational/gravity/pull/2240)).
+
+### 7.0.21 LTS (October 22nd, 2020)
+
+#### Improvements
+
+* Update TLS cipher suites for Kubernetes components ([#2265](https://github.com/gravitational/gravity/pull/2265), [planet#782](https://github.com/gravitational/planet/pull/782)).
+* Satellite queries for system pods will use less load by searching only the `kube-system` and `monitoring` namespaces for critical pods that aren't running ([#2250](https://github.com/gravitational/gravity/pull/2250), [planet#775](https://github.com/gravitational/planet/pull/775), [satellite#281](https://github.com/gravitational/satellite/pull/281)).
+* Implement a check to prevent installation if the chosen overlay network conflicts with the host networking ([#2204](https://github.com/gravitational/gravity/pull/2204)).
+* Implement a check so that a phase is only rolled back if dependent phases have also been rolled back ([#2219](https://github.com/gravitational/gravity/pull/2219)).
+* Increase base value of expand concurrency to allow a minimum of 4 simultaneous worker joins ([#2205](https://github.com/gravitational/gravity/pull/2205)).
+* Include additional cloud metadata as part of `gravity status` output ([#2202](https://github.com/gravitational/gravity/pull/2202)).
+
+#### Bugfixes
+
+* Fix an issue where flannel could corrupt iptables rules if newly generated rules don't exactly match rules previously used ([#2265](https://github.com/gravitational/gravity/pull/2265), [planet#777](https://github.com/gravitational/planet/pull/777), [flannel#7](https://github.com/gravitational/flannel/pull/7)).
+* Fix an issue when using GCE integrations that unnecessary OAuth scopes would be requested ([#2265](https://github.com/gravitational/gravity/pull/2265), [planet#777](https://github.com/gravitational/planet/pull/777), [flannel#7](https://github.com/gravitational/flannel/pull/8)).
+* Fix an issue where etcd-backups were using too short of a timer ([#2250](https://github.com/gravitational/gravity/pull/2250), [planet#775](https://github.com/gravitational/planet/pull/775), [etcd-backup#5](https://github.com/gravitational/satellite/pull/5)).
+* Fix an issue where cluster configuration could be lost during validation ([#2253](https://github.com/gravitational/gravity/pull/2253)).
+* Fix a panic in the audit event emitter ([#2241](https://github.com/gravitational/gravity/pull/2241)).
+* Fix an issue that prevents log truncation ([#2238](https://github.com/gravitational/gravity/pull/2238), [logging-app#72](https://github.com/gravitational/logging-app/pull/72)).
+
 
 ### 7.0.20 LTS (October 9th, 2020)
 
@@ -621,6 +708,39 @@ to learn how to gain insight into how the cluster status changes over time.
 * Upgrade Kubernetes to `v1.16.0`.
 
 ## 6.1 Releases
+
+### 6.1.46 LTS (December 7, 2020)
+
+#### Improvements
+* Add support for using a separate network project in GCE to flannel ([#2356](https://github.com/gravitational/gravity/pull/2356), [planet#808](https://github.com/gravitational/planet/pull/808), [flannel#9](https://github.com/gravitational/satellite/pull/9)).
+* Remove CONFIG_NF_NAT_IPv4 check to support RHEL 8.3 based kernels ([#2337](https://github.com/gravitational/gravity/pull/2337), [planet#797](https://github.com/gravitational/planet/pull/797), [satellite#288](https://github.com/gravitational/satellite/pull/288)).
+
+#### Bugfixes
+* Shutdown kubernetes control plane immediately when elections are disabled ([#2356](https://github.com/gravitational/gravity/pull/2356), [planet#804](https://github.com/gravitational/planet/pull/804)).
+* Increase the amount of time dns-app update hooks will wait for cluster changes to complete ([#2327](https://github.com/gravitational/gravity/pull/2327)).
+* Increase file descriptor limits when creating systemd units ([#2322](https://github.com/gravitational/gravity/pull/2322)).
+
+### 6.1.45 LTS (November 5th, 2020)
+
+#### Improvements
+
+* Allow configuration of the Pod subnet size through the Cluster Configuration resource ([#2305](https://github.com/gravitational/gravity/pull/2305), [planet#788](https://github.com/gravitational/planet/pull/788)).
+
+
+### 6.1.44 LTS (October 22nd, 2020)
+
+#### Improvements
+
+* Update TLS cipher suites for Kubernetes components ([#2264](https://github.com/gravitational/gravity/pull/2264), [planet#781](https://github.com/gravitational/planet/pull/781)).
+* Satellite queries for system pods will use less load by searching only the `kube-system` and `monitoring` namespaces for critical pods that aren't running ([#2249](https://github.com/gravitational/gravity/pull/2249), [planet#774](https://github.com/gravitational/planet/pull/774), [satellite#280](https://github.com/gravitational/satellite/pull/280)).
+
+#### Bugfixes
+
+* Fix an issue where flannel could corrupt iptables rules if newly generated rules don't exactly match rules previously used ([#2264](https://github.com/gravitational/gravity/pull/2264), [planet#778](https://github.com/gravitational/planet/pull/778), [flannel#7](https://github.com/gravitational/flannel/pull/7)).
+* Fix an issue when using GCE integrations that unnecessary OAuth scopes would be requested ([#2264](https://github.com/gravitational/gravity/pull/2264), [planet#778](https://github.com/gravitational/planet/pull/778), [flannel#7](https://github.com/gravitational/flannel/pull/8)).
+* Fix an issue where etcd-backups were using too short of a timer ([#2250](https://github.com/gravitational/gravity/pull/2250), [planet#768](https://github.com/gravitational/planet/pull/768), [etcd-backup#5](https://github.com/gravitational/satellite/pull/5)).
+* Fix an issue where cluster configuration could be lost during validation ([#2256](https://github.com/gravitational/gravity/pull/2256)).
+* Fix an issue that prevents log truncation ([#2237](https://github.com/gravitational/gravity/pull/2237), [logging-app#72](https://github.com/gravitational/logging-app/pull/72)).
 
 ### 6.1.43 LTS (October 13th, 2020)
 
@@ -1391,6 +1511,26 @@ to learn how to gain insight into how the cluster status changes over time.
 * Upgrade Kubernetes to `v1.14.0`.
 
 ## 5.5 Releases
+
+### 5.5.56 LTS (November 23, 2020)
+
+#### Improvements
+* Add support for Redhat/Centos 7.9 and 8.3 ([#2338](https://github.com/gravitational/gravity/pull/2335), [planet#798](https://github.com/gravitational/planet/pull/798), [satellite#287](https://github.com/gravitational/satellite/pull/287)).
+
+#### Bugfixes
+
+* Fix an issue with etcd upgrades breaking watches in planet services ([#2330](https://github.com/gravitational/gravity/pull/2330)).
+* Fix an issue where monitoring-app would not tolerate customer applied taints ([#2341](https://github.com/gravitational/gravity/pull/2341), [monitoring-app#200](https://github.com/gravitational/monitoring-app/pull/200)).
+* Fix an issue where logging-app would not tolerate customer applied taints ([#2341](https://github.com/gravitational/gravity/pull/2341), [logging-app#73](https://github.com/gravitational/logging-app/pull/73)).
+* Increase the amount of time dns-app update hooks will wait for cluster changes to complete ([#2328](https://github.com/gravitational/gravity/pull/2328)).
+* Increase FD limits when creating systemd units ([#2315](https://github.com/gravitational/gravity/pull/2315)).
+
+### 5.5.55 LTS (October 21st, 2020)
+
+#### Improvements
+
+* Update system pods checker to query only specific namespaces ([#2248](https://github.com/gravitational/gravity/pull/2248), [planet#773](https://github.com/gravitational/planet/pull/773), [satellite#279](https://github.com/gravitational/satellite/pull/279)).
+* Update TLS cipher suites for Kubernetes components ([#2261](https://github.com/gravitational/gravity/pull/2261), [planet#780](https://github.com/gravitational/planet/pull/780)).
 
 ### 5.5.54 LTS (October 12th, 2020)
 
@@ -2263,6 +2403,12 @@ for details.
 * Remove dependency on system user/group being present in local `/etc/passwd` and `/etc/group` databases.
 
 ## 5.2 Releases
+
+### 5.2.18 LTS (October 23rd, 2020)
+
+#### Bugfixes
+
+* Fix an issue where etcd-backups were using too short of a timer ([#2263](https://github.com/gravitational/gravity/pull/2263), [planet#770](https://github.com/gravitational/planet/pull/770), [etcd-backup#5](https://github.com/gravitational/satellite/pull/5)).
 
 ### 5.2.17 LTS (June 11th, 2020)
 

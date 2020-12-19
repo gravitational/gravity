@@ -51,6 +51,11 @@ func ClusterConfiguration(existing, update clusterconfig.Interface) error {
 	if globalConfig.CloudProvider == "" && newGlobalConfig.CloudConfig != "" {
 		return trace.BadParameter("cannot set cloud configuration: cluster does not have cloud provider configured")
 	}
+
+	podCIDRString := globalConfig.PodCIDR
+	serviceCIDRString := globalConfig.ServiceCIDR
+	podSubnetSizeString := globalConfig.PodSubnetSize
+
 	if newGlobalConfig.PodCIDR != "" {
 		_, podCIDR, err := net.ParseCIDR(newGlobalConfig.PodCIDR)
 		if err != nil {
@@ -60,18 +65,9 @@ func ClusterConfiguration(existing, update clusterconfig.Interface) error {
 			return trace.BadParameter("specified pod subnet (%v) is the same as existing pod subnet",
 				newGlobalConfig.PodCIDR)
 		}
-		serviceSubnet := newGlobalConfig.ServiceCIDR
-		if serviceSubnet == "" {
-			serviceSubnet = globalConfig.ServiceCIDR
-		}
-		_, serviceCIDR, err := net.ParseCIDR(serviceSubnet)
-		if err != nil {
-			return trace.Wrap(err, "invalid service subnet: %v", serviceSubnet)
-		}
-		if err := KubernetesSubnets(podCIDR, serviceCIDR); err != nil {
-			return trace.Wrap(err)
-		}
+		podCIDRString = newGlobalConfig.PodCIDR
 	}
+
 	if newGlobalConfig.ServiceCIDR != "" {
 		_, serviceCIDR, err := net.ParseCIDR(newGlobalConfig.ServiceCIDR)
 		if err != nil {
@@ -81,18 +77,17 @@ func ClusterConfiguration(existing, update clusterconfig.Interface) error {
 			return trace.BadParameter("specified service subnet (%v) is the same as existing service subnet",
 				newGlobalConfig.ServiceCIDR)
 		}
-		podSubnet := newGlobalConfig.PodCIDR
-		if podSubnet == "" {
-			podSubnet = globalConfig.PodCIDR
-		}
-		_, podCIDR, err := net.ParseCIDR(podSubnet)
-		if err != nil {
-			return trace.Wrap(err, "invalid pod subnet: %v", podSubnet)
-		}
-		if err := KubernetesSubnets(podCIDR, serviceCIDR); err != nil {
-			return trace.Wrap(err)
-		}
+		serviceCIDRString = newGlobalConfig.ServiceCIDR
 	}
+
+	if newGlobalConfig.PodSubnetSize != "" {
+		podSubnetSizeString = newGlobalConfig.PodSubnetSize
+	}
+
+	if err := KubernetesSubnetsFromStrings(podCIDRString, serviceCIDRString, podSubnetSizeString); err != nil {
+		return trace.Wrap(err)
+	}
+
 	return nil
 }
 

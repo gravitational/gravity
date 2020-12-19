@@ -1,3 +1,8 @@
+---
+title: Common Issues
+description: Frequently encountered issues when running Kubernetes applications in air-gapped or on-premise environments
+---
+
 # Common Issues
 
 ## Conflicting Programs

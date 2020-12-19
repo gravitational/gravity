@@ -204,6 +204,9 @@ const (
 	// GravityRPCInstallerServiceName defines systemd unit service name for the installer
 	GravityRPCInstallerServiceName = "gravity-installer.service"
 
+	// GravityRPCInstallerSocketName defines the name of the socket file for the installer service
+	GravityRPCInstallerSocketName = "installer.sock"
+
 	// GravityRPCResumeServiceName defines systemd unit service name for resuming the operation plan
 	GravityRPCResumeServiceName = "gravity-resume.service"
 
@@ -319,6 +322,10 @@ const (
 	// GravityBin is a default location of gravity binary
 	GravityBin = "/usr/bin/gravity"
 
+	// GravityLocalAgentBin specifies the path to the gravity binary used in interactive
+	// installation
+	GravityLocalAgentBin = "/usr/local/bin/gravity"
+
 	// GravityBinAlternate is an alternative location of gravity binary on systems
 	// where /usr/bin is not writable (e.g. on Ubuntu Core)
 	GravityBinAlternate = "/writable/bin/gravity"
@@ -344,6 +351,17 @@ const (
 	// HelmBinAlternate is the alternative location of helm symlink on
 	// systems where /usr/bin is not writable
 	HelmBinAlternate = "/writable/bin/helm"
+
+	// Helm3Bin is the location of helm 3 binary inside planet
+	Helm3Bin = "/usr/bin/helm3"
+
+	// Helm3Script is the location of the helm 3 script, which the host's helm
+	// is symlinked to, inside the planet
+	Helm3Script = "/usr/local/bin/helm3"
+
+	// Helm3BinAlternate is the alternative location of helm 3 symlink on
+	// systems where /usr/bin is not writable
+	Helm3BinAlternate = "/writable/bin/helm3"
 
 	// PlanetBin is the default location of planet binary
 	PlanetBin = "/usr/bin/planet"
@@ -372,6 +390,12 @@ const (
 
 	// StatBin is stat executable path inside planet
 	StatBin = "/usr/bin/stat"
+
+	// AlternativeBinDir defines the default location for binaries on Ubuntu Core
+	AlternativeBinDir = "/writable/bin"
+
+	// GravityAgentBin specifies the location of the gravity binary used during upgrades
+	GravityAgentBin = "/usr/local/bin/gravity-upgrade-agent"
 
 	// SystemdLogDir specifies the default location of the systemd journal files
 	SystemdLogDir = "/var/log/journal"
@@ -490,6 +514,9 @@ const (
 
 	// GravityDBFile is a default file name for gravity sqlite DB file
 	GravityDBFile = "gravity.db"
+
+	// InstallerDBFile is a default file name for the installer state database file
+	InstallerDBFile = "wizard.db"
 
 	// SystemAccountID is the ID of the system account
 	SystemAccountID = "00000000-0000-0000-0000-000000000001"
@@ -1164,6 +1191,19 @@ const (
 	// during cluster installation (such as apiserver, etcd, kubelet, etc.)
 	CertificateExpiry = 10 * 365 * 24 * time.Hour // 10 years
 
+	// CertRenewBeforeExpiry is the time window to replace a certificate before expiration.
+	// Let's Encrypt recommends to renew certificates 30 days before expiration.
+	CertRenewBeforeExpiry = 30 * 24 * time.Hour
+
+	// CertBackdating is the time duration that will be used
+	// to shift back the start date of the certificate validity period.
+	// Following Let’s Encrypt example of intentionally backdating certificates by 1 hour.
+	// The backdating is needed in order to avoid issues with clock skew.
+	CertBackdating = -1 * time.Hour
+
+	// SelfSignedCertWebOrg is the Organization that is used to self-sign certificates.
+	SelfSignedCertWebOrg = "Gravitational Self-Signed Web Access"
+
 	// TransientErrorTimeout specifies the maximum amount of time to attempt
 	// an operation experiencing transient errors
 	TransientErrorTimeout = 15 * time.Minute
@@ -1309,6 +1349,9 @@ var (
 
 	// MaxExpandConcurrency is the number of servers that can be joining the cluster concurrently
 	MaxExpandConcurrency = (runtime.NumCPU() / 3) + 4
+
+	// GravityAgentBinAlternate defines the gravity binary used during upgrades on Ubuntu Core
+	GravityAgentBinAlternate = AlternateBinPath("gravity-upgrade-agent")
 )
 
 // HookSecurityContext returns default securityContext for hook pods
@@ -1388,6 +1431,18 @@ func InstallerAddr(installerIP string) (addr string) {
 // `kubectl get nodes`
 func FormatKubernetesNodeRoleLabel(role string) string {
 	return fmt.Sprintf("node-role.kubernetes.io/%v", role)
+}
+
+// SystemUnitPath builds the path to the specified unit in the system unit directory
+func SystemUnitPath(unit string) (path string) {
+	return filepath.Join(SystemUnitDir, unit)
+}
+
+// AlternateBinPath returns a path in the alternative binary directory
+// for the specifies sub-paths
+func AlternateBinPath(paths ...string) (path string) {
+	paths = append([]string{AlternativeBinDir}, paths...)
+	return filepath.Join(paths...)
 }
 
 // TLSConfig returns default TLS configuration.

@@ -17,7 +17,6 @@ package client
 
 import (
 	"context"
-	"path/filepath"
 	"time"
 
 	"github.com/gravitational/gravity/lib/fsm"
@@ -308,14 +307,6 @@ func (r *Client) waitForServiceStopped(ctx context.Context) error {
 			systemservice.ServiceStatusFailed,
 		)
 	})
-}
-
-func serviceNameFromPath(servicePath string) (name string) {
-	return service.Name(servicePath)
-}
-
-func serviceName(path string) (name string) {
-	return filepath.Base(path)
 }
 
 var _ signals.Stopper = (*Client)(nil)

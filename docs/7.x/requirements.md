@@ -12,16 +12,21 @@ Kubernetes and Gravity.
 
 Gravity officially supports the following Linux distributions:
 
-| Linux Distribution       | Version          | Docker Storage Drivers                |
-|--------------------------|------------------|---------------------------------------|
-| Red Hat Enterprise Linux | 7.4-7.8, 8.0-8.2 | `overlay`, `overlay2`                 |
-| CentOS                   | 7.2-7.7, 8.0-8.1 | `overlay`, `overlay2`                 |
-| Debian                   | 9                | `overlay`, `overlay2`                 |
-| Ubuntu                   | 16.04, 18.04     | `overlay`, `overlay2`                 |
-| Ubuntu-Core              | 16.04            | `overlay`, `overlay2`                 |
-| openSuse                 | 12-SP2 to 12-SP5 | `overlay`, `overlay2`                 |
-| Suse Linux Enterprise    | 12-SP2 to 12-SP5 | `overlay`, `overlay2`                 |
-| Amazon Linux             | 2                | `overlay`, `overlay2`                 |
+| Linux Distribution       | Version             | Docker Storage Drivers                |
+|--------------------------|---------------------|---------------------------------------|
+| Red Hat Enterprise Linux | 7.4-7.9, 8.0-8.3*   | `overlay`, `overlay2`                 |
+| CentOS                   | 7.2-7.9, 8.0-8.3*   | `overlay`, `overlay2`                 |
+| Debian                   | 9, 10               | `overlay`, `overlay2`                 |
+| Ubuntu                   | 16.04, 18.04, 20.04 | `overlay`, `overlay2`                 |
+| Ubuntu-Core              | 16.04               | `overlay`, `overlay2`                 |
+| openSuse                 | 12-SP2 to 12-SP5    | `overlay`, `overlay2`                 |
+| Suse Linux Enterprise    | 12-SP2 to 12-SP5    | `overlay`, `overlay2`                 |
+| Amazon Linux             | 2                   | `overlay`, `overlay2`                 |
+
+!!! note
+    * Gravity 6.1 does not install on CentOS & Red Hat Enterprise Linux 8+ with SELinux
+    enforcing due to [#2009](https://github.com/gravitational/gravity/issues/2009).
+    To install on CentOS & Red Hat Enterprise Linux 8+, please use Gravity 7.0+ or disable SELinux.
 
 ### Identifying OS Distributions In Manifest
 
@@ -34,16 +39,16 @@ against `ID` attribute of the `/etc/os-release` file on a host.
 The following table lists all officially supported Linux distributions and how they can be
 specified in the manifest:
 
-| Distribution Name        | ID                         | Version          |
-|--------------------------|----------------------------|------------------|
-| Red Hat Enterprise Linux | rhel                       | 7.4-7.8, 8.0-8.2 |
-| CentOS                   | centos                     | 7.2-7.7, 8.0-8.1 |
-| Debian                   | debian                     | 9                |
-| Ubuntu                   | ubuntu                     | 16.04, 18.04     |
-| Ubuntu-Core              | ubuntu                     | 16.04            |
-| openSuse                 | suse, opensuse, opensuse-* | 12-SP2 to 12-SP5 |
-| Suse Linux Enterprise    | sles, sles_sap             | 12-SP2 to 12-SP5 |
-| Amazon Linux             | amz                        | 2                |
+| Distribution Name        | ID                         | Version             |
+|--------------------------|----------------------------|---------------------|
+| Red Hat Enterprise Linux | rhel                       | 7.4-7.9, 8.0-8.3    |
+| CentOS                   | centos                     | 7.2-7.9, 8.0-8.3    |
+| Debian                   | debian                     | 9                   |
+| Ubuntu                   | ubuntu                     | 16.04, 18.04, 20.04 |
+| Ubuntu-Core              | ubuntu                     | 16.04               |
+| openSuse                 | suse, opensuse, opensuse-* | 12-SP2 to 12-SP5    |
+| Suse Linux Enterprise    | sles, sles_sap             | 12-SP2 to 12-SP5    |
+| Amazon Linux             | amz                        | 2                   |
 
 For example, to specify openSUSE as a dependency and support all services packs:
 
@@ -255,15 +260,15 @@ root$ modprobe iptable_nat
 Following table summarizes the required kernel modules per OS distribution.
 Gravity requires that these modules are loaded prior to installation.
 
-| Linux Distribution                   | Version          | Modules                                         |
-|--------------------------------------|------------------|-------------------------------------------------|
-| CentOS                               | 7.2              | bridge, ebtable_filter, iptables, overlay       |
-| CentOS                               | 7.3-7.6          | br_netfilter, ebtable_filter, iptables, overlay |
-| RedHat Linux                         | 7.3-7.6          | br_netfilter, ebtable_filter, iptables, overlay |
-| Debian                               | 9                | br_netfilter, ebtable_filter, iptables, overlay |
-| Ubuntu                               | 16.04            | br_netfilter, ebtable_filter, iptables, overlay |
-| Ubuntu-Core                          | 16.04            | br_netfilter, ebtable_filter, iptables, overlay |
-| Suse Linux (openSUSE and Enterprise) | 12-SP2 to 12-SP5 | br_netfilter, ebtable_filter, iptables, overlay |
+| Linux Distribution                   | Version             | Modules                                         |
+|--------------------------------------|---------------------|-------------------------------------------------|
+| CentOS                               | 7.2                 | bridge, ebtable_filter, iptables, overlay       |
+| CentOS                               | 7.3-7.9, 8.0-8.3    | br_netfilter, ebtable_filter, iptables, overlay |
+| RedHat Linux                         | 7.3-7.9, 8.0-8.3    | br_netfilter, ebtable_filter, iptables, overlay |
+| Debian                               | 9, 10               | br_netfilter, ebtable_filter, iptables, overlay |
+| Ubuntu                               | 16.04, 18.04, 20.04 | br_netfilter, ebtable_filter, iptables, overlay |
+| Ubuntu-Core                          | 16.04               | br_netfilter, ebtable_filter, iptables, overlay |
+| Suse Linux (openSUSE and Enterprise) | 12-SP2 to 12-SP5    | br_netfilter, ebtable_filter, iptables, overlay |
 
 ### Inotify watches
 

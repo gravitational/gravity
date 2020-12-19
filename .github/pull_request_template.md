@@ -29,6 +29,7 @@
 - [ ] Perform manual testing
 - [ ] Write documentation
 - [ ] Address review feedback
+- [ ] Update upstream references / tags / versions after upstream PR merges (linked above)
 
 ## Implementation
 <!--Optional. Add any relevant implementation details that might help the reviewers.-->

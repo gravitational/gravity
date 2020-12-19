@@ -5,19 +5,24 @@ Kubernetes and Gravity.
 
 ## Linux Distributions
 
-Gravity supports the following Linux distributions:
+Gravity 6.1 supports the following Linux distributions:
 
-| Linux Distribution        | Version         | Docker Storage Drivers                |
-|--------------------------|------------------|---------------------------------------|
-| Red Hat Enterprise Linux | 7.2-7.3          | `devicemapper`*                        |
-| Red Hat Enterprise Linux | 7.4-7.8, 8.0-8.2 | `devicemapper`*, `overlay`, `overlay2` |
-| CentOS                   | 7.2-7.7, 8.0-8.1 | `devicemapper`*, `overlay`, `overlay2` |
-| Debian                   | 8-9              | `devicemapper`*, `overlay`, `overlay2` |
-| Ubuntu                   | 16.04, 18.04     | `devicemapper`*, `overlay`, `overlay2` |
-| Ubuntu-Core              | 16.04            | `devicemapper`*, `overlay`, `overlay2` |
-| openSuse                 | 12-SP2 to 12-SP5 | `overlay`, `overlay2`                  |
-| Suse Linux Enterprise    | 12-SP2 to 12-SP5 | `overlay`, `overlay2`                  |
-| Amazon Linux             | 2                | `overlay`, `overlay2`                 |
+| Linux Distribution        | Version          | Docker Storage Drivers                 |
+|--------------------------|-------------------|----------------------------------------|
+| Red Hat Enterprise Linux | 7.2-7.3           | `devicemapper`*                        |
+| Red Hat Enterprise Linux | 7.4-7.9, 8.0-8.3* | `devicemapper`*, `overlay`, `overlay2` |
+| CentOS                   | 7.2-7.9, 8.0-8.3* | `devicemapper`*, `overlay`, `overlay2` |
+| Debian                   | 8, 9              | `devicemapper`*, `overlay`, `overlay2` |
+| Ubuntu                   | 16.04, 18.04      | `devicemapper`*, `overlay`, `overlay2` |
+| Ubuntu-Core              | 16.04             | `devicemapper`*, `overlay`, `overlay2` |
+| openSuse                 | 12-SP2 to 12-SP5  | `overlay`, `overlay2`                  |
+| Suse Linux Enterprise    | 12-SP2 to 12-SP5  | `overlay`, `overlay2`                  |
+| Amazon Linux             | 2                 | `overlay`, `overlay2`                  |
+
+!!! note
+    * Gravity 6.1 does not install on CentOS & Red Hat Enterprise Linux 8+ with SELinux
+    enforcing due to [#2009](https://github.com/gravitational/gravity/issues/2009).
+    To install on CentOS & Red Hat Enterprise Linux 8+, please use Gravity 7.0+ or disable SELinux.
 
 !!! note
     devicemapper has been deprecated by the docker project, and is not supported by gravity 5.3.4 or later
@@ -35,8 +40,8 @@ specified in the manifest:
 
 | Distribution Name        | ID                         | Version          |
 |--------------------------|----------------------------|------------------|
-| Red Hat Enterprise Linux | rhel                       | 7.4-7.8, 8.0-8.2 |
-| CentOS                   | centos                     | 7.2-7.7, 8.0-8.1 |
+| Red Hat Enterprise Linux | rhel                       | 7.4-7.9, 8.0-8.3 |
+| CentOS                   | centos                     | 7.2-7.9, 8.0-8.3 |
 | Debian                   | debian                     | 8-9              |
 | Ubuntu                   | ubuntu                     | 16.04, 18.04     |
 | Ubuntu-Core              | ubuntu                     | 16.04            |
@@ -254,16 +259,16 @@ root$ modprobe iptable_nat
 Following table summarizes the required kernel modules per OS distribution.
 Gravity requires that these modules are loaded prior to installation.
 
-| Linux Distribution                     | Version | Modules |
-|--------------------------|-----------|---------------------------|
-| CentOS                    | 7.2     | bridge, ebtable_filter, iptables, overlay  |
-| RedHat Linux | 7.2     | bridge, ebtable_filter, iptables  |
-| CentOS                  | 7.3-7.6     | br_netfilter, ebtable_filter, iptables, overlay  |
-| RedHat Linux | 7.3-7.6     | br_netfilter, ebtable_filter, iptables, overlay     |
-| Debian | 8-9 | br_netfilter, ebtable_filter, iptables, overlay |
-| Ubuntu | 16.04 | br_netfilter, ebtable_filter, iptables, overlay |
-| Ubuntu-Core | 16.04 | br_netfilter, ebtable_filter, iptables, overlay |
-| Suse Linux (openSUSE and Enterprise) | 12 SP2, 12 SP3 | br_netfilter, ebtable_filter, iptables, overlay |
+| Linux Distribution                   | Version          | Modules                                         |
+|--------------------------------------|------------------|-------------------------------------------------|
+| CentOS                               | 7.2              | bridge, ebtable_filter, iptables, overlay       |
+| RedHat Linux                         | 7.2              | bridge, ebtable_filter, iptables                |
+| CentOS                               | 7.3-7.9, 8.0-8.3 | br_netfilter, ebtable_filter, iptables, overlay |
+| RedHat Linux                         | 7.3-7.9, 8.0-8.3 | br_netfilter, ebtable_filter, iptables, overlay |
+| Debian                               | 8, 9             | br_netfilter, ebtable_filter, iptables, overlay |
+| Ubuntu                               | 16.04            | br_netfilter, ebtable_filter, iptables, overlay |
+| Ubuntu-Core                          | 16.04            | br_netfilter, ebtable_filter, iptables, overlay |
+| Suse Linux (openSUSE and Enterprise) | 12-SP2, 12 SP3   | br_netfilter, ebtable_filter, iptables, overlay |
 
 ### Inotify watches
 

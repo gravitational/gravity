@@ -36,7 +36,7 @@ type PlanBuilder struct {
 func (b *PlanBuilder) AddChecksPhase(plan *storage.OperationPlan) {
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
 		ID:          installphases.ChecksPhase,
-		Description: "Execute preflight checks",
+		Description: "Execute pre-flight checks",
 		Data: &storage.OperationPhaseData{
 			Server: &b.Master,
 		},

@@ -27,7 +27,6 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	installpb "github.com/gravitational/gravity/lib/install/proto"
-	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/system/service"
 	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/utils"
@@ -54,7 +53,7 @@ func (r *InstallerStrategy) connect(ctx context.Context) (installpb.AgentClient,
 	client, err := installpb.NewClient(ctx, installpb.ClientConfig{
 		FieldLogger:            r.FieldLogger,
 		SocketPath:             r.SocketPath,
-		ShouldReconnectService: shouldReconnectService(serviceName(r.ServicePath)),
+		ShouldReconnectService: shouldReconnectService(r.ServiceName),
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -82,8 +81,9 @@ func (r *InstallerStrategy) installSelfAsService() error {
 			// Propagate all gravity-related environment variables to the service.
 			Environment: utils.GetenvsByPrefix(constants.GravityEnvVarPrefix),
 		},
-		NoBlock: true,
-		Name:    r.ServicePath,
+		NoBlock:             true,
+		ReloadConfiguration: true,
+		Name:                r.ServicePath,
 	}
 	r.WithField("req", fmt.Sprintf("%+v", req)).Info("Install service.")
 	return trace.Wrap(service.Reinstall(req))
@@ -100,16 +100,13 @@ func (r *InstallerStrategy) checkAndSetDefaults() (err error) {
 		return trace.BadParameter("Validate is required")
 	}
 	if r.ServicePath == "" {
-		r.ServicePath, err = state.GravityInstallDir(defaults.GravityRPCInstallerServiceName)
-		if err != nil {
-			return trace.Wrap(err)
-		}
+		return trace.BadParameter("ServicePath is required")
+	}
+	if r.ServiceName == "" {
+		return trace.BadParameter("ServiceName is required")
 	}
 	if r.SocketPath == "" {
-		r.SocketPath, err = installpb.SocketPath()
-		if err != nil {
-			return trace.Wrap(err)
-		}
+		return trace.BadParameter("SocketPath is required")
 	}
 	if r.ConnectTimeout == 0 {
 		r.ConnectTimeout = defaults.ServiceConnectTimeout
@@ -121,7 +118,7 @@ func (r *InstallerStrategy) checkAndSetDefaults() (err error) {
 }
 
 func (r *InstallerStrategy) serviceName() string {
-	return serviceNameFromPath(r.ServicePath)
+	return r.ServiceName
 }
 
 // InstallerStrategy implements the strategy that creates a new installer service
@@ -142,6 +139,9 @@ type InstallerStrategy struct {
 	SocketPath string
 	// ServicePath specifies the absolute path to the service unit
 	ServicePath string
+	// ServiceName specifies the name of the service unit. It must be the same
+	// service specified with ServicePath
+	ServiceName string
 	// ConnectTimeout specifies the maximum amount of time to wait for
 	// installer service connection.
 	ConnectTimeout time.Duration

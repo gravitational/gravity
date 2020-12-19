@@ -1,3 +1,8 @@
+---
+title: Gravity System Requirements
+description: Description of the system requirements for running Kubernetes in production
+---
+
 # System Requirements
 
 This section outlines system requirements and best practices for installing
@@ -10,9 +15,9 @@ Gravity supports the following distributions:
 | Linux Distribution       | Version          | Docker Storage Drivers                 |
 |--------------------------|------------------|----------------------------------------|
 | Red Hat Enterprise Linux | 7.2-7.3          | `devicemapper`*                        |
-| Red Hat Enterprise Linux | 7.4-7.8, 8.0-8.2 | `devicemapper`*, `overlay`, `overlay2` |
-| CentOS                   | 7.2-7.7, 8.0-8.2 | `devicemapper`*, `overlay`, `overlay2` |
-| Debian                   | 8-9              | `devicemapper`*, `overlay`, `overlay2` |
+| Red Hat Enterprise Linux | 7.4-7.9, 8.0-8.3 | `devicemapper`*, `overlay`, `overlay2` |
+| CentOS                   | 7.2-7.9, 8.0-8.3 | `devicemapper`*, `overlay`, `overlay2` |
+| Debian                   | 8, 9             | `devicemapper`*, `overlay`, `overlay2` |
 | Ubuntu                   | 16.04            | `devicemapper`*, `overlay`, `overlay2` |
 | Ubuntu-Core              | 16.04            | `devicemapper`*, `overlay`, `overlay2` |
 | openSuse                 | 12 SP2 - 12 SP3  | `overlay`, `overlay2`                  |
@@ -33,9 +38,9 @@ Following table lists all the supported distributions and how they can be specif
 
 | Distribution Name        | ID                         | Version          |
 |--------------------------|----------------------------|------------------|
-| Red Hat Enterprise Linux | rhel                       | 7.4-7.8, 8.0-8.2 |
-| CentOS                   | centos                     | 7.2-7.7, 8.0-8.2 |
-| Debian                   | debian                     | 8-9              |
+| Red Hat Enterprise Linux | rhel                       | 7.4-7.9, 8.0-8.3 |
+| CentOS                   | centos                     | 7.2-7.9, 8.0-8.3 |
+| Debian                   | debian                     | 8, 9             |
 | Ubuntu                   | ubuntu                     | 16.04            |
 | Ubuntu-Core              | ubuntu                     | 16.04            |
 | openSuse                 | suse, opensuse, opensuse-* | 12-SP2, 12-SP3   |
@@ -239,16 +244,16 @@ root$ modprobe iptable_nat
 Following table summarizes the required kernel modules per OS distribution.
 Gravity requires that these modules are loaded prior to installation.
 
-| Linux Distribution                   | Version        | Modules                                         |
-|--------------------------------------|----------------|-------------------------------------------------|
-| CentOS                               | 7.2            | bridge, ebtable_filter, iptables, overlay       |
-| RedHat Linux                         | 7.2            | bridge, ebtable_filter, iptables                |
-| CentOS                               | 7.3-7.6        | br_netfilter, ebtable_filter, iptables, overlay |
-| RedHat Linux                         | 7.3-7.6        | br_netfilter, ebtable_filter, iptables, overlay |
-| Debian                               | 8-9            | br_netfilter, ebtable_filter, iptables, overlay |
-| Ubuntu                               | 16.04          | br_netfilter, ebtable_filter, iptables, overlay |
-| Ubuntu-Core                          | 16.04          | br_netfilter, ebtable_filter, iptables, overlay |
-| Suse Linux (openSUSE and Enterprise) | 12 SP2, 12 SP3 | br_netfilter, ebtable_filter, iptables, overlay |
+| Linux Distribution                   | Version          | Modules                                         |
+|--------------------------------------|------------------|-------------------------------------------------|
+| CentOS                               | 7.2              | bridge, ebtable_filter, iptables, overlay       |
+| RedHat Linux                         | 7.2              | bridge, ebtable_filter, iptables                |
+| CentOS                               | 7.3-7.9, 8.0-8.3 | br_netfilter, ebtable_filter, iptables, overlay |
+| RedHat Linux                         | 7.3-7.9, 8.0-8.3 | br_netfilter, ebtable_filter, iptables, overlay |
+| Debian                               | 8, 9             | br_netfilter, ebtable_filter, iptables, overlay |
+| Ubuntu                               | 16.04            | br_netfilter, ebtable_filter, iptables, overlay |
+| Ubuntu-Core                          | 16.04            | br_netfilter, ebtable_filter, iptables, overlay |
+| Suse Linux (openSUSE and Enterprise) | 12 SP2, 12 SP3   | br_netfilter, ebtable_filter, iptables, overlay |
 
 ### Inotify watches
 
