@@ -88,7 +88,11 @@ func New(cfg Config) (*Server, error) {
 
 func (s *Server) notFound(w http.ResponseWriter, r *http.Request) {
 	err := trace.NotFound("%v %v is not recognized", r.Method, r.URL.String())
-	log.WithError(err).Info(err.Error())
+	log.WithFields(log.Fields{
+		log.ErrorKey: err,
+		"method":     r.Method,
+		"url":        r.URL.String(),
+	}).Warn("Invalid request.")
 	trace.WriteError(w, trace.Unwrap(err))
 }
 
@@ -172,14 +176,14 @@ func (s *Server) needsAuth(fn authHandle, objects blob.Objects) httprouter.Handl
 
 		authCreds, err := httplib.ParseAuthHeaders(r)
 		if err != nil {
-			log.WithError(err).Info(err.Error())
+			log.WithError(err).Warn("Invalid auth headers.")
 			trace.WriteError(w, trace.Unwrap(err))
 			return
 		}
 
 		user, checker, err := s.cfg.Users.AuthenticateUser(*authCreds)
 		if err != nil {
-			log.WithError(err).Info("authenticate error")
+			log.WithError(err).Info("Authentication error.")
 			// we hide the error from the remote user to avoid giving any hints
 			trace.WriteError(
 				w, trace.Unwrap(trace.AccessDenied("bad username or password")))

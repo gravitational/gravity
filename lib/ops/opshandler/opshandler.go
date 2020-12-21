@@ -358,7 +358,7 @@ func (h *WebHandler) getSiteInstructions(w http.ResponseWriter, r *http.Request,
 	serverProfile := p[1].Value
 	instructions, err := h.cfg.Operator.GetSiteInstructions(token, serverProfile, r.URL.Query())
 	if err != nil {
-		log.WithError(err).Info(err.Error())
+		log.WithError(err).Warn("Failed to query cluster install instructions.")
 		trace.WriteError(w, trace.Unwrap(err))
 		return
 	}
