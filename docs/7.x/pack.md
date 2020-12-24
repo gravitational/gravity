@@ -999,6 +999,10 @@ extensions:
   # This setting will not install the Tiller application
   catalog:
     disabled: true
+
+  # This setting will disable the OpsCenter UI and the WebInstallWizard UI
+  opsCenter:
+    disabled: true
 ```
 
 !!! note

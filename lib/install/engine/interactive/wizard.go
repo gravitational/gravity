@@ -19,6 +19,7 @@ package interactive
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/gravitational/gravity/lib/defaults"
@@ -77,6 +78,14 @@ func (r *Engine) execute(ctx context.Context, installer install.Interface, confi
 	if err != nil {
 		return trace.Wrap(err)
 	}
+
+	if e.config.App.Manifest.OpsCenterDisabled() {
+		message := "WebUI installs have been disabled in this application. CLI installation " +
+			"docs are available at https://goteleport.com/gravity/docs/installation/#cli-installation"
+		e.PrintStep(message)
+		return trace.Wrap(errors.New(message))
+	}
+
 	e.printURL()
 	installer.PrintStep("Waiting for the operation to start")
 	operation, err := e.waitForOperation()

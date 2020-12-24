@@ -444,45 +444,60 @@ func (h *WebHandler) notFound() http.HandlerFunc {
 	}
 }
 
-func (h *WebHandler) noLogin(handle webHandle) httprouter.Handle {
+func noOperationHandler() func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		handle(w, r, p, session{Session: base64.StdEncoding.EncodeToString([]byte("{}"))})
+		log.WithFields(log.Fields{"urlPath": r.URL.Path, "method": r.Method,
+			"remoteAddr": r.RemoteAddr}).Warn("Not handling this request because the UI is disabled.")
+	}
+}
+
+func (h *WebHandler) noLogin(handle webHandle) httprouter.Handle {
+	if h.disableUI() {
+		return noOperationHandler()
+	} else {
+		return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+			handle(w, r, p, session{Session: base64.StdEncoding.EncodeToString([]byte("{}"))})
+		}
 	}
 }
 
 func (h *WebHandler) needsLogin(handle webHandle) httprouter.Handle {
-	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		err := func() error {
-			session, err := h.authenticate(w, r)
-			if err == nil {
-				handle(w, r, p, *session)
+	if h.disableUI() {
+		return noOperationHandler()
+	} else {
+		return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+			err := func() error {
+				session, err := h.authenticate(w, r)
+				if err == nil {
+					handle(w, r, p, *session)
+					return nil
+				}
+				token, errToken := h.tryLoginWithToken(w, r)
+				if errToken != nil {
+					log.Warningf("failed to authenticate: %v %v", err, errToken)
+					return trace.Wrap(errToken)
+				}
+				if token == nil {
+					return trace.Wrap(err)
+				}
+				// if the token is already associated with a cluster, it means
+				// the installation has been initiated already so redirect the
+				// user to the cluster's installer page
+				if token.SiteDomain != "" {
+					http.Redirect(w, r, "/web/installer/site/"+token.SiteDomain, http.StatusFound)
+				} else {
+					http.Redirect(w, r, r.URL.Path, http.StatusFound)
+				}
 				return nil
-			}
-			token, errToken := h.tryLoginWithToken(w, r)
-			if errToken != nil {
-				log.Warningf("failed to authenticate: %v %v", err, errToken)
-				return trace.Wrap(errToken)
-			}
-			if token == nil {
-				return trace.Wrap(err)
-			}
-			// if the token is already associated with a cluster, it means
-			// the installation has been initiated already so redirect the
-			// user to the cluster's installer page
-			if token.SiteDomain != "" {
-				http.Redirect(w, r, "/web/installer/site/"+token.SiteDomain, http.StatusFound)
-			} else {
-				http.Redirect(w, r, r.URL.Path, http.StatusFound)
-			}
-			return nil
-		}()
+			}()
 
-		if err != nil {
-			if !trace.IsAccessDenied(err) {
-				log.Error(trace.DebugReport(err))
-			}
+			if err != nil {
+				if !trace.IsAccessDenied(err) {
+					log.Error(trace.DebugReport(err))
+				}
 
-			http.Redirect(w, r, "/web/login?redirect_uri="+r.URL.Path, http.StatusFound)
+				http.Redirect(w, r, "/web/login?redirect_uri="+r.URL.Path, http.StatusFound)
+			}
 		}
 	}
 }
@@ -632,6 +647,21 @@ func getWebConfigAuthSettings(cfg WebHandlerConfig) telewebui.WebConfigAuthSetti
 	}
 
 	return authSettings
+}
+
+func (h *WebHandler) disableUI() bool {
+	sites, err := h.cfg.Operator.GetSites(defaults.SystemAccountID)
+	if err != nil {
+		return false
+	}
+
+	for _, s := range sites {
+		if s.App.Manifest.OpsCenterDisabled() {
+			return true
+		}
+	}
+
+	return false
 }
 
 type session struct {
