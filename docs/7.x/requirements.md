@@ -14,14 +14,19 @@ Gravity officially supports the following Linux distributions:
 
 | Linux Distribution       | Version             | Docker Storage Drivers                |
 |--------------------------|---------------------|---------------------------------------|
-| Red Hat Enterprise Linux | 7.4-7.9, 8.0-8.3    | `overlay`, `overlay2`                 |
-| CentOS                   | 7.2-7.9, 8.0-8.3    | `overlay`, `overlay2`                 |
+| Red Hat Enterprise Linux | 7.4-7.9, 8.0-8.3*   | `overlay`, `overlay2`                 |
+| CentOS                   | 7.2-7.9, 8.0-8.3*   | `overlay`, `overlay2`                 |
 | Debian                   | 9, 10               | `overlay`, `overlay2`                 |
 | Ubuntu                   | 16.04, 18.04, 20.04 | `overlay`, `overlay2`                 |
 | Ubuntu-Core              | 16.04               | `overlay`, `overlay2`                 |
 | openSuse                 | 12-SP2 to 12-SP5    | `overlay`, `overlay2`                 |
 | Suse Linux Enterprise    | 12-SP2 to 12-SP5    | `overlay`, `overlay2`                 |
 | Amazon Linux             | 2                   | `overlay`, `overlay2`                 |
+
+!!! note
+    * Gravity 6.1 does not install on CentOS & Red Hat Enterprise Linux 8+ with SELinux
+    enforcing due to [#2009](https://github.com/gravitational/gravity/issues/2009).
+    To install on CentOS & Red Hat Enterprise Linux 8+, please use Gravity 7.0+ or disable SELinux.
 
 ### Identifying OS Distributions In Manifest
 
