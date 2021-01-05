@@ -2,6 +2,7 @@
 .vagrant
 .DS_Store
 build
+/e/build/
 *.test
 flymake*
 *tar
