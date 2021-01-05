@@ -1,0 +1,132 @@
+package ops
+
+import (
+	"testing"
+
+	"github.com/gravitational/gravity/lib/constants"
+	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/storage"
+
+	teledefaults "github.com/gravitational/teleport/lib/defaults"
+	"gopkg.in/check.v1"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
+)
+
+func TestOps(t *testing.T) { check.TestingT(t) }
+
+type OpsSuite struct{}
+
+var _ = check.Suite(&OpsSuite{})
+
+func (s *OpsSuite) TestServicesFromEndpoints(c *check.C) {
+	type testCase struct {
+		// publicAdvertiseAddr is the configured advertise addr for user traffic
+		publicAdvertiseAddr string
+		// agentsAdvertiseAddr is the configured advertise addr for cluster traffic
+		agentsAdvertiseAddr string
+		// publicService is the expected service for user traffic
+		publicService *v1.Service
+		// agentsService is the expected service for cluster traffic
+		agentsService *v1.Service
+		// description is the test case description
+		description string
+	}
+	testCases := []testCase{
+		{
+			description:         "traffic is not split",
+			publicAdvertiseAddr: "ops.example.com:443",
+			publicService: makeService(constants.GravityPublicService, []v1.ServicePort{
+				{Name: "public", Port: 443, TargetPort: intstr.FromInt(defaults.GravityListenPort)},
+				{Name: "sshtunnel", Port: teledefaults.SSHProxyTunnelListenPort},
+				{Name: "sshproxy", Port: teledefaults.SSHProxyListenPort},
+				{Name: "kubeproxy", Port: teledefaults.KubeProxyListenPort},
+			}),
+			agentsService: makeService(constants.GravityAgentsService, nil),
+		},
+		{
+			description:         "same host, different port",
+			publicAdvertiseAddr: "ops.example.com:443",
+			agentsAdvertiseAddr: "ops.example.com:444",
+			publicService: makeService(constants.GravityPublicService, []v1.ServicePort{
+				{Name: "public", Port: 443, TargetPort: intstr.FromInt(defaults.GravityPublicListenPort)},
+				{Name: "agents", Port: 444, TargetPort: intstr.FromInt(defaults.GravityListenPort)},
+				{Name: "sshtunnel", Port: teledefaults.SSHProxyTunnelListenPort},
+				{Name: "sshproxy", Port: teledefaults.SSHProxyListenPort},
+				{Name: "kubeproxy", Port: teledefaults.KubeProxyListenPort},
+			}),
+			agentsService: makeService(constants.GravityAgentsService, nil),
+		},
+		{
+			description:         "different host, same port",
+			publicAdvertiseAddr: "ops.example.com:443",
+			agentsAdvertiseAddr: "ops2.example.com:443",
+			publicService: makeService(constants.GravityPublicService, []v1.ServicePort{
+				{Name: "public", Port: 443, TargetPort: intstr.FromInt(defaults.GravityPublicListenPort)},
+				{Name: "sshproxy", Port: teledefaults.SSHProxyListenPort},
+				{Name: "kubeproxy", Port: teledefaults.KubeProxyListenPort},
+			}),
+			agentsService: makeService(constants.GravityAgentsService, []v1.ServicePort{
+				{Name: "agents", Port: 443, TargetPort: intstr.FromInt(defaults.GravityListenPort)},
+				{Name: "sshtunnel", Port: teledefaults.SSHProxyTunnelListenPort},
+			}),
+		},
+		{
+			description:         "different host, different port",
+			publicAdvertiseAddr: "ops.example.com:443",
+			agentsAdvertiseAddr: "ops2.example.com:444",
+			publicService: makeService(constants.GravityPublicService, []v1.ServicePort{
+				{Name: "public", Port: 443, TargetPort: intstr.FromInt(defaults.GravityPublicListenPort)},
+				{Name: "sshproxy", Port: teledefaults.SSHProxyListenPort},
+				{Name: "kubeproxy", Port: teledefaults.KubeProxyListenPort},
+			}),
+			agentsService: makeService(constants.GravityAgentsService, []v1.ServicePort{
+				{Name: "agents", Port: 444, TargetPort: intstr.FromInt(defaults.GravityListenPort)},
+				{Name: "sshtunnel", Port: teledefaults.SSHProxyTunnelListenPort},
+			}),
+		},
+	}
+	for _, testCase := range testCases {
+		endpoints := storage.NewEndpoints(storage.EndpointsSpecV2{
+			PublicAddr: testCase.publicAdvertiseAddr,
+			AgentsAddr: testCase.agentsAdvertiseAddr,
+		})
+		publicService, agentsService, err := ServicesFromEndpoints(endpoints)
+		c.Assert(err, check.IsNil,
+			check.Commentf("failed test case: %v", testCase.description))
+		c.Assert(publicService, check.DeepEquals, testCase.publicService,
+			check.Commentf("failed test case: %v", testCase.description))
+		c.Assert(agentsService, check.DeepEquals, testCase.agentsService,
+			check.Commentf("failed test case: %v", testCase.description))
+	}
+}
+
+func makeService(name string, ports []v1.ServicePort) *v1.Service {
+	annotations := map[string]string{
+		constants.AWSLBIdleTimeoutAnnotation: defaults.LBIdleTimeout,
+	}
+	if name == constants.GravityPublicService {
+		annotations[constants.ExternalDNSHostnameAnnotation] =
+			constants.ExternalDNS("ops.example.com")
+	}
+	return &v1.Service{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       constants.KindService,
+			APIVersion: constants.ServiceAPIVersion,
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: defaults.KubeSystemNamespace,
+			Labels: map[string]string{
+				defaults.ApplicationLabel: defaults.GravityOpsCenterLabel,
+			},
+			Annotations: annotations,
+		},
+		Spec: v1.ServiceSpec{
+			Type:     v1.ServiceTypeLoadBalancer,
+			Selector: defaults.GravitySiteSelector,
+			Ports:    ports,
+		},
+	}
+}
