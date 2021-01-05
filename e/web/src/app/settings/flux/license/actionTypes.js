@@ -1,0 +1,1 @@
+export const TRYING_TO_CREATE_LICENSE = 'e/settings/flux/licence/trying_to_create_license';

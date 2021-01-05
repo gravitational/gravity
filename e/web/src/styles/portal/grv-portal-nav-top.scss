@@ -1,0 +1,26 @@
+.grv-portal-nav-top{
+  display: flex;
+
+  .grv-icon-gravitational-logo{
+    height: $grv-top-nav-height;    
+    width: $grv-top-nav-height;
+  }
+
+  .grv-portal-nav-top-item{
+    flex: 1;
+    display: flex;
+    align-items: center;
+  }
+  
+  .grv-portal-nav-top-item-user{
+    display: flex;
+    justify-content: flex-end;    
+  }
+
+  .grv-portal-nav-customer-logo{
+    img{
+      max-height: $grv-top-nav-height !important;
+      max-width: 110px !important;
+    }
+  }  
+}

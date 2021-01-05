@@ -1,0 +1,66 @@
+
+.grv-portal-apps-n-sites{
+  @extend .grv-page;
+  display: flex;
+  flex-direction: column;
+}
+
+.grv-portal-apps-toolbar{
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  align-items: center;
+
+  h3{
+    font-size: 18px;
+  }
+
+  .grv-portal-apps-toolbar-controls{
+    display: flex;
+    align-items: center;
+    flex: 1;
+    justify-content: flex-end;
+  }
+}
+
+.grv-portal-apps-table{
+  padding: 5px 10px;
+  background-color: #ffffff;
+
+  .grv-table{
+    margin-bottom: -1px;
+
+    tbody tr:last-child{
+      td {
+        border-bottom: none;
+      }
+    }
+  }
+}
+
+.grv-portal-apps-actions{
+  .dropdown-menu > li > a{
+    margin: 0;
+    padding: 5px 10px;
+  }
+}
+
+.grv-portal-sites {
+
+  .grv-portal-sites-toolbar{
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .grv-portal-sites-tag{
+    background-color: #f5f5f5;
+    margin: 0 2px 0 0;
+    font-size: 10px;
+    text-align: center;
+    vertical-align: baseline;
+    border-radius: .25em;
+    display: inline;
+    padding: 0 .1em 0;
+    line-height: 2;
+  }
+}

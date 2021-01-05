@@ -1,0 +1,72 @@
+.grv-portal{
+
+  padding: 0 15px;
+  width: 100%;
+  height: 100%;
+  min-width: 600px;
+  max-width: 1200px;
+  display: flex;
+  flex-direction: column;
+  margin: 0 auto;
+
+  @include mixing-grv-btn($grv-regular-btn);
+
+  label{
+    input{
+      margin-top: 2px;
+    }
+  }
+
+  table tr td{
+    border-bottom: 1px solid #e7eaec;
+    vertical-align: middle;
+  }
+
+  .grv-page{
+    min-width: 750px;
+  }
+
+  .grv-nav{
+    background-color: #2a3138;
+  }
+
+  .grv-portal-whatis-trigger{
+    .fa {
+      font-size: 14px;
+    }
+  }
+
+  .grv-whatis-application-popover,
+  .grv-whatis-cluster-popover{    
+    margin-top: 30px;
+    min-width: 300px;
+    .arrow{
+      margin-top: -40px!important;
+    }
+  }
+}
+
+.grv-portal-list{
+  position: relative;
+
+  .grv-table-paged-info{
+    margin-top: 10px;
+  }
+
+  .grv-portal-list-empty{
+    background-color: #ffffff;
+    padding: 30px;
+  }
+
+  .grv-portal-list-cell-deployment{
+    font-size: 14px;
+  }
+
+  .grv-portal-btn-group{
+      &.btn-group{
+        .btn{
+          margin-right: 5px;
+        }
+      }
+  }
+}

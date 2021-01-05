@@ -1,0 +1,36 @@
+.grv-portal-dlg-install-link{
+
+  .fa-external-link{
+    color: $grv-regular-btn;
+  }
+
+  .grv-spinner.sk-spinner-three-bounce  {
+    position: relative!important;
+    top: auto!important;
+    left: auto!important;
+  }
+
+ .grv-portal-dlg-install-link-value{
+    resize: none;
+    overflow: hidden;
+    display: block;
+    width: 100%;
+    font-size: 13px;
+    line-height: 1.42857;
+    word-break: break-all;
+    word-wrap: break-word;
+    color: #333333;
+  }
+}
+
+.grv-portal-dlg-header {
+  padding: 5px 5px;
+  display: flex;
+  text-align: left;
+
+  h3{
+    line-height: initial;
+    margin-top: 2px;
+  }
+
+}
