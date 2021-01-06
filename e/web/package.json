@@ -20,7 +20,7 @@
     "create-react-class": "^15.6.3",
     "es6-shim": "^0.35.1",
     "ip-subnet-calculator": "^1.1.8",
-    "jquery": "3.4.1",
+    "jquery": "3.5.0",
     "lodash": "^4.17.15",
     "moment": "^2.22.1",
     "nuclear-js": "1.4.0",
