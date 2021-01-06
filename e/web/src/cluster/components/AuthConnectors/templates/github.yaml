@@ -1,0 +1,35 @@
+# Copyright 2021 Gravitational Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+kind: github
+version: v3
+metadata:
+  name: new_github_connector
+spec:
+  # Github OAuth app client ID
+  client_id: <client-id>
+  # Github OAuth app client secret
+  client_secret: <client-secret>
+  # Github will make a callback to this URL after successful authentication
+  # cluster-url is the address the cluster UI is reachable at
+  redirect_url: "https://<cluster-url>/portalapi/v1/github/callback"
+  # connector display name that will be appended to the title of "Login with"
+  # button on the cluster login screen so it will say "Login with Github"
+  display: Github
+  # mapping of Github team memberships to Gravity cluster roles
+  teams_to_logins:
+    - organization: example
+      team: admins
+      logins:
+        - "@teleadmin"

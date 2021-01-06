@@ -1,0 +1,24 @@
+{
+    "compilerOptions": {
+      "jsx": "react",
+      "allowSyntheticDefaultImports": true,
+      "baseUrl": ".",
+      "paths": {
+        "*": [
+          "*",
+        ],
+        "e-app/*": ["src/*"],
+        "oss-app/*": ["oss-src/*"],
+        "app/*": ["oss-src/*"],
+        "shared/*": ["shared/*"]
+      }
+    },
+    "include": [
+      "src/**/*",
+      "oss-src/**/*",
+    ],
+    "exclude": [
+      "node_modules",
+      "dist"
+    ]
+  }
