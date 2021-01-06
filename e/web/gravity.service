@@ -1,0 +1,9 @@
+[Unit]
+Description=Gravity Web Service
+
+[Service]
+TimeoutStartSec=0
+EnvironmentFile=/etc/container-environment
+ExecStart=/usr/bin/gravity --debug site serve 0.0.0.0:34444 --assets=/ext/share/dist
+User=planet
+Group=planet
