@@ -186,6 +186,12 @@ That error message can occur when the certificate installed on Gravity Hub does 
 
 ## HSTS Headers reported as missing in automated scans
 
-Gravity clusters by default present a [number of ports](requirements.md#cluster-ports) as part of normal operations that use HTTP based protocols for internal APIs. When scanning a gravity cluster, some automated scanners will produce a false positive on ports used for internal APIs that do not set HTTP Strict Transport Security Policy headers. As per [RFC 6797 section 2.1](https://tools.ietf.org/html/rfc6797#section-2.1) the primary use case of HSTS headers is for a web browser to interact with a web site using only secure protocols. A web browser, when connected to the gravity cluster UI will not use or connect to any of the API ports that do not present HSTS headers, and all the API clients in use that do connect to the API ports do not follow HSTS headers and are instead hard coded to only use TLS.
+### WebUI
+
+The Gravity WebUI does not support setting HSTS headers on the WebUI interface. As a best practice, these headers cannot be enabled by default, as there is the potential to conflict with software installed on the host or to software deployed within the gravity cluster that by design does not require or use HTTPS. And gravity does not currently support optionally turning it on. Risk assesments about the lack of HSTS header should consider that Gravity does not present any HTTP endpoints and as such no client is expected to try and connect to gravity using insecure protocols regardless of the HSTS header.
+
+### API Ports
+
+Gravity clusters by default present a [number of ports](requirements.md#cluster-ports) as part of normal operations that use HTTPS based protocols for internal APIs. When scanning a gravity cluster, some automated scanners will produce a false positive on ports used for internal APIs that do not set HTTP Strict Transport Security Policy headers. As per [RFC 6797 section 2.1](https://tools.ietf.org/html/rfc6797#section-2.1) the primary use case of HSTS headers is for a web browser to interact with a web site using only secure protocols. A web browser will never connect to these internal APIs, and all internal clients are individually configured to only use HTTPs for internall connectivity.
 
 If there is a concern that these ports are accessible from outside the cluster, the [Installer Ports](requirements.md#installer-ports) and [Cluster Ports](requirements.md#cluster-ports) docs can be used as a reference to build a firewall policy that prevents external access to ports that are used only between cluster nodes.
