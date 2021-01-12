@@ -1,0 +1,49 @@
+# Copyright 2021 Gravitational Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+kind: role
+metadata:
+  # insert the name of your role here:
+  name: new_role_name
+spec:
+  # This example defines an administrative role. It maps to Kubernetes "admin"
+  # group and allows SSH to every node.
+  allow:
+    # This role is mapped to Kuberntes 'admin' group.
+    kubernetes_groups: [admin]
+
+    # List of allowed SSH logins
+    logins: [root]
+
+    # List of node labels that users can SSH into
+    node_labels:
+      '*': '*'
+
+    # RBAC rules for various resources within a cluster.
+    rules:
+    - resources: ['*']
+      verbs: ['*']
+
+  # The 'deny' section can have similar settings that override their 'allow' counterparts
+  deny:
+    logins: ['guest']
+
+  options:
+      # Limits user credentials to 8 hours. After the time to live (TTL) expires,
+      # users must re-login
+      max_session_ttl: 8h0m0s
+  # the deny section uses the identical format as the 'allow' section.
+  # the deny rules always override allow rules.
+  deny: {}
+version: v3

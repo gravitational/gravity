@@ -11,8 +11,8 @@ Find the latest Open Source Gravity releases at [Gravity Downloads](https://grav
 
 | Version             | Latest Patch | LTS | Release Date         | Latest Patch Date    | End of Support *        | Kubernetes Version   | Teleport Version |
 | ------------------- | ------------ | --- | -------------------- | -------------------- | ----------------------- | -------------------- | ---------------- |
-| [7.0](#70-releases) | 7.0.28       | Yes | April 3, 2020        | December 7, 2020     | July 9, 2022            | 1.17.9               | 3.2.14-gravity   |
-| [6.1](#61-releases) | 6.1.46       | Yes | August 2, 2019       | December 7, 2020     | November 10, 2021       | 1.15.12              | 3.2.14-gravity   |
+| [7.0](#70-releases) | 7.0.29       | Yes | April 3, 2020        | January 9, 2021      | July 9, 2022            | 1.17.9               | 3.2.14-gravity   |
+| [6.1](#61-releases) | 6.1.47       | Yes | August 2, 2019       | January 9, 2021      | November 10, 2021       | 1.15.12              | 3.2.14-gravity   |
 | [5.5](#55-releases) | 5.5.56       | Yes | March 8, 2019        | November 23, 2020    | March 8, 2021           | 1.13.11              | 3.0.7-gravity    |
 
 Gravity offers one Long Term Support (LTS) version for every 2nd Kubernetes
@@ -51,6 +51,13 @@ extend updates past End of Support through customer agreements if required.
 
 ## 7.0 Releases
 
+### 7.0.29 LTS (January 9, 2020)
+
+#### Improvements
+* Add limited support for specifying additional kubernetes admission controllers ([#2367](https://github.com/gravitational/gravity/pull/2367), [planet#810](https://github.com/gravitational/planet/pull/810)).
+
+#### Bugfixes
+* Fix an issue with file descriptors leaking in monitoring network health ([#2383](https://github.com/gravitational/gravity/pull/2383), [monitoring-app#204](https://github.com/gravitational/monitoring-app/pull/204), [satellite#294](https://github.com/gravitational/satellite/pull/294)).
 ### 7.0.28 LTS (December 7, 2020)
 
 #### Improvements
@@ -708,6 +715,11 @@ to learn how to gain insight into how the cluster status changes over time.
 * Upgrade Kubernetes to `v1.16.0`.
 
 ## 6.1 Releases
+
+### 6.1.47 LTS (January 9, 2020)
+
+#### Bugfixes
+* Fix an issue with file descriptors leaking in monitoring network health ([#2382](https://github.com/gravitational/gravity/pull/2382), [monitoring-app#205](https://github.com/gravitational/monitoring-app/pull/205), [satellite#293](https://github.com/gravitational/satellite/pull/293)).
 
 ### 6.1.46 LTS (December 7, 2020)
 
