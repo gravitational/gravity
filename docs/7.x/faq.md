@@ -182,3 +182,16 @@ Gravity Hub (Enterprise) requires a valid TLS key pair (not self signed) install
 `[ERROR]: the trusted cluster uses misconfigured HTTP/TLS certificate`
 
 That error message can occur when the certificate installed on Gravity Hub does not include the Intermediate/Chained certificate.  The browser interaction on Gravity Hub will appear secure, for example, with a Let's Encrypt certificate private/public PEM installed. The trusted cluster create attempt will fail in the certificate validation.  To clear this issue replace the certificate including the Intermediate/Chained certificate through the Gravity Hub HTTPS Certificate web page or the tlskeypair resource. See [TLS Key Pair](config.md#tls-key-pair)
+
+
+## HSTS Headers reported as missing in automated scans
+
+### WebUI
+
+The Gravity WebUI does not support setting HSTS headers on the WebUI interface. As a best practice, these headers cannot be enabled by default, as there is the potential to conflict with software installed on the host or to software deployed within the gravity cluster that by design does not require or use HTTPS. And gravity does not currently support optionally turning it on. Risk assesments about the lack of HSTS header should consider that Gravity does not present any HTTP endpoints and as such no client is expected to try and connect to gravity using insecure protocols regardless of the HSTS header.
+
+### API Ports
+
+Gravity clusters by default present a [number of ports](requirements.md#cluster-ports) as part of normal operations that use HTTPS based protocols for internal APIs. When scanning a gravity cluster, some automated scanners will produce a false positive on ports used for internal APIs that do not set HTTP Strict Transport Security Policy headers. As per [RFC 6797 section 2.1](https://tools.ietf.org/html/rfc6797#section-2.1) the primary use case of HSTS headers is for a web browser to interact with a web site using only secure protocols. A web browser will never connect to these internal APIs, and all internal clients are individually configured to only use HTTPs for internall connectivity.
+
+If there is a concern that these ports are accessible from outside the cluster, the [Installer Ports](requirements.md#installer-ports) and [Cluster Ports](requirements.md#cluster-ports) docs can be used as a reference to build a firewall policy that prevents external access to ports that are used only between cluster nodes.
