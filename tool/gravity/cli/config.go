@@ -378,6 +378,10 @@ func (i *InstallConfig) CheckAndSetDefaults(validator resources.Validator) (err 
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	err = i.checkWebInstallWhenWebUIDisabled()
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	err = validate.KubernetesSubnetsFromStrings(i.PodCIDR, i.ServiceCIDR, "")
 	if err != nil {
 		return trace.Wrap(err)
@@ -446,6 +450,18 @@ func (i *InstallConfig) checkEULA() error {
 		return trace.BadParameter("end-user license agreement was not accepted")
 	}
 	i.Info("User accepted EULA.")
+	return nil
+}
+
+// checkWebInstallWhenWebUIDisabled verifies that a WebWizard install is not
+// attempted when the web UI is disabled
+func (i *InstallConfig) checkWebInstallWhenWebUIDisabled() error {
+	if i.Mode == constants.InstallModeInteractive && i.app.Manifest.OpsCenterDisabled() {
+		i.Warn("User attempted WebWizard install when the web UI is disabled.")
+		return trace.BadParameter("WebUI installs have been disabled in this application. CLI installation " +
+			"docs are available at https://goteleport.com/gravity/docs/installation/#cli-installation")
+	}
+
 	return nil
 }
 
