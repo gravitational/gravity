@@ -448,6 +448,8 @@ func noOperationHandler() func(w http.ResponseWriter, r *http.Request, p httprou
 	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		log.WithFields(log.Fields{"urlPath": r.URL.Path, "method": r.Method,
 			"remoteAddr": r.RemoteAddr}).Warn("Not handling this request because the UI is disabled.")
+
+		replyError(w, "Web UI is disabled", http.StatusBadRequest)
 	}
 }
 
