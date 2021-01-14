@@ -454,50 +454,50 @@ func noOperationHandler() func(w http.ResponseWriter, r *http.Request, p httprou
 func (h *WebHandler) noLogin(handle webHandle) httprouter.Handle {
 	if h.disabledUI() {
 		return noOperationHandler()
-	} else {
-		return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-			handle(w, r, p, session{Session: base64.StdEncoding.EncodeToString([]byte("{}"))})
-		}
+	}
+
+	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+		handle(w, r, p, session{Session: base64.StdEncoding.EncodeToString([]byte("{}"))})
 	}
 }
 
 func (h *WebHandler) needsLogin(handle webHandle) httprouter.Handle {
 	if h.disabledUI() {
 		return noOperationHandler()
-	} else {
-		return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-			err := func() error {
-				session, err := h.authenticate(w, r)
-				if err == nil {
-					handle(w, r, p, *session)
-					return nil
-				}
-				token, errToken := h.tryLoginWithToken(w, r)
-				if errToken != nil {
-					log.Warningf("failed to authenticate: %v %v", err, errToken)
-					return trace.Wrap(errToken)
-				}
-				if token == nil {
-					return trace.Wrap(err)
-				}
-				// if the token is already associated with a cluster, it means
-				// the installation has been initiated already so redirect the
-				// user to the cluster's installer page
-				if token.SiteDomain != "" {
-					http.Redirect(w, r, "/web/installer/site/"+token.SiteDomain, http.StatusFound)
-				} else {
-					http.Redirect(w, r, r.URL.Path, http.StatusFound)
-				}
+	}
+
+	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+		err := func() error {
+			session, err := h.authenticate(w, r)
+			if err == nil {
+				handle(w, r, p, *session)
 				return nil
-			}()
-
-			if err != nil {
-				if !trace.IsAccessDenied(err) {
-					log.Error(trace.DebugReport(err))
-				}
-
-				http.Redirect(w, r, "/web/login?redirect_uri="+r.URL.Path, http.StatusFound)
 			}
+			token, errToken := h.tryLoginWithToken(w, r)
+			if errToken != nil {
+				log.Warningf("failed to authenticate: %v %v", err, errToken)
+				return trace.Wrap(errToken)
+			}
+			if token == nil {
+				return trace.Wrap(err)
+			}
+			// if the token is already associated with a cluster, it means
+			// the installation has been initiated already so redirect the
+			// user to the cluster's installer page
+			if token.SiteDomain != "" {
+				http.Redirect(w, r, "/web/installer/site/"+token.SiteDomain, http.StatusFound)
+			} else {
+				http.Redirect(w, r, r.URL.Path, http.StatusFound)
+			}
+			return nil
+		}()
+
+		if err != nil {
+			if !trace.IsAccessDenied(err) {
+				log.Error(trace.DebugReport(err))
+			}
+
+			http.Redirect(w, r, "/web/login?redirect_uri="+r.URL.Path, http.StatusFound)
 		}
 	}
 }
