@@ -452,7 +452,7 @@ func noOperationHandler() func(w http.ResponseWriter, r *http.Request, p httprou
 }
 
 func (h *WebHandler) noLogin(handle webHandle) httprouter.Handle {
-	if h.disableUI() {
+	if h.disabledUI() {
 		return noOperationHandler()
 	} else {
 		return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
@@ -462,7 +462,7 @@ func (h *WebHandler) noLogin(handle webHandle) httprouter.Handle {
 }
 
 func (h *WebHandler) needsLogin(handle webHandle) httprouter.Handle {
-	if h.disableUI() {
+	if h.disabledUI() {
 		return noOperationHandler()
 	} else {
 		return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
@@ -649,7 +649,7 @@ func getWebConfigAuthSettings(cfg WebHandlerConfig) telewebui.WebConfigAuthSetti
 	return authSettings
 }
 
-func (h *WebHandler) disableUI() bool {
+func (h *WebHandler) disabledUI() bool {
 	sites, err := h.cfg.Operator.GetSites(defaults.SystemAccountID)
 	if err != nil {
 		return false
