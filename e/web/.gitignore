@@ -1,0 +1,10 @@
+oss-src
+shared
+/*/**/__tests__
+/*/**/__test__
+
+node_modules
+*.log
+dist/**/*
+/**/_tmp
+.vscode
