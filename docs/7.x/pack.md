@@ -1117,3 +1117,21 @@ When building a Cluster Image, `tele build` will discover `custom-planet:1.0.0`
 Docker image and vendor it along with other dependencies. During the Cluster
 installation all nodes with the role `worker` will use the custom "planet" Docker
 image instead of the default one.
+
+### Kubenetes Admission Controllers
+
+Optional Kubernetes admission controllers can be enabled when using a custom `planet`
+image. Create an environment file and specify a list of admission controllers to
+be enabled in the `KUBE_ADMISSION_PLUGINS` variable. Then copy the environment file
+to `/etc/optional-environment` file path in the `planet` container.
+
+Example:
+
+```
+// /path/to/optional-environment
+KUBE_ADMISSION_PLUGINS=ImagePolicyWebhook,EventRateLimit,...
+
+// Dockerfile
+FROM <planet-image>:<version>
+COPY /path/to/optional-environment /etc/optional-environment
+```
