@@ -1120,16 +1120,18 @@ image instead of the default one.
 
 ### Kubenetes Admission Controllers
 
-Optional Kubernetes admission controllers can be enabled when using a custom `planet`
-image. Create an environment file and specify a list of admission controllers to
-be enabled in the `KUBE_ADMISSION_PLUGINS` variable. Then copy the environment file
-to `/etc/optional-environment` file path in the `planet` container.
+Gravity by default enables the `PodSecurityPolicy`, `NodeRestriction`, `AlwaysPullImages`,
+and `EventRateLimit` Kubernetes admission controllers. Optional admission controllers
+can be enabled alongside the defaults when using a [Custom System Container](#custom-system-container).
+Create an environment file and specify a list of admission controllers to be enabled
+in the `KUBE_ADMISSION_PLUGINS` variable. Then copy the environment file to `/etc/optional-environment`
+file path in the custom system container.
 
 Example:
 
 ```
 // /path/to/optional-environment
-KUBE_ADMISSION_PLUGINS=ImagePolicyWebhook,EventRateLimit,...
+KUBE_ADMISSION_PLUGINS=ImagePolicyWebhook,AlwaysAdmit,...
 
 // Dockerfile
 FROM <planet-image>:<version>
