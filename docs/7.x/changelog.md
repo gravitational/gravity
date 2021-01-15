@@ -11,9 +11,9 @@ Find the latest Open Source Gravity releases at [Gravity Downloads](https://grav
 
 | Version             | Latest Patch | LTS | Release Date         | Latest Patch Date    | End of Support *        | Kubernetes Version   | Teleport Version |
 | ------------------- | ------------ | --- | -------------------- | -------------------- | ----------------------- | -------------------- | ---------------- |
-| [7.0](#70-releases) | 7.0.29       | Yes | April 3, 2020        | January 9, 2021      | July 9, 2022            | 1.17.9               | 3.2.14-gravity   |
-| [6.1](#61-releases) | 6.1.47       | Yes | August 2, 2019       | January 9, 2021      | November 10, 2021       | 1.15.12              | 3.2.14-gravity   |
-| [5.5](#55-releases) | 5.5.56       | Yes | March 8, 2019        | November 23, 2020    | March 8, 2021           | 1.13.11              | 3.0.7-gravity    |
+| [7.0](#70-releases) | 7.0.30       | Yes | April 3, 2020        | January 15, 2021      | July 9, 2022            | 1.17.9               | 3.2.14-gravity   |
+| [6.1](#61-releases) | 6.1.47       | Yes | August 2, 2019       | January 9, 2021       | November 10, 2021       | 1.15.12              | 3.2.14-gravity   |
+| [5.5](#55-releases) | 5.5.57       | Yes | March 8, 2019        | January 15, 2021      | March 8, 2021           | 1.13.11              | 3.0.7-gravity    |
 
 Gravity offers one Long Term Support (LTS) version for every 2nd Kubernetes
 minor version, allowing for seamless upgrades per Kubernetes
@@ -51,7 +51,12 @@ extend updates past End of Support through customer agreements if required.
 
 ## 7.0 Releases
 
-### 7.0.29 LTS (January 9, 2020)
+### 7.0.30 LTS (January 15, 2021)
+
+#### Bugfixes
+* Fix an issue with podAntiAffinity on kube-dns workers ([#2387](https://github.com/gravitational/gravity/pull/2387)).
+
+### 7.0.29 LTS (January 9, 2021)
 
 #### Improvements
 * Add limited support for specifying additional kubernetes admission controllers ([#2367](https://github.com/gravitational/gravity/pull/2367), [planet#810](https://github.com/gravitational/planet/pull/810)).
@@ -1523,6 +1528,16 @@ to learn how to gain insight into how the cluster status changes over time.
 * Upgrade Kubernetes to `v1.14.0`.
 
 ## 5.5 Releases
+
+### 5.5.57 LTS (January 15, 2021)
+#### Improvements
+* Rollback of dns-app, monitoring-app, gravity-site are now re-entrant ([#2390](https://github.com/gravitational/gravity/pull/2390), [rigging#87](https://github.com/gravitational/rigging/pull/87)).
+* Update of dns-app, monitoring-app, gravity-site are now re-entrant ([#2390](https://github.com/gravitational/gravity/pull/2390), [rigging#86](https://github.com/gravitational/rigging/pull/86)).
+
+
+#### Bugfixes
+* Shutdown kubernetes control plane immediately when elections are disabled ([#2388](https://github.com/gravitational/gravity/pull/2388), [planet#803](https://github.com/gravitational/planet/pull/803)).
+
 
 ### 5.5.56 LTS (November 23, 2020)
 
