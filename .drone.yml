@@ -1,0 +1,59 @@
+---
+kind: pipeline
+type: kubernetes
+name: docs-pr
+
+trigger:
+  event:
+  - pull_request
+
+steps:
+  - name: wait for docker
+    image: docker
+    commands:
+      - timeout 15s /bin/sh -c 'while [ ! -S /var/run/docker.sock ]; do sleep 1; done'
+      - docker version
+    volumes:
+      - name: dockersock
+        path: /var/run
+  - name: build buildbox
+    image: docker:git
+    commands:
+      - apk add --no-cache make
+      - make -C docs bbox
+    volumes:
+      - name: dockersock
+        path: /var/run
+  - name: build
+    image: docker:git
+    commands:
+      - apk add --no-cache make
+      - make -C docs docs
+    volumes:
+      - name: dockersock
+        path: /var/run
+  - name: lint
+    image: docker:git
+    commands:
+      - apk add --no-cache make
+      - make -C docs lint
+    volumes:
+      - name: dockersock
+        path: /var/run
+
+services:
+  - name: run docker daemon
+    image: docker:dind
+    privileged: true
+    volumes:
+      - name: dockersock
+        path: /var/run
+
+volumes:
+  - name: dockersock
+    temp: {}
+---
+kind: signature
+hmac: ecf6ccc933d41d1db58d885ae7f9cae6ef3d3139444333586f6c0ba63002f9de
+
+...

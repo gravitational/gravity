@@ -202,7 +202,7 @@ spec:
                 matchExpressions:
                   - key: k8s-app
                     operator: In
-                    values: ["kube-dns"]
+                    values: ["kube-dns-worker"]
               topologyKey: kubernetes.io/hostname
       containers:
       - name: coredns
@@ -424,7 +424,7 @@ data:
   # If using small nodes, "nodesPerReplica" should dominate.
   # Parameters based on kubernetes defaults: https://github.com/kubernetes/kubernetes/blob/f65f868aa041e108a73a014df360427c6e05e493/cluster/addons/dns-horizontal-autoscaler/dns-horizontal-autoscaler.yaml
   # linear: '{"coresPerReplica":256,"includeUnschedulableNodes":true,"nodesPerReplica":16,"preventSinglePointFailure":true}'
-  # Use ladder scaling that emulates the linear scale, because we want to scale down to 0 replicas when no workers are 
+  # Use ladder scaling that emulates the linear scale, because we want to scale down to 0 replicas when no workers are
   # joined to the cluster. The linear scaler doesn't support 0 replicas.
   ladder: |-
     {
