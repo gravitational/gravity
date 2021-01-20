@@ -654,8 +654,6 @@ type UpdateUploadCmd struct {
 	*kingpin.CmdClause
 	// OpsCenterURL is cluster URL
 	OpsCenterURL *string
-	// AppConfig is the path to the config file of the application (app.yaml).
-	AppConfig *string
 }
 
 // UpdateCompleteCmd marks update operation as completed
