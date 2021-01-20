@@ -374,7 +374,7 @@ type ImportRequest struct {
 	// a new tag to update for an image matching the specified registry/repository
 	SetImages []loc.DockerImage `json:"set_images"`
 	// SetDeps defines a list of package dependencies that will be set to the specified version
-	SetDeps []loc.Locator
+	SetDeps []loc.Locator `json:"set_deps"`
 	// ExcludeApps defines a list of app dependencies that will be excluded
 	ExcludeApps []loc.Locator `json:"exclude_apps"`
 }
