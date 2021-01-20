@@ -27,6 +27,7 @@ import (
 )
 
 var (
+	// OptionalDependencies specifies what dependencies can be disabled
 	OptionalDependencies = []loc.Locator{
 		{Name: defaults.LoggingAppName},
 		{Name: defaults.MonitoringAppName},
