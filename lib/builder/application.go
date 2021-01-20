@@ -94,7 +94,7 @@ func (b *applicationBuilder) Build(ctx context.Context, req ApplicationRequest) 
 	defer stream.Close()
 
 	b.NextStep("Creating application")
-	application, err := b.CreateApplication(stream, nil)
+	application, err := b.CreateApplication(stream)
 	if err != nil {
 		return trace.Wrap(err)
 	}

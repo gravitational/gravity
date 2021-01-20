@@ -124,7 +124,7 @@ func (b *clusterBuilder) Build(ctx context.Context, req ClusterRequest) error {
 	defer stream.Close()
 
 	b.NextStep("Creating application")
-	application, err := b.CreateApplication(stream, appapi.AppsToExclude(*manifest))
+	application, err := b.CreateApplication(stream, appapi.AppsToExclude(*manifest)...)
 	if err != nil {
 		return trace.Wrap(err)
 	}

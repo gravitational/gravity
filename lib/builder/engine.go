@@ -270,7 +270,7 @@ func (b *Engine) Vendor(ctx context.Context, req VendorRequest) (io.ReadCloser, 
 
 // CreateApplication creates a Gravity application from the provided
 // data in the local database
-func (b *Engine) CreateApplication(data io.ReadCloser, excludeApps []loc.Locator) (*app.Application, error) {
+func (b *Engine) CreateApplication(data io.ReadCloser, excludeApps ...loc.Locator) (*app.Application, error) {
 	progressC := make(chan *app.ProgressEntry)
 	errorC := make(chan error, 1)
 	err := b.Packages.UpsertRepository(defaults.SystemAccountOrg, time.Time{})
