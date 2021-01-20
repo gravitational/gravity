@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"os"
 
+	appapi "github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/app/service"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
@@ -123,7 +124,7 @@ func (b *clusterBuilder) Build(ctx context.Context, req ClusterRequest) error {
 	defer stream.Close()
 
 	b.NextStep("Creating application")
-	application, err := b.CreateApplication(stream)
+	application, err := b.CreateApplication(stream, appapi.AppsToExclude(*manifest))
 	if err != nil {
 		return trace.Wrap(err)
 	}

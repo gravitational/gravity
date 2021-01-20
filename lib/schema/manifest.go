@@ -531,6 +531,17 @@ func (d Dependencies) GetApps() []loc.Locator {
 	return loc.Deduplicate(apps)
 }
 
+// FilterApps returns a filtered list of application dependencies
+func (d Dependencies) FilterApps(apps []loc.Locator) (result []loc.Locator) {
+	for _, app := range d.Apps {
+		if !loc.Contains(app.Locator, apps) {
+			result = append(result, app.Locator)
+		}
+	}
+
+	return result
+}
+
 // Dependency represents a package or app dependency
 type Dependency struct {
 	// Locator is dependency package locator

@@ -252,7 +252,7 @@ func pullDependencies(app *appservice.Application, localApps, remoteApps *applic
 
 	apps := dependencies.Apps
 	apps = append(apps, app.Package)
-	if err = pullApplications(apps, localApps, remoteApps, log); err != nil {
+	if err = pullApplications(app.Manifest.FilterDependencies(apps), localApps, remoteApps, log); err != nil {
 		return trace.Wrap(err)
 	}
 	return nil

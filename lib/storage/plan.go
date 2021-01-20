@@ -187,6 +187,8 @@ type PullData struct {
 	Packages []loc.Locator `json:"packages,omitempty" yaml:"packages,omitempty"`
 	// Apps is a list of applications to pull
 	Apps []loc.Locator `json:"apps,omitempty" yaml:"apps,omitempty"`
+	// ExcludeApps defines a list of app dependencies that will be excluded
+	ExcludeApps []loc.Locator
 }
 
 // ElectionChange describes changes to make to cluster elections

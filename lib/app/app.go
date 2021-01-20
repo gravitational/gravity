@@ -374,7 +374,9 @@ type ImportRequest struct {
 	// a new tag to update for an image matching the specified registry/repository
 	SetImages []loc.DockerImage `json:"set_images"`
 	// SetDeps defines a list of package dependencies that will be set to the specified version
-	SetDeps []loc.Locator `json:"set_deps"`
+	SetDeps []loc.Locator
+	// ExcludeApps defines a list of app dependencies that will be excluded
+	ExcludeApps []loc.Locator `json:"exclude_apps"`
 }
 
 // DeleteRequest describes a request to delete an application
@@ -393,6 +395,9 @@ type Application struct {
 	PackageEnvelope pack.PackageEnvelope `json:"envelope"`
 	// Manifest defines the application install configuration
 	Manifest schema.Manifest `json:"manifest"`
+	// ExcludeApps defines a list of app dependencies
+	// that will be excluded from the build pipeline
+	ExcludeApps []loc.Locator `json:"exclude_apps"`
 }
 
 // String formats the specified application for output

@@ -78,6 +78,8 @@ type AppPullRequest struct {
 	DstApp app.Applications
 	// Package is the application package to pull
 	Package loc.Locator
+	// ExcludeApps defines a list of app dependencies that will be excluded from the pull
+	ExcludeApps []loc.Locator
 	// Labels is the labels to assign to the pulled app
 	Labels map[string]string
 	// Progress is optional progress reporter
@@ -113,6 +115,7 @@ func (r *AppPullRequest) Clone(locator loc.Locator) AppPullRequest {
 		Progress:     r.Progress,
 		Parallel:     r.Parallel,
 		MetadataOnly: r.MetadataOnly,
+		ExcludeApps:  r.ExcludeApps,
 	}
 }
 
@@ -370,7 +373,7 @@ func pullAppDeps(req AppPullRequest, manifest schema.Manifest, state *pullState)
 	}
 
 	// pull dependent applications
-	for _, dep := range manifest.Dependencies.GetApps() {
+	for _, dep := range manifest.Dependencies.FilterApps(req.ExcludeApps) {
 		_, err := pullApp(req.Clone(dep), state)
 		if err != nil {
 			if !trace.IsAlreadyExists(err) {

@@ -18,9 +18,12 @@ package localenv
 
 import (
 	"io"
+	"path"
 	"path/filepath"
 
 	libapp "github.com/gravitational/gravity/lib/app"
+	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/pack/encryptedpack"
 	"github.com/gravitational/gravity/lib/utils"
@@ -64,10 +67,17 @@ func NewTarballEnvironment(config TarballEnvironmentArgs) (*TarballEnvironment, 
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+
+	excludeApps, err := libapp.DepsToExclude(path.Join(config.StateDir, defaults.ManifestFileName))
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
 	return &TarballEnvironment{
-		Closer:   env,
-		Packages: packages,
-		Apps:     apps,
+		Closer:      env,
+		Packages:    packages,
+		Apps:        apps,
+		ExcludeApps: excludeApps,
 	}, nil
 }
 
@@ -95,4 +105,6 @@ type TarballEnvironment struct {
 	Packages pack.PackageService
 	// Apps specifies the local application service
 	Apps libapp.Applications
+	// ExcludeApps defines a list of app dependencies that will be excluded
+	ExcludeApps []loc.Locator
 }

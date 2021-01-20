@@ -410,6 +410,15 @@ drwxr-xr-x. 5 user user 4.0K Jan 14 09:08 packages
 You can execute the `./upgrade` script to upload and upgrade in one go,
 or you can upload the update and then execute `gravity upgrade` command.
 
+!!! note "Disabling existing functionality when upgrading"
+Currently, `gravity upgrade` will not uninstall existing applications that have been disabled in the upgrade manifest.
+Example:
+We have a cluster that has the monitoring app enabled.
+We perform an upgrade, and the upgrade image has the monitoring app as disabled in the manifest.
+In this case the monitoring app will not be stopped, and it will keep on working as before.
+The existing artifacts of the monitoring app will not be cleaned up. The docker images 
+will not be removed from the internal repository.
+
 Using `gravity upgrade` gives more Control over the upgrade procedure.
 
 ```bash

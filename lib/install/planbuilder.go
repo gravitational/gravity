@@ -256,6 +256,7 @@ func (b *PlanBuilder) getPullData(node storage.Server) (*storage.PullData, error
 			Apps: []loc.Locator{
 				b.Application.Package,
 			},
+			ExcludeApps: app.AppsToExclude(b.Application.Manifest),
 		}, nil
 	}
 	// Regular nodes pull only packages required for runtime such as planet
@@ -270,6 +271,7 @@ func (b *PlanBuilder) getPullData(node storage.Server) (*storage.PullData, error
 			b.TeleportPackage,
 			*planetPackage,
 		},
+		ExcludeApps: app.AppsToExclude(b.Application.Manifest),
 	}, nil
 }
 

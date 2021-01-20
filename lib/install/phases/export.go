@@ -28,6 +28,7 @@ import (
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
+	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -99,6 +100,10 @@ func (p *exportExecutor) Execute(ctx context.Context) error {
 		return trace.Wrap(err)
 	}
 	for _, dep := range app.Manifest.Dependencies.Apps {
+		if schema.ShouldSkipApp(app.Manifest, dep.Locator) {
+			continue
+		}
+
 		err = p.unpackApp(dep.Locator)
 		if err != nil {
 			return trace.Wrap(err)

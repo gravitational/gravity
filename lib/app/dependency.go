@@ -17,11 +17,24 @@ limitations under the License.
 package app
 
 import (
+	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/pack"
+	"github.com/gravitational/gravity/lib/schema"
 
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
+)
+
+var (
+	OptionalDependencies = []loc.Locator{
+		{Name: defaults.LoggingAppName},
+		{Name: defaults.MonitoringAppName},
+		{Name: defaults.IngressAppName},
+		{Name: defaults.TillerAppName},
+		{Name: defaults.StorageAppName},
+		{Name: defaults.BandwagonPackageName},
+	}
 )
 
 // GetDependencies transitively collects dependencies for the specified application package
@@ -104,7 +117,7 @@ func getDependencies(app *Application, apps Applications, state *state) error {
 	if baseLocator != nil {
 		appDeps = append(appDeps, *baseLocator)
 	}
-	for _, dependency := range append(appDeps, app.Manifest.Dependencies.GetApps()...) {
+	for _, dependency := range append(appDeps, app.Manifest.Dependencies.FilterApps(app.ExcludeApps)...) {
 		packageName := dependency.String()
 		if _, ok := state.visitedApps[packageName]; !ok {
 			app, err := apps.GetApp(dependency)
@@ -128,6 +141,32 @@ func getDependencies(app *Application, apps Applications, state *state) error {
 	}
 
 	return nil
+}
+
+// AppsToExclude returns a list of apps that should be excluded
+func AppsToExclude(manifest schema.Manifest) []loc.Locator {
+	var excludeApps []loc.Locator
+	for _, app := range OptionalDependencies {
+		if schema.ShouldSkipApp(manifest, app) {
+			excludeApps = append(excludeApps, app)
+		}
+	}
+
+	return excludeApps
+}
+
+// DepsToExclude returns a list of dependencies that should be excluded
+func DepsToExclude(manifestPath string) ([]loc.Locator, error) {
+	if manifestPath != "" {
+		manifest, err := schema.ParseManifest(manifestPath)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+
+		return AppsToExclude(*manifest), nil
+	}
+
+	return nil, nil
 }
 
 type state struct {

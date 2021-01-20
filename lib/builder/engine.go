@@ -192,8 +192,9 @@ func (b *Engine) SyncPackageCache(manifest *schema.Manifest, runtimeVersion *sem
 	// see if all required packages/apps are already present in the local cache
 	manifest.SetBase(loc.Runtime.WithVersion(runtimeVersion))
 	err = app.VerifyDependencies(&app.Application{
-		Manifest: *manifest,
-		Package:  manifest.Locator(),
+		Manifest:    *manifest,
+		Package:     manifest.Locator(),
+		ExcludeApps: app.AppsToExclude(*manifest),
 	}, apps, b.Env.Packages)
 	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
@@ -269,7 +270,7 @@ func (b *Engine) Vendor(ctx context.Context, req VendorRequest) (io.ReadCloser, 
 
 // CreateApplication creates a Gravity application from the provided
 // data in the local database
-func (b *Engine) CreateApplication(data io.ReadCloser) (*app.Application, error) {
+func (b *Engine) CreateApplication(data io.ReadCloser, excludeApps []loc.Locator) (*app.Application, error) {
 	progressC := make(chan *app.ProgressEntry)
 	errorC := make(chan error, 1)
 	err := b.Packages.UpsertRepository(defaults.SystemAccountOrg, time.Time{})
@@ -277,9 +278,10 @@ func (b *Engine) CreateApplication(data io.ReadCloser) (*app.Application, error)
 		return nil, trace.Wrap(err)
 	}
 	op, err := b.Apps.CreateImportOperation(&app.ImportRequest{
-		Source:    data,
-		ProgressC: progressC,
-		ErrorC:    errorC,
+		Source:      data,
+		ProgressC:   progressC,
+		ErrorC:      errorC,
+		ExcludeApps: excludeApps,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)

@@ -238,6 +238,17 @@ func Deduplicate(ls []Locator) (result []Locator) {
 	return result
 }
 
+// Contains checks if a list of locators contains another one
+func Contains(locator Locator, locators []Locator) bool {
+	for _, l := range locators {
+		if l.Name == locator.Name {
+			return true
+		}
+	}
+
+	return false
+}
+
 var (
 	// OpsCenterCertificateAuthority is locator for the package containing certificate and private
 	// key for the OpsCenter

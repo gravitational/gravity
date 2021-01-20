@@ -42,6 +42,7 @@ type SyncRequest struct {
 	Package      loc.Locator
 	Progress     utils.Printer
 	ScanConfig   *docker.ScanConfig
+	ExcludeApps  []loc.Locator
 }
 
 // CheckAndSetDefaults validates the request and sets some defaults.
@@ -74,6 +75,7 @@ func SyncApp(ctx context.Context, req SyncRequest) error {
 			Package:      *base,
 			Progress:     req.Progress,
 			ScanConfig:   req.ScanConfig,
+			ExcludeApps:  req.ExcludeApps,
 		})
 		if err != nil {
 			return trace.Wrap(err)
@@ -81,14 +83,15 @@ func SyncApp(ctx context.Context, req SyncRequest) error {
 	}
 
 	// sync dependencies
-	for _, dep := range application.Manifest.Dependencies.Apps {
+	for _, dep := range application.Manifest.Dependencies.FilterApps(req.ExcludeApps) {
 		err = SyncApp(ctx, SyncRequest{
 			PackService:  req.PackService,
 			AppService:   req.AppService,
 			ImageService: req.ImageService,
-			Package:      dep.Locator,
+			Package:      dep,
 			Progress:     req.Progress,
 			ScanConfig:   req.ScanConfig,
+			ExcludeApps:  req.ExcludeApps,
 		})
 		if err != nil {
 			return trace.Wrap(err)

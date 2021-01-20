@@ -654,6 +654,8 @@ type UpdateUploadCmd struct {
 	*kingpin.CmdClause
 	// OpsCenterURL is cluster URL
 	OpsCenterURL *string
+	// AppConfig is the path to the config file of the application (app.yaml).
+	AppConfig *string
 }
 
 // UpdateCompleteCmd marks update operation as completed
@@ -954,6 +956,8 @@ type AppImportCmd struct {
 	DockerURL *string
 	// OpsCenterURL is cluster URL to import to
 	OpsCenterURL *string
+	// AppConfig is the path to the config file of the application (app.yaml).
+	AppConfig *string
 	// Vendor turns on Docker image vendoring
 	Vendor *bool
 	// Force overwrites existing app

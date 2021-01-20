@@ -88,11 +88,12 @@ func uploadUpdate(ctx context.Context, tarballEnv *localenv.TarballEnvironment, 
 
 	env.PrintStep("Importing application %v v%v", appPackage.Name, appPackage.Version)
 	_, err = appservice.PullApp(appservice.AppPullRequest{
-		SrcPack: tarballEnv.Packages,
-		SrcApp:  tarballEnv.Apps,
-		DstPack: clusterPackages,
-		DstApp:  clusterApps,
-		Package: *appPackage,
+		SrcPack:     tarballEnv.Packages,
+		SrcApp:      tarballEnv.Apps,
+		DstPack:     clusterPackages,
+		DstApp:      clusterApps,
+		Package:     *appPackage,
+		ExcludeApps: tarballEnv.ExcludeApps,
 	})
 	if err != nil {
 		if !trace.IsAlreadyExists(err) {
@@ -134,6 +135,7 @@ func uploadUpdate(ctx context.Context, tarballEnv *localenv.TarballEnvironment, 
 			AppService:   tarballEnv.Apps,
 			ImageService: imageService,
 			Package:      *appPackage,
+			ExcludeApps:  tarballEnv.ExcludeApps,
 		})
 		if err != nil {
 			return trace.Wrap(err)

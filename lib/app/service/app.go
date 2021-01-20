@@ -921,8 +921,8 @@ func (r *applications) checkImportRequirements(manifest *schema.Manifest, req *a
 	}
 
 	// check dependencies-apps
-	for _, dep := range manifest.Dependencies.Apps {
-		locator, err := r.processMetadata(dep.Locator)
+	for _, dep := range manifest.Dependencies.FilterApps(req.ExcludeApps) {
+		locator, err := r.processMetadata(dep)
 		if err != nil {
 			return trace.Wrap(err)
 		}

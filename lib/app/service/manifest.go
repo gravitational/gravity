@@ -135,6 +135,7 @@ func toApp(pkg *pack.PackageEnvelope, apps *applications) (*app.Application, err
 		Package:         pkg.Locator,
 		PackageEnvelope: *pkg,
 		Manifest:        *manifest,
+		ExcludeApps:     app.AppsToExclude(*manifest),
 	}, nil
 }
 

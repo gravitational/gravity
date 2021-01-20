@@ -182,6 +182,7 @@ func (p *pullExecutor) pullApps(locators []loc.Locator) error {
 			SrcApp:      p.WizardApps,
 			DstApp:      p.LocalApps,
 			Package:     locator,
+			ExcludeApps: p.Pull.ExcludeApps,
 		})
 		if err != nil && !trace.IsAlreadyExists(err) { // Must be re-entrant.
 			return trace.Wrap(err)
