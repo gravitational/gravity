@@ -68,7 +68,7 @@ func NewTarballEnvironment(config TarballEnvironmentArgs) (*TarballEnvironment, 
 		return nil, trace.Wrap(err)
 	}
 
-	excludeApps, err := libapp.DepsToExclude(path.Join(config.StateDir, defaults.ManifestFileName))
+	excludeApps, err := libapp.AppsToExcludeFromManifest(path.Join(config.StateDir, defaults.ManifestFileName))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

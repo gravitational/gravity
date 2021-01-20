@@ -155,8 +155,8 @@ func AppsToExclude(manifest schema.Manifest) []loc.Locator {
 	return excludeApps
 }
 
-// DepsToExclude returns a list of dependencies that should be excluded
-func DepsToExclude(manifestPath string) ([]loc.Locator, error) {
+// AppsToExcludeFromManifest returns a list of dependencies that should be excluded
+func AppsToExcludeFromManifest(manifestPath string) ([]loc.Locator, error) {
 	if manifestPath != "" {
 		manifest, err := schema.ParseManifest(manifestPath)
 		if err != nil {
