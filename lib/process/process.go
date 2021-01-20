@@ -1545,10 +1545,19 @@ func (p *Process) initService(ctx context.Context) (err error) {
 		return trace.Wrap(err)
 	}
 
+	disabledUI := false
+	if p.mode == constants.ComponentSite {
+		site, err := p.backend.GetLocalSite(defaults.SystemAccountID)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		disabledUI = site.DisabledWebUI
+	}
 	p.handlers.Web = web.NewHandler(web.WebHandlerConfig{
 		AssetsDir:      assetsDir,
 		Mode:           p.mode,
 		Wizard:         p.mode == constants.ComponentInstaller,
+		DisabledUI:     disabledUI,
 		TeleportConfig: p.teleportConfig,
 		Identity:       p.identity,
 		Operator:       p.operator,

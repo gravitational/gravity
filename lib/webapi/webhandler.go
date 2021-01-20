@@ -47,6 +47,10 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+const (
+	webUIDisabledMessage = "Web UI is disabled"
+)
+
 // WebHandler serves web UI
 type WebHandler struct {
 	// Router is used to route web requests
@@ -65,6 +69,8 @@ type WebHandlerConfig struct {
 	Mode string
 	// Wizard is whether this process is install wizard
 	Wizard bool
+	// DisabledUI specifies whether the UI is disabled
+	DisabledUI bool
 	// TeleportConfig is the teleport configuration
 	TeleportConfig *service.Config
 	// Identity is the cluster user service
@@ -444,18 +450,18 @@ func (h *WebHandler) notFound() http.HandlerFunc {
 	}
 }
 
-func noOperationHandler() func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+func noOperationHandler(message string) func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		log.WithFields(log.Fields{"urlPath": r.URL.Path, "method": r.Method,
-			"remoteAddr": r.RemoteAddr}).Warn("Not handling this request because the UI is disabled.")
+			"remoteAddr": r.RemoteAddr}).Warnf("Not handling this request because %v", message)
 
-		replyError(w, "Web UI is disabled", http.StatusForbidden)
+		replyError(w, message, http.StatusForbidden)
 	}
 }
 
 func (h *WebHandler) noLogin(handle webHandle) httprouter.Handle {
-	if h.disabledUI() {
-		return noOperationHandler()
+	if h.cfg.DisabledUI {
+		return noOperationHandler(webUIDisabledMessage)
 	}
 
 	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
@@ -464,8 +470,8 @@ func (h *WebHandler) noLogin(handle webHandle) httprouter.Handle {
 }
 
 func (h *WebHandler) needsLogin(handle webHandle) httprouter.Handle {
-	if h.disabledUI() {
-		return noOperationHandler()
+	if h.cfg.DisabledUI {
+		return noOperationHandler(webUIDisabledMessage)
 	}
 
 	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
@@ -649,21 +655,6 @@ func getWebConfigAuthSettings(cfg WebHandlerConfig) telewebui.WebConfigAuthSetti
 	}
 
 	return authSettings
-}
-
-func (h *WebHandler) disabledUI() bool {
-	sites, err := h.cfg.Operator.GetSites(defaults.SystemAccountID)
-	if err != nil {
-		return false
-	}
-
-	for _, s := range sites {
-		if s.App.Manifest.OpsCenterDisabled() {
-			return true
-		}
-	}
-
-	return false
 }
 
 type session struct {
