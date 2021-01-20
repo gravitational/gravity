@@ -956,8 +956,6 @@ type AppImportCmd struct {
 	DockerURL *string
 	// OpsCenterURL is cluster URL to import to
 	OpsCenterURL *string
-	// AppConfig is the path to the config file of the application (app.yaml).
-	AppConfig *string
 	// Vendor turns on Docker image vendoring
 	Vendor *bool
 	// Force overwrites existing app
