@@ -78,6 +78,8 @@ type Config struct {
 	CacheResources bool
 	// UnpackedDir is the dir where packages are unpacked
 	UnpackedDir string
+	// ExcludeDeps defines a list of dependencies that will be excluded for the app image
+	ExcludeDeps []loc.Locator
 	// GetClient constructs kubernetes clients.
 	// Either this or Client must be set to use the kubernetes API.
 	GetClient func() (*kubernetes.Clientset, error)
@@ -646,6 +648,12 @@ func (r *applications) CreateImportOperation(req *appservice.ImportRequest) (*st
 		return nil, trace.Wrap(err)
 	}
 
+	m, err := schema.ParseManifestYAML(manifestBytes)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	r.Config.ExcludeDeps = appservice.AppsToExclude(*m)
+
 	manifest, err := r.resolveManifest(manifestBytes)
 	if err != nil {
 		cleanup()
@@ -815,6 +823,10 @@ func (r *applications) resolveManifest(manifestBytes []byte) (*schema.Manifest, 
 			return nil, trace.Wrap(err)
 		}
 	}
+
+	message := "Dependency %v excluded from manifest"
+	manifest.Dependencies.Apps = appservice.Wrap(loc.Filter(appservice.Unwrap(manifest.Dependencies.Apps), r.Config.ExcludeDeps, message))
+
 	if err = schema.CheckAndSetDefaults(manifest); err != nil {
 		return nil, trace.Wrap(err)
 	}

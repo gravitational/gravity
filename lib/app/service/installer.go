@@ -50,6 +50,7 @@ func (r *applications) getApplicationInstaller(
 	app *appservice.Application,
 	apps *applications,
 ) ([]*archive.Item, error) {
+	apps.Config.ExcludeDeps = appservice.AppsToExclude(app.Manifest)
 	err := pullApplications([]loc.Locator{app.Package}, apps, r, r)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -252,6 +253,7 @@ func pullDependencies(app *appservice.Application, localApps, remoteApps *applic
 
 	apps := dependencies.Apps
 	apps = append(apps, app.Package)
+	localApps.Config.ExcludeDeps = appservice.AppsToExclude(app.Manifest)
 	if err = pullApplications(apps, localApps, remoteApps, log); err != nil {
 		return trace.Wrap(err)
 	}
@@ -291,6 +293,19 @@ func pullApplications(locators []loc.Locator, localApps *applications, remoteApp
 			return trace.Wrap(err)
 		}
 		defer reader.Close()
+
+		m, err := schema.ParseManifestYAML(envelope.Manifest)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+
+		message := "Dependency %v purged from manifest"
+		m.Dependencies.Apps = appservice.Wrap(loc.Filter(appservice.Unwrap(m.Dependencies.Apps), localApps.Config.ExcludeDeps, message))
+		manifestBytes, err := yaml.Marshal(m)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		envelope.Manifest = manifestBytes
 
 		var labels map[string]string
 		_, err = localApps.CreateAppWithManifest(envelope.Locator, envelope.Manifest, reader, labels)
