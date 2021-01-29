@@ -444,15 +444,6 @@ func (h *WebHandler) notFound() http.HandlerFunc {
 	}
 }
 
-func noOperationHandler(message string) func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		log.WithFields(log.Fields{"urlPath": r.URL.Path, "method": r.Method,
-			"remoteAddr": r.RemoteAddr}).Warnf("Not handling this request because %v", message)
-
-		replyError(w, message, http.StatusForbidden)
-	}
-}
-
 func (h *WebHandler) noLogin(handle webHandle) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		handle(w, r, p, session{Session: base64.StdEncoding.EncodeToString([]byte("{}"))})
