@@ -47,10 +47,6 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-const (
-	webUIDisabledMessage = "Web UI is disabled"
-)
-
 // WebHandler serves web UI
 type WebHandler struct {
 	// Router is used to route web requests
@@ -69,8 +65,6 @@ type WebHandlerConfig struct {
 	Mode string
 	// Wizard is whether this process is install wizard
 	Wizard bool
-	// DisabledUI specifies whether the UI is disabled
-	DisabledUI bool
 	// TeleportConfig is the teleport configuration
 	TeleportConfig *service.Config
 	// Identity is the cluster user service
@@ -460,20 +454,12 @@ func noOperationHandler(message string) func(w http.ResponseWriter, r *http.Requ
 }
 
 func (h *WebHandler) noLogin(handle webHandle) httprouter.Handle {
-	if h.cfg.DisabledUI {
-		return noOperationHandler(webUIDisabledMessage)
-	}
-
 	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		handle(w, r, p, session{Session: base64.StdEncoding.EncodeToString([]byte("{}"))})
 	}
 }
 
 func (h *WebHandler) needsLogin(handle webHandle) httprouter.Handle {
-	if h.cfg.DisabledUI {
-		return noOperationHandler(webUIDisabledMessage)
-	}
-
 	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		err := func() error {
 			session, err := h.authenticate(w, r)
