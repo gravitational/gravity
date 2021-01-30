@@ -574,6 +574,8 @@ type Site struct {
 	Location string `json:"location"`
 	// Flavor is the initial cluster flavor.
 	Flavor string `json:"flavor"`
+	// DisabledWebUI specifies whether OpsCenter and WebInstallWizard are disabled
+	DisabledWebUI bool `json:"disabled_web_ui"`
 	// UpdateInterval is how often the site checks for and downloads newer versions of the
 	// installed application
 	UpdateInterval time.Duration `json:"update_interval"`

@@ -1545,18 +1545,28 @@ func (p *Process) initService(ctx context.Context) (err error) {
 		return trace.Wrap(err)
 	}
 
-	p.handlers.Web = web.NewHandler(web.WebHandlerConfig{
-		AssetsDir:      assetsDir,
-		Mode:           p.mode,
-		Wizard:         p.mode == constants.ComponentInstaller,
-		TeleportConfig: p.teleportConfig,
-		Identity:       p.identity,
-		Operator:       p.operator,
-		Authenticator:  p.handlers.WebProxy.GetHandler().AuthenticateRequest,
-		Forwarder:      forwarder,
-		Backend:        p.backend,
-		Clients:        clusterClients,
-	})
+	disabledUI := false
+	if p.mode == constants.ComponentSite {
+		site, err := p.backend.GetLocalSite(defaults.SystemAccountID)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		disabledUI = site.DisabledWebUI
+	}
+	if !disabledUI {
+		p.handlers.Web = web.NewHandler(web.WebHandlerConfig{
+			AssetsDir:      assetsDir,
+			Mode:           p.mode,
+			Wizard:         p.mode == constants.ComponentInstaller,
+			TeleportConfig: p.teleportConfig,
+			Identity:       p.identity,
+			Operator:       p.operator,
+			Authenticator:  p.handlers.WebProxy.GetHandler().AuthenticateRequest,
+			Forwarder:      forwarder,
+			Backend:        p.backend,
+			Clients:        clusterClients,
+		})
+	}
 
 	p.handlers.Proxy = newProxyHandler(proxyHandlerConfig{
 		tunnel:        reverseTunnel,
@@ -1718,8 +1728,10 @@ func (p *Process) initMux(ctx context.Context) error {
 
 	mux := &httprouter.Router{}
 	for _, method := range httplib.Methods {
-		mux.Handler(method, "/web", p.handlers.Web) // to handle redirect
-		mux.Handler(method, "/web/*web", p.handlers.Web)
+		if p.handlers.Web != nil {
+			mux.Handler(method, "/web", p.handlers.Web) // to handle redirect
+			mux.Handler(method, "/web/*web", p.handlers.Web)
+		}
 		mux.Handler(method, "/proxy/*proxy", http.StripPrefix("/proxy", p.handlers.WebProxy))
 		mux.Handler(method, "/v1/webapi/*webapi", p.handlers.WebProxy)
 		mux.Handler(method, "/portalapi/v1/*portalapi", http.StripPrefix("/portalapi/v1", p.handlers.WebAPI))
@@ -1735,8 +1747,11 @@ func (p *Process) initMux(ctx context.Context) error {
 		mux.HandlerFunc(method, "/readyz", p.ReportReadiness)
 		mux.HandlerFunc(method, "/healthz", p.ReportHealth)
 	}
-	mux.NotFound = p.handlers.Web.NotFound
-
+	if p.handlers.Web != nil {
+		mux.NotFound = p.handlers.Web.NotFound
+	} else {
+		mux.NotFound = p.handlers.WebAPI.NotFound
+	}
 	return trace.Wrap(p.ServeLocal(ctx, httplib.GRPCHandlerFunc(
 		p.agentServer, mux), p.cfg.Pack.ListenAddr.Addr))
 }
