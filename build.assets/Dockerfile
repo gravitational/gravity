@@ -13,19 +13,21 @@ ENV GRPC_GATEWAY_ROOT /gopath/src/github.com/grpc-ecosystem/grpc-gateway
 ENV GOGOPROTO_ROOT /gopath/src/github.com/gogo/protobuf
 ENV PROTOC_URL https://github.com/google/protobuf/releases/download/v${PROTOC_VER}/protoc-${PROTOC_VER}-${PROTOC_PLATFORM}.zip
 
-RUN (groupadd jenkins --gid=$GID -o && \
-     useradd jenkins --uid=$UID --gid=$GID --create-home --shell=/bin/sh && \
-     # install development libraries used when compiling fio
-     apt-get -q -y update --fix-missing && apt-get -q -y install libaio-dev zlib1g-dev)
+# install development libraries used when compiling fio
+RUN apt-get -q -y update --fix-missing && apt-get -q -y install libaio-dev zlib1g-dev
+
+RUN getent group  $GID || groupadd builder --gid=$GID -o; \
+    getent passwd $UID || useradd builder --uid=$UID --gid=$GID --create-home --shell=/bin/sh;
 
 RUN (mkdir -p /opt/protoc && \
      mkdir -p /.cache && \
-     chown -R jenkins:jenkins /gopath && \
-     chown -R jenkins:jenkins /opt/protoc && \
+     chown -R $UID:$GID /gopath && \
+     chown -R $UID:$GID /opt/protoc && \
      chmod 777 /.cache && \
      chmod 777 /tmp)
 
-USER jenkins
+USER $UID:$GID
+
 ENV LANGUAGE="en_US.UTF-8" \
      LANG="en_US.UTF-8" \
      LC_ALL="en_US.UTF-8" \
