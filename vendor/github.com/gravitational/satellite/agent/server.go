@@ -62,7 +62,7 @@ type server struct {
 	httpServers []*http.Server
 }
 
-// Status reports the health status of a serf cluster by iterating over the list
+// Status reports the health status of a cluster by iterating over the list
 // of currently active cluster members and collecting their respective health statuses.
 func (r *server) Status(ctx context.Context, req *pb.StatusRequest) (resp *pb.StatusResponse, err error) {
 	status, err := r.agent.Status()
@@ -72,7 +72,7 @@ func (r *server) Status(ctx context.Context, req *pb.StatusRequest) (resp *pb.St
 	return &pb.StatusResponse{Status: status}, nil
 }
 
-// LocalStatus reports the health status of the local serf node.
+// LocalStatus reports the health status of the local node.
 func (r *server) LocalStatus(ctx context.Context, req *pb.LocalStatusRequest) (resp *pb.LocalStatusResponse, err error) {
 	return &pb.LocalStatusResponse{
 		Status: r.agent.LocalStatus(),
