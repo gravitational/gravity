@@ -42,12 +42,6 @@ var DefaultPortRanges = PortRanges{
 		},
 		{
 			Protocol:    "tcp",
-			From:        defaults.SerfAgentPort,
-			To:          defaults.SerfAgentPort,
-			Description: "serf (health check agents) peer to peer",
-		},
-		{
-			Protocol:    "tcp",
 			From:        defaults.AlertmanagerServicePort,
 			To:          defaults.AlertmanagerServicePort,
 			Description: "alert manager service port",
@@ -129,12 +123,6 @@ var DefaultPortRanges = PortRanges{
 			From:        defaults.SatelliteMetricsPort,
 			To:          defaults.SatelliteMetricsPort,
 			Description: "planet agent monitoring API port",
-		},
-		{
-			Protocol:    "tcp",
-			From:        defaults.SatelliteSerfRPCPort,
-			To:          defaults.SatelliteSerfRPCPort,
-			Description: "serf RPC port",
 		},
 	},
 	Reserved: []PortRange{
