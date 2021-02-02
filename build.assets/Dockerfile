@@ -6,18 +6,24 @@ ARG GOGO_PROTO_TAG
 ARG GRPC_GATEWAY_TAG
 ARG GODEP_TAG
 ARG VERSION_TAG
+ARG UID
+ARG GID
 
 ENV TARBALL protoc-${PROTOC_VER}-${PROTOC_PLATFORM}.zip
 ENV GRPC_GATEWAY_ROOT /src/github.com/grpc-ecosystem/grpc-gateway
 ENV GOGOPROTO_ROOT /src/github.com/gogo/protobuf
 ENV PROTOC_URL https://github.com/google/protobuf/releases/download/v${PROTOC_VER}/protoc-${PROTOC_VER}-${PROTOC_PLATFORM}.zip
 
-RUN set -ex && adduser jenkins --uid=995 --disabled-password --system
+RUN getent group  $GID || groupadd builder --gid=$GID -o; \
+    getent passwd $UID || useradd builder --uid=$UID --gid=$GID --create-home --shell=/bin/sh;
+
 RUN (set -ex && mkdir -p /gopath/src/github.com/gravitational/gravity && \
-     chown -R jenkins /gopath && \
+     chown -R $UID:$GID /gopath && \
      mkdir -p /.cache && \
      chmod 777 /.cache && \
      chmod 777 /tmp)
+
+USER $UID:$GID
 
 ENV LANGUAGE="en_US.UTF-8" \
      LANG="en_US.UTF-8" \
