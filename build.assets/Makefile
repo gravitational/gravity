@@ -409,7 +409,7 @@ tiller-app:
 
 .PHONY: site-app
 site-app:
-	$(eval TMPDIR := $(shell mktemp -d --tmpdir=$(GRAVITY_BUILDDIR)))
+	$(eval TMPDIR := $(shell mktemp -d -p $(GRAVITY_BUILDDIR)))
 	cp -r $(ASSETSDIR)/site-app/* $(TMPDIR)
 	cp $(GRAVITY_BUILDDIR)/gravity $(TMPDIR)/images/site
 	cd $(TMPDIR) && \

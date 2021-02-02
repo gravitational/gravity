@@ -1,6 +1,70 @@
 ---
 kind: pipeline
 type: kubernetes
+name: pr
+
+trigger:
+  event:
+  - pull_request
+  - push
+  branch:
+  - walt/*
+
+steps:
+  - name: fetch tags
+    image: docker:git
+    commands:
+      - git fetch --tags
+  - name: wait for docker
+    image: docker
+    commands:
+      - timeout 15s /bin/sh -c 'while [ ! -S /var/run/docker.sock ]; do sleep 1; done'
+      - docker version
+    volumes:
+      - name: dockersock
+        path: /var/run
+  - name: build
+    image: docker:git
+    environment:
+      GITHUB_RO_KEY_PR:
+        from_secret: GITHUB_RO_KEY_PR
+      AWS_ACCESS_KEY_ID:
+        from_secret: AWS_S3_RO_ACCESS_KEY_ID
+      AWS_SECRET_ACCESS_KEY:
+        from_secret: AWS_S3_RO_SECRET_ACCESS_KEY
+    commands:
+      - apk add --no-cache make bash libc6-compat aws-cli
+      - mkdir -m 0700 /root/.ssh && echo "$GITHUB_RO_KEY_PR" > /root/.ssh/id_ed25519 && chmod 600 /root/.ssh/id_ed25519
+      - ssh-keyscan -H github.com > /root/.ssh/known_hosts 2>/dev/null && chmod 600 /root/.ssh/known_hosts
+      - make -C e production telekube opscenter
+    volumes:
+      - name: dockersock
+        path: /var/run
+  - name: unit test
+    image: docker:git
+    commands:
+      - apk add --no-cache make bash libc6-compat
+      - make -C e test
+      - make test
+    volumes:
+      - name: dockersock
+        path: /var/run
+
+services:
+  - name: run docker daemon
+    image: docker:dind
+    privileged: true
+    volumes:
+      - name: dockersock
+        path: /var/run
+
+volumes:
+  - name: dockersock
+    temp: {}
+
+---
+kind: pipeline
+type: kubernetes
 name: docs-pr
 
 trigger:
@@ -54,6 +118,6 @@ volumes:
     temp: {}
 ---
 kind: signature
-hmac: ecf6ccc933d41d1db58d885ae7f9cae6ef3d3139444333586f6c0ba63002f9de
+hmac: a1742cbe86f53a36dfd4d0d60a187abba724ce6dc0a9bf9f295d92debc38c2a2
 
 ...
