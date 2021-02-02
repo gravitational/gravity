@@ -88,6 +88,8 @@ type Config struct {
 	SiteDomain string
 	// Flavor is installation flavor
 	Flavor schema.Flavor
+	// DisabledWebUI specifies whether OpsCenter and WebInstallWizard are disabled
+	DisabledWebUI bool
 	// Role is server role
 	Role string
 	// App is the application being installed
@@ -204,13 +206,14 @@ func NewClusterFactory(config Config) engine.ClusterFactory {
 // Implements engine.ClusterFactory
 func (r *clusterFactory) NewCluster() ops.NewSiteRequest {
 	return ops.NewSiteRequest{
-		AppPackage:   r.App.Package.String(),
-		AccountID:    defaults.SystemAccountID,
-		Email:        fmt.Sprintf("installer@%v", r.SiteDomain),
-		Provider:     r.CloudProvider,
-		DomainName:   r.SiteDomain,
-		Flavor:       r.Flavor.Name,
-		InstallToken: r.Token.Token,
+		AppPackage:    r.App.Package.String(),
+		AccountID:     defaults.SystemAccountID,
+		Email:         fmt.Sprintf("installer@%v", r.SiteDomain),
+		Provider:      r.CloudProvider,
+		DomainName:    r.SiteDomain,
+		Flavor:        r.Flavor.Name,
+		DisabledWebUI: r.DisabledWebUI,
+		InstallToken:  r.Token.Token,
 		ServiceUser: storage.OSUser{
 			Name: r.ServiceUser.Name,
 			UID:  strconv.Itoa(r.ServiceUser.UID),

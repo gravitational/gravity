@@ -137,6 +137,8 @@ extensions:
     disabled: true
   configuration:
     disabled: true
+  opsCenter:
+    disabled: true
 systemOptions:
   runtime:
     version: "1.4.6"
@@ -334,6 +336,9 @@ systemOptions:
 			Disabled: true,
 		},
 		Configuration: &ConfigurationExtension{
+			Disabled: true,
+		},
+		OpsCenter: &OpsCenterExtension{
 			Disabled: true,
 		},
 	})

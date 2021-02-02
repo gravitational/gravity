@@ -435,6 +435,11 @@ func (m Manifest) CatalogDisabled() bool {
 	return m.Extensions != nil && m.Extensions.Catalog != nil && m.Extensions.Catalog.Disabled
 }
 
+// OpsCenterDisabled returns true if the Ops Center is disabled.
+func (m Manifest) OpsCenterDisabled() bool {
+	return m.Extensions != nil && m.Extensions.OpsCenter != nil && m.Extensions.OpsCenter.Disabled
+}
+
 // Header is manifest header
 type Header struct {
 	metav1.TypeMeta
@@ -1180,6 +1185,8 @@ type Extensions struct {
 	Configuration *ConfigurationExtension `json:"configuration,omitempty"`
 	// Catalog allows to customize application catalog feature
 	Catalog *CatalogExtension `json:"catalog,omitempty"`
+	// OpsCenter enables the management web UI
+	OpsCenter *OpsCenterExtension `json:"opsCenter,omitempty"`
 }
 
 // EncryptionExtension describes installer encryption extension
@@ -1211,6 +1218,12 @@ type CatalogExtension struct {
 // Kubernetes allows to customize kubernetes feature
 type KubernetesExtension struct {
 	// Disabled allows to disable Kubernetes tab
+	Disabled bool `json:"disabled,omitempty"`
+}
+
+// OpsCenterExtension allows to disable/enable the Ops Center UI
+type OpsCenterExtension struct {
+	// Disabled disables the OpsCenter UI
 	Disabled bool `json:"disabled,omitempty"`
 }
 
