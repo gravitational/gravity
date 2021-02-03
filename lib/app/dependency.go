@@ -17,11 +17,25 @@ limitations under the License.
 package app
 
 import (
+	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/pack"
+	"github.com/gravitational/gravity/lib/schema"
 
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
+)
+
+var (
+	// OptionalDependencies specifies what dependencies can be disabled
+	OptionalDependencies = []loc.Locator{
+		{Name: defaults.LoggingAppName},
+		{Name: defaults.MonitoringAppName},
+		{Name: defaults.IngressAppName},
+		{Name: defaults.TillerAppName},
+		{Name: defaults.StorageAppName},
+		{Name: defaults.BandwagonPackageName},
+	}
 )
 
 // GetDependencies transitively collects dependencies for the specified application package
@@ -128,6 +142,36 @@ func getDependencies(app *Application, apps Applications, state *state) error {
 	}
 
 	return nil
+}
+
+// AppsToExclude returns a list of apps that should be excluded
+func AppsToExclude(manifest schema.Manifest) []loc.Locator {
+	var excludeApps []loc.Locator
+	for _, app := range OptionalDependencies {
+		if schema.ShouldSkipApp(manifest, app) {
+			excludeApps = append(excludeApps, app)
+		}
+	}
+
+	return excludeApps
+}
+
+// Wrap wraps a []Locator into []Dependency
+func Wrap(locators []loc.Locator) (result []schema.Dependency) {
+	for _, l := range locators {
+		result = append(result, schema.Dependency{Locator: l})
+	}
+
+	return result
+}
+
+// Unwrap unwraps []Locator from []Dependency
+func Unwrap(deps []schema.Dependency) (result []loc.Locator) {
+	for _, d := range deps {
+		result = append(result, d.Locator)
+	}
+
+	return result
 }
 
 type state struct {
