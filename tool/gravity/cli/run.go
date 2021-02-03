@@ -486,6 +486,8 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 		}
 	case g.StatusHistoryCmd.FullCommand():
 		return statusHistory()
+	case g.StatusKapacitorCmd.FullCommand():
+		return statusKapacitor(localEnv)
 	case g.UpdateUploadCmd.FullCommand():
 		return uploadUpdate(context.Background(), localEnv,
 			*g.UpdateUploadCmd.OpsCenterURL,

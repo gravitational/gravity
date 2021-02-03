@@ -222,6 +222,12 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	// Display cluster status history
 	g.StatusHistoryCmd.CmdClause = g.StatusCmd.Command("history", "Display cluster status history.")
 
+	// Display Kapacitor alerts
+	// Normally Kapacitor alerts would be displayed as part of gravity status. However, there are lots of false positives
+	// due to https://github.com/gravitational/gravity/issues/2398, so we're temporarily separating just kapacitor alerts into a
+	// separate subcommand until the underlying issues can be resolved.
+	g.StatusKapacitorCmd.CmdClause = g.StatusCmd.Command("kapacitor", "Display kapacitor alerts.").Hidden()
+
 	// reset cluster state, for debugging/emergencies
 	g.StatusResetCmd.CmdClause = g.Command("status-reset", "Force-reset the cluster state to active. USE WITH CAUTION, the cluster may end up in an inconsistent state.").Hidden()
 	g.StatusResetCmd.Confirmed = g.StatusResetCmd.Flag("confirm", "Bypass confirmation prompt.").Bool()

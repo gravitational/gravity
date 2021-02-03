@@ -287,16 +287,44 @@ func printStatusText(cluster clusterStatus) {
 		printAgentStatus(*cluster.Agent, w)
 	}
 
-	if len(cluster.KapacitorAlerts) != 0 {
-		fmt.Fprintf(w, "Cluster alerts:\n")
-		printClusterAlerts(cluster.KapacitorAlerts, w)
-	}
+	// Disabled due to https://github.com/gravitational/gravity/issues/2398
+	/*
+		if len(cluster.KapacitorAlerts) != 0 {
+			fmt.Fprintf(w, "Cluster alerts:\n")
+			printClusterAlerts(cluster.KapacitorAlerts, w)
+		}
+	*/
 
 	w.Flush()
 
 	if len(cluster.FailedLocalProbes) != 0 {
 		printFailedChecks(cluster.FailedLocalProbes)
 	}
+}
+
+func statusKapacitor(env *localenv.LocalEnvironment) error {
+	operator, err := env.SiteOperator()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	cluster, err := operator.GetLocalSite()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	alerts, err := statusapi.FetchKapacitorAlerts(*cluster)
+
+	_, _ = fmt.Fprintf(os.Stdout, "Cluster alerts:\n")
+
+	if len(alerts) != 0 {
+		printClusterAlerts(alerts, os.Stdout)
+	}
+
+	fmt.Fprintf(os.Stdout, "\nWarning:\n  Cluster alerts may experience false positives.\n"+
+		"  See https://github.com/gravitational/gravity/issues/2398 for more information.\n")
+
+	return nil
 }
 
 func formatVersion(version *proto.Version) string {
