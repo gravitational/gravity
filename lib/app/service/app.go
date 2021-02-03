@@ -648,7 +648,7 @@ func (r *applications) CreateImportOperation(req *appservice.ImportRequest) (*st
 		return nil, trace.Wrap(err)
 	}
 
-	m, err := schema.ParseManifestYAML(manifestBytes)
+	m, err := schema.ParseManifestYAMLNoValidate(manifestBytes)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

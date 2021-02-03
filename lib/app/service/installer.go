@@ -294,7 +294,7 @@ func pullApplications(locators []loc.Locator, localApps *applications, remoteApp
 		}
 		defer reader.Close()
 
-		m, err := schema.ParseManifestYAML(envelope.Manifest)
+		m, err := schema.ParseManifestYAMLNoValidate(envelope.Manifest)
 		if err != nil {
 			return trace.Wrap(err)
 		}
