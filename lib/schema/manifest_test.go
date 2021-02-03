@@ -610,6 +610,9 @@ metadata:
 ingress:
   nginx:
     enabled: false
+storage:
+  openebs:
+    enabled: false
 extensions:
   logs:
     disabled: true
@@ -645,6 +648,10 @@ extensions:
 		},
 		{
 			name: defaults.BandwagonPackageName,
+			skip: true,
+		},
+		{
+			name: defaults.StorageAppName,
 			skip: true,
 		},
 	}

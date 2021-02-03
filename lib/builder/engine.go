@@ -185,7 +185,7 @@ func (b *Engine) SelectRuntime(manifest *schema.Manifest) (*semver.Version, erro
 // SyncPackageCache ensures that all system dependencies are present in
 // the local cache directory
 func (b *Engine) SyncPackageCache(manifest *schema.Manifest, runtimeVersion *semver.Version) error {
-	apps, err := b.Env.AppServiceLocal(localenv.AppConfig{})
+	apps, err := b.Env.AppServiceLocal(localenv.AppConfig{ExcludeDeps: app.AppsToExclude(*manifest)})
 	if err != nil {
 		return trace.Wrap(err)
 	}
