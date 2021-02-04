@@ -321,8 +321,13 @@ func statusKapacitor(env *localenv.LocalEnvironment) error {
 		printClusterAlerts(alerts, os.Stdout)
 	}
 
+	// TODO(knisbet): Remove warning after https://github.com/gravitational/gravity/issues/2398 is fixed
 	fmt.Fprintf(os.Stdout, "\nWarning:\n  Cluster alerts may experience false positives.\n"+
 		"  See https://github.com/gravitational/gravity/issues/2398 for more information.\n")
+
+	if len(alerts) != 0 {
+		os.Exit(1)
+	}
 
 	return nil
 }
