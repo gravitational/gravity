@@ -117,7 +117,7 @@ func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, o
 		log.WithError(err).WithField("operation-id", operationID).Warn("Failed to query operation.")
 	}
 
-	status.KapacitorAlerts, err = fetchKapacitorAlerts(cluster)
+	status.KapacitorAlerts, err = FetchKapacitorAlerts(cluster)
 	if err != nil {
 		log.WithError(err).Warn("Failed to query Kapacitor alerts.")
 	}
@@ -429,7 +429,8 @@ func fetchOperationByID(clusterKey ops.SiteKey, operationID string, operator ops
 	return nil
 }
 
-func fetchKapacitorAlerts(cluster ops.Site) ([]opsmonitoring.StateResponse, error) {
+// FetchKapacitorAlerts returns active alerts from kapacitor
+func FetchKapacitorAlerts(cluster ops.Site) ([]opsmonitoring.StateResponse, error) {
 	// Very old clusters (5.0) do not have a DNS config defined so just skip
 	// them, it is only relevant when upgrading from 5.0 to 5.5.
 	if cluster.DNSConfig.IsEmpty() {

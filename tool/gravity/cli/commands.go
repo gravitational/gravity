@@ -102,6 +102,8 @@ type Application struct {
 	StatusClusterCmd StatusClusterCmd
 	// StatusHistoryCmd displays the cluster status history
 	StatusHistoryCmd StatusHistoryCmd
+	// StatusKapacitorCmd displays kapacitor alerts
+	StatusKapacitorCmd StatusKapacitorCmd
 	// StatusResetCmd resets the cluster to active state
 	StatusResetCmd StatusResetCmd
 	// BackupCmd launches app backup hook
@@ -684,6 +686,13 @@ type StatusClusterCmd struct {
 
 // StatusHistoryCmd displays cluster status history
 type StatusHistoryCmd struct {
+	*kingpin.CmdClause
+}
+
+// StatusKapacitorCmd displays alerts from Kapacitor
+// These alerts are being separated from `gravity status` due to confusion with stale alerts
+// https://github.com/gravitational/gravity/issues/2398
+type StatusKapacitorCmd struct {
 	*kingpin.CmdClause
 }
 
