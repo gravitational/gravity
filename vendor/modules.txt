@@ -427,7 +427,7 @@ github.com/gravitational/tail/ratelimiter
 github.com/gravitational/tail/util
 github.com/gravitational/tail/watch
 github.com/gravitational/tail/winfile
-# github.com/gravitational/teleport v3.2.15-0.20201005225507-eccdab5226f7+incompatible
+# github.com/gravitational/teleport v3.2.17+incompatible
 github.com/gravitational/teleport
 github.com/gravitational/teleport/lib
 github.com/gravitational/teleport/lib/auth
