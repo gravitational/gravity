@@ -67,7 +67,7 @@ require (
 	github.com/gravitational/satellite v0.0.9-0.20201119182158-fe29d7b2c010
 	github.com/gravitational/tail v1.0.1
 	github.com/gravitational/teleport v3.2.15-0.20201005225507-eccdab5226f7+incompatible
-	github.com/gravitational/trace v1.1.11
+	github.com/gravitational/trace v1.1.14
 	github.com/gravitational/ttlmap v0.0.0-20171116003245-91fd36b9004c
 	github.com/gravitational/version v0.0.2-0.20170324200323-95d33ece5ce1
 	github.com/gravitational/vfsgen v0.0.0-20181202132449-6a9ea43bcacd

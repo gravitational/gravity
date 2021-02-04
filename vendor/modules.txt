@@ -481,7 +481,7 @@ github.com/gravitational/teleport/lib/utils/socks
 github.com/gravitational/teleport/lib/web
 github.com/gravitational/teleport/lib/web/ui
 github.com/gravitational/teleport/lib/wrappers
-# github.com/gravitational/trace v1.1.11
+# github.com/gravitational/trace v1.1.14
 github.com/gravitational/trace
 github.com/gravitational/trace/trail
 # github.com/gravitational/ttlmap v0.0.0-20171116003245-91fd36b9004c
