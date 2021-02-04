@@ -34,6 +34,7 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/docker"
 	"github.com/gravitational/gravity/lib/httplib"
+	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv/credentials"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/opsclient"
@@ -442,6 +443,7 @@ func (env *LocalEnvironment) AppServiceLocal(config AppConfig) (service appbase.
 		ImageService: imageService,
 		StateDir:     filepath.Join(env.StateDir, "import"),
 		UnpackedDir:  filepath.Join(env.StateDir, defaults.PackagesDir, defaults.UnpackedDir),
+		ExcludeDeps:  config.ExcludeDeps,
 		GetClient:    env.getKubeClient,
 	})
 }
@@ -502,6 +504,8 @@ type AppConfig struct {
 	RegistryURL string
 	// Packages allows to override default packages when creating the service
 	Packages pack.PackageService
+	// ExcludeDeps defines a list of dependencies that will be excluded from the app image
+	ExcludeDeps []loc.Locator
 	// Backend allows to override default backend when creating the service
 	Backend storage.Backend
 }

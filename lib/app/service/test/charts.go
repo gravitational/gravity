@@ -68,9 +68,13 @@ version: %v`
   registry:
     localhost:5000`
 	appYAML = `apiVersion: bundle.gravitational.io/v2
+dependencies: {}
 kind: Application
 metadata:
+  createdTimestamp: "0001-01-01T00:00:00Z"
   name: %v
+  namespace: default
+  repository: gravitational.io
   resourceVersion: %v
-  repository: gravitational.io`
+`
 )

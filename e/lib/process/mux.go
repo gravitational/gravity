@@ -262,8 +262,10 @@ func (p *Process) addPublicHandlers(mux *httprouter.Router) {
 	for _, method := range httplib.Methods {
 		mux.Handler(method, "/telekube/*rest", p.Handlers().Apps)
 		mux.Handler(method, "/charts/*rest", p.Handlers().Apps)
-		mux.Handler(method, "/web", p.Handlers().Web) // to handle redirect
-		mux.Handler(method, "/web/*web", p.Handlers().Web)
+		if p.Handlers().Web != nil {
+			mux.Handler(method, "/web", p.Handlers().Web) // to handle redirect
+			mux.Handler(method, "/web/*web", p.Handlers().Web)
+		}
 		mux.Handler(method, "/proxy/*proxy", http.StripPrefix("/proxy", p.Handlers().WebProxy))
 		mux.Handler(method, "/v1/webapi/*webapi", p.Handlers().WebProxy)
 		mux.Handler(method, "/portalapi/v1/*portalapi", http.StripPrefix("/portalapi/v1", p.handlers.WebAPI))
@@ -276,7 +278,11 @@ func (p *Process) addPublicHandlers(mux *httprouter.Router) {
 		mux.Handler(method, "/portal/*portal", p.handlers.Operator)
 		mux.Handler(method, "/v2/*rest", p.Handlers().Registry)
 	}
-	mux.NotFound = p.Handlers().Web.NotFound
+	if p.Handlers().Web != nil {
+		mux.NotFound = p.Handlers().Web.NotFound
+	} else {
+		mux.NotFound = p.Handlers().WebAPI.NotFound
+	}
 }
 
 // addAgentsHandlers updates the provided mux with internal API handlers
@@ -300,8 +306,10 @@ func (p *Process) addAgentsHandlers(mux *httprouter.Router) {
 // traffic is not split into public/internal
 func (p *Process) addAllHandlers(mux *httprouter.Router) {
 	for _, method := range httplib.Methods {
-		mux.Handler(method, "/web", p.Handlers().Web) // to handle redirect
-		mux.Handler(method, "/web/*web", p.Handlers().Web)
+		if p.Handlers().Web != nil {
+			mux.Handler(method, "/web", p.Handlers().Web) // to handle redirect
+			mux.Handler(method, "/web/*web", p.Handlers().Web)
+		}
 		mux.Handler(method, "/proxy/*proxy", http.StripPrefix("/proxy", p.Handlers().WebProxy))
 		mux.Handler(method, "/v1/webapi/*webapi", p.Handlers().WebProxy)
 		mux.Handler(method, "/portalapi/v1/*portalapi", http.StripPrefix("/portalapi/v1", p.handlers.WebAPI))
@@ -317,7 +325,11 @@ func (p *Process) addAllHandlers(mux *httprouter.Router) {
 		mux.HandlerFunc(method, "/readyz", p.ReportReadiness)
 		mux.HandlerFunc(method, "/healthz", p.ReportHealth)
 	}
-	mux.NotFound = p.Handlers().Web.NotFound
+	if p.Handlers().Web != nil {
+		mux.NotFound = p.Handlers().Web.NotFound
+	} else {
+		mux.NotFound = p.Handlers().WebAPI.NotFound
+	}
 }
 
 // trafficSplitType returns an appropriate traffic split type based on
