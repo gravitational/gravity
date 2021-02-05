@@ -320,7 +320,7 @@ func (s *Server) needsAuth(fn authHandle) httprouter.Handle {
 		authResult, err := s.cfg.Authenticator.Authenticate(w, r)
 		if err != nil {
 			logger.WithError(err).Warn("Authentication error.")
-			trace.WriteError(w, trace.AccessDenied("bad username or password")) // Hide the actual error.
+			trace.WriteError(w, trace.Unwrap(trace.AccessDenied("bad username or password"))) // Hide the actual error.
 			return
 		}
 
@@ -334,7 +334,7 @@ func (s *Server) needsAuth(fn authHandle) httprouter.Handle {
 			} else if !trace.IsNotFound(err) && !trace.IsAlreadyExists(err) {
 				logger.WithError(err).Error("Handler error.")
 			}
-			trace.WriteError(w, err)
+			trace.WriteError(w, trace.Unwrap(err))
 		}
 	}
 }
