@@ -188,7 +188,7 @@ build: build-on-host
 else
 .PHONY: build
 build: selinux grpc build-in-container
-	ln --symbolic --force --no-target-directory $(GRAVITY_BUILDDIR) $(GRAVITY_CURRENT_BUILDDIR)
+	ln -sfT $(GRAVITY_BUILDDIR) $(GRAVITY_CURRENT_BUILDDIR)
 endif
 
 #
