@@ -1531,7 +1531,7 @@ to learn how to gain insight into how the cluster status changes over time.
 
 ### 5.5.58 LTS (February 4, 2021)
 #### Improvements
-* Include host record for google metadata server ([#2388](https://github.com/gravitational/gravity/pull/2408), [planet#820](https://github.com/gravitational/planet/pull/820)).
+* Include host record for google metadata server ([#2408](https://github.com/gravitational/gravity/pull/2408), [planet#820](https://github.com/gravitational/planet/pull/820)).
 * Disable Kapacitor alerts from gravity status and introduce hidden command ([#2388](https://github.com/gravitational/gravity/pull/2388)).
 
 ### 5.5.57 LTS (January 15, 2021)
