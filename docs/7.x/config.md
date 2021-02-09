@@ -58,6 +58,9 @@ spec:
     podCIDR: "10.0.0.0/24"
     # The size of the Pod subnet allocated to each host
     podSubnetSize: "26"
+    # Enables Kubernetes high availability mode. When HA mode is enabled, Kubernetes
+    # control plane components run on all master nodes.
+    highAvailability: true
     # A set of key=value pairs that describe feature gates for alpha/experimental features
     featureGates:
       AllAlpha: true
