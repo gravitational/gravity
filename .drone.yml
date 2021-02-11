@@ -49,6 +49,35 @@ steps:
     volumes:
       - name: dockersock
         path: /var/run
+  - name: build robotest images
+    image: docker:git
+    commands:
+      - apk add --no-cache make bash libc6-compat
+      - make -C e/assets/robotest images
+    volumes:
+      - name: dockersock
+        path: /var/run
+  - name: run robotest
+    image: docker:git
+    environment:
+      GCP_ROBOTEST_CREDENTIALS:
+        from_secret: GCP_ROBOTEST_CREDENTIALS
+      # These files need to be in a volume that the docker service has access to
+      # We choose /tmp to accommodate https://github.com/gravitational/robotest/blob/3774f8641439b19c4e0e598db8f87c52ea0e4817/docker/suite/run_suite.sh#L106
+      SSH_KEY: /tmp/secrets/robotest
+      SSH_PUB: /tmp/secrets/robotest.pub
+      GOOGLE_APPLICATION_CREDENTIALS: /tmp/secrets/gcp.json
+    commands:
+      - apk add --no-cache make bash
+      - mkdir -p $(dirname $SSH_KEY)
+      - ssh-keygen -t ed25519 -N '' -f $SSH_KEY
+      - echo "$GCP_ROBOTEST_CREDENTIALS" > $GOOGLE_APPLICATION_CREDENTIALS
+      - make -C e robotest-run
+    volumes:
+      - name: dockersock
+        path: /var/run
+      - name: dockertmp
+        path: /tmp
 
 services:
   - name: run docker daemon
@@ -57,9 +86,13 @@ services:
     volumes:
       - name: dockersock
         path: /var/run
+      - name: dockertmp
+        path: /tmp
 
 volumes:
   - name: dockersock
+    temp: {}
+  - name: dockertmp
     temp: {}
 
 ---
@@ -118,6 +151,6 @@ volumes:
     temp: {}
 ---
 kind: signature
-hmac: a1742cbe86f53a36dfd4d0d60a187abba724ce6dc0a9bf9f295d92debc38c2a2
+hmac: db86a2cb4f9050b42fc713d51b0788d5cd937935a4cd40daf6e8371e4de57a8c
 
 ...
