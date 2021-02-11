@@ -165,6 +165,7 @@ func (r Resource) Merge(other Resource) Resource {
 			r.Spec.Global.FeatureGates[k] = v
 		}
 	}
+	r.Spec.Global.HighAvailability = other.Spec.Global.HighAvailability
 	return r
 }
 
@@ -301,6 +302,8 @@ type Global struct {
 	// FeatureGates defines the set of key=value pairs that describe feature gates for alpha/experimental features.
 	// Targets: all components
 	FeatureGates map[string]bool `json:"featureGates,omitempty"`
+	// HighAvailability enables high availability mode for Kubernetes.
+	HighAvailability bool `json:"highAvailability,omitempty"`
 }
 
 // specSchemaTemplate is JSON schema for the cluster configuration resource
@@ -348,7 +351,8 @@ const specSchemaTemplate = `{
               "patternProperties": {
                  "^[a-zA-Z]+[a-zA-Z0-9]*$": {"type": "boolean"}
               }
-            }
+            },
+            "highAvailability": {"type": "boolean"}
           }
         },
         "kubelet": {
