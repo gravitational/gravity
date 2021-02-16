@@ -35,3 +35,5 @@ make run RUN_CFG=4.x.yaml
 ```
 
 `make docs` will build the docs, so they are ready to ship to production.
+
+foo
