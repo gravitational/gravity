@@ -323,8 +323,6 @@ func (f *FSM) RollbackPhase(ctx context.Context, p Params) error {
 You can redeploy upgrade agents on all cluster nodes using "./gravity agent deploy", or execute "./gravity plan rollback --phase=%[2]v" directly from %[1]v."`,
 				execServer.Hostname, p.PhaseID)
 		}
-
-		return nil
 	}
 	for i := len(phase.Phases) - 1; i >= 0; i-- {
 		p.PhaseID = phase.Phases[i].ID
