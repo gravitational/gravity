@@ -90,6 +90,7 @@ func resumeOperation(localEnv *localenv.LocalEnvironment, environ LocalEnvironme
 		Timeout:          params.Timeout,
 		SkipVersionCheck: params.SkipVersionCheck,
 		OperationID:      params.OperationID,
+		Block:            params.Block,
 	})
 	if err == nil {
 		return nil
