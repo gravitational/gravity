@@ -59,6 +59,7 @@ func NewBolt(cfg BoltConfig) (storage.Backend, error) {
 		kvengine: engine,
 
 		cachedCompleteOperations: make(map[string]*storage.SiteOperation),
+		cachedPlanChange:         make(map[string]*storage.PlanChange),
 	}, nil
 }
 

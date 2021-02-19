@@ -38,6 +38,9 @@ type backend struct {
 
 	cachedCompleteOperationsMutex sync.RWMutex
 	cachedCompleteOperations      map[string]*storage.SiteOperation
+
+	cachedPlanChangeMutex sync.RWMutex
+	cachedPlanChange      map[string]*storage.PlanChange
 }
 
 func (b *backend) ttl(t time.Time) time.Duration {
