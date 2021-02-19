@@ -139,7 +139,7 @@ func (g *operationGroup) canCreateOperation(operation ops.SiteOperation, force b
 		// no special checks for install/uninstall are needed
 	case ops.OperationExpand:
 		// expand has to undergo some checks
-		err := g.canCreateExpandOperation(*cluster, operation)
+		err := g.canCreateExpandOperation(*cluster, operation.InstallExpand.Profiles)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -235,7 +235,7 @@ You can provide --force flag to override this check.`,
 //
 // In case of failed checks returns trace.CompareFailed error to indicate that
 // the cluster is not in the appropriate state.
-func (g *operationGroup) canCreateExpandOperation(site ops.Site, operation ops.SiteOperation) error {
+func (g *operationGroup) canCreateExpandOperation(site ops.Site, profiles map[string]storage.ServerProfile) error {
 	if site.State == ops.SiteStateActive {
 		return nil
 	}
@@ -272,7 +272,7 @@ func (g *operationGroup) canCreateExpandOperation(site ops.Site, operation ops.S
 
 	// now check the opposite use-case: if we're about to add a master,
 	// it has to be the only operation running
-	for _, profile := range operation.InstallExpand.Profiles {
+	for _, profile := range profiles {
 		switch profile.ServiceRole {
 		case string(schema.ServiceRoleMaster):
 			// the joining node wants to be a master

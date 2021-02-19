@@ -47,6 +47,19 @@ func (s *site) createExpandOperation(ctx context.Context, req ops.CreateSiteExpa
 			},
 		}
 	}
+
+	site, err := s.service.GetSite(s.key)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	// Run an early check on whether the cluster is able to accept the operation or not, and bail if the cluster
+	// is busy on other operations.
+	err = s.getOperationGroup().canCreateExpandOperation(*site, profiles)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
 	return s.createInstallExpandOperation(ctx, createInstallExpandOperationRequest{
 		Type:        ops.OperationExpand,
 		State:       ops.OperationStateExpandInitiated,
