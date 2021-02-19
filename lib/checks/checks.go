@@ -23,8 +23,10 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gravitational/gravity/lib/checks/autofix"
@@ -371,10 +373,36 @@ func (r *checker) Check(ctx context.Context) (failed []*agentpb.Probe) {
 		return nil
 	}
 
-	// check each server against its profile
+	serverC := make(chan Server, len(r.Servers))
 	for _, server := range r.Servers {
-		failed = append(failed, r.CheckNode(ctx, server)...)
+		serverC <- server
 	}
+
+	close(serverC)
+
+	numRoutines := (runtime.NumCPU() / 2) + 1
+
+	var mutex sync.Mutex
+
+	var wg sync.WaitGroup
+
+	wg.Add(numRoutines)
+
+	for i := 0; i < numRoutines; i++ {
+		go func() {
+			for server := range serverC {
+				f := r.CheckNode(ctx, server)
+
+				mutex.Lock()
+				failed = append(failed, f...)
+				mutex.Unlock()
+			}
+
+			wg.Done()
+		}()
+	}
+
+	wg.Wait()
 
 	// run checks that take all servers into account
 	failed = append(failed, r.CheckNodes(ctx, r.Servers)...)
