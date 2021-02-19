@@ -36,6 +36,7 @@ import (
 	"github.com/gravitational/gravity/lib/rpc/proto"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
+	"github.com/sirupsen/logrus"
 
 	"github.com/gravitational/roundtrip"
 	telehttplib "github.com/gravitational/teleport/lib/httplib"
@@ -443,6 +444,7 @@ func (c *Client) CheckSiteStatus(ctx context.Context, key ops.SiteKey) error {
 	return trace.Wrap(err)
 }
 
+// GetSiteOperations returns site operations filtered by the provided filter.
 func (c *Client) GetSiteOperations(siteKey ops.SiteKey, f ops.OperationsFilter) (ops.SiteOperations, error) {
 	out, err := c.Get(context.TODO(), c.Endpoint("accounts", siteKey.AccountID, "sites", siteKey.SiteDomain, "operations", "common"),
 		f.URLValues())
@@ -1651,37 +1653,128 @@ func (c *Client) GetVersion(ctx context.Context) (*proto.Version, error) {
 
 // PostJSON issues HTTP POST request to the server with the provided JSON data
 func (c *Client) PostJSON(endpoint string, data interface{}) (*roundtrip.Response, error) {
+	logrus.WithFields(logrus.Fields{
+		"endpoint":      endpoint,
+		trace.Component: "opsclient",
+	}).Debug("[POST] api request")
+
+	defer func(started time.Time) {
+		logrus.WithFields(logrus.Fields{
+			"endpoint":      endpoint,
+			"duration":      time.Since(started),
+			trace.Component: "opsclient",
+		}).Debug("[POST] api response")
+	}(time.Now())
+
 	return telehttplib.ConvertResponse(c.Client.PostJSON(context.TODO(), endpoint, data))
 }
 
 // PostJSONWithContext issues HTTP POST request to the server with the provided JSON data
 // bounded by the specified context
 func (c *Client) PostJSONWithContext(ctx context.Context, endpoint string, data interface{}) (*roundtrip.Response, error) {
+	logrus.WithFields(logrus.Fields{
+		"endpoint":      endpoint,
+		trace.Component: "opsclient",
+	}).Debug("[POST] api request")
+
+	defer func(started time.Time) {
+		logrus.WithFields(logrus.Fields{
+			"endpoint":      endpoint,
+			"duration":      time.Since(started),
+			trace.Component: "opsclient",
+		}).Debug("[POST] api response")
+	}(time.Now())
+
 	return telehttplib.ConvertResponse(c.Client.PostJSON(ctx, endpoint, data))
 }
 
 // PutJSON issues HTTP PUT request to the server with the provided JSON data
 func (c *Client) PutJSON(endpoint string, data interface{}) (*roundtrip.Response, error) {
+	logrus.WithFields(logrus.Fields{
+		"endpoint":      endpoint,
+		trace.Component: "opsclient",
+	}).Debug("[PUT] api request")
+
+	defer func(started time.Time) {
+		logrus.WithFields(logrus.Fields{
+			"endpoint":      endpoint,
+			"duration":      time.Since(started),
+			trace.Component: "opsclient",
+		}).Debug("[PUT] api response")
+	}(time.Now())
+
 	return telehttplib.ConvertResponse(c.Client.PutJSON(context.TODO(), endpoint, data))
 }
 
 // PutJSONWithContext issues HTTP PUT request bound to the given context to the server with the provided JSON data
 func (c *Client) PutJSONWithContext(ctx context.Context, endpoint string, data interface{}) (*roundtrip.Response, error) {
+	logrus.WithFields(logrus.Fields{
+		"endpoint":      endpoint,
+		trace.Component: "opsclient",
+	}).Debug("[PUT] api request")
+
+	defer func(started time.Time) {
+		logrus.WithFields(logrus.Fields{
+			"endpoint":      endpoint,
+			"duration":      time.Since(started),
+			trace.Component: "opsclient",
+		}).Debug("[PUT] api response")
+	}(time.Now())
+
 	return telehttplib.ConvertResponse(c.Client.PutJSON(ctx, endpoint, data))
 }
 
 // Get issues HTTP GET request to the server
 func (c *Client) Get(ctx context.Context, endpoint string, params url.Values) (*roundtrip.Response, error) {
+	logrus.WithFields(logrus.Fields{
+		"endpoint":      endpoint,
+		trace.Component: "opsclient",
+	}).Debug("[GET] api request")
+
+	defer func(started time.Time) {
+		logrus.WithFields(logrus.Fields{
+			"endpoint":      endpoint,
+			"duration":      time.Since(started),
+			trace.Component: "opsclient",
+		}).Debug("[GET] api response")
+	}(time.Now())
+
 	return telehttplib.ConvertResponse(c.Client.Get(ctx, endpoint, params))
 }
 
 // GetWithContext issues HTTP GET request to the server bound to the specified context
 func (c *Client) GetWithContext(ctx context.Context, endpoint string, params url.Values) (*roundtrip.Response, error) {
+	logrus.WithFields(logrus.Fields{
+		"endpoint":      endpoint,
+		trace.Component: "opsclient",
+	}).Debug("[GET] api request")
+
+	defer func(started time.Time) {
+		logrus.WithFields(logrus.Fields{
+			"endpoint":      endpoint,
+			"duration":      time.Since(started),
+			trace.Component: "opsclient",
+		}).Debug("[GET] api response")
+	}(time.Now())
+
 	return telehttplib.ConvertResponse(c.Client.Get(ctx, endpoint, params))
 }
 
 // GetFile issues HTTP GET request to the server to download a file
 func (c *Client) GetFile(ctx context.Context, endpoint string, params url.Values) (*roundtrip.FileResponse, error) {
+	logrus.WithFields(logrus.Fields{
+		"endpoint":      endpoint,
+		trace.Component: "opsclient",
+	}).Debug("[GET] api request")
+
+	defer func(started time.Time) {
+		logrus.WithFields(logrus.Fields{
+			"endpoint":      endpoint,
+			"duration":      time.Since(started),
+			trace.Component: "opsclient",
+		}).Debug("[GET] api response")
+	}(time.Now())
+
 	resp, err := c.Client.GetFile(ctx, endpoint, params)
 	if err != nil {
 		if uerr, ok := err.(*url.Error); ok && uerr != nil && uerr.Err != nil {
@@ -1701,11 +1794,37 @@ func (c *Client) GetFile(ctx context.Context, endpoint string, params url.Values
 
 // Delete issues HTTP DELETE request to the server
 func (c *Client) Delete(endpoint string) (*roundtrip.Response, error) {
+	logrus.WithFields(logrus.Fields{
+		"endpoint":      endpoint,
+		trace.Component: "opsclient",
+	}).Debug("[DELETE] api request")
+
+	defer func(started time.Time) {
+		logrus.WithFields(logrus.Fields{
+			"endpoint":      endpoint,
+			"duration":      time.Since(started),
+			trace.Component: "opsclient",
+		}).Debug("[DELETE] api response")
+	}(time.Now())
+
 	return telehttplib.ConvertResponse(c.Client.Delete(context.TODO(), endpoint))
 }
 
 // DeleteWithParams issues HTTP DELETE request to the server
 func (c *Client) DeleteWithParams(endpoint string, params url.Values) (*roundtrip.Response, error) {
+	logrus.WithFields(logrus.Fields{
+		"endpoint":      endpoint,
+		trace.Component: "opsclient",
+	}).Debug("[DELETE] api request")
+
+	defer func(started time.Time) {
+		logrus.WithFields(logrus.Fields{
+			"endpoint":      endpoint,
+			"duration":      time.Since(started),
+			trace.Component: "opsclient",
+		}).Debug("[DELETE] api response")
+	}(time.Now())
+
 	return telehttplib.ConvertResponse(c.Client.DeleteWithParams(context.TODO(),
 		endpoint, params))
 }
@@ -1713,6 +1832,19 @@ func (c *Client) DeleteWithParams(endpoint string, params url.Values) (*roundtri
 // PostStream makes a POST request to the server using data from
 // the provided reader as request body
 func (c *Client) PostStream(endpoint string, reader io.Reader) (*roundtrip.Response, error) {
+	logrus.WithFields(logrus.Fields{
+		"endpoint":      endpoint,
+		trace.Component: "opsclient",
+	}).Debug("[POST] api request")
+
+	defer func(started time.Time) {
+		logrus.WithFields(logrus.Fields{
+			"endpoint":      endpoint,
+			"duration":      time.Since(started),
+			trace.Component: "opsclient",
+		}).Debug("[POST] api response")
+	}(time.Now())
+
 	return c.RoundTrip(func() (*http.Response, error) {
 		req, err := http.NewRequest(http.MethodPost, endpoint, reader)
 		if err != nil {
