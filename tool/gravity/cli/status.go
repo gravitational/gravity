@@ -34,6 +34,7 @@ import (
 	"github.com/gravitational/gravity/lib/rpc/proto"
 	"github.com/gravitational/gravity/lib/schema"
 	statusapi "github.com/gravitational/gravity/lib/status"
+	"github.com/gravitational/gravity/lib/storage"
 	"github.com/prometheus/alertmanager/api/v2/models"
 
 	"github.com/dustin/go-humanize"
@@ -497,8 +498,26 @@ func (r statusOperator) GetVersion(ctx context.Context) (*proto.Version, error) 
 	return r.Operator.GetVersion(ctx)
 }
 
+// GetExpandToken returns the token used for clients to join the cluster.
+func (r statusOperator) GetExpandToken(key ops.SiteKey) (*storage.ProvisioningToken, error) {
+	if r.clusterOperator != nil {
+		return r.clusterOperator.GetExpandToken(key)
+	}
+
+	return r.Operator.GetExpandToken(key)
+}
+
+// GetSiteOperations returns site operations filtered by the provided filter.
+func (r statusOperator) GetSiteOperations(siteKey ops.SiteKey, f ops.OperationsFilter) (ops.SiteOperations, error) {
+	if r.clusterOperator != nil {
+		return r.clusterOperator.GetSiteOperations(siteKey, f)
+	}
+
+	return r.Operator.GetSiteOperations(siteKey, f)
+}
+
 // statusOperator is a thin-wrapper around operator that uses
-// etcd directly but falls back the cluster controller if available for certain APIs
+// etcd directly but uses the cluster controller if available for certain APIs
 type statusOperator struct {
 	ops.Operator
 	clusterOperator ops.Operator
