@@ -37,7 +37,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func initUpdateOperationPlan(localEnv, updateEnv *localenv.LocalEnvironment) error {
+func initUpdateOperationPlan(localEnv, updateEnv *localenv.LocalEnvironment, config clusterupdate.UserConfig) error {
 	ctx := context.TODO()
 	clusterEnv, err := localEnv.NewClusterEnvironment()
 	if err != nil {
@@ -58,7 +58,7 @@ func initUpdateOperationPlan(localEnv, updateEnv *localenv.LocalEnvironment) err
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	_, err = clusterupdate.InitOperationPlan(ctx, localEnv, updateEnv, clusterEnv, operation.Key(), leader)
+	_, err = clusterupdate.InitOperationPlan(ctx, localEnv, updateEnv, clusterEnv, operation.Key(), leader, config)
 	if err != nil {
 		return trace.Wrap(err)
 	}

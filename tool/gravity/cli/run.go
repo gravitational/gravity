@@ -37,6 +37,7 @@ import (
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/systemservice"
+	clusterupdate "github.com/gravitational/gravity/lib/update/cluster"
 	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/gravity/lib/utils/cli"
 
@@ -401,6 +402,10 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			manual:           *g.UpdateTriggerCmd.Manual,
 			skipVersionCheck: *g.UpdateTriggerCmd.SkipVersionCheck,
 			force:            *g.UpdateTriggerCmd.Force,
+			userConfig: clusterupdate.UserConfig{
+				SkipWorkers:     *g.UpdateTriggerCmd.SkipWorkers,
+				ParallelWorkers: *g.UpdateTriggerCmd.ParallelWorkers,
+			},
 		})
 	case g.UpdatePlanInitCmd.FullCommand():
 		updateEnv, err := g.NewUpdateEnv()
@@ -408,7 +413,10 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			return trace.Wrap(err)
 		}
 		defer updateEnv.Close()
-		return initUpdateOperationPlan(localEnv, updateEnv)
+		return initUpdateOperationPlan(localEnv, updateEnv, clusterupdate.UserConfig{
+			SkipWorkers:     *g.UpdatePlanInitCmd.SkipWorkers,
+			ParallelWorkers: *g.UpdatePlanInitCmd.ParallelWorkers,
+		})
 	case g.UpgradeCmd.FullCommand():
 		updateEnv, err := g.NewUpdateEnv()
 		if err != nil {

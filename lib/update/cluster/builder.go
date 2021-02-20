@@ -368,8 +368,9 @@ func (r phaseBuilder) masters(leadMaster storage.UpdateServer, otherMasters []st
 
 func (r phaseBuilder) nodes(leadMaster storage.UpdateServer, nodes []storage.UpdateServer, supportsTaints bool) *update.Phase {
 	root := update.RootPhase(update.Phase{
-		ID:          "nodes",
-		Description: "Update regular nodes",
+		ID:            "nodes",
+		Description:   "Update regular nodes",
+		LimitParallel: r.userConfig.ParallelWorkers,
 	})
 
 	for i, server := range nodes {
