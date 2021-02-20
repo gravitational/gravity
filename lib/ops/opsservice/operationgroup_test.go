@@ -78,6 +78,13 @@ func (s *OperationGroupSuite) TestExpandNotInstalled(c *check.C) {
 		SiteDomain: s.cluster.Domain,
 		Type:       ops.OperationExpand,
 		State:      ops.OperationStateExpandInitiated,
+		InstallExpand: &storage.InstallExpandOperationState{
+			Profiles: map[string]storage.ServerProfile{
+				"node": {
+					ServiceRole: string(schema.ServiceRoleNode),
+				},
+			},
+		},
 	})
 	c.Assert(err, check.NotNil)
 }
@@ -191,6 +198,13 @@ func (s *OperationGroupSuite) TestFailsToExpandShrinkingCluster(c *check.C) {
 		SiteDomain: s.cluster.Domain,
 		Type:       ops.OperationExpand,
 		State:      ops.OperationStateExpandInitiated,
+		InstallExpand: &storage.InstallExpandOperationState{
+			Profiles: map[string]storage.ServerProfile{
+				"node": {
+					ServiceRole: string(schema.ServiceRoleNode),
+				},
+			},
+		},
 	})
 	c.Assert(err, check.NotNil)
 	s.assertClusterState(c, ops.SiteStateShrinking)

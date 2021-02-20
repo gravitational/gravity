@@ -365,9 +365,10 @@ func (r *params) coreDNS() storage.OperationPhase {
 
 func (r *params) bootstrap() storage.OperationPhase {
 	return storage.OperationPhase{
-		ID:          "/bootstrap",
-		Description: "Bootstrap update operation on nodes",
-		Requires:    []string{"/init"},
+		ID:            "/bootstrap",
+		Description:   "Bootstrap update operation on nodes",
+		Requires:      []string{"/init"},
+		LimitParallel: NumParallel(),
 		Phases: []storage.OperationPhase{
 			{
 				ID:          "/bootstrap/node-1",
@@ -673,8 +674,9 @@ func (r params) etcd(otherMasters []storage.UpdateServer) storage.OperationPhase
 				},
 			},
 			{
-				ID:          "/etcd/shutdown",
-				Description: "Shutdown etcd cluster",
+				ID:            "/etcd/shutdown",
+				Description:   "Shutdown etcd cluster",
+				LimitParallel: etcdNumParallel,
 				Phases: []storage.OperationPhase{
 					r.etcdShutdownNode(r.leadMaster, true),
 					// FIXME: assumes len(otherMasters) == 1
@@ -682,8 +684,9 @@ func (r params) etcd(otherMasters []storage.UpdateServer) storage.OperationPhase
 				},
 			},
 			{
-				ID:          "/etcd/upgrade",
-				Description: "Upgrade etcd servers",
+				ID:            "/etcd/upgrade",
+				Description:   "Upgrade etcd servers",
+				LimitParallel: etcdNumParallel,
 				Phases: []storage.OperationPhase{
 					r.etcdUpgradeNode(r.leadMaster),
 					// FIXME: assumes len(otherMasters) == 1
@@ -700,8 +703,9 @@ func (r params) etcd(otherMasters []storage.UpdateServer) storage.OperationPhase
 				Requires: []string{"/etcd/upgrade"},
 			},
 			{
-				ID:          "/etcd/restart",
-				Description: "Restart etcd servers",
+				ID:            "/etcd/restart",
+				Description:   "Restart etcd servers",
+				LimitParallel: etcdNumParallel,
 				Phases: []storage.OperationPhase{
 					r.etcdRestartLeaderNode(),
 					// FIXME: assumes len(otherMasters) == 1
@@ -841,9 +845,10 @@ func (r *params) migration() storage.OperationPhase {
 
 func (r params) config() storage.OperationPhase {
 	return storage.OperationPhase{
-		ID:          "/config",
-		Description: "Update system configuration on nodes",
-		Requires:    []string{"/masters"},
+		ID:            "/config",
+		Description:   "Update system configuration on nodes",
+		Requires:      []string{"/masters"},
+		LimitParallel: NumParallel(),
 		Phases: []storage.OperationPhase{
 			{
 				ID:          "/config/node-1",
@@ -934,9 +939,10 @@ func (r params) app(requires ...string) storage.OperationPhase {
 
 func (r params) cleanup() storage.OperationPhase {
 	return storage.OperationPhase{
-		ID:          "/gc",
-		Description: "Run cleanup tasks",
-		Requires:    []string{"/app"},
+		ID:            "/gc",
+		Description:   "Run cleanup tasks",
+		Requires:      []string{"/app"},
+		LimitParallel: NumParallel(),
 		Phases: []storage.OperationPhase{
 			{
 				ID:          "/gc/node-1",

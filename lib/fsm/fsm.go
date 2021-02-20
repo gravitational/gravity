@@ -441,9 +441,11 @@ func (f *FSM) executePhaseLocally(ctx context.Context, p Params, phase storage.O
 		p.Progress.NextStep("Executing %q locally", phase.ID)
 		return trace.Wrap(f.executeOnePhase(ctx, p, phase))
 	}
-	if phase.Parallel {
+
+	if phase.LimitParallel > 1 {
 		return trace.Wrap(f.executeSubphasesConcurrently(ctx, p, phase))
 	}
+
 	return trace.Wrap(f.executeSubphasesSequentially(ctx, p, phase))
 }
 
@@ -460,19 +462,32 @@ func (f *FSM) executeSubphasesSequentially(ctx context.Context, p Params, phase 
 
 func (f *FSM) executeSubphasesConcurrently(ctx context.Context, p Params, phase storage.OperationPhase) error {
 	errorsCh := make(chan error, len(phase.Phases))
+	phaseC := make(chan storage.OperationPhase, len(phase.Phases))
+
 	for _, subphase := range phase.Phases {
-		go func(p Params, subphase storage.OperationPhase) {
-			p.PhaseID = subphase.ID
-			err := f.ExecutePhase(ctx, p)
-			if err != nil {
-				logrus.WithFields(logrus.Fields{
-					logrus.ErrorKey: err,
-					"phase":         p.PhaseID,
-				}).Warn("Failed to execute phase.")
-			}
-			errorsCh <- trace.Wrap(err, "failed to execute phase %q", p.PhaseID)
-		}(p, subphase)
+		phaseC <- subphase
 	}
+
+	close(phaseC)
+
+	for i := 0; i < phase.LimitParallel; i++ {
+		go func(p Params) {
+			for subphase := range phaseC {
+				p.PhaseID = subphase.ID
+
+				err := f.ExecutePhase(ctx, p)
+				if err != nil {
+					logrus.WithFields(logrus.Fields{
+						logrus.ErrorKey: err,
+						"phase":         p.PhaseID,
+					}).Warn("Failed to execute phase.")
+				}
+
+				errorsCh <- trace.Wrap(err, "failed to execute phase %q", p.PhaseID)
+			}
+		}(p)
+	}
+
 	return utils.CollectErrors(ctx, errorsCh)
 }
 
