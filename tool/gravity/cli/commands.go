@@ -713,6 +713,10 @@ type UpgradeCmd struct {
 	Values *[]string
 	// Block indicates whether the command should run in foreground or as a systemd unit
 	Block *bool
+	// SkipWorkers configures whether to skip upgrading worker nodes
+	SkipWorkers *bool
+	// ParallelWorkers configures the number of workers that can be upgraded in parallel
+	ParallelWorkers *int
 }
 
 // StatusCmd combines subcommands for displaying status information

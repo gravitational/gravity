@@ -82,6 +82,10 @@ func newUpgradeConfig(g *Application) (*upgradeConfig, error) {
 		skipVersionCheck: *g.UpgradeCmd.SkipVersionCheck,
 		force:            *g.UpgradeCmd.Force,
 		values:           values,
+		userConfig: clusterupdate.UserConfig{
+			SkipWorkers:     *g.UpgradeCmd.SkipWorkers,
+			ParallelWorkers: *g.UpgradeCmd.ParallelWorkers,
+		},
 	}, nil
 }
 

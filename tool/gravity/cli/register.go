@@ -205,8 +205,12 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.UpdateTriggerCmd.Manual = g.UpdateTriggerCmd.Flag("manual", "Manual operation. Do not trigger automatic update.").Short('m').Bool()
 	g.UpdateTriggerCmd.SkipVersionCheck = g.UpdateTriggerCmd.Flag("skip-version-check", "Bypass version compatibility check.").Hidden().Bool()
 	g.UpdateTriggerCmd.Force = g.UpdateTriggerCmd.Flag("force", "Force update operation even if some nodes have active warnings.").Bool()
+	g.UpdateTriggerCmd.SkipWorkers = g.UpdateTriggerCmd.Flag("skip-workers", "Skip upgrade of worker nodes").Hidden().Bool()
+	g.UpdateTriggerCmd.ParallelWorkers = g.UpdateTriggerCmd.Flag("parallel-workers", "Number of worker nodes to upgrade in parallel (Default: 1)").Int()
 
 	g.UpdatePlanInitCmd.CmdClause = g.UpdateCmd.Command("init-plan", "Initialize operation plan.").Hidden()
+	g.UpdatePlanInitCmd.SkipWorkers = g.UpdatePlanInitCmd.Flag("skip-workers", "Skip upgrade of worker nodes").Hidden().Bool()
+	g.UpdatePlanInitCmd.ParallelWorkers = g.UpdatePlanInitCmd.Flag("parallel-workers", "Number of worker nodes to upgrade in parallel (Default: 1)").Int()
 
 	// upgrade is aliased to "update trigger"
 	g.UpgradeCmd.CmdClause = g.Command("upgrade", "Trigger an upgrade operation.").Hidden()
@@ -220,6 +224,8 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.UpgradeCmd.Set = g.UpgradeCmd.Flag("set", "Set Helm chart values on the command line. Can be specified multiple times and/or as comma-separated values: key1=val1,key2=val2.").Strings()
 	g.UpgradeCmd.Values = g.UpgradeCmd.Flag("values", "Set Helm chart values from the provided YAML file. Can be specified multiple times.").Strings()
 	g.UpgradeCmd.Block = g.UpgradeCmd.Flag("block", "When resuming the upgrade plan, launch it in foreground instead of a systemd unit").Bool()
+	g.UpgradeCmd.SkipWorkers = g.UpgradeCmd.Flag("skip-workers", "Skip upgrade of worker nodes").Hidden().Bool()
+	g.UpgradeCmd.ParallelWorkers = g.UpgradeCmd.Flag("parallel-workers", "Number of worker nodes to upgrade in parallel (Default: 1)").Int()
 
 	g.UpdateUploadCmd.CmdClause = g.UpdateCmd.Command("upload", "Upload update package to locally running site").Hidden()
 	g.UpdateUploadCmd.OpsCenterURL = g.UpdateUploadCmd.Flag("ops-url", "Optional Gravity Hub URL to upload new packages to (defaults to local gravity site)").Default(defaults.GravityServiceURL).String()
