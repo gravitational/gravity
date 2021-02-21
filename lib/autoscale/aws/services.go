@@ -53,6 +53,7 @@ type EC2 interface {
 type Operator interface {
 	GetLocalSite(context.Context) (*ops.Site, error)
 	CreateSiteShrinkOperation(context.Context, ops.CreateSiteShrinkOperationRequest) (*ops.SiteOperationKey, error)
+	GetSiteOperationProgress(ops.SiteOperationKey) (*ops.ProgressEntry, error)
 }
 
 type NewLocalInstance func() (*gaws.Instance, error)
