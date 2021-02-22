@@ -153,7 +153,112 @@ volumes:
   - name: dockersock
     temp: {}
 ---
+kind: pipeline
+type: kubernetes
+name: deploy docs
+
+trigger:
+  event:
+  - push
+  branch:
+  - master
+
+clone:
+  disable: true
+
+steps:
+  - name: clone gravity
+    image: docker:git
+    commands:
+    - git clone $DRONE_REPO_LINK gravity
+    - cd gravity
+    - git checkout $DRONE_COMMIT
+  - name: short circuit non-docs changes
+    image: docker:git
+    # Skip the rest of this pipeline if no docs were changed.
+    # https://discourse.drone.io/t/how-to-exit-a-pipeline-early-without-failing/3951
+    commands:
+      - cd gravity
+      -  ./build.assets/drone/diff-has-no-docs.sh $DRONE_COMMIT_BEFORE..$DRONE_COMMIT_AFTER && exit 78 || exit 0
+  - name: wait for docker
+    image: docker
+    commands:
+      - timeout 15s /bin/sh -c 'while [ ! -S /var/run/docker.sock ]; do sleep 1; done'
+      - docker version
+    volumes:
+      - name: dockersock
+        path: /var/run
+  - name: build buildbox
+    image: docker:git
+    commands:
+      - apk add --no-cache make
+      - cd gravity
+      - make -C docs bbox
+    volumes:
+      - name: dockersock
+        path: /var/run
+  - name: lint
+    image: docker:git
+    commands:
+      - apk add --no-cache make
+      - cd gravity
+      - make -C docs lint
+    volumes:
+      - name: dockersock
+        path: /var/run
+  - name: build
+    image: docker:git
+    commands:
+      - apk add --no-cache make
+      - cd gravity
+      - make -C docs docs
+    volumes:
+      - name: dockersock
+        path: /var/run
+  - name: clone web
+    image: docker:git
+    environment:
+      WEB_REPO:
+        from_secret: WEB_REPO
+      GITHUB_WEB_DEPLOY_KEY:
+        from_secret: GITHUB_WEB_DEPLOY_KEY
+      WEB_REF: master
+    commands:
+    - mkdir -m 0700 /root/.ssh && echo "$GITHUB_WEB_DEPLOY_KEY" > /root/.ssh/id_ed25519 && chmod 600 /root/.ssh/id_ed25519
+    - ssh-keyscan -H github.com > /root/.ssh/known_hosts && chmod 600 /root/.ssh/known_hosts
+    - git clone $WEB_REPO web
+    - cd web
+    - git checkout $WEB_REF
+  - name: deploy
+    image: docker:git
+    environment:
+      ANSIBLE_HOST_KEY_CHECKING: False
+      WEB_ANSIBLE_SSH_KEY:
+        from_secret: WEB_ANSIBLE_SSH_KEY
+      CLOUDFLARE_API_TOKEN_STAGING:
+        from_secret: CLOUDFLARE_API_TOKEN_STAGING
+      CLOUDFLARE_API_TOKEN_PRODUCTION:
+        from_secret: CLOUDFLARE_API_TOKEN_PRODUCTION
+    commands:
+      - apk add --no-cache make curl rsync ansible
+      - mkdir -m 0700 /root/.ssh && echo "$WEB_ANSIBLE_SSH_KEY" > /root/.ssh/id_ed25519 && chmod 600 /root/.ssh/id_ed25519
+      - cd web
+      - export ENV=${ENV:-production}
+      - make deploy-docs
+
+services:
+  - name: run docker daemon
+    image: docker:dind
+    privileged: true
+    volumes:
+      - name: dockersock
+        path: /var/run
+
+volumes:
+  - name: dockersock
+    temp: {}
+---
 kind: signature
-hmac: 5b23b8408806e4123df0c5d524e9d705b498fda7dba596f8b985302d31f3e780
+hmac: c937acc90f6f6cdd42588aa74401c5d10a8b2e35d1b837c49fc6fd526f9fb19a
 
 ...
