@@ -8,12 +8,12 @@ trigger:
   - pull_request
 
 steps:
-  # https://discourse.drone.io/t/how-to-exit-a-pipeline-early-without-failing/3951
-  # If a change is entirely documentation, skip the expensive build & test steps.
   - name: short circuit docs changes
     image: docker:git
     commands:
-    -  ./build.assets/drone/diff-is-all-docs.sh $DRONE_COMMIT_BEFORE..$DRONE_COMMIT_AFTER && exit 78 || exit 0
+      # If a change is entirely documentation, skip the expensive build & test steps.
+      # https://discourse.drone.io/t/how-to-exit-a-pipeline-early-without-failing/3951
+      -  ./build.assets/drone/diff-is-all-docs.sh $DRONE_COMMIT_BEFORE..$DRONE_COMMIT_AFTER && exit 78 || exit 0
   - name: fetch tags
     image: docker:git
     commands:
@@ -154,6 +154,6 @@ volumes:
     temp: {}
 ---
 kind: signature
-hmac: f810426f93774968d92285ce5ee304608848c26dd88f7165dcbfb9965c2045bb
+hmac: 5b23b8408806e4123df0c5d524e9d705b498fda7dba596f8b985302d31f3e780
 
 ...

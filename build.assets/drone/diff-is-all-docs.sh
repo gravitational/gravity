@@ -1,7 +1,6 @@
 #!/bin/sh
-# examine the output of git diff --raw to determine whether any files
-# which don't match the pattern '^docs/' or '.md$' were changed. if there are no
-# changes to non-docs code
+# Examine the output of git diff --raw to determine whether any files
+# which don't match the pattern '^docs/' or '.md$' were changed.
 
 REVLIST=$1
 if [ -z "$REVLIST" ]; then
