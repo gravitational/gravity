@@ -24,6 +24,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/utils"
+	"github.com/sirupsen/logrus"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
@@ -123,7 +124,7 @@ func (a *Autoscaler) processEvent(ctx context.Context, operator Operator, event 
 			return trace.Wrap(err)
 		}
 	default:
-		log.Debugf("Discarding unsupported event %#v.", event)
+		a.Debugf("Discarding unsupported event %#v.", event)
 		if err := a.DeleteEvent(ctx, event); err != nil {
 			return trace.Wrap(err)
 		}
@@ -155,13 +156,21 @@ func (a *Autoscaler) ensureInstanceTerminated(ctx context.Context, event HookEve
 }
 
 func (a *Autoscaler) removeInstance(ctx context.Context, operator Operator, event HookEvent) error {
+	err := a.sendHeartbeat(event)
+	if err != nil {
+		a.WithError(err).Warn("Failed to send heartbeat to AWS")
+		// fallthrough, if the heartbeat fails there isn't really a reason not to continue with the uninstall
+	}
+
 	cluster, err := operator.GetLocalSite(ctx)
 	if err != nil {
+		a.WithError(err).Debug("error retrieving site")
 		return trace.Wrap(err)
 	}
 
 	server, err := ops.FindServerByInstanceID(cluster, event.InstanceID)
 	if err != nil {
+		a.WithError(err).Debug("unable to find server")
 		return trace.Wrap(err)
 	}
 
@@ -174,10 +183,11 @@ func (a *Autoscaler) removeInstance(ctx context.Context, operator Operator, even
 			NodeRemoved: false,
 		})
 	if err != nil {
+		a.WithError(err).Warn("failed to create shrink operation")
 		return trace.Wrap(err)
 	}
 
-	a.Debugf("initiated shrink operation for node %v", server.Hostname)
+	a.Infof("initiated shrink operation for node %v", server.Hostname)
 
 	go a.monitorShrink(ctx, operator, event, opKey)
 
@@ -187,24 +197,30 @@ func (a *Autoscaler) removeInstance(ctx context.Context, operator Operator, even
 // monitorShrink sends heartbeats to the ASG until the uninstall completes, forcing the node to stay online
 // while the node is drained and any uninstall steps that need to occur.
 func (a *Autoscaler) monitorShrink(ctx context.Context, operator Operator, event HookEvent, opKey *ops.SiteOperationKey) {
+	log := a.WithFields(logrus.Fields{
+		"instance": event.InstanceID,
+		"asg_name": event.AutoScalingGroupName,
+		"op_key":   opKey,
+	})
+
 	// We can only keep the instance alive for 100 * the heartbeat timeout, which we default to 60 seconds
 	// TODO: detect the actual heartbeat timeout or make this configurable
 	// https://docs.aws.amazon.com/autoscaling/ec2/userguide/lifecycle-hooks.html#lifecycle-hook-considerations
 	b := utils.NewExponentialBackOff(100 * time.Minute)
-	// the timeout is 1 minute, and we want to have several attempts before the timeout occurs
+	// the default timeout is 1 minute, and we want to attempt several heartbeats within that timeout incase there is a
+	// problem
 	b.MaxInterval = 15 * time.Second
 
 	err := utils.RetryWithInterval(ctx, b, func() error {
 		progress, err := operator.GetSiteOperationProgress(*opKey)
 		if err != nil {
-			a.WithError(err).WithField("op_key", opKey).Warn("failed to retrieve progress entry")
+			log.WithError(err).Warn("failed to retrieve progress entry")
 			return trace.Wrap(err)
 		}
 
 		if progress.IsCompleted() {
 			err := a.completeASGLifecycle(event)
 			if err != nil {
-				a.WithError(err).WithField("op_key", opKey).Warn("failed to complete lifecycle action")
 				return trace.Wrap(err)
 			}
 
@@ -215,10 +231,10 @@ func (a *Autoscaler) monitorShrink(ctx context.Context, operator Operator, event
 		if progress.State == ops.ProgressStateFailed {
 			err := a.completeASGLifecycle(event)
 			if err != nil {
-				a.WithError(err).WithField("op_key", opKey).Warn("failed to complete lifecycle action")
-				// if we're re-entrant the ASG might not expect our completion, continue on error
+				// if we're re-entrant the ASG might not expect our completion notification, continue on error
 			}
 
+			// wait for the node to terminate, and then try and trigger a force shrink operation for a dead node
 			err = a.ensureInstanceTerminated(ctx, event)
 			if err != nil {
 				return trace.Wrap(err)
@@ -226,31 +242,21 @@ func (a *Autoscaler) monitorShrink(ctx context.Context, operator Operator, event
 
 			err = a.forceShrink(ctx, operator, event)
 			if err != nil {
-				a.WithError(err).WithField("op_key", opKey).Warn("failed to force shrink operation")
+				log.WithError(err).Warn("failed to force shrink operation")
 				return trace.Wrap(err)
 			}
 
-			// Once we've started the force shrink operation, exit
+			// Once we've started the force shrink operation, we don't need to continue to monitor the uninstall
 			return nil
 		}
 
 		// we're still uninstalling so record a heartbeat with AWS to keep the node alive
-		_, err = a.Config.AutoScaling.RecordLifecycleActionHeartbeat(&autoscaling.RecordLifecycleActionHeartbeatInput{
-			AutoScalingGroupName: aws.String(event.AutoScalingGroupName),
-			InstanceId:           aws.String(event.InstanceID),
-			LifecycleActionToken: aws.String(event.Token),
-			LifecycleHookName:    aws.String(event.LifecycleHookName),
-		})
+		err = a.sendHeartbeat(event)
 
-		a.WithError(err).WithFields(log.Fields{
-			"instance": event.InstanceID,
-			"asg_name": event.AutoScalingGroupName,
-		}).Debug("lifecycle heartbeat complete")
-
-		return nil
+		return trace.Wrap(err)
 	})
 	if err != nil {
-		a.WithError(err).WithField("op_key", opKey).Warn("exiting due to excessive failures")
+		log.WithError(err).Warn("exiting asg shrink due to excessive failures")
 	}
 }
 
@@ -263,10 +269,37 @@ func (a *Autoscaler) completeASGLifecycle(event HookEvent) error {
 		LifecycleActionResult: aws.String("CONTINUE"),
 	})
 
+	a.WithError(err).WithFields(log.Fields{
+		"instance": event.InstanceID,
+		"asg_name": event.AutoScalingGroupName,
+	}).Info("notified AWS of completed uninstall")
+
+	return trace.Wrap(err)
+}
+
+func (a *Autoscaler) sendHeartbeat(event HookEvent) error {
+	// we're still uninstalling so record a heartbeat with AWS to keep the node alive
+	_, err := a.Config.AutoScaling.RecordLifecycleActionHeartbeat(&autoscaling.RecordLifecycleActionHeartbeatInput{
+		AutoScalingGroupName: aws.String(event.AutoScalingGroupName),
+		InstanceId:           aws.String(event.InstanceID),
+		LifecycleActionToken: aws.String(event.Token),
+		LifecycleHookName:    aws.String(event.LifecycleHookName),
+	})
+
+	a.WithError(err).WithFields(log.Fields{
+		"instance": event.InstanceID,
+		"asg_name": event.AutoScalingGroupName,
+	}).Info("sent heartbeat for lifecycle event")
+
 	return trace.Wrap(err)
 }
 
 func (a *Autoscaler) forceShrink(ctx context.Context, operator Operator, event HookEvent) error {
+	a.WithFields(log.Fields{
+		"instance": event.InstanceID,
+		"asg_name": event.AutoScalingGroupName,
+	}).Info("running shrink with force set")
+
 	err := a.ensureInstanceTerminated(ctx, event)
 	if err != nil {
 		return trace.Wrap(err)

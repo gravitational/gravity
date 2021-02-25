@@ -529,13 +529,15 @@ func (r clusterInitializer) newOperationPlan(
 ) (*storage.OperationPlan, error) {
 	var uc clusterupdate.UserConfig
 	if userConfig != nil {
-		c, ok := userConfig.(clusterupdate.UserConfig)
+		c, ok := userConfig.(*clusterupdate.UserConfig)
 		if !ok {
 			// BUG: the passed in config is not of the expected type
 			// log and act as if not configured.
 			log.WithError(trace.BadParameter("unexpected userConfig")).Warn("BUG: passed in user config is not the expected type")
 		}
-		uc = c
+		if c != nil {
+			uc = *c
+		}
 	}
 
 	plan, err := clusterupdate.InitOperationPlan(
