@@ -11,11 +11,9 @@
 #
 # The following environment variables must be specified by the caller:
 #
-# IMAGE - A docker container that the build will run in
 # BUILD_TMP - Partially constructed images are built here. Must be on the same filesystem as TARGET for atomic move operations.
 # TARGET - Where the cluster image should end up
 # TELE  - The tele to build the image, should typically be equal to VERSION
-# APP_SRCDIR - The directory that contains all files necessary to build the application.
 # APP_YAML - The image manifest to be built.
 # VERSION - The application version to use in the cluster image. Must be within SRCDIR.
 # STATE_DIR - The gravity state dir where packages are cached/drawn from. May be shared across subsequent builds.
@@ -29,24 +27,11 @@ trap "rm -rf $TMP" exit
 
 TGT=$TMP/$(basename "$TARGET")
 
-
-NOROOT="--user=$(id -u):$(id -g) --group-add=$(getent group docker | cut -d: -f3)"
-VOLUMES="-v $TELE:$TELE:ro -v $APP_SRCDIR:$APP_SRCDIR:ro -v $STATE_DIR:$STATE_DIR -v $TMP:$TMP"
-VOLUMES="$VOLUMES -v /var/run/docker.sock:/var/run/docker.sock"
-VOLUMES="$VOLUMES --tmpfs /tmp"
-
-(
 set -o xtrace
-docker run --rm=true --net=host $NOROOT \
-    $VOLUMES \
-    -w "$TMP" \
-    $IMAGE \
-    dumb-init \
-    "$TELE" build \
-    "$APP_MANIFEST" \
-    --state-dir="$STATE_DIR" \
-    --version="$VERSION" \
-    --output="$TGT"
+"$TELE" build \
+"$APP_MANIFEST" \
+--state-dir="$STATE_DIR" \
+--version="$VERSION" \
+--output="$TGT"
 
 mv "$TGT" "$TARGET"
-)

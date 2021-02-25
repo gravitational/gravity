@@ -25,6 +25,8 @@ import (
 	"github.com/gravitational/gravity/lib/clients"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/httplib"
+	"github.com/gravitational/gravity/lib/kubernetes"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
@@ -33,6 +35,7 @@ import (
 	"github.com/gravitational/gravity/lib/users"
 	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/cenkalti/backoff"
 	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
 	"github.com/pborman/uuid"
@@ -274,6 +277,20 @@ func (s *site) shrinkOperationStart(opCtx *operationContext) (err error) {
 		logger.WithError(err).Warn("Failed to unregister the node, force continue.")
 	}
 
+	s.reportProgress(opCtx, ops.ProgressEntry{
+		State:      ops.ProgressStateInProgress,
+		Completion: 15,
+		Message:    "disable planet elections",
+	})
+
+	if err = s.setElectionStatus(*server, false, masterRunner); err != nil {
+		if !force {
+			return trace.Wrap(err, "failed to disable elections on the node")
+		}
+
+		logger.WithError(err).Warn("Failed to disable elections on the node, force continue.")
+	}
+
 	if s.app.Manifest.HasHook(schema.HookNodeRemoving) {
 		s.reportProgress(opCtx, ops.ProgressEntry{
 			State:      ops.ProgressStateInProgress,
@@ -289,15 +306,28 @@ func (s *site) shrinkOperationStart(opCtx *operationContext) (err error) {
 		}
 	}
 
-	s.reportProgress(opCtx, ops.ProgressEntry{
-		State:      ops.ProgressStateInProgress,
-		Completion: 30,
-		Message:    "removing the node from the cluster",
-	})
-
 	// if the node is online, it needs to leave the serf cluster to
 	// prevent joining back
 	if online {
+		if !force {
+			s.reportProgress(opCtx, ops.ProgressEntry{
+				State:      ops.ProgressStateInProgress,
+				Completion: 30,
+				Message:    "draining the node",
+			})
+
+			err = s.drain(*server)
+			if err != nil {
+				return trace.Wrap(err, "failed to drain the node")
+			}
+		}
+
+		s.reportProgress(opCtx, ops.ProgressEntry{
+			State:      ops.ProgressStateInProgress,
+			Completion: 35,
+			Message:    "removing the node from the serf cluster",
+		})
+
 		err = s.serfNodeLeave(agentRunner)
 		if err != nil {
 			if !force {
@@ -307,7 +337,13 @@ func (s *site) shrinkOperationStart(opCtx *operationContext) (err error) {
 		}
 	}
 
-	// delete the Kubernetes node and force-leave its serf member
+	s.reportProgress(opCtx, ops.ProgressEntry{
+		State:      ops.ProgressStateInProgress,
+		Completion: 40,
+		Message:    "removing the node from the kubernetes cluster",
+	})
+
+	// delete the Kubernetes node
 	if err = s.removeNodeFromCluster(*server, masterRunner); err != nil {
 		if !force {
 			return trace.Wrap(err, "failed to remove the node from the cluster")
@@ -317,7 +353,7 @@ func (s *site) shrinkOperationStart(opCtx *operationContext) (err error) {
 
 	s.reportProgress(opCtx, ops.ProgressEntry{
 		State:      ops.ProgressStateInProgress,
-		Completion: 40,
+		Completion: 45,
 		Message:    "removing the node from the database",
 	})
 
@@ -642,6 +678,52 @@ func (s *site) unlabelNode(server storage.Server, runner *serverRunner) error {
 	err = utils.Retry(defaults.RetryInterval, defaults.RetryAttempts, func() error {
 		_, err := runner.Run(command...)
 		return trace.Wrap(err)
+	})
+
+	return trace.Wrap(err)
+}
+
+func (s *site) setElectionStatus(server storage.Server, enable bool, runner *serverRunner) error {
+	key := fmt.Sprintf("/planet/cluster/%s/election/%s", s.domainName, server.AdvertiseIP)
+
+	command := s.planetEnterCommand(defaults.EtcdCtlBin,
+		"set", key, fmt.Sprintf("%v", enable))
+
+	out, err := runner.Run(command...)
+	if err != nil {
+		return trace.Wrap(err, "setting leader election on %q to %v: %s", server.AdvertiseIP, enable, out).AddFields(
+			map[string]interface{}{
+				"cluster":      s.domainName,
+				"advertise-ip": server.AdvertiseIP,
+				"hostname":     server.Hostname,
+			})
+	}
+
+	return nil
+}
+
+func (s *site) drain(server storage.Server) error {
+	ctx, cancel := context.WithTimeout(context.Background(), defaults.DrainTimeout)
+	defer cancel()
+
+	err := utils.RetryWithInterval(ctx, backoff.NewConstantBackOff(time.Second), func() error {
+		client, _, err := httplib.GetClusterKubeClient(storage.DefaultDNSConfig.Addr())
+		if err != nil {
+			return trace.Wrap(err, "failed to create Kubernetes client")
+		}
+
+		err = kubernetes.Drain(ctx, client, server.KubeNodeID())
+		if err != nil {
+			return trace.Wrap(err, "failed to drain node").AddFields(
+				map[string]interface{}{
+					"cluster":      s.domainName,
+					"advertise-ip": server.AdvertiseIP,
+					"hostname":     server.Hostname,
+					"kube-node-id": server.KubeNodeID(),
+				})
+		}
+
+		return nil
 	})
 
 	return trace.Wrap(err)
