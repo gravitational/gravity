@@ -301,6 +301,7 @@ func getLastOperation(localEnv *localenv.LocalEnvironment, environ LocalEnvironm
 		if op == nil {
 			return nil, newOperationNotFound("no operation with ID %v found", operationID)
 		}
+		return op, nil
 	}
 
 	op := b.GetLastOperation(localEnv, environ)

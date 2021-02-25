@@ -169,7 +169,8 @@ spec:
     featureGates:
       FeatureA: true
       FeatureB: false
-    podSubnetSize: "26"`,
+    podSubnetSize: "26"
+    highAvailability: true`,
 			resource: &Resource{
 				Kind:    storage.KindClusterConfiguration,
 				Version: "v1",
@@ -183,7 +184,8 @@ spec:
 							"FeatureA": true,
 							"FeatureB": false,
 						},
-						PodSubnetSize: "26",
+						PodSubnetSize:    "26",
+						HighAvailability: true,
 					},
 				},
 			},
@@ -241,6 +243,7 @@ func (*S) TestMergesClusterConfiguration(c *C) {
 							"feature1": true,
 							"feature2": false,
 						},
+						HighAvailability: true,
 					},
 				},
 			},
@@ -259,6 +262,7 @@ func (*S) TestMergesClusterConfiguration(c *C) {
 							"feature1": true,
 							"feature2": false,
 						},
+						HighAvailability: true,
 					},
 				},
 			},

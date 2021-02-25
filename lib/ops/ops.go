@@ -1775,6 +1775,8 @@ type NewSiteRequest struct {
 	Location string `json:"location"`
 	// Flavor is the name of the initial cluster flavor.
 	Flavor string `json:"flavor"`
+	// DisabledWebUI specifies whether OpsCenter and WebInstallWizard are disabled
+	DisabledWebUI bool `json:"disabled_web_ui"`
 	// InstallToken is install token for site to create for agents
 	InstallToken string `json:"install_token"`
 	// ServiceUser specifies the user to use for planet container services

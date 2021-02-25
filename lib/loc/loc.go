@@ -28,6 +28,7 @@ import (
 	"github.com/coreos/go-semver/semver"
 	"github.com/gravitational/configure/cstrings"
 	"github.com/gravitational/trace"
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -235,6 +236,31 @@ func Deduplicate(ls []Locator) (result []Locator) {
 		result = append(result, loc)
 		seen[loc] = struct{}{}
 	}
+	return result
+}
+
+// Contains checks if a list of locators contains another one
+func Contains(locator Locator, locators []Locator) bool {
+	for _, l := range locators {
+		if l.Name == locator.Name {
+			return true
+		}
+	}
+
+	return false
+}
+
+// Filter filters a list of locators.
+// Excludes the values specified in []filters from []locators.
+func Filter(locators []Locator, filters []Locator, message string) (result []Locator) {
+	for _, l := range locators {
+		if !Contains(l, filters) {
+			result = append(result, l)
+		} else {
+			log.Infof(message, l)
+		}
+	}
+
 	return result
 }
 

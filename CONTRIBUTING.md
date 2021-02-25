@@ -13,7 +13,7 @@ Security issues should be reported directly to security@gravitational.com.
 
 If you are unsure if you've found a bug, consider searching
 [current issues](https://github.com/gravitational/gravity/issues) or
-asking in the [community forum](https://community.gravitational.com/) first.
+asking in the [community forum](https://community.goteleport.com/) first.
 
 Once you know you have a issue, make sure to fill out all sections of the
 one of the templates at https://github.com/gravitational/gravity/issues/new/choose.

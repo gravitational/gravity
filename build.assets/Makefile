@@ -188,7 +188,7 @@ build: build-on-host
 else
 .PHONY: build
 build: selinux grpc build-in-container
-	ln --symbolic --force --no-target-directory $(GRAVITY_BUILDDIR) $(GRAVITY_CURRENT_BUILDDIR)
+	ln -sfT $(GRAVITY_BUILDDIR) $(GRAVITY_CURRENT_BUILDDIR)
 endif
 
 #
@@ -409,7 +409,7 @@ tiller-app:
 
 .PHONY: site-app
 site-app:
-	$(eval TMPDIR := $(shell mktemp -d --tmpdir=$(GRAVITY_BUILDDIR)))
+	$(eval TMPDIR := $(shell mktemp -d -p $(GRAVITY_BUILDDIR)))
 	cp -r $(ASSETSDIR)/site-app/* $(TMPDIR)
 	cp $(GRAVITY_BUILDDIR)/gravity $(TMPDIR)/images/site
 	cd $(TMPDIR) && \
