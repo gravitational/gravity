@@ -242,9 +242,9 @@ func (b *backend) GetOperationPlanChangelog(clusterName, operationID string) (st
 		}
 		utils.UTC(&ch.Created)
 
-		b.cachedCompleteOperationsMutex.Lock()
+		b.cachedPlanChangeMutex.Lock()
 		b.cachedPlanChange[id] = &ch
-		b.cachedCompleteOperationsMutex.Unlock()
+		b.cachedPlanChangeMutex.Unlock()
 
 		out = append(out, ch)
 	}
