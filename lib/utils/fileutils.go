@@ -26,6 +26,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
@@ -460,11 +461,15 @@ func EnsureLineInFile(path, line string) error {
 
 // Chown adjusts ownership of the specified directory and all its subdirectories
 func Chown(path string, uid, gid int) error {
-	out, err := exec.Command("chown", "-R", fmt.Sprintf("%v:%v", uid, gid), path).CombinedOutput()
-	if err != nil {
-		return trace.Wrap(err, "failed to chown %q to %v:%v: %s", path, uid, gid, out)
-	}
-	return nil
+	err := Retry(time.Second, 5, func() error {
+		out, err := exec.Command("chown", "-R", fmt.Sprintf("%v:%v", uid, gid), path).CombinedOutput()
+		if err != nil {
+			return trace.Wrap(err, "failed to chown %q to %v:%v: %s", path, uid, gid, out)
+		}
+		return nil
+	})
+	return trace.Wrap(err)
+
 }
 
 // CopyWithRetries copies the contents of the reader obtained with open to targetPath
