@@ -124,7 +124,8 @@ func (a *Autoscaler) processEvent(ctx context.Context, operator Operator, event 
 	switch event.Type {
 	case InstanceLaunching:
 		if err := a.TurnOffSourceDestinationCheck(ctx, event.InstanceID); err != nil {
-			return trace.Wrap(err)
+			a.WithError(err).Warn("Disabling Source/Destination check failed")
+			// fallthrough, allow the reconciliation loop to retry later
 		}
 		if err := a.DeleteEvent(ctx, event); err != nil {
 			return trace.Wrap(err)
