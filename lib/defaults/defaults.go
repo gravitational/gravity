@@ -1098,7 +1098,8 @@ const (
 
 	// AgentDeployTimeout specifies the maximum amount of time to wait to deploy agents
 	// for an operation that spans multiple nodes
-	AgentDeployTimeout = 5 * time.Minute
+	// Note: Needs to be above 5 minutes or timeouts can occur on 1k node clusters
+	AgentDeployTimeout = 10 * time.Minute
 
 	// InstanceTerminationTimeout is the maximum amount of time to wait
 	// for AWS EC2 instance to terminate
