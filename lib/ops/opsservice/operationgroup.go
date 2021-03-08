@@ -312,7 +312,7 @@ func (g *operationGroup) canCreateExpandOperation(site ops.Site, profiles map[st
 		}
 
 		for _, operation := range operations {
-			for _, server := range operation.Shrink.Servers {
+			for _, server := range operation.Servers {
 				if server.ClusterRole == string(schema.ServiceRoleMaster) {
 					return trace.CompareFailed("cannot expand cluster while shrinking controller")
 				}
