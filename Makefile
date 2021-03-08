@@ -19,7 +19,7 @@ ASSETSDIR=$(TOP)/assets
 BINDIR ?= /usr/bin
 
 # Current Kubernetes version
-K8S_VER := 1.17.9
+K8S_VER := 1.19.8
 # Kubernetes version suffix for the planet package, constructed by concatenating
 # major + minor padded to 2 chars with 0 + patch also padded to 2 chars, e.g.
 # 1.13.5 -> 11305, 1.13.12 -> 11312, 2.0.0 -> 20000 and so on
@@ -46,17 +46,17 @@ RELEASE_OUT ?=
 TELEPORT_TAG = 3.2.17
 # TELEPORT_REPOTAG adapts TELEPORT_TAG to the teleport tagging scheme
 TELEPORT_REPOTAG := v$(TELEPORT_TAG)
-PLANET_TAG := 7.1.23-$(K8S_VER_SUFFIX)
+PLANET_TAG := 7.1.24-$(K8S_VER_SUFFIX)
 PLANET_BRANCH := $(PLANET_TAG)
 K8S_APP_TAG := $(GRAVITY_TAG)
 TELEKUBE_APP_TAG := $(GRAVITY_TAG)
 WORMHOLE_APP_TAG := $(GRAVITY_TAG)
 INGRESS_APP_TAG ?= 0.0.1
-STORAGE_APP_TAG ?= 0.0.3
-LOGGING_APP_TAG ?= 6.0.9
-MONITORING_APP_TAG ?= 7.1.3
+STORAGE_APP_TAG ?= 0.0.4
+LOGGING_APP_TAG ?= 7.1.0
+MONITORING_APP_TAG ?= 7.1.4
 DNS_APP_TAG = 7.1.2
-BANDWAGON_TAG ?= 6.0.1
+BANDWAGON_TAG ?= 7.1.0
 RBAC_APP_TAG := $(GRAVITY_TAG)
 TILLER_VERSION = 2.16.12
 TILLER_APP_TAG = 7.1.0
