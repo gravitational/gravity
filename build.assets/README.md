@@ -11,7 +11,6 @@ Gravity Website:  https://gravitational.com/gravity/
 Quick Start    :  https://gravitational.com/gravity/docs/quickstart/
 Gravity Source :  https://github.com/gravitational/gravity
 Blog           :  https://blog.gravitational.com
-Community Forum:  https://community.gravitational.com
 
 Introduction
 ============
@@ -49,9 +48,4 @@ https://gravitational.com/gravity/docs/quickstart/
 Talk to us
 ==========
 
-* Want to join our team to hack on Gravity? https://gravitational.com/careers/
-* Want to stop managing Kubernetes and have autonomous appliance-like clusters?
-* Want to take your complex SaaS application and convert it into a downloadable
-  appliance so your customers can run it on their own AWS account or in a colo?
-
-Reach out to info@gravitational.com
+* Want to join our team? https://jobs.lever.co/gravitational

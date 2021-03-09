@@ -3,9 +3,3 @@ contact_links:
   - name: Gravity Documentation
     url: https://gravitational.com/gravity/docs/
     about: Check out the Gravity documentation for answers to common questions
-  - name: Gravitational Gravity community
-    url: https://community.gravitational.com/c/gravity
-    about: Ask Gravity related questions, answered by the Team and community. 
-  - name: Request a Demo
-    url: https://gravitational.com/gravity/demo/
-    about: Want to see the full power of Gravity? Our team is happy to give a demo. 
