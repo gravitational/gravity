@@ -380,6 +380,9 @@ func (r *checker) Check(ctx context.Context) (failed []*agentpb.Probe) {
 
 	close(serverC)
 
+	// Make the number of parallel routines relative to the number of CPU cores. This allows the parallel execution
+	// to scale relative to the size of the server. Using NumCPU/2 is a guess that isn't expected to generate too much
+	// load on the server running the checks.
 	numRoutines := (runtime.NumCPU() / 2) + 1
 
 	var mutex sync.Mutex

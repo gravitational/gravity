@@ -149,7 +149,7 @@ func (g *operationGroup) canCreateOperation(operation ops.SiteOperation, force b
 			return trace.Wrap(err)
 		}
 	case ops.OperationShrink:
-		err := g.canCreateStrinkOperation(*cluster, operation, force)
+		err := g.canCreateShrinkOperation(*cluster, operation, force)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -236,11 +236,11 @@ You can provide --force flag to override this check.`,
 	return nil
 }
 
-// canCreateShrinkOperations runs shrink-specific checks
+// canCreateShrinkOperation runs shrink-specific checks
 //
 // In case of failed checks returns trace.CompareFailed error to indicate that
 // the cluster is not in the appropriate state.
-func (g *operationGroup) canCreateStrinkOperation(cluster ops.Site, operation ops.SiteOperation, force bool) error {
+func (g *operationGroup) canCreateShrinkOperation(cluster ops.Site, operation ops.SiteOperation, force bool) error {
 	if force {
 		return nil
 	}

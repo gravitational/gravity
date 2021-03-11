@@ -47,6 +47,7 @@ import (
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
+// UserConfig holds configuration parameters provided by the user triggering the update operation.
 type UserConfig struct {
 	ParallelWorkers int
 	SkipWorkers     bool

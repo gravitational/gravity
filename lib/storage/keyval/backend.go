@@ -176,6 +176,7 @@ func compress(in []byte) ([]byte, error) {
 
 	// if the data is already compressed (with gzip) don't compress a second time
 	// insert our own magic number to indicate to return the value as is
+	// See https://www.rfc-editor.org/rfc/rfc1952.txt section 2.3.1 fore file identification
 	if (in[0] == 0x1f && in[1] == 0x8b) || (in[0] == 0x1f && in[1] == 0x8c) {
 		return append([]byte{0x1f, 0x8c}, in...), nil
 	}

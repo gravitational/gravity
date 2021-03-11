@@ -36,12 +36,12 @@ import (
 	"github.com/gravitational/gravity/lib/rpc/proto"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
-	"github.com/sirupsen/logrus"
 
 	"github.com/gravitational/roundtrip"
 	telehttplib "github.com/gravitational/teleport/lib/httplib"
 	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
+	"github.com/sirupsen/logrus"
 )
 
 const CurrentVersion = "portal/v1"
