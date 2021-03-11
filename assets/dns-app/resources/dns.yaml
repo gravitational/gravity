@@ -321,7 +321,7 @@ metadata:
   name: cluster-proportional-autoscaler-coredns
   namespace: kube-system
 ---
-apiVersion: extensions/v1beta1
+apiVersion: policy/v1beta1
 kind: PodSecurityPolicy
 metadata:
   annotations:

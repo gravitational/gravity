@@ -2,12 +2,12 @@
     <img src='https://gravitational.com/gravitational/images/logos/logo-gravity-x-large.png' alt='Gravity'>
 </a>
 
-Gravity is an [upstream Kubernetes](https://kubernetes.io/) packaging solution
+Gravity is a [Kubernetes](https://kubernetes.io/) packaging solution
 that takes the drama out of deploying and running applications in someone
 else's cloud accounts, on-premise data centers, edge locations and other
 "uncharted territory" environments.
 
-With Gravity, your Kubernetes apps can run and be regularly updated anywhere in
+With Gravity, Kubernetes apps can run and be regularly updated anywhere in
 the world without a massive DevOps team.
 
 |Project Links| Description
@@ -16,8 +16,7 @@ the world without a massive DevOps team.
 | [Gravity Documentation](https://gravitational.com/gravity/docs/)  | Gravity Documentation |
 | [Gravity Examples](examples/) | Examples of applications packaged with Gravity |
 | [Blog](http://blog.gravitational.com) | Our blog, where we publish Gravity news |
-| [Security and Release Updates](https://community.gravitational.com/c/gravity-news) | Gravity Community Security and Release Updates |
-| [Community Forum](https://community.gravitational.com) | Gravity Community Forum|
+| [Security and Release Updates](https://goteleport.com/gravity/docs/changelog/) | Gravity Security and Release Updates |
 
 ## Introduction
 
@@ -141,17 +140,14 @@ organizations](https://gravitational.com/teleport).
 
 ## Is Gravity Production Ready?
 
-Yes! Even though Gravity was open sourced in September 2018, it started life
-much earlier, as a component of a larger, proprietary system called Telekube.
+Yes!
 
 Fully autonomous Gravity clusters are running inside of large banks, government
-institutions, enterprises, etc. Some of the commercial users of Gravity are
-listed on the [Gravitational web site](https://gravitational.com)
+institutions, enterprises, etc. We use Gravity to run our own infrastructure.
 
 ## Why did We Build Gravity?
 
-Gravity was built by [Gravitational Inc](https://gravitational.com), a company
-based in Oakland, California.
+Gravity is built by [Teleport](https://goteleport.com).
 
 The original use case for Gravity was to allow Kubernetes applications to be
 deployed into 3rd party environments, like on-premises datacenters. That's why
@@ -190,22 +186,8 @@ $ make install
 $ make clean
 ```
 
-## Known Issues
-
-While the code is open source, we're still working on updating the
-documentation to reflect the differences between the proprietary and
-community/OSS editions of the software. We are also working on providing open
-source users with pre-built binaries on a regular basis.
-
 ## Contributing
 
 To contribute, please read the [contribution guidelines](./CONTRIBUTING.md).
 
-## Talk to us
-
-* Want to join our team to hack on Gravity? [We are always hiring!](https://gravitational.breezy.hr/)
-* Want to stop managing Kubernetes and have autonomous appliance-like clusters?
-* Want to take your complex SaaS application and convert it into a downloadable
-  appliance so your customers can run it on their own AWS account or in a colo?
-
-Reach out to `info@gravitational.com`
+Want to join our team? [We are always hiring!](https://jobs.lever.co/gravitational)

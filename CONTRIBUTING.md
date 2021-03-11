@@ -9,16 +9,15 @@ We follow a [code of conduct](./CODE_OF_CONDUCT.md).
 
 ## Filing an Issue
 
-Security issues should be reported directly to security@gravitational.com.
+Security issues should be reported directly to security@goteleport.com.
 
 If you are unsure if you've found a bug, consider searching
-[current issues](https://github.com/gravitational/gravity/issues) or
-asking in the [community forum](https://community.goteleport.com/) first.
+[current issues](https://github.com/gravitational/gravity/issues).
 
 Once you know you have a issue, make sure to fill out all sections of the
 one of the templates at https://github.com/gravitational/gravity/issues/new/choose.
 
-Gravity contributors will triage the issue shortly.
+Gravity contributors will triage the issue.
 
 
 ## Contributing A Patch
@@ -41,4 +40,4 @@ If your patch depends on new packages, the dependencies must:
 
 - be licensed via Apache2 license
 - be approved by core Gravity contributors ahead of time
-- be vendored via [`dep`](https://github.com/golang/dep)
+- be vendored via go modules
