@@ -76,6 +76,11 @@ func newUpgradeConfig(g *Application) (*upgradeConfig, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+
+	if g.UpgradeCmd.ParallelWorkers != nil && *g.UpgradeCmd.ParallelWorkers < 1 {
+		return nil, trace.BadParameter("parallel-workers expected to be a positive integer or unset")
+	}
+
 	return &upgradeConfig{
 		upgradePackage:   *g.UpgradeCmd.App,
 		manual:           *g.UpgradeCmd.Manual,

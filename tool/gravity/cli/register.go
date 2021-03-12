@@ -225,7 +225,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.UpgradeCmd.Values = g.UpgradeCmd.Flag("values", "Set Helm chart values from the provided YAML file. Can be specified multiple times.").Strings()
 	g.UpgradeCmd.Block = g.UpgradeCmd.Flag("block", "When resuming the upgrade plan, launch it in foreground instead of a systemd unit").Bool()
 	g.UpgradeCmd.SkipWorkers = g.UpgradeCmd.Flag("skip-workers", "Skip upgrade of worker nodes").Hidden().Bool()
-	g.UpgradeCmd.ParallelWorkers = g.UpgradeCmd.Flag("parallel-workers", "Number of worker nodes to upgrade in parallel (Default: 1)").Int()
+	g.UpgradeCmd.ParallelWorkers = g.UpgradeCmd.Flag("parallel-workers", "Number of worker nodes to upgrade in parallel (defaults to serial upgrade of workers)").Hidden().Int()
 
 	g.UpdateUploadCmd.CmdClause = g.UpdateCmd.Command("upload", "Upload update package to locally running site").Hidden()
 	g.UpdateUploadCmd.OpsCenterURL = g.UpdateUploadCmd.Flag("ops-url", "Optional Gravity Hub URL to upload new packages to (defaults to local gravity site)").Default(defaults.GravityServiceURL).String()

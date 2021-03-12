@@ -175,7 +175,7 @@ func (a *Autoscaler) removeInstance(ctx context.Context, operator Operator, even
 	})
 
 	// start sending heartbeats to tell AWS to keep the node alive
-	heartbeatCancel := a.startHeartbeatLoop(event)
+	heartbeatCancel := a.startHeartbeatLoop(ctx, event)
 	defer heartbeatCancel()
 	defer a.completeASGLifecycle(event)
 
@@ -317,8 +317,8 @@ func (a *Autoscaler) completeASGLifecycle(event HookEvent) error {
 	return trace.Wrap(err)
 }
 
-func (a *Autoscaler) startHeartbeatLoop(event HookEvent) context.CancelFunc {
-	ctx, cancel := context.WithTimeout(context.Background(), eventTimeout)
+func (a *Autoscaler) startHeartbeatLoop(ctx context.Context, event HookEvent) context.CancelFunc {
+	ctx, cancel := context.WithTimeout(ctx, eventTimeout)
 
 	go func() {
 		ticker := time.NewTicker(heartbeatInterval)
