@@ -397,8 +397,7 @@ extend updates past End of Support through customer agreements if required.
 ### 7.0.2 (April 23rd, 2020)
 
 !!! warning
-    This release has a known issue that can lead to new Teleport nodes failing to join the cluster.
-    See our community [article](https://community.gravitational.com/t/recover-teleport-nodes-failing-to-join-due-to-bad-token/649) for more details and workaround.
+    This release has a known issue that can lead to new Teleport nodes failing to join the cluster. Please use a more current release.
 
 #### Improvements
 
@@ -505,8 +504,7 @@ to learn how to gain insight into how the cluster status changes over time.
 ### 6.3.12 (April 15th, 2020)
 
 !!! warning
-    This release has a known issue that can lead to new Teleport nodes failing to join the cluster.
-    See our community [article](https://community.gravitational.com/t/recover-teleport-nodes-failing-to-join-due-to-bad-token/649) for more details and workaround.
+    This release has a known issue that can lead to new Teleport nodes failing to join the cluster. Please use a more current release.
 
 #### Improvements
 
@@ -1772,8 +1770,7 @@ to learn how to gain insight into how the cluster status changes over time.
 ### 5.5.40 LTS (April 3rd, 2020)
 
 !!! warning
-    This release has a known issue that can lead to new Teleport nodes failing to join the cluster.
-    See our community [article](https://community.gravitational.com/t/recover-teleport-nodes-failing-to-join-due-to-bad-token/649) for more details and workaround.
+    This release has a known issue that can lead to new Teleport nodes failing to join the cluster. Please use a more current release.
 
 #### Improvements
 
