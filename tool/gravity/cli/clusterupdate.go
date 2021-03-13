@@ -77,8 +77,8 @@ func newUpgradeConfig(g *Application) (*upgradeConfig, error) {
 		return nil, trace.Wrap(err)
 	}
 
-	if g.UpgradeCmd.ParallelWorkers != nil && *g.UpgradeCmd.ParallelWorkers < 1 {
-		return nil, trace.BadParameter("parallel-workers expected to be a positive integer or unset")
+	if g.UpgradeCmd.ParallelWorkers != nil && *g.UpgradeCmd.ParallelWorkers < 0 {
+		return nil, trace.BadParameter("parallel-workers expected to be a positive integer")
 	}
 
 	return &upgradeConfig{
