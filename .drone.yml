@@ -139,7 +139,7 @@ steps:
       AWS_SECRET_ACCESS_KEY:
         from_secret: AWS_S3_RO_SECRET_ACCESS_KEY
     commands:
-      - apk add --no-cache make bash libc6-compat aws-cli
+      - apk add --no-cache make bash libc6-compat aws-cli fakeroot
       - mkdir -m 0700 /root/.ssh && echo "$GITHUB_RO_KEY_PR" > /root/.ssh/id_ed25519 && chmod 600 /root/.ssh/id_ed25519
       - ssh-keyscan -H github.com > /root/.ssh/known_hosts 2>/dev/null && chmod 600 /root/.ssh/known_hosts
       - make -C e production telekube opscenter
@@ -356,6 +356,6 @@ volumes:
     temp: {}
 ---
 kind: signature
-hmac: 32edcc34ff4ecd21271808a2a8bb6c0a2c4490ada512b9e12892b29ad1f338d1
+hmac: 9346aad6bf4ff7ff4f2668655a5976c409e01e6174af9e54da0ccc3a23d26d56
 
 ...
