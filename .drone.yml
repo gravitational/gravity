@@ -40,6 +40,7 @@ steps:
       - mkdir -m 0700 /root/.ssh && echo "$GITHUB_RO_KEY_PR" > /root/.ssh/id_ed25519 && chmod 600 /root/.ssh/id_ed25519
       - ssh-keyscan -H github.com > /root/.ssh/known_hosts 2>/dev/null && chmod 600 /root/.ssh/known_hosts
       - make -C e production telekube opscenter
+      - make build-tsh
     volumes:
       - name: dockersock
         path: /var/run
@@ -142,6 +143,7 @@ steps:
       - mkdir -m 0700 /root/.ssh && echo "$GITHUB_RO_KEY_PR" > /root/.ssh/id_ed25519 && chmod 600 /root/.ssh/id_ed25519
       - ssh-keyscan -H github.com > /root/.ssh/known_hosts 2>/dev/null && chmod 600 /root/.ssh/known_hosts
       - make -C e production telekube opscenter
+      - make build-tsh
     volumes:
       - name: dockersock
         path: /var/run
@@ -354,6 +356,6 @@ volumes:
     temp: {}
 ---
 kind: signature
-hmac: 15f38b42dfd5d3a2d95ca3134862668d327d9810a85e98d58e6d79fc16eb362f
+hmac: 32edcc34ff4ecd21271808a2a8bb6c0a2c4490ada512b9e12892b29ad1f338d1
 
 ...
