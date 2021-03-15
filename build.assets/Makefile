@@ -490,7 +490,7 @@ build-tsh-on-host:
 .PHONY: build-tsh-inside-container
 build-tsh-inside-container:
 	@echo "\n----> Building Tsh binary inside container...\n"
-	go build -ldflags "$(GOLFLAGS)" -o $(LOCAL_GRAVITY_BUILDDIR)/tsh $(TELEPORT_PKG_PATH)/tool/tsh
+	GO111MODULE=off go build -ldflags "$(GOLFLAGS)" -o $(LOCAL_GRAVITY_BUILDDIR)/tsh $(TELEPORT_PKG_PATH)/tool/tsh
 	@echo "Done --> $(LOCAL_GRAVITY_BUILDDIR)/tsh"
 
 .PHONY: clone-teleport
