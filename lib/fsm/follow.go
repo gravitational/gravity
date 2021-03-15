@@ -70,7 +70,11 @@ func FollowOperationPlan(ctx context.Context, getPlan GetPlanFunc) <-chan PlanEv
 		logrus.WithError(err).Error("Failed to load plan.")
 	}
 	if plan != nil {
-		for _, event := range getPlanEvents(GetPlanProgress(*plan), *plan) {
+		events := getPlanEvents(GetPlanProgress(*plan), *plan)
+		// recreate channel with enough room for all events + some room for additional events
+		ch = make(chan PlanEvent, len(events)+10)
+
+		for _, event := range events {
 			select {
 			case ch <- event:
 			default:

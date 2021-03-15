@@ -288,3 +288,7 @@ func (o *mockOperator) CreateSiteShrinkOperation(ctx context.Context, req ops.Cr
 		OperationID: "op-1",
 	}, nil
 }
+
+func (o *mockOperator) GetSiteOperationProgress(key ops.SiteOperationKey) (*ops.ProgressEntry, error) {
+	return nil, nil
+}

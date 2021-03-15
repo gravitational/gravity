@@ -343,7 +343,7 @@ func DeepComparePhases(c *check.C, expected, actual OperationPhase) {
 		check.Commentf("phase ID does not match"))
 	c.Assert(expected.Requires, check.DeepEquals, actual.Requires,
 		check.Commentf("field Requires on phase %v does not match", expected.ID))
-	c.Assert(expected.Parallel, check.Equals, actual.Parallel,
+	c.Assert(expected.LimitParallel, check.Equals, actual.LimitParallel,
 		check.Commentf("field Parallel on phase %v does not match", expected.ID))
 	c.Assert(expected.Data, check.DeepEquals, actual.Data,
 		check.Commentf("field Data on phase %v does not match: %v", expected.ID,

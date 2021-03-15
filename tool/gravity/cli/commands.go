@@ -647,6 +647,10 @@ type UpdateTriggerCmd struct {
 	SkipVersionCheck *bool
 	// Force forces update
 	Force *bool
+	// SkipWorkers configures whether to skip upgrading worker nodes
+	SkipWorkers *bool
+	// ParallelWorkers configures the number of workers that can be upgraded in parallel
+	ParallelWorkers *int
 }
 
 // UpdateUploadCmd uploads new app version to local cluster
@@ -679,6 +683,11 @@ type UpdateSystemCmd struct {
 // UpdatePlanInitCmd creates a new update operation plan
 type UpdatePlanInitCmd struct {
 	*kingpin.CmdClause
+
+	// SkipWorkers configures whether to skip upgrading worker nodes
+	SkipWorkers *bool
+	// ParallelWorkers configures the number of workers that can be upgraded in parallel
+	ParallelWorkers *int
 }
 
 // UpgradeCmd launches app upgrade
@@ -704,6 +713,10 @@ type UpgradeCmd struct {
 	Values *[]string
 	// Block indicates whether the command should run in foreground or as a systemd unit
 	Block *bool
+	// SkipWorkers configures whether to skip upgrading worker nodes
+	SkipWorkers *bool
+	// ParallelWorkers configures the number of workers that can be upgraded in parallel
+	ParallelWorkers *int
 }
 
 // StatusCmd combines subcommands for displaying status information

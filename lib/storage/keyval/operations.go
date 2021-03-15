@@ -220,7 +220,20 @@ func (b *backend) GetOperationPlanChangelog(clusterName, operationID string) (st
 		return nil, trace.Wrap(err)
 	}
 	var out []storage.PlanChange
+	var cacheMisses []string
+
+	b.cachedPlanChangeMutex.RLock()
 	for _, id := range ids {
+		if cached, ok := b.cachedPlanChange[id]; ok {
+			out = append(out, *cached)
+			continue
+		}
+
+		cacheMisses = append(cacheMisses, id)
+	}
+	b.cachedPlanChangeMutex.RUnlock()
+
+	for _, id := range cacheMisses {
 		var ch storage.PlanChange
 		err = b.getVal(b.key(
 			sitesP, clusterName, operationsP, operationID, changelogP, id, valP), &ch)
@@ -228,6 +241,11 @@ func (b *backend) GetOperationPlanChangelog(clusterName, operationID string) (st
 			return nil, trace.Wrap(err)
 		}
 		utils.UTC(&ch.Created)
+
+		b.cachedPlanChangeMutex.Lock()
+		b.cachedPlanChange[id] = &ch
+		b.cachedPlanChangeMutex.Unlock()
+
 		out = append(out, ch)
 	}
 	return storage.PlanChangelog(out), nil

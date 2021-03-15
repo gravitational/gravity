@@ -66,6 +66,7 @@ func NewETCD(cfg ETCDConfig) (*electingBackend, error) {
 			kvengine: engine,
 
 			cachedCompleteOperations: make(map[string]*storage.SiteOperation),
+			cachedPlanChange:         make(map[string]*storage.PlanChange),
 		},
 		Leader: leader,
 		client: engine.client,

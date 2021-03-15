@@ -268,8 +268,8 @@ func (s *ReconfiguratorSuite) verifyPullPhase(c *check.C, phase storage.Operatio
 				Requires: []string{installphases.ConfigurePhase},
 			},
 		},
-		Requires: []string{installphases.ConfigurePhase},
-		Parallel: true,
+		Requires:      []string{installphases.ConfigurePhase},
+		LimitParallel: install.NumParallel,
 	}, phase)
 }
 

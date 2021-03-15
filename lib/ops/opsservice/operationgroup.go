@@ -139,7 +139,7 @@ func (g *operationGroup) canCreateOperation(operation ops.SiteOperation, force b
 		// no special checks for install/uninstall are needed
 	case ops.OperationExpand:
 		// expand has to undergo some checks
-		err := g.canCreateExpandOperation(*cluster, operation)
+		err := g.canCreateExpandOperation(*cluster, operation.InstallExpand.Profiles)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -148,8 +148,13 @@ func (g *operationGroup) canCreateOperation(operation ops.SiteOperation, force b
 		if err != nil {
 			return trace.Wrap(err)
 		}
-	case ops.OperationShrink, ops.OperationGarbageCollect, ops.OperationUpdateRuntimeEnviron:
-		// shrink, gc and updating environment are allowed for degraded clusters
+	case ops.OperationShrink:
+		err := g.canCreateShrinkOperation(*cluster, operation, force)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	case ops.OperationGarbageCollect, ops.OperationUpdateRuntimeEnviron:
+		// gc and updating environment are allowed for degraded clusters
 		switch cluster.State {
 		case ops.SiteStateActive, ops.SiteStateDegraded:
 		default:
@@ -231,13 +236,88 @@ You can provide --force flag to override this check.`,
 	return nil
 }
 
+// canCreateShrinkOperation runs shrink-specific checks
+//
+// In case of failed checks returns trace.CompareFailed error to indicate that
+// the cluster is not in the appropriate state.
+func (g *operationGroup) canCreateShrinkOperation(cluster ops.Site, operation ops.SiteOperation, force bool) error {
+	if force {
+		return nil
+	}
+
+	// shrink is allowed while the cluster is degraded or there are active operations but prevented during operations
+	// that change controllers
+	switch cluster.State {
+	case ops.SiteStateActive, ops.SiteStateDegraded:
+		return nil
+	case ops.SiteStateExpanding, ops.SiteStateShrinking:
+	default:
+		return trace.CompareFailed("the cluster is %v", cluster.State)
+	}
+
+	for _, server := range operation.Shrink.Servers {
+		if server.ClusterRole == string(schema.ServiceRoleMaster) {
+			return trace.CompareFailed("can't shrink a controller node while another operation is active")
+		}
+	}
+
+	for _, opType := range []string{ops.OperationExpand, ops.OperationShrink} {
+		operations, err := ops.GetActiveOperationsByType(g.siteKey, g.operator, opType)
+		if err != nil && !trace.IsNotFound(err) {
+			return trace.Wrap(err)
+		}
+
+		// if an operation that's working on a master node is currently running,
+		// it has to finish before another operation can be started
+		for _, op := range operations {
+			for _, node := range op.Servers {
+				if node.ClusterRole == string(schema.ServiceRoleMaster) {
+					return trace.CompareFailed("can't launch another expand while master node %v is joining",
+						node.AdvertiseIP)
+				}
+
+				for _, server := range operation.Servers {
+					if server.AdvertiseIP == node.AdvertiseIP {
+						return trace.CompareFailed("%v already running on node %v",
+							operation.Key(), node.AdvertiseIP)
+					}
+				}
+			}
+		}
+	}
+
+	// if we reach here there are no conditions that should prevent the shrink from starting
+	return nil
+}
+
 // canCreateExpandOperation runs expand-specific checks
 //
 // In case of failed checks returns trace.CompareFailed error to indicate that
 // the cluster is not in the appropriate state.
-func (g *operationGroup) canCreateExpandOperation(site ops.Site, operation ops.SiteOperation) error {
-	if site.State == ops.SiteStateActive {
+func (g *operationGroup) canCreateExpandOperation(site ops.Site, profiles map[string]storage.ServerProfile) error {
+	// expand is allowed while the cluster is active, already expanding (subject to limits), or shrinking (workers only)
+	switch site.State {
+	case ops.SiteStateActive:
 		return nil
+	case ops.SiteStateExpanding, ops.SiteStateShrinking:
+	default:
+		return trace.CompareFailed("the cluster is %v", site.State)
+	}
+
+	// allow the expand while shrinking, unless the shrink operation is on a controller node
+	if site.State == ops.SiteStateShrinking {
+		operations, err := ops.GetActiveOperationsByType(g.siteKey, g.operator, ops.OperationShrink)
+		if err != nil && !trace.IsNotFound(err) {
+			return trace.Wrap(err)
+		}
+
+		for _, operation := range operations {
+			for _, server := range operation.Servers {
+				if server.ClusterRole == string(schema.ServiceRoleMaster) {
+					return trace.CompareFailed("cannot expand cluster while shrinking controller")
+				}
+			}
+		}
 	}
 
 	operations, err := ops.GetActiveOperationsByType(g.siteKey, g.operator, ops.OperationExpand)
@@ -272,7 +352,7 @@ func (g *operationGroup) canCreateExpandOperation(site ops.Site, operation ops.S
 
 	// now check the opposite use-case: if we're about to add a master,
 	// it has to be the only operation running
-	for _, profile := range operation.InstallExpand.Profiles {
+	for _, profile := range profiles {
 		switch profile.ServiceRole {
 		case string(schema.ServiceRoleMaster):
 			// the joining node wants to be a master

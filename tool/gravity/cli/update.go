@@ -32,13 +32,14 @@ import (
 	"github.com/gravitational/gravity/lib/rpc"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/update"
+	clusterupdate "github.com/gravitational/gravity/lib/update/cluster"
 
 	"github.com/gravitational/trace"
 	"github.com/gravitational/version"
 	"github.com/sirupsen/logrus"
 )
 
-func newUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironment, init updateInitializer) (*update.Updater, error) {
+func newUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironment, init updateInitializer, userConfig *clusterupdate.UserConfig) (*update.Updater, error) {
 	teleportClient, err := localEnv.TeleportClient(ctx, constants.Localhost)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to create a teleport client")
@@ -104,7 +105,7 @@ func newUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironm
 	}
 	// Create the operation plan so it can be replicated on remote nodes
 	plan, err := init.newOperationPlan(ctx, operator, *cluster, *operation,
-		localEnv, updateEnv, clusterEnv, leader)
+		localEnv, updateEnv, clusterEnv, leader, userConfig)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -157,6 +158,7 @@ type updateInitializer interface {
 		localEnv, updateEnv *localenv.LocalEnvironment,
 		clusterEnv *localenv.ClusterEnvironment,
 		leader *storage.Server,
+		userConfig interface{},
 	) (*storage.OperationPlan, error)
 	newUpdater(ctx context.Context,
 		operator ops.Operator,

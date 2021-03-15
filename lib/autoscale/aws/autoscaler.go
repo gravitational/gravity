@@ -27,6 +27,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/aws/aws-sdk-go/service/ssm"
@@ -74,6 +75,8 @@ type Config struct {
 	Queue SQS
 	// Cloud is Elastic Compute Cloud, AWS cloud service
 	Cloud EC2
+	// AutoScaling is a client for the AWS AutoScaling service
+	AutoScaling *autoscaling.AutoScaling
 	// NewLocalInstance is used to retrieve local instance metadata
 	NewLocalInstance NewLocalInstance
 }
@@ -113,6 +116,9 @@ func New(cfg Config) (*Autoscaler, error) {
 	}
 	if cfg.Cloud == nil {
 		cfg.Cloud = ec2.New(sess)
+	}
+	if cfg.AutoScaling == nil {
+		cfg.AutoScaling = autoscaling.New(sess)
 	}
 	a := &Autoscaler{
 		Config: cfg,

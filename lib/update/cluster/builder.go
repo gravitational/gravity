@@ -18,6 +18,7 @@ package cluster
 
 import (
 	"fmt"
+	goruntime "runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -37,6 +38,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
+
+// NumParallel sets number of parallel phases we should run that scales based on the number of the CPU cores on the
+// node generating the plan
+func NumParallel() int {
+	return (goruntime.NumCPU() / 2) + 1
+}
 
 func (r phaseBuilder) init(leadMaster storage.Server) *update.Phase {
 	phase := update.RootPhase(update.Phase{
@@ -80,8 +87,9 @@ func (r phaseBuilder) hasSELinuxPhase() bool {
 
 func (r phaseBuilder) bootstrapSELinux() *update.Phase {
 	root := update.RootPhase(update.Phase{
-		ID:          "selinux-bootstrap",
-		Description: "Configure SELinux on nodes",
+		ID:            "selinux-bootstrap",
+		Description:   "Configure SELinux on nodes",
+		LimitParallel: NumParallel(),
 	})
 
 	for i, server := range r.servers {
@@ -107,8 +115,9 @@ func (r phaseBuilder) bootstrapSELinux() *update.Phase {
 
 func (r phaseBuilder) bootstrap() *update.Phase {
 	root := update.RootPhase(update.Phase{
-		ID:          "bootstrap",
-		Description: "Bootstrap update operation on nodes",
+		ID:            "bootstrap",
+		Description:   "Bootstrap update operation on nodes",
+		LimitParallel: NumParallel(),
 	})
 
 	for i, server := range r.servers {
@@ -241,8 +250,9 @@ func (r phaseBuilder) earlyDNSApp(locator loc.Locator) *update.Phase {
 // config returns phase that pulls system configuration on provided nodes
 func (r phaseBuilder) config(nodes []storage.Server) *update.Phase {
 	root := update.RootPhase(update.Phase{
-		ID:          "config",
-		Description: "Update system configuration on nodes",
+		ID:            "config",
+		Description:   "Update system configuration on nodes",
+		LimitParallel: NumParallel(),
 	})
 	for i, node := range nodes {
 		root.AddParallel(update.Phase{
@@ -358,8 +368,9 @@ func (r phaseBuilder) masters(leadMaster storage.UpdateServer, otherMasters []st
 
 func (r phaseBuilder) nodes(leadMaster storage.UpdateServer, nodes []storage.UpdateServer, supportsTaints bool) *update.Phase {
 	root := update.RootPhase(update.Phase{
-		ID:          "nodes",
-		Description: "Update regular nodes",
+		ID:            "nodes",
+		Description:   "Update regular nodes",
+		LimitParallel: r.userConfig.ParallelWorkers,
 	})
 
 	for i, server := range nodes {
@@ -370,6 +381,11 @@ func (r phaseBuilder) nodes(leadMaster storage.UpdateServer, nodes []storage.Upd
 	}
 	return &root
 }
+
+// etcdNumParallel indicates how many etcd phases to run in parallel.
+// 15 is chosen as above the expected number of controllers, so all controllers should execute in parallel unless
+// something unexpected is going on.
+const etcdNumParallel = 15
 
 func (r phaseBuilder) etcdPlan(
 	leadMaster storage.Server,
@@ -404,8 +420,9 @@ func (r phaseBuilder) etcdPlan(
 	// Shutdown etcd
 	// Move data directory to backup location
 	shutdownEtcd := update.Phase{
-		ID:          root.ChildLiteral("shutdown"),
-		Description: "Shutdown etcd cluster",
+		ID:            root.ChildLiteral("shutdown"),
+		Description:   "Shutdown etcd cluster",
+		LimitParallel: etcdNumParallel,
 	}
 	shutdownEtcd.AddWithDependency(
 		update.DependencyForServer(backupEtcd, leadMaster),
@@ -422,8 +439,9 @@ func (r phaseBuilder) etcdPlan(
 	// Replace configuration and data directories, for new version of etcd
 	// relaunch etcd on temporary port
 	upgradeServers := update.Phase{
-		ID:          root.ChildLiteral("upgrade"),
-		Description: "Upgrade etcd servers",
+		ID:            root.ChildLiteral("upgrade"),
+		Description:   "Upgrade etcd servers",
+		LimitParallel: etcdNumParallel,
 	}
 	upgradeServers.AddWithDependency(
 		update.DependencyForServer(shutdownEtcd, leadMaster),
@@ -451,8 +469,9 @@ func (r phaseBuilder) etcdPlan(
 	// restart master servers
 	// Rolling restart of master servers to listen on normal ports. ETCD outage ends here
 	restartMasters := update.Phase{
-		ID:          root.ChildLiteral("restart"),
-		Description: "Restart etcd servers",
+		ID:            root.ChildLiteral("restart"),
+		Description:   "Restart etcd servers",
+		LimitParallel: etcdNumParallel,
 	}
 	restartMasters.AddWithDependency(
 		update.DependencyForServer(restoreData, leadMaster),
@@ -617,8 +636,9 @@ func (r phaseBuilder) commonNode(server, leadMaster storage.UpdateServer, suppor
 
 func (r phaseBuilder) cleanup() *update.Phase {
 	root := update.RootPhase(update.Phase{
-		ID:          "gc",
-		Description: "Run cleanup tasks",
+		ID:            "gc",
+		Description:   "Run cleanup tasks",
+		LimitParallel: NumParallel(),
 	})
 
 	for i := range r.servers {

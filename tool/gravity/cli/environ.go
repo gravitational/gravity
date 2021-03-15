@@ -70,7 +70,7 @@ func newEnvironUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalE
 	init := environInitializer{
 		environ: environ,
 	}
-	return newUpdater(ctx, localEnv, updateEnv, init)
+	return newUpdater(ctx, localEnv, updateEnv, init, nil)
 }
 
 func executeEnvironPhaseForOperation(env *localenv.LocalEnvironment, environ LocalEnvironmentFactory, params PhaseParams, operation ops.SiteOperation) error {
@@ -207,6 +207,7 @@ func (environInitializer) newOperationPlan(
 	localEnv, updateEnv *localenv.LocalEnvironment,
 	clusterEnv *localenv.ClusterEnvironment,
 	leader *storage.Server,
+	userConfig interface{},
 ) (*storage.OperationPlan, error) {
 	plan, err := environ.NewOperationPlan(ctx, operator, clusterEnv.Apps, operation, cluster.ClusterState.Servers)
 	if err != nil {

@@ -76,12 +76,21 @@ func newUpgradeConfig(g *Application) (*upgradeConfig, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+
+	if g.UpgradeCmd.ParallelWorkers != nil && *g.UpgradeCmd.ParallelWorkers < 0 {
+		return nil, trace.BadParameter("parallel-workers expected to be a positive integer")
+	}
+
 	return &upgradeConfig{
 		upgradePackage:   *g.UpgradeCmd.App,
 		manual:           *g.UpgradeCmd.Manual,
 		skipVersionCheck: *g.UpgradeCmd.SkipVersionCheck,
 		force:            *g.UpgradeCmd.Force,
 		values:           values,
+		userConfig: clusterupdate.UserConfig{
+			SkipWorkers:     *g.UpgradeCmd.SkipWorkers,
+			ParallelWorkers: *g.UpgradeCmd.ParallelWorkers,
+		},
 	}, nil
 }
 
@@ -97,6 +106,8 @@ type upgradeConfig struct {
 	force bool
 	// values are helm values in a marshaled yaml format.
 	values []byte
+	// userConfig is configuration provided by the user to customize the upgrade process
+	userConfig clusterupdate.UserConfig
 }
 
 func updateTrigger(localEnv, updateEnv *localenv.LocalEnvironment, config upgradeConfig) error {
@@ -139,7 +150,7 @@ func newClusterUpdater(
 		return nil, trace.Wrap(err)
 	}
 
-	updater, err := newUpdater(ctx, localEnv, updateEnv, init)
+	updater, err := newUpdater(ctx, localEnv, updateEnv, init, &config.userConfig)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -519,9 +530,23 @@ func (r clusterInitializer) newOperationPlan(
 	localEnv, updateEnv *localenv.LocalEnvironment,
 	clusterEnv *localenv.ClusterEnvironment,
 	leader *storage.Server,
+	userConfig interface{},
 ) (*storage.OperationPlan, error) {
+	var uc clusterupdate.UserConfig
+	if userConfig != nil {
+		c, ok := userConfig.(*clusterupdate.UserConfig)
+		if !ok {
+			// BUG: the passed in config is not of the expected type
+			// log and act as if not configured.
+			log.WithError(trace.BadParameter("unexpected userConfig")).Warn("BUG: passed in user config is not the expected type")
+		}
+		if c != nil {
+			uc = *c
+		}
+	}
+
 	plan, err := clusterupdate.InitOperationPlan(
-		ctx, localEnv, updateEnv, clusterEnv, operation.Key(), leader,
+		ctx, localEnv, updateEnv, clusterEnv, operation.Key(), leader, uc,
 	)
 	if err != nil {
 		return nil, trace.Wrap(err)

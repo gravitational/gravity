@@ -127,8 +127,8 @@ type OperationPhase struct {
 	// Requires is a list of phase names that need to be
 	// completed before this phase can be executed
 	Requires []string `json:"requires,omitempty" yaml:"requires,omitempty"`
-	// Parallel enables parallel execution of sub-phases
-	Parallel bool `json:"parallel"`
+	// LimitParallel enables x parrallel executions of sub phases.
+	LimitParallel int `json:"num_parallel"`
 	// Updated is the last phase update time
 	Updated time.Time `json:"updated,omitempty" yaml:"updated,omitempty"`
 	// Data is optional phase-specific data attached to the phase

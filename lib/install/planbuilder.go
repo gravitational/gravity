@@ -86,6 +86,9 @@ type PlanBuilder struct {
 	PersistentStorage storage.PersistentStorage
 }
 
+// NumParallel limits the number of parallel phases that can be run during install
+const NumParallel = 10
+
 // AddInitPhase appends initialization phase to the provided plan
 func (b *PlanBuilder) AddInitPhase(plan *storage.OperationPlan) {
 	var initPhases []storage.OperationPhase
@@ -103,11 +106,11 @@ func (b *PlanBuilder) AddInitPhase(plan *storage.OperationPlan) {
 		})
 	}
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
-		ID:          phases.InitPhase,
-		Description: "Initialize operation on all nodes",
-		Phases:      initPhases,
-		Parallel:    true,
-		Step:        0,
+		ID:            phases.InitPhase,
+		Description:   "Initialize operation on all nodes",
+		Phases:        initPhases,
+		LimitParallel: NumParallel,
+		Step:          0,
 	})
 }
 
@@ -134,10 +137,10 @@ func (b *PlanBuilder) AddBootstrapSELinuxPhase(plan *storage.OperationPlan) {
 		return
 	}
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
-		ID:          phases.BootstrapSELinuxPhase,
-		Description: "Configure SELinux",
-		Phases:      bootstrapPhases,
-		Parallel:    true,
+		ID:            phases.BootstrapSELinuxPhase,
+		Description:   "Configure SELinux",
+		Phases:        bootstrapPhases,
+		LimitParallel: NumParallel,
 	})
 }
 
@@ -198,11 +201,11 @@ func (b *PlanBuilder) AddBootstrapPhase(plan *storage.OperationPlan) {
 		})
 	}
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
-		ID:          phases.BootstrapPhase,
-		Description: "Bootstrap all nodes",
-		Phases:      bootstrapPhases,
-		Parallel:    true,
-		Step:        3,
+		ID:            phases.BootstrapPhase,
+		Description:   "Bootstrap all nodes",
+		Phases:        bootstrapPhases,
+		LimitParallel: NumParallel,
+		Step:          3,
 	})
 }
 
@@ -236,12 +239,12 @@ func (b *PlanBuilder) AddPullPhase(plan *storage.OperationPlan) error {
 		})
 	}
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
-		ID:          phases.PullPhase,
-		Description: "Pull configured packages",
-		Phases:      pullPhases,
-		Requires:    fsm.RequireIfPresent(plan, phases.ConfigurePhase, phases.BootstrapPhase),
-		Parallel:    true,
-		Step:        3,
+		ID:            phases.PullPhase,
+		Description:   "Pull configured packages",
+		Phases:        pullPhases,
+		Requires:      fsm.RequireIfPresent(plan, phases.ConfigurePhase, phases.BootstrapPhase),
+		LimitParallel: NumParallel,
+		Step:          3,
 	})
 	return nil
 }
@@ -319,12 +322,12 @@ func (b *PlanBuilder) AddMastersPhase(plan *storage.OperationPlan) error {
 		})
 	}
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
-		ID:          phases.MastersPhase,
-		Description: "Install system software on master nodes",
-		Phases:      masterPhases,
-		Requires:    []string{phases.PullPhase},
-		Parallel:    true,
-		Step:        4,
+		ID:            phases.MastersPhase,
+		Description:   "Install system software on master nodes",
+		Phases:        masterPhases,
+		Requires:      []string{phases.PullPhase},
+		LimitParallel: NumParallel,
+		Step:          4,
 	})
 	return nil
 }
@@ -375,12 +378,12 @@ func (b *PlanBuilder) AddNodesPhase(plan *storage.OperationPlan) error {
 		})
 	}
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
-		ID:          phases.NodesPhase,
-		Description: "Install system software on regular nodes",
-		Phases:      nodePhases,
-		Requires:    []string{phases.PullPhase},
-		Parallel:    true,
-		Step:        4,
+		ID:            phases.NodesPhase,
+		Description:   "Install system software on regular nodes",
+		Phases:        nodePhases,
+		Requires:      []string{phases.PullPhase},
+		LimitParallel: NumParallel,
+		Step:          4,
 	})
 	return nil
 }
@@ -547,12 +550,12 @@ func (b *PlanBuilder) AddExportPhase(plan *storage.OperationPlan) {
 		})
 	}
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
-		ID:          phases.ExportPhase,
-		Description: "Export applications layers to Docker registries",
-		Phases:      exportPhases,
-		Requires:    []string{phases.WaitPhase},
-		Parallel:    true,
-		Step:        4,
+		ID:            phases.ExportPhase,
+		Description:   "Export applications layers to Docker registries",
+		Phases:        exportPhases,
+		Requires:      []string{phases.WaitPhase},
+		LimitParallel: NumParallel,
+		Step:          4,
 	})
 }
 

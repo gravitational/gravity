@@ -47,6 +47,12 @@ import (
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
+// UserConfig holds configuration parameters provided by the user triggering the update operation.
+type UserConfig struct {
+	ParallelWorkers int
+	SkipWorkers     bool
+}
+
 // InitOperationPlan will initialize operation plan for an operation
 func InitOperationPlan(
 	ctx context.Context,
@@ -54,6 +60,7 @@ func InitOperationPlan(
 	clusterEnv *localenv.ClusterEnvironment,
 	opKey ops.SiteOperationKey,
 	leader *storage.Server,
+	userConfig UserConfig,
 ) (*storage.OperationPlan, error) {
 	operation, err := storage.GetOperationByID(clusterEnv.Backend, opKey.OperationID)
 	if err != nil {
@@ -89,14 +96,15 @@ func InitOperationPlan(
 	}
 
 	plan, err = NewOperationPlan(PlanConfig{
-		Backend:   clusterEnv.Backend,
-		Apps:      clusterEnv.Apps,
-		Packages:  clusterEnv.ClusterPackages,
-		Client:    clusterEnv.Client,
-		DNSConfig: dnsConfig,
-		Operator:  clusterEnv.Operator,
-		Operation: operation,
-		Leader:    leader,
+		Backend:    clusterEnv.Backend,
+		Apps:       clusterEnv.Apps,
+		Packages:   clusterEnv.ClusterPackages,
+		Client:     clusterEnv.Client,
+		DNSConfig:  dnsConfig,
+		Operator:   clusterEnv.Operator,
+		Operation:  operation,
+		Leader:     leader,
+		UserConfig: userConfig,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -218,6 +226,7 @@ func NewOperationPlan(config PlanConfig) (*storage.OperationPlan, error) {
 		updateDNSAppEarly: updateDNSAppEarly,
 		roles:             roles,
 		leadMaster:        *leader,
+		userConfig:        config.UserConfig,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -253,14 +262,15 @@ func (r *PlanConfig) checkAndSetDefaults() error {
 
 // PlanConfig defines the configuration for creating a new operation plan
 type PlanConfig struct {
-	Backend   storage.Backend
-	Packages  pack.PackageService
-	Apps      app.Applications
-	DNSConfig storage.DNSConfig
-	Operator  ops.Operator
-	Operation *storage.SiteOperation
-	Client    *kubernetes.Clientset
-	Leader    *storage.Server
+	Backend    storage.Backend
+	Packages   pack.PackageService
+	Apps       app.Applications
+	DNSConfig  storage.DNSConfig
+	Operator   ops.Operator
+	Operation  *storage.SiteOperation
+	Client     *kubernetes.Clientset
+	Leader     *storage.Server
+	UserConfig UserConfig
 }
 
 // planConfig collects parameters needed to generate an update operation plan
@@ -298,6 +308,8 @@ type planConfig struct {
 	roles []teleservices.Role
 	// leader refers to the master server running the update operation
 	leadMaster storage.UpdateServer
+	// userConfig is user provided configuration to tune the upgrade
+	userConfig UserConfig
 }
 
 func newOperationPlan(p planConfig) (*storage.OperationPlan, error) {
@@ -306,6 +318,12 @@ func newOperationPlan(p planConfig) (*storage.OperationPlan, error) {
 		return nil, trace.NotFound("no master servers found")
 	}
 	otherMasters := filterServer(masters, p.leadMaster)
+
+	if p.userConfig.SkipWorkers {
+		p.servers = masters
+		nodes = nil
+	}
+
 	builder := phaseBuilder{planConfig: p}
 	initPhase := *builder.init(p.leadMaster.Server)
 	checkDeps := []update.PhaseIder{initPhase}

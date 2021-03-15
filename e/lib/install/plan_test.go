@@ -282,7 +282,7 @@ func (s *PlanSuite) verifyInitPhase(c *check.C, phase storage.OperationPhase) {
 				},
 			},
 		},
-		Parallel: true,
+		LimitParallel: install.NumParallel,
 	}, phase)
 }
 
@@ -343,7 +343,7 @@ func (s *PlanSuite) verifyBootstrapPhase(c *check.C, phase storage.OperationPhas
 				},
 			},
 		},
-		Parallel: true,
+		LimitParallel: install.NumParallel,
 	}, phase)
 }
 
@@ -385,8 +385,8 @@ func (s *PlanSuite) verifyPullPhase(c *check.C, phase storage.OperationPhase) {
 				Requires: []string{phases.ConfigurePhase, phases.BootstrapPhase},
 			},
 		},
-		Requires: []string{phases.ConfigurePhase, phases.BootstrapPhase},
-		Parallel: true,
+		Requires:      []string{phases.ConfigurePhase, phases.BootstrapPhase},
+		LimitParallel: install.NumParallel,
 	}, phase)
 }
 
@@ -424,8 +424,8 @@ func (s *PlanSuite) verifyMastersPhase(c *check.C, phase storage.OperationPhase)
 				Requires: []string{fmt.Sprintf("%v/%v", phases.PullPhase, s.masterNode.Hostname)},
 			},
 		},
-		Requires: []string{phases.PullPhase},
-		Parallel: true,
+		Requires:      []string{phases.PullPhase},
+		LimitParallel: install.NumParallel,
 	}, phase)
 }
 
@@ -463,8 +463,8 @@ func (s *PlanSuite) verifyNodesPhase(c *check.C, phase storage.OperationPhase) {
 				Requires: []string{fmt.Sprintf("%v/%v", phases.PullPhase, s.regularNode.Hostname)},
 			},
 		},
-		Requires: []string{phases.PullPhase},
-		Parallel: true,
+		Requires:      []string{phases.PullPhase},
+		LimitParallel: install.NumParallel,
 	}, phase)
 }
 
@@ -557,8 +557,8 @@ func (s *PlanSuite) verifyExportPhase(c *check.C, phase storage.OperationPhase) 
 				Requires: []string{phases.WaitPhase},
 			},
 		},
-		Requires: []string{phases.WaitPhase},
-		Parallel: true,
+		Requires:      []string{phases.WaitPhase},
+		LimitParallel: install.NumParallel,
 	}, phase)
 }
 
