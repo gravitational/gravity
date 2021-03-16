@@ -480,11 +480,11 @@ build-tsh-in-container: clone-teleport
 .PHONY: build-tsh-on-host
 build-tsh-on-host:
 	@echo "\n----> Building Tsh binary on host...\n"
-	GOPATH=$(BUILDDIR) go get -v $(TELEPORT_PKG_PATH) && \
+	GO111MODULE=off GOPATH=$(BUILDDIR) go get -v $(TELEPORT_PKG_PATH) && \
 		cd $(BUILDDIR)/src/$(TELEPORT_PKG_PATH) && \
 		git fetch --all --tags && \
 		git checkout $(TELEPORT_REPOTAG) && \
-		GOPATH=$(BUILDDIR) go build -ldflags "$(GOLFLAGS)" -o $(TSH_OUT) ./tool/tsh
+		GO111MODULE=off GOPATH=$(BUILDDIR) go build -ldflags "$(GOLFLAGS)" -o $(TSH_OUT) ./tool/tsh
 	@echo "Done --> $(TSH_OUT)"
 
 .PHONY: build-tsh-inside-container
