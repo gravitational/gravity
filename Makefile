@@ -635,20 +635,6 @@ $(GRAVITY_BUILDDIR):
 $(BINARIES): selinux grpc
 	GO111MODULE=on go install -mod=vendor -ldflags $(GRAVITY_LINKFLAGS) -tags "$(GRAVITY_BUILDTAGS)" $(GRAVITY_PKG_PATH)/tool/$@
 
-.PHONY: wizard-publish
-wizard-publish: BUILD_BUCKET_URL = s3://get.gravitational.io
-wizard-publish: S3_OPTS = --region us-west-1
-wizard-publish: K8S_OUT := kubernetes-$(GRAVITY_VERSION).tar.gz
-wizard-publish:
-	gravity ops create-wizard --ops-url=$(LOCAL_OPS_URL) gravitational.io/kubernetes:0.0.0+latest /tmp/k8s
-	tar -C /tmp -czf $(K8S_OUT) k8s
-	aws s3 cp $(S3_OPTS) $(K8S_OUT) $(BUILD_BUCKET_URL)/telekube/$(K8S_OUT)
-
-.PHONY: wizard-gen
-wizard-gen: K8S_OUT := kubernetes-$(GRAVITY_VERSION).tar.gz
-wizard-gen:
-	gravity ops create-wizard --ops-url=$(LOCAL_OPS_URL) gravitational.io/telekube:0.0.0+latest /tmp/telekube
-
 .PHONY: dev
 dev: goinstall
 
