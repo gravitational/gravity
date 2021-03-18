@@ -9,11 +9,12 @@ Find the latest Open Source Gravity releases at [Gravity Downloads](https://grav
 
 ## Supported Versions
 
-| Version             | Latest Patch | LTS | Release Date         | Latest Patch Date    | End of Support *        | Kubernetes Version   | Teleport Version |
-| ------------------- | ------------ | --- | -------------------- | -------------------- | ----------------------- | -------------------- | ---------------- |
-| [7.0](#70-releases) | 7.0.30       | Yes | April 3, 2020        | January 15, 2021      | July 9, 2022            | 1.17.9               | 3.2.14-gravity   |
-| [6.1](#61-releases) | 6.1.47       | Yes | August 2, 2019       | January 9, 2021       | November 10, 2021       | 1.15.12              | 3.2.14-gravity   |
-| [5.5](#55-releases) | 5.5.58       | Yes | March 8, 2019        | February 4, 2021      | March 8, 2021           | 1.13.11              | 3.0.7-gravity    |
+| Version             | Latest Patch  | LTS | Release Date         | Latest Patch Date    | End of Support *        | Kubernetes Version   | Teleport Version |
+| ------------------- | ------------- | --- | -------------------- | -------------------- | ----------------------- | -------------------- | ---------------- |
+| [7.1](#71-releases) | 7.1.0-alpha.5 | No  | pre-release          | March 16, 2021       | Set upon release        | 1.19.8               | 3.2.17-gravity   |
+| [7.0](#70-releases) | 7.0.30        | Yes | April 3, 2020        | January 15, 2021     | July 9, 2022            | 1.17.9               | 3.2.14-gravity   |
+| [6.1](#61-releases) | 6.1.47        | Yes | August 2, 2019       | January 9, 2021      | November 10, 2021       | 1.15.12              | 3.2.14-gravity   |
+| [5.5](#55-releases) | 5.5.58        | Yes | March 8, 2019        | February 4, 2021     | March 8, 2021           | 1.13.11              | 3.0.7-gravity    |
 
 Gravity offers one Long Term Support (LTS) version for every 2nd Kubernetes
 minor version, allowing for seamless upgrades per Kubernetes
@@ -48,6 +49,53 @@ extend updates past End of Support through customer agreements if required.
 | [1.x](#1x-releases) | 1.29.0       | Yes | November 2nd, 2016   | March 21, 2018          | 1.3.8                | 1.2.0            |
 
 # Release Notes
+
+## 7.1 Releases
+
+7.1 is currently pre-release.
+
+### 7.1.0-alpha.5 (March 16, 2021)
+
+All changes listed are in comparison to 7.0.30 LTS.
+
+#### Improvements
+* Open source all Gravity code previously limited to enterprise customers! ([#2375](https://github.com/gravitational/gravity/pull/2375))
+* Add support for Kubernetes 1.19 ([#2425](https://github.com/gravitational/gravity/pull/2425), [planet#825](https://github.com/gravitational/planet/pull/825), [storage-app#5](https://github.com/gravitational/storage-app/pull/5), [logging-app#76](https://github.com/gravitational/logging-app/pull/76), [monitoring-app#206](https://github.com/gravitational/monitoring-app/pull/206), [bandwagon#33](https://github.com/gravitational/bandwagon/pull/33))
+* Add an Ingress App to gravity ([#1435](https://github.com/gravitational/gravity/pull/1435))
+* Allow OpsCenter and the Web Installation wizard to be disabled in the cluster manifest ([#2371](https://github.com/gravitational/gravity/pull/2371))
+* Allow Logging, Monitoring, Ingress, Tiller, Storage, and Bandwagon applications to be disabled in the cluster manifest ([#2397](https://github.com/gravitational/gravity/pull/2397))
+* Expose additional logrange fields in logging-app ([#2369](https://github.com/gravitational/gravity/pull/2369), [logging-app#75](https://github.com/gravitational/logging-app/pull/75))
+* Many scaleability tweaks for large clusters ([#2426](https://github.com/gravitational/gravity/pull/2426)) including:
+    * Introduce a hidden flag that eliminates workers from upgrade plan
+    * Introduce a hidden flag to allow parallel execution of certain upgrade phases
+    * Cache plan phases instead of re-querying Etcd each time
+    * Parallelize phases that run on multiple nodes, but do not affect the cluster (e.g. configuriation)
+    * Improve AWS event handler integration
+    * Add debug logging (including response times) to our internal API client
+    * Pre-emptively exit if an expand operation won't be accepted
+    * Allow multiple worker shrink/expand operations to run at the same time
+* Split `tele helm build` from `tele build` ([#1317](https://github.com/gravitational/gravity/pull/1317))
+* Bump Helm 2 version to 2.16.12 ([#2307](https://github.com/gravitational/gravity/pull/2307), [#2310](https://github.com/gravitational/gravity/pull/2310), [planet#789](https://github.com/gravitational/planet/pull/789))
+
+#### Removals
+* Remove support for Debian 8 ([#2210](https://github.com/gravitational/gravity/pull/2210))
+* Remove provisioner resources from the reference `telekube` application image ([#1561](https://github.com/gravitational/gravity/pull/1561))
+* Remove the Gravity's terraform provider ([#1622](https://github.com/gravitational/gravity/pull/1622))
+
+#### Bugfixes
+* Fix an issue with hub certificates missing SANs after expand ([#1323](https://github.com/gravitational/gravity/pull/1323)).
+* Remove stack traces from web API calls ([#2357](https://github.com/gravitational/gravity/pull/2357), [teleport#5070](https://github.com/gravitational/teleport/pull/5070), [trace#60](https://github.com/gravitational/trace/pull/60))
+* Fix a bug where tailing an operation plan would truncate at 100 events ([#2426](https://github.com/gravitational/gravity/pull/2426))
+
+#### Internal Changes
+* Increase CoreDNS CPU and memory allocation [#2430](https://github.com/gravitational/gravity/pull/2430)
+* Replace in-house drain logic with kubernetes drain logic ([#1652](https://github.com/gravitational/gravity/pull/1652))
+* Experimentally allow Kubernetes High Availability mode to be enabled in the cluster manifest ([#2404](https://github.com/gravitational/gravity/pull/2404), [planet#821](https://github.com/gravitational/planet/pull/821))
+* Remove [Serf](https://www.serf.io/) from the ping/latency checker ([#2234](https://github.com/gravitational/gravity/pull/2234), [planet#765](https://github.com/gravitational/planet/pull/765), [satellite#277](https://github.com/gravitational/satellite/pull/277), [monitoring-app#197](https://github.com/gravitational/monitoring-app/pull/197))
+* Replace [Serf](https://www.serf.io/) for managing cluster membership ([#2329](https://github.com/gravitational/gravity/pull/2329), [planet#794](https://github.com/gravitational/planet/pull/794), [satellite#284](https://github.com/gravitational/satellite/pull/284), [satellite#282](https://github.com/gravitational/satellite/pull/282))
+* Switch from [Dep](https://github.com/golang/dep) to [Go Modules](https://golang.org/ref/mod) ([#1454](https://github.com/gravitational/gravity/pull/1454))
+* And many other minor code cleanup and build improvements.
+
 
 ## 7.0 Releases
 
