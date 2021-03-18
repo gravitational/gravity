@@ -69,7 +69,6 @@ ARCH := $(shell uname -m)
 
 # Address of OpsCenter to publish telekube binaries to
 DISTRIBUTION_OPSCENTER ?= https://get.gravitational.io
-S3_DISTRIBUTION_BUCKET ?= s3://get.gravitational.io/releases/$(GRAVITY_VERSION)
 
 # Telekube package names
 TELEKUBE_GRAVITY_PKG := gravitational.io/gravity_$(OS)_$(ARCH):$(GRAVITY_TAG)
@@ -272,21 +271,6 @@ publish-telekube: build
 	@echo -e "\n----> Publishing Tsh to $(DISTRIBUTION_OPSCENTER)...\n"
 	$(GRAVITY_OUT) package delete --ops-url=$(DISTRIBUTION_OPSCENTER) $(TELEKUBE_PUBLISH_FLAGS) --force $(TELEKUBE_TSH_PKG) && \
 	$(GRAVITY_OUT) package import --ops-url=$(DISTRIBUTION_OPSCENTER) $(TELEKUBE_PUBLISH_FLAGS) $(TSH_OUT) $(TELEKUBE_TSH_PKG)
-
-
-#
-# publish telekube/opscenter application packages to S3
-#
-.PHONY: publish-telekube-s3
-publish-telekube-s3:
-	@echo -e "\n----> Publishing Telekube application to $(S3_DISTRIBUTION_BUCKET)...\n"
-	$(AWS) s3 cp $(S3_OPTS) "$(GRAVITY_BUILDDIR)/telekube.tar" $(S3_DISTRIBUTION_BUCKET)/
-	@echo -e "\n----> Publishing Ops Center application to $(S3_DISTRIBUTION_BUCKET)...\n"
-	$(AWS) s3 cp $(S3_OPTS) "$(GRAVITY_BUILDDIR)/opscenter.tar" $(S3_DISTRIBUTION_BUCKET)/
-	@echo -e "\n----> Publishing Gravity to $(S3_DISTRIBUTION_BUCKET)...\n"
-	$(AWS) s3 cp $(S3_OPTS) "$(GRAVITY_OUT)" $(S3_DISTRIBUTION_BUCKET)/
-	@echo -e "\n----> Publishing Tele to $(S3_DISTRIBUTION_BUCKET)...\n"
-	$(AWS) s3 cp $(S3_OPTS) "$(TELE_OUT)" $(S3_DISTRIBUTION_BUCKET)/
 
 
 #
