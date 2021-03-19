@@ -34,15 +34,13 @@ import (
 
 type influxDB struct {
 	*roundtrip.Client
+
+	kubeClient *kubernetes.Clientset
 }
 
 // NewInfluxDB returns a new InfluxDB monitoring provider
 func NewInfluxDB(kubeClient *kubernetes.Clientset) (Monitoring, error) {
-	client, err := newInfluxDBClient(kubeClient.CoreV1())
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return &influxDB{Client: client}, nil
+	return &influxDB{kubeClient: kubeClient}, nil
 }
 
 func newInfluxDBClient(kclient corev1.CoreV1Interface) (*roundtrip.Client, error) {
@@ -54,7 +52,7 @@ func newInfluxDBClient(kclient corev1.CoreV1Interface) (*roundtrip.Client, error
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	if err := verifyAuth(client); err == nil {
+	if err = verifyAuth(client); err == nil {
 		return client, nil
 	}
 	if !trace.IsAccessDenied(err) {
@@ -94,6 +92,14 @@ func Get(client *roundtrip.Client, endpoint string, params url.Values) (*roundtr
 
 // GetRetentionPolicies returns a list of retention policies for the site
 func (i *influxDB) GetRetentionPolicies() ([]RetentionPolicy, error) {
+	if i.Client == nil {
+		var err error
+		i.Client, err = newInfluxDBClient(i.kubeClient.CoreV1())
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+	}
+
 	response, err := Get(i.Client, i.Endpoint("query"), url.Values{"q": []string{showQuery}})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -148,6 +154,14 @@ func (i *influxDB) GetRetentionPolicies() ([]RetentionPolicy, error) {
 
 // UpdateRetentionPolicy configures metrics retention policy
 func (i *influxDB) UpdateRetentionPolicy(policy RetentionPolicy) error {
+	if i.Client == nil {
+		var err error
+		i.Client, err = newInfluxDBClient(i.kubeClient.CoreV1())
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+
 	_, err := i.PostForm(i.Endpoint("query"), url.Values{
 		"q": []string{fmt.Sprintf(updateQuery, policy.Name, policy.Duration.Hours())},
 	})
@@ -156,6 +170,14 @@ func (i *influxDB) UpdateRetentionPolicy(policy RetentionPolicy) error {
 
 // PostForm is like roundtrip.Client.PostForm but converts returned HTTP errors into trace errors
 func (i *influxDB) PostForm(endpoint string, params url.Values) (*roundtrip.Response, error) {
+	if i.Client == nil {
+		var err error
+		i.Client, err = newInfluxDBClient(i.kubeClient.CoreV1())
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+	}
+
 	return httplib.ConvertResponse(i.Client.PostForm(endpoint, params))
 }
 
