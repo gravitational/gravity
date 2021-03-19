@@ -141,10 +141,8 @@ func appSyncEnv(env *localenv.LocalEnvironment, imageEnv *localenv.ImageEnvironm
 		if err != nil {
 			return trace.Wrap(err)
 		}
-	} else if httplib.InKubernetes() {
-		// If we're running inside generic Kubernetes cluster, sync images
-		// to the registry specified on the command line.
-		log.Info("Detected generic Kubernetes cluster.")
+	} else {
+		// sync images to the registry specified on the command line.
 		env.PrintStep("Pushing application images to Docker registry %v", conf.Registry)
 		imageService, err := conf.imageService()
 		if err != nil {
@@ -161,8 +159,6 @@ func appSyncEnv(env *localenv.LocalEnvironment, imageEnv *localenv.ImageEnvironm
 		if err != nil {
 			return trace.Wrap(err)
 		}
-	} else {
-		return trace.BadParameter("not inside a Kubernetes cluster")
 	}
 	return nil
 }
