@@ -13,7 +13,7 @@ Find the latest Open Source Gravity releases at [Gravity Downloads](https://grav
 | ------------------- | ------------- | --- | -------------------- | -------------------- | ----------------------- | -------------------- | ---------------- |
 | [7.1](#71-releases) | 7.1.0-alpha.5 | No  | pre-release          | March 16, 2021       | Set upon release        | 1.19.8               | 3.2.17-gravity   |
 | [7.0](#70-releases) | 7.0.30        | Yes | April 3, 2020        | January 15, 2021     | July 9, 2022            | 1.17.9               | 3.2.14-gravity   |
-| [6.1](#61-releases) | 6.1.47        | Yes | August 2, 2019       | January 9, 2021      | November 10, 2021       | 1.15.12              | 3.2.14-gravity   |
+| [6.1](#61-releases) | 6.1.48        | Yes | August 2, 2019       | March 23, 2021       | November 10, 2021       | 1.15.12              | 3.2.14-gravity   |
 | [5.5](#55-releases) | 5.5.58        | Yes | March 8, 2019        | February 4, 2021     | March 8, 2021           | 1.13.11              | 3.0.7-gravity    |
 
 Gravity offers one Long Term Support (LTS) version for every 2nd Kubernetes
@@ -767,7 +767,16 @@ to learn how to gain insight into how the cluster status changes over time.
 
 ## 6.1 Releases
 
-### 6.1.47 LTS (January 9, 2020)
+### 6.1.48 LTS (March 23, 2021)
+
+#### Bugfixes
+* Fix coredns-worker podAntiAffinity to correctly select on kube-dns-worker. [#2389](https://github.com/gravitational/gravity/pull/2389)
+
+#### Improvements
+* Add a feature to planet to hardcode the google metadata server into the planet hosts file when detected as running on a gcloud VM. [#2441](https://github.com/gravitational/gravity/pull/2441), [planet#817](https://github.com/gravitational/planet/pull/817)
+* Add AliasIP range support to flannel. [#2441](https://github.com/gravitational/gravity/pull/2441), [planet#832](https://github.com/gravitational/planet/pull/832), [flannel#10](https://github.com/gravitational/flannel/pull/10)
+
+### 6.1.47 LTS (January 9, 2021)
 
 #### Bugfixes
 * Fix an issue with file descriptors leaking in monitoring network health ([#2382](https://github.com/gravitational/gravity/pull/2382), [monitoring-app#205](https://github.com/gravitational/monitoring-app/pull/205), [satellite#293](https://github.com/gravitational/satellite/pull/293)).
