@@ -67,7 +67,7 @@ type APIServiceControl struct {
 func (c *APIServiceControl) Delete(ctx context.Context, cascade bool) error {
 	c.Infof("delete %v", formatMeta(c.APIService.ObjectMeta))
 
-	err := c.Client.ApiregistrationV1().APIServices().Delete(c.APIService.Name, nil)
+	err := c.Client.ApiregistrationV1().APIServices().Delete(ctx, c.APIService.Name, metav1.DeleteOptions{})
 	return ConvertError(err)
 }
 
@@ -78,23 +78,29 @@ func (c *APIServiceControl) Upsert(ctx context.Context) error {
 	c.APIService.UID = ""
 	c.APIService.SelfLink = ""
 	c.APIService.ResourceVersion = ""
-	currentAPIService, err := client.Get(c.APIService.Name, metav1.GetOptions{})
+	currentAPIService, err := client.Get(ctx, c.APIService.Name, metav1.GetOptions{})
 	err = ConvertError(err)
 	if err != nil {
 		if !trace.IsNotFound(err) {
 			return trace.Wrap(err)
 		}
-		_, err = client.Create(c.APIService)
+		_, err = client.Create(ctx, c.APIService, metav1.CreateOptions{})
 		return ConvertError(err)
 	}
+
+	if checkCustomerManagedResource(currentAPIService.Annotations) {
+		c.WithField("apiservice", formatMeta(c.APIService.ObjectMeta)).Info("Skipping update since object is customer managed.")
+		return nil
+	}
+
 	c.APIService.ResourceVersion = currentAPIService.ResourceVersion
-	_, err = client.Update(c.APIService)
+	_, err = client.Update(ctx, c.APIService, metav1.UpdateOptions{})
 	return ConvertError(err)
 }
 
-func (c *APIServiceControl) Status() error {
+func (c *APIServiceControl) Status(ctx context.Context) error {
 	client := c.Client.ApiregistrationV1().APIServices()
-	_, err := client.Get(c.APIService.Name, metav1.GetOptions{})
+	_, err := client.Get(ctx, c.APIService.Name, metav1.GetOptions{})
 	return ConvertError(err)
 }
 

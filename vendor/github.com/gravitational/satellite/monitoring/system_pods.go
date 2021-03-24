@@ -105,7 +105,7 @@ func (r *systemPodsChecker) getPods() (pods []corev1.Pod, err error) {
 	}
 
 	for _, namespace := range r.Namespaces {
-		podList, err := r.Client.CoreV1().Pods(namespace).List(opts)
+		podList, err := r.Client.CoreV1().Pods(namespace).List(context.TODO(), opts)
 		if err != nil {
 			return pods, utils.ConvertError(err)
 		}

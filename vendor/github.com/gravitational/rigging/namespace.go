@@ -69,7 +69,7 @@ type NamespaceControl struct {
 func (c *NamespaceControl) Delete(ctx context.Context, cascade bool) error {
 	c.Infof("delete %v", formatMeta(c.Namespace.ObjectMeta))
 
-	err := c.Client.CoreV1().Namespaces().Delete(c.Namespace.Name, nil)
+	err := c.Client.CoreV1().Namespaces().Delete(ctx, c.Namespace.Name, metav1.DeleteOptions{})
 	return ConvertError(err)
 }
 
@@ -80,22 +80,28 @@ func (c *NamespaceControl) Upsert(ctx context.Context) error {
 	c.Namespace.UID = ""
 	c.Namespace.SelfLink = ""
 	c.Namespace.ResourceVersion = ""
-	_, err := Namespaces.Get(c.Namespace.Name, metav1.GetOptions{})
+	existing, err := Namespaces.Get(ctx, c.Namespace.Name, metav1.GetOptions{})
 	err = ConvertError(err)
 	if err != nil {
 		if !trace.IsNotFound(err) {
 			return trace.Wrap(err)
 		}
-		_, err = Namespaces.Create(c.Namespace)
+		_, err = Namespaces.Create(ctx, c.Namespace, metav1.CreateOptions{})
 		return ConvertError(err)
 	}
-	_, err = Namespaces.Update(c.Namespace)
+
+	if checkCustomerManagedResource(existing.Annotations) {
+		c.WithField("namespace", formatMeta(c.Namespace.ObjectMeta)).Info("Skipping update since object is customer managed.")
+		return nil
+	}
+
+	_, err = Namespaces.Update(ctx, c.Namespace, metav1.UpdateOptions{})
 	return ConvertError(err)
 }
 
-func (c *NamespaceControl) Status() error {
+func (c *NamespaceControl) Status(ctx context.Context) error {
 	Namespaces := c.Client.CoreV1().Namespaces()
-	_, err := Namespaces.Get(c.Namespace.Name, metav1.GetOptions{})
+	_, err := Namespaces.Get(ctx, c.Namespace.Name, metav1.GetOptions{})
 	return ConvertError(err)
 }
 

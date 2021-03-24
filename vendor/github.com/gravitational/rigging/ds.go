@@ -21,7 +21,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
@@ -68,12 +67,12 @@ type DSControl struct {
 }
 
 // collectPods returns pods created by this daemon set
-func (c *DSControl) collectPods(daemonSet *v1beta1.DaemonSet) (map[string]v1.Pod, error) {
+func (c *DSControl) collectPods(ctx context.Context, daemonSet *appsv1.DaemonSet) (map[string]v1.Pod, error) {
 	var labels map[string]string
 	if daemonSet.Spec.Selector != nil {
 		labels = daemonSet.Spec.Selector.MatchLabels
 	}
-	pods, err := CollectPods(daemonSet.Namespace, labels, c.FieldLogger, c.Client, func(ref metav1.OwnerReference) bool {
+	pods, err := CollectPods(ctx, daemonSet.Namespace, labels, c.FieldLogger, c.Client, func(ref metav1.OwnerReference) bool {
 		return ref.Kind == KindDaemonSet && ref.UID == daemonSet.UID
 	})
 	return pods, trace.Wrap(err)
@@ -82,19 +81,19 @@ func (c *DSControl) collectPods(daemonSet *v1beta1.DaemonSet) (map[string]v1.Pod
 func (c *DSControl) Delete(ctx context.Context, cascade bool) error {
 	c.Infof("delete %v", formatMeta(c.DaemonSet.ObjectMeta))
 
-	daemons := c.Client.ExtensionsV1beta1().DaemonSets(c.DaemonSet.Namespace)
-	currentDS, err := daemons.Get(c.DaemonSet.Name, metav1.GetOptions{})
+	daemons := c.Client.AppsV1().DaemonSets(c.DaemonSet.Namespace)
+	currentDS, err := daemons.Get(ctx, c.DaemonSet.Name, metav1.GetOptions{})
 	if err != nil {
 		return ConvertError(err)
 	}
 	pods := c.Client.CoreV1().Pods(c.DaemonSet.Namespace)
-	currentPods, err := c.collectPods(currentDS)
+	currentPods, err := c.collectPods(ctx, currentDS)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	c.Info("deleting current daemon set")
+	c.Debug("deleting current daemon set")
 	deletePolicy := metav1.DeletePropagationForeground
-	err = daemons.Delete(c.DaemonSet.Name, &metav1.DeleteOptions{
+	err = daemons.Delete(ctx, c.DaemonSet.Name, metav1.DeleteOptions{
 		PropagationPolicy: &deletePolicy,
 	})
 	if err != nil {
@@ -102,7 +101,7 @@ func (c *DSControl) Delete(ctx context.Context, cascade bool) error {
 	}
 
 	err = waitForObjectDeletion(func() error {
-		_, err := daemons.Get(c.DaemonSet.Name, metav1.GetOptions{})
+		_, err := daemons.Get(ctx, c.DaemonSet.Name, metav1.GetOptions{})
 		return ConvertError(err)
 	})
 	if err != nil {
@@ -112,7 +111,7 @@ func (c *DSControl) Delete(ctx context.Context, cascade bool) error {
 	if !cascade {
 		c.Info("cascade not set, returning")
 	}
-	err = deletePods(pods, currentPods, c.FieldLogger)
+	err = deletePods(ctx, pods, currentPods, c.FieldLogger)
 	return trace.Wrap(err)
 }
 
@@ -120,17 +119,22 @@ func (c *DSControl) Upsert(ctx context.Context) error {
 	c.Infof("upsert %v", formatMeta(c.DaemonSet.ObjectMeta))
 
 	daemons := c.Client.AppsV1().DaemonSets(c.DaemonSet.Namespace)
-	currentDS, err := daemons.Get(c.DaemonSet.Name, metav1.GetOptions{})
+	currentDS, err := daemons.Get(ctx, c.DaemonSet.Name, metav1.GetOptions{})
 	err = ConvertError(err)
 	if err != nil {
 		if !trace.IsNotFound(err) {
 			return trace.Wrap(err)
 		}
-		// api always returns object, this is inconvenent
+		// api always returns object, this is inconvenient
 		currentDS = nil
 	}
 
 	if currentDS != nil {
+		if checkCustomerManagedResource(currentDS.Annotations) {
+			c.WithField("daemonset", formatMeta(c.DaemonSet.ObjectMeta)).Info("Skipping update since object is customer managed.")
+			return nil
+		}
+
 		control, err := NewDaemonSetControl(DSConfig{DaemonSet: currentDS, Client: c.Client})
 		if err != nil {
 			return trace.Wrap(err)
@@ -141,13 +145,13 @@ func (c *DSControl) Upsert(ctx context.Context) error {
 		}
 	}
 
-	c.Info("creating new daemon set")
+	c.Debug("creating new daemon set")
 	c.DaemonSet.UID = ""
 	c.DaemonSet.SelfLink = ""
 	c.DaemonSet.ResourceVersion = ""
 
 	err = withExponentialBackoff(func() error {
-		_, err = daemons.Create(c.DaemonSet)
+		_, err = daemons.Create(ctx, c.DaemonSet, metav1.CreateOptions{})
 		return ConvertError(err)
 	})
 	return trace.Wrap(err)
@@ -161,19 +165,19 @@ func (c *DSControl) nodeSelector() labels.Selector {
 	return set.AsSelector()
 }
 
-func (c *DSControl) Status() error {
-	daemons := c.Client.ExtensionsV1beta1().DaemonSets(c.DaemonSet.Namespace)
-	currentDS, err := daemons.Get(c.DaemonSet.Name, metav1.GetOptions{})
+func (c *DSControl) Status(ctx context.Context) error {
+	daemons := c.Client.AppsV1().DaemonSets(c.DaemonSet.Namespace)
+	currentDS, err := daemons.Get(ctx, c.DaemonSet.Name, metav1.GetOptions{})
 	if err != nil {
 		return ConvertError(err)
 	}
 
-	currentPods, err := c.collectPods(currentDS)
+	currentPods, err := c.collectPods(ctx, currentDS)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	nodes, err := c.Client.CoreV1().Nodes().List(metav1.ListOptions{
+	nodes, err := c.Client.CoreV1().Nodes().List(ctx, metav1.ListOptions{
 		LabelSelector: c.nodeSelector().String(),
 	})
 	if err != nil {
@@ -192,6 +196,6 @@ func (c *DSControl) Status() error {
 func updateTypeMetaDaemonset(r *appsv1.DaemonSet) {
 	r.Kind = KindDaemonSet
 	if r.APIVersion == "" {
-		r.APIVersion = v1beta1.SchemeGroupVersion.String()
+		r.APIVersion = appsv1.SchemeGroupVersion.String()
 	}
 }

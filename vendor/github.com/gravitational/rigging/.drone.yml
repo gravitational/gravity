@@ -1,0 +1,113 @@
+---
+kind: pipeline
+type: kubernetes
+name: pr
+
+trigger:
+  event:
+  - pull_request
+
+steps:
+  - name: fetch tags
+    image: docker:git
+    commands:
+      - git fetch --tags
+  - name: wait for docker
+    image: docker
+    commands:
+      - timeout 15s /bin/sh -c 'while [ ! -S /var/run/docker.sock ]; do sleep 1; done'
+      - docker version
+    volumes:
+      - name: dockersock
+        path: /var/run
+  - name: build binary
+    image: docker:git
+    commands:
+      - apk add --no-cache make
+      - make docker-build
+    volumes:
+      - name: dockersock
+        path: /var/run
+  - name: test
+    image: docker:git
+    commands:
+      - apk add --no-cache make
+      - make docker-test
+    volumes:
+      - name: dockersock
+        path: /var/run
+  - name: build container
+    image: docker:git
+    commands:
+      - apk add --no-cache make
+      - make docker-image
+    volumes:
+      - name: dockersock
+        path: /var/run
+
+services:
+  - name: run docker daemon
+    image: docker:dind
+    privileged: true
+    volumes:
+      - name: dockersock
+        path: /var/run
+
+volumes:
+  - name: dockersock
+    temp: {}
+
+---
+kind: pipeline
+type: kubernetes
+name: publish
+
+trigger:
+  event:
+  - tag
+
+steps:
+  - name: fetch tags
+    image: docker:git
+    commands:
+      - git fetch --tags
+  - name: wait for docker
+    image: docker
+    commands:
+      - timeout 15s /bin/sh -c 'while [ ! -S /var/run/docker.sock ]; do sleep 1; done'
+      - docker version
+    volumes:
+      - name: dockersock
+        path: /var/run
+  - name: publish
+    image: docker:git
+    environment:
+      USERNAME:
+        from_secret: quay_username
+      PASSWORD:
+        from_secret: quay_password
+    commands:
+      - apk add --no-cache make
+      - docker login -u="$USERNAME" -p="$PASSWORD" quay.io
+      - make docker-image
+      - make publish-docker-image
+    volumes:
+      - name: dockersock
+        path: /var/run
+
+services:
+  - name: run docker daemon
+    image: docker:dind
+    privileged: true
+    volumes:
+      - name: dockersock
+        path: /var/run
+
+volumes:
+  - name: dockersock
+    temp: {}
+---
+kind: signature
+hmac: 6354bb0b04505fcd538816731b36b8505df0ee4ee42c43e1e83f41d93dd30d84
+
+...

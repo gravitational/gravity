@@ -19,7 +19,7 @@ import (
 
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
-	"k8s.io/api/rbac/v1"
+	v1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
@@ -67,7 +67,7 @@ type RoleControl struct {
 func (c *RoleControl) Delete(ctx context.Context, cascade bool) error {
 	c.Infof("delete %v", formatMeta(c.ObjectMeta))
 
-	err := c.Client.RbacV1().Roles(c.Namespace).Delete(c.Name, nil)
+	err := c.Client.RbacV1().Roles(c.Namespace).Delete(ctx, c.Name, metav1.DeleteOptions{})
 	return ConvertError(err)
 }
 
@@ -78,22 +78,28 @@ func (c *RoleControl) Upsert(ctx context.Context) error {
 	c.UID = ""
 	c.SelfLink = ""
 	c.ResourceVersion = ""
-	_, err := roles.Get(c.Name, metav1.GetOptions{})
+	existing, err := roles.Get(ctx, c.Name, metav1.GetOptions{})
 	err = ConvertError(err)
 	if err != nil {
 		if !trace.IsNotFound(err) {
 			return trace.Wrap(err)
 		}
-		_, err = roles.Create(c.Role)
+		_, err = roles.Create(ctx, c.Role, metav1.CreateOptions{})
 		return ConvertErrorWithContext(err, "cannot create role %q", formatMeta(c.ObjectMeta))
 	}
-	_, err = roles.Update(c.Role)
+
+	if checkCustomerManagedResource(existing.Annotations) {
+		c.WithField("role", formatMeta(c.ObjectMeta)).Info("Skipping update since object is customer managed.")
+		return nil
+	}
+
+	_, err = roles.Update(ctx, c.Role, metav1.UpdateOptions{})
 	return ConvertError(err)
 }
 
-func (c *RoleControl) Status() error {
+func (c *RoleControl) Status(ctx context.Context) error {
 	roles := c.Client.RbacV1().Roles(c.Namespace)
-	_, err := roles.Get(c.Name, metav1.GetOptions{})
+	_, err := roles.Get(ctx, c.Name, metav1.GetOptions{})
 	return ConvertError(err)
 }
 
@@ -140,7 +146,7 @@ type ClusterRoleControl struct {
 func (c *ClusterRoleControl) Delete(ctx context.Context, cascade bool) error {
 	c.Infof("delete %v", formatMeta(c.ObjectMeta))
 
-	err := c.Client.RbacV1().ClusterRoles().Delete(c.Name, nil)
+	err := c.Client.RbacV1().ClusterRoles().Delete(ctx, c.Name, metav1.DeleteOptions{})
 	return ConvertError(err)
 }
 
@@ -151,22 +157,28 @@ func (c *ClusterRoleControl) Upsert(ctx context.Context) error {
 	c.UID = ""
 	c.SelfLink = ""
 	c.ResourceVersion = ""
-	_, err := roles.Get(c.Name, metav1.GetOptions{})
+	existing, err := roles.Get(ctx, c.Name, metav1.GetOptions{})
 	err = ConvertError(err)
 	if err != nil {
 		if !trace.IsNotFound(err) {
 			return trace.Wrap(err)
 		}
-		_, err = roles.Create(c.ClusterRole)
+		_, err = roles.Create(ctx, c.ClusterRole, metav1.CreateOptions{})
 		return ConvertErrorWithContext(err, "cannot create cluster role %q", formatMeta(c.ObjectMeta))
 	}
-	_, err = roles.Update(c.ClusterRole)
+
+	if checkCustomerManagedResource(existing.Annotations) {
+		c.WithField("clusterrole", formatMeta(c.ObjectMeta)).Info("Skipping update since object is customer managed.")
+		return nil
+	}
+
+	_, err = roles.Update(ctx, c.ClusterRole, metav1.UpdateOptions{})
 	return ConvertError(err)
 }
 
-func (c *ClusterRoleControl) Status() error {
+func (c *ClusterRoleControl) Status(ctx context.Context) error {
 	roles := c.Client.RbacV1().ClusterRoles()
-	_, err := roles.Get(c.Name, metav1.GetOptions{})
+	_, err := roles.Get(ctx, c.Name, metav1.GetOptions{})
 	return ConvertError(err)
 }
 
@@ -213,7 +225,7 @@ type RoleBindingControl struct {
 func (c *RoleBindingControl) Delete(ctx context.Context, cascade bool) error {
 	c.Infof("delete %v", formatMeta(c.ObjectMeta))
 
-	err := c.Client.RbacV1().RoleBindings(c.Namespace).Delete(c.Name, nil)
+	err := c.Client.RbacV1().RoleBindings(c.Namespace).Delete(ctx, c.Name, metav1.DeleteOptions{})
 	return ConvertError(err)
 }
 
@@ -224,22 +236,28 @@ func (c *RoleBindingControl) Upsert(ctx context.Context) error {
 	c.UID = ""
 	c.SelfLink = ""
 	c.ResourceVersion = ""
-	_, err := bindings.Get(c.Name, metav1.GetOptions{})
+	existing, err := bindings.Get(ctx, c.Name, metav1.GetOptions{})
 	err = ConvertError(err)
 	if err != nil {
 		if !trace.IsNotFound(err) {
 			return trace.Wrap(err)
 		}
-		_, err = bindings.Create(c.RoleBinding)
+		_, err = bindings.Create(ctx, c.RoleBinding, metav1.CreateOptions{})
 		return ConvertErrorWithContext(err, "cannot create role binding %q", formatMeta(c.ObjectMeta))
 	}
-	_, err = bindings.Update(c.RoleBinding)
+
+	if checkCustomerManagedResource(existing.Annotations) {
+		c.WithField("rolebinding", formatMeta(c.ObjectMeta)).Info("Skipping update since object is customer managed.")
+		return nil
+	}
+
+	_, err = bindings.Update(ctx, c.RoleBinding, metav1.UpdateOptions{})
 	return ConvertError(err)
 }
 
-func (c *RoleBindingControl) Status() error {
+func (c *RoleBindingControl) Status(ctx context.Context) error {
 	bindings := c.Client.RbacV1().RoleBindings(c.Namespace)
-	_, err := bindings.Get(c.Name, metav1.GetOptions{})
+	_, err := bindings.Get(ctx, c.Name, metav1.GetOptions{})
 	return ConvertError(err)
 }
 
@@ -286,7 +304,7 @@ type ClusterRoleBindingControl struct {
 func (c *ClusterRoleBindingControl) Delete(ctx context.Context, cascade bool) error {
 	c.Infof("delete %v", formatMeta(c.ObjectMeta))
 
-	err := c.Client.RbacV1().ClusterRoleBindings().Delete(c.Name, nil)
+	err := c.Client.RbacV1().ClusterRoleBindings().Delete(ctx, c.Name, metav1.DeleteOptions{})
 	return ConvertError(err)
 }
 
@@ -297,22 +315,28 @@ func (c *ClusterRoleBindingControl) Upsert(ctx context.Context) error {
 	c.UID = ""
 	c.SelfLink = ""
 	c.ResourceVersion = ""
-	_, err := bindings.Get(c.Name, metav1.GetOptions{})
+	existing, err := bindings.Get(ctx, c.Name, metav1.GetOptions{})
 	err = ConvertError(err)
 	if err != nil {
 		if !trace.IsNotFound(err) {
 			return trace.Wrap(err)
 		}
-		_, err = bindings.Create(c.ClusterRoleBinding)
+		_, err = bindings.Create(ctx, c.ClusterRoleBinding, metav1.CreateOptions{})
 		return ConvertErrorWithContext(err, "cannot create cluster role binding %q", formatMeta(c.ObjectMeta))
 	}
-	_, err = bindings.Update(c.ClusterRoleBinding)
+
+	if checkCustomerManagedResource(existing.Annotations) {
+		c.WithField("clusterrolebinding", formatMeta(c.ObjectMeta)).Info("Skipping update since object is customer managed.")
+		return nil
+	}
+
+	_, err = bindings.Update(ctx, c.ClusterRoleBinding, metav1.UpdateOptions{})
 	return ConvertError(err)
 }
 
-func (c *ClusterRoleBindingControl) Status() error {
+func (c *ClusterRoleBindingControl) Status(ctx context.Context) error {
 	bindings := c.Client.RbacV1().ClusterRoleBindings()
-	_, err := bindings.Get(c.Name, metav1.GetOptions{})
+	_, err := bindings.Get(ctx, c.Name, metav1.GetOptions{})
 	return ConvertError(err)
 }
 
