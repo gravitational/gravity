@@ -17,6 +17,8 @@ limitations under the License.
 package monitoring
 
 import (
+	"context"
+
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
@@ -30,7 +32,7 @@ import (
 func GetNamespace(client corev1.CoreV1Interface) (string, error) {
 	// try "monitoring" namespace first, then "kube-system"
 	for _, ns := range []string{defaults.MonitoringNamespace, defaults.KubeSystemNamespace} {
-		_, err := client.Services(ns).Get(defaults.GrafanaServiceName, metav1.GetOptions{})
+		_, err := client.Services(ns).Get(context.TODO(), defaults.GrafanaServiceName, metav1.GetOptions{})
 		if err != nil && !trace.IsNotFound(rigging.ConvertError(err)) {
 			return "", trace.Wrap(err)
 		}

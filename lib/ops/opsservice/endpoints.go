@@ -17,6 +17,7 @@ limitations under the License.
 package opsservice
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -72,7 +73,7 @@ func (o *Operator) GetApplicationEndpoints(key ops.SiteKey) ([]ops.Endpoint, err
 	}
 
 	// query for nodes, we might need them later on
-	nodeList, err := client.CoreV1().Nodes().List(metav1.ListOptions{})
+	nodeList, err := client.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -83,9 +84,10 @@ func (o *Operator) GetApplicationEndpoints(key ops.SiteKey) ([]ops.Endpoint, err
 			continue
 		}
 
-		serviceList, err := client.CoreV1().Services(constants.AllNamespaces).List(metav1.ListOptions{
-			LabelSelector: utils.MakeSelector(e.Selector).String(),
-		})
+		serviceList, err := client.CoreV1().Services(constants.AllNamespaces).
+			List(context.TODO(), metav1.ListOptions{
+				LabelSelector: utils.MakeSelector(e.Selector).String(),
+			})
 		if err != nil {
 			return nil, rigging.ConvertError(err)
 		}

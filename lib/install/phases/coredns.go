@@ -106,7 +106,8 @@ func (r *corednsExecutor) Execute(ctx context.Context) error {
 		},
 	}
 
-	_, err = r.Client.CoreV1().ConfigMaps(constants.KubeSystemNamespace).Create(configMap)
+	_, err = r.Client.CoreV1().ConfigMaps(constants.KubeSystemNamespace).
+		Create(ctx, configMap, metav1.CreateOptions{})
 	if err == nil {
 		r.Infof("Created config map %v/%v.", configMap.Namespace, configMap.Name)
 		return nil
@@ -117,7 +118,8 @@ func (r *corednsExecutor) Execute(ctx context.Context) error {
 		return trace.Wrap(err)
 	}
 
-	_, err = r.Client.CoreV1().ConfigMaps(constants.KubeSystemNamespace).Update(configMap)
+	_, err = r.Client.CoreV1().ConfigMaps(constants.KubeSystemNamespace).
+		Update(ctx, configMap, metav1.UpdateOptions{})
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -149,8 +151,9 @@ func mergeUpstreamResolvers(configs ...*storage.ResolvConf) []string {
 }
 
 // Rollback deletes the coredns configmap that was created in the execute step
-func (r *corednsExecutor) Rollback(context.Context) error {
-	err := r.Client.CoreV1().ConfigMaps(constants.KubeSystemNamespace).Delete("coredns", &metav1.DeleteOptions{})
+func (r *corednsExecutor) Rollback(ctx context.Context) error {
+	err := r.Client.CoreV1().ConfigMaps(constants.KubeSystemNamespace).
+		Delete(ctx, "coredns", metav1.DeleteOptions{})
 	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
 	}

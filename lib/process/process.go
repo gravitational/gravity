@@ -91,6 +91,7 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/kubernetes"
 )
@@ -741,7 +742,7 @@ func (p *Process) reconcileNode(client *kubernetes.Clientset, cluster ops.Site, 
 	for key, val := range missingLabels {
 		node.Labels[key] = val
 	}
-	if _, err := client.CoreV1().Nodes().Update(&node); err != nil {
+	if _, err := client.CoreV1().Nodes().Update(context.TODO(), &node, metav1.UpdateOptions{}); err != nil {
 		return rigging.ConvertError(err)
 	}
 	return nil
@@ -1674,7 +1675,7 @@ func (p *Process) ServeHealth() error {
 func tryGetPrivilegedKubeClient() (client *kubernetes.Clientset, err error) {
 	_, err = utils.StatFile(constants.PrivilegedKubeconfig)
 	if err == nil || !trace.IsNotFound(err) {
-		client, _, err = utils.GetKubeClientFromPath(constants.PrivilegedKubeconfig)
+		client, _, err = utils.GetKubeClient(constants.PrivilegedKubeconfig)
 	} else {
 		client, _, err = utils.GetKubeClient("")
 	}

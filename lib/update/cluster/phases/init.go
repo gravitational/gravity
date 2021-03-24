@@ -324,8 +324,8 @@ func (p *updatePhaseInit) updateClusterDNSConfig() error {
 // if it doesn't exist yet.
 func (p *updatePhaseInit) updateClusterInfoMap() error {
 	p.Infof("Update %v config map.", constants.ClusterInfoMap)
-	_, err := p.Client.CoreV1().ConfigMaps(constants.KubeSystemNamespace).Get(
-		constants.ClusterInfoMap, metav1.GetOptions{})
+	_, err := p.Client.CoreV1().ConfigMaps(constants.KubeSystemNamespace).
+		Get(context.TODO(), constants.ClusterInfoMap, metav1.GetOptions{})
 	if err == nil {
 		p.Infof("Config map %v already exists.", constants.ClusterInfoMap)
 		return nil
@@ -336,7 +336,8 @@ func (p *updatePhaseInit) updateClusterInfoMap() error {
 	}
 	// Cluster info config map doesn't exist yet, create it.
 	configMap := ops.MakeClusterInfoMap(ops.ConvertOpsSite(p.Cluster))
-	_, err = p.Client.CoreV1().ConfigMaps(constants.KubeSystemNamespace).Create(configMap)
+	_, err = p.Client.CoreV1().ConfigMaps(constants.KubeSystemNamespace).
+		Create(context.TODO(), configMap, metav1.CreateOptions{})
 	if err != nil {
 		return rigging.ConvertError(err)
 	}

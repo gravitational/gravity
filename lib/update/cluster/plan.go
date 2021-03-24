@@ -626,7 +626,8 @@ func getExistingDNSConfig(packages pack.PackageService) (*storage.DNSConfig, err
 // coredns, and will instead point to the kube-dns service on startup. Updating the app will deploy coredns as pods.
 // TODO(knisbet) remove when 5.3.2 is no longer supported as an upgrade path
 func shouldUpdateDNSAppEarly(client *kubernetes.Clientset) (bool, error) {
-	_, err := client.CoreV1().Services(constants.KubeSystemNamespace).Get("kube-dns", metav1.GetOptions{})
+	_, err := client.CoreV1().Services(constants.KubeSystemNamespace).
+		Get(context.TODO(), "kube-dns", metav1.GetOptions{})
 	err = rigging.ConvertError(err)
 	if err != nil {
 		if trace.IsNotFound(err) {

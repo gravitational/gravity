@@ -312,12 +312,12 @@ func updateKubeletPermissions(client *kubeapi.Clientset) error {
 }
 
 func createKubeletRole(client *kubeapi.Clientset) error {
-	_, err := client.RbacV1().ClusterRoles().Create(&rbacv1.ClusterRole{
+	_, err := client.RbacV1().ClusterRoles().Create(context.TODO(), &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{Name: defaults.KubeletUpdatePermissionsRole},
 		Rules: []rbacv1.PolicyRule{
 			{Verbs: []string{"patch"}, APIGroups: []string{""}, Resources: []string{"nodes/status"}},
 		},
-	})
+	}, metav1.CreateOptions{})
 
 	err = rigging.ConvertError(err)
 	if err == nil {
@@ -327,17 +327,17 @@ func createKubeletRole(client *kubeapi.Clientset) error {
 		return trace.Wrap(err)
 	}
 	// If there's no RBAC v1 support, drop down to v1beta1
-	_, err = client.RbacV1beta1().ClusterRoles().Create(&rbacv1beta1.ClusterRole{
+	_, err = client.RbacV1beta1().ClusterRoles().Create(context.TODO(), &rbacv1beta1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{Name: defaults.KubeletUpdatePermissionsRole},
 		Rules: []rbacv1beta1.PolicyRule{
 			{Verbs: []string{"patch"}, APIGroups: []string{""}, Resources: []string{"nodes/status"}},
 		},
-	})
+	}, metav1.CreateOptions{})
 	return trace.Wrap(rigging.ConvertError(err))
 }
 
 func createKubeletRoleBinding(client *kubeapi.Clientset) error {
-	_, err := client.RbacV1().ClusterRoleBindings().Create(&rbacv1.ClusterRoleBinding{
+	_, err := client.RbacV1().ClusterRoleBindings().Create(context.TODO(), &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{Name: defaults.KubeletUpdatePermissionsRole},
 		Subjects:   []rbacv1.Subject{{Kind: constants.KubernetesKindUser, Name: constants.KubeletUser}},
 		RoleRef: rbacv1.RoleRef{
@@ -345,7 +345,7 @@ func createKubeletRoleBinding(client *kubeapi.Clientset) error {
 			Name:     defaults.KubeletUpdatePermissionsRole,
 			Kind:     rigging.KindClusterRole,
 		},
-	})
+	}, metav1.CreateOptions{})
 	err = rigging.ConvertError(err)
 	if err == nil {
 		return nil
@@ -354,7 +354,7 @@ func createKubeletRoleBinding(client *kubeapi.Clientset) error {
 		return trace.Wrap(err)
 	}
 	// If there's no RBAC v1 support, drop down to v1beta1
-	_, err = client.RbacV1beta1().ClusterRoleBindings().Create(&rbacv1beta1.ClusterRoleBinding{
+	_, err = client.RbacV1beta1().ClusterRoleBindings().Create(context.TODO(), &rbacv1beta1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{Name: defaults.KubeletUpdatePermissionsRole},
 		Subjects:   []rbacv1beta1.Subject{{Kind: constants.KubernetesKindUser, Name: constants.KubeletUser}},
 		RoleRef: rbacv1beta1.RoleRef{
@@ -362,16 +362,18 @@ func createKubeletRoleBinding(client *kubeapi.Clientset) error {
 			Name:     defaults.KubeletUpdatePermissionsRole,
 			Kind:     rigging.KindClusterRole,
 		},
-	})
+	}, metav1.CreateOptions{})
 	return trace.Wrap(rigging.ConvertError(err))
 }
 
 func removeKubeletPermissions(client *kubeapi.Clientset) error {
-	err := rigging.ConvertError(client.RbacV1().ClusterRoles().Delete(defaults.KubeletUpdatePermissionsRole, nil))
+	err := rigging.ConvertError(client.RbacV1().ClusterRoles().
+		Delete(context.TODO(), defaults.KubeletUpdatePermissionsRole, metav1.DeleteOptions{}))
 	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
 	}
-	err = rigging.ConvertError(client.RbacV1().ClusterRoleBindings().Delete(defaults.KubeletUpdatePermissionsRole, nil))
+	err = rigging.ConvertError(client.RbacV1().ClusterRoleBindings().
+		Delete(context.TODO(), defaults.KubeletUpdatePermissionsRole, metav1.DeleteOptions{}))
 	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
 	}

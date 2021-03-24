@@ -77,7 +77,8 @@ func (s *S) SetUpTest(c *C) {
 	b := backoff.NewExponentialBackOff()
 	b.MaxElapsedTime = 5 * time.Minute
 	err = utils.RetryWithInterval(context.TODO(), b, func() error {
-		_, err = s.CoreV1().Namespaces().Create(ns)
+		_, err = s.CoreV1().Namespaces().
+			Create(context.TODO(), ns, metav1.CreateOptions{})
 		err = retryOnAlreadyExists(err)
 		return err
 	})
@@ -90,20 +91,21 @@ func (s *S) SetUpTest(c *C) {
 		s.Labels = make(map[string]string)
 	}
 	s.Labels["test"] = "yes"
-	_, err = client.Update(&s.Node)
+	_, err = client.Update(context.TODO(), &s.Node, metav1.UpdateOptions{})
 	c.Assert(err, IsNil)
 }
 
 func (s *S) TearDownTest(c *C) {
-	err := s.CoreV1().Namespaces().Delete(testNamespace, nil)
+	err := s.CoreV1().Namespaces().
+		Delete(context.TODO(), testNamespace, metav1.DeleteOptions{})
 	c.Assert(err, IsNil)
 
 	client := s.CoreV1().Nodes()
-	node, err := client.Get(s.Node.Name, metav1.GetOptions{})
+	node, err := client.Get(context.TODO(), s.Node.Name, metav1.GetOptions{})
 	c.Assert(err, IsNil)
 
 	delete(node.Labels, "test")
-	_, err = client.Update(node)
+	_, err = client.Update(context.TODO(), node, metav1.UpdateOptions{})
 	c.Assert(err, IsNil)
 }
 
@@ -114,18 +116,22 @@ func (s *S) TestDrainsNode(c *C) {
 
 	// setup
 	pod := newPod("foo")
-	_, err := s.CoreV1().Pods(testNamespace).Create(pod)
+	_, err := s.CoreV1().Pods(testNamespace).
+		Create(ctx, pod, metav1.CreateOptions{})
 	c.Assert(err, IsNil)
 
 	d := newDeployment("bar", pod.Spec)
-	_, err = s.ExtensionsV1beta1().Deployments(testNamespace).Create(d)
+	_, err = s.ExtensionsV1beta1().Deployments(testNamespace).
+		Create(ctx, d, metav1.CreateOptions{})
 	c.Assert(err, IsNil)
 
 	ds := newDaemonSet("qux", pod.Spec)
-	_, err = s.ExtensionsV1beta1().DaemonSets(testNamespace).Create(ds)
+	_, err = s.ExtensionsV1beta1().DaemonSets(testNamespace).
+		Create(ctx, ds, metav1.CreateOptions{})
 	c.Assert(err, IsNil)
 
 	podList, err := s.CoreV1().Pods(testNamespace).List(
+		ctx,
 		metav1.ListOptions{
 			FieldSelector: fields.SelectorFromSet(fields.Set{"spec.nodeName": s.Name}).String(),
 			LabelSelector: labels.SelectorFromSet(labels.Set{"test-app": "foo"}).String(),
@@ -139,6 +145,7 @@ func (s *S) TestDrainsNode(c *C) {
 	c.Assert(err, IsNil)
 
 	podList, err = s.CoreV1().Pods(testNamespace).List(
+		ctx,
 		metav1.ListOptions{
 			FieldSelector: fields.SelectorFromSet(fields.Set{"spec.nodeName": s.Name}).String(),
 			LabelSelector: labels.SelectorFromSet(labels.Set{"test-app": "foo"}).String(),
@@ -161,7 +168,7 @@ func (s *S) TestUpdatesNodeTaints(c *C) {
 	err := UpdateTaints(ctx, client, s.Name, taintsToAdd, nil)
 	c.Assert(err, IsNil)
 
-	updatedNode, err := client.Get(s.Name, metav1.GetOptions{})
+	updatedNode, err := client.Get(ctx, s.Name, metav1.GetOptions{})
 	c.Assert(err, IsNil)
 	c.Assert(hasTaint(updatedNode.Spec.Taints, taintsToAdd), Equals, true)
 
@@ -169,7 +176,7 @@ func (s *S) TestUpdatesNodeTaints(c *C) {
 	err = UpdateTaints(ctx, client, s.Name, nil, taintsToAdd)
 	c.Assert(err, IsNil)
 
-	updatedNode, err = client.Get(s.Name, metav1.GetOptions{})
+	updatedNode, err = client.Get(ctx, s.Name, metav1.GetOptions{})
 	c.Assert(err, IsNil)
 	c.Assert(hasTaint(updatedNode.Spec.Taints, taintsToAdd), Equals, false)
 }
@@ -184,7 +191,7 @@ func (s *S) TestCordonsUncordonsNode(c *C) {
 	c.Assert(err, IsNil)
 
 	// verify
-	updatedNode, err := client.Get(s.Name, metav1.GetOptions{})
+	updatedNode, err := client.Get(ctx, s.Name, metav1.GetOptions{})
 	c.Assert(err, IsNil)
 	c.Assert(updatedNode.Spec.Unschedulable, Equals, true)
 
@@ -193,7 +200,7 @@ func (s *S) TestCordonsUncordonsNode(c *C) {
 	c.Assert(err, IsNil)
 
 	// verify
-	updatedNode, err = client.Get(s.Name, metav1.GetOptions{})
+	updatedNode, err = client.Get(ctx, s.Name, metav1.GetOptions{})
 	c.Assert(err, IsNil)
 	c.Assert(updatedNode.Spec.Unschedulable, Equals, false)
 }
@@ -270,7 +277,7 @@ func hasTaint(taints []v1.Taint, taintsToCheck []v1.Taint) bool {
 
 // getNode returns the first available node in the cluster
 func getNode(c *C, client corev1.NodeInterface) v1.Node {
-	nodes, err := client.List(metav1.ListOptions{})
+	nodes, err := client.List(context.TODO(), metav1.ListOptions{})
 	c.Assert(err, IsNil)
 	c.Assert(nodes.Items, Not(HasLen), 0, Commentf("need at least one node"))
 	return nodes.Items[0]
@@ -288,7 +295,7 @@ func waitForPods(ctx context.Context, client corev1.CoreV1Interface, pods []v1.P
 	b := backoff.NewConstantBackOff(defaults.WaitStatusInterval)
 	err := utils.RetryWithInterval(ctx, b, func() error {
 		for _, pod := range pods {
-			p, err := client.Pods(pod.Namespace).Get(pod.Name, metav1.GetOptions{})
+			p, err := client.Pods(pod.Namespace).Get(ctx, pod.Name, metav1.GetOptions{})
 			if errors.IsNotFound(err) || (p != nil && p.Status.Phase != expected) {
 				log.WithFields(podFields(pod)).Debug("waiting")
 				return trace.NotFound("no pod found")

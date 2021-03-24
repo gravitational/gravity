@@ -339,8 +339,8 @@ func (r *applications) StartAppHook(ctx context.Context, req appservice.HookRunR
 // injectEnvVars updates the provided hook run request with additional
 // environment variables such as cluster information.
 func (r *applications) injectEnvVars(req *appservice.HookRunRequest, client *kubernetes.Clientset) error {
-	configMap, err := client.CoreV1().ConfigMaps(metav1.NamespaceSystem).Get(
-		constants.ClusterInfoMap, metav1.GetOptions{})
+	configMap, err := client.CoreV1().ConfigMaps(metav1.NamespaceSystem).
+		Get(context.TODO(), constants.ClusterInfoMap, metav1.GetOptions{})
 	if err != nil {
 		return rigging.ConvertError(err)
 	}
