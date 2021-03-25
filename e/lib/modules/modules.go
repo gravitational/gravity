@@ -27,9 +27,8 @@ import (
 	"github.com/gravitational/teleport"
 	"github.com/gravitational/teleport/lib/client"
 	"github.com/gravitational/teleport/lib/services"
-
 	"github.com/gravitational/version"
-	helm "k8s.io/helm/pkg/version"
+	"helm.sh/helm/v3/pkg/chartutil"
 )
 
 // init installs modules that provide custom behavior for the
@@ -101,7 +100,7 @@ func (m *enterpriseModules) Version() proto.Version {
 		Edition:   "enterprise",
 		Version:   ver.Version,
 		GitCommit: ver.GitCommit,
-		Helm:      helm.Version,
+		Helm:      chartutil.DefaultCapabilities.HelmVersion.Version,
 	}
 }
 

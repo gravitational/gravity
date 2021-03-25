@@ -811,8 +811,8 @@ type CheckCmd struct {
 // AppCmd combines subcommands for app service
 type AppCmd struct {
 	*kingpin.CmdClause
-	// TillerNamespace specifies namespace where Tiller server is running.
-	TillerNamespace *string
+	// Namespace specifies the namespace scope for the request.
+	Namespace *string
 }
 
 // AppInstallCmd installs an application from an application image.
@@ -822,8 +822,6 @@ type AppInstallCmd struct {
 	Image *string
 	// Name is an optional release name.
 	Name *string
-	// Namespace is a namespace to install release into.
-	Namespace *string
 	// Set is a list of values set on the CLI.
 	Set *[]string
 	// Values is a list of YAML files with values.

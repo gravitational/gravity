@@ -548,11 +548,8 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 	case g.AppInstallCmd.FullCommand():
 		return releaseInstall(localEnv, releaseInstallConfig{
 			Image:     *g.AppInstallCmd.Image,
-			Name:      *g.AppInstallCmd.Name,
-			Namespace: *g.AppInstallCmd.Namespace,
-			helmConfig: helmConfig{
-				TillerNamespace: *g.AppCmd.TillerNamespace,
-			},
+			Release:   *g.AppInstallCmd.Name,
+			Namespace: *g.AppCmd.Namespace,
 			valuesConfig: valuesConfig{
 				Values: *g.AppInstallCmd.Set,
 				Files:  *g.AppInstallCmd.Values,
@@ -569,16 +566,15 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			},
 		})
 	case g.AppListCmd.FullCommand():
-		return releaseList(localEnv,
-			*g.AppListCmd.All,
-			*g.AppCmd.TillerNamespace)
+		return releaseList(localEnv, releaseListConfig{
+			Namespace: *g.AppCmd.Namespace,
+			All:       *g.AppListCmd.All,
+		})
 	case g.AppUpgradeCmd.FullCommand():
 		return releaseUpgrade(localEnv, releaseUpgradeConfig{
-			Release: *g.AppUpgradeCmd.Release,
-			Image:   *g.AppUpgradeCmd.Image,
-			helmConfig: helmConfig{
-				TillerNamespace: *g.AppCmd.TillerNamespace,
-			},
+			Namespace: *g.AppCmd.Namespace,
+			Release:   *g.AppUpgradeCmd.Release,
+			Image:     *g.AppUpgradeCmd.Image,
 			valuesConfig: valuesConfig{
 				Values: *g.AppUpgradeCmd.Set,
 				Files:  *g.AppUpgradeCmd.Values,
@@ -596,25 +592,19 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 		})
 	case g.AppRollbackCmd.FullCommand():
 		return releaseRollback(localEnv, releaseRollbackConfig{
-			Release:  *g.AppRollbackCmd.Release,
-			Revision: *g.AppRollbackCmd.Revision,
-			helmConfig: helmConfig{
-				TillerNamespace: *g.AppCmd.TillerNamespace,
-			},
+			Namespace: *g.AppCmd.Namespace,
+			Release:   *g.AppRollbackCmd.Release,
+			Revision:  *g.AppRollbackCmd.Revision,
 		})
 	case g.AppUninstallCmd.FullCommand():
 		return releaseUninstall(localEnv, releaseUninstallConfig{
-			Release: *g.AppUninstallCmd.Release,
-			helmConfig: helmConfig{
-				TillerNamespace: *g.AppCmd.TillerNamespace,
-			},
+			Namespace: *g.AppCmd.Namespace,
+			Release:   *g.AppUninstallCmd.Release,
 		})
 	case g.AppHistoryCmd.FullCommand():
 		return releaseHistory(localEnv, releaseHistoryConfig{
-			Release: *g.AppHistoryCmd.Release,
-			helmConfig: helmConfig{
-				TillerNamespace: *g.AppCmd.TillerNamespace,
-			},
+			Namespace: *g.AppCmd.Namespace,
+			Release:   *g.AppHistoryCmd.Release,
 		})
 	case g.AppSyncCmd.FullCommand():
 		return appSync(localEnv, appSyncConfig{

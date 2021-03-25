@@ -21,7 +21,7 @@ import (
 	"strings"
 
 	"github.com/gravitational/trace"
-	"k8s.io/helm/pkg/repo"
+	"helm.sh/helm/v3/pkg/repo"
 )
 
 // HasVars takes a slice of values and value files and returns true

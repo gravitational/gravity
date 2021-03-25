@@ -17,7 +17,7 @@ limitations under the License.
 package keyval
 
 import (
-	"k8s.io/helm/pkg/repo"
+	"helm.sh/helm/v3/pkg/repo"
 
 	"github.com/gravitational/trace"
 )

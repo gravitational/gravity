@@ -24,7 +24,8 @@ import (
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
-	"k8s.io/helm/pkg/chartutil"
+	"helm.sh/helm/v3/pkg/chart/loader"
+	"helm.sh/helm/v3/pkg/chartutil"
 )
 
 // ClusterImageSource defines a source a cluster image can be built from.
@@ -133,7 +134,7 @@ func (s *clusterImageSourceChart) Dir() string {
 
 // Manifest returns manifest generated out of the Helm chart.
 func (s *clusterImageSourceChart) Manifest() (*schema.Manifest, error) {
-	chart, err := chartutil.Load(s.chartPath)
+	chart, err := loader.Load(s.chartPath)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
