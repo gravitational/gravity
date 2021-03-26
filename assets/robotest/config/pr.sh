@@ -7,6 +7,7 @@ source $(dirname $0)/lib/utils.sh
 
 # UPGRADE_MAP maps gravity version -> list of linux distros to upgrade from
 declare -A UPGRADE_MAP
+UPGRADE_MAP[7.1.0-alpha.5]="ubuntu:20" # this version
 UPGRADE_MAP[$(recommended_upgrade_tag $(branch 7.0.x))]="redhat:8.2" # compatible LTS version
 UPGRADE_MAP[7.0.13]="centos:7.9" # 7.0.13 + centos is combination that is critical in the field -- 2020-07 walt
 UPGRADE_MAP[7.0.12]="ubuntu:18" # 7.0.12 is the first LTS 7.0 release
