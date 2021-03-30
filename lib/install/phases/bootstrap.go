@@ -249,6 +249,7 @@ func (p *bootstrapExecutor) configureSystemDirectories(ctx context.Context) erro
 		filepath.Join(stateDir, "secrets"),
 		filepath.Join(stateDir, "backup"),
 		filepath.Join(stateDir, "monitoring"),
+		filepath.Join(stateDir, "logrange"),
 	}
 	for _, dir := range chownList {
 		p.Infof("Setting ownership on system directory %v to %v:%v.",
