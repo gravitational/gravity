@@ -1586,7 +1586,7 @@ to learn how to gain insight into how the cluster status changes over time.
 
 ### 5.5.59 LTS (March 30, 2021)
 #### Bugfixes
-* Fix WebUI Metrics Retention page sometimes failing to work after reboot ([#2431](https://github.com/gravitational/gravity/pull/2431))
+* Fix WebUI metrics retention page sometimes failing to load after reboot ([#2431](https://github.com/gravitational/gravity/pull/2431)).
 
 ### 5.5.58 LTS (February 4, 2021)
 #### Improvements
