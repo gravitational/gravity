@@ -483,7 +483,7 @@ steps:
         from_secret: OPS_REPO
       GITHUB_OPS_DEPLOY_KEY:
         from_secret: GITHUB_OPS_DEPLOY_KEY
-      OPS_REF: master
+      OPS_REF: walt/gravity-build-updates
     commands:
     - mkdir -m 0700 /root/.ssh && echo "$GITHUB_OPS_DEPLOY_KEY" > /root/.ssh/id_ed25519 && chmod 600 /root/.ssh/id_ed25519
     - ssh-keyscan -H github.com > /root/.ssh/known_hosts && chmod 600 /root/.ssh/known_hosts
@@ -582,7 +582,7 @@ steps:
         from_secret: OPS_REPO
       GITHUB_OPS_DEPLOY_KEY:
         from_secret: GITHUB_OPS_DEPLOY_KEY
-      OPS_REF: master
+      OPS_REF: walt/gravity-build-updates
     commands:
     - mkdir -m 0700 /root/.ssh && echo "$GITHUB_OPS_DEPLOY_KEY" > /root/.ssh/id_ed25519 && chmod 600 /root/.ssh/id_ed25519
     - ssh-keyscan -H github.com > /root/.ssh/known_hosts && chmod 600 /root/.ssh/known_hosts
@@ -650,6 +650,6 @@ volumes:
     temp: {}
 ---
 kind: signature
-hmac: 977de6c2e18601a578673de6c2dfd6d74512ae6486bc9832546e57efcaf497d1
+hmac: 286a7bebd9a9f85ed7cbfa4e51db132ecc2e8807d785b1b977005b7151173598
 
 ...
