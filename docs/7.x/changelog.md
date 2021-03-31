@@ -14,7 +14,7 @@ Find the latest Open Source Gravity releases at [Gravity Downloads](https://grav
 | [7.1](#71-releases) | 7.1.0-alpha.5 | No  | pre-release          | March 16, 2021       | Set upon release        | 1.19.8               | 3.2.17-gravity   |
 | [7.0](#70-releases) | 7.0.30        | Yes | April 3, 2020        | January 15, 2021     | July 9, 2022            | 1.17.9               | 3.2.14-gravity   |
 | [6.1](#61-releases) | 6.1.48        | Yes | August 2, 2019       | March 23, 2021       | November 10, 2021       | 1.15.12              | 3.2.14-gravity   |
-| [5.5](#55-releases) | 5.5.58        | Yes | March 8, 2019        | February 4, 2021     | March 8, 2021           | 1.13.11              | 3.0.7-gravity    |
+| [5.5](#55-releases) | 5.5.59        | Yes | March 8, 2019        | March 30, 2021       | March 8, 2021           | 1.13.11              | 3.0.7-gravity    |
 
 Gravity offers one Long Term Support (LTS) version for every 2nd Kubernetes
 minor version, allowing for seamless upgrades per Kubernetes
@@ -1583,6 +1583,10 @@ to learn how to gain insight into how the cluster status changes over time.
 * Upgrade Kubernetes to `v1.14.0`.
 
 ## 5.5 Releases
+
+### 5.5.59 LTS (March 30, 2021)
+#### Bugfixes
+* Fix WebUI Metrics Retention page sometimes failing to work after reboot ([#2431](https://github.com/gravitational/gravity/pull/2431))
 
 ### 5.5.58 LTS (February 4, 2021)
 #### Improvements
