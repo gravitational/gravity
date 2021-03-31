@@ -205,6 +205,11 @@ func List(params ListParameters) ([]storage.Release, error) {
 	client := action.NewList(actionConfig)
 	client.All = params.All
 	client.Filter = params.Filter
+	// Default state filters if All field is not set.
+	client.Deployed = true
+	client.Failed = true
+	client.Uninstalling = true
+	client.Pending = true
 	client.SetStateMask()
 
 	results, err := client.Run()
