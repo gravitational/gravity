@@ -85,6 +85,12 @@ func Install(params InstallParameters) (storage.Release, error) {
 	client.Namespace = params.Namespace
 	client.ReleaseName = params.Release
 
+	// Helm 3 requires that either a name is provided or the --generate-name flag is set to true.
+	// https://helm.sh/docs/faq/#name-or---generate-name-is-now-required-on-install
+	if client.ReleaseName == "" {
+		client.GenerateName = true
+	}
+
 	valueOpts := &values.Options{
 		ValueFiles: params.Values,
 		Values:     params.Set,
