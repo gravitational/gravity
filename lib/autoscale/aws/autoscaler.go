@@ -203,32 +203,33 @@ func (a *Autoscaler) WaitUntilInstanceTerminated(ctx context.Context, instanceID
 	return trace.Wrap(err)
 }
 
-// GetJoinToken fetches and decrypts cluster join token from SSM parameter
-func (a *Autoscaler) GetJoinToken(ctx context.Context) (string, error) {
-	name := a.tokenParam()
-	a.Debugf("GetJoinToken(%v)", name)
-	resp, err := a.SystemsManager.GetParameterWithContext(ctx, &ssm.GetParameterInput{
-		Name:           aws.String(name),
+// GetServiceURLAndJoinToken fetches and decrypts cluster service URL and join token from SSM parameter
+func (a *Autoscaler) GetServiceURLAndJoinToken(ctx context.Context) (string, string, error) {
+	token := a.tokenParam()
+	url := a.serviceURLParam()
+	names := aws.StringSlice([]string{token, url})
+	a.Debugf("GetServiceURLAndJoinToken(%v)", names)
+	resp, err := a.SystemsManager.GetParametersWithContext(ctx, &ssm.GetParametersInput{
+		Names:          names,
 		WithDecryption: aws.Bool(true),
 	})
 	if err != nil {
-		return "", ConvertError(err)
+		return "", "", ConvertError(err)
 	}
-	return aws.StringValue(resp.Parameter.Value), nil
-}
 
-// GetServiceURL returns service URL
-func (a *Autoscaler) GetServiceURL(ctx context.Context) (string, error) {
-	name := a.serviceURLParam()
-	a.Debugf("GetServiceURL(%v)", name)
-	resp, err := a.SystemsManager.GetParameterWithContext(ctx, &ssm.GetParameterInput{
-		Name:           aws.String(name),
-		WithDecryption: aws.Bool(false),
-	})
-	if err != nil {
-		return "", ConvertError(err)
+	// find the values within the response
+	var rtoken, rurl string
+	for _, params := range resp.Parameters {
+		if aws.StringValue(params.Name) == token {
+			rtoken = aws.StringValue(params.Value)
+		}
+
+		if aws.StringValue(params.Name) == url {
+			rurl = aws.StringValue(params.Value)
+		}
 	}
-	return aws.StringValue(resp.Parameter.Value), nil
+
+	return rurl, rtoken, nil
 }
 
 func (a *Autoscaler) publishServiceURL(ctx context.Context, serviceURL string, force bool) error {
