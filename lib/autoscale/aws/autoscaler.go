@@ -19,6 +19,7 @@ package aws
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	gaws "github.com/gravitational/gravity/lib/cloudprovider/aws"
 	"github.com/gravitational/gravity/lib/defaults"
@@ -204,7 +205,7 @@ func (a *Autoscaler) WaitUntilInstanceTerminated(ctx context.Context, instanceID
 }
 
 // GetServiceURLAndJoinToken fetches and decrypts cluster service URL and join token from SSM parameter
-func (a *Autoscaler) GetServiceURLAndJoinToken(ctx context.Context) (string, string, error) {
+func (a *Autoscaler) GetServiceURLAndJoinToken(ctx context.Context) (responseURL string, responseToken string, err error) {
 	token := a.tokenParam()
 	url := a.serviceURLParam()
 	names := aws.StringSlice([]string{token, url})
@@ -217,19 +218,23 @@ func (a *Autoscaler) GetServiceURLAndJoinToken(ctx context.Context) (string, str
 		return "", "", ConvertError(err)
 	}
 
+	if len(resp.InvalidParameters) > 0 {
+		invalid := aws.StringValueSlice(resp.InvalidParameters)
+		return "", "", trace.NotFound("Params %v not found", strings.Join(invalid, ", "))
+	}
+
 	// find the values within the response
-	var rtoken, rurl string
 	for _, params := range resp.Parameters {
 		if aws.StringValue(params.Name) == token {
-			rtoken = aws.StringValue(params.Value)
+			responseToken = aws.StringValue(params.Value)
 		}
 
 		if aws.StringValue(params.Name) == url {
-			rurl = aws.StringValue(params.Value)
+			responseURL = aws.StringValue(params.Value)
 		}
 	}
 
-	return rurl, rtoken, nil
+	return responseURL, responseToken, nil
 }
 
 func (a *Autoscaler) publishServiceURL(ctx context.Context, serviceURL string, force bool) error {
