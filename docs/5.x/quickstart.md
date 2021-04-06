@@ -372,7 +372,7 @@ https://10.5.5.28:3009/web/newuser/e5b5422da69ff44d41f92e3ce6167659a7fee10e1023a
 ```
 
 Now click on the printed URL and select a password. You are now inside the K8s management UI
-for your cluster. You can bookmark the following URL to access it in the future: `https://https://10.5.5.28:32009/web/`
+for your cluster. You can bookmark the following URL to access it in the future: `https://10.5.5.28:32009/web/`
 
 You will also see that this cluster is running Mattermost inside, accessible as a Kubernetes service
 on port `32010`, i.e. it's accessible using IP addresses of both machines in the cluster:
